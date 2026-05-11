@@ -1,2 +1,7 @@
 .env
+.env.local
 node_modules
+.next
+thumbs
+data.json
+report.html

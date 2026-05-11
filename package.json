@@ -1,0 +1,41 @@
+{
+  "name": "alpha-dashboard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "agent": "tsx agent.ts",
+    "render": "tsx render.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danymonta/alpha-dashboard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/danymonta/alpha-dashboard/issues"
+  },
+  "homepage": "https://github.com/danymonta/alpha-dashboard#readme",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.139",
+    "@composio/core": "^0.9.0",
+    "@types/node": "^25.7.0",
+    "dotenv": "^17.4.2",
+    "next": "^15.5.18",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
+  }
+}
