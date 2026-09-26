@@ -30,7 +30,7 @@ supabase/.temp
 /playwright/.cache
 
 # dati economici reali: mai su git
-import/
+/import/
 
 # misc
 .DS_Store

@@ -17,7 +17,8 @@
     "shots": "playwright test --config=playwright.shots.config.ts",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local --schema public > lib/supabase/database.types.ts",
-    "db:test": "supabase test db"
+    "db:test": "supabase test db",
+    "import:excel": "tsx --env-file=.env.local scripts/import-excel.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -49,6 +50,7 @@
     "dotenv": "^18.0.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
+    "exceljs": "^4.4.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",

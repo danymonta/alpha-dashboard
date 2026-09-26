@@ -204,11 +204,21 @@ I report giornalieri vanno assegnati all'utente setter di Loris.
 Lancia prima lo script in locale e mostrami il riepilogo, poi contro il cloud solo dopo mia conferma.
 ```
 
-1. Invita Loris dalla pagina Team **prima** dell'import, così il suo profilo esiste.
-2. Compila `import/vendite-da-completare.csv` con i nomi dei clienti delle chiusure di luglio e agosto, prodotto e numero rate.
-3. Secondo passaggio dello script: crea clienti, vendite e incassi.
-4. Controlla la Panoramica di luglio: cash 4.500€ e revenue 7.500€, come nell'Excel.
-5. Registra i rinnovi e le rate future dei clienti attivi, partendo da chi scade prima.
+1. Invita Loris dalla pagina Team **prima** dell'import e fagli fare il primo accesso: il profilo nasce al primo login, e lo script lo cerca per email.
+2. Crea almeno un prodotto in Impostazioni > Prodotti (il cloud parte senza prodotti).
+3. Le chiavi del progetto cloud vanno in un file `.env.cloud.local` (stessi nomi di `.env.local`, escluso da git). Mai in chat.
+4. Primo passaggio, prima in prova e poi davvero:
+
+```bash
+npx tsx --env-file=.env.cloud.local scripts/import-excel.ts "import/MMM x Percorso Alpha DM Tracking.xlsx" --setter <email di Loris> --closer <tua email> --segnaposto --cloud --prova
+```
+
+   Senza `--prova` crea report, pagamenti al setter, la regola del 5% se manca e `import/vendite-da-completare.csv`. Con `--segnaposto` il CSV è già compilato con clienti segnaposto; altrimenti compila tu nome, prodotto, numero rate e `da_setter` (sì se il cliente è di Loris).
+5. Secondo passaggio: stessa riga con `--passaggio 2`. Crea clienti, vendite e incassi; se il CSV non torna con l'Excel si ferma senza scrivere nulla.
+6. Controlla la Panoramica di luglio: cash 4.500€ e revenue 7.500€, come nell'Excel. Provvigioni di luglio: maturato 212,50€, pagato 212,50€.
+7. Correggi dall'app nomi dei clienti, rate successive e rinnovi dei clienti attivi, partendo da chi scade prima: ogni campo resta modificabile.
+
+Lo script si può rilanciare: ciò che esiste già non viene duplicato né sovrascritto.
 
 **Verifica finale:** Loris compila il primo report reale dal telefono. Da quel giorno l'Excel si chiude.
 
