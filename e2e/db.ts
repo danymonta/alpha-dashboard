@@ -103,7 +103,19 @@ export async function pagineDinamiche(ruolo: 'admin' | 'setter' | 'closer') {
   let query = dbLocale().from('sales').select('id').order('data_vendita', { ascending: false }).limit(1)
   if (ruolo === 'closer') query = query.eq('closer_id', ID_CLOSER)
   const { data } = await query
-  return data && data.length > 0 ? [{ nome: 'dettaglio-vendita', url: `/sales/${data[0].id}` }] : []
+  const pagine = data && data.length > 0 ? [{ nome: 'dettaglio-vendita', url: `/sales/${data[0].id}` }] : []
+
+  if (ruolo === 'admin') {
+    // a client with some history, so the page shows LTV and sales
+    const { data: cliente } = await dbLocale()
+      .from('v_clienti')
+      .select('client_id')
+      .gt('numero_vendite', 0)
+      .order('incassato', { ascending: false })
+      .limit(1)
+    if (cliente?.[0]?.client_id) pagine.push({ nome: 'scheda-cliente', url: `/clients/${cliente[0].client_id}` })
+  }
+  return pagine
 }
 
 /** A client with one sale whose plan starts `giorniFa` days ago (payments by the trigger). */

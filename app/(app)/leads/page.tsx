@@ -1,7 +1,7 @@
 import { CalendarPlus, Search, SquareKanban } from 'lucide-react'
 import Link from 'next/link'
 
-import { StatoLeadControllo } from '@/app/(app)/leads/stato-lead'
+import { StatoLeadArea, type Suggerimento } from '@/app/(app)/leads/stato-lead'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -23,6 +23,49 @@ const ETICHETTA_ESITO: Record<string, string> = {
   chiusa: 'chiusa',
   follow_up: 'follow-up',
   persa: 'persa',
+}
+
+type Ruolo = 'admin' | 'setter' | 'closer'
+
+/**
+ * The one action that resolves a mismatch between the last call and the lead
+ * status. Nothing is changed automatically (manual pipeline, section 8).
+ */
+function suggerisci(
+  stato: StatoLead,
+  ultima: { id: string; stato: string; esito: string | null; programmata_il: string } | undefined,
+  ruolo: Ruolo,
+  adesso: number,
+): Suggerimento | null {
+  if (!ultima) return null
+  const puoVendere = ruolo !== 'setter'
+
+  if (ultima.esito === 'persa' && stato !== 'perso') {
+    return { tipo: 'stato', testo: 'L’ultima call è andata persa.', stato: 'perso', etichetta: 'Segna perso' }
+  }
+  if (ultima.esito === 'follow_up' && stato !== 'follow_up' && stato !== 'cliente') {
+    return { tipo: 'stato', testo: 'L’ultima call chiede un follow-up.', stato: 'follow_up', etichetta: 'Sposta in follow-up' }
+  }
+  if (ultima.esito === 'chiusa' && stato !== 'cliente') {
+    return {
+      tipo: 'stato',
+      testo: 'Call chiusa.',
+      stato: 'cliente',
+      etichetta: 'Segna cliente',
+      link: puoVendere ? { href: `/sales/new?call=${ultima.id}`, etichetta: 'Registra la vendita' } : undefined,
+    }
+  }
+  if (ultima.stato === 'programmata' && new Date(ultima.programmata_il).getTime() < adesso) {
+    return puoVendere
+      ? { tipo: 'link', testo: 'Call passata senza esito.', href: '/calls', etichetta: 'Registra esito' }
+      : { tipo: 'info', testo: 'Call passata: si aspetta l’esito del closer.' }
+  }
+  return null
+}
+
+/** Dynamic Server Component: rendered once per request, so reading the clock is stable. */
+function adessoMs() {
+  return Date.now()
 }
 
 export default async function PipelinePage({
@@ -54,7 +97,7 @@ export default async function PipelinePage({
   let query = supabase
     .from('leads')
     .select(
-      'id, nome, instagram_handle, fonte, stato, created_at, setter:profiles!leads_setter_id_fkey(nome), calls(tipo, programmata_il, stato, esito)',
+      'id, nome, instagram_handle, fonte, stato, created_at, setter:profiles!leads_setter_id_fkey(nome), calls(id, tipo, programmata_il, stato, esito)',
     )
     .in('stato', filtro === 'aperti' ? APERTI : [filtro])
     .order('created_at', { ascending: false })
@@ -67,6 +110,7 @@ export default async function PipelinePage({
 
   const { data: leads, error } = await query
   if (error) throw new Error('Impossibile caricare la pipeline')
+  const adesso = adessoMs()
 
   const filtri: { valore: Filtro; etichetta: string; n: number }[] = [
     { valore: 'aperti', etichetta: 'Aperti', n: aperti.count ?? 0 },
@@ -74,7 +118,7 @@ export default async function PipelinePage({
   ]
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="max-w-3xl space-y-5">
       <IntestazionePagina
         titolo="Pipeline"
         descrizione="Ogni persona che hai caricato, con il suo stato. Si cambia con un tocco."
@@ -165,7 +209,12 @@ export default async function PipelinePage({
                         : `Caricato il ${formatData(oggiRoma(new Date(lead.created_at)))}`}
                     </p>
                   </div>
-                  <StatoLeadControllo leadId={lead.id} nome={lead.nome} stato={lead.stato} />
+                  <StatoLeadArea
+                    leadId={lead.id}
+                    nome={lead.nome}
+                    stato={lead.stato}
+                    suggerimento={suggerisci(lead.stato, ultima, profilo.ruolo as Ruolo, adesso)}
+                  />
                 </article>
               </li>
             )
