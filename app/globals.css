@@ -1,0 +1,150 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+   Alpha Economics design tokens (CLAUDE.md section 11).
+   Dark theme only in v1. Never hard-code a colour in a component.
+--------------------------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+
+  --alpha-bordeaux: #7a1f2b;
+  --alpha-bordeaux-light: #9b3040;
+  --alpha-gold: #c9a227;
+  --alpha-bg: #121214;
+  --alpha-surface: #1c1c1e;
+  --alpha-surface-2: #242427;
+  --alpha-border: #2e2e31;
+  --alpha-text: #f2f0ec;
+  --alpha-text-muted: #8a8a8f;
+
+  /* Chart series: bound to the entity, never to the rank */
+  --chart-nuovo: #c4515f;
+  --chart-rinnovo: #b08a1c;
+  --chart-upsell: #4f8fd1;
+
+  /* Status: always paired with an icon and a label, never colour alone */
+  --status-ok: #4caf7a;
+  --status-warning: #e0a43a;
+  --status-critical: #e5484d;
+
+  /* ------------------------------------------------------------------
+     shadcn mapping
+  ------------------------------------------------------------------ */
+  --background: var(--alpha-bg);
+  --foreground: var(--alpha-text);
+  --card: var(--alpha-surface);
+  --card-foreground: var(--alpha-text);
+  --popover: var(--alpha-surface-2);
+  --popover-foreground: var(--alpha-text);
+  --primary: var(--alpha-bordeaux);
+  --primary-foreground: #f7eff0;
+  --secondary: var(--alpha-surface-2);
+  --secondary-foreground: var(--alpha-text);
+  --muted: var(--alpha-surface-2);
+  --muted-foreground: var(--alpha-text-muted);
+  --accent: var(--alpha-surface-2);
+  --accent-foreground: var(--alpha-text);
+  --destructive: var(--status-critical);
+  --border: var(--alpha-border);
+  --input: var(--alpha-border);
+  --ring: var(--alpha-bordeaux-light);
+
+  --chart-1: var(--chart-nuovo);
+  --chart-2: var(--chart-rinnovo);
+  --chart-3: var(--chart-upsell);
+  --chart-4: var(--alpha-text-muted);
+  --chart-5: var(--alpha-bordeaux-light);
+
+  --sidebar: var(--alpha-surface);
+  --sidebar-foreground: var(--alpha-text);
+  --sidebar-primary: var(--alpha-bordeaux);
+  --sidebar-primary-foreground: #f7eff0;
+  --sidebar-accent: var(--alpha-surface-2);
+  --sidebar-accent-foreground: var(--alpha-text);
+  --sidebar-border: var(--alpha-border);
+  --sidebar-ring: var(--alpha-bordeaux-light);
+
+  /* 6px controls, 8.4px cards (rounded-xl = radius * 1.4) */
+  --radius: 0.375rem;
+}
+
+/* v1 ships dark only: the .dark class inherits the same values. */
+.dark {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-chart-nuovo: var(--chart-nuovo);
+  --color-chart-rinnovo: var(--chart-rinnovo);
+  --color-chart-upsell: var(--chart-upsell);
+  --color-status-ok: var(--status-ok);
+  --color-status-warning: var(--status-warning);
+  --color-status-critical: var(--status-critical);
+  --color-gold: var(--alpha-gold);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-light: var(--alpha-bordeaux-light);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Amounts and counters must line up vertically in every table. */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+}

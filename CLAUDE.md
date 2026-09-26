@@ -1,0 +1,453 @@
+# Alpha Economics: specifica di progetto per Claude Code
+
+Questo file è la fonte di verità del progetto. Leggilo per intero all'inizio di ogni sessione. Se una richiesta contraddice questo file, fermati e segnalalo prima di scrivere codice.
+
+## 1. Contesto
+
+Percorso Alpha è un coaching online di trasformazione fisica per uomini 25+, allenamento a corpo libero a casa. Il titolare è Dany (admin, closer, full stack developer: TypeScript, Angular, Node, NestJS, Docker). Il team: Loris (setter, lavora i DM Instagram), Lorenzo (coach), un video editor. Circa 26 allievi attivi.
+
+Oggi il setting e le vendite si tracciano in un Excel (`MMM x Percorso Alpha DM Tracking.xlsx`, un foglio per mese più un foglio "Setter Payments"). L'Excel ha tre limiti che questa app deve risolvere:
+
+1. Registra cash e revenue come totali giornalieri, senza cliente. Non si sa chi ha pagato cosa, quali rate mancano, chi ha rinnovato.
+2. Le provvigioni del setter (5% del cash) si calcolano a mano e non sono ricostruibili: a luglio il cash registrato è 4.500€, la base provvigionale pagata al 25/08 è 3.750€, e nessun dato spiega la differenza.
+3. Diverse formule sono rotte (`#REF!` in "Avg Cash Per DM", "Total Cash Collected" fisso a 0) e i rinnovi non esistono come concetto.
+
+## 2. Obiettivo
+
+Una web app con login personale in cui:
+
+- il setter inserisce ogni giorno dal telefono i numeri del setting e registra le call che fissa;
+- il closer registra l'esito di ogni call e le vendite chiuse;
+- l'admin registra vendite nuove, rinnovi, piani di pagamento, incassi e costi;
+- l'admin vede ogni mese quanto ha incassato, da chi, da quale fonte, quanto resta da incassare, quanto deve in provvigioni e qual è il margine operativo.
+
+Domanda a cui la dashboard deve rispondere in 5 secondi: **"Questo mese quanto ho incassato, quanto è nuovo e quanto è rinnovo, e quanto mi resta dopo provvigioni e costi?"**
+
+Tutto è salvato su database. Nessun dato vive solo nel browser.
+
+## 3. Relazione con il resto del progetto
+
+Questa app è la prima area di un'unica app shell che in seguito ospiterà anche il time tracking del team (Sistema B). Quindi:
+
+- la tabella `clients` definita qui è la stessa che userà il time tracking: non duplicarla mai;
+- i ruoli (`app_role`) includono già quelli del time tracking;
+- la navigazione è predisposta per più aree, oggi ne esiste solo una: **Economics**.
+
+Non costruire nulla del time tracking in questo progetto finché Dany non lo chiede esplicitamente.
+
+## 4. Stack (deciso, non riaprire)
+
+| Livello | Scelta |
+|---|---|
+| Framework | Next.js App Router, TypeScript strict. Usa la versione installata da `create-next-app`, non fare downgrade |
+| UI | Tailwind CSS + shadcn/ui. Grafici: componenti chart di shadcn (Recharts) |
+| Form | React Hook Form + Zod. Lo stesso schema Zod valida client e server action |
+| Database | Supabase Postgres, regione EU (Frankfurt) |
+| Auth | Supabase Auth con Google OAuth2. Accesso solo su invito |
+| Permessi | Row Level Security su ogni tabella. Il frontend nasconde, RLS protegge |
+| Hosting | Vercel |
+| Test | Vitest (logica), pgTAP via `supabase test db` (RLS), Playwright (e2e e screenshot) |
+| Package manager | npm |
+
+Librerie Supabase: `@supabase/supabase-js` e `@supabase/ssr`. Tre client distinti in `lib/supabase/`: `server.ts` (Server Components e Server Actions, cookie), `client.ts` (browser), `admin.ts` (secret key, importabile solo da codice server, con `import 'server-only'`).
+
+## 5. Variabili d'ambiente
+
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=   # equivale alla legacy "anon key"
+SUPABASE_SECRET_KEY=                    # equivale alla legacy "service_role", SOLO server
+NEXT_PUBLIC_APP_URL=
+CRON_SECRET=                            # protegge /api/cron/keep-alive
+ENABLE_DEV_LOGIN=                       # "true" solo in locale, mai su Vercel
+```
+
+Regole:
+- Mai chiedere a Dany di incollare valori di chiavi in chat. Se succede, digli di ruotarle.
+- `.env.local` è in `.gitignore` dal primo commit. Crea `.env.example` con i soli nomi.
+- `SUPABASE_SECRET_KEY` non ha mai prefisso `NEXT_PUBLIC_` e non viene mai importata in un file con `'use client'`.
+
+## 6. Ruoli e permessi
+
+Enum `app_role`: `admin`, `setter`, `closer`, `coach`, `editor`, `nutrizione`, `dev`.
+
+In questa app contano `admin`, `setter`, `closer`. Gli altri ruoli possono loggarsi ma vedono solo una pagina "Nessuna area disponibile per il tuo ruolo".
+
+| Dato | admin | setter | closer |
+|---|---|---|---|
+| Report giornalieri setting | tutti, lettura e scrittura | solo i propri; modifica solo degli ultimi 7 giorni | nessuno |
+| Lead | tutti | solo quelli creati da lui | quelli con call assegnate a lui |
+| Call | tutte | le proprie: data, stato, esito (chiusa sì o no), mai importi | quelle assegnate a lui, può aggiornare l'esito |
+| Clienti | tutti | nome e stato dei clienti nati da suoi lead, niente contatti | clienti nati da sue call |
+| Vendite e rate | tutte | nessuna | solo le vendite chiuse da lui |
+| Provvigioni | tutte | solo il proprio totale mensile maturato e pagato, mai il dettaglio per cliente | nessuna |
+| Costi, margine, compensi | tutto | nessuno | nessuno |
+| Gestione utenti, prodotti, impostazioni | tutto | nessuno | nessuno |
+
+Requisito duro: un collaboratore non vede mai quanto paga un singolo cliente, il compenso di un altro collaboratore, i costi o il margine.
+
+Regole di implementazione:
+- I dati sensibili stanno in **tabelle separate**, non in colonne nascoste: RLS lavora per riga, non per colonna. Esempio: la percentuale provvigionale sta in `commission_rules`, non in `profiles`.
+- Funzione helper `public.current_role()` `security definer`, `stable`, `set search_path = ''`, che legge il ruolo da `profiles` (ruolo attivo e utente attivo). Usala nelle policy.
+- Ogni view è creata `with (security_invoker = true)`. Una view senza questa opzione gira coi permessi del proprietario e **bypassa RLS**. È il bug di sicurezza più probabile di questo progetto.
+- Le funzioni RPC che restituiscono aggregati economici controllano esplicitamente `current_role() = 'admin'` o filtrano per `auth.uid()`.
+
+## 7. Autenticazione e gestione utenti
+
+- Login solo con Google. Pagina `/login` con un solo bottone.
+- **Accesso su invito.** Tabella `invites`. Un trigger `after insert on auth.users` (o l'auth hook "Before User Created" se disponibile nel progetto Supabase) blocca con errore qualsiasi email non presente in `invites` con `revocato = false`. Se l'email è invitata, crea la riga in `profiles` con il ruolo dell'invito e marca l'invito come usato.
+- L'utente che fa login ma è `attivo = false` viene disconnesso e vede "Account disattivato, contatta l'amministratore".
+- Pagina admin **Team** (`/settings/team`): lista utenti con ruolo e stato, invita per email e ruolo, cambia ruolo, disattiva e riattiva, revoca inviti pendenti. Dany non può disattivare sé stesso né togliersi il ruolo admin.
+- Il primo admin (Dany) viene creato da una migration seed che inserisce il suo invito con ruolo `admin`.
+- **Solo in locale**: se `ENABLE_DEV_LOGIN=true`, `/login` mostra anche un login email e password per gli utenti seed (serve a Playwright e agli screenshot). Il codice verifica anche `process.env.NODE_ENV !== 'production'`. Un test garantisce che in build di produzione il form non esista.
+
+## 8. Modello dati
+
+Convenzioni: `snake_case`, chiavi `uuid default gen_random_uuid()`, `created_at` e `updated_at timestamptz` su ogni tabella con trigger per `updated_at`, `created_by uuid references profiles`. Importi `numeric(12,2)`, mai `float`. Date di business in `date`; "oggi" si calcola in `Europe/Rome`. Valuta unica EUR.
+
+### Utenti
+
+```
+profiles            id (= auth.users.id), email, nome, ruolo app_role, attivo bool default true
+invites             email (pk, lowercase), ruolo app_role, invitato_da, usato_at, revocato bool
+```
+
+### Setting
+
+```
+setter_daily_reports
+  id, setter_id -> profiles, data date,
+  dm_outbound int, dm_inbound int, conversazioni int,
+  call_proposte int, discovery_prenotate int, discovery_svolte int,
+  call_qualificate int, strategy_prenotate int, follow_up int,
+  contenuto_pubblicato bool, note text
+  unique (setter_id, data); tutti gli interi >= 0, default 0
+
+leads
+  id, nome, instagram_handle, setter_id -> profiles,
+  fonte enum lead_source (dm_inbound, dm_outbound, referral, organico, ads, altro),
+  stato enum lead_status (call_fissata, cliente, perso),
+  note, created_at
+```
+
+Il setter crea un lead **solo quando fissa una call**, non per ogni DM. I volumi dei DM vivono nel report giornaliero.
+
+### Call
+
+```
+calls
+  id, lead_id -> leads, setter_id -> profiles, closer_id -> profiles,
+  tipo enum call_type (discovery, strategy),
+  programmata_il timestamptz,
+  stato enum call_status (programmata, svolta, no_show, cancellata, riprogrammata),
+  qualificata bool null,            -- valorizzato solo se svolta
+  esito enum call_outcome null (chiusa, follow_up, persa),  -- solo se svolta
+  obiezione_principale text, note
+```
+
+### Clienti, prodotti, vendite, incassi
+
+```
+clients
+  id, lead_id -> leads null, nome, cognome, email, telefono, instagram_handle,
+  fonte lead_source, setter_id -> profiles null, closer_id -> profiles null,
+  note, created_at
+  -- stato NON è una colonna: si deriva dalle vendite (vedi v_client_status)
+
+products
+  id, nome, durata_mesi int, prezzo_listino numeric(12,2), attivo bool
+  -- es. "Percorso Alpha 3 mesi". Gestiti dall'admin in Impostazioni
+
+sales
+  id, client_id -> clients, product_id -> products,
+  tipo enum sale_type (nuovo, rinnovo, upsell),
+  call_id -> calls null, setter_id -> profiles null, closer_id -> profiles null,
+  data_vendita date, data_inizio date, data_fine date,
+  valore_contratto numeric(12,2), numero_rate int >= 1, note
+
+payments
+  id, sale_id -> sales on delete cascade, numero_rata int,
+  scadenza date, importo_previsto numeric(12,2),
+  incassato_il date null, importo_incassato numeric(12,2) null,
+  metodo enum payment_method (bonifico, stripe, paypal, carta, contanti, altro) null,
+  stato enum payment_status (prevista, incassata, fallita, rimborsata)
+```
+
+Regole:
+- Alla creazione di una vendita il server genera automaticamente il piano rate (`numero_rate` rate mensili, importi uguali, l'ultima assorbe l'arrotondamento). L'admin può poi modificare ogni rata.
+- Una vendita `rinnovo` richiede che il cliente abbia già almeno una vendita precedente.
+- Una rata è **in ritardo** se `stato = 'prevista'` e `scadenza < oggi`. Non è uno stato salvato, è calcolato.
+- Al passaggio di una call a `esito = chiusa` l'app propone subito il form "Nuova vendita" precompilato (cliente dal lead, setter, closer, call_id).
+
+### Provvigioni e costi
+
+```
+commission_rules
+  id, profile_id -> profiles, percentuale numeric(5,4),   -- 0.05 = 5%
+  applica_a sale_type[],                                  -- default {nuovo}
+  valida_dal date, valida_al date null
+
+commission_payouts
+  id, profile_id, periodo date (primo giorno del mese), importo numeric(12,2),
+  pagato_il date, metodo payment_method, note
+
+expenses
+  id, data date, categoria enum expense_category (team, software, ads, formazione, altro),
+  descrizione, importo numeric(12,2), ricorrente bool
+```
+
+La provvigione matura **sull'incasso**, non sulla firma: per ogni `payment` incassato di una vendita con `setter_id`, provvigione = `importo_incassato * percentuale` della regola valida alla data d'incasso e applicabile al tipo di vendita. Un rimborso genera provvigione negativa nel mese del rimborso. Se Dany decide diversamente (provvigione anche sui rinnovi, o su revenue invece che su cash), si cambia solo `commission_rules`, non il codice.
+
+### Audit
+
+```
+audit_log
+  id, tabella, record_id, azione (insert, update, delete), utente_id,
+  dati_prima jsonb, dati_dopo jsonb, created_at
+```
+
+Trigger su `sales`, `payments`, `commission_rules`, `commission_payouts`, `expenses`, `profiles`. Visibile solo all'admin. Serve a sapere chi ha cambiato un importo e quando.
+
+## 9. Metriche: definizioni ufficiali
+
+Tutte le metriche si calcolano in SQL (view `security_invoker` o funzioni RPC), mai sommando importi in JavaScript. Ogni metrica ha un test Vitest o pgTAP con dati noti. Denominatore zero: mostra "-", mai `NaN` o `Infinity`.
+
+**Setting** (da `setter_daily_reports`, periodo selezionato)
+- DM totali = `dm_outbound + dm_inbound`
+- Tasso di conversazione = `conversazioni / DM totali`
+- Call prenotate = `discovery_prenotate + strategy_prenotate`
+- Tasso di prenotazione = `call prenotate / call_proposte`
+- DM per call prenotata = `DM totali / call prenotate`
+
+**Call** (da `calls`, per data di `programmata_il`)
+- Call svolte = `stato = svolta`
+- Show rate = `svolte / (svolte + no_show)`. Cancellate e riprogrammate escluse
+- Tasso di qualificazione = `qualificate / svolte`
+- Close rate = `esito chiusa / svolte`
+- Close rate su qualificate = `esito chiusa / svolte qualificate`
+
+**Economics**
+- Cash incassato (mese) = somma `importo_incassato` con `incassato_il` nel mese, al netto dei rimborsi
+- Cash per tipo = stessa somma divisa per `sales.tipo` (nuovo, rinnovo, upsell)
+- Revenue firmata (mese) = somma `valore_contratto` con `data_vendita` nel mese
+- Valore medio vendita = revenue firmata / numero vendite
+- Cash per call svolta = cash da vendite nuove / call svolte
+- Da incassare = somma `importo_previsto` delle rate `prevista`. Suddiviso in: in ritardo, prossimi 30 giorni, oltre
+- Clienti attivi = clienti con una vendita dove `oggi between data_inizio and data_fine`
+- In scadenza = clienti attivi con `data_fine` dell'ultima vendita entro 30 giorni e nessuna vendita successiva
+- Tasso di rinnovo (mese M) = clienti con `data_fine` nel mese M che hanno una vendita `rinnovo` con `data_vendita` entro 30 giorni dalla scadenza / clienti con `data_fine` nel mese M
+- Provvigioni maturate (mese) = come da sezione 8
+- Margine operativo (mese) = cash incassato - provvigioni maturate - costi del mese. Etichetta sempre "Margine operativo", mai "utile": le tasse non sono incluse
+
+Stato cliente derivato (`v_client_status`): `attivo`, `in_scadenza`, `scaduto` (nessuna vendita attiva, l'ultima finita da meno di 90 giorni), `ex_cliente` (oltre 90 giorni), `mai_attivato`.
+
+## 10. Schermate
+
+Navigazione: sidebar su desktop, bottom bar su mobile (massimo 4 voci più "Altro"). Le voci dipendono dal ruolo.
+
+### Admin
+
+1. **Panoramica** (`/`). Selettore mese in alto (default mese corrente) con confronto col mese precedente.
+   - Riga KPI: Cash incassato, Revenue firmata, Nuovi clienti, Rinnovi, Margine operativo. Ogni tile: valore grande, delta sul mese precedente con icona e segno (mai solo colore).
+   - Grafico: cash incassato per mese, ultimi 12 mesi, barre impilate nuovo / rinnovo / upsell.
+   - Funnel del mese: DM totali, conversazioni, call prenotate, call svolte, chiuse. Barre orizzontali con valore e tasso di passaggio.
+   - Box "Da incassare": in ritardo (con elenco nominativo), prossimi 30 giorni.
+   - Box "In scadenza": clienti che scadono nei prossimi 30 giorni, con azione "Registra rinnovo".
+2. **Vendite** (`/sales`): tabella filtrabile per mese, tipo, setter, closer. Dettaglio vendita con piano rate modificabile e azione "Segna rata incassata" (un tap, data di oggi precompilata).
+3. **Clienti** (`/clients`): lista con stato derivato, filtri per stato. Scheda cliente: storico vendite, rate, valore totale nel tempo (LTV), fonte, setter.
+4. **Incassi** (`/payments`): tutte le rate, filtro per stato e mese, vista "in ritardo" in evidenza.
+5. **Setting** (`/setting`): metriche setting e call per periodo e per setter, tabella dei report giornalieri.
+6. **Provvigioni** (`/commissions`): per setter e mese, maturato, pagato, saldo. Registrazione pagamento.
+7. **Costi** (`/expenses`): inserimento e lista.
+8. **Impostazioni**: Team (sezione 7), Prodotti, Regole provvigioni, Esporta CSV (vendite, incassi, costi per mese: serve alla commercialista).
+
+### Setter (mobile first, è la sua schermata principale)
+
+1. **Oggi** (`/today`): il report del giorno in una sola schermata. Ogni campo numerico è uno stepper con bottoni grandi (+1, +5, -1) e input diretto. Salvataggio automatico con debounce e stato visibile ("Salvato alle 18:42"). Se il report di oggi non esiste si crea al primo tocco. Nessun bottone "invia" da ricordarsi.
+2. **Nuova call** : form corto: nome lead, handle Instagram, fonte, tipo call, data e ora, closer (default Dany). Crea lead e call insieme.
+3. **Le mie call**: lista con stato ed esito.
+4. **I miei numeri**: metriche del mese proprie e provvigioni maturate e pagate (solo totali).
+
+Obiettivo misurabile: il report giornaliero si compila in meno di 60 secondi dal telefono.
+
+### Closer
+
+1. **Le mie call**: di oggi e prossime. Aggiornamento esito in massimo 3 tap. Se `chiusa`, apre "Nuova vendita" precompilata.
+2. **Le mie vendite**: sola lettura più registrazione incasso delle proprie vendite.
+
+### Stati obbligatori per ogni schermata
+
+Caricamento (skeleton, non spinner a tutto schermo), vuoto (messaggio più azione primaria), errore (messaggio umano più riprova), successo (toast breve). Nessuna schermata esce senza tutti e quattro.
+
+### Aggiornamento dei dati
+
+- Le pagine con dati economici sono dinamiche (nessuna cache statica). Dopo ogni server action: `revalidatePath` delle pagine coinvolte.
+- Nella Panoramica admin, sottoscrizione Supabase Realtime a `setter_daily_reports`, `calls`, `payments`: all'arrivo di un evento, `router.refresh()`. Dany vede i numeri di Loris aggiornarsi senza ricaricare.
+- Non serve uno storage file in questa fase. Il database è lo storage. Supabase Storage entrerà solo se si decide di allegare contratti o ricevute.
+
+## 11. Design system
+
+Tema scuro, unico tema nella v1. Sobrio, denso di informazione, nessun effetto decorativo. Riferimento di tono: strumento finanziario professionale, non app fitness.
+
+### Token
+
+```css
+--alpha-bordeaux:       #7A1F2B;   /* azioni primarie, stato attivo */
+--alpha-bordeaux-light: #9B3040;   /* hover primario */
+--alpha-gold:           #C9A227;   /* solo accenti e valori evidenziati, mai superfici */
+--alpha-bg:             #121214;
+--alpha-surface:        #1C1C1E;
+--alpha-surface-2:      #242427;
+--alpha-border:         #2E2E31;
+--alpha-text:           #F2F0EC;
+--alpha-text-muted:     #8A8A8F;
+
+/* Serie grafici, validate per tema scuro su #1C1C1E (banda di luminosità, croma, separazione daltonismo, contrasto >= 3:1) */
+--chart-nuovo:   #C4515F;
+--chart-rinnovo: #B08A1C;
+--chart-upsell:  #4F8FD1;
+
+/* Stato: sempre con icona e testo, mai solo colore, mai usati come serie */
+--status-ok:       #4CAF7A;
+--status-warning:  #E0A43A;
+--status-critical: #E5484D;
+```
+
+Mappa i token nelle variabili CSS di shadcn (`--primary`, `--background`, `--card`, ecc.), non usare colori hard-coded nei componenti.
+
+### Regole
+
+- Font: Geist Sans (o Inter). Numeri sempre `font-variant-numeric: tabular-nums`, allineati a destra nelle tabelle.
+- Importi formattati con `Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' })`. Date `dd/MM/yyyy`, mese "settembre 2026".
+- Spaziatura su griglia di 4px. Raggio: 8px card, 6px controlli.
+- Mobile first: layout progettato a 390px, poi esteso. Target di tocco minimo 44x44px. Nessuno scroll orizzontale della pagina; le tabelle larghe diventano liste di card sotto 768px.
+- Grafici: un solo asse y, mai doppio asse. Colore della serie legato all'entità (nuovo è sempre `--chart-nuovo`), mai al rango. Legenda sempre presente con 2 o più serie. Tooltip al passaggio o al tocco. Barre sottili con 2px di spazio tra segmenti impilati. Griglia e assi recessivi (`--alpha-border`). Il testo dei valori usa i colori del testo, mai il colore della serie. Ogni grafico ha una vista tabella alternativa.
+- Contrasto testo WCAG AA minimo.
+- Oro: massimo un elemento oro per schermata (il numero più importante).
+
+## 12. Agenti Claude Code
+
+Crea questi tre subagent in `.claude/agents/` al primo avvio e il comando `.claude/commands/design-loop.md`. Il contenuto è quello riportato qui sotto, alla lettera.
+
+### `.claude/agents/app-builder.md`
+
+```markdown
+---
+name: app-builder
+description: Sviluppa funzionalità di Alpha Economics seguendo CLAUDE.md. Usalo per migration, policy RLS, server action, pagine e componenti funzionali, test. Non fa rifinitura grafica.
+model: inherit
+---
+Sei lo sviluppatore principale di Alpha Economics. CLAUDE.md è la specifica: rispettala alla lettera.
+
+Metodo:
+1. Prima di scrivere codice, elenca i file che toccherai e perché.
+2. Database: ogni modifica è una nuova migration in supabase/migrations. Mai modificare migration già applicate. Ogni tabella nuova nasce con RLS abilitata e policy esplicite, e con test pgTAP in supabase/tests.
+3. Ogni view è `with (security_invoker = true)`. Ogni funzione `security definer` ha `set search_path = ''`.
+4. Importi e metriche si calcolano in SQL. In TypeScript solo formattazione.
+5. Usa solo i token del design system. Nessun colore hard-coded.
+6. Ogni schermata ha stati di caricamento, vuoto, errore, successo.
+7. Prima di dichiarare finito: `npm run typecheck`, `npm run lint`, `npm run test`, `supabase test db` tutti verdi.
+8. Chiudi con: cosa hai fatto, come verificarlo a mano in 3 passi, commit proposto. Non fare commit senza conferma.
+```
+
+### `.claude/agents/ui-critic.md`
+
+```markdown
+---
+name: ui-critic
+description: Critico grafico di Alpha Economics. Usalo dopo ogni modifica visibile per valutare le schermate da screenshot reali. Non modifica mai il codice.
+tools: Read, Glob, Grep, Bash
+model: inherit
+---
+Sei un product designer senior specializzato in dashboard finanziarie e app mobile. Giudichi, non modifichi. Non usare mai Edit o Write.
+
+Metodo:
+1. Esegui `npm run shots` (l'app deve girare in locale). Genera screenshot a 390px e 1440px di ogni pagina in `.shots/`.
+2. Apri ogni screenshot con Read e guardalo davvero.
+3. Valuta contro la sezione 11 di CLAUDE.md e contro questa checklist: gerarchia visiva (il numero più importante si vede per primo?), allineamento e griglia 4px, densità, contrasto, target di tocco 44px su mobile, numeri tabellari allineati a destra, formato euro e date italiane, regole dei grafici (asse unico, legenda, colori per entità, testo non colorato), stati vuoto, caricamento ed errore, coerenza tra pagine, uso dell'oro (massimo uno per schermata), scroll orizzontale su mobile.
+4. Consegna al massimo 10 punti, ordinati per impatto. Ogni punto: schermata e viewport, problema osservato, perché conta per l'utente, correzione precisa (componente, classe o token), gravità (alta, media, bassa).
+5. Se una schermata è già buona, dillo in una riga e non inventare problemi.
+```
+
+### `.claude/agents/ui-refiner.md`
+
+```markdown
+---
+name: ui-refiner
+description: Applica le correzioni grafiche indicate da ui-critic su Alpha Economics. Tocca solo presentazione, mai logica, dati o permessi.
+model: inherit
+---
+Applichi le correzioni ricevute dal critico, una per una.
+
+Confini rigidi:
+- Puoi modificare: componenti in components/, markup e classi nelle pagine, token e stili globali, configurazione Tailwind e shadcn.
+- Non puoi modificare: supabase/ (migration, policy, test), server action, query, schemi Zod, logica di calcolo, auth. Se una correzione lo richiede, fermati e segnalalo.
+
+Metodo:
+1. Per ogni punto: applica la correzione minima che lo risolve.
+2. Dopo tutte le modifiche: `npm run typecheck`, `npm run lint`, `npm run shots`.
+3. Riporta punto per punto: applicato, applicato in parte (perché), non applicato (perché).
+```
+
+### `.claude/commands/design-loop.md`
+
+```markdown
+Esegui il ciclo di design su: $ARGUMENTS (se vuoto, tutte le pagine).
+1. Verifica che l'app giri in locale su http://localhost:3000, altrimenti avviala in background.
+2. Lancia il subagent ui-critic sulle pagine indicate.
+3. Mostrami l'elenco dei punti e chiedimi quali approvare.
+4. Lancia il subagent ui-refiner con i soli punti approvati.
+5. Rilancia ui-critic una seconda volta. Massimo 2 giri, poi fermati e riassumi cosa resta aperto.
+```
+
+## 13. Screenshot e dati di prova
+
+- Script `npm run shots`: Playwright, login con utente seed (admin, setter, closer), visita ogni pagina del ruolo, salva `.shots/<ruolo>-<pagina>-<390|1440>.png`. `.shots/` è in `.gitignore`.
+- `supabase/seed.sql`: tre utenti di prova (admin, setter, closer), 3 prodotti, 6 mesi di dati realistici (report giornalieri, 40 call, 20 clienti, vendite nuove e rinnovi, rate incassate, in ritardo e future, costi). Dati inventati, nessun dato reale nel seed.
+
+## 14. Import dello storico Excel
+
+Script una tantum `scripts/import-excel.ts` (lanciato in locale contro il database, con `SUPABASE_SECRET_KEY`), idempotente:
+- fogli mensili, colonne I-Q (sezione SETTER) -> `setter_daily_reports` del setter indicato da argomento. Righe con tutte le celle vuote o a zero: saltate;
+- colonne S-Z (sezione CLOSER): non si importano come righe, perché sono totali giornalieri senza cliente. Lo script produce `import/vendite-da-completare.csv` con una riga per ogni giorno con `CLOSES > 0` (data, cash, revenue) e le colonne vuote `cliente_nome`, `cliente_cognome`, `prodotto`, `numero_rate`, che Dany compila a mano;
+- un secondo passaggio legge il CSV compilato e crea clienti, vendite e rate incassate;
+- foglio "Setter Payments" -> `commission_payouts`.
+Lo script stampa un riepilogo (righe lette, create, saltate) e si può rilanciare senza duplicare.
+
+## 15. Operatività
+
+- **Keep-alive**: Supabase Free mette in pausa il progetto dopo 7 giorni senza richieste. Route `/api/cron/keep-alive` (protetta da `CRON_SECRET`) che esegue una query leggera, chiamata ogni giorno da Vercel Cron (`vercel.json`).
+- **Backup**: il piano Free non ha backup. Esporta CSV mensile da Impostazioni. Quando l'app diventa l'unica fonte dei dati economici, passare a Supabase Pro.
+- **GDPR**: dati dei clienti ridotti al minimo (nome, contatti, handle). Regione EU. Nessun dato sanitario in questa app.
+
+## 16. Piano di lavoro
+
+Lavora una fase alla volta. A fine fase: tutti i controlli verdi, istruzioni di verifica manuale per Dany, stop. Non iniziare la fase successiva senza conferma.
+
+**Fase 1: Fondamenta.** Scaffold Next.js con Tailwind e shadcn, token del design system, struttura cartelle, client Supabase, Supabase locale (`supabase init`, `supabase start`), migration di tutto lo schema (sezione 8), RLS completa, test pgTAP dei permessi (sezione 6), trigger inviti, login Google, dev login locale, app shell con navigazione per ruolo, seed, keep-alive, file agenti (sezione 12). Verifica: login in locale con i tre utenti seed, ognuno vede solo la sua navigazione, `supabase test db` verde.
+
+**Fase 2: Inserimento dati.** Schermata Oggi del setter, Nuova call, Le mie call, aggiornamento esito del closer, flusso call chiusa -> nuova vendita con piano rate, registrazione incasso, clienti, prodotti, costi. Poi `/design-loop`. Verifica: Dany compila un report dal telefono in meno di 60 secondi.
+
+**Fase 3: Dashboard.** View e RPC delle metriche (sezione 9) con test, Panoramica admin, Setting, Incassi, Provvigioni, I miei numeri del setter, Realtime. Poi `/design-loop`. Verifica: i numeri della Panoramica coincidono con un calcolo a mano sul seed.
+
+**Fase 4: Gestione utenti e impostazioni.** Pagina Team, regole provvigioni, export CSV, audit log visibile. Verifica: invito a un secondo account Google, login, cambio ruolo, disattivazione.
+
+**Fase 5: Deploy e dati reali.** Deploy su Vercel, migration sul progetto Supabase cloud, import Excel (sezione 14), invito di Loris. Verifica: Loris compila il suo primo report reale dal telefono.
+
+## 17. Regole di lavoro
+
+- Lingua dell'interfaccia: italiano, con accenti corretti. Codice, nomi di file e commit: inglese; nomi di tabelle e colonne: italiano come in questo file.
+- Commit piccoli e verificabili, formato Conventional Commits.
+- Dany è sviluppatore: niente spiegazioni di base, vai al punto.
+- Se una scelta non è coperta da questo file, proponi un'opzione con il motivo in una riga e chiedi conferma. Non decidere da solo su permessi, calcoli economici o schema.
+- Mai funzioni di sorveglianza dei collaboratori (tracking automatico, screenshot, alert su chi non compila). Il report giornaliero è auto-dichiarazione dei risultati, non monitoraggio.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

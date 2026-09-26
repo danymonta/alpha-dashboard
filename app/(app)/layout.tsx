@@ -1,0 +1,20 @@
+import { redirect } from 'next/navigation'
+import type { ReactNode } from 'react'
+
+import { AppShell } from '@/components/shell/app-shell'
+import { haAreaDisponibile } from '@/lib/auth/roles'
+import { requireProfilo } from '@/lib/auth/session'
+
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const profilo = await requireProfilo()
+
+  if (!haAreaDisponibile(profilo.ruolo)) {
+    redirect('/nessuna-area')
+  }
+
+  return (
+    <AppShell ruolo={profilo.ruolo} nome={profilo.nome}>
+      {children}
+    </AppShell>
+  )
+}
