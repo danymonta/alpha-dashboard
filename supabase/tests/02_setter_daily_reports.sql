@@ -1,4 +1,4 @@
--- Daily setting report: own rows only, writable inside the last 7 days.
+-- Daily setting report: own rows only, any past day writable, never the future.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
@@ -52,24 +52,28 @@ select is(
   'il setter crea il report di oggi'
 );
 
--- Outside the 7 day window the policy refuses the insert
+-- Any past day can be filled in later (Dany, 27/09/2026) ...
+insert into public.setter_daily_reports (setter_id, data, dm_outbound)
+values ('22222222-2222-4222-8222-222222222222', public.oggi() - 60, 5)
+on conflict (setter_id, data) do update set dm_outbound = excluded.dm_outbound;
+
+-- ... but a day that has not happened yet cannot
 select throws_ok(
   $$ insert into public.setter_daily_reports (setter_id, data, dm_outbound)
-     values ('22222222-2222-4222-8222-222222222222', public.oggi() - 10, 5) $$,
+     values ('22222222-2222-4222-8222-222222222222', public.oggi() + 1, 5) $$,
   '42501'
 );
 
--- ... and refuses the update, silently: the row is simply not visible to write
 with modificati as (
   update public.setter_daily_reports set dm_outbound = 999
   where setter_id = '22222222-2222-4222-8222-222222222222'
-    and data = public.oggi() - 20
+    and data = public.oggi() - 60
   returning 1
 )
 select is(
   (select count(*)::int from modificati),
-  0,
-  'il setter non può modificare un report più vecchio di 7 giorni'
+  1,
+  'il setter corregge un suo report di due mesi fa'
 );
 
 with modificati as (

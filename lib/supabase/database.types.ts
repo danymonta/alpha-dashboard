@@ -24,15 +24,40 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"calls": {
+                },"call_pitch": {
                   Row: {
-                    "closer_id": string | null,"created_at": string,"created_by": string | null,"esito": Database["public"]['Enums']["call_outcome"] | null,"id": string,"lead_id": string,"note": string | null,"obiezione_principale": string | null,"programmata_il": string,"qualificata": boolean | null,"setter_id": string | null,"stato": Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at": string
+                    "call_id": string,"created_at": string,"created_by": string | null,"id": string,"importo_proposto": number,"updated_at": string
                   }
                   Insert: {
-                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id": string,"note"?: string | null,"obiezione_principale"?: string | null,"programmata_il": string,"qualificata"?: boolean | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at"?: string
+                    "call_id": string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"importo_proposto": number,"updated_at"?: string
                   }
                   Update: {
-                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id"?: string,"note"?: string | null,"obiezione_principale"?: string | null,"programmata_il"?: string,"qualificata"?: boolean | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo"?: Database["public"]['Enums']["call_type"],"updated_at"?: string
+                    "call_id"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"importo_proposto"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "call_pitch_call_id_fkey"
+      columns: ["call_id"]
+isOneToOne: true
+      referencedRelation: "calls"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "call_pitch_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"calls": {
+                  Row: {
+                    "closer_id": string | null,"created_at": string,"created_by": string | null,"esito": Database["public"]['Enums']["call_outcome"] | null,"id": string,"lead_id": string,"link_registrazione": string | null,"note": string | null,"obiezione_principale": string | null,"performance": Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id": string | null,"programmata_il": string,"qualificata": boolean | null,"setter_id": string | null,"stato": Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at": string
+                  }
+                  Insert: {
+                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id": string,"link_registrazione"?: string | null,"note"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il": string,"qualificata"?: boolean | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at"?: string
+                  }
+                  Update: {
+                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id"?: string,"link_registrazione"?: string | null,"note"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il"?: string,"qualificata"?: boolean | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo"?: Database["public"]['Enums']["call_type"],"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -52,6 +77,12 @@ isOneToOne: false
       columns: ["lead_id"]
 isOneToOne: false
       referencedRelation: "leads"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "calls_prodotto_proposto_id_fkey"
+      columns: ["prodotto_proposto_id"]
+isOneToOne: false
+      referencedRelation: "products"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "calls_setter_id_fkey"
@@ -537,6 +568,9 @@ isOneToOne: false
               "fascia": string,"numero": number,"totale": number
             }[]
                            },
+"dettagli_call":
+{ Args: { "p_call_id": string,"p_importo_proposto"?: number,"p_link_registrazione"?: string,"p_performance"?: Database["public"]['Enums']["call_performance"],"p_prodotto_proposto_id"?: string }; Returns: undefined
+                           },
 "fissa_call":
 { Args: { "p_closer_id": string,"p_data": string,"p_fonte": Database["public"]['Enums']["lead_source"],"p_instagram_handle"?: string,"p_nome": string,"p_ora": string,"p_tipo": Database["public"]['Enums']["call_type"] }; Returns: {
               "id_call": string,"id_lead": string,"lead_esistente": boolean
@@ -577,6 +611,9 @@ isOneToOne: false
 { Args: { "p_mese": string }; Returns: {
               "call_fissate": number,"call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_per_call": number,"dm_totali": number,"giorni_compilati": number,"no_show": number,"provvigioni_maturate": number,"provvigioni_pagate": number,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
             }[]
+                           },
+"modifica_call":
+{ Args: { "p_call_id": string,"p_closer_id": string,"p_data": string,"p_note"?: string,"p_ora": string,"p_tipo": Database["public"]['Enums']["call_type"] }; Returns: undefined
                            },
 "nuova_regola_provvigione":
 { Args: { "p_applica_a": (Database["public"]['Enums']["sale_type"])[],"p_percentuale": number,"p_profile_id": string,"p_valida_dal": string }; Returns: string
@@ -622,7 +659,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"scaduto"|"ex_cliente"|"mai_attivato","expense_category": "team"|"software"|"ads"|"formazione"|"altro","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","sale_type": "nuovo"|"rinnovo"|"upsell"
+            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "buona"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"scaduto"|"ex_cliente"|"mai_attivato","expense_category": "team"|"software"|"ads"|"formazione"|"altro","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","sale_type": "nuovo"|"rinnovo"|"upsell"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -738,7 +775,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "app_role": ["admin", "setter", "closer", "coach", "editor", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "scaduto", "ex_cliente", "mai_attivato"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"sale_type": ["nuovo", "rinnovo", "upsell"]
+            "app_role": ["admin", "setter", "closer", "coach", "editor", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["buona", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "scaduto", "ex_cliente", "mai_attivato"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"sale_type": ["nuovo", "rinnovo", "upsell"]
           }
         }
 } as const

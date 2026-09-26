@@ -1,5 +1,5 @@
 -- The Oggi screen saves with INSERT ... ON CONFLICT (setter_id, data) DO UPDATE.
--- RLS must allow both halves inside the 7-day window and refuse both outside it.
+-- RLS must allow both halves on any past day and refuse the future.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
@@ -46,18 +46,18 @@ select is(
   'un solo report per setter e giorno'
 );
 
--- Yesterday is still inside the window
+-- Ten days ago the row exists (seed): the update half is allowed too
 select lives_ok(
   $$ insert into public.setter_daily_reports (setter_id, data, dm_outbound)
-     values ('22222222-2222-4222-8222-222222222222', public.oggi() - 1, 20)
+     values ('22222222-2222-4222-8222-222222222222', public.oggi() - 10, 99)
      on conflict (setter_id, data) do update set dm_outbound = excluded.dm_outbound $$,
-  'il setter può ancora correggere ieri'
+  'il setter corregge un report di dieci giorni fa'
 );
 
--- Ten days ago the row exists (seed): the update half is refused by RLS
+-- Tomorrow does not exist yet
 select throws_ok(
   $$ insert into public.setter_daily_reports (setter_id, data, dm_outbound)
-     values ('22222222-2222-4222-8222-222222222222', public.oggi() - 10, 99)
+     values ('22222222-2222-4222-8222-222222222222', public.oggi() + 1, 99)
      on conflict (setter_id, data) do update set dm_outbound = excluded.dm_outbound $$,
   '42501'
 );
