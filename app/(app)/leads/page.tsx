@@ -25,6 +25,22 @@ const ETICHETTA_ESITO: Record<string, string> = {
   persa: 'persa',
 }
 
+const ETICHETTA_STATO_CALL: Record<string, string> = {
+  svolta: 'svolta',
+  no_show: 'no show',
+  cancellata: 'cancellata',
+  riprogrammata: 'riprogrammata',
+}
+
+/** Same reading as the suggestion below it: a past call without outcome is not "in programma". */
+function statoUltimaCall(ultima: { stato: string; esito: string | null; programmata_il: string }, adesso: number) {
+  if (ultima.esito) return ETICHETTA_ESITO[ultima.esito]
+  if (ultima.stato === 'programmata') {
+    return new Date(ultima.programmata_il).getTime() < adesso ? 'esito da registrare' : 'in programma'
+  }
+  return ETICHETTA_STATO_CALL[ultima.stato] ?? null
+}
+
 type Ruolo = 'admin' | 'setter' | 'closer'
 
 /**
@@ -197,24 +213,26 @@ export default async function PipelinePage({
 
             return (
               <li key={lead.id}>
-                <article aria-labelledby={idTitolo} className="space-y-3 rounded-xl bg-card p-3">
-                  <div>
-                    <h3 id={idTitolo} className="truncate text-sm font-medium">{lead.nome}</h3>
-                    <p className="truncate text-sm text-muted-foreground">{dettagli.join(' · ')}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {ultima
-                        ? `Ultima call: ${ETICHETTA_TIPO_CALL[ultima.tipo]} del ${formatData(oggiRoma(new Date(ultima.programmata_il)))}${
-                            ultima.esito ? ` · ${ETICHETTA_ESITO[ultima.esito]}` : ultima.stato === 'programmata' ? ' · in programma' : ''
-                          }`
-                        : `Caricato il ${formatData(oggiRoma(new Date(lead.created_at)))}`}
-                    </p>
-                  </div>
+                <article aria-labelledby={idTitolo} className="space-y-2 rounded-xl bg-card p-3">
                   <StatoLeadArea
                     leadId={lead.id}
                     nome={lead.nome}
                     stato={lead.stato}
                     suggerimento={suggerisci(lead.stato, ultima, profilo.ruolo as Ruolo, adesso)}
-                  />
+                    titolo={<h3 id={idTitolo} className="truncate text-sm font-medium">{lead.nome}</h3>}
+                  >
+                    <p className="truncate text-sm text-muted-foreground">{dettagli.join(' · ')}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {ultima
+                        ? [
+                            `Ultima call: ${ETICHETTA_TIPO_CALL[ultima.tipo]} del ${formatData(oggiRoma(new Date(ultima.programmata_il)))}`,
+                            statoUltimaCall(ultima, adesso),
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')
+                        : `Caricato il ${formatData(oggiRoma(new Date(lead.created_at)))}`}
+                    </p>
+                  </StatoLeadArea>
                 </article>
               </li>
             )

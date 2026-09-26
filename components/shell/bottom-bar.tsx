@@ -20,6 +20,8 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
   const pathname = usePathname()
   const [apertoAltro, setApertoAltro] = useState(false)
   const { principali, altre } = vociNav(ruolo)
+  // on a page reached from "Altro" (e.g. Impostazioni) the bar still says where you are
+  const altroAttivo = altre.some((v) => isAttiva(pathname, v))
 
   if (principali.length === 0) return null
 
@@ -58,34 +60,47 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                 render={
                   <button
                     type="button"
-                    className="flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] leading-tight text-muted-foreground"
+                    className={`flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] leading-tight ${
+                      altroAttivo ? 'text-foreground' : 'text-muted-foreground'
+                    }`}
                   />
                 }
               >
                 <MoreHorizontal className="size-5" aria-hidden="true" />
                 <span>Altro</span>
-                <span aria-hidden="true" className="h-0.5 w-6" />
+                <span
+                  aria-hidden="true"
+                  className={`h-0.5 w-6 rounded-full ${altroAttivo ? 'bg-primary-light' : 'bg-transparent'}`}
+                />
               </SheetTrigger>
               <SheetContent side="bottom" className="rounded-t-xl pb-8">
                 <SheetHeader>
                   <SheetTitle>Altro</SheetTitle>
                 </SheetHeader>
                 <ul className="px-4">
-                  {altre.map((voce) => (
-                    <li key={voce.href}>
-                      <Link
-                        href={voce.href}
-                        onClick={() => setApertoAltro(false)}
-                        className="flex min-h-12 items-center gap-3 rounded-lg px-2 text-sm hover:bg-accent"
-                      >
-                        <voce.Icona
-                          className="size-4 text-muted-foreground"
-                          aria-hidden="true"
-                        />
-                        {voce.etichetta}
-                      </Link>
-                    </li>
-                  ))}
+                  {altre.map((voce) => {
+                    const attiva = isAttiva(pathname, voce)
+                    return (
+                      <li key={voce.href}>
+                        <Link
+                          href={voce.href}
+                          onClick={() => setApertoAltro(false)}
+                          aria-current={attiva ? 'page' : undefined}
+                          // the sheet is already --accent (surface-2): the current page takes
+                          // the sidebar's active style, so it reads the same on every viewport
+                          className={`flex min-h-12 items-center gap-3 rounded-lg px-2 text-sm ${
+                            attiva ? 'bg-primary text-primary-foreground' : 'hover:bg-background'
+                          }`}
+                        >
+                          <voce.Icona
+                            className={`size-4 ${attiva ? '' : 'text-muted-foreground'}`}
+                            aria-hidden="true"
+                          />
+                          {voce.etichetta}
+                        </Link>
+                      </li>
+                    )
+                  })}
                 </ul>
               </SheetContent>
             </Sheet>

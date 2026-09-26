@@ -10,6 +10,16 @@ import { chiudiRegola, nuovaRegola } from '@/app/(app)/settings/commissions/acti
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { SceltaMultipla } from '@/components/form/scelta-multipla'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -20,6 +30,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { formatData } from '@/lib/format'
 import { regolaSchema, type RegolaInput } from '@/lib/validation/team'
 import { ETICHETTA_TIPO_VENDITA, TIPI_VENDITA } from '@/lib/validation/vendita'
 
@@ -124,34 +135,78 @@ export function NuovaRegola({
   )
 }
 
-export function ChiudiRegola({ ruleId, oggi }: { ruleId: string; oggi: string }) {
+/** Closing a rule asks for its last valid day first: nothing changes on one tap. */
+export function ChiudiRegola({ ruleId, oggi, etichetta }: { ruleId: string; oggi: string; etichetta: string }) {
+  const [aperto, setAperto] = useState(false)
   const [data, setData] = useState(oggi)
+  const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
+  const idCampo = `fine-${ruleId}`
+
+  function chiudi() {
+    setErrore(null)
+    avvia(async () => {
+      let esito
+      try {
+        esito = await chiudiRegola({ rule_id: ruleId, valida_al: data })
+      } catch {
+        setErrore('Connessione assente. Riprova.')
+        return
+      }
+      if (!esito.ok) {
+        setErrore(esito.errore)
+        return
+      }
+      toast.success(`Regola chiusa dal ${formatData(data)}`)
+      setAperto(false)
+    })
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="sr-only" htmlFor={`fine-${ruleId}`}>Fine della regola</label>
-      <Input
-        id={`fine-${ruleId}`}
-        type="date"
-        value={data}
-        onChange={(e) => setData(e.currentTarget.value)}
-        className="num h-11 w-40"
-      />
-      <Button
-        type="button"
-        variant="outline"
-        className="h-11"
-        disabled={inCorso}
-        onClick={() =>
-          avvia(async () => {
-            const esito = await chiudiRegola({ rule_id: ruleId, valida_al: data })
-            if (esito.ok) toast.success('Regola chiusa')
-            else toast.error(esito.errore)
-          })
+    <Dialog
+      open={aperto}
+      onOpenChange={(v) => {
+        setAperto(v)
+        if (!v) {
+          setErrore(null)
+          setData(oggi)
         }
-      >
-        Chiudi la regola
-      </Button>
-    </div>
+      }}
+    >
+      <DialogTrigger render={<Button type="button" variant="outline" className="h-11" />}>
+        Chiudi…
+      </DialogTrigger>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>Chiudi la regola</DialogTitle>
+          <DialogDescription>
+            {etichetta}. Le provvigioni maturate fino a quel giorno restano come sono.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <Label htmlFor={idCampo}>Ultimo giorno di validità</Label>
+          <Input
+            id={idCampo}
+            type="date"
+            value={data}
+            onChange={(e) => setData(e.currentTarget.value)}
+            className="num h-11"
+          />
+        </div>
+        {errore ? (
+          <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            {errore}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <DialogClose render={<Button type="button" variant="outline" className="h-11" />}>Annulla</DialogClose>
+          <Button type="button" className="h-11" disabled={inCorso || !data} onClick={chiudi}>
+            {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+            {data ? `Chiudi dal ${formatData(data)}` : 'Scegli una data'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

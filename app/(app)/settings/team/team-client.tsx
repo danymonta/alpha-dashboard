@@ -9,6 +9,14 @@ import { toast } from 'sonner'
 import { cambiaAttivo, cambiaRuolo, invita, revocaInvito } from '@/app/(app)/settings/team/actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -105,7 +113,13 @@ export function InvitaMembro({ urlLogin }: { urlLogin: string }) {
   )
 }
 
-/** Role and active switch of one member. Your own row is read-only (DB guard too). */
+type Conferma = { tipo: 'admin'; precedente: AppRole } | { tipo: 'disattiva' }
+
+/**
+ * Role and active switch of one member. Your own row is read-only (DB guard too).
+ * Making someone admin and deactivating ask first; other role changes apply at
+ * once with an undo in the toast; reactivating needs no confirmation.
+ */
 export function ControlliMembro({
   profileId,
   nome,
@@ -120,13 +134,52 @@ export function ControlliMembro({
   sonoIo: boolean
 }) {
   const [inCorso, avvia] = useTransition()
+  // the select shows the chosen role while the dialog is open, and goes back on cancel
+  const [valore, setValore] = useState<AppRole>(ruolo)
+  // kept after closing, so the dialog text does not change while it fades out
+  const [conferma, setConferma] = useState<Conferma>({ tipo: 'disattiva' })
+  const [chiedi, setChiedi] = useState(false)
 
-  function esegui(azione: () => Promise<{ ok: boolean; errore?: string }>, successo: string) {
+  function apriConferma(c: Conferma) {
+    setConferma(c)
+    setChiedi(true)
+  }
+
+  function applicaRuolo(nuovo: AppRole, precedente: AppRole, annullabile: boolean) {
+    setValore(nuovo)
     avvia(async () => {
-      const esito = await azione()
-      if (esito.ok) toast.success(successo)
+      const esito = await cambiaRuolo({ profile_id: profileId, ruolo: nuovo })
+      if (!esito.ok) {
+        setValore(precedente)
+        toast.error(esito.errore)
+        return
+      }
+      toast.success(
+        `${nome}: ora ${ETICHETTA_RUOLO[nuovo].toLowerCase()}`,
+        annullabile
+          ? { action: { label: 'Annulla', onClick: () => applicaRuolo(precedente, nuovo, false) } }
+          : undefined,
+      )
+    })
+  }
+
+  function applicaAttivo(v: boolean) {
+    avvia(async () => {
+      const esito = await cambiaAttivo({ profile_id: profileId, attivo: v })
+      if (esito.ok) toast.success(v ? `${nome} riattivato` : `${nome} disattivato: al prossimo accesso non entra più`)
       else toast.error(esito.errore ?? 'Operazione non riuscita.')
     })
+  }
+
+  function annulla() {
+    if (conferma.tipo === 'admin') setValore(conferma.precedente)
+    setChiedi(false)
+  }
+
+  function confermaAzione() {
+    if (conferma.tipo === 'admin') applicaRuolo('admin', conferma.precedente, false)
+    else applicaAttivo(false)
+    setChiedi(false)
   }
 
   return (
@@ -134,12 +187,18 @@ export function ControlliMembro({
       <label className="sr-only" htmlFor={`ruolo-${profileId}`}>Ruolo di {nome}</label>
       <select
         id={`ruolo-${profileId}`}
-        defaultValue={ruolo}
+        value={valore}
         disabled={sonoIo || inCorso}
         className={selectClassi}
         onChange={(e) => {
           const nuovo = e.currentTarget.value as AppRole
-          esegui(() => cambiaRuolo({ profile_id: profileId, ruolo: nuovo }), `${nome}: ora ${ETICHETTA_RUOLO[nuovo].toLowerCase()}`)
+          if (nuovo === valore) return
+          if (nuovo === 'admin') {
+            setValore(nuovo)
+            apriConferma({ tipo: 'admin', precedente: valore })
+          } else {
+            applicaRuolo(nuovo, valore, true)
+          }
         }}
       >
         {RUOLI.map((r) => (
@@ -151,16 +210,37 @@ export function ControlliMembro({
           checked={attivo}
           disabled={sonoIo || inCorso}
           aria-label={`${nome} attivo`}
-          onCheckedChange={(v) =>
-            esegui(
-              () => cambiaAttivo({ profile_id: profileId, attivo: v }),
-              v ? `${nome} riattivato` : `${nome} disattivato: al prossimo accesso non entra più`,
-            )
-          }
+          onCheckedChange={(v) => (v ? applicaAttivo(true) : apriConferma({ tipo: 'disattiva' }))}
         />
         {attivo ? 'Attivo' : 'Disattivato'}
       </label>
       {inCorso ? <LoaderCircle className="size-4 animate-spin text-muted-foreground" aria-hidden="true" /> : null}
+
+      <Dialog open={chiedi} onOpenChange={(aperto) => { if (!aperto) annulla() }}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>{conferma.tipo === 'disattiva' ? `Disattivare ${nome}?` : `Rendere ${nome} admin?`}</DialogTitle>
+            <DialogDescription>
+              {conferma.tipo === 'disattiva'
+                ? 'Al prossimo accesso non entra più e non vede nessun dato. Puoi riattivarlo quando vuoi.'
+                : 'Vedrà incassi, costi, margine e compensi di tutti.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" className="h-11" onClick={annulla}>
+              Annulla
+            </Button>
+            <Button
+              type="button"
+              variant={conferma.tipo === 'disattiva' ? 'destructive' : 'default'}
+              className="h-11"
+              onClick={confermaAzione}
+            >
+              {conferma.tipo === 'disattiva' ? 'Disattiva' : 'Rendi admin'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

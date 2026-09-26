@@ -30,11 +30,12 @@ export function SelettoreMese({ mese, meseCorrente, percorso, parametri, classNa
     'flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground'
 
   return (
-    <nav aria-label="Scegli il mese" className={cn('flex items-center gap-1', className)}>
+    // -ml-3: the chevron glyph (not its 44px hit area) lines up with the content edge
+    <nav aria-label="Scegli il mese" className={cn('-ml-3 flex items-center gap-1', className)}>
       <Link href={href(percorso, precedente, parametri)} aria-label="Mese precedente" className={classi}>
         <ChevronLeft className="size-5" aria-hidden="true" />
       </Link>
-      <p className="min-w-36 text-center text-sm font-medium capitalize" aria-live="polite">
+      <p className="min-w-36 text-center text-sm font-medium" aria-live="polite">
         {formatMese(mese)}
       </p>
       {successivo <= meseCorrente ? (

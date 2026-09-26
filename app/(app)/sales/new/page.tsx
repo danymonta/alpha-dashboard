@@ -13,18 +13,38 @@ import { TIPI_VENDITA, type TipoVendita } from '@/lib/validation/vendita'
 
 export const dynamic = 'force-dynamic'
 
-function Pagina({ descrizione, children }: { descrizione?: string; children: ReactNode }) {
+type Indietro = { href: string; etichetta: string }
+
+function Pagina({
+  descrizione,
+  indietro,
+  children,
+}: {
+  descrizione?: string
+  indietro: Indietro
+  children: ReactNode
+}) {
   return (
     <div className="max-w-xl space-y-6">
-      <IntestazionePagina titolo="Nuova vendita" descrizione={descrizione} />
+      <IntestazionePagina titolo="Nuova vendita" descrizione={descrizione} indietro={indietro} />
       {children}
     </div>
   )
 }
 
-function Impossibile({ titolo, descrizione, azione }: { titolo: string; descrizione: string; azione: ReactNode }) {
+function Impossibile({
+  titolo,
+  descrizione,
+  azione,
+  indietro,
+}: {
+  titolo: string
+  descrizione: string
+  azione: ReactNode
+  indietro: Indietro
+}) {
   return (
-    <Pagina>
+    <Pagina indietro={indietro}>
       <StatoVuoto Icona={SearchX} titolo={titolo} descrizione={descrizione} azione={azione} />
     </Pagina>
   )
@@ -47,8 +67,16 @@ export default async function NuovaVenditaPage({
 }: {
   searchParams: Promise<{ call?: string; cliente?: string; tipo?: string }>
 }) {
-  await requireRuolo(['closer', 'admin'])
+  const profilo = await requireRuolo(['closer', 'admin'])
   const { call: callId, cliente: clienteId, tipo } = await searchParams
+  // back to where the sale starts from: the closed call, the client's page, or the sales list
+  const indietro: Indietro = callId
+    ? { href: '/calls', etichetta: 'Le mie call' }
+    : clienteId && profilo.ruolo === 'admin'
+      ? { href: `/clients/${clienteId}`, etichetta: 'Scheda cliente' }
+      : profilo.ruolo === 'admin'
+        ? { href: '/sales', etichetta: 'Vendite' }
+        : { href: '/my-sales', etichetta: 'Le mie vendite' }
   const supabase = await createClient()
 
   const { data: prodotti, error: erroreProdotti } = await supabase
@@ -74,6 +102,7 @@ export default async function NuovaVenditaPage({
     if (!call) {
       return (
         <Impossibile
+          indietro={indietro}
           titolo="Call non trovata"
           descrizione="La call non esiste o non è assegnata a te."
           azione={tornaAlleCall}
@@ -83,6 +112,7 @@ export default async function NuovaVenditaPage({
     if (call.esito !== 'chiusa') {
       return (
         <Impossibile
+          indietro={indietro}
           titolo="La call non risulta chiusa"
           descrizione="Una vendita nasce da una call con esito «Chiusa». Registra prima l’esito."
           azione={tornaAlleCall}
@@ -98,6 +128,7 @@ export default async function NuovaVenditaPage({
     if (venditaEsistente) {
       return (
         <Impossibile
+          indietro={indietro}
           titolo="Vendita già registrata"
           descrizione="Questa call ha già la sua vendita: aprila per vedere il piano rate."
           azione={
@@ -138,6 +169,7 @@ export default async function NuovaVenditaPage({
     if (!cliente) {
       return (
         <Impossibile
+          indietro={indietro}
           titolo="Cliente non trovato"
           descrizione="Il cliente non esiste o non è tra i tuoi."
           azione={tornaAlleCall}
@@ -149,7 +181,7 @@ export default async function NuovaVenditaPage({
 
   if (prodotti.length === 0) {
     return (
-      <Pagina>
+      <Pagina indietro={indietro}>
         <StatoVuoto
           Icona={PackageX}
           titolo="Nessun prodotto attivo"
@@ -167,7 +199,7 @@ export default async function NuovaVenditaPage({
         : 'nuovo'
 
   return (
-    <Pagina descrizione={callId ? 'Precompilata dalla call appena chiusa.' : undefined}>
+    <Pagina indietro={indietro} descrizione={callId ? 'Precompilata dalla call appena chiusa.' : undefined}>
       {riepilogo.length > 0 ? (
         <dl className="divide-y divide-border rounded-xl bg-card px-3" data-testid="precompilata">
           {riepilogo.map(([etichetta, valore]) => (

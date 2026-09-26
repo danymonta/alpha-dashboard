@@ -22,6 +22,7 @@ export default async function ProdottiPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
+        indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
         titolo="Prodotti"
         descrizione="Un prodotto fuori vendita resta nelle vendite passate ma non compare più nel modulo."
         azione={<ProdottoForm />}

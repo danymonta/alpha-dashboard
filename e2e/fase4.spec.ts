@@ -45,8 +45,15 @@ test.describe('Team', () => {
     await accedi(page, 'admin')
     await page.goto('/settings/team')
     const closer = page.getByTestId('membri').getByRole('listitem', { name: 'Lorenzo Closer' })
+    const ruolo = closer.getByLabel('Ruolo di Lorenzo Closer')
 
-    await closer.getByLabel('Ruolo di Lorenzo Closer').selectOption('coach')
+    // making someone admin asks first; "Annulla" leaves everything as it was
+    await ruolo.selectOption('admin')
+    await page.getByRole('dialog').getByRole('button', { name: 'Annulla' }).click()
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(ruolo).toHaveValue('closer')
+
+    await ruolo.selectOption('coach')
     await expect(page.getByText('Lorenzo Closer: ora coach')).toBeVisible()
 
     const lorenzo = await (await browser.newContext()).newPage()
@@ -55,6 +62,7 @@ test.describe('Team', () => {
     await lorenzo.context().close()
 
     await closer.getByRole('switch', { name: 'Lorenzo Closer attivo' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Disattiva' }).click()
     await expect(page.getByText(/Lorenzo Closer disattivato/)).toBeVisible()
 
     const disattivato = await (await browser.newContext()).newPage()
@@ -81,7 +89,7 @@ test('regole provvigioni: una nuova regola chiude la precedente e non tocca lo s
   await expect(regole.getByRole('listitem').filter({ hasText: '5%' })).toContainText(' al ')
 
   await page.goto('/settings/audit?tabella=commission_rules')
-  await expect(page.getByTestId('registro')).toContainText('Regola provvigione · creazione')
+  await expect(page.getByTestId('registro')).toContainText('Regola provvigione creata')
 })
 
 test('export CSV: file leggibile da Excel, solo per l’admin', async ({ page, browser }) => {

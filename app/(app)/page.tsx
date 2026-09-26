@@ -122,10 +122,8 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
     <div className="space-y-5">
       {/* Mobile: live status on the title row, month selector full width below. */}
       <header className="grid grid-cols-[auto_1fr] items-end gap-x-3 gap-y-2 md:flex md:flex-wrap md:justify-between">
-        <div>
-          <h1 className="font-heading text-xl font-semibold md:text-2xl">Panoramica</h1>
-          <p className="text-sm text-muted-foreground capitalize">{formatMese(mese)}</p>
-        </div>
+        {/* the month is in the selector: no second copy under the title */}
+        <h1 className="font-heading text-xl font-semibold md:text-2xl">Panoramica</h1>
         <div className="contents md:flex md:flex-wrap md:items-center md:gap-3">
           {eMeseCorrente ? (
             <div className="min-w-0 justify-self-end text-right">
@@ -136,7 +134,8 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
             mese={mese}
             meseCorrente={meseCorrente}
             percorso="/"
-            className="col-span-2 w-full justify-between md:w-auto md:justify-start"
+            // mobile: full width, both chevrons on the content edges; desktop: right chevron on the right edge
+            className="col-span-2 -mx-3 w-[calc(100%+1.5rem)] justify-between md:mx-0 md:-mr-3 md:w-auto md:justify-start"
           />
         </div>
       </header>
@@ -255,7 +254,7 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
                   <tbody className="divide-y divide-border">
                     {(cash.data ?? []).map((p) => (
                       <tr key={p.mese}>
-                        <th scope="row" className="py-2 text-left font-normal capitalize">{formatMese(p.mese)}</th>
+                        <th scope="row" className="py-2 text-left font-normal">{formatMese(p.mese)}</th>
                         <td className="py-2 text-right">{formatEuro(p.nuovo)}</td>
                         <td className="py-2 text-right">{formatEuro(p.rinnovo)}</td>
                         <td className="py-2 text-right">{formatEuro(p.upsell)}</td>

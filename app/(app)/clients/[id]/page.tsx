@@ -36,7 +36,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   if (!cliente || !valore) {
     return (
       <div className="max-w-3xl">
-        <IntestazionePagina titolo="Cliente" />
+        <IntestazionePagina titolo="Cliente" indietro={{ href: '/clients', etichetta: 'Clienti' }} />
         <StatoVuoto
           Icona={SearchX}
           titolo="Cliente non trovato"
@@ -62,6 +62,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         titolo={nome}
+        indietro={{ href: '/clients', etichetta: 'Clienti' }}
         azione={
           <div className="flex flex-wrap gap-2">
             <LinkBottone href={`/sales/new?cliente=${id}&tipo=rinnovo`}>
@@ -142,7 +143,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
           Storico vendite ({vendite.length})
         </h2>
         {vendite.length > 0 ? (
-          <ElencoVendite righe={vendite} mostraPersone />
+          <ElencoVendite righe={vendite} mostraPersone mostraCliente={false} />
         ) : (
           <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
             Nessuna vendita registrata.

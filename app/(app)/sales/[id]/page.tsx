@@ -42,11 +42,15 @@ export default async function DettaglioVenditaPage({
     .maybeSingle()
 
   const tornaIndietro = profilo.ruolo === 'admin' ? '/sales' : '/my-sales'
+  const indietro = {
+    href: tornaIndietro,
+    etichetta: profilo.ruolo === 'admin' ? 'Vendite' : 'Le mie vendite',
+  }
 
   if (!vendita) {
     return (
       <div className="max-w-2xl">
-        <IntestazionePagina titolo="Vendita" />
+        <IntestazionePagina titolo="Vendita" indietro={indietro} />
         <StatoVuoto
           Icona={SearchX}
           titolo="Vendita non trovata"
@@ -80,6 +84,7 @@ export default async function DettaglioVenditaPage({
       <IntestazionePagina
         titolo={nomeCliente || 'Vendita'}
         descrizione={vendita.cliente?.instagram_handle ?? undefined}
+        indietro={indietro}
       />
 
       <div className="rounded-xl bg-card p-4">
@@ -101,17 +106,18 @@ export default async function DettaglioVenditaPage({
               <dd className="num text-base font-medium">{formatEuro(riepilogo.da_incassare)}</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">In ritardo</dt>
-              <dd
-                className={`num flex items-center gap-1 text-base font-medium ${
-                  (riepilogo.rate_in_ritardo ?? 0) > 0 ? 'text-status-warning' : ''
+              {/* the warning sits on the label: the amount stays a plain number, gold is the contract value */}
+              <dt
+                className={`flex items-center gap-1 text-xs ${
+                  (riepilogo.rate_in_ritardo ?? 0) > 0 ? 'text-status-warning' : 'text-muted-foreground'
                 }`}
               >
                 {(riepilogo.rate_in_ritardo ?? 0) > 0 ? (
-                  <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
+                  <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
                 ) : null}
-                {formatEuro(riepilogo.in_ritardo)}
-              </dd>
+                In ritardo
+              </dt>
+              <dd className="num text-base font-medium text-foreground">{formatEuro(riepilogo.in_ritardo)}</dd>
             </div>
           </dl>
         ) : null}

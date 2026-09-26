@@ -6,11 +6,12 @@ import {
   CircleX,
   Lightbulb,
   LoaderCircle,
+  Pencil,
   RotateCw,
   type LucideIcon,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useOptimistic, useState, useTransition } from 'react'
+import { useOptimistic, useState, useTransition, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { aggiornaStatoLead } from '@/app/(app)/leads/actions'
@@ -68,20 +69,26 @@ function useAggiornaStato(leadId: string, nome: string, stato: StatoLead) {
 }
 
 /**
- * The pipeline card's status area. Manual by decision (CLAUDE.md section 8):
- * nothing moves by itself, but a mismatch with the last call is surfaced with
- * the one action that resolves it.
+ * The pipeline card: header (server-rendered children) with the status badge
+ * beside the name. Manual by decision (CLAUDE.md section 8): nothing moves by
+ * itself, but a mismatch with the last call is surfaced with the one action
+ * that resolves it.
  */
 export function StatoLeadArea({
   leadId,
   nome,
   stato,
   suggerimento,
+  titolo,
+  children,
 }: {
   leadId: string
   nome: string
   stato: StatoLead
   suggerimento: Suggerimento | null
+  /** The name: shares its line with the status, the details below get the full width. */
+  titolo: ReactNode
+  children: ReactNode
 }) {
   const { mostrato, inCorso, cambia } = useAggiornaStato(leadId, nome, stato)
   const [aperto, setAperto] = useState(false)
@@ -90,16 +97,31 @@ export function StatoLeadArea({
   const attivo = suggerimento && !(suggerimento.tipo === 'stato' && suggerimento.stato === mostrato)
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <span className={cn('inline-flex items-center gap-1.5 text-sm font-medium', tono)} data-testid="stato-lead">
+    <>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">{titolo}</div>
+
+        <span
+          className={cn('-mt-3 inline-flex h-11 shrink-0 items-center gap-1.5 text-sm font-medium whitespace-nowrap', tono)}
+          data-testid="stato-lead"
+        >
           {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Icona className="size-4" aria-hidden="true" />}
           {ETICHETTA_STATO_LEAD[mostrato]}
         </span>
 
         <Sheet open={aperto} onOpenChange={setAperto}>
-          <SheetTrigger render={<Button type="button" variant="ghost" className="h-11 text-muted-foreground" />}>
-            Cambia stato
+          <SheetTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Cambia stato di ${nome}`}
+                className="-mt-3 -mr-1 size-11 shrink-0 text-muted-foreground"
+              />
+            }
+          >
+            <Pencil className="size-4" aria-hidden="true" />
           </SheetTrigger>
           <SheetContent side="bottom" className="mx-auto w-full max-w-lg rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
             <SheetHeader>
@@ -131,6 +153,7 @@ export function StatoLeadArea({
           </SheetContent>
         </Sheet>
       </div>
+      <div className="-mt-5">{children}</div>
 
       {attivo ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/60 px-3 py-2" data-testid="suggerimento-lead">
@@ -162,6 +185,6 @@ export function StatoLeadArea({
           ) : null}
         </div>
       ) : null}
-    </div>
+    </>
   )
 }

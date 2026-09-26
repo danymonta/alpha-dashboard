@@ -33,6 +33,9 @@ export function SchedaCall({ call, oggi, adesso, vista, mostraGiorno = true }: P
   const nome = call.lead?.nome ?? 'Lead senza nome'
   const passata = new Date(call.programmata_il).getTime() < adesso
   const idTitolo = `call-${call.id}`
+  const stato = (
+    <StatoCall stato={call.stato} esito={call.esito} qualificata={call.qualificata} passata={passata} />
+  )
 
   const dettagli = [
     ETICHETTA_TIPO_CALL[call.tipo],
@@ -65,17 +68,14 @@ export function SchedaCall({ call, oggi, adesso, vista, mostraGiorno = true }: P
             {nome}
           </h3>
           <p className="truncate text-sm text-muted-foreground">{dettagli.join(' · ')}</p>
+          {/* setter: read only, no action row to reserve space for */}
+          {vista === 'setter' ? <div className="mt-1">{stato}</div> : null}
         </div>
       </div>
 
-      <div className="mt-2 flex min-h-11 items-center justify-between gap-2 pl-[4.25rem]">
-        <StatoCall
-          stato={call.stato}
-          esito={call.esito}
-          qualificata={call.qualificata}
-          passata={passata}
-        />
-        {vista === 'closer' ? (
+      {vista === 'closer' ? (
+        <div className="mt-2 flex min-h-11 items-center justify-between gap-2 pl-[4.25rem]">
+          {stato}
           <RegistraEsito
             callId={call.id}
             nomeLead={nome}
@@ -83,8 +83,8 @@ export function SchedaCall({ call, oggi, adesso, vista, mostraGiorno = true }: P
             giaRegistrata={call.stato !== 'programmata'}
             futura={!passata}
           />
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </article>
   )
 }

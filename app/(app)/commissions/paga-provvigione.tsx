@@ -97,7 +97,7 @@ export function PagaProvvigione({
             <Label htmlFor="pp-periodo">Mese di riferimento</Label>
             <select
               id="pp-periodo"
-              className="h-11 w-full rounded-lg border border-input bg-input/30 px-2.5 text-base capitalize outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+              className="h-11 w-full rounded-lg border border-input bg-input/30 px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
               {...register('periodo', {
                 onChange: (e) => {
                   const scelto = mesi.find((m) => m.mese === e.target.value)

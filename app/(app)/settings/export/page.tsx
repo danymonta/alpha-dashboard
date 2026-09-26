@@ -24,6 +24,7 @@ export default async function ExportPage({ searchParams }: { searchParams: Promi
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
+        indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
         titolo="Esporta CSV"
         descrizione="Per la commercialista e come copia di sicurezza mensile. Si aprono direttamente in Excel."
       />

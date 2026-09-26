@@ -1,5 +1,6 @@
 'use client'
 
+import { useSyncExternalStore } from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 import {
@@ -23,7 +24,28 @@ const CONFIG = {
 
 const SERIE = ['nuovo', 'rinnovo', 'upsell'] as const
 
+// below lg twelve labels do not fit: Recharts would drop them unevenly
+const STRETTO = '(max-width: 1023.98px)'
+
+function iscriviti(avvisa: () => void) {
+  const mq = window.matchMedia(STRETTO)
+  mq.addEventListener('change', avvisa)
+  return () => mq.removeEventListener('change', avvisa)
+}
+
+function useStretto() {
+  return useSyncExternalStore(
+    iscriviti,
+    () => window.matchMedia(STRETTO).matches,
+    () => false,
+  )
+}
+
 export function GraficoCash({ dati }: { dati: PuntoCash[] }) {
+  const stretto = useStretto()
+  // every other month counting back from the last one, so the selected month is always labelled
+  const ticks = stretto ? dati.filter((_, i) => (dati.length - 1 - i) % 2 === 0).map((p) => p.mese) : undefined
+
   return (
     <ChartContainer config={CONFIG} className="aspect-auto h-64 w-full md:h-72">
       <BarChart data={dati} margin={{ top: 8, right: 4, left: 4, bottom: 0 }} accessibilityLayer>
@@ -34,6 +56,8 @@ export function GraficoCash({ dati }: { dati: PuntoCash[] }) {
           axisLine={false}
           tickMargin={8}
           tickFormatter={formatMeseBreve}
+          ticks={ticks}
+          interval={stretto ? 0 : 'preserveEnd'}
           stroke="var(--alpha-text-muted)"
         />
         <YAxis
@@ -49,7 +73,7 @@ export function GraficoCash({ dati }: { dati: PuntoCash[] }) {
             <ChartTooltipContent
               labelFormatter={(_, payload) => {
                 const mese = payload?.[0]?.payload?.mese as string | undefined
-                return mese ? <span className="capitalize">{formatMese(mese)}</span> : null
+                return mese ? formatMese(mese) : null
               }}
               formatter={(valore, nome, item) => (
                 <div className="flex w-full items-center justify-between gap-4">

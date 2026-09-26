@@ -89,7 +89,7 @@ export default async function ProvvigioniPage() {
               <ul className="space-y-2 md:hidden" aria-label={`Provvigioni di ${nome} per mese`}>
                 {mesiRecenti.map((r) => (
                   <li key={r.mese} className="rounded-lg border border-border px-3 py-2.5">
-                    <p className="text-sm font-medium capitalize">{formatMese(r.mese)}</p>
+                    <p className="text-sm font-medium">{formatMese(r.mese)}</p>
                     <dl className="mt-1.5 grid grid-cols-3 gap-3">
                       <div className="text-right">
                         <dt className="text-xs text-muted-foreground">Maturato</dt>
@@ -122,7 +122,7 @@ export default async function ProvvigioniPage() {
                   <tbody className="divide-y divide-border">
                     {mesiRecenti.map((r) => (
                       <tr key={r.mese}>
-                        <th scope="row" className="py-2 text-left font-normal capitalize">{formatMese(r.mese)}</th>
+                        <th scope="row" className="py-2 text-left font-normal">{formatMese(r.mese)}</th>
                         <td className="py-2 text-right">{formatEuro(r.maturato)}</td>
                         <td className="py-2 text-right">{formatEuro(r.pagato)}</td>
                         <td className="py-2 text-right font-medium">{formatEuro(r.saldo_mese)}</td>

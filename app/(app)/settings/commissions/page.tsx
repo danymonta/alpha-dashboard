@@ -1,4 +1,4 @@
-import { Percent } from 'lucide-react'
+import { CircleCheck, CircleMinus, Clock, Percent, type LucideIcon } from 'lucide-react'
 
 import { ChiudiRegola, NuovaRegola } from '@/app/(app)/settings/commissions/regole-client'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
@@ -25,12 +25,18 @@ export default async function RegoleProvvigioniPage() {
   ])
   if (error || errorePersone) throw new Error('Impossibile caricare le regole')
 
-  const stato = (r: { valida_dal: string; valida_al: string | null }) =>
-    r.valida_dal > oggi ? 'Futura' : r.valida_al && r.valida_al < oggi ? 'Chiusa' : 'In vigore'
+  // icon + words like every other status in the app; colour only reinforces
+  const stato = (r: { valida_dal: string; valida_al: string | null }): { etichetta: string; Icona: LucideIcon; tono: string } =>
+    r.valida_dal > oggi
+      ? { etichetta: 'Futura', Icona: Clock, tono: 'text-muted-foreground' }
+      : r.valida_al && r.valida_al < oggi
+        ? { etichetta: 'Chiusa', Icona: CircleMinus, tono: 'text-muted-foreground' }
+        : { etichetta: 'In vigore', Icona: CircleCheck, tono: 'text-status-ok' }
 
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
+        indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
         titolo="Regole provvigioni"
         descrizione="La provvigione matura sull’incasso con la regola valida quel giorno. Una nuova regola non riscrive il passato."
         azione={<NuovaRegola persone={persone} dataPredefinita={aggiungiMesi(primoDelMeseISO(oggi), 1)} />}
@@ -44,22 +50,35 @@ export default async function RegoleProvvigioniPage() {
         />
       ) : (
         <ul className="divide-y divide-border rounded-xl bg-card" data-testid="regole">
-          {regole.map((r) => (
-            <li key={r.id} className="space-y-2 px-3 py-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-sm font-medium">
-                  {r.persona?.nome} · <span className="num">{formatPercentuale(r.percentuale)}</span>
+          {regole.map((r) => {
+            const { etichetta, Icona, tono } = stato(r)
+            return (
+              <li key={r.id} className="space-y-2 px-3 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    {r.persona?.nome} ·{' '}
+                    <span className="num text-base font-semibold">{formatPercentuale(r.percentuale)}</span>
+                  </p>
+                  <span className={`inline-flex items-center gap-1.5 text-sm ${tono}`}>
+                    <Icona className="size-4 shrink-0" aria-hidden="true" />
+                    {etichetta}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Sull’incassato di: {r.applica_a.map((t) => ETICHETTA_TIPO_VENDITA[t].toLowerCase()).join(', ')} · dal{' '}
+                  {formatData(r.valida_dal)}
+                  {r.valida_al ? ` al ${formatData(r.valida_al)}` : ''}
                 </p>
-                <span className="text-xs text-muted-foreground">{stato(r)}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Sull’incassato di: {r.applica_a.map((t) => ETICHETTA_TIPO_VENDITA[t].toLowerCase()).join(', ')} · dal{' '}
-                {formatData(r.valida_dal)}
-                {r.valida_al ? ` al ${formatData(r.valida_al)}` : ''}
-              </p>
-              {!r.valida_al && r.valida_dal <= oggi ? <ChiudiRegola ruleId={r.id} oggi={oggi} /> : null}
-            </li>
-          ))}
+                {!r.valida_al && r.valida_dal <= oggi ? (
+                  <ChiudiRegola
+                    ruleId={r.id}
+                    oggi={oggi}
+                    etichetta={`${r.persona?.nome ?? 'Regola'} · ${formatPercentuale(r.percentuale)}`}
+                  />
+                ) : null}
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>

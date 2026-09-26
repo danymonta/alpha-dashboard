@@ -27,6 +27,7 @@ export default async function TeamPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
+        indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
         titolo="Team"
         descrizione="Accesso solo su invito. Chi è disattivato non entra più e non vede nessun dato."
         azione={<InvitaMembro urlLogin={`${publicEnv.appUrl.replace(/^https?:\/\//, '')}/login`} />}
