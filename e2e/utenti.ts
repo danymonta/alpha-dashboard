@@ -16,6 +16,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   admin: [
     { nome: 'panoramica', url: '/' },
     { nome: 'le-mie-call', url: '/calls' },
+    { nome: 'nuova-vendita', url: '/sales/new' },
     { nome: 'vendite', url: '/sales' },
     { nome: 'incassi', url: '/payments' },
     { nome: 'clienti', url: '/clients' },
@@ -32,6 +33,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   ],
   closer: [
     { nome: 'le-mie-call', url: '/calls' },
+    { nome: 'nuova-vendita', url: '/sales/new' },
     { nome: 'le-mie-vendite', url: '/my-sales' },
   ],
 }

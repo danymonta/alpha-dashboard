@@ -8,6 +8,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import { fissaCall } from '@/app/(app)/calls/new/actions'
+import { ErroreCampo } from '@/components/form/errore-campo'
 import { SceltaRapida } from '@/components/form/scelta-rapida'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,15 +36,6 @@ type Props = {
 
 const OPZIONI_FONTE = FONTI.map((f) => ({ valore: f, etichetta: ETICHETTA_FONTE[f] }))
 const OPZIONI_TIPO = TIPI_CALL.map((t) => ({ valore: t, etichetta: ETICHETTA_TIPO_CALL[t] }))
-
-function ErroreCampo({ id, messaggio }: { id: string; messaggio?: string }) {
-  if (!messaggio) return null
-  return (
-    <p id={id} role="alert" className="text-sm text-status-critical">
-      {messaggio}
-    </p>
-  )
-}
 
 export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
   const router = useRouter()

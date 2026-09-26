@@ -1,5 +1,6 @@
 import { test } from '@playwright/test'
 
+import { pagineDinamiche } from './db'
 import { PAGINE, accedi, type RuoloSeed } from './utenti'
 
 const RUOLI: RuoloSeed[] = ['admin', 'setter', 'closer']
@@ -11,7 +12,7 @@ for (const ruolo of RUOLI) {
 
       await accedi(page, ruolo)
 
-      for (const pagina of PAGINE[ruolo]) {
+      for (const pagina of [...PAGINE[ruolo], ...(await pagineDinamiche(ruolo))]) {
         await page.goto(pagina.url)
         await page.waitForLoadState('networkidle')
         await page.screenshot({

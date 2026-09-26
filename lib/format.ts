@@ -107,3 +107,15 @@ export function primoDelMese(value: string | Date): string {
   const d = parseDataISO(value)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
+
+const importoInput = new Intl.NumberFormat('it-IT', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  useGrouping: 'always',
+})
+
+/** "1.500,00": the way an amount is shown inside an editable field. */
+export function formatImportoInput(value: number | string | null | undefined): string {
+  const n = toNumber(value)
+  return n === null ? '' : importoInput.format(n)
+}

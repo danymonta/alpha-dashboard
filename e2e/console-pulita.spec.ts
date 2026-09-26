@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 
+import { pagineDinamiche } from './db'
 import { PAGINE, accedi, type RuoloSeed } from './utenti'
 
 // Every page of every role, at phone width: no console error, no uncaught
@@ -15,7 +16,7 @@ for (const ruolo of ['admin', 'setter', 'closer'] as RuoloSeed[]) {
     page.on('pageerror', (e) => errori.push(`${new URL(page.url()).pathname}: ${e.message}`))
 
     await accedi(page, ruolo)
-    for (const pagina of PAGINE[ruolo]) {
+    for (const pagina of [...PAGINE[ruolo], ...(await pagineDinamiche(ruolo))]) {
       await page.goto(pagina.url)
       await page.waitForLoadState('networkidle')
     }

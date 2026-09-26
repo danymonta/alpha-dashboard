@@ -1,10 +1,9 @@
 import { CalendarPlus, PhoneOff } from 'lucide-react'
-import Link from 'next/link'
 
 import { SchedaCall, type CallVista } from '@/app/(app)/calls/scheda-call'
+import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { Button } from '@/components/ui/button'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
@@ -93,10 +92,10 @@ export default async function LeMieCallPage() {
         titolo="Le mie call"
         descrizione="Le call che hai fissato, con stato ed esito."
         azione={
-          <Button className="h-11" nativeButton={false} render={<Link href="/calls/new" />}>
+          <LinkBottone href="/calls/new">
             <CalendarPlus className="size-4" aria-hidden="true" />
             Nuova call
-          </Button>
+          </LinkBottone>
         }
       />
     )
@@ -111,9 +110,9 @@ export default async function LeMieCallPage() {
             titolo="Nessuna call negli ultimi 30 giorni"
             descrizione="Quando fissi una call dai DM, la trovi qui con stato ed esito."
             azione={
-              <Button className="h-11" nativeButton={false} render={<Link href="/calls/new" />}>
+              <LinkBottone href="/calls/new">
                 Fissa una call
-              </Button>
+              </LinkBottone>
             }
           />
         ) : (
@@ -122,9 +121,9 @@ export default async function LeMieCallPage() {
             titolo="Nessuna call in programma"
             descrizione="Le call che il setter ti assegna compaiono qui, con l’esito da registrare."
             azione={
-              <Button variant="outline" className="h-11" nativeButton={false} render={<Link href="/my-sales" />}>
+              <LinkBottone href="/my-sales" variant="outline">
                 Vai alle mie vendite
-              </Button>
+              </LinkBottone>
             }
           />
         )}

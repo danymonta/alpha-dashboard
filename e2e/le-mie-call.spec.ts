@@ -75,7 +75,9 @@ test.describe('Le mie call, closer', () => {
     await foglio.getByRole('button', { name: 'Chiusa', exact: true }).click()
 
     await expect(page).toHaveURL(`/sales/new?call=${callId}`)
-    await expect(page.getByTestId('precompilata')).toContainText(nome)
+    // the client is prefilled from the lead: "E2E Esito Chiusa 123" -> nome + cognome
+    await expect(page.getByLabel('Nome', { exact: true })).toHaveValue('E2E')
+    await expect(page.getByLabel('Cognome')).toHaveValue(nome.replace(/^E2E /, ''))
     await expect(page.getByTestId('precompilata')).toContainText('Loris Setter')
   })
 

@@ -382,6 +382,16 @@ isOneToOne: false
                            },
 "oggi":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"piano_rate":
+{ Args: { "p_data_vendita": string,"p_numero_rate": number,"p_valore": number }; Returns: {
+              "importo": number,"numero_rata": number,"scadenza": string
+            }[]
+                           },
+"registra_vendita":
+{ Args: { "p_call_id"?: string,"p_client_id"?: string,"p_cognome"?: string,"p_data_inizio": string,"p_data_vendita": string,"p_email"?: string,"p_instagram_handle"?: string,"p_nome"?: string,"p_note"?: string,"p_numero_rate": number,"p_product_id": string,"p_telefono"?: string,"p_tipo": Database["public"]['Enums']["sale_type"],"p_valore_contratto": number }; Returns: {
+              "cliente_nuovo": boolean,"id_cliente": string,"id_vendita": string
+            }[]
                            }
           }
           Enums: {
