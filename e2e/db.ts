@@ -105,3 +105,39 @@ export async function pagineDinamiche(ruolo: 'admin' | 'setter' | 'closer') {
   const { data } = await query
   return data && data.length > 0 ? [{ nome: 'dettaglio-vendita', url: `/sales/${data[0].id}` }] : []
 }
+
+/** A client with one sale whose plan starts `giorniFa` days ago (payments by the trigger). */
+export async function creaVenditaDiProva(
+  nome: string,
+  closerId: string,
+  { valore = 900, rate = 3, giorniFa = 40 }: { valore?: number; rate?: number; giorniFa?: number } = {},
+) {
+  const db = dbLocale()
+  const { data: cliente, error: e1 } = await db
+    .from('clients')
+    .insert({ nome, cognome: 'Incassi', setter_id: ID_SETTER, closer_id: closerId, fonte: 'dm_inbound' })
+    .select('id')
+    .single()
+  if (e1) throw e1
+
+  const data = new Date(Date.now() - giorniFa * 86_400_000).toISOString().slice(0, 10)
+  const { data: vendita, error: e2 } = await db
+    .from('sales')
+    .insert({
+      client_id: cliente.id,
+      product_id: PRODOTTO_3_MESI,
+      tipo: 'nuovo',
+      setter_id: ID_SETTER,
+      closer_id: closerId,
+      data_vendita: data,
+      data_inizio: data,
+      data_fine: new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10),
+      valore_contratto: valore,
+      numero_rate: rate,
+    })
+    .select('id')
+    .single()
+  if (e2) throw e2
+
+  return vendita.id as string
+}

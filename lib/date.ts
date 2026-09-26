@@ -89,3 +89,32 @@ export function etichettaGiornoBreve(iso: string, oggi: string = oggiRoma()): st
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   return `${giornoSettimanaBreve.format(d)} ${gg}/${mm}`
 }
+
+/** 'YYYY-MM-01' of the month containing the date. */
+export function primoDelMeseISO(iso: string): string {
+  return `${iso.slice(0, 7)}-01`
+}
+
+/** Reads "?mese=2026-09" (or 2026-09-01); null when absent or malformed. */
+export function parseMese(valore: unknown): string | null {
+  if (typeof valore !== 'string') return null
+  const m = /^(\d{4})-(\d{2})(?:-01)?$/.exec(valore)
+  if (!m) return null
+  const mese = Number(m[2])
+  if (mese < 1 || mese > 12) return null
+  return `${m[1]}-${m[2]}-01`
+}
+
+/** Month arithmetic on first-of-month dates: aggiungiMesi('2026-01-01', -1) = '2025-12-01'. */
+export function aggiungiMesi(primo: string, mesi: number): string {
+  const anno = Number(primo.slice(0, 4))
+  const mese = Number(primo.slice(5, 7)) - 1 + mesi
+  const a = anno + Math.floor(mese / 12)
+  const m = ((mese % 12) + 12) % 12
+  return `${a}-${String(m + 1).padStart(2, '0')}-01`
+}
+
+/** Last day of the month of a first-of-month date. */
+export function fineMese(primo: string): string {
+  return aggiungiGiorni(aggiungiMesi(primo, 1), -1)
+}

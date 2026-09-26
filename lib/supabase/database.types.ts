@@ -234,6 +234,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "sales"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "payments_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_vendite"
+      referencedColumns: ["sale_id"]
     }
                   ]
                 },"products": {
@@ -358,6 +364,49 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"v_vendite": {
+                  Row: {
+                    "call_id": string | null,"client_id": string | null,"closer_id": string | null,"da_incassare": number | null,"data_fine": string | null,"data_inizio": string | null,"data_vendita": string | null,"in_ritardo": number | null,"incassato": number | null,"numero_rate": number | null,"product_id": string | null,"prossima_scadenza": string | null,"rate_in_ritardo": number | null,"rate_incassate": number | null,"rate_totali": number | null,"sale_id": string | null,"scarto_piano": number | null,"setter_id": string | null,"tipo": Database["public"]['Enums']["sale_type"] | null,"totale_piano": number | null,"valore_contratto": number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "sales_call_id_fkey"
+      columns: ["call_id"]
+isOneToOne: false
+      referencedRelation: "calls"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "sales_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "sales_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "sales_closer_id_fkey"
+      columns: ["closer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "sales_product_id_fkey"
+      columns: ["product_id"]
+isOneToOne: false
+      referencedRelation: "products"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "sales_setter_id_fkey"
+      columns: ["setter_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Functions: {
@@ -388,9 +437,17 @@ isOneToOne: false
               "importo": number,"numero_rata": number,"scadenza": string
             }[]
                            },
+"registra_rimborso":
+{ Args: { "p_data": string,"p_importo": number,"p_note"?: string,"p_payment_id": string }; Returns: string
+                           },
 "registra_vendita":
 { Args: { "p_call_id"?: string,"p_client_id"?: string,"p_cognome"?: string,"p_data_inizio": string,"p_data_vendita": string,"p_email"?: string,"p_instagram_handle"?: string,"p_nome"?: string,"p_note"?: string,"p_numero_rate": number,"p_product_id": string,"p_telefono"?: string,"p_tipo": Database["public"]['Enums']["sale_type"],"p_valore_contratto": number }; Returns: {
               "cliente_nuovo": boolean,"id_cliente": string,"id_vendita": string
+            }[]
+                           },
+"segna_rata_incassata":
+{ Args: { "p_importo"?: number,"p_incassato_il"?: string,"p_metodo"?: Database["public"]['Enums']["payment_method"],"p_payment_id": string }; Returns: {
+              "data_registrata": string,"importo_registrato": number,"rata": number
             }[]
                            }
           }

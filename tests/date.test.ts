@@ -84,3 +84,28 @@ describe('etichette', () => {
     expect(formatOra('2026-09-26T16:42:10Z')).toBe('18:42')
   })
 })
+
+describe('mesi', () => {
+  it('legge il parametro del mese', async () => {
+    const { parseMese } = await import('@/lib/date')
+    expect(parseMese('2026-09')).toBe('2026-09-01')
+    expect(parseMese('2026-09-01')).toBe('2026-09-01')
+    expect(parseMese('2026-13')).toBeNull()
+    expect(parseMese('settembre')).toBeNull()
+    expect(parseMese(undefined)).toBeNull()
+  })
+
+  it('somma e sottrae mesi attraversando l’anno', async () => {
+    const { aggiungiMesi } = await import('@/lib/date')
+    expect(aggiungiMesi('2026-01-01', -1)).toBe('2025-12-01')
+    expect(aggiungiMesi('2026-12-01', 1)).toBe('2027-01-01')
+    expect(aggiungiMesi('2026-09-01', -12)).toBe('2025-09-01')
+  })
+
+  it('trova l’ultimo giorno del mese, febbraio bisestile compreso', async () => {
+    const { fineMese } = await import('@/lib/date')
+    expect(fineMese('2026-02-01')).toBe('2026-02-28')
+    expect(fineMese('2028-02-01')).toBe('2028-02-29')
+    expect(fineMese('2026-09-01')).toBe('2026-09-30')
+  })
+})

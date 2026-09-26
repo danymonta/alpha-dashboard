@@ -76,7 +76,7 @@ In questa app contano `admin`, `setter`, `closer`. Gli altri ruoli possono logga
 | Dato | admin | setter | closer |
 |---|---|---|---|
 | Report giornalieri setting | tutti, lettura e scrittura | solo i propri; modifica solo degli ultimi 7 giorni | nessuno |
-| Lead | tutti | solo quelli creati da lui | quelli con call assegnate a lui |
+| Lead | tutti | solo quelli creati da lui; ne aggiorna lo stato | quelli con call assegnate a lui; ne aggiorna lo stato |
 | Call | tutte | le proprie: data, stato, esito (chiusa sì o no), mai importi | quelle assegnate a lui, può aggiornare l'esito |
 | Clienti | tutti | nome e stato dei clienti nati da suoi lead, niente contatti | clienti nati da sue call |
 | Vendite e rate | tutte | nessuna | solo le vendite chiuse da lui |
@@ -91,6 +91,7 @@ Regole di implementazione:
 - Funzione helper `public.current_role()` `security definer`, `stable`, `set search_path = ''`, che legge il ruolo da `profiles` (ruolo attivo e utente attivo). Usala nelle policy.
 - Ogni view è creata `with (security_invoker = true)`. Una view senza questa opzione gira coi permessi del proprietario e **bypassa RLS**. È il bug di sicurezza più probabile di questo progetto.
 - Le funzioni RPC che restituiscono aggregati economici controllano esplicitamente `current_role() = 'admin'` o filtrano per `auth.uid()`.
+- Il closer non ha una policy di update sui lead: lo stato si cambia con la RPC `aggiorna_stato_lead` (`security definer`), che tocca solo la colonna `stato` e verifica chi chiama.
 
 ## 7. Autenticazione e gestione utenti
 
@@ -126,11 +127,13 @@ setter_daily_reports
 leads
   id, nome, instagram_handle, setter_id -> profiles,
   fonte enum lead_source (dm_inbound, dm_outbound, referral, organico, ads, altro),
-  stato enum lead_status (call_fissata, cliente, perso),
+  stato enum lead_status (call_fissata, follow_up, cliente, perso),
   note, created_at
 ```
 
 Il setter crea un lead **solo quando fissa una call**, non per ogni DM. I volumi dei DM vivono nel report giornaliero.
+
+Lo stato del lead è la **pipeline**: lo aggiornano a mano setter e closer con un tocco (Call fissata → Follow-up → Cliente / Perso). Nessun trigger lo cambia da solo (decisione di Dany, 26/09/2026).
 
 ### Call
 
@@ -288,6 +291,18 @@ Caricamento (skeleton, non spinner a tutto schermo), vuoto (messaggio più azion
 ## 11. Design system
 
 Tema scuro, unico tema nella v1. Sobrio, denso di informazione, nessun effetto decorativo. Riferimento di tono: strumento finanziario professionale, non app fitness.
+
+### Momento di brand (deciso da Dany il 26/09/2026)
+
+Unica eccezione alla sobrietà, confinata all'ingresso: chi entra deve essere colpito dal brand, chi lavora deve vedere i numeri.
+
+- **Login**: logo Percorso Alpha (`public/brand/percorso-alpha.webp`) animato, con glow pulsante e fuoco/braci attorno.
+- **Dopo il login**: intro di circa 1,5 s, una volta per sessione, saltabile con un tocco, poi la dashboard.
+- **Shell**: logo piccolo con glow leggero nella sidebar (desktop) e nella top bar (mobile).
+- **Schermate dati**: restano sobrie. Nessuna animazione decorativa vicino ai numeri.
+- `prefers-reduced-motion`: nessuna animazione, logo statico, intro saltata.
+- I colori del fuoco sono token (`--brand-fire-*`) in `globals.css`, mai hex sparsi nei componenti.
+- La regola "un solo elemento oro per schermata" vale per le schermate dati; login e intro ne sono escluse.
 
 ### Token
 
