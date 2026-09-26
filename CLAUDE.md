@@ -75,9 +75,10 @@ In questa app contano `admin`, `setter`, `closer`. Gli altri ruoli possono logga
 
 | Dato | admin | setter | closer |
 |---|---|---|---|
-| Report giornalieri setting | tutti, lettura e scrittura | solo i propri; modifica solo degli ultimi 7 giorni | nessuno |
+| Report giornalieri setting | tutti, lettura e scrittura | solo i propri; compila e corregge qualsiasi giorno passato, mai il futuro | nessuno |
 | Lead | tutti | solo quelli creati da lui; ne aggiorna lo stato | quelli con call assegnate a lui; ne aggiorna lo stato |
-| Call | tutte | le proprie: data, stato, esito (chiusa sì o no), mai importi | quelle assegnate a lui, può aggiornare l'esito |
+| Call | tutte | le proprie: data, stato, esito (chiusa sì o no), mai importi; le riprogramma e le riassegna | quelle assegnate a lui: esito, data, dettagli (link, performance, prodotto proposto) |
+| Importo proposto in call (`call_pitch`) | tutti | nessuno | solo delle call assegnate a lui |
 | Clienti | tutti | nome e stato dei clienti nati da suoi lead, niente contatti | clienti nati da sue call |
 | Vendite e rate | tutte | nessuna | solo le vendite chiuse da lui |
 | Provvigioni | tutte | solo il proprio totale mensile maturato e pagato, mai il dettaglio per cliente | nessuna |
@@ -92,6 +93,7 @@ Regole di implementazione:
 - Ogni view è creata `with (security_invoker = true)`. Una view senza questa opzione gira coi permessi del proprietario e **bypassa RLS**. È il bug di sicurezza più probabile di questo progetto.
 - Le funzioni RPC che restituiscono aggregati economici controllano esplicitamente `current_role() = 'admin'` o filtrano per `auth.uid()`.
 - Il closer non ha una policy di update sui lead: lo stato si cambia con la RPC `aggiorna_stato_lead` (`security definer`), che tocca solo la colonna `stato` e verifica chi chiama.
+- **Tutto ciò che si inserisce resta modificabile** (decisione di Dany, 27/09/2026): lead, call, report, clienti, vendite, rate e incassi, costi, pagamenti e regole provvigionali hanno la loro schermata di modifica, nei limiti della tabella qui sopra. Il setter corregge i propri report di qualsiasi giorno passato.
 
 ## 7. Autenticazione e gestione utenti
 
@@ -133,7 +135,7 @@ leads
 
 Il setter crea un lead **solo quando fissa una call**, non per ogni DM. I volumi dei DM vivono nel report giornaliero.
 
-Lo stato del lead è la **pipeline**: lo aggiornano a mano setter e closer con un tocco (Call fissata → Follow-up → Cliente / Perso). Nessun trigger lo cambia da solo (decisione di Dany, 26/09/2026).
+Lo stato del lead è la **pipeline**: lo aggiornano a mano setter e closer con un tocco (Call da fare → Follow-up → Cliente / Perso; lo stato `call_fissata` si mostra come "Call da fare"). Nessun trigger lo cambia da solo (decisione di Dany, 26/09/2026).
 
 ### Call
 
@@ -145,8 +147,15 @@ calls
   stato enum call_status (programmata, svolta, no_show, cancellata, riprogrammata),
   qualificata bool null,            -- valorizzato solo se svolta
   esito enum call_outcome null (chiusa, follow_up, persa),  -- solo se svolta
-  obiezione_principale text, note
+  obiezione_principale text, note,
+  link_registrazione text null, performance enum call_performance null (buona, media, scarsa),
+  prodotto_proposto_id -> products null
+
+call_pitch                          -- tabella separata: il setter legge le call ma mai un importo
+  id, call_id -> calls unique on delete cascade, importo_proposto numeric(12,2) >= 0
 ```
+
+Campi presi dal foglio prospect di Dany (27/09/2026). Si modificano con le RPC `modifica_call` (data, ora in Europe/Rome, tipo, closer, note) e `dettagli_call` (closer e admin).
 
 ### Clienti, prodotti, vendite, incassi
 
@@ -198,6 +207,8 @@ expenses
   id, data date, categoria enum expense_category (team, software, ads, formazione, altro),
   descrizione, importo numeric(12,2), ricorrente bool
 ```
+
+Una persona non ha mai due regole valide nello stesso giorno: un trigger rifiuta le date sovrapposte, perché la provvigione verrebbe contata due volte.
 
 La provvigione matura **sull'incasso**, non sulla firma: per ogni `payment` incassato di una vendita con `setter_id`, provvigione = `importo_incassato * percentuale` della regola valida alla data d'incasso e applicabile al tipo di vendita. Un rimborso genera provvigione negativa nel mese del rimborso. Se Dany decide diversamente (provvigione anche sui rinnovi, o su revenue invece che su cash), si cambia solo `commission_rules`, non il codice.
 
@@ -426,8 +437,8 @@ Script una tantum `scripts/import-excel.ts` (lanciato in locale contro il databa
 - fogli mensili, colonne I-Q (sezione SETTER) -> `setter_daily_reports` del setter indicato da argomento. Righe con tutte le celle vuote o a zero: saltate;
 - colonne S-Z (sezione CLOSER): non si importano come righe, perché sono totali giornalieri senza cliente. Lo script produce `import/vendite-da-completare.csv` con una riga per ogni giorno con `CLOSES > 0` (data, cash, revenue) e le colonne vuote `cliente_nome`, `cliente_cognome`, `prodotto`, `numero_rate`, che Dany compila a mano;
 - un secondo passaggio legge il CSV compilato e crea clienti, vendite e rate incassate;
-- foglio "Setter Payments" -> `commission_payouts`.
-Lo script stampa un riepilogo (righe lette, create, saltate) e si può rilanciare senza duplicare.
+- foglio "Setter Payments" -> `commission_payouts`. Il foglio non dice a quale mese si riferisce un pagamento: si attribuisce al mese più vecchio non ancora coperto dal cash (decisione delegata da Dany, 27/09/2026). Se il setter non ha regole, lo script crea quella del foglio (5% sulle vendite nuove dal primo mese).
+Lo script stampa un riepilogo (righe lette, create, saltate) e si può rilanciare senza duplicare. Colonne del CSV: `data, cash, revenue, cliente_nome, cliente_cognome, prodotto, numero_rate, tipo, da_setter, metodo`; `da_setter` (sì/no) decide la provvigione, `numero_rate` deve far coincidere il cash del giorno con le prime rate. Con `--segnaposto` il CSV nasce già compilato con clienti segnaposto da correggere poi nell'app: i dati dell'Excel servono da base, non sono lavoro di data entry (Dany, 27/09/2026).
 
 ## 15. Operatività
 
