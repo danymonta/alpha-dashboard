@@ -67,10 +67,11 @@ export function formatOra(istante: string | Date): string {
   return ora.format(typeof istante === 'string' ? new Date(istante) : istante)
 }
 
-/** "Oggi", "Ieri", or "lunedì 22/09". */
+/** "Oggi", "Ieri", "Domani", or "lunedì 22/09". */
 export function etichettaGiorno(iso: string, oggi: string = oggiRoma()): string {
   if (iso === oggi) return 'Oggi'
   if (iso === aggiungiGiorni(oggi, -1)) return 'Ieri'
+  if (iso === aggiungiGiorni(oggi, 1)) return 'Domani'
   const d = parseDataISO(iso)
   const gg = String(d.getDate()).padStart(2, '0')
   const mm = String(d.getMonth() + 1).padStart(2, '0')

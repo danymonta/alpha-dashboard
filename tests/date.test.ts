@@ -70,6 +70,7 @@ describe('etichette', () => {
   it('usa Oggi e Ieri, poi il giorno della settimana', () => {
     expect(etichettaGiorno('2026-09-26', oggi)).toBe('Oggi')
     expect(etichettaGiorno('2026-09-25', oggi)).toBe('Ieri')
+    expect(etichettaGiorno('2026-09-27', oggi)).toBe('Domani')
     expect(etichettaGiorno('2026-09-21', oggi)).toBe('lunedì 21/09')
   })
 

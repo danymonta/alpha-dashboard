@@ -13,6 +13,8 @@ export default defineConfig({
     locale: 'it-IT',
     timezoneId: 'Europe/Rome',
     colorScheme: 'dark',
+    // native date/time inputs follow the browser UI language, not the page's
+    launchOptions: { args: ['--lang=it-IT'] },
     trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
