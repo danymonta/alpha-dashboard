@@ -32,13 +32,16 @@ export type NavRuolo = {
 
 const NAV: Record<AppRole, NavRuolo> = {
   admin: {
+    // Dany is also the default closer: after a call, his outcome screen must be
+    // one tap away on the phone.
     principali: [
       { href: '/', etichetta: 'Panoramica', Icona: LayoutDashboard, esatto: true },
-      { href: '/sales', etichetta: 'Vendite', Icona: Receipt },
+      { href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true },
       { href: '/payments', etichetta: 'Incassi', Icona: Wallet },
-      { href: '/clients', etichetta: 'Clienti', Icona: Users },
+      { href: '/sales', etichetta: 'Vendite', Icona: Receipt },
     ],
     altre: [
+      { href: '/clients', etichetta: 'Clienti', Icona: Users },
       { href: '/setting', etichetta: 'Setting', Icona: TrendingUp },
       { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
       { href: '/expenses', etichetta: 'Costi', Icona: Banknote },

@@ -15,6 +15,7 @@ export const PASSWORD_SEED = process.env.SEED_PASSWORD ?? 'alpha1234'
 export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   admin: [
     { nome: 'panoramica', url: '/' },
+    { nome: 'le-mie-call', url: '/calls' },
     { nome: 'vendite', url: '/sales' },
     { nome: 'incassi', url: '/payments' },
     { nome: 'clienti', url: '/clients' },

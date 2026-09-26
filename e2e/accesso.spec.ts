@@ -16,6 +16,7 @@ test('l’admin vede la navigazione completa', async ({ page }) => {
   const nav = page.getByRole('navigation', { name: 'Navigazione principale' })
   const voci = [
     'Panoramica',
+    'Le mie call',
     'Vendite',
     'Incassi',
     'Clienti',

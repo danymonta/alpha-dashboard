@@ -4,6 +4,7 @@ import {
   aggiungiGiorni,
   dataReportValida,
   etichettaGiorno,
+  etichettaGiornoBreve,
   finestraReport,
   formatOra,
   isDataISO,
@@ -72,6 +73,11 @@ describe('etichette', () => {
     expect(etichettaGiorno('2026-09-25', oggi)).toBe('Ieri')
     expect(etichettaGiorno('2026-09-27', oggi)).toBe('Domani')
     expect(etichettaGiorno('2026-09-21', oggi)).toBe('lunedì 21/09')
+  })
+
+  it('ha una versione breve per le colonne strette', () => {
+    expect(etichettaGiornoBreve('2026-09-26', oggi)).toBe('oggi')
+    expect(etichettaGiornoBreve('2026-09-21', oggi)).toBe('lun 21/09')
   })
 
   it('mostra l’ora di salvataggio in ora italiana', () => {

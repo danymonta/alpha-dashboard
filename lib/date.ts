@@ -21,6 +21,7 @@ const ora = new Intl.DateTimeFormat('it-IT', {
 })
 
 const giornoSettimana = new Intl.DateTimeFormat('it-IT', { weekday: 'long' })
+const giornoSettimanaBreve = new Intl.DateTimeFormat('it-IT', { weekday: 'short' })
 
 /** 'YYYY-MM-DD' of the given instant in Europe/Rome. */
 export function oggiRoma(adesso: Date = new Date()): string {
@@ -76,4 +77,15 @@ export function etichettaGiorno(iso: string, oggi: string = oggiRoma()): string 
   const gg = String(d.getDate()).padStart(2, '0')
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   return `${giornoSettimana.format(d)} ${gg}/${mm}`
+}
+
+/** Compact version for narrow columns: "oggi", "ieri", "domani", "lun 22/09". */
+export function etichettaGiornoBreve(iso: string, oggi: string = oggiRoma()): string {
+  if (iso === oggi) return 'oggi'
+  if (iso === aggiungiGiorni(oggi, -1)) return 'ieri'
+  if (iso === aggiungiGiorni(oggi, 1)) return 'domani'
+  const d = parseDataISO(iso)
+  const gg = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  return `${giornoSettimanaBreve.format(d)} ${gg}/${mm}`
 }
