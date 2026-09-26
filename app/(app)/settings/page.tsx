@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Package, Percent, Users } from 'lucide-react'
+import { ChevronRight, Download, History, Package, Percent, Users } from 'lucide-react'
 import Link from 'next/link'
 
 import { IntestazionePagina } from '@/components/pagina/intestazione'
@@ -7,17 +7,18 @@ import { requireRuolo } from '@/lib/auth/session'
 export const dynamic = 'force-dynamic'
 
 const SEZIONI = [
+  { href: '/settings/team', titolo: 'Team', descrizione: 'Inviti, ruoli, attivazione degli account.', Icona: Users, pronta: true },
   { href: '/settings/products', titolo: 'Prodotti', descrizione: 'Percorsi in vendita, durata e prezzo di listino.', Icona: Package, pronta: true },
-  { href: '/settings/team', titolo: 'Team', descrizione: 'Inviti, ruoli, attivazione degli account.', Icona: Users, pronta: false },
-  { href: '/settings/team', titolo: 'Regole provvigioni', descrizione: 'Percentuale e tipi di vendita per collaboratore.', Icona: Percent, pronta: false },
-  { href: '/settings/team', titolo: 'Esporta CSV', descrizione: 'Vendite, incassi e costi del mese per la commercialista.', Icona: Download, pronta: false },
+  { href: '/settings/commissions', titolo: 'Regole provvigioni', descrizione: 'Percentuale e tipi di vendita per collaboratore.', Icona: Percent, pronta: true },
+  { href: '/settings/export', titolo: 'Esporta CSV', descrizione: 'Vendite, incassi e costi del mese per la commercialista.', Icona: Download, pronta: true },
+  { href: '/settings/audit', titolo: 'Registro modifiche', descrizione: 'Chi ha cambiato un importo, un ruolo o una regola, e quando.', Icona: History, pronta: true },
 ]
 
 export default async function ImpostazioniPage() {
   await requireRuolo(['admin'])
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <IntestazionePagina titolo="Impostazioni" />
       <ul className="grid gap-2 sm:grid-cols-2">
         {SEZIONI.map(({ href, titolo, descrizione, Icona, pronta }) => (

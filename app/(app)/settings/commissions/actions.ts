@@ -1,0 +1,54 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+
+import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
+import { createClient } from '@/lib/supabase/server'
+import { chiudiRegolaSchema, regolaSchema } from '@/lib/validation/team'
+
+export type Esito = { ok: true } | { ok: false; errore: string }
+
+function aggiorna() {
+  revalidatePath('/settings/commissions')
+  revalidatePath('/commissions')
+  revalidatePath('/my-numbers')
+  revalidatePath('/')
+}
+
+/** A new rule starts on a date and closes the one in force: history never changes. */
+export async function nuovaRegola(input: unknown): Promise<Esito> {
+  const parsed = regolaSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('nuova_regola_provvigione', {
+    p_profile_id: parsed.data.profile_id,
+    // points -> fraction, the one and only conversion (7 -> 0.07)
+    p_percentuale: Math.round(parsed.data.percentuale * 100) / 10000,
+    p_applica_a: parsed.data.applica_a,
+    p_valida_dal: parsed.data.valida_dal,
+  })
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Regola non salvata. Riprova.') }
+
+  aggiorna()
+  return { ok: true }
+}
+
+export async function chiudiRegola(input: unknown): Promise<Esito> {
+  const parsed = chiudiRegolaSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('chiudi_regola_provvigione', {
+    p_rule_id: parsed.data.rule_id,
+    p_valida_al: parsed.data.valida_al,
+  })
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Regola non chiusa. Riprova.') }
+
+  aggiorna()
+  return { ok: true }
+}

@@ -523,6 +523,9 @@ isOneToOne: false
               "mese": string,"nuovo": number,"rinnovo": number,"totale": number,"upsell": number
             }[]
                            },
+"chiudi_regola_provvigione":
+{ Args: { "p_rule_id": string,"p_valida_al": string }; Returns: undefined
+                           },
 "copia_costi_ricorrenti":
 { Args: { "p_mese": string }; Returns: number
                            },
@@ -574,6 +577,9 @@ isOneToOne: false
 { Args: { "p_mese": string }; Returns: {
               "call_fissate": number,"call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_per_call": number,"dm_totali": number,"giorni_compilati": number,"no_show": number,"provvigioni_maturate": number,"provvigioni_pagate": number,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
             }[]
+                           },
+"nuova_regola_provvigione":
+{ Args: { "p_applica_a": (Database["public"]['Enums']["sale_type"])[],"p_percentuale": number,"p_profile_id": string,"p_valida_dal": string }; Returns: string
                            },
 "oggi":
 { Args: Record<PropertyKey, never>; Returns: string

@@ -25,7 +25,11 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'provvigioni', url: '/commissions' },
     { nome: 'costi', url: '/expenses' },
     { nome: 'impostazioni', url: '/settings' },
+    { nome: 'team', url: '/settings/team' },
     { nome: 'prodotti', url: '/settings/products' },
+    { nome: 'regole-provvigioni', url: '/settings/commissions' },
+    { nome: 'export', url: '/settings/export' },
+    { nome: 'registro', url: '/settings/audit' },
   ],
   setter: [
     { nome: 'oggi', url: '/today' },
