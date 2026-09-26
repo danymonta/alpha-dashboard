@@ -68,7 +68,6 @@ export default async function PipelinePage({
   const { data: leads, error } = await query
   if (error) throw new Error('Impossibile caricare la pipeline')
 
-  const oggi = oggiRoma()
   const filtri: { valore: Filtro; etichetta: string; n: number }[] = [
     { valore: 'aperti', etichetta: 'Aperti', n: aperti.count ?? 0 },
     ...STATI_LEAD.map((s) => ({ valore: s as Filtro, etichetta: ETICHETTA_STATO_LEAD[s], n: conteggi[s] })),

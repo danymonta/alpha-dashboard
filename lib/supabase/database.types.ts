@@ -304,6 +304,12 @@ isOneToOne: false
       referencedRelation: "v_client_status"
       referencedColumns: ["client_id"]
     },{
+      foreignKeyName: "sales_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
       foreignKeyName: "sales_closer_id_fkey"
       columns: ["closer_id"]
 isOneToOne: false
@@ -364,6 +370,25 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"v_clienti": {
+                  Row: {
+                    "client_id": string | null,"closer_id": string | null,"cognome": string | null,"created_at": string | null,"da_incassare": number | null,"data_fine_ultima": string | null,"fonte": Database["public"]['Enums']["lead_source"] | null,"in_ritardo": number | null,"incassato": number | null,"instagram_handle": string | null,"nome": string | null,"numero_vendite": number | null,"setter_id": string | null,"stato": Database["public"]['Enums']["client_status"] | null,"ultima_vendita": string | null,"valore_firmato": number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "clients_closer_id_fkey"
+      columns: ["closer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clients_setter_id_fkey"
+      columns: ["setter_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"v_vendite": {
                   Row: {
                     "call_id": string | null,"client_id": string | null,"closer_id": string | null,"da_incassare": number | null,"data_fine": string | null,"data_inizio": string | null,"data_vendita": string | null,"in_ritardo": number | null,"incassato": number | null,"numero_rate": number | null,"product_id": string | null,"prossima_scadenza": string | null,"rate_in_ritardo": number | null,"rate_incassate": number | null,"rate_totali": number | null,"sale_id": string | null,"scarto_piano": number | null,"setter_id": string | null,"tipo": Database["public"]['Enums']["sale_type"] | null,"totale_piano": number | null,"valore_contratto": number | null
@@ -386,6 +411,12 @@ isOneToOne: false
       columns: ["client_id"]
 isOneToOne: false
       referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "sales_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
       referencedColumns: ["client_id"]
     },{
       foreignKeyName: "sales_closer_id_fkey"
@@ -412,6 +443,9 @@ isOneToOne: false
           Functions: {
             "aggiorna_stato_lead":
 { Args: { "p_lead_id": string,"p_stato": Database["public"]['Enums']["lead_status"] }; Returns: Database["public"]['Enums']["lead_status"]
+                           },
+"copia_costi_ricorrenti":
+{ Args: { "p_mese": string }; Returns: number
                            },
 "current_role":
 { Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["app_role"]
@@ -446,6 +480,11 @@ isOneToOne: false
 "registra_vendita":
 { Args: { "p_call_id"?: string,"p_client_id"?: string,"p_cognome"?: string,"p_data_inizio": string,"p_data_vendita": string,"p_email"?: string,"p_instagram_handle"?: string,"p_nome"?: string,"p_note"?: string,"p_numero_rate": number,"p_product_id": string,"p_telefono"?: string,"p_tipo": Database["public"]['Enums']["sale_type"],"p_valore_contratto": number }; Returns: {
               "cliente_nuovo": boolean,"id_cliente": string,"id_vendita": string
+            }[]
+                           },
+"riepilogo_costi":
+{ Args: { "p_mese": string }; Returns: {
+              "categoria": Database["public"]['Enums']["expense_category"],"numero": number,"totale": number
             }[]
                            },
 "segna_rata_incassata":

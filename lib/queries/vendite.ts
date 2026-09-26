@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { TipoVendita } from '@/lib/validation/vendita'
 
 type Filtri = {
+  clientId?: string
   closerId?: string
   setterId?: string
   tipo?: TipoVendita
@@ -28,6 +29,7 @@ export async function caricaVendite(filtri: Filtri = {}): Promise<RigaVendita[]>
     .order('data_vendita', { ascending: false })
     .limit(300)
 
+  if (filtri.clientId) query = query.eq('client_id', filtri.clientId)
   if (filtri.closerId) query = query.eq('closer_id', filtri.closerId)
   if (filtri.setterId) query = query.eq('setter_id', filtri.setterId)
   if (filtri.tipo) query = query.eq('tipo', filtri.tipo)

@@ -47,7 +47,7 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/setting', etichetta: 'Setting', Icona: TrendingUp },
       { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
       { href: '/expenses', etichetta: 'Costi', Icona: Banknote },
-      { href: '/settings/team', etichetta: 'Impostazioni', Icona: Settings },
+      { href: '/settings', etichetta: 'Impostazioni', Icona: Settings },
     ],
   },
   setter: {
