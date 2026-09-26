@@ -18,7 +18,7 @@ function scheda(page: Page, nome: string) {
 }
 
 async function apriEsito(page: Page, nome: string) {
-  await scheda(page, nome).getByRole('button', { name: /Registra esito|Modifica/ }).click()
+  await scheda(page, nome).getByRole('button', { name: /Registra esito|Cambia esito/ }).click()
   return page.getByRole('dialog')
 }
 

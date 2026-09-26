@@ -1,10 +1,11 @@
 import { Percent } from 'lucide-react'
 
+import { ModificaPagamento } from '@/app/(app)/commissions/modifica-pagamento'
 import { PagaProvvigione } from '@/app/(app)/commissions/paga-provvigione'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
-import { oggiRoma } from '@/lib/date'
+import { aggiungiMesi, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import { formatData, formatEuro, formatMese, formatPercentuale } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
 import { ETICHETTA_TIPO_VENDITA } from '@/lib/validation/vendita'
@@ -24,11 +25,14 @@ export default async function ProvvigioniPage() {
       .order('valida_dal', { ascending: false }),
     supabase
       .from('commission_payouts')
-      .select('id, profile_id, periodo, importo, pagato_il, metodo')
+      .select('id, profile_id, periodo, importo, pagato_il, metodo, note')
       .order('pagato_il', { ascending: false })
       .limit(20),
   ])
   if (riepilogo.error || regole.error || pagamenti.error) throw new Error('Impossibile caricare le provvigioni')
+
+  // months a payout can refer to: the last two years, plus whatever is already recorded
+  const ultimi24 = Array.from({ length: 24 }, (_, i) => aggiungiMesi(primoDelMeseISO(oggi), -i))
 
   // group the SQL rows by collaborator; every amount is already computed
   const persone = new Map<string, { nome: string; righe: NonNullable<typeof riepilogo.data> }>()
@@ -141,14 +145,29 @@ export default async function ProvvigioniPage() {
           <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Ultimi pagamenti</h2>
           <ul className="divide-y divide-border rounded-xl bg-card">
             {pagamenti.data!.map((p) => (
-              <li key={p.id} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2 text-sm">
-                <span>
+              <li key={p.id} className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm">
+                <span className="min-w-0 flex-1">
                   {persone.get(p.profile_id)?.nome ?? 'Collaboratore'}
                   <span className="block text-xs text-muted-foreground">
                     {formatData(p.pagato_il)} · riferito a {formatMese(p.periodo)}
                   </span>
                 </span>
                 <span className="num font-medium">{formatEuro(p.importo)}</span>
+                <div className="-mr-1.5">
+                  <ModificaPagamento
+                    pagamento={{
+                      id: p.id,
+                      periodo: p.periodo,
+                      importo: p.importo,
+                      pagato_il: p.pagato_il,
+                      metodo: p.metodo,
+                      note: p.note,
+                    }}
+                    nome={persone.get(p.profile_id)?.nome ?? 'Collaboratore'}
+                    mesi={[...new Set([...ultimi24, p.periodo])].sort().reverse()}
+                    oggi={oggi}
+                  />
+                </div>
               </li>
             ))}
           </ul>

@@ -39,7 +39,7 @@ export default async function IncassiPage({
   const base = () =>
     supabase
       .from('v_rate')
-      .select('payment_id, sale_id, cliente, numero_rata, scadenza, importo_previsto, incassato_il, importo_incassato, stato, giorni_ritardo', { count: 'exact' })
+      .select('payment_id, sale_id, cliente, numero_rata, scadenza, importo_previsto, incassato_il, importo_incassato, metodo, stato, giorni_ritardo', { count: 'exact' })
 
   const filtra = (q: ReturnType<typeof base>, v: Vista) => {
     if (v === 'ritardo') return q.eq('in_ritardo', true).order('scadenza')
@@ -160,6 +160,8 @@ export default async function IncassiPage({
                       importo_previsto: r.importo_previsto!,
                       stato: r.stato!,
                       importo_incassato: r.importo_incassato,
+                      incassato_il: r.incassato_il,
+                      metodo: r.metodo,
                     }}
                     admin
                     oggi={oggi}

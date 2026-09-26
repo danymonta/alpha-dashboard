@@ -29,7 +29,7 @@ test('scheda cliente: valore nel tempo, rinnovo precompilato, contatti modificab
   await expect(page).toHaveURL(`/clients/${clienteId}`)
   await expect(page.getByText('Storico vendite (1)')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Modifica contatti' }).click()
+  await page.getByRole('button', { name: 'Modifica', exact: true }).click()
   await page.getByLabel('Telefono').fill('+39 333 1234567')
   await page.getByRole('button', { name: 'Salva' }).click()
   await expect(page.getByText('Cliente aggiornato')).toBeVisible()

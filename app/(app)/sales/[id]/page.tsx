@@ -3,6 +3,7 @@ import { SearchX, TriangleAlert } from 'lucide-react'
 import { RataAzioni } from '@/app/(app)/sales/[id]/rata-azioni'
 
 import { LinkBottone } from '@/components/link-bottone'
+import { ModificaVendita } from '@/app/(app)/sales/[id]/modifica-vendita'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoRata } from '@/components/pagamento/stato-rata'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -27,7 +28,7 @@ export default async function DettaglioVenditaPage({
   const { data: vendita } = await supabase
     .from('sales')
     .select(
-      'id, tipo, data_vendita, data_inizio, data_fine, valore_contratto, numero_rate, note, cliente:clients(nome, cognome, instagram_handle), prodotto:products(nome), setter:profiles!sales_setter_id_fkey(nome), closer:profiles!sales_closer_id_fkey(nome), rate:payments(id, numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato)',
+      'id, tipo, product_id, setter_id, closer_id, data_vendita, data_inizio, data_fine, valore_contratto, numero_rate, note, cliente:clients(nome, cognome, instagram_handle), prodotto:products(nome), setter:profiles!sales_setter_id_fkey(nome), closer:profiles!sales_closer_id_fkey(nome), rate:payments(id, numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato, metodo)',
     )
     .eq('id', id)
     .order('numero_rata', { referencedTable: 'payments' })
@@ -41,7 +42,16 @@ export default async function DettaglioVenditaPage({
     .eq('sale_id', id)
     .maybeSingle()
 
-  const tornaIndietro = profilo.ruolo === 'admin' ? '/sales' : '/my-sales'
+  const admin = profilo.ruolo === 'admin'
+  // the edit sheet's lists: admin only, former collaborators stay where they already are
+  const [catalogo, persone] = admin
+    ? await Promise.all([
+        supabase.from('products').select('id, nome, attivo').order('nome'),
+        supabase.from('profiles').select('id, nome, ruolo, attivo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
+      ])
+    : [null, null]
+
+  const tornaIndietro = admin ? '/sales' : '/my-sales'
   const indietro = {
     href: tornaIndietro,
     etichetta: profilo.ruolo === 'admin' ? 'Vendite' : 'Le mie vendite',
@@ -85,6 +95,33 @@ export default async function DettaglioVenditaPage({
         titolo={nomeCliente || 'Vendita'}
         descrizione={vendita.cliente?.instagram_handle ?? undefined}
         indietro={indietro}
+        azione={
+          admin ? (
+            <ModificaVendita
+              vendita={{
+                id: vendita.id,
+                tipo: vendita.tipo,
+                product_id: vendita.product_id,
+                valore_contratto: vendita.valore_contratto,
+                data_vendita: vendita.data_vendita,
+                data_inizio: vendita.data_inizio,
+                data_fine: vendita.data_fine,
+                setter_id: vendita.setter_id,
+                closer_id: vendita.closer_id,
+                note: vendita.note,
+              }}
+              prodotti={(catalogo?.data ?? [])
+                .filter((p) => p.attivo || p.id === vendita.product_id)
+                .map(({ id, nome }) => ({ id, nome }))}
+              setters={(persone?.data ?? [])
+                .filter((p) => p.ruolo === 'setter' && (p.attivo || p.id === vendita.setter_id))
+                .map(({ id, nome }) => ({ id, nome }))}
+              closers={(persone?.data ?? [])
+                .filter((p) => (p.ruolo === 'admin' || p.ruolo === 'closer') && (p.attivo || p.id === vendita.closer_id))
+                .map(({ id, nome }) => ({ id, nome }))}
+            />
+          ) : undefined
+        }
       />
 
       <div className="rounded-xl bg-card p-4">
@@ -178,7 +215,7 @@ export default async function DettaglioVenditaPage({
                 {rata.stato !== 'rimborsata' ? (
                   <RataAzioni
                     rata={rata}
-                    admin={profilo.ruolo === 'admin'}
+                    admin={admin}
                     oggi={oggi}
                     principale={rata.id === primaDaIncassare}
                   />

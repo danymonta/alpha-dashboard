@@ -2,15 +2,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
 import { ReportForm } from '@/app/(app)/today/report-form'
+import { SceltaGiorno } from '@/app/(app)/today/scelta-giorno'
 import { requireRuolo } from '@/lib/auth/session'
-import {
-  aggiungiGiorni,
-  dataReportValida,
-  etichettaGiorno,
-  finestraReport,
-  oggiRoma,
-} from '@/lib/date'
-import { formatData } from '@/lib/format'
+import { aggiungiGiorni, dataReportValida, etichettaGiorno, oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 import { REPORT_VUOTO, type ValoriReport } from '@/lib/validation/report'
 
@@ -28,7 +22,6 @@ export default async function OggiPage({
   const profilo = await requireRuolo(['setter'])
   const oggi = oggiRoma()
   const data = dataReportValida((await searchParams).data, oggi)
-  const { minima } = finestraReport(oggi)
 
   const supabase = await createClient()
   const { data: report, error } = await supabase
@@ -60,14 +53,13 @@ export default async function OggiPage({
 
   const precedente = aggiungiGiorni(data, -1)
   const successivo = aggiungiGiorni(data, 1)
-  const puoiIndietro = precedente >= minima
   const puoiAvanti = successivo <= oggi
 
   return (
     <div className="max-w-xl">
       <header className="mb-2 flex items-center justify-between gap-2">
         <NavGiorno
-          href={puoiIndietro ? hrefGiorno(precedente, oggi) : null}
+          href={hrefGiorno(precedente, oggi)}
           etichetta="Giorno precedente"
         >
           <ChevronLeft className="size-5" aria-hidden="true" />
@@ -77,7 +69,7 @@ export default async function OggiPage({
           <h1 className="font-heading text-xl font-semibold">
             {etichettaGiorno(data, oggi)}
           </h1>
-          <p className="num text-sm text-muted-foreground">{formatData(data)}</p>
+          <SceltaGiorno data={data} oggi={oggi} />
         </div>
 
         <NavGiorno

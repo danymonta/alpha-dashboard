@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 
 import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
 import { createClient } from '@/lib/supabase/server'
-import { chiudiRegolaSchema, regolaSchema } from '@/lib/validation/team'
+import { chiudiRegolaSchema, modificaRegolaSchema, regolaSchema } from '@/lib/validation/team'
 
 export type Esito = { ok: true } | { ok: false; errore: string }
 
@@ -48,6 +48,34 @@ export async function chiudiRegola(input: unknown): Promise<Esito> {
     p_valida_al: parsed.data.valida_al,
   })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Regola non chiusa. Riprova.') }
+
+  aggiorna()
+  return { ok: true }
+}
+
+/** Correct a rule in place. The overlap guard in the database keeps one rule per day. */
+export async function modificaRegola(input: unknown): Promise<Esito> {
+  const parsed = modificaRegolaSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const v = parsed.data
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('commission_rules')
+    .update({
+      // points -> fraction, as in nuovaRegola
+      percentuale: Math.round(v.percentuale * 100) / 10000,
+      applica_a: v.applica_a,
+      valida_dal: v.valida_dal,
+      valida_al: v.valida_al,
+    })
+    .eq('id', v.id)
+    .select('id')
+    .maybeSingle()
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Regola non aggiornata. Riprova.') }
+  if (!data) return { ok: false, errore: 'Regola non trovata.' }
 
   aggiorna()
   return { ok: true }

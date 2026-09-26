@@ -1,6 +1,6 @@
 import { CircleCheck, CircleMinus, Clock, Percent, type LucideIcon } from 'lucide-react'
 
-import { ChiudiRegola, NuovaRegola } from '@/app/(app)/settings/commissions/regole-client'
+import { ChiudiRegola, ModificaRegola, NuovaRegola } from '@/app/(app)/settings/commissions/regole-client'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
@@ -69,13 +69,26 @@ export default async function RegoleProvvigioniPage() {
                   {formatData(r.valida_dal)}
                   {r.valida_al ? ` al ${formatData(r.valida_al)}` : ''}
                 </p>
-                {!r.valida_al && r.valida_dal <= oggi ? (
-                  <ChiudiRegola
-                    ruleId={r.id}
-                    oggi={oggi}
+                <div className="flex flex-wrap gap-2">
+                  <ModificaRegola
+                    regola={{
+                      id: r.id,
+                      // fraction -> points for the form (0.05 -> 5)
+                      percentuale: Math.round(r.percentuale * 10000) / 100,
+                      applica_a: r.applica_a,
+                      valida_dal: r.valida_dal,
+                      valida_al: r.valida_al,
+                    }}
                     etichetta={`${r.persona?.nome ?? 'Regola'} · ${formatPercentuale(r.percentuale)}`}
                   />
-                ) : null}
+                  {!r.valida_al && r.valida_dal <= oggi ? (
+                    <ChiudiRegola
+                      ruleId={r.id}
+                      oggi={oggi}
+                      etichetta={`${r.persona?.nome ?? 'Regola'} · ${formatPercentuale(r.percentuale)}`}
+                    />
+                  ) : null}
+                </div>
               </li>
             )
           })}

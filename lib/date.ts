@@ -48,18 +48,12 @@ export function isDataISO(value: unknown): value is string {
   return toISO(parseDataISO(value)) === value
 }
 
-/** The setter may write the last 7 days (same window as the RLS policy). */
-export const GIORNI_MODIFICABILI = 7
-
-export function finestraReport(oggi: string = oggiRoma()) {
-  return { minima: aggiungiGiorni(oggi, -GIORNI_MODIFICABILI), massima: oggi }
-}
-
-/** Clamp a requested date into the editable window, defaulting to today. */
+/**
+ * The setter may fill in or correct any past day, never a future one
+ * (same rule as the RLS policy, Dany 27/09/2026).
+ */
 export function dataReportValida(richiesta: unknown, oggi: string = oggiRoma()): string {
-  const { minima, massima } = finestraReport(oggi)
-  if (!isDataISO(richiesta)) return oggi
-  if (richiesta < minima || richiesta > massima) return oggi
+  if (!isDataISO(richiesta) || richiesta > oggi) return oggi
   return richiesta
 }
 

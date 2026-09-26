@@ -12,8 +12,8 @@ export type EsitoSalvataggio =
 
 /**
  * Autosave of the setter's daily report. Creates the row on the first touch
- * (upsert on setter_id + data). The 7-day window is enforced by RLS: this code
- * only turns the refusal into a readable message.
+ * (upsert on setter_id + data). Any past day can be corrected; RLS refuses the
+ * future, this code only turns the refusal into a readable message.
  */
 export async function salvaReportGiornaliero(input: unknown): Promise<EsitoSalvataggio> {
   const parsed = reportGiornalieroSchema.safeParse(input)
@@ -41,7 +41,7 @@ export async function salvaReportGiornaliero(input: unknown): Promise<EsitoSalva
 
   if (error) {
     if (error.code === '42501') {
-      return { ok: false, errore: 'Puoi modificare solo i report degli ultimi 7 giorni.' }
+      return { ok: false, errore: 'Un giorno che non è ancora arrivato non si compila.' }
     }
     return { ok: false, errore: 'Salvataggio non riuscito. Riprova.' }
   }

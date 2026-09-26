@@ -57,6 +57,16 @@ export const rimborsoSchema = z.object({
 
 export const soloRataSchema = z.object({ payment_id: idRata })
 
+/** Correcting a payment already recorded: every field is required. */
+export const modificaIncassoSchema = z.object({
+  payment_id: idRata,
+  incassato_il: dataPassata('Un incasso non può essere nel futuro'),
+  importo: importoPositivo,
+  metodo: z.enum(METODI).nullish().transform((v) => v ?? null),
+})
+
+export type ModificaIncassoInput = z.input<typeof modificaIncassoSchema>
+
 export type SegnaIncassataInput = z.input<typeof segnaIncassataSchema>
 export type ModificaRataInput = z.input<typeof modificaRataSchema>
 export type RimborsoInput = z.input<typeof rimborsoSchema>

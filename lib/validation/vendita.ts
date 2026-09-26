@@ -116,3 +116,41 @@ export const anteprimaPianoSchema = z.object({
   numero_rate: z.number().int().min(1).max(MASSIMO_RATE),
   data_vendita: z.string().refine(isDataISO),
 })
+
+const idFacoltativo = z
+  .union([z.string().uuid(), z.literal('')])
+  .nullish()
+  .transform((v) => v || null)
+
+/**
+ * Correcting a sale after it was recorded (admin). The instalment plan is not
+ * regenerated: each instalment is edited on its own, so cash already recorded
+ * never moves by accident.
+ */
+export const modificaVenditaSchema = z
+  .object({
+    id: z.string().uuid('Vendita non valida'),
+    tipo: z.enum(TIPI_VENDITA, { errorMap: () => ({ message: 'Scegli il tipo di vendita' }) }),
+    product_id: z
+      .string({ required_error: 'Scegli il prodotto', invalid_type_error: 'Scegli il prodotto' })
+      .uuid('Scegli il prodotto'),
+    valore_contratto: z
+      .union([z.string(), z.number()])
+      .transform((v) => (typeof v === 'number' ? v : parseImporto(v)))
+      .refine((v) => v !== null && v > 0, 'Scrivi il valore del contratto, ad esempio 1.500')
+      .refine((v) => v === null || v <= MASSIMO_CONTRATTO, 'Importo troppo alto: controlla gli zeri')
+      .transform((v) => v as number),
+    data_vendita: z.string().refine(isDataISO, 'Data non valida'),
+    data_inizio: z.string().refine(isDataISO, 'Data non valida'),
+    data_fine: z.string().refine(isDataISO, 'Data non valida'),
+    setter_id: idFacoltativo,
+    closer_id: idFacoltativo,
+    note: z.string().max(1000, 'Al massimo 1000 caratteri').nullish().transform(vuotoANull),
+  })
+  .superRefine((v, ctx) => {
+    if (isDataISO(v.data_inizio) && isDataISO(v.data_fine) && v.data_fine < v.data_inizio) {
+      ctx.addIssue({ code: 'custom', path: ['data_fine'], message: 'La fine viene dopo l’inizio' })
+    }
+  })
+
+export type ModificaVenditaInput = z.input<typeof modificaVenditaSchema>

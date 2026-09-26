@@ -1,5 +1,6 @@
 import { TrendingUp } from 'lucide-react'
 
+import { ModificaReport } from '@/app/(app)/setting/modifica-report'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettoreMese } from '@/components/pagina/selettore-mese'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -32,7 +33,7 @@ export default async function SettingPage({ searchParams }: { searchParams: Prom
     supabase.rpc('metriche_setting', { p_da: mese, p_a: fineMese(mese) }),
     supabase
       .from('setter_daily_reports')
-      .select('id, data, dm_outbound, dm_inbound, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, follow_up, contenuto_pubblicato, setter:profiles!setter_daily_reports_setter_id_fkey(nome)')
+      .select('id, data, dm_outbound, dm_inbound, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, follow_up, contenuto_pubblicato, note, setter:profiles!setter_daily_reports_setter_id_fkey(nome)')
       .gte('data', mese)
       .lte('data', fineMese(mese))
       .order('data', { ascending: false }),
@@ -40,6 +41,26 @@ export default async function SettingPage({ searchParams }: { searchParams: Prom
   if (metriche.error || report.error) throw new Error('Impossibile caricare il setting')
 
   const righe = metriche.data ?? []
+  const correzione = (r: (typeof report.data)[number]) => (
+    <ModificaReport
+      data={r.data}
+      setter={r.setter?.nome ?? 'Setter'}
+      report={{
+        id: r.id,
+        dm_outbound: r.dm_outbound,
+        dm_inbound: r.dm_inbound,
+        conversazioni: r.conversazioni,
+        call_proposte: r.call_proposte,
+        discovery_prenotate: r.discovery_prenotate,
+        discovery_svolte: r.discovery_svolte,
+        call_qualificate: r.call_qualificate,
+        strategy_prenotate: r.strategy_prenotate,
+        follow_up: r.follow_up,
+        contenuto_pubblicato: r.contenuto_pubblicato,
+        note: r.note,
+      }}
+    />
+  )
   const perSetter = righe.filter((r) => r.setter_id !== null)
   const totale = righe.find((r) => r.setter_id === null)
 
@@ -92,15 +113,18 @@ export default async function SettingPage({ searchParams }: { searchParams: Prom
 
             <ul className="space-y-2 md:hidden">
               {report.data.map((r) => (
-                <li key={r.id} className="rounded-xl bg-card p-3">
-                  <p className="text-sm font-medium">
-                    {formatData(r.data)} <span className="font-normal text-muted-foreground">· {r.setter?.nome}</span>
-                  </p>
-                  {/* raw fields: totals are metrics and come from SQL (cards above) */}
-                  <p className="num mt-1 text-xs text-muted-foreground">
-                    DM out {r.dm_outbound} · in {r.dm_inbound} · conv. {r.conversazioni} · disc. {r.discovery_prenotate} ·
-                    strat. {r.strategy_prenotate} · follow-up {r.follow_up}
-                  </p>
+                <li key={r.id} className="flex items-start gap-2 rounded-xl bg-card p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">
+                      {formatData(r.data)} <span className="font-normal text-muted-foreground">· {r.setter?.nome}</span>
+                    </p>
+                    {/* raw fields: totals are metrics and come from SQL (cards above) */}
+                    <p className="num mt-1 text-xs text-muted-foreground">
+                      DM out {r.dm_outbound} · in {r.dm_inbound} · conv. {r.conversazioni} · disc. {r.discovery_prenotate} ·
+                      strat. {r.strategy_prenotate} · follow-up {r.follow_up}
+                    </p>
+                  </div>
+                  <div className="-mt-1.5 -mr-1.5">{correzione(r)}</div>
                 </li>
               ))}
             </ul>
@@ -116,6 +140,7 @@ export default async function SettingPage({ searchParams }: { searchParams: Prom
                       <th key={etichetta} scope="col" className="px-2 py-2.5 text-right font-normal">{etichetta}</th>
                     ))}
                     <th scope="col" className="px-3 py-2.5 text-center font-normal">Contenuto</th>
+                    <th scope="col" className="w-12 px-1 py-2.5"><span className="sr-only">Correggi</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -127,6 +152,7 @@ export default async function SettingPage({ searchParams }: { searchParams: Prom
                         <td key={campo} className="px-2 py-2 text-right">{r[campo]}</td>
                       ))}
                       <td className="px-3 py-2 text-center">{r.contenuto_pubblicato ? 'Sì' : '–'}</td>
+                      <td className="px-1 py-0.5">{correzione(r)}</td>
                     </tr>
                   ))}
                 </tbody>

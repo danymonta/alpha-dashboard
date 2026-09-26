@@ -17,6 +17,32 @@ export const CAMPI_NUMERICI_REPORT = [
 
 export type CampoNumericoReport = (typeof CAMPI_NUMERICI_REPORT)[number]
 
+/** Same order as the coach's Excel (SETTER columns I-Q): the setter's muscle memory. */
+export const GRUPPI_REPORT: { titolo: string; campi: [CampoNumericoReport, string][] }[] = [
+  {
+    titolo: 'Messaggi',
+    campi: [
+      ['dm_outbound', 'DM outbound'],
+      ['dm_inbound', 'DM inbound'],
+      ['conversazioni', 'Conversazioni'],
+    ],
+  },
+  {
+    titolo: 'Call',
+    campi: [
+      ['call_proposte', 'Call proposte'],
+      ['discovery_prenotate', 'Discovery prenotate'],
+      ['discovery_svolte', 'Discovery svolte'],
+      ['call_qualificate', 'Call qualificate'],
+      ['strategy_prenotate', 'Strategy prenotate'],
+    ],
+  },
+  {
+    titolo: 'Follow-up',
+    campi: [['follow_up', 'Follow-up del giorno']],
+  },
+]
+
 /** Sanity ceiling against typos (3000 instead of 30), not a business rule. */
 export const MASSIMO_GIORNALIERO = 9999
 
@@ -67,3 +93,10 @@ export const REPORT_VUOTO: ValoriReport = {
   contenuto_pubblicato: false,
   note: null,
 }
+
+/** The admin corrects an existing report: same fields, the day stays the same. */
+export const correzioneReportSchema = reportGiornalieroSchema
+  .omit({ data: true })
+  .extend({ id: z.string().uuid('Report non valido') })
+
+export type CorrezioneReportInput = z.input<typeof correzioneReportSchema>

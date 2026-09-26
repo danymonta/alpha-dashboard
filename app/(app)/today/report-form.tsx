@@ -11,39 +11,15 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { etichettaGiorno, formatOra } from '@/lib/date'
 import {
+  GRUPPI_REPORT,
   MASSIMO_GIORNALIERO,
-  type CampoNumericoReport,
   type ValoriReport,
 } from '@/lib/validation/report'
 
 const RITARDO_NUMERI_MS = 500
 const RITARDO_NOTE_MS = 1000
 
-/** Same order as the coach's Excel (SETTER columns I-Q): the setter's muscle memory. */
-const GRUPPI: { titolo: string; campi: [CampoNumericoReport, string][] }[] = [
-  {
-    titolo: 'Messaggi',
-    campi: [
-      ['dm_outbound', 'DM outbound'],
-      ['dm_inbound', 'DM inbound'],
-      ['conversazioni', 'Conversazioni'],
-    ],
-  },
-  {
-    titolo: 'Call',
-    campi: [
-      ['call_proposte', 'Call proposte'],
-      ['discovery_prenotate', 'Discovery prenotate'],
-      ['discovery_svolte', 'Discovery svolte'],
-      ['call_qualificate', 'Call qualificate'],
-      ['strategy_prenotate', 'Strategy prenotate'],
-    ],
-  },
-  {
-    titolo: 'Follow-up',
-    campi: [['follow_up', 'Follow-up del giorno']],
-  },
-]
+const GRUPPI = GRUPPI_REPORT
 
 type Stato =
   | { tipo: 'nuovo' }

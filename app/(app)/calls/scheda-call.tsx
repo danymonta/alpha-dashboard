@@ -1,3 +1,4 @@
+import { ModificaCall } from '@/app/(app)/calls/modifica-call'
 import { RegistraEsito } from '@/app/(app)/calls/registra-esito'
 import { StatoCall } from '@/components/call/stato-call'
 import { etichettaGiorno, etichettaGiornoBreve, formatOra, oggiRoma } from '@/lib/date'
@@ -13,13 +14,25 @@ export type CallVista = {
   stato: Enums['call_status']
   esito: Enums['call_outcome'] | null
   qualificata: boolean | null
+  closer_id: string | null
+  note: string | null
+  link_registrazione: string | null
+  performance: Enums['call_performance'] | null
+  prodotto_proposto_id: string | null
+  /** Embedded only in the closer's query: RLS keeps it from the setter anyway. */
+  pitch?: { importo_proposto: number } | null
   lead: { nome: string; instagram_handle: string | null } | null
   setter: { nome: string } | null
   closer: { nome: string } | null
 }
 
+type Voce = { id: string; nome: string }
+
 type Props = {
   call: CallVista
+  /** Lists for the edit sheet: closers to hand the call to, products to pitch. */
+  closers: Voce[]
+  prodotti: Voce[]
   oggi: string
   adesso: number
   /** closer: can record the outcome; setter: read only. */
@@ -27,7 +40,7 @@ type Props = {
   mostraGiorno?: boolean
 }
 
-export function SchedaCall({ call, oggi, adesso, vista, mostraGiorno = true }: Props) {
+export function SchedaCall({ call, closers, prodotti, oggi, adesso, vista, mostraGiorno = true }: Props) {
   const giorno = oggiRoma(new Date(call.programmata_il))
   const ora = formatOra(call.programmata_il)
   const nome = call.lead?.nome ?? 'Lead senza nome'
@@ -68,8 +81,28 @@ export function SchedaCall({ call, oggi, adesso, vista, mostraGiorno = true }: P
             {nome}
           </h3>
           <p className="truncate text-sm text-muted-foreground">{dettagli.join(' · ')}</p>
-          {/* setter: read only, no action row to reserve space for */}
+          {/* setter: no outcome to record, no action row to reserve space for */}
           {vista === 'setter' ? <div className="mt-1">{stato}</div> : null}
+        </div>
+        <div className="-mt-1.5 -mr-1.5">
+          <ModificaCall
+            call={{
+              id: call.id,
+              tipo: call.tipo,
+              data: giorno,
+              ora,
+              closer_id: call.closer_id,
+              note: call.note,
+              link_registrazione: call.link_registrazione,
+              performance: call.performance,
+              prodotto_proposto_id: call.prodotto_proposto_id,
+              importo_proposto: call.pitch?.importo_proposto ?? null,
+            }}
+            nomeLead={nome}
+            closers={closers}
+            prodotti={prodotti}
+            conDettagli={vista === 'closer'}
+          />
         </div>
       </div>
 

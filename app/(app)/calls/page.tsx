@@ -13,7 +13,10 @@ export const dynamic = 'force-dynamic'
 const GIORNO_MS = 24 * 60 * 60 * 1000
 
 const CAMPI =
-  'id, programmata_il, tipo, stato, esito, qualificata, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
+  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, note, link_registrazione, performance, prodotto_proposto_id, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
+
+// the amount pitched is read only where RLS lets it through: closer and admin
+const CAMPI_CLOSER = `${CAMPI}, pitch:call_pitch(importo_proposto)`
 
 function Sezione({
   titolo,
@@ -38,7 +41,7 @@ function Sezione({
 }
 
 /** Data loading, kept out of the render: it reads the clock. */
-async function caricaCall(vista: 'setter' | 'closer', profiloId: string) {
+async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRiassegnare: boolean) {
   const supabase = await createClient()
   const adesso = Date.now()
 
@@ -46,7 +49,7 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string) {
     vista === 'closer'
       ? supabase
           .from('calls')
-          .select(CAMPI)
+          .select(CAMPI_CLOSER)
           .eq('closer_id', profiloId)
           // everything still open, plus what was recorded in the last week
           .or(`stato.eq.programmata,programmata_il.gte.${new Date(adesso - 7 * GIORNO_MS).toISOString()}`)
@@ -60,16 +63,31 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string) {
           .order('programmata_il', { ascending: true })
           .limit(200)
 
-  const { data, error } = await query
-  if (error) throw new Error('Impossibile caricare le call')
+  const [{ data, error }, persone, catalogo] = await Promise.all([
+    query,
+    // who a call can be handed to: the closer keeps their own calls
+    puoRiassegnare
+      ? supabase.from('profiles').select('id, nome, ruolo').eq('attivo', true).in('ruolo', ['admin', 'closer']).order('created_at')
+      : Promise.resolve({ data: [], error: null }),
+    vista === 'closer'
+      ? supabase.from('products').select('id, nome').eq('attivo', true).order('nome')
+      : Promise.resolve({ data: [], error: null }),
+  ])
+  if (error || persone.error || catalogo.error) throw new Error('Impossibile caricare le call')
 
-  return { calls: data as unknown as CallVista[], adesso, oggi: oggiRoma(new Date(adesso)) }
+  return {
+    calls: data as unknown as CallVista[],
+    closers: (persone.data ?? []).map(({ id, nome }) => ({ id, nome })),
+    prodotti: catalogo.data ?? [],
+    adesso,
+    oggi: oggiRoma(new Date(adesso)),
+  }
 }
 
 export default async function LeMieCallPage() {
   const profilo = await requireRuolo(['setter', 'closer', 'admin'])
   const vista = profilo.ruolo === 'setter' ? 'setter' : 'closer'
-  const { calls, adesso, oggi } = await caricaCall(vista, profilo.id)
+  const { calls, closers, prodotti, adesso, oggi } = await caricaCall(vista, profilo.id, profilo.ruolo !== 'closer')
 
   const passata = (c: CallVista) => new Date(c.programmata_il).getTime() < adesso
   const giorno = (c: CallVista) => oggiRoma(new Date(c.programmata_il))
@@ -135,6 +153,8 @@ export default async function LeMieCallPage() {
     <SchedaCall
       key={c.id}
       call={c}
+      closers={closers}
+      prodotti={prodotti}
       oggi={oggi}
       adesso={adesso}
       vista={vista}

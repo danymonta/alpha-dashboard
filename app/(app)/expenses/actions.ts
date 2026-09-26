@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
 import { isDataISO } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
-import { costoSchema } from '@/lib/validation/anagrafiche'
+import { costoSchema, modificaCostoSchema } from '@/lib/validation/anagrafiche'
 
 export type Esito = { ok: true; copiati?: number } | { ok: false; errore: string }
 
@@ -24,6 +24,22 @@ export async function aggiungiCosto(input: unknown): Promise<Esito> {
   const supabase = await createClient()
   const { error } = await supabase.from('expenses').insert(parsed.data)
   if (error) return { ok: false, errore: messaggioErrore(error, 'Costo non salvato. Riprova.') }
+
+  aggiorna()
+  return { ok: true }
+}
+
+export async function modificaCosto(input: unknown): Promise<Esito> {
+  const parsed = modificaCostoSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const { id, ...campi } = parsed.data
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('expenses').update(campi).eq('id', id).select('id').maybeSingle()
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Costo non aggiornato. Riprova.') }
+  if (!data) return { ok: false, errore: 'Costo non trovato.' }
 
   aggiorna()
   return { ok: true }

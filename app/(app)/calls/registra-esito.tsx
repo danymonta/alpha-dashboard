@@ -113,7 +113,7 @@ export function RegistraEsito({ callId, nomeLead, descrizione, giaRegistrata, fu
           />
         }
       >
-        {giaRegistrata ? 'Modifica' : futura ? 'Annulla o sposta' : 'Registra esito'}
+        {giaRegistrata ? 'Cambia esito' : futura ? 'Annulla o sposta' : 'Registra esito'}
       </SheetTrigger>
 
       <SheetContent

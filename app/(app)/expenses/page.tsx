@@ -1,6 +1,6 @@
 import { Banknote } from 'lucide-react'
 
-import { CopiaRicorrenti, EliminaCosto, NuovoCosto } from '@/app/(app)/expenses/costi-client'
+import { CopiaRicorrenti, EliminaCosto, ModificaCosto, NuovoCosto } from '@/app/(app)/expenses/costi-client'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettoreMese } from '@/components/pagina/selettore-mese'
 import { requireRuolo } from '@/lib/auth/session'
@@ -90,7 +90,10 @@ export default async function CostiPage({ searchParams }: { searchParams: Promis
                   </p>
                 </div>
                 <p className="num text-right text-sm font-medium">{formatEuro(c.importo)}</p>
-                <EliminaCosto id={c.id} descrizione={c.descrizione} />
+                <div className="-mr-1.5 flex shrink-0">
+                  <ModificaCosto costo={c} massima={oggi} />
+                  <EliminaCosto id={c.id} descrizione={c.descrizione} />
+                </div>
               </li>
             ))}
           </ul>

@@ -19,10 +19,10 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: cliente }, { data: valore }, vendite] = await Promise.all([
+  const [{ data: cliente }, { data: valore }, vendite, { data: persone }] = await Promise.all([
     supabase
       .from('clients')
-      .select('id, nome, cognome, email, telefono, instagram_handle, fonte, note, created_at, setter:profiles!clients_setter_id_fkey(nome), closer:profiles!clients_closer_id_fkey(nome)')
+      .select('id, nome, cognome, email, telefono, instagram_handle, fonte, note, created_at, setter_id, closer_id, setter:profiles!clients_setter_id_fkey(nome), closer:profiles!clients_closer_id_fkey(nome)')
       .eq('id', id)
       .maybeSingle(),
     supabase
@@ -31,6 +31,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .eq('client_id', id)
       .maybeSingle(),
     caricaVendite({ clientId: id }),
+    supabase.from('profiles').select('id, nome, ruolo, attivo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
   ])
 
   if (!cliente || !valore) {
@@ -118,8 +119,18 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
               email: cliente.email,
               telefono: cliente.telefono,
               instagram_handle: cliente.instagram_handle,
+              fonte: cliente.fonte,
+              setter_id: cliente.setter_id,
+              closer_id: cliente.closer_id,
               note: cliente.note,
             }}
+            // a former collaborator stays selectable where they already are
+            setters={(persone ?? [])
+              .filter((p) => p.ruolo === 'setter' && (p.attivo || p.id === cliente.setter_id))
+              .map(({ id, nome }) => ({ id, nome }))}
+            closers={(persone ?? [])
+              .filter((p) => (p.ruolo === 'admin' || p.ruolo === 'closer') && (p.attivo || p.id === cliente.closer_id))
+              .map(({ id, nome }) => ({ id, nome }))}
           />
         </div>
         <dl className="divide-y divide-border rounded-xl bg-card px-3">

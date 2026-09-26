@@ -1,13 +1,14 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { LoaderCircle, Plus, TriangleAlert } from 'lucide-react'
+import { LoaderCircle, Pencil, Plus, TriangleAlert } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
-import { chiudiRegola, nuovaRegola } from '@/app/(app)/settings/commissions/actions'
+import { chiudiRegola, modificaRegola, nuovaRegola } from '@/app/(app)/settings/commissions/actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
 import { SceltaMultipla } from '@/components/form/scelta-multipla'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,7 +32,12 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { formatData } from '@/lib/format'
-import { regolaSchema, type RegolaInput } from '@/lib/validation/team'
+import {
+  modificaRegolaSchema,
+  regolaSchema,
+  type ModificaRegolaInput,
+  type RegolaInput,
+} from '@/lib/validation/team'
 import { ETICHETTA_TIPO_VENDITA, TIPI_VENDITA } from '@/lib/validation/vendita'
 
 const OPZIONI_TIPI = TIPI_VENDITA.map((t) => ({ valore: t, etichetta: ETICHETTA_TIPO_VENDITA[t] }))
@@ -208,5 +214,77 @@ export function ChiudiRegola({ ruleId, oggi, etichetta }: { ruleId: string; oggi
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+export function ModificaRegola({ regola, etichetta }: { regola: ModificaRegolaInput; etichetta: string }) {
+  const [aperto, setAperto] = useState(false)
+  const { errore, setErrore, salva } = useSalvataggio()
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ModificaRegolaInput>({
+    resolver: zodResolver(modificaRegolaSchema),
+    defaultValues: { ...regola, valida_al: regola.valida_al ?? '' },
+  })
+
+  const invia = handleSubmit(async (valori) => {
+    if (await salva(() => modificaRegola(valori), 'Regola aggiornata')) setAperto(false)
+  })
+
+  return (
+    <FoglioModifica
+      aperto={aperto}
+      onApertoChange={(v) => {
+        setAperto(v)
+        if (!v) {
+          setErrore(null)
+          reset()
+        }
+      }}
+      trigger={<Button type="button" variant="outline" className="h-11" />}
+      contenutoTrigger={
+        <>
+          <Pencil className="size-4" aria-hidden="true" />
+          Modifica
+        </>
+      }
+      titolo={`Modifica la regola · ${etichetta}`}
+      descrizione="Cambia le provvigioni già maturate con questa regola. Per un cambio da una data in poi usa “Nuova regola”."
+    >
+      <form onSubmit={invia} noValidate className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor={`mr-perc-${regola.id}`}>Percentuale</Label>
+          <div className="relative">
+            <Input id={`mr-perc-${regola.id}`} inputMode="decimal" className="num h-11 pr-8 text-right" {...register('percentuale')} />
+            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">%</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label htmlFor={`mr-dal-${regola.id}`}>Vale dal</Label>
+            <Input id={`mr-dal-${regola.id}`} type="date" className="num h-11" {...register('valida_dal')} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`mr-al-${regola.id}`}>Fino al (facoltativo)</Label>
+            <Input id={`mr-al-${regola.id}`} type="date" className="num h-11" {...register('valida_al')} />
+          </div>
+        </div>
+        <ErroreCampo
+          id={`mr-errore-${regola.id}`}
+          messaggio={errors.percentuale?.message ?? errors.valida_dal?.message ?? errors.valida_al?.message}
+        />
+        <SceltaMultipla
+          legenda="Si applica all’incassato di"
+          opzioni={OPZIONI_TIPI}
+          registrazione={register('applica_a')}
+          errore={errors.applica_a?.message}
+        />
+        <ErroreModulo testo={errore} />
+        <BottoneSalva inCorso={isSubmitting}>Salva la regola</BottoneSalva>
+      </form>
+    </FoglioModifica>
   )
 }

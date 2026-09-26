@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 
 import { getProfilo } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
+import { modificaVenditaSchema } from '@/lib/validation/vendita'
 import {
+  modificaIncassoSchema,
   modificaRataSchema,
   rimborsoSchema,
   segnaIncassataSchema,
@@ -144,6 +146,58 @@ export async function registraRimborso(input: unknown): Promise<EsitoRata> {
   })
 
   if (error) return { ok: false, errore: messaggio(error, 'Rimborso non registrato. Riprova.') }
+
+  aggiornaPagine()
+  return { ok: true, importo: v.importo }
+}
+
+/** The admin corrects a recorded sale. The instalments stay as they are. */
+export async function modificaVendita(input: unknown): Promise<EsitoRata> {
+  const parsed = modificaVenditaSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await autorizza(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const { id, ...campi } = parsed.data
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('sales').update(campi).eq('id', id).select('id').maybeSingle()
+
+  // 23514: the renewal check of the database, already worded for people
+  if (error) {
+    return {
+      ok: false,
+      errore: error.code === '23514' ? error.message : messaggio(error, 'Vendita non aggiornata. Riprova.'),
+    }
+  }
+  if (!data) return { ok: false, errore: 'Vendita non trovata.' }
+
+  aggiornaPagine()
+  revalidatePath('/clients/[id]', 'page')
+  return { ok: true }
+}
+
+/**
+ * Correct a recorded payment: date, amount, method. The admin on every sale,
+ * the closer on their own (RLS and the payments guard decide).
+ */
+export async function modificaIncasso(input: unknown): Promise<EsitoRata> {
+  const parsed = modificaIncassoSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await autorizza(['admin', 'closer'])
+  if (negato) return { ok: false, errore: negato }
+
+  const v = parsed.data
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('payments')
+    .update({ incassato_il: v.incassato_il, importo_incassato: v.importo, metodo: v.metodo ?? null })
+    .eq('id', v.payment_id)
+    .eq('stato', 'incassata')
+    .select('id')
+    .maybeSingle()
+
+  if (error) return { ok: false, errore: messaggio(error, 'Incasso non modificato. Riprova.') }
+  if (!data) return { ok: false, errore: 'Si corregge solo una rata già incassata.' }
 
   aggiornaPagine()
   return { ok: true, importo: v.importo }

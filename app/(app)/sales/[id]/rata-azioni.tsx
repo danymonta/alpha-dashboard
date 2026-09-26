@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 
 import {
   annullaIncasso,
+  modificaIncasso,
   modificaRata,
   registraRimborso,
   segnaFallita,
@@ -32,9 +33,11 @@ import { formatData, formatEuro, formatImportoInput } from '@/lib/format'
 import {
   ETICHETTA_METODO,
   METODI,
+  modificaIncassoSchema,
   modificaRataSchema,
   rimborsoSchema,
   segnaIncassataSchema,
+  type ModificaIncassoInput,
   type ModificaRataInput,
   type RimborsoInput,
   type SegnaIncassataInput,
@@ -47,6 +50,8 @@ type Rata = {
   importo_previsto: number
   stato: Database['public']['Enums']['payment_status']
   importo_incassato: number | null
+  incassato_il?: string | null
+  metodo?: Database['public']['Enums']['payment_method'] | null
 }
 
 type Props = {
@@ -57,7 +62,7 @@ type Props = {
   principale?: boolean
 }
 
-type Vista = 'menu' | 'incasso' | 'modifica' | 'rimborso'
+type Vista = 'menu' | 'incasso' | 'modifica' | 'correggi' | 'rimborso'
 
 const OPZIONI_METODO = METODI.map((m) => ({ valore: m, etichetta: ETICHETTA_METODO[m] }))
 
@@ -213,6 +218,11 @@ export function RataAzioni({ rata, admin, oggi, principale = false }: Props) {
                   </>
                 ) : (
                   <>
+                    {rata.stato === 'incassata' ? (
+                      <Button type="button" variant="outline" className="h-12 justify-start" onClick={() => setVista('correggi')}>
+                        Correggi data, importo o metodo
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
@@ -248,6 +258,14 @@ export function RataAzioni({ rata, admin, oggi, principale = false }: Props) {
             {vista === 'modifica' ? (
               <FormModifica rata={rata} inCorso={inCorso} onInvia={(v) =>
                 esegui(() => modificaRata(v), () => toast.success(`${etichetta} aggiornata`))}
+              />
+            ) : null}
+
+            {vista === 'correggi' ? (
+              <FormCorreggi rata={rata} oggi={oggi} inCorso={inCorso} onInvia={(v) =>
+                esegui(() => modificaIncasso(v), (e) =>
+                  toast.success(`Incasso corretto · ${formatEuro(e.importo ?? 0)}`),
+                )}
               />
             ) : null}
 
@@ -331,6 +349,52 @@ function FormIncasso({
       <SceltaRapida legenda="Metodo (facoltativo)" opzioni={OPZIONI_METODO} registrazione={register('metodo')} />
       <Button type="submit" className="h-11 w-full" disabled={inCorso}>
         Registra l’incasso
+      </Button>
+    </form>
+  )
+}
+
+function FormCorreggi({
+  rata,
+  oggi,
+  inCorso,
+  onInvia,
+}: {
+  rata: Rata
+  oggi: string
+  inCorso: boolean
+  onInvia: (v: ModificaIncassoInput) => void
+}) {
+  const { register, handleSubmit, formState: { errors } } = useForm<ModificaIncassoInput>({
+    resolver: zodResolver(modificaIncassoSchema),
+    defaultValues: {
+      payment_id: rata.id,
+      incassato_il: rata.incassato_il ?? oggi,
+      importo: formatImportoInput(rata.importo_incassato),
+      metodo: rata.metodo ?? null,
+    },
+  })
+
+  return (
+    <form
+      noValidate
+      className="space-y-4"
+      onSubmit={handleSubmit((valori) => onInvia(valori))}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label htmlFor={`correggi-data-${rata.id}`}>Incassata il</Label>
+          <Input id={`correggi-data-${rata.id}`} type="date" max={oggi} className="num h-11" {...register('incassato_il')} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`correggi-importo-${rata.id}`}>Importo incassato</Label>
+          <Input id={`correggi-importo-${rata.id}`} inputMode="decimal" className="num h-11 text-right" {...register('importo')} />
+        </div>
+      </div>
+      <ErroreCampo id={`correggi-errore-${rata.id}`} messaggio={errors.incassato_il?.message ?? errors.importo?.message} />
+      <SceltaRapida legenda="Metodo (facoltativo)" opzioni={OPZIONI_METODO} registrazione={register('metodo')} />
+      <Button type="submit" className="h-11 w-full" disabled={inCorso}>
+        Salva la correzione
       </Button>
     </form>
   )

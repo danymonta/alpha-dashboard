@@ -1,7 +1,9 @@
 'use client'
 
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   CalendarClock,
+  ChevronLeft,
   CircleCheck,
   CircleX,
   Lightbulb,
@@ -12,11 +14,17 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useOptimistic, useState, useTransition, type ReactNode } from 'react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
-import { aggiornaStatoLead } from '@/app/(app)/leads/actions'
+import { aggiornaStatoLead, modificaLead } from '@/app/(app)/leads/actions'
+import { ErroreCampo } from '@/components/form/errore-campo'
+import { BottoneSalva, ErroreModulo, useSalvataggio } from '@/components/form/foglio-modifica'
+import { SceltaRapida } from '@/components/form/scelta-rapida'
 import { buttonVariants } from '@/components/ui/button'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Sheet,
   SheetContent,
@@ -25,8 +33,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import { ETICHETTA_STATO_LEAD, STATI_LEAD, type StatoLead } from '@/lib/validation/lead'
+import { ETICHETTA_FONTE, FONTI } from '@/lib/validation/call'
+import {
+  ETICHETTA_STATO_LEAD,
+  STATI_LEAD,
+  modificaLeadSchema,
+  type ModificaLeadInput,
+  type StatoLead,
+} from '@/lib/validation/lead'
+
+const OPZIONI_FONTE = FONTI.map((f) => ({ valore: f, etichetta: ETICHETTA_FONTE[f] }))
 
 const ASPETTO: Record<StatoLead, { Icona: LucideIcon; tono: string }> = {
   call_fissata: { Icona: CalendarClock, tono: 'text-foreground' },
@@ -79,6 +97,7 @@ export function StatoLeadArea({
   nome,
   stato,
   suggerimento,
+  dati,
   titolo,
   children,
 }: {
@@ -86,12 +105,15 @@ export function StatoLeadArea({
   nome: string
   stato: StatoLead
   suggerimento: Suggerimento | null
+  /** Present when the viewer may correct the lead (admin, owning setter). */
+  dati: Omit<ModificaLeadInput, 'id'> | null
   /** The name: shares its line with the status, the details below get the full width. */
   titolo: ReactNode
   children: ReactNode
 }) {
   const { mostrato, inCorso, cambia } = useAggiornaStato(leadId, nome, stato)
   const [aperto, setAperto] = useState(false)
+  const [vista, setVista] = useState<'stato' | 'dati'>('stato')
   const { Icona, tono } = ASPETTO[mostrato]
   // once the suggested state is reached, the hint has done its job
   const attivo = suggerimento && !(suggerimento.tipo === 'stato' && suggerimento.stato === mostrato)
@@ -109,7 +131,13 @@ export function StatoLeadArea({
           {ETICHETTA_STATO_LEAD[mostrato]}
         </span>
 
-        <Sheet open={aperto} onOpenChange={setAperto}>
+        <Sheet
+          open={aperto}
+          onOpenChange={(v) => {
+            setAperto(v)
+            if (!v) setVista('stato')
+          }}
+        >
           <SheetTrigger
             render={
               <Button
@@ -123,33 +151,57 @@ export function StatoLeadArea({
           >
             <Pencil className="size-4" aria-hidden="true" />
           </SheetTrigger>
-          <SheetContent side="bottom" className="mx-auto w-full max-w-lg rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+          <SheetContent side="bottom" className="mx-auto max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
             <SheetHeader>
               <SheetTitle>{nome}</SheetTitle>
-              <SheetDescription>Stato nella pipeline, aggiornato a mano.</SheetDescription>
+              <SheetDescription>
+                {vista === 'stato' ? 'Stato nella pipeline, aggiornato a mano.' : 'Dati del lead: si correggono quando vuoi.'}
+              </SheetDescription>
             </SheetHeader>
-            <div role="radiogroup" aria-label={`Stato di ${nome}`} className="grid grid-cols-2 gap-2 px-4">
-              {STATI_LEAD.map((s) => {
-                const { Icona: I, tono: t } = ASPETTO[s]
-                const scelto = s === mostrato
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    role="radio"
-                    aria-checked={scelto}
-                    onClick={() => cambia(s, () => setAperto(false))}
-                    className={cn(
-                      'flex min-h-12 items-center gap-2 rounded-lg border px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                      scelto ? 'border-primary bg-primary/15 text-foreground' : 'border-input hover:bg-accent',
-                    )}
-                  >
-                    <I className={cn('size-4', t)} aria-hidden="true" />
-                    {ETICHETTA_STATO_LEAD[s]}
-                  </button>
-                )
-              })}
-            </div>
+            {vista === 'stato' ? (
+              <div className="space-y-3 px-4">
+                <div role="radiogroup" aria-label={`Stato di ${nome}`} className="grid grid-cols-2 gap-2">
+                  {STATI_LEAD.map((s) => {
+                    const { Icona: I, tono: t } = ASPETTO[s]
+                    const scelto = s === mostrato
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        role="radio"
+                        aria-checked={scelto}
+                        onClick={() => cambia(s, () => setAperto(false))}
+                        className={cn(
+                          'flex min-h-12 items-center gap-2 rounded-lg border px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                          scelto ? 'border-primary bg-primary/15 text-foreground' : 'border-input hover:bg-accent',
+                        )}
+                      >
+                        <I className={cn('size-4', t)} aria-hidden="true" />
+                        {ETICHETTA_STATO_LEAD[s]}
+                      </button>
+                    )
+                  })}
+                </div>
+                {dati ? (
+                  <Button type="button" variant="outline" className="h-11 w-full" onClick={() => setVista('dati')}>
+                    <Pencil className="size-4" aria-hidden="true" />
+                    Modifica nome, handle e fonte
+                  </Button>
+                ) : null}
+              </div>
+            ) : dati ? (
+              <div className="space-y-2 px-4">
+                <button
+                  type="button"
+                  className="flex min-h-11 items-center gap-1 text-sm text-muted-foreground"
+                  onClick={() => setVista('stato')}
+                >
+                  <ChevronLeft className="size-4" aria-hidden="true" />
+                  Stato
+                </button>
+                <FormLead id={leadId} dati={dati} onSalvato={() => setAperto(false)} />
+              </div>
+            ) : null}
           </SheetContent>
         </Sheet>
       </div>
@@ -186,5 +238,51 @@ export function StatoLeadArea({
         </div>
       ) : null}
     </>
+  )
+}
+
+function FormLead({
+  id,
+  dati,
+  onSalvato,
+}: {
+  id: string
+  dati: Omit<ModificaLeadInput, 'id'>
+  onSalvato: () => void
+}) {
+  const { errore, salva } = useSalvataggio()
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<ModificaLeadInput>({
+    resolver: zodResolver(modificaLeadSchema),
+    defaultValues: { id, ...dati, instagram_handle: dati.instagram_handle?.replace(/^@/, '') ?? '' },
+  })
+
+  const invia = handleSubmit(async (valori) => {
+    if (await salva(() => modificaLead(valori), 'Lead aggiornato')) onSalvato()
+  })
+
+  return (
+    <form onSubmit={invia} noValidate className="space-y-4">
+      <div className="space-y-1.5">
+        <Label htmlFor={`l-nome-${id}`}>Nome</Label>
+        <Input id={`l-nome-${id}`} className="h-11" aria-invalid={errors.nome ? true : undefined} {...register('nome')} />
+        <ErroreCampo id={`l-nome-errore-${id}`} messaggio={errors.nome?.message} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`l-ig-${id}`}>Handle Instagram</Label>
+        <Input id={`l-ig-${id}`} autoCapitalize="none" autoCorrect="off" className="h-11" {...register('instagram_handle')} />
+        <ErroreCampo id={`l-ig-errore-${id}`} messaggio={errors.instagram_handle?.message} />
+      </div>
+      <SceltaRapida legenda="Fonte" opzioni={OPZIONI_FONTE} registrazione={register('fonte')} errore={errors.fonte?.message} />
+      <div className="space-y-1.5">
+        <Label htmlFor={`l-note-${id}`}>Note</Label>
+        <Textarea id={`l-note-${id}`} rows={3} {...register('note')} />
+      </div>
+      <ErroreModulo testo={errore} />
+      <BottoneSalva inCorso={isSubmitting}>Salva il lead</BottoneSalva>
+    </form>
   )
 }

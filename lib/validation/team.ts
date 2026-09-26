@@ -40,6 +40,25 @@ export const regolaSchema = z.object({
   valida_dal: z.string().refine(isDataISO, 'Scegli da quando vale'),
 })
 
+/**
+ * Correcting a rule already recorded (same person). Changing it changes the
+ * commissions it produced: the database refuses overlapping dates.
+ */
+export const modificaRegolaSchema = regolaSchema
+  .omit({ profile_id: true })
+  .extend({
+    id: z.string().uuid('Regola non valida'),
+    valida_al: z
+      .union([z.string().refine(isDataISO, 'Data non valida'), z.literal('')])
+      .nullish()
+      .transform((v) => v || null),
+  })
+  .superRefine((v, ctx) => {
+    if (v.valida_al && isDataISO(v.valida_dal) && v.valida_al < v.valida_dal) {
+      ctx.addIssue({ code: 'custom', path: ['valida_al'], message: 'La fine viene dopo l’inizio' })
+    }
+  })
+
 export const chiudiRegolaSchema = z.object({
   rule_id: z.string().uuid(),
   valida_al: z.string().refine(isDataISO, 'Data non valida'),
@@ -47,3 +66,4 @@ export const chiudiRegolaSchema = z.object({
 
 export type InvitoInput = z.input<typeof invitoSchema>
 export type RegolaInput = z.input<typeof regolaSchema>
+export type ModificaRegolaInput = z.input<typeof modificaRegolaSchema>

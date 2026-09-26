@@ -65,13 +65,25 @@ test.describe('Oggi, report giornaliero del setter', () => {
     await expect(campo(page, 'Call proposte')).toHaveValue('1')
   })
 
-  test('la finestra di modifica è di 7 giorni e il futuro non esiste', async ({ page }) => {
-    await page.goto(`/today?data=${aggiungiGiorni(oggiRoma(), -10)}`)
+  test('un giorno di due mesi fa si corregge ancora, il futuro non esiste', async ({ page }) => {
+    const passato = aggiungiGiorni(oggiRoma(), -60)
+    await page.goto(`/today?data=${passato}`)
+    await expect(page.getByLabel('Scegli il giorno del report')).toHaveValue(passato)
+
+    const follow = campo(page, 'Follow-up del giorno')
+    const prima = Number(await follow.inputValue())
+    await page.getByRole('button', { name: 'Follow-up del giorno: più 1' }).click()
+    await attendiSalvataggio(page)
+    await page.reload()
+    await expect(campo(page, 'Follow-up del giorno')).toHaveValue(String(prima + 1))
+
+    // leave the seed as it was
+    await page.getByRole('button', { name: 'Follow-up del giorno: meno 1' }).click()
+    await attendiSalvataggio(page)
+
+    await page.goto(`/today?data=${aggiungiGiorni(oggiRoma(), 1)}`)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Oggi')
     await expect(page.getByRole('link', { name: 'Giorno successivo' })).toHaveCount(0)
-
-    await page.getByRole('link', { name: 'Giorno precedente' }).click()
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ieri')
   })
 })
 

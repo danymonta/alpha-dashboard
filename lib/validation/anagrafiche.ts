@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { isDataISO, oggiRoma } from '@/lib/date'
 import { parseImporto } from '@/lib/importi'
 import { Constants } from '@/lib/supabase/database.types'
-import { normalizzaHandle } from '@/lib/validation/call'
+import { FONTI, normalizzaHandle } from '@/lib/validation/call'
 
 const testoFacoltativo = (max: number) =>
   z
@@ -20,8 +20,13 @@ const importo = (messaggio: string) =>
     .refine((v) => v === null || v <= 100_000, 'Importo troppo alto: controlla gli zeri')
     .transform((v) => v as number)
 
+const idFacoltativo = z
+  .union([z.string().uuid(), z.literal('')])
+  .nullish()
+  .transform((v) => v || null)
+
 // ---------------------------------------------------------------------------
-// Cliente (contacts only: status and value are derived)
+// Cliente: contacts, source and owners. Status and value are derived.
 // ---------------------------------------------------------------------------
 export const clienteSchema = z.object({
   id: z.string().uuid(),
@@ -41,6 +46,10 @@ export const clienteSchema = z.object({
     .nullish()
     .transform((h) => normalizzaHandle(h ?? ''))
     .refine((h) => h === null || /^@[a-z0-9._]{1,30}$/.test(h), 'Handle non valido'),
+  fonte: z.enum(FONTI).nullish().transform((v) => v ?? null),
+  // who brought and who closed the client; a sale keeps its own setter and closer
+  setter_id: idFacoltativo,
+  closer_id: idFacoltativo,
   note: testoFacoltativo(1000),
 })
 
@@ -86,6 +95,10 @@ export const costoSchema = z.object({
   ricorrente: z.boolean().default(false),
 })
 
+/** Correcting a recorded cost: same rules, plus which row. */
+export const modificaCostoSchema = costoSchema.extend({ id: z.string().uuid('Costo non valido') })
+
 export type ClienteInput = z.input<typeof clienteSchema>
+export type ModificaCostoInput = z.input<typeof modificaCostoSchema>
 export type ProdottoInput = z.input<typeof prodottoSchema>
 export type CostoInput = z.input<typeof costoSchema>

@@ -5,7 +5,6 @@ import {
   dataReportValida,
   etichettaGiorno,
   etichettaGiornoBreve,
-  finestraReport,
   formatOra,
   isDataISO,
   oggiRoma,
@@ -37,20 +36,16 @@ describe('aggiungiGiorni', () => {
   })
 })
 
-describe('finestra del report', () => {
+describe('giorno del report', () => {
   const oggi = '2026-09-26'
 
-  it('copre oggi e i 7 giorni precedenti, come la policy RLS', () => {
-    expect(finestraReport(oggi)).toEqual({ minima: '2026-09-19', massima: oggi })
-  })
-
-  it('accetta una data dentro la finestra', () => {
-    expect(dataReportValida('2026-09-19', oggi)).toBe('2026-09-19')
+  it('accetta qualsiasi giorno passato, come la policy RLS', () => {
     expect(dataReportValida('2026-09-25', oggi)).toBe('2026-09-25')
+    expect(dataReportValida('2026-07-01', oggi)).toBe('2026-07-01')
+    expect(dataReportValida(oggi, oggi)).toBe(oggi)
   })
 
-  it('riporta a oggi ciò che è fuori finestra, nel futuro o malformato', () => {
-    expect(dataReportValida('2026-09-18', oggi)).toBe(oggi)
+  it('riporta a oggi il futuro e le date malformate', () => {
     expect(dataReportValida('2026-09-27', oggi)).toBe(oggi)
     expect(dataReportValida('2026-02-30', oggi)).toBe(oggi)
     expect(dataReportValida('ieri', oggi)).toBe(oggi)

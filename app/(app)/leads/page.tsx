@@ -113,7 +113,7 @@ export default async function PipelinePage({
   let query = supabase
     .from('leads')
     .select(
-      'id, nome, instagram_handle, fonte, stato, created_at, setter:profiles!leads_setter_id_fkey(nome), calls(id, tipo, programmata_il, stato, esito)',
+      'id, nome, instagram_handle, fonte, note, stato, created_at, setter_id, setter:profiles!leads_setter_id_fkey(nome), calls(id, tipo, programmata_il, stato, esito)',
     )
     .in('stato', filtro === 'aperti' ? APERTI : [filtro])
     .order('created_at', { ascending: false })
@@ -219,6 +219,12 @@ export default async function PipelinePage({
                     nome={lead.nome}
                     stato={lead.stato}
                     suggerimento={suggerisci(lead.stato, ultima, profilo.ruolo as Ruolo, adesso)}
+                    // the closer moves the status but does not rewrite the lead
+                    dati={
+                      profilo.ruolo === 'admin' || lead.setter_id === profilo.id
+                        ? { nome: lead.nome, instagram_handle: lead.instagram_handle, fonte: lead.fonte, note: lead.note }
+                        : null
+                    }
                     titolo={<h3 id={idTitolo} className="truncate text-sm font-medium">{lead.nome}</h3>}
                   >
                     <p className="truncate text-sm text-muted-foreground">{dettagli.join(' · ')}</p>

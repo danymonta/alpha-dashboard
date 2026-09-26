@@ -27,3 +27,10 @@ export const pagamentoProvvigioneSchema = z.object({
 })
 
 export type PagamentoProvvigioneInput = z.input<typeof pagamentoProvvigioneSchema>
+
+/** Correcting a payout already recorded: the collaborator stays the same. */
+export const modificaPagamentoProvvigioneSchema = pagamentoProvvigioneSchema
+  .omit({ profile_id: true })
+  .extend({ id: z.string().uuid('Pagamento non valido') })
+
+export type ModificaPagamentoProvvigioneInput = z.input<typeof modificaPagamentoProvvigioneSchema>

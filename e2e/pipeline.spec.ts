@@ -35,7 +35,7 @@ test('il setter sposta un suo lead in follow-up', async ({ page }) => {
   await accedi(page, 'setter')
 
   await page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'Pipeline' }).click()
-  await expect(scheda(page, nome).getByTestId('stato-lead')).toHaveText('Call fissata')
+  await expect(scheda(page, nome).getByTestId('stato-lead')).toHaveText('Call da fare')
 
   await cambiaStato(page, nome, 'Follow-up')
   await expect(page.getByText(`${nome}: follow-up`)).toBeVisible()
