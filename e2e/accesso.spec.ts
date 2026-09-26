@@ -43,9 +43,10 @@ test('il closer atterra sulle sue call e non raggiunge i costi', async ({ page }
   await accedi(page, 'closer')
   await expect(page).toHaveURL('/calls')
 
-  // Anche via URL diretto: il frontend nasconde, la pagina rifiuta
+  // Anche via URL diretto: il frontend nasconde, la pagina rifiuta e riporta a casa
   await page.goto('/expenses')
-  await expect(page).toHaveURL('/nessuna-area')
+  await expect(page).toHaveURL('/calls')
+  await expect(page.getByRole('heading', { name: 'Costi' })).toHaveCount(0)
 })
 
 test('il nome e il ruolo dell’utente sono visibili nella shell', async ({ page }) => {

@@ -2,6 +2,7 @@ import 'server-only'
 
 import { redirect } from 'next/navigation'
 
+import { percorsoIniziale } from '@/lib/auth/roles'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -39,13 +40,16 @@ export async function requireProfilo(): Promise<Profilo> {
   return profilo
 }
 
-/** Same, but also refuses a role that has no area yet. */
+/**
+ * Same, restricted to some roles. Whoever opens a page that is not theirs goes
+ * back to their own landing page (roles without an area land on /nessuna-area).
+ */
 export async function requireRuolo(
   ruoli: readonly Profilo['ruolo'][],
 ): Promise<Profilo> {
   const profilo = await requireProfilo()
 
-  if (!ruoli.includes(profilo.ruolo)) redirect('/nessuna-area')
+  if (!ruoli.includes(profilo.ruolo)) redirect(percorsoIniziale(profilo.ruolo))
 
   return profilo
 }
