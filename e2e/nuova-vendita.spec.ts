@@ -53,7 +53,9 @@ test.describe('Nuova vendita dal closer', () => {
     await expect(page).toHaveURL(/\/sales\/[0-9a-f-]{36}$/)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${nome} Rossi`)
     await expect(page.getByTestId('piano-rate').getByRole('listitem')).toHaveCount(3)
-    await expect(page.getByText('2.400,00')).toBeVisible()
+    // nothing cashed yet: the whole contract is still to collect
+    await expect(page.getByTestId('riepilogo-incassi')).toContainText('Incassato0,00')
+    await expect(page.getByTestId('riepilogo-incassi')).toContainText('Da incassare2.400,00')
 
     const { data: vendita } = await dbLocale()
       .from('sales')
