@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 import { esci } from '@/app/auth/actions'
+import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { Button } from '@/components/ui/button'
 import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
 import { isAttiva, vociNav } from '@/lib/nav'
@@ -21,10 +22,8 @@ export function Sidebar({ ruolo, nome }: Props) {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
-      <div className="px-4 py-5">
-        <p className="text-[0.625rem] font-medium tracking-[0.2em] text-muted-foreground uppercase">
-          Percorso Alpha
-        </p>
+      <div className="flex items-center gap-3 px-4 py-4">
+        <LogoFuoco dimensione="compatto" />
         <p className="font-heading text-base font-semibold">Economics</p>
       </div>
 

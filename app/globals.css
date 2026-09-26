@@ -31,6 +31,13 @@
   --status-warning: #e0a43a;
   --status-critical: #e5484d;
 
+  /* Brand moment only (login, intro, shell logo): the fire around the logo.
+     Never used on data screens, never as a surface or a chart series. */
+  --brand-fire-core: #ffe2a3;
+  --brand-fire-flame: #ff9a2c;
+  --brand-fire-ember: #f0521d;
+  --brand-fire-deep: #8e1c10;
+
   /* ------------------------------------------------------------------
      shadcn mapping
   ------------------------------------------------------------------ */
@@ -147,4 +154,157 @@
 
 @utility num {
   font-variant-numeric: tabular-nums;
+}
+
+/* Brand moment ---------------------------------------------------------------
+   CLAUDE.md section 11, "Momento di brand": login, intro after login, shell
+   logo. Keyframes only: components apply them through motion-safe: utilities,
+   so prefers-reduced-motion leaves a static logo. Compositor-only properties
+   (opacity, transform); filter appears only in the one-shot intro ignition.
+--------------------------------------------------------------------------- */
+@keyframes brand-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes brand-bloom-pulse {
+  0%,
+  100% {
+    opacity: 0.16;
+  }
+  50% {
+    opacity: 0.48;
+  }
+}
+
+@keyframes brand-flicker-a {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(1, 1);
+  }
+  14% {
+    opacity: 0.95;
+    transform: scale(1.02, 1.07);
+  }
+  29% {
+    opacity: 0.72;
+    transform: scale(0.98, 0.95);
+  }
+  47% {
+    opacity: 1;
+    transform: scale(1.03, 1.12);
+  }
+  63% {
+    opacity: 0.82;
+    transform: scale(1, 1.01);
+  }
+  81% {
+    opacity: 0.93;
+    transform: scale(1.02, 1.08);
+  }
+}
+
+@keyframes brand-flicker-b {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: translateX(0) scale(1, 1);
+  }
+  21% {
+    opacity: 1;
+    transform: translateX(-1.5%) scale(1.04, 1.1);
+  }
+  38% {
+    opacity: 0.76;
+    transform: translateX(1%) scale(0.97, 0.97);
+  }
+  57% {
+    opacity: 0.94;
+    transform: translateX(-0.5%) scale(1.02, 1.14);
+  }
+  76% {
+    opacity: 0.68;
+    transform: translateX(1.5%) scale(0.99, 1);
+  }
+}
+
+@keyframes brand-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes brand-ignite {
+  0% {
+    opacity: 0;
+    transform: scale(0.86);
+    filter: brightness(0.25);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.035);
+    filter: brightness(1.45);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes brand-bloom-flare {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0.32;
+  }
+}
+
+@keyframes brand-flare {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes brand-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes brand-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }

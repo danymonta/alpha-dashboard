@@ -3,6 +3,7 @@
 import { LogOut } from 'lucide-react'
 
 import { esci } from '@/app/auth/actions'
+import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { Button } from '@/components/ui/button'
 import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
 
@@ -10,11 +11,14 @@ import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
 export function TopBar({ ruolo, nome }: { ruolo: AppRole; nome: string }) {
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur md:hidden">
-      <div className="min-w-0">
-        <p className="font-heading text-sm font-semibold">Economics</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {nome} · {ETICHETTA_RUOLO[ruolo]}
-        </p>
+      <div className="flex min-w-0 items-center gap-3">
+        <LogoFuoco dimensione="mini" />
+        <div className="min-w-0">
+          <p className="font-heading text-sm font-semibold">Economics</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {nome} · {ETICHETTA_RUOLO[ruolo]}
+          </p>
+        </div>
       </div>
       <form action={esci}>
         <Button

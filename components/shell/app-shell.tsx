@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { IntroIngresso } from '@/components/brand/intro-ingresso'
 import { BottomBar } from '@/components/shell/bottom-bar'
 import { Sidebar } from '@/components/shell/sidebar'
 import { TopBar } from '@/components/shell/top-bar'
@@ -24,6 +25,8 @@ export function AppShell({ ruolo, nome, children }: Props) {
         {children}
       </main>
       <BottomBar ruolo={ruolo} />
+      {/* Brand moment: once per session, removed from the DOM when done */}
+      <IntroIngresso />
     </div>
   )
 }

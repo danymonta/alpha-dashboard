@@ -32,12 +32,19 @@ export function GoogleButton() {
   const { pending } = useFormStatus()
 
   return (
-    <Button type="submit" className="h-11 w-full text-sm" disabled={pending}>
-      {pending ? (
-        <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-      ) : (
-        <GoogleLogo />
-      )}
+    <Button
+      type="submit"
+      className="h-12 w-full gap-3 text-sm font-semibold shadow-[0_12px_32px_-14px_var(--brand-fire-ember)] hover:bg-primary-light"
+      disabled={pending}
+    >
+      {/* Google's mark needs a light ground to keep its four colours legible */}
+      <span className="flex size-7 items-center justify-center rounded-md bg-foreground text-background">
+        {pending ? (
+          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <GoogleLogo />
+        )}
+      </span>
       {pending ? 'Apertura di Google…' : 'Accedi con Google'}
     </Button>
   )
