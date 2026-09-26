@@ -119,3 +119,33 @@ export function formatImportoInput(value: number | string | null | undefined): s
   const n = toNumber(value)
   return n === null ? '' : importoInput.format(n)
 }
+
+const meseBreve = new Intl.DateTimeFormat('it-IT', { month: 'short' })
+
+/** "set" for chart ticks; January also carries the year ("gen 27"). */
+export function formatMeseBreve(value: string): string {
+  const d = parseDataISO(value)
+  const m = meseBreve.format(d).replace('.', '')
+  return d.getMonth() === 0 ? `${m} ${String(d.getFullYear()).slice(2)}` : m
+}
+
+/** Axis ticks: "0 €", "800 €", "1,5k €". Display scaling only. */
+export function formatEuroAsse(value: number): string {
+  if (Math.abs(value) < 1000) return `${numero.format(Math.round(value))} €`
+  return `${new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1 }).format(value / 1000)}k €`
+}
+
+const nomeMese = new Intl.DateTimeFormat('it-IT', { month: 'long' })
+
+/** "agosto" (no year): for "vs agosto" under a KPI. */
+export function formatNomeMese(value: string): string {
+  return nomeMese.format(parseDataISO(value))
+}
+
+const unDecimale = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1, useGrouping: 'always' })
+
+/** Ratios like "DM per call": 12,5. */
+export function formatRapporto(value: number | string | null | undefined): string {
+  const n = toNumber(value)
+  return n === null ? VUOTO : unDecimale.format(n)
+}

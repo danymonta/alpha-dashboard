@@ -1,0 +1,85 @@
+'use client'
+
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart'
+import { formatEuro, formatEuroAsse, formatMese, formatMeseBreve } from '@/lib/format'
+
+export type PuntoCash = { mese: string; nuovo: number; rinnovo: number; upsell: number; totale: number }
+
+// colour follows the entity, never the rank (CLAUDE.md section 11)
+const CONFIG = {
+  nuovo: { label: 'Nuovo', color: 'var(--chart-nuovo)' },
+  rinnovo: { label: 'Rinnovo', color: 'var(--chart-rinnovo)' },
+  upsell: { label: 'Upsell', color: 'var(--chart-upsell)' },
+} satisfies ChartConfig
+
+const SERIE = ['nuovo', 'rinnovo', 'upsell'] as const
+
+export function GraficoCash({ dati }: { dati: PuntoCash[] }) {
+  return (
+    <ChartContainer config={CONFIG} className="aspect-auto h-64 w-full md:h-72">
+      <BarChart data={dati} margin={{ top: 8, right: 4, left: 4, bottom: 0 }} accessibilityLayer>
+        <CartesianGrid vertical={false} stroke="var(--alpha-border)" />
+        <XAxis
+          dataKey="mese"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          tickFormatter={formatMeseBreve}
+          stroke="var(--alpha-text-muted)"
+        />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          width={56}
+          tickFormatter={formatEuroAsse}
+          stroke="var(--alpha-text-muted)"
+        />
+        <ChartTooltip
+          cursor={{ fill: 'var(--alpha-surface-2)' }}
+          content={
+            <ChartTooltipContent
+              labelFormatter={(_, payload) => {
+                const mese = payload?.[0]?.payload?.mese as string | undefined
+                return mese ? <span className="capitalize">{formatMese(mese)}</span> : null
+              }}
+              formatter={(valore, nome, item) => (
+                <div className="flex w-full items-center justify-between gap-4">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="size-2.5 shrink-0 rounded-[2px]" style={{ background: item.color }} />
+                    {CONFIG[nome as keyof typeof CONFIG]?.label ?? nome}
+                  </span>
+                  <span className="num font-medium text-foreground">{formatEuro(Number(valore))}</span>
+                </div>
+              )}
+            />
+          }
+        />
+        <ChartLegend content={<ChartLegendContent />} />
+        {SERIE.map((serie, i) => (
+          <Bar
+            key={serie}
+            dataKey={serie}
+            stackId="cash"
+            fill={`var(--color-${serie})`}
+            maxBarSize={24}
+            // data screens stay still (section 11): no growing-bar animation
+            isAnimationActive={false}
+            // 2px surface gap between stacked segments; 4px rounded data end on top
+            stroke="var(--card)"
+            strokeWidth={2}
+            radius={i === SERIE.length - 1 ? [4, 4, 0, 0] : 0}
+          />
+        ))}
+      </BarChart>
+    </ChartContainer>
+  )
+}

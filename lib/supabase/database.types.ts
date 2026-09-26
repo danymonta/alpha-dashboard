@@ -539,6 +539,11 @@ isOneToOne: false
               "id_call": string,"id_lead": string,"lead_esistente": boolean
             }[]
                            },
+"funnel_mese":
+{ Args: { "p_mese": string }; Returns: {
+              "fase": string,"ordine": number,"passaggio": number,"valore": number
+            }[]
+                           },
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
@@ -572,6 +577,11 @@ isOneToOne: false
                            },
 "oggi":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"oggi_team":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "call_in_programma": number,"call_prenotate": number,"call_svolte": number,"cash_incassato": number,"chiuse": number,"conversazioni": number,"dm_totali": number,"report_compilati": number
+            }[]
                            },
 "piano_rate":
 { Args: { "p_data_vendita": string,"p_numero_rate": number,"p_valore": number }; Returns: {
