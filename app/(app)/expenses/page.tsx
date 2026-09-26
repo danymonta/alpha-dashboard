@@ -35,7 +35,7 @@ export default async function CostiPage({ searchParams }: { searchParams: Promis
   const perCategoria = riepilogo.filter((r) => r.categoria !== null)
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         titolo="Costi"
         descrizione="Team, software, ads, formazione: quello che sta sotto il margine operativo."

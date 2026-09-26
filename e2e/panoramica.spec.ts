@@ -6,12 +6,18 @@ test('la panoramica risponde alla domanda del mese', async ({ page }) => {
   await accedi(page, 'admin')
   await expect(page).toHaveURL('/')
 
-  const kpi = page.getByTestId('kpi')
-  for (const etichetta of ['Cash incassato', 'Revenue firmata', 'Nuovi clienti', 'Rinnovi', 'Margine operativo']) {
-    await expect(kpi.getByText(etichetta, { exact: true })).toBeVisible()
+  for (const etichetta of [
+    'Cash incassato',
+    'Revenue firmata',
+    'Nuovi clienti firmati',
+    'Rinnovi firmati',
+    'Margine operativo',
+  ]) {
+    await expect(page.getByText(etichetta, { exact: true }).first()).toBeVisible()
   }
-  await expect(page.getByTestId('cash-per-tipo')).toContainText('Nuovo')
-  await expect(page.getByTestId('cash-per-tipo')).toContainText('Rinnovo')
+  // "quanto è nuovo e quanto è rinnovo": the cash split, not the count of sales
+  await expect(page.getByTestId('cash-per-tipo')).toContainText('da nuovi')
+  await expect(page.getByTestId('cash-per-tipo')).toContainText('da rinnovi')
   await expect(page.getByText('Tasse escluse.')).toBeVisible()
 
   await page.getByText('Vedi come tabella').click()

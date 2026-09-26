@@ -3,6 +3,7 @@ import Link from 'next/link'
 
 import { aggiungiMesi } from '@/lib/date'
 import { formatMese } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 type Props = {
   /** 'YYYY-MM-01' */
@@ -12,6 +13,7 @@ type Props = {
   percorso: string
   /** Other query params to keep while moving between months. */
   parametri?: Record<string, string | undefined>
+  className?: string
 }
 
 function href(percorso: string, mese: string, parametri: Props['parametri']) {
@@ -21,14 +23,14 @@ function href(percorso: string, mese: string, parametri: Props['parametri']) {
   return `${percorso}?${qs.toString()}`
 }
 
-export function SelettoreMese({ mese, meseCorrente, percorso, parametri }: Props) {
+export function SelettoreMese({ mese, meseCorrente, percorso, parametri, className }: Props) {
   const precedente = aggiungiMesi(mese, -1)
   const successivo = aggiungiMesi(mese, 1)
   const classi =
     'flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground'
 
   return (
-    <nav aria-label="Scegli il mese" className="flex items-center gap-1">
+    <nav aria-label="Scegli il mese" className={cn('flex items-center gap-1', className)}>
       <Link href={href(percorso, precedente, parametri)} aria-label="Mese precedente" className={classi}>
         <ChevronLeft className="size-5" aria-hidden="true" />
       </Link>

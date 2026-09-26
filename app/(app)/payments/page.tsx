@@ -123,8 +123,12 @@ export default async function IncassiPage({
       ) : (
         <ul className="divide-y divide-border rounded-xl bg-card" data-testid="elenco-rate">
           {righe.data.map((r) => (
-            <li key={r.payment_id} aria-label={`${r.cliente} rata ${r.numero_rata}`} className="px-3 py-2">
-              <div className="flex min-h-11 items-center gap-3">
+            <li
+              key={r.payment_id}
+              aria-label={`${r.cliente} rata ${r.numero_rata}`}
+              className="px-3 py-2 md:flex md:items-center md:gap-3"
+            >
+              <div className="flex min-h-11 items-center gap-3 md:flex-1">
                 <div className="min-w-0 flex-1">
                   <Link href={`/sales/${r.sale_id}`} className="block truncate text-sm font-medium hover:underline">
                     {r.cliente}
@@ -145,20 +149,25 @@ export default async function IncassiPage({
                   <StatoRata stato={r.stato!} scadenza={r.scadenza!} oggi={oggi} className="text-xs" />
                 </div>
               </div>
-              {r.stato !== 'rimborsata' ? (
-                <RataAzioni
-                  rata={{
-                    id: r.payment_id!,
-                    numero_rata: r.numero_rata!,
-                    scadenza: r.scadenza!,
-                    importo_previsto: r.importo_previsto!,
-                    stato: r.stato!,
-                    importo_incassato: r.importo_incassato,
-                  }}
-                  admin
-                  oggi={oggi}
-                />
-              ) : null}
+              {/* fixed width from md up: amounts line up whatever the actions */}
+              <div className="md:w-52 md:shrink-0">
+                {r.stato !== 'rimborsata' ? (
+                  <RataAzioni
+                    rata={{
+                      id: r.payment_id!,
+                      numero_rata: r.numero_rata!,
+                      scadenza: r.scadenza!,
+                      importo_previsto: r.importo_previsto!,
+                      stato: r.stato!,
+                      importo_incassato: r.importo_incassato,
+                    }}
+                    admin
+                    oggi={oggi}
+                    // filled button only where it is urgent: the late view
+                    principale={vista === 'ritardo'}
+                  />
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>

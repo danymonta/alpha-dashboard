@@ -1,5 +1,6 @@
 import { TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
+import { Fragment } from 'react'
 
 import { formatData, formatEuro } from '@/lib/format'
 import { ETICHETTA_TIPO_VENDITA, type TipoVendita } from '@/lib/validation/vendita'
@@ -61,8 +62,18 @@ export function ElencoVendite({ righe, mostraPersone }: { righe: RigaVendita[]; 
       </ul>
 
       <div className="hidden overflow-hidden rounded-xl bg-card md:block">
-        <table className="w-full text-sm">
+        {/* fixed layout: stacked tables (e.g. Le mie vendite) keep their columns aligned */}
+        <table className="w-full table-fixed text-sm">
           <caption className="sr-only">Vendite</caption>
+          <colgroup>
+            <col />
+            <col className="w-20" />
+            <col className="w-28" />
+            {mostraPersone ? <col className="w-44" /> : null}
+            <col className="w-28" />
+            <col className="w-28" />
+            <col className="w-36" />
+          </colgroup>
           <thead className="text-xs text-muted-foreground">
             <tr className="border-b border-border">
               <th scope="col" className="px-3 py-2.5 text-left font-normal">Cliente</th>
@@ -89,7 +100,17 @@ export function ElencoVendite({ righe, mostraPersone }: { righe: RigaVendita[]; 
                 <td className="px-3 py-2.5">{formatData(r.data_vendita)}</td>
                 {mostraPersone ? (
                   <td className="px-3 py-2.5 text-muted-foreground">
-                    {[r.closer, r.setter].filter(Boolean).join(' · ') || '–'}
+                    {/* fixed column: wrap between the two names, never inside one */}
+                    {[r.closer, r.setter].filter(Boolean).length > 0
+                      ? [r.closer, r.setter]
+                          .filter(Boolean)
+                          .map((nome, i) => (
+                            <Fragment key={i}>
+                              {i > 0 ? ' · ' : null}
+                              <span className="whitespace-nowrap">{nome}</span>
+                            </Fragment>
+                          ))
+                      : '–'}
                   </td>
                 ) : null}
                 <td className="px-3 py-2.5 text-right">{formatEuro(r.valore_contratto)}</td>

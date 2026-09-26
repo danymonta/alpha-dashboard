@@ -46,11 +46,11 @@ export function Stepper({
         {etichetta}
       </label>
 
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-2">
         <Button
           type="button"
-          variant="ghost"
-          className="size-11 text-sm text-muted-foreground"
+          variant="outline"
+          className="size-11 text-sm"
           onClick={() => imposta(valore - 1)}
           disabled={valore <= 0}
           aria-label={`${etichetta}: meno 1`}
@@ -79,7 +79,7 @@ export function Stepper({
             setTesto(null)
             onFineModifica?.()
           }}
-          className="num h-11 w-14 rounded-lg border border-input bg-input/30 text-center text-base font-medium outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="num h-11 w-12 rounded-lg border border-input bg-input/30 text-center text-base font-medium outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         />
 
         <Button

@@ -45,7 +45,7 @@ export default async function DettaglioVenditaPage({
 
   if (!vendita) {
     return (
-      <div className="mx-auto max-w-2xl">
+      <div className="max-w-2xl">
         <IntestazionePagina titolo="Vendita" />
         <StatoVuoto
           Icona={SearchX}
@@ -62,6 +62,8 @@ export default async function DettaglioVenditaPage({
   }
 
   const oggi = oggiRoma()
+  // filled button only on the first instalment still to collect, in plan order
+  const primaDaIncassare = vendita.rate.find((r) => r.stato === 'prevista' || r.stato === 'fallita')?.id
   const nomeCliente = [vendita.cliente?.nome, vendita.cliente?.cognome].filter(Boolean).join(' ')
 
   const dettagli: [string, string][] = [
@@ -74,7 +76,7 @@ export default async function DettaglioVenditaPage({
   ]
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="max-w-2xl space-y-6">
       <IntestazionePagina
         titolo={nomeCliente || 'Vendita'}
         descrizione={vendita.cliente?.instagram_handle ?? undefined}
@@ -149,9 +151,9 @@ export default async function DettaglioVenditaPage({
             <li
               key={rata.id}
               aria-label={`Rata ${rata.numero_rata}${rata.stato === 'rimborsata' ? ' rimborso' : ''}`}
-              className="px-3 py-2"
+              className="px-3 py-2 md:flex md:items-center md:gap-3"
             >
-              <div className="flex min-h-11 items-center gap-3">
+              <div className="flex min-h-11 items-center gap-3 md:flex-1">
                 <span className="num w-8 shrink-0 text-sm text-muted-foreground">
                   {rata.numero_rata}ª
                 </span>
@@ -165,9 +167,17 @@ export default async function DettaglioVenditaPage({
                   {formatEuro(rata.importo_incassato ?? rata.importo_previsto)}
                 </span>
               </div>
-              {rata.stato !== 'rimborsata' ? (
-                <RataAzioni rata={rata} admin={profilo.ruolo === 'admin'} oggi={oggi} />
-              ) : null}
+              {/* fixed width from md up: amounts line up whatever the actions */}
+              <div className="md:w-52 md:shrink-0">
+                {rata.stato !== 'rimborsata' ? (
+                  <RataAzioni
+                    rata={rata}
+                    admin={profilo.ruolo === 'admin'}
+                    oggi={oggi}
+                    principale={rata.id === primaDaIncassare}
+                  />
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>

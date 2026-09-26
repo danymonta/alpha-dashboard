@@ -35,7 +35,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
 
   if (!cliente || !valore) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="max-w-3xl">
         <IntestazionePagina titolo="Cliente" />
         <StatoVuoto
           Icona={SearchX}
@@ -59,7 +59,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   ]
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         titolo={nome}
         azione={

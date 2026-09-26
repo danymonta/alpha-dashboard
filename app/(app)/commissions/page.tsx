@@ -39,7 +39,7 @@ export default async function ProvvigioniPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       <IntestazionePagina
         titolo="Provvigioni"
         descrizione="Maturano sull’incasso, non sulla firma. Un rimborso le riduce nel mese in cui avviene."
@@ -85,7 +85,30 @@ export default async function ProvvigioniPage() {
                 <p className="num text-3xl font-semibold text-gold">{formatEuro(ultima?.saldo_progressivo)}</p>
               </div>
 
-              <div className="overflow-x-auto">
+              {/* below 768px: one card per month, no 4-column table */}
+              <ul className="space-y-2 md:hidden" aria-label={`Provvigioni di ${nome} per mese`}>
+                {mesiRecenti.map((r) => (
+                  <li key={r.mese} className="rounded-lg border border-border px-3 py-2.5">
+                    <p className="text-sm font-medium capitalize">{formatMese(r.mese)}</p>
+                    <dl className="mt-1.5 grid grid-cols-3 gap-3">
+                      <div className="text-right">
+                        <dt className="text-xs text-muted-foreground">Maturato</dt>
+                        <dd className="num text-sm">{formatEuro(r.maturato)}</dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-xs text-muted-foreground">Pagato</dt>
+                        <dd className="num text-sm">{formatEuro(r.pagato)}</dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-xs text-muted-foreground">Saldo del mese</dt>
+                        <dd className="num text-sm font-medium">{formatEuro(r.saldo_mese)}</dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-sm">
                   <caption className="sr-only">Provvigioni di {nome} per mese</caption>
                   <thead className="text-xs text-muted-foreground">
@@ -122,7 +145,7 @@ export default async function ProvvigioniPage() {
                 <span>
                   {persone.get(p.profile_id)?.nome ?? 'Collaboratore'}
                   <span className="block text-xs text-muted-foreground">
-                    {formatData(p.pagato_il)} · riferito a <span className="capitalize">{formatMese(p.periodo)}</span>
+                    {formatData(p.pagato_il)} · riferito a {formatMese(p.periodo)}
                   </span>
                 </span>
                 <span className="num font-medium">{formatEuro(p.importo)}</span>

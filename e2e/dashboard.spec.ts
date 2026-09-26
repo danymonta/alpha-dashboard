@@ -20,7 +20,7 @@ test('incassi: la rata in ritardo si incassa dall’elenco e passa tra le incass
   const rata = page.getByRole('listitem', { name: `${nome} Incassi rata 1` })
   await expect(rata).toContainText('giorni di ritardo')
 
-  await rata.getByRole('button', { name: 'Incassata' }).click()
+  await rata.getByRole('button', { name: 'Segna incassata' }).click()
   await expect(page.getByText('Rata 1 incassata · 300,00')).toBeVisible()
   await expect(page.getByRole('listitem', { name: `${nome} Incassi rata 1` })).toHaveCount(0)
 
@@ -49,7 +49,7 @@ test('provvigioni: saldo, registrazione del pagamento, storico', async ({ page }
   await foglio.getByRole('button', { name: 'Registra pagamento' }).click()
 
   await expect(page.getByText('Pagamento a Loris Setter registrato')).toBeVisible()
-  await expect(page.getByText('12,34 €').first()).toBeVisible()
+  await expect(page.getByText('12,34 €').filter({ visible: true }).first()).toBeVisible()
 })
 
 test('i miei numeri: il setter vede solo i suoi totali', async ({ page }) => {

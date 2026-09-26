@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { AggiornamentoLive } from '@/components/panoramica/aggiornamento-live'
+import { ContoMargine } from '@/components/panoramica/conto-margine'
 import { Funnel } from '@/components/panoramica/funnel'
 import { GraficoCash } from '@/components/panoramica/grafico-cash'
 import { TileKpi } from '@/components/panoramica/tile-kpi'
@@ -27,8 +28,8 @@ export const dynamic = 'force-dynamic'
 const KPI: Record<string, { etichetta: string; euro: boolean }> = {
   cash_incassato: { etichetta: 'Cash incassato', euro: true },
   revenue_firmata: { etichetta: 'Revenue firmata', euro: true },
-  nuovi_clienti: { etichetta: 'Nuovi clienti', euro: false },
-  rinnovi: { etichetta: 'Rinnovi', euro: false },
+  nuovi_clienti: { etichetta: 'Nuovi clienti firmati', euro: false },
+  rinnovi: { etichetta: 'Rinnovi firmati', euro: false },
   // always "Margine operativo", never "utile": taxes are not included
   margine_operativo: { etichetta: 'Margine operativo', euro: true },
 }
@@ -109,21 +110,34 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
   const m = metriche.data!
   const fasce = Object.fromEntries((incassare.data ?? []).map((f) => [f.fascia, f]))
   const cashTotale = (cash.data ?? []).some((p) => Number(p.totale) !== 0)
-  const [hero, ...altri] = kpi.data ?? []
+  const [hero, ...resto] = kpi.data ?? []
+  // the margin gets its own block with the full sum; the other KPIs stay tiles
+  const margine = resto.find((k) => k.chiave === 'margine_operativo')
+  const altri = resto.filter((k) => k.chiave !== 'margine_operativo')
   const confronto = `vs ${formatNomeMese(precedente)}`
   const valoreKpi = (chiave: string, valore: number | null) =>
     KPI[chiave]?.euro ? formatEuro(valore, { compatto: true }) : formatNumero(valore)
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      {/* Mobile: live status on the title row, month selector full width below. */}
+      <header className="grid grid-cols-[auto_1fr] items-end gap-x-3 gap-y-2 md:flex md:flex-wrap md:justify-between">
         <div>
           <h1 className="font-heading text-xl font-semibold md:text-2xl">Panoramica</h1>
           <p className="text-sm text-muted-foreground capitalize">{formatMese(mese)}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {eMeseCorrente ? <AggiornamentoLive /> : null}
-          <SelettoreMese mese={mese} meseCorrente={meseCorrente} percorso="/" />
+        <div className="contents md:flex md:flex-wrap md:items-center md:gap-3">
+          {eMeseCorrente ? (
+            <div className="min-w-0 justify-self-end text-right">
+              <AggiornamentoLive />
+            </div>
+          ) : null}
+          <SelettoreMese
+            mese={mese}
+            meseCorrente={meseCorrente}
+            percorso="/"
+            className="col-span-2 w-full justify-between md:w-auto md:justify-start"
+          />
         </div>
       </header>
 
@@ -138,29 +152,46 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
             confronto={confronto}
           >
             {/* "quanto è nuovo e quanto è rinnovo": the split, from metriche_mese */}
-            <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-border pt-4" data-testid="cash-per-tipo">
-              {(
-                [
-                  ['Nuovo', m.cash_nuovo, 'bg-chart-nuovo'],
-                  ['Rinnovo', m.cash_rinnovo, 'bg-chart-rinnovo'],
-                  ['Upsell', m.cash_upsell, 'bg-chart-upsell'],
-                ] as const
-              ).map(([etichetta, valore, colore]) => (
-                <div key={etichetta}>
-                  <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className={`size-2.5 rounded-[2px] ${colore}`} aria-hidden="true" />
-                    {etichetta}
-                  </dt>
-                  <dd className="num text-base font-semibold">{formatEuro(valore, { compatto: true })}</dd>
-                </div>
-              ))}
-            </dl>
+            <div className="mt-5 border-t border-border pt-4">
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Cash per tipo di vendita</p>
+              <dl className="grid grid-cols-3 gap-3" data-testid="cash-per-tipo">
+                {(
+                  [
+                    ['da nuovi', m.cash_nuovo, 'bg-chart-nuovo'],
+                    ['da rinnovi', m.cash_rinnovo, 'bg-chart-rinnovo'],
+                    ['da upsell', m.cash_upsell, 'bg-chart-upsell'],
+                  ] as const
+                ).map(([etichetta, valore, colore]) => (
+                  <div key={etichetta}>
+                    <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className={`size-2.5 rounded-[2px] ${colore}`} aria-hidden="true" />
+                      {etichetta}
+                    </dt>
+                    <dd className="num text-base font-semibold">{formatEuro(valore, { compatto: true })}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
           </TileKpi>
         ) : null}
-        <div className="grid grid-cols-2 gap-3">
-          {altri.map((k) => (
+        {/* Mobile: margin block right under the hero. Desktop: top of the right column. */}
+        <div className="grid grid-cols-2 content-start gap-3 sm:grid-cols-3">
+          {margine ? (
+            <ContoMargine
+              className="col-span-2 sm:col-span-3"
+              cash={m.cash_incassato}
+              provvigioni={m.provvigioni_maturate}
+              costi={m.costi}
+              margine={margine.valore}
+              delta={margine.delta}
+              confronto={confronto}
+            />
+          ) : null}
+          {altri.map((k, i) => (
             <TileKpi
               key={k.chiave}
+              // three tiles: on mobile the first takes a full row, no orphan cell
+              className={i === 0 && altri.length % 2 === 1 ? 'col-span-2 sm:col-span-1' : undefined}
               etichetta={KPI[k.chiave].etichetta}
               valore={valoreKpi(k.chiave, k.valore)}
               delta={k.delta}
@@ -169,10 +200,6 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
           ))}
         </div>
       </div>
-      <p className="-mt-2 px-1 text-xs text-muted-foreground">
-        Margine operativo = cash incassato − provvigioni maturate ({formatEuro(m.provvigioni_maturate)}) − costi (
-        {formatEuro(m.costi)}). Tasse escluse.
-      </p>
 
       {/* 2. Today, live */}
       {team.data ? (

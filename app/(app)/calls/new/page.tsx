@@ -29,7 +29,7 @@ export default async function NuovaCallPage() {
   ].map(({ id, nome }) => ({ id, nome }))
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="max-w-xl">
       <IntestazionePagina
         titolo="Nuova call"
         descrizione="Il lead nasce qui, nel momento in cui fissi la call."

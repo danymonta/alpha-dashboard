@@ -105,11 +105,13 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle }: Props) {
           esito = await salvaReportGiornaliero({ data, ...istantanea })
         } catch {
           setStato({ tipo: 'errore', messaggio: 'Connessione assente. Riprova.' })
+          toast.error('Report non salvato. Connessione assente. Riprova.')
           break
         }
 
         if (!esito.ok) {
           setStato({ tipo: 'errore', messaggio: esito.errore })
+          toast.error(`Report non salvato. ${esito.errore}`)
           break
         }
 
@@ -231,9 +233,11 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle }: Props) {
 
 function StatoSalvataggio({ stato, riprova }: { stato: Stato; riprova: () => void }) {
   return (
+    // Stays in view while scrolling. On mobile it sits under the sticky top
+    // bar (size-11 button + py-2.5 + 1px border = 65px); no top bar from md up.
     <div
       aria-live="polite"
-      className="flex min-h-11 items-center justify-between gap-3 text-sm"
+      className="sticky top-[65px] z-10 -mx-1 flex min-h-11 items-center justify-between gap-3 bg-background px-1 text-sm md:top-0"
     >
       {stato.tipo === 'nuovo' ? (
         <p className="flex items-center gap-2 text-muted-foreground">

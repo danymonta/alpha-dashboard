@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 
 function Pagina({ descrizione, children }: { descrizione?: string; children: ReactNode }) {
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="max-w-xl space-y-6">
       <IntestazionePagina titolo="Nuova vendita" descrizione={descrizione} />
       {children}
     </div>

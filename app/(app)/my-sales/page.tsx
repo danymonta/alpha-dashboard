@@ -18,7 +18,7 @@ export default async function LeMieVenditePage() {
   const saldate = righe.filter((r) => Number(r.da_incassare ?? 0) === 0)
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         titolo="Le mie vendite"
         descrizione="Le vendite che hai chiuso. Apri una vendita per segnare una rata incassata."

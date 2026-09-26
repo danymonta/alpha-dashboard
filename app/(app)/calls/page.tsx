@@ -102,7 +102,7 @@ export default async function LeMieCallPage() {
 
   if (calls.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl">
+      <div className="max-w-2xl">
         {intestazione}
         {vista === 'setter' ? (
           <StatoVuoto
@@ -143,7 +143,7 @@ export default async function LeMieCallPage() {
   )
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="max-w-2xl space-y-6">
       {intestazione}
 
       {vista === 'closer' ? (

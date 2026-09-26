@@ -49,7 +49,13 @@ type Rata = {
   importo_incassato: number | null
 }
 
-type Props = { rata: Rata; admin: boolean; oggi: string }
+type Props = {
+  rata: Rata
+  admin: boolean
+  oggi: string
+  /** The one instalment to act on first: filled button. The others are outline. */
+  principale?: boolean
+}
 
 type Vista = 'menu' | 'incasso' | 'modifica' | 'rimborso'
 
@@ -65,7 +71,7 @@ function Errore({ testo }: { testo: string | null }) {
   )
 }
 
-export function RataAzioni({ rata, admin, oggi }: Props) {
+export function RataAzioni({ rata, admin, oggi, principale = false }: Props) {
   const [inCorso, avvia] = useTransition()
   const [aperto, setAperto] = useState(false)
   const [vista, setVista] = useState<Vista>('menu')
@@ -265,13 +271,19 @@ export function RataAzioni({ rata, admin, oggi }: Props) {
       </Sheet>
 
       {daIncassare ? (
-        <Button type="button" className="h-11" disabled={inCorso} onClick={incassaSubito}>
+        <Button
+          type="button"
+          variant={principale ? 'default' : 'outline'}
+          className="h-11"
+          disabled={inCorso}
+          onClick={incassaSubito}
+        >
           {inCorso ? (
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
           ) : (
             <CircleCheck className="size-4" aria-hidden="true" />
           )}
-          Incassata
+          Segna incassata
         </Button>
       ) : null}
     </div>

@@ -34,7 +34,7 @@ export default async function IMieiNumeriPage({ searchParams }: { searchParams: 
   if (error || !n) throw new Error('Impossibile caricare i tuoi numeri')
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="max-w-2xl space-y-5">
       <IntestazionePagina titolo="I miei numeri" descrizione="Le tue metriche del mese e le tue provvigioni." />
       <SelettoreMese mese={mese} meseCorrente={meseCorrente} percorso="/my-numbers" />
 

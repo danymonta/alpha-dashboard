@@ -25,13 +25,13 @@ test.describe('incassi dall’admin', () => {
     const riepilogo = page.getByTestId('riepilogo-incassi')
     await expect(riepilogo).toContainText('Incassato0,00')
 
-    await rata(page, 'Rata 1').getByRole('button', { name: 'Incassata' }).click()
+    await rata(page, 'Rata 1').getByRole('button', { name: 'Segna incassata' }).click()
     await expect(page.getByText('Rata 1 incassata · 300,00')).toBeVisible()
     await expect(rata(page, 'Rata 1').getByText('Incassata', { exact: true })).toBeVisible()
     await expect(riepilogo).toContainText('Incassato300,00')
 
     await page.getByRole('button', { name: 'Annulla' }).click()
-    await expect(rata(page, 'Rata 1').getByRole('button', { name: 'Incassata' })).toBeVisible()
+    await expect(rata(page, 'Rata 1').getByRole('button', { name: 'Segna incassata' })).toBeVisible()
     await expect(riepilogo).toContainText('Incassato0,00')
   })
 
@@ -52,7 +52,7 @@ test.describe('incassi dall’admin', () => {
     const id = await creaVenditaDiProva(`${PREFISSO}${Date.now()}`, ID_ADMIN)
     await page.goto(`/sales/${id}`)
 
-    await rata(page, 'Rata 1').getByRole('button', { name: 'Incassata' }).click()
+    await rata(page, 'Rata 1').getByRole('button', { name: 'Segna incassata' }).click()
     await expect(page.getByTestId('riepilogo-incassi')).toContainText('Incassato300,00')
 
     await rata(page, 'Rata 1').getByRole('button', { name: /Altre azioni/ }).click()
@@ -89,7 +89,7 @@ test('il closer incassa le sue vendite ma non tocca il piano', async ({ page }) 
   await page.getByRole('link', { name: new RegExp(nome) }).first().click()
   await expect(page).toHaveURL(`/sales/${id}`)
 
-  await rata(page, 'Rata 1').getByRole('button', { name: 'Incassata' }).click()
+  await rata(page, 'Rata 1').getByRole('button', { name: 'Segna incassata' }).click()
   await expect(page.getByText('Rata 1 incassata')).toBeVisible()
 
   await rata(page, 'Rata 2').getByRole('button', { name: /Altre azioni/ }).click()

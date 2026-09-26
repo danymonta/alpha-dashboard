@@ -20,7 +20,7 @@ export default async function ProdottiPage() {
   if (error) throw new Error('Impossibile caricare i prodotti')
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         titolo="Prodotti"
         descrizione="Un prodotto fuori vendita resta nelle vendite passate ma non compare più nel modulo."
@@ -37,14 +37,15 @@ export default async function ProdottiPage() {
       ) : (
         <ul className="divide-y divide-border rounded-xl bg-card">
           {prodotti.map((p) => (
-            <li key={p.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
-              <div className="min-w-0 flex-1">
+            <li key={p.id} className="flex flex-wrap items-center gap-x-3 px-3 py-2">
+              {/* mobile: name on its own row, price and controls on the row below */}
+              <div className="min-w-0 basis-full md:basis-0 md:flex-1">
                 <p className="text-sm font-medium">{p.nome}</p>
                 <p className="text-sm text-muted-foreground">
                   {p.durata_mesi === 1 ? '1 mese' : `${p.durata_mesi} mesi`}
                 </p>
               </div>
-              <p className="num w-24 text-right text-sm font-medium">{formatEuro(p.prezzo_listino)}</p>
+              <p className="num mr-auto text-sm font-medium md:mr-0 md:w-24 md:text-right">{formatEuro(p.prezzo_listino)}</p>
               <AttivoProdotto id={p.id} nome={p.nome} attivo={p.attivo} />
               <ProdottoForm prodotto={p} />
             </li>

@@ -64,7 +64,7 @@ export default async function OggiPage({
   const puoiAvanti = successivo <= oggi
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="max-w-xl">
       <header className="mb-2 flex items-center justify-between gap-2">
         <NavGiorno
           href={puoiIndietro ? hrefGiorno(precedente, oggi) : null}
