@@ -238,6 +238,12 @@ isOneToOne: false
       foreignKeyName: "payments_sale_id_fkey"
       columns: ["sale_id"]
 isOneToOne: false
+      referencedRelation: "v_provvigioni_maturate"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "payments_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
       referencedRelation: "v_vendite"
       referencedColumns: ["sale_id"]
     }
@@ -389,6 +395,74 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"v_provvigioni_maturate": {
+                  Row: {
+                    "importo_incassato": number | null,"incassato_il": string | null,"mese": string | null,"payment_id": string | null,"percentuale": number | null,"profile_id": string | null,"provvigione": number | null,"sale_id": string | null,"tipo": Database["public"]['Enums']["sale_type"] | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "sales_setter_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"v_rate": {
+                  Row: {
+                    "client_id": string | null,"cliente": string | null,"closer_id": string | null,"giorni_ritardo": number | null,"importo_incassato": number | null,"importo_previsto": number | null,"in_ritardo": boolean | null,"incassato_il": string | null,"metodo": Database["public"]['Enums']["payment_method"] | null,"numero_rata": number | null,"payment_id": string | null,"sale_id": string | null,"scadenza": string | null,"setter_id": string | null,"stato": Database["public"]['Enums']["payment_status"] | null,"tipo": Database["public"]['Enums']["sale_type"] | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "payments_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "sales"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "payments_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_provvigioni_maturate"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "payments_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_vendite"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "sales_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "sales_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "sales_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "sales_closer_id_fkey"
+      columns: ["closer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "sales_setter_id_fkey"
+      columns: ["setter_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"v_vendite": {
                   Row: {
                     "call_id": string | null,"client_id": string | null,"closer_id": string | null,"da_incassare": number | null,"data_fine": string | null,"data_inizio": string | null,"data_vendita": string | null,"in_ritardo": number | null,"incassato": number | null,"numero_rate": number | null,"product_id": string | null,"prossima_scadenza": string | null,"rate_in_ritardo": number | null,"rate_incassate": number | null,"rate_totali": number | null,"sale_id": string | null,"scarto_piano": number | null,"setter_id": string | null,"tipo": Database["public"]['Enums']["sale_type"] | null,"totale_piano": number | null,"valore_contratto": number | null
@@ -444,11 +518,21 @@ isOneToOne: false
             "aggiorna_stato_lead":
 { Args: { "p_lead_id": string,"p_stato": Database["public"]['Enums']["lead_status"] }; Returns: Database["public"]['Enums']["lead_status"]
                            },
+"cash_mensile":
+{ Args: { "p_fino"?: string,"p_mesi"?: number }; Returns: {
+              "mese": string,"nuovo": number,"rinnovo": number,"totale": number,"upsell": number
+            }[]
+                           },
 "copia_costi_ricorrenti":
 { Args: { "p_mese": string }; Returns: number
                            },
 "current_role":
 { Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["app_role"]
+                           },
+"da_incassare":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "fascia": string,"numero": number,"totale": number
+            }[]
                            },
 "fissa_call":
 { Args: { "p_closer_id": string,"p_data": string,"p_fonte": Database["public"]['Enums']["lead_source"],"p_instagram_handle"?: string,"p_nome": string,"p_ora": string,"p_tipo": Database["public"]['Enums']["call_type"] }; Returns: {
@@ -458,12 +542,32 @@ isOneToOne: false
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"kpi_panoramica":
+{ Args: { "p_mese": string }; Returns: {
+              "chiave": string,"delta": number,"precedente": number,"valore": number
+            }[]
+                           },
 "lead_appartiene_al_setter":
 { Args: { "p_lead_id": string,"p_setter_id": string }; Returns: boolean
+                           },
+"metriche_mese":
+{ Args: { "p_mese": string }; Returns: {
+              "call_prenotate": number,"call_proposte": number,"call_svolte": number,"cash_incassato": number,"cash_nuovo": number,"cash_per_call_svolta": number,"cash_per_dm": number,"cash_rinnovo": number,"cash_upsell": number,"chiuse": number,"close_rate": number,"close_rate_qualificate": number,"conversazioni": number,"costi": number,"dm_per_call": number,"dm_per_strategy": number,"dm_totali": number,"in_scadenza_nel_mese": number,"margine_operativo": number,"mese": string,"no_show": number,"numero_vendite": number,"nuovi_clienti": number,"provvigioni_maturate": number,"qualificate": number,"revenue_firmata": number,"revenue_per_dm": number,"rinnovati_nel_mese": number,"rinnovi": number,"show_rate": number,"strategy_prenotate": number,"tasso_conversazione": number,"tasso_prenotazione": number,"tasso_qualificazione": number,"tasso_rinnovo": number,"valore_medio_vendita": number
+            }[]
+                           },
+"metriche_setting":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_per_call": number,"dm_totali": number,"giorni_compilati": number,"no_show": number,"nome": string,"setter_id": string,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
+            }[]
                            },
 "miei_clienti":
 { Args: Record<PropertyKey, never>; Returns: {
               "id": string,"nome": string,"stato": Database["public"]['Enums']["client_status"]
+            }[]
+                           },
+"miei_numeri":
+{ Args: { "p_mese": string }; Returns: {
+              "call_fissate": number,"call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_per_call": number,"dm_totali": number,"giorni_compilati": number,"no_show": number,"provvigioni_maturate": number,"provvigioni_pagate": number,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
             }[]
                            },
 "oggi":
@@ -473,6 +577,14 @@ isOneToOne: false
 { Args: { "p_data_vendita": string,"p_numero_rate": number,"p_valore": number }; Returns: {
               "importo": number,"numero_rata": number,"scadenza": string
             }[]
+                           },
+"provvigioni_riepilogo":
+{ Args: { "p_mesi"?: number }; Returns: {
+              "maturato": number,"mese": string,"nome": string,"pagato": number,"profile_id": string,"saldo_mese": number,"saldo_progressivo": number
+            }[]
+                           },
+"rapporto":
+{ Args: { "p_denominatore": number,"p_numeratore": number }; Returns: number
                            },
 "registra_rimborso":
 { Args: { "p_data": string,"p_importo": number,"p_note"?: string,"p_payment_id": string }; Returns: string
