@@ -18,6 +18,7 @@ test('l’admin vede la navigazione completa', async ({ page }) => {
     'Panoramica',
     'Le mie call',
     'Vendite',
+    'Pipeline',
     'Incassi',
     'Clienti',
     'Setting',

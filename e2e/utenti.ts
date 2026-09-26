@@ -17,6 +17,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'panoramica', url: '/' },
     { nome: 'le-mie-call', url: '/calls' },
     { nome: 'nuova-vendita', url: '/sales/new' },
+    { nome: 'pipeline', url: '/leads' },
     { nome: 'vendite', url: '/sales' },
     { nome: 'incassi', url: '/payments' },
     { nome: 'clienti', url: '/clients' },
@@ -28,11 +29,13 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   setter: [
     { nome: 'oggi', url: '/today' },
     { nome: 'nuova-call', url: '/calls/new' },
+    { nome: 'pipeline', url: '/leads' },
     { nome: 'le-mie-call', url: '/calls' },
     { nome: 'i-miei-numeri', url: '/my-numbers' },
   ],
   closer: [
     { nome: 'le-mie-call', url: '/calls' },
+    { nome: 'pipeline', url: '/leads' },
     { nome: 'nuova-vendita', url: '/sales/new' },
     { nome: 'le-mie-vendite', url: '/my-sales' },
   ],

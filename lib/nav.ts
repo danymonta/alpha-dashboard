@@ -7,6 +7,7 @@ import {
   Phone,
   Receipt,
   Settings,
+  SquareKanban,
   TrendingUp,
   Users,
   Wallet,
@@ -41,6 +42,7 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/sales', etichetta: 'Vendite', Icona: Receipt },
     ],
     altre: [
+      { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/clients', etichetta: 'Clienti', Icona: Users },
       { href: '/setting', etichetta: 'Setting', Icona: TrendingUp },
       { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
@@ -52,14 +54,15 @@ const NAV: Record<AppRole, NavRuolo> = {
     principali: [
       { href: '/today', etichetta: 'Oggi', Icona: ClipboardList },
       { href: '/calls/new', etichetta: 'Nuova call', Icona: CalendarPlus },
-      { href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true },
+      { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-numbers', etichetta: 'I miei numeri', Icona: TrendingUp },
     ],
-    altre: [],
+    altre: [{ href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true }],
   },
   closer: {
     principali: [
       { href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true },
+      { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-sales', etichetta: 'Le mie vendite', Icona: Receipt },
     ],
     altre: [],

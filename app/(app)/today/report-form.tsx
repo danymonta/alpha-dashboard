@@ -19,7 +19,7 @@ import {
 const RITARDO_NUMERI_MS = 500
 const RITARDO_NOTE_MS = 1000
 
-/** Schema order (CLAUDE.md section 8), with follow-up kept among the DMs. */
+/** Same order as the coach's Excel (SETTER columns I-Q): the setter's muscle memory. */
 const GRUPPI: { titolo: string; campi: [CampoNumericoReport, string][] }[] = [
   {
     titolo: 'Messaggi',
@@ -27,7 +27,6 @@ const GRUPPI: { titolo: string; campi: [CampoNumericoReport, string][] }[] = [
       ['dm_outbound', 'DM outbound'],
       ['dm_inbound', 'DM inbound'],
       ['conversazioni', 'Conversazioni'],
-      ['follow_up', 'Follow-up'],
     ],
   },
   {
@@ -39,6 +38,10 @@ const GRUPPI: { titolo: string; campi: [CampoNumericoReport, string][] }[] = [
       ['call_qualificate', 'Call qualificate'],
       ['strategy_prenotate', 'Strategy prenotate'],
     ],
+  },
+  {
+    titolo: 'Follow-up',
+    campi: [['follow_up', 'Follow-up del giorno']],
   },
 ]
 
