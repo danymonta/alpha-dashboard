@@ -50,7 +50,7 @@ describe('ripristino del backup', () => {
 describe('email del backup', () => {
   it('dice cosa c’è dentro e come si rimette', () => {
     const { oggetto, testo } = emailBackup(backup, 'backup-alpha-2026-09-28.json.gz')
-    expect(oggetto).toBe('Backup settimanale Alpha Economics · 28/09/2026')
+    expect(oggetto).toBe('Backup settimanale Alpha Management · 28/09/2026')
     expect(testo).toContain('Vendite: 1')
     expect(testo).toContain('Rate e incassi: 1')
     expect(testo).toContain('npm run backup:sql -- backup-alpha-2026-09-28.json.gz ripristino.sql')

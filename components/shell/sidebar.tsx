@@ -26,7 +26,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
       <div className="flex items-center gap-3 px-4 py-4">
         <LogoFuoco dimensione="compatto" />
-        <p className="font-heading text-base font-semibold">Percorso Alpha</p>
+        <p className="font-heading text-base leading-tight font-semibold">Alpha Management</p>
       </div>
 
 

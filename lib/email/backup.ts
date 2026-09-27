@@ -23,7 +23,7 @@ const NOMI: Record<string, string> = {
 /** The weekly backup email: what is inside, and how to put it back. */
 export function emailBackup(backup: Backup, nomeFile: string): { oggetto: string; html: string; testo: string } {
   const giorno = formatData(backup.creato_il.slice(0, 10))
-  const oggetto = `Backup settimanale Alpha Economics · ${giorno}`
+  const oggetto = `Backup settimanale Alpha Management · ${giorno}`
   const principali = conteggi(backup).filter((c) => NOMI[c.tabella])
   const righe = principali.map((c) => `${NOMI[c.tabella]}: ${c.righe}`)
   const istruzioni = [

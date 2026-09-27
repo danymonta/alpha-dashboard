@@ -31,7 +31,7 @@ const nav = (href: string, ...alternative: string[]) => [`nav-${href}`, ...alter
 function benvenuto(funzione: string): PassoTutorial {
   return {
     id: 'benvenuto',
-    titolo: 'Benvenuto in Percorso Alpha',
+    titolo: 'Benvenuto in Alpha Management',
     testo: `Ti mostro in un minuto dove trovi le cose del tuo lavoro da ${funzione.toLowerCase()}. Puoi rivedere questo tour quando vuoi dal tuo profilo.`,
   }
 }

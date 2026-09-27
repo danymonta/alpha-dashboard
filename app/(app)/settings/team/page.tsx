@@ -4,7 +4,7 @@ import { ETICHETTA_RUOLO } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { emailConfigurata } from '@/lib/email/invia'
-import { publicEnv } from '@/lib/env'
+import { origineCorrente } from '@/lib/auth/origine-server'
 import { formatData } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
 
@@ -12,6 +12,8 @@ export const dynamic = 'force-dynamic'
 
 export default async function TeamPage() {
   const io = await requireRuolo(['admin'])
+  // the link to share by hand points to the domain the admin is on
+  const urlLogin = `${await origineCorrente()}/login`
   const supabase = await createClient()
 
   const [{ data: membri, error }, { data: inviti, error: erroreInviti }] = await Promise.all([
@@ -31,7 +33,7 @@ export default async function TeamPage() {
         indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
         titolo="Team"
         descrizione="Accesso solo su invito. Chi è disattivato non entra più e non vede nessun dato."
-        azione={<InvitaMembro urlLogin={`${publicEnv.appUrl.replace(/\/$/, '')}/login`} emailAttiva={emailConfigurata()} />}
+        azione={<InvitaMembro urlLogin={urlLogin} emailAttiva={emailConfigurata()} />}
       />
 
       <section className="space-y-2">
@@ -84,7 +86,7 @@ export default async function TeamPage() {
                     {ETICHETTA_RUOLO[i.ruolo]} · invitato il {formatData(oggiRoma(new Date(i.created_at)))}
                   </p>
                 </div>
-                <RevocaInvito email={i.email} urlLogin={`${publicEnv.appUrl.replace(/\/$/, '')}/login`} />
+                <RevocaInvito email={i.email} urlLogin={urlLogin} />
               </li>
             ))}
           </ul>

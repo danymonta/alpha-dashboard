@@ -35,7 +35,7 @@ export function emailInvito(d: DatiInvito): { oggetto: string; html: string; tes
   const testo = [
     'Ciao!',
     '',
-    `${d.invitatoDa} ti ha invitato nello spazio di lavoro del team di Percorso Alpha, come ${d.ruolo}.`,
+    `${d.invitatoDa} ti ha invitato su Alpha Management, il gestionale del team di Percorso Alpha, come ${d.ruolo}.`,
     '',
     `Entra da qui con il tuo account Google (${d.email}):`,
     d.urlLogin,
@@ -64,7 +64,7 @@ export function emailInvito(d: DatiInvito): { oggetto: string; html: string; tes
       <tr><td style="padding:16px 32px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${TESTO};">
         <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;font-weight:700;text-align:center;">Benvenuto nel team</h1>
         <p style="margin:0 0 16px;font-size:16px;line-height:1.5;text-align:center;">
-          ${nomeInvito} ti ha invitato nello spazio di lavoro di <strong>Percorso Alpha</strong>, come <strong>${escape(d.ruolo)}</strong>.
+          ${nomeInvito} ti ha invitato su <strong>Alpha Management</strong>, il gestionale del team di Percorso Alpha, come <strong>${escape(d.ruolo)}</strong>.
         </p>
       </td></tr>
       <tr><td align="center" style="padding:8px 32px 8px;">

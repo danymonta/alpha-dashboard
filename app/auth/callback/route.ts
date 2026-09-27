@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { destinazioneSicura } from '@/lib/auth/origine'
 import { percorsoIniziale } from '@/lib/auth/roles'
 import { createClient } from '@/lib/supabase/server'
 
@@ -58,8 +59,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?errore=disattivato`)
   }
 
-  const destinazione =
-    da && da.startsWith('/') && da !== '/login' ? da : percorsoIniziale(profilo.ruolo)
+  const sicura = destinazioneSicura(da)
+  const destinazione = sicura === '/' ? percorsoIniziale(profilo.ruolo) : sicura
 
   return NextResponse.redirect(`${origin}${destinazione}`)
 }

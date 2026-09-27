@@ -1,5 +1,7 @@
 import type { MetadataRoute } from 'next'
 
+import { DESCRIZIONE_ESTESA, NOME_APP } from '@/lib/brand/nome'
+
 /**
  * The installed app ("Aggiungi a Home" / "Installa app"): full screen, dark,
  * the emblem as icon. Colours are the theme's --alpha-bg: a manifest cannot
@@ -7,9 +9,9 @@ import type { MetadataRoute } from 'next'
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Percorso Alpha',
+    name: NOME_APP,
     short_name: 'Alpha',
-    description: 'Setting, vendite, incassi e progetti del team Percorso Alpha',
+    description: DESCRIZIONE_ESTESA,
     lang: 'it',
     start_url: '/',
     scope: '/',

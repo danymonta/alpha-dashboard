@@ -9,7 +9,7 @@ import { ETICHETTA_RUOLO } from '@/lib/auth/roles'
 import { getProfilo } from '@/lib/auth/session'
 import { inviaEmail } from '@/lib/email/invia'
 import { emailInvito } from '@/lib/email/invito'
-import { publicEnv } from '@/lib/env'
+import { origineCorrente } from '@/lib/auth/origine-server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -27,7 +27,7 @@ export type EsitoInvito = { ok: true; email: 'inviata' | 'non_configurata' | 'er
 
 async function mandaEmailInvito(email: string, ruolo: keyof typeof ETICHETTA_RUOLO): Promise<'inviata' | 'non_configurata' | 'errore'> {
   const profilo = await getProfilo()
-  const base = publicEnv.appUrl.replace(/\/$/, '')
+  const base = await origineCorrente()
   const messaggio = emailInvito({
     email,
     ruolo: ETICHETTA_RUOLO[ruolo],

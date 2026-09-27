@@ -4,19 +4,23 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { isDevLoginEnabled } from '@/lib/auth/dev-login'
-import { publicEnv } from '@/lib/env'
+import { destinazioneSicura } from '@/lib/auth/origine'
+import { origineCorrente } from '@/lib/auth/origine-server'
 import { createClient } from '@/lib/supabase/server'
 
 export type StatoLogin = { errore?: string }
 
 export async function accediConGoogle(formData: FormData): Promise<void> {
-  const da = String(formData.get('da') ?? '/')
+  const da = destinazioneSicura(String(formData.get('da') ?? '/'))
   const supabase = await createClient()
+  // back to the domain the person is on (dashboard.percorsoalpha.com), not to
+  // whatever APP_URL said at build time: cookies live on one domain only
+  const origine = await origineCorrente()
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${publicEnv.appUrl}/auth/callback?da=${encodeURIComponent(da)}`,
+      redirectTo: `${origine}/auth/callback?da=${encodeURIComponent(da)}`,
     },
   })
 

@@ -67,3 +67,11 @@ test('coach ed editor hanno solo i Progetti: le pagine Economics li riportano l�
     await page.context().clearCookies()
   }
 })
+
+test('chi è già entrato non rivede il login: va dritto dove stava andando', async ({ page }) => {
+  await accedi(page, 'setter')
+  await page.goto('/login?da=/tempo')
+  await expect(page).toHaveURL(/\/tempo$/)
+  await page.goto('/login?da=//evil.example.com')
+  await expect(page).toHaveURL(/localhost:3000\/(today)?$/)
+})

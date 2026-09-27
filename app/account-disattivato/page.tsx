@@ -14,7 +14,7 @@ export default function AccountDisattivatoPage() {
         <div className="space-y-2">
           <h1 className="font-heading text-xl font-semibold">Account disattivato</h1>
           <p className="text-sm text-muted-foreground">
-            Il tuo accesso ad Alpha Economics è stato sospeso. Contatta
+            Il tuo accesso ad Alpha Management è stato sospeso. Contatta
             l’amministratore per riattivarlo.
           </p>
         </div>

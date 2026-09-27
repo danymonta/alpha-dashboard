@@ -39,6 +39,29 @@ const maschera = await sharp({ create: { width: 512, height: 512, channels: 4, b
   .toBuffer()
 await writeFile('public/icons/icon-maskable-512.png', await png(maschera, 512))
 
+// the link preview (WhatsApp, Telegram, email): logo and name on the dark background
+const logoAnteprima = await sharp(SORGENTE).resize({ height: 520 }).png().toBuffer()
+const testo = Buffer.from(`<svg width="640" height="630" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .n { font: 700 64px 'Helvetica Neue', Helvetica, Arial, sans-serif; fill: #F2F0EC; }
+    .t { font: 400 30px 'Helvetica Neue', Helvetica, Arial, sans-serif; fill: #8A8A8F; }
+    .o { font: 600 26px 'Helvetica Neue', Helvetica, Arial, sans-serif; fill: #C9A227; }
+  </style>
+  <text x="0" y="250" class="n">Alpha Management</text>
+  <text x="0" y="305" class="t">Il gestionale di Percorso Alpha</text>
+  <text x="0" y="365" class="t">Vendite, incassi, setting, provvigioni,</text>
+  <text x="0" y="405" class="t">margine e progetti in un solo posto.</text>
+  <text x="0" y="470" class="o">Con Alfire, l’AI sui tuoi numeri.</text>
+</svg>`)
+const anteprima = await sharp({ create: { width: 1200, height: 630, channels: 4, background: NERO } })
+  .composite([
+    { input: logoAnteprima, left: 60, top: 55 },
+    { input: testo, left: 560, top: 0 },
+  ])
+  .png({ compressionLevel: 9 })
+  .toBuffer()
+await writeFile('app/opengraph-image.png', anteprima)
+
 // favicon.ico with PNG entries (every current browser reads them)
 const lati = [16, 32, 48]
 const immagini = await Promise.all(lati.map((lato) => png(emblema, lato)))
@@ -61,4 +84,4 @@ const voci = lati.map((lato, i) => {
   return voce
 })
 await writeFile('app/favicon.ico', Buffer.concat([intestazione, ...voci, ...immagini]))
-console.log('icone scritte: app/favicon.ico, app/icon.png, app/apple-icon.png, public/icons/*')
+console.log('icone scritte: app/favicon.ico, app/icon.png, app/apple-icon.png, app/opengraph-image.png, public/icons/*')

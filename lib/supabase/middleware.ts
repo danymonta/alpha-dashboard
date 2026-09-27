@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { destinazioneSicura } from '@/lib/auth/origine'
 import { publicEnv } from '@/lib/env'
 
 /**
@@ -56,10 +57,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // already signed in (the session cookie is valid): no Google button again,
+  // straight to where they were going
   if (user && pathname === '/login') {
     const url = request.nextUrl.clone()
-    url.pathname = '/'
-    url.search = ''
+    const destinazione = destinazioneSicura(request.nextUrl.searchParams.get('da'))
+    url.pathname = destinazione.split('?')[0]
+    url.search = destinazione.includes('?') ? destinazione.slice(destinazione.indexOf('?')) : ''
     return NextResponse.redirect(url)
   }
 

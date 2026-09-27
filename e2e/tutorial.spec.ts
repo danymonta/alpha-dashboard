@@ -25,7 +25,7 @@ test.describe('tutorial al primo accesso, dal telefono', () => {
     await accedi(page, 'setter')
 
     const tour = page.getByTestId('tutorial')
-    await expect(tour.getByRole('dialog', { name: 'Benvenuto in Percorso Alpha' })).toBeVisible()
+    await expect(tour.getByRole('dialog', { name: 'Benvenuto in Alpha Management' })).toBeVisible()
     await expect(tour).toContainText('1/7')
     // nothing can be closed before the reading time
     await expect(tour.getByRole('button', { name: 'Chiudi il tutorial' })).toBeDisabled()

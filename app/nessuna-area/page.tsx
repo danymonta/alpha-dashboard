@@ -18,8 +18,8 @@ export default async function NessunaAreaPage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             {profilo
-              ? `Il tuo ruolo è ${ETICHETTA_RUOLO[profilo.ruolo]}. Oggi Alpha Economics è riservata ad admin, setter e closer.`
-              : 'Oggi Alpha Economics è riservata ad admin, setter e closer.'}
+              ? `Il tuo ruolo è ${ETICHETTA_RUOLO[profilo.ruolo]}. Oggi Alpha Management è riservata ad admin, setter e closer.`
+              : 'Oggi Alpha Management è riservata ad admin, setter e closer.'}
           </p>
         </div>
         <form action={esci}>

@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 
 import { Toaster } from '@/components/ui/sonner'
+import { DESCRIZIONE_BREVE, NOME_APP } from '@/lib/brand/nome'
+import { publicEnv } from '@/lib/env'
 
 import './globals.css'
 
@@ -16,9 +18,20 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Alpha Economics',
-  description: 'Setting, vendite ed economia di Percorso Alpha',
-  applicationName: 'Percorso Alpha',
+  // absolute links in the previews of WhatsApp, Telegram, email
+  metadataBase: new URL(publicEnv.appUrl),
+  title: NOME_APP,
+  description: DESCRIZIONE_BREVE,
+  applicationName: NOME_APP,
+  openGraph: {
+    title: `${NOME_APP} · Percorso Alpha`,
+    description: DESCRIZIONE_BREVE,
+    siteName: NOME_APP,
+    locale: 'it_IT',
+    type: 'website',
+  },
+  // a private tool: not in search results
+  robots: { index: false, follow: false },
   // "Aggiungi a Home" on the iPhone opens it full screen, like an app
   appleWebApp: { capable: true, title: 'Alpha', statusBarStyle: 'black' },
 }

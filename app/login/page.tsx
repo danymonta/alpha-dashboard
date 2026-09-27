@@ -5,6 +5,7 @@ import { DevLoginForm } from '@/app/login/dev-login-form'
 import { GoogleButton } from '@/app/login/google-button'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { isDevLoginEnabled } from '@/lib/auth/dev-login'
+import { NOME_APP } from '@/lib/brand/nome'
 
 const MESSAGGI: Record<string, string> = {
   'accesso-negato':
@@ -31,12 +32,12 @@ export default async function LoginPage({
         <header className="flex flex-col items-center text-center">
           <p className="sr-only">Percorso Alpha</p>
           <LogoFuoco dimensione="hero" decorativo preload />
-          <h1 className="mt-8 font-heading text-2xl font-semibold tracking-tight">
-            Alpha Economics
-          </h1>
+          <h1 className="mt-8 font-heading text-2xl font-semibold tracking-tight">{NOME_APP}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Accesso riservato al team, solo su invito.
+            Il gestionale di Percorso Alpha: vendite, incassi, setting, provvigioni e progetti del team in un solo
+            posto, con Alfire, l’AI sui tuoi numeri.
           </p>
+          <p className="mt-3 text-xs text-muted-foreground">Accesso riservato al team, solo su invito.</p>
         </header>
 
         <div className="mt-8 space-y-6">

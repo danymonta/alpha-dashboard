@@ -70,7 +70,7 @@ export function sqlRipristino(backup: Backup): string {
   const ordinate = [...ORDINE.filter((t) => tabelle.includes(t)), ...tabelle.filter((t) => !ORDINE.includes(t)).sort()]
 
   const righe = [
-    `-- Ripristino del backup Alpha Economics del ${backup.creato_il}`,
+    `-- Ripristino del backup Alpha Management del ${backup.creato_il}`,
     '-- Inserisce solo le righe che mancano: quelle presenti restano come sono.',
     'begin;',
     'set local session_replication_role = replica;',

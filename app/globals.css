@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ---------------------------------------------------------------------------
-   Alpha Economics design tokens (CLAUDE.md section 11).
+   Alpha Management design tokens (CLAUDE.md section 11).
    Dark theme only in v1. Never hard-code a colour in a component.
 --------------------------------------------------------------------------- */
 :root {

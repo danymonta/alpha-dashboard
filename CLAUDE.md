@@ -1,4 +1,6 @@
-# Alpha Economics: specifica di progetto per Claude Code
+# Alpha Management: specifica di progetto per Claude Code
+
+Nome dell'app: **Alpha Management**, il gestionale di Percorso Alpha (deciso da Dany il 27/09/2026; prima "Alpha Economics", nome rimasto all'area Economics della navigazione e agli agenti di sezione 12). Nome e descrizioni stanno in `lib/brand/nome.ts`.
 
 Questo file è la fonte di verità del progetto. Leggilo per intero all'inizio di ogni sessione. Se una richiesta contraddice questo file, fermati e segnalalo prima di scrivere codice.
 
@@ -108,6 +110,7 @@ Regole di implementazione:
 - Login solo con Google. Pagina `/login` con un solo bottone.
 - **Accesso su invito.** Tabella `invites`. Un trigger `after insert on auth.users` (o l'auth hook "Before User Created" se disponibile nel progetto Supabase) blocca con errore qualsiasi email non presente in `invites` con `revocato = false`. Se l'email è invitata, crea la riga in `profiles` con il ruolo dell'invito e marca l'invito come usato.
 - L'utente che fa login ma è `attivo = false` viene disconnesso e vede "Account disattivato, contatta l'amministratore".
+- La sessione resta nei cookie del dominio: chi è già entrato e apre `/login` va dritto dove stava andando (`da`, solo percorsi interni). Il ritorno da Google e i link d'invito usano il dominio su cui si sta (se è nostro, altrimenti `APP_URL`): `lib/auth/origine.ts`.
 - Pagina admin **Team** (`/settings/team`): lista utenti con ruolo e stato, invita per email e ruolo, cambia ruolo, disattiva e riattiva, revoca inviti pendenti. Dany non può disattivare sé stesso né togliersi il ruolo admin.
 - L'invito parte come email con il logo (`lib/email/invito.ts`, inviata via Resend REST da `lib/email/invia.ts`). Senza `RESEND_API_KEY` l'invito si salva lo stesso e l'app offre il link da copiare.
 - L'admin può **eliminare** una persona (`elimina_persona`: via i suoi report, regole e pagamenti di provvigioni; vendite, call e lead restano senza il suo nome) o **unirla** a un altro profilo (`unisci_profili`: tutto passa al secondo, poi il primo sparisce). Serve per il profilo segnaposto dell'import Excel. Nessuno elimina o unisce sé stesso.
