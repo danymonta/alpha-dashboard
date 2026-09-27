@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
-import { createClient } from '@/lib/supabase/client'
+import { autenticaRealtime, createClient } from '@/lib/supabase/client'
 
 export type TimerAcceso = {
   id: string
@@ -41,7 +41,7 @@ export function useTimer() {
  * Supabase Realtime on pm_tempo, so a timer started on the phone shows up on
  * the computer. RLS applies to the events too.
  */
-export function TimerProvider({ children }: { children: ReactNode }) {
+export function TimerProvider({ profiloId, children }: { profiloId: string; children: ReactNode }) {
   const [stato, setStato] = useState<StatoTimer['stato']>('caricamento')
   const [timer, setTimer] = useState<TimerAcceso | null>(null)
   const [versione, setVersione] = useState(0)
@@ -68,7 +68,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
     const canale = supabase
       .channel(`pm-tempo-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pm_tempo' }, () => {
+      // own rows only: RLS would let a manager's client receive other people's logged time
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pm_tempo', filter: `profile_id=eq.${profiloId}` }, () => {
         // a burst (stop + start) becomes one read
         if (attesa) clearTimeout(attesa)
         attesa = setTimeout(() => {
@@ -77,9 +78,13 @@ export function TimerProvider({ children }: { children: ReactNode }) {
           setVersione((v) => v + 1)
         }, 300)
       })
-      .subscribe((status) => {
+
+    void autenticaRealtime(supabase).then(() => {
+      if (!attivo) return
+      canale.subscribe((status) => {
         if (attivo) setCollegato(status === 'SUBSCRIBED')
       })
+    })
 
     return () => {
       attivo = false
@@ -87,7 +92,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       if (attesa) clearTimeout(attesa)
       void supabase.removeChannel(canale)
     }
-  }, [ricarica])
+  }, [ricarica, profiloId])
 
   const valore = useMemo(() => ({ stato, timer, ricarica, versione }), [stato, timer, ricarica, versione])
 

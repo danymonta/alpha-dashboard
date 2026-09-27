@@ -158,7 +158,8 @@ insert into public.pm_note (progetto_id, testo) values ((select id from ids wher
 
 -- Manager: reads the time spent on their project
 set local request.jwt.claims to '{"sub":"aaaa0000-0000-4000-8000-00000000000a","role":"authenticated"}';
-select is((select count(*)::int from public.pm_tempo), 3, 'il manager legge il tempo speso sul suo progetto');
+-- 3 entries: the running timer stays private (20260928140000), the other two are readable
+select is((select count(*)::int from public.pm_tempo), 2, 'il manager legge il tempo speso sul suo progetto, non il timer acceso');
 
 -- A person outside the project: nothing at all
 set local request.jwt.claims to '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
@@ -175,8 +176,8 @@ set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","
 select ok(
   (select count(*) from public.pm_progetti where id = (select id from ids where chiave = 'progetto')) = 1
   -- scoped to this project: the demo seed has time on the other projects
-  and (select count(*) from public.pm_tempo where progetto_id = (select id from ids where chiave = 'progetto')) = 3,
-  'l''admin vede tutti i progetti e tutto il tempo'
+  and (select count(*) from public.pm_tempo where progetto_id = (select id from ids where chiave = 'progetto')) = 2,
+  'l''admin vede tutti i progetti e tutto il tempo registrato (non i timer accesi)'
 );
 
 select * from finish();

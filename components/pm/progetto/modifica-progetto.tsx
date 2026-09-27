@@ -32,6 +32,7 @@ const OPZIONI_STATO = STATI_PROGETTO.map((s) => ({ valore: s, etichetta: ETICHET
 export type ProgettoModificabile = {
   id: string
   nome: string
+  reparto_id: string
   descrizione: string | null
   stato: StatoProgetto
   data_inizio: string | null
@@ -46,11 +47,14 @@ export type ProgettoModificabile = {
  */
 export function ModificaProgetto({
   progetto,
+  reparti,
   membri,
   clienti,
   eliminabile,
 }: {
   progetto: ProgettoModificabile
+  /** Active departments, plus the current one even if deactivated. */
+  reparti: readonly { id: string; nome: string }[]
   membri: readonly OpzionePersona[]
   clienti: readonly OpzioneCliente[] | null
   eliminabile: boolean
@@ -60,6 +64,7 @@ export function ModificaProgetto({
   const iniziali: ModificaProgettoInput = {
     id: progetto.id,
     nome: progetto.nome,
+    reparto_id: progetto.reparto_id,
     descrizione: progetto.descrizione ?? '',
     stato: progetto.stato,
     data_inizio: progetto.data_inizio ?? '',
@@ -103,7 +108,7 @@ export function ModificaProgetto({
         </>
       }
       titolo="Modifica il progetto"
-      descrizione="Nome, stato, date e responsabile. I task restano come sono."
+      descrizione="Nome, reparto, stato, date e responsabile. I task restano come sono."
     >
       <div className="space-y-6">
         <form onSubmit={invia} noValidate className="space-y-4">
@@ -126,6 +131,18 @@ export function ModificaProgetto({
             </div>
           </div>
           <ErroreCampo id="mp-date-errore" messaggio={errors.data_inizio?.message ?? errors.data_fine?.message} />
+
+          <div className="space-y-1.5">
+            <Label htmlFor="mp-reparto">Reparto</Label>
+            <select id="mp-reparto" className={CLASSE_SELECT} {...register('reparto_id')}>
+              {reparti.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nome}
+                </option>
+              ))}
+            </select>
+            <ErroreCampo id="mp-reparto-errore" messaggio={errors.reparto_id?.message} />
+          </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="mp-responsabile">Responsabile</Label>

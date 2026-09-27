@@ -70,6 +70,8 @@ export const modificaProgettoSchema = z
   .object({
     id: z.string().uuid('Progetto non valido'),
     nome: z.string().trim().min(2, 'Scrivi il nome del progetto').max(120, 'Al massimo 120 caratteri'),
+    // a project can move to another department (QA 28/09/2026: everything stays editable)
+    reparto_id: z.string().uuid('Scegli il reparto'),
     descrizione: testoFacoltativo(2000),
     stato: z.enum(STATI_PROGETTO, { errorMap: () => ({ message: 'Scegli lo stato' }) }),
     data_inizio: dataFacoltativa,

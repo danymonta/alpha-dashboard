@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { createClient } from '@/lib/supabase/client'
+import { autenticaRealtime, createClient } from '@/lib/supabase/client'
 import { MAX_NOTA, modificaNotaSchema, notaSchema, type ModificaNotaInput, type NotaInput } from '@/lib/validation/note'
 
 /** Composer: the text and its day (today unless changed). Cmd/Ctrl+Enter saves. */
@@ -45,7 +45,8 @@ export function NuovaNota({ progettoId, oggi }: { progettoId: string; oggi: stri
       return
     }
     toast.success('Nota aggiunta')
-    reset({ progetto_id: progettoId, data: valori.data, testo: '' })
+    // back to today: the next note is about today unless chosen otherwise (QA 28/09/2026)
+    reset({ progetto_id: progettoId, data: oggi, testo: '' })
   })
 
   return (
@@ -205,9 +206,13 @@ export function NoteLive({ progettoId }: { progettoId: string }) {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pm_note', filter: filtro }, aggiorna)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pm_note', filter: filtro }, aggiorna)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pm_note' }, aggiorna)
-      .subscribe()
+    let attivo = true
+    void autenticaRealtime(supabase).then(() => {
+      if (attivo) canale.subscribe()
+    })
 
     return () => {
+      attivo = false
       if (attesa) clearTimeout(attesa)
       void supabase.removeChannel(canale)
     }

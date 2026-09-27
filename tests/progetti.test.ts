@@ -205,8 +205,10 @@ describe('schemi dei progetti', () => {
   })
 
   it('modifica progetto: senza il campo cliente non tocca il collegamento', () => {
-    const base = { id: ID(1), nome: 'Reel del mese', stato: 'attivo', responsabile_id: '' }
+    const base = { id: ID(1), nome: 'Reel del mese', reparto_id: ID(7), stato: 'attivo', responsabile_id: '' }
     expect(rilettura(modificaProgettoSchema, base).client_id).toBeUndefined()
+    // the department is editable and required
+    expect(modificaProgettoSchema.safeParse({ ...base, reparto_id: '' }).success).toBe(false)
     expect(rilettura(modificaProgettoSchema, { ...base, client_id: '' }).client_id).toBeNull()
     expect(rilettura(modificaProgettoSchema, { ...base, client_id: ID(5) }).client_id).toBe(ID(5))
     expect(modificaProgettoSchema.safeParse({ ...base, stato: 'chiuso' }).success).toBe(false)

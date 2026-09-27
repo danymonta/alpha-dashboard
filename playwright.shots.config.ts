@@ -8,6 +8,8 @@ export default defineConfig({
   testMatch: /shots\.ts$/,
   fullyParallel: false,
   workers: 1,
+  // one test per role photographs every page of that role: the admin has 40+
+  timeout: 240_000,
   reporter: [['list']],
   use: {
     baseURL,

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
-import { createClient } from '@/lib/supabase/client'
+import { autenticaRealtime, createClient } from '@/lib/supabase/client'
 
 /**
  * Supabase Realtime on the tasks and lists of one project: when someone in the
@@ -32,9 +32,13 @@ export function AggiornamentoTaskLive({ progettoId }: { progettoId: string }) {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pm_tasklist', filter }, aggiorna)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pm_tasklist', filter }, aggiorna)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pm_tasklist' }, aggiorna)
-      .subscribe()
+    let attivo = true
+    void autenticaRealtime(supabase).then(() => {
+      if (attivo) canale.subscribe()
+    })
 
     return () => {
+      attivo = false
       if (timer) clearTimeout(timer)
       void supabase.removeChannel(canale)
     }

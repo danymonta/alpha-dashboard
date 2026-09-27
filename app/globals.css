@@ -322,3 +322,13 @@
   background-color: var(--alpha-bordeaux);
   color: var(--alpha-text);
 }
+
+/* The focused part of a date or time field (dd, mm, yyyy, hh, mm) is a selection too */
+input::-webkit-datetime-edit-day-field:focus,
+input::-webkit-datetime-edit-month-field:focus,
+input::-webkit-datetime-edit-year-field:focus,
+input::-webkit-datetime-edit-hour-field:focus,
+input::-webkit-datetime-edit-minute-field:focus {
+  background-color: var(--alpha-bordeaux);
+  color: var(--alpha-text);
+}

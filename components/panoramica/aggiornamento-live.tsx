@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { formatOra } from '@/lib/date'
-import { createClient } from '@/lib/supabase/client'
+import { autenticaRealtime, createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 const TABELLE = ['setter_daily_reports', 'calls', 'payments', 'sales', 'expenses'] as const
@@ -36,12 +36,17 @@ export function AggiornamentoLive() {
       })
     }
 
-    canale.subscribe((status) => {
-      if (status === 'SUBSCRIBED') setStato('live')
-      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setStato('offline')
+    let attivo = true
+    void autenticaRealtime(supabase).then(() => {
+      if (!attivo) return
+      canale.subscribe((status) => {
+        if (status === 'SUBSCRIBED') setStato('live')
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setStato('offline')
+      })
     })
 
     return () => {
+      attivo = false
       if (timer) clearTimeout(timer)
       void supabase.removeChannel(canale)
     }

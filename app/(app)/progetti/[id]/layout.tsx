@@ -32,7 +32,7 @@ export default async function LayoutProgetto({
     ? await supabase
         .from('pm_progetti')
         .select(
-          'id, nome, descrizione, stato, data_inizio, data_fine, responsabile_id, client_id, reparto:pm_reparti(nome), responsabile:profiles!pm_progetti_responsabile_id_fkey(nome)',
+          'id, nome, descrizione, stato, data_inizio, data_fine, responsabile_id, client_id, reparto_id, reparto:pm_reparti(nome), responsabile:profiles!pm_progetti_responsabile_id_fkey(nome)',
         )
         .eq('id', id)
         .maybeSingle()
@@ -54,7 +54,7 @@ export default async function LayoutProgetto({
 
   const adminApp = profilo.ruolo === 'admin'
   const adminPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === 'admin'
-  const [gestisce, avanzamento, membri, cliente, clienti] = await Promise.all([
+  const [gestisce, avanzamento, membri, cliente, clienti, reparti] = await Promise.all([
     supabase.rpc('pm_puo_gestire', { p_progetto: progetto.id }),
     // progress and late tasks: computed by the view, only read here
     supabase
@@ -73,6 +73,7 @@ export default async function LayoutProgetto({
     adminApp
       ? supabase.from('clients').select('id, nome, cognome').order('nome').order('cognome')
       : Promise.resolve({ data: [], error: null }),
+    supabase.from('pm_reparti').select('id, nome, attivo').order('ordine').order('nome'),
   ])
 
   const persone = (membri.data ?? [])
@@ -122,7 +123,9 @@ export default async function LayoutProgetto({
                 data_fine: progetto.data_fine,
                 responsabile_id: progetto.responsabile_id,
                 client_id: progetto.client_id,
+                reparto_id: progetto.reparto_id,
               }}
+              reparti={(reparti.data ?? []).filter((r) => r.attivo || r.id === progetto.reparto_id)}
               membri={persone}
               clienti={
                 adminApp

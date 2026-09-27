@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppShell ruolo={profilo.ruolo} nome={profilo.nome}>
+    <AppShell profiloId={profilo.id} ruolo={profilo.ruolo} nome={profilo.nome}>
       {children}
     </AppShell>
   )

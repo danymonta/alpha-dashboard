@@ -8,6 +8,7 @@ import { TopBar } from '@/components/shell/top-bar'
 import type { AppRole } from '@/lib/auth/roles'
 
 type Props = {
+  profiloId: string
   ruolo: AppRole
   nome: string
   children: ReactNode
@@ -17,10 +18,10 @@ type Props = {
  * One shell for every area: Economics (admin, setter, closer) and Projects
  * (everyone). The navigation is keyed by role and grouped by area.
  */
-export function AppShell({ ruolo, nome, children }: Props) {
+export function AppShell({ profiloId, ruolo, nome, children }: Props) {
   return (
     // the running timer (Projects area) is shown in the sidebar and the top bar
-    <TimerProvider>
+    <TimerProvider profiloId={profiloId}>
       <div className="min-h-dvh md:pl-60">
         <Sidebar ruolo={ruolo} nome={nome} />
         <TopBar ruolo={ruolo} nome={nome} />
