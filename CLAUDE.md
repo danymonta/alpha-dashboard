@@ -60,6 +60,8 @@ SUPABASE_SECRET_KEY=                    # equivale alla legacy "service_role", S
 NEXT_PUBLIC_APP_URL=
 CRON_SECRET=                            # protegge /api/cron/keep-alive
 ENABLE_DEV_LOGIN=                       # "true" solo in locale, mai su Vercel
+RESEND_API_KEY=                         # email di invito (Resend), SOLO server; vuota = link da copiare
+EMAIL_MITTENTE=                         # es. "Percorso Alpha <team@dominio-verificato>"
 ```
 
 Regole:
@@ -102,6 +104,8 @@ Regole di implementazione:
 - **Accesso su invito.** Tabella `invites`. Un trigger `after insert on auth.users` (o l'auth hook "Before User Created" se disponibile nel progetto Supabase) blocca con errore qualsiasi email non presente in `invites` con `revocato = false`. Se l'email è invitata, crea la riga in `profiles` con il ruolo dell'invito e marca l'invito come usato.
 - L'utente che fa login ma è `attivo = false` viene disconnesso e vede "Account disattivato, contatta l'amministratore".
 - Pagina admin **Team** (`/settings/team`): lista utenti con ruolo e stato, invita per email e ruolo, cambia ruolo, disattiva e riattiva, revoca inviti pendenti. Dany non può disattivare sé stesso né togliersi il ruolo admin.
+- L'invito parte come email con il logo (`lib/email/invito.ts`, inviata via Resend REST da `lib/email/invia.ts`). Senza `RESEND_API_KEY` l'invito si salva lo stesso e l'app offre il link da copiare.
+- L'admin può **eliminare** una persona (`elimina_persona`: via i suoi report, regole e pagamenti di provvigioni; vendite, call e lead restano senza il suo nome) o **unirla** a un altro profilo (`unisci_profili`: tutto passa al secondo, poi il primo sparisce). Serve per il profilo segnaposto dell'import Excel. Nessuno elimina o unisce sé stesso.
 - Il primo admin (Dany) viene creato da una migration seed che inserisce il suo invito con ruolo `admin`.
 - **Solo in locale**: se `ENABLE_DEV_LOGIN=true`, `/login` mostra anche un login email e password per gli utenti seed (serve a Playwright e agli screenshot). Il codice verifica anche `process.env.NODE_ENV !== 'production'`. Un test garantisce che in build di produzione il form non esista.
 
@@ -168,11 +172,13 @@ clients
   -- stato NON è una colonna: si deriva dalle vendite (vedi v_client_status)
 
 products
-  id, nome, durata_mesi int, prezzo_listino numeric(12,2), attivo bool
+  id, nome, durata_mesi int, prezzo_listino numeric(12,2), attivo bool,
+  piano_predefinito jsonb null   -- [{"mese":0,"importo":500}, ...]: il piano abituale
   -- es. "Percorso Alpha 3 mesi". Gestiti dall'admin in Impostazioni
 
 sales
-  id, client_id -> clients, product_id -> products,
+  id, client_id -> clients, product_id -> products null,
+  prodotto_personalizzato text null,  -- percorso fuori catalogo; uno dei due è obbligatorio
   tipo enum sale_type (nuovo, rinnovo, upsell),
   call_id -> calls null, setter_id -> profiles null, closer_id -> profiles null,
   data_vendita date, data_inizio date, data_fine date,
@@ -188,6 +194,8 @@ payments
 
 Regole:
 - Alla creazione di una vendita il server genera automaticamente il piano rate (`numero_rate` rate mensili, importi uguali, l'ultima assorbe l'arrotondamento). L'admin può poi modificare ogni rata.
+- In alternativa il piano si scrive a mano (`registra_vendita(..., p_rate jsonb)`): una riga per rata, con date e importi liberi (es. 3 × 500 € e, dopo una pausa, 3 × 333,33 €). La somma deve coincidere col contratto, lo verifica il database (`verifica_piano`). Se il prodotto ha un `piano_predefinito`, la nuova vendita parte da quello.
+- L'admin aggiunge e toglie rate (`aggiungi_rata`, `elimina_rata`): le rate si rinumerano per scadenza.
 - Una vendita `rinnovo` richiede che il cliente abbia già almeno una vendita precedente.
 - Una rata è **in ritardo** se `stato = 'prevista'` e `scadenza < oggi`. Non è uno stato salvato, è calcolato.
 - Al passaggio di una call a `esito = chiusa` l'app propone subito il form "Nuova vendita" precompilato (cliente dal lead, setter, closer, call_id).
@@ -486,6 +494,15 @@ Chiesto da Dany il 27/09/2026. Schema in `20260928090000_project_management.sql`
 - **Note**: per progetto, con una data, mostrate raggruppate per giorno.
 - **Gantt**: liste e task sulla scala del tempo, con vista tabella. Serie `--gantt-lista` e `--gantt-task`, validate sul tema scuro.
 - Avanzamento e ritardi si calcolano in SQL (`v_pm_progetti`, `v_pm_tasklist`, `v_pm_task`, `security_invoker`); totali del tempo con RPC `security invoker`.
+
+## 19. Pieno controllo dell'admin
+
+Deciso da Dany il 27/09/2026: l'admin può correggere ed eliminare ogni riga di ogni sezione.
+
+- Si elimina sempre dal fondo della scheda di modifica (o con l'icona cestino in una riga), con il componente `components/form/elimina.tsx`. Il primo tocco apre una domanda che dice cosa si porta dietro; solo il secondo elimina.
+- Le conseguenze si contano in SQL (`anteprima_eliminazione(tipo, id)`, solo admin); `lib/eliminazione.ts` le mette in parole.
+- Cosa succede: un cliente porta con sé vendite e rate; una vendita porta con sé le rate; un lead porta con sé le call, mentre il cliente nato da lui resta; un prodotto eliminato lascia il suo nome nelle vendite passate (`prodotto_personalizzato`); un reparto con progetti non si elimina, i suoi modelli sì; una regola provvigionale eliminata toglie le provvigioni maturate con lei, anche nei mesi passati (per smettere da una data si usa "Chiudi").
+- Le RPC di eliminazione sono `security definer` e verificano `is_admin()`.
 
 # This is NOT the Next.js you know
 

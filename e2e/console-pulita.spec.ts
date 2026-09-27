@@ -9,6 +9,8 @@ test.use({ viewport: { width: 390, height: 844 } })
 
 for (const ruolo of ['admin', 'setter', 'closer'] as RuoloSeed[]) {
   test(`nessun errore in console: ${ruolo}`, async ({ page }) => {
+    // one test walks every page of the role: the admin has twenty
+    test.setTimeout(120_000)
     const errori: string[] = []
     page.on('console', (m) => {
       if (m.type() === 'error') errori.push(`${new URL(page.url()).pathname}: ${m.text().split('\n')[0]}`)
