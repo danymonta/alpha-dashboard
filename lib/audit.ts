@@ -3,7 +3,7 @@
  * Pure presentation of the JSON the audit trigger stored: amounts are
  * formatted, never recomputed.
  */
-import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
+import { ETICHETTA_LIVELLO_PM, ETICHETTA_RUOLO, type AppRole, type LivelloPm } from '@/lib/auth/roles'
 import { formatData, formatEuro, formatMese, formatPercentuale } from '@/lib/format'
 
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json }
@@ -35,6 +35,7 @@ export type Azione = keyof typeof PARTICIPIO
 const ETICHETTA_CAMPO: Record<string, string> = {
   nome: 'nome',
   ruolo: 'ruolo',
+  livello_pm: 'livello progetti',
   attivo: 'attivo',
   tipo: 'tipo',
   valore_contratto: 'valore',
@@ -83,6 +84,7 @@ export function leggibile(campo: string, valore: Json | undefined): string {
   if (campo === 'percentuale') return formatPercentuale(numeroOTesto(valore))
   if (campo === 'periodo' && typeof valore === 'string') return formatMese(valore)
   if (campo === 'ruolo' && typeof valore === 'string') return ETICHETTA_RUOLO[valore as AppRole] ?? valore
+  if (campo === 'livello_pm' && typeof valore === 'string') return ETICHETTA_LIVELLO_PM[valore as LivelloPm] ?? valore
   if (typeof valore === 'boolean') return valore ? 'sì' : 'no'
   if (Array.isArray(valore)) return valore.map((v) => leggibile(campo, v)).join(', ')
   if (typeof valore === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(valore)) return formatData(valore)

@@ -5,6 +5,7 @@ import { Constants } from '@/lib/supabase/database.types'
 import { TIPI_VENDITA } from '@/lib/validation/vendita'
 
 export const RUOLI = Constants.public.Enums.app_role
+export const LIVELLI_PM = Constants.public.Enums.pm_livello
 
 const ruolo = z.enum(RUOLI, { errorMap: () => ({ message: 'Scegli il ruolo' }) })
 
@@ -20,6 +21,10 @@ export const invitoSchema = z.object({
 
 export const cambioRuoloSchema = z.object({ profile_id: z.string().uuid(), ruolo })
 export const attivoSchema = z.object({ profile_id: z.string().uuid(), attivo: z.boolean() })
+export const cambioLivelloPmSchema = z.object({
+  profile_id: z.string().uuid(),
+  livello_pm: z.enum(LIVELLI_PM, { errorMap: () => ({ message: 'Scegli il livello' }) }),
+})
 export const revocaInvitoSchema = z.object({ email: z.string().email() })
 
 /**

@@ -1,4 +1,4 @@
-import { ChevronRight, Download, History, Package, Percent, Users } from 'lucide-react'
+import { ChevronRight, Download, FolderKanban, History, Package, Percent, Users } from 'lucide-react'
 import Link from 'next/link'
 
 import { IntestazionePagina } from '@/components/pagina/intestazione'
@@ -12,6 +12,7 @@ const SEZIONI = [
   { href: '/settings/commissions', titolo: 'Regole provvigioni', descrizione: 'Percentuale e tipi di vendita per collaboratore.', Icona: Percent, pronta: true },
   { href: '/settings/export', titolo: 'Esporta CSV', descrizione: 'Vendite, incassi e costi del mese per la commercialista.', Icona: Download, pronta: true },
   { href: '/settings/audit', titolo: 'Registro modifiche', descrizione: 'Chi ha cambiato un importo, un ruolo o una regola, e quando.', Icona: History, pronta: true },
+  { href: '/settings/progetti', titolo: 'Progetti', descrizione: 'Reparti e modelli con cui nascono i progetti.', Icona: FolderKanban, pronta: true },
 ]
 
 export default async function ImpostazioniPage() {

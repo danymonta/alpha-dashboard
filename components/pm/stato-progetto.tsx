@@ -1,0 +1,84 @@
+import { Archive, CircleCheck, CircleDot, CirclePause, TriangleAlert, type LucideIcon } from 'lucide-react'
+
+import { iniziali, ETICHETTA_STATO_PROGETTO, type StatoProgetto } from '@/lib/progetti'
+import { cn } from '@/lib/utils'
+
+const ICONA: Record<StatoProgetto, LucideIcon> = {
+  attivo: CircleDot,
+  in_pausa: CirclePause,
+  completato: CircleCheck,
+  archiviato: Archive,
+}
+
+/** Project state: icon plus words, never colour alone. */
+export function StatoProgettoBadge({ stato, className }: { stato: StatoProgetto; className?: string }) {
+  const Icona = ICONA[stato]
+  return (
+    <span className={cn('inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground', className)}>
+      <Icona className={cn('size-3.5', stato === 'completato' && 'text-status-ok')} aria-hidden="true" />
+      {ETICHETTA_STATO_PROGETTO[stato]}
+    </span>
+  )
+}
+
+/** Progress of a project or a list: the ratio comes from SQL, this only draws it. */
+export function BarraAvanzamento({
+  completati,
+  totali,
+  avanzamento,
+  className,
+}: {
+  completati: number
+  totali: number
+  avanzamento: number | null
+  className?: string
+}) {
+  const percento = avanzamento === null ? 0 : Math.round(avanzamento * 100)
+  return (
+    <div className={cn('space-y-1', className)}>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+        <div className="h-full rounded-full bg-primary-light" style={{ width: `${percento}%` }} />
+      </div>
+      <p className="num text-xs text-muted-foreground">
+        {totali === 0 ? 'Nessun task' : `${completati} di ${totali} task · ${percento}%`}
+      </p>
+    </div>
+  )
+}
+
+/** Past due, open: icon and words (status colours never stand alone). */
+export function InRitardo({ testo = 'In ritardo', className }: { testo?: string; className?: string }) {
+  return (
+    <span className={cn('inline-flex items-center gap-1 text-status-warning', className)}>
+      <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+      {testo}
+    </span>
+  )
+}
+
+/** Members as initials; the full names are there for screen readers and on hover. */
+export function InizialiMembri({ nomi, massimo = 4 }: { nomi: string[]; massimo?: number }) {
+  if (nomi.length === 0) return null
+  const visibili = nomi.slice(0, massimo)
+  const altri = nomi.length - visibili.length
+  return (
+    <span className="flex items-center">
+      <span className="sr-only">Membri: {nomi.join(', ')}</span>
+      {visibili.map((nome, i) => (
+        <span
+          key={`${nome}-${i}`}
+          title={nome}
+          aria-hidden="true"
+          className="-ml-1.5 inline-flex size-7 items-center justify-center rounded-full bg-secondary text-[11px] font-medium text-secondary-foreground ring-2 ring-card first:ml-0"
+        >
+          {iniziali(nome)}
+        </span>
+      ))}
+      {altri > 0 ? (
+        <span aria-hidden="true" className="num ml-1 text-xs text-muted-foreground">
+          +{altri}
+        </span>
+      ) : null}
+    </span>
+  )
+}

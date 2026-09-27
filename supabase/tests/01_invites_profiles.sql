@@ -23,7 +23,7 @@ select throws_ok(
 );
 
 -- An invited address gets the role of the invite
-insert into public.invites (email, ruolo) values ('coach@alpha.test', 'coach');
+insert into public.invites (email, ruolo) values ('coach.invitato@alpha.test', 'coach');
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -31,25 +31,25 @@ insert into auth.users (
   confirmation_token, email_change, email_change_token_new, recovery_token
 ) values (
   '00000000-0000-0000-0000-000000000000',
-  '44444444-4444-4444-8444-444444444444',
-  'authenticated', 'authenticated', 'coach@alpha.test', '', now(),
+  '99999999-9999-4999-8999-999999999994',
+  'authenticated', 'authenticated', 'coach.invitato@alpha.test', '', now(),
   '{}'::jsonb, '{"full_name":"Nuovo Coach"}'::jsonb, now(), now(), '', '', '', ''
 );
 
 select is(
-  (select ruolo::text from public.profiles where email = 'coach@alpha.test'),
+  (select ruolo::text from public.profiles where email = 'coach.invitato@alpha.test'),
   'coach',
   'l''invito determina il ruolo del profilo'
 );
 
 select is(
-  (select nome from public.profiles where email = 'coach@alpha.test'),
+  (select nome from public.profiles where email = 'coach.invitato@alpha.test'),
   'Nuovo Coach',
   'il nome arriva dai metadati dell''utente'
 );
 
 select isnt(
-  (select usato_at from public.invites where email = 'coach@alpha.test'),
+  (select usato_at from public.invites where email = 'coach.invitato@alpha.test'),
   null,
   'l''invito viene marcato come usato'
 );
@@ -66,7 +66,7 @@ select throws_ok(
       confirmation_token, email_change, email_change_token_new, recovery_token
     ) values (
       '00000000-0000-0000-0000-000000000000',
-      '55555555-5555-4555-8555-555555555555',
+      '99999999-9999-4999-8999-999999999995',
       'authenticated', 'authenticated', 'revocato@alpha.test', '', now(),
       '{}'::jsonb, '{}'::jsonb, now(), now(), '', '', '', ''
     )

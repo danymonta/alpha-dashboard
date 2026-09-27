@@ -14,7 +14,7 @@ export default async function TeamPage() {
   const supabase = await createClient()
 
   const [{ data: membri, error }, { data: inviti, error: erroreInviti }] = await Promise.all([
-    supabase.from('profiles').select('id, nome, email, ruolo, attivo').order('attivo', { ascending: false }).order('nome'),
+    supabase.from('profiles').select('id, nome, email, ruolo, livello_pm, attivo').order('attivo', { ascending: false }).order('nome'),
     supabase
       .from('invites')
       .select('email, ruolo, created_at')
@@ -51,6 +51,7 @@ export default async function TeamPage() {
                 profileId={m.id}
                 nome={m.nome}
                 ruolo={m.ruolo}
+                livelloPm={m.livello_pm}
                 attivo={m.attivo}
                 sonoIo={m.id === io.id}
               />
@@ -58,7 +59,8 @@ export default async function TeamPage() {
           ))}
         </ul>
         <p className="px-1 text-xs text-muted-foreground">
-          Il tuo account non si disattiva e non perde il ruolo admin: lo impedisce il database.
+          Il tuo account non si disattiva e non perde il ruolo admin: lo impedisce il database. Il livello
+          progetti vale solo nell’area Progetti; l’admin dell’app ne è sempre admin.
         </p>
       </section>
 

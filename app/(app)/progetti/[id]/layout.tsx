@@ -3,22 +3,16 @@ import type { ReactNode } from 'react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
+import { ModificaProgetto } from '@/components/pm/progetto/modifica-progetto'
 import { SchedeProgetto } from '@/components/pm/schede-progetto'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { formatData } from '@/lib/format'
+import { ETICHETTA_STATO_PROGETTO, isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
-
-const ETICHETTA_STATO = {
-  attivo: 'Attivo',
-  in_pausa: 'In pausa',
-  completato: 'Completato',
-  archiviato: 'Archiviato',
-} as const
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Header and tabs of one project. RLS decides who sees it: members, and the admin. */
 export default async function LayoutProgetto({
@@ -28,14 +22,16 @@ export default async function LayoutProgetto({
   children: ReactNode
   params: Promise<{ id: string }>
 }) {
-  await requireProfilo()
+  const profilo = await requireProfilo()
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: progetto } = UUID.test(id)
+  const { data: progetto } = isUuid(id)
     ? await supabase
         .from('pm_progetti')
-        .select('id, nome, stato, data_inizio, data_fine, reparto:pm_reparti(nome)')
+        .select(
+          'id, nome, descrizione, stato, data_inizio, data_fine, responsabile_id, client_id, reparto:pm_reparti(nome), responsabile:profiles!pm_progetti_responsabile_id_fkey(nome)',
+        )
         .eq('id', id)
         .maybeSingle()
     : { data: null }
@@ -54,6 +50,27 @@ export default async function LayoutProgetto({
     )
   }
 
+  const adminApp = profilo.ruolo === 'admin'
+  const adminPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === 'admin'
+  const [gestisce, membri, cliente, clienti] = await Promise.all([
+    supabase.rpc('pm_puo_gestire', { p_progetto: progetto.id }),
+    supabase
+      .from('pm_membri')
+      .select('profilo:profiles!pm_membri_profile_id_fkey(id, nome)')
+      .eq('progetto_id', progetto.id),
+    // RLS on clients: whoever may not see this client gets nothing back
+    progetto.client_id
+      ? supabase.from('clients').select('nome, cognome').eq('id', progetto.client_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    adminApp
+      ? supabase.from('clients').select('id, nome, cognome').order('nome').order('cognome')
+      : Promise.resolve({ data: [], error: null }),
+  ])
+
+  const persone = (membri.data ?? [])
+    .flatMap((m) => (m.profilo ? [m.profilo] : []))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'it'))
+  const nomeCliente = cliente.data ? [cliente.data.nome, cliente.data.cognome].filter(Boolean).join(' ') : null
   const periodo =
     progetto.data_inizio || progetto.data_fine
       ? `${formatData(progetto.data_inizio)} → ${progetto.data_fine ? formatData(progetto.data_fine) : 'in corso'}`
@@ -63,8 +80,39 @@ export default async function LayoutProgetto({
     <div className="space-y-5">
       <IntestazionePagina
         titolo={progetto.nome}
-        descrizione={[progetto.reparto?.nome, ETICHETTA_STATO[progetto.stato], periodo].filter(Boolean).join(' · ')}
+        descrizione={[
+          progetto.reparto?.nome,
+          ETICHETTA_STATO_PROGETTO[progetto.stato],
+          periodo,
+          progetto.responsabile ? `Responsabile: ${progetto.responsabile.nome}` : null,
+          nomeCliente ? `Cliente: ${nomeCliente}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
         indietro={{ href: '/progetti', etichetta: 'Progetti' }}
+        azione={
+          gestisce.data ? (
+            <ModificaProgetto
+              progetto={{
+                id: progetto.id,
+                nome: progetto.nome,
+                descrizione: progetto.descrizione,
+                stato: progetto.stato,
+                data_inizio: progetto.data_inizio,
+                data_fine: progetto.data_fine,
+                responsabile_id: progetto.responsabile_id,
+                client_id: progetto.client_id,
+              }}
+              membri={persone}
+              clienti={
+                adminApp
+                  ? (clienti.data ?? []).map((c) => ({ id: c.id, etichetta: [c.nome, c.cognome].filter(Boolean).join(' ') }))
+                  : null
+              }
+              eliminabile={adminPm}
+            />
+          ) : null
+        }
       />
       <SchedeProgetto id={progetto.id} />
       {children}

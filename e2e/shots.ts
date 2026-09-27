@@ -1,9 +1,9 @@
 import { test } from '@playwright/test'
 
 import { pagineDinamiche } from './db'
-import { PAGINE, accedi, type RuoloSeed } from './utenti'
+import { PAGINE, UTENTI, accedi, type RuoloSeed } from './utenti'
 
-const RUOLI: RuoloSeed[] = ['admin', 'setter', 'closer']
+const RUOLI = Object.keys(UTENTI) as RuoloSeed[]
 
 for (const ruolo of RUOLI) {
   test.describe(ruolo, () => {

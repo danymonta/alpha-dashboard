@@ -308,6 +308,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "pm_progetti"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_membri_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_progetti"
+      referencedColumns: ["id"]
     }
                   ]
                 },"pm_modelli": {
@@ -376,6 +382,12 @@ isOneToOne: false
       columns: ["progetto_id"]
 isOneToOne: false
       referencedRelation: "pm_progetti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_note_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_progetti"
       referencedColumns: ["id"]
     }
                   ]
@@ -477,16 +489,34 @@ isOneToOne: false
       referencedRelation: "pm_task"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "pm_task_parent_id_fkey"
+      columns: ["parent_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_task"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "pm_task_progetto_id_fkey"
       columns: ["progetto_id"]
 isOneToOne: false
       referencedRelation: "pm_progetti"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "pm_task_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_progetti"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "pm_task_tasklist_id_fkey"
       columns: ["tasklist_id"]
 isOneToOne: false
       referencedRelation: "pm_tasklist"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_tasklist_id_fkey"
+      columns: ["tasklist_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_tasklist"
       referencedColumns: ["id"]
     }
                   ]
@@ -512,6 +542,12 @@ isOneToOne: false
       columns: ["progetto_id"]
 isOneToOne: false
       referencedRelation: "pm_progetti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_tasklist_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_progetti"
       referencedColumns: ["id"]
     }
                   ]
@@ -539,10 +575,22 @@ isOneToOne: false
       referencedRelation: "pm_progetti"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "pm_tempo_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_progetti"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "pm_tempo_task_id_fkey"
       columns: ["task_id"]
 isOneToOne: false
       referencedRelation: "pm_task"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_tempo_task_id_fkey"
+      columns: ["task_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_task"
       referencedColumns: ["id"]
     }
                   ]
@@ -690,6 +738,117 @@ isOneToOne: false
       columns: ["setter_id"]
 isOneToOne: false
       referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"v_pm_progetti": {
+                  Row: {
+                    "avanzamento": number | null,"client_id": string | null,"created_at": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"nome": string | null,"reparto_id": string | null,"responsabile_id": string | null,"scaduto": boolean | null,"sono_membro": boolean | null,"stato": Database["public"]['Enums']["pm_stato_progetto"] | null,"task_completati": number | null,"task_in_ritardo": number | null,"task_totali": number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_progetti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_progetti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "pm_progetti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "pm_progetti_reparto_id_fkey"
+      columns: ["reparto_id"]
+isOneToOne: false
+      referencedRelation: "pm_reparti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_progetti_responsabile_id_fkey"
+      columns: ["responsabile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"v_pm_task": {
+                  Row: {
+                    "assegnatario_id": string | null,"completato_il": string | null,"created_at": string | null,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"in_ritardo": boolean | null,"ordine": number | null,"parent_id": string | null,"priorita": Database["public"]['Enums']["pm_priorita"] | null,"progetto_id": string | null,"scadenza": string | null,"sotto_task_completati": number | null,"sotto_task_totali": number | null,"stato": Database["public"]['Enums']["pm_stato_task"] | null,"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string | null,"updated_at": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_task_assegnatario_id_fkey"
+      columns: ["assegnatario_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_parent_id_fkey"
+      columns: ["parent_id"]
+isOneToOne: false
+      referencedRelation: "pm_task"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_parent_id_fkey"
+      columns: ["parent_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_task"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "pm_progetti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_progetti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_tasklist_id_fkey"
+      columns: ["tasklist_id"]
+isOneToOne: false
+      referencedRelation: "pm_tasklist"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_tasklist_id_fkey"
+      columns: ["tasklist_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_tasklist"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"v_pm_tasklist": {
+                  Row: {
+                    "avanzamento": number | null,"created_at": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"nome": string | null,"ordine": number | null,"progetto_id": string | null,"task_completati": number | null,"task_in_ritardo": number | null,"task_totali": number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_tasklist_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "pm_progetti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_tasklist_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_progetti"
       referencedColumns: ["id"]
     }
                   ]
@@ -848,11 +1007,21 @@ isOneToOne: false
               "fase": string,"ordine": number,"passaggio": number,"valore": number
             }[]
                            },
+"funnel_periodo":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "fase": string,"ordine": number,"passaggio": number,"valore": number
+            }[]
+                           },
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "kpi_panoramica":
 { Args: { "p_mese": string }; Returns: {
+              "chiave": string,"delta": number,"precedente": number,"valore": number
+            }[]
+                           },
+"kpi_periodo":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
               "chiave": string,"delta": number,"precedente": number,"valore": number
             }[]
                            },
@@ -862,6 +1031,11 @@ isOneToOne: false
 "metriche_mese":
 { Args: { "p_mese": string }; Returns: {
               "call_prenotate": number,"call_proposte": number,"call_svolte": number,"cash_incassato": number,"cash_nuovo": number,"cash_per_call_svolta": number,"cash_per_dm": number,"cash_rinnovo": number,"cash_upsell": number,"chiuse": number,"close_rate": number,"close_rate_qualificate": number,"conversazioni": number,"costi": number,"dm_per_call": number,"dm_per_strategy": number,"dm_totali": number,"in_scadenza_nel_mese": number,"margine_operativo": number,"mese": string,"no_show": number,"numero_vendite": number,"nuovi_clienti": number,"provvigioni_maturate": number,"qualificate": number,"revenue_firmata": number,"revenue_per_dm": number,"rinnovati_nel_mese": number,"rinnovi": number,"show_rate": number,"strategy_prenotate": number,"tasso_conversazione": number,"tasso_prenotazione": number,"tasso_qualificazione": number,"tasso_rinnovo": number,"valore_medio_vendita": number
+            }[]
+                           },
+"metriche_periodo":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "call_prenotate": number,"call_proposte": number,"call_svolte": number,"cash_incassato": number,"cash_nuovo": number,"cash_per_call_svolta": number,"cash_per_dm": number,"cash_rinnovo": number,"cash_upsell": number,"chiuse": number,"close_rate": number,"close_rate_qualificate": number,"conversazioni": number,"costi": number,"dm_per_call": number,"dm_per_strategy": number,"dm_totali": number,"fine": string,"in_scadenza": number,"inizio": string,"margine_operativo": number,"no_show": number,"numero_vendite": number,"nuovi_clienti": number,"provvigioni_maturate": number,"qualificate": number,"revenue_firmata": number,"revenue_per_dm": number,"rinnovati": number,"rinnovi": number,"show_rate": number,"strategy_prenotate": number,"tasso_conversazione": number,"tasso_prenotazione": number,"tasso_qualificazione": number,"tasso_rinnovo": number,"valore_medio_vendita": number
             }[]
                            },
 "metriche_setting":
@@ -879,6 +1053,11 @@ isOneToOne: false
               "call_fissate": number,"call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_per_call": number,"dm_totali": number,"giorni_compilati": number,"no_show": number,"provvigioni_maturate": number,"provvigioni_pagate": number,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
             }[]
                            },
+"miei_numeri_periodo":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "call_fissate": number,"call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_per_call": number,"dm_totali": number,"giorni_compilati": number,"no_show": number,"provvigioni_maturate": number,"provvigioni_pagate": number,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
+            }[]
+                           },
 "modifica_call":
 { Args: { "p_call_id": string,"p_closer_id": string,"p_data": string,"p_note"?: string,"p_ora": string,"p_tipo": Database["public"]['Enums']["call_type"] }; Returns: undefined
                            },
@@ -891,6 +1070,11 @@ isOneToOne: false
 "oggi_team":
 { Args: Record<PropertyKey, never>; Returns: {
               "call_in_programma": number,"call_prenotate": number,"call_svolte": number,"cash_incassato": number,"chiuse": number,"conversazioni": number,"dm_totali": number,"report_compilati": number
+            }[]
+                           },
+"periodo_precedente":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "a": string,"da": string
             }[]
                            },
 "piano_rate":
@@ -919,6 +1103,27 @@ isOneToOne: false
 "pm_puo_vedere":
 { Args: { "p_progetto": string }; Returns: boolean
                            },
+"pm_riepilogo_tempo":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "data": string,"livello": string,"minuti": number,"progetto": string,"progetto_id": string,"voci": number
+            }[]
+                           },
+"pm_riordina_liste":
+{ Args: { "p_ids": (string)[],"p_progetto_id": string }; Returns: number
+                           },
+"pm_riordina_reparti":
+{ Args: { "p_ids": (string)[] }; Returns: number
+                           },
+"pm_tempo_progetto":
+{ Args: { "p_a": string,"p_da": string,"p_progetto": string }; Returns: {
+              "data": string,"livello": string,"minuti": number,"persona": string,"profile_id": string,"task": string,"task_id": string,"voci": number
+            }[]
+                           },
+"pm_timer_attivo":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "id": string,"inizio": string,"nota": string,"progetto": string,"progetto_id": string,"task": string,"task_id": string
+            }[]
+                           },
 "provvigioni_riepilogo":
 { Args: { "p_mesi"?: number }; Returns: {
               "maturato": number,"mese": string,"nome": string,"pagato": number,"profile_id": string,"saldo_mese": number,"saldo_progressivo": number
@@ -940,10 +1145,18 @@ isOneToOne: false
               "categoria": Database["public"]['Enums']["expense_category"],"numero": number,"totale": number
             }[]
                            },
+"riepilogo_costi_periodo":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "categoria": Database["public"]['Enums']["expense_category"],"numero": number,"totale": number
+            }[]
+                           },
 "segna_rata_incassata":
 { Args: { "p_importo"?: number,"p_incassato_il"?: string,"p_metodo"?: Database["public"]['Enums']["payment_method"],"p_payment_id": string }; Returns: {
               "data_registrata": string,"importo_registrato": number,"rata": number
             }[]
+                           },
+"verifica_periodo":
+{ Args: { "p_a": string,"p_da": string }; Returns: undefined
                            }
           }
           Enums: {

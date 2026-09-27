@@ -7,6 +7,7 @@ import { getProfilo } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 import {
   attivoSchema,
+  cambioLivelloPmSchema,
   cambioRuoloSchema,
   invitoSchema,
   revocaInvitoSchema,
@@ -17,6 +18,7 @@ export type Esito = { ok: true } | { ok: false; errore: string }
 function aggiorna() {
   revalidatePath('/settings/team')
   revalidatePath('/settings/commissions')
+  revalidatePath('/progetti', 'layout')
 }
 
 /**
@@ -90,6 +92,29 @@ export async function cambiaAttivo(input: unknown): Promise<Esito> {
   const supabase = await createClient()
   const { error } = await supabase.from('profiles').update({ attivo: parsed.data.attivo }).eq('id', parsed.data.profile_id)
   if (error) return { ok: false, errore: messaggioErrore(error, 'Operazione non riuscita. Riprova.') }
+
+  aggiorna()
+  return { ok: true }
+}
+
+/**
+ * Projects level (admin, manager, employee), separate from the role. The app
+ * admin is PM admin whatever this says: the select is locked on their rows.
+ */
+export async function cambiaLivelloPm(input: unknown): Promise<Esito> {
+  const parsed = cambioLivelloPmSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Dati non validi.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ livello_pm: parsed.data.livello_pm })
+    .eq('id', parsed.data.profile_id)
+    .select('id')
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Livello non aggiornato. Riprova.') }
+  if (data.length === 0) return { ok: false, errore: 'Persona non trovata.' }
 
   aggiorna()
   return { ok: true }
