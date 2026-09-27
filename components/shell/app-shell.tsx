@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { AlfireProvider } from '@/components/alfire/alfire'
 import { IntroIngresso } from '@/components/brand/intro-ingresso'
 import { TimerProvider } from '@/components/pm/tempo/timer-provider'
 import { BottomBar } from '@/components/shell/bottom-bar'
@@ -11,6 +12,9 @@ type Props = {
   profiloId: string
   ruolo: AppRole
   nome: string
+  foto: string | null
+  /** The model key is set (server env): otherwise Alfire explains what is missing. */
+  alfireConfigurata: boolean
   children: ReactNode
 }
 
@@ -18,13 +22,14 @@ type Props = {
  * One shell for every area: Economics (admin, setter, closer) and Projects
  * (everyone). The navigation is keyed by role and grouped by area.
  */
-export function AppShell({ profiloId, ruolo, nome, children }: Props) {
+export function AppShell({ profiloId, ruolo, nome, foto, alfireConfigurata, children }: Props) {
   return (
     // the running timer (Projects area) is shown in the sidebar and the top bar
     <TimerProvider profiloId={profiloId}>
+      <AlfireProvider configurata={alfireConfigurata} ruolo={ruolo} nome={nome}>
       <div className="min-h-dvh md:pl-60">
-        <Sidebar ruolo={ruolo} nome={nome} />
-        <TopBar ruolo={ruolo} nome={nome} />
+        <Sidebar ruolo={ruolo} nome={nome} foto={foto} />
+        <TopBar ruolo={ruolo} nome={nome} foto={foto} />
         <main className="mx-auto w-full max-w-5xl px-4 pt-4 pb-24 md:px-8 md:pt-8 md:pb-10">
           {children}
         </main>
@@ -32,6 +37,7 @@ export function AppShell({ profiloId, ruolo, nome, children }: Props) {
         {/* Brand moment: once per session, removed from the DOM when done */}
         <IntroIngresso />
       </div>
+      </AlfireProvider>
     </TimerProvider>
   )
 }

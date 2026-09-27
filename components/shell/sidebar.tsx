@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { esci } from '@/app/auth/actions'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { TimerAttivo } from '@/components/pm/tempo/timer-attivo'
+import { FotoProfilo } from '@/components/profilo/foto-profilo'
 import { Button } from '@/components/ui/button'
 import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
 import { isAttiva, perSezione, vociNav } from '@/lib/nav'
@@ -14,9 +15,10 @@ import { isAttiva, perSezione, vociNav } from '@/lib/nav'
 type Props = {
   ruolo: AppRole
   nome: string
+  foto: string | null
 }
 
-export function Sidebar({ ruolo, nome }: Props) {
+export function Sidebar({ ruolo, nome, foto }: Props) {
   const pathname = usePathname()
   const { principali, altre } = vociNav(ruolo)
   const gruppi = perSezione([...principali, ...altre])
@@ -62,18 +64,26 @@ export function Sidebar({ ruolo, nome }: Props) {
         ))}
       </nav>
 
-      <div className="border-t border-border p-3">
-        <div className="flex items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{nome}</p>
-            <p className="text-xs text-muted-foreground">{ETICHETTA_RUOLO[ruolo]}</p>
-          </div>
+      <div className="border-t border-border p-2">
+        <div className="flex items-center gap-1">
+          <Link
+            href="/account"
+            aria-current={pathname.startsWith('/account') ? 'page' : undefined}
+            aria-label={`Il tuo profilo: ${nome}`}
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:bg-accent"
+          >
+            <FotoProfilo nome={nome} foto={foto} />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium">{nome}</span>
+              <span className="block text-xs text-muted-foreground">{ETICHETTA_RUOLO[ruolo]}</span>
+            </span>
+          </Link>
           <form action={esci}>
             <Button
               type="submit"
               variant="ghost"
               size="icon"
-              className="size-9"
+              className="size-11 text-muted-foreground"
               aria-label="Esci"
             >
               <LogOut className="size-4" aria-hidden="true" />

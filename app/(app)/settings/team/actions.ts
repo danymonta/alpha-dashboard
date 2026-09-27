@@ -10,6 +10,7 @@ import { getProfilo } from '@/lib/auth/session'
 import { inviaEmail } from '@/lib/email/invia'
 import { emailInvito } from '@/lib/email/invito'
 import { publicEnv } from '@/lib/env'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
   attivoSchema,
@@ -122,10 +123,22 @@ export async function eliminaPersona(input: unknown): Promise<Esito> {
   const supabase = await createClient()
   const { error } = await supabase.rpc('elimina_persona', { p_profile_id: parsed.data.profile_id })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Persona non eliminata. Riprova.') }
+  await togliFoto(parsed.data.profile_id)
 
   aggiorna()
   revalidatePath('/', 'layout')
   return { ok: true }
+}
+
+/** Their uploaded photos go with them (GDPR): only their own folder, with the admin client. */
+async function togliFoto(profileId: string) {
+  try {
+    const admin = createAdminClient()
+    const { data } = await admin.storage.from('avatari').list(profileId)
+    if (data?.length) await admin.storage.from('avatari').remove(data.map((f) => `${profileId}/${f.name}`))
+  } catch {
+    // the person is already gone; a leftover file is removed by hand, never blocks this
+  }
 }
 
 const unione = z.object({ da: z.string().uuid(), a: z.string().uuid('Scegli il profilo in cui unire') })
@@ -140,6 +153,7 @@ export async function unisciProfili(input: unknown): Promise<Esito> {
   const supabase = await createClient()
   const { error } = await supabase.rpc('unisci_profili', { p_da: parsed.data.da, p_a: parsed.data.a })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Profili non uniti. Riprova.') }
+  await togliFoto(parsed.data.da)
 
   aggiorna()
   revalidatePath('/', 'layout')

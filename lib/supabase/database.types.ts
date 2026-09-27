@@ -615,13 +615,13 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "attivo": boolean,"created_at": string,"email": string,"id": string,"livello_pm": Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"updated_at": string
+                    "attivo": boolean,"created_at": string,"email": string,"foto_url": string | null,"id": string,"livello_pm": Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"updated_at": string
                   }
                   Insert: {
-                    "attivo"?: boolean,"created_at"?: string,"email": string,"id": string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"email": string,"foto_url"?: string | null,"id": string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"updated_at"?: string
                   }
                   Update: {
-                    "attivo"?: boolean,"created_at"?: string,"email"?: string,"id"?: string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome"?: string,"ruolo"?: Database["public"]['Enums']["app_role"],"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"email"?: string,"foto_url"?: string | null,"id"?: string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome"?: string,"ruolo"?: Database["public"]['Enums']["app_role"],"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -972,7 +972,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "aggiorna_stato_lead":
+            "aggiorna_mio_profilo":
+{ Args: { "p_foto_url": string,"p_nome": string }; Returns: undefined
+                           },
+"aggiorna_stato_lead":
 { Args: { "p_lead_id": string,"p_stato": Database["public"]['Enums']["lead_status"] }; Returns: Database["public"]['Enums']["lead_status"]
                            },
 "aggiungi_rata":
@@ -1034,6 +1037,9 @@ isOneToOne: false
               "id_call": string,"id_lead": string,"lead_esistente": boolean
             }[]
                            },
+"foto_google":
+{ Args: { "p_meta": Json }; Returns: string
+                           },
 "funnel_mese":
 { Args: { "p_mese": string }; Returns: {
               "fase": string,"ordine": number,"passaggio": number,"valore": number
@@ -1077,6 +1083,9 @@ isOneToOne: false
 { Args: { "p_a": string,"p_da": string }; Returns: {
               "call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_per_call": number,"dm_totali": number,"giorni_compilati": number,"no_show": number,"nome": string,"setter_id": string,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
             }[]
+                           },
+"mia_foto_google":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "miei_clienti":
 { Args: Record<PropertyKey, never>; Returns: {

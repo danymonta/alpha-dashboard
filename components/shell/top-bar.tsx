@@ -1,21 +1,22 @@
 'use client'
 
-import { LogOut } from 'lucide-react'
+import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 
-import { esci } from '@/app/auth/actions'
+import { BottoneAlfire } from '@/components/alfire/alfire'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { TimerAttivo } from '@/components/pm/tempo/timer-attivo'
-import { Button } from '@/components/ui/button'
+import { FotoProfilo } from '@/components/profilo/foto-profilo'
 import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
 
 /**
- * Mobile header: identity and the way out, plus the running timer. The sidebar
- * covers this on desktop. Its real height (it grows with the timer strip) is
- * published as --altezza-topbar, so sticky bars below it (project tabs) sit
- * right under it.
+ * Top of every page. Mobile: identity, Alfire and the profile (which opens the
+ * user settings, where "Esci" lives), plus the running timer. Desktop: the
+ * sidebar has identity and profile, so only Alfire, top right. Its real height
+ * (it grows with the timer strip) is published as --altezza-topbar, so sticky
+ * bars below it (project tabs) sit right under it.
  */
-export function TopBar({ ruolo, nome }: { ruolo: AppRole; nome: string }) {
+export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; foto: string | null }) {
   const barra = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -33,8 +34,8 @@ export function TopBar({ ruolo, nome }: { ruolo: AppRole; nome: string }) {
   }, [])
 
   return (
-    <header ref={barra} className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur md:hidden">
-      <div className="flex items-center justify-between px-4 py-2.5">
+    <header ref={barra} className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+      <div className="flex items-center justify-between gap-2 px-4 py-2.5 md:hidden">
         <div className="flex min-w-0 items-center gap-3">
           <LogoFuoco dimensione="mini" />
           <div className="min-w-0">
@@ -44,19 +45,24 @@ export function TopBar({ ruolo, nome }: { ruolo: AppRole; nome: string }) {
             </p>
           </div>
         </div>
-        <form action={esci}>
-          <Button
-            type="submit"
-            variant="ghost"
-            size="icon"
-            className="size-11"
-            aria-label="Esci"
+        <div className="flex shrink-0 items-center gap-1">
+          <BottoneAlfire />
+          <Link
+            href="/account"
+            aria-label={`Il tuo profilo: ${nome}`}
+            className="flex size-11 items-center justify-center rounded-lg focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
-            <LogOut className="size-4" aria-hidden="true" />
-          </Button>
-        </form>
+            <FotoProfilo nome={nome} foto={foto} className="size-8" />
+          </Link>
+        </div>
       </div>
-      <TimerAttivo variante="barra" />
+      <div className="hidden h-14 items-center justify-end px-6 md:flex">
+        <BottoneAlfire conEtichetta />
+      </div>
+      {/* desktop: the running timer is in the sidebar */}
+      <div className="md:hidden">
+        <TimerAttivo variante="barra" />
+      </div>
     </header>
   )
 }
