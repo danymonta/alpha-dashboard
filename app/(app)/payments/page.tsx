@@ -5,10 +5,12 @@ import { RataAzioni } from '@/app/(app)/sales/[id]/rata-azioni'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { StatoRata } from '@/components/pagamento/stato-rata'
+import { BottoneWhatsApp } from '@/components/pagamento/whatsapp'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
-import { formatData, formatEuro } from '@/lib/format'
+import { formatData, formatEuro, formatMese } from '@/lib/format'
+import { linkWhatsApp, messaggioRata } from '@/lib/whatsapp'
 import { hrefPeriodo, leggiPeriodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
@@ -43,7 +45,7 @@ export default async function IncassiPage({
   const base = () =>
     supabase
       .from('v_rate')
-      .select('payment_id, sale_id, cliente, numero_rata, scadenza, importo_previsto, incassato_il, importo_incassato, metodo, stato, giorni_ritardo', { count: 'exact' })
+      .select('payment_id, sale_id, client_id, cliente, numero_rata, scadenza, importo_previsto, incassato_il, importo_incassato, metodo, stato, giorni_ritardo', { count: 'exact' })
 
   const filtra = (q: ReturnType<typeof base>, v: Vista) => {
     if (v === 'ritardo') return q.eq('in_ritardo', true).order('scadenza')
@@ -52,9 +54,10 @@ export default async function IncassiPage({
     return q.in('stato', ['incassata', 'rimborsata']).gte('incassato_il', periodo.da).lte('incassato_il', periodo.a).order('incassato_il', { ascending: false })
   }
 
-  const [righe, fasce, ...conteggi] = await Promise.all([
+  const [righe, fasce, previsione, ...conteggi] = await Promise.all([
     filtra(base(), vista).limit(300),
     supabase.rpc('da_incassare'),
+    supabase.rpc('previsione_cassa', { p_mesi: 3 }),
     ...(Object.keys(VISTE) as Vista[]).map((v) =>
       filtra(
         supabase.from('v_rate').select('payment_id', { count: 'exact', head: true }) as unknown as ReturnType<typeof base>,
@@ -62,7 +65,14 @@ export default async function IncassiPage({
       ),
     ),
   ])
-  if (righe.error || fasce.error) throw new Error('Impossibile caricare gli incassi')
+  if (righe.error || fasce.error || previsione.error) throw new Error('Impossibile caricare gli incassi')
+
+  // the client's phone for the WhatsApp reminder (only on instalments still due)
+  const idClienti = [...new Set(righe.data.filter((r) => r.stato === 'prevista').map((r) => r.client_id).filter(Boolean))]
+  const { data: contatti } = idClienti.length
+    ? await supabase.from('clients').select('id, telefono').in('id', idClienti as string[])
+    : { data: [] as { id: string; telefono: string | null }[] }
+  const telefono = new Map((contatti ?? []).map((c) => [c.id, c.telefono]))
 
   const perFascia = Object.fromEntries((fasce.data ?? []).map((f) => [f.fascia, f]))
   const nVista = Object.fromEntries((Object.keys(VISTE) as Vista[]).map((v, i) => [v, conteggi[i].count ?? 0]))
@@ -100,6 +110,37 @@ export default async function IncassiPage({
           <dd className="num text-lg font-semibold md:text-2xl">{formatEuro(perFascia.oltre?.totale, { compatto: true })}</dd>
         </div>
       </dl>
+
+      <section aria-labelledby="titolo-previsione" className="rounded-xl bg-card p-4" data-testid="previsione-cassa" data-tour="previsione-cassa">
+        <h2 id="titolo-previsione" className="text-sm font-medium">
+          Previsione di cassa
+        </h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Quanto entra nei prossimi mesi dalle rate già previste. Quelle in ritardo sono a parte: sono dovute, non pianificate.
+        </p>
+        <dl className="grid grid-cols-3 gap-3">
+          {(previsione.data ?? []).map((m, i) => (
+            <div key={m.mese}>
+              <dt className="text-xs text-muted-foreground">{formatMese(m.mese)}</dt>
+              <dd className="num text-lg font-semibold md:text-2xl">{formatEuro(Number(m.previsto) + (i === 0 ? Number(m.incassato) : 0), { compatto: true })}</dd>
+              <dd className="num text-xs text-muted-foreground">
+                {i === 0
+                  ? `${formatEuro(m.incassato, { compatto: true })} già entrati · ${formatEuro(m.previsto, { compatto: true })} in arrivo`
+                  : `${m.rate_previste} ${m.rate_previste === 1 ? 'rata' : 'rate'}`}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        {previsione.data?.[0] && Number(previsione.data[0].in_ritardo) > 0 ? (
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-status-warning">
+            <TriangleAlert className="size-3.5" aria-hidden="true" />
+            <span className="num">
+              In più {formatEuro(previsione.data[0].in_ritardo)} in ritardo su {previsione.data[0].rate_in_ritardo}{' '}
+              {previsione.data[0].rate_in_ritardo === 1 ? 'rata' : 'rate'}
+            </span>
+          </p>
+        ) : null}
+      </section>
 
       <nav aria-label="Viste" className="flex flex-wrap gap-2">
         {(Object.keys(VISTE) as Vista[]).map((v) => (
@@ -172,7 +213,23 @@ export default async function IncassiPage({
                 </div>
               </div>
               {/* fixed width from md up: amounts line up whatever the actions */}
-              <div className="md:w-52 md:shrink-0">
+              <div className="flex items-center justify-end gap-2 md:w-64 md:shrink-0">
+                {r.stato === 'prevista' ? (
+                  <BottoneWhatsApp
+                    compatto
+                    etichetta={`Scrivi a ${r.cliente} su WhatsApp per la rata ${r.numero_rata}`}
+                    href={linkWhatsApp(
+                      r.client_id ? telefono.get(r.client_id) : null,
+                      messaggioRata({
+                        nome: r.cliente,
+                        numero_rata: r.numero_rata!,
+                        importo: Number(r.importo_previsto),
+                        scadenza: r.scadenza!,
+                        oggi,
+                      }),
+                    )}
+                  />
+                ) : null}
                 {r.stato !== 'rimborsata' ? (
                   <RataAzioni
                     rata={{

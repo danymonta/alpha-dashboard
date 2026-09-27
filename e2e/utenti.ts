@@ -46,6 +46,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'vendite', url: '/sales' },
     { nome: 'incassi', url: '/payments' },
     { nome: 'clienti', url: '/clients' },
+    { nome: 'rinnovi', url: '/rinnovi' },
     { nome: 'setting', url: '/setting' },
     { nome: 'provvigioni', url: '/commissions' },
     { nome: 'costi', url: '/expenses' },

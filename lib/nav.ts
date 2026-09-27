@@ -8,6 +8,7 @@ import {
   Percent,
   Phone,
   Receipt,
+  RefreshCw,
   Settings,
   SquareKanban,
   Timer,
@@ -57,6 +58,7 @@ const NAV: Record<AppRole, NavRuolo> = {
     altre: [
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/clients', etichetta: 'Clienti', Icona: Users },
+      { href: '/rinnovi', etichetta: 'Rinnovi', Icona: RefreshCw },
       { href: '/setting', etichetta: 'Setting', Icona: TrendingUp },
       { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
       { href: '/expenses', etichetta: 'Costi', Icona: Banknote },

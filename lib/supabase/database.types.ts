@@ -242,6 +242,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"obiettivi_mese": {
+                  Row: {
+                    "cash": number | null,"created_at": string,"created_by": string | null,"mese": string,"nuovi_clienti": number | null,"updated_at": string
+                  }
+                  Insert: {
+                    "cash"?: number | null,"created_at"?: string,"created_by"?: string | null,"mese": string,"nuovi_clienti"?: number | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "cash"?: number | null,"created_at"?: string,"created_by"?: string | null,"mese"?: string,"nuovi_clienti"?: number | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "obiettivi_mese_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"payments": {
                   Row: {
                     "created_at": string,"created_by": string | null,"id": string,"importo_incassato": number | null,"importo_previsto": number,"incassato_il": string | null,"metodo": Database["public"]['Enums']["payment_method"] | null,"note": string | null,"numero_rata": number,"sale_id": string,"scadenza": string,"stato": Database["public"]['Enums']["payment_status"],"updated_at": string
@@ -989,6 +1008,11 @@ isOneToOne: false
               "numero_rate": number,"scarto": number,"totale": number
             }[]
                            },
+"avanzamento_obiettivi":
+{ Args: { "p_mese": string }; Returns: {
+              "cash": number,"mese": string,"nuovi": number,"obiettivo_cash": number,"obiettivo_nuovi": number,"quota_cash": number,"quota_nuovi": number
+            }[]
+                           },
 "backup_completo":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
@@ -1075,6 +1099,11 @@ isOneToOne: false
 "metriche_mese":
 { Args: { "p_mese": string }; Returns: {
               "call_prenotate": number,"call_proposte": number,"call_svolte": number,"cash_incassato": number,"cash_nuovo": number,"cash_per_call_svolta": number,"cash_per_dm": number,"cash_rinnovo": number,"cash_upsell": number,"chiuse": number,"close_rate": number,"close_rate_qualificate": number,"conversazioni": number,"costi": number,"dm_per_call": number,"dm_per_strategy": number,"dm_totali": number,"in_scadenza_nel_mese": number,"margine_operativo": number,"mese": string,"no_show": number,"numero_vendite": number,"nuovi_clienti": number,"provvigioni_maturate": number,"qualificate": number,"revenue_firmata": number,"revenue_per_dm": number,"rinnovati_nel_mese": number,"rinnovi": number,"show_rate": number,"strategy_prenotate": number,"tasso_conversazione": number,"tasso_prenotazione": number,"tasso_qualificazione": number,"tasso_rinnovo": number,"valore_medio_vendita": number
+            }[]
+                           },
+"metriche_per_fonte":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "call_svolte": number,"cash": number,"chiuse": number,"close_rate": number,"fonte": Database["public"]['Enums']["lead_source"],"lead": number,"nuovi_clienti": number
             }[]
                            },
 "metriche_periodo":
@@ -1176,6 +1205,11 @@ isOneToOne: false
               "id": string,"inizio": string,"nota": string,"progetto": string,"progetto_id": string,"task": string,"task_id": string
             }[]
                            },
+"previsione_cassa":
+{ Args: { "p_mesi"?: number }; Returns: {
+              "in_ritardo": number,"incassato": number,"mese": string,"previsto": number,"rate_in_ritardo": number,"rate_previste": number
+            }[]
+                           },
 "provvigioni_riepilogo":
 { Args: { "p_mesi"?: number }; Returns: {
               "maturato": number,"mese": string,"nome": string,"pagato": number,"profile_id": string,"saldo_mese": number,"saldo_progressivo": number
@@ -1201,6 +1235,9 @@ isOneToOne: false
 { Args: { "p_a": string,"p_da": string }; Returns: {
               "categoria": Database["public"]['Enums']["expense_category"],"numero": number,"totale": number
             }[]
+                           },
+"riepilogo_serale":
+{ Args: { "p_giorno": string }; Returns: Json
                            },
 "rinumera_rate":
 { Args: { "p_sale_id": string }; Returns: undefined

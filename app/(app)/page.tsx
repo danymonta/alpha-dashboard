@@ -7,6 +7,7 @@ import { AggiornamentoLive } from '@/components/panoramica/aggiornamento-live'
 import { ContoMargine } from '@/components/panoramica/conto-margine'
 import { Funnel } from '@/components/panoramica/funnel'
 import { GraficoCash } from '@/components/panoramica/grafico-cash'
+import { ObiettiviMese } from '@/components/panoramica/obiettivi'
 import { TileKpi } from '@/components/panoramica/tile-kpi'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { requireRuolo } from '@/lib/auth/session'
@@ -21,6 +22,7 @@ import {
 } from '@/lib/format'
 import { contieneData, leggiPeriodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
+import { ETICHETTA_FONTE } from '@/lib/validation/call'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,7 +88,7 @@ export default async function PanoramicaPage({
   const supabase = await createClient()
 
   // Every number below is computed by SQL functions (CLAUDE.md section 9).
-  const [kpi, metriche, cash, funnel, incassare, ritardi, scadenze, team] = await Promise.all([
+  const [kpi, metriche, cash, funnel, incassare, ritardi, scadenze, team, obiettivi, fonti] = await Promise.all([
     supabase.rpc('kpi_periodo', intervallo),
     supabase.rpc('metriche_periodo', intervallo).single(),
     // the trend stays monthly: the 12 months up to the end of the period (never the future)
@@ -106,9 +108,14 @@ export default async function PanoramicaPage({
       .order('data_fine_ultima')
       .limit(6),
     inCorso ? supabase.rpc('oggi_team').single() : Promise.resolve({ data: null, error: null }),
+    // targets are monthly: only when the period is one month
+    periodo.mese
+      ? supabase.rpc('avanzamento_obiettivi', { p_mese: periodo.da }).single()
+      : Promise.resolve({ data: null, error: null }),
+    supabase.rpc('metriche_per_fonte', intervallo),
   ])
 
-  const errore = [kpi, metriche, cash, funnel, incassare, ritardi, scadenze, team].find((r) => r.error)
+  const errore = [kpi, metriche, cash, funnel, incassare, ritardi, scadenze, team, obiettivi, fonti].find((r) => r.error)
   if (errore) throw new Error('Impossibile caricare la panoramica')
 
   const m = metriche.data!
@@ -204,6 +211,21 @@ export default async function PanoramicaPage({
           ))}
         </div>
       </div>
+
+      {obiettivi.data ? (
+        <ObiettiviMese
+          a={{
+            mese: obiettivi.data.mese,
+            etichettaMese: formatMese(obiettivi.data.mese),
+            obiettivo_cash: obiettivi.data.obiettivo_cash === null ? null : Number(obiettivi.data.obiettivo_cash),
+            cash: Number(obiettivi.data.cash),
+            quota_cash: obiettivi.data.quota_cash === null ? null : Number(obiettivi.data.quota_cash),
+            obiettivo_nuovi: obiettivi.data.obiettivo_nuovi,
+            nuovi: obiettivi.data.nuovi,
+            quota_nuovi: obiettivi.data.quota_nuovi === null ? null : Number(obiettivi.data.quota_nuovi),
+          }}
+        />
+      ) : null}
 
       {/* 2. Today, live */}
       {team.data ? (
@@ -318,6 +340,33 @@ export default async function PanoramicaPage({
         </Scheda>
       </div>
 
+      {/* 4b. Which channel brings the money */}
+      <Scheda titolo={`Da dove arrivano i soldi ${periodo.frase}`}>
+        {(fonti.data ?? []).some((f) => Number(f.cash) !== 0 || f.nuovi_clienti > 0 || f.lead > 0) ? (
+          <ul className="divide-y divide-border" data-testid="per-fonte">
+            {(fonti.data ?? [])
+              .filter((f) => Number(f.cash) !== 0 || f.nuovi_clienti > 0 || f.lead > 0 || f.call_svolte > 0)
+              .map((f) => (
+                <li key={f.fonte} aria-label={ETICHETTA_FONTE[f.fonte]} className="flex min-h-12 items-center justify-between gap-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block text-sm">{ETICHETTA_FONTE[f.fonte]}</span>
+                    <span className="num block text-xs text-muted-foreground">
+                      {f.nuovi_clienti === 1 ? '1 cliente nuovo' : `${f.nuovi_clienti} clienti nuovi`} · {f.lead} lead · close rate{' '}
+                      {formatPercentuale(f.close_rate)}
+                    </span>
+                  </span>
+                  <span className="num text-right text-sm font-medium">{formatEuro(f.cash, { compatto: true })}</span>
+                </li>
+              ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">Nessun incasso, cliente o lead nel periodo.</p>
+        )}
+        <p className="mt-3 text-xs text-muted-foreground">
+          Cash e clienti nuovi per fonte del cliente; lead e close rate per fonte del lead.
+        </p>
+      </Scheda>
+
       {/* 5. What needs action */}
       <div className="grid gap-3 lg:grid-cols-2">
         <Scheda
@@ -369,7 +418,14 @@ export default async function PanoramicaPage({
           )}
         </Scheda>
 
-        <Scheda titolo="In scadenza nei prossimi 30 giorni">
+        <Scheda
+          titolo="In scadenza nei prossimi 30 giorni"
+          azione={
+            <Link href="/rinnovi" className="inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              Rinnovi <ChevronRight className="size-4" aria-hidden="true" />
+            </Link>
+          }
+        >
           {(scadenze.data ?? []).length > 0 ? (
             <ul className="divide-y divide-border" data-testid="in-scadenza">
               {scadenze.data!.map((c) => (
