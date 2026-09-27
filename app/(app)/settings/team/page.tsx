@@ -3,6 +3,7 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { ETICHETTA_RUOLO } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
+import { emailConfigurata } from '@/lib/email/invia'
 import { publicEnv } from '@/lib/env'
 import { formatData } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
@@ -30,7 +31,7 @@ export default async function TeamPage() {
         indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
         titolo="Team"
         descrizione="Accesso solo su invito. Chi è disattivato non entra più e non vede nessun dato."
-        azione={<InvitaMembro urlLogin={`${publicEnv.appUrl.replace(/^https?:\/\//, '')}/login`} />}
+        azione={<InvitaMembro urlLogin={`${publicEnv.appUrl.replace(/\/$/, '')}/login`} emailAttiva={emailConfigurata()} />}
       />
 
       <section className="space-y-2">
@@ -54,6 +55,7 @@ export default async function TeamPage() {
                 livelloPm={m.livello_pm}
                 attivo={m.attivo}
                 sonoIo={m.id === io.id}
+                altri={membri.filter((x) => x.id !== m.id).map((x) => ({ id: x.id, nome: x.nome, email: x.email }))}
               />
             </li>
           ))}
@@ -82,7 +84,7 @@ export default async function TeamPage() {
                     {ETICHETTA_RUOLO[i.ruolo]} · invitato il {formatData(oggiRoma(new Date(i.created_at)))}
                   </p>
                 </div>
-                <RevocaInvito email={i.email} />
+                <RevocaInvito email={i.email} urlLogin={`${publicEnv.appUrl.replace(/\/$/, '')}/login`} />
               </li>
             ))}
           </ul>

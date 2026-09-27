@@ -596,13 +596,13 @@ isOneToOne: false
                   ]
                 },"products": {
                   Row: {
-                    "attivo": boolean,"created_at": string,"created_by": string | null,"durata_mesi": number,"id": string,"nome": string,"prezzo_listino": number,"updated_at": string
+                    "attivo": boolean,"created_at": string,"created_by": string | null,"durata_mesi": number,"id": string,"nome": string,"piano_predefinito": Json | null,"prezzo_listino": number,"updated_at": string
                   }
                   Insert: {
-                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"durata_mesi": number,"id"?: string,"nome": string,"prezzo_listino": number,"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"durata_mesi": number,"id"?: string,"nome": string,"piano_predefinito"?: Json | null,"prezzo_listino": number,"updated_at"?: string
                   }
                   Update: {
-                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"durata_mesi"?: number,"id"?: string,"nome"?: string,"prezzo_listino"?: number,"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"durata_mesi"?: number,"id"?: string,"nome"?: string,"piano_predefinito"?: Json | null,"prezzo_listino"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -628,13 +628,13 @@ isOneToOne: false
                   ]
                 },"sales": {
                   Row: {
-                    "call_id": string | null,"client_id": string,"closer_id": string | null,"created_at": string,"created_by": string | null,"data_fine": string,"data_inizio": string,"data_vendita": string,"id": string,"note": string | null,"numero_rate": number,"product_id": string | null,"setter_id": string | null,"tipo": Database["public"]['Enums']["sale_type"],"updated_at": string,"valore_contratto": number
+                    "call_id": string | null,"client_id": string,"closer_id": string | null,"created_at": string,"created_by": string | null,"data_fine": string,"data_inizio": string,"data_vendita": string,"id": string,"note": string | null,"numero_rate": number,"prodotto_personalizzato": string | null,"product_id": string | null,"setter_id": string | null,"tipo": Database["public"]['Enums']["sale_type"],"updated_at": string,"valore_contratto": number
                   }
                   Insert: {
-                    "call_id"?: string | null,"client_id": string,"closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine": string,"data_inizio": string,"data_vendita": string,"id"?: string,"note"?: string | null,"numero_rate"?: number,"product_id"?: string | null,"setter_id"?: string | null,"tipo": Database["public"]['Enums']["sale_type"],"updated_at"?: string,"valore_contratto": number
+                    "call_id"?: string | null,"client_id": string,"closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine": string,"data_inizio": string,"data_vendita": string,"id"?: string,"note"?: string | null,"numero_rate"?: number,"prodotto_personalizzato"?: string | null,"product_id"?: string | null,"setter_id"?: string | null,"tipo": Database["public"]['Enums']["sale_type"],"updated_at"?: string,"valore_contratto": number
                   }
                   Update: {
-                    "call_id"?: string | null,"client_id"?: string,"closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine"?: string,"data_inizio"?: string,"data_vendita"?: string,"id"?: string,"note"?: string | null,"numero_rate"?: number,"product_id"?: string | null,"setter_id"?: string | null,"tipo"?: Database["public"]['Enums']["sale_type"],"updated_at"?: string,"valore_contratto"?: number
+                    "call_id"?: string | null,"client_id"?: string,"closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine"?: string,"data_inizio"?: string,"data_vendita"?: string,"id"?: string,"note"?: string | null,"numero_rate"?: number,"prodotto_personalizzato"?: string | null,"product_id"?: string | null,"setter_id"?: string | null,"tipo"?: Database["public"]['Enums']["sale_type"],"updated_at"?: string,"valore_contratto"?: number
                   }
                   Relationships: [
                     {
@@ -975,6 +975,17 @@ isOneToOne: false
             "aggiorna_stato_lead":
 { Args: { "p_lead_id": string,"p_stato": Database["public"]['Enums']["lead_status"] }; Returns: Database["public"]['Enums']["lead_status"]
                            },
+"aggiungi_rata":
+{ Args: { "p_importo": number,"p_sale_id": string,"p_scadenza": string }; Returns: string
+                           },
+"anteprima_eliminazione":
+{ Args: { "p_id": string,"p_tipo": string }; Returns: Json
+                           },
+"anteprima_piano":
+{ Args: { "p_rate": Json,"p_valore": number }; Returns: {
+              "numero_rate": number,"scarto": number,"totale": number
+            }[]
+                           },
 "cash_mensile":
 { Args: { "p_fino"?: string,"p_mesi"?: number }; Returns: {
               "mese": string,"nuovo": number,"rinnovo": number,"totale": number,"upsell": number
@@ -997,6 +1008,27 @@ isOneToOne: false
 "dettagli_call":
 { Args: { "p_call_id": string,"p_importo_proposto"?: number,"p_link_registrazione"?: string,"p_performance"?: Database["public"]['Enums']["call_performance"],"p_prodotto_proposto_id"?: string }; Returns: undefined
                            },
+"elimina_call":
+{ Args: { "p_call_id": string }; Returns: undefined
+                           },
+"elimina_cliente":
+{ Args: { "p_client_id": string }; Returns: undefined
+                           },
+"elimina_lead":
+{ Args: { "p_lead_id": string }; Returns: undefined
+                           },
+"elimina_persona":
+{ Args: { "p_profile_id": string }; Returns: undefined
+                           },
+"elimina_prodotto":
+{ Args: { "p_product_id": string }; Returns: undefined
+                           },
+"elimina_rata":
+{ Args: { "p_payment_id": string }; Returns: undefined
+                           },
+"euro_testo":
+{ Args: { "p_importo": number }; Returns: string
+                           },
 "fissa_call":
 { Args: { "p_closer_id": string,"p_data": string,"p_fonte": Database["public"]['Enums']["lead_source"],"p_instagram_handle"?: string,"p_nome": string,"p_ora": string,"p_tipo": Database["public"]['Enums']["call_type"] }; Returns: {
               "id_call": string,"id_lead": string,"lead_esistente": boolean
@@ -1011,6 +1043,9 @@ isOneToOne: false
 { Args: { "p_a": string,"p_da": string }; Returns: {
               "fase": string,"ordine": number,"passaggio": number,"valore": number
             }[]
+                           },
+"inserisci_piano":
+{ Args: { "p_rate": Json,"p_sale_id": string }; Returns: undefined
                            },
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
@@ -1136,7 +1171,7 @@ isOneToOne: false
 { Args: { "p_data": string,"p_importo": number,"p_note"?: string,"p_payment_id": string }; Returns: string
                            },
 "registra_vendita":
-{ Args: { "p_call_id"?: string,"p_client_id"?: string,"p_cognome"?: string,"p_data_inizio": string,"p_data_vendita": string,"p_email"?: string,"p_instagram_handle"?: string,"p_nome"?: string,"p_note"?: string,"p_numero_rate": number,"p_product_id": string,"p_telefono"?: string,"p_tipo": Database["public"]['Enums']["sale_type"],"p_valore_contratto": number }; Returns: {
+{ Args: { "p_call_id"?: string,"p_client_id"?: string,"p_cognome"?: string,"p_data_fine"?: string,"p_data_inizio": string,"p_data_vendita": string,"p_email"?: string,"p_instagram_handle"?: string,"p_nome"?: string,"p_note"?: string,"p_numero_rate": number,"p_prodotto_personalizzato"?: string,"p_product_id": string,"p_rate"?: Json,"p_telefono"?: string,"p_tipo": Database["public"]['Enums']["sale_type"],"p_valore_contratto": number }; Returns: {
               "cliente_nuovo": boolean,"id_cliente": string,"id_vendita": string
             }[]
                            },
@@ -1150,13 +1185,22 @@ isOneToOne: false
               "categoria": Database["public"]['Enums']["expense_category"],"numero": number,"totale": number
             }[]
                            },
+"rinumera_rate":
+{ Args: { "p_sale_id": string }; Returns: undefined
+                           },
 "segna_rata_incassata":
 { Args: { "p_importo"?: number,"p_incassato_il"?: string,"p_metodo"?: Database["public"]['Enums']["payment_method"],"p_payment_id": string }; Returns: {
               "data_registrata": string,"importo_registrato": number,"rata": number
             }[]
                            },
+"unisci_profili":
+{ Args: { "p_a": string,"p_da": string }; Returns: undefined
+                           },
 "verifica_periodo":
 { Args: { "p_a": string,"p_da": string }; Returns: undefined
+                           },
+"verifica_piano":
+{ Args: { "p_rate": Json,"p_valore": number }; Returns: undefined
                            }
           }
           Enums: {

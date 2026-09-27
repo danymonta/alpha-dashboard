@@ -1,12 +1,23 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { LoaderCircle, TriangleAlert, UserPlus } from 'lucide-react'
+import { GitMerge, LoaderCircle, Mail, TriangleAlert, UserPlus } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
-import { cambiaAttivo, cambiaLivelloPm, cambiaRuolo, invita, revocaInvito } from '@/app/(app)/settings/team/actions'
+import {
+  cambiaAttivo,
+  cambiaLivelloPm,
+  cambiaRuolo,
+  eliminaPersona,
+  invita,
+  reinviaInvito,
+  revocaInvito,
+  unisciProfili,
+  type EsitoInvito,
+} from '@/app/(app)/settings/team/actions'
+import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,7 +45,28 @@ import { LIVELLI_PM, RUOLI, invitoSchema, type InvitoInput } from '@/lib/validat
 const selectClassi =
   'h-11 rounded-lg border border-input bg-input/30 px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 md:text-sm'
 
-export function InvitaMembro({ urlLogin }: { urlLogin: string }) {
+/** Toast after an invite: sent by email, or the link to share by hand. */
+function avvisaInvito(email: string, esito: EsitoInvito & { ok: true }, urlLogin: string) {
+  const copia = {
+    label: 'Copia il link',
+    onClick: () => void navigator.clipboard?.writeText(urlLogin).then(() => toast.success('Link copiato')),
+  }
+  if (esito.email === 'inviata') {
+    toast.success(`Invito inviato a ${email}`, { description: 'Riceverà un’email con il bottone per entrare con Google.' })
+  } else if (esito.email === 'errore') {
+    toast.warning(`Invito salvato, ma l’email a ${email} non è partita`, {
+      description: 'Mandagli tu il link: deve entrare con Google usando proprio questo indirizzo.',
+      action: copia,
+    })
+  } else {
+    toast.success(`Invito pronto per ${email}`, {
+      description: 'Mandagli il link: deve entrare con Google usando proprio questo indirizzo.',
+      action: copia,
+    })
+  }
+}
+
+export function InvitaMembro({ urlLogin, emailAttiva }: { urlLogin: string; emailAttiva: boolean }) {
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const {
@@ -60,9 +92,7 @@ export function InvitaMembro({ urlLogin }: { urlLogin: string }) {
       setErrore(esito.errore)
       return
     }
-    toast.success(`Invito pronto per ${valori.email}`, {
-      description: 'Digli di entrare con Google usando proprio questa email.',
-    })
+    avvisaInvito(valori.email, esito, urlLogin)
     setAperto(false)
     reset()
   })
@@ -77,7 +107,9 @@ export function InvitaMembro({ urlLogin }: { urlLogin: string }) {
         <SheetHeader>
           <SheetTitle>Invita nel team</SheetTitle>
           <SheetDescription>
-            Non parte nessuna email: la persona entra da {urlLogin} con Google, usando l’indirizzo che scrivi qui.
+            {emailAttiva
+              ? 'Riceverà un’email di invito con il logo e il bottone per entrare con Google, usando l’indirizzo che scrivi qui.'
+              : `L’email automatica non è ancora attiva: dopo l’invito mandagli tu il link ${urlLogin}. Entrerà con Google usando l’indirizzo che scrivi qui.`}
           </SheetDescription>
         </SheetHeader>
         <form onSubmit={invia} noValidate className="space-y-4 px-4 pb-6">
@@ -94,7 +126,7 @@ export function InvitaMembro({ urlLogin }: { urlLogin: string }) {
               ))}
             </select>
             <p className="text-xs text-muted-foreground">
-              Oggi l’app ha aree per admin, setter e closer. Gli altri ruoli entrano ma non vedono dati.
+              Admin, setter e closer vedono l’area Economics per il loro ruolo; tutti vedono i Progetti di cui fanno parte.
             </p>
           </div>
           {errore ? (
@@ -105,7 +137,7 @@ export function InvitaMembro({ urlLogin }: { urlLogin: string }) {
           ) : null}
           <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
             {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-            Crea l’invito
+            {emailAttiva ? 'Invia l’invito' : 'Crea l’invito'}
           </Button>
         </form>
       </SheetContent>
@@ -132,6 +164,7 @@ export function ControlliMembro({
   livelloPm,
   attivo,
   sonoIo,
+  altri,
 }: {
   profileId: string
   nome: string
@@ -139,6 +172,8 @@ export function ControlliMembro({
   livelloPm: LivelloPm
   attivo: boolean
   sonoIo: boolean
+  /** The other people, to merge this profile into one of them. */
+  altri: { id: string; nome: string; email: string }[]
 }) {
   const [inCorso, avvia] = useTransition()
   // the select shows the chosen role while the dialog is open, and goes back on cancel
@@ -266,6 +301,19 @@ export function ControlliMembro({
         {attivo ? 'Attivo' : 'Disattivato'}
       </label>
       {inCorso ? <LoaderCircle className="size-4 animate-spin text-muted-foreground" aria-hidden="true" /> : null}
+      {sonoIo ? null : (
+        <div className="flex">
+          <UnisciProfilo profileId={profileId} nome={nome} altri={altri} />
+          <Elimina
+            variante="icona"
+            etichetta="Elimina dal team"
+            cosa={nome}
+            fatto={`${nome} eliminato dal team`}
+            anteprima={{ tipo: 'persona', id: profileId }}
+            azione={() => eliminaPersona({ profile_id: profileId })}
+          />
+        </div>
+      )}
 
       <Dialog open={chiedi} onOpenChange={(aperto) => { if (!aperto) annulla() }}>
         <DialogContent showCloseButton={false}>
@@ -304,24 +352,127 @@ export function ControlliMembro({
   )
 }
 
-export function RevocaInvito({ email }: { email: string }) {
+export function RevocaInvito({ email, urlLogin }: { email: string; urlLogin: string }) {
   const [inCorso, avvia] = useTransition()
   return (
-    <Button
-      type="button"
-      variant="outline"
-      className="h-11"
-      disabled={inCorso}
-      aria-label={`Revoca l’invito a ${email}`}
-      onClick={() =>
-        avvia(async () => {
-          const esito = await revocaInvito({ email })
-          if (esito.ok) toast.success(`Invito a ${email} revocato`)
-          else toast.error(esito.errore)
-        })
+    <div className="flex items-center">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-11 text-muted-foreground"
+        disabled={inCorso}
+        aria-label={`Rimanda l’invito a ${email}`}
+        onClick={() =>
+          avvia(async () => {
+            const esito = await reinviaInvito({ email })
+            if (esito.ok) avvisaInvito(email, esito, urlLogin)
+            else toast.error(esito.errore)
+          })
+        }
+      >
+        {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Mail className="size-4" aria-hidden="true" />}
+      </Button>
+      <Elimina
+        variante="icona"
+        etichetta="Elimina l’invito a"
+        cosa={email}
+        fatto={`Invito a ${email} eliminato`}
+        conseguenze={['Con questo indirizzo non si potrà più entrare, finché non lo inviti di nuovo.']}
+        azione={() => revocaInvito({ email })}
+      />
+    </div>
+  )
+}
+
+/** Two profiles of the same person become one: e.g. "Loris (da collegare)" into the real Loris. */
+function UnisciProfilo({
+  profileId,
+  nome,
+  altri,
+}: {
+  profileId: string
+  nome: string
+  altri: { id: string; nome: string; email: string }[]
+}) {
+  const [aperto, setAperto] = useState(false)
+  const [destinazione, setDestinazione] = useState('')
+  const [errore, setErrore] = useState<string | null>(null)
+  const [inCorso, avvia] = useTransition()
+  const scelto = altri.find((a) => a.id === destinazione)
+
+  function conferma() {
+    setErrore(null)
+    avvia(async () => {
+      const esito = await unisciProfili({ da: profileId, a: destinazione })
+      if (!esito.ok) {
+        setErrore(esito.errore)
+        return
       }
-    >
-      Revoca
-    </Button>
+      toast.success(`${nome} unito a ${scelto?.nome}`)
+      setAperto(false)
+    })
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-11 text-muted-foreground"
+        aria-label={`Unisci ${nome} a un altro profilo`}
+        title="Unisci a un altro profilo"
+        onClick={() => {
+          setAperto(true)
+          setDestinazione('')
+          setErrore(null)
+        }}
+      >
+        <GitMerge className="size-4" aria-hidden="true" />
+      </Button>
+      <Dialog open={aperto} onOpenChange={(v) => !inCorso && setAperto(v)}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Unire {nome} a un altro profilo?</DialogTitle>
+            <DialogDescription>
+              Serve quando la stessa persona ha due profili, per esempio quello provvisorio dell’import e quello vero dopo il
+              primo accesso. Tutto quello che è registrato a nome di {nome} (report, vendite, provvigioni, progetti, tempo)
+              passa al profilo che scegli; poi {nome} sparisce. Non si può annullare.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor={`unisci-${profileId}`}>Unisci a</Label>
+            <select
+              id={`unisci-${profileId}`}
+              className={`${selectClassi} w-full`}
+              value={destinazione}
+              onChange={(e) => setDestinazione(e.currentTarget.value)}
+            >
+              <option value="">Scegli la persona</option>
+              {altri.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nome} · {a.email}
+                </option>
+              ))}
+            </select>
+          </div>
+          {errore ? (
+            <p role="alert" className="text-sm text-status-critical">
+              {errore}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={() => setAperto(false)}>
+              Annulla
+            </Button>
+            <Button type="button" className="h-11" disabled={!destinazione || inCorso} onClick={conferma}>
+              {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <GitMerge className="size-4" aria-hidden="true" />}
+              Unisci
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

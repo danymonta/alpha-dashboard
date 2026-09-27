@@ -16,7 +16,7 @@ test.afterAll(async () => {
 })
 
 test.describe('Team', () => {
-  test('invito e revoca', async ({ page }) => {
+  test('invito ed eliminazione dell’invito', async ({ page }) => {
     await accedi(page, 'admin')
     await page.goto('/settings/team')
 
@@ -28,9 +28,43 @@ test.describe('Team', () => {
     const invito = page.getByTestId('inviti').getByRole('listitem', { name: EMAIL_INVITO })
     await expect(invito).toContainText('Setter')
 
-    await invito.getByRole('button', { name: `Revoca l’invito a ${EMAIL_INVITO}` }).click()
-    await expect(page.getByText(`Invito a ${EMAIL_INVITO} revocato`)).toBeVisible()
+    await invito.getByRole('button', { name: `Elimina l’invito a ${EMAIL_INVITO}` }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Elimina' }).click()
+    await expect(page.getByText(`Invito a ${EMAIL_INVITO} eliminato`)).toBeVisible()
     await expect(page.getByRole('listitem', { name: EMAIL_INVITO })).toHaveCount(0)
+  })
+
+  test('un profilo provvisorio si unisce a quello vero, poi la persona si elimina', async ({ page }) => {
+    const db = dbLocale()
+    const segnaposto = 'qa.segnaposto@prova.invalid'
+    const vero = 'qa.vero@alpha.test'
+    await db.from('invites').upsert([{ email: segnaposto, ruolo: 'setter' }, { email: vero, ruolo: 'setter' }])
+    const { data: a } = await db.auth.admin.createUser({ email: segnaposto, email_confirm: true, user_metadata: { full_name: 'QA Segnaposto' } })
+    const { data: b } = await db.auth.admin.createUser({ email: vero, email_confirm: true, user_metadata: { full_name: 'QA Vero' } })
+    await db.from('setter_daily_reports').insert({ setter_id: a.user!.id, data: '2020-02-01', dm_outbound: 7 })
+
+    try {
+      await accedi(page, 'admin')
+      await page.goto('/settings/team')
+
+      await page.getByRole('button', { name: 'Unisci QA Segnaposto a un altro profilo' }).click()
+      const unione = page.getByRole('dialog')
+      await unione.getByLabel('Unisci a').selectOption({ label: `QA Vero · ${vero}` })
+      await unione.getByRole('button', { name: 'Unisci' }).click()
+      await expect(page.getByText('QA Segnaposto unito a QA Vero')).toBeVisible()
+      await expect(page.getByTestId('membri').getByRole('listitem', { name: 'QA Segnaposto' })).toHaveCount(0)
+
+      // the report moved: deleting the person says so first
+      await page.getByRole('button', { name: 'Elimina dal team QA Vero' }).click()
+      const conferma = page.getByRole('dialog')
+      await expect(conferma).toContainText('1 report giornaliero')
+      await conferma.getByRole('button', { name: 'Elimina' }).click()
+      await expect(page.getByText('QA Vero eliminato dal team')).toBeVisible()
+      await expect(page.getByTestId('membri').getByRole('listitem', { name: 'QA Vero' })).toHaveCount(0)
+    } finally {
+      for (const u of [a.user, b.user]) if (u) await db.auth.admin.deleteUser(u.id).catch(() => undefined)
+      await db.from('invites').delete().in('email', [segnaposto, vero])
+    }
   })
 
   test('il mio account non si disattiva e non cambia ruolo', async ({ page }) => {
