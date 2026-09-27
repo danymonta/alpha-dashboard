@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test'
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3000'
 
 export default defineConfig({
+  // the dev server compiles pages on first hit: under a full run a redirect can take a few seconds
+  expect: { timeout: 10_000 },
   testDir: './e2e',
   testMatch: /.*\.spec\.ts/,
   fullyParallel: false,

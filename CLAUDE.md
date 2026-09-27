@@ -272,6 +272,11 @@ Tutte le metriche si calcolano in SQL (view `security_invoker` o funzioni RPC), 
 
 **Periodo** (28/09/2026): ogni metrica si chiede su un mese (`?mese=YYYY-MM`) o su un intervallo (`?da=&a=`), con le RPC `*_periodo`; le mensili sono wrapper con gli stessi risultati. Confronto: se il periodo è fatto di mesi interi, gli stessi mesi prima; altrimenti la finestra di pari giorni subito prima. Trimestre e anno "in corso" coprono il periodo solare intero. Le provvigioni restano mensili (i pagamenti si riferiscono a un mese).
 
+**Aggiunte del 27/09/2026** (tutte in SQL, solo admin):
+- Obiettivi del mese (`obiettivi_mese`, `avanzamento_obiettivi`): obiettivo di cash e di nuovi clienti; avanzamento = cash incassato del mese / obiettivo, vendite `nuovo` del mese / obiettivo.
+- Previsione di cassa (`previsione_cassa`): per il mese corrente e i due successivi, rate `prevista` con scadenza da oggi in poi; per il mese corrente anche il già incassato. Le rate in ritardo stanno a parte, sul mese corrente.
+- Per fonte (`metriche_per_fonte`): cash e clienti nuovi per `clients.fonte`; lead, call svolte, chiuse e close rate per `leads.fonte`.
+
 Stato cliente derivato (`v_client_status`): `attivo`, `in_scadenza`, `scaduto` (nessuna vendita attiva, l'ultima finita da meno di 90 giorni), `ex_cliente` (oltre 90 giorni), `mai_attivato`.
 
 ## 10. Schermate
@@ -288,7 +293,8 @@ Navigazione: sidebar su desktop, bottom bar su mobile (massimo 4 voci più "Altr
    - Box "In scadenza": clienti che scadono nei prossimi 30 giorni, con azione "Registra rinnovo".
 2. **Vendite** (`/sales`): tabella filtrabile per mese, tipo, setter, closer. Dettaglio vendita con piano rate modificabile e azione "Segna rata incassata" (un tap, data di oggi precompilata).
 3. **Clienti** (`/clients`): lista con stato derivato, filtri per stato. Scheda cliente: storico vendite, rate, valore totale nel tempo (LTV), fonte, setter.
-4. **Incassi** (`/payments`): tutte le rate, filtro per stato e mese, vista "in ritardo" in evidenza.
+4. **Incassi** (`/payments`): tutte le rate, filtro per stato e mese, vista "in ritardo" in evidenza. In cima la previsione di cassa dei prossimi 3 mesi. Sulle rate da pagare, "Scrivi su WhatsApp" apre la chat del cliente col promemoria già scritto (`lib/whatsapp.ts`): l'app non invia niente da sola.
+4b. **Rinnovi** (`/rinnovi`): chi finisce il percorso entro 30 o 60 giorni e chi l'ha finito da meno di 90 senza rinnovo, con WhatsApp e "Registra rinnovo"; in cima il tasso di rinnovo del mese.
 5. **Setting** (`/setting`): metriche setting e call per periodo e per setter, tabella dei report giornalieri.
 6. **Provvigioni** (`/commissions`): per setter e mese, maturato, pagato, saldo. Registrazione pagamento.
 7. **Costi** (`/expenses`): inserimento e lista.
@@ -463,8 +469,8 @@ Lo script stampa un riepilogo (righe lette, create, saltate) e si può rilanciar
 
 ## 15. Operatività
 
-- **Keep-alive**: Supabase Free mette in pausa il progetto dopo 7 giorni senza richieste. Route `/api/cron/keep-alive` (protetta da `CRON_SECRET`) che esegue una query leggera, chiamata ogni giorno da Vercel Cron (`vercel.json`).
-- **Backup**: il piano Free non ha backup. Ogni lunedì alle 6 (UTC) Vercel Cron chiama `/api/cron/backup` (protetta da `CRON_SECRET`): tutte le tabelle di `public` (`backup_completo()`, solo `service_role`, legge lo schema al momento: una tabella nuova non si dimentica) più gli account, in un `.json.gz` mandato via email (Resend) agli admin attivi. Lo stesso file si scarica da Impostazioni › Esporta. Ripristino: `npm run backup:sql -- <file> ripristino.sql`, poi il file nel SQL Editor di Supabase: una transazione, trigger spenti, solo le righe mancanti (provato: cancellate vendite, rate, costi e report, tornano identiche). Quando l'app diventa l'unica fonte dei dati economici, passare comunque a Supabase Pro.
+- **Un solo cron** (`vercel.json`, ogni giorno alle 18 UTC): `/api/cron/giornaliero` (protetta da `CRON_SECRET`). Le sue query tengono sveglio Supabase Free (che si ferma dopo 7 giorni senza richieste); manda agli admin il riepilogo serale (`riepilogo_serale`, solo `service_role`: cash del giorno, incassi, vendite, rate in ritardo, totali del team, nessun nome di chi ha compilato o no); il lunedì aggiunge il backup. `/api/cron/keep-alive` e `/api/cron/backup` restano chiamabili a mano.
+- **Backup**: il piano Free non ha backup. Ogni lunedì sera il cron giornaliero lo manda (protetta da `CRON_SECRET`): tutte le tabelle di `public` (`backup_completo()`, solo `service_role`, legge lo schema al momento: una tabella nuova non si dimentica) più gli account, in un `.json.gz` mandato via email (Resend) agli admin attivi. Lo stesso file si scarica da Impostazioni › Esporta. Ripristino: `npm run backup:sql -- <file> ripristino.sql`, poi il file nel SQL Editor di Supabase: una transazione, trigger spenti, solo le righe mancanti (provato: cancellate vendite, rate, costi e report, tornano identiche). Quando l'app diventa l'unica fonte dei dati economici, passare comunque a Supabase Pro.
 - **GDPR**: dati dei clienti ridotti al minimo (nome, contatti, handle). Regione EU. Nessun dato sanitario in questa app.
 
 ## 16. Piano di lavoro
@@ -539,6 +545,7 @@ Chiesto da Dany il 27/09/2026.
 
 - Al primo accesso dopo l'invito parte da solo un tour guidato, dopo l'intro di brand. Si vede una volta: `profiles.tutorial_visto` (un flag, non una data: la rubrica del team è leggibile da tutti), acceso da `segna_tutorial_visto()` (`security definer`, solo il proprio). Chi c'era già all'arrivo del tutorial è segnato come visto; i seed pure.
 - Un percorso per ruolo e funzione (admin, setter, closer, coach fitness, video editor, nutrizione, sviluppo), configurato in codice in `lib/tutorial/percorsi.ts`: Dany non lo modifica dall'app, chiede e si cambia lì. Testato: ogni passo evidenzia una voce che quel ruolo ha davvero.
+- **Interattivo**: i passi "tocca qui" (`clic`) chiedono di toccare il vero link evidenziato: la pagina si apre e il tour continua dentro, su elementi della pagina (`pagina` e `TARGET_DI_PAGINA`, attributi `data-tour`). Solo link di navigazione: il tour non fa mai premere bottoni che scrivono dati. Nell'anteprima dell'admin si va avanti con "Avanti".
 - Ogni passo: contatore "2/7", titolo, testo breve, elemento evidenziato (attributi `data-tour` nella shell: voci di navigazione, "Altro", Alfire, profilo); senza elemento visibile la scheda sta al centro. Una barra di 2 secondi (`ATTESA_LETTURA_MS`) dà il tempo di leggere: prima di allora la X e "Avanti" sono spenti. Esc chiude, frecce per navigare.
 - Si rivede da Profilo › Account › "Rivedi il tutorial". L'admin ha "Testa il tutorial" in alto a destra: sceglie un ruolo e vede quel tour in anteprima, senza segnare nulla.
 - Chi non è invitato non entra: il trigger su `auth.users` rifiuta ogni email senza invito (sezione 7).
