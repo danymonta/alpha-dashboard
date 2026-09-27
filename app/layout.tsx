@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 
 import { Toaster } from '@/components/ui/sonner'
 import { DESCRIZIONE_BREVE, NOME_APP } from '@/lib/brand/nome'
-import { publicEnv } from '@/lib/env'
+import { origineCorrente } from '@/lib/auth/origine-server'
 
 import './globals.css'
 
@@ -17,9 +17,16 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
-export const metadata: Metadata = {
-  // absolute links in the previews of WhatsApp, Telegram, email
-  metadataBase: new URL(publicEnv.appUrl),
+/**
+ * Absolute links in the previews of WhatsApp, Telegram, email: from the domain
+ * the page is served on (checked against ours), not from the build-time
+ * APP_URL, which a changed domain leaves behind until the next build.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  return { ...metadata, metadataBase: new URL(await origineCorrente()) }
+}
+
+const metadata: Metadata = {
   title: NOME_APP,
   description: DESCRIZIONE_BREVE,
   applicationName: NOME_APP,
