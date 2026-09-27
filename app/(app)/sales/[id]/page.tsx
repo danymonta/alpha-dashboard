@@ -10,7 +10,7 @@ import { StatoRata } from '@/components/pagamento/stato-rata'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma, stessoGiornoTraMesi } from '@/lib/date'
-import { formatData, formatEuro } from '@/lib/format'
+import { formatData, formatEuro, formatPercentuale } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
 import { ETICHETTA_TIPO_VENDITA } from '@/lib/validation/vendita'
 
@@ -45,12 +45,14 @@ export default async function DettaglioVenditaPage({
 
   const admin = profilo.ruolo === 'admin'
   // the edit sheet's lists: admin only, former collaborators stay where they already are
-  const [catalogo, persone] = admin
+  const [catalogo, persone, provvigione] = admin
     ? await Promise.all([
         supabase.from('products').select('id, nome, attivo').order('nome'),
         supabase.from('profiles').select('id, nome, ruolo, attivo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
+        // the setter's share of this sale, summed in SQL (admin only)
+        supabase.rpc('provvigioni_per_vendita', { p_sale_id: id }),
       ])
-    : [null, null]
+    : [null, null, null]
 
   const tornaIndietro = admin ? '/sales' : '/my-sales'
   const indietro = {
@@ -89,6 +91,15 @@ export default async function DettaglioVenditaPage({
     ['Closer', vendita.closer?.nome ?? '–'],
     ['Setter', vendita.setter?.nome ?? '–'],
   ]
+  const quota = provvigione?.data?.[0]
+  if (admin && vendita.setter_id) {
+    dettagli.push([
+      'Provvigione setter',
+      quota
+        ? `${quota.percentuale === null ? 'regole diverse' : formatPercentuale(quota.percentuale)} di ${formatEuro(quota.incassato)} = ${formatEuro(quota.provvigione)}`
+        : 'nessuna finora',
+    ])
+  }
 
   return (
     <div className="max-w-2xl space-y-6">

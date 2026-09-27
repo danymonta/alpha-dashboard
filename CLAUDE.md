@@ -296,7 +296,7 @@ Navigazione: sidebar su desktop, bottom bar su mobile (massimo 4 voci più "Altr
 4. **Incassi** (`/payments`): tutte le rate, filtro per stato e mese, vista "in ritardo" in evidenza. In cima la previsione di cassa dei prossimi 3 mesi. Sulle rate da pagare, "Scrivi su WhatsApp" apre la chat del cliente col promemoria già scritto (`lib/whatsapp.ts`): l'app non invia niente da sola.
 4b. **Rinnovi** (`/rinnovi`): chi finisce il percorso entro 30 o 60 giorni e chi l'ha finito da meno di 90 senza rinnovo, con WhatsApp e "Registra rinnovo"; in cima il tasso di rinnovo del mese.
 5. **Setting** (`/setting`): metriche setting e call per periodo e per setter, tabella dei report giornalieri. "Aggiungi giornata" registra un giorno intero per un setter o per l'admin stesso; un giorno che c'è già si corregge dalla sua riga, mai sovrascritto.
-6. **Provvigioni** (`/commissions`): per setter e mese, maturato, pagato, saldo. Registrazione pagamento.
+6. **Provvigioni** (`/commissions`): per setter e mese, maturato, pagato, saldo. Registrazione pagamento. Sotto, "Per cliente": percentuale, incassato e provvigione di ogni vendita (`provvigioni_per_vendita`, solo admin); la stessa riga compare nella scheda della vendita.
 7. **Costi** (`/expenses`): inserimento e lista.
 8. **Impostazioni**: Team (sezione 7), Prodotti, Regole provvigioni, Esporta CSV (vendite, incassi, costi per mese: serve alla commercialista).
 

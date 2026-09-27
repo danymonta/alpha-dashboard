@@ -1,4 +1,5 @@
 import { Percent } from 'lucide-react'
+import Link from 'next/link'
 
 import { ModificaPagamento } from '@/app/(app)/commissions/modifica-pagamento'
 import { PagaProvvigione } from '@/app/(app)/commissions/paga-provvigione'
@@ -17,7 +18,7 @@ export default async function ProvvigioniPage() {
   const oggi = oggiRoma()
   const supabase = await createClient()
 
-  const [riepilogo, regole, pagamenti] = await Promise.all([
+  const [riepilogo, regole, pagamenti, perVendita] = await Promise.all([
     supabase.rpc('provvigioni_riepilogo', { p_mesi: 6 }),
     supabase
       .from('commission_rules')
@@ -28,8 +29,10 @@ export default async function ProvvigioniPage() {
       .select('id, profile_id, periodo, importo, pagato_il, metodo, note')
       .order('pagato_il', { ascending: false })
       .limit(20),
+    // client by client: "5% of 1.500 € = 75 €", summed in SQL
+    supabase.rpc('provvigioni_per_vendita', {}),
   ])
-  if (riepilogo.error || regole.error || pagamenti.error) throw new Error('Impossibile caricare le provvigioni')
+  if (riepilogo.error || regole.error || pagamenti.error || perVendita.error) throw new Error('Impossibile caricare le provvigioni')
 
   // months a payout can refer to: the last two years, plus whatever is already recorded
   const ultimi24 = Array.from({ length: 24 }, (_, i) => aggiungiMesi(primoDelMeseISO(oggi), -i))
@@ -135,6 +138,8 @@ export default async function ProvvigioniPage() {
                   </tbody>
                 </table>
               </div>
+
+              <PerCliente nome={nome} righe={(perVendita.data ?? []).filter((v) => v.profile_id === id)} />
             </section>
           )
         })
@@ -173,6 +178,44 @@ export default async function ProvvigioniPage() {
           </ul>
         </section>
       ) : null}
+    </div>
+  )
+}
+
+type RigaPerVendita = {
+  sale_id: string
+  cliente: string
+  incassato: number
+  percentuale: number | null
+  provvigione: number
+  ultimo_incasso: string
+}
+
+/** Client by client: what came in, the rate and the commission (provvigioni_per_vendita). */
+function PerCliente({ nome, righe }: { nome: string; righe: RigaPerVendita[] }) {
+  return (
+    <div className="border-t border-border pt-3" data-testid="provvigioni-per-cliente">
+      <h3 className="text-sm font-medium">Per cliente</h3>
+      {righe.length === 0 ? (
+        <p className="mt-1 text-sm text-muted-foreground">Nessun incasso con provvigione finora.</p>
+      ) : (
+        <ul className="divide-y divide-border" aria-label={`Provvigioni di ${nome} per cliente`}>
+          {righe.map((v) => (
+            <li key={v.sale_id} aria-label={v.cliente} className="flex min-h-11 items-center justify-between gap-3 py-2 text-sm">
+              <span className="min-w-0">
+                <Link href={`/sales/${v.sale_id}`} className="block truncate hover:underline">
+                  {v.cliente}
+                </Link>
+                <span className="num block text-xs text-muted-foreground">
+                  {v.percentuale === null ? 'regole diverse' : formatPercentuale(v.percentuale)} di {formatEuro(v.incassato)} ·
+                  ultimo incasso {formatData(v.ultimo_incasso)}
+                </span>
+              </span>
+              <span className="num shrink-0 font-medium">{formatEuro(v.provvigione)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

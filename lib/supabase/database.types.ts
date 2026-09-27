@@ -1215,6 +1215,11 @@ isOneToOne: false
               "in_ritardo": number,"incassato": number,"mese": string,"previsto": number,"rate_in_ritardo": number,"rate_previste": number
             }[]
                            },
+"provvigioni_per_vendita":
+{ Args: { "p_sale_id"?: string }; Returns: {
+              "cliente": string,"incassato": number,"percentuale": number,"profile_id": string,"provvigione": number,"sale_id": string,"setter": string,"tipo": Database["public"]['Enums']["sale_type"],"ultimo_incasso": string
+            }[]
+                           },
 "provvigioni_riepilogo":
 { Args: { "p_mesi"?: number }; Returns: {
               "maturato": number,"mese": string,"nome": string,"pagato": number,"profile_id": string,"saldo_mese": number,"saldo_progressivo": number

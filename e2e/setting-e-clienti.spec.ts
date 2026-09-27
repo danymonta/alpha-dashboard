@@ -82,3 +82,25 @@ test('i miei numeri: il setter vede i suoi clienti, cosa hanno pagato e la sua p
   await expect(clienti.getByRole('listitem', { name: 'Bianchi' })).not.toHaveCount(0)
   await expect(page.getByText(ALTRUI)).toHaveCount(0)
 })
+
+test('provvigioni: l’admin vede la percentuale del setter cliente per cliente, anche nella vendita', async ({ page }) => {
+  await accedi(page, 'admin')
+  await page.goto('/commissions')
+  const perCliente = page.getByTestId('provvigioni-per-cliente').first()
+  const riga = perCliente.getByRole('listitem').first()
+  await expect(riga).toContainText('%')
+  await expect(riga).toContainText('€')
+
+  await riga.getByRole('link').click()
+  await expect(page).toHaveURL(/\/sales\//)
+  await expect(page.getByText('Provvigione setter')).toBeVisible()
+})
+
+test('incassi dal telefono: la vista scelta resta in vista anche dopo una ricarica', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await accedi(page, 'admin')
+  await page.goto('/payments?vista=incassate')
+  const scelta = page.getByRole('navigation', { name: 'Viste' }).locator('[aria-current="page"]')
+  await expect(scelta).toBeVisible()
+  await expect(scelta).toBeInViewport({ ratio: 1 })
+})
