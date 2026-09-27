@@ -366,7 +366,7 @@ export default async function PanoramicaPage({
                     </span>
                     <span className="shrink-0 text-right">
                       <span className="num block text-sm font-medium">{formatEuro(f.cash, { compatto: true })}</span>
-                      <span className="num block text-xs text-muted-foreground">{formatPercentuale(f.quota_cash)}</span>
+                      <span className="num block text-xs text-muted-foreground">{formatPercentuale(f.quota_cash, { unDecimale: true })}</span>
                     </span>
                   </div>
                   {/* share of the period's cash: neutral, the numbers above say it in words */}

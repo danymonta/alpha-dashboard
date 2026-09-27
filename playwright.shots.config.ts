@@ -22,7 +22,8 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile',
-      use: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 },
+      // a phone, not a narrow desktop: touch and a coarse pointer, like the real thing
+      use: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true },
     },
     {
       name: 'desktop',

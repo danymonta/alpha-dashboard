@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
-
+import { StrisciaScorrevole } from '@/components/pagina/striscia-scorrevole'
 import { cn } from '@/lib/utils'
 
 const SCHEDE = [
@@ -19,23 +18,6 @@ const SCHEDE = [
 export function SchedeProgetto({ id }: { id: string }) {
   const pathname = usePathname()
   const base = `/progetti/${id}`
-  const striscia = useRef<HTMLDivElement>(null)
-  // more tabs past the right edge: the edge fades, so it reads as "scroll for more"
-  const [altroADestra, setAltroADestra] = useState(false)
-
-  useEffect(() => {
-    const el = striscia.current
-    if (!el) return
-    const misura = () => setAltroADestra(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
-    misura()
-    el.addEventListener('scroll', misura, { passive: true })
-    const osservatore = new ResizeObserver(misura)
-    osservatore.observe(el)
-    return () => {
-      el.removeEventListener('scroll', misura)
-      osservatore.disconnect()
-    }
-  }, [])
 
   return (
     // on a phone the tabs stay in reach while scrolling, right under the top bar
@@ -44,13 +26,7 @@ export function SchedeProgetto({ id }: { id: string }) {
       className="sticky top-[var(--altezza-topbar,65px)] z-10 -mx-4 border-b border-border bg-background md:static md:mx-0"
     >
       {/* the fade is a mask on the tabs only: the sticky background stays opaque */}
-      <div
-        ref={striscia}
-        className={cn(
-          'overflow-x-auto px-4 md:px-0',
-          altroADestra && 'max-md:[mask-image:linear-gradient(to_right,black_calc(100%-3rem),transparent)]',
-        )}
-      >
+      <StrisciaScorrevole attivo={pathname} className="px-4 md:px-0">
         <ul className="flex gap-1">
           {SCHEDE.map(({ percorso, etichetta }) => {
             const href = `${base}${percorso}`
@@ -73,7 +49,7 @@ export function SchedeProgetto({ id }: { id: string }) {
             )
           })}
         </ul>
-      </div>
+      </StrisciaScorrevole>
     </nav>
   )
 }

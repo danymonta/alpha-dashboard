@@ -2,6 +2,7 @@ import { TriangleAlert, Wallet } from 'lucide-react'
 import Link from 'next/link'
 
 import { RataAzioni } from '@/app/(app)/sales/[id]/rata-azioni'
+import { StrisciaScorrevole } from '@/components/pagina/striscia-scorrevole'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { StatoRata } from '@/components/pagamento/stato-rata'
@@ -154,11 +155,9 @@ export default async function IncassiPage({
         </section>
       </div>
 
-      {/* phone: one row that scrolls on its own, never the page */}
-      <nav
-        aria-label="Viste"
-        className="flex gap-2 max-md:-mx-4 max-md:flex-nowrap max-md:overflow-x-auto max-md:px-4 md:flex-wrap"
-      >
+      {/* phone: one row that scrolls on its own, never the page, with the chosen view in sight */}
+      <nav aria-label="Viste" className="max-md:-mx-4">
+        <StrisciaScorrevole attivo={vista} className="flex gap-2 max-md:px-4 md:flex-wrap md:overflow-visible">
         {(Object.keys(VISTE) as Vista[]).map((v) => (
           <Link
             key={v}
@@ -181,6 +180,7 @@ export default async function IncassiPage({
             <span className="num text-xs opacity-80">{nVista[v]}</span>
           </Link>
         ))}
+        </StrisciaScorrevole>
       </nav>
 
       {vista === 'incassate' ? (

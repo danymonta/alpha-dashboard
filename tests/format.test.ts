@@ -45,6 +45,11 @@ describe('rapporto e percentuali', () => {
     expect(rapporto(0, 12)).toBe(0)
     expect(formatPercentuale(0)).toBe('0%')
   })
+  it('in una colonna di quote, sempre un decimale', () => {
+    expect(formatPercentuale(0.13, { unDecimale: true })).toBe('13,0%')
+    expect(formatPercentuale(0.4029, { unDecimale: true })).toBe('40,3%')
+    expect(formatPercentuale(null, { unDecimale: true })).toBe(VUOTO)
+  })
 })
 
 describe('numeri', () => {

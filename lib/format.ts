@@ -28,6 +28,12 @@ const percentuale = new Intl.NumberFormat('it-IT', {
   maximumFractionDigits: 1,
 })
 
+const percentualeUnDecimale = new Intl.NumberFormat('it-IT', {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
 const mese = new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' })
 
 /** Placeholder for "no value": never NaN, never Infinity, never 0 by accident. */
@@ -54,9 +60,13 @@ export function formatNumero(value: number | string | null | undefined): string 
 }
 
 /** Takes a ratio (0.42), prints "42%". */
-export function formatPercentuale(value: number | string | null | undefined): string {
+export function formatPercentuale(
+  value: number | string | null | undefined,
+  /** a column of shares: always one decimal, so "13,0%" sits under "40,3%" */
+  { unDecimale = false }: { unDecimale?: boolean } = {},
+): string {
   const n = toNumber(value)
-  return n === null ? VUOTO : percentuale.format(n)
+  return n === null ? VUOTO : (unDecimale ? percentualeUnDecimale : percentuale).format(n)
 }
 
 /** Ratio with a guarded denominator: returns null instead of NaN/Infinity. */
