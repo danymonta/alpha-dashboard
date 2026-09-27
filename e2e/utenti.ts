@@ -33,6 +33,8 @@ const PROGETTI = { nome: 'progetti', url: '/progetti' }
 const TEMPO = { nome: 'il-mio-tempo', url: '/tempo' }
 
 /** Pages reachable by each role, as the navigation offers them. */
+const PROFILO = { nome: 'profilo', url: '/account' }
+
 export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   admin: [
     { nome: 'panoramica', url: '/' },
@@ -55,6 +57,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     PROGETTI,
     ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE),
     TEMPO,
+    PROFILO,
   ],
   setter: [
     { nome: 'oggi', url: '/today' },
@@ -65,6 +68,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     // the seed setter is in no project: the empty state
     PROGETTI,
     TEMPO,
+    PROFILO,
   ],
   closer: [
     { nome: 'le-mie-call', url: '/calls' },
@@ -74,9 +78,10 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     PROGETTI,
     ...schedeProgetto(PROGETTO_FUNNEL),
     TEMPO,
+    PROFILO,
   ],
-  coach: [PROGETTI, ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE), TEMPO],
-  editor: [PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO],
+  coach: [PROGETTI, ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE), TEMPO, PROFILO],
+  editor: [PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO, PROFILO],
 }
 
 const IN_ATTESA_DELLO_STREAMING = new WeakSet<Page>()
