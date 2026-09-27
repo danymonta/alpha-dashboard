@@ -3,8 +3,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { publicEnv } from '@/lib/env'
 
-/** Routes reachable without a session. */
-const PERCORSI_PUBBLICI = ['/login', '/auth', '/api/cron']
+/**
+ * Routes reachable without a session. The web app manifest is fetched by the
+ * browser without cookies: behind the login it would never install.
+ */
+const PERCORSI_PUBBLICI = ['/login', '/auth', '/api/cron', '/manifest.webmanifest']
 
 function isPubblico(pathname: string) {
   return PERCORSI_PUBBLICI.some(

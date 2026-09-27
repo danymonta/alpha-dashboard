@@ -2,7 +2,7 @@
 // Small sizes use the emblem only (house and figure): the lettering of the
 // full logo is unreadable at 16-48 px. The iPhone home screen gets the full logo.
 // Usage: node scripts/genera-icone.mjs
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import sharp from 'sharp'
 
 const SORGENTE = 'public/brand/percorso-alpha.webp' // 1424 x 1592, on black
@@ -27,6 +27,18 @@ const logoQuadrato = await sharp(SORGENTE)
   .toBuffer()
 await writeFile('app/apple-icon.png', await png(logoQuadrato, 180))
 
+// installed app (app/manifest.ts): the emblem, plus a "maskable" one with a
+// safe margin for Android, which cuts icons into circles and squircles
+await mkdir('public/icons', { recursive: true })
+await writeFile('public/icons/icon-192.png', await png(emblema, 192))
+await writeFile('public/icons/icon-512.png', await png(emblema, 512))
+const ridotto = await sharp(emblema).resize(360, 360).png().toBuffer()
+const maschera = await sharp({ create: { width: 512, height: 512, channels: 4, background: NERO } })
+  .composite([{ input: ridotto, gravity: 'center' }])
+  .png()
+  .toBuffer()
+await writeFile('public/icons/icon-maskable-512.png', await png(maschera, 512))
+
 // favicon.ico with PNG entries (every current browser reads them)
 const lati = [16, 32, 48]
 const immagini = await Promise.all(lati.map((lato) => png(emblema, lato)))
@@ -49,4 +61,4 @@ const voci = lati.map((lato, i) => {
   return voce
 })
 await writeFile('app/favicon.ico', Buffer.concat([intestazione, ...voci, ...immagini]))
-console.log('icone scritte: app/favicon.ico, app/icon.png, app/apple-icon.png')
+console.log('icone scritte: app/favicon.ico, app/icon.png, app/apple-icon.png, public/icons/*')

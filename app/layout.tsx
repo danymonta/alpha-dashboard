@@ -18,6 +18,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Alpha Economics',
   description: 'Setting, vendite ed economia di Percorso Alpha',
+  applicationName: 'Percorso Alpha',
+  // "Aggiungi a Home" on the iPhone opens it full screen, like an app
+  appleWebApp: { capable: true, title: 'Alpha', statusBarStyle: 'black' },
 }
 
 export const viewport: Viewport = {
