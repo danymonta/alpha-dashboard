@@ -48,6 +48,7 @@ Il project management con il time tracking è stato chiesto da Dany il 27/09/202
 | Hosting | Vercel |
 | Test | Vitest (logica), pgTAP via `supabase test db` (RLS), Playwright (e2e e screenshot) |
 | Package manager | npm |
+| AI (Alfire) | AI SDK v7 (`ai`, `@ai-sdk/react`, `@ai-sdk/openai-compatible`), endpoint OpenAI-compatibile. Default: Groq piano gratuito, `openai/gpt-oss-120b`, voce `whisper-large-v3-turbo` (sezione 20) |
 
 Librerie Supabase: `@supabase/supabase-js` e `@supabase/ssr`. Tre client distinti in `lib/supabase/`: `server.ts` (Server Components e Server Actions, cookie), `client.ts` (browser), `admin.ts` (secret key, importabile solo da codice server, con `import 'server-only'`).
 
@@ -62,6 +63,10 @@ CRON_SECRET=                            # protegge /api/cron/keep-alive
 ENABLE_DEV_LOGIN=                       # "true" solo in locale, mai su Vercel
 RESEND_API_KEY=                         # email di invito (Resend), SOLO server; vuota = link da copiare
 EMAIL_MITTENTE=                         # es. "Percorso Alpha <team@dominio-verificato>"
+ALFIRE_API_KEY=                         # chiave Groq (o altro fornitore), SOLO server; vuota = Alfire spenta
+ALFIRE_BASE_URL=                        # facoltativa, default https://api.groq.com/openai/v1
+ALFIRE_MODEL=                           # facoltativa, default openai/gpt-oss-120b
+ALFIRE_MODEL_VOCE=                      # facoltativa, default whisper-large-v3-turbo
 ```
 
 Regole:
@@ -308,7 +313,7 @@ Caricamento (skeleton, non spinner a tutto schermo), vuoto (messaggio più azion
 
 - Le pagine con dati economici sono dinamiche (nessuna cache statica). Dopo ogni server action: `revalidatePath` delle pagine coinvolte.
 - Nella Panoramica admin, sottoscrizione Supabase Realtime a `setter_daily_reports`, `calls`, `payments`: all'arrivo di un evento, `router.refresh()`. Dany vede i numeri di Loris aggiornarsi senza ricaricare.
-- Non serve uno storage file in questa fase. Il database è lo storage. Supabase Storage entrerà solo se si decide di allegare contratti o ricevute.
+- Supabase Storage serve solo per le foto profilo (bucket `avatari`, sezione 20). Contratti o ricevute entreranno solo se si decide di allegarli.
 
 ## 11. Design system
 
@@ -325,6 +330,7 @@ Unica eccezione alla sobrietà, confinata all'ingresso: chi entra deve essere co
 - `prefers-reduced-motion`: nessuna animazione, logo statico, intro saltata.
 - I colori del fuoco sono token (`--brand-fire-*`) in `globals.css`, mai hex sparsi nei componenti.
 - La regola "un solo elemento oro per schermata" vale per le schermate dati; login e intro ne sono escluse.
+- **Fiamma di Alfire** (deciso da Dany il 27/09/2026): piccola fiamma nei colori `--brand-fire-*` in alto a destra della shell. Ferma a riposo, si anima solo al passaggio del mouse o al focus; con `prefers-reduced-motion` resta ferma.
 
 ### Token
 
@@ -480,9 +486,6 @@ Lavora una fase alla volta. A fine fase: tutti i controlli verdi, istruzioni di 
 - Se una scelta non è coperta da questo file, proponi un'opzione con il motivo in una riga e chiedi conferma. Non decidere da solo su permessi, calcoli economici o schema.
 - Mai funzioni di sorveglianza dei collaboratori (tracking automatico, screenshot, alert su chi non compila). Il report giornaliero è auto-dichiarazione dei risultati, non monitoraggio.
 
-<!-- BEGIN:nextjs-agent-rules -->
-
-
 ## 18. Project management (area Progetti)
 
 Chiesto da Dany il 27/09/2026. Schema in `20260928090000_project_management.sql` e successive.
@@ -503,6 +506,30 @@ Deciso da Dany il 27/09/2026: l'admin può correggere ed eliminare ogni riga di 
 - Le conseguenze si contano in SQL (`anteprima_eliminazione(tipo, id)`, solo admin); `lib/eliminazione.ts` le mette in parole.
 - Cosa succede: un cliente porta con sé vendite e rate; una vendita porta con sé le rate; un lead porta con sé le call, mentre il cliente nato da lui resta; un prodotto eliminato lascia il suo nome nelle vendite passate (`prodotto_personalizzato`); un reparto con progetti non si elimina, i suoi modelli sì; una regola provvigionale eliminata toglie le provvigioni maturate con lei, anche nei mesi passati (per smettere da una data si usa "Chiudi").
 - Le RPC di eliminazione sono `security definer` e verificano `is_admin()`.
+
+## 20. Alfire e profilo utente
+
+Chiesto da Dany il 27/09/2026.
+
+**Alfire** è l'assistente AI del team: fiamma in alto a destra (desktop "Chatta con Alfire", mobile solo icona), pannello laterale con chat, vocale e suggerimenti per ruolo.
+
+- **Modello**: open source e gratuito. Groq, piano gratuito (1.000 richieste e 200k token al giorno, 8k token al minuto), `openai/gpt-oss-120b`; voce con Whisper sullo stesso account. Il codice parla il formato OpenAI (`lib/alfire/config.ts`): si cambia fornitore o modello solo con le variabili `ALFIRE_*`, anche verso un modello cinese (Qwen su Groq, GLM su z.ai).
+- **Privacy**: domande, dati letti e vocali passano dai server del fornitore (Groq: USA). Nessun audio salvato, la chat vive solo finché l'app è aperta (nessuna tabella). Detto in Profilo › Alfire.
+- **Permessi**: Alfire lavora con la sessione di chi chatta: RLS e le stesse server action dei form. In più riceve solo gli strumenti del suo ruolo (`lib/alfire/permessi.ts`, testato): nessun collaboratore riceve strumenti su soldi dei clienti, costi, margine o compensi altrui.
+- **Letture**: numeri del periodo, cash per mese, da incassare, clienti, vendite, setting, provvigioni, costi (admin); i miei numeri (setter); call; progetti e task; guida della dashboard (`lib/alfire/guida.ts`, letta solo quando serve per risparmiare token).
+- **Scritture** (crea cliente, segna rata incassata, registra costo, aggiorna report, fissa call, crea progetto, aggiungi task): mai senza conferma. Alfire propone, in chat compare una scheda con cosa verrà scritto (`lib/alfire/riassunto.ts`), si esegue solo dopo "Conferma" (`toolApproval: 'user-approval'`).
+- **Voce**: si registra solo dopo il tocco sul microfono, al massimo 2 minuti, trascrizione in italiano via `/api/alfire/voce`. Lettura ad alta voce delle risposte: preferenza per dispositivo.
+- **Test**: `e2e/llm-finto.mjs` è un modello finto OpenAI-compatibile; con il dev server avviato con `ALFIRE_API_KEY=finta ALFIRE_BASE_URL=http://127.0.0.1:4010/v1` e `E2E_ALFIRE_FINTO=1`, `e2e/alfire-chat.spec.ts` prova lettura, conferma, scrittura, annullamento e voce senza Groq.
+- Nessuna sorveglianza (sezione 17): Alfire non segnala chi non compila e non confronta le persone di sua iniziativa.
+
+**Profilo utente** (`/account`, ogni ruolo): foto in fondo alla sidebar (desktop) e nella top bar (mobile); un tocco apre il profilo. Schede Profilo (foto e nome), Alfire (preferenze e dove vanno i dati), Account (email, ruolo, livello, Esci).
+
+- Foto: di base quella di Google (`profiles.foto_url`, copiata all'ingresso), oppure caricata: bucket pubblico `avatari`, una cartella per persona, scrittura solo nella propria (policy su `storage.objects`), ritaglio quadrato 256 px in WebP o JPEG nel browser. Eliminando o unendo una persona le sue foto si cancellano.
+- Nome e foto si cambiano solo con `aggiorna_mio_profilo` (`security definer`): nessuna policy di update su `profiles` per i non admin, così ruolo e stato restano fuori portata.
+
+<!-- Everything above this line is ours. The block below is rewritten by `next dev`: never write inside it. -->
+
+<!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
 
