@@ -124,7 +124,7 @@ export default async function PanoramicaPage({
 
   return (
     <div className="space-y-5">
-      {/* Mobile: live status on the title row, period selector full width below. */}
+      {/* Mobile: live status on the title row, period selector on its own row below. */}
       <header className="grid grid-cols-[auto_1fr] items-end gap-x-3 gap-y-2 md:flex md:flex-wrap md:justify-between">
         {/* the period is in the selector: no second copy under the title */}
         <h1 className="font-heading text-xl font-semibold md:text-2xl">Panoramica</h1>
@@ -138,8 +138,8 @@ export default async function PanoramicaPage({
             periodo={periodo}
             oggi={oggi}
             percorso="/"
-            // mobile: full width, both chevrons on the content edges; desktop: right chevron on the right edge
-            className="col-span-2 -mx-3 w-[calc(100%+1.5rem)] justify-between md:mx-0 md:-mr-3 md:w-auto md:justify-start"
+            // mobile: own row, left-aligned like every other page; desktop: right chevron on the right edge
+            className="col-span-2 md:ml-0 md:-mr-3"
           />
         </div>
       </header>

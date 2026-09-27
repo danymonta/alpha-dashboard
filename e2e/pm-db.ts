@@ -128,6 +128,15 @@ export async function avviaTimerAltrove(profileId: string, progettoId: string, m
   )
 }
 
+/**
+ * Stops a timer left running by avviaTimerAltrove: the running entry is
+ * removed, so no minutes are logged and the seed data stay as they were.
+ */
+export async function fermaTimerAltrove(profileId: string) {
+  const { error } = await dbLocale().from('pm_tempo').delete().eq('profile_id', profileId).is('fine', null).not('inizio', 'is', null)
+  if (error) throw error
+}
+
 /** Removes the test projects and everything in them. */
 export async function pulisciProgetti(prefisso: string) {
   const { error } = await dbLocale().from('pm_progetti').delete().like('nome', `${prefisso}%`)

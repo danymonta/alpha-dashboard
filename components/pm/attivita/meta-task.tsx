@@ -58,23 +58,29 @@ export function PrioritaBadge({ priorita }: { priorita: Priorita }) {
   )
 }
 
-/** Status, priority, assignee, due date, sub-tasks and estimate of one task. */
+/**
+ * Status, priority, assignee, due date, sub-tasks and estimate of one task.
+ * Only what tells something: no state once completed (the checkbox says it),
+ * no priority when it is the usual "Media", the assignee's name from 640px
+ * (initials below, the name stays for screen readers).
+ */
 export function MetaTask({ task, membri }: { task: TaskVista; membri: readonly Persona[] }) {
   const assegnatario = membri.find((m) => m.id === task.assegnatario_id)
   const completato = task.stato === 'completato'
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      <StatoTaskBadge stato={task.stato} />
-      <PrioritaBadge priorita={task.priorita} />
+      {completato ? null : <StatoTaskBadge stato={task.stato} />}
+      {task.priorita === 'media' ? null : <PrioritaBadge priorita={task.priorita} />}
       {assegnatario ? (
         <span className="inline-flex items-center gap-1">
           <span
             aria-hidden="true"
+            title={assegnatario.nome}
             className="inline-flex size-5 items-center justify-center rounded-full bg-secondary text-[10px] font-medium text-secondary-foreground"
           >
             {iniziali(assegnatario.nome)}
           </span>
-          {assegnatario.nome}
+          <span className="sr-only sm:not-sr-only">{assegnatario.nome}</span>
         </span>
       ) : (
         <span>Non assegnato</span>

@@ -44,8 +44,9 @@ export function CardProgetto({
 
       <BarraAvanzamento completati={p.task_completati} totali={p.task_totali} avanzamento={p.avanzamento} />
 
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {/* dates and delays stacked on the left, the team on the right: never a lonely wrapped row */}
+      <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 text-xs">
+        <span className="flex flex-col items-start gap-1">
           {p.data_fine ? (
             p.scaduto ? (
               <InRitardo testo={`Doveva finire il ${formatData(p.data_fine)}`} />

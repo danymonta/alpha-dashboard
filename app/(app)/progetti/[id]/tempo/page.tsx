@@ -117,7 +117,7 @@ export default async function TempoProgettoPage({
         <p className="text-sm text-muted-foreground">Qui vedi il tempo che hai registrato tu su questo progetto.</p>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="rounded-xl bg-card p-4" data-testid="totale-progetto">
           <p className="text-xs text-muted-foreground">
             {puoGestire ? 'Tempo sul progetto' : 'Il tuo tempo'} · {periodo.titolo.toLowerCase()}
@@ -146,7 +146,7 @@ export default async function TempoProgettoPage({
         />
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <section aria-labelledby="titolo-voci" className="space-y-2">
           <h2 id="titolo-voci" className="sr-only">
             Tempo registrato, giorno per giorno

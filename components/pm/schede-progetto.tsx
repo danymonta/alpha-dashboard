@@ -19,7 +19,11 @@ export function SchedeProgetto({ id }: { id: string }) {
   const base = `/progetti/${id}`
 
   return (
-    <nav aria-label="Sezioni del progetto" className="-mx-4 overflow-x-auto border-b border-border px-4 md:mx-0 md:px-0">
+    // on a phone the tabs stay in reach while scrolling, right under the top bar
+    <nav
+      aria-label="Sezioni del progetto"
+      className="sticky top-[var(--altezza-topbar,65px)] z-10 -mx-4 overflow-x-auto border-b border-border bg-background px-4 md:static md:mx-0 md:px-0"
+    >
       <ul className="flex gap-1">
         {SCHEDE.map(({ percorso, etichetta }) => {
           const href = `${base}${percorso}`

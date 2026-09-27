@@ -47,8 +47,9 @@ export function RigaTask({ task, figli = [] }: { task: TaskVista; figli?: TaskVi
         >
           <Checkbox
             checked={completato}
-            // Base UI draws a span: the disabled look comes from data-disabled
-            className="data-disabled:cursor-not-allowed data-disabled:opacity-40"
+            // Base UI draws a span: the disabled look comes from data-disabled.
+            // A dashed border says "not yours to close" without fading it out.
+            className="size-5 data-disabled:cursor-not-allowed data-disabled:border-dashed data-disabled:opacity-60"
             disabled={!modificabile || inCorso}
             onCheckedChange={(v) => cambia(v)}
             aria-label={completato ? `Riapri ${task.titolo}` : `Completa ${task.titolo}`}

@@ -74,7 +74,7 @@ export function ModelloForm({ modello, reparti }: { modello?: Modello; reparti: 
           reset(iniziali)
         }
       }}
-      trigger={<Button type="button" variant={modello ? 'outline' : 'default'} className="h-11" />}
+      trigger={<Button type="button" variant="outline" className="h-11" />}
       contenutoTrigger={
         modello ? (
           <>

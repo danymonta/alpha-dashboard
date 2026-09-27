@@ -102,7 +102,7 @@ export default async function ModelloPage({ params }: { params: Promise<{ id: st
                     <div className="min-w-0 flex-1 py-1">
                       <p className="text-sm">{v.titolo}</p>
                       <p className="num text-xs text-muted-foreground">
-                        {quando(v.inizio_giorni, v.durata_giorni)} · ordine {v.ordine}
+                        {quando(v.inizio_giorni, v.durata_giorni)}
                       </p>
                     </div>
                     <VoceForm modelloId={m.id} voce={v} liste={nomiListe} ordineSuccessivo={ordineSuccessivo} />

@@ -56,6 +56,8 @@ test('l’employee completa il task assegnato a lui e non vede i comandi di gest
 
   await page.getByRole('checkbox', { name: 'Completa Montaggio del reel di prova' }).click()
   await expect(page.getByText('Task completato')).toBeVisible()
+  // a completed task moves to the closed "Completati" group of its list
+  await page.getByRole('button', { name: 'Completati (1)' }).click()
   await expect(page.getByRole('checkbox', { name: 'Riapri Montaggio del reel di prova' })).toBeChecked()
   const { data } = await dbLocale().from('pm_task').select('stato, completato_il').eq('id', suo).single()
   expect(data?.stato).toBe('completato')

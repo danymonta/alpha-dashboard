@@ -1,6 +1,6 @@
 'use client'
 
-import { Check } from 'lucide-react'
+import { Circle, CircleCheck } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 
@@ -70,17 +70,23 @@ export function FiltroSelect({
   )
 }
 
-/** On/off filter as a 44px toggle button ("Solo i miei", "I miei task"). */
+/**
+ * On/off filter as a 44px toggle button ("Solo i miei", "I miei task"). Off it
+ * still reads as a control: full-contrast text and an empty circle; on, the
+ * circle is checked and the button filled.
+ */
 export function FiltroInterruttore({
   nome,
   attivo,
   etichetta,
   parametri,
+  className,
 }: {
   nome: string
   attivo: boolean
   etichetta: string
   parametri: Parametri
+  className?: string
 }) {
   const router = useRouter()
   const percorso = usePathname()
@@ -96,10 +102,15 @@ export function FiltroInterruttore({
         'inline-flex min-h-11 items-center gap-1.5 self-end rounded-lg border px-3 text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-60',
         attivo
           ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
+          : 'border-input bg-input/30 text-foreground hover:bg-accent',
+        className,
       )}
     >
-      {attivo ? <Check className="size-4" aria-hidden="true" /> : null}
+      {attivo ? (
+        <CircleCheck className="size-4" aria-hidden="true" />
+      ) : (
+        <Circle className="size-4 text-muted-foreground" aria-hidden="true" />
+      )}
       {etichetta}
     </button>
   )

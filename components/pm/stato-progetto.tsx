@@ -21,16 +21,21 @@ export function StatoProgettoBadge({ stato, className }: { stato: StatoProgetto;
   )
 }
 
-/** Progress of a project or a list: the ratio comes from SQL, this only draws it. */
+/**
+ * Progress of a project or a list: the ratio comes from SQL, this only draws
+ * it. With `inRitardo` the late tasks follow on the same line ("3 in ritardo").
+ */
 export function BarraAvanzamento({
   completati,
   totali,
   avanzamento,
+  inRitardo = 0,
   className,
 }: {
   completati: number
   totali: number
   avanzamento: number | null
+  inRitardo?: number
   className?: string
 }) {
   const percento = avanzamento === null ? 0 : Math.round(avanzamento * 100)
@@ -39,8 +44,9 @@ export function BarraAvanzamento({
       <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
         <div className="h-full rounded-full bg-primary-light" style={{ width: `${percento}%` }} />
       </div>
-      <p className="num text-xs text-muted-foreground">
-        {totali === 0 ? 'Nessun task' : `${completati} di ${totali} task · ${percento}%`}
+      <p className="num flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+        <span>{totali === 0 ? 'Nessun task' : `${completati} di ${totali} task · ${percento}%`}</span>
+        {inRitardo > 0 ? <InRitardo testo={`${inRitardo} in ritardo`} /> : null}
       </p>
     </div>
   )
@@ -62,20 +68,20 @@ export function InizialiMembri({ nomi, massimo = 4 }: { nomi: string[]; massimo?
   const visibili = nomi.slice(0, massimo)
   const altri = nomi.length - visibili.length
   return (
-    <span className="flex items-center">
+    <span className="flex items-center -space-x-1.5">
       <span className="sr-only">Membri: {nomi.join(', ')}</span>
       {visibili.map((nome, i) => (
         <span
           key={`${nome}-${i}`}
           title={nome}
           aria-hidden="true"
-          className="-ml-1.5 inline-flex size-7 items-center justify-center rounded-full bg-secondary text-[11px] font-medium text-secondary-foreground ring-2 ring-card first:ml-0"
+          className="inline-flex size-7 items-center justify-center rounded-full bg-secondary text-[11px] font-medium text-secondary-foreground ring-2 ring-card"
         >
           {iniziali(nome)}
         </span>
       ))}
       {altri > 0 ? (
-        <span aria-hidden="true" className="num ml-1 text-xs text-muted-foreground">
+        <span aria-hidden="true" className="num pl-2.5 text-xs text-muted-foreground">
           +{altri}
         </span>
       ) : null}

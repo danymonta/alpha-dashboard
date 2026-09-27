@@ -87,11 +87,19 @@ export function ModificaProgetto({
         if (v) reset(iniziali)
         else setErrore(null)
       }}
-      trigger={<Button type="button" variant="outline" className="h-11" />}
+      // below 640px an icon next to the title, from 640px the outlined "Modifica"
+      trigger={
+        <Button
+          type="button"
+          variant="ghost"
+          aria-label="Modifica"
+          className="size-11 shrink-0 text-muted-foreground sm:w-auto sm:border-input sm:bg-input/30 sm:px-2.5 sm:text-foreground sm:hover:bg-input/50"
+        />
+      }
       contenutoTrigger={
         <>
           <Pencil className="size-4" aria-hidden="true" />
-          Modifica
+          <span className="hidden sm:inline">Modifica</span>
         </>
       }
       titolo="Modifica il progetto"

@@ -38,7 +38,7 @@ export default async function NoteProgettoPage({ params }: { params: Promise<{ i
   const adminPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === 'admin'
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-6">
       <NoteLive progettoId={id} />
       <NuovaNota progettoId={id} oggi={oggi} />
 

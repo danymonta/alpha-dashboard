@@ -121,6 +121,15 @@ export default async function ProgettiPage({
     .filter((s) => s.progetti.length > 0 || (creatore && s.reparto.attivo))
 
   const statoParola = STATO_AL_SINGOLARE[filtroStato]
+  // departments shown but none with a project: one empty state instead of four
+  const tuttiVuoti = sezioni.length > 0 && sezioni.every((s) => s.progetti.length === 0)
+  const propsNuovo = {
+    reparti: repartiAttivi,
+    modelli: opzioniModello,
+    persone: persone.data,
+    clienti: opzioniCliente,
+    oggi,
+  }
   const parametriCorrenti = {
     stato: parametri.stato,
     reparto: repartoFiltro ?? undefined,
@@ -133,16 +142,23 @@ export default async function ProgettiPage({
         titolo="Progetti"
         descrizione={DESCRIZIONE[livello]}
         azione={
-          livello === 'admin' ? (
-            <LinkBottone href="/settings/progetti" variant="outline">
-              <Settings2 className="size-4" aria-hidden="true" />
-              Reparti e modelli
-            </LinkBottone>
+          livello === 'admin' || creatore ? (
+            <div className="flex flex-wrap gap-2">
+              {livello === 'admin' ? (
+                <LinkBottone href="/settings/progetti" variant="outline">
+                  <Settings2 className="size-4" aria-hidden="true" />
+                  Reparti e modelli
+                </LinkBottone>
+              ) : null}
+              {/* the one primary action of the page: the department is chosen in the sheet */}
+              {creatore && repartiAttivi.length > 0 ? <NuovoProgetto {...propsNuovo} /> : null}
+            </div>
           ) : null
         }
       />
 
-      <div className="flex flex-wrap items-end gap-2" role="search" aria-label="Filtra i progetti">
+      {/* 390px: two selects side by side, the toggle on its own row */}
+      <div className="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap" role="search" aria-label="Filtra i progetti">
         <FiltroSelect
           id="filtro-stato"
           etichetta="Stato"
@@ -165,11 +181,34 @@ export default async function ProgettiPage({
           parametri={parametriCorrenti}
         />
         {livello === 'admin' ? (
-          <FiltroInterruttore nome="miei" attivo={soloMiei} etichetta="Solo i miei" parametri={parametriCorrenti} />
+          <FiltroInterruttore
+            nome="miei"
+            attivo={soloMiei}
+            etichetta="Solo i miei"
+            parametri={parametriCorrenti}
+            className="col-span-2 justify-self-start"
+          />
         ) : null}
       </div>
 
-      {sezioni.length === 0 ? (
+      {tuttiVuoti ? (
+        <StatoVuoto
+          Icona={FolderKanban}
+          titolo={`Nessun progetto${statoParola}`}
+          descrizione={
+            filtroStato !== 'tutti' || repartoFiltro
+              ? 'Cambia i filtri per vedere gli altri progetti, o aprine uno nuovo.'
+              : 'Apri il primo progetto con «Nuovo progetto»: il reparto lo scegli nel foglio.'
+          }
+          azione={
+            filtroStato !== 'tutti' || repartoFiltro ? (
+              <LinkBottone href="/progetti?stato=tutti" variant="outline">
+                Mostra tutti i progetti
+              </LinkBottone>
+            ) : null
+          }
+        />
+      ) : sezioni.length === 0 ? (
         <StatoVuoto
           Icona={FolderKanban}
           titolo={filtroStato === 'attivi' && !repartoFiltro ? 'Non fai ancora parte di un progetto' : `Nessun progetto${statoParola}`}
@@ -188,42 +227,25 @@ export default async function ProgettiPage({
         />
       ) : (
         sezioni.map(({ reparto, progetti: elenco }) => (
-          <section key={reparto.id} aria-labelledby={`reparto-${reparto.id}`} className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          <section key={reparto.id} aria-labelledby={`reparto-${reparto.id}`} className="space-y-2">
+            <div className="flex min-h-11 items-center justify-between gap-2">
               <h2 id={`reparto-${reparto.id}`} className="text-base font-medium">
                 {reparto.nome}
                 <span className="num ml-2 text-sm font-normal text-muted-foreground">{elenco.length}</span>
                 {reparto.attivo ? null : <span className="ml-2 text-xs font-normal text-muted-foreground">disattivato</span>}
               </h2>
-              {creatore && reparto.attivo && elenco.length > 0 ? (
-                <NuovoProgetto
-                  reparti={repartiAttivi}
-                  repartoId={reparto.id}
-                  modelli={opzioniModello}
-                  persone={persone.data}
-                  clienti={opzioniCliente}
-                  oggi={oggi}
-                />
+              {creatore && reparto.attivo ? (
+                <NuovoProgetto {...propsNuovo} repartoId={reparto.id} variante="icona" />
               ) : null}
             </div>
 
             {elenco.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-8 text-center">
-                <FolderKanban className="size-6 text-muted-foreground" aria-hidden="true" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Nessun progetto{statoParola} in {reparto.nome}</p>
-                  <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-                    {reparto.descrizione ?? 'Apri il primo progetto di questo reparto.'}
-                  </p>
-                </div>
-                <NuovoProgetto
-                  reparti={repartiAttivi}
-                  repartoId={reparto.id}
-                  modelli={opzioniModello}
-                  persone={persone.data}
-                  clienti={opzioniCliente}
-                  oggi={oggi}
-                />
+              // one compact line: the dashed box is only for a page with nothing at all
+              <div className="flex min-h-11 flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
+                <span>Nessun progetto{statoParola}.</span>
+                {creatore && reparto.attivo ? (
+                  <NuovoProgetto {...propsNuovo} repartoId={reparto.id} variante="link" />
+                ) : null}
               </div>
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

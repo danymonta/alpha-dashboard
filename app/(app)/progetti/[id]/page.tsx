@@ -61,10 +61,21 @@ export default async function AttivitaPage({
   const parametriCorrenti = { stato: parametri.stato, miei: filtro.soloMiei ? '1' : undefined }
 
   return (
-    <div className="max-w-4xl space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <div className="flex flex-1 flex-wrap items-end gap-2" role="search" aria-label="Filtra i task">
-          <FiltroInterruttore nome="miei" attivo={filtro.soloMiei} etichetta="I miei task" parametri={parametriCorrenti} />
+        {/* 390px: the two filters share the row, "Nuova lista" goes below */}
+        <div
+          className="grid basis-full grid-cols-2 items-end gap-2 sm:flex sm:flex-1 sm:basis-auto sm:flex-wrap"
+          role="search"
+          aria-label="Filtra i task"
+        >
+          <FiltroInterruttore
+            nome="miei"
+            attivo={filtro.soloMiei}
+            etichetta="I miei task"
+            parametri={parametriCorrenti}
+            className="justify-center sm:justify-start"
+          />
           <FiltroSelect
             id="filtro-stato-task"
             etichetta="Stato"

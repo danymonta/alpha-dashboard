@@ -1,7 +1,7 @@
 'use client'
 
 import { CalendarOff, CheckCircle2, TriangleAlert } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { formatData, formatPercentuale } from '@/lib/format'
@@ -41,6 +41,23 @@ type Riga = RigaGantt<ListaVista, TaskVista>
 const RIGA = 44
 /** A mark is never narrower than this to the finger, whatever its drawn width. */
 const MIN_TOCCO = 24
+
+// below sm a week scale shows barely two weeks: the month scale is the default there
+const STRETTO = '(max-width: 639.98px)'
+
+function iscriviti(avvisa: () => void) {
+  const mq = window.matchMedia(STRETTO)
+  mq.addEventListener('change', avvisa)
+  return () => mq.removeEventListener('change', avvisa)
+}
+
+function useStretto() {
+  return useSyncExternalStore(
+    iscriviti,
+    () => window.matchMedia(STRETTO).matches,
+    () => false,
+  )
+}
 
 function testoDate(forma: Forma): string {
   if (forma.forma === 'barra') {
@@ -110,13 +127,16 @@ function NomeRiga({ riga }: { riga: Riga }) {
     return <span className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">{riga.nome}</span>
   }
   if (riga.tipo === 'lista') {
-    return <span className="line-clamp-2 min-w-0 leading-tight font-medium sm:line-clamp-1">{riga.lista.nome}</span>
+    return <span className="line-clamp-2 min-w-0 leading-tight font-medium break-words hyphens-auto">{riga.lista.nome}</span>
   }
   const { task } = riga
   return (
     <>
       <span
-        className={cn('line-clamp-2 min-w-0 leading-tight sm:line-clamp-1', task.stato === 'completato' && 'text-muted-foreground')}
+        className={cn(
+          'line-clamp-2 min-w-0 leading-tight break-words hyphens-auto',
+          task.stato === 'completato' && 'text-muted-foreground',
+        )}
       >
         {task.titolo}
       </span>
@@ -311,12 +331,25 @@ function Grafico({
   const larghezza = larghezzaAsse(intervallo, scala)
   const listaTacche = tacche(intervallo, scala)
   const xDiOggi = xOggi(oggi, intervallo, scala)
+  // left edge of the first late mark: it must be in sight when the chart opens
+  const xRitardi = righe.flatMap((r) => {
+    if (r.tipo !== 'task' || !r.task.in_ritardo) return []
+    const g = geometria(r.forma, intervallo, scala)
+    return g.forma === 'barra' ? [g.x] : g.forma === 'rombo' ? [g.x - 6] : []
+  })
+  const xPrimoInRitardo = xRitardi.length > 0 ? Math.min(...xRitardi) : Number.POSITIVE_INFINITY
+  // how far the axis is scrolled: a tick label cut by the left edge is hidden
+  const [scorso, setScorso] = useState(0)
+  // ...and the period it named is repeated on the edge, unless the next tick is close
+  const taccaSulBordo = listaTacche.filter((t) => t.x < scorso - 1).at(-1)
+  const prossimaTacca = listaTacche.find((t) => t.x >= scorso - 1)
+  const etichettaBordo = taccaSulBordo && (!prossimaTacca || prossimaTacca.x - scorso > 48) ? taccaSulBordo.etichetta : null
 
-  // open on today: a third of the view before it, the rest ahead
+  // open on today, a quarter of the view before it, unless something late comes earlier
   useEffect(() => {
     const el = scorrimento.current
-    if (el) el.scrollLeft = Math.max(0, xDiOggi - el.clientWidth / 3)
-  }, [xDiOggi])
+    if (el) el.scrollLeft = Math.max(0, Math.min(xDiOggi - el.clientWidth / 4, xPrimoInRitardo - 8))
+  }, [xDiOggi, xPrimoInRitardo])
 
   return (
     <div
@@ -325,15 +358,15 @@ function Grafico({
       className="flex overflow-hidden rounded-xl border border-border bg-card"
       data-testid="gantt-grafico"
     >
-      {/* fixed column of names */}
-      <div className="w-36 shrink-0 border-r border-border sm:w-56">
-        <div className="flex h-12 items-center border-b border-border px-3 text-xs text-muted-foreground">Attività</div>
+      {/* fixed column of names: narrow on a phone, the axis needs the room */}
+      <div className="w-28 shrink-0 border-r border-border sm:w-56">
+        <div className="flex h-12 items-center border-b border-border px-2 text-xs text-muted-foreground sm:px-3">Attività</div>
         {righe.map((riga, i) => (
           <div
             key={riga.tipo === 'lista' ? `l-${riga.lista.id}` : riga.tipo === 'task' ? `t-${riga.task.id}` : `g-${i}`}
             className={cn(
-              'flex h-11 min-w-0 items-center gap-1.5 border-b border-border/60 px-3 text-sm last:border-b-0',
-              riga.tipo === 'task' && riga.livello === 1 && 'pl-7',
+              'flex h-11 min-w-0 items-center gap-1 border-b border-border/60 px-2 text-xs last:border-b-0 sm:gap-1.5 sm:px-3 sm:text-sm',
+              riga.tipo === 'task' && riga.livello === 1 && 'pl-4 sm:pl-7',
             )}
           >
             <NomeRiga riga={riga} />
@@ -344,6 +377,7 @@ function Grafico({
       {/* the time axis: the only thing that scrolls sideways */}
       <div
         ref={scorrimento}
+        onScroll={(e) => setScorso(e.currentTarget.scrollLeft)}
         className="min-w-0 flex-1 overflow-x-auto focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         tabIndex={0}
         aria-label="Linea del tempo: scorri in orizzontale"
@@ -354,12 +388,21 @@ function Grafico({
             {listaTacche.map((t) => (
               <span
                 key={t.data}
-                className="num absolute top-1.5 pl-1.5 text-xs whitespace-nowrap text-muted-foreground"
+                className={cn(
+                  'num absolute top-1.5 pl-1.5 text-xs whitespace-nowrap text-muted-foreground',
+                  // cut by the left edge of the scroll: no half labels
+                  t.x < scorso - 1 && 'invisible',
+                )}
                 style={{ left: t.x }}
               >
                 {t.etichetta}
               </span>
             ))}
+            {etichettaBordo ? (
+              <span className="num absolute top-1.5 pl-1.5 text-xs whitespace-nowrap text-muted-foreground" style={{ left: scorso }}>
+                {etichettaBordo}
+              </span>
+            ) : null}
             <span
               className="absolute bottom-1 -translate-x-1/2 rounded-sm bg-background px-1.5 text-xs leading-5 font-medium text-foreground"
               style={{ left: xDiOggi }}
@@ -520,7 +563,10 @@ function Tabella({
  */
 export function GanttProgetto({ liste, task, oggi }: { liste: ListaVista[]; task: TaskVista[]; oggi: string }) {
   const [vista, setVista] = useState<'grafico' | 'tabella'>('grafico')
-  const [scala, setScala] = useState<ScalaGantt>('settimane')
+  const stretto = useStretto()
+  // until the reader picks one: months on a phone, weeks elsewhere
+  const [sceltaScala, setScala] = useState<ScalaGantt | null>(null)
+  const scala = sceltaScala ?? (stretto ? 'mesi' : 'settimane')
   const { righe, senzaDate } = organizzaGantt(liste, task)
   const nomiListe = new Map(liste.map((l) => [l.id, l.nome]))
 

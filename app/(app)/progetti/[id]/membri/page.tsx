@@ -40,7 +40,7 @@ export default async function MembriPage({ params }: { params: Promise<{ id: str
     .map((p) => ({ id: p.id, nome: p.nome, ruolo: ETICHETTA_RUOLO[p.ruolo] }))
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="space-y-4">
       {gestisce.data ? <AggiungiMembro progettoId={id} persone={aggiungibili} /> : null}
 
       <section aria-labelledby="titolo-membri" className="space-y-2">

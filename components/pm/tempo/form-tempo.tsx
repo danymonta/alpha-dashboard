@@ -1,7 +1,7 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react'
+import { History, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useId, useState, useTransition } from 'react'
 import { useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -144,19 +144,30 @@ function CampiTempo({
   )
 }
 
+type PropsNuovoTempo = {
+  progetti: readonly OpzioneProgetto[]
+  task: readonly OpzioneTask[]
+  oggi: string
+  /** Fixed project (the project's Time tab). */
+  progettoId?: string
+  /** Outlined submit: on a page where another action is the primary one. */
+  secondario?: boolean
+  /** Inside a sheet: no card of its own. */
+  nelFoglio?: boolean
+  /** After a successful save (the sheet closes). */
+  onRegistrato?: () => void
+}
+
 /** Time logged afterwards. On a project page the project is fixed. */
 export function NuovoTempo({
   progetti,
   task,
   oggi,
   progettoId,
-}: {
-  progetti: readonly OpzioneProgetto[]
-  task: readonly OpzioneTask[]
-  oggi: string
-  /** Fixed project (the project's Time tab). */
-  progettoId?: string
-}) {
+  secondario = false,
+  nelFoglio = false,
+  onRegistrato,
+}: PropsNuovoTempo) {
   const prefisso = useId()
   const [errore, setErrore] = useState<string | null>(null)
   const form = useForm<TempoManualeInput>({
@@ -191,10 +202,16 @@ export function NuovoTempo({
     toast.success('Tempo registrato')
     // same project and day: the next entry is usually the same context
     reset({ progetto_id: valori.progetto_id, task_id: '', data: valori.data, durata: '', nota: '' })
+    onRegistrato?.()
   })
 
   return (
-    <form onSubmit={invia} noValidate className="space-y-4 rounded-xl bg-card p-4" aria-label="Registra tempo passato">
+    <form
+      onSubmit={invia}
+      noValidate
+      className={nelFoglio ? 'space-y-4' : 'space-y-4 rounded-xl bg-card p-4'}
+      aria-label="Registra tempo passato"
+    >
       <CampiTempo
         form={form}
         prefisso={prefisso}
@@ -204,7 +221,7 @@ export function NuovoTempo({
         progettoFisso={Boolean(progettoId)}
       />
       <ErroreModulo testo={errore} />
-      <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
+      <Button type="submit" variant={secondario ? 'outline' : 'default'} className="h-11 w-full" disabled={isSubmitting}>
         {isSubmitting ? (
           <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
         ) : (
@@ -213,6 +230,31 @@ export function NuovoTempo({
         Registra il tempo
       </Button>
     </form>
+  )
+}
+
+/**
+ * "Registra tempo passato" as an outlined button that opens the same form in
+ * a sheet: on a phone the timer stays the one primary action of the page.
+ */
+export function FoglioNuovoTempo(props: Omit<PropsNuovoTempo, 'secondario' | 'nelFoglio' | 'onRegistrato'>) {
+  const [aperto, setAperto] = useState(false)
+  return (
+    <FoglioModifica
+      aperto={aperto}
+      onApertoChange={setAperto}
+      trigger={<Button type="button" variant="outline" className="h-11 w-full" />}
+      contenutoTrigger={
+        <>
+          <History className="size-4" aria-hidden="true" />
+          Registra tempo passato
+        </>
+      }
+      titolo="Registra tempo passato"
+      descrizione="Per oggi o per un giorno passato: i totali si aggiornano subito."
+    >
+      <NuovoTempo {...props} nelFoglio onRegistrato={() => setAperto(false)} />
+    </FoglioModifica>
   )
 }
 

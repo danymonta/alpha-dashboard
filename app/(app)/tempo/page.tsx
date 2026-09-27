@@ -6,6 +6,7 @@ import { CardTimer } from '@/components/pm/tempo/card-timer'
 import { ElencoTempo, type VoceTempo } from '@/components/pm/tempo/elenco-tempo'
 import {
   EliminaTempo,
+  FoglioNuovoTempo,
   ModificaTempo,
   NuovoTempo,
   type OpzioneTask,
@@ -78,6 +79,9 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
     task_id: v.task_id,
     daTimer: v.inizio !== null,
   }))
+  const conProgetti = opzioniProgetti.length > 0
+  // not in any project and nothing logged: the timer card's empty state says it all
+  const mostraPeriodo = conProgetti || elenco.length > 0
 
   return (
     <div className="space-y-6">
@@ -87,8 +91,9 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
       />
       <AggiornaConTempo />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-        <div className="space-y-6">
+      {/* below lg: timer, then the period with its total and entries; logging afterwards is a sheet */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+        <div className="space-y-3 lg:space-y-6">
           <section aria-labelledby="titolo-timer" className="space-y-2">
             <h2 id="titolo-timer" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Timer
@@ -96,77 +101,85 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
             <CardTimer progetti={opzioniProgetti} task={opzioniTask} />
           </section>
 
-          {opzioniProgetti.length > 0 ? (
-            <section id="registra" aria-labelledby="titolo-registra" className="scroll-mt-24 space-y-2">
-              <h2 id="titolo-registra" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Registra tempo passato
-              </h2>
-              <NuovoTempo progetti={opzioniProgetti} task={opzioniTask} oggi={oggi} />
-            </section>
+          {conProgetti ? (
+            <>
+              <div className="lg:hidden">
+                <FoglioNuovoTempo progetti={opzioniProgetti} task={opzioniTask} oggi={oggi} />
+              </div>
+              <section id="registra" aria-labelledby="titolo-registra" className="hidden scroll-mt-24 space-y-2 lg:block">
+                <h2 id="titolo-registra" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Registra tempo passato
+                </h2>
+                <NuovoTempo progetti={opzioniProgetti} task={opzioniTask} oggi={oggi} secondario />
+              </section>
+            </>
           ) : null}
         </div>
 
-        <section aria-labelledby="titolo-periodo" className="space-y-4">
-          <h2 id="titolo-periodo" className="sr-only">
-            Il tempo registrato
-          </h2>
-          <NavigazionePeriodo percorso="/tempo" periodo={periodo} oggi={oggi} />
+        {mostraPeriodo ? (
+          <section aria-labelledby="titolo-periodo" className="space-y-4">
+            <h2 id="titolo-periodo" className="sr-only">
+              Il tempo registrato
+            </h2>
+            <NavigazionePeriodo percorso="/tempo" periodo={periodo} oggi={oggi} />
 
-          <div className="rounded-xl bg-card p-4" data-testid="totale-periodo">
-            <p className="text-xs text-muted-foreground">Totale · {periodo.titolo.toLowerCase()}</p>
-            <p className="num text-3xl font-semibold">{formatDurata(totale)}</p>
-            {perProgetto.length > 0 ? (
-              <dl className="mt-4 space-y-2 border-t border-border pt-4">
-                {perProgetto.map((r) => (
-                  <div key={r.progetto_id ?? 'senza'} className="flex items-baseline justify-between gap-3 text-sm">
-                    <dt className="min-w-0 truncate text-muted-foreground">{r.progetto ?? 'Progetto non più accessibile'}</dt>
-                    <dd className="num shrink-0 font-medium">{formatDurata(r.minuti)}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : null}
-          </div>
-
-          {elenco.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">
-              <Timer className="size-6 text-muted-foreground" aria-hidden="true" />
-              <p className="text-sm font-medium">Nessun tempo registrato in questo periodo</p>
-              <p className="max-w-sm text-sm text-muted-foreground">
-                Avvia il timer quando inizi un lavoro, oppure registra dopo il tempo che hai dedicato.
-              </p>
-              {opzioniProgetti.length > 0 ? (
-                <a
-                  href="#registra"
-                  className="inline-flex min-h-11 items-center text-sm font-medium underline-offset-4 hover:underline"
-                >
-                  Registra tempo passato
-                </a>
+            <div className="rounded-xl bg-card p-4" data-testid="totale-periodo">
+              <p className="text-xs text-muted-foreground">Totale · {periodo.titolo.toLowerCase()}</p>
+              <p className="num text-3xl font-semibold">{formatDurata(totale)}</p>
+              {perProgetto.length > 0 ? (
+                <dl className="mt-4 space-y-2 border-t border-border pt-4">
+                  {perProgetto.map((r) => (
+                    <div key={r.progetto_id ?? 'senza'} className="flex items-baseline justify-between gap-3 text-sm">
+                      <dt className="min-w-0 truncate text-muted-foreground">{r.progetto ?? 'Progetto non più accessibile'}</dt>
+                      <dd className="num shrink-0 font-medium">{formatDurata(r.minuti)}</dd>
+                    </div>
+                  ))}
+                </dl>
               ) : null}
             </div>
-          ) : (
-            <ElencoTempo
-              voci={elenco}
-              totaliGiorno={totaliGiorno}
-              oggi={oggi}
-              azioni={(voce) => {
-                const completa = elenco.find((e) => e.id === voce.id)!
-                const descrizione = `il tempo del ${formatData(voce.data)} su ${voce.titolo}`
-                return (
-                  <>
-                    <ModificaTempo
-                      voce={completa}
-                      progetti={opzioniProgetti}
-                      task={opzioniTask}
-                      oggi={oggi}
-                      descrizione={descrizione}
-                    />
-                    <EliminaTempo id={voce.id} descrizione={descrizione} />
-                  </>
-                )
-              }}
-            />
-          )}
-        </section>
+
+            {elenco.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">
+                <Timer className="size-6 text-muted-foreground" aria-hidden="true" />
+                <p className="text-sm font-medium">Nessun tempo registrato in questo periodo</p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Avvia il timer quando inizi un lavoro, oppure registra dopo il tempo che hai dedicato.
+                </p>
+                {conProgetti ? (
+                  // below lg the "Registra tempo passato" button is right above
+                  <a
+                    href="#registra"
+                    className="hidden min-h-11 items-center text-sm font-medium underline-offset-4 hover:underline lg:inline-flex"
+                  >
+                    Registra tempo passato
+                  </a>
+                ) : null}
+              </div>
+            ) : (
+              <ElencoTempo
+                voci={elenco}
+                totaliGiorno={totaliGiorno}
+                oggi={oggi}
+                azioni={(voce) => {
+                  const completa = elenco.find((e) => e.id === voce.id)!
+                  const descrizione = `il tempo del ${formatData(voce.data)} su ${voce.titolo}`
+                  return (
+                    <>
+                      <ModificaTempo
+                        voce={completa}
+                        progetti={opzioniProgetti}
+                        task={opzioniTask}
+                        oggi={oggi}
+                        descrizione={descrizione}
+                      />
+                      <EliminaTempo id={voce.id} descrizione={descrizione} />
+                    </>
+                  )
+                }}
+              />
+            )}
+          </section>
+        ) : null}
       </div>
     </div>
   )

@@ -1,10 +1,12 @@
-import { SearchX } from 'lucide-react'
+import { ChevronLeft, SearchX } from 'lucide-react'
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { ModificaProgetto } from '@/components/pm/progetto/modifica-progetto'
 import { SchedeProgetto } from '@/components/pm/schede-progetto'
+import { BarraAvanzamento } from '@/components/pm/stato-progetto'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
@@ -52,8 +54,14 @@ export default async function LayoutProgetto({
 
   const adminApp = profilo.ruolo === 'admin'
   const adminPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === 'admin'
-  const [gestisce, membri, cliente, clienti] = await Promise.all([
+  const [gestisce, avanzamento, membri, cliente, clienti] = await Promise.all([
     supabase.rpc('pm_puo_gestire', { p_progetto: progetto.id }),
+    // progress and late tasks: computed by the view, only read here
+    supabase
+      .from('v_pm_progetti')
+      .select('task_totali, task_completati, task_in_ritardo, avanzamento')
+      .eq('id', progetto.id)
+      .maybeSingle(),
     supabase
       .from('pm_membri')
       .select('profilo:profiles!pm_membri_profile_id_fkey(id, nome)')
@@ -75,23 +83,35 @@ export default async function LayoutProgetto({
     progetto.data_inizio || progetto.data_fine
       ? `${formatData(progetto.data_inizio)} → ${progetto.data_fine ? formatData(progetto.data_fine) : 'in corso'}`
       : null
+  const meta = [progetto.reparto?.nome, ETICHETTA_STATO_PROGETTO[progetto.stato], periodo].filter(Boolean).join(' · ')
+  // responsible and client only from 640px: on a phone the header stays short
+  const chi = [
+    progetto.responsabile ? `Responsabile: ${progetto.responsabile.nome}` : null,
+    nomeCliente ? `Cliente: ${nomeCliente}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const numeri = avanzamento.data
 
   return (
+    // one width for header, tabs and every tab's content: the right edge never jumps
     <div className="space-y-5">
-      <IntestazionePagina
-        titolo={progetto.nome}
-        descrizione={[
-          progetto.reparto?.nome,
-          ETICHETTA_STATO_PROGETTO[progetto.stato],
-          periodo,
-          progetto.responsabile ? `Responsabile: ${progetto.responsabile.nome}` : null,
-          nomeCliente ? `Cliente: ${nomeCliente}` : null,
-        ]
-          .filter(Boolean)
-          .join(' · ')}
-        indietro={{ href: '/progetti', etichetta: 'Progetti' }}
-        azione={
-          gestisce.data ? (
+      <header className="space-y-3">
+        {/* ghost link: -ml-2 puts the chevron on the content edge, min-h-11 keeps the 44px target */}
+        <Link
+          href="/progetti"
+          className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg pr-3 pl-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <ChevronLeft className="size-4" aria-hidden="true" />
+          Progetti
+        </Link>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h1 className="font-heading text-xl font-semibold break-words md:text-2xl">{progetto.nome}</h1>
+            {meta ? <p className="num text-sm text-muted-foreground">{meta}</p> : null}
+            {chi ? <p className="hidden text-sm text-muted-foreground sm:block">{chi}</p> : null}
+          </div>
+          {gestisce.data ? (
             <ModificaProgetto
               progetto={{
                 id: progetto.id,
@@ -111,9 +131,18 @@ export default async function LayoutProgetto({
               }
               eliminabile={adminPm}
             />
-          ) : null
-        }
-      />
+          ) : null}
+        </div>
+        {numeri ? (
+          <BarraAvanzamento
+            completati={numeri.task_completati ?? 0}
+            totali={numeri.task_totali ?? 0}
+            avanzamento={numeri.avanzamento}
+            inRitardo={numeri.task_in_ritardo ?? 0}
+            className="max-w-sm"
+          />
+        ) : null}
+      </header>
       <SchedeProgetto id={progetto.id} />
       {children}
     </div>
