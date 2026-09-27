@@ -26,6 +26,7 @@ function base(delta, finish = null) {
 function testo(res, parole) {
   sse(res, [
     base({ role: 'assistant', content: '' }),
+    base({ reasoning: 'Rispondo in breve.' }),
     ...parole.split(' ').map((p, i) => base({ content: (i ? ' ' : '') + p })),
     { ...base({}, 'stop'), usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } },
   ])
@@ -33,6 +34,7 @@ function testo(res, parole) {
 
 function chiamata(res, nome, argomenti) {
   sse(res, [
+    base({ role: 'assistant', reasoning: 'Mi serve uno strumento.' }),
     base({
       role: 'assistant',
       tool_calls: [{ index: 0, id: `call_${nome}`, type: 'function', function: { name: nome, arguments: JSON.stringify(argomenti) } }],
@@ -60,6 +62,20 @@ createServer(async (req, res) => {
   }
 
   const { messages = [] } = JSON.parse(corpo || '{}')
+  // like Groq: reasoning sent back on an assistant message is refused
+  const conRagionamento = messages.findIndex((m) => m.role === 'assistant' && 'reasoning_content' in m)
+  if (conRagionamento >= 0) {
+    res.writeHead(400, { 'content-type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        error: {
+          message: `'messages.${conRagionamento}' : property 'reasoning_content' is unsupported`,
+          type: 'invalid_request_error',
+        },
+      }),
+    )
+    return
+  }
   const ultimo = messages.at(-1) ?? {}
   if (ultimo.role === 'tool') {
     const esito = contenuto(ultimo)

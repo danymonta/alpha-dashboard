@@ -440,7 +440,7 @@ function StatoLettura({ nome, stato }: { nome: string; stato: string }) {
       ) : (
         <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
       )}
-      {finito ? `Letto ${cosa}` : `Leggo ${cosa}…`}
+      {finito ? `Ho letto ${cosa}` : `Leggo ${cosa}…`}
     </p>
   )
 }

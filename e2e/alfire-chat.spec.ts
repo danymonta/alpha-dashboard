@@ -17,7 +17,7 @@ test('Alfire legge i numeri e registra un costo solo dopo la conferma', async ({
   const pannello = page.getByTestId('alfire')
 
   await pannello.getByRole('button', { name: 'Quanto ho incassato questo mese, e quanto è rinnovo?' }).click()
-  await expect(pannello.getByText('Letto i numeri del periodo')).toBeVisible()
+  await expect(pannello.getByText('Ho letto i numeri del periodo')).toBeVisible()
   await expect(pannello.getByText('Questo mese hai incassato 6.950,00 €.')).toBeVisible()
 
   await pannello.getByLabel('Scrivi ad Alfire').fill('Registra un costo di Canva da 12,99')

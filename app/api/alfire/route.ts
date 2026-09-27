@@ -3,8 +3,10 @@ import {
   convertToModelMessages,
   createUIMessageStreamResponse,
   isStepCount,
+  pruneMessages,
   streamText,
   toUIMessageStream,
+  type ModelMessage,
   type UIMessage,
 } from 'ai'
 
@@ -22,6 +24,10 @@ export const maxDuration = 60
 
 /** Only the last messages travel: the free tier has a per-minute token budget. */
 const MESSAGGI_MAX = 12
+
+function senzaRagionamento(messages: ModelMessage[]): ModelMessage[] {
+  return pruneMessages({ messages, reasoning: 'all', emptyMessages: 'remove' })
+}
 
 function messaggioErrore(error: unknown): string {
   if (APICallError.isInstance(error) && error.statusCode === 429) {
@@ -58,7 +64,11 @@ export async function POST(req: Request) {
   const result = streamText({
     model: modelloAlfire(),
     system: promptAlfire({ nome: profilo.nome.split(' ')[0], ruolo: profilo.ruolo, oggi: oggiRoma() }),
-    messages: await convertToModelMessages(messaggi, { tools, ignoreIncompleteToolCalls: true }),
+    messages: senzaRagionamento(await convertToModelMessages(messaggi, { tools, ignoreIncompleteToolCalls: true })),
+    // gpt-oss reasons before answering; Groq refuses that reasoning when it comes
+    // back as reasoning_content in the next step (after a tool call). The model
+    // does not need it to go on, so every step starts without it.
+    prepareStep: ({ messages }) => ({ messages: senzaRagionamento(messages) }),
     tools,
     // every write waits for the user's tap in the chat
     toolApproval: Object.fromEntries(
