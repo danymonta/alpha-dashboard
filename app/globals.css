@@ -308,3 +308,9 @@
     opacity: 0;
   }
 }
+
+/* Selected text: the brand bordeaux instead of the browser blue (Dany, 28/09/2026) */
+::selection {
+  background-color: var(--alpha-bordeaux);
+  color: var(--alpha-text);
+}

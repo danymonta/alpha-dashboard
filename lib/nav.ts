@@ -2,12 +2,14 @@ import {
   Banknote,
   CalendarPlus,
   ClipboardList,
+  FolderKanban,
   LayoutDashboard,
   Percent,
   Phone,
   Receipt,
   Settings,
   SquareKanban,
+  Timer,
   TrendingUp,
   Users,
   Wallet,
@@ -16,13 +18,22 @@ import {
 
 import type { AppRole } from '@/lib/auth/roles'
 
+export type SezioneNav = 'Economics' | 'Progetti' | 'Generale'
+
 export type VoceNav = {
   href: string
   etichetta: string
   Icona: LucideIcon
   /** Only match the exact path (used by "/"). */
   esatto?: boolean
+  /** Area of the app shell: the desktop sidebar groups by it. Default Economics. */
+  sezione?: SezioneNav
 }
+
+// The Projects area, the same for every role (CLAUDE.md section 3)
+const PROGETTI: VoceNav = { href: '/progetti', etichetta: 'Progetti', Icona: FolderKanban, sezione: 'Progetti' }
+const TEMPO: VoceNav = { href: '/tempo', etichetta: 'Il mio tempo', Icona: Timer, sezione: 'Progetti' }
+const SOLO_PROGETTI: NavRuolo = { principali: [PROGETTI, TEMPO], altre: [] }
 
 export type NavRuolo = {
   /** Up to 4 items: they are the mobile bottom bar. */
@@ -47,7 +58,9 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/setting', etichetta: 'Setting', Icona: TrendingUp },
       { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
       { href: '/expenses', etichetta: 'Costi', Icona: Banknote },
-      { href: '/settings', etichetta: 'Impostazioni', Icona: Settings },
+      PROGETTI,
+      TEMPO,
+      { href: '/settings', etichetta: 'Impostazioni', Icona: Settings, sezione: 'Generale' },
     ],
   },
   setter: {
@@ -57,7 +70,7 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-numbers', etichetta: 'I miei numeri', Icona: TrendingUp },
     ],
-    altre: [{ href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true }],
+    altre: [{ href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true }, PROGETTI, TEMPO],
   },
   closer: {
     principali: [
@@ -65,12 +78,12 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-sales', etichetta: 'Le mie vendite', Icona: Receipt },
     ],
-    altre: [],
+    altre: [PROGETTI, TEMPO],
   },
-  coach: { principali: [], altre: [] },
-  editor: { principali: [], altre: [] },
-  nutrizione: { principali: [], altre: [] },
-  dev: { principali: [], altre: [] },
+  coach: SOLO_PROGETTI,
+  editor: SOLO_PROGETTI,
+  nutrizione: SOLO_PROGETTI,
+  dev: SOLO_PROGETTI,
 }
 
 export function vociNav(ruolo: AppRole): NavRuolo {
@@ -80,4 +93,16 @@ export function vociNav(ruolo: AppRole): NavRuolo {
 export function isAttiva(pathname: string, voce: VoceNav): boolean {
   if (voce.esatto) return pathname === voce.href
   return pathname === voce.href || pathname.startsWith(`${voce.href}/`)
+}
+
+/** Items grouped by area, in order, for the sidebar headings. */
+export function perSezione(voci: VoceNav[]): { sezione: SezioneNav; voci: VoceNav[] }[] {
+  const gruppi: { sezione: SezioneNav; voci: VoceNav[] }[] = []
+  for (const voce of voci) {
+    const sezione = voce.sezione ?? 'Economics'
+    const ultimo = gruppi.at(-1)
+    if (ultimo?.sezione === sezione) ultimo.voci.push(voce)
+    else gruppi.push({ sezione, voci: [voce] })
+  }
+  return gruppi
 }

@@ -279,6 +279,273 @@ isOneToOne: false
       referencedColumns: ["sale_id"]
     }
                   ]
+                },"pm_membri": {
+                  Row: {
+                    "aggiunto_da": string | null,"created_at": string,"id": string,"profile_id": string,"progetto_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "aggiunto_da"?: string | null,"created_at"?: string,"id"?: string,"profile_id": string,"progetto_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "aggiunto_da"?: string | null,"created_at"?: string,"id"?: string,"profile_id"?: string,"progetto_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_membri_aggiunto_da_fkey"
+      columns: ["aggiunto_da"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_membri_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_membri_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "pm_progetti"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pm_modelli": {
+                  Row: {
+                    "attivo": boolean,"created_at": string,"created_by": string | null,"descrizione": string | null,"id": string,"nome": string,"reparto_id": string | null,"updated_at": string
+                  }
+                  Insert: {
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"reparto_id"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"reparto_id"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_modelli_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_modelli_reparto_id_fkey"
+      columns: ["reparto_id"]
+isOneToOne: false
+      referencedRelation: "pm_reparti"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pm_modelli_voci": {
+                  Row: {
+                    "created_at": string,"descrizione": string | null,"durata_giorni": number,"id": string,"inizio_giorni": number,"modello_id": string,"ordine": number,"tasklist": string,"titolo": string,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number,"id"?: string,"inizio_giorni"?: number,"modello_id": string,"ordine"?: number,"tasklist": string,"titolo": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number,"id"?: string,"inizio_giorni"?: number,"modello_id"?: string,"ordine"?: number,"tasklist"?: string,"titolo"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_modelli_voci_modello_id_fkey"
+      columns: ["modello_id"]
+isOneToOne: false
+      referencedRelation: "pm_modelli"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pm_note": {
+                  Row: {
+                    "autore_id": string,"created_at": string,"data": string,"id": string,"progetto_id": string,"testo": string,"updated_at": string
+                  }
+                  Insert: {
+                    "autore_id"?: string,"created_at"?: string,"data"?: string,"id"?: string,"progetto_id": string,"testo": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "autore_id"?: string,"created_at"?: string,"data"?: string,"id"?: string,"progetto_id"?: string,"testo"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_note_autore_id_fkey"
+      columns: ["autore_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_note_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "pm_progetti"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pm_progetti": {
+                  Row: {
+                    "client_id": string | null,"created_at": string,"created_by": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"nome": string,"reparto_id": string,"responsabile_id": string | null,"stato": Database["public"]['Enums']["pm_stato_progetto"],"updated_at": string
+                  }
+                  Insert: {
+                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"reparto_id": string,"responsabile_id"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_progetto"],"updated_at"?: string
+                  }
+                  Update: {
+                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"reparto_id"?: string,"responsabile_id"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_progetto"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_progetti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_progetti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "pm_progetti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "pm_progetti_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_progetti_reparto_id_fkey"
+      columns: ["reparto_id"]
+isOneToOne: false
+      referencedRelation: "pm_reparti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_progetti_responsabile_id_fkey"
+      columns: ["responsabile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pm_reparti": {
+                  Row: {
+                    "attivo": boolean,"created_at": string,"created_by": string | null,"descrizione": string | null,"id": string,"nome": string,"ordine": number,"updated_at": string
+                  }
+                  Insert: {
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"ordine"?: number,"updated_at"?: string
+                  }
+                  Update: {
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"ordine"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_reparti_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pm_task": {
+                  Row: {
+                    "assegnatario_id": string | null,"completato_il": string | null,"created_at": string,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"ordine": number,"parent_id": string | null,"priorita": Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza": string | null,"stato": Database["public"]['Enums']["pm_stato_task"],"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string,"updated_at": string
+                  }
+                  Insert: {
+                    "assegnatario_id"?: string | null,"completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "assegnatario_id"?: string | null,"completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id"?: string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_task_assegnatario_id_fkey"
+      columns: ["assegnatario_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_parent_id_fkey"
+      columns: ["parent_id"]
+isOneToOne: false
+      referencedRelation: "pm_task"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "pm_progetti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_tasklist_id_fkey"
+      columns: ["tasklist_id"]
+isOneToOne: false
+      referencedRelation: "pm_tasklist"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pm_tasklist": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"nome": string,"ordine": number,"progetto_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"data_fine"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"ordine"?: number,"progetto_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"data_fine"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"ordine"?: number,"progetto_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_tasklist_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_tasklist_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "pm_progetti"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pm_tempo": {
+                  Row: {
+                    "created_at": string,"data": string,"fine": string | null,"id": string,"inizio": string | null,"minuti": number | null,"nota": string | null,"profile_id": string,"progetto_id": string,"task_id": string | null,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"data": string,"fine"?: string | null,"id"?: string,"inizio"?: string | null,"minuti"?: number | null,"nota"?: string | null,"profile_id"?: string,"progetto_id": string,"task_id"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"data"?: string,"fine"?: string | null,"id"?: string,"inizio"?: string | null,"minuti"?: number | null,"nota"?: string | null,"profile_id"?: string,"progetto_id"?: string,"task_id"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_tempo_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_tempo_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "pm_progetti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_tempo_task_id_fkey"
+      columns: ["task_id"]
+isOneToOne: false
+      referencedRelation: "pm_task"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"products": {
                   Row: {
                     "attivo": boolean,"created_at": string,"created_by": string | null,"durata_mesi": number,"id": string,"nome": string,"prezzo_listino": number,"updated_at": string
@@ -300,13 +567,13 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "attivo": boolean,"created_at": string,"email": string,"id": string,"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"updated_at": string
+                    "attivo": boolean,"created_at": string,"email": string,"id": string,"livello_pm": Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"updated_at": string
                   }
                   Insert: {
-                    "attivo"?: boolean,"created_at"?: string,"email": string,"id": string,"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"email": string,"id": string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"updated_at"?: string
                   }
                   Update: {
-                    "attivo"?: boolean,"created_at"?: string,"email"?: string,"id"?: string,"nome"?: string,"ruolo"?: Database["public"]['Enums']["app_role"],"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"email"?: string,"id"?: string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome"?: string,"ruolo"?: Database["public"]['Enums']["app_role"],"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -631,6 +898,27 @@ isOneToOne: false
               "importo": number,"numero_rata": number,"scadenza": string
             }[]
                            },
+"pm_avvia_timer":
+{ Args: { "p_nota"?: string,"p_progetto_id": string,"p_task_id"?: string }; Returns: string
+                           },
+"pm_crea_progetto":
+{ Args: { "p_client_id"?: string,"p_data_fine"?: string,"p_data_inizio"?: string,"p_descrizione"?: string,"p_membri"?: (string)[],"p_modello_id"?: string,"p_nome": string,"p_reparto_id": string }; Returns: string
+                           },
+"pm_ferma_timer":
+{ Args: { "p_nota"?: string }; Returns: string
+                           },
+"pm_livello_corrente":
+{ Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["pm_livello"]
+                           },
+"pm_membro":
+{ Args: { "p_progetto": string }; Returns: boolean
+                           },
+"pm_puo_gestire":
+{ Args: { "p_progetto": string }; Returns: boolean
+                           },
+"pm_puo_vedere":
+{ Args: { "p_progetto": string }; Returns: boolean
+                           },
 "provvigioni_riepilogo":
 { Args: { "p_mesi"?: number }; Returns: {
               "maturato": number,"mese": string,"nome": string,"pagato": number,"profile_id": string,"saldo_mese": number,"saldo_progressivo": number
@@ -659,7 +947,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "buona"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"scaduto"|"ex_cliente"|"mai_attivato","expense_category": "team"|"software"|"ads"|"formazione"|"altro","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","sale_type": "nuovo"|"rinnovo"|"upsell"
+            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "buona"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"scaduto"|"ex_cliente"|"mai_attivato","expense_category": "team"|"software"|"ads"|"formazione"|"altro","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","sale_type": "nuovo"|"rinnovo"|"upsell"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -775,7 +1063,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "app_role": ["admin", "setter", "closer", "coach", "editor", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["buona", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "scaduto", "ex_cliente", "mai_attivato"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"sale_type": ["nuovo", "rinnovo", "upsell"]
+            "app_role": ["admin", "setter", "closer", "coach", "editor", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["buona", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "scaduto", "ex_cliente", "mai_attivato"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"sale_type": ["nuovo", "rinnovo", "upsell"]
           }
         }
 } as const

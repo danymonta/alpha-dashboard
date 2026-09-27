@@ -13,8 +13,8 @@ type Props = {
 }
 
 /**
- * One shell for every area. Today only Economics exists; the navigation is
- * already keyed by role so a second area is just more entries.
+ * One shell for every area: Economics (admin, setter, closer) and Projects
+ * (everyone). The navigation is keyed by role and grouped by area.
  */
 export function AppShell({ ruolo, nome, children }: Props) {
   return (

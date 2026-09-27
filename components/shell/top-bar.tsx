@@ -14,7 +14,7 @@ export function TopBar({ ruolo, nome }: { ruolo: AppRole; nome: string }) {
       <div className="flex min-w-0 items-center gap-3">
         <LogoFuoco dimensione="mini" />
         <div className="min-w-0">
-          <p className="font-heading text-sm font-semibold">Economics</p>
+          <p className="font-heading text-sm font-semibold">Percorso Alpha</p>
           <p className="truncate text-xs text-muted-foreground">
             {nome} · {ETICHETTA_RUOLO[ruolo]}
           </p>

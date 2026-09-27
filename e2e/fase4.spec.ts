@@ -58,7 +58,8 @@ test.describe('Team', () => {
 
     const lorenzo = await (await browser.newContext()).newPage()
     await accedi(lorenzo, 'closer')
-    await expect(lorenzo).toHaveURL('/nessuna-area')
+    // a coach has no Economics: lands on the Projects area
+    await expect(lorenzo).toHaveURL('/progetti')
     await lorenzo.context().close()
 
     await closer.getByRole('switch', { name: 'Lorenzo Closer attivo' }).click()
