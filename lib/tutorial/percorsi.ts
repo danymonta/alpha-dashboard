@@ -61,7 +61,7 @@ function soloProgetti(funzione: string, progetti: string, tempo: string): PassoT
 }
 
 const TEMPO_PERSONALE =
-  'Avvia il timer quando lavori su un task o carica i minuti dopo. Il tuo tempo lo vedi tu e chi gestisce il progetto, nessun altro.'
+  'Tocca la sveglia accanto a un task: il timer resta in alto a destra su ogni pagina e quando lo fermi ti chiede una nota. Il tuo tempo lo vedi tu e chi gestisce il progetto.'
 
 export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
   admin: [

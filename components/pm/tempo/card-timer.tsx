@@ -1,6 +1,6 @@
 'use client'
 
-import { FolderKanban, LoaderCircle, Play, TriangleAlert } from 'lucide-react'
+import { AlarmClock, FolderKanban, LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useId, useState, useTransition, type FormEvent } from 'react'
 import { toast } from 'sonner'
 
@@ -182,7 +182,7 @@ function AvviaTimerForm({ progetti, task }: { progetti: readonly OpzioneProgetto
         </p>
       ) : null}
       <Button type="submit" className="h-11 w-full" disabled={inCorso}>
-        {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
+        {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <AlarmClock className="size-4" aria-hidden="true" />}
         Avvia il timer
       </Button>
     </form>

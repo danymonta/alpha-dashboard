@@ -5,15 +5,15 @@ import { useEffect, useRef } from 'react'
 
 import { BottoneAlfire } from '@/components/alfire/alfire'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
-import { TimerAttivo } from '@/components/pm/tempo/timer-attivo'
+import { TimerInCima } from '@/components/pm/tempo/timer-attivo'
 import { TestaTutorial } from '@/components/tutorial/testa-tutorial'
 import { FotoProfilo } from '@/components/profilo/foto-profilo'
 import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
 
 /**
- * Top of every page. Mobile: identity, Alfire and the profile (which opens the
- * user settings, where "Esci" lives), plus the running timer. Desktop: the
- * sidebar has identity and profile, so only Alfire, top right. Its real height
+ * Top of every page. Mobile: identity, the running timer, Alfire and the
+ * profile (which opens the user settings, where "Esci" lives). Desktop: the
+ * sidebar has identity and profile, so the timer and Alfire, top right. Its real height
  * (it grows with the timer strip) is published as --altezza-topbar, so sticky
  * bars below it (project tabs) sit right under it.
  */
@@ -40,7 +40,7 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
         <div className="flex min-w-0 items-center gap-3">
           <LogoFuoco dimensione="mini" />
           <div className="min-w-0">
-            <p className="font-heading text-sm font-semibold">Percorso Alpha</p>
+            <p className="truncate font-heading text-sm font-semibold">Percorso Alpha</p>
             <p className="truncate text-xs text-muted-foreground">
               {nome} · {ETICHETTA_RUOLO[ruolo]}
             </p>
@@ -48,6 +48,7 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {ruolo === 'admin' ? <TestaTutorial /> : null}
+          <TimerInCima compatto />
           <BottoneAlfire />
           <Link
             href="/account"
@@ -61,11 +62,8 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
       </div>
       <div className="hidden h-14 items-center justify-end gap-1 px-6 md:flex">
         {ruolo === 'admin' ? <TestaTutorial conEtichetta /> : null}
+        <TimerInCima />
         <BottoneAlfire conEtichetta />
-      </div>
-      {/* desktop: the running timer is in the sidebar */}
-      <div className="md:hidden">
-        <TimerAttivo variante="barra" />
       </div>
     </header>
   )

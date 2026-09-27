@@ -21,7 +21,7 @@ test.describe('Il mio tempo', () => {
     await pulisciProgetti(PREFISSO)
   })
 
-  test('avvio e stop del timer da /tempo, con l’indicatore nella barra laterale', async ({ page }) => {
+  test('avvio e stop del timer da /tempo, con l’indicatore in alto a destra', async ({ page }) => {
     await accedi(page, 'setter')
     await page.goto('/tempo')
     await attendiPagina(page)
@@ -32,25 +32,31 @@ test.describe('Il mio tempo', () => {
     await avvio.getByRole('button', { name: 'Avvia il timer' }).click()
     await expect(page.getByText('Timer avviato', { exact: true })).toBeVisible()
 
-    // the indicator of the shell: project, task and a clock that runs
-    const indicatore = page.getByTestId('timer-attivo-sidebar')
-    await expect(indicatore).toContainText(progetto.nome)
+    // the indicator at the top right, next to Alfire: task and a clock that runs
+    const indicatore = page.getByTestId('timer-attivo-desktop')
     await expect(indicatore).toContainText('Montaggio')
+    await expect(indicatore).toHaveAccessibleName(new RegExp(progetto.nome))
     const orologio = indicatore.getByTestId('cronometro')
     await expect(orologio).toHaveText(/^00:00:\d\d$/)
     const primo = await orologio.innerText()
     await expect(orologio).not.toHaveText(primo, { timeout: 5_000 })
     await expect(page.getByRole('region', { name: 'Timer in corso' })).toBeVisible()
 
+    // it stays there on another page
+    await page.goto('/progetti')
+    await expect(indicatore).toBeVisible()
+
     // stop with a note, from the indicator
-    await indicatore.getByRole('button', { name: 'Ferma' }).click()
+    await indicatore.click()
     const popover = page.locator('[data-slot="popover-content"]')
+    await expect(popover.getByLabel('Nota (facoltativa)')).toBeFocused()
     await popover.getByLabel('Nota (facoltativa)').fill('Primo taglio del video')
     await popover.getByRole('button', { name: 'Ferma il timer' }).click()
     await expect(page.getByText(/^Timer fermato · 1 min$/)).toBeVisible()
     await expect(indicatore).toHaveCount(0)
 
     // the stopped timer is today's entry, with the minutes computed by the database
+    await page.goto('/tempo')
     const giorno = page.getByTestId(`giorno-${oggiRoma()}`)
     const voce = giorno.getByTestId('voce-tempo').filter({ hasText: progetto.nome })
     await expect(voce).toContainText('Montaggio')
@@ -59,7 +65,7 @@ test.describe('Il mio tempo', () => {
     await expect(giorno.getByRole('heading')).toHaveText(`Oggi · ${formatData(oggiRoma())}`)
   })
 
-  test('sul telefono il timer avviato altrove compare nella barra in alto e si ferma da lì', async ({ page }) => {
+  test('sul telefono il timer avviato altrove compare in alto accanto ad Alfire e si ferma da lì', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await accedi(page, 'setter')
     await page.goto('/tempo')
@@ -69,14 +75,15 @@ test.describe('Il mio tempo', () => {
 
     // started on another device: no reload here
     await avviaTimerAltrove(ID_SETTER, progetto.id, 5)
-    const barra = page.getByTestId('timer-attivo-barra')
+    const barra = page.getByTestId('timer-attivo-mobile')
     await expect(barra).toBeVisible({ timeout: 15_000 })
-    await expect(barra).toContainText(progetto.nome)
     await expect(barra.getByTestId('cronometro')).toHaveText(/^00:0[45]:\d\d$/)
-    await expect(page.getByTestId('timer-attivo-sidebar')).toBeHidden()
+    await expect(page.getByTestId('timer-attivo-desktop')).toBeHidden()
 
-    await barra.getByRole('button', { name: 'Ferma' }).click()
-    await page.locator('[data-slot="popover-content"]').getByRole('button', { name: 'Ferma il timer' }).click()
+    await barra.click()
+    const popover = page.locator('[data-slot="popover-content"]')
+    await expect(popover).toContainText(progetto.nome)
+    await popover.getByRole('button', { name: 'Ferma il timer' }).click()
     await expect(page.getByText(/^Timer fermato · 5 min$/)).toBeVisible()
     await expect(barra).toHaveCount(0)
     await expect(page.getByTestId(`giorno-${oggiRoma()}`).getByTestId('voce-tempo').filter({ hasText: progetto.nome })).toContainText(
@@ -86,6 +93,25 @@ test.describe('Il mio tempo', () => {
     // no horizontal scroll of the page at 390px
     const scorre = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
     expect(scorre).toBe(false)
+  })
+
+  test('la sveglia accanto al task avvia il timer; fermandolo dal task chiede la nota', async ({ page }) => {
+    await accedi(page, 'setter')
+    await page.goto(`/progetti/${progetto.id}`)
+    await attendiPagina(page)
+
+    await page.getByRole('button', { name: 'Avvia il timer su Montaggio' }).click()
+    await expect(page.getByText('Timer avviato: lo trovi in alto a destra')).toBeVisible()
+    await expect(page.getByTestId('timer-attivo-desktop')).toContainText('Montaggio')
+
+    await page.getByRole('button', { name: 'Ferma il timer su Montaggio' }).click()
+    const popover = page.locator('[data-slot="popover-content"]')
+    await expect(popover.getByLabel('Nota (facoltativa)')).toBeFocused()
+    await popover.getByLabel('Nota (facoltativa)').fill('Tagli e colore')
+    await popover.getByRole('button', { name: 'Ferma il timer' }).click()
+    await expect(page.getByText(/^Timer fermato/)).toBeVisible()
+    await expect(page.getByTestId('timer-attivo-desktop')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Avvia il timer su Montaggio' })).toBeVisible()
   })
 
   test('il tempo caricato dopo entra nel suo giorno, col totale calcolato dal database', async ({ page }) => {

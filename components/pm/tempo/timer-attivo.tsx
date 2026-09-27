@@ -1,6 +1,6 @@
 'use client'
 
-import { LoaderCircle, Square, Timer } from 'lucide-react'
+import { AlarmClock, LoaderCircle, Square } from 'lucide-react'
 import Link from 'next/link'
 import { useId, useState, useTransition, type FormEvent } from 'react'
 import { toast } from 'sonner'
@@ -66,6 +66,8 @@ export function FermaTimerForm({
         <Label htmlFor={`${id}-nota`}>Nota (facoltativa)</Label>
         <Textarea
           id={`${id}-nota`}
+          // stopping is the moment to say what was done
+          autoFocus
           value={nota}
           onChange={(e) => setNota(e.target.value)}
           onKeyDown={(e) => {
@@ -93,74 +95,47 @@ export function FermaTimerForm({
   )
 }
 
-function BottoneFerma({ timer, className }: { timer: TimerAcceso; className?: string }) {
+/**
+ * The running timer, always in sight at the top right, next to Alfire, on
+ * every page: an alarm clock, the time running and (desktop) what it is on.
+ * A tap opens the stop, which asks for a note. Nothing when no timer runs.
+ * Sober on purpose: no animation next to the numbers (CLAUDE.md section 11).
+ */
+export function TimerInCima({ compatto = false }: { compatto?: boolean }) {
+  const { timer } = useTimer()
   const [aperto, setAperto] = useState(false)
+  if (!timer) return null
+
   return (
     <Popover open={aperto} onOpenChange={setAperto}>
       <PopoverTrigger
         render={
-          <Button type="button" variant="outline" className={cn('h-11 shrink-0 gap-1.5 px-3', className)} />
+          <Button
+            type="button"
+            variant="outline"
+            aria-label={`Timer in corso su ${descrizioneTimer(timer)}: tocca per fermarlo`}
+            data-testid={compatto ? 'timer-attivo-mobile' : 'timer-attivo-desktop'}
+            className={cn('h-11 shrink-0 gap-2 border-primary/60', compatto ? 'px-2.5' : 'max-w-72 px-3')}
+          />
         }
       >
-        <Square className="size-3.5 fill-current" aria-hidden="true" />
-        Ferma
+        <AlarmClock className="size-4 shrink-0 text-primary-light" aria-hidden="true" />
+        <Cronometro inizio={timer.inizio} className="text-sm font-semibold" />
+        {compatto ? null : <span className="min-w-0 truncate text-sm text-muted-foreground">{timer.task ?? timer.progetto}</span>}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] p-4">
-        <p className="text-sm font-medium">{descrizioneTimer(timer)}</p>
-        <p className="text-xs text-muted-foreground">Acceso alle {formatOra(timer.inizio)}</p>
+      <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-3 p-4">
+        <div>
+          <p className="text-sm font-medium">{descrizioneTimer(timer)}</p>
+          <p className="text-xs text-muted-foreground">
+            Acceso alle {formatOra(timer.inizio)} ·{' '}
+            <Link href="/tempo" onClick={() => setAperto(false)} className="underline underline-offset-4">
+              Il mio tempo
+            </Link>
+          </p>
+        </div>
         {/* keyed on the timer: a new timer starts with its own note */}
         <FermaTimerForm key={timer.id} notaIniziale={timer.nota} onFermato={() => setAperto(false)} compatto />
       </PopoverContent>
     </Popover>
-  )
-}
-
-/**
- * The running timer, always in sight: a card in the desktop sidebar, a strip
- * under the mobile top bar. Nothing when no timer is running. Sober on
- * purpose: no animation next to the numbers (CLAUDE.md section 11).
- */
-export function TimerAttivo({ variante }: { variante: 'sidebar' | 'barra' }) {
-  const { timer } = useTimer()
-  if (!timer) return null
-
-  if (variante === 'barra') {
-    return (
-      <div
-        role="status"
-        aria-label="Timer in corso"
-        data-testid="timer-attivo-barra"
-        className="flex items-center gap-3 border-t border-border px-4 py-1.5"
-      >
-        <Timer className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <Link href="/tempo" className="flex min-h-11 min-w-0 flex-1 flex-col justify-center">
-          <span className="truncate text-xs text-muted-foreground">{descrizioneTimer(timer)}</span>
-          <Cronometro inizio={timer.inizio} className="text-sm font-semibold" />
-        </Link>
-        <BottoneFerma timer={timer} />
-      </div>
-    )
-  }
-
-  return (
-    <div
-      role="status"
-      aria-label="Timer in corso"
-      data-testid="timer-attivo-sidebar"
-      className="mx-2 mb-3 rounded-xl border border-border bg-background p-3"
-    >
-      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Timer className="size-3.5" aria-hidden="true" />
-        Timer in corso
-      </p>
-      <Link href="/tempo" className="mt-1 block min-w-0 rounded-sm hover:text-foreground">
-        <span className="block truncate text-sm font-medium">{timer.progetto ?? 'Progetto'}</span>
-        {timer.task ? <span className="block truncate text-xs text-muted-foreground">{timer.task}</span> : null}
-      </Link>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <Cronometro inizio={timer.inizio} className="text-lg font-semibold" />
-        <BottoneFerma timer={timer} />
-      </div>
-    </div>
   )
 }
