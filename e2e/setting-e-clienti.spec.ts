@@ -104,3 +104,16 @@ test('incassi dal telefono: la vista scelta resta in vista anche dopo una ricari
   await expect(scelta).toBeVisible()
   await expect(scelta).toBeInViewport({ ratio: 1 })
 })
+
+test('l’admin può essere il setter di una vendita: su quella il setter non matura provvigione', async ({ page }) => {
+  await accedi(page, 'admin')
+  await page.goto('/commissions')
+  const riga = page.getByTestId('provvigioni-per-cliente').first().getByRole('listitem').first()
+  await riga.getByRole('link').click()
+  await expect(page).toHaveURL(/\/sales\//)
+
+  await page.getByRole('button', { name: 'Modifica', exact: true }).click()
+  const setter = page.getByRole('dialog').getByLabel('Setter')
+  await expect(setter.locator('option', { hasText: 'Dany Montagnolo' })).toHaveCount(1)
+  await expect(setter.locator('option', { hasText: 'Loris Setter' })).toHaveCount(1)
+})

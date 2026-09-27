@@ -134,7 +134,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
             }}
             // a former collaborator stays selectable where they already are
             setters={(persone ?? [])
-              .filter((p) => p.ruolo === 'setter' && (p.attivo || p.id === cliente.setter_id))
+              .filter((p) => (p.ruolo === 'setter' || p.ruolo === 'admin') && (p.attivo || p.id === cliente.setter_id))
               .map(({ id, nome }) => ({ id, nome }))}
             closers={(persone ?? [])
               .filter((p) => (p.ruolo === 'admin' || p.ruolo === 'closer') && (p.attivo || p.id === cliente.closer_id))

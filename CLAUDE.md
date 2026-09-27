@@ -225,6 +225,8 @@ expenses
   descrizione, importo numeric(12,2), ricorrente bool
 ```
 
+Il setter di una vendita o di un cliente può essere anche l'admin, quando il cliente l'ha portato lui (Dany, 27/09/2026): l'admin non ha regole, quindi su quelle vendite non matura nessuna provvigione.
+
 Una persona non ha mai due regole valide nello stesso giorno: un trigger rifiuta le date sovrapposte, perché la provvigione verrebbe contata due volte.
 
 La provvigione matura **sull'incasso**, non sulla firma: per ogni `payment` incassato di una vendita con `setter_id`, provvigione = `importo_incassato * percentuale` della regola valida alla data d'incasso e applicabile al tipo di vendita. Un rimborso genera provvigione negativa nel mese del rimborso. Se Dany decide diversamente (provvigione anche sui rinnovi, o su revenue invece che su cash), si cambia solo `commission_rules`, non il codice.

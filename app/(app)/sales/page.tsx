@@ -42,7 +42,8 @@ export default async function VenditePage({
     supabase.from('profiles').select('id, nome, ruolo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
   ])
 
-  const setters = (persone ?? []).filter((p) => p.ruolo === 'setter')
+  // the admin can be the setter of his own sales
+  const setters = (persone ?? []).filter((p) => p.ruolo === 'setter' || p.ruolo === 'admin')
   const closers = (persone ?? []).filter((p) => p.ruolo !== 'setter')
   const filtriAttivi = { tipo, setter, closer }
 

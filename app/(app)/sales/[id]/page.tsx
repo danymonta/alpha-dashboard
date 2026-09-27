@@ -128,7 +128,8 @@ export default async function DettaglioVenditaPage({
                 .filter((p) => p.attivo || p.id === vendita.product_id)
                 .map(({ id, nome }) => ({ id, nome }))}
               setters={(persone?.data ?? [])
-                .filter((p) => p.ruolo === 'setter' && (p.attivo || p.id === vendita.setter_id))
+                // the admin brings clients too: then the setter's commission is not due
+                .filter((p) => (p.ruolo === 'setter' || p.ruolo === 'admin') && (p.attivo || p.id === vendita.setter_id))
                 .map(({ id, nome }) => ({ id, nome }))}
               closers={(persone?.data ?? [])
                 .filter((p) => (p.ruolo === 'admin' || p.ruolo === 'closer') && (p.attivo || p.id === vendita.closer_id))
