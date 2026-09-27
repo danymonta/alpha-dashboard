@@ -24,7 +24,7 @@ export async function caricaVendite(filtri: Filtri = {}): Promise<RigaVendita[]>
   let query = supabase
     .from('sales')
     .select(
-      'id, tipo, data_vendita, valore_contratto, cliente:clients(nome, cognome), prodotto:products(nome), closer:profiles!sales_closer_id_fkey(nome), setter:profiles!sales_setter_id_fkey(nome)',
+      'id, tipo, data_vendita, valore_contratto, prodotto_personalizzato, cliente:clients(nome, cognome), prodotto:products(nome), closer:profiles!sales_closer_id_fkey(nome), setter:profiles!sales_setter_id_fkey(nome)',
     )
     .order('data_vendita', { ascending: false })
     .limit(300)
@@ -56,7 +56,7 @@ export async function caricaVendite(filtri: Filtri = {}): Promise<RigaVendita[]>
     return {
       id: v.id,
       cliente: [v.cliente?.nome, v.cliente?.cognome].filter(Boolean).join(' ') || 'Cliente',
-      prodotto: v.prodotto?.nome ?? '–',
+      prodotto: v.prodotto?.nome ?? v.prodotto_personalizzato ?? '–',
       tipo: v.tipo,
       data_vendita: v.data_vendita,
       valore_contratto: v.valore_contratto,

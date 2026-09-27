@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 
 import { getProfilo } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
-import { modificaVenditaSchema } from '@/lib/validation/vendita'
+import { z } from 'zod'
+
+import { PERSONALIZZATO, modificaVenditaSchema, nuovaRataSchema } from '@/lib/validation/vendita'
 import {
   modificaIncassoSchema,
   modificaRataSchema,
@@ -158,9 +160,19 @@ export async function modificaVendita(input: unknown): Promise<EsitoRata> {
   const negato = await autorizza(['admin'])
   if (negato) return { ok: false, errore: negato }
 
-  const { id, ...campi } = parsed.data
+  const { id, product_id, prodotto_personalizzato, ...campi } = parsed.data
   const supabase = await createClient()
-  const { data, error } = await supabase.from('sales').update(campi).eq('id', id).select('id').maybeSingle()
+  const { data, error } = await supabase
+    .from('sales')
+    .update({
+      ...campi,
+      // a catalogue product, or a path named by hand
+      product_id: product_id === PERSONALIZZATO ? null : product_id,
+      prodotto_personalizzato: product_id === PERSONALIZZATO ? prodotto_personalizzato : null,
+    })
+    .eq('id', id)
+    .select('id')
+    .maybeSingle()
 
   // 23514: the renewal check of the database, already worded for people
   if (error) {
@@ -201,4 +213,58 @@ export async function modificaIncasso(input: unknown): Promise<EsitoRata> {
 
   aggiornaPagine()
   return { ok: true, importo: v.importo }
+}
+
+/** An extra instalment on a recorded sale; numbers follow the due dates. */
+export async function aggiungiRata(input: unknown): Promise<EsitoRata> {
+  const parsed = nuovaRataSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await autorizza(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('aggiungi_rata', {
+    p_sale_id: parsed.data.sale_id,
+    p_scadenza: parsed.data.scadenza,
+    p_importo: parsed.data.importo,
+  })
+  if (error) return { ok: false, errore: messaggio(error, 'Rata non aggiunta. Riprova.') }
+
+  aggiornaPagine()
+  return { ok: true, importo: parsed.data.importo }
+}
+
+const idRata = z.object({ payment_id: z.string().uuid() })
+
+export async function eliminaRata(input: unknown): Promise<EsitoRata> {
+  const parsed = idRata.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Rata non valida.' }
+  const negato = await autorizza(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('elimina_rata', { p_payment_id: parsed.data.payment_id })
+  if (error) return { ok: false, errore: messaggio(error, 'Rata non eliminata. Riprova.') }
+
+  aggiornaPagine()
+  return { ok: true }
+}
+
+const idVendita = z.object({ id: z.string().uuid() })
+
+/** The whole sale and its instalments (the audit log keeps a copy). */
+export async function eliminaVendita(input: unknown): Promise<EsitoRata> {
+  const parsed = idVendita.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Vendita non valida.' }
+  const negato = await autorizza(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('sales').delete().eq('id', parsed.data.id).select('id')
+  if (error) return { ok: false, errore: messaggio(error, 'Vendita non eliminata. Riprova.') }
+  if (!data?.length) return { ok: false, errore: 'Vendita non trovata.' }
+
+  aggiornaPagine()
+  revalidatePath('/clients/[id]', 'page')
+  return { ok: true }
 }

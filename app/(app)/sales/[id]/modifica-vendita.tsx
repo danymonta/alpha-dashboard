@@ -3,9 +3,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Pencil } from 'lucide-react'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 
-import { modificaVendita } from '@/app/(app)/sales/[id]/actions'
+import { eliminaVendita, modificaVendita } from '@/app/(app)/sales/[id]/actions'
+import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import {
   BottoneSalva,
@@ -22,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { formatImportoInput } from '@/lib/format'
 import {
   ETICHETTA_TIPO_VENDITA,
+  PERSONALIZZATO,
   TIPI_VENDITA,
   modificaVenditaSchema,
   type ModificaVenditaInput,
@@ -36,6 +38,7 @@ export type VenditaModificabile = {
   id: string
   tipo: TipoVendita
   product_id: string | null
+  prodotto_personalizzato: string | null
   valore_contratto: number
   data_vendita: string
   data_inizio: string
@@ -47,11 +50,14 @@ export type VenditaModificabile = {
 
 export function ModificaVendita({
   vendita,
+  descrizione,
   prodotti,
   setters,
   closers,
 }: {
   vendita: VenditaModificabile
+  /** "la vendita di Luca Rossi": for the delete question */
+  descrizione: string
   prodotti: Voce[]
   setters: Voce[]
   closers: Voce[]
@@ -60,6 +66,7 @@ export function ModificaVendita({
   const { errore, setErrore, salva } = useSalvataggio()
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -67,13 +74,16 @@ export function ModificaVendita({
     resolver: zodResolver(modificaVenditaSchema),
     defaultValues: {
       ...vendita,
-      product_id: vendita.product_id ?? '',
+      product_id: vendita.product_id ?? (vendita.prodotto_personalizzato ? PERSONALIZZATO : ''),
+      prodotto_personalizzato: vendita.prodotto_personalizzato ?? '',
       valore_contratto: formatImportoInput(vendita.valore_contratto),
       setter_id: vendita.setter_id ?? '',
       closer_id: vendita.closer_id ?? '',
       note: vendita.note ?? '',
     },
   })
+
+  const personalizzato = useWatch({ control, name: 'product_id' }) === PERSONALIZZATO
 
   const invia = handleSubmit(async (valori) => {
     if (await salva(() => modificaVendita(valori), 'Vendita aggiornata')) setAperto(false)
@@ -105,15 +115,24 @@ export function ModificaVendita({
         <div className="space-y-1.5">
           <Label htmlFor="mv-prodotto">Prodotto</Label>
           <select id="mv-prodotto" className={CLASSE_SELECT} {...register('product_id')}>
-            {vendita.product_id ? null : <option value="">Scegli il prodotto</option>}
+            {vendita.product_id || vendita.prodotto_personalizzato ? null : <option value="">Scegli il prodotto</option>}
             {prodotti.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nome}
               </option>
             ))}
+            <option value={PERSONALIZZATO}>Personalizzato…</option>
           </select>
           <ErroreCampo id="mv-prodotto-errore" messaggio={errors.product_id?.message} />
         </div>
+
+        {personalizzato ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="mv-personalizzato">Cosa hai venduto</Label>
+            <Input id="mv-personalizzato" className="h-11" placeholder="Annuale, Percorso 9 mesi…" {...register('prodotto_personalizzato')} />
+            <ErroreCampo id="mv-personalizzato-errore" messaggio={errors.prodotto_personalizzato?.message} />
+          </div>
+        ) : null}
 
         <div className="space-y-1.5">
           <Label htmlFor="mv-valore">Valore del contratto</Label>
@@ -181,6 +200,17 @@ export function ModificaVendita({
 
         <ErroreModulo testo={errore} />
         <BottoneSalva inCorso={isSubmitting}>Salva la vendita</BottoneSalva>
+
+        <div className="border-t border-border pt-4">
+          <Elimina
+            etichetta="Elimina la vendita"
+            cosa={descrizione}
+            fatto="Vendita eliminata"
+            anteprima={{ tipo: 'vendita', id: vendita.id }}
+            azione={() => eliminaVendita({ id: vendita.id })}
+            dopo="/sales"
+          />
+        </div>
       </form>
     </FoglioModifica>
   )

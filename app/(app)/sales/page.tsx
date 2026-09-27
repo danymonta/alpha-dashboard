@@ -1,4 +1,5 @@
 import { Plus, Receipt } from 'lucide-react'
+import Link from 'next/link'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
@@ -49,7 +50,16 @@ export default async function VenditePage({
     <div className="space-y-5">
       <IntestazionePagina
         titolo="Vendite"
-        descrizione="Nuovi, rinnovi e upsell del periodo, con quanto è già entrato."
+        descrizione={
+          <>
+            I contratti firmati: chi ha comprato, cosa, per quanto e in quante rate. Le singole rate, pagate o da pagare,
+            sono in{' '}
+            <Link href="/payments" className="font-medium text-foreground underline underline-offset-4 hover:text-primary">
+              Incassi
+            </Link>
+            .
+          </>
+        }
         azione={
           <LinkBottone href="/sales/new">
             <Plus className="size-4" aria-hidden="true" />

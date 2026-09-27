@@ -24,6 +24,20 @@ const vuotoANull = (v: string | null | undefined) => {
   return t === '' ? null : t
 }
 
+export const PERSONALIZZATO = 'personalizzato'
+
+/** One row of a hand-written plan: the sum against the contract is checked in SQL. */
+export const rataSchema = z.object({
+  scadenza: z.string().refine(isDataISO, 'Scegli la scadenza'),
+  importo: z
+    .union([z.string(), z.number()])
+    .transform((v) => (typeof v === 'number' ? v : parseImporto(v)))
+    .refine((v) => v !== null && v > 0, 'Scrivi un importo, ad esempio 500')
+    .transform((v) => v as number),
+})
+
+export type RataInput = z.input<typeof rataSchema>
+
 export const nuovaVenditaSchema = z
   .object({
     call_id: z.string().uuid().nullish(),
@@ -51,10 +65,18 @@ export const nuovaVenditaSchema = z
       .transform((h) => normalizzaHandle(h ?? ''))
       .refine((h) => h === null || /^@[a-z0-9._]{1,30}$/.test(h), 'Handle non valido'),
     tipo: z.enum(TIPI_VENDITA, { errorMap: () => ({ message: 'Scegli il tipo di vendita' }) }),
-    // an unselected radio group reaches Zod as null, not undefined
+    // an unselected radio group reaches Zod as null, not undefined.
+    // "personalizzato": a path outside the catalogue, named and dated by hand
     product_id: z
       .string({ required_error: 'Scegli il prodotto', invalid_type_error: 'Scegli il prodotto' })
-      .uuid('Scegli il prodotto'),
+      .refine((v) => v === PERSONALIZZATO || z.string().uuid().safeParse(v).success, 'Scegli il prodotto'),
+    prodotto_personalizzato: z.string().max(120, 'Al massimo 120 caratteri').nullish().transform(vuotoANull),
+    data_fine: z
+      .union([z.string().refine(isDataISO, 'Data non valida'), z.literal('')])
+      .nullish()
+      .transform((v) => v || null),
+    piano: z.enum(['uguale', 'personalizzato']).default('uguale'),
+    rate: z.array(rataSchema).max(60, 'Al massimo 60 rate').default([]),
     // typed the Italian way ("1.500,00"), numeric from here on
     valore_contratto: z
       .union([z.string(), z.number()])
@@ -83,6 +105,21 @@ export const nuovaVenditaSchema = z
           message: 'Rinnovo e upsell richiedono un cliente esistente',
         })
       }
+    }
+
+    if (v.product_id === PERSONALIZZATO) {
+      if (!v.prodotto_personalizzato) {
+        ctx.addIssue({ code: 'custom', path: ['prodotto_personalizzato'], message: 'Scrivi cosa hai venduto, ad esempio Annuale' })
+      }
+      if (!v.data_fine) {
+        ctx.addIssue({ code: 'custom', path: ['data_fine'], message: 'Indica quando finisce il percorso' })
+      }
+    }
+    if (v.data_fine && isDataISO(v.data_inizio) && v.data_fine < v.data_inizio) {
+      ctx.addIssue({ code: 'custom', path: ['data_fine'], message: 'La fine viene dopo l’inizio' })
+    }
+    if (v.piano === 'personalizzato' && v.rate.length === 0) {
+      ctx.addIssue({ code: 'custom', path: ['rate'], message: 'Aggiungi almeno una rata' })
     }
 
     if (isDataISO(v.data_vendita) && v.data_vendita > oggiRoma()) {
@@ -133,7 +170,8 @@ export const modificaVenditaSchema = z
     tipo: z.enum(TIPI_VENDITA, { errorMap: () => ({ message: 'Scegli il tipo di vendita' }) }),
     product_id: z
       .string({ required_error: 'Scegli il prodotto', invalid_type_error: 'Scegli il prodotto' })
-      .uuid('Scegli il prodotto'),
+      .refine((v) => v === PERSONALIZZATO || z.string().uuid().safeParse(v).success, 'Scegli il prodotto'),
+    prodotto_personalizzato: z.string().max(120, 'Al massimo 120 caratteri').nullish().transform(vuotoANull),
     valore_contratto: z
       .union([z.string(), z.number()])
       .transform((v) => (typeof v === 'number' ? v : parseImporto(v)))
@@ -148,9 +186,25 @@ export const modificaVenditaSchema = z
     note: z.string().max(1000, 'Al massimo 1000 caratteri').nullish().transform(vuotoANull),
   })
   .superRefine((v, ctx) => {
+    if (v.product_id === PERSONALIZZATO && !v.prodotto_personalizzato) {
+      ctx.addIssue({ code: 'custom', path: ['prodotto_personalizzato'], message: 'Scrivi cosa hai venduto, ad esempio Annuale' })
+    }
     if (isDataISO(v.data_inizio) && isDataISO(v.data_fine) && v.data_fine < v.data_inizio) {
       ctx.addIssue({ code: 'custom', path: ['data_fine'], message: 'La fine viene dopo l’inizio' })
     }
   })
 
 export type ModificaVenditaInput = z.input<typeof modificaVenditaSchema>
+
+/** A new instalment on a recorded sale (admin). */
+export const nuovaRataSchema = z.object({
+  sale_id: z.string().uuid(),
+  scadenza: z.string().refine(isDataISO, 'Scegli la scadenza'),
+  importo: z
+    .union([z.string(), z.number()])
+    .transform((v) => (typeof v === 'number' ? v : parseImporto(v)))
+    .refine((v) => v !== null && v > 0, 'Scrivi un importo, ad esempio 500')
+    .transform((v) => v as number),
+})
+
+export type NuovaRataInput = z.input<typeof nuovaRataSchema>

@@ -69,7 +69,19 @@ export default async function IncassiPage({
 
   return (
     <div className="space-y-5">
-      <IntestazionePagina titolo="Incassi" descrizione="Tutte le rate. Segna incassata direttamente da qui." />
+      <IntestazionePagina
+        titolo="Incassi"
+        descrizione={
+          <>
+            I soldi, rata per rata: quando scade ogni pagamento e se è entrato. Segna incassata da qui. Il contratto da cui
+            nasce ogni rata è in{' '}
+            <Link href="/sales" className="font-medium text-foreground underline underline-offset-4 hover:text-primary">
+              Vendite
+            </Link>
+            .
+          </>
+        }
+      />
 
       <dl className="grid grid-cols-3 gap-3 rounded-xl bg-card p-4" data-testid="riepilogo-da-incassare">
         <div>

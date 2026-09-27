@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 
 import {
   annullaIncasso,
+  eliminaRata,
   modificaIncasso,
   modificaRata,
   registraRimborso,
@@ -15,6 +16,7 @@ import {
   segnaIncassata,
   type EsitoRata,
 } from '@/app/(app)/sales/[id]/actions'
+import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { SceltaRapida } from '@/components/form/scelta-rapida'
 import { Button } from '@/components/ui/button'
@@ -244,6 +246,19 @@ export function RataAzioni({ rata, admin, oggi, principale = false }: Props) {
                     ) : null}
                   </>
                 )}
+                {admin ? (
+                  <Elimina
+                    etichetta="Elimina la rata"
+                    cosa={`la ${etichetta.toLowerCase()}`}
+                    fatto={`${etichetta} eliminata`}
+                    conseguenze={
+                      rata.stato === 'incassata'
+                        ? [`Il suo incasso (${formatEuro(rata.importo_incassato)}) esce dal cash e dalle provvigioni del mese.`]
+                        : ['Le altre rate si rinumerano in ordine di scadenza.']
+                    }
+                    azione={() => eliminaRata({ payment_id: rata.id })}
+                  />
+                ) : null}
               </div>
             ) : null}
 

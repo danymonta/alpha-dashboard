@@ -40,7 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (tipo === 'vendite') {
     const { data, error } = await supabase
       .from('sales')
-      .select('id, data_vendita, tipo, valore_contratto, numero_rate, data_inizio, data_fine, cliente:clients(nome, cognome), prodotto:products(nome), setter:profiles!sales_setter_id_fkey(nome), closer:profiles!sales_closer_id_fkey(nome)')
+      .select('id, data_vendita, tipo, valore_contratto, numero_rate, data_inizio, data_fine, prodotto_personalizzato, cliente:clients(nome, cognome), prodotto:products(nome), setter:profiles!sales_setter_id_fkey(nome), closer:profiles!sales_closer_id_fkey(nome)')
       .gte('data_vendita', da)
       .lte('data_vendita', a)
       .order('data_vendita')
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       dataCsv(v.data_vendita),
       [v.cliente?.nome, v.cliente?.cognome].filter(Boolean).join(' '),
       ETICHETTA_TIPO_VENDITA[v.tipo],
-      v.prodotto?.nome,
+      v.prodotto?.nome ?? v.prodotto_personalizzato,
       importoCsv(v.valore_contratto),
       v.numero_rate,
       dataCsv(v.data_inizio),

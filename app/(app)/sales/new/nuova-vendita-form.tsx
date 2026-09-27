@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { LoaderCircle, TriangleAlert, UserCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import {
@@ -15,15 +15,18 @@ import {
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { LinkBottone } from '@/components/link-bottone'
 import { SceltaRapida } from '@/components/form/scelta-rapida'
+import { PianoRateEditor } from '@/components/vendite/piano-rate-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { fineDopoMesi, stessoGiornoTraMesi } from '@/lib/date'
 import { formatData, formatEuro, formatImportoInput } from '@/lib/format'
 import { parseImporto } from '@/lib/importi'
 import {
   ETICHETTA_TIPO_VENDITA,
   OPZIONI_RATE,
+  PERSONALIZZATO,
   TIPI_VENDITA,
   nuovaVenditaSchema,
   type NuovaVendita,
@@ -31,7 +34,14 @@ import {
   type TipoVendita,
 } from '@/lib/validation/vendita'
 
-type Prodotto = { id: string; nome: string; durata_mesi: number; prezzo_listino: number }
+type Prodotto = {
+  id: string
+  nome: string
+  durata_mesi: number
+  prezzo_listino: number
+  /** Usual plan: months from the sale date and amount of each instalment. */
+  piano_predefinito: { mese: number; importo: number }[] | null
+}
 
 type Props = {
   oggi: string
@@ -73,7 +83,9 @@ export function NuovaVenditaForm({
   const {
     register,
     handleSubmit,
+    control,
     setValue,
+    getValues,
     setError,
     subscribe,
     getFieldState,
@@ -95,8 +107,20 @@ export function NuovaVenditaForm({
       data_vendita: oggi,
       data_inizio: oggi,
       note: '',
+      prodotto_personalizzato: '',
+      data_fine: '',
+      piano: 'uguale',
+      rate: [],
     },
   })
+
+  const [productId, piano, valoreTesto, dataVendita, dataInizio] = useWatch({
+    control,
+    name: ['product_id', 'piano', 'valore_contratto', 'data_vendita', 'data_inizio'],
+  })
+  const personalizzato = productId === PERSONALIZZATO
+  const valoreNumero = typeof valoreTesto === 'number' ? valoreTesto : parseImporto(valoreTesto ?? '')
+  const prodottoScelto = prodotti.find((p) => p.id === productId)
 
   // Reactions to the form: list price on product change, start date following
   // the sale date, and the instalment preview asked to the database.
@@ -106,18 +130,39 @@ export function NuovaVenditaForm({
     const annulla = subscribe({
       formState: { values: true },
       callback: ({ values: valori, name }) => {
-        if (name === 'product_id' && !getFieldState('valore_contratto').isDirty) {
-          const prodotto = prodotti.find((p) => p.id === valori.product_id)
-          if (prodotto) {
-            setValue('valore_contratto', formatImportoInput(prodotto.prezzo_listino), {
-              shouldValidate: true,
-            })
+        // Writes wait for the current notification to finish: a setValue made
+        // inside it reaches useWatch before the outer, older snapshot, which
+        // would then win (the plan switch would snap back to "Rate uguali").
+        queueMicrotask(() => {
+          if (name === 'product_id' && !getFieldState('valore_contratto').isDirty) {
+            const prodotto = prodotti.find((p) => p.id === valori.product_id)
+            if (prodotto) {
+              setValue('valore_contratto', formatImportoInput(prodotto.prezzo_listino), {
+                shouldValidate: true,
+              })
+            }
           }
-        }
 
-        if (name === 'data_vendita' && !getFieldState('data_inizio').isDirty && valori.data_vendita) {
-          setValue('data_inizio', valori.data_vendita)
-        }
+          // a product with its usual plan starts the form from it, still editable
+          if (name === 'product_id' && !getFieldState('rate').isDirty) {
+            const prodotto = prodotti.find((p) => p.id === valori.product_id)
+            const base = valori.data_vendita || oggi
+            if (prodotto?.piano_predefinito?.length) {
+              setValue('piano', 'personalizzato')
+              setValue(
+                'rate',
+                prodotto.piano_predefinito.map((r) => ({
+                  scadenza: stessoGiornoTraMesi(base, r.mese),
+                  importo: formatImportoInput(r.importo),
+                })),
+              )
+            }
+          }
+
+          if (name === 'data_vendita' && !getFieldState('data_inizio').isDirty && valori.data_vendita) {
+            setValue('data_inizio', valori.data_vendita)
+          }
+        })
 
         if (!['valore_contratto', 'numero_rate', 'data_vendita', 'product_id'].includes(name ?? '')) {
           return
@@ -156,7 +201,7 @@ export function NuovaVenditaForm({
       annulla()
       if (timer) clearTimeout(timer)
     }
-  }, [subscribe, setValue, getFieldState, prodotti])
+  }, [subscribe, setValue, getFieldState, prodotti, oggi])
 
   const invia = handleSubmit(async (valori) => {
     setErroreServer(null)
@@ -179,8 +224,9 @@ export function NuovaVenditaForm({
       return
     }
 
+    const numero = valori.piano === 'personalizzato' ? valori.rate.length : valori.numero_rate
     toast.success('Vendita registrata', {
-      description: `${valori.numero_rate === 1 ? 'Pagamento unico' : `${valori.numero_rate} rate`} da incassare.`,
+      description: `${numero === 1 ? 'Pagamento unico' : `${numero} rate`} da incassare.`,
     })
     router.push(`/sales/${esito.idVendita}`)
   })
@@ -291,21 +337,80 @@ export function NuovaVenditaForm({
 
         <SceltaRapida
           legenda="Prodotto"
-          opzioni={prodotti.map((p) => ({
-            valore: p.id,
-            etichetta: (
-              <>
-                <span>{p.nome}</span>
-                <span className="num text-xs opacity-80">
-                  {formatEuro(p.prezzo_listino, { compatto: true })}
-                </span>
-              </>
-            ),
-          }))}
+          opzioni={[
+            ...prodotti.map((p) => ({
+              valore: p.id,
+              etichetta: (
+                <>
+                  <span>{p.nome}</span>
+                  <span className="num text-xs opacity-80">
+                    {formatEuro(p.prezzo_listino, { compatto: true })}
+                  </span>
+                </>
+              ),
+            })),
+            {
+              valore: PERSONALIZZATO,
+              etichetta: (
+                <>
+                  <span>Personalizzato</span>
+                  <span className="text-xs opacity-80">nome e durata tuoi</span>
+                </>
+              ),
+            },
+          ]}
           registrazione={register('product_id')}
           errore={errors.product_id?.message}
-          colonne={prodotti.length <= 3 ? 3 : 2}
+          colonne={prodotti.length + 1 <= 3 ? 3 : 2}
+          aiuto="I prodotti del catalogo si gestiscono in Impostazioni › Prodotti."
         />
+
+        {personalizzato ? (
+          <div className="space-y-4 rounded-xl bg-card p-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="prodotto_personalizzato">Cosa hai venduto</Label>
+              <Input
+                id="prodotto_personalizzato"
+                placeholder="Annuale, Percorso 9 mesi, Consulenza…"
+                className="h-11"
+                aria-invalid={errors.prodotto_personalizzato ? true : undefined}
+                {...register('prodotto_personalizzato')}
+              />
+              <ErroreCampo id="personalizzato-errore" messaggio={errors.prodotto_personalizzato?.message} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="data_fine">Fine del percorso</Label>
+              <Input
+                id="data_fine"
+                type="date"
+                className="num h-11"
+                aria-invalid={errors.data_fine ? true : undefined}
+                {...register('data_fine')}
+              />
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Durata rapida">
+                {[3, 6, 9, 12].map((mesi) => (
+                  <Button
+                    key={mesi}
+                    type="button"
+                    variant="outline"
+                    className="h-11"
+                    onClick={() =>
+                      setValue('data_fine', fineDopoMesi(getValues('data_inizio') || oggi, mesi), { shouldValidate: true })
+                    }
+                  >
+                    {mesi} mesi
+                  </Button>
+                ))}
+              </div>
+              <ErroreCampo id="data-fine-errore" messaggio={errors.data_fine?.message} />
+            </div>
+          </div>
+        ) : prodottoScelto && dataInizio ? (
+          <p className="px-1 text-xs text-muted-foreground">
+            Il percorso finisce il {formatData(fineDopoMesi(dataInizio, prodottoScelto.durata_mesi))} ({prodottoScelto.durata_mesi}{' '}
+            mesi): si può cambiare dopo, dalla vendita.
+          </p>
+        ) : null}
 
         <div className="space-y-1.5">
           <Label htmlFor="valore_contratto">Valore del contratto</Label>
@@ -329,14 +434,6 @@ export function NuovaVenditaForm({
           </div>
           <ErroreCampo id="valore-errore" messaggio={errors.valore_contratto?.message} />
         </div>
-
-        <SceltaRapida
-          legenda="Numero di rate"
-          opzioni={OPZIONI_RATE.map((n) => ({ valore: String(n), etichetta: String(n) }))}
-          registrazione={register('numero_rate')}
-          errore={errors.numero_rate?.message}
-          colonne={6}
-        />
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
@@ -375,6 +472,43 @@ export function NuovaVenditaForm({
       </Sezione>
 
       <Sezione titolo="Piano rate">
+        <SceltaRapida
+          legenda="Come paga"
+          opzioni={[
+            { valore: 'uguale', etichetta: 'Rate uguali' },
+            { valore: 'personalizzato', etichetta: 'Piano personalizzato' },
+          ]}
+          registrazione={register('piano', {
+            onChange: (e: { target: { value: string } }) => {
+              // starting a hand-written plan from the equal split already shown
+              if (e.target.value === 'personalizzato' && (getValues('rate') ?? []).length === 0 && anteprima?.length) {
+                setValue(
+                  'rate',
+                  anteprima.map((r) => ({ scadenza: r.scadenza, importo: formatImportoInput(r.importo) })),
+                )
+              }
+            },
+          })}
+          colonne={2}
+        />
+
+        {piano === 'personalizzato' ? (
+          <PianoRateEditor
+            control={control}
+            register={register}
+            errors={errors}
+            valore={valoreNumero}
+            dataVendita={dataVendita || oggi}
+          />
+        ) : (
+          <>
+            <SceltaRapida
+              legenda="Numero di rate"
+              opzioni={OPZIONI_RATE.map((n) => ({ valore: String(n), etichetta: String(n) }))}
+              registrazione={register('numero_rate')}
+              errore={errors.numero_rate?.message}
+              colonne={6}
+            />
         {anteprima && anteprima.length > 0 ? (
           <div aria-live="polite" className={calcolo ? 'opacity-60' : undefined}>
             <table className="w-full text-sm" data-testid="anteprima-rate">
@@ -407,6 +541,8 @@ export function NuovaVenditaForm({
               ? 'Calcolo del piano…'
               : 'Scegli prodotto, valore e numero di rate: il piano compare qui.'}
           </p>
+        )}
+          </>
         )}
       </Sezione>
 

@@ -3,12 +3,13 @@ import { SearchX, TriangleAlert } from 'lucide-react'
 import { RataAzioni } from '@/app/(app)/sales/[id]/rata-azioni'
 
 import { LinkBottone } from '@/components/link-bottone'
+import { AggiungiRata } from '@/app/(app)/sales/[id]/aggiungi-rata'
 import { ModificaVendita } from '@/app/(app)/sales/[id]/modifica-vendita'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoRata } from '@/components/pagamento/stato-rata'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
-import { oggiRoma } from '@/lib/date'
+import { oggiRoma, stessoGiornoTraMesi } from '@/lib/date'
 import { formatData, formatEuro } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
 import { ETICHETTA_TIPO_VENDITA } from '@/lib/validation/vendita'
@@ -28,7 +29,7 @@ export default async function DettaglioVenditaPage({
   const { data: vendita } = await supabase
     .from('sales')
     .select(
-      'id, tipo, product_id, setter_id, closer_id, data_vendita, data_inizio, data_fine, valore_contratto, numero_rate, note, cliente:clients(nome, cognome, instagram_handle), prodotto:products(nome), setter:profiles!sales_setter_id_fkey(nome), closer:profiles!sales_closer_id_fkey(nome), rate:payments(id, numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato, metodo)',
+      'id, tipo, product_id, prodotto_personalizzato, setter_id, closer_id, data_vendita, data_inizio, data_fine, valore_contratto, numero_rate, note, cliente:clients(nome, cognome, instagram_handle), prodotto:products(nome), setter:profiles!sales_setter_id_fkey(nome), closer:profiles!sales_closer_id_fkey(nome), rate:payments(id, numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato, metodo)',
     )
     .eq('id', id)
     .order('numero_rata', { referencedTable: 'payments' })
@@ -82,7 +83,7 @@ export default async function DettaglioVenditaPage({
 
   const dettagli: [string, string][] = [
     ['Tipo', ETICHETTA_TIPO_VENDITA[vendita.tipo]],
-    ['Prodotto', vendita.prodotto?.nome ?? '–'],
+    ['Prodotto', vendita.prodotto?.nome ?? vendita.prodotto_personalizzato ?? '–'],
     ['Data vendita', formatData(vendita.data_vendita)],
     ['Percorso', `${formatData(vendita.data_inizio)} → ${formatData(vendita.data_fine)}`],
     ['Closer', vendita.closer?.nome ?? '–'],
@@ -98,10 +99,12 @@ export default async function DettaglioVenditaPage({
         azione={
           admin ? (
             <ModificaVendita
+              descrizione={`la vendita di ${nomeCliente || 'questo cliente'}`}
               vendita={{
                 id: vendita.id,
                 tipo: vendita.tipo,
                 product_id: vendita.product_id,
+                prodotto_personalizzato: vendita.prodotto_personalizzato,
                 valore_contratto: vendita.valore_contratto,
                 data_vendita: vendita.data_vendita,
                 data_inizio: vendita.data_inizio,
@@ -186,9 +189,21 @@ export default async function DettaglioVenditaPage({
       </dl>
 
       <section className="space-y-2">
-        <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Piano rate
-        </h2>
+        <div className="flex items-center justify-between gap-2 px-1">
+          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Piano rate · i soldi da incassare
+          </h2>
+          {admin ? (
+            <AggiungiRata
+              saleId={vendita.id}
+              scadenzaProposta={
+                vendita.rate.length > 0
+                  ? stessoGiornoTraMesi(vendita.rate[vendita.rate.length - 1].scadenza, 1)
+                  : vendita.data_vendita
+              }
+            />
+          ) : null}
+        </div>
         <ul className="divide-y divide-border rounded-xl bg-card" data-testid="piano-rate">
           {vendita.rate.map((rata) => (
             <li

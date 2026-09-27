@@ -4,7 +4,8 @@ import type { ReactNode } from 'react'
 
 type Props = {
   titolo: string
-  descrizione?: string
+  /** A sentence; may hold a link to the sibling page. */
+  descrizione?: ReactNode
   azione?: ReactNode
   /** Detail and settings pages: the way up, above the title. */
   indietro?: { href: string; etichetta: string }

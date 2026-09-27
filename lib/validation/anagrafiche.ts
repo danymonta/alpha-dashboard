@@ -56,6 +56,24 @@ export const clienteSchema = z.object({
 // ---------------------------------------------------------------------------
 // Prodotto
 // ---------------------------------------------------------------------------
+/** A product's usual plan: months after the sale date and amount of each instalment. */
+export const pianoPredefinitoSchema = z
+  .array(
+    z.object({
+      mese: z.coerce.number({ invalid_type_error: 'Mese non valido' }).int('Mesi interi').min(0, 'Da 0 in su').max(60, 'Al massimo 60'),
+      importo: importo('Scrivi l’importo della rata').refine((v) => v > 0, 'L’importo deve essere positivo'),
+    }),
+  )
+  .max(60, 'Al massimo 60 rate')
+
+export type PianoPredefinito = { mese: number; importo: number }[]
+
+/** The stored JSON, read safely: anything malformed means "no usual plan". */
+export function leggiPianoPredefinito(json: unknown): PianoPredefinito | null {
+  const esito = pianoPredefinitoSchema.safeParse(json)
+  return esito.success && esito.data.length > 0 ? esito.data : null
+}
+
 export const prodottoSchema = z.object({
   id: z.string().uuid().nullish(),
   nome: z.string().trim().min(2, 'Scrivi il nome del prodotto').max(80),
@@ -66,6 +84,8 @@ export const prodottoSchema = z.object({
     .max(36, 'Al massimo 36 mesi'),
   prezzo_listino: importo('Scrivi il prezzo, ad esempio 1.500'),
   attivo: z.boolean().default(true),
+  // none: equal monthly instalments in the new-sale form
+  piano_predefinito: pianoPredefinitoSchema.nullish().transform((v) => (v && v.length > 0 ? v : null)),
 })
 
 // ---------------------------------------------------------------------------

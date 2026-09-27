@@ -108,6 +108,22 @@ export function aggiungiMesi(primo: string, mesi: number): string {
   return `${a}-${String(m + 1).padStart(2, '0')}-01`
 }
 
+/**
+ * Same day n months later, clamped to the month's end like Postgres
+ * (31/01 + 1 month = 28/02): the instalment dates the database would write.
+ */
+export function stessoGiornoTraMesi(iso: string, mesi: number): string {
+  const giorno = Number(iso.slice(8, 10))
+  const primo = aggiungiMesi(`${iso.slice(0, 7)}-01`, mesi)
+  const ultimo = Number(fineMese(primo).slice(8, 10))
+  return `${primo.slice(0, 8)}${String(Math.min(giorno, ultimo)).padStart(2, '0')}`
+}
+
+/** End of a path lasting n months from its start: the day before the same day n months later. */
+export function fineDopoMesi(inizio: string, mesi: number): string {
+  return aggiungiGiorni(stessoGiornoTraMesi(inizio, mesi), -1)
+}
+
 /** Last day of the month of a first-of-month date. */
 export function fineMese(primo: string): string {
   return aggiungiGiorni(aggiungiMesi(primo, 1), -1)

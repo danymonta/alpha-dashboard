@@ -4,9 +4,13 @@ import { revalidatePath } from 'next/cache'
 
 import { getProfilo } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod'
+
 import {
+  PERSONALIZZATO,
   anteprimaPianoSchema,
   nuovaVenditaSchema,
+  rataSchema,
   type NuovaVenditaInput,
 } from '@/lib/validation/vendita'
 
@@ -40,6 +44,25 @@ export async function anteprimaPianoRate(input: unknown): Promise<RataAnteprima[
   return error ? null : data
 }
 
+export type TotalePiano = { numero_rate: number; totale: number; scarto: number }
+
+const anteprimaPersonalizzataSchema = z.object({
+  rate: z.array(rataSchema).max(60),
+  valore: z.number().nonnegative(),
+})
+
+/** Sum of a hand-written plan against the contract, computed by public.anteprima_piano. */
+export async function totalePianoPersonalizzato(input: unknown): Promise<TotalePiano | null> {
+  const parsed = anteprimaPersonalizzataSchema.safeParse(input)
+  if (!parsed.success || !(await puoRegistrareVendite())) return null
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .rpc('anteprima_piano', { p_rate: parsed.data.rate, p_valore: parsed.data.valore })
+    .single()
+  return error ? null : data
+}
+
 export async function registraVendita(input: unknown): Promise<EsitoNuovaVendita> {
   const parsed = nuovaVenditaSchema.safeParse(input)
   if (!parsed.success) {
@@ -58,7 +81,8 @@ export async function registraVendita(input: unknown): Promise<EsitoNuovaVendita
   const supabase = await createClient()
   const { data, error } = await supabase
     .rpc('registra_vendita', {
-      p_product_id: v.product_id,
+      // a custom path has no catalogue product
+      p_product_id: v.product_id === PERSONALIZZATO ? (null as unknown as string) : v.product_id,
       p_tipo: v.tipo,
       p_data_vendita: v.data_vendita,
       p_data_inizio: v.data_inizio,
@@ -72,6 +96,9 @@ export async function registraVendita(input: unknown): Promise<EsitoNuovaVendita
       p_telefono: v.telefono ?? undefined,
       p_instagram_handle: v.instagram_handle ?? undefined,
       p_note: v.note ?? undefined,
+      p_prodotto_personalizzato: v.product_id === PERSONALIZZATO ? (v.prodotto_personalizzato ?? undefined) : undefined,
+      p_data_fine: v.data_fine ?? undefined,
+      p_rate: v.piano === 'personalizzato' ? v.rate.map((r) => ({ scadenza: r.scadenza, importo: r.importo })) : undefined,
     })
     .single()
 

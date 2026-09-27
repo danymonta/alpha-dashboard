@@ -9,6 +9,7 @@ import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
+import { leggiPianoPredefinito } from '@/lib/validation/anagrafiche'
 import { TIPI_VENDITA, type TipoVendita } from '@/lib/validation/vendita'
 
 export const dynamic = 'force-dynamic'
@@ -81,7 +82,7 @@ export default async function NuovaVenditaPage({
 
   const { data: prodotti, error: erroreProdotti } = await supabase
     .from('products')
-    .select('id, nome, durata_mesi, prezzo_listino')
+    .select('id, nome, durata_mesi, prezzo_listino, piano_predefinito')
     .eq('attivo', true)
     .order('durata_mesi')
   if (erroreProdotti) throw new Error('Impossibile caricare i prodotti')
@@ -213,7 +214,7 @@ export default async function NuovaVenditaPage({
 
       <NuovaVenditaForm
         oggi={oggiRoma()}
-        prodotti={prodotti}
+        prodotti={prodotti.map((p) => ({ ...p, piano_predefinito: leggiPianoPredefinito(p.piano_predefinito) }))}
         callId={callId ?? null}
         clienteEsistente={clienteEsistente}
         prefill={prefill}

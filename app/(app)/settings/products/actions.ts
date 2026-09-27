@@ -33,7 +33,23 @@ export async function salvaProdotto(input: unknown): Promise<Esito> {
 
 const attivoSchema = z.object({ id: z.string().uuid(), attivo: z.boolean() })
 
-/** Products are never deleted: sales point to them. They are switched off. */
+/** Deleting keeps past sales readable: they keep the product's name (public.elimina_prodotto). */
+export async function eliminaProdotto(input: unknown): Promise<Esito> {
+  const parsed = z.object({ id: z.string().uuid() }).safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Prodotto non valido.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('elimina_prodotto', { p_product_id: parsed.data.id })
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Prodotto non eliminato. Riprova.') }
+
+  aggiorna()
+  revalidatePath('/sales')
+  return { ok: true }
+}
+
+/** Off sale: kept for the history, not offered in new sales. */
 export async function cambiaAttivoProdotto(input: unknown): Promise<Esito> {
   const parsed = attivoSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: 'Dati non validi.' }
