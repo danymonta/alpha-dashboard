@@ -461,7 +461,7 @@ Lo script stampa un riepilogo (righe lette, create, saltate) e si può rilanciar
 ## 15. Operatività
 
 - **Keep-alive**: Supabase Free mette in pausa il progetto dopo 7 giorni senza richieste. Route `/api/cron/keep-alive` (protetta da `CRON_SECRET`) che esegue una query leggera, chiamata ogni giorno da Vercel Cron (`vercel.json`).
-- **Backup**: il piano Free non ha backup. Esporta CSV mensile da Impostazioni. Quando l'app diventa l'unica fonte dei dati economici, passare a Supabase Pro.
+- **Backup**: il piano Free non ha backup. Ogni lunedì alle 6 (UTC) Vercel Cron chiama `/api/cron/backup` (protetta da `CRON_SECRET`): tutte le tabelle di `public` (`backup_completo()`, solo `service_role`, legge lo schema al momento: una tabella nuova non si dimentica) più gli account, in un `.json.gz` mandato via email (Resend) agli admin attivi. Lo stesso file si scarica da Impostazioni › Esporta. Ripristino: `npm run backup:sql -- <file> ripristino.sql`, poi il file nel SQL Editor di Supabase: una transazione, trigger spenti, solo le righe mancanti (provato: cancellate vendite, rate, costi e report, tornano identiche). Quando l'app diventa l'unica fonte dei dati economici, passare comunque a Supabase Pro.
 - **GDPR**: dati dei clienti ridotti al minimo (nome, contatti, handle). Regione EU. Nessun dato sanitario in questa app.
 
 ## 16. Piano di lavoro
@@ -536,6 +536,13 @@ Chiesto da Dany il 27/09/2026.
 - Ogni passo: contatore "2/7", titolo, testo breve, elemento evidenziato (attributi `data-tour` nella shell: voci di navigazione, "Altro", Alfire, profilo); senza elemento visibile la scheda sta al centro. Una barra di 2 secondi (`ATTESA_LETTURA_MS`) dà il tempo di leggere: prima di allora la X e "Avanti" sono spenti. Esc chiude, frecce per navigare.
 - Si rivede da Profilo › Account › "Rivedi il tutorial". L'admin ha "Testa il tutorial" in alto a destra: sceglie un ruolo e vede quel tour in anteprima, senza segnare nulla.
 - Chi non è invitato non entra: il trigger su `auth.users` rifiuta ogni email senza invito (sezione 7).
+
+## 22. App installabile e dominio
+
+Chiesto da Dany il 27/09/2026.
+
+- **App installabile (PWA)**: `app/manifest.ts` (nome "Percorso Alpha", "Alpha" sotto l'icona, `standalone`, colori di `--alpha-bg`), icone in `public/icons` e `app/apple-icon.png`, generate da `scripts/genera-icone.mjs` (emblema per le misure piccole, logo intero per la Home dell'iPhone). iPhone: Safari › Condividi › Aggiungi alla schermata Home. Android: Chrome › Installa app. Il manifest è tra i percorsi pubblici del proxy: il browser lo scarica senza cookie.
+- **Dominio**: `dashboard.percorsoalpha.com` (Vercel) al posto di `alpha-dashboard-eta.vercel.app`. Cambiando dominio vanno aggiornati `APP_URL` su Vercel (redirect del login e link degli inviti) e Site URL e Redirect URLs in Supabase › Authentication.
 
 <!-- Everything above this line is ours. The block below is rewritten by `next dev`: never write inside it. -->
 
