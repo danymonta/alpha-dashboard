@@ -12,6 +12,8 @@ type Props = {
   /** relative change of the margin from SQL (kpi_panoramica.delta) */
   delta: number | null
   confronto: string
+  /** Accessible name of the block, e.g. "Margine operativo a settembre 2026". */
+  titolo?: string
   className?: string
 }
 
@@ -28,11 +30,20 @@ function Segno({ segno, parola }: { segno?: string; parola?: string }) {
 
 /**
  * The month's bottom line, spelled out: cash − commissions − costs.
- * Every amount comes from SQL (metriche_mese, kpi_panoramica): this only
+ * Every amount comes from SQL (metriche_periodo, kpi_periodo): this only
  * lays them out, to the cent. Never gold: the gold number is the hero cash.
  * Always "Margine operativo", never "utile": taxes are not included.
  */
-export function ContoMargine({ cash, provvigioni, costi, margine, delta, confronto, className }: Props) {
+export function ContoMargine({
+  cash,
+  provvigioni,
+  costi,
+  margine,
+  delta,
+  confronto,
+  titolo = 'Margine operativo del mese',
+  className,
+}: Props) {
   const voci: { etichetta: string; valore: Importo; segno?: string; parola?: string }[] = [
     { etichetta: 'Cash incassato', valore: cash },
     { etichetta: 'Provvigioni maturate', valore: provvigioni, segno: '−', parola: 'meno' },
@@ -41,7 +52,7 @@ export function ContoMargine({ cash, provvigioni, costi, margine, delta, confron
 
   return (
     <section
-      aria-label="Margine operativo del mese"
+      aria-label={titolo}
       data-testid="conto-margine"
       className={cn('rounded-xl bg-card p-4', className)}
     >

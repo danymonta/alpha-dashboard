@@ -9,18 +9,18 @@ import { ContoMargine } from '@/components/panoramica/conto-margine'
 import { Funnel } from '@/components/panoramica/funnel'
 import { GraficoCash } from '@/components/panoramica/grafico-cash'
 import { TileKpi } from '@/components/panoramica/tile-kpi'
-import { SelettoreMese } from '@/components/pagina/selettore-mese'
+import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { requireProfilo } from '@/lib/auth/session'
-import { aggiungiMesi, oggiRoma, parseMese, primoDelMeseISO } from '@/lib/date'
+import { oggiRoma } from '@/lib/date'
 import {
   formatData,
   formatEuro,
   formatMese,
-  formatNomeMese,
   formatNumero,
   formatPercentuale,
   formatRapporto,
 } from '@/lib/format'
+import { contieneData, leggiPeriodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -68,7 +68,11 @@ function Voce({ etichetta, valore, nota }: { etichetta: string; valore: string; 
   )
 }
 
-export default async function PanoramicaPage({ searchParams }: { searchParams: Promise<{ mese?: string }> }) {
+export default async function PanoramicaPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const profilo = await requireProfilo()
 
   // Setter and closer have their own landing page.
@@ -76,18 +80,21 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
   if (profilo.ruolo === 'closer') redirect('/calls')
 
   const oggi = oggiRoma()
-  const meseCorrente = primoDelMeseISO(oggi)
-  const mese = parseMese((await searchParams).mese) ?? meseCorrente
-  const precedente = aggiungiMesi(mese, -1)
-  const eMeseCorrente = mese === meseCorrente
+  // a month (?mese=) or any range (?da=&a=); the comparison window comes with it
+  const periodo = leggiPeriodo(await searchParams, oggi)
+  const intervallo = { p_da: periodo.da, p_a: periodo.a }
+  // live numbers only make sense while the period includes today
+  const inCorso = contieneData(periodo, oggi)
+  const unMese = periodo.mese !== null
   const supabase = await createClient()
 
   // Every number below is computed by SQL functions (CLAUDE.md section 9).
   const [kpi, metriche, cash, funnel, incassare, ritardi, scadenze, team] = await Promise.all([
-    supabase.rpc('kpi_panoramica', { p_mese: mese }),
-    supabase.rpc('metriche_mese', { p_mese: mese }).single(),
-    supabase.rpc('cash_mensile', { p_mesi: 12, p_fino: mese }),
-    supabase.rpc('funnel_mese', { p_mese: mese }),
+    supabase.rpc('kpi_periodo', intervallo),
+    supabase.rpc('metriche_periodo', intervallo).single(),
+    // the trend stays monthly: the 12 months up to the end of the period (never the future)
+    supabase.rpc('cash_mensile', { p_mesi: 12, p_fino: periodo.a < oggi ? periodo.a : oggi }),
+    supabase.rpc('funnel_periodo', intervallo),
     supabase.rpc('da_incassare'),
     supabase
       .from('v_rate')
@@ -101,7 +108,7 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
       .eq('stato', 'in_scadenza')
       .order('data_fine_ultima')
       .limit(6),
-    eMeseCorrente ? supabase.rpc('oggi_team').single() : Promise.resolve({ data: null, error: null }),
+    inCorso ? supabase.rpc('oggi_team').single() : Promise.resolve({ data: null, error: null }),
   ])
 
   const errore = [kpi, metriche, cash, funnel, incassare, ritardi, scadenze, team].find((r) => r.error)
@@ -114,25 +121,25 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
   // the margin gets its own block with the full sum; the other KPIs stay tiles
   const margine = resto.find((k) => k.chiave === 'margine_operativo')
   const altri = resto.filter((k) => k.chiave !== 'margine_operativo')
-  const confronto = `vs ${formatNomeMese(precedente)}`
+  const confronto = periodo.confronto
   const valoreKpi = (chiave: string, valore: number | null) =>
     KPI[chiave]?.euro ? formatEuro(valore, { compatto: true }) : formatNumero(valore)
 
   return (
     <div className="space-y-5">
-      {/* Mobile: live status on the title row, month selector full width below. */}
+      {/* Mobile: live status on the title row, period selector full width below. */}
       <header className="grid grid-cols-[auto_1fr] items-end gap-x-3 gap-y-2 md:flex md:flex-wrap md:justify-between">
-        {/* the month is in the selector: no second copy under the title */}
+        {/* the period is in the selector: no second copy under the title */}
         <h1 className="font-heading text-xl font-semibold md:text-2xl">Panoramica</h1>
         <div className="contents md:flex md:flex-wrap md:items-center md:gap-3">
-          {eMeseCorrente ? (
+          {inCorso ? (
             <div className="min-w-0 justify-self-end text-right">
               <AggiornamentoLive />
             </div>
           ) : null}
-          <SelettoreMese
-            mese={mese}
-            meseCorrente={meseCorrente}
+          <SelettorePeriodo
+            periodo={periodo}
+            oggi={oggi}
             percorso="/"
             // mobile: full width, both chevrons on the content edges; desktop: right chevron on the right edge
             className="col-span-2 -mx-3 w-[calc(100%+1.5rem)] justify-between md:mx-0 md:-mr-3 md:w-auto md:justify-start"
@@ -150,7 +157,7 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
             delta={hero.delta}
             confronto={confronto}
           >
-            {/* "quanto è nuovo e quanto è rinnovo": the split, from metriche_mese */}
+            {/* "quanto è nuovo e quanto è rinnovo": the split, from metriche_periodo */}
             <div className="mt-5 border-t border-border pt-4">
               <p className="mb-2 text-xs font-medium text-muted-foreground">Cash per tipo di vendita</p>
               <dl className="grid grid-cols-3 gap-3" data-testid="cash-per-tipo">
@@ -178,6 +185,7 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
           {margine ? (
             <ContoMargine
               className="col-span-2 sm:col-span-3"
+              titolo={`Margine operativo ${periodo.frase}`}
               cash={m.cash_incassato}
               provvigioni={m.provvigioni_maturate}
               costi={m.costi}
@@ -273,9 +281,9 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
         )}
       </Scheda>
 
-      {/* 4. How the month is going */}
+      {/* 4. How the period is going */}
       <div className="grid gap-3 lg:grid-cols-2">
-        <Scheda titolo="Funnel del mese">
+        <Scheda titolo={unMese ? 'Funnel del mese' : 'Funnel del periodo'}>
           <Funnel
             fasi={(funnel.data ?? []).map((f) => ({
               ordine: f.ordine,
@@ -307,7 +315,7 @@ export default async function PanoramicaPage({ searchParams }: { searchParams: P
             <Voce
               etichetta="Tasso di rinnovo"
               valore={formatPercentuale(m.tasso_rinnovo)}
-              nota={`${m.rinnovati_nel_mese} su ${m.in_scadenza_nel_mese} in scadenza nel mese`}
+              nota={`${m.rinnovati} su ${m.in_scadenza} in scadenza nel ${unMese ? 'mese' : 'periodo'}`}
             />
           </dl>
         </Scheda>

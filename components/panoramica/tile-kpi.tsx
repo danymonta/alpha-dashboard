@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 type Props = {
   etichetta: string
   valore: string
-  /** relative change from SQL (kpi_panoramica.delta); null = no comparison */
+  /** relative change from SQL (kpi_periodo.delta); null = no comparison */
   delta: number | null
   confronto: string
   hero?: boolean
@@ -16,7 +16,7 @@ type Props = {
 }
 
 /**
- * Delta against the previous month: always icon + sign + words, never colour
+ * Delta against the previous period: always icon + sign + words, never colour
  * alone. For every number of the overview "up" is good.
  */
 export function DeltaKpi({
@@ -35,7 +35,8 @@ export function DeltaKpi({
   return (
     <p
       className={cn(
-        'inline-flex items-center gap-1.5 text-sm',
+        // a long comparison ("vs periodo precedente") wraps as a whole under the value
+        'inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm',
         su ? 'text-status-ok' : giu ? 'text-status-critical' : 'text-muted-foreground',
         className,
       )}

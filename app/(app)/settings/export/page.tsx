@@ -1,25 +1,32 @@
 import { Download } from 'lucide-react'
 
 import { IntestazionePagina } from '@/components/pagina/intestazione'
-import { SelettoreMese } from '@/components/pagina/selettore-mese'
+import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { buttonVariants } from '@/components/ui/button'
 import { requireRuolo } from '@/lib/auth/session'
-import { oggiRoma, parseMese, primoDelMeseISO } from '@/lib/date'
-import { formatMese } from '@/lib/format'
+import { oggiRoma } from '@/lib/date'
+import { leggiPeriodo } from '@/lib/periodo'
 import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
 const EXPORT = [
-  { tipo: 'vendite', titolo: 'Vendite', descrizione: 'Contratti firmati nel mese: cliente, tipo, prodotto, valore, rate.' },
-  { tipo: 'incassi', titolo: 'Incassi', descrizione: 'Rate incassate e rimborsi del mese, con metodo di pagamento.' },
-  { tipo: 'costi', titolo: 'Costi', descrizione: 'Spese del mese per categoria.' },
+  { tipo: 'vendite', titolo: 'Vendite', descrizione: 'Contratti firmati nel periodo: cliente, tipo, prodotto, valore, rate.' },
+  { tipo: 'incassi', titolo: 'Incassi', descrizione: 'Rate incassate e rimborsi del periodo, con metodo di pagamento.' },
+  { tipo: 'costi', titolo: 'Costi', descrizione: 'Spese del periodo per categoria.' },
 ]
 
-export default async function ExportPage({ searchParams }: { searchParams: Promise<{ mese?: string }> }) {
+export default async function ExportPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   await requireRuolo(['admin'])
-  const meseCorrente = primoDelMeseISO(oggiRoma())
-  const mese = parseMese((await searchParams).mese) ?? meseCorrente
+  const oggi = oggiRoma()
+  const periodo = leggiPeriodo(await searchParams, oggi)
+  // same period params as the page: ?mese= or ?da=&a=
+  const query = new URLSearchParams(periodo.parametri).toString()
+  const quando = periodo.mese ? `di ${periodo.etichetta}` : periodo.frase
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -28,7 +35,7 @@ export default async function ExportPage({ searchParams }: { searchParams: Promi
         titolo="Esporta CSV"
         descrizione="Per la commercialista e come copia di sicurezza mensile. Si aprono direttamente in Excel."
       />
-      <SelettoreMese mese={mese} meseCorrente={meseCorrente} percorso="/settings/export" />
+      <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/settings/export" />
 
       <ul className="grid gap-2 sm:grid-cols-3">
         {EXPORT.map((e) => (
@@ -38,12 +45,13 @@ export default async function ExportPage({ searchParams }: { searchParams: Promi
               <p className="text-sm text-muted-foreground">{e.descrizione}</p>
             </div>
             <a
-              href={`/api/export/${e.tipo}?mese=${mese.slice(0, 7)}`}
+              href={`/api/export/${e.tipo}?${query}`}
               download
-              className={cn(buttonVariants({ variant: 'outline' }), 'h-11')}
+              // a long range wraps instead of overflowing the card
+              className={cn(buttonVariants({ variant: 'outline' }), 'h-auto min-h-11 py-2 text-center whitespace-normal')}
             >
               <Download className="size-4" aria-hidden="true" />
-              {e.titolo} di {formatMese(mese)}
+              {e.titolo} {quando}
             </a>
           </li>
         ))}

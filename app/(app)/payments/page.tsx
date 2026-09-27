@@ -3,12 +3,13 @@ import Link from 'next/link'
 
 import { RataAzioni } from '@/app/(app)/sales/[id]/rata-azioni'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
-import { SelettoreMese } from '@/components/pagina/selettore-mese'
+import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { StatoRata } from '@/components/pagamento/stato-rata'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
-import { aggiungiGiorni, fineMese, oggiRoma, parseMese, primoDelMeseISO } from '@/lib/date'
-import { formatData, formatEuro, formatMese } from '@/lib/format'
+import { aggiungiGiorni, oggiRoma } from '@/lib/date'
+import { formatData, formatEuro } from '@/lib/format'
+import { hrefPeriodo, leggiPeriodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 
@@ -25,14 +26,17 @@ type Vista = keyof typeof VISTE
 export default async function IncassiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; mese?: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   await requireRuolo(['admin'])
   const parametri = await searchParams
-  const vista: Vista = parametri.vista && parametri.vista in VISTE ? (parametri.vista as Vista) : 'ritardo'
+  const richiesta = Array.isArray(parametri.vista) ? parametri.vista[0] : parametri.vista
+  const vista: Vista = richiesta && richiesta in VISTE ? (richiesta as Vista) : 'ritardo'
   const oggi = oggiRoma()
-  const meseCorrente = primoDelMeseISO(oggi)
-  const mese = parseMese(parametri.mese) ?? meseCorrente
+  // only the "incassate" view is bound to a period
+  const periodo = leggiPeriodo(parametri, oggi)
+  const etichettaVista = (v: Vista) =>
+    v === 'incassate' ? (periodo.mese ? 'Incassate nel mese' : 'Incassate nel periodo') : VISTE[v]
   const tra30 = aggiungiGiorni(oggi, 30)
   const supabase = await createClient()
 
@@ -45,7 +49,7 @@ export default async function IncassiPage({
     if (v === 'ritardo') return q.eq('in_ritardo', true).order('scadenza')
     if (v === 'prossime') return q.eq('stato', 'prevista').gte('scadenza', oggi).lte('scadenza', tra30).order('scadenza')
     if (v === 'previste') return q.eq('stato', 'prevista').order('scadenza')
-    return q.in('stato', ['incassata', 'rimborsata']).gte('incassato_il', mese).lte('incassato_il', fineMese(mese)).order('incassato_il', { ascending: false })
+    return q.in('stato', ['incassata', 'rimborsata']).gte('incassato_il', periodo.da).lte('incassato_il', periodo.a).order('incassato_il', { ascending: false })
   }
 
   const [righe, fasce, ...conteggi] = await Promise.all([
@@ -89,7 +93,13 @@ export default async function IncassiPage({
         {(Object.keys(VISTE) as Vista[]).map((v) => (
           <Link
             key={v}
-            href={v === 'ritardo' ? '/payments' : `/payments?vista=${v}${v === 'incassate' ? `&mese=${mese.slice(0, 7)}` : ''}`}
+            href={
+              v === 'ritardo'
+                ? '/payments'
+                : v === 'incassate'
+                  ? hrefPeriodo('/payments', periodo, { vista: v })
+                  : `/payments?vista=${v}`
+            }
             aria-current={v === vista ? 'page' : undefined}
             className={cn(
               'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm',
@@ -98,14 +108,14 @@ export default async function IncassiPage({
                 : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
           >
-            {VISTE[v]}
+            {etichettaVista(v)}
             <span className="num text-xs opacity-80">{nVista[v]}</span>
           </Link>
         ))}
       </nav>
 
       {vista === 'incassate' ? (
-        <SelettoreMese mese={mese} meseCorrente={meseCorrente} percorso="/payments" parametri={{ vista: 'incassate' }} />
+        <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/payments" parametri={{ vista: 'incassate' }} />
       ) : null}
 
       {righe.data.length === 0 ? (
@@ -115,10 +125,10 @@ export default async function IncassiPage({
             vista === 'ritardo'
               ? 'Nessuna rata in ritardo'
               : vista === 'incassate'
-                ? `Nessun incasso a ${formatMese(mese)}`
+                ? `Nessun incasso ${periodo.frase}`
                 : 'Nessuna rata in questa vista'
           }
-          descrizione={vista === 'ritardo' ? 'Tutti i clienti sono in pari con i pagamenti.' : 'Cambia vista o mese.'}
+          descrizione={vista === 'ritardo' ? 'Tutti i clienti sono in pari con i pagamenti.' : 'Cambia vista o periodo.'}
         />
       ) : (
         <ul className="divide-y divide-border rounded-xl bg-card" data-testid="elenco-rate">

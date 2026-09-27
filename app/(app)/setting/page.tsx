@@ -2,11 +2,12 @@ import { TrendingUp } from 'lucide-react'
 
 import { ModificaReport } from '@/app/(app)/setting/modifica-report'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
-import { SelettoreMese } from '@/components/pagina/selettore-mese'
+import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
-import { fineMese, oggiRoma, parseMese, primoDelMeseISO } from '@/lib/date'
-import { formatData, formatMese, formatNumero, formatPercentuale, formatRapporto } from '@/lib/format'
+import { oggiRoma } from '@/lib/date'
+import { formatData, formatNumero, formatPercentuale, formatRapporto } from '@/lib/format'
+import { leggiPeriodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -23,19 +24,23 @@ const COLONNE_REPORT = [
   ['follow_up', 'Follow-up'],
 ] as const
 
-export default async function SettingPage({ searchParams }: { searchParams: Promise<{ mese?: string }> }) {
+export default async function SettingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   await requireRuolo(['admin'])
-  const meseCorrente = primoDelMeseISO(oggiRoma())
-  const mese = parseMese((await searchParams).mese) ?? meseCorrente
+  const oggi = oggiRoma()
+  const periodo = leggiPeriodo(await searchParams, oggi)
   const supabase = await createClient()
 
   const [metriche, report] = await Promise.all([
-    supabase.rpc('metriche_setting', { p_da: mese, p_a: fineMese(mese) }),
+    supabase.rpc('metriche_setting', { p_da: periodo.da, p_a: periodo.a }),
     supabase
       .from('setter_daily_reports')
       .select('id, data, dm_outbound, dm_inbound, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, follow_up, contenuto_pubblicato, note, setter:profiles!setter_daily_reports_setter_id_fkey(nome)')
-      .gte('data', mese)
-      .lte('data', fineMese(mese))
+      .gte('data', periodo.da)
+      .lte('data', periodo.a)
       .order('data', { ascending: false }),
   ])
   if (metriche.error || report.error) throw new Error('Impossibile caricare il setting')
@@ -70,12 +75,12 @@ export default async function SettingPage({ searchParams }: { searchParams: Prom
         titolo="Setting"
         descrizione="Volumi DM, call prenotate e svolte, show rate e close rate, per setter."
       />
-      <SelettoreMese mese={mese} meseCorrente={meseCorrente} percorso="/setting" />
+      <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/setting" />
 
       {perSetter.length === 0 ? (
         <StatoVuoto
           Icona={TrendingUp}
-          titolo={`Nessun report a ${formatMese(mese)}`}
+          titolo={`Nessun report ${periodo.frase}`}
           descrizione="I numeri arrivano dalla schermata Oggi del setter."
         />
       ) : (
@@ -131,7 +136,7 @@ export default async function SettingPage({ searchParams }: { searchParams: Prom
 
             <div className="hidden overflow-x-auto rounded-xl bg-card md:block">
               <table className="w-full text-sm">
-                <caption className="sr-only">Report giornalieri del mese</caption>
+                <caption className="sr-only">Report giornalieri del {periodo.mese ? 'mese' : 'periodo'}</caption>
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b border-border">
                     <th scope="col" className="px-3 py-2.5 text-left font-normal">Data</th>

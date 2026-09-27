@@ -2,35 +2,40 @@ import { Banknote } from 'lucide-react'
 
 import { CopiaRicorrenti, EliminaCosto, ModificaCosto, NuovoCosto } from '@/app/(app)/expenses/costi-client'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
-import { SelettoreMese } from '@/components/pagina/selettore-mese'
+import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { requireRuolo } from '@/lib/auth/session'
-import { aggiungiMesi, fineMese, oggiRoma, parseMese, primoDelMeseISO } from '@/lib/date'
+import { aggiungiMesi, oggiRoma } from '@/lib/date'
 import { formatData, formatEuro, formatMese } from '@/lib/format'
+import { leggiPeriodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
 import { ETICHETTA_CATEGORIA } from '@/lib/validation/anagrafiche'
 
 export const dynamic = 'force-dynamic'
 
-export default async function CostiPage({ searchParams }: { searchParams: Promise<{ mese?: string }> }) {
+export default async function CostiPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   await requireRuolo(['admin'])
   const oggi = oggiRoma()
-  const meseCorrente = primoDelMeseISO(oggi)
-  const mese = parseMese((await searchParams).mese) ?? meseCorrente
-  const ultimoGiorno = fineMese(mese)
+  const periodo = leggiPeriodo(await searchParams, oggi)
+  // new costs default to today, or to the last day of a past period
+  const dataPredefinita = periodo.a < oggi ? periodo.a : oggi
   const supabase = await createClient()
 
   const [{ data: costi, error }, { data: riepilogo, error: erroreRiepilogo }] = await Promise.all([
     supabase
       .from('expenses')
       .select('id, data, categoria, descrizione, importo, ricorrente')
-      .gte('data', mese)
-      .lte('data', ultimoGiorno)
+      .gte('data', periodo.da)
+      .lte('data', periodo.a)
       .order('data', { ascending: false }),
-    supabase.rpc('riepilogo_costi', { p_mese: mese }),
+    supabase.rpc('riepilogo_costi_periodo', { p_da: periodo.da, p_a: periodo.a }),
   ])
   if (error || erroreRiepilogo) throw new Error('Impossibile caricare i costi')
 
-  // the rollup row (categoria null) is the month total computed by SQL
+  // the rollup row (categoria null) is the period total computed by SQL
   const totale = riepilogo.find((r) => r.categoria === null)
   const perCategoria = riepilogo.filter((r) => r.categoria !== null)
 
@@ -42,12 +47,17 @@ export default async function CostiPage({ searchParams }: { searchParams: Promis
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SelettoreMese mese={mese} meseCorrente={meseCorrente} percorso="/expenses" />
-        <CopiaRicorrenti mese={mese} meseSorgente={formatMese(aggiungiMesi(mese, -1))} />
+        <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/expenses" />
+        {/* recurring costs are copied month to month: only a single whole month offers it */}
+        {periodo.mese ? (
+          <CopiaRicorrenti mese={periodo.mese} meseSorgente={formatMese(aggiungiMesi(periodo.mese, -1))} />
+        ) : null}
       </div>
 
       <div className="rounded-xl bg-card p-4" data-testid="totale-costi">
-        <p className="text-xs text-muted-foreground">Totale costi di {formatMese(mese)}</p>
+        <p className="text-xs text-muted-foreground">
+          Totale costi {periodo.mese ? `di ${formatMese(periodo.mese)}` : periodo.frase}
+        </p>
         <p className="num text-3xl font-semibold">{formatEuro(totale?.totale ?? 0)}</p>
         {perCategoria.length > 0 ? (
           <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 sm:grid-cols-3">
@@ -63,19 +73,21 @@ export default async function CostiPage({ searchParams }: { searchParams: Promis
 
       <section className="space-y-2">
         <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Aggiungi</h2>
-        <NuovoCosto dataPredefinita={mese === meseCorrente ? oggi : ultimoGiorno} massima={oggi} />
+        <NuovoCosto dataPredefinita={dataPredefinita} massima={oggi} />
       </section>
 
       <section className="space-y-2">
         <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Costi del mese ({costi.length})
+          Costi del {periodo.mese ? 'mese' : 'periodo'} ({costi.length})
         </h2>
         {costi.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">
             <Banknote className="size-6 text-muted-foreground" aria-hidden="true" />
-            <p className="text-sm font-medium">Nessun costo a {formatMese(mese)}</p>
+            <p className="text-sm font-medium">Nessun costo {periodo.frase}</p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Aggiungilo qui sopra, oppure copia i ricorrenti del mese precedente.
+              {periodo.mese
+                ? 'Aggiungilo qui sopra, oppure copia i ricorrenti del mese precedente.'
+                : 'Aggiungilo qui sopra, oppure cambia periodo.'}
             </p>
           </div>
         ) : (
