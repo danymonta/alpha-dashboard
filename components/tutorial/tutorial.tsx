@@ -1,6 +1,7 @@
 'use client'
 
-import { ArrowLeft, ArrowRight, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Pointer, X } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   createContext,
   useCallback,
@@ -18,7 +19,7 @@ import { segnaTutorialVisto } from '@/app/actions/tutorial'
 import { EVENTO_INTRO_FINITA } from '@/components/brand/intro-ingresso'
 import { Button } from '@/components/ui/button'
 import type { AppRole } from '@/lib/auth/roles'
-import { ATTESA_LETTURA_MS, FUNZIONE, PERCORSI, type PassoTutorial } from '@/lib/tutorial/percorsi'
+import { ATTESA_LETTURA_MS, FUNZIONE, PERCORSI, suPagina, type PassoTutorial } from '@/lib/tutorial/percorsi'
 import { cn } from '@/lib/utils'
 
 type ContestoTutorial = {
@@ -156,28 +157,62 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
   const [altezza, setAltezza] = useState(220)
   const scheda = useRef<HTMLDivElement>(null)
   const ultimo = indice === passi.length - 1
+  const pathname = usePathname()
+  const router = useRouter()
 
-  // find the highlighted element and follow it while the page moves
+  // a step lives on its page: open it (not in the admin's preview, where
+  // another role's pages are not reachable)
+  const naviga = !anteprima && passo.pagina && !suPagina(pathname, passo.pagina)
+  useEffect(() => {
+    if (naviga && passo.pagina) router.push(passo.pagina)
+  }, [naviga, passo.pagina, router])
+
+  // "tocca qui": the highlighted link itself moves the tour on
+  const interattivo = Boolean(passo.clic) && !anteprima
+  const [elemento, setElemento] = useState<HTMLElement | null>(null)
+
+  // find the highlighted element (a new page may still be arriving: try for a
+  // few seconds) and follow it while the page moves
   useLayoutEffect(() => {
-    const el = elementoVisibile(passo.target)
-    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     let frame = 0
+    let tentativo: ReturnType<typeof setTimeout> | undefined
+    let tentativi = 0
+    let trovato = false
     const misura = () => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
-        setRiquadro(riquadroDi(elementoVisibile(passo.target)))
+        const el = elementoVisibile(passo.target)
+        setElemento(el)
+        setRiquadro(riquadroDi(el))
         if (scheda.current) setAltezza(scheda.current.offsetHeight)
       })
     }
-    misura()
+    const cerca = () => {
+      const el = elementoVisibile(passo.target)
+      if (el && !trovato) {
+        trovato = true
+        el.scrollIntoView({ block: 'center', inline: 'nearest' })
+      }
+      misura()
+      if (!el && passo.target?.length && tentativi++ < 25) tentativo = setTimeout(cerca, 150)
+    }
+    cerca()
     window.addEventListener('resize', misura)
     window.addEventListener('scroll', misura, true)
     return () => {
       cancelAnimationFrame(frame)
+      clearTimeout(tentativo)
       window.removeEventListener('resize', misura)
       window.removeEventListener('scroll', misura, true)
     }
-  }, [passo])
+  }, [passo, pathname])
+
+  useEffect(() => {
+    if (!interattivo || !elemento) return
+    const tocco = () => setIndice((i) => Math.min(i + 1, passi.length - 1))
+    elemento.addEventListener('click', tocco, { once: true })
+    return () => elemento.removeEventListener('click', tocco)
+  }, [elemento, interattivo, passi.length])
 
   // time to read: the bar fills, then the step can be closed or skipped
   useEffect(() => {
@@ -204,9 +239,12 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
 
   const idTitolo = `tutorial-titolo-${passo.id}`
   const mancaElemento = Boolean(passo.target?.length) && !riquadro
+  // a tap step whose link is not on screen (e.g. inside "Altro"): "Avanti" opens the page instead
+  const toccaQui = interattivo && Boolean(riquadro)
 
   return (
-    <div className="fixed inset-0 z-[60]" data-testid="tutorial">
+    // the layer lets taps through; blockers and card take them back
+    <div className="pointer-events-none fixed inset-0 z-[60]" data-testid="tutorial">
       {/* the dimmed page; clicks on it do nothing, the tour is steered from the card */}
       {riquadro ? (
         <div
@@ -215,9 +253,27 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
           style={{ ...riquadro, boxShadow: '0 0 0 9999px color-mix(in oklab, var(--background) 80%, transparent)' }}
         />
       ) : (
-        <div aria-hidden="true" className="fixed inset-0 bg-background/80" />
+        <div aria-hidden="true" className="pointer-events-auto fixed inset-0 bg-background/80" />
       )}
-      <div aria-hidden="true" className="fixed inset-0" />
+      {toccaQui && riquadro ? (
+        // four blockers around the highlight: only the highlighted element takes the tap
+        <>
+          <div aria-hidden="true" className="pointer-events-auto fixed inset-x-0 top-0" style={{ height: Math.max(0, riquadro.top) }} />
+          <div aria-hidden="true" className="pointer-events-auto fixed inset-x-0 bottom-0" style={{ top: riquadro.top + riquadro.height }} />
+          <div
+            aria-hidden="true"
+            className="pointer-events-auto fixed left-0"
+            style={{ top: riquadro.top, height: riquadro.height, width: Math.max(0, riquadro.left) }}
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-auto fixed right-0"
+            style={{ top: riquadro.top, height: riquadro.height, left: riquadro.left + riquadro.width }}
+          />
+        </>
+      ) : (
+        <div aria-hidden="true" className="pointer-events-auto fixed inset-0" />
+      )}
 
       <div
         ref={scheda}
@@ -225,7 +281,7 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
         aria-modal="true"
         aria-labelledby={idTitolo}
         tabIndex={-1}
-        className="fixed w-auto max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg outline-none sm:w-[340px] motion-safe:transition-[top,left] motion-safe:duration-300"
+        className="pointer-events-auto fixed w-auto max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg outline-none sm:w-[340px] motion-safe:transition-[top,left] motion-safe:duration-300"
         style={posizioneScheda(riquadro, altezza)}
       >
         {/* reading bar: when full, X and "Avanti" wake up */}
@@ -277,10 +333,17 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
             ) : (
               <span />
             )}
-            <Button type="button" className={cn('h-11', !pronto && 'opacity-60')} disabled={!pronto} onClick={avanti}>
-              {ultimo ? 'Fine' : 'Avanti'}
-              {ultimo ? null : <ArrowRight className="size-4" aria-hidden="true" />}
-            </Button>
+            {toccaQui ? (
+              <p className="flex items-center gap-1.5 text-sm font-medium text-primary-light" data-testid="tutorial-tocca">
+                <Pointer className="size-4" aria-hidden="true" />
+                Tocca il pulsante evidenziato
+              </p>
+            ) : (
+              <Button type="button" className={cn('h-11', !pronto && 'opacity-60')} disabled={!pronto} onClick={avanti}>
+                {ultimo ? 'Fine' : 'Avanti'}
+                {ultimo ? null : <ArrowRight className="size-4" aria-hidden="true" />}
+              </Button>
+            )}
           </div>
         </div>
       </div>

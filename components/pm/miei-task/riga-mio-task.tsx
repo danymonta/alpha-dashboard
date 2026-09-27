@@ -41,7 +41,7 @@ export function RigaMioTask({ task }: { task: MioTask }) {
   }
 
   return (
-    <li aria-label={task.titolo} data-testid="mio-task" className="flex items-start gap-1 py-1 pr-2">
+    <li aria-label={task.titolo} data-testid="mio-task" data-tour="mio-task" className="flex items-start gap-1 py-1 pr-2">
       <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center">
         <Checkbox
           checked={completato}

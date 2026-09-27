@@ -4,16 +4,35 @@ import type { AppRole } from '@/lib/auth/roles'
  * The guided tour shown at the first sign-in, one per role (CLAUDE.md
  * section 21). Configured here, not by the admin: changes go through code.
  *
- * `target` lists data-tour ids in order of preference: the first one visible
- * on screen is highlighted (e.g. a nav item on desktop, "Altro" on the phone
- * when the item lives there). No visible target: the card sits in the middle.
+ * - `target`: data-tour ids in order of preference; the first one visible is
+ *   highlighted (a nav item on desktop, "Altro" on the phone when it lives
+ *   there). No visible target: the card sits in the middle.
+ * - `clic`: the person taps the highlighted element (a link) to go on: the
+ *   page opens and the tour continues inside it.
+ * - `pagina`: the page the step lives on; the tour opens it if needed.
  */
 export type PassoTutorial = {
   id: string
   titolo: string
   testo: string
   target?: string[]
+  clic?: boolean
+  pagina?: string
 }
+
+/** Elements inside pages that a step may point at (data-tour in the page code). */
+export const TARGET_DI_PAGINA = [
+  'kpi-cash',
+  'nuova-vendita',
+  'previsione-cassa',
+  'oggi-contatori',
+  'oggi-salvato',
+  'nuova-call',
+  'registra-esito',
+  'elenco-vendite',
+  'mio-task',
+  'card-progetto',
+] as const
 
 /** What each role does, as the tour and the admin's preview menu call it. */
 export const FUNZIONE: Record<AppRole, string> = {
@@ -32,15 +51,13 @@ function benvenuto(funzione: string): PassoTutorial {
   return {
     id: 'benvenuto',
     titolo: 'Benvenuto in Alpha Management',
-    testo: `Ti mostro in un minuto dove trovi le cose del tuo lavoro da ${funzione.toLowerCase()}. Puoi rivedere questo tour quando vuoi dal tuo profilo.`,
+    testo: `Ti accompagno nelle pagine del tuo lavoro da ${funzione.toLowerCase()}: tocca quello che evidenzio. Puoi rivedere questo tour quando vuoi dal tuo profilo.`,
   }
 }
 
-const ALFIRE_PROGETTI: PassoTutorial = {
-  id: 'alfire',
-  titolo: 'Alfire, la nostra AI',
-  testo: 'Chiedile quali task hai aperti, come va un progetto o di segnare un task come fatto. Puoi anche parlarle col vocale: scrive solo dopo la tua conferma.',
-  target: ['alfire'],
+/** "Tocca X": the step that opens a page from the navigation. */
+function tocca(href: string, id: string, titolo: string, testo: string): PassoTutorial {
+  return { id, titolo, testo, target: nav(href), clic: true }
 }
 
 const PROFILO: PassoTutorial = {
@@ -50,64 +67,73 @@ const PROFILO: PassoTutorial = {
   target: ['profilo'],
 }
 
-function soloProgetti(funzione: string, progetti: string, tempo: string): PassoTutorial[] {
+function alfire(testo: string): PassoTutorial {
+  return { id: 'alfire', titolo: 'Alfire, la nostra AI', testo, target: ['alfire'] }
+}
+
+function soloProgetti(funzione: string, progetti: string): PassoTutorial[] {
   return [
     benvenuto(funzione),
+    tocca('/task', 'vai-task', 'I miei task', 'Tocca «I miei task»: è la tua pagina di tutti i giorni.'),
     {
-      id: 'miei-task',
-      titolo: 'I miei task',
-      testo: 'La tua pagina di tutti i giorni: quello che ti è stato assegnato in ogni progetto, diviso per scadenza. Spunta quando è fatto.',
-      target: nav('/task'),
+      id: 'task',
+      pagina: '/task',
+      titolo: 'Un task',
+      testo: 'Qui c’è tutto quello che ti è stato assegnato, per scadenza. Spunta quando è fatto; la sveglia a destra avvia il timer, che resta in alto su ogni pagina.',
+      target: ['mio-task'],
     },
-    { id: 'progetti', titolo: 'Progetti', testo: progetti, target: nav('/progetti') },
-    { id: 'tempo', titolo: 'Il mio tempo', testo: tempo, target: nav('/tempo') },
-    ALFIRE_PROGETTI,
+    tocca('/progetti', 'vai-progetti', 'Progetti', 'Tocca «Progetti».'),
+    { id: 'progetto', pagina: '/progetti', titolo: 'I progetti', testo: progetti, target: ['card-progetto'] },
+    {
+      id: 'tempo',
+      titolo: 'Il mio tempo',
+      testo: 'Qui ritrovi il tempo che hai registrato, giorno per giorno, e aggiungi i minuti dimenticati. Lo vedi tu e chi gestisce il progetto.',
+      target: nav('/tempo'),
+    },
+    alfire('Chiedile quali task hai aperti o di segnarne uno come fatto, anche col vocale. Scrive solo dopo la tua conferma.'),
     PROFILO,
   ]
 }
-
-const TEMPO_PERSONALE =
-  'Tocca la sveglia accanto a un task: il timer resta in alto a destra su ogni pagina e quando lo fermi ti chiede una nota. Il tuo tempo lo vedi tu e chi gestisce il progetto.'
 
 export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
   admin: [
     benvenuto('admin'),
     {
       id: 'panoramica',
+      pagina: '/',
       titolo: 'Panoramica',
-      testo: 'Il mese in un colpo d’occhio: cash incassato, quanto è nuovo e quanto rinnovo, margine operativo, funnel e chi deve ancora pagare.',
-      target: nav('/'),
+      testo: 'Il mese in un colpo d’occhio: cash incassato e quanto è nuovo o rinnovo, margine operativo, obiettivi, da dove arrivano i soldi e chi deve pagare.',
+      target: ['kpi-cash'],
     },
+    tocca('/sales', 'vai-vendite', 'Vendite', 'Tocca «Vendite».'),
     {
-      id: 'vendite',
-      titolo: 'Vendite',
-      testo: 'I contratti firmati. Da qui registri una nuova vendita: prodotto o percorso su misura, piano rate, setter e closer.',
-      target: nav('/sales'),
+      id: 'nuova-vendita',
+      pagina: '/sales',
+      titolo: 'Nuova vendita',
+      testo: 'Da qui registri una vendita: prodotto o percorso su misura, piano rate, setter e closer. Oppure dilla ad Alfire.',
+      target: ['nuova-vendita'],
     },
+    tocca('/payments', 'vai-incassi', 'Incassi', 'Tocca «Incassi».'),
     {
       id: 'incassi',
-      titolo: 'Incassi',
-      testo: 'I soldi, rata per rata: segni incassata con un tocco e le rate in ritardo sono in evidenza.',
-      target: nav('/payments'),
+      pagina: '/payments',
+      titolo: 'I soldi in arrivo',
+      testo: 'Quanto entra nei prossimi mesi e quanto è in ritardo. Sotto, rata per rata: segni incassata con un tocco o scrivi al cliente su WhatsApp.',
+      target: ['previsione-cassa'],
     },
     {
-      id: 'clienti',
-      titolo: 'Clienti',
-      testo: 'Ogni cliente con il suo stato, le vendite, le rate e quanto ha pagato nel tempo.',
-      target: nav('/clients', 'nav-altro'),
+      id: 'rinnovi',
+      titolo: 'Rinnovi',
+      testo: 'Chi finisce il percorso a breve e chi l’ha finito da poco, con il messaggio WhatsApp pronto e “Registra rinnovo”.',
+      target: nav('/rinnovi', 'nav-altro'),
     },
     {
       id: 'impostazioni',
       titolo: 'Impostazioni',
-      testo: 'Team e inviti, prodotti, regole provvigioni, reparti e l’esportazione per la commercialista.',
+      testo: 'Team e inviti, prodotti, regole provvigioni, reparti, esportazione e backup.',
       target: nav('/settings', 'nav-altro'),
     },
-    {
-      id: 'alfire',
-      titolo: 'Alfire, la nostra AI',
-      testo: 'Chiedile i numeri o dille cosa registrare, anche col vocale: “Loris ha pagato 2.500 € in contanti”. Scrive solo dopo la tua conferma.',
-      target: ['alfire'],
-    },
+    alfire('Chiedile i numeri o dille cosa registrare, anche col vocale: “Loris ha pagato 2.500 € in contanti”. Scrive solo dopo la tua conferma.'),
     {
       id: 'testa',
       titolo: 'Testa il tutorial',
@@ -118,22 +144,33 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
   ],
   setter: [
     benvenuto('setter'),
+    tocca('/today', 'vai-oggi', 'Oggi', 'Tocca «Oggi»: è la pagina che compili ogni giorno.'),
     {
-      id: 'oggi',
-      titolo: 'Oggi',
-      testo: 'Il tuo report del giorno: tocca + e − per DM, conversazioni e call. Si salva da solo, ci metti meno di un minuto.',
-      target: nav('/today'),
+      id: 'contatori',
+      pagina: '/today',
+      titolo: 'I contatori',
+      testo: 'Ogni riga ha −1, +1 e +5: un tocco per ogni DM, conversazione o call. Puoi anche scrivere il numero.',
+      target: ['oggi-contatori'],
     },
     {
+      id: 'salvato',
+      pagina: '/today',
+      titolo: 'Si salva da solo',
+      testo: 'Qui vedi quando è stato salvato: nessun tasto “invia” da ricordare. Ci metti meno di un minuto.',
+      target: ['oggi-salvato'],
+    },
+    tocca('/calls/new', 'vai-nuova-call', 'Nuova call', 'Tocca «Nuova call».'),
+    {
       id: 'nuova-call',
-      titolo: 'Nuova call',
-      testo: 'Quando fissi una call la registri qui: lead e call nascono insieme, e il closer la trova tra le sue.',
-      target: nav('/calls/new'),
+      pagina: '/calls/new',
+      titolo: 'Fissa una call',
+      testo: 'Nome, handle, fonte, giorno e ora: lead e call nascono insieme e il closer la trova tra le sue.',
+      target: ['nuova-call'],
     },
     {
       id: 'pipeline',
       titolo: 'Pipeline',
-      testo: 'I tuoi lead: spostali da Call da fare a Follow-up, Cliente o Perso con un tocco.',
+      testo: 'I tuoi lead: li sposti da Call da fare a Follow-up, Cliente o Perso con un tocco.',
       target: nav('/leads'),
     },
     {
@@ -142,21 +179,18 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
       testo: 'Le tue metriche del mese e le provvigioni maturate e già pagate.',
       target: nav('/my-numbers'),
     },
-    {
-      id: 'alfire',
-      titolo: 'Alfire, la nostra AI',
-      testo: 'Chiedile come stai andando o dille “aggiungi 20 DM al report di oggi”, anche col vocale. Scrive solo dopo la tua conferma.',
-      target: ['alfire'],
-    },
+    alfire('Chiedile come stai andando o dille “aggiungi 20 DM al report di oggi”, anche col vocale. Scrive solo dopo la tua conferma.'),
     PROFILO,
   ],
   closer: [
     benvenuto('closer'),
+    tocca('/calls', 'vai-call', 'Le mie call', 'Tocca «Le mie call».'),
     {
-      id: 'call',
-      titolo: 'Le mie call',
-      testo: 'Le call di oggi e le prossime: registri l’esito in tre tocchi. Se chiudi, si apre la vendita già compilata.',
-      target: nav('/calls'),
+      id: 'esito',
+      pagina: '/calls',
+      titolo: 'Registra l’esito',
+      testo: 'Finita la call, da qui scrivi com’è andata in tre tocchi. Se chiudi, si apre la vendita già compilata.',
+      target: ['registra-esito'],
     },
     {
       id: 'pipeline',
@@ -164,41 +198,33 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
       testo: 'I lead delle tue call: aggiorna lo stato dopo ogni conversazione.',
       target: nav('/leads'),
     },
+    tocca('/my-sales', 'vai-vendite', 'Le mie vendite', 'Tocca «Le mie vendite».'),
     {
       id: 'vendite',
-      titolo: 'Le mie vendite',
+      pagina: '/my-sales',
+      titolo: 'Le tue vendite',
       testo: 'Le vendite che hai chiuso, con le rate e gli incassi.',
-      target: nav('/my-sales'),
+      target: ['elenco-vendite'],
     },
-    {
-      id: 'alfire',
-      titolo: 'Alfire, la nostra AI',
-      testo: 'Chiedile le call di oggi o di spostarne una, anche col vocale. Scrive solo dopo la tua conferma.',
-      target: ['alfire'],
-    },
+    alfire('Chiedile le call di oggi o di spostarne una, anche col vocale. Scrive solo dopo la tua conferma.'),
     PROFILO,
   ],
   coach: soloProgetti(
     FUNZIONE.coach,
-    'Qui trovi i percorsi dei tuoi clienti: liste con le tappe, task con le scadenze (onboarding, programmazione, call di check), note e Gantt.',
-    TEMPO_PERSONALE,
+    'Nel Fitness Coaching ogni progetto è un cliente: aprilo per vedere panoramica, tappe del percorso, task, tempo e note.',
   ),
   editor: soloProgetti(
     FUNZIONE.editor,
-    'Qui trovi i progetti di Contenuti e Video: reel e montaggi come task, con scadenze, note e Gantt.',
-    TEMPO_PERSONALE,
+    'I progetti di Contenuti e Video: aprine uno per vedere panoramica, reel e montaggi come task, Gantt e note.',
   ),
-  nutrizione: soloProgetti(
-    FUNZIONE.nutrizione,
-    'Qui trovi i progetti su cui lavori: liste, task con le scadenze, note e Gantt.',
-    TEMPO_PERSONALE,
-  ),
-  dev: soloProgetti(
-    FUNZIONE.dev,
-    'Qui trovi i progetti su cui lavori: liste, task con le scadenze, note e Gantt.',
-    TEMPO_PERSONALE,
-  ),
+  nutrizione: soloProgetti(FUNZIONE.nutrizione, 'Apri un progetto per vedere panoramica, task con le scadenze, Gantt e note.'),
+  dev: soloProgetti(FUNZIONE.dev, 'Apri un progetto per vedere panoramica, task con le scadenze, Gantt e note.'),
 }
 
 /** How long a step stays before it can be closed or skipped: time to read. */
 export const ATTESA_LETTURA_MS = 2000
+
+/** Is `pathname` the step's page ("/" only itself, the others with their sub-pages). */
+export function suPagina(pathname: string, pagina: string): boolean {
+  return pagina === '/' ? pathname === '/' : pathname === pagina || pathname.startsWith(`${pagina}/`)
+}

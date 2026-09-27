@@ -51,7 +51,7 @@ export function DeltaKpi({
 /** KPI tile: label, value, delta. */
 export function TileKpi({ etichetta, valore, delta, confronto, hero = false, className, children }: Props) {
   return (
-    <div className={cn('rounded-xl bg-card p-4', hero && 'md:p-5', className)}>
+    <div className={cn('rounded-xl bg-card p-4', hero && 'md:p-5', className)} data-tour={hero ? 'kpi-cash' : undefined}>
       <p className="text-sm text-muted-foreground">{etichetta}</p>
       <p
         className={cn(

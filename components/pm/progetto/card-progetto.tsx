@@ -32,6 +32,7 @@ export function CardProgetto({
   return (
     <Link
       href={`/progetti/${p.id}`}
+      data-tour="card-progetto"
       className="flex h-full flex-col gap-3 rounded-xl bg-card p-4 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       <div className="flex items-start justify-between gap-3">

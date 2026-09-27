@@ -109,6 +109,7 @@ export function RegistraEsito({ callId, nomeLead, descrizione, giaRegistrata, fu
           <Button
             type="button"
             variant={giaRegistrata ? 'ghost' : futura ? 'outline' : 'default'}
+            data-tour="registra-esito"
             className="h-11 shrink-0"
           />
         }

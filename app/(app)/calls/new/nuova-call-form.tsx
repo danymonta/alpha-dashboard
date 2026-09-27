@@ -95,7 +95,7 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
   })
 
   return (
-    <form onSubmit={invia} noValidate className="space-y-6">
+    <form onSubmit={invia} noValidate className="space-y-6" data-tour="nuova-call">
       <div className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="nome">Nome del lead</Label>

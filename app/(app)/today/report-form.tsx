@@ -149,8 +149,12 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle }: Props) {
     <div className="space-y-5">
       <StatoSalvataggio stato={stato} riprova={() => void salva()} />
 
-      {GRUPPI.map((gruppo) => (
-        <section key={gruppo.titolo} aria-labelledby={`gruppo-${gruppo.titolo}`}>
+      {GRUPPI.map((gruppo, i) => (
+        <section
+          key={gruppo.titolo}
+          aria-labelledby={`gruppo-${gruppo.titolo}`}
+          data-tour={i === 0 ? 'oggi-contatori' : undefined}
+        >
           <h2
             id={`gruppo-${gruppo.titolo}`}
             className="mb-1 px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
@@ -213,6 +217,7 @@ function StatoSalvataggio({ stato, riprova }: { stato: Stato; riprova: () => voi
     // bar (size-11 button + py-2.5 + 1px border = 65px); no top bar from md up.
     <div
       aria-live="polite"
+      data-tour="oggi-salvato"
       className="sticky top-[65px] z-10 -mx-1 flex min-h-11 items-center justify-between gap-3 bg-background px-1 text-sm md:top-0"
     >
       {stato.tipo === 'nuovo' ? (

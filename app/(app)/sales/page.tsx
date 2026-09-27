@@ -61,7 +61,7 @@ export default async function VenditePage({
           </>
         }
         azione={
-          <LinkBottone href="/sales/new">
+          <LinkBottone href="/sales/new" data-tour="nuova-vendita">
             <Plus className="size-4" aria-hidden="true" />
             Nuova vendita
           </LinkBottone>

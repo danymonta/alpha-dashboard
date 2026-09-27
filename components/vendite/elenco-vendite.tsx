@@ -46,7 +46,7 @@ export function ElencoVendite({
 }) {
   return (
     <>
-      <ul className="space-y-2 md:hidden" data-testid="elenco-vendite">
+      <ul className="space-y-2 md:hidden" data-testid="elenco-vendite" data-tour="elenco-vendite">
         {righe.map((r) => (
           <li key={r.id}>
             <Link href={`/sales/${r.id}`} className="block rounded-xl bg-card p-3 hover:bg-accent">
@@ -74,7 +74,7 @@ export function ElencoVendite({
       </ul>
 
       {/* x-scroll inside the card only if the viewport is narrower than the columns */}
-      <div className="hidden overflow-x-auto rounded-xl bg-card md:block">
+      <div className="hidden overflow-x-auto rounded-xl bg-card md:block" data-tour="elenco-vendite">
         {/* fixed layout: stacked tables (e.g. Le mie vendite) keep their columns aligned.
             A client's history is a single table: auto layout sizes it on its content. */}
         <table className={`w-full text-sm ${mostraCliente ? 'table-fixed' : 'table-auto'}`}>
