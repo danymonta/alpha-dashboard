@@ -527,6 +527,16 @@ Chiesto da Dany il 27/09/2026.
 - Foto: di base quella di Google (`profiles.foto_url`, copiata all'ingresso), oppure caricata: bucket pubblico `avatari`, una cartella per persona, scrittura solo nella propria (policy su `storage.objects`), ritaglio quadrato 256 px in WebP o JPEG nel browser. Eliminando o unendo una persona le sue foto si cancellano.
 - Nome e foto si cambiano solo con `aggiorna_mio_profilo` (`security definer`): nessuna policy di update su `profiles` per i non admin, così ruolo e stato restano fuori portata.
 
+## 21. Tutorial al primo accesso
+
+Chiesto da Dany il 27/09/2026.
+
+- Al primo accesso dopo l'invito parte da solo un tour guidato, dopo l'intro di brand. Si vede una volta: `profiles.tutorial_visto` (un flag, non una data: la rubrica del team è leggibile da tutti), acceso da `segna_tutorial_visto()` (`security definer`, solo il proprio). Chi c'era già all'arrivo del tutorial è segnato come visto; i seed pure.
+- Un percorso per ruolo e funzione (admin, setter, closer, coach fitness, video editor, nutrizione, sviluppo), configurato in codice in `lib/tutorial/percorsi.ts`: Dany non lo modifica dall'app, chiede e si cambia lì. Testato: ogni passo evidenzia una voce che quel ruolo ha davvero.
+- Ogni passo: contatore "2/7", titolo, testo breve, elemento evidenziato (attributi `data-tour` nella shell: voci di navigazione, "Altro", Alfire, profilo); senza elemento visibile la scheda sta al centro. Una barra di 2 secondi (`ATTESA_LETTURA_MS`) dà il tempo di leggere: prima di allora la X e "Avanti" sono spenti. Esc chiude, frecce per navigare.
+- Si rivede da Profilo › Account › "Rivedi il tutorial". L'admin ha "Testa il tutorial" in alto a destra: sceglie un ruolo e vede quel tour in anteprima, senza segnare nulla.
+- Chi non è invitato non entra: il trigger su `auth.users` rifiuta ogni email senza invito (sezione 7).
+
 <!-- Everything above this line is ours. The block below is rewritten by `next dev`: never write inside it. -->
 
 <!-- BEGIN:nextjs-agent-rules -->

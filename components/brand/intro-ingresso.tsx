@@ -16,6 +16,9 @@ import { cn } from '@/lib/utils'
  */
 
 const CHIAVE_SESSIONE = 'alpha:intro-vista'
+
+/** Fired when the intro is gone; `html[data-intro]` is set while it plays. */
+export const EVENTO_INTRO_FINITA = 'alpha:intro-finita'
 const DURATA_ENTRATA_MS = 1100
 const DURATA_USCITA_MS = 400
 const DURATA_SALTO_MS = 180
@@ -53,12 +56,18 @@ export function IntroIngresso() {
       // Marked here, not before: StrictMode's double effect would otherwise
       // mark the intro as seen before it has ever been shown.
       segnaVista()
+      document.documentElement.dataset.intro = 'in-corso'
       setFase('entrata')
     })
     return () => cancelAnimationFrame(raf)
   }, [])
 
   useEffect(() => {
+    // the first-sign-in tour waits for the brand moment to end (components/tutorial)
+    if (fase === 'finita' && document.documentElement.dataset.intro) {
+      delete document.documentElement.dataset.intro
+      window.dispatchEvent(new Event(EVENTO_INTRO_FINITA))
+    }
     if (fase === 'attesa' || fase === 'finita') return
 
     const durata =

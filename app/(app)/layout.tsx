@@ -20,6 +20,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       nome={profilo.nome}
       foto={profilo.foto_url}
       alfireConfigurata={alfireConfigurata()}
+      primoAccesso={!profilo.tutorial_visto}
     >
       {children}
     </AppShell>

@@ -153,6 +153,7 @@ export function BottoneAlfire({ conEtichetta = false }: { conEtichetta?: boolean
       aria-label="Chatta con Alfire"
       className={cn('group h-11 gap-2', conEtichetta ? 'px-3' : 'w-11 px-0')}
       data-testid="apri-alfire"
+      data-tour="alfire"
     >
       <Fiamma className="size-6" />
       {conEtichetta ? <span className="text-sm font-medium">Chatta con Alfire</span> : null}

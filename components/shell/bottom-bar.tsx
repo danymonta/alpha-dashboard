@@ -37,6 +37,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
             <li key={voce.href} className="flex-1">
               <Link
                 href={voce.href}
+                data-tour={`nav-${voce.href}`}
                 aria-current={attiva ? 'page' : undefined}
                 className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] leading-tight ${
                   attiva ? 'text-foreground' : 'text-muted-foreground'
@@ -60,6 +61,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                 render={
                   <button
                     type="button"
+                    data-tour="nav-altro"
                     className={`flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] leading-tight ${
                       altroAttivo ? 'text-foreground' : 'text-muted-foreground'
                     }`}

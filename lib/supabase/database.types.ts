@@ -615,13 +615,13 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "attivo": boolean,"created_at": string,"email": string,"foto_url": string | null,"id": string,"livello_pm": Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"updated_at": string
+                    "attivo": boolean,"created_at": string,"email": string,"foto_url": string | null,"id": string,"livello_pm": Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"tutorial_visto": boolean,"updated_at": string
                   }
                   Insert: {
-                    "attivo"?: boolean,"created_at"?: string,"email": string,"foto_url"?: string | null,"id": string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"email": string,"foto_url"?: string | null,"id": string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"tutorial_visto"?: boolean,"updated_at"?: string
                   }
                   Update: {
-                    "attivo"?: boolean,"created_at"?: string,"email"?: string,"foto_url"?: string | null,"id"?: string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome"?: string,"ruolo"?: Database["public"]['Enums']["app_role"],"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"email"?: string,"foto_url"?: string | null,"id"?: string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome"?: string,"ruolo"?: Database["public"]['Enums']["app_role"],"tutorial_visto"?: boolean,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -1201,6 +1201,9 @@ isOneToOne: false
 { Args: { "p_importo"?: number,"p_incassato_il"?: string,"p_metodo"?: Database["public"]['Enums']["payment_method"],"p_payment_id": string }; Returns: {
               "data_registrata": string,"importo_registrato": number,"rata": number
             }[]
+                           },
+"segna_tutorial_visto":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "unisci_profili":
 { Args: { "p_a": string,"p_da": string }; Returns: undefined

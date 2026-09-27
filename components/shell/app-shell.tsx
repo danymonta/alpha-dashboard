@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { AlfireProvider } from '@/components/alfire/alfire'
 import { IntroIngresso } from '@/components/brand/intro-ingresso'
 import { TimerProvider } from '@/components/pm/tempo/timer-provider'
+import { TutorialProvider } from '@/components/tutorial/tutorial'
 import { BottomBar } from '@/components/shell/bottom-bar'
 import { Sidebar } from '@/components/shell/sidebar'
 import { TopBar } from '@/components/shell/top-bar'
@@ -15,6 +16,8 @@ type Props = {
   foto: string | null
   /** The model key is set (server env): otherwise Alfire explains what is missing. */
   alfireConfigurata: boolean
+  /** First sign-in after the invite: the guided tour starts by itself. */
+  primoAccesso: boolean
   children: ReactNode
 }
 
@@ -22,11 +25,12 @@ type Props = {
  * One shell for every area: Economics (admin, setter, closer) and Projects
  * (everyone). The navigation is keyed by role and grouped by area.
  */
-export function AppShell({ profiloId, ruolo, nome, foto, alfireConfigurata, children }: Props) {
+export function AppShell({ profiloId, ruolo, nome, foto, alfireConfigurata, primoAccesso, children }: Props) {
   return (
     // the running timer (Projects area) is shown in the sidebar and the top bar
     <TimerProvider profiloId={profiloId}>
       <AlfireProvider configurata={alfireConfigurata} ruolo={ruolo} nome={nome}>
+      <TutorialProvider ruolo={ruolo} primoAccesso={primoAccesso}>
       <div className="min-h-dvh md:pl-60">
         <Sidebar ruolo={ruolo} nome={nome} foto={foto} />
         <TopBar ruolo={ruolo} nome={nome} foto={foto} />
@@ -37,6 +41,7 @@ export function AppShell({ profiloId, ruolo, nome, foto, alfireConfigurata, chil
         {/* Brand moment: once per session, removed from the DOM when done */}
         <IntroIngresso />
       </div>
+      </TutorialProvider>
       </AlfireProvider>
     </TimerProvider>
   )

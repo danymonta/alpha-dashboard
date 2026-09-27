@@ -46,6 +46,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
                   <li key={voce.href}>
                     <Link
                       href={voce.href}
+                      data-tour={`nav-${voce.href}`}
                       aria-current={attiva ? 'page' : undefined}
                       className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${
                         attiva
@@ -68,6 +69,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
         <div className="flex items-center gap-1">
           <Link
             href="/account"
+            data-tour="profilo"
             aria-current={pathname.startsWith('/account') ? 'page' : undefined}
             aria-label={`Il tuo profilo: ${nome}`}
             className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:bg-accent"
