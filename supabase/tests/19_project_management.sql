@@ -174,7 +174,8 @@ select is((select count(*)::int from public.pm_reparti), 4, 'ma vede i reparti')
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 select ok(
   (select count(*) from public.pm_progetti where id = (select id from ids where chiave = 'progetto')) = 1
-  and (select count(*) from public.pm_tempo) = 3,
+  -- scoped to this project: the demo seed has time on the other projects
+  and (select count(*) from public.pm_tempo where progetto_id = (select id from ids where chiave = 'progetto')) = 3,
   'l''admin vede tutti i progetti e tutto il tempo'
 );
 

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 
 import { esci } from '@/app/auth/actions'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
+import { TimerAttivo } from '@/components/pm/tempo/timer-attivo'
 import { Button } from '@/components/ui/button'
 import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
 import { isAttiva, perSezione, vociNav } from '@/lib/nav'
@@ -26,6 +27,8 @@ export function Sidebar({ ruolo, nome }: Props) {
         <LogoFuoco dimensione="compatto" />
         <p className="font-heading text-base font-semibold">Percorso Alpha</p>
       </div>
+
+      <TimerAttivo variante="sidebar" />
 
       <nav aria-label="Navigazione principale" className="flex-1 space-y-4 overflow-y-auto px-2">
         {gruppi.map(({ sezione, voci }) => (

@@ -26,6 +26,12 @@
   --chart-rinnovo: #b08a1c;
   --chart-upsell: #4f8fd1;
 
+  /* Gantt series (Projects area), bound to the entity: list = milestone, task.
+     Validated on #1C1C1E: lightness band, chroma, CVD and normal-vision
+     separation, contrast >= 3:1. Never reused for another entity. */
+  --gantt-lista: #0fa094;
+  --gantt-task: #9179d0;
+
   /* Status: always paired with an icon and a label, never colour alone */
   --status-ok: #4caf7a;
   --status-warning: #e0a43a;
@@ -106,6 +112,8 @@
   --color-chart-nuovo: var(--chart-nuovo);
   --color-chart-rinnovo: var(--chart-rinnovo);
   --color-chart-upsell: var(--chart-upsell);
+  --color-gantt-lista: var(--gantt-lista);
+  --color-gantt-task: var(--gantt-task);
   --color-status-ok: var(--status-ok);
   --color-status-warning: var(--status-warning);
   --color-status-critical: var(--status-critical);

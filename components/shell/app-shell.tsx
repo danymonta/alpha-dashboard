@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 import { IntroIngresso } from '@/components/brand/intro-ingresso'
+import { TimerProvider } from '@/components/pm/tempo/timer-provider'
 import { BottomBar } from '@/components/shell/bottom-bar'
 import { Sidebar } from '@/components/shell/sidebar'
 import { TopBar } from '@/components/shell/top-bar'
@@ -18,15 +19,18 @@ type Props = {
  */
 export function AppShell({ ruolo, nome, children }: Props) {
   return (
-    <div className="min-h-dvh md:pl-60">
-      <Sidebar ruolo={ruolo} nome={nome} />
-      <TopBar ruolo={ruolo} nome={nome} />
-      <main className="mx-auto w-full max-w-5xl px-4 pt-4 pb-24 md:px-8 md:pt-8 md:pb-10">
-        {children}
-      </main>
-      <BottomBar ruolo={ruolo} />
-      {/* Brand moment: once per session, removed from the DOM when done */}
-      <IntroIngresso />
-    </div>
+    // the running timer (Projects area) is shown in the sidebar and the top bar
+    <TimerProvider>
+      <div className="min-h-dvh md:pl-60">
+        <Sidebar ruolo={ruolo} nome={nome} />
+        <TopBar ruolo={ruolo} nome={nome} />
+        <main className="mx-auto w-full max-w-5xl px-4 pt-4 pb-24 md:px-8 md:pt-8 md:pb-10">
+          {children}
+        </main>
+        <BottomBar ruolo={ruolo} />
+        {/* Brand moment: once per session, removed from the DOM when done */}
+        <IntroIngresso />
+      </div>
+    </TimerProvider>
   )
 }
