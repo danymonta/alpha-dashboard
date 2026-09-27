@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 
 import { messaggioErrore } from '@/lib/auth/azioni'
 import { getProfilo } from '@/lib/auth/session'
@@ -60,6 +61,21 @@ export type EsitoModifica = { ok: true } | { ok: false; errore: string }
  * Reschedule, change type, closer or notes; the closer and the admin also record
  * how the call went. Who may touch which call is decided by RLS inside the RPCs.
  */
+/** Admin only (public.elimina_call): a sale that came from it stays, without the call. */
+export async function eliminaCall(input: unknown): Promise<EsitoModifica> {
+  const parsed = z.object({ id: z.string().uuid() }).safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Call non valida.' }
+  const profilo = await getProfilo()
+  if (profilo?.ruolo !== 'admin' || !profilo.attivo) return { ok: false, errore: 'Solo l’admin elimina una call.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('elimina_call', { p_call_id: parsed.data.id })
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Call non eliminata. Riprova.') }
+
+  for (const pagina of ['/calls', '/leads', '/setting', '/']) revalidatePath(pagina)
+  return { ok: true }
+}
+
 export async function modificaCall(input: unknown): Promise<EsitoModifica> {
   const parsed = modificaCallSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }

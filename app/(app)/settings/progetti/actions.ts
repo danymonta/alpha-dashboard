@@ -18,6 +18,7 @@ const NEGATO = 'Operazione riservata all’admin dei progetti.'
 
 function errore(error: { code?: string; message: string }, fallback: string) {
   if (error.code === '23505') return 'Esiste già un reparto con questo nome.'
+  if (error.code === '23503') return 'Il reparto ha ancora dei progetti: spostali in un altro reparto o eliminali prima.'
   if (error.code === '42501' && error.message.includes('row-level security')) return NEGATO
   return messaggioErrore(error, fallback)
 }
@@ -33,7 +34,7 @@ function primoErrore(e: { issues: { message: string }[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Departments: added, renamed, reordered, switched off. Never deleted: projects point to them.
+// Departments: added, renamed, reordered, switched off, deleted once they have no projects.
 // ---------------------------------------------------------------------------
 export async function salvaReparto(input: unknown): Promise<Esito> {
   const parsed = repartoSchema.safeParse(input)
@@ -73,6 +74,22 @@ export async function cambiaAttivoReparto(input: unknown): Promise<Esito> {
     .eq('id', parsed.data.id)
     .select('id')
   if (error) return { ok: false, errore: errore(error, 'Operazione non riuscita. Riprova.') }
+  if (data.length === 0) return { ok: false, errore: NEGATO }
+
+  aggiorna()
+  return { ok: true }
+}
+
+/** Its templates go with it; a department with projects is refused by the foreign key. */
+export async function eliminaReparto(input: unknown): Promise<Esito> {
+  const parsed = idSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Reparto non valido.' }
+  const negato = await negaSeNonPm(SOLO_ADMIN)
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('pm_reparti').delete().eq('id', parsed.data.id).select('id')
+  if (error) return { ok: false, errore: errore(error, 'Reparto non eliminato. Riprova.') }
   if (data.length === 0) return { ok: false, errore: NEGATO }
 
   aggiorna()
@@ -151,6 +168,22 @@ export async function cambiaAttivoModello(input: unknown): Promise<Esito> {
   if (data.length === 0) return { ok: false, errore: NEGATO }
 
   aggiorna(parsed.data.id)
+  return { ok: true }
+}
+
+/** Projects already opened from it keep their lists and tasks. */
+export async function eliminaModello(input: unknown): Promise<Esito> {
+  const parsed = idSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Modello non valido.' }
+  const negato = await negaSeNonPm(SOLO_ADMIN)
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('pm_modelli').delete().eq('id', parsed.data.id).select('id')
+  if (error) return { ok: false, errore: errore(error, 'Modello non eliminato. Riprova.') }
+  if (data.length === 0) return { ok: false, errore: NEGATO }
+
+  aggiorna()
   return { ok: true }
 }
 

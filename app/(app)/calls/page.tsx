@@ -159,6 +159,7 @@ export default async function LeMieCallPage() {
       adesso={adesso}
       vista={vista}
       mostraGiorno={mostraGiorno}
+      eliminabile={profilo.ruolo === 'admin'}
     />
   )
 

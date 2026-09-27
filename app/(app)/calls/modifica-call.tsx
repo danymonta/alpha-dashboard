@@ -5,7 +5,8 @@ import { Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
-import { modificaCall } from '@/app/(app)/calls/actions'
+import { eliminaCall, modificaCall } from '@/app/(app)/calls/actions'
+import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import {
   BottoneSalva,
@@ -57,6 +58,7 @@ export function ModificaCall({
   closers,
   prodotti,
   conDettagli,
+  eliminabile = false,
 }: {
   call: CallModificabile
   nomeLead: string
@@ -65,6 +67,8 @@ export function ModificaCall({
   prodotti: Voce[]
   /** Closer and admin: link, performance, product and amount pitched. */
   conDettagli: boolean
+  /** Admin only. */
+  eliminabile?: boolean
 }) {
   const [aperto, setAperto] = useState(false)
   const { errore, setErrore, salva } = useSalvataggio()
@@ -211,6 +215,20 @@ export function ModificaCall({
 
         <ErroreModulo testo={errore} />
         <BottoneSalva inCorso={isSubmitting}>Salva la call</BottoneSalva>
+        {eliminabile ? (
+          <div className="border-t border-border pt-4">
+            <Elimina
+              etichetta="Elimina la call"
+              cosa={`la call con ${nomeLead}`}
+              fatto="Call eliminata"
+              conseguenze={[
+                'Il lead resta nella pipeline.',
+                'Se da questa call è nata una vendita, la vendita resta, senza la call collegata.',
+              ]}
+              azione={() => eliminaCall({ id: call.id })}
+            />
+          </div>
+        ) : null}
       </form>
     </FoglioModifica>
   )

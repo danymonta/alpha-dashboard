@@ -9,10 +9,12 @@ import { toast } from 'sonner'
 
 import {
   cambiaAttivoModello,
+  eliminaModello,
   eliminaVoce,
   salvaModello,
   salvaVoce,
 } from '@/app/(app)/settings/progetti/actions'
+import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, CLASSE_SELECT, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
@@ -118,6 +120,18 @@ export function ModelloForm({ modello, reparti }: { modello?: Modello; reparti: 
         </div>
         <ErroreModulo testo={errore} />
         <BottoneSalva inCorso={isSubmitting}>{modello ? 'Salva il modello' : 'Crea il modello'}</BottoneSalva>
+        {modello ? (
+          <div className="border-t border-border pt-4">
+            <Elimina
+              etichetta="Elimina il modello"
+              cosa={`il modello ${modello.nome}`}
+              fatto={`${modello.nome} eliminato`}
+              conseguenze={['I progetti già aperti con questo modello restano come sono.']}
+              dopo="/settings/progetti"
+              azione={() => eliminaModello({ id: modello.id })}
+            />
+          </div>
+        ) : null}
       </form>
     </FoglioModifica>
   )

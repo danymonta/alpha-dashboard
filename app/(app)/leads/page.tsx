@@ -226,6 +226,7 @@ export default async function PipelinePage({
                         : null
                     }
                     titolo={<h3 id={idTitolo} className="truncate text-sm font-medium">{lead.nome}</h3>}
+                    eliminabile={profilo.ruolo === 'admin'}
                   >
                     <p className="truncate text-sm text-muted-foreground">{dettagli.join(' · ')}</p>
                     <p className="mt-1 text-xs text-muted-foreground">

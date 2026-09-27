@@ -6,7 +6,8 @@ import { useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
-import { chiudiRegola, modificaRegola, nuovaRegola } from '@/app/(app)/settings/commissions/actions'
+import { chiudiRegola, eliminaRegola, modificaRegola, nuovaRegola } from '@/app/(app)/settings/commissions/actions'
+import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
 import { SceltaMultipla } from '@/components/form/scelta-multipla'
@@ -284,6 +285,18 @@ export function ModificaRegola({ regola, etichetta }: { regola: ModificaRegolaIn
         />
         <ErroreModulo testo={errore} />
         <BottoneSalva inCorso={isSubmitting}>Salva la regola</BottoneSalva>
+        <div className="border-t border-border pt-4">
+          <Elimina
+            etichetta="Elimina la regola"
+            cosa={`la regola ${etichetta}`}
+            fatto="Regola eliminata"
+            conseguenze={[
+              'Le provvigioni maturate con questa regola spariscono da tutti i mesi, anche passati.',
+              'Per smettere da una data in poi, usa “Chiudi” invece di eliminare.',
+            ]}
+            azione={() => eliminaRegola({ id: regola.id })}
+          />
+        </div>
       </form>
     </FoglioModifica>
   )

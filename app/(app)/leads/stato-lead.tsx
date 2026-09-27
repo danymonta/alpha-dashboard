@@ -17,7 +17,8 @@ import { useOptimistic, useState, useTransition, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
-import { aggiornaStatoLead, modificaLead } from '@/app/(app)/leads/actions'
+import { aggiornaStatoLead, eliminaLead, modificaLead } from '@/app/(app)/leads/actions'
+import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, ErroreModulo, useSalvataggio } from '@/components/form/foglio-modifica'
 import { SceltaRapida } from '@/components/form/scelta-rapida'
@@ -99,6 +100,7 @@ export function StatoLeadArea({
   suggerimento,
   dati,
   titolo,
+  eliminabile = false,
   children,
 }: {
   leadId: string
@@ -109,6 +111,8 @@ export function StatoLeadArea({
   dati: Omit<ModificaLeadInput, 'id'> | null
   /** The name: shares its line with the status, the details below get the full width. */
   titolo: ReactNode
+  /** Admin: the lead can be deleted, with its calls. */
+  eliminabile?: boolean
   children: ReactNode
 }) {
   const { mostrato, inCorso, cambia } = useAggiornaStato(leadId, nome, stato)
@@ -200,6 +204,17 @@ export function StatoLeadArea({
                   Stato
                 </button>
                 <FormLead id={leadId} dati={dati} onSalvato={() => setAperto(false)} />
+                {eliminabile ? (
+                  <div className="border-t border-border pt-4">
+                    <Elimina
+                      etichetta="Elimina il lead"
+                      cosa={nome}
+                      fatto="Lead eliminato"
+                      anteprima={{ tipo: 'lead', id: leadId }}
+                      azione={() => eliminaLead({ id: leadId })}
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </SheetContent>

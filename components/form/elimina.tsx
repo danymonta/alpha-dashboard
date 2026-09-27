@@ -37,6 +37,8 @@ type Props = {
   variante?: 'foglio' | 'icona'
   etichetta?: string
   disabilitato?: boolean
+  /** Known in advance (e.g. a department with projects): the question explains, the button stays off. */
+  bloccata?: boolean
 }
 
 /**
@@ -53,11 +55,12 @@ export function Elimina({
   variante = 'foglio',
   etichetta = 'Elimina',
   disabilitato = false,
+  bloccata: bloccataNota = false,
 }: Props) {
   const router = useRouter()
   const [aperto, setAperto] = useState(false)
   const [frasi, setFrasi] = useState<string[] | null>(anteprima ? null : conseguenze)
-  const [bloccata, setBloccata] = useState(false)
+  const [bloccata, setBloccata] = useState(bloccataNota)
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
 

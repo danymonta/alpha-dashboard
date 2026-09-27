@@ -6,7 +6,8 @@ import { useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
-import { cambiaAttivoReparto, salvaReparto, spostaReparto } from '@/app/(app)/settings/progetti/actions'
+import { cambiaAttivoReparto, eliminaReparto, salvaReparto, spostaReparto } from '@/app/(app)/settings/progetti/actions'
+import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
@@ -14,9 +15,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { eliminazioneBloccata, frasiAnteprima } from '@/lib/eliminazione'
 import { repartoSchema, type RepartoInput } from '@/lib/validation/progetti'
 
-type Reparto = { id: string; nome: string; descrizione: string | null }
+type Reparto = { id: string; nome: string; descrizione: string | null; progetti: number; modelli: number }
 
 /** New department, or rename one: the same sheet. */
 export function RepartoForm({ reparto }: { reparto?: Reparto }) {
@@ -55,7 +57,7 @@ export function RepartoForm({ reparto }: { reparto?: Reparto }) {
             variant="ghost"
             size="icon"
             className="size-11 shrink-0 text-muted-foreground"
-            aria-label={`Rinomina ${reparto.nome}`}
+            aria-label={`Modifica ${reparto.nome}`}
           />
         ) : (
           <Button type="button" className="h-11" />
@@ -87,6 +89,18 @@ export function RepartoForm({ reparto }: { reparto?: Reparto }) {
         </div>
         <ErroreModulo testo={errore} />
         <BottoneSalva inCorso={isSubmitting}>{reparto ? 'Salva il reparto' : 'Crea il reparto'}</BottoneSalva>
+        {reparto ? (
+          <div className="border-t border-border pt-4">
+            <Elimina
+              etichetta="Elimina il reparto"
+              cosa={`il reparto ${reparto.nome}`}
+              fatto={`${reparto.nome} eliminato`}
+              conseguenze={frasiAnteprima('reparto', reparto)}
+              bloccata={eliminazioneBloccata('reparto', reparto)}
+              azione={() => eliminaReparto({ id: reparto.id })}
+            />
+          </div>
+        ) : null}
       </form>
     </FoglioModifica>
   )

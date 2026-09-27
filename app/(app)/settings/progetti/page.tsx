@@ -75,7 +75,15 @@ export default async function ImpostazioniProgettiPage() {
                   <span className="mr-auto md:mr-0">
                     <AttivoReparto id={r.id} nome={r.nome} attivo={r.attivo} />
                   </span>
-                  <RepartoForm reparto={{ id: r.id, nome: r.nome, descrizione: r.descrizione }} />
+                  <RepartoForm
+                    reparto={{
+                      id: r.id,
+                      nome: r.nome,
+                      descrizione: r.descrizione,
+                      progetti,
+                      modelli: modelli.data.filter((m) => m.reparto_id === r.id).length,
+                    }}
+                  />
                 </li>
               )
             })}

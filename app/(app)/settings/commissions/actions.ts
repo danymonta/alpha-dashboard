@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 
+import { z } from 'zod'
+
 import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
 import { createClient } from '@/lib/supabase/server'
 import { chiudiRegolaSchema, modificaRegolaSchema, regolaSchema } from '@/lib/validation/team'
@@ -76,6 +78,22 @@ export async function modificaRegola(input: unknown): Promise<Esito> {
     .maybeSingle()
   if (error) return { ok: false, errore: messaggioErrore(error, 'Regola non aggiornata. Riprova.') }
   if (!data) return { ok: false, errore: 'Regola non trovata.' }
+
+  aggiorna()
+  return { ok: true }
+}
+
+/** Commissions accrued under it disappear: the rule no longer applies to any month. */
+export async function eliminaRegola(input: unknown): Promise<Esito> {
+  const parsed = z.object({ id: z.string().uuid() }).safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Regola non valida.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('commission_rules').delete().eq('id', parsed.data.id).select('id')
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Regola non eliminata. Riprova.') }
+  if (data.length === 0) return { ok: false, errore: 'Regola non trovata.' }
 
   aggiorna()
   return { ok: true }

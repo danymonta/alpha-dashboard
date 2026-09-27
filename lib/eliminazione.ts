@@ -10,6 +10,11 @@ function n(dati: Dati, chiave: string): number {
   return Number(dati[chiave] ?? 0)
 }
 
+/** The SQL sends the cashed amount already formatted ("0,00 €" when nothing came in). */
+function incassato(dati: Dati) {
+  return typeof dati.incassato === 'string' && !/^0,00\s/.test(dati.incassato)
+}
+
 function conta(quanti: number, uno: string, tanti: string) {
   return `${quanti} ${quanti === 1 ? uno : tanti}`
 }
@@ -41,7 +46,7 @@ export function frasiAnteprima(tipo: TipoEliminazione, dati: Dati): string[] {
       if (n(dati, 'vendite') > 0) {
         frasi.push(
           `Si eliminano anche ${conta(n(dati, 'vendite'), 'vendita', 'vendite')} e ${conta(n(dati, 'rate'), 'rata', 'rate')}` +
-            (n(dati, 'rate') > 0 ? `, con ${dati.incassato ?? '0,00 €'} già incassati.` : '.'),
+            (incassato(dati) ? `, con ${dati.incassato} già incassati.` : '.'),
         )
       }
       frasi.push('I numeri dei mesi passati cambiano di conseguenza.')

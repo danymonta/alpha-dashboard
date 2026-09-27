@@ -5,7 +5,8 @@ import { Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
-import { correggiReport } from '@/app/(app)/setting/actions'
+import { correggiReport, eliminaReport } from '@/app/(app)/setting/actions'
+import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
@@ -121,6 +122,15 @@ export function ModificaReport({
 
         <ErroreModulo testo={errore} />
         <BottoneSalva inCorso={isSubmitting}>Salva la correzione</BottoneSalva>
+        <div className="border-t border-border pt-4">
+          <Elimina
+            etichetta="Elimina il report"
+            cosa={`il report di ${setter} del ${formatData(data)}`}
+            fatto="Report eliminato"
+            conseguenze={['Le metriche di setting del periodo si ricalcolano senza questo giorno.']}
+            azione={() => eliminaReport({ id: report.id })}
+          />
+        </div>
       </form>
     </FoglioModifica>
   )

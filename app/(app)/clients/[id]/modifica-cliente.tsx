@@ -6,7 +6,8 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
-import { aggiornaCliente } from '@/app/(app)/clients/actions'
+import { aggiornaCliente, eliminaCliente } from '@/app/(app)/clients/actions'
+import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { CLASSE_SELECT } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
@@ -170,6 +171,18 @@ export function ModificaCliente({
             {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
             Salva
           </Button>
+          {cliente.id ? (
+            <div className="border-t border-border pt-4">
+              <Elimina
+                etichetta="Elimina il cliente"
+                cosa={`${cliente.nome} ${cliente.cognome ?? ''}`.trim()}
+                fatto="Cliente eliminato"
+                anteprima={{ tipo: 'cliente', id: cliente.id }}
+                dopo="/clients"
+                azione={() => eliminaCliente({ id: cliente.id })}
+              />
+            </div>
+          ) : null}
         </form>
       </SheetContent>
     </Sheet>

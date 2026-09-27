@@ -38,9 +38,10 @@ type Props = {
   /** closer: can record the outcome; setter: read only. */
   vista: 'closer' | 'setter'
   mostraGiorno?: boolean
+  eliminabile?: boolean
 }
 
-export function SchedaCall({ call, closers, prodotti, oggi, adesso, vista, mostraGiorno = true }: Props) {
+export function SchedaCall({ call, closers, prodotti, oggi, adesso, vista, mostraGiorno = true, eliminabile = false }: Props) {
   const giorno = oggiRoma(new Date(call.programmata_il))
   const ora = formatOra(call.programmata_il)
   const nome = call.lead?.nome ?? 'Lead senza nome'
@@ -102,6 +103,7 @@ export function SchedaCall({ call, closers, prodotti, oggi, adesso, vista, mostr
             closers={closers}
             prodotti={prodotti}
             conDettagli={vista === 'closer'}
+            eliminabile={eliminabile}
           />
         </div>
       </div>
