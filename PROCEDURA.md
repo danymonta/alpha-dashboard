@@ -220,6 +220,24 @@ npx tsx --env-file=.env.cloud.local scripts/import-excel.ts "import/MMM x Percor
 
 Lo script si può rilanciare: ciò che esiste già non viene duplicato né sovrascritto.
 
+**Stato al 28/09/2026 (fatto da Claude Code sul cloud):**
+- Prodotti "Percorso Alpha 3 mesi" (500 €) e "Percorso Alpha 6 mesi" (1.500 €), dai prezzi più frequenti del foglio delle call: si correggono in Impostazioni > Prodotti.
+- Loris non aveva ancora fatto l'accesso: i suoi dati sono sotto il profilo provvisorio **"Loris (da collegare)"** (`loris.setter@segnaposto.invalid`, non può entrare). Report di luglio e agosto, regola 5% dal 01/07/2026, due pagamenti riferiti a luglio, 5 vendite di luglio (4 sue: la base pagata di 4.250 € torna esatta senza quella del 01/07).
+- Quando Loris entra con Google, sposta tutto sul suo profilo vero e disattiva quello provvisorio:
+
+```bash
+npx tsx --env-file=.env.cloud.local scripts/collega-profilo.ts --da loris.setter@segnaposto.invalid --a <email di Loris> --cloud --prova
+```
+
+   Se il riepilogo torna, rilancia senza `--prova`.
+- Foglio delle call (Google Sheet "Database Sales Call") → lead e call con esito, performance, link alla registrazione, prodotto e importo proposto:
+
+```bash
+npx tsx --env-file=.env.cloud.local scripts/import-prospect.ts import/prospect-call.csv --closer <tua email> --cloud
+```
+
+   Il foglio non dice chi ha fissato ogni call: quelle call non hanno setter e non entrano nei numeri di Loris.
+
 **Verifica finale:** Loris compila il primo report reale dal telefono. Da quel giorno l'Excel si chiude.
 
 ---
