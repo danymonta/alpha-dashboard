@@ -155,7 +155,7 @@ export function PianoRateEditor({ control, register, errors, valore, dataVendita
           </div>
           <div className="space-y-1">
             <Label htmlFor="blocco-importo" className="text-xs text-muted-foreground">
-              Da (€ ciascuna)
+              Importo di ogni rata (€)
             </Label>
             <Input
               id="blocco-importo"
@@ -174,7 +174,7 @@ export function PianoRateEditor({ control, register, errors, valore, dataVendita
           </div>
         </div>
         <ErroreCampo id="blocco-errore" messaggio={erroreBlocco ?? undefined} />
-        <Button type="button" variant="outline" className="h-11 w-full" onClick={aggiungiBlocco}>
+        <Button type="button" variant="secondary" className="h-11 w-full" onClick={aggiungiBlocco}>
           <ListPlus className="size-4" aria-hidden="true" />
           Aggiungi al piano
         </Button>

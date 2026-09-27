@@ -26,7 +26,7 @@ export function SchedeAccount(contenuti: Record<Scheda, ReactNode>) {
       onValueChange={(v) => router.replace(v === 'profilo' ? '/account' : `/account?scheda=${v}`, { scroll: false })}
       className="gap-6"
     >
-      <TabsList className="h-11 w-full md:w-fit">
+      <TabsList variant="line" className="w-full group-data-horizontal/tabs:h-11 md:w-fit">
         {SCHEDE.map((s) => (
           <TabsTrigger key={s.valore} value={s.valore} className="min-h-10 px-4">
             {s.etichetta}

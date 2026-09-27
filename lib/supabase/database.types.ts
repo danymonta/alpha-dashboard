@@ -1103,7 +1103,7 @@ isOneToOne: false
                            },
 "metriche_per_fonte":
 { Args: { "p_a": string,"p_da": string }; Returns: {
-              "call_svolte": number,"cash": number,"chiuse": number,"close_rate": number,"fonte": Database["public"]['Enums']["lead_source"],"lead": number,"nuovi_clienti": number
+              "call_svolte": number,"cash": number,"chiuse": number,"close_rate": number,"fonte": Database["public"]['Enums']["lead_source"],"lead": number,"nuovi_clienti": number,"quota_cash": number
             }[]
                            },
 "metriche_periodo":
@@ -1118,6 +1118,11 @@ isOneToOne: false
                            },
 "mia_foto_google":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"mie_vendite_setter":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "cliente": string,"data_vendita": string,"importo_incassato": number,"importo_previsto": number,"in_ritardo": boolean,"incassato_il": string,"incassato_vendita": number,"numero_rata": number,"numero_rate": number,"percentuale": number,"prodotto": string,"provvigione": number,"provvigione_vendita": number,"rate_in_ritardo": number,"rate_incassate": number,"sale_id": string,"scadenza": string,"stato": Database["public"]['Enums']["payment_status"],"tipo": Database["public"]['Enums']["sale_type"],"valore_contratto": number
+            }[]
                            },
 "miei_clienti":
 { Args: Record<PropertyKey, never>; Returns: {

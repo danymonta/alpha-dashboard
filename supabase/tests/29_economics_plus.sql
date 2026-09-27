@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(11);
+select plan(13);
 
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
@@ -54,6 +54,17 @@ select is(
   (select sum(cash) from public.metriche_per_fonte(date_trunc('month', public.oggi())::date, public.oggi())),
   (select cash_incassato from public.metriche_periodo(date_trunc('month', public.oggi())::date, public.oggi())),
   'il cash per fonte fa il cash del periodo'
+);
+select is(
+  (select round(sum(quota_cash), 2) from public.metriche_per_fonte(date_trunc('month', public.oggi())::date, public.oggi())),
+  case when (select cash_incassato from public.metriche_periodo(date_trunc('month', public.oggi())::date, public.oggi())) = 0
+    then null else 1.00 end,
+  'le quote per fonte fanno il 100% del cash'
+);
+select is(
+  (select count(*)::integer from public.metriche_per_fonte('1990-01-01', '1990-01-31') where quota_cash is not null),
+  0,
+  'senza incassi nessuna quota (mai divisione per zero)'
 );
 
 -- the evening summary: only the service role (the cron)

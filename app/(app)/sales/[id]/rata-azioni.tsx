@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/sheet'
 import type { Database } from '@/lib/supabase/database.types'
 import { formatData, formatEuro, formatImportoInput } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import {
   ETICHETTA_METODO,
   METODI,
@@ -62,6 +63,7 @@ type Props = {
   oggi: string
   /** The one instalment to act on first: filled button. The others are outline. */
   principale?: boolean
+  className?: string
 }
 
 type Vista = 'menu' | 'incasso' | 'modifica' | 'correggi' | 'rimborso'
@@ -78,7 +80,7 @@ function Errore({ testo }: { testo: string | null }) {
   )
 }
 
-export function RataAzioni({ rata, admin, oggi, principale = false }: Props) {
+export function RataAzioni({ rata, admin, oggi, principale = false, className }: Props) {
   const [inCorso, avvia] = useTransition()
   const [aperto, setAperto] = useState(false)
   const [vista, setVista] = useState<Vista>('menu')
@@ -132,13 +134,13 @@ export function RataAzioni({ rata, admin, oggi, principale = false }: Props) {
   }
 
   return (
-    <div className="flex items-center justify-end gap-2">
+    <div className={cn('flex items-center justify-end gap-2', className)}>
       <Sheet open={aperto} onOpenChange={apriChiudi}>
         <SheetTrigger
           render={
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="icon"
               className="size-11"
               aria-label={`Altre azioni sulla ${etichetta.toLowerCase()}`}
@@ -307,7 +309,8 @@ export function RataAzioni({ rata, admin, oggi, principale = false }: Props) {
         <Button
           type="button"
           variant={principale ? 'default' : 'outline'}
-          className="h-11"
+          // phone: the main action takes the rest of the row
+          className="h-11 flex-1 md:flex-none"
           disabled={inCorso}
           onClick={incassaSubito}
         >

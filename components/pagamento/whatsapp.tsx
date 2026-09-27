@@ -1,5 +1,6 @@
 import { MessageCircle } from 'lucide-react'
 
+import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 /** "Scrivi su WhatsApp": opens the chat with the message ready. Nothing when there is no number. */
@@ -25,13 +26,16 @@ export function BottoneWhatsApp({
       title={etichetta}
       data-testid="whatsapp"
       className={cn(
-        'inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-input text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-        compatto ? 'size-11' : 'px-3',
+        // the same look as the outline buttons beside it ("…", "Registra rinnovo")
+        buttonVariants({ variant: 'outline' }),
+        'h-11 shrink-0 gap-1.5',
+        // compact: icon only from md up; on the phone the word says what it is
+        compatto ? 'max-md:px-3 md:size-11' : 'px-3',
         className,
       )}
     >
       <MessageCircle className="size-4" aria-hidden="true" />
-      {compatto ? null : 'WhatsApp'}
+      {compatto ? <span className="md:sr-only">WhatsApp</span> : 'WhatsApp'}
     </a>
   )
 }

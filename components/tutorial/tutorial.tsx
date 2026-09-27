@@ -339,9 +339,26 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
                 Tocca il pulsante evidenziato
               </p>
             ) : (
-              <Button type="button" className={cn('h-11', !pronto && 'opacity-60')} disabled={!pronto} onClick={avanti}>
-                {ultimo ? 'Fine' : 'Avanti'}
-                {ultimo ? null : <ArrowRight className="size-4" aria-hidden="true" />}
+              <Button
+                type="button"
+                // while reading it looks like it is loading, not broken: a pale primary
+                // that fills from the left in the reading time, then the full button
+                className={cn('relative h-11 overflow-hidden', !pronto && 'bg-primary/35 disabled:opacity-100')}
+                disabled={!pronto}
+                onClick={avanti}
+              >
+                {pronto ? null : (
+                  <span
+                    key={indice}
+                    aria-hidden="true"
+                    className="absolute inset-y-0 left-0 w-0 bg-primary motion-safe:animate-[tutorial-lettura_var(--durata)_linear_forwards]"
+                    style={{ '--durata': `${ATTESA_LETTURA_MS}ms` } as CSSProperties}
+                  />
+                )}
+                <span className="relative inline-flex items-center gap-1.5">
+                  {ultimo ? 'Fine' : 'Avanti'}
+                  {ultimo ? null : <ArrowRight className="size-4" aria-hidden="true" />}
+                </span>
               </Button>
             )}
           </div>

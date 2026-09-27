@@ -75,7 +75,8 @@ export function InizialiMembri({ nomi, massimo = 4 }: { nomi: string[]; massimo?
           key={`${nome}-${i}`}
           title={nome}
           aria-hidden="true"
-          className="inline-flex size-7 items-center justify-center rounded-full bg-secondary text-[11px] font-medium text-secondary-foreground ring-2 ring-card"
+          // the ring cuts each circle out of the card, also when the card lights up on hover
+          className="inline-flex size-7 items-center justify-center rounded-full bg-secondary text-[11px] font-medium text-secondary-foreground ring-2 ring-card group-hover/card:ring-accent"
         >
           {iniziali(nome)}
         </span>

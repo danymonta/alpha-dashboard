@@ -37,11 +37,14 @@ const KPI: Record<string, { etichetta: string; euro: boolean }> = {
 
 function Scheda({
   titolo,
+  descrizione,
   azione,
   children,
   className,
 }: {
   titolo: string
+  /** One line under the title: what the numbers are counted on. */
+  descrizione?: ReactNode
   azione?: ReactNode
   children: ReactNode
   className?: string
@@ -49,7 +52,10 @@ function Scheda({
   return (
     <section className={`rounded-xl bg-card p-4 ${className ?? ''}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium">{titolo}</h2>
+        <div className="min-w-0">
+          <h2 className="text-sm font-medium">{titolo}</h2>
+          {descrizione ? <p className="mt-0.5 text-xs text-muted-foreground">{descrizione}</p> : null}
+        </div>
         {azione}
       </div>
       {children}
@@ -341,30 +347,41 @@ export default async function PanoramicaPage({
       </div>
 
       {/* 4b. Which channel brings the money */}
-      <Scheda titolo={`Da dove arrivano i soldi ${periodo.frase}`}>
+      <Scheda
+        titolo={`Da dove arrivano i soldi ${periodo.frase}`}
+        descrizione="Cash e clienti nuovi per fonte del cliente; lead e close rate per fonte del lead."
+      >
         {(fonti.data ?? []).some((f) => Number(f.cash) !== 0 || f.nuovi_clienti > 0 || f.lead > 0) ? (
           <ul className="divide-y divide-border" data-testid="per-fonte">
             {(fonti.data ?? [])
               .filter((f) => Number(f.cash) !== 0 || f.nuovi_clienti > 0 || f.lead > 0 || f.call_svolte > 0)
               .map((f) => (
-                <li key={f.fonte} aria-label={ETICHETTA_FONTE[f.fonte]} className="flex min-h-12 items-center justify-between gap-3 py-2">
-                  <span className="min-w-0">
-                    <span className="block text-sm">{ETICHETTA_FONTE[f.fonte]}</span>
-                    <span className="num block text-xs text-muted-foreground">
-                      {f.nuovi_clienti === 1 ? '1 cliente nuovo' : `${f.nuovi_clienti} clienti nuovi`} · {f.lead} lead · close rate{' '}
-                      {formatPercentuale(f.close_rate)}
+                <li key={f.fonte} aria-label={ETICHETTA_FONTE[f.fonte]} className="py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block text-sm">{ETICHETTA_FONTE[f.fonte]}</span>
+                      <span className="num block text-xs text-muted-foreground">
+                        nuovi {f.nuovi_clienti} · lead {f.lead} · close rate {formatPercentuale(f.close_rate)}
+                      </span>
                     </span>
-                  </span>
-                  <span className="num text-right text-sm font-medium">{formatEuro(f.cash, { compatto: true })}</span>
+                    <span className="shrink-0 text-right">
+                      <span className="num block text-sm font-medium">{formatEuro(f.cash, { compatto: true })}</span>
+                      <span className="num block text-xs text-muted-foreground">{formatPercentuale(f.quota_cash)}</span>
+                    </span>
+                  </div>
+                  {/* share of the period's cash: neutral, the numbers above say it in words */}
+                  <div aria-hidden="true" className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-muted-foreground/40"
+                      style={{ width: `${Math.min(100, Math.max(0, Number(f.quota_cash ?? 0) * 100))}%` }}
+                    />
+                  </div>
                 </li>
               ))}
           </ul>
         ) : (
           <p className="text-sm text-muted-foreground">Nessun incasso, cliente o lead nel periodo.</p>
         )}
-        <p className="mt-3 text-xs text-muted-foreground">
-          Cash e clienti nuovi per fonte del cliente; lead e close rate per fonte del lead.
-        </p>
       </Scheda>
 
       {/* 5. What needs action */}

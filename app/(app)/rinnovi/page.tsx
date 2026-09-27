@@ -116,7 +116,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
       <dl className="grid grid-cols-2 gap-3 rounded-xl bg-card p-4 sm:grid-cols-3" data-testid="tasso-rinnovo">
         <div className="col-span-2 sm:col-span-1">
           <dt className="text-xs text-muted-foreground">Tasso di rinnovo di {formatMese(primo)}</dt>
-          <dd className="num text-2xl font-semibold text-gold">{formatPercentuale(m.tasso_rinnovo)}</dd>
+          <dd className="num text-2xl font-semibold text-foreground">{formatPercentuale(m.tasso_rinnovo)}</dd>
           <dd className="num text-xs text-muted-foreground">
             {m.rinnovati} rinnovati su {m.in_scadenza} in scadenza nel mese
           </dd>

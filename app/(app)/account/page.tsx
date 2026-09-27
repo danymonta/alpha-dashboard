@@ -6,6 +6,7 @@ import { SchedeAccount } from '@/app/(app)/account/schede'
 import { esci } from '@/app/auth/actions'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { RivediTutorial } from '@/components/tutorial/rivedi-tutorial'
+import { TestaTutorial } from '@/components/tutorial/testa-tutorial'
 import { Button } from '@/components/ui/button'
 import { alfireConfigurata, nomeModelloAlfire } from '@/lib/alfire/config'
 import { ETICHETTA_LIVELLO_PM, ETICHETTA_RUOLO, livelloPmEffettivo } from '@/lib/auth/roles'
@@ -41,6 +42,8 @@ export default async function AccountPage() {
             <p className="text-sm text-muted-foreground">Ruolo e livello li cambia l’admin in Impostazioni › Team.</p>
             <div className="flex flex-wrap gap-2">
               <RivediTutorial />
+              {/* admin, phone only: on desktop it sits top right */}
+              {profilo.ruolo === 'admin' ? <TestaTutorial conEtichetta variant="outline" className="md:hidden" /> : null}
               <form action={esci}>
                 <Button type="submit" variant="outline" className="h-11">
                   <LogOut className="size-4" aria-hidden="true" />

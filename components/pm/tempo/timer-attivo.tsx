@@ -2,7 +2,7 @@
 
 import { AlarmClock, LoaderCircle, Square } from 'lucide-react'
 import Link from 'next/link'
-import { useId, useState, useTransition, type FormEvent } from 'react'
+import { useId, useState, useSyncExternalStore, useTransition, type FormEvent } from 'react'
 import { toast } from 'sonner'
 
 import { fermaTimer } from '@/app/(app)/tempo/actions'
@@ -20,6 +20,23 @@ import { cn } from '@/lib/utils'
 export function descrizioneTimer(timer: Pick<TimerAcceso, 'progetto' | 'task'>): string {
   const progetto = timer.progetto ?? 'Progetto'
   return timer.task ? `${progetto} · ${timer.task}` : progetto
+}
+
+// a mouse, not a finger: only there may the note take focus by itself
+const PUNTATORE_FINE = '(pointer: fine)'
+
+function iscriviti(avvisa: () => void) {
+  const mq = window.matchMedia(PUNTATORE_FINE)
+  mq.addEventListener('change', avvisa)
+  return () => mq.removeEventListener('change', avvisa)
+}
+
+function usePuntatoreFine() {
+  return useSyncExternalStore(
+    iscriviti,
+    () => window.matchMedia(PUNTATORE_FINE).matches,
+    () => false,
+  )
 }
 
 /**
@@ -40,6 +57,8 @@ export function FermaTimerForm({
   const [nota, setNota] = useState(notaIniziale ?? '')
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
+  // `compatto` is the popover size, on every viewport: the phone is told by the pointer
+  const fuocoAutomatico = usePuntatoreFine()
 
   function ferma(evento?: FormEvent) {
     evento?.preventDefault()
@@ -66,8 +85,9 @@ export function FermaTimerForm({
         <Label htmlFor={`${id}-nota`}>Nota (facoltativa)</Label>
         <Textarea
           id={`${id}-nota`}
-          // stopping is the moment to say what was done
-          autoFocus
+          // stopping is the moment to say what was done; on a phone no keyboard
+          // popping up by itself over the form
+          autoFocus={fuocoAutomatico && compatto}
           value={nota}
           onChange={(e) => setNota(e.target.value)}
           onKeyDown={(e) => {

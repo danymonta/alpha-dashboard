@@ -33,7 +33,8 @@ test.describe('profilo dal telefono', () => {
     await page.getByLabel('Nome visibile al team').fill('Loris DM')
     await page.getByRole('button', { name: 'Salva il nome' }).click()
     await expect(page.getByText('Nome aggiornato')).toBeVisible()
-    await expect(page.getByRole('banner')).toContainText('Loris DM')
+    // the phone's top bar has no name line any more: the profile link carries it
+    await expect(page.getByRole('banner').getByRole('link', { name: 'Il tuo profilo: Loris DM' })).toBeVisible()
 
     await page.getByLabel('Scegli una foto').setInputFiles('public/brand/percorso-alpha-email.png')
     await expect(page.getByText('Foto aggiornata')).toBeVisible()

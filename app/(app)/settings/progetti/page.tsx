@@ -5,6 +5,7 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { AttivoModello, ModelloForm } from '@/components/pm/impostazioni/modelli-client'
 import { AttivoReparto, RepartoForm, SpostaReparto } from '@/components/pm/impostazioni/reparti-client'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { Badge } from '@/components/ui/badge'
 import { requireLivelloPm } from '@/lib/auth/pm'
 import { createClient } from '@/lib/supabase/server'
 
@@ -65,10 +66,12 @@ export default async function ImpostazioniProgettiPage() {
                 <li key={r.id} aria-label={r.nome} className="flex flex-wrap items-center gap-x-2 py-2 pr-1 pl-3">
                   {/* mobile: name on its own row, controls on the row below */}
                   <div className="min-w-0 basis-full md:basis-0 md:flex-1">
-                    <p className="text-sm font-medium">{r.nome}</p>
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
+                      {r.nome}
+                      {r.progetti_con_cliente ? <Badge variant="outline">Per clienti</Badge> : null}
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       <span className="num">{progetti === 1 ? '1 progetto' : `${progetti} progetti`}</span>
-                      {r.progetti_con_cliente ? ' · per clienti' : ''}
                       {r.descrizione ? ` · ${r.descrizione}` : ''}
                     </p>
                   </div>
@@ -111,7 +114,7 @@ export default async function ImpostazioniProgettiPage() {
             {modelli.data.map((m) => {
               const voci = m.voci[0]?.count ?? 0
               return (
-                <li key={m.id} className="flex items-center gap-2 py-1 pr-1 pl-3">
+                <li key={m.id} className="flex items-center gap-2 px-3 py-1">
                   <Link
                     href={`/settings/progetti/modelli/${m.id}`}
                     className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg py-1 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"

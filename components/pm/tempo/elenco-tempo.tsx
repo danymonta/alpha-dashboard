@@ -52,10 +52,11 @@ export function ElencoTempo({
               {righe.map((voce) => (
                 <li key={voce.id} className="flex items-center gap-3 py-2 pr-1 pl-3" data-testid="voce-tempo">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
+                    {/* the project reads whole; the task gets its own line */}
+                    <p className="line-clamp-2 text-sm font-medium break-words" title={voce.titolo}>
                       {voce.titolo}
-                      {voce.dettaglio ? <span className="font-normal text-muted-foreground"> · {voce.dettaglio}</span> : null}
                     </p>
+                    {voce.dettaglio ? <p className="line-clamp-2 text-xs text-muted-foreground">{voce.dettaglio}</p> : null}
                     <p className="num flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="size-3 shrink-0" aria-hidden="true" />
                       {voce.inizio && voce.fine ? `${formatOra(voce.inizio)}–${formatOra(voce.fine)}` : 'Inserito a mano'}

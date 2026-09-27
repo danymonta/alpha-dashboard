@@ -234,7 +234,7 @@ function PianoPredefinitoEditor({
         </div>
         <div className="space-y-1">
           <Label htmlFor="pp-importo" className="text-xs text-muted-foreground">
-            Da (€ ciascuna), una al mese
+            Importo di ogni rata (€)
           </Label>
           <Input
             id="pp-importo"

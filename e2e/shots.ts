@@ -56,3 +56,33 @@ test('screenshot login', async ({ page }) => {
   const scorre = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
   expect(scorre, `scroll orizzontale del login a ${larghezza}px`).toBe(false)
 })
+
+/** States that are not pages: the Alfire panel, a product sheet with its plan, a tour step. */
+test('stati: Alfire, prodotto con piano rate, tutorial', async ({ page }) => {
+  const larghezza = page.viewportSize()?.width ?? 0
+  await accedi(page, 'admin')
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Chatta con Alfire' }).first().click()
+  await page.waitForTimeout(700)
+  await page.screenshot({ path: `.shots/admin-stato-alfire-${larghezza}.png` })
+  await page.keyboard.press('Escape')
+
+  await page.goto('/settings/products')
+  await page.getByRole('button', { name: /^Modifica / }).first().click()
+  await page.waitForTimeout(700)
+  await page.screenshot({ path: `.shots/admin-stato-prodotto-${larghezza}.png` })
+  await page.keyboard.press('Escape')
+
+  // phone: "Testa il tutorial" lives in the profile; desktop: top right
+  await page.goto(larghezza < 768 ? '/account?scheda=account' : '/')
+  await page.getByRole('button', { name: 'Testa il tutorial' }).first().click()
+  await page.getByRole('menuitem', { name: 'Admin' }).click()
+  const tour = page.getByTestId('tutorial')
+  await expect(tour.getByRole('button', { name: 'Avanti' })).toBeEnabled({ timeout: 5000 })
+  await tour.getByRole('button', { name: 'Avanti' }).click()
+  // the step lives on the Panoramica: on the phone the tour has just opened it
+  await expect(page.getByTestId('kpi')).toBeVisible()
+  await page.waitForTimeout(700)
+  await page.screenshot({ path: `.shots/admin-stato-tutorial-${larghezza}.png` })
+})

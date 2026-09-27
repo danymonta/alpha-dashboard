@@ -122,7 +122,7 @@ export default async function PanoramicaProgettoPage({ params }: { params: Promi
         </Tessera>
       </dl>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Sezione titolo="Task per stato">
           <ul className="space-y-2.5">
             {stati.map(({ etichetta, valore, Icona }) => (
