@@ -83,7 +83,9 @@ export const PERFORMANCE = Constants.public.Enums.call_performance
 export type Performance = (typeof PERFORMANCE)[number]
 
 export const ETICHETTA_PERFORMANCE: Record<Performance, string> = {
+  ottima: 'Ottima',
   buona: 'Buona',
+  discreta: 'Discreta',
   media: 'Media',
   scarsa: 'Scarsa',
 }

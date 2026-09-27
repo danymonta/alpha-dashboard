@@ -31,9 +31,9 @@ Questa app è la prima area di un'unica app shell che in seguito ospiterà anche
 
 - la tabella `clients` definita qui è la stessa che userà il time tracking: non duplicarla mai;
 - i ruoli (`app_role`) includono già quelli del time tracking;
-- la navigazione è predisposta per più aree, oggi ne esiste solo una: **Economics**.
+- la navigazione ha due aree: **Economics** (admin, setter, closer) e **Progetti** (tutti i ruoli).
 
-Non costruire nulla del time tracking in questo progetto finché Dany non lo chiede esplicitamente.
+Il project management con il time tracking è stato chiesto da Dany il 27/09/2026 ed è costruito (sezione 18).
 
 ## 4. Stack (deciso, non riaprire)
 
@@ -72,7 +72,7 @@ Regole:
 
 Enum `app_role`: `admin`, `setter`, `closer`, `coach`, `editor`, `nutrizione`, `dev`.
 
-In questa app contano `admin`, `setter`, `closer`. Gli altri ruoli possono loggarsi ma vedono solo una pagina "Nessuna area disponibile per il tuo ruolo".
+In Economics contano `admin`, `setter`, `closer`. Tutti i ruoli hanno l'area Progetti: coach, editor, nutrizione e dev atterrano su `/progetti`.
 
 | Dato | admin | setter | closer |
 |---|---|---|---|
@@ -254,6 +254,8 @@ Tutte le metriche si calcolano in SQL (view `security_invoker` o funzioni RPC), 
 - Provvigioni maturate (mese) = come da sezione 8
 - Margine operativo (mese) = cash incassato - provvigioni maturate - costi del mese. Etichetta sempre "Margine operativo", mai "utile": le tasse non sono incluse
 
+**Periodo** (28/09/2026): ogni metrica si chiede su un mese (`?mese=YYYY-MM`) o su un intervallo (`?da=&a=`), con le RPC `*_periodo`; le mensili sono wrapper con gli stessi risultati. Confronto: se il periodo è fatto di mesi interi, gli stessi mesi prima; altrimenti la finestra di pari giorni subito prima. Trimestre e anno "in corso" coprono il periodo solare intero. Le provvigioni restano mensili (i pagamenti si riferiscono a un mese).
+
 Stato cliente derivato (`v_client_status`): `attivo`, `in_scadenza`, `scaduto` (nessuna vendita attiva, l'ultima finita da meno di 90 giorni), `ex_cliente` (oltre 90 giorni), `mai_attivato`.
 
 ## 10. Schermate
@@ -431,6 +433,7 @@ Esegui il ciclo di design su: $ARGUMENTS (se vuoto, tutte le pagine).
 
 - Script `npm run shots`: Playwright, login con utente seed (admin, setter, closer), visita ogni pagina del ruolo, salva `.shots/<ruolo>-<pagina>-<390|1440>.png`. `.shots/` è in `.gitignore`.
 - `supabase/seed.sql`: tre utenti di prova (admin, setter, closer), 3 prodotti, 6 mesi di dati realistici (report giornalieri, 40 call, 20 clienti, vendite nuove e rinnovi, rate incassate, in ritardo e future, costi). Dati inventati, nessun dato reale nel seed.
+- `supabase/seeds/*.sql`: dati demo per funzione, caricati dopo `seed.sql` (`10_progetti.sql`: utenti coach e editor, progetti; `20_tempo_note.sql`: tempo e note). Stesse regole: solo dati inventati.
 
 ## 14. Import dello storico Excel
 
@@ -470,6 +473,19 @@ Lavora una fase alla volta. A fine fase: tutti i controlli verdi, istruzioni di 
 - Mai funzioni di sorveglianza dei collaboratori (tracking automatico, screenshot, alert su chi non compila). Il report giornaliero è auto-dichiarazione dei risultati, non monitoraggio.
 
 <!-- BEGIN:nextjs-agent-rules -->
+
+
+## 18. Project management (area Progetti)
+
+Chiesto da Dany il 27/09/2026. Schema in `20260928090000_project_management.sql` e successive.
+
+- **Struttura**: reparto → progetto → liste (milestone, con date) → task → sotto-task (un livello). Reparti di partenza: Fitness Coaching, Contenuti e Video, Vendite e Marketing, Amministrazione. Un progetto può puntare a un cliente di `clients` (mai duplicato): lo collega solo l'admin dell'app.
+- **Modelli**: ogni reparto ha modelli di progetto; creando un progetto da un modello si aprono liste e task datati dall'inizio del progetto. "Percorso cliente" (Fitness Coaching): questionario iniziale, invio accessi, call di onboarding, scrittura programmazione, assistenza chat, revisione video settimanale, call di check, aggiornamento programmazione, call e aggiornamento di metà percorso, call di rinnovo, raccolta feedback e testimonianza. Si modificano in Impostazioni > Progetti.
+- **Livelli** (`profiles.livello_pm`, separati dal ruolo): `admin` tutto; `manager` crea progetti e gestisce quelli di cui è membro (liste, task, membri, dati del progetto); `employee` vede i progetti di cui è membro, aggiunge task, lavora quelli assegnati a lui o creati da lui. L'admin dell'app è sempre admin dei progetti. Il livello si cambia in Team.
+- **Tempo**: auto-dichiarato, mai automatico. Timer (uno acceso per persona, indicatore nella shell, sincronizzato in tempo reale) o minuti caricati dopo, mai nel futuro. Ognuno vede il proprio; chi gestisce un progetto vede il tempo speso sul progetto; l'admin tutto. Nessuno vede il timer acceso di un altro, nessun elenco di chi non ha registrato, nessun avviso (§17).
+- **Note**: per progetto, con una data, mostrate raggruppate per giorno.
+- **Gantt**: liste e task sulla scala del tempo, con vista tabella. Serie `--gantt-lista` e `--gantt-task`, validate sul tema scuro.
+- Avanzamento e ritardi si calcolano in SQL (`v_pm_progetti`, `v_pm_tasklist`, `v_pm_task`, `security_invoker`); totali del tempo con RPC `security invoker`.
 
 # This is NOT the Next.js you know
 

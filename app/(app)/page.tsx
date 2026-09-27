@@ -1,6 +1,5 @@
 import { CalendarClock, ChevronRight, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { LinkBottone } from '@/components/link-bottone'
@@ -10,7 +9,7 @@ import { Funnel } from '@/components/panoramica/funnel'
 import { GraficoCash } from '@/components/panoramica/grafico-cash'
 import { TileKpi } from '@/components/panoramica/tile-kpi'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
-import { requireProfilo } from '@/lib/auth/session'
+import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import {
   formatData,
@@ -73,11 +72,9 @@ export default async function PanoramicaPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const profilo = await requireProfilo()
-
-  // Setter and closer have their own landing page.
-  if (profilo.ruolo === 'setter') redirect('/today')
-  if (profilo.ruolo === 'closer') redirect('/calls')
+  // Admin only: every other role goes to its own landing page (setter /today,
+  // closer /calls, the roles without Economics /progetti)
+  await requireRuolo(['admin'])
 
   const oggi = oggiRoma()
   // a month (?mese=) or any range (?da=&a=); the comparison window comes with it

@@ -79,10 +79,39 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   editor: [PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO],
 }
 
+const IN_ATTESA_DELLO_STREAMING = new WeakSet<Page>()
+
+/**
+ * With streaming SSR, React 19.2 keeps the finished content in a hidden
+ * <div id="S:…"> for a few hundred ms before revealing it: a locator can then
+ * match two copies of the same element. After every full navigation, wait
+ * until React has swapped them in.
+ */
+export function attendiStreaming(page: Page) {
+  if (IN_ATTESA_DELLO_STREAMING.has(page)) return
+  IN_ATTESA_DELLO_STREAMING.add(page)
+  for (const metodo of ['goto', 'reload', 'goBack', 'goForward'] as const) {
+    const originale = page[metodo].bind(page) as (...args: unknown[]) => Promise<unknown>
+    Object.assign(page, {
+      [metodo]: async (...args: unknown[]) => {
+        const risposta = await originale(...args)
+        await page
+          .waitForFunction(() => !document.querySelector('div[hidden][id^="S:"]'), undefined, { timeout: 15_000 })
+          .catch(() => undefined)
+        return risposta
+      },
+    })
+  }
+}
+
 export async function accedi(page: Page, ruolo: RuoloSeed) {
+  attendiStreaming(page)
   await page.goto('/login')
   await page.getByLabel('Email').fill(UTENTI[ruolo].email)
   await page.getByLabel('Password').fill(PASSWORD_SEED)
   await page.getByRole('button', { name: 'Entra' }).click()
   await page.waitForURL((url) => !url.pathname.startsWith('/login'))
+  await page
+    .waitForFunction(() => !document.querySelector('div[hidden][id^="S:"]'), undefined, { timeout: 15_000 })
+    .catch(() => undefined)
 }

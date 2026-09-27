@@ -7,6 +7,7 @@ import { completaTask } from '@/app/(app)/progetti/[id]/actions'
 import { puoModificare, useAttivita, type TaskVista } from '@/components/pm/attivita/contesto'
 import { DettaglioTask } from '@/components/pm/attivita/dettaglio-task'
 import { MetaTask } from '@/components/pm/attivita/meta-task'
+import { AvviaTimer } from '@/components/pm/tempo/avvia-timer'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 
@@ -71,6 +72,10 @@ export function RigaTask({ task, figli = [] }: { task: TaskVista; figli?: TaskVi
             <MetaTask task={task} membri={a.membri} />
           </div>
         </div>
+        {/* time is tracked by whoever works on it: every member, on open tasks */}
+        {completato ? null : (
+          <AvviaTimer progettoId={task.progetto_id} taskId={task.id} titolo={task.titolo} className="shrink-0" />
+        )}
       </div>
       {figli.length > 0 ? (
         <ul aria-label={`Sotto-task di ${task.titolo}`} className="mb-2 ml-11 border-l border-border pl-1">
