@@ -989,6 +989,9 @@ isOneToOne: false
               "numero_rate": number,"scarto": number,"totale": number
             }[]
                            },
+"backup_completo":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "cash_mensile":
 { Args: { "p_fino"?: string,"p_mesi"?: number }; Returns: {
               "mese": string,"nuovo": number,"rinnovo": number,"totale": number,"upsell": number

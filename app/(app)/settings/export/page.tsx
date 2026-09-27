@@ -1,4 +1,4 @@
-import { Download } from 'lucide-react'
+import { DatabaseBackup, Download } from 'lucide-react'
 
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
@@ -33,7 +33,7 @@ export default async function ExportPage({
       <IntestazionePagina
         indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
         titolo="Esporta CSV"
-        descrizione="Per la commercialista e come copia di sicurezza mensile. Si aprono direttamente in Excel."
+        descrizione="Per la commercialista: si aprono direttamente in Excel. Più sotto il backup completo."
       />
       <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/settings/export" />
 
@@ -58,9 +58,23 @@ export default async function ExportPage({
       </ul>
 
       <p className="text-xs text-muted-foreground">
-        Formato: separatore punto e virgola, decimali con la virgola, date gg/mm/aaaa. Il piano Free di Supabase
-        non ha backup: scarica i tre file ogni mese.
+        Formato: separatore punto e virgola, decimali con la virgola, date gg/mm/aaaa.
       </p>
+
+      <section aria-labelledby="titolo-backup" className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-card p-4">
+        <div className="min-w-0 space-y-1">
+          <h2 id="titolo-backup" className="text-sm font-medium">
+            Backup completo
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Tutto il database in un file. Arriva da solo via email ogni lunedì mattina; qui lo scarichi quando vuoi.
+          </p>
+        </div>
+        <a href="/api/backup" download className={cn(buttonVariants({ variant: 'outline' }), 'h-11')}>
+          <DatabaseBackup className="size-4" aria-hidden="true" />
+          Scarica il backup
+        </a>
+      </section>
     </div>
   )
 }
