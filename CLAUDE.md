@@ -66,6 +66,7 @@ Regole:
 - Mai chiedere a Dany di incollare valori di chiavi in chat. Se succede, digli di ruotarle.
 - `.env.local` è in `.gitignore` dal primo commit. Crea `.env.example` con i soli nomi.
 - `SUPABASE_SECRET_KEY` non ha mai prefisso `NEXT_PUBLIC_` e non viene mai importata in un file con `'use client'`.
+- Su Vercel le variabili di Production possono essere forzate come segrete, e allora il prefisso `NEXT_PUBLIC_` non è accettato: per i tre valori pubblici (URL del progetto, chiave publishable, URL dell'app) valgono anche `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `APP_URL`, che `next.config.ts` passa al browser al momento della build. Nessun segreto va mai in quella lista.
 
 ## 6. Ruoli e permessi
 
