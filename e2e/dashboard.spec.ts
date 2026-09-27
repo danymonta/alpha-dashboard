@@ -52,12 +52,11 @@ test('provvigioni: saldo, registrazione del pagamento, storico', async ({ page }
   await expect(page.getByText('12,34 €').filter({ visible: true }).first()).toBeVisible()
 })
 
-test('i miei numeri: il setter vede solo i suoi totali', async ({ page }) => {
+test('i miei numeri: il setter vede i suoi totali', async ({ page }) => {
   await accedi(page, 'setter')
   await page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'I miei numeri' }).click()
 
   await expect(page.getByTestId('mie-provvigioni')).toContainText('€')
   await expect(page.getByText('DM totali')).toBeVisible()
-  // no client name, no single sale: the seed clients never appear here
-  await expect(page.getByText(/Bianchi|Martini|Neri/)).toHaveCount(0)
+  // his own clients are listed below (setting-e-clienti.spec.ts), never anyone else's
 })

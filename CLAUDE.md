@@ -90,12 +90,12 @@ In Economics contano `admin`, `setter`, `closer`. Tutti i ruoli hanno l'area Pro
 | Call | tutte | le proprie: data, stato, esito (chiusa sì o no), mai importi; le riprogramma e le riassegna | quelle assegnate a lui: esito, data, dettagli (link, performance, prodotto proposto) |
 | Importo proposto in call (`call_pitch`) | tutti | nessuno | solo delle call assegnate a lui |
 | Clienti | tutti | nome e stato dei clienti nati da suoi lead, niente contatti | clienti nati da sue call |
-| Vendite e rate | tutte | nessuna | solo le vendite chiuse da lui |
-| Provvigioni | tutte | solo il proprio totale mensile maturato e pagato, mai il dettaglio per cliente | nessuna |
+| Vendite e rate | tutte | solo quelle dove è il setter: cliente, revenue, rate e incassi, in sola lettura | solo le vendite chiuse da lui |
+| Provvigioni | tutte | il proprio totale mensile maturato e pagato, e la provvigione di ogni incasso delle sue vendite | nessuna |
 | Costi, margine, compensi | tutto | nessuno | nessuno |
 | Gestione utenti, prodotti, impostazioni | tutto | nessuno | nessuno |
 
-Requisito duro: un collaboratore non vede mai quanto paga un singolo cliente, il compenso di un altro collaboratore, i costi o il margine.
+Requisito duro: un collaboratore non vede mai quanto paga un singolo cliente, il compenso di un altro collaboratore, i costi o il margine. Unica eccezione (Dany, 27/09/2026): il setter vede quanto hanno pagato i clienti che ha portato lui (vendite con il suo `setter_id`), in quante rate, la revenue e la provvigione di ogni incasso, così sa quanto gli spetta; mai contatti, metodo o note, mai le vendite di altri. Passa solo dalla RPC `mie_vendite_setter()` (`security definer`, filtrata su `auth.uid()`): il setter non ha policy su `sales` e `payments`.
 
 Regole di implementazione:
 - I dati sensibili stanno in **tabelle separate**, non in colonne nascoste: RLS lavora per riga, non per colonna. Esempio: la percentuale provvigionale sta in `commission_rules`, non in `profiles`.
@@ -275,7 +275,7 @@ Tutte le metriche si calcolano in SQL (view `security_invoker` o funzioni RPC), 
 **Aggiunte del 27/09/2026** (tutte in SQL, solo admin):
 - Obiettivi del mese (`obiettivi_mese`, `avanzamento_obiettivi`): obiettivo di cash e di nuovi clienti; avanzamento = cash incassato del mese / obiettivo, vendite `nuovo` del mese / obiettivo.
 - Previsione di cassa (`previsione_cassa`): per il mese corrente e i due successivi, rate `prevista` con scadenza da oggi in poi; per il mese corrente anche il già incassato. Le rate in ritardo stanno a parte, sul mese corrente.
-- Per fonte (`metriche_per_fonte`): cash e clienti nuovi per `clients.fonte`; lead, call svolte, chiuse e close rate per `leads.fonte`.
+- Per fonte (`metriche_per_fonte`): cash, quota del cash del periodo e clienti nuovi per `clients.fonte`; lead, call svolte, chiuse e close rate per `leads.fonte`.
 
 Stato cliente derivato (`v_client_status`): `attivo`, `in_scadenza`, `scaduto` (nessuna vendita attiva, l'ultima finita da meno di 90 giorni), `ex_cliente` (oltre 90 giorni), `mai_attivato`.
 
@@ -295,17 +295,17 @@ Navigazione: sidebar su desktop, bottom bar su mobile (massimo 4 voci più "Altr
 3. **Clienti** (`/clients`): lista con stato derivato, filtri per stato. Scheda cliente: storico vendite, rate, valore totale nel tempo (LTV), fonte, setter.
 4. **Incassi** (`/payments`): tutte le rate, filtro per stato e mese, vista "in ritardo" in evidenza. In cima la previsione di cassa dei prossimi 3 mesi. Sulle rate da pagare, "Scrivi su WhatsApp" apre la chat del cliente col promemoria già scritto (`lib/whatsapp.ts`): l'app non invia niente da sola.
 4b. **Rinnovi** (`/rinnovi`): chi finisce il percorso entro 30 o 60 giorni e chi l'ha finito da meno di 90 senza rinnovo, con WhatsApp e "Registra rinnovo"; in cima il tasso di rinnovo del mese.
-5. **Setting** (`/setting`): metriche setting e call per periodo e per setter, tabella dei report giornalieri.
+5. **Setting** (`/setting`): metriche setting e call per periodo e per setter, tabella dei report giornalieri. "Aggiungi giornata" registra un giorno intero per un setter o per l'admin stesso; un giorno che c'è già si corregge dalla sua riga, mai sovrascritto.
 6. **Provvigioni** (`/commissions`): per setter e mese, maturato, pagato, saldo. Registrazione pagamento.
 7. **Costi** (`/expenses`): inserimento e lista.
 8. **Impostazioni**: Team (sezione 7), Prodotti, Regole provvigioni, Esporta CSV (vendite, incassi, costi per mese: serve alla commercialista).
 
 ### Setter (mobile first, è la sua schermata principale)
 
-1. **Oggi** (`/today`): il report del giorno in una sola schermata. Ogni campo numerico è uno stepper con bottoni grandi (+1, +5, -1) e input diretto. Salvataggio automatico con debounce e stato visibile ("Salvato alle 18:42"). Se il report di oggi non esiste si crea al primo tocco. Nessun bottone "invia" da ricordarsi.
+1. **Oggi** (`/today`): il report del giorno in una sola schermata. Frecce e "Un altro giorno" aprono qualsiasi giorno passato da compilare o correggere. Ogni campo numerico è uno stepper con bottoni grandi (+1, +5, -1) e input diretto. Salvataggio automatico con debounce e stato visibile ("Salvato alle 18:42"). Se il report di oggi non esiste si crea al primo tocco. Nessun bottone "invia" da ricordarsi.
 2. **Nuova call** : form corto: nome lead, handle Instagram, fonte, tipo call, data e ora, closer (default Dany). Crea lead e call insieme.
 3. **Le mie call**: lista con stato ed esito.
-4. **I miei numeri**: metriche del mese proprie e provvigioni maturate e pagate (solo totali).
+4. **I miei numeri**: metriche del periodo proprie, provvigioni maturate e pagate, e "I tuoi clienti": per ogni vendita dove è il setter, revenue, pagato, rate e la sua provvigione per incasso (sezione 6).
 
 Obiettivo misurabile: il report giornaliero si compila in meno di 60 secondi dal telefono.
 

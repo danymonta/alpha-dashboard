@@ -100,3 +100,10 @@ export const correzioneReportSchema = reportGiornalieroSchema
   .extend({ id: z.string().uuid('Report non valido') })
 
 export type CorrezioneReportInput = z.input<typeof correzioneReportSchema>
+
+/** The admin records a whole day for someone: a setter, or the admin who does setting too. */
+export const nuovoReportSchema = reportGiornalieroSchema.extend({
+  setter_id: z.string().uuid('Scegli la persona'),
+})
+
+export type NuovoReportInput = z.input<typeof nuovoReportSchema>

@@ -1,5 +1,6 @@
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
+import { MieiClienti } from '@/components/setter/miei-clienti'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formatEuro, formatNumero, formatPercentuale, formatRapporto } from '@/lib/format'
@@ -34,11 +35,12 @@ export default async function IMieiNumeriPage({
   const periodo = leggiPeriodo(await searchParams, oggi)
   const supabase = await createClient()
 
-  // security definer, filtered on the caller: only this setter's totals
-  const { data: n, error } = await supabase
-    .rpc('miei_numeri_periodo', { p_da: periodo.da, p_a: periodo.a })
-    .single()
-  if (error || !n) throw new Error('Impossibile caricare i tuoi numeri')
+  // security definer, filtered on the caller: only this setter's totals and sales
+  const [{ data: n, error }, clienti] = await Promise.all([
+    supabase.rpc('miei_numeri_periodo', { p_da: periodo.da, p_a: periodo.a }).single(),
+    supabase.rpc('mie_vendite_setter'),
+  ])
+  if (error || !n || clienti.error) throw new Error('Impossibile caricare i tuoi numeri')
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -54,7 +56,7 @@ export default async function IMieiNumeriPage({
           <span className="num text-foreground">{formatEuro(n.provvigioni_pagate)}</span>
         </p>
         <p className="mt-3 text-xs text-muted-foreground">
-          Maturano quando il cliente paga, non alla firma. Vedi solo i tuoi totali.
+          Maturano quando il cliente paga, non alla firma. Il dettaglio per cliente è in fondo alla pagina.
         </p>
       </section>
 
@@ -81,6 +83,8 @@ export default async function IMieiNumeriPage({
           ['Close rate', formatPercentuale(n.close_rate)],
         ]}
       />
+
+      <MieiClienti righe={clienti.data ?? []} />
     </div>
   )
 }

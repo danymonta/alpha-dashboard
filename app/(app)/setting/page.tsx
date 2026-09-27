@@ -1,5 +1,6 @@
 import { TrendingUp } from 'lucide-react'
 
+import { AggiungiReport } from '@/app/(app)/setting/aggiungi-report'
 import { ModificaReport } from '@/app/(app)/setting/modifica-report'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
@@ -34,7 +35,7 @@ export default async function SettingPage({
   const periodo = leggiPeriodo(await searchParams, oggi)
   const supabase = await createClient()
 
-  const [metriche, report] = await Promise.all([
+  const [metriche, report, persone] = await Promise.all([
     supabase.rpc('metriche_setting', { p_da: periodo.da, p_a: periodo.a }),
     supabase
       .from('setter_daily_reports')
@@ -42,8 +43,17 @@ export default async function SettingPage({
       .gte('data', periodo.da)
       .lte('data', periodo.a)
       .order('data', { ascending: false }),
+    // who can have a day of setting: the setters, and the admin who does it too
+    supabase.from('profiles').select('id, nome, ruolo').eq('attivo', true).in('ruolo', ['setter', 'admin']).order('nome'),
   ])
-  if (metriche.error || report.error) throw new Error('Impossibile caricare il setting')
+  if (metriche.error || report.error || persone.error) throw new Error('Impossibile caricare il setting')
+
+  const aggiungi = (
+    <AggiungiReport
+      oggi={oggi}
+      persone={[...persone.data].sort((a, b) => Number(a.ruolo !== 'setter') - Number(b.ruolo !== 'setter'))}
+    />
+  )
 
   const righe = metriche.data ?? []
   const correzione = (r: (typeof report.data)[number]) => (
@@ -74,6 +84,7 @@ export default async function SettingPage({
       <IntestazionePagina
         titolo="Setting"
         descrizione="Volumi DM, call prenotate e svolte, show rate e close rate, per setter."
+        azione={aggiungi}
       />
       <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/setting" />
 
@@ -81,7 +92,7 @@ export default async function SettingPage({
         <StatoVuoto
           Icona={TrendingUp}
           titolo={`Nessun report ${periodo.frase}`}
-          descrizione="I numeri arrivano dalla schermata Oggi del setter."
+          descrizione="I numeri arrivano dalla schermata Oggi del setter, oppure da «Aggiungi giornata»."
         />
       ) : (
         <>
