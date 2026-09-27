@@ -1,5 +1,6 @@
 import { Plus, RefreshCw, SearchX, TriangleAlert } from 'lucide-react'
 
+import { InterrompiPercorso } from '@/app/(app)/clients/[id]/interrompi-percorso'
 import { ModificaCliente } from '@/app/(app)/clients/[id]/modifica-cliente'
 import { StatoClienteBadge } from '@/components/cliente/stato-cliente'
 import { LinkBottone } from '@/components/link-bottone'
@@ -7,6 +8,7 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { ElencoVendite } from '@/components/vendite/elenco-vendite'
 import { requireRuolo } from '@/lib/auth/session'
+import { oggiRoma } from '@/lib/date'
 import { formatData, formatEuro } from '@/lib/format'
 import { caricaVendite } from '@/lib/queries/vendite'
 import { createClient } from '@/lib/supabase/server'
@@ -18,8 +20,9 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   await requireRuolo(['admin'])
   const { id } = await params
   const supabase = await createClient()
+  const oggi = oggiRoma()
 
-  const [{ data: cliente }, { data: valore }, vendite, { data: persone }] = await Promise.all([
+  const [{ data: cliente }, { data: valore }, vendite, { data: persone }, { data: inCorso }] = await Promise.all([
     supabase
       .from('clients')
       .select('id, nome, cognome, email, telefono, instagram_handle, fonte, note, created_at, setter_id, closer_id, setter:profiles!clients_setter_id_fkey(nome), closer:profiles!clients_closer_id_fkey(nome)')
@@ -32,6 +35,15 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .maybeSingle(),
     caricaVendite({ clientId: id }),
     supabase.from('profiles').select('id, nome, ruolo, attivo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
+    // the path still running (or not started yet): the one "Interrompi il percorso" ends
+    supabase
+      .from('sales')
+      .select('id, data_inizio, data_fine')
+      .eq('client_id', id)
+      .gte('data_fine', oggi)
+      .order('data_fine', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   if (!cliente || !valore) {
@@ -80,6 +92,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
               <LinkBottone href={`/sales/new?cliente=${id}&tipo=upsell`} variant="outline">
                 Upsell
               </LinkBottone>
+              {inCorso ? <InterrompiPercorso vendita={inCorso} cliente={nome} oggi={oggi} /> : null}
             </div>
           )
         }

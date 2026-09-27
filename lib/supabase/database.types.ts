@@ -1080,6 +1080,11 @@ isOneToOne: false
 "inserisci_piano":
 { Args: { "p_rate": Json,"p_sale_id": string }; Returns: undefined
                            },
+"interrompi_percorso":
+{ Args: { "p_esegui"?: boolean,"p_sale_id": string,"p_togli_rate": boolean,"p_ultimo_giorno": string }; Returns: {
+              "importo_tolto": number,"rate_restanti": number,"rate_tolte": number,"valore_dopo": number,"valore_prima": number
+            }[]
+                           },
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },

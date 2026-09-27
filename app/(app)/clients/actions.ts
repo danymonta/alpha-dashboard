@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
+import { isDataISO } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 import { clienteSchema } from '@/lib/validation/anagrafiche'
 
@@ -54,5 +55,64 @@ export async function eliminaCliente(input: unknown): Promise<Esito> {
   if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non eliminato. Riprova.') }
 
   for (const pagina of ['/clients', '/sales', '/payments', '/commissions', '/']) revalidatePath(pagina)
+  return { ok: true }
+}
+
+const interruzioneSchema = z.object({
+  sale_id: z.string().uuid('Vendita non valida'),
+  ultimo_giorno: z.string().refine(isDataISO, 'Scegli l’ultimo giorno'),
+  togli_rate: z.boolean(),
+})
+
+export type AnteprimaInterruzione = {
+  rate_tolte: number
+  importo_tolto: number
+  valore_prima: number
+  valore_dopo: number
+}
+
+/** What "Interrompi il percorso" would do, before the confirmation: public.interrompi_percorso without running it. */
+export async function anteprimaInterruzione(
+  input: unknown,
+): Promise<{ ok: true; anteprima: AnteprimaInterruzione } | { ok: false; errore: string }> {
+  const parsed = interruzioneSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .rpc('interrompi_percorso', {
+      p_sale_id: parsed.data.sale_id,
+      p_ultimo_giorno: parsed.data.ultimo_giorno,
+      p_togli_rate: parsed.data.togli_rate,
+      p_esegui: false,
+    })
+    .single()
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Anteprima non disponibile. Riprova.') }
+  return { ok: true, anteprima: data }
+}
+
+/** A client who stops early: the sale ends on that day, the unpaid instalments after it go if asked. */
+export async function interrompiPercorso(input: unknown): Promise<Esito> {
+  const parsed = interruzioneSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('interrompi_percorso', {
+    p_sale_id: parsed.data.sale_id,
+    p_ultimo_giorno: parsed.data.ultimo_giorno,
+    p_togli_rate: parsed.data.togli_rate,
+    p_esegui: true,
+  })
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Percorso non interrotto. Riprova.') }
+
+  revalidatePath('/clients', 'layout')
+  revalidatePath('/sales', 'layout')
+  revalidatePath('/payments')
+  revalidatePath('/rinnovi')
+  revalidatePath('/')
   return { ok: true }
 }
