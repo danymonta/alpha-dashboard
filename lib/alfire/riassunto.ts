@@ -100,5 +100,99 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
         titolo: `Aggiungo il task «${testo(input.titolo) ?? ''}»`,
         dettagli: [`Progetto: ${testo(input.progetto) ?? '?'}`],
       }
+    case 'completa_task':
+      return {
+        titolo: `${input.completato === false ? 'Riapro' : 'Segno come fatto'} il task «${testo(input.titolo) ?? ''}»`,
+        dettagli: testo(input.progetto) ? [`Progetto: ${input.progetto}`] : [],
+      }
+    case 'registra_vendita': {
+      const rate = Array.isArray(input.rate) ? (input.rate as Input[]) : []
+      const pagate = rate.filter((r) => testo(r.incassata_il))
+      return {
+        titolo: `Registro la vendita a ${testo(input.cliente) ?? '?'}`,
+        dettagli: [
+          `${ETICHETTA_TIPO[String(input.tipo)] ?? 'Vendita'}: ${testo(input.prodotto) ?? '?'}${
+            typeof input.valore === 'number' ? `, ${formatEuro(input.valore)}` : ''
+          }`,
+          `Firmata ${giorno(input.data_vendita)}, inizio ${giorno(input.data_inizio)}${
+            testo(input.data_fine)
+              ? `, fine ${formatData(input.data_fine as string)}`
+              : typeof input.durata_mesi === 'number'
+                ? `, ${input.durata_mesi} mesi`
+                : ''
+          }`,
+          rate.length > 0
+            ? `Piano: ${rate.map((r) => `${formatEuro(r.importo as number)} il ${giorno(r.scadenza)}`).join(' · ')}`
+            : `Piano: ${typeof input.numero_rate === 'number' && input.numero_rate > 1 ? `${input.numero_rate} rate mensili uguali` : 'una rata'}`,
+          ...pagate.map(
+            (r) =>
+              `Incassata ${giorno(r.incassata_il)}: ${formatEuro(r.importo as number)}${testo(r.metodo) ? ` in ${r.metodo}` : ''}`,
+          ),
+          testo(input.setter) && `Setter: ${input.setter}`,
+          testo(input.closer) && `Closer: ${input.closer}`,
+          testo(input.fonte) && `Fonte: ${String(input.fonte).replace('_', ' ')}`,
+          testo(input.email) && `Email ${input.email}`,
+          testo(input.telefono) && `Telefono ${input.telefono}`,
+          testo(input.instagram_handle) && `Instagram ${input.instagram_handle}`,
+          testo(input.note) && `Note: ${input.note}`,
+        ].filter((d): d is string => Boolean(d)),
+      }
+    }
+    case 'modifica_cliente':
+      return { titolo: `Correggo il cliente ${testo(input.cliente) ?? '?'}`, dettagli: cambi(input, ['cliente']) }
+    case 'modifica_vendita':
+      return {
+        titolo: `Correggo la vendita di ${testo(input.cliente) ?? '?'}${
+          testo(input.data_vendita) ? ` del ${formatData(input.data_vendita as string)}` : ''
+        }`,
+        dettagli: cambi(input, ['cliente', 'data_vendita']),
+      }
+    case 'modifica_rata':
+      return { titolo: `Correggo una rata di ${testo(input.cliente) ?? '?'}`, dettagli: cambi(input, ['cliente', 'payment_id']) }
+    case 'modifica_costo':
+      return { titolo: `Correggo il costo «${testo(input.costo) ?? ''}»`, dettagli: cambi(input, ['costo', 'id']) }
+    case 'modifica_call':
+      return { titolo: `Correggo la call con ${testo(input.lead) ?? '?'}`, dettagli: cambi(input, ['lead', 'call_id']) }
   }
+}
+
+const ETICHETTA_TIPO: Record<string, string> = { nuovo: 'Nuovo cliente', rinnovo: 'Rinnovo', upsell: 'Upsell' }
+
+const ETICHETTA_CAMBIO: Record<string, string> = {
+  nome: 'Nome',
+  cognome: 'Cognome',
+  email: 'Email',
+  telefono: 'Telefono',
+  instagram_handle: 'Instagram',
+  fonte: 'Fonte',
+  setter: 'Setter',
+  closer: 'Closer',
+  note: 'Note',
+  aggiungi_nota: 'Aggiungo alle note',
+  tipo: 'Tipo',
+  prodotto: 'Prodotto',
+  valore: 'Valore',
+  importo: 'Importo',
+  nuova_data_vendita: 'Data di vendita',
+  data_inizio: 'Inizio',
+  data_fine: 'Fine',
+  scadenza: 'Scadenza',
+  data: 'Data',
+  ora: 'Ora',
+  categoria: 'Categoria',
+  descrizione: 'Descrizione',
+  ricorrente: 'Ricorrente',
+}
+
+/** "Campo: nuovo valore" for every field the edit changes. */
+function cambi(input: Input, esclusi: string[]): string[] {
+  return Object.entries(input)
+    .filter(([campo, valore]) => !esclusi.includes(campo) && valore !== undefined && valore !== null && valore !== '')
+    .map(([campo, valore]) => {
+      const etichetta = ETICHETTA_CAMBIO[campo] ?? campo
+      if (typeof valore === 'number' && ['valore', 'importo'].includes(campo)) return `${etichetta}: ${formatEuro(valore)}`
+      if (typeof valore === 'boolean') return `${etichetta}: ${valore ? 'sì' : 'no'}`
+      if (typeof valore === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(valore)) return `${etichetta}: ${formatData(valore)}`
+      return `${etichetta}: ${String(valore)}`
+    })
 }

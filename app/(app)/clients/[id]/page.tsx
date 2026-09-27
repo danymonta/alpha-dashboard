@@ -1,4 +1,4 @@
-import { RefreshCw, SearchX, TriangleAlert } from 'lucide-react'
+import { Plus, RefreshCw, SearchX, TriangleAlert } from 'lucide-react'
 
 import { ModificaCliente } from '@/app/(app)/clients/[id]/modifica-cliente'
 import { StatoClienteBadge } from '@/components/cliente/stato-cliente'
@@ -27,7 +27,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .maybeSingle(),
     supabase
       .from('v_clienti')
-      .select('stato, valore_firmato, incassato, da_incassare, in_ritardo, data_fine_ultima')
+      .select('stato, valore_firmato, incassato, da_incassare, in_ritardo, data_fine_ultima, numero_vendite')
       .eq('client_id', id)
       .maybeSingle(),
     caricaVendite({ clientId: id }),
@@ -65,15 +65,23 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         titolo={nome}
         indietro={{ href: '/clients', etichetta: 'Clienti' }}
         azione={
-          <div className="flex flex-wrap gap-2">
-            <LinkBottone href={`/sales/new?cliente=${id}&tipo=rinnovo`}>
-              <RefreshCw className="size-4" aria-hidden="true" />
-              Registra rinnovo
+          // renewal and upsell need a first sale: without one, the only way is a "nuovo"
+          (valore.numero_vendite ?? 0) === 0 ? (
+            <LinkBottone href={`/sales/new?cliente=${id}&tipo=nuovo`}>
+              <Plus className="size-4" aria-hidden="true" />
+              Registra la prima vendita
             </LinkBottone>
-            <LinkBottone href={`/sales/new?cliente=${id}&tipo=upsell`} variant="outline">
-              Upsell
-            </LinkBottone>
-          </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <LinkBottone href={`/sales/new?cliente=${id}&tipo=rinnovo`}>
+                <RefreshCw className="size-4" aria-hidden="true" />
+                Registra rinnovo
+              </LinkBottone>
+              <LinkBottone href={`/sales/new?cliente=${id}&tipo=upsell`} variant="outline">
+                Upsell
+              </LinkBottone>
+            </div>
+          )
         }
       />
 

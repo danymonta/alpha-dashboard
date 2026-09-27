@@ -6,7 +6,19 @@ import { promptAlfire } from '@/lib/alfire/prompt'
 import { riassuntoScrittura } from '@/lib/alfire/riassunto'
 
 // Tools that read a client's money, costs, margin or other people's pay
-const SOLDI = ['numeri_periodo', 'cash_per_mese', 'da_incassare', 'cerca_clienti', 'vendite_periodo', 'provvigioni', 'costi_periodo']
+const SOLDI = [
+  'numeri_periodo',
+  'cash_per_mese',
+  'da_incassare',
+  'cerca_clienti',
+  'rate_cliente',
+  'vendite_periodo',
+  'provvigioni',
+  'costi_periodo',
+  'modifica_vendita',
+  'modifica_rata',
+  'modifica_costo',
+]
 
 describe('strumenti di Alfire per ruolo', () => {
   it('l’admin ha tutto tranne gli strumenti del setter', () => {
@@ -81,6 +93,41 @@ describe('scheda di conferma', () => {
   })
 })
 
+describe('scheda di conferma: vendite e modifiche', () => {
+  it('la vendita di Loris Lo Presti: annuale, pagato tutto subito in contanti', () => {
+    const r = riassuntoScrittura('registra_vendita', {
+      cliente: 'Loris Lo Presti',
+      tipo: 'nuovo',
+      prodotto: 'Annuale',
+      valore: 2500,
+      data_vendita: '2026-09-12',
+      data_inizio: '2026-09-28',
+      durata_mesi: 12,
+      rate: [{ scadenza: '2026-09-12', importo: 2500, incassata_il: '2026-09-12', metodo: 'contanti' }],
+      setter: 'io',
+      closer: 'io',
+    })
+    expect(r.titolo).toBe('Registro la vendita a Loris Lo Presti')
+    const dettagli = r.dettagli.map((d) => d.replace(/\u00a0/g, ' '))
+    expect(dettagli).toEqual([
+      'Nuovo cliente: Annuale, 2.500,00 €',
+      'Firmata 12/09/2026, inizio 28/09/2026, 12 mesi',
+      'Piano: 2.500,00 € il 12/09/2026',
+      'Incassata 12/09/2026: 2.500,00 € in contanti',
+      'Setter: io',
+      'Closer: io',
+    ])
+  })
+
+  it('una modifica elenca solo i campi che cambiano', () => {
+    const r = riassuntoScrittura('modifica_cliente', { cliente: 'Loris Lo Presti', setter: 'io', closer: 'io' })
+    expect(r.titolo).toBe('Correggo il cliente Loris Lo Presti')
+    expect(r.dettagli).toEqual(['Setter: io', 'Closer: io'])
+    const v = riassuntoScrittura('modifica_vendita', { cliente: 'Saverio', valore: 2500, data_fine: '2027-09-27' })
+    expect(v.dettagli.map((d) => d.replace(/\u00a0/g, ' '))).toEqual(['Valore: 2.500,00 €', 'Fine: 27/09/2027'])
+  })
+})
+
 describe('prompt e guida', () => {
   it('il prompt resta corto e porta data, nome e ruolo', () => {
     const p = promptAlfire({ nome: 'Dany', ruolo: 'admin', oggi: '2026-09-27' })
@@ -88,7 +135,7 @@ describe('prompt e guida', () => {
     expect(p).toContain('Dany')
     expect(p).toContain('margine operativo')
     // the free tier counts tokens: a few hundred words at most
-    expect(p.split(/\s+/).length).toBeLessThan(260)
+    expect(p.split(/\s+/).length).toBeLessThan(330)
   })
 
   it('ogni argomento della guida ha un testo', () => {

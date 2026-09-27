@@ -16,6 +16,7 @@ export const STRUMENTI = {
   cash_per_mese: { ruoli: ['admin'] },
   da_incassare: { ruoli: ['admin'] },
   cerca_clienti: { ruoli: ['admin'] },
+  rate_cliente: { ruoli: ['admin'] },
   vendite_periodo: { ruoli: ['admin'] },
   metriche_setting: { ruoli: ['admin'] },
   provvigioni: { ruoli: ['admin'] },
@@ -30,18 +31,32 @@ export const STRUMENTI = {
 
   // writes: always behind the user's confirmation
   crea_cliente: { ruoli: ['admin'] },
+  modifica_cliente: { ruoli: ['admin'] },
+  registra_vendita: { ruoli: ['admin', 'closer'] },
+  modifica_vendita: { ruoli: ['admin'] },
+  modifica_rata: { ruoli: ['admin'] },
+  modifica_costo: { ruoli: ['admin'] },
+  modifica_call: { ruoli: ['admin', 'setter', 'closer'] },
   segna_incassata: { ruoli: ['admin'] },
   registra_costo: { ruoli: ['admin'] },
   aggiorna_report: { ruoli: ['setter'] },
   fissa_call: { ruoli: ['setter'] },
   crea_progetto: { livelliPm: ['admin', 'manager'] },
   aggiungi_task: { livelliPm: ['admin', 'manager', 'employee'] },
+  completa_task: { livelliPm: ['admin', 'manager', 'employee'] },
 } as const satisfies Record<string, Chi>
 
 export type NomeStrumento = keyof typeof STRUMENTI
 
 export const SCRITTURE = [
   'crea_cliente',
+  'modifica_cliente',
+  'registra_vendita',
+  'modifica_vendita',
+  'modifica_rata',
+  'modifica_costo',
+  'modifica_call',
+  'completa_task',
   'segna_incassata',
   'registra_costo',
   'aggiorna_report',

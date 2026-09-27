@@ -184,3 +184,20 @@ test.describe('pieno controllo dell’admin', () => {
     await expect(domanda.getByRole('button', { name: 'Elimina', exact: true })).toBeDisabled()
   })
 })
+
+test('un cliente senza vendite offre la prima vendita, non il rinnovo', async ({ page }) => {
+  const { data: cliente } = await dbLocale()
+    .from('clients')
+    .insert({ nome: `${PREFISSO}Nuovo${Date.now()}`, cognome: 'Senza Vendite' })
+    .select('id')
+    .single()
+  await accedi(page, 'admin')
+  await page.goto(`/clients/${cliente!.id}`)
+  await expect(page.getByRole('link', { name: 'Registra la prima vendita' })).toHaveAttribute(
+    'href',
+    `/sales/new?cliente=${cliente!.id}&tipo=nuovo`,
+  )
+  await expect(page.getByRole('link', { name: 'Registra rinnovo' })).toHaveCount(0)
+  await page.getByRole('link', { name: 'Registra la prima vendita' }).click()
+  await expect(page.getByRole('radio', { name: 'Nuovo' })).toBeChecked()
+})

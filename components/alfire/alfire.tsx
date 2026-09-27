@@ -45,6 +45,7 @@ const LETTURE: Record<string, string> = {
   cash_per_mese: 'il cash per mese',
   da_incassare: 'le rate da incassare',
   cerca_clienti: 'i clienti',
+  rate_cliente: 'le rate del cliente',
   vendite_periodo: 'le vendite',
   metriche_setting: 'le metriche di setting',
   provvigioni: 'le provvigioni',

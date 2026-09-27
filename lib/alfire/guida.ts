@@ -6,11 +6,11 @@ export const GUIDA = {
   panoramica:
     'Panoramica (/, solo admin): selettore di mese o periodo con confronto col precedente. KPI: cash incassato, revenue firmata, nuovi clienti, rinnovi, margine operativo (cash - provvigioni - costi, tasse escluse). Grafico del cash per mese diviso in nuovo, rinnovo, upsell. Funnel DM → conversazioni → call prenotate → svolte → chiuse. Box "Da incassare" (in ritardo, prossimi 30 giorni) e "In scadenza".',
   vendite:
-    'Vendite (/sales): i contratti firmati, cioè chi ha comprato cosa, per quanto e in quante rate. Nuova vendita da /sales/new: prodotto del catalogo o "Personalizzato" (nome e fine a mano), piano a rate uguali o scritto a mano rata per rata. La somma delle rate deve coincidere col contratto. Dal dettaglio si modificano vendita e rate, si aggiungono o tolgono rate, si elimina la vendita.',
+    'Vendite (/sales): i contratti firmati, cioè chi ha comprato cosa, per quanto e in quante rate. Nuova vendita da Vendite › Nuova vendita (/sales/new); per un cliente già in anagrafica, dalla sua scheda: "Registra la prima vendita" se non ne ha, altrimenti "Registra rinnovo" o "Upsell". Prodotto del catalogo o "Personalizzato" (nome e fine a mano), piano a rate uguali o scritto a mano rata per rata. La somma delle rate deve coincidere col contratto. Dal dettaglio si modificano vendita e rate, si aggiungono o tolgono rate, si elimina la vendita.',
   incassi:
     'Incassi (/payments): i soldi, rata per rata. Una rata è in ritardo se è prevista e la scadenza è passata. "Segna incassata" con la data di oggi già messa; si può annullare, correggere, registrare un rimborso (provvigione negativa nel mese del rimborso).',
   clienti:
-    'Clienti (/clients): stato derivato dalle vendite: attivo, in scadenza (finisce entro 30 giorni senza rinnovo), scaduto (finito da meno di 90 giorni), ex cliente, mai attivato. La scheda mostra storico vendite, rate e valore totale nel tempo.',
+    'Clienti (/clients): stato derivato dalle vendite: attivo, in scadenza (finisce entro 30 giorni senza rinnovo), scaduto (finito da meno di 90 giorni), ex cliente, mai attivato. La scheda mostra storico vendite, rate e valore totale nel tempo; "Modifica" corregge contatti, fonte, setter, closer e note.',
   setting:
     'Setting: il setter compila ogni giorno "Oggi" (/today) con i numeri dei DM, salvataggio automatico. Crea un lead solo quando fissa una call ("Nuova call"). Pipeline (/leads): Call fissata → Follow-up → Cliente / Perso, aggiornata a mano. Metriche in /setting: tasso di conversazione, di prenotazione, DM per call, show rate, close rate.',
   call:

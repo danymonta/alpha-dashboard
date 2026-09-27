@@ -79,7 +79,9 @@ createServer(async (req, res) => {
   const ultimo = messages.at(-1) ?? {}
   if (ultimo.role === 'tool') {
     const esito = contenuto(ultimo)
-    return testo(res, esito.includes('"fatto":true') ? 'Fatto, ho registrato il costo.' : 'Questo mese hai incassato 6.950,00 €.')
+    const strumento = String(ultimo.tool_call_id ?? '').replace('call_', '')
+    if (esito.includes('"errore"')) return testo(res, `Errore: ${esito}`)
+    return testo(res, esito.includes('"fatto":true') ? `Fatto: ${strumento}.` : 'Questo mese hai incassato 6.950,00 €.')
   }
   const domanda = contenuto(ultimo).toLowerCase()
   if (domanda.includes('costo')) {
@@ -89,6 +91,26 @@ createServer(async (req, res) => {
       categoria: 'software',
       ricorrente: false,
     })
+  }
+  if (domanda.includes('vendita')) {
+    const oggi = new Date().toISOString().slice(0, 10)
+    return chiamata(res, 'registra_vendita', {
+      cliente: 'E2EAlfire Loris Presti',
+      tipo: 'nuovo',
+      prodotto: 'Annuale E2E',
+      valore: 2500,
+      data_vendita: oggi,
+      data_inizio: oggi,
+      durata_mesi: 12,
+      rate: [{ scadenza: oggi, importo: 2500, incassata_il: oggi, metodo: 'contanti' }],
+      setter: 'io',
+      closer: 'io',
+      fonte: 'referral',
+      instagram_handle: 'loris_e2e',
+    })
+  }
+  if (domanda.includes('telefono')) {
+    return chiamata(res, 'modifica_cliente', { cliente: 'E2EAlfire Loris Presti', telefono: '+39 333 000 0000' })
   }
   if (domanda.includes('incassato')) return chiamata(res, 'numeri_periodo', {})
   return testo(res, 'Ciao, sono Alfire.')
