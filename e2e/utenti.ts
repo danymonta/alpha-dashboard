@@ -21,7 +21,8 @@ export const PROGETTO_FUNNEL = 'bbbbbbb1-0000-4000-8000-000000000004'
 /** Every tab of one project, for the screenshots. */
 function schedeProgetto(id: string) {
   return [
-    { nome: 'progetto-attivita', url: `/progetti/${id}` },
+    { nome: 'progetto-panoramica', url: `/progetti/${id}` },
+    { nome: 'progetto-attivita', url: `/progetti/${id}/attivita` },
     { nome: 'progetto-gantt', url: `/progetti/${id}/gantt` },
     { nome: 'progetto-tempo', url: `/progetti/${id}/tempo` },
     { nome: 'progetto-note', url: `/progetti/${id}/note` },
@@ -34,6 +35,7 @@ const TEMPO = { nome: 'il-mio-tempo', url: '/tempo' }
 
 /** Pages reachable by each role, as the navigation offers them. */
 const PROFILO = { nome: 'profilo', url: '/account' }
+const MIEI_TASK = { nome: 'miei-task', url: '/task' }
 
 export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   admin: [
@@ -57,6 +59,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     PROGETTI,
     ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE),
     TEMPO,
+    MIEI_TASK,
     PROFILO,
   ],
   setter: [
@@ -68,6 +71,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     // the seed setter is in no project: the empty state
     PROGETTI,
     TEMPO,
+    MIEI_TASK,
     PROFILO,
   ],
   closer: [
@@ -78,10 +82,11 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     PROGETTI,
     ...schedeProgetto(PROGETTO_FUNNEL),
     TEMPO,
+    MIEI_TASK,
     PROFILO,
   ],
-  coach: [PROGETTI, ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE), TEMPO, PROFILO],
-  editor: [PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO, PROFILO],
+  coach: [MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE), TEMPO, PROFILO],
+  editor: [MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO, PROFILO],
 }
 
 const IN_ATTESA_DELLO_STREAMING = new WeakSet<Page>()

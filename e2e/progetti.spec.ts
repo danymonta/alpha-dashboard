@@ -25,7 +25,7 @@ test('il manager crea il progetto di un cliente dal modello e trova le 12 attivi
   await foglio.getByText('Sara Editor').click()
   await foglio.getByRole('button', { name: 'Crea il progetto' }).click()
 
-  await page.waitForURL(/\/progetti\/[0-9a-f-]{36}$/)
+  await page.waitForURL(/\/progetti\/[0-9a-f-]{36}\/attivita$/)
   await expect(page.getByRole('heading', { level: 1, name: nome })).toBeVisible()
   await expect(page.getByTestId('task')).toHaveCount(12)
   for (const lista of ['Onboarding', 'Percorso', 'Chiusura e rinnovo']) {
@@ -33,7 +33,7 @@ test('il manager crea il progetto di un cliente dal modello e trova le 12 attivi
   }
   await expect(page.getByRole('listitem', { name: 'Call di onboarding' })).toBeVisible()
 
-  const progettoId = page.url().split('/').at(-1)!
+  const progettoId = page.url().split('/').at(-2)!
   const { data: membri } = await dbLocale().from('pm_membri').select('profile_id').eq('progetto_id', progettoId)
   expect(membri?.map((m) => m.profile_id).sort()).toEqual([ID_COACH, ID_EDITOR].sort())
 })
@@ -44,7 +44,7 @@ test('l’employee completa il task assegnato a lui e non vede i comandi di gest
   await creaTaskDiProva(progettoId, listaId, 'Riprese del coach', ID_COACH)
 
   await accedi(page, 'editor')
-  await page.goto(`/progetti/${progettoId}`)
+  await page.goto(`/progetti/${progettoId}/attivita`)
   await expect(page.getByTestId('task')).toHaveCount(2)
 
   // no project, list or member management for an employee
@@ -81,7 +81,7 @@ test('l’admin collega un cliente, e chi non vede i clienti non vede il collega
   const nomeCliente = [cliente!.nome, cliente!.cognome].filter(Boolean).join(' ')
 
   await accedi(page, 'admin')
-  await page.goto(`/progetti/${progettoId}`)
+  await page.goto(`/progetti/${progettoId}/attivita`)
   await page.getByRole('button', { name: 'Modifica', exact: true }).click()
   const foglio = page.getByRole('dialog')
   await foglio.getByLabel('Cliente').selectOption(cliente!.id)
@@ -95,7 +95,7 @@ test('l’admin collega un cliente, e chi non vede i clienti non vede il collega
   // the coach manages the project but has no access to clients
   const coach = await (await browser.newContext()).newPage()
   await accedi(coach, 'coach')
-  await coach.goto(`/progetti/${progettoId}`)
+  await coach.goto(`/progetti/${progettoId}/attivita`)
   await expect(coach.getByRole('heading', { level: 1, name: nome })).toBeVisible()
   await expect(coach.getByText('Cliente:')).toHaveCount(0)
   await coach.getByRole('button', { name: 'Modifica', exact: true }).click()
@@ -111,7 +111,7 @@ test('chi non è membro non vede il progetto', async ({ page }) => {
   await page.goto('/progetti?stato=tutti')
   await expect(page.getByText(nome)).toHaveCount(0)
 
-  await page.goto(`/progetti/${progettoId}`)
+  await page.goto(`/progetti/${progettoId}/attivita`)
   await expect(page.getByText('Progetto non trovato')).toBeVisible()
   await expect(page.getByTestId('task')).toHaveCount(0)
 })

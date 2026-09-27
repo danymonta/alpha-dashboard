@@ -162,6 +162,8 @@ export const repartoSchema = z.object({
   id: z.string().uuid().nullish().transform((v) => v ?? null),
   nome: z.string().trim().min(2, 'Scrivi il nome del reparto').max(60, 'Al massimo 60 caratteri'),
   descrizione: testoFacoltativo(300),
+  /** In this department a project is a client's path (Fitness Coaching). */
+  progetti_con_cliente: z.boolean().default(false),
 })
 
 export const attivoSchema = z.object({ id: z.string().uuid(), attivo: z.boolean() })

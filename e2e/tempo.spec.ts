@@ -97,7 +97,7 @@ test.describe('Il mio tempo', () => {
 
   test('la sveglia accanto al task avvia il timer; fermandolo dal task chiede la nota', async ({ page }) => {
     await accedi(page, 'setter')
-    await page.goto(`/progetti/${progetto.id}`)
+    await page.goto(`/progetti/${progetto.id}/attivita`)
     await attendiPagina(page)
 
     await page.getByRole('button', { name: 'Avvia il timer su Montaggio' }).click()

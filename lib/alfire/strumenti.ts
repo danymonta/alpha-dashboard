@@ -510,7 +510,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
         const p = trova((progetti ?? []) as { id: string; nome: string | null }[], progetto)
         if (!p || p === 'ambiguo') return errore('Progetto non trovato o non univoco: scrivi il nome completo.')
         const esito = await aggiungiTask({ progetto_id: p.id, titolo, tasklist_id: null, parent_id: null })
-        return esito.ok ? { fatto: true, link: `/progetti/${p.id}` } : errore(esito.errore)
+        return esito.ok ? { fatto: true, link: `/progetti/${p.id}/attivita` } : errore(esito.errore)
       },
     }),
 
@@ -859,7 +859,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
           )
         }
         const esito = await completaTask({ id: scelto.id, completato: v.completato })
-        return esito.ok ? { fatto: true, link: `/progetti/${scelto.progetto_id}` } : errore(esito.errore)
+        return esito.ok ? { fatto: true, link: `/progetti/${scelto.progetto_id}/attivita` } : errore(esito.errore)
       },
     }),
   } satisfies Record<NomeStrumento, unknown>

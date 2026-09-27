@@ -1,22 +1,19 @@
 import { Skeleton } from '@/components/ui/skeleton'
 
-/** Lists with their rows: the header and the tabs stay from the layout. */
+/** The overview: four tiles and four panels; header and tabs stay from the layout. */
 export default function Loading() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-live="polite">
-      <div className="flex flex-wrap gap-2">
-        <Skeleton className="h-11 w-32 rounded-lg" />
-        <Skeleton className="h-11 w-48 rounded-lg" />
+    <div className="space-y-5" aria-busy="true" aria-live="polite">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-xl" />
+        ))}
       </div>
-      {Array.from({ length: 2 }).map((_, s) => (
-        <div key={s} className="space-y-3 rounded-xl bg-card p-3">
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-1.5 w-full max-w-xs" />
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 rounded-lg" />
-          ))}
-        </div>
-      ))}
+      <div className="grid gap-5 lg:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-48 rounded-xl" />
+        ))}
+      </div>
       <span className="sr-only">Caricamento in corso</span>
     </div>
   )

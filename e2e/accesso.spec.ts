@@ -56,13 +56,13 @@ test('il nome e il ruolo dell’utente sono visibili nella shell', async ({ page
   await expect(page.getByText(UTENTI.admin.nome).first()).toBeVisible()
 })
 
-test('coach ed editor hanno solo i Progetti: le pagine Economics li riportano lì', async ({ page }) => {
+test('coach ed editor hanno solo i Progetti: le pagine Economics li riportano ai loro task', async ({ page }) => {
   for (const ruolo of ['coach', 'editor'] as const) {
     await accedi(page, ruolo)
-    await expect(page).toHaveURL('/progetti')
+    await expect(page).toHaveURL('/task')
     for (const pagina of ['/', '/sales', '/expenses', '/commissions']) {
       await page.goto(pagina)
-      await expect(page).toHaveURL('/progetti')
+      await expect(page).toHaveURL('/task')
     }
     await page.context().clearCookies()
   }

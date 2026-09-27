@@ -4,6 +4,7 @@ import {
   ClipboardList,
   FolderKanban,
   LayoutDashboard,
+  ListChecks,
   Percent,
   Phone,
   Receipt,
@@ -32,8 +33,9 @@ export type VoceNav = {
 
 // The Projects area, the same for every role (CLAUDE.md section 3)
 const PROGETTI: VoceNav = { href: '/progetti', etichetta: 'Progetti', Icona: FolderKanban, sezione: 'Progetti' }
+const MIEI_TASK: VoceNav = { href: '/task', etichetta: 'I miei task', Icona: ListChecks, sezione: 'Progetti' }
 const TEMPO: VoceNav = { href: '/tempo', etichetta: 'Il mio tempo', Icona: Timer, sezione: 'Progetti' }
-const SOLO_PROGETTI: NavRuolo = { principali: [PROGETTI, TEMPO], altre: [] }
+const SOLO_PROGETTI: NavRuolo = { principali: [MIEI_TASK, PROGETTI, TEMPO], altre: [] }
 
 export type NavRuolo = {
   /** Up to 4 items: they are the mobile bottom bar. */
@@ -59,6 +61,7 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
       { href: '/expenses', etichetta: 'Costi', Icona: Banknote },
       PROGETTI,
+      MIEI_TASK,
       TEMPO,
       { href: '/settings', etichetta: 'Impostazioni', Icona: Settings, sezione: 'Generale' },
     ],
@@ -70,7 +73,7 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-numbers', etichetta: 'I miei numeri', Icona: TrendingUp },
     ],
-    altre: [{ href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true }, PROGETTI, TEMPO],
+    altre: [{ href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true }, PROGETTI, MIEI_TASK, TEMPO],
   },
   closer: {
     principali: [
@@ -78,7 +81,7 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-sales', etichetta: 'Le mie vendite', Icona: Receipt },
     ],
-    altre: [PROGETTI, TEMPO],
+    altre: [PROGETTI, MIEI_TASK, TEMPO],
   },
   coach: SOLO_PROGETTI,
   editor: SOLO_PROGETTI,

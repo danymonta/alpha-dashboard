@@ -53,6 +53,12 @@ const PROFILO: PassoTutorial = {
 function soloProgetti(funzione: string, progetti: string, tempo: string): PassoTutorial[] {
   return [
     benvenuto(funzione),
+    {
+      id: 'miei-task',
+      titolo: 'I miei task',
+      testo: 'La tua pagina di tutti i giorni: quello che ti è stato assegnato in ogni progetto, diviso per scadenza. Spunta quando è fatto.',
+      target: nav('/task'),
+    },
     { id: 'progetti', titolo: 'Progetti', testo: progetti, target: nav('/progetti') },
     { id: 'tempo', titolo: 'Il mio tempo', testo: tempo, target: nav('/tempo') },
     ALFIRE_PROGETTI,

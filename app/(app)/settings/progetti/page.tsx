@@ -18,7 +18,7 @@ export default async function ImpostazioniProgettiPage() {
   const [reparti, modelli] = await Promise.all([
     supabase
       .from('pm_reparti')
-      .select('id, nome, descrizione, attivo, progetti:pm_progetti(count)')
+      .select('id, nome, descrizione, attivo, progetti_con_cliente, progetti:pm_progetti(count)')
       .order('ordine')
       .order('nome'),
     supabase
@@ -68,6 +68,7 @@ export default async function ImpostazioniProgettiPage() {
                     <p className="text-sm font-medium">{r.nome}</p>
                     <p className="text-sm text-muted-foreground">
                       <span className="num">{progetti === 1 ? '1 progetto' : `${progetti} progetti`}</span>
+                      {r.progetti_con_cliente ? ' · per clienti' : ''}
                       {r.descrizione ? ` · ${r.descrizione}` : ''}
                     </p>
                   </div>
@@ -80,6 +81,7 @@ export default async function ImpostazioniProgettiPage() {
                       id: r.id,
                       nome: r.nome,
                       descrizione: r.descrizione,
+                      progetti_con_cliente: r.progetti_con_cliente,
                       progetti,
                       modelli: modelli.data.filter((m) => m.reparto_id === r.id).length,
                     }}

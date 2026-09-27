@@ -73,7 +73,7 @@ export default async function LayoutProgetto({
     adminApp
       ? supabase.from('clients').select('id, nome, cognome').order('nome').order('cognome')
       : Promise.resolve({ data: [], error: null }),
-    supabase.from('pm_reparti').select('id, nome, attivo').order('ordine').order('nome'),
+    supabase.from('pm_reparti').select('id, nome, attivo, progetti_con_cliente').order('ordine').order('nome'),
   ])
 
   const persone = (membri.data ?? [])

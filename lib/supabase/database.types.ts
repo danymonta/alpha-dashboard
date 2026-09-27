@@ -442,13 +442,13 @@ isOneToOne: false
                   ]
                 },"pm_reparti": {
                   Row: {
-                    "attivo": boolean,"created_at": string,"created_by": string | null,"descrizione": string | null,"id": string,"nome": string,"ordine": number,"updated_at": string
+                    "attivo": boolean,"created_at": string,"created_by": string | null,"descrizione": string | null,"id": string,"nome": string,"ordine": number,"progetti_con_cliente": boolean,"updated_at": string
                   }
                   Insert: {
-                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"ordine"?: number,"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"ordine"?: number,"progetti_con_cliente"?: boolean,"updated_at"?: string
                   }
                   Update: {
-                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"ordine"?: number,"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"ordine"?: number,"progetti_con_cliente"?: boolean,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1143,6 +1143,11 @@ isOneToOne: false
                            },
 "pm_membro":
 { Args: { "p_progetto": string }; Returns: boolean
+                           },
+"pm_panoramica_progetto":
+{ Args: { "p_progetto": string }; Returns: {
+              "completati": number,"da_fare": number,"in_corso": number,"in_revisione": number,"in_ritardo": number,"in_scadenza_7_giorni": number,"minuti_totali": number,"minuti_ultimi_7_giorni": number,"senza_assegnatario": number
+            }[]
                            },
 "pm_puo_gestire":
 { Args: { "p_progetto": string }; Returns: boolean

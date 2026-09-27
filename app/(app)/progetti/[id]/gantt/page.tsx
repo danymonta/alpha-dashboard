@@ -71,7 +71,7 @@ export default async function GanttPage({ params }: { params: Promise<{ id: stri
         Icona={ListTodo}
         titolo="Ancora nessuna attività"
         descrizione="Il Gantt si disegna dalle liste e dalle attività del progetto, con le loro date."
-        azione={<LinkBottone href={`/progetti/${id}`}>Vai alle attività</LinkBottone>}
+        azione={<LinkBottone href={`/progetti/${id}/attivita`}>Vai alle attività</LinkBottone>}
       />
     )
   }

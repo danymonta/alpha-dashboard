@@ -64,7 +64,7 @@ export function AttivitaProgetto({
         titolo="Nessun task con questi filtri"
         descrizione={filtro.soloMiei ? 'Non hai task assegnati in questo stato.' : 'Nessun task in questo stato.'}
         azione={
-          <LinkBottone href={`/progetti/${progettoId}`} variant="outline">
+          <LinkBottone href={`/progetti/${progettoId}/attivita`} variant="outline">
             Togli i filtri
           </LinkBottone>
         }

@@ -6,7 +6,8 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const SCHEDE = [
-  { percorso: '', etichetta: 'Attività' },
+  { percorso: '', etichetta: 'Panoramica' },
+  { percorso: '/attivita', etichetta: 'Attività' },
   { percorso: '/gantt', etichetta: 'Gantt' },
   { percorso: '/tempo', etichetta: 'Tempo' },
   { percorso: '/note', etichetta: 'Note' },

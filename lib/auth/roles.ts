@@ -38,7 +38,8 @@ export function percorsoIniziale(ruolo: AppRole): string {
     case 'closer':
       return '/calls'
     default:
-      return '/progetti'
+      // who works on projects starts from what is on their plate
+      return '/task'
   }
 }
 

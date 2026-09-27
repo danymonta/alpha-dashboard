@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { nuovoProgettoSchema, type NuovoProgettoInput } from '@/lib/validation/progetti'
 
-export type OpzioneReparto = { id: string; nome: string }
+export type OpzioneReparto = { id: string; nome: string; progetti_con_cliente: boolean }
 export type OpzioneModello = { id: string; nome: string; reparto_id: string | null; voci: number }
 export type OpzionePersona = { id: string; nome: string }
 export type OpzioneCliente = { id: string; etichetta: string }
@@ -33,10 +33,11 @@ function modelloPredefinito(modelli: readonly OpzioneModello[], repartoId: strin
 }
 
 /**
- * "Nuovo progetto". From a department the department comes preselected, and
- * so does its first template: a client of Fitness Coaching opens with the
- * whole client path already dated. From the page header the department is to
- * be chosen. Only the app admin gets the client field.
+ * "Nuovo progetto". The department comes first: it decides the rest. In a
+ * department that works on clients (Fitness Coaching) the project is the
+ * client's path, so the client comes next and names the project; elsewhere
+ * there is no client field at all. From a department the department comes
+ * preselected, and so does its first template. Only the app admin links a client.
  *
  * Triggers: the page's primary button, a 44px "+" next to a department, or a
  * text link in an empty department.
@@ -87,6 +88,9 @@ export function NuovoProgetto({
   } = useForm<NuovoProgettoInput>({ resolver: zodResolver(nuovoProgettoSchema), defaultValues: iniziali })
   const reparto = useWatch({ control, name: 'reparto_id' })
   const modelloScelto = useWatch({ control, name: 'modello_id' })
+  const perClienti = reparti.find((r) => r.id === reparto)?.progetti_con_cliente ?? false
+  // the name the client gave the project: replaced when the client changes, never a name typed by hand
+  const [nomeDalCliente, setNomeDalCliente] = useState('')
   const opzioniModello = modelliPer(modelli, reparto)
   const voci = modelli.find((m) => m.id === modelloScelto)?.voci ?? 0
 
@@ -106,7 +110,8 @@ export function NuovoProgetto({
     toast.success('Progetto creato')
     setAperto(false)
     reset(iniziali)
-    router.push(`/progetti/${esito.id}`)
+    // a new project is set up in its activities: lists and tasks come first
+    router.push(`/progetti/${esito.id}/attivita`)
   })
 
   return (
@@ -156,26 +161,16 @@ export function NuovoProgetto({
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor={`np-nome-${chiave}`}>Nome</Label>
-          <Input
-            id={`np-nome-${chiave}`}
-            className="h-11"
-            placeholder="Percorso Nome Cognome"
-            aria-describedby={errors.nome ? `np-nome-errore-${chiave}` : undefined}
-            {...register('nome')}
-          />
-          <ErroreCampo id={`np-nome-errore-${chiave}`} messaggio={errors.nome?.message} />
-        </div>
-
-        <div className="space-y-1.5">
           <Label htmlFor={`np-reparto-${chiave}`}>Reparto</Label>
           <select
             id={`np-reparto-${chiave}`}
             className={CLASSE_SELECT}
             aria-describedby={errors.reparto_id ? `np-reparto-errore-${chiave}` : undefined}
             {...register('reparto_id', {
-              onChange: (e: ChangeEvent<HTMLSelectElement>) =>
-                setValue('modello_id', modelloPredefinito(modelli, e.target.value)),
+              onChange: (e: ChangeEvent<HTMLSelectElement>) => {
+                setValue('modello_id', modelloPredefinito(modelli, e.target.value))
+                if (!reparti.find((r) => r.id === e.target.value)?.progetti_con_cliente) setValue('client_id', '')
+              },
             })}
           >
             {repartoId ? null : (
@@ -192,9 +187,53 @@ export function NuovoProgetto({
           <ErroreCampo id={`np-reparto-errore-${chiave}`} messaggio={errors.reparto_id?.message} />
         </div>
 
+        {clienti && perClienti ? (
+          <div className="space-y-1.5">
+            <Label htmlFor={`np-cliente-${chiave}`}>Cliente</Label>
+            <select
+              id={`np-cliente-${chiave}`}
+              className={CLASSE_SELECT}
+              {...register('client_id', {
+                onChange: (e: ChangeEvent<HTMLSelectElement>) => {
+                  const scelto = clienti.find((c) => c.id === e.target.value)
+                  const nome = getValues('nome')?.trim() ?? ''
+                  if (scelto && (!nome || nome === nomeDalCliente)) {
+                    setValue('nome', scelto.etichetta)
+                    setNomeDalCliente(scelto.etichetta)
+                  }
+                },
+              })}
+            >
+              <option value="">Nessun cliente</option>
+              {clienti.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.etichetta}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              In questo reparto il progetto è il percorso del cliente: il nome si compila da solo. Solo tu vedi il
+              collegamento al cliente.
+            </p>
+          </div>
+        ) : null}
+
+        <div className="space-y-1.5">
+          <Label htmlFor={`np-nome-${chiave}`}>Nome</Label>
+          <Input
+            id={`np-nome-${chiave}`}
+            className="h-11"
+            placeholder={perClienti ? 'Nome Cognome del cliente' : 'Lancio funnel di gennaio'}
+            aria-describedby={errors.nome ? `np-nome-errore-${chiave}` : undefined}
+            {...register('nome')}
+          />
+          <ErroreCampo id={`np-nome-errore-${chiave}`} messaggio={errors.nome?.message} />
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor={`np-modello-${chiave}`}>Modello</Label>
-          <select id={`np-modello-${chiave}`} className={CLASSE_SELECT} {...register('modello_id')}>
+          {/* keyed on the department: its options change, and a fresh select shows the chosen template */}
+          <select key={reparto} id={`np-modello-${chiave}`} className={CLASSE_SELECT} {...register('modello_id')}>
             <option value="">Nessun modello</option>
             {opzioniModello.map((m) => (
               <option key={m.id} value={m.id}>
@@ -208,30 +247,6 @@ export function NuovoProgetto({
               : 'Il progetto parte vuoto: liste e task li aggiungi tu.'}
           </p>
         </div>
-
-        {clienti ? (
-          <div className="space-y-1.5">
-            <Label htmlFor={`np-cliente-${chiave}`}>Cliente</Label>
-            <select
-              id={`np-cliente-${chiave}`}
-              className={CLASSE_SELECT}
-              {...register('client_id', {
-                onChange: (e: ChangeEvent<HTMLSelectElement>) => {
-                  const scelto = clienti.find((c) => c.id === e.target.value)
-                  if (scelto && !getValues('nome')?.trim()) setValue('nome', scelto.etichetta)
-                },
-              })}
-            >
-              <option value="">Nessun cliente</option>
-              {clienti.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.etichetta}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">Solo tu vedi il collegamento al cliente e ai suoi dati.</p>
-          </div>
-        ) : null}
 
         <div className="space-y-1.5">
           <Label htmlFor={`np-descrizione-${chiave}`}>Descrizione</Label>

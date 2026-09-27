@@ -3,8 +3,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { LoaderCircle, Pencil, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
-import { useForm } from 'react-hook-form'
+import { useState, useTransition, type ChangeEvent } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import { eliminaProgetto, modificaProgetto } from '@/app/(app)/progetti/[id]/actions'
@@ -54,7 +54,7 @@ export function ModificaProgetto({
 }: {
   progetto: ProgettoModificabile
   /** Active departments, plus the current one even if deactivated. */
-  reparti: readonly { id: string; nome: string }[]
+  reparti: readonly { id: string; nome: string; progetti_con_cliente: boolean }[]
   membri: readonly OpzionePersona[]
   clienti: readonly OpzioneCliente[] | null
   eliminabile: boolean
@@ -77,8 +77,13 @@ export function ModificaProgetto({
     register,
     handleSubmit,
     reset,
+    setValue,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<ModificaProgettoInput>({ resolver: zodResolver(modificaProgettoSchema), defaultValues: iniziali })
+  const reparto = useWatch({ control, name: 'reparto_id' })
+  // a client only where the department works on clients (the database checks it too)
+  const perClienti = reparti.find((r) => r.id === reparto)?.progetti_con_cliente ?? false
 
   const invia = handleSubmit(async (valori) => {
     if (await salva(() => modificaProgetto(valori), 'Progetto salvato')) setAperto(false)
@@ -134,7 +139,17 @@ export function ModificaProgetto({
 
           <div className="space-y-1.5">
             <Label htmlFor="mp-reparto">Reparto</Label>
-            <select id="mp-reparto" className={CLASSE_SELECT} {...register('reparto_id')}>
+            <select
+              id="mp-reparto"
+              className={CLASSE_SELECT}
+              {...register('reparto_id', {
+                onChange: (e: ChangeEvent<HTMLSelectElement>) => {
+                  if (clienti && !reparti.find((r) => r.id === e.target.value)?.progetti_con_cliente) {
+                    setValue('client_id', '')
+                  }
+                },
+              })}
+            >
               {reparti.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.nome}
@@ -157,7 +172,7 @@ export function ModificaProgetto({
             <p className="text-xs text-muted-foreground">Uno dei membri del progetto.</p>
           </div>
 
-          {clienti ? (
+          {clienti && perClienti ? (
             <div className="space-y-1.5">
               <Label htmlFor="mp-cliente">Cliente</Label>
               <select id="mp-cliente" className={CLASSE_SELECT} {...register('client_id')}>

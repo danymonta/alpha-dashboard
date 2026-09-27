@@ -61,7 +61,7 @@ export default async function ProgettiPage({
   if (soloMiei) query = query.eq('sono_membro', true)
 
   const [reparti, progetti, modelli, persone, clienti] = await Promise.all([
-    supabase.from('pm_reparti').select('id, nome, descrizione, attivo').order('ordine').order('nome'),
+    supabase.from('pm_reparti').select('id, nome, descrizione, attivo, progetti_con_cliente').order('ordine').order('nome'),
     query,
     creatore
       ? supabase.from('pm_modelli').select('id, nome, reparto_id, voci:pm_modelli_voci(count)').eq('attivo', true).order('nome')
