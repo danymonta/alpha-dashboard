@@ -5,7 +5,8 @@
 function required(value: string | undefined, name: string): string {
   if (!value) {
     throw new Error(
-      `Variabile d'ambiente mancante: ${name}. Copia .env.example in .env.local e compilala.`,
+      `Variabile d'ambiente mancante: ${name}. In locale copia .env.example in .env.local; ` +
+        `su Vercel aggiungila in Settings > Environment Variables per Production e rifai il deploy.`,
     )
   }
   return value
