@@ -30,6 +30,13 @@ export function origineAmmessa(candidata: string | null | undefined, appUrl: str
   return nostro ? url.origin : base
 }
 
+/**
+ * Where to go after Google, kept in a short-lived cookie instead of the return
+ * address: Supabase matches that address against its allow list query
+ * included, so a plain "/auth/callback" entry must be enough.
+ */
+export const COOKIE_DOPO_LOGIN = 'alpha-dopo-login'
+
 /** "da" after sign-in: only a path of this app, never another site. */
 export function destinazioneSicura(da: string | null | undefined): string {
   if (!da || !da.startsWith('/') || da.startsWith('//') || da.startsWith('/\\') || da.startsWith('/login')) return '/'

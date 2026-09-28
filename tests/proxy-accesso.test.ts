@@ -28,3 +28,14 @@ describe('il proxy non tocca la sessione mentre si entra con Google', () => {
     expect(risposta.cookies.getAll()).toEqual([])
   })
 })
+
+describe('il codice di Google finito sulla home o su /login arriva comunque al rientro', () => {
+  it.each([
+    ['/?code=e0f770a2-1b2e-4c9c-9806-188e785ae668', '/auth/callback?code=e0f770a2-1b2e-4c9c-9806-188e785ae668'],
+    ['/login?code=e0f770a2-1b2e-4c9c-9806-188e785ae668&da=%2F', '/auth/callback?code=e0f770a2-1b2e-4c9c-9806-188e785ae668&da=%2F'],
+    ['/?error=server_error&error_description=Database+error+saving+new+user', '/auth/callback?error=server_error&error_description=Database+error+saving+new+user'],
+  ])('%s', async (da, verso) => {
+    const risposta = await updateSession(richiesta(da))
+    expect(risposta.headers.get('location')).toBe(`http://localhost:3000${verso}`)
+  })
+})

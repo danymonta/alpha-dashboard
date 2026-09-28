@@ -21,7 +21,17 @@ function isPubblico(pathname: string) {
  * out of the app. Authorization itself lives in RLS, not here.
  */
 export async function updateSession(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname, searchParams } = request.nextUrl
+
+  // Google's code (or Supabase's error) that landed on the home or on /login:
+  // Supabase sends it to the Site URL when the return address is not in its
+  // allow list (a new domain, before the dashboard is updated). The PKCE
+  // verifier is on this domain, so the callback can still finish the sign-in.
+  if ((pathname === '/' || pathname === '/login') && (searchParams.has('code') || searchParams.has('error'))) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/callback'
+    return NextResponse.redirect(url)
+  }
 
   // The public routes need no session, and the sign-in ones must not touch it:
   // refreshing a dead session clears the PKCE verifier together with it, and

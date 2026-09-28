@@ -1,6 +1,7 @@
+import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { destinazioneSicura } from '@/lib/auth/origine'
+import { COOKIE_DOPO_LOGIN, destinazioneSicura } from '@/lib/auth/origine'
 import { percorsoIniziale } from '@/lib/auth/roles'
 import { createClient } from '@/lib/supabase/server'
 
@@ -12,7 +13,10 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const code = searchParams.get('code')
-  const da = searchParams.get('da')
+  const cookieStore = await cookies()
+  // the sign-in started with a cookie saying where to go; old links carried it in the query
+  const da = searchParams.get('da') ?? cookieStore.get(COOKIE_DOPO_LOGIN)?.value ?? null
+  cookieStore.delete(COOKIE_DOPO_LOGIN)
 
   if (searchParams.get('error')) {
     const descrizione = searchParams.get('error_description') ?? ''

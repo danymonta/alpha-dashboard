@@ -75,3 +75,10 @@ test('chi è già entrato non rivede il login: va dritto dove stava andando', as
   await page.goto('/login?da=//evil.example.com')
   await expect(page).toHaveURL(/localhost:3000\/(today)?$/)
 })
+
+test('il codice di Google finito sulla home (Site URL) arriva al rientro, non resta su /login?code=', async ({ page }) => {
+  // what Supabase does when the return address is not in its allow list
+  await page.goto('/?code=e0f770a2-1b2e-4c9c-9806-188e785ae668')
+  // a made-up code cannot be exchanged: the callback says so, instead of a silent loop
+  await expect(page).toHaveURL(/\/login\?errore=callback$/)
+})

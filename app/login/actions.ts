@@ -1,10 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { isDevLoginEnabled } from '@/lib/auth/dev-login'
-import { destinazioneSicura } from '@/lib/auth/origine'
+import { COOKIE_DOPO_LOGIN, destinazioneSicura } from '@/lib/auth/origine'
 import { origineCorrente } from '@/lib/auth/origine-server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -17,10 +18,20 @@ export async function accediConGoogle(formData: FormData): Promise<void> {
   // whatever APP_URL said at build time: cookies live on one domain only
   const origine = await origineCorrente()
 
+  // the return address stays exactly "/auth/callback" (Supabase's allow list
+  // compares the query too): where to go afterwards rides in a cookie
+  ;(await cookies()).set(COOKIE_DOPO_LOGIN, da, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: origine.startsWith('https://'),
+    path: '/',
+    maxAge: 60 * 15,
+  })
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${origine}/auth/callback?da=${encodeURIComponent(da)}`,
+      redirectTo: `${origine}/auth/callback`,
     },
   })
 
