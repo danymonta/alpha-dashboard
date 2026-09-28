@@ -21,6 +21,16 @@ function isPubblico(pathname: string) {
  * out of the app. Authorization itself lives in RLS, not here.
  */
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // The public routes need no session, and the sign-in ones must not touch it:
+  // refreshing a dead session clears the PKCE verifier together with it, and
+  // the code coming back from Google can no longer be exchanged. Only opening
+  // /login looks at the session, to send who is already in where they were going.
+  if (isPubblico(pathname) && !(pathname === '/login' && request.method === 'GET')) {
+    return NextResponse.next({ request })
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -47,8 +57,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
 
   if (!user && !isPubblico(pathname)) {
     const url = request.nextUrl.clone()

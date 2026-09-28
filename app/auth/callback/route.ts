@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?errore=callback`)
   }
 
-  const supabase = await createClient()
+  // a dead session still in the browser must not take the PKCE verifier with it
+  const supabase = await createClient({ ignoraSessione: true })
   const { error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error) {
