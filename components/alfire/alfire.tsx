@@ -196,8 +196,12 @@ function Pannello({
     [clearError, occupato, sendMessage],
   )
 
+  // the transcript goes into the box, not straight to Alfire: read it, fix it, then send
   const registratore = useRegistratore(
-    useCallback((t: string) => invia(t), [invia]),
+    useCallback((t: string) => {
+      setTesto((prima) => (prima.trim() ? `${prima.trimEnd()} ${t}` : t))
+      requestAnimationFrame(() => campo.current?.focus())
+    }, []),
     useCallback((m: string) => setErroreVoce(m), []),
   )
 
@@ -348,7 +352,7 @@ function Pannello({
               variant={registratore.stato === 'registra' ? 'destructive' : 'outline'}
               size="icon"
               className="size-11 shrink-0"
-              aria-label={registratore.stato === 'registra' ? 'Invia il vocale' : 'Parla con Alfire'}
+              aria-label={registratore.stato === 'registra' ? 'Ferma e trascrivi' : 'Parla con Alfire'}
               aria-pressed={registratore.stato === 'registra'}
               disabled={registratore.stato === 'trascrive' || occupato}
               onClick={() => (registratore.stato === 'registra' ? registratore.ferma() : void registratore.avvia())}

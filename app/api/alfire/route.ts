@@ -1,5 +1,4 @@
 import {
-  APICallError,
   convertToModelMessages,
   createUIMessageStreamResponse,
   isStepCount,
@@ -11,6 +10,8 @@ import {
 } from 'ai'
 
 import { alfireConfigurata, modelloAlfire } from '@/lib/alfire/config'
+import { dettaglioErroreAlfire, messaggioErroreAlfire } from '@/lib/alfire/errori'
+import { serveScrivere } from '@/lib/alfire/intento'
 import { SCRITTURE } from '@/lib/alfire/permessi'
 import { promptAlfire } from '@/lib/alfire/prompt'
 import { strumentiAlfire } from '@/lib/alfire/strumenti'
@@ -22,21 +23,23 @@ import { createClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-/** Only the last messages travel: the free tier has a per-minute token budget. */
-const MESSAGGI_MAX = 12
+/**
+ * Only the last messages travel: the free tier counts every token of every
+ * step against 8K a minute and 200K a day (Groq, 28/09/2026).
+ */
+const MESSAGGI_MAX = 8
 
 function senzaRagionamento(messages: ModelMessage[]): ModelMessage[] {
   return pruneMessages({ messages, reasoning: 'all', emptyMessages: 'remove' })
 }
 
-function messaggioErrore(error: unknown): string {
-  if (APICallError.isInstance(error) && error.statusCode === 429) {
-    return 'Alfire ha raggiunto il limite gratuito di questo minuto. Riprova tra poco.'
-  }
-  if (APICallError.isInstance(error) && (error.statusCode === 401 || error.statusCode === 403)) {
-    return 'La chiave di Alfire non è valida: controlla ALFIRE_API_KEY.'
-  }
-  return 'Alfire non ha risposto. Riprova.'
+/**
+ * The history the model gets: no reasoning, and no tool calls or results
+ * before the last two messages (the answers that used them stay as text).
+ * Within one answer the steps keep their tool results (prepareStep below).
+ */
+function storiaLeggera(messages: ModelMessage[]): ModelMessage[] {
+  return pruneMessages({ messages, reasoning: 'all', toolCalls: 'before-last-2-messages', emptyMessages: 'remove' })
 }
 
 export async function POST(req: Request) {
@@ -59,12 +62,16 @@ export async function POST(req: Request) {
 
   const supabase = await createClient()
   const livelloPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm)
-  const tools = strumentiAlfire(supabase, profilo, livelloPm)
+  const tutti = strumentiAlfire(supabase, profilo, livelloPm)
+  // a question that only reads goes without the write tools: half the tokens
+  const tools = serveScrivere(messaggi)
+    ? tutti
+    : Object.fromEntries(Object.entries(tutti).filter(([nome]) => !(SCRITTURE as readonly string[]).includes(nome)))
 
   const result = streamText({
     model: modelloAlfire(),
     system: promptAlfire({ nome: profilo.nome.split(' ')[0], ruolo: profilo.ruolo, oggi: oggiRoma() }),
-    messages: senzaRagionamento(await convertToModelMessages(messaggi, { tools, ignoreIncompleteToolCalls: true })),
+    messages: storiaLeggera(await convertToModelMessages(messaggi, { tools: tutti, ignoreIncompleteToolCalls: true })),
     // gpt-oss reasons before answering; Groq refuses that reasoning when it comes
     // back as reasoning_content in the next step (after a tool call). The model
     // does not need it to go on, so every step starts without it.
@@ -75,12 +82,20 @@ export async function POST(req: Request) {
       SCRITTURE.filter((nome) => nome in tools).map((nome) => [nome, 'user-approval' as const]),
     ),
     stopWhen: isStepCount(5),
-    maxOutputTokens: 1200,
+    // Groq reserves the maximum answer against the per-minute budget up front
+    maxOutputTokens: 900,
     temperature: 0.2,
     providerOptions: { alfire: { reasoningEffort: 'low' } },
   })
 
   return createUIMessageStreamResponse({
-    stream: toUIMessageStream({ stream: result.stream, onError: messaggioErrore }),
+    stream: toUIMessageStream({
+      stream: result.stream,
+      onError: (error) => {
+        // the real cause in Vercel's logs; a precise, human message in the chat
+        console.error('[alfire]', dettaglioErroreAlfire(error))
+        return messaggioErroreAlfire(error, { admin: profilo.ruolo === 'admin' })
+      },
+    }),
   })
 }
