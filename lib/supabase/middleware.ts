@@ -25,9 +25,18 @@ export async function updateSession(request: NextRequest) {
 
   // Google's code (or Supabase's error) that landed on the home or on /login:
   // Supabase sends it to the Site URL when the return address is not in its
-  // allow list (a new domain, before the dashboard is updated). The PKCE
-  // verifier is on this domain, so the callback can still finish the sign-in.
-  if ((pathname === '/' || pathname === '/login') && (searchParams.has('code') || searchParams.has('error'))) {
+  // allow list (a new domain, before the dashboard is updated). Only page
+  // navigations (the "Accedi con Google" button posts its server action to the
+  // current URL, which may still carry ?code, and the callback answers GET only)
+  // and only while a sign-in is pending in this browser (the PKCE verifier the
+  // server exchange reads is there): an old ?code link goes the normal way.
+  const accessoInCorso = request.cookies.getAll().some((c) => /^sb-.+-auth-token-code-verifier$/.test(c.name))
+  if (
+    request.method === 'GET' &&
+    accessoInCorso &&
+    (pathname === '/' || pathname === '/login') &&
+    (searchParams.has('code') || searchParams.has('error'))
+  ) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/callback'
     return NextResponse.redirect(url)

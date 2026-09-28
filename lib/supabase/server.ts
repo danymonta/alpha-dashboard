@@ -7,27 +7,20 @@ import { publicEnv } from '@/lib/env'
 import type { Database } from '@/lib/supabase/database.types'
 
 /** The session cookie and its chunks (`sb-<ref>-auth-token`, `.0`, `.1`…), not the PKCE verifiers. */
-const COOKIE_SESSIONE = /^sb-.+-auth-token(\.\d+)?$/
+export const COOKIE_SESSIONE = /^sb-.+-auth-token(\.\d+)?$/
 
 /**
  * Client for Server Components and Server Actions. Runs as the signed-in user.
  *
- * `ignoraSessione`: for the OAuth landing only. A dead session left in the
- * browser (yesterday's, revoked) fails to refresh when the client starts, and
- * auth-js then clears every PKCE verifier with it: the code from Google could
- * never be exchanged. Without the old session the verifier survives, and the
- * exchange writes the new session over the old one.
+ * `ignoraSessione`: for the OAuth landing only. The session in the browser is
+ * hidden from the client, never deleted here: a dead one (yesterday's,
+ * revoked) would fail to refresh when the client starts, and auth-js would
+ * clear every PKCE verifier with it. The callback drops the old session only
+ * after the new one is written (a failed exchange leaves a signed-in person
+ * signed in).
  */
 export async function createClient({ ignoraSessione = false }: { ignoraSessione?: boolean } = {}) {
   const cookieStore = await cookies()
-
-  if (ignoraSessione) {
-    // cleared on the way out too: the new session is written over it, and a
-    // stale chunk (".2") must never be glued to the new one
-    for (const { name } of cookieStore.getAll()) {
-      if (COOKIE_SESSIONE.test(name)) cookieStore.delete(name)
-    }
-  }
 
   return createServerClient<Database>(
     publicEnv.supabaseUrl,

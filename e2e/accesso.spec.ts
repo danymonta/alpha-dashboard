@@ -76,9 +76,32 @@ test('chi è già entrato non rivede il login: va dritto dove stava andando', as
   await expect(page).toHaveURL(/localhost:3000\/(today)?$/)
 })
 
+// the PKCE verifier the server exchange reads: present while a Google sign-in is pending
+const VERIFICATORE = {
+  name: 'sb-127-auth-token-code-verifier',
+  value: `base64-${Buffer.from(JSON.stringify('verificatore-di-prova')).toString('base64url')}`,
+  domain: 'localhost',
+  path: '/',
+}
+
 test('il codice di Google finito sulla home (Site URL) arriva al rientro, non resta su /login?code=', async ({ page }) => {
   // what Supabase does when the return address is not in its allow list
+  await page.context().addCookies([VERIFICATORE])
   await page.goto('/?code=e0f770a2-1b2e-4c9c-9806-188e785ae668')
   // a made-up code cannot be exchanged: the callback says so, instead of a silent loop
   await expect(page).toHaveURL(/\/login\?errore=callback$/)
+})
+
+test('chi è già dentro e apre un vecchio link col codice resta dentro', async ({ page }) => {
+  await accedi(page, 'admin')
+
+  // no sign-in pending: the old link takes the normal way
+  await page.goto('/login?code=e0f770a2-1b2e-4c9c-9806-188e785ae668&da=%2F')
+  await expect(page).toHaveURL(/\/$/)
+
+  // a pending verifier too: the failed exchange must not touch the session
+  await page.context().addCookies([VERIFICATORE])
+  await page.goto('/?code=e0f770a2-1b2e-4c9c-9806-188e785ae668')
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole('navigation', { name: 'Navigazione principale' })).toBeVisible()
 })

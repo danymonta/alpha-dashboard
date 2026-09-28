@@ -39,3 +39,17 @@ describe('il codice di Google finito sulla home o su /login arriva comunque al r
     expect(risposta.headers.get('location')).toBe(`http://localhost:3000${verso}`)
   })
 })
+
+describe('senza un login in corso, un vecchio ?code non viene girato al rientro', () => {
+  it('chi apre /?code=… dalla cronologia fa la strada normale', async () => {
+    const risposta = await updateSession(new NextRequest('http://localhost:3000/?code=vecchio'))
+    expect(risposta.headers.get('location')).not.toContain('/auth/callback')
+  })
+})
+
+describe('il pulsante «Accedi con Google» premuto da una pagina /login?code=…', () => {
+  it('arriva alla sua azione, non viene girato al rientro (che risponde solo a GET)', async () => {
+    const risposta = await updateSession(richiesta('/login?code=vecchio&da=%2F', 'POST'))
+    expect(risposta.headers.get('location')).toBeNull()
+  })
+})
