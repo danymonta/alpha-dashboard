@@ -1212,6 +1212,9 @@ isOneToOne: false
 "pm_crea_progetto":
 { Args: { "p_client_id"?: string,"p_data_fine"?: string,"p_data_inizio"?: string,"p_descrizione"?: string,"p_membri"?: (string)[],"p_modello_id"?: string,"p_nome": string,"p_reparto_id": string }; Returns: string
                            },
+"pm_fascia_tempo":
+{ Args: { "p_alle": string,"p_dalle": string,"p_data": string }; Returns: Record<string, unknown>
+                           },
 "pm_ferma_timer":
 { Args: { "p_nota"?: string }; Returns: string
                            },
@@ -1223,6 +1226,9 @@ isOneToOne: false
                            },
 "pm_membro":
 { Args: { "p_progetto": string }; Returns: boolean
+                           },
+"pm_modifica_tempo":
+{ Args: { "p_alle"?: string,"p_dalle"?: string,"p_data": string,"p_id": string,"p_minuti"?: number,"p_nota"?: string,"p_progetto_id": string,"p_task_id"?: string }; Returns: string
                            },
 "pm_panoramica_progetto":
 { Args: { "p_progetto": string }; Returns: {
@@ -1238,6 +1244,9 @@ isOneToOne: false
 "pm_puo_vedere":
 { Args: { "p_progetto": string }; Returns: boolean
                            },
+"pm_registra_tempo":
+{ Args: { "p_alle"?: string,"p_dalle"?: string,"p_data": string,"p_minuti"?: number,"p_nota"?: string,"p_progetto_id": string,"p_task_id"?: string }; Returns: string
+                           },
 "pm_riepilogo_tempo":
 { Args: { "p_a": string,"p_da": string }; Returns: {
               "data": string,"livello": string,"minuti": number,"progetto": string,"progetto_id": string,"voci": number
@@ -1248,6 +1257,11 @@ isOneToOne: false
                            },
 "pm_riordina_reparti":
 { Args: { "p_ids": (string)[] }; Returns: number
+                           },
+"pm_tempo_per_persona":
+{ Args: { "p_a": string,"p_da": string,"p_limite"?: number,"p_profilo"?: string,"p_progetto"?: string }; Returns: {
+              "data": string,"fine": string,"id": string,"inizio": string,"livello": string,"minuti": number,"nota": string,"persona": string,"profile_id": string,"progetto": string,"progetto_id": string,"task": string,"task_id": string,"voci": number
+            }[]
                            },
 "pm_tempo_progetto":
 { Args: { "p_a": string,"p_da": string,"p_progetto": string }; Returns: {

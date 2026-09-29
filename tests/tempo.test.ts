@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ZodTypeAny } from 'zod'
 
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
@@ -14,10 +14,15 @@ import {
 import { modificaNotaSchema, notaSchema } from '@/lib/validation/note'
 import {
   avviaTimerSchema,
+  fasciaDellaVoce,
   fermaTimerSchema,
+  istanteRoma,
+  minutiFascia,
   modificaTempoSchema,
   parseDurata,
+  parseOra,
   tempoManualeSchema,
+  timerSenzaFascia,
 } from '@/lib/validation/tempo'
 
 const PROGETTO = '0b6d2c1e-7d3a-4f7e-9a51-3c1d2b4e5f60'
@@ -77,6 +82,8 @@ describe('tempo caricato dopo', () => {
       task_id: null,
       data: oggi,
       durata: 90,
+      dalle: null,
+      alle: null,
       nota: null,
     })
     expect(rilegge(tempoManualeSchema, { ...base, task_id: TASK, durata: '2h', nota: ' montaggio ' })).toMatchObject({
@@ -104,6 +111,162 @@ describe('tempo caricato dopo', () => {
   it('la modifica vuole anche la voce', () => {
     expect(rilegge(modificaTempoSchema, { ...base, id: TASK }).id).toBe(TASK)
     expect(errore(modificaTempoSchema, base)).toBeTruthy()
+  })
+})
+
+describe('fascia oraria facoltativa (Dalle – Alle)', () => {
+  const base = { progetto_id: PROGETTO, task_id: '', data: '2026-09-28', durata: '', nota: '' }
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** "Now" in the tests: a fixed instant, so today and the future do not move. */
+  function adesso(iso: string) {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(iso))
+  }
+
+  it('le ore si leggono come le scrive la gente o il campo orario', () => {
+    expect(parseOra('9')).toBe('09:00')
+    expect(parseOra('9:30')).toBe('09:30')
+    expect(parseOra('09.30')).toBe('09:30')
+    expect(parseOra('09:30:00')).toBe('09:30')
+    expect(parseOra('23:59')).toBe('23:59')
+    for (const x of ['', '24:00', '9:60', 'nove', '9:3']) expect(parseOra(x)).toBeNull()
+  })
+
+  it('con dalle e alle la durata viene dalla fascia, non da quella scritta', () => {
+    adesso('2026-09-29T10:00:00Z')
+    const fatto = rilegge(tempoManualeSchema, { ...base, durata: '5h', dalle: '9:00', alle: '10:30' })
+    expect(fatto).toMatchObject({ dalle: '09:00', alle: '10:30', durata: 90 })
+  })
+
+  it('senza fascia resta la durata scritta', () => {
+    adesso('2026-09-29T10:00:00Z')
+    expect(rilegge(tempoManualeSchema, { ...base, durata: '1:15', dalle: '', alle: '' })).toMatchObject({
+      dalle: null,
+      alle: null,
+      durata: 75,
+    })
+    expect(rilegge(tempoManualeSchema, { ...base, durata: '45', dalle: null, alle: undefined }).durata).toBe(45)
+  })
+
+  it('solo uno dei due: si chiede l’altro', () => {
+    adesso('2026-09-29T10:00:00Z')
+    const soloInizio = tempoManualeSchema.safeParse({ ...base, durata: '1:00', dalle: '09:00' })
+    expect(soloInizio.success).toBe(false)
+    expect(soloInizio.error?.issues[0]).toMatchObject({
+      path: ['alle'],
+      message: 'Indica sia l’inizio sia la fine, o nessuno dei due',
+    })
+    const soloFine = tempoManualeSchema.safeParse({ ...base, durata: '1:00', alle: '10:00' })
+    expect(soloFine.error?.issues[0].path).toEqual(['dalle'])
+    expect(errore(modificaTempoSchema, { ...base, id: TASK, durata: '1:00', alle: '10:00' })).toBe(
+      'Indica sia l’inizio sia la fine, o nessuno dei due',
+    )
+  })
+
+  it('la fine viene dopo l’inizio, e l’ora deve essere un’ora', () => {
+    adesso('2026-09-29T10:00:00Z')
+    expect(errore(tempoManualeSchema, { ...base, dalle: '10:30', alle: '09:00' })).toBe('L’ora di fine deve essere dopo quella di inizio')
+    expect(errore(tempoManualeSchema, { ...base, dalle: '10:30', alle: '10:30' })).toBe('L’ora di fine deve essere dopo quella di inizio')
+    const oraSbagliata = tempoManualeSchema.safeParse({ ...base, dalle: '25:00', alle: '10:00' })
+    expect(oraSbagliata.error?.issues.map((i) => i.message)).toEqual(['Scrivi l’ora come 09:30'])
+  })
+
+  it('una fascia di oggi non finisce nel futuro', () => {
+    // 29/09/2026 12:00 in Rome (10:00 UTC, summer time)
+    adesso('2026-09-29T10:00:00Z')
+    const oggiQui = '2026-09-29'
+    expect(errore(tempoManualeSchema, { ...base, data: oggiQui, dalle: '11:00', alle: '12:30' })).toBe('La fascia non può finire nel futuro')
+    expect(rilegge(tempoManualeSchema, { ...base, data: oggiQui, dalle: '11:00', alle: '12:00' }).durata).toBe(60)
+    // a future day says so on its own, once
+    expect(errore(tempoManualeSchema, { ...base, data: '2026-09-30', dalle: '09:00', alle: '10:00' })).toMatch(
+      /oggi o per un giorno passato/,
+    )
+  })
+
+  it('istanti in Europe/Rome, come li costruisce il database', () => {
+    expect(istanteRoma('2026-09-28', '09:00').toISOString()).toBe('2026-09-28T07:00:00.000Z')
+    expect(istanteRoma('2026-01-15', '09:00').toISOString()).toBe('2026-01-15T08:00:00.000Z')
+    // 29/03/2026: 02:00–02:59 does not exist, it counts before the change (as Postgres)
+    expect(istanteRoma('2026-03-29', '01:59').toISOString()).toBe('2026-03-29T00:59:00.000Z')
+    expect(istanteRoma('2026-03-29', '02:30').toISOString()).toBe('2026-03-29T01:30:00.000Z')
+    expect(istanteRoma('2026-03-29', '03:15').toISOString()).toBe('2026-03-29T01:15:00.000Z')
+    // 25/10/2026: 02:00–02:59 happens twice, it counts after the change (as Postgres)
+    expect(istanteRoma('2026-10-25', '01:59').toISOString()).toBe('2026-10-24T23:59:00.000Z')
+    expect(istanteRoma('2026-10-25', '02:30').toISOString()).toBe('2026-10-25T01:30:00.000Z')
+    expect(istanteRoma('2026-10-25', '03:00').toISOString()).toBe('2026-10-25T02:00:00.000Z')
+  })
+
+  it('nei giorni del cambio d’ora la durata è quella vera', () => {
+    expect(minutiFascia('2026-09-28', '09:00', '10:30')).toBe(90)
+    expect(minutiFascia('2026-10-25', '00:30', '03:30')).toBe(240)
+    expect(minutiFascia('2026-03-29', '01:30', '03:30')).toBe(60)
+    expect(minutiFascia('2026-10-25', '00:00', '23:59')).toBe(1499)
+    expect(minutiFascia('2026-10-25', '09:00', null)).toBeNull()
+
+    adesso('2026-11-02T10:00:00Z')
+    expect(rilegge(tempoManualeSchema, { ...base, data: '2026-10-25', dalle: '01:00', alle: '04:00' }).durata).toBe(240)
+    expect(rilegge(tempoManualeSchema, { ...base, data: '2026-03-29', dalle: '01:00', alle: '04:00' }).durata).toBe(120)
+    // the day summer time ends has 25 hours: a whole day is more than 24
+    expect(errore(tempoManualeSchema, { ...base, data: '2026-10-25', dalle: '00:00', alle: '23:59' })).toBe('Al massimo 24 ore in una voce')
+    expect(rilegge(tempoManualeSchema, { ...base, data: '2026-03-29', dalle: '00:00', alle: '23:59' }).durata).toBe(1379)
+    // 02:30 does not exist on 29/03: from it to 03:15 goes backwards
+    expect(errore(tempoManualeSchema, { ...base, data: '2026-03-29', dalle: '02:30', alle: '03:15' })).toBe(
+      'L’ora di fine deve essere dopo quella di inizio',
+    )
+  })
+
+  it('la fascia di una voce: il timer di un giorno sì, quello a cavallo della mezzanotte no', () => {
+    expect(fasciaDellaVoce({ data: '2026-09-28', inizio: '2026-09-28T07:00:40Z', fine: '2026-09-28T08:30:10Z' })).toEqual({
+      dalle: '09:00',
+      alle: '10:30',
+    })
+    expect(fasciaDellaVoce({ data: '2026-09-28', inizio: '2026-09-28T21:30:00Z', fine: '2026-09-28T22:30:00Z' })).toBeNull()
+    expect(fasciaDellaVoce({ data: '2026-09-28', inizio: null, fine: null })).toBeNull()
+    expect(timerSenzaFascia({ data: '2026-09-28', inizio: '2026-09-28T21:30:00Z', fine: '2026-09-28T22:30:00Z' })).toBe(
+      '23:30–00:30, a cavallo della mezzanotte',
+    )
+    expect(timerSenzaFascia({ data: '2026-09-28', inizio: '2026-09-28T07:00:40Z', fine: '2026-09-28T08:30:10Z' })).toBeNull()
+    expect(timerSenzaFascia({ data: '2026-09-28', inizio: null, fine: null })).toBeNull()
+  })
+
+  it('il timer fermato dentro il suo primo minuto non ha fascia: si corregge la nota senza toglierla', () => {
+    // started and stopped within 09:00: 09:00–09:00 is not a range
+    const voce = { data: '2026-09-28', inizio: '2026-09-28T07:00:05Z', fine: '2026-09-28T07:00:50Z' }
+    expect(fasciaDellaVoce(voce)).toBeNull()
+    expect(timerSenzaFascia(voce)).toBe('09:00–09:00, meno di un minuto')
+
+    // the edit sheet's values (ModificaTempo) with only the note changed
+    adesso('2026-09-29T10:00:00Z')
+    const fascia = fasciaDellaVoce(voce)
+    const valori = rilegge(modificaTempoSchema, {
+      ...base,
+      id: TASK,
+      data: voce.data,
+      durata: formatDurataInput(1),
+      dalle: fascia?.dalle ?? '',
+      alle: fascia?.alle ?? '',
+      nota: 'Cambio di task',
+    })
+    expect(valori).toMatchObject({ durata: 1, dalle: null, alle: null, nota: 'Cambio di task' })
+  })
+
+  it('nella notte del cambio d’ora la fascia si mostra solo se si ricostruisce uguale', () => {
+    // 26/10/2025: 02:10–02:40 of summer time, before the hour repeats: rebuilt it would move one hour
+    const primaOra = { data: '2025-10-26', inizio: '2025-10-26T00:10:00Z', fine: '2025-10-26T00:40:00Z' }
+    expect(fasciaDellaVoce(primaOra)).toBeNull()
+    expect(timerSenzaFascia(primaOra)).toBe('02:10–02:40, nella notte del cambio d’ora')
+    // 02:50 summer time → 02:10 winter time: 20 minutes, the end reads before the start
+    const indietro = { data: '2025-10-26', inizio: '2025-10-26T00:50:00Z', fine: '2025-10-26T01:10:00Z' }
+    expect(fasciaDellaVoce(indietro)).toBeNull()
+    expect(timerSenzaFascia(indietro)).toBe('02:50–02:10, nella notte del cambio d’ora')
+    // 01:50 summer time → 02:10 winter time: both rebuild, 80 minutes
+    const intorno = { data: '2025-10-26', inizio: '2025-10-25T23:50:00Z', fine: '2025-10-26T01:10:00Z' }
+    expect(fasciaDellaVoce(intorno)).toEqual({ dalle: '01:50', alle: '02:10' })
+    expect(minutiFascia('2025-10-26', '01:50', '02:10')).toBe(80)
   })
 })
 

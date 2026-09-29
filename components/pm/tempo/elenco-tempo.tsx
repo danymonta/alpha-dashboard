@@ -57,15 +57,20 @@ export function ElencoTempo({
                       {voce.titolo}
                     </p>
                     {voce.dettaglio ? <p className="line-clamp-2 text-xs text-muted-foreground">{voce.dettaglio}</p> : null}
-                    <p className="num flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="size-3 shrink-0" aria-hidden="true" />
-                      {voce.inizio && voce.fine ? `${formatOra(voce.inizio)}–${formatOra(voce.fine)}` : 'Inserito a mano'}
+                    {/* "09:00–10:30 · 1 h 30 min" with a range, the duration alone otherwise */}
+                    <p className="num mt-0.5 flex items-center gap-1 text-sm" data-testid="durata-voce">
+                      <Clock className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <span>
+                        {voce.inizio && voce.fine ? (
+                          <span className="text-muted-foreground">{`${formatOra(voce.inizio)}–${formatOra(voce.fine)} · `}</span>
+                        ) : null}
+                        <span className="font-medium">{formatDurata(voce.minuti)}</span>
+                      </span>
                     </p>
                     {voce.nota ? (
                       <p className="mt-0.5 line-clamp-2 text-xs whitespace-pre-line text-muted-foreground">{voce.nota}</p>
                     ) : null}
                   </div>
-                  <p className="num shrink-0 text-right text-sm font-medium">{formatDurata(voce.minuti)}</p>
                   {azioni ? <div className="flex shrink-0">{azioni(voce)}</div> : null}
                 </li>
               ))}

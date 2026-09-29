@@ -405,15 +405,28 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
           }
         case 'ferma':
           return { titolo: 'Fermo il timer', dettagli: righe(testo(input.nota) && `Nota: ${input.nota}`) }
-        case 'registra':
+        case 'registra': {
+          // with a range the duration comes from it
+          const fascia = testo(input.dalle) && testo(input.alle) ? `${testo(input.dalle)}–${testo(input.alle)}` : null
           return {
-            titolo: `Registro ${testo(input.durata) ?? '?'} su «${dove ?? '?'}»`,
+            titolo: `Registro ${fascia ?? testo(input.durata) ?? '?'} su «${dove ?? '?'}»`,
             dettagli: righe(`Giorno: ${giorno(input.data)}`, testo(input.task) && `Task: ${input.task}`, testo(input.nota) && `Nota: ${input.nota}`),
           }
+        }
         case 'elimina':
           return { titolo: 'Elimino una tua voce di tempo', dettagli: righe(dove && `Progetto: ${dove}`) }
-        default:
-          return { titolo: 'Correggo una tua voce di tempo', dettagli: cambi(input, ['azione', 'progetto', 'voce_id']) }
+        default: {
+          const togli = ['nessuna', 'nessuno', '-'].includes((testo(input.dalle) ?? testo(input.alle) ?? '').toLowerCase())
+          const fascia = togli
+            ? 'Tolgo la fascia oraria'
+            : testo(input.dalle) || testo(input.alle)
+              ? `Fascia: ${testo(input.dalle) ?? '…'}–${testo(input.alle) ?? '…'}`
+              : null
+          return {
+            titolo: 'Correggo una tua voce di tempo',
+            dettagli: [...cambi(input, ['azione', 'progetto', 'voce_id', 'dalle', 'alle']), ...righe(fascia)],
+          }
+        }
       }
     }
   }

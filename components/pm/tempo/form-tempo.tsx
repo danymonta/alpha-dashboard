@@ -15,8 +15,13 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { formatDurataInput } from '@/lib/tempo'
 import {
+  MAX_MINUTI,
+  fasciaDellaVoce,
+  minutiFascia,
   modificaTempoSchema,
+  parseOra,
   tempoManualeSchema,
+  timerSenzaFascia,
   type ModificaTempoInput,
   type TempoManualeInput,
 } from '@/lib/validation/tempo'
@@ -31,7 +36,11 @@ const DURATE_RAPIDE = [
   { valore: '2:00', etichetta: '2 h' },
 ] as const
 
-/** The fields shared by "add" and "edit": project, task, day, duration, note. */
+/**
+ * The fields shared by "add" and "edit": project, task, day, duration, the
+ * optional range ("Dalle"–"Alle") and the note. With a range the duration is
+ * computed from it and not typed.
+ */
 function CampiTempo({
   form,
   prefisso,
@@ -52,12 +61,36 @@ function CampiTempo({
   const {
     register,
     setValue,
+    getValues,
+    clearErrors,
     control,
     formState: { errors },
   } = f
   const progettoId = useWatch({ control, name: 'progetto_id' })
   const taskId = useWatch({ control, name: 'task_id' })
+  const dalle = useWatch({ control, name: 'dalle' })
+  const alle = useWatch({ control, name: 'alle' })
   const taskDelProgetto = task.filter((t) => t.progetto_id === progettoId && (!t.completato || t.id === taskId))
+  // both hours written: the duration is the range's, not typed
+  const conFascia = Boolean(parseOra(dalle) && parseOra(alle))
+  const unaFascia = Boolean(dalle || alle)
+
+  /** Shows the range's duration in the field (the database computes it again when it saves). */
+  function durataDallaFascia() {
+    const [data, inizio, fine] = getValues(['data', 'dalle', 'alle'])
+    const minuti = minutiFascia(data, inizio, fine)
+    if (minuti !== null && minuti >= 1 && minuti <= MAX_MINUTI) {
+      setValue('durata', formatDurataInput(minuti), { shouldDirty: true })
+      clearErrors('durata')
+    }
+  }
+
+  function togliFascia() {
+    // the duration stays as it is: from now on it is typed
+    setValue('dalle', '', { shouldDirty: true })
+    setValue('alle', '', { shouldDirty: true })
+    clearErrors(['dalle', 'alle'])
+  }
 
   return (
     <>
@@ -102,7 +135,13 @@ function CampiTempo({
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
           <Label htmlFor={`${prefisso}-data`}>Giorno</Label>
-          <Input id={`${prefisso}-data`} type="date" max={oggi} className="num h-11" {...register('data')} />
+          <Input
+            id={`${prefisso}-data`}
+            type="date"
+            max={oggi}
+            className="num h-11"
+            {...register('data', { onChange: durataDallaFascia })}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`${prefisso}-durata`}>Durata</Label>
@@ -111,7 +150,8 @@ function CampiTempo({
             inputMode="text"
             autoComplete="off"
             placeholder="1:30"
-            className="num h-11 text-right"
+            readOnly={conFascia}
+            className="num h-11 text-right read-only:border-dashed"
             aria-describedby={`${prefisso}-durata-aiuto`}
             {...register('durata')}
           />
@@ -124,6 +164,7 @@ function CampiTempo({
             type="button"
             variant="outline"
             className="h-11 flex-1 px-3"
+            disabled={conFascia}
             onClick={() => setValue('durata', d.valore, { shouldValidate: true, shouldDirty: true })}
           >
             {d.etichetta}
@@ -131,9 +172,51 @@ function CampiTempo({
         ))}
       </div>
       <p id={`${prefisso}-durata-aiuto`} className="-mt-2 text-xs text-muted-foreground">
-        Ore e minuti: 1:30, 1h30 o 90 (un numero da solo sono minuti).
+        {conFascia
+          ? 'Calcolata dalla fascia oraria: per scriverla a mano togli la fascia.'
+          : 'Ore e minuti: 1:30, 1h30 o 90 (un numero da solo sono minuti).'}
       </p>
       <ErroreCampo id={`${prefisso}-data-errore`} messaggio={errors.data?.message ?? errors.durata?.message} />
+
+      <fieldset className="space-y-1.5">
+        <legend className="mb-2 text-sm leading-none font-medium">Fascia oraria (facoltativa)</legend>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label htmlFor={`${prefisso}-dalle`} className="font-normal text-muted-foreground">
+              Dalle
+            </Label>
+            <Input
+              id={`${prefisso}-dalle`}
+              type="time"
+              step={60}
+              className="num h-11"
+              aria-invalid={errors.dalle ? true : undefined}
+              aria-describedby={errors.dalle || errors.alle ? `${prefisso}-fascia-errore` : undefined}
+              {...register('dalle', { onChange: durataDallaFascia })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`${prefisso}-alle`} className="font-normal text-muted-foreground">
+              Alle
+            </Label>
+            <Input
+              id={`${prefisso}-alle`}
+              type="time"
+              step={60}
+              className="num h-11"
+              aria-invalid={errors.alle ? true : undefined}
+              aria-describedby={errors.dalle || errors.alle ? `${prefisso}-fascia-errore` : undefined}
+              {...register('alle', { onChange: durataDallaFascia })}
+            />
+          </div>
+        </div>
+        {unaFascia ? (
+          <Button type="button" variant="ghost" className="-ml-3 h-11 px-3 text-muted-foreground" onClick={togliFascia}>
+            Togli la fascia
+          </Button>
+        ) : null}
+        <ErroreCampo id={`${prefisso}-fascia-errore`} messaggio={errors.dalle?.message ?? errors.alle?.message} />
+      </fieldset>
 
       <div className="space-y-1.5">
         <Label htmlFor={`${prefisso}-nota`}>Nota (facoltativa)</Label>
@@ -177,6 +260,8 @@ export function NuovoTempo({
       task_id: '',
       data: oggi,
       durata: '',
+      dalle: '',
+      alle: '',
       nota: '',
     },
   })
@@ -201,7 +286,7 @@ export function NuovoTempo({
     }
     toast.success('Tempo registrato')
     // same project and day: the next entry is usually the same context
-    reset({ progetto_id: valori.progetto_id, task_id: '', data: valori.data, durata: '', nota: '' })
+    reset({ progetto_id: valori.progetto_id, task_id: '', data: valori.data, durata: '', dalle: '', alle: '', nota: '' })
     onRegistrato?.()
   })
 
@@ -267,7 +352,10 @@ export type VoceModificabile = {
   data: string
   minuti: number
   nota: string | null
-  /** A stopped timer: start and end are kept unless day or duration change. */
+  /** The range, when there is one: a stopped timer or "Dalle"–"Alle" typed by hand. */
+  inizio: string | null
+  fine: string | null
+  /** A stopped timer. */
   daTimer: boolean
 }
 
@@ -289,12 +377,17 @@ export function ModificaTempo({
   const prefisso = useId()
   const [aperto, setAperto] = useState(false)
   const { errore, setErrore, salva } = useSalvataggio()
+  const fascia = fasciaDellaVoce(voce)
+  // a timer with no range of one day: its start and end stay while its day and minutes do
+  const senzaFascia = timerSenzaFascia(voce)
   const valoriIniziali: ModificaTempoInput = {
     id: voce.id,
     progetto_id: voce.progetto_id,
     task_id: voce.task_id ?? '',
     data: voce.data,
     durata: formatDurataInput(voce.minuti),
+    dalle: fascia?.dalle ?? '',
+    alle: fascia?.alle ?? '',
     nota: voce.nota ?? '',
   }
   // an archived project is no longer offered, but the entry keeps it
@@ -337,9 +430,11 @@ export function ModificaTempo({
       contenutoTrigger={<Pencil className="size-4" aria-hidden="true" />}
       titolo="Correggi il tempo"
       descrizione={
-        voce.daTimer
-          ? 'Viene dal timer: se cambi giorno o durata diventa una voce inserita a mano.'
-          : 'I totali si ricalcolano subito.'
+        senzaFascia
+          ? `Viene dal timer (${senzaFascia}): se cambi giorno o durata resta solo la durata.`
+          : voce.daTimer
+            ? 'Viene dal timer: puoi correggere la fascia, o toglierla e scrivere solo la durata.'
+            : 'I totali si ricalcolano subito.'
       }
     >
       <form onSubmit={invia} noValidate className="space-y-4">

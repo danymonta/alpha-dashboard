@@ -16,7 +16,7 @@ import {
 /**
  * Self-declared time (CLAUDE.md section 17: a statement of one's own work,
  * never monitoring). RLS decides: everyone writes only their own time, on the
- * projects they can see. Minutes of a timer are computed by the database.
+ * projects they can see. Minutes of a timer or of a range are computed by the database.
  */
 
 export type Esito = { ok: true } | { ok: false; errore: string }
@@ -69,15 +69,26 @@ export async function fermaTimer(input: unknown): Promise<EsitoFermo> {
   return { ok: true, minuti: voce?.minuti ?? null }
 }
 
+/**
+ * Time typed afterwards: minutes, or "Dalle"–"Alle" on its day. With a range
+ * the database builds start and end in Europe/Rome and computes the minutes
+ * (pm_registra_tempo).
+ */
 export async function registraTempo(input: unknown): Promise<Esito> {
   const parsed = tempoManualeSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error.issues) }
   const negato = await negaSeNon(TUTTI_I_RUOLI)
   if (negato) return { ok: false, errore: negato }
 
-  const { progetto_id, task_id, data, durata, nota } = parsed.data
+  const { progetto_id, task_id, data, durata, dalle, alle, nota } = parsed.data
   const supabase = await createClient()
-  const { error } = await supabase.from('pm_tempo').insert({ progetto_id, task_id, data, minuti: durata, nota })
+  const { error } = await supabase.rpc('pm_registra_tempo', {
+    p_progetto_id: progetto_id,
+    p_data: data,
+    ...(dalle && alle ? { p_dalle: dalle, p_alle: alle } : { p_minuti: durata }),
+    p_task_id: task_id ?? undefined,
+    p_nota: nota ?? undefined,
+  })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Tempo non salvato. Riprova.') }
 
   aggiorna(progetto_id)
@@ -85,10 +96,10 @@ export async function registraTempo(input: unknown): Promise<Esito> {
 }
 
 /**
- * Correcting an entry. A stopped timer keeps its start and end while only the
- * project, the task or the note change; a new day or duration turns it into an
- * entry typed by hand (the database would otherwise recompute the minutes from
- * start and end).
+ * Correcting an entry (pm_modifica_tempo): its range can be added, changed or
+ * removed, and removing it keeps the minutes typed. The same range as before
+ * keeps a timer's seconds; a timer across midnight keeps its start and end
+ * while its day and minutes stay.
  */
 export async function modificaTempo(input: unknown): Promise<Esito> {
   const parsed = modificaTempoSchema.safeParse(input)
@@ -96,23 +107,20 @@ export async function modificaTempo(input: unknown): Promise<Esito> {
   const negato = await negaSeNon(TUTTI_I_RUOLI)
   if (negato) return { ok: false, errore: negato }
 
-  const { id, progetto_id, task_id, data, durata, nota } = parsed.data
+  const { id, progetto_id, task_id, data, durata, dalle, alle, nota } = parsed.data
   const supabase = await createClient()
-  const { data: prima, error: errorePrima } = await supabase
-    .from('pm_tempo')
-    .select('progetto_id, inizio, fine, data, minuti')
-    .eq('id', id)
-    .maybeSingle()
+  const { data: prima, error: errorePrima } = await supabase.from('pm_tempo').select('progetto_id').eq('id', id).maybeSingle()
   if (errorePrima) return { ok: false, errore: 'Voce non aggiornata. Riprova.' }
   if (!prima) return { ok: false, errore: 'Voce non trovata.' }
-  if (prima.inizio && !prima.fine) return { ok: false, errore: 'Il timer è ancora acceso: fermalo prima di correggerlo.' }
 
-  const restaTimer = prima.inizio !== null && prima.data === data && prima.minuti === durata
-  const campi = restaTimer
-    ? { progetto_id, task_id, nota }
-    : { progetto_id, task_id, nota, data, minuti: durata, inizio: null, fine: null }
-
-  const { data: aggiornata, error } = await supabase.from('pm_tempo').update(campi).eq('id', id).select('id').maybeSingle()
+  const { data: aggiornata, error } = await supabase.rpc('pm_modifica_tempo', {
+    p_id: id,
+    p_progetto_id: progetto_id,
+    p_data: data,
+    ...(dalle && alle ? { p_dalle: dalle, p_alle: alle } : { p_minuti: durata }),
+    p_task_id: task_id ?? undefined,
+    p_nota: nota ?? undefined,
+  })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Voce non aggiornata. Riprova.') }
   if (!aggiornata) return { ok: false, errore: 'Puoi correggere solo il tuo tempo.' }
 

@@ -160,6 +160,85 @@ test.describe('Il mio tempo', () => {
     await expect(sezione.getByTestId('totale-giorno')).toHaveText(/1 h$/)
   })
 
+  test('la fascia oraria facoltativa: si scrive, i minuti li calcola il database, si corregge e si toglie', async ({ page }) => {
+    const giorno = aggiungiGiorni(oggiRoma(), -7)
+    await accedi(page, 'setter')
+    await page.goto(`/tempo?settimana=${giorno}`)
+    await attendiPagina(page)
+
+    const modulo = page.getByRole('form', { name: 'Registra tempo passato' })
+    await modulo.getByLabel('Progetto').selectOption({ label: progetto.nome })
+    await modulo.getByLabel('Giorno').fill(giorno)
+
+    // only the start: the end is asked for
+    await modulo.getByLabel('Dalle', { exact: true }).fill('09:00')
+    await modulo.getByRole('button', { name: 'Registra il tempo' }).click()
+    await expect(modulo.getByText('Indica sia l’inizio sia la fine, o nessuno dei due')).toBeVisible()
+
+    // start and end: the duration comes from them and is not typed
+    await modulo.getByLabel('Alle', { exact: true }).fill('10:30')
+    const durata = modulo.getByLabel('Durata')
+    await expect(durata).toHaveValue('1:30')
+    await expect(durata).toHaveJSProperty('readOnly', true)
+    await expect(modulo.getByRole('button', { name: '30 min' })).toBeDisabled()
+    await modulo.getByRole('button', { name: 'Registra il tempo' }).click()
+    await expect(page.getByText('Tempo registrato', { exact: true })).toBeVisible()
+    // the form is ready for the next entry, without a range
+    await expect(modulo.getByLabel('Dalle', { exact: true })).toHaveValue('')
+
+    const sezione = page.getByTestId(`giorno-${giorno}`)
+    const voce = sezione.getByTestId('voce-tempo').filter({ hasText: progetto.nome })
+    await expect(voce.getByTestId('durata-voce')).toHaveText('09:00–10:30 · 1 h 30 min')
+    await expect(sezione.getByTestId('totale-giorno')).toHaveText(/1 h 30 min$/)
+
+    // correcting: the sheet shows the range, a new end gives new minutes
+    await voce.getByRole('button', { name: /^Modifica / }).click()
+    const foglio = page.getByRole('dialog', { name: 'Correggi il tempo' })
+    await expect(foglio.getByLabel('Dalle', { exact: true })).toHaveValue('09:00')
+    await expect(foglio.getByLabel('Alle', { exact: true })).toHaveValue('10:30')
+    await foglio.getByLabel('Alle', { exact: true }).fill('11:15')
+    await expect(foglio.getByLabel('Durata')).toHaveValue('2:15')
+    await foglio.getByRole('button', { name: 'Salva' }).click()
+    await expect(foglio).toBeHidden()
+    await expect(voce.getByTestId('durata-voce')).toHaveText('09:00–11:15 · 2 h 15 min')
+    await expect(sezione.getByTestId('totale-giorno')).toHaveText(/2 h 15 min$/)
+
+    // removing the range: the minutes stay and can be typed again
+    await voce.getByRole('button', { name: /^Modifica / }).click()
+    await foglio.getByRole('button', { name: 'Togli la fascia' }).click()
+    await expect(foglio.getByLabel('Dalle', { exact: true })).toHaveValue('')
+    await expect(foglio.getByLabel('Durata')).toHaveValue('2:15')
+    await expect(foglio.getByLabel('Durata')).toHaveJSProperty('readOnly', false)
+    await foglio.getByLabel('Durata').fill('2:00')
+    await foglio.getByRole('button', { name: 'Salva' }).click()
+    await expect(foglio).toBeHidden()
+    await expect(voce.getByTestId('durata-voce')).toHaveText('2 h')
+    await expect(sezione.getByTestId('totale-giorno')).toHaveText(/2 h$/)
+  })
+
+  test('sul telefono la fascia si scrive anche dalla scheda Tempo del progetto, senza scroll orizzontale', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    const giorno = aggiungiGiorni(oggiRoma(), -1)
+    await accedi(page, 'setter')
+    await page.goto(`/progetti/${progetto.id}/tempo?settimana=${giorno}`)
+    await attendiPagina(page)
+
+    const modulo = page.getByRole('form', { name: 'Registra tempo passato' })
+    await modulo.getByLabel('Giorno').fill(giorno)
+    await modulo.getByLabel('Dalle', { exact: true }).fill('14:00')
+    await modulo.getByLabel('Alle', { exact: true }).fill('13:00')
+    await modulo.getByRole('button', { name: 'Registra il tempo' }).click()
+    await expect(modulo.getByText('L’ora di fine deve essere dopo quella di inizio')).toBeVisible()
+
+    await modulo.getByLabel('Alle', { exact: true }).fill('15:45')
+    await modulo.getByRole('button', { name: 'Registra il tempo' }).click()
+    await expect(page.getByText('Tempo registrato', { exact: true })).toBeVisible()
+    await expect(page.getByTestId(`giorno-${giorno}`).getByTestId('durata-voce')).toHaveText('14:00–15:45 · 1 h 45 min')
+
+    const scorre = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+    expect(scorre).toBe(false)
+  })
+
   test('una durata illeggibile o un giorno futuro non si salvano', async ({ page }) => {
     await accedi(page, 'setter')
     await page.goto('/tempo')

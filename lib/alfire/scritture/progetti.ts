@@ -33,7 +33,7 @@ import {
   parseStima,
 } from '@/lib/progetti'
 import { PRIORITA, STATI_PROGETTO, STATI_TASK } from '@/lib/validation/progetti'
-import { parseDurata } from '@/lib/validation/tempo'
+import { fasciaDellaVoce, modificaTempoSchema, tempoManualeSchema, timerSenzaFascia } from '@/lib/validation/tempo'
 
 /**
  * Alfire's writes on projects: the project and its members, lists, tasks,
@@ -621,6 +621,11 @@ function durataLeggibile(minuti: number | null | undefined): string {
   return formatStima(minuti ?? 0) || '0 min'
 }
 
+/** "09:00–10:30", or null without a range. */
+function fascia(dalle: string | null | undefined, alle: string | null | undefined): string | null {
+  return dalle && alle ? `${dalle}–${alle}` : null
+}
+
 function tempo(ctx: Contesto): Definizione {
   const { r } = ctx
   const schema = z.object({
@@ -628,11 +633,46 @@ function tempo(ctx: Contesto): Definizione {
     progetto: z.string().optional(),
     task: z.string().optional().describe('Titolo del task, facoltativo'),
     data: data.optional().describe('Default oggi, mai nel futuro'),
-    durata: z.string().optional().describe('Es. 1h30, 45 min, 1:30'),
+    durata: z.string().optional().describe('Es. 1h30, 45 min, 1:30. Con dalle e alle non serve'),
+    dalle: z.string().optional().describe('Fascia facoltativa con alle, es. 09:00; "nessuna" la toglie'),
+    alle: z.string().optional().describe('Es. 10:30'),
     nota: z.string().max(2000).optional(),
     voce_id: z.string().uuid().optional().describe('Da mio_tempo'),
   })
   type Input = z.infer<typeof schema>
+  type Voce = Exclude<Awaited<ReturnType<typeof voce>>, Errore>
+
+  /** registra: what the form's server action receives, checked with the same schema. */
+  function daRegistrare(v: Input, progettoId: string, taskId: string | null) {
+    return {
+      progetto_id: progettoId,
+      task_id: taskId,
+      data: v.data ?? oggiRoma(),
+      durata: v.durata ?? '',
+      dalle: v.dalle ?? null,
+      alle: v.alle ?? null,
+      nota: v.nota,
+    }
+  }
+
+  /**
+   * modifica: what is not said stays, the range too. A new duration without
+   * a range takes the range away (it would not match); "nessuna" takes it away.
+   */
+  function daCorreggere(v: Input, x: Voce, taskId: string | null) {
+    const attuale = fasciaDellaVoce(x)
+    const togli = isNessuno(v.dalle) || isNessuno(v.alle) || (v.durata !== undefined && v.dalle === undefined && v.alle === undefined)
+    return {
+      id: x.id,
+      progetto_id: x.progetto_id,
+      task_id: taskId,
+      data: v.data ?? x.data,
+      durata: v.durata ?? x.minuti ?? 0,
+      dalle: togli ? null : (v.dalle ?? attuale?.dalle ?? null),
+      alle: togli ? null : (v.alle ?? attuale?.alle ?? null),
+      nota: v.nota ?? x.nota,
+    }
+  }
 
   /** Project and (optional) task by name: the task must belong to the project. */
   async function dove(nomeProgetto: string | undefined, nomeTask: string | undefined) {
@@ -661,8 +701,8 @@ function tempo(ctx: Contesto): Definizione {
 
   return definizione({
     description:
-      'Il tuo tempo, mai quello di altri. avvia o ferma il timer (una nota facoltativa); registra minuti a posteriori (data default oggi, mai nel futuro); ' +
-      'modifica (giorno, durata, nota, task) o elimina una tua voce (voce_id da mio_tempo).',
+      'Il tuo tempo, mai quello di altri. avvia o ferma il timer (una nota facoltativa); registra a posteriori una durata o una fascia dalle-alle (data default oggi, mai nel futuro); ' +
+      'modifica (giorno, durata o fascia, nota, task) o elimina una tua voce (voce_id da mio_tempo).',
     inputSchema: schema,
     anteprima: async (v): Promise<Anteprima> => {
       if (v.azione === 'avvia') {
@@ -683,11 +723,14 @@ function tempo(ctx: Contesto): Definizione {
         )
       }
       if (v.azione === 'registra') {
-        const minuti = parseDurata(v.durata)
-        if (!minuti) return errore('Dimmi la durata, ad esempio 1h30 o 45 min.')
+        if (!v.durata && !v.dalle && !v.alle) return errore('Dimmi la durata, ad esempio 1h30 o 45 min, o la fascia (dalle, alle).')
         const x = await dove(v.progetto, v.task)
         if (isErrore(x)) return x
-        return anteprima(`Registro ${durataLeggibile(minuti)} su «${x.progetto.nome}» il ${formatData(v.data ?? oggiRoma())}`, [
+        const dati = tempoManualeSchema.safeParse(daRegistrare(v, x.progetto.id, x.task?.id ?? null))
+        if (!dati.success) return errore(dati.error.issues[0].message)
+        const f = fascia(dati.data.dalle, dati.data.alle)
+        return anteprima(`Registro ${durataLeggibile(dati.data.durata)} su «${x.progetto.nome}» il ${formatData(dati.data.data)}`, [
+          f ? `Fascia: ${f}` : null,
           x.task ? `Task: ${x.task.titolo}` : null,
           v.nota ? `Nota: ${v.nota}` : null,
         ])
@@ -699,14 +742,23 @@ function tempo(ctx: Contesto): Definizione {
           x.nota ? `Nota: ${breve(x.nota)}` : null,
         ])
       }
-      const minuti = v.durata === undefined ? x.minuti : parseDurata(v.durata)
-      if (!minuti) return errore('Dimmi la durata, ad esempio 1h30 o 45 min.')
       const t = await nuovoTask(v, x.progetto_id, x.task_id)
       if (isErrore(t)) return t
+      const dati = modificaTempoSchema.safeParse(daCorreggere(v, x, t.id))
+      if (!dati.success) return errore(dati.error.issues[0].message)
+      const prima = fasciaDellaVoce(x)
+      // the same range on the same day keeps a timer's seconds, and so its minutes
+      const stessaFascia = prima !== null && dati.data.data === x.data && dati.data.dalle === prima.dalle && dati.data.alle === prima.alle
+      // a timer with no range of one day keeps start and end while day and minutes stay (pm_modifica_tempo)
+      const senzaFascia = timerSenzaFascia(x)
+      const restaIlTimer = senzaFascia !== null && dati.data.data === x.data && dati.data.durata === x.minuti
+      const fasciaPrima = fascia(prima?.dalle, prima?.alle) ?? senzaFascia
+      const fasciaDopo = fascia(dati.data.dalle, dati.data.alle) ?? (restaIlTimer ? senzaFascia : fasciaPrima ? 'tolta' : null)
       return anteprima(`Correggo ${durataLeggibile(x.minuti)} su «${x.progetto?.nome ?? '?'}» del ${formatData(x.data)}`, [
         ...cambi([
-          ['Giorno', x.data, v.data ?? x.data, 'data'],
-          ['Durata', x.minuti, minuti, 'minuti'],
+          ['Giorno', x.data, dati.data.data, 'data'],
+          ['Fascia', fasciaPrima, fasciaDopo],
+          ['Durata', x.minuti, stessaFascia ? x.minuti : dati.data.durata, 'minuti'],
           ['Nota', x.nota, v.nota ?? x.nota, 'lungo'],
         ]).filter((riga) => riga !== 'Nessun dato cambia.' || !t.titolo),
         t.titolo ? `Task: ${t.titolo}` : null,
@@ -726,13 +778,7 @@ function tempo(ctx: Contesto): Definizione {
       if (v.azione === 'registra') {
         const x = await dove(v.progetto, v.task)
         if (isErrore(x)) return x
-        const esito = await registraTempo({
-          progetto_id: x.progetto.id,
-          task_id: x.task?.id ?? null,
-          data: v.data ?? oggiRoma(),
-          durata: v.durata ?? '',
-          nota: v.nota,
-        })
+        const esito = await registraTempo(daRegistrare(v, x.progetto.id, x.task?.id ?? null))
         return esito.ok ? { fatto: true, link: '/tempo' } : errore(esito.errore)
       }
       const x = await voce(v)
@@ -743,14 +789,7 @@ function tempo(ctx: Contesto): Definizione {
       }
       const t = await nuovoTask(v, x.progetto_id, x.task_id)
       if (isErrore(t)) return t
-      const esito = await modificaTempo({
-        id: x.id,
-        progetto_id: x.progetto_id,
-        task_id: t.id,
-        data: v.data ?? x.data,
-        durata: v.durata ?? x.minuti ?? 0,
-        nota: v.nota ?? x.nota,
-      })
+      const esito = await modificaTempo(daCorreggere(v, x, t.id))
       return esito.ok ? { fatto: true, link: '/tempo' } : errore(esito.errore)
     },
   })
@@ -837,14 +876,18 @@ function mioTempo(ctx: Contesto): Definizione {
           ? { progetto: acceso.progetto?.nome ?? null, task: acceso.task?.titolo ?? null, dalle: acceso.inizio ? formatOra(acceso.inizio) : null }
           : null,
         // the running timer is not an entry yet: it is timer_acceso
-        voci: (voci.data ?? []).filter((v) => !(v.inizio && !v.fine)).map((v) => ({
-          voce_id: v.id,
-          data: v.data,
-          progetto: v.progetto?.nome ?? null,
-          task: v.task?.titolo ?? null,
-          minuti: v.minuti,
-          nota: v.nota,
-        })),
+        voci: (voci.data ?? []).filter((v) => !(v.inizio && !v.fine)).map((v) => {
+          const f = fasciaDellaVoce(v)
+          return {
+            voce_id: v.id,
+            data: v.data,
+            progetto: v.progetto?.nome ?? null,
+            task: v.task?.titolo ?? null,
+            minuti: v.minuti,
+            fascia: fascia(f?.dalle, f?.alle),
+            nota: v.nota,
+          }
+        }),
       }
     },
   })

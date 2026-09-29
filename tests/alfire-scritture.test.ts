@@ -878,11 +878,44 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
     const registro: string[] = []
     const s = strumenti('coach', 'employee', mondo(), registro)
     await esegui(s, 'tempo', { azione: 'registra', progetto: 'Reel', durata: '1h30', nota: 'Montaggio' })
-    expect(a.registraTempo).toHaveBeenCalledWith({ progetto_id: PROGETTO, task_id: null, data: oggiRoma(), durata: '1h30', nota: 'Montaggio' })
+    expect(a.registraTempo).toHaveBeenCalledWith({
+      progetto_id: PROGETTO,
+      task_id: null,
+      data: oggiRoma(),
+      durata: '1h30',
+      dalle: null,
+      alle: null,
+      nota: 'Montaggio',
+    })
     // two entries that day on the project, one is someone else's: mine only, no question
     await esegui(s, 'tempo', { azione: 'elimina', progetto: 'Reel', data: '2026-09-28' })
     expect(a.eliminaTempo).toHaveBeenCalledWith({ id: 't-mio' })
     expect(registro).toContain(`pm_tempo.profile_id=${IO}`)
+  })
+
+  it('tempo: la fascia facoltativa passa dalla stessa azione del modulo, e si toglie', async () => {
+    const s = strumenti('coach', 'employee')
+    await esegui(s, 'tempo', { azione: 'registra', progetto: 'Reel', data: '2026-09-28', dalle: '9:00', alle: '10:30' })
+    expect(a.registraTempo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ progetto_id: PROGETTO, data: '2026-09-28', dalle: '9:00', alle: '10:30' }),
+    )
+
+    // a range on an entry typed as minutes; then only a new start (the end stays)
+    const conFascia = mondo()
+    conFascia.pm_tempo[0] = {
+      ...conFascia.pm_tempo[0],
+      inizio: '2026-09-28T07:00:00.000Z',
+      fine: '2026-09-28T08:30:00.000Z',
+    }
+    const s2 = strumenti('coach', 'employee', conFascia)
+    await esegui(s2, 'tempo', { azione: 'modifica', voce_id: 't-mio', dalle: '08:30' })
+    expect(a.modificaTempo).toHaveBeenLastCalledWith(expect.objectContaining({ id: 't-mio', dalle: '08:30', alle: '10:30' }))
+    // "nessuna" takes it away, the minutes stay
+    await esegui(s2, 'tempo', { azione: 'modifica', voce_id: 't-mio', dalle: 'nessuna' })
+    expect(a.modificaTempo).toHaveBeenLastCalledWith(expect.objectContaining({ id: 't-mio', dalle: null, alle: null, durata: 90 }))
+    // a new duration without a range cannot keep the old range
+    await esegui(s2, 'tempo', { azione: 'modifica', voce_id: 't-mio', durata: '2h' })
+    expect(a.modificaTempo).toHaveBeenLastCalledWith(expect.objectContaining({ dalle: null, alle: null, durata: '2h' }))
   })
 
   it('mio_tempo legge solo il tempo di chi chatta', async () => {
@@ -898,6 +931,52 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
 
 // ---------------------------------------------------------------------------
 describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta dietro', () => {
+  it('tempo: la fascia si vede sulla scheda e segue le regole del modulo', async () => {
+    const p = await anteprima('tempo', { azione: 'registra', progetto: 'Reel', data: '2026-09-28', dalle: '9:00', alle: '10:30' }, 'coach')
+    expect(p).toMatchObject({ titolo: 'Registro 1 h 30 min su «Reel settembre» il 28/09/2026' })
+    expect((p as { righe: string[] }).righe).toContain('Fascia: 09:00–10:30')
+
+    expect(await anteprima('tempo', { azione: 'registra', progetto: 'Reel', data: '2026-09-28', dalle: '9:00' }, 'coach')).toEqual({
+      errore: 'Indica sia l’inizio sia la fine, o nessuno dei due',
+    })
+    expect(
+      await anteprima('tempo', { azione: 'registra', progetto: 'Reel', data: '2026-09-28', dalle: '10:30', alle: '09:00' }, 'coach'),
+    ).toEqual({ errore: 'L’ora di fine deve essere dopo quella di inizio' })
+
+    // the entry typed as 1 h 30 min gets a range: before → after, and the minutes it gives
+    const righe = mondo()
+    righe.pm_tempo[0] = { ...righe.pm_tempo[0], id: '6a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d' }
+    const m = await anteprima('tempo', { azione: 'modifica', progetto: 'Reel', data: '2026-09-28', dalle: '14:00', alle: '16:00' }, 'coach', righe)
+    expect(m).toMatchObject({ righe: ['Fascia: – → 14:00–16:00', 'Durata: 1 h 30 min → 2 h'] })
+  })
+
+  it('tempo: il timer senza fascia di un giorno la perde sulla scheda solo se cambiano giorno o durata', async () => {
+    const VOCE = '6a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d'
+    // 23:30–00:30 across midnight, 60 minutes
+    const notte = mondo()
+    notte.pm_tempo[0] = { ...notte.pm_tempo[0], id: VOCE, minuti: 60, inizio: '2026-09-28T21:30:00.000Z', fine: '2026-09-28T22:30:00.000Z' }
+    expect(await anteprima('tempo', { azione: 'modifica', voce_id: VOCE, durata: '2h' }, 'coach', notte)).toMatchObject({
+      righe: ['Fascia: 23:30–00:30, a cavallo della mezzanotte → tolta', 'Durata: 1 h → 2 h'],
+    })
+    expect(await anteprima('tempo', { azione: 'modifica', voce_id: VOCE, nota: 'Consegna' }, 'coach', notte)).toMatchObject({
+      righe: ['Nota: – → Consegna'],
+    })
+
+    // started and stopped within 09:00: the note changes, nothing blocks the card
+    const breve = mondo()
+    breve.pm_tempo[0] = { ...breve.pm_tempo[0], id: VOCE, minuti: 1, inizio: '2026-09-28T07:00:05.000Z', fine: '2026-09-28T07:00:50.000Z' }
+    expect(await anteprima('tempo', { azione: 'modifica', voce_id: VOCE, nota: 'Cambio di task' }, 'coach', breve)).toMatchObject({
+      righe: ['Nota: – → Cambio di task'],
+    })
+
+    // a range the forms show, taken away
+    const conFascia = mondo()
+    conFascia.pm_tempo[0] = { ...conFascia.pm_tempo[0], id: VOCE, inizio: '2026-09-28T07:00:00.000Z', fine: '2026-09-28T08:30:00.000Z' }
+    expect(await anteprima('tempo', { azione: 'modifica', voce_id: VOCE, dalle: 'nessuna' }, 'coach', conFascia)).toMatchObject({
+      righe: ['Fascia: 09:00–10:30 → tolta'],
+    })
+  })
+
   it('eliminare un cliente dice vendite, rate e incassato, dal SQL dell’app', async () => {
     a.anteprimaEliminazione.mockResolvedValueOnce({ ok: true, dati: { vendite: 2, rate: 8, incassato: '3.200,00 €' } })
     const p = await anteprima('cliente', { azione: 'elimina', cliente: 'mario rossi' })
@@ -1040,6 +1119,8 @@ describe('la scheda dall’input: una frase per azione', () => {
     ['task', { azione: 'elimina', titolo: 'Copertina', progetto: 'Reel' }, 'Elimino il task «Copertina»', ['Progetto: Reel']],
     ['nota_progetto', { azione: 'aggiungi', progetto: 'Reel', testo: 'Consegna spostata' }, 'Aggiungo una nota a «Reel»', ['Giorno: oggi', '«Consegna spostata»']],
     ['tempo', { azione: 'registra', progetto: 'Reel', durata: '1h30', task: 'Copertina' }, 'Registro 1h30 su «Reel»', ['Giorno: oggi', 'Task: Copertina']],
+    ['tempo', { azione: 'registra', progetto: 'Reel', dalle: '09:00', alle: '10:30' }, 'Registro 09:00–10:30 su «Reel»', ['Giorno: oggi']],
+    ['tempo', { azione: 'modifica', voce_id: 'x', dalle: 'nessuna' }, 'Correggo una tua voce di tempo', ['Tolgo la fascia oraria']],
     ['tempo', { azione: 'ferma' }, 'Fermo il timer', []],
   ]
 
