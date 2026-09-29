@@ -97,8 +97,41 @@ export function modelloAlfire() {
   })
 }
 
-/** Italian speech to text, OpenAI-style multipart endpoint. */
-export async function trascrivi(audio: Blob, nomeFile: string): Promise<string> {
+/**
+ * Requests a day Whisper grants, as its last answer said: Groq's
+ * x-ratelimit-limit-requests is the per-day count (2K for Whisper on the free
+ * tier, 200K on the Developer plan). Kept for the life of the server instance.
+ */
+let richiesteVoceAlGiorno: number | null = null
+
+export function ricordaLimitiVoce(headers: Headers): void {
+  const limite = Number(headers.get('x-ratelimit-limit-requests'))
+  if (Number.isFinite(limite) && limite > 0) richiesteVoceAlGiorno = limite
+}
+
+/** Above this many requests a day, Whisper is on a paid plan. */
+const SOGLIA_VOCE_A_CONSUMO = 20_000
+
+/**
+ * Whether the live text of a dictation may run. Every partial sends the whole
+ * audio so far again: on Groq's free tier (Whisper: 20 requests a minute, 7,200
+ * audio seconds an hour for the whole team) a minute of dictation would use
+ * about 1,000 seconds and leave the final transcription no room. So on the
+ * free plan (ALFIRE_PIANO, or Whisper's own answers) only the final text;
+ * until the plan is known, the live text runs.
+ */
+export function testoInDirettaConsentito(): boolean {
+  const forzato = process.env.ALFIRE_PIANO
+  if (forzato === 'developer' || forzato === 'gratuito') return forzato === 'developer'
+  return richiesteVoceAlGiorno === null || richiesteVoceAlGiorno >= SOGLIA_VOCE_A_CONSUMO
+}
+
+/**
+ * Italian speech to text, OpenAI-style multipart endpoint. `signal`: the
+ * browser gave up (a partial still in flight at the stop), so the provider
+ * stops too instead of counting against the limits next to the final.
+ */
+export async function trascrivi(audio: Blob, nomeFile: string, signal?: AbortSignal): Promise<string> {
   const corpo = new FormData()
   corpo.append('file', audio, nomeFile)
   corpo.append('model', MODELLO_VOCE)
@@ -109,7 +142,9 @@ export async function trascrivi(audio: Blob, nomeFile: string): Promise<string> 
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.ALFIRE_API_KEY}` },
     body: corpo,
+    signal,
   })
+  ricordaLimitiVoce(risposta.headers)
   if (risposta.status === 429) throw new LimiteRaggiunto()
   if (!risposta.ok) throw new Error(`Trascrizione non riuscita (${risposta.status})`)
   const dati = (await risposta.json()) as { text?: string }

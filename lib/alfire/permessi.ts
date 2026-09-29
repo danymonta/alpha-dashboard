@@ -16,6 +16,8 @@ const CHI_GESTISCE = ['admin', 'manager'] as const
 export const STRUMENTI = {
   // everyone
   guida: {},
+  // answers at a tap: buttons in the chat, never a write (lib/alfire/risposte.ts)
+  proponi_risposte: {},
   // admin: the money
   numeri_periodo: { ruoli: ['admin'] },
   cash_per_mese: { ruoli: ['admin'] },

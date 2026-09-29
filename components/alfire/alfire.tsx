@@ -1,27 +1,41 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import {
-  DefaultChatTransport,
-  getToolName,
-  isToolUIPart,
-  lastAssistantMessageIsCompleteWithApprovalResponses,
-  type UIMessage,
-} from 'ai'
+import { DefaultChatTransport, getToolName, isToolUIPart, type UIMessage } from 'ai'
 import { ArrowUp, Check, LoaderCircle, Mic, RotateCcw, Square, TriangleAlert, X } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import { Fiamma } from '@/components/alfire/fiamma'
+import { RisposteProposte } from '@/components/alfire/proposte'
 import { useRegistratore } from '@/components/alfire/use-registratore'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { anteprimaAlfire } from '@/lib/alfire/anteprima'
+import { avvisoTrascrizione, unisciTesto } from '@/lib/alfire/dettatura'
 import { isScrittura } from '@/lib/alfire/permessi'
 import { azioneDistruttiva, riassuntoScrittura, type Anteprima } from '@/lib/alfire/riassunto'
+import {
+  confermeComplete,
+  domandaNonDetta,
+  isProposta,
+  leggiProposte,
+  propostaCheRisponde,
+  rispostaScelta,
+} from '@/lib/alfire/risposte'
 import type { AppRole } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
@@ -87,6 +101,15 @@ function testoDelMessaggio(m: UIMessage): string {
     .join('\n')
 }
 
+/** What is read aloud: the answer, or the question asked only above the buttons. */
+function testoDaLeggere(m: UIMessage): string {
+  const domande = m.parts.flatMap((p) => {
+    const d = isToolUIPart(p) && isProposta(p) ? domandaNonDetta(m, leggiProposte(p.input)) : null
+    return d ? [d] : []
+  })
+  return [testoDelMessaggio(m), ...domande].filter(Boolean).join('\n')
+}
+
 /**
  * Alfire, the team's AI assistant: one panel for the whole shell, opened from
  * the flame in the header. The conversation lives while the app is open.
@@ -106,9 +129,10 @@ export function AlfireProvider({
   const valore = useMemo(() => ({ apri: () => setAperto(true) }), [])
   const chat = useChat({
     transport: new DefaultChatTransport({ api: '/api/alfire' }),
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+    // on after the confirmation cards; a proposal waiting for its tap never holds it back
+    sendAutomaticallyWhen: confermeComplete,
     onFinish: ({ message }) => {
-      if (leggiAdAltaVoce()) parla(testoDelMessaggio(message))
+      if (leggiAdAltaVoce()) parla(testoDaLeggere(message))
     },
   })
 
@@ -192,26 +216,65 @@ function Pannello({
     status === 'ready' &&
     !error &&
     ultimo?.role === 'assistant' &&
-    !ultimo.parts.some((p) => (p.type === 'text' && p.text.trim() !== '') || (isToolUIPart(p) && isScrittura(getToolName(p))))
+    !ultimo.parts.some(
+      (p) =>
+        (p.type === 'text' && p.text.trim() !== '') ||
+        (isToolUIPart(p) && isScrittura(getToolName(p))) ||
+        // a closed question answers; follow-ups alone, with no text, do not
+        (isToolUIPart(p) && isProposta(p) && propostaCheRisponde(p.input)),
+    )
+
+  // the transcript goes into the box, not straight to Alfire: read it, fix it, then send.
+  // While recording the box shows the live text after what was typed before the tap.
+  const primaDelVocale = useRef('')
+  // live text reached the box during this recording: a failed final leaves only that
+  const parzialeMostrato = useRef(false)
+  // the dictated text changed the box: its last words go in sight (below)
+  const seguiDettato = useRef(false)
+  const registratore = useRegistratore({
+    onParziale: useCallback((t: string) => {
+      parzialeMostrato.current = true
+      seguiDettato.current = true
+      setTesto(unisciTesto(primaDelVocale.current, t))
+    }, []),
+    onTesto: useCallback((t: string) => {
+      seguiDettato.current = true
+      setTesto(unisciTesto(primaDelVocale.current, t))
+      requestAnimationFrame(() => campo.current?.focus())
+    }, []),
+    onErrore: useCallback((m: string) => setErroreVoce(avvisoTrascrizione(m, parzialeMostrato.current)), []),
+  })
+  const inAscolto = registratore.stato !== 'fermo'
+
+  // the box stops growing at 8rem and a value set from code never scrolls it:
+  // while dictating, the newest words would be hidden below the first lines
+  useLayoutEffect(() => {
+    if (!seguiDettato.current) return
+    seguiDettato.current = false
+    const c = campo.current
+    if (c) c.scrollTop = c.scrollHeight
+  }, [testo])
 
   const invia = useCallback(
     (contenuto: string) => {
       const t = contenuto.trim()
-      if (!t || occupato) return
+      // the live text is not the final one: it goes after the stop, with Invio
+      if (!t || occupato || inAscolto) return
       clearError()
       void sendMessage({ text: t })
       setTesto('')
     },
-    [clearError, occupato, sendMessage],
+    [clearError, inAscolto, occupato, sendMessage],
   )
 
-  // the transcript goes into the box, not straight to Alfire: read it, fix it, then send
-  const registratore = useRegistratore(
-    useCallback((t: string) => {
-      setTesto((prima) => (prima.trim() ? `${prima.trimEnd()} ${t}` : t))
-      requestAnimationFrame(() => campo.current?.focus())
-    }, []),
-    useCallback((m: string) => setErroreVoce(m), []),
+  // a tap on an option Alfire proposed: the user's answer, as if typed (the box stays as it is)
+  const rispondi = useCallback(
+    (opzione: string) => {
+      if (occupato || inAscolto) return
+      clearError()
+      void sendMessage({ text: opzione })
+    },
+    [clearError, inAscolto, occupato, sendMessage],
   )
 
   // follow the conversation
@@ -273,8 +336,10 @@ function Pannello({
                 <button
                   key={s}
                   type="button"
+                  // while dictating nothing is sent: the send button waits for the stop too
+                  disabled={inAscolto}
                   onClick={() => invia(s)}
-                  className="min-h-11 rounded-lg border border-border px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  className="min-h-11 rounded-lg border border-border px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                 >
                   {s}
                 </button>
@@ -282,8 +347,20 @@ function Pannello({
             </div>
           </div>
         ) : (
-          messages.map((m) => (
-            <Messaggio key={m.id} messaggio={m} approva={addToolApprovalResponse} chiudi={chiudi} />
+          messages.map((m, i) => (
+            <Messaggio
+              key={m.id}
+              messaggio={m}
+              approva={addToolApprovalResponse}
+              chiudi={chiudi}
+              // the buttons answer only on the last message, when Alfire is not busy and nobody dictates
+              proposte={{
+                attive: i === messages.length - 1 && !occupato && !inAscolto && configurata,
+                correnti: i === messages.length - 1,
+                seguente: messages[i + 1],
+                rispondi,
+              }}
+            />
           ))
         )}
 
@@ -335,9 +412,15 @@ function Pannello({
           </p>
         ) : null}
         {registratore.stato === 'registra' ? (
-          <p className="mb-2 flex items-center gap-2 text-sm text-status-critical" role="status">
-            <span className="size-2 rounded-full bg-status-critical" aria-hidden="true" />
-            Ti ascolto: tocca il quadrato quando hai finito.
+          <p id="alfire-ascolto" className="mb-2 flex items-center gap-2 text-sm text-status-critical" role="status">
+            <span className="size-2 shrink-0 rounded-full bg-status-critical" aria-hidden="true" />
+            <span>
+              Ti ascolto: tocca il quadrato quando hai finito.
+              {registratore.inPausa ? (
+                // the partials stopped (a limit, repeated failures): the words are not lost
+                <span className="block text-muted-foreground">Testo in diretta in pausa: arriva tutto allo stop.</span>
+              ) : null}
+            </span>
           </p>
         ) : registratore.stato === 'trascrive' ? (
           <p className="mb-2 flex items-center gap-2 text-sm text-muted-foreground" role="status">
@@ -355,15 +438,25 @@ function Pannello({
             rows={1}
             value={testo}
             disabled={!configurata}
-            placeholder={configurata ? 'Chiedi ad Alfire…' : 'Alfire non è ancora attiva'}
-            onChange={(e) => setTesto(e.currentTarget.value)}
+            // while dictating the box shows the live text, muted, until the final one
+            readOnly={inAscolto}
+            aria-describedby={registratore.stato === 'registra' ? 'alfire-ascolto' : undefined}
+            data-in-ascolto={inAscolto ? 'true' : undefined}
+            placeholder={configurata ? (inAscolto ? 'In ascolto…' : 'Chiedi ad Alfire…') : 'Alfire non è ancora attiva'}
+            onChange={(e) => {
+              seguiDettato.current = false
+              setTesto(e.currentTarget.value)
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault()
                 invia(testo)
               }
             }}
-            className="max-h-32 min-h-11 flex-1 resize-none rounded-lg border border-input bg-transparent px-3 py-2.5 text-base outline-none field-sizing-content placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 md:text-sm"
+            className={cn(
+              'max-h-32 min-h-11 flex-1 resize-none rounded-lg border border-input bg-transparent px-3 py-2.5 text-base outline-none field-sizing-content placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 md:text-sm',
+              inAscolto && 'text-muted-foreground italic',
+            )}
           />
           {registratore.supportato && configurata ? (
             <Button
@@ -373,8 +466,18 @@ function Pannello({
               className="size-11 shrink-0"
               aria-label={registratore.stato === 'registra' ? 'Ferma e trascrivi' : 'Parla con Alfire'}
               aria-pressed={registratore.stato === 'registra'}
-              disabled={registratore.stato === 'trascrive' || occupato}
-              onClick={() => (registratore.stato === 'registra' ? registratore.ferma() : void registratore.avvia())}
+              // stopping is always possible, even while Alfire answers; one tap opens the microphone
+              disabled={
+                registratore.stato === 'trascrive' ||
+                registratore.stato === 'apre' ||
+                (occupato && registratore.stato !== 'registra')
+              }
+              onClick={() => {
+                if (registratore.stato === 'registra') return registratore.ferma()
+                primaDelVocale.current = testo
+                parzialeMostrato.current = false
+                void registratore.avvia()
+              }}
             >
               {registratore.stato === 'registra' ? (
                 <Square className="size-4" aria-hidden="true" />
@@ -393,7 +496,7 @@ function Pannello({
               size="icon"
               className="size-11 shrink-0"
               aria-label="Invia"
-              disabled={!configurata || testo.trim() === ''}
+              disabled={!configurata || testo.trim() === '' || inAscolto}
             >
               <ArrowUp className="size-4" aria-hidden="true" />
             </Button>
@@ -420,22 +523,40 @@ function NonConfigurata({ admin }: { admin: boolean }) {
   )
 }
 
+type StatoRisposte = {
+  /** Only the last message's buttons answer, while Alfire is not busy; old ones show the answer. */
+  attive: boolean
+  /** The last message's: shown even while they wait (Alfire busy, a dictation). */
+  correnti: boolean
+  /** The user's next message, to show which option it was. */
+  seguente: UIMessage | undefined
+  rispondi: (opzione: string) => void
+}
+
 function Messaggio({
   messaggio,
   approva,
   chiudi,
+  proposte,
 }: {
   messaggio: UIMessage
   approva: Chat['addToolApprovalResponse']
   chiudi: () => void
+  proposte: StatoRisposte
 }) {
   if (messaggio.role === 'user') {
     return (
       <div className="flex justify-end">
-        <p className="max-w-[85%] rounded-xl bg-primary/20 px-3 py-2 text-sm whitespace-pre-wrap">{testoDelMessaggio(messaggio)}</p>
+        <p className="max-w-[85%] rounded-xl bg-primary/20 px-3 py-2 text-sm whitespace-pre-wrap" data-testid="alfire-mio-messaggio">
+          {testoDelMessaggio(messaggio)}
+        </p>
       </div>
     )
   }
+
+  // a card waiting for its tap comes first: the options wait for it (Alfire should never mix them)
+  const schedaInAttesa = messaggio.parts.some((p) => isToolUIPart(p) && p.state === 'approval-requested')
+  const risposte = schedaInAttesa ? { ...proposte, attive: false } : proposte
 
   return (
     <div className="space-y-2">
@@ -445,10 +566,28 @@ function Messaggio({
         }
         if (!isToolUIPart(p)) return null
         const nome = getToolName(p)
+        if (isProposta(p)) return <Proposte key={p.toolCallId} parte={p} messaggio={messaggio} stato={risposte} />
         if (isScrittura(nome)) return <SchedaScrittura key={p.toolCallId} parte={p} nome={nome} approva={approva} chiudi={chiudi} />
         return <StatoLettura key={p.toolCallId} nome={nome} stato={p.state} />
       })}
     </div>
+  )
+}
+
+/** Alfire's options under its message: nothing while they stream in, nothing if the call was malformed. */
+function Proposte({ parte, messaggio, stato }: { parte: ParteStrumento; messaggio: UIMessage; stato: StatoRisposte }) {
+  if (parte.state === 'input-streaming' || parte.state === 'output-error') return null
+  const proposte = leggiProposte(parte.input)
+  if (!proposte) return null
+  return (
+    <RisposteProposte
+      proposte={proposte}
+      domanda={domandaNonDetta(messaggio, proposte)}
+      attive={stato.attive}
+      correnti={stato.correnti}
+      scelta={rispostaScelta(stato.seguente, proposte.opzioni)}
+      rispondi={stato.rispondi}
+    />
   )
 }
 

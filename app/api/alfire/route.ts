@@ -14,6 +14,7 @@ import { dettaglioErroreAlfire, erroreStrumentoRiprovabile, messaggioErroreAlfir
 import { conversazioneScrive } from '@/lib/alfire/intento'
 import { SCRITTURE } from '@/lib/alfire/permessi'
 import { promptAlfire } from '@/lib/alfire/prompt'
+import { proposteComeTesto } from '@/lib/alfire/risposte'
 import { strumentiAlfire } from '@/lib/alfire/strumenti'
 import { livelloPmEffettivo } from '@/lib/auth/roles'
 import { getProfilo } from '@/lib/auth/session'
@@ -70,7 +71,10 @@ export async function POST(req: Request) {
   const result = streamText({
     model: modelloAlfire(),
     system: promptAlfire({ nome: profilo.nome.split(' ')[0], ruolo: profilo.ruolo, oggi: oggiRoma() }),
-    messages: storiaLeggera(await convertToModelMessages(messaggi, { tools: tutti, ignoreIncompleteToolCalls: true })),
+    // the buttons Alfire proposed come back as their question, in words (proposteComeTesto)
+    messages: storiaLeggera(
+      await convertToModelMessages(proposteComeTesto(messaggi), { tools: tutti, ignoreIncompleteToolCalls: true }),
+    ),
     // gpt-oss reasons before answering; Groq refuses that reasoning when it comes
     // back as reasoning_content in the next step (after a tool call). The model
     // does not need it to go on, so every step starts without it.

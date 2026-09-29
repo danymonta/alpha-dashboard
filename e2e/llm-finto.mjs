@@ -50,7 +50,8 @@ function rifiuto(res, messaggio, codice) {
 // like Groq: a call to a tool the request did not carry is refused
 let strumentiDellaRichiesta = []
 
-function chiamata(res, nome, argomenti) {
+// a tool call, after a few words when given (Alfire asks the question, then shows the buttons)
+function chiamata(res, nome, argomenti, parole = '') {
   if (!strumentiDellaRichiesta.includes(nome)) {
     return rifiuto(
       res,
@@ -60,6 +61,7 @@ function chiamata(res, nome, argomenti) {
   }
   sse(res, [
     base({ role: 'assistant', reasoning: 'Mi serve uno strumento.' }),
+    ...(parole ? parole.split(' ').map((p, i) => base({ content: (i ? ' ' : '') + p })) : []),
     base({
       role: 'assistant',
       tool_calls: [{ index: 0, id: `call_${nome}`, type: 'function', function: { name: nome, arguments: JSON.stringify(argomenti) } }],
@@ -68,17 +70,51 @@ function chiamata(res, nome, argomenti) {
   ])
 }
 
+// e2e/alfire-bottoni.spec.ts: the closed questions and the answer each one expects
+const DOMANDE = [
+  {
+    // the question in the text and on the buttons
+    chiesta: 'quale cliente intendi',
+    risposta: (scelta) => `Ecco le rate di ${scelta}: nessuna in ritardo.`,
+  },
+  {
+    // the question only above the buttons: the route gives it back to the model as text
+    chiesta: 'di quale mese vuoi i numeri',
+    risposta: (scelta) => `Numeri di ${scelta}: 6.950,00 € incassati.`,
+  },
+]
+
+// the text grows with the audio: a partial (the audio so far) reads fewer words than
+// the whole recording, and 4 KB read exactly the question
+const DETTATO = (
+  'Quanto ho incassato questo mese? Dimmi anche quanto di questo viene dai rinnovi, quanto dai nuovi clienti, ' +
+  'quanto devo a Loris di provvigioni, quanto mi resta di margine operativo a fine mese e quali rate mancano ' +
+  'ancora da incassare entro la fine di ottobre, cliente per cliente, con le date e gli importi di ognuna, ' +
+  'così domani mattina scrivo a chi deve ancora pagare e chiudo il mese con i conti in ordine'
+).split(' ')
+const BYTE_PER_PAROLA = 800
+
+async function trascrizione(req, corpo) {
+  const dati = await new Response(corpo, { headers: { 'content-type': req.headers['content-type'] ?? '' } }).formData()
+  const audio = dati.get('file')
+  const byte = typeof audio === 'object' && audio ? audio.size : 0
+  return DETTATO.slice(0, Math.min(DETTATO.length, Math.max(1, Math.ceil(byte / BYTE_PER_PAROLA)))).join(' ')
+}
+
 function contenuto(m) {
   return typeof m.content === 'string' ? m.content : (m.content ?? []).map((p) => p.text ?? '').join(' ')
 }
 
 createServer(async (req, res) => {
-  let corpo = ''
-  for await (const pezzo of req) corpo += pezzo
+  const pezzi = []
+  for await (const pezzo of req) pezzi.push(pezzo)
+  const grezzo = Buffer.concat(pezzi)
+  const corpo = grezzo.toString()
 
   if (req.url?.endsWith('/audio/transcriptions')) {
+    const text = await trascrizione(req, grezzo)
     res.writeHead(200, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({ text: 'Quanto ho incassato questo mese?' }))
+    res.end(JSON.stringify({ text }))
     return
   }
   if (!req.url?.endsWith('/chat/completions')) {
@@ -103,9 +139,26 @@ createServer(async (req, res) => {
     return
   }
   const ultimo = messages.at(-1) ?? {}
+  const ultimaDomanda = contenuto(messages.filter((m) => m.role === 'user').at(-1) ?? {}).toLowerCase()
   if (ultimo.role === 'tool') {
     // the model reads and then stops without a word (Dany's chat of 29/09/2026)
     if (messages.some((m) => m.role === 'user' && contenuto(m).toLowerCase().includes('leggi e taci'))) return testo(res, '')
+    // follow-up buttons and not a word of answer: the chat must still offer "Riprova"
+    if (ultimaDomanda.includes('solo bottoni')) {
+      return chiamata(res, 'proponi_risposte', {
+        tipo: 'seguito',
+        opzioni: ['Chi è in ritardo con i pagamenti?', 'Quanto devo in provvigioni?'],
+      })
+    }
+    // an answer, then a few follow-up questions as buttons
+    if (ultimaDomanda.includes('andato il mese')) {
+      return chiamata(
+        res,
+        'proponi_risposte',
+        { tipo: 'seguito', opzioni: ['Chi è in ritardo con i pagamenti?', 'Quanto devo in provvigioni?'] },
+        'Il mese va bene: 6.950,00 € incassati.',
+      )
+    }
     const esito = contenuto(ultimo)
     const strumento = String(ultimo.tool_call_id ?? '').replace('call_', '')
     if (esito.includes('"errore"')) return testo(res, `Errore: ${esito}`)
@@ -114,6 +167,48 @@ createServer(async (req, res) => {
     return testo(res, esito.includes('"fatto":true') ? `Fatto: ${strumento}.` : 'Questo mese hai incassato 6.950,00 €.')
   }
   const domanda = contenuto(ultimo).toLowerCase()
+  // the user answered a closed question (a tap or typed): the model knows what it asked
+  const precedente = contenuto(messages.at(-2) ?? {}).toLowerCase()
+  if (ultimo.role === 'user' && messages.at(-2)?.role === 'assistant') {
+    const chiusa = DOMANDE.find((d) => precedente.includes(d.chiesta))
+    if (chiusa) return testo(res, chiusa.risposta(contenuto(ultimo).trim()))
+    // the category of a cost, then the write with its card
+    if (precedente.includes('di che categoria')) {
+      return chiamata(res, 'costo', {
+        azione: 'registra',
+        descrizione: 'E2EAlfire Figma',
+        importo: 15,
+        categoria: domanda.trim(),
+        ricorrente: false,
+      })
+    }
+  }
+  // e2e/alfire-bottoni.spec.ts: closed questions with buttons, and follow-ups
+  if (domanda.includes('rate di rossi')) {
+    return chiamata(
+      res,
+      'proponi_risposte',
+      { tipo: 'scelta', domanda: 'Quale cliente intendi?', opzioni: ['Mario Rossi', 'Luca Rossi'] },
+      'Ho trovato due clienti Rossi: quale cliente intendi?',
+    )
+  }
+  if (domanda.includes('numeri di un mese')) {
+    return chiamata(res, 'proponi_risposte', {
+      tipo: 'scelta',
+      domanda: 'Di quale mese vuoi i numeri?',
+      opzioni: ['Settembre 2026', 'Agosto 2026'],
+    })
+  }
+  if (domanda.includes('spesa di figma')) {
+    return chiamata(
+      res,
+      'proponi_risposte',
+      { tipo: 'scelta', domanda: 'Di che categoria è la spesa?', opzioni: ['Software', 'Formazione'] },
+      'Di che categoria è la spesa?',
+    )
+  }
+  if (domanda.includes('andato il mese')) return chiamata(res, 'numeri_periodo', {})
+  if (domanda.includes('chi è in ritardo')) return testo(res, 'Nessuno è in ritardo con i pagamenti.')
   // a tool call Groq refuses once ("failed_generation"): asked again, it comes out right
   if (domanda.includes('strumento instabile') && tentativiInstabili++ % 2 === 0) {
     return rifiuto(res, "Failed to call a function. Please adjust your prompt. See 'failed_generation' for more details.", 'tool_use_failed')

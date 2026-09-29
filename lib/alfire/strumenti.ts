@@ -1,11 +1,12 @@
 import 'server-only'
 
-import type { ToolSet } from 'ai'
+import { tool, type ToolSet } from 'ai'
 import { z } from 'zod'
 
 import { ARGOMENTI_GUIDA, GUIDA, type ArgomentoGuida } from '@/lib/alfire/guida'
 import { isScrittura, strumentiConsentiti, type NomeStrumento } from '@/lib/alfire/permessi'
 import type { Anteprima } from '@/lib/alfire/riassunto'
+import { DESCRIZIONE_PROPOSTE, schemaProposte } from '@/lib/alfire/risposte'
 import { errore, etichettaRegola, isErrore, risolutori, type Supabase } from '@/lib/alfire/risolvi'
 import { definizione, type Contesto, type Definizione } from '@/lib/alfire/scritture/comune'
 import { scrittureEconomics } from '@/lib/alfire/scritture/economics'
@@ -336,13 +337,23 @@ function letture({ supabase, profilo, r }: Contesto) {
 }
 
 /**
- * Every tool, as definitions: reads, and writes with their preview. The
- * writes live by area in lib/alfire/scritture.
+ * Buttons under Alfire's message, for every role. No execute: the call ends
+ * the answer and the chat shows the options; a tap is the user's next message.
+ */
+const proposte: Definizione = {
+  strumento: tool({ description: DESCRIZIONE_PROPOSTE, inputSchema: schemaProposte }),
+  schema: schemaProposte,
+}
+
+/**
+ * Every tool, as definitions: reads, answers at a tap, and writes with their
+ * preview. The writes live by area in lib/alfire/scritture.
  */
 function definizioniAlfire(supabase: Supabase, profilo: Profilo, livelloPm: LivelloPm): Record<NomeStrumento, Definizione> {
   const ctx: Contesto = { supabase, profilo, livelloPm, r: risolutori(supabase, profilo) }
   return {
     ...letture(ctx),
+    proponi_risposte: proposte,
     ...scrittureEconomics(ctx),
     ...scrittureSetting(ctx),
     ...strumentiProgetti(ctx),

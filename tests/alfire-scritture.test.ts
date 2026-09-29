@@ -435,9 +435,10 @@ beforeEach(() => vi.clearAllMocks())
 
 // ---------------------------------------------------------------------------
 describe('chi riceve quali strumenti (elenchi fissati)', () => {
-  it('admin: 15 letture e 18 scritture', () => {
+  it('admin: 15 letture, le risposte a un tocco e 18 scritture', () => {
     expect(strumentiConsentiti('admin', 'admin')).toEqual([
       'guida',
+      'proponi_risposte',
       'numeri_periodo',
       'cash_per_mese',
       'da_incassare',
@@ -476,6 +477,7 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
   it('setter: i suoi numeri, report, call, lead e i progetti', () => {
     expect(strumentiConsentiti('setter', 'employee')).toEqual([
       'guida',
+      'proponi_risposte',
       'miei_numeri',
       'call_periodo',
       'progetti',
@@ -495,6 +497,7 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
   it('closer: le sue call, le sue vendite e i loro incassi, i progetti', () => {
     expect(strumentiConsentiti('closer', 'employee')).toEqual([
       'guida',
+      'proponi_risposte',
       'call_periodo',
       'progetti',
       'progetto_dettaglio',
@@ -511,9 +514,19 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
   })
 
   it('coach: i progetti per livello, niente Economics', () => {
-    const lavora = ['guida', 'progetti', 'progetto_dettaglio', 'miei_task', 'mio_tempo', 'task', 'nota_progetto', 'tempo']
+    const lavora = [
+      'guida',
+      'proponi_risposte',
+      'progetti',
+      'progetto_dettaglio',
+      'miei_task',
+      'mio_tempo',
+      'task',
+      'nota_progetto',
+      'tempo',
+    ]
     expect(strumentiConsentiti('coach', 'employee')).toEqual(lavora)
-    expect(strumentiConsentiti('coach', 'manager')).toEqual([...lavora.slice(0, 5), 'progetto', 'lista', ...lavora.slice(5)])
+    expect(strumentiConsentiti('coach', 'manager')).toEqual([...lavora.slice(0, 6), 'progetto', 'lista', ...lavora.slice(6)])
   })
 })
 

@@ -55,3 +55,36 @@ describe('quanto può usare Alfire per ogni risposta', () => {
     expect(pianoAlfire()).toBe('gratuito')
   })
 })
+
+describe('il testo in diretta della voce, piano per piano', () => {
+  const voce = (richiesteAlGiorno: string) => new Headers({ 'x-ratelimit-limit-requests': richiesteAlGiorno })
+
+  it('finché Whisper non ha detto il suo piano, il testo in diretta c’è', async () => {
+    const { testoInDirettaConsentito, ricordaLimitiVoce } = await config()
+    expect(testoInDirettaConsentito()).toBe(true)
+    ricordaLimitiVoce(new Headers())
+    expect(testoInDirettaConsentito()).toBe(true)
+  })
+
+  it('Whisper gratuito (2K richieste al giorno): niente parziali, solo il testo finale', async () => {
+    const { testoInDirettaConsentito, ricordaLimitiVoce } = await config()
+    ricordaLimitiVoce(voce('2000'))
+    expect(testoInDirettaConsentito()).toBe(false)
+  })
+
+  it('Whisper sul Developer (200K al giorno): testo in diretta', async () => {
+    const { testoInDirettaConsentito, ricordaLimitiVoce } = await config()
+    ricordaLimitiVoce(voce('2000'))
+    ricordaLimitiVoce(voce('200000'))
+    expect(testoInDirettaConsentito()).toBe(true)
+  })
+
+  it('ALFIRE_PIANO lo forza, in un senso o nell’altro', async () => {
+    const { testoInDirettaConsentito, ricordaLimitiVoce } = await config()
+    vi.stubEnv('ALFIRE_PIANO', 'gratuito')
+    expect(testoInDirettaConsentito()).toBe(false)
+    vi.stubEnv('ALFIRE_PIANO', 'developer')
+    ricordaLimitiVoce(voce('2000'))
+    expect(testoInDirettaConsentito()).toBe(true)
+  })
+})
