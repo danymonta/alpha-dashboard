@@ -76,9 +76,10 @@ export function MieiClienti({ righe }: { righe: Riga[] }) {
           I tuoi clienti
         </h2>
         <p className="text-xs text-muted-foreground" data-testid="nota-a-te">
-          Le vendite dove sei il setter: quanto vale il contratto, quanto hanno pagato e quanto ti matura. La provvigione
-          matura quando il cliente paga, secondo la tua regola provvigionale. «Non prevista» vuol dire che la tua regola
-          non copre quel tipo di vendita (per esempio un rinnovo): se ti sembra un errore, chiedi all’admin.
+          Le vendite dove sei il setter, di solito i clienti nuovi che hai portato tu: quanto vale il contratto, quanto hanno
+          pagato e quanto ti matura. La provvigione matura quando il cliente paga, anche sulle rate dei mesi dopo, secondo la
+          tua regola provvigionale. «Non prevista» vuol dire che la tua regola non copre quel tipo di vendita (per esempio un
+          rinnovo): se ti sembra un errore, chiedi all’admin.
         </p>
       </div>
 

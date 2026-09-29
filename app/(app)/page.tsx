@@ -68,12 +68,23 @@ const KPI: Record<string, { voce: VoceLegenda; euro: boolean }> = {
   margine_operativo: { voce: LEGENDA_ECONOMICS.margine_operativo, euro: true },
 }
 
-// "Oggi dal team": the id is the test id ("oggi-DM" predates the "DM totali" label)
-type VoceOggi = [id: string, voce: VoceLegenda, valore: string]
+// "Oggi dal team": the id is the test id ("oggi-DM" predates the "DM totali" label);
+// "sotto" is a smaller line under the value
+type VoceOggi = [id: string, voce: VoceLegenda, valore: string, sotto?: string]
+
+// The cash of the period in four parts (metriche_periodo, 29/09/2026): they
+// always add up to the hero. The colours are the chart's, bound to the part.
+const PARTI_CASH = [
+  { chiave: 'cash_nuovi_clienti', voce: LEGENDA_ECONOMICS.cash_nuovi_clienti, colore: 'bg-chart-nuovo' },
+  { chiave: 'cash_rate_precedenti', voce: LEGENDA_ECONOMICS.cash_rate_precedenti, colore: 'bg-chart-rate-precedenti' },
+  { chiave: 'cash_rinnovo', voce: LEGENDA_ECONOMICS.cash_rinnovi, colore: 'bg-chart-rinnovo' },
+  { chiave: 'cash_upsell', voce: LEGENDA_ECONOMICS.cash_upsell, colore: 'bg-chart-upsell' },
+] as const
 
 // every number of the page, in reading order: "Cosa significa ogni numero"
 const LEGENDA_PAGINA: VoceLegenda[] = [
   LEGENDA_ECONOMICS.cash_incassato,
+  ...PARTI_CASH.map((p) => p.voce),
   LEGENDA_ECONOMICS.revenue_firmata,
   LEGENDA_ECONOMICS.nuovi_clienti,
   LEGENDA_ECONOMICS.rinnovi,
@@ -90,12 +101,12 @@ const LEGENDA_PAGINA: VoceLegenda[] = [
   LEGENDA_ECONOMICS.call_da_fare,
   LEGENDA_CLOSER.call,
   LEGENDA_CLOSER.chiuse,
-  LEGENDA_ECONOMICS.cash_oggi,
+  LEGENDA_ECONOMICS.incassato_oggi,
   LEGENDA_SETTING.cash_per_dm,
   LEGENDA_SETTING.revenue_per_dm,
   LEGENDA_SETTING.dm_per_call,
   LEGENDA_ECONOMICS.cash_per_call_svolta,
-  LEGENDA_ECONOMICS.valore_medio_vendita,
+  LEGENDA_ECONOMICS.valore_medio_nuovo,
   LEGENDA_CLOSER.show_rate,
   LEGENDA_CLOSER.close_rate,
   LEGENDA_CLOSER.close_rate_qualificate,
@@ -239,23 +250,21 @@ export default async function PanoramicaPage({
             delta={hero.delta}
             confronto={confronto}
           >
-            {/* "quanto è nuovo e quanto è rinnovo": the split, from metriche_periodo */}
+            {/* "quanto è nuovo e quanto è rinnovo": the four parts, from metriche_periodo;
+                new clients of the period apart from the instalments of the ones already in */}
             <div className="mt-5 border-t border-border pt-4">
-              <p className="mb-2 text-xs font-medium text-muted-foreground">Cash per tipo di vendita</p>
-              <dl className="grid grid-cols-3 gap-3" data-testid="cash-per-tipo">
-                {(
-                  [
-                    ['da nuovi', m.cash_nuovo, 'bg-chart-nuovo'],
-                    ['da rinnovi', m.cash_rinnovo, 'bg-chart-rinnovo'],
-                    ['da upsell', m.cash_upsell, 'bg-chart-upsell'],
-                  ] as const
-                ).map(([etichetta, valore, colore]) => (
-                  <div key={etichetta}>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Di cui</p>
+              {/* two by two: the labels are long; in a row the amounts line up at the bottom */}
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-3" data-testid="cash-per-tipo">
+                {PARTI_CASH.map(({ chiave, voce, colore }) => (
+                  <div key={chiave} className="flex min-w-0 flex-col justify-between gap-0.5">
                     <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className={`size-2.5 rounded-[2px] ${colore}`} aria-hidden="true" />
-                      {etichetta}
+                      <span className={cn('size-2.5 shrink-0 rounded-[2px]', colore)} aria-hidden="true" />
+                      <EtichettaConNota voce={voce} className="min-w-0" />
                     </dt>
-                    <dd className="num text-base font-semibold">{formatEuro(valore, { compatto: true })}</dd>
+                    <dd className="num text-base font-semibold" data-testid={`parte-${chiave}`}>
+                      {formatEuro(m[chiave], { compatto: true })}
+                    </dd>
                   </div>
                 ))}
               </dl>
@@ -309,7 +318,7 @@ export default async function PanoramicaPage({
       {team.data ? (
         <Scheda titolo="Oggi dal team">
           {/* three sources, each named: the report, the calls, the payments */}
-          <div className="grid gap-3 xl:grid-cols-[3fr_3fr_1fr] xl:gap-0" data-testid="oggi-team">
+          <div className="grid gap-3 xl:grid-cols-[3fr_3fr_1.6fr] xl:gap-0" data-testid="oggi-team">
             {(
               [
                 [
@@ -330,7 +339,15 @@ export default async function PanoramicaPage({
                 ],
                 [
                   'Dagli incassi',
-                  [['Cash oggi', LEGENDA_ECONOMICS.cash_oggi, formatEuro(team.data.cash_incassato, { compatto: true })]],
+                  [
+                    [
+                      'incassato',
+                      LEGENDA_ECONOMICS.incassato_oggi,
+                      formatEuro(team.data.cash_incassato, { compatto: true }),
+                      // every cash-in of today, rates and renewals included: say how much is new clients
+                      `di cui ${formatEuro(team.data.cash_nuovi_clienti, { compatto: true })} nuovi clienti`,
+                    ],
+                  ],
                 ],
               ] satisfies [string, VoceOggi[]][]
             ).map(([fonte, voci], i) => (
@@ -341,13 +358,20 @@ export default async function PanoramicaPage({
                 <p className="mb-2 text-xs text-muted-foreground">{fonte}</p>
                 {/* the same three columns in every group on a phone; the cash alone fills its own on a wide screen */}
                 <dl className={cn('grid grid-cols-3 gap-x-2 gap-y-3 sm:gap-x-3', voci.length === 1 && 'xl:grid-cols-1')}>
-                  {voci.map(([id, voce, valore]) => (
-                    <div key={id} className="min-w-0">
+                  {voci.map(([id, voce, valore, sotto]) => (
+                    // alone in its group (today's cash) it takes the whole row on a phone:
+                    // its label and its "di cui" line stay on one line
+                    <div key={id} className={cn('min-w-0', voci.length === 1 && 'col-span-3 xl:col-span-1')}>
                       {/* min-h-5: the "i" of every label, the values stay on one line */}
                       <dt className="flex min-h-5 items-center text-xs text-muted-foreground">
                         <EtichettaConNota voce={voce} />
                       </dt>
                       <dd className="num text-lg font-semibold" data-testid={`oggi-${id}`}>{valore}</dd>
+                      {sotto ? (
+                        <dd className="num text-xs text-muted-foreground" data-testid={`oggi-${id}-sotto`}>
+                          {sotto}
+                        </dd>
+                      ) : null}
                     </div>
                   ))}
                 </dl>
@@ -358,13 +382,17 @@ export default async function PanoramicaPage({
       ) : null}
 
       {/* 3. The trend */}
-      <Scheda titolo="Cash incassato, ultimi 12 mesi">
+      <Scheda
+        titolo="Cash incassato, ultimi 12 mesi"
+        descrizione="Ogni mese in quattro parti: nuovi clienti del mese, rate di clienti entrati prima, rinnovi e upsell."
+      >
         {cashTotale ? (
           <>
             <GraficoCash
               dati={(cash.data ?? []).map((p) => ({
                 mese: p.mese,
-                nuovo: Number(p.nuovo),
+                nuovi_clienti: Number(p.nuovi_clienti),
+                rate_precedenti: Number(p.rate_precedenti),
                 rinnovo: Number(p.rinnovo),
                 upsell: Number(p.upsell),
                 totale: Number(p.totale),
@@ -380,20 +408,22 @@ export default async function PanoramicaPage({
                   <thead className="text-xs text-muted-foreground">
                     <tr className="border-b border-border">
                       <th scope="col" className="py-2 text-left font-normal">Mese</th>
-                      <th scope="col" className="py-2 text-right font-normal">Nuovo</th>
-                      <th scope="col" className="py-2 text-right font-normal">Rinnovo</th>
-                      <th scope="col" className="py-2 text-right font-normal">Upsell</th>
-                      <th scope="col" className="py-2 text-right font-normal">Totale</th>
+                      <th scope="col" className="py-2 pl-3 text-right font-normal">Nuovi clienti</th>
+                      <th scope="col" className="py-2 pl-3 text-right font-normal">Rate di clienti già entrati</th>
+                      <th scope="col" className="py-2 pl-3 text-right font-normal">Rinnovi</th>
+                      <th scope="col" className="py-2 pl-3 text-right font-normal">Upsell</th>
+                      <th scope="col" className="py-2 pl-3 text-right font-normal">Totale</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {(cash.data ?? []).map((p) => (
                       <tr key={p.mese}>
-                        <th scope="row" className="py-2 text-left font-normal">{formatMese(p.mese)}</th>
-                        <td className="py-2 text-right">{formatEuro(p.nuovo)}</td>
-                        <td className="py-2 text-right">{formatEuro(p.rinnovo)}</td>
-                        <td className="py-2 text-right">{formatEuro(p.upsell)}</td>
-                        <td className="py-2 text-right font-medium">{formatEuro(p.totale)}</td>
+                        <th scope="row" className="py-2 text-left font-normal whitespace-nowrap">{formatMese(p.mese)}</th>
+                        <td className="num py-2 pl-3 text-right whitespace-nowrap">{formatEuro(p.nuovi_clienti)}</td>
+                        <td className="num py-2 pl-3 text-right whitespace-nowrap">{formatEuro(p.rate_precedenti)}</td>
+                        <td className="num py-2 pl-3 text-right whitespace-nowrap">{formatEuro(p.rinnovo)}</td>
+                        <td className="num py-2 pl-3 text-right whitespace-nowrap">{formatEuro(p.upsell)}</td>
+                        <td className="num py-2 pl-3 text-right font-medium whitespace-nowrap">{formatEuro(p.totale)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -434,7 +464,7 @@ export default async function PanoramicaPage({
 
         <Scheda
           titolo="Indicatori"
-          descrizione="Rapporti del periodo: i DM vengono dal report dei setter, le call da quelle registrate nell’app."
+          descrizione="Rapporti del periodo: i DM vengono dal report dei setter, le call da quelle registrate nell’app. Cash e revenue contano solo i nuovi clienti del periodo."
           azione={
             <Link href="/setting" className="inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
               Setting <ChevronRight className="size-4" aria-hidden="true" />
@@ -446,12 +476,8 @@ export default async function PanoramicaPage({
             <Voce etichetta={LEGENDA_SETTING.cash_per_dm} valore={formatEuro(m.cash_per_dm)} />
             <Voce etichetta={LEGENDA_SETTING.revenue_per_dm} valore={formatEuro(m.revenue_per_dm)} />
             <Voce etichetta={LEGENDA_SETTING.dm_per_call} valore={formatRapporto(m.dm_per_call)} />
-            <Voce
-              etichetta={LEGENDA_ECONOMICS.cash_per_call_svolta}
-              valore={formatEuro(m.cash_per_call_svolta)}
-              nota="solo vendite nuove"
-            />
-            <Voce etichetta={LEGENDA_ECONOMICS.valore_medio_vendita} valore={formatEuro(m.valore_medio_vendita)} />
+            <Voce etichetta={LEGENDA_ECONOMICS.cash_per_call_svolta} valore={formatEuro(m.cash_per_call_svolta)} />
+            <Voce etichetta={LEGENDA_ECONOMICS.valore_medio_nuovo} valore={formatEuro(m.valore_medio_nuovo)} />
             <Voce etichetta={LEGENDA_CLOSER.show_rate} valore={formatPercentuale(m.show_rate)} />
             <Voce etichetta={LEGENDA_CLOSER.close_rate} valore={formatPercentuale(m.close_rate)} />
             <Voce etichetta={LEGENDA_CLOSER.close_rate_qualificate} valore={formatPercentuale(m.close_rate_qualificate)} />
@@ -464,10 +490,11 @@ export default async function PanoramicaPage({
         </Scheda>
       </div>
 
-      {/* 4b. Which channel brings the money */}
+      {/* 4b. Which channel brings the new clients: only the new clients of the
+          period (metriche_per_fonte), never the instalments or the renewals */}
       <Scheda
-        titolo={`Da dove arrivano i soldi ${periodo.frase}`}
-        descrizione="Cash e clienti nuovi per fonte del cliente; lead e close rate per fonte del lead."
+        titolo={`Da dove arrivano i nuovi clienti ${periodo.frase}`}
+        descrizione="Solo i nuovi clienti del periodo: quanti sono e quanto hanno pagato, per fonte del cliente, con la quota sul loro cash. Rate di clienti entrati prima, rinnovi e upsell esclusi. Lead e close rate per fonte del lead."
       >
         {(fonti.data ?? []).some((f) => Number(f.cash) !== 0 || f.nuovi_clienti > 0 || f.lead > 0) ? (
           <ul className="divide-y divide-border" data-testid="per-fonte">
@@ -479,7 +506,7 @@ export default async function PanoramicaPage({
                     <span className="min-w-0">
                       <span className="block text-sm">{ETICHETTA_FONTE[f.fonte]}</span>
                       <span className="num block text-xs text-muted-foreground">
-                        nuovi {f.nuovi_clienti} · lead {f.lead} · close rate {formatPercentuale(f.close_rate)}
+                        nuovi clienti {f.nuovi_clienti} · lead {f.lead} · close rate {formatPercentuale(f.close_rate)}
                       </span>
                     </span>
                     <span className="shrink-0 text-right">
@@ -487,7 +514,7 @@ export default async function PanoramicaPage({
                       <span className="num block text-xs text-muted-foreground">{formatPercentuale(f.quota_cash, { unDecimale: true })}</span>
                     </span>
                   </div>
-                  {/* share of the period's cash: neutral, the numbers above say it in words */}
+                  {/* share of the new clients' cash: neutral, the numbers above say it in words */}
                   <div aria-hidden="true" className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full rounded-full bg-muted-foreground/40"
@@ -498,7 +525,7 @@ export default async function PanoramicaPage({
               ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">Nessun incasso, cliente o lead nel periodo.</p>
+          <p className="text-sm text-muted-foreground">Nessun nuovo cliente, incasso di nuovi clienti o lead nel periodo.</p>
         )}
       </Scheda>
 

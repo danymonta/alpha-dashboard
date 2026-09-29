@@ -197,7 +197,8 @@ export default async function IMieiNumeriPage({
             <span className="num text-foreground">{formatEuro(n.provvigioni_pagate)}</span>
           </p>
           <p className="mt-3 text-xs text-muted-foreground">
-            Maturano quando il cliente paga, non alla firma. Il dettaglio per cliente:{' '}
+            Maturano quando il cliente paga, non alla firma: contano anche le rate pagate nei mesi dopo, e i rinnovi solo se la tua
+            regola provvigionale li prevede. Il dettaglio per cliente:{' '}
             {/* an inline link: its touch area grows to 44px without moving the text */}
             <a
               href="#titolo-miei-clienti"

@@ -11,12 +11,23 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formatData, formatEuro, formatMese } from '@/lib/format'
+import type { TipoVendita } from '@/lib/validation/vendita'
 import { linkWhatsApp, messaggioRata } from '@/lib/whatsapp'
 import { hrefPeriodo, leggiPeriodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * What kind of sale an instalment belongs to: the row says it before the number.
+ * Same words as the client's history: the first path, whenever it was signed.
+ */
+const TIPO_RATA: Record<TipoVendita, string> = {
+  nuovo: 'Primo percorso',
+  rinnovo: 'Rinnovo',
+  upsell: 'Upsell',
+}
 
 const VISTE = {
   ritardo: 'In ritardo',
@@ -46,7 +57,11 @@ export default async function IncassiPage({
   const base = () =>
     supabase
       .from('v_rate')
-      .select('payment_id, sale_id, client_id, cliente, numero_rata, scadenza, importo_previsto, incassato_il, importo_incassato, metodo, stato, giorni_ritardo', { count: 'exact' })
+      .select(
+        // the sale's type and its number of instalments: "Rinnovo · Rata 2 di 6"
+        'payment_id, sale_id, client_id, cliente, tipo, numero_rata, scadenza, importo_previsto, incassato_il, importo_incassato, metodo, stato, giorni_ritardo, vendita:sales(numero_rate)',
+        { count: 'exact' },
+      )
 
   const filtra = (q: ReturnType<typeof base>, v: Vista) => {
     if (v === 'ritardo') return q.eq('in_ritardo', true).order('scadenza')
@@ -216,7 +231,11 @@ export default async function IncassiPage({
                       wrapper clips it, so no line ever starts or ends with a lone "·" */}
                   <div className="overflow-hidden">
                     <p className="-ml-5 flex flex-wrap items-center text-xs text-muted-foreground *:before:inline-block *:before:w-5 *:before:text-center *:before:content-['·']">
-                      <span>Rata {r.numero_rata}</span>
+                      {r.tipo ? <span>{TIPO_RATA[r.tipo]}</span> : null}
+                      <span className="num">
+                        Rata {r.numero_rata}
+                        {r.vendita ? ` di ${r.vendita.numero_rate}` : ''}
+                      </span>
                       <span className="num">
                         {r.stato === 'prevista' || r.stato === 'fallita'
                           ? `scade il ${formatData(r.scadenza)}`

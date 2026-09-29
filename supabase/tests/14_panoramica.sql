@@ -42,7 +42,7 @@ select is(
 );
 
 select ok(
-  (select cash_incassato is not null and call_in_programma is not null from public.oggi_team()),
+  (select cash_incassato is not null and cash_nuovi_clienti is not null and call_in_programma is not null from public.oggi_team()),
   'oggi_team restituisce sempre una riga completa, anche a zero'
 );
 

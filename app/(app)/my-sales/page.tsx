@@ -21,7 +21,7 @@ export default async function LeMieVenditePage() {
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         titolo="Le mie vendite"
-        descrizione="Le vendite che hai chiuso. Apri una vendita per segnare una rata incassata."
+        descrizione="Le vendite dove sei il closer: nuovi clienti, rinnovi e upsell (il tipo è su ogni riga). Apri una vendita per segnare una rata incassata."
       />
 
       {righe.length === 0 ? (

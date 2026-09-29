@@ -57,7 +57,9 @@ test('panoramica: intervallo personalizzato, KPI e confronto col periodo precede
   }
   await expect(page.getByTestId('conto-margine')).toContainText('Margine operativo')
   await expect(kpi.getByText('vs periodo precedente').first()).toBeVisible()
-  await expect(page.getByTestId('cash-per-tipo')).toContainText('da nuovi')
+  // the new clients of the chosen range, apart from the instalments of the clients already in
+  await expect(page.getByTestId('cash-per-tipo')).toContainText('Nuovi clienti del periodo')
+  await expect(page.getByTestId('cash-per-tipo')).toContainText('Rate di clienti già entrati')
   await expect(page.getByRole('heading', { name: 'Funnel del periodo' })).toBeVisible()
   // a past range: no live numbers of today
   await expect(page.getByTestId('oggi-team')).toHaveCount(0)

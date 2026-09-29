@@ -96,21 +96,21 @@ select is(
 );
 
 select is(
-  (select array[cash_incassato, cash_nuovo, cash_rinnovo, cash_upsell] from m),
-  array[1700, 1400, 300, 0]::numeric[],
-  'cash 1.500 + 300 - 100 = 1.700: nuovo 1.400 al netto del rimborso, rinnovo 300'
+  (select array[cash_incassato, cash_nuovi_clienti, cash_rate_precedenti, cash_rinnovo, cash_upsell] from m),
+  array[1700, 1400, 0, 300, 0]::numeric[],
+  'cash 1.500 + 300 - 100 = 1.700: nuovi clienti del mese 1.400 al netto del rimborso, nessuna rata di clienti entrati prima, rinnovo 300'
 );
 
 select is(
-  (select array[revenue_firmata, numero_vendite, nuovi_clienti, rinnovi, valore_medio_vendita] from m),
-  array[2400, 2, 1, 1, 1200]::numeric[],
-  'revenue 2.400 su 2 vendite: 1 nuovo, 1 rinnovo, valore medio 1.200'
+  (select array[revenue_firmata, revenue_nuovi, numero_vendite, nuovi_clienti, rinnovi, valore_medio_nuovo] from m),
+  array[2400, 1500, 2, 1, 1, 1500]::numeric[],
+  'revenue 2.400 su 2 vendite: 1 nuovo da 1.500, 1 rinnovo; valore medio nuovo cliente 1.500'
 );
 
 select is(
   (select array[cash_per_call_svolta, round(cash_per_dm, 4), revenue_per_dm] from m),
-  array[350, 28.3333, 40]::numeric[],
-  'cash nuovo per call svolta 1.400/4, cash per DM 1.700/60, revenue per DM 2.400/60'
+  array[350, 23.3333, 25]::numeric[],
+  'solo nuovi clienti: cash per call svolta 1.400/4, cash per DM 1.400/60, revenue per DM 1.500/60'
 );
 
 select is(
@@ -145,9 +145,9 @@ select is(
 );
 
 select is(
-  (select array[nuovo, rinnovo, upsell, totale] from public.cash_mensile(3, '2031-03-01') where mese = '2031-03-01'),
-  array[1400, 300, 0, 1700]::numeric[],
-  'grafico: marzo diviso per tipo'
+  (select array[nuovi_clienti, rate_precedenti, rinnovo, upsell, totale] from public.cash_mensile(3, '2031-03-01') where mese = '2031-03-01'),
+  array[1400, 0, 300, 0, 1700]::numeric[],
+  'grafico: marzo in nuovi clienti, rate di clienti già entrati, rinnovi, upsell'
 );
 
 select is(

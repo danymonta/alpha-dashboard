@@ -102,7 +102,7 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
       id: 'panoramica',
       pagina: '/',
       titolo: 'Panoramica',
-      testo: 'Il mese in un colpo d’occhio: cash incassato e quanto è nuovo o rinnovo, margine operativo, obiettivi, da dove arrivano i soldi e chi deve pagare.',
+      testo: 'Il mese in un colpo d’occhio: cash incassato e quanto viene da nuovi clienti, rate di clienti già entrati o rinnovi, margine operativo, obiettivi e chi deve pagare.',
       target: ['kpi-cash'],
     },
     tocca('/sales', 'vai-vendite', 'Vendite', 'Tocca «Vendite».'),

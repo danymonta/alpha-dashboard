@@ -23,6 +23,11 @@
 
   /* Chart series: bound to the entity, never to the rank */
   --chart-nuovo: #c4515f;
+  /* instalments of clients who entered in an earlier month (29/09/2026).
+     Validated with the three above, in stacking order nuovo, rate precedenti,
+     rinnovo, upsell, on #1C1C1E: lightness band, chroma, CVD and normal-vision
+     separation on adjacent and on all pairs, contrast >= 3:1 */
+  --chart-rate-precedenti: #824aca;
   --chart-rinnovo: #b08a1c;
   --chart-upsell: #4f8fd1;
 
@@ -110,6 +115,7 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-chart-nuovo: var(--chart-nuovo);
+  --color-chart-rate-precedenti: var(--chart-rate-precedenti);
   --color-chart-rinnovo: var(--chart-rinnovo);
   --color-chart-upsell: var(--chart-upsell);
   --color-gantt-lista: var(--gantt-lista);

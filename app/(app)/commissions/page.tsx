@@ -49,7 +49,7 @@ export default async function ProvvigioniPage() {
     <div className="max-w-4xl space-y-6">
       <IntestazionePagina
         titolo="Provvigioni"
-        descrizione="Maturano sull’incasso, non sulla firma. Un rimborso le riduce nel mese in cui avviene."
+        descrizione="Maturano sull’incasso, non sulla firma: ogni rata incassata delle vendite coperte dalla regola (di solito solo i clienti nuovi), anche nei mesi dopo la firma. Un rimborso le riduce nel mese in cui avviene."
       />
 
       {persone.size === 0 ? (

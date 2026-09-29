@@ -58,8 +58,34 @@ describe('riepilogo serale', () => {
   const r: Riepilogo = {
     giorno: '2026-10-01',
     cash: 2500,
-    incassi: [{ cliente: 'Loris Lo Presti', importo: 2500, metodo: 'contanti' }],
-    vendite: [{ cliente: 'Loris Lo Presti', tipo: 'nuovo', valore: 2500 }],
+    incassi: [
+      {
+        cliente: 'Loris Lo Presti',
+        importo: 2000,
+        metodo: 'contanti',
+        rimborso: false,
+        tipo: 'nuovo',
+        numero_rata: 1,
+        numero_rate: 3,
+        parte: 'nuovi_clienti',
+      },
+      {
+        cliente: 'Mario Rossi',
+        importo: 500,
+        metodo: 'bonifico',
+        rimborso: false,
+        tipo: 'nuovo',
+        numero_rata: 3,
+        numero_rate: 3,
+        parte: 'rate_precedenti',
+      },
+    ],
+    vendite: [
+      { cliente: 'Loris Lo Presti', tipo: 'nuovo', valore: 6000 },
+      { cliente: 'Elia Martini', tipo: 'nuovo', valore: 1500 },
+      { cliente: 'Fausto Neri', tipo: 'rinnovo', valore: 900 },
+    ],
+    vendite_per_tipo: { nuovo: 2, rinnovo: 1, upsell: 0 },
     in_ritardo: { numero: 2, totale: 1650 },
     clienti_in_ritardo: ['Elia Martini', 'Fausto Neri'],
     in_scadenza_7_giorni: { numero: 1, totale: 500 },
@@ -72,10 +98,28 @@ describe('riepilogo serale', () => {
     const { oggetto, testo, html } = emailRiepilogo(r, 'https://dashboard.percorsoalpha.com')
     expect(spazi(oggetto)).toBe('Alpha Management · 01/10/2026: 2.500,00 € incassati')
     expect(spazi(testo)).toContain('Rate in ritardo: 2 · 1.650,00 €')
-    expect(testo).toContain('Incasso: Loris Lo Presti')
+    // every cash-in says which instalment it is and whether the client just entered
+    expect(spazi(testo)).toContain('Incasso: Loris Lo Presti, 2.000,00 € (rata 1 di 3, nuovo cliente, contanti)')
+    expect(spazi(testo)).toContain('Incasso: Mario Rossi, 500,00 € (rata 3 di 3, cliente già entrato, bonifico)')
+    expect(testo).toContain('Vendite firmate oggi: 3 (2 nuovi clienti, 1 rinnovo)')
     expect(testo).toContain('In ritardo: Elia Martini, Fausto Neri')
     expect(testo).toContain('DM del team: 80')
     expect(html).toContain('https://dashboard.percorsoalpha.com')
+  })
+
+  it('un rimborso si dice rimborso; senza i campi nuovi la riga resta quella di prima', () => {
+    const rimborso = emailRiepilogo(
+      { ...r, incassi: [{ ...r.incassi[0], importo: -100, rimborso: true }] },
+      'https://x.it',
+    ).testo
+    expect(spazi(rimborso)).toContain('Rimborso: Loris Lo Presti, -100,00 € (rata 1 di 3, nuovo cliente, contanti)')
+
+    const vecchio = emailRiepilogo(
+      { ...r, incassi: [{ cliente: 'Loris Lo Presti', importo: 2500, metodo: 'contanti' }], vendite_per_tipo: undefined },
+      'https://x.it',
+    ).testo
+    expect(spazi(vecchio)).toContain('Incasso: Loris Lo Presti, 2.500,00 € (contanti)')
+    expect(vecchio).toContain('Vendite firmate oggi: 3')
   })
 
   it('non lascia passare HTML dai nomi', () => {

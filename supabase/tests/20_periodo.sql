@@ -116,10 +116,10 @@ select is(
 );
 
 select is(
-  (select array[cash_incassato, cash_nuovo, cash_upsell, revenue_firmata, provvigioni_maturate, costi, margine_operativo]
+  (select array[cash_incassato, cash_nuovi_clienti, cash_rate_precedenti, cash_upsell, revenue_firmata, provvigioni_maturate, costi, margine_operativo]
    from public.metriche_periodo('2033-06-01', '2033-06-30')),
-  array[500, 300, 200, 800, 15, 50, 435]::numeric[],
-  'giugno: cash 300 + 200, revenue 600 + 200, provvigioni 5% di 300, margine 500 - 15 - 50'
+  array[500, 300, 0, 200, 800, 15, 50, 435]::numeric[],
+  'giugno: cash 300 (Y, entrato a giugno) + 200 di upsell, revenue 600 + 200, provvigioni 5% di 300, margine 500 - 15 - 50'
 );
 
 select results_eq(

@@ -1,11 +1,31 @@
 import { formatData, formatEuro } from '@/lib/format'
 
+type TipoVendita = 'nuovo' | 'rinnovo' | 'upsell'
+
+/**
+ * Which of the four parts of the cash a payment is (20260929160000): a client
+ * who entered that day, an instalment of a client already in, a renewal, an upsell.
+ */
+type ParteCash = 'nuovi_clienti' | 'rate_precedenti' | 'rinnovo' | 'upsell'
+
 /** What public.riepilogo_serale returns: business numbers of the day, team totals only. */
 export type Riepilogo = {
   giorno: string
   cash: number
-  incassi: { cliente: string; importo: number; metodo: string | null }[]
-  vendite: { cliente: string; tipo: 'nuovo' | 'rinnovo' | 'upsell'; valore: number }[]
+  incassi: {
+    cliente: string
+    importo: number
+    metodo: string | null
+    /** before 20260929160000 the payload had no such fields: the line then just omits them */
+    rimborso?: boolean
+    tipo?: TipoVendita
+    numero_rata?: number
+    numero_rate?: number
+    parte?: ParteCash
+  }[]
+  vendite: { cliente: string; tipo: TipoVendita; valore: number }[]
+  /** the day's sales counted by type, in SQL */
+  vendite_per_tipo?: Record<TipoVendita, number>
   in_ritardo: { numero: number; totale: number }
   clienti_in_ritardo: string[]
   in_scadenza_7_giorni: { numero: number; totale: number }
@@ -18,6 +38,39 @@ const TESTO = '#1C1C1E'
 const TENUE = '#6B6B70'
 const SFONDO = '#F4F2EE'
 const TIPO: Record<string, string> = { nuovo: 'nuovo cliente', rinnovo: 'rinnovo', upsell: 'upsell' }
+const PARTE: Record<ParteCash, string> = {
+  nuovi_clienti: 'nuovo cliente',
+  rate_precedenti: 'cliente già entrato',
+  rinnovo: 'rinnovo',
+  upsell: 'upsell',
+}
+// "2 nuovi clienti, 1 rinnovo": singular and plural of each type
+const QUANTE: Record<TipoVendita, [string, string]> = {
+  nuovo: ['nuovo cliente', 'nuovi clienti'],
+  rinnovo: ['rinnovo', 'rinnovi'],
+  upsell: ['upsell', 'upsell'],
+}
+
+/** "3 (2 nuovi clienti, 1 rinnovo)": the day's sales, split by type when SQL says it. */
+function venditeDelGiorno(r: Riepilogo): string {
+  const perTipo = r.vendite_per_tipo
+  if (!perTipo || r.vendite.length === 0) return String(r.vendite.length)
+  const parti = (Object.keys(QUANTE) as TipoVendita[])
+    .filter((t) => perTipo[t] > 0)
+    .map((t) => `${perTipo[t]} ${QUANTE[t][perTipo[t] === 1 ? 0 : 1]}`)
+  return `${r.vendite.length} (${parti.join(', ')})`
+}
+
+/** "Incasso: Mario Rossi, 500,00 € (rata 3 di 3, cliente già entrato, bonifico)" */
+function rigaIncasso(i: Riepilogo['incassi'][number]): string {
+  const dettagli = [
+    i.numero_rata ? `rata ${i.numero_rata}${i.numero_rate ? ` di ${i.numero_rate}` : ''}` : null,
+    i.parte ? PARTE[i.parte] : null,
+    i.metodo,
+  ].filter(Boolean)
+  const cosa = i.rimborso ? 'Rimborso' : 'Incasso'
+  return `${cosa}: ${i.cliente}, ${formatEuro(i.importo)}${dettagli.length ? ` (${dettagli.join(', ')})` : ''}`
+}
 
 function escape(testo: string) {
   return testo.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -29,7 +82,7 @@ export function emailRiepilogo(r: Riepilogo, urlApp: string): { oggetto: string;
   const oggetto = `Alpha Management · ${giorno}: ${formatEuro(r.cash)} incassati`
   const righe: [string, string][] = [
     ['Cash incassato oggi', formatEuro(r.cash)],
-    ['Vendite firmate oggi', String(r.vendite.length)],
+    ['Vendite firmate oggi', venditeDelGiorno(r)],
     ['Rate in ritardo', `${r.in_ritardo.numero} · ${formatEuro(r.in_ritardo.totale)}`],
     ['In scadenza nei prossimi 7 giorni', `${r.in_scadenza_7_giorni.numero} · ${formatEuro(r.in_scadenza_7_giorni.totale)}`],
     ['DM del team', String(r.dm_totali)],
@@ -37,7 +90,7 @@ export function emailRiepilogo(r: Riepilogo, urlApp: string): { oggetto: string;
     ['Chiuse', String(r.chiuse)],
   ]
   const dettagli = [
-    ...r.incassi.map((i) => `Incasso: ${i.cliente}, ${formatEuro(i.importo)}${i.metodo ? ` (${i.metodo})` : ''}`),
+    ...r.incassi.map(rigaIncasso),
     ...r.vendite.map((v) => `Vendita: ${v.cliente}, ${TIPO[v.tipo] ?? v.tipo}, ${formatEuro(v.valore)}`),
     ...(r.clienti_in_ritardo.length ? [`In ritardo: ${r.clienti_in_ritardo.join(', ')}`] : []),
   ]

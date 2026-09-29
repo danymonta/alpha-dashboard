@@ -23,9 +23,22 @@ test('la panoramica risponde alla domanda del mese', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Nuovi clienti' })).toContainText(LEGENDA_ECONOMICS.nuovi_clienti.spiegazione)
   await page.keyboard.press('Escape')
 
-  // "quanto è nuovo e quanto è rinnovo": the cash split, not the count of sales
-  await expect(page.getByTestId('cash-per-tipo')).toContainText('da nuovi')
-  await expect(page.getByTestId('cash-per-tipo')).toContainText('da rinnovi')
+  // "quanto è nuovo e quanto è rinnovo": the cash in four parts, the new clients of
+  // the period apart from the instalments of the clients already in; each explains itself
+  const parti = page.getByTestId('cash-per-tipo')
+  for (const voce of [
+    LEGENDA_ECONOMICS.cash_nuovi_clienti,
+    LEGENDA_ECONOMICS.cash_rate_precedenti,
+    LEGENDA_ECONOMICS.cash_rinnovi,
+    LEGENDA_ECONOMICS.cash_upsell,
+  ]) {
+    await expect(parti.getByRole('button', { name: `Cosa conta «${voce.etichetta}»` })).toBeVisible()
+  }
+  await expect(parti.getByRole('term')).toHaveText(['Nuovi clienti del periodo', 'Rate di clienti già entrati', 'Rinnovi', 'Upsell'])
+  await expect(parti.getByTestId('parte-cash_rate_precedenti')).toHaveText(/€/)
+  await parti.getByRole('button', { name: 'Cosa conta «Rate di clienti già entrati»' }).click()
+  await expect(page.getByRole('dialog', { name: 'Rate di clienti già entrati' })).toContainText('Non sono clienti nuovi.')
+  await page.keyboard.press('Escape')
   await expect(page.getByText('Tasse escluse.')).toBeVisible()
   // the margin box keeps the cents on every line, so its subtraction adds up at a glance
   await expect(page.getByTestId('conto-margine').locator('dd').first()).toHaveText(/^\d{1,3}(\.\d{3})*,\d{2}\s€$/)
@@ -35,9 +48,11 @@ test('la panoramica risponde alla domanda del mese', async ({ page }) => {
   for (const fonte of ['Dai report di oggi', 'Dalle call in agenda oggi', 'Dagli incassi']) {
     await expect(oggi.getByText(fonte, { exact: true })).toBeVisible()
   }
-  for (const voce of [LEGENDA_SETTING.dm_totali, LEGENDA_ECONOMICS.call_da_fare, LEGENDA_CLOSER.call, LEGENDA_ECONOMICS.cash_oggi]) {
+  for (const voce of [LEGENDA_SETTING.dm_totali, LEGENDA_ECONOMICS.call_da_fare, LEGENDA_CLOSER.call, LEGENDA_ECONOMICS.incassato_oggi]) {
     await expect(oggi.getByRole('button', { name: `Cosa conta «${voce.etichetta}»` })).toBeVisible()
   }
+  // today's cash is everything that came in: it says how much of it is new clients
+  await expect(oggi.getByTestId('oggi-incassato-sotto')).toHaveText(/^di cui .*€ nuovi clienti$/)
 
   // funnel: conversations are not a part of DM totali, so no "passa" there
   const funnel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Funnel del mese' }) })
@@ -55,6 +70,15 @@ test('la panoramica risponde alla domanda del mese', async ({ page }) => {
   const svolte = funnel.getByRole('listitem').filter({ hasText: 'Call svolte' })
   await expect(svolte).not.toContainText('passa')
   const indicatori = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Indicatori' }) })
+  // the acquisition ratios only count the new clients of the period
+  for (const voce of [
+    LEGENDA_SETTING.cash_per_dm,
+    LEGENDA_SETTING.revenue_per_dm,
+    LEGENDA_ECONOMICS.cash_per_call_svolta,
+    LEGENDA_ECONOMICS.valore_medio_nuovo,
+  ]) {
+    await expect(indicatori.getByText(voce.etichetta, { exact: true })).toBeVisible()
+  }
   const showRate = (await indicatori.locator('div').filter({ has: page.getByText('Show rate', { exact: true }) }).locator('dd').innerText()).trim()
   await expect(svolte).toContainText(`show rate ${showRate}`)
   await svolte.getByRole('button', { name: /^Cosa conta «show rate/ }).click()
@@ -68,6 +92,8 @@ test('la panoramica risponde alla domanda del mese', async ({ page }) => {
     await expect(incassare.getByRole('button', { name: `Cosa conta «${voce.etichetta}»` })).toBeVisible()
   }
   await expect(page.getByTestId('per-fonte').getByRole('listitem').first()).toContainText(/\d,\d{2}\s€/)
+  // by source: only the new clients of the period, and it says so
+  await expect(page.getByRole('heading', { name: /^Da dove arrivano i nuovi clienti/ })).toBeVisible()
 
   // all the definitions at the bottom, closed until tapped
   const legenda = page.getByTestId('legenda')
@@ -77,8 +103,15 @@ test('la panoramica risponde alla domanda del mese', async ({ page }) => {
     await expect(legenda.getByText(voce.spiegazione, { exact: true })).toBeVisible()
   }
 
+  // the chart: the same four parts, each in the legend and in the table
+  const grafico = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Cash incassato, ultimi 12 mesi' }) })
+  for (const serie of ['Nuovi clienti del mese', 'Rate di clienti già entrati', 'Rinnovi', 'Upsell']) {
+    await expect(grafico.locator('.recharts-legend-wrapper').getByText(serie, { exact: true })).toBeVisible()
+  }
   await page.getByText('Vedi come tabella').click()
-  await expect(page.getByRole('table', { name: 'Cash incassato per mese e tipo' })).toBeVisible()
+  const tabella = page.getByRole('table', { name: 'Cash incassato per mese e tipo' })
+  await expect(tabella).toBeVisible()
+  await expect(tabella.getByRole('columnheader')).toHaveText(['Mese', 'Nuovi clienti', 'Rate di clienti già entrati', 'Rinnovi', 'Upsell', 'Totale'])
 })
 
 test('sul telefono i tre importi da incassare stanno sulla stessa riga', async ({ page }) => {

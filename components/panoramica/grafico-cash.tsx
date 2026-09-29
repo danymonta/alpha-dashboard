@@ -13,16 +13,26 @@ import {
 } from '@/components/ui/chart'
 import { formatEuro, formatEuroAsse, formatMese, formatMeseBreve } from '@/lib/format'
 
-export type PuntoCash = { mese: string; nuovo: number; rinnovo: number; upsell: number; totale: number }
+/** One month of cash_mensile: the four parts add up to the total. */
+export type PuntoCash = {
+  mese: string
+  nuovi_clienti: number
+  rate_precedenti: number
+  rinnovo: number
+  upsell: number
+  totale: number
+}
 
-// colour follows the entity, never the rank (CLAUDE.md section 11)
+// colour follows the entity, never the rank (CLAUDE.md section 11); the four
+// colours are validated together in this stacking order (app/globals.css)
 const CONFIG = {
-  nuovo: { label: 'Nuovo', color: 'var(--chart-nuovo)' },
-  rinnovo: { label: 'Rinnovo', color: 'var(--chart-rinnovo)' },
+  nuovi_clienti: { label: 'Nuovi clienti del mese', color: 'var(--chart-nuovo)' },
+  rate_precedenti: { label: 'Rate di clienti già entrati', color: 'var(--chart-rate-precedenti)' },
+  rinnovo: { label: 'Rinnovi', color: 'var(--chart-rinnovo)' },
   upsell: { label: 'Upsell', color: 'var(--chart-upsell)' },
 } satisfies ChartConfig
 
-const SERIE = ['nuovo', 'rinnovo', 'upsell'] as const
+const SERIE = ['nuovi_clienti', 'rate_precedenti', 'rinnovo', 'upsell'] as const
 
 // below lg twelve labels do not fit: Recharts would drop them unevenly
 const STRETTO = '(max-width: 1023.98px)'
@@ -87,7 +97,8 @@ export function GraficoCash({ dati }: { dati: PuntoCash[] }) {
             />
           }
         />
-        <ChartLegend content={<ChartLegendContent />} />
+        {/* four long labels: they wrap on a phone instead of widening the page */}
+        <ChartLegend content={<ChartLegendContent className="flex-wrap gap-x-4 gap-y-1" />} />
         {SERIE.map((serie, i) => (
           <Bar
             key={serie}

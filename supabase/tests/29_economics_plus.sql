@@ -49,17 +49,17 @@ select is(
   'il previsto somma le rate dei tre mesi, da oggi in poi'
 );
 
--- by source: the cash split adds up to the cash of the period
+-- by source: the new clients' cash (20260929160000), split by source, adds up
 select is(
   (select sum(cash) from public.metriche_per_fonte(date_trunc('month', public.oggi())::date, public.oggi())),
-  (select cash_incassato from public.metriche_periodo(date_trunc('month', public.oggi())::date, public.oggi())),
-  'il cash per fonte fa il cash del periodo'
+  (select cash_nuovi_clienti from public.metriche_periodo(date_trunc('month', public.oggi())::date, public.oggi())),
+  'il cash per fonte fa il cash dei nuovi clienti del periodo'
 );
 select is(
   (select round(sum(quota_cash), 2) from public.metriche_per_fonte(date_trunc('month', public.oggi())::date, public.oggi())),
-  case when (select cash_incassato from public.metriche_periodo(date_trunc('month', public.oggi())::date, public.oggi())) = 0
+  case when (select cash_nuovi_clienti from public.metriche_periodo(date_trunc('month', public.oggi())::date, public.oggi())) = 0
     then null else 1.00 end,
-  'le quote per fonte fanno il 100% del cash'
+  'le quote per fonte fanno il 100% del cash dei nuovi clienti'
 );
 select is(
   (select count(*)::integer from public.metriche_per_fonte('1990-01-01', '1990-01-31') where quota_cash is not null),
