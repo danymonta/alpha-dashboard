@@ -20,8 +20,6 @@ const VOCI_LEGENDA = [
   LEGENDA_SETTING.conversazioni,
   LEGENDA_SETTING.call_proposte,
   LEGENDA_SETTING.discovery_prenotate,
-  LEGENDA_SETTING.discovery_svolte,
-  LEGENDA_SETTING.call_qualificate,
   LEGENDA_SETTING.contenuto_pubblicato,
   LEGENDA_SETTING.dm_totali,
   LEGENDA_SETTING.tasso_conversazione,

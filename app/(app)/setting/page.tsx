@@ -27,8 +27,6 @@ type CampoReport =
   | 'conversazioni'
   | 'call_proposte'
   | 'discovery_prenotate'
-  | 'discovery_svolte'
-  | 'call_qualificate'
 
 type Colonna = { campo: CampoReport | 'strategy_prenotate'; voce: VoceLegenda; forte?: true }
 
@@ -50,8 +48,6 @@ function colonneReport(conStrategy: boolean): Colonna[] {
     { campo: 'call_proposte', voce: S.call_proposte },
     { campo: 'discovery_prenotate', voce: S.discovery_prenotate },
     ...(conStrategy ? [{ campo: 'strategy_prenotate', voce: STRATEGY_STORICO } as const] : []),
-    { campo: 'discovery_svolte', voce: S.discovery_svolte },
-    { campo: 'call_qualificate', voce: S.call_qualificate },
   ]
 }
 
@@ -230,8 +226,6 @@ const LEGENDA_PAGINA: VoceLegenda[] = [
   LEGENDA_CLOSER.close_rate,
   LEGENDA_SETTING.call_proposte,
   LEGENDA_SETTING.discovery_prenotate,
-  LEGENDA_SETTING.discovery_svolte,
-  LEGENDA_SETTING.call_qualificate,
   LEGENDA_SETTING.contenuto_pubblicato,
 ]
 
@@ -359,8 +353,7 @@ export default async function SettingPage({
                     {/* raw fields of the report; DM totali is a database column */}
                     <p className="num mt-1 text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">DM totali {formatNumero(r.dm_totali)}</span> · conv.{' '}
-                      {formatNumero(r.conversazioni)} · prenotate {formatNumero(r.discovery_prenotate)} · svolte{' '}
-                      {formatNumero(r.discovery_svolte)}
+                      {formatNumero(r.conversazioni)} · prenotate {formatNumero(r.discovery_prenotate)}
                       {/* history only: the day's strategy calls, when it has some */}
                       {Number(r.strategy_prenotate) > 0 ? (
                         <>

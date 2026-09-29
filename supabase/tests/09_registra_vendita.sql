@@ -119,7 +119,7 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
--- The admin registers a renewal without a call: setter from the client
+-- The admin registers a renewal without a call: no setter (29/09/2026)
 -- ---------------------------------------------------------------------------
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 
@@ -132,8 +132,8 @@ select * from public.registra_vendita(
 select is(
   (select array[s.tipo::text, s.setter_id::text, s.closer_id::text]
    from public.sales s where s.id = (select id_vendita from v3)),
-  array['rinnovo', '22222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111'],
-  'il rinnovo senza call eredita il setter del cliente; il closer è chi lo registra'
+  array['rinnovo', null, '11111111-1111-4111-8111-111111111111'],
+  'il rinnovo senza call non ha setter (niente provvigione, non compare al setter); il closer è chi lo registra'
 );
 
 -- ---------------------------------------------------------------------------

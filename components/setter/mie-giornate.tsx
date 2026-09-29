@@ -36,8 +36,6 @@ const REPORT: Colonna[] = [
   { campo: 'conversazioni', breve: 'Conv.', voce: S.conversazioni },
   { campo: 'call_proposte', breve: 'Call proposte', voce: S.call_proposte },
   { campo: 'discovery_prenotate', breve: 'Disc. prenotate', voce: S.discovery_prenotate },
-  { campo: 'discovery_svolte', breve: 'Disc. svolte', voce: S.discovery_svolte },
-  { campo: 'call_qualificate', breve: 'Call qualif.', voce: S.call_qualificate },
 ]
 
 // Source 2, the calls he booked as the app recorded them: bookings by booking
@@ -88,7 +86,7 @@ export const VOCI_GIORNATE = {
 const TITOLO_REPORT = 'Il tuo report'
 const TITOLO_CALL = 'Le call che hai fissato'
 const DESCRIZIONE_CALL =
-  'Da inbound e da outbound per giorno di prenotazione, le altre per giorno della call. Cash e revenue sono dei clienti che hai portato tu.'
+  'Da inbound e da outbound per giorno di prenotazione, le altre per giorno della call; cash e revenue per giorno della vendita, solo dei clienti nuovi che hai portato tu (prima rata e contratto).'
 
 /** Amounts always with two decimals, on the phone too: a list is not a tile. */
 function valore(r: Riga, c: Colonna): string {

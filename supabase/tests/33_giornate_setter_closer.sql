@@ -1,10 +1,11 @@
--- Setter and closer day by day: totals match the official metrics, everyone
--- sees only their own half, the wrong roles are refused.
+-- Setter and closer day by day: everyone sees only their own half, the wrong
+-- roles are refused; cash and revenue are the new clients only (29/09/2026):
+-- the first instalment of the new sales on the day of the sale, their contracts.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(14);
+select plan(19);
 
 -- what each role should get, read with full rights before switching role
 create temp table atteso on commit drop as
@@ -15,17 +16,44 @@ select
     where c.stato = 'svolta' and c.closer_id = '33333333-3333-4333-8333-333333333333'
       and (c.programmata_il at time zone 'Europe/Rome')::date between '2026-01-01' and '2026-12-31')::integer as call_closer,
   (select coalesce(sum(p.importo_incassato), 0) from public.payments p join public.sales s on s.id = p.sale_id
-    where p.stato in ('incassata', 'rimborsata') and s.closer_id = '33333333-3333-4333-8333-333333333333'
-      and p.incassato_il between '2026-01-01' and '2026-12-31') as cash_closer,
+    where s.tipo = 'nuovo' and p.numero_rata = 1 and p.stato = 'incassata'
+      and s.closer_id = '33333333-3333-4333-8333-333333333333'
+      and s.data_vendita between '2026-01-01' and '2026-12-31') as cash_closer,
+  (select coalesce(sum(p.importo_incassato), 0) from public.payments p join public.sales s on s.id = p.sale_id
+    where s.tipo = 'nuovo' and p.numero_rata = 1 and p.stato = 'incassata'
+      and s.data_vendita between '2026-01-01' and '2026-12-31') as cash_nuovi,
+  (select coalesce(sum(s.valore_contratto), 0) from public.sales s
+    where s.tipo = 'nuovo' and s.data_vendita between '2026-01-01' and '2026-12-31') as revenue_nuovi,
   (select coalesce(sum(r.dm_outbound), 0) from public.setter_daily_reports r
     where r.setter_id = '22222222-2222-4222-8222-222222222222' and r.data between '2026-01-01' and '2026-12-31')::integer as dm_out_setter,
   (select count(*) from public.calls c
     where c.stato = 'svolta' and c.setter_id = '22222222-2222-4222-8222-222222222222'
       and (c.programmata_il at time zone 'Europe/Rome')::date between '2026-01-01' and '2026-12-31')::integer as call_setter,
   (select coalesce(sum(p.importo_incassato), 0) from public.payments p join public.sales s on s.id = p.sale_id
-    where p.stato in ('incassata', 'rimborsata') and s.setter_id = '22222222-2222-4222-8222-222222222222'
-      and p.incassato_il between '2026-01-01' and '2026-12-31') as cash_setter;
+    where s.tipo = 'nuovo' and p.numero_rata = 1 and p.stato = 'incassata'
+      and s.setter_id = '22222222-2222-4222-8222-222222222222'
+      and s.data_vendita between '2026-01-01' and '2026-12-31') as cash_setter;
 grant select on atteso to authenticated;
+
+-- a quiet month with known numbers: a new client who pays the first instalment
+-- two days after the sale and the second one a month later, and his renewal
+create temp table prova on commit drop as
+select gen_random_uuid() as cliente, gen_random_uuid() as nuova, gen_random_uuid() as rinnovo;
+insert into public.clients (id, nome, fonte, setter_id, closer_id)
+select cliente, 'Prova giornate', 'dm_outbound', '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333' from prova;
+insert into public.sales (id, client_id, product_id, tipo, setter_id, closer_id, data_vendita, data_inizio, valore_contratto, numero_rate)
+select nuova, cliente, 'aaaaaaa1-0000-4000-8000-000000000001', 'nuovo',
+  '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333', '2025-03-10', '2025-03-10', 1500, 3 from prova;
+update public.payments set stato = 'incassata', incassato_il = '2025-03-12', importo_incassato = 500, metodo = 'bonifico'
+where sale_id = (select nuova from prova) and numero_rata = 1;
+update public.payments set stato = 'incassata', incassato_il = '2025-04-10', importo_incassato = 500, metodo = 'bonifico'
+where sale_id = (select nuova from prova) and numero_rata = 2;
+insert into public.sales (id, client_id, product_id, tipo, setter_id, closer_id, data_vendita, data_inizio, valore_contratto, numero_rate)
+select rinnovo, cliente, 'aaaaaaa1-0000-4000-8000-000000000001', 'rinnovo',
+  '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333', '2025-04-10', '2025-06-10', 900, 1 from prova;
+update public.payments set stato = 'incassata', incassato_il = '2025-04-10', importo_incassato = 900, metodo = 'bonifico'
+where sale_id = (select rinnovo from prova);
+grant select on prova to authenticated;
 
 set local role authenticated;
 
@@ -39,8 +67,8 @@ select is(
 );
 select is(
   (select row(cash, revenue)::text from public.giornate_closer('2026-01-01', '2026-12-31') where data is null),
-  (select row(cash_incassato, revenue_firmata)::text from public.metriche_periodo('2026-01-01', '2026-12-31')),
-  'cash e revenue sono quelli della Panoramica'
+  (select row(cash_nuovi, revenue_nuovi)::text from atteso),
+  'cash e revenue sono quelli dei clienti nuovi: prima rata e contratti delle vendite nuove'
 );
 select is(
   (select sum(call)::integer from public.giornate_closer('2026-01-01', '2026-12-31') where data is not null),
@@ -58,6 +86,32 @@ select is(
   (select row(dm_out_setter, call_setter, cash_setter)::text from atteso),
   'l''admin vede la giornata di un setter'
 );
+-- the new client's first instalment lands on the day of the sale; the second
+-- instalment and the renewal stay out (Incassi and Panoramica count them)
+select is(
+  (select array_agg(row(data, cash, revenue)::text order by data nulls first)
+   from public.giornate_closer('2025-03-01', '2025-04-30', '33333333-3333-4333-8333-333333333333')),
+  array[row(null::date, 500.00, 1500.00)::text, row('2025-03-10'::date, 500.00, 1500.00)::text],
+  'closer: la prima rata sul giorno della vendita nuova, niente rate successive né rinnovi'
+);
+select is(
+  (select array_agg(row(data, cash, revenue)::text order by data nulls first)
+   from public.giornate_setter('2025-03-01', '2025-04-30', '22222222-2222-4222-8222-222222222222')),
+  array[row(null::date, 500.00, 1500.00)::text, row('2025-03-10'::date, 500.00, 1500.00)::text],
+  'setter: lo stesso, solo per il cliente nuovo che ha portato'
+);
+select is(
+  (select count(*)::integer from public.giornate_closer('2025-03-11', '2025-04-30', '33333333-3333-4333-8333-333333333333')
+    where data is not null),
+  0,
+  'un giorno con solo una rata successiva o un rinnovo non compare'
+);
+select is(
+  (select cash_incassato from public.metriche_periodo('2025-03-01', '2025-04-30')),
+  1900.00,
+  'la Panoramica invece conta tutti gli incassi del periodo: rate e rinnovi compresi'
+);
+
 
 -- the closer: only his own calls and sales, whatever he asks
 set local request.jwt.claims to '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
@@ -93,6 +147,11 @@ select throws_ok(
   $$ select * from public.giornate_closer('2026-01-01', '2026-12-31') $$,
   '42501', null,
   'il setter non vede la giornata intera del closer'
+);
+select is(
+  (select row(cash, revenue)::text from public.giornate_setter('2025-03-01', '2025-04-30', '11111111-1111-4111-8111-111111111111') where data is null),
+  row(500.00, 1500.00)::text,
+  'chiedendo i giorni di un altro, il setter riceve solo i soldi dei suoi clienti nuovi'
 );
 
 -- nobody else

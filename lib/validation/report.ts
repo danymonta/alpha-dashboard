@@ -24,8 +24,9 @@ export type CampoNumericoReport = (typeof CAMPI_NUMERICI_REPORT)[number]
  * lib/metriche/legenda, the hint is its one-line version for the phone.
  * The first group holds exactly the three parts of DM totali, side by side;
  * conversations do not count there, so they get a group of their own.
- * strategy_prenotate is not asked any more (Dany, 29/09/2026: the setter books
- * discovery calls only) but stays in the schema, so old values are kept.
+ * Not asked any more, but kept in the schema so old values stay (Dany, 29/09/2026):
+ * strategy_prenotate (the setter books discovery calls only), discovery_svolte and
+ * call_qualificate (held and qualified are the closer's, recorded on each call).
  */
 export const GRUPPI_REPORT: {
   titolo: string
@@ -53,8 +54,6 @@ export const GRUPPI_REPORT: {
     campi: [
       ['call_proposte', LEGENDA_SETTING.call_proposte.etichetta, 'Persone a cui proponi una call'],
       ['discovery_prenotate', LEGENDA_SETTING.discovery_prenotate.etichetta, 'Discovery call che fissi in questa giornata'],
-      ['discovery_svolte', LEGENDA_SETTING.discovery_svolte.etichetta, 'Discovery call che si sono tenute'],
-      ['call_qualificate', LEGENDA_SETTING.call_qualificate.etichetta, 'Call con persone in target, secondo te'],
     ],
   },
 ]

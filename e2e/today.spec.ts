@@ -85,6 +85,9 @@ test.describe('Oggi, report giornaliero del setter', () => {
     // The setter books discovery calls only: no strategy counter any more
     await expect(page.getByRole('group', { name: /strategy/i })).toHaveCount(0)
     await expect(campo(page, 'Discovery prenotate')).toBeVisible()
+    // held and qualified are the closer's, recorded on each call: not in the report
+    await expect(page.getByRole('group', { name: 'Discovery svolte' })).toHaveCount(0)
+    await expect(page.getByRole('group', { name: 'Call qualificate' })).toHaveCount(0)
 
     const legenda = page.getByTestId('legenda')
     await legenda.getByText('Cosa significa ogni numero').click()

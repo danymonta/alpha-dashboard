@@ -86,8 +86,6 @@ test('setting: metriche per setter e report del mese', async ({ page }) => {
     'Call proposte',
     'Discovery prenotate',
     ...(strategyTutti > 0 ? ['Strategy (storico)'] : []),
-    'Discovery svolte',
-    'Call qualificate',
     'Contenuto',
     'Correggi',
   ])
@@ -115,7 +113,8 @@ test('setting: metriche per setter e report del mese', async ({ page }) => {
   // Loris's phone: one card per day, DM totali first
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.getByRole('listitem').filter({ hasText: 'DM totali' }).first()).toHaveText(
-    /DM totali \d+ · conv\. \d+ · prenotate \d+ · svolte \d+/,
+    // held calls are the closer's (recorded on each call), not part of the report
+    /^\d{2}\/\d{2}\/\d{4} · .+DM totali \d+ · conv\. \d+ · prenotate \d+( · strategy \d+)?$/,
   )
 
   // a day without strategy calls: no column, no "di cui", anywhere

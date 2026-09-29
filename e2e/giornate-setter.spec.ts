@@ -86,18 +86,30 @@ test.afterAll(async () => {
   await pulisciVendite(PREFISSO)
 })
 
-/** What the seed setter's own clients and calls add up to in the period (check only: the page reads SQL). */
+/**
+ * What the seed setter's own clients and calls add up to in the period (check only: the page reads SQL).
+ * Money is only the new clients he brought (29/09/2026): the first instalment of
+ * each new sale, on the day of the sale, and the contracts of the new sales.
+ */
 async function attesiDelSetter() {
   const db = dbLocale()
   const [incassi, vendite, call, clienti, report] = await Promise.all([
     db
       .from('payments')
-      .select('importo_incassato, sales!inner(setter_id)')
-      .in('stato', ['incassata', 'rimborsata'])
-      .gte('incassato_il', DA)
-      .lte('incassato_il', A)
-      .eq('sales.setter_id', ID_SETTER),
-    db.from('sales').select('valore_contratto').eq('setter_id', ID_SETTER).gte('data_vendita', DA).lte('data_vendita', A),
+      .select('importo_incassato, sales!inner(setter_id, tipo, data_vendita)')
+      .eq('stato', 'incassata')
+      .eq('numero_rata', 1)
+      .eq('sales.setter_id', ID_SETTER)
+      .eq('sales.tipo', 'nuovo')
+      .gte('sales.data_vendita', DA)
+      .lte('sales.data_vendita', A),
+    db
+      .from('sales')
+      .select('valore_contratto')
+      .eq('setter_id', ID_SETTER)
+      .eq('tipo', 'nuovo')
+      .gte('data_vendita', DA)
+      .lte('data_vendita', A),
     db
       .from('calls')
       .select('id', { count: 'exact', head: true })
@@ -169,8 +181,6 @@ test('setter a 1440px: giorno per giorno in due tabelle, una per fonte, senza sc
     'Call proposte',
     'Disc. prenotate',
     'Strategy (storico)',
-    'Disc. svolte',
-    'Call qualif.',
   ])
   expect(r.titoli.slice(1)).toEqual([
     'DM outbound',
@@ -181,8 +191,6 @@ test('setter a 1440px: giorno per giorno in due tabelle, una per fonte, senza sc
     'Call proposte',
     'Discovery prenotate',
     'Strategy (storico)',
-    'Discovery svolte',
-    'Call qualificate',
   ])
   // the calls: bookings by source, then the closer's results; shared names say "closer"
   const c = await intestazioni(call)
@@ -220,7 +228,7 @@ test('setter a 1440px: giorno per giorno in due tabelle, una per fonte, senza sc
   // total rows from SQL: the report's DM, the closer's calls, cash and revenue only of his own calls and clients
   const totaleReport = report.locator('tfoot tr')
   await expect(totaleReport.getByRole('rowheader')).toHaveText('Totale')
-  await expect(totaleReport.getByRole('cell')).toHaveCount(10)
+  await expect(totaleReport.getByRole('cell')).toHaveCount(8)
   await expect(totaleReport.getByRole('cell').nth(3)).toHaveText(formatNumero(attesi.dmTotali))
   await expect(totaleReport.getByRole('cell').nth(7)).toHaveText(formatNumero(attesi.strategy))
   const totaleCall = call.locator('tfoot tr')
@@ -290,7 +298,7 @@ test('setter a 390px: il totale aperto in cima, poi una riga chiusa per giorno, 
   // never two identical labels: the closer's say "(closer)"
   const etichette = await totale.locator('dt').allInnerTexts()
   expect(new Set(etichette).size).toBe(etichette.length)
-  expect(etichette).toEqual(expect.arrayContaining(['Call qualificate', 'Qualificate (closer)', 'Follow up', 'Follow up (closer)']))
+  expect(etichette).toEqual(expect.arrayContaining(['Qualificate (closer)', 'Follow up', 'Follow up (closer)']))
 
   // then the days, closed: one line with the day and five numbers, each named for screen readers
   const giorni = sezione.getByRole('list', { name: 'Giorni del periodo' }).getByRole('listitem')
