@@ -6,6 +6,9 @@ import { createServer } from 'node:http'
 
 const PORTA = Number(process.env.PORTA_LLM_FINTO ?? 4010)
 
+// every other request for the unstable tool is refused: the first try, then the retry works
+let tentativiInstabili = 0
+
 function sse(res, chunks) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
   for (const c of chunks) res.write(`data: ${JSON.stringify(c)}\n\n`)
@@ -32,7 +35,22 @@ function testo(res, parole) {
   ])
 }
 
+function rifiuto(res, messaggio, codice) {
+  res.writeHead(400, { 'content-type': 'application/json' })
+  res.end(JSON.stringify({ error: { message: messaggio, type: 'invalid_request_error', code: codice } }))
+}
+
+// like Groq: a call to a tool the request did not carry is refused
+let strumentiDellaRichiesta = []
+
 function chiamata(res, nome, argomenti) {
+  if (!strumentiDellaRichiesta.includes(nome)) {
+    return rifiuto(
+      res,
+      `Tool call validation failed: tool call validation failed: attempted to call tool '${nome}' which was not in request.tools`,
+      'tool_use_failed',
+    )
+  }
   sse(res, [
     base({ role: 'assistant', reasoning: 'Mi serve uno strumento.' }),
     base({
@@ -61,7 +79,8 @@ createServer(async (req, res) => {
     return
   }
 
-  const { messages = [] } = JSON.parse(corpo || '{}')
+  const { messages = [], tools = [] } = JSON.parse(corpo || '{}')
+  strumentiDellaRichiesta = tools.map((t) => t.function?.name)
   // like Groq: reasoning sent back on an assistant message is refused
   const conRagionamento = messages.findIndex((m) => m.role === 'assistant' && 'reasoning_content' in m)
   if (conRagionamento >= 0) {
@@ -78,13 +97,19 @@ createServer(async (req, res) => {
   }
   const ultimo = messages.at(-1) ?? {}
   if (ultimo.role === 'tool') {
+    // the model reads and then stops without a word (Dany's chat of 29/09/2026)
+    if (messages.some((m) => m.role === 'user' && contenuto(m).toLowerCase().includes('leggi e taci'))) return testo(res, '')
     const esito = contenuto(ultimo)
     const strumento = String(ultimo.tool_call_id ?? '').replace('call_', '')
     if (esito.includes('"errore"')) return testo(res, `Errore: ${esito}`)
     return testo(res, esito.includes('"fatto":true') ? `Fatto: ${strumento}.` : 'Questo mese hai incassato 6.950,00 €.')
   }
   const domanda = contenuto(ultimo).toLowerCase()
-  if (domanda.includes('costo')) {
+  // a tool call Groq refuses once ("failed_generation"): asked again, it comes out right
+  if (domanda.includes('strumento instabile') && tentativiInstabili++ % 2 === 0) {
+    return rifiuto(res, "Failed to call a function. Please adjust your prompt. See 'failed_generation' for more details.", 'tool_use_failed')
+  }
+  if (domanda.includes('costo') || domanda.includes('canva') || domanda.includes('strumento instabile')) {
     return chiamata(res, 'registra_costo', {
       descrizione: 'E2EAlfire Canva',
       importo: 12.99,
@@ -112,6 +137,6 @@ createServer(async (req, res) => {
   if (domanda.includes('telefono')) {
     return chiamata(res, 'modifica_cliente', { cliente: 'E2EAlfire Loris Presti', telefono: '+39 333 000 0000' })
   }
-  if (domanda.includes('incassato')) return chiamata(res, 'numeri_periodo', {})
+  if (domanda.includes('incassato') || domanda.includes('leggi e taci')) return chiamata(res, 'numeri_periodo', {})
   return testo(res, 'Ciao, sono Alfire.')
 }).listen(PORTA, '127.0.0.1', () => console.log(`llm finto su ${PORTA}`))

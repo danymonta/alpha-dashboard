@@ -9,9 +9,9 @@ import {
   type UIMessage,
 } from 'ai'
 
-import { alfireConfigurata, modelloAlfire } from '@/lib/alfire/config'
-import { dettaglioErroreAlfire, messaggioErroreAlfire } from '@/lib/alfire/errori'
-import { serveScrivere } from '@/lib/alfire/intento'
+import { alfireConfigurata, budgetAlfire, modelloAlfire } from '@/lib/alfire/config'
+import { dettaglioErroreAlfire, erroreStrumentoRiprovabile, messaggioErroreAlfire } from '@/lib/alfire/errori'
+import { conversazioneScrive } from '@/lib/alfire/intento'
 import { SCRITTURE } from '@/lib/alfire/permessi'
 import { promptAlfire } from '@/lib/alfire/prompt'
 import { strumentiAlfire } from '@/lib/alfire/strumenti'
@@ -22,12 +22,6 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-
-/**
- * Only the last messages travel: the free tier counts every token of every
- * step against 8K a minute and 200K a day (Groq, 28/09/2026).
- */
-const MESSAGGI_MAX = 8
 
 function senzaRagionamento(messages: ModelMessage[]): ModelMessage[] {
   return pruneMessages({ messages, reasoning: 'all', emptyMessages: 'remove' })
@@ -51,10 +45,12 @@ export async function POST(req: Request) {
     return Response.json({ errore: 'Alfire non è ancora configurata.' }, { status: 503 })
   }
 
+  // only the last messages travel: every step sends them again (budgetAlfire)
+  const budget = budgetAlfire()
   let messaggi: UIMessage[]
   try {
     const corpo = (await req.json()) as { messages?: UIMessage[] }
-    messaggi = Array.isArray(corpo.messages) ? corpo.messages.slice(-MESSAGGI_MAX) : []
+    messaggi = Array.isArray(corpo.messages) ? corpo.messages.slice(-budget.messaggi) : []
   } catch {
     return Response.json({ errore: 'Richiesta non valida.' }, { status: 400 })
   }
@@ -62,11 +58,14 @@ export async function POST(req: Request) {
 
   const supabase = await createClient()
   const livelloPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm)
+  // every tool of the role: an agent reads and writes whenever the conversation
+  // asks for it, even after a "ci sei?" (Dany, 29/09/2026). On the free tier a
+  // chat that never asked to write goes without the write tools, to fit 8K a minute.
   const tutti = strumentiAlfire(supabase, profilo, livelloPm)
-  // a question that only reads goes without the write tools: half the tokens
-  const tools = serveScrivere(messaggi)
-    ? tutti
-    : Object.fromEntries(Object.entries(tutti).filter(([nome]) => !(SCRITTURE as readonly string[]).includes(nome)))
+  const tools =
+    budget.sempreTutti || conversazioneScrive(messaggi)
+      ? tutti
+      : Object.fromEntries(Object.entries(tutti).filter(([nome]) => !(SCRITTURE as readonly string[]).includes(nome)))
 
   const result = streamText({
     model: modelloAlfire(),
@@ -81,11 +80,26 @@ export async function POST(req: Request) {
     toolApproval: Object.fromEntries(
       SCRITTURE.filter((nome) => nome in tools).map((nome) => [nome, 'user-approval' as const]),
     ),
-    stopWhen: isStepCount(5),
+    stopWhen: isStepCount(budget.passi),
     // Groq reserves the maximum answer against the per-minute budget up front
-    maxOutputTokens: 900,
+    maxOutputTokens: budget.risposta,
     temperature: 0.2,
     providerOptions: { alfire: { reasoningEffort: 'low' } },
+    // a tool call Groq refuses mid-stream: the same step again, twice at most
+    streamRetries: 2,
+    onError: ({ error }) => (erroreStrumentoRiprovabile(error) ? { retry: true as const } : undefined),
+    // what each answer costs, in Vercel's logs: no content, only token counts
+    onFinish: ({ totalUsage }) => {
+      console.info(
+        '[alfire] token',
+        JSON.stringify({
+          ruolo: profilo.ruolo,
+          input: totalUsage.inputTokens,
+          inCache: totalUsage.inputTokenDetails?.cacheReadTokens,
+          output: totalUsage.outputTokens,
+        }),
+      )
+    },
   })
 
   return createUIMessageStreamResponse({

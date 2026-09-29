@@ -1,7 +1,7 @@
 import { APICallError, RetryError } from 'ai'
 import { describe, expect, it } from 'vitest'
 
-import { attesa, messaggioErroreAlfire } from '@/lib/alfire/errori'
+import { attesa, erroreStrumentoRiprovabile, messaggioErroreAlfire } from '@/lib/alfire/errori'
 
 function groq(stato: number, messaggio: string) {
   return new APICallError({
@@ -55,5 +55,30 @@ describe('Alfire dice perché non ha risposto', () => {
     expect(attesa('Please try again in 12m30.4s.')).toBe('tra 13 minuti')
     expect(attesa('Please try again in 2h1m3s.')).toBe('tra circa 2 ore')
     expect(attesa('niente')).toBeNull()
+  })
+})
+
+// Dany's chat of 29/09/2026: after «Ci sei?» the model called a write tool the request did not carry
+const STRUMENTO_ASSENTE =
+  "Tool call validation failed: tool call validation failed: attempted to call tool 'crea_cliente' which was not in request.tools"
+const ARGOMENTI_SBAGLIATI = 'Failed to call a function. Please adjust your prompt. See \'failed_generation\' for more details.'
+
+describe('una chiamata a uno strumento rifiutata da Groq', () => {
+  it('si riprova: strumento sconosciuto o argomenti fuori schema', () => {
+    expect(erroreStrumentoRiprovabile(groq(400, STRUMENTO_ASSENTE))).toBe(true)
+    expect(erroreStrumentoRiprovabile(groq(400, ARGOMENTI_SBAGLIATI))).toBe(true)
+    expect(erroreStrumentoRiprovabile(dopoITentativi(groq(400, STRUMENTO_ASSENTE)))).toBe(true)
+  })
+
+  it('gli altri errori no: i limiti hanno la loro attesa, il resto non migliora riprovando', () => {
+    expect(erroreStrumentoRiprovabile(groq(429, MINUTO))).toBe(false)
+    expect(erroreStrumentoRiprovabile(groq(401, 'Invalid API Key'))).toBe(false)
+    expect(erroreStrumentoRiprovabile(new Error('rete assente'))).toBe(false)
+  })
+
+  it('se anche i tentativi falliscono, la chat dice cosa fare, non il messaggio di Groq', () => {
+    const testo = messaggioErroreAlfire(groq(400, STRUMENTO_ASSENTE), { admin: true })
+    expect(testo).toContain('Ripeti la richiesta con parole semplici')
+    expect(testo).not.toContain('request.tools')
   })
 })

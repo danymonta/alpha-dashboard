@@ -184,6 +184,12 @@ function Pannello({
   const router = useRouter()
   const aggiornati = useRef(new Set<string>())
   const occupato = status === 'submitted' || status === 'streaming'
+  const ultimo = messages.at(-1)
+  const rispostaMuta =
+    status === 'ready' &&
+    !error &&
+    ultimo?.role === 'assistant' &&
+    !ultimo.parts.some((p) => (p.type === 'text' && p.text.trim() !== '') || (isToolUIPart(p) && isScrittura(getToolName(p))))
 
   const invia = useCallback(
     (contenuto: string) => {
@@ -283,6 +289,16 @@ function Pannello({
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
             Alfire ci pensa…
           </p>
+        ) : null}
+
+        {rispostaMuta ? (
+          // the model read the data and stopped without a word: say it, and offer to go on
+          <div role="status" className="space-y-2 rounded-lg bg-muted p-3 text-sm" data-testid="alfire-muta">
+            <p className="text-muted-foreground">Alfire ha letto i dati ma si è fermato prima di rispondere.</p>
+            <Button type="button" variant="outline" className="h-11" onClick={() => void regenerate()}>
+              Riprova
+            </Button>
+          </div>
         ) : null}
 
         {error ? (

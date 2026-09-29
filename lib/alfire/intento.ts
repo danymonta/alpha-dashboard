@@ -9,7 +9,7 @@ import { SCRITTURE } from '@/lib/alfire/permessi'
  * question that still matches only costs a bigger request, never an answer.
  */
 const VERBI_SCRITTURA =
-  /\b(registr|segn|aggiung|crea|cre[ai]|modific|cambi|corregg|spost|fiss|pagat|ha pagato|hanno pagato|versat|bonific|contant|vendut|vend[ie]|rinnov|complet|mett|inserisc|salv|annull|chiud|imposta|assegn)/i
+  /\b(registr|segn|aggiung|crea|cre[ai]|modific|cambi|corregg|spost|fiss|pagat|ha pagato|hanno pagato|versat|bonific|contant|vendut|vend[ie]|rinnov|complet|mett|inserisc|salv|annull|chiud|imposta|assegn|elimin|cancell|togli)/i
 const IMPORTO = /\d[\d.,]*\s?(€|euro)|€\s?\d/i
 
 function testoUtente(m: UIMessage): string {
@@ -17,22 +17,20 @@ function testoUtente(m: UIMessage): string {
 }
 
 /**
- * Does this turn need the write tools? The free tier counts every token of
- * every step, and the write tools are more than half of the request: a
- * question that only reads goes without them. A write waiting for its
- * confirmation keeps them, or the approval could not complete.
+ * Only on Groq's free tier (budgetAlfire): does this conversation need the
+ * write tools? They are more than half of the request, and a chat that only
+ * reads goes without them. The whole conversation counts, not only the last
+ * message: after "registra l'incasso di Raffaele" a "ci sei?" still writes
+ * (Dany, 29/09/2026). A write waiting for its confirmation keeps them too.
  */
-export function serveScrivere(messaggi: UIMessage[]): boolean {
-  const ultimo = messaggi.at(-1)
-  if (!ultimo) return false
+export function conversazioneScrive(messaggi: UIMessage[]): boolean {
   const scritture = new Set<string>(SCRITTURE)
-  // an approval on its way back: the tool must be there to run
-  for (const m of messaggi.slice(-2)) {
-    if (m.role !== 'assistant') continue
-    if (m.parts.some((p) => isToolUIPart(p) && scritture.has(getToolName(p)))) return true
+  for (const m of messaggi) {
+    if (m.role === 'assistant' && m.parts.some((p) => isToolUIPart(p) && scritture.has(getToolName(p)))) return true
+    if (m.role === 'user') {
+      const testo = testoUtente(m)
+      if (VERBI_SCRITTURA.test(testo) || IMPORTO.test(testo)) return true
+    }
   }
-  const ultimaDomanda = [...messaggi].reverse().find((m) => m.role === 'user')
-  if (!ultimaDomanda) return false
-  const testo = testoUtente(ultimaDomanda)
-  return VERBI_SCRITTURA.test(testo) || IMPORTO.test(testo)
+  return false
 }

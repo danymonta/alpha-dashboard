@@ -1,4 +1,4 @@
-import { APICallError, RetryError } from 'ai'
+import { APICallError, RetryError, StreamProviderError } from 'ai'
 
 /** After its last retry the SDK wraps the provider's error: the cause is inside. */
 function causa(error: unknown): unknown {
@@ -14,6 +14,24 @@ function testoFornitore(e: APICallError): string {
     // not JSON: the SDK's own message below
   }
   return e.message
+}
+
+/** The provider's words, whatever the error looks like. */
+function testoErrore(e: unknown): string {
+  if (APICallError.isInstance(e)) return testoFornitore(e)
+  if (StreamProviderError.isInstance(e)) return `${e.code ?? ''} ${e.message}`
+  return e instanceof Error ? e.message : String(e)
+}
+
+/**
+ * Groq refuses a tool call the model got wrong: a tool it was not given, or
+ * arguments that do not fit the schema. Asked again, the same step usually
+ * comes out right, so these are retried before the chat hears of them.
+ */
+export function erroreStrumentoRiprovabile(error: unknown): boolean {
+  return /tool call validation failed|tool_use_failed|failed to call a function|failed_generation/i.test(
+    testoErrore(causa(error)),
+  )
 }
 
 /** No organization ids in the chat, and a line, not a page. */
@@ -43,6 +61,9 @@ export function attesa(testo: string): string | null {
  */
 export function messaggioErroreAlfire(error: unknown, { admin }: { admin: boolean }): string {
   const e = causa(error)
+  if (erroreStrumentoRiprovabile(e)) {
+    return 'Alfire non è riuscito a usare lo strumento giusto nemmeno riprovando. Ripeti la richiesta con parole semplici, ad esempio «registra l’incasso di 400 € di Mario Rossi».'
+  }
   if (!APICallError.isInstance(e)) {
     return admin && e instanceof Error && e.message ? `Alfire non ha risposto: ${breve(e.message)}` : 'Alfire non ha risposto. Riprova.'
   }
@@ -56,7 +77,7 @@ export function messaggioErroreAlfire(error: unknown, { admin }: { admin: boolea
     }
     return `Alfire ha raggiunto il limite gratuito di questo minuto. Riprova ${tra ?? 'tra un minuto'}.`
   }
-  if (stato === 413) return 'La conversazione è troppo lunga per il piano gratuito: premi «Nuova chat» e riprova.'
+  if (stato === 413) return 'La richiesta è troppo grande per il piano gratuito di Groq: premi «Nuova chat» e riprova.'
   if (stato === 401 || stato === 403) return 'La chiave di Alfire non è valida: controlla ALFIRE_API_KEY su Vercel.'
   if (stato === 404 || (stato === 400 && /model/i.test(testo))) {
     return admin ? `Il modello di Alfire non è disponibile su Groq: ${breve(testo)}` : 'Alfire non è disponibile in questo momento.'

@@ -95,6 +95,50 @@ test('annullando la scheda non si scrive niente', async ({ page }) => {
   expect(righe.data).toHaveLength(0)
 })
 
+test('dopo «Ci sei?» Alfire può ancora scrivere: ha sempre tutti i suoi strumenti', async ({ page }) => {
+  // Dany, 29/09/2026: the second message had no write words, the write tools were
+  // taken away and Groq refused the model's write ("not in request.tools")
+  await accedi(page, 'admin')
+  await page.getByRole('button', { name: 'Chatta con Alfire' }).click()
+  const pannello = page.getByTestId('alfire')
+  const casella = pannello.getByLabel('Scrivi ad Alfire')
+  await casella.fill('Segna questa spesa, te la dico subito')
+  await casella.press('Enter')
+  await expect(pannello.getByText('Ciao, sono Alfire.')).toBeVisible()
+
+  await casella.fill('Ci sei? Canva, 12,99 al mese')
+  await casella.press('Enter')
+  const scheda = pannello.getByTestId('alfire-conferma')
+  await expect(scheda).toContainText('Registro il costo «E2EAlfire Canva»')
+  await expect(pannello).not.toContainText('request.tools')
+  await scheda.getByRole('button', { name: 'Annulla' }).click()
+  await expect(scheda).toContainText('Annullato')
+})
+
+test('una chiamata a uno strumento rifiutata una volta da Groq si riprova da sola', async ({ page }) => {
+  await accedi(page, 'admin')
+  await page.getByRole('button', { name: 'Chatta con Alfire' }).click()
+  const pannello = page.getByTestId('alfire')
+  await pannello.getByLabel('Scrivi ad Alfire').fill('Registra il costo con lo strumento instabile')
+  await pannello.getByLabel('Scrivi ad Alfire').press('Enter')
+  const scheda = pannello.getByTestId('alfire-conferma')
+  await expect(scheda).toContainText('Registro il costo «E2EAlfire Canva»')
+  await expect(pannello).not.toContainText('non ha risposto')
+  await scheda.getByRole('button', { name: 'Annulla' }).click()
+  await expect(scheda).toContainText('Annullato')
+})
+
+test('se Alfire legge e si ferma senza rispondere, la chat lo dice e offre di riprovare', async ({ page }) => {
+  await accedi(page, 'admin')
+  await page.getByRole('button', { name: 'Chatta con Alfire' }).click()
+  const pannello = page.getByTestId('alfire')
+  await pannello.getByLabel('Scrivi ad Alfire').fill('Leggi e taci')
+  await pannello.getByLabel('Scrivi ad Alfire').press('Enter')
+  const muta = pannello.getByTestId('alfire-muta')
+  await expect(muta).toContainText('si è fermato prima di rispondere')
+  await expect(muta.getByRole('button', { name: 'Riprova' })).toBeVisible()
+})
+
 test('un vocale diventa testo; senza audio la route lo dice', async ({ page }) => {
   await accedi(page, 'admin')
   const audio = Buffer.alloc(4000, 1)

@@ -1,43 +1,42 @@
 import type { UIMessage } from 'ai'
 import { describe, expect, it } from 'vitest'
 
-import { serveScrivere } from '@/lib/alfire/intento'
+import { conversazioneScrive } from '@/lib/alfire/intento'
 
-const utente = (text: string): UIMessage => ({ id: text, role: 'user', parts: [{ type: 'text', text }] })
+function utente(testo: string): UIMessage {
+  return { id: testo, role: 'user', parts: [{ type: 'text', text: testo }] }
+}
+function alfire(testo: string): UIMessage {
+  return { id: `a-${testo}`, role: 'assistant', parts: [{ type: 'text', text: testo }] }
+}
 
-describe('gli strumenti di scrittura viaggiano solo quando servono', () => {
-  it.each([
-    'Mario Rossi ha pagato 500 € in contanti',
-    'registra una vendita annuale a 2.500 euro',
-    'segna incassata la rata di Luca',
-    'sposta la call di domani alle 18',
-    'Loris ha versato 250',
-    'aggiungi 20 DM al report di oggi',
-  ])('scrive: %s', (testo) => {
-    expect(serveScrivere([utente(testo)])).toBe(true)
+describe('sul piano gratuito, la conversazione chiede di scrivere?', () => {
+  it('la chat di Dany del 29/09: dopo la richiesta, «Ci sei?» scrive ancora', () => {
+    expect(
+      conversazioneScrive([
+        utente('Mio cliente Raffaele Ferrara mi ha pagato l’ultima rata da 400, inseriscilo come incasso'),
+        alfire('Ho letto le rate del cliente'),
+        utente('Ci sei?'),
+      ]),
+    ).toBe(true)
   })
 
-  it.each(['quanto ho incassato questo mese?', 'chi è in ritardo con le rate?', 'come funziona la pipeline?'])(
-    'legge soltanto: %s',
-    (testo) => {
-      expect(serveScrivere([utente(testo)])).toBe(false)
-    },
-  )
+  it('un importo in euro basta', () => {
+    expect(conversazioneScrive([utente('Canva 12,99 €')])).toBe(true)
+  })
 
-  it('una scrittura in attesa di conferma tiene gli strumenti anche se la domanda non ne parla', () => {
-    const inAttesa: UIMessage = {
-      id: 'a',
+  it('una chat che legge soltanto no', () => {
+    expect(conversazioneScrive([utente('Quanto ho incassato questo mese?'), alfire('6.950 €'), utente('E il mese scorso?')])).toBe(
+      false,
+    )
+  })
+
+  it('una scrittura in attesa di conferma tiene gli strumenti', () => {
+    const scheda: UIMessage = {
+      id: 'x',
       role: 'assistant',
-      parts: [
-        {
-          type: 'tool-registra_costo',
-          toolCallId: 't1',
-          state: 'approval-responded',
-          input: { descrizione: 'Canva', importo: 12 },
-          approval: { id: 'x', approved: true },
-        } as never,
-      ],
+      parts: [{ type: 'tool-registra_costo', toolCallId: 'c1', state: 'approval-requested', input: {}, approval: { id: 'a1' } } as never],
     }
-    expect(serveScrivere([utente('grazie'), inAttesa])).toBe(true)
+    expect(conversazioneScrive([utente('sì'), scheda])).toBe(true)
   })
 })
