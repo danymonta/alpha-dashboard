@@ -65,7 +65,8 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/expenses', etichetta: 'Costi', Icona: Banknote },
       PROGETTI,
       MIEI_TASK,
-      TEMPO,
+      // his own time and, in the "Team" tab, everyone's (29/09/2026)
+      { ...TEMPO, etichetta: 'Tempo' },
       { href: '/settings', etichetta: 'Impostazioni', Icona: Settings, sezione: 'Generale' },
     ],
   },

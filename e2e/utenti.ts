@@ -63,6 +63,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     PROGETTI,
     ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE),
     TEMPO,
+    { nome: 'tempo-team', url: '/tempo/team' },
     MIEI_TASK,
     PROFILO,
   ],

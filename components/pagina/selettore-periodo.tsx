@@ -31,6 +31,8 @@ type Props = {
   percorso: string
   /** Other query params to keep while changing period (filters, tabs). */
   parametri?: Record<string, string | undefined>
+  /** False on a page that shows the period alone: the sheet promises no comparison. */
+  confronto?: boolean
   className?: string
 }
 
@@ -42,7 +44,7 @@ const CLASSI_FRECCIA =
  * With a range active the arrows move it by its own length (lib/periodo.ts).
  * Everything lives in the URL: the page reads it back with leggiPeriodo.
  */
-export function SelettorePeriodo({ periodo, oggi, percorso, parametri, className }: Props) {
+export function SelettorePeriodo({ periodo, oggi, percorso, parametri, confronto = true, className }: Props) {
   const unMese = periodo.mese !== null
   const successivo = puoAndareAvanti(periodo, oggi)
 
@@ -57,7 +59,7 @@ export function SelettorePeriodo({ periodo, oggi, percorso, parametri, className
         <ChevronLeft className="size-5" aria-hidden="true" />
       </Link>
 
-      <FoglioPeriodo periodo={periodo} oggi={oggi} percorso={percorso} parametri={parametri} />
+      <FoglioPeriodo periodo={periodo} oggi={oggi} percorso={percorso} parametri={parametri} confronto={confronto} />
 
       {successivo ? (
         <Link
@@ -76,7 +78,7 @@ export function SelettorePeriodo({ periodo, oggi, percorso, parametri, className
   )
 }
 
-function FoglioPeriodo({ periodo, oggi, percorso, parametri }: Omit<Props, 'className'>) {
+function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<Props, 'className'>) {
   const id = useId()
   const router = useRouter()
   const [aperto, setAperto] = useState(false)
@@ -128,14 +130,22 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri }: Omit<Props, 'clas
         </>
       }
       titolo="Periodo"
-      descrizione="Scegli un periodo pronto o due date. I numeri si confrontano con il periodo precedente di pari durata."
+      descrizione={
+        confronto
+          ? 'Scegli un periodo pronto o due date. I numeri si confrontano con il periodo precedente di pari durata.'
+          : 'Scegli un periodo pronto o due date.'
+      }
     >
       <div className="space-y-6">
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-border p-3 text-sm">
           <dt className="text-muted-foreground">In uso</dt>
           <dd className="num font-medium">{periodo.etichetta}</dd>
-          <dt className="text-muted-foreground">Confronto</dt>
-          <dd className="num">{periodo.precedente.etichetta}</dd>
+          {confronto ? (
+            <>
+              <dt className="text-muted-foreground">Confronto</dt>
+              <dd className="num">{periodo.precedente.etichetta}</dd>
+            </>
+          ) : null}
         </dl>
 
         <section aria-labelledby={`${id}-rapide`} className="space-y-2">
@@ -210,8 +220,9 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri }: Omit<Props, 'clas
         </form>
 
         <p className="text-xs text-muted-foreground">
-          Mesi interi si confrontano con gli stessi mesi prima (luglio–settembre con aprile–giugno); le altre date con
-          lo stesso numero di giorni subito prima. Massimo 3 anni.
+          {confronto
+            ? 'Mesi interi si confrontano con gli stessi mesi prima (luglio–settembre con aprile–giugno); le altre date con lo stesso numero di giorni subito prima. Massimo 3 anni.'
+            : 'Un periodo copre al massimo 3 anni.'}
         </p>
       </div>
     </FoglioModifica>
