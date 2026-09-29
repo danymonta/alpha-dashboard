@@ -1,4 +1,5 @@
-import { ChevronDown, Phone } from 'lucide-react'
+import { ChevronDown, ClipboardCheck, Phone } from 'lucide-react'
+import Link from 'next/link'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
@@ -105,7 +106,24 @@ function Dettaglio({ riga, senzaZeri = false }: { riga: Giornata; senzaZeri?: bo
   )
 }
 
-function GiornateTelefono({ giorni, totale }: { giorni: (Giornata & { data: string })[]; totale: Giornata }) {
+/** "Compila la giornata" of a day (today when none), for the closer shown. */
+function hrefGiorno(data: string | null, closer: string | undefined): string {
+  const parametri = new URLSearchParams()
+  if (data) parametri.set('data', data)
+  if (closer) parametri.set('closer', closer)
+  const testo = parametri.toString()
+  return testo ? `/setting/closer/giorno?${testo}` : '/setting/closer/giorno'
+}
+
+function GiornateTelefono({
+  giorni,
+  totale,
+  closer,
+}: {
+  giorni: (Giornata & { data: string })[]
+  totale: Giornata
+  closer: string | undefined
+}) {
   return (
     <div className="space-y-3 md:hidden" data-testid="giornate-closer-telefono">
       <details open className="group rounded-xl bg-card ring-1 ring-border" data-testid="giornata-totale">
@@ -144,8 +162,11 @@ function GiornateTelefono({ giorni, totale }: { giorni: (Giornata & { data: stri
                     ))}
                     <ChevronDown className={CHEVRON} aria-hidden="true" />
                   </summary>
-                  <div className="px-4 pt-1 pb-4">
+                  <div className="space-y-2 px-4 pt-1 pb-4">
                     <Dettaglio riga={r} senzaZeri />
+                    <LinkBottone href={hrefGiorno(r.data, closer)} variant="outline" className="w-full">
+                      Apri la giornata
+                    </LinkBottone>
                   </div>
                 </details>
               </li>
@@ -205,6 +226,13 @@ export default async function CloserPage({
             ? 'Le call e le vendite del closer giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.'
             : 'Le tue call e le tue vendite giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.'
         }
+        azione={
+          // the day is filled from its calls: one outcome per call, no counters
+          <LinkBottone href={hrefGiorno(null, closer)} data-testid="compila-giornata">
+            <ClipboardCheck className="size-4" aria-hidden="true" />
+            Compila la giornata
+          </LinkBottone>
+        }
       />
       <SchedeSetting attiva="closer" ruolo={profilo.ruolo} />
 
@@ -232,7 +260,7 @@ export default async function CloserPage({
           Icona={Phone}
           titolo="Nessuna call o vendita in questo periodo"
           descrizione={`I numeri compaiono quando si registra l'esito di una call o una vendita ${periodo.frase}.`}
-          azione={<LinkBottone href="/calls">Vai alle call</LinkBottone>}
+          azione={<LinkBottone href={hrefGiorno(null, closer)}>Compila la giornata</LinkBottone>}
         />
       ) : (
         <>
@@ -246,7 +274,10 @@ export default async function CloserPage({
                 <p className="num mt-1 text-4xl font-semibold tracking-tight text-gold md:text-5xl">
                   {formatEuro(totale.cash)}
                 </p>
-                <p className="mt-2 text-xs text-muted-foreground">Incassato {periodo.frase}, al netto dei rimborsi</p>
+                {/* the closer's cash (20260929130000): first instalment of the new sales, on the sale day, refunds apart */}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Prima rata dei nuovi clienti chiusi {periodo.frase}, sul giorno della vendita
+                </p>
               </div>
               <div className="rounded-xl bg-card p-4 md:p-5">
                 <p className="text-sm text-muted-foreground">
@@ -255,7 +286,7 @@ export default async function CloserPage({
                 <p className="num mt-1 text-2xl font-semibold tracking-tight md:text-3xl">
                   {formatEuro(totale.revenue)}
                 </p>
-                <p className="mt-2 text-xs text-muted-foreground">Contratti firmati {periodo.frase}</p>
+                <p className="mt-2 text-xs text-muted-foreground">Contratti dei nuovi clienti firmati {periodo.frase}</p>
               </div>
             </div>
 
@@ -288,7 +319,7 @@ export default async function CloserPage({
               Giorno per giorno ({giorni.length})
             </h2>
 
-            <GiornateTelefono giorni={giorni} totale={totale} />
+            <GiornateTelefono giorni={giorni} totale={totale} closer={closer} />
 
             <div className="hidden overflow-x-auto rounded-xl bg-card md:block">
               <table className="w-full text-sm" data-testid="giornate-closer">
@@ -306,7 +337,15 @@ export default async function CloserPage({
                 <tbody className="divide-y divide-border">
                   {giorni.map((r) => (
                     <tr key={r.data}>
-                      <th scope="row" className="px-3 py-2 text-left font-normal">{formatData(r.data)}</th>
+                      <th scope="row" className="px-3 py-2 text-left font-normal">
+                        <Link
+                          href={hrefGiorno(r.data, closer)}
+                          aria-label={`${formatData(r.data)}: apri la giornata`}
+                          className="num rounded-sm underline decoration-border underline-offset-4 hover:text-foreground hover:decoration-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                        >
+                          {formatData(r.data)}
+                        </Link>
+                      </th>
                       {COLONNE.map((c) => (
                         <td key={c.campo} className={cn('num px-3 py-2 text-right', classeZero(r, c))}>
                           {valore(r, c)}
@@ -329,8 +368,9 @@ export default async function CloserPage({
             </div>
 
             <p className="px-1 text-xs text-muted-foreground">
-              Svolte, qualificate, no show, follow up, cancellate e chiuse vengono dagli esiti registrati in «Le mie
-              call»; cash e revenue dalle vendite e dagli incassi.
+              Svolte, qualificate, no show, follow up, cancellate e chiuse vengono dall’esito registrato su ogni call, in
+              «Le mie call» o in «Compila la giornata» (tocca un giorno per aprirla); cash e revenue solo dai clienti
+              nuovi (prima rata e contratto), mai rate successive o rinnovi.
             </p>
           </section>
 

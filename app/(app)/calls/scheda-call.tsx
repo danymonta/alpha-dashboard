@@ -7,6 +7,13 @@ import { ETICHETTA_TIPO_CALL } from '@/lib/validation/call'
 
 type Enums = Database['public']['Enums']
 
+/** The columns of a call card, as CallVista reads them. */
+export const CAMPI_CALL =
+  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, note, link_registrazione, performance, prodotto_proposto_id, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
+
+/** The amount pitched is read only where RLS lets it through: closer and admin. */
+export const CAMPI_CALL_CLOSER = `${CAMPI_CALL}, pitch:call_pitch(importo_proposto)`
+
 export type CallVista = {
   id: string
   programmata_il: string
@@ -39,9 +46,21 @@ type Props = {
   vista: 'closer' | 'setter'
   mostraGiorno?: boolean
   eliminabile?: boolean
+  /** Where the sale of a closed call returns after saving (an internal path, e.g. the closer's day). */
+  tornaA?: string | null
 }
 
-export function SchedaCall({ call, closers, prodotti, oggi, adesso, vista, mostraGiorno = true, eliminabile = false }: Props) {
+export function SchedaCall({
+  call,
+  closers,
+  prodotti,
+  oggi,
+  adesso,
+  vista,
+  mostraGiorno = true,
+  eliminabile = false,
+  tornaA = null,
+}: Props) {
   const giorno = oggiRoma(new Date(call.programmata_il))
   const ora = formatOra(call.programmata_il)
   const nome = call.lead?.nome ?? 'Lead senza nome'
@@ -117,6 +136,7 @@ export function SchedaCall({ call, closers, prodotti, oggi, adesso, vista, mostr
             descrizione={`${ETICHETTA_TIPO_CALL[call.tipo]} · ${etichettaGiorno(giorno, oggi).toLowerCase()} alle ${ora}`}
             giaRegistrata={call.stato !== 'programmata'}
             futura={!passata}
+            tornaA={tornaA}
           />
         </div>
       ) : null}

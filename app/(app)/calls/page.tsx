@@ -1,6 +1,6 @@
 import { CalendarPlus, PhoneOff } from 'lucide-react'
 
-import { SchedaCall, type CallVista } from '@/app/(app)/calls/scheda-call'
+import { CAMPI_CALL, CAMPI_CALL_CLOSER, SchedaCall, type CallVista } from '@/app/(app)/calls/scheda-call'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -11,12 +11,6 @@ import { createClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 
 const GIORNO_MS = 24 * 60 * 60 * 1000
-
-const CAMPI =
-  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, note, link_registrazione, performance, prodotto_proposto_id, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
-
-// the amount pitched is read only where RLS lets it through: closer and admin
-const CAMPI_CLOSER = `${CAMPI}, pitch:call_pitch(importo_proposto)`
 
 function Sezione({
   titolo,
@@ -49,7 +43,7 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
     vista === 'closer'
       ? supabase
           .from('calls')
-          .select(CAMPI_CLOSER)
+          .select(CAMPI_CALL_CLOSER)
           .eq('closer_id', profiloId)
           // everything still open, plus what was recorded in the last week
           .or(`stato.eq.programmata,programmata_il.gte.${new Date(adesso - 7 * GIORNO_MS).toISOString()}`)
@@ -57,7 +51,7 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
           .limit(200)
       : supabase
           .from('calls')
-          .select(CAMPI)
+          .select(CAMPI_CALL)
           .eq('setter_id', profiloId)
           .gte('programmata_il', new Date(adesso - 30 * GIORNO_MS).toISOString())
           .order('programmata_il', { ascending: true })
@@ -99,22 +93,27 @@ export default async function LeMieCallPage() {
   const prossime = future.filter((c) => giorno(c) !== oggi)
   const concluse = calls.filter((c) => c.stato !== 'programmata').reverse()
 
+  // the admin books too (Dany, 29/09/2026): for himself, for a setter, or a call already done
+  const admin = profilo.ruolo === 'admin'
+  const bottoneNuova = (
+    <LinkBottone href="/calls/new">
+      <CalendarPlus className="size-4" aria-hidden="true" />
+      Nuova call
+    </LinkBottone>
+  )
+
   const intestazione =
     vista === 'closer' ? (
       <IntestazionePagina
         titolo="Le mie call"
         descrizione="Registra l’esito appena chiudi la call: bastano due o tre tocchi."
+        azione={admin ? bottoneNuova : undefined}
       />
     ) : (
       <IntestazionePagina
         titolo="Le mie call"
         descrizione="Le call che hai fissato, con stato ed esito."
-        azione={
-          <LinkBottone href="/calls/new">
-            <CalendarPlus className="size-4" aria-hidden="true" />
-            Nuova call
-          </LinkBottone>
-        }
+        azione={bottoneNuova}
       />
     )
 
@@ -137,11 +136,19 @@ export default async function LeMieCallPage() {
           <StatoVuoto
             Icona={PhoneOff}
             titolo="Nessuna call in programma"
-            descrizione="Le call che il setter ti assegna compaiono qui, con l’esito da registrare."
+            descrizione={
+              admin
+                ? 'Le call che fissi tu o che il setter ti assegna compaiono qui, con l’esito da registrare.'
+                : 'Le call che il setter ti assegna compaiono qui, con l’esito da registrare.'
+            }
             azione={
-              <LinkBottone href="/my-sales" variant="outline">
-                Vai alle mie vendite
-              </LinkBottone>
+              admin ? (
+                <LinkBottone href="/calls/new">Fissa una call</LinkBottone>
+              ) : (
+                <LinkBottone href="/my-sales" variant="outline">
+                  Vai alle mie vendite
+                </LinkBottone>
+              )
             }
           />
         )}
@@ -159,7 +166,7 @@ export default async function LeMieCallPage() {
       adesso={adesso}
       vista={vista}
       mostraGiorno={mostraGiorno}
-      eliminabile={profilo.ruolo === 'admin'}
+      eliminabile={admin}
     />
   )
 

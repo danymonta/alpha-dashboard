@@ -38,6 +38,8 @@ type Props = {
   giaRegistrata: boolean
   /** A call still to come can only be cancelled or moved, not closed. */
   futura: boolean
+  /** Where the sale form returns after saving (an internal path): the closer's day. */
+  tornaA?: string | null
 }
 
 const SOLO_FUTURE: SceltaEsito[] = ['cancellata', 'riprogrammata']
@@ -55,7 +57,7 @@ const SCELTE: { esito: SceltaEsito; Icona: LucideIcon }[] = [
  * Outcome in at most three taps: open (1), pick (2), and only for follow-up
  * or lost, say whether the lead was qualified (3). Closed jumps to the sale.
  */
-export function RegistraEsito({ callId, nomeLead, descrizione, giaRegistrata, futura }: Props) {
+export function RegistraEsito({ callId, nomeLead, descrizione, giaRegistrata, futura, tornaA = null }: Props) {
   const router = useRouter()
   const [aperto, setAperto] = useState(false)
   const [inAttesaQualifica, setInAttesaQualifica] = useState<'follow_up' | 'persa' | null>(null)
@@ -90,7 +92,10 @@ export function RegistraEsito({ callId, nomeLead, descrizione, giaRegistrata, fu
         description: esito.vaiA ? 'Ora registra la vendita.' : undefined,
       })
       apriChiudi(false)
-      if (esito.vaiA) router.push(esito.vaiA)
+      if (esito.vaiA) {
+        // the sale comes back to the page the call was closed from
+        router.push(tornaA ? `${esito.vaiA}&${new URLSearchParams({ da: tornaA }).toString()}` : esito.vaiA)
+      }
     })
   }
 

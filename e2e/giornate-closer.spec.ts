@@ -65,6 +65,18 @@ test('closer: l’admin passa dalla scheda Setter alla scheda Closer e vede le g
   await expect(page).toHaveURL(new RegExp(`/setting/closer\\?.*closer=${ID_CLOSER}`))
   await expect(page).toHaveURL(/da=2026-01-01&a=2026-12-31/)
   await expect(tabella.locator('tbody tr').first()).toBeVisible()
+
+  // the day is filled from its calls: the button opens today, every day opens its own page
+  await expect(page.getByTestId('compila-giornata')).toHaveAttribute('href', `/setting/closer/giorno?closer=${ID_CLOSER}`)
+  const giorno = tabella.locator('tbody tr').first().getByRole('rowheader').getByRole('link')
+  const data = (await giorno.innerText()).trim().split('/').reverse().join('-')
+  await giorno.click()
+  await expect(page).toHaveURL(`/setting/closer/giorno?data=${data}&closer=${ID_CLOSER}`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Compila la giornata' })).toBeVisible()
+  await expect(page.getByLabel('Closer', { exact: true })).toHaveValue(ID_CLOSER)
+  // the footnote says where the numbers come from
+  await page.goto(`/setting/closer?${ANNO}`)
+  await expect(page.getByText(/dall’esito registrato su ogni call/)).toBeVisible()
 })
 
 test('closer: sul telefono un giorno è una riga chiusa, il totale viene prima ed è aperto', async ({ page }) => {
@@ -96,12 +108,17 @@ test('closer: sul telefono un giorno è una riga chiusa, il totale viene prima e
   expect(box!.height).toBeGreaterThanOrEqual(44)
   expect(box!.height).toBeLessThan(60)
 
-  // opened: its numbers, the zeros left out
+  // opened: its numbers, the zeros left out, and the way to that day's page
   await riassunto.click()
   await expect(primo.locator('details')).toHaveAttribute('open', '')
   const valori = await primo.locator('details > div dd').allTextContents()
   expect(valori.length).toBeGreaterThan(0)
   for (const v of valori) expect(v.trim()).not.toMatch(/^0(,00\s€)?$/)
+  const data = (await primo.getAttribute('aria-label'))!.split('/').reverse().join('-')
+  await expect(primo.getByRole('link', { name: 'Apri la giornata' })).toHaveAttribute(
+    'href',
+    `/setting/closer/giorno?data=${data}`,
+  )
 
   // the page never scrolls sideways at 390px
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -116,6 +133,7 @@ test('closer: il closer vede i suoi numeri, senza la scheda Setter, e non apre i
   await expect(page.getByLabel('Closer', { exact: true })).toHaveCount(0)
   await expect(page.getByTestId('kpi-closer')).toBeVisible()
   await expect(page.getByTestId('giornate-closer').locator('tbody tr').first()).toBeVisible()
+  await expect(page.getByTestId('compila-giornata')).toHaveAttribute('href', '/setting/closer/giorno')
   // the page is in his navigation
   await expect(page.getByRole('link', { name: 'I miei numeri' }).first()).toBeVisible()
 

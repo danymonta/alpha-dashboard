@@ -40,7 +40,8 @@ export const STRUMENTI = {
   segna_incassata: { ruoli: ['admin'] },
   registra_costo: { ruoli: ['admin'] },
   aggiorna_report: { ruoli: ['setter'] },
-  fissa_call: { ruoli: ['setter'] },
+  // the setter for himself; the admin for himself or a setter (Dany, 29/09/2026)
+  fissa_call: { ruoli: ['admin', 'setter'] },
   crea_progetto: { livelliPm: ['admin', 'manager'] },
   aggiungi_task: { livelliPm: ['admin', 'manager', 'employee'] },
   completa_task: { livelliPm: ['admin', 'manager', 'employee'] },

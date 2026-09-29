@@ -21,17 +21,28 @@ import {
   FONTI,
   GIORNI_AVANTI_CALL,
   GIORNI_INDIETRO_CALL,
+  GIORNI_INDIETRO_CALL_ADMIN,
+  nuovaCallAdminSchema,
   nuovaCallSchema,
   type NuovaCall,
   type NuovaCallInput,
 } from '@/lib/validation/call'
 
-type Closer = { id: string; nome: string }
+type Persona = { id: string; nome: string }
 
 type Props = {
   oggi: string
-  closers: Closer[]
+  /** The day the form opens on (?data=, e.g. from the closer's day). */
+  dataIniziale?: string
+  closers: Persona[]
   closerPredefinito: string
+  /**
+   * Admin only: who set the call, "Io" first (the default). null for the
+   * setter, who always books for himself.
+   */
+  setters?: Persona[] | null
+  /** Where to go after saving (?da=, an internal path); default "Le mie call", or the chosen closer's day. */
+  tornaA?: string | null
 }
 
 const OPZIONI_FONTE = FONTI.map((f) => ({ valore: f, etichetta: ETICHETTA_FONTE[f] }))
@@ -52,8 +63,10 @@ const SCELTE = cn(
   '[&_label:has(:checked:focus-visible)]:ring-3 [&_label:has(:checked:focus-visible)]:ring-ring/50',
 )
 
-export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
+export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredefinito, setters = null, tornaA = null }: Props) {
   const router = useRouter()
+  // the admin also adds calls already done, up to a year back
+  const admin = setters !== null
   const [erroreServer, setErroreServer] = useState<string | null>(null)
 
   const {
@@ -64,7 +77,7 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<NuovaCallInput, unknown, NuovaCall>({
-    resolver: zodResolver(nuovaCallSchema),
+    resolver: zodResolver(admin ? nuovaCallAdminSchema : nuovaCallSchema),
     defaultValues: {
       nome: '',
       instagram_handle: '',
@@ -74,14 +87,20 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
       // The setter books discovery calls only: strategy calls are not done with
       // leads (Dany, 29/09/2026). Not a choice on screen, the server still checks it.
       tipo: 'discovery',
-      data: oggi,
+      data: dataIniziale,
       ora: '',
       closer_id: closerPredefinito,
+      setter_id: setters?.[0]?.id ?? null,
     },
   })
 
   const dataScelta = useWatch({ control, name: 'data' })
-  const domani = aggiungiGiorni(oggi, 1)
+  // the admin records calls already done too: yesterday is one tap away
+  const scorciatoie = [
+    ...(admin ? [{ etichetta: 'Ieri', valore: aggiungiGiorni(oggi, -1) }] : []),
+    { etichetta: 'Oggi', valore: oggi },
+    { etichetta: 'Domani', valore: aggiungiGiorni(oggi, 1) },
+  ]
 
   const invia = handleSubmit(async (valori) => {
     setErroreServer(null)
@@ -110,7 +129,7 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
           : 'Lead e call creati.',
       },
     )
-    router.push('/calls')
+    router.push(tornaA ?? esito.vaiA ?? '/calls')
   })
 
   return (
@@ -174,11 +193,8 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
 
       <fieldset className="space-y-2">
         <legend className="mb-2 text-sm font-medium">Quando</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { etichetta: 'Oggi', valore: oggi },
-            { etichetta: 'Domani', valore: domani },
-          ].map(({ etichetta, valore }) => (
+        <div className={cn('grid gap-2', admin ? 'grid-cols-3' : 'grid-cols-2')}>
+          {scorciatoie.map(({ etichetta, valore }) => (
             <Button
               key={etichetta}
               type="button"
@@ -199,7 +215,7 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
             <Input
               id="data"
               type="date"
-              min={aggiungiGiorni(oggi, -GIORNI_INDIETRO_CALL)}
+              min={aggiungiGiorni(oggi, -(admin ? GIORNI_INDIETRO_CALL_ADMIN : GIORNI_INDIETRO_CALL))}
               max={aggiungiGiorni(oggi, GIORNI_AVANTI_CALL)}
               className="num h-11"
               aria-invalid={errors.data ? true : undefined}
@@ -221,6 +237,19 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
         </div>
         <ErroreCampo id="data-errore" messaggio={errors.data?.message ?? errors.ora?.message} />
       </fieldset>
+
+      {setters ? (
+        <div className={SCELTE}>
+          <SceltaRapida
+            legenda="Setter"
+            opzioni={setters.map((s) => ({ valore: s.id, etichetta: s.nome }))}
+            registrazione={register('setter_id')}
+            errore={errors.setter_id?.message}
+            aiuto="Chi ha fissato la call: tu, o il setter che l’ha presa in DM. Il lead diventa suo."
+            colonne={2}
+          />
+        </div>
+      ) : null}
 
       <div className={SCELTE}>
         <SceltaRapida

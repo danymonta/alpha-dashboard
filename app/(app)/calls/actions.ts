@@ -14,9 +14,9 @@ export type EsitoRegistrazione =
   | { ok: false; errore: string }
 
 /**
- * The closer records how a call went. Only calls assigned to the caller:
- * RLS already enforces it for closers, the explicit filter keeps the admin
- * (who may update everything) on his own calls from this screen too.
+ * The closer records how a call went. The closer only on calls assigned to
+ * him (RLS enforces it, the filter says it). The admin on any call: his own in
+ * "Le mie call", any closer's in "Compila la giornata" (section 19).
  */
 export async function registraEsito(input: unknown): Promise<EsitoRegistrazione> {
   const parsed = esitoCallSchema.safeParse(input)
@@ -33,20 +33,16 @@ export async function registraEsito(input: unknown): Promise<EsitoRegistrazione>
   }
 
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('calls')
-    .update(aggiornamentoDaEsito(parsed.data))
-    .eq('id', parsed.data.call_id)
-    .eq('closer_id', profilo.id)
-    .select('id')
-    .maybeSingle()
+  let query = supabase.from('calls').update(aggiornamentoDaEsito(parsed.data)).eq('id', parsed.data.call_id)
+  if (profilo.ruolo === 'closer') query = query.eq('closer_id', profilo.id)
+  const { data, error } = await query.select('id').maybeSingle()
 
   if (error) return { ok: false, errore: 'Esito non salvato. Riprova.' }
   if (!data) return { ok: false, errore: 'Questa call non è assegnata a te.' }
 
-  revalidatePath('/calls')
-  revalidatePath('/')
-  revalidatePath('/setting')
+  for (const pagina of ['/calls', '/', '/setting', '/setting/closer', '/setting/closer/giorno', '/leads']) {
+    revalidatePath(pagina)
+  }
 
   // A closed call goes straight to the prefilled sale
   return {

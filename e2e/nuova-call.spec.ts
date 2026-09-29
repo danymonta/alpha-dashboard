@@ -1,10 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import { aggiungiGiorni, formatOra, oggiRoma } from '../lib/date'
-import { ID_SETTER, dbLocale } from './db'
+import { ID_ADMIN, ID_CLOSER, ID_SETTER, dbLocale } from './db'
 import { accedi } from './utenti'
-
-const ID_ADMIN = '11111111-1111-4111-8111-111111111111'
 
 /** Tap the visible chip, as a person would: the radio itself is visually hidden. */
 async function scegli(page: Page, etichetta: string) {
@@ -74,6 +72,9 @@ test.describe('Nuova call', () => {
     ).toBeVisible()
     // the bookings by source are counted from it: nothing is chosen for the setter
     await expect(fonte.getByRole('radio', { checked: true })).toHaveCount(0)
+    // he books for himself, from a week ago on: no setter to pick, no "Ieri" shortcut
+    await expect(page.getByRole('group', { name: 'Setter' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Ieri' })).toHaveCount(0)
   })
 
   test('senza nome, fonte e ora non parte e dice cosa manca', async ({ page }) => {
@@ -132,8 +133,67 @@ test.describe('Nuova call', () => {
   })
 })
 
-test('l’admin non usa il form del setter', async ({ page }) => {
+test('l’admin fissa una call anche lui: per sé o per un setter, anche già fatta', async ({ page }) => {
+  await accedi(page, 'admin')
+  await page.goto('/calls')
+  // two taps from the bottom bar: "Le mie call", then this button
+  await page.getByRole('link', { name: 'Nuova call' }).click()
+  await expect(page).toHaveURL('/calls/new')
+
+  const setter = page.getByRole('group', { name: 'Setter' })
+  await expect(setter.getByRole('radio', { name: 'Io' })).toBeChecked()
+  await expect(setter.getByRole('radio', { name: 'Loris Setter' })).toHaveCount(1)
+  await expect(page.getByRole('radio', { name: 'Dany Montagnolo' })).toBeChecked()
+
+  // a month ago: a call that happened but never reached the app (the setter's form stops at 7 days)
+  const firma = Date.now()
+  const giorno = aggiungiGiorni(oggiRoma(), -30)
+  await page.getByLabel('Nome del lead').fill(`Lead Admin ${firma}`)
+  await page.getByLabel(/Handle Instagram/).fill(`e2e.admin.${firma}`)
+  await scegli(page, 'Referral')
+  await page.getByLabel('Data').fill(giorno)
+  await page.getByLabel('Ora').fill('18:00')
+  await page.getByRole('button', { name: 'Fissa la call' }).click()
+  await expect(page).toHaveURL('/calls')
+
+  const { data: lead } = await dbLocale()
+    .from('leads')
+    .select('setter_id, created_by, fonte, created_at, calls(tipo, setter_id, closer_id, created_by, programmata_il, created_at)')
+    .eq('instagram_handle', `@e2e.admin.${firma}`)
+    .single()
+  expect(lead).toMatchObject({ setter_id: ID_ADMIN, created_by: ID_ADMIN, fonte: 'referral' })
+  expect(lead?.calls).toHaveLength(1)
+  expect(lead!.calls[0]).toMatchObject({ tipo: 'discovery', setter_id: ID_ADMIN, closer_id: ID_ADMIN, created_by: ID_ADMIN })
+  expect(oggiRoma(new Date(lead!.calls[0].programmata_il))).toBe(giorno)
+  expect(formatOra(lead!.calls[0].programmata_il)).toBe('18:00')
+  // a call already held was booked on its day, not today: "prenotate" stay true
+  expect(new Date(lead!.calls[0].created_at).getTime()).toBe(new Date(lead!.calls[0].programmata_il).getTime())
+  expect(new Date(lead!.created_at).getTime()).toBe(new Date(lead!.calls[0].programmata_il).getTime())
+})
+
+test('l’admin fissa una call per un altro closer e la ritrova nella sua giornata', async ({ page }) => {
   await accedi(page, 'admin')
   await page.goto('/calls/new')
-  await expect(page).toHaveURL('/')
+  const firma = Date.now()
+  const nome = `Lead Altro Closer ${firma}`
+  const giorno = aggiungiGiorni(oggiRoma(), 1)
+  await page.getByLabel('Nome del lead').fill(nome)
+  await page.getByLabel(/Handle Instagram/).fill(`e2e.altro.closer.${firma}`)
+  await scegli(page, 'DM outbound')
+  await scegli(page, 'Loris Setter')
+  await scegli(page, 'Lorenzo Closer')
+  await page.getByLabel('Data').fill(giorno)
+  await page.getByLabel('Ora').fill('11:00')
+  await page.getByRole('button', { name: 'Fissa la call' }).click()
+
+  // "Le mie call" lists the admin's own calls: this one shows on Lorenzo's day
+  await expect(page).toHaveURL(`/setting/closer/giorno?data=${giorno}&closer=${ID_CLOSER}`)
+  await expect(page.getByRole('article', { name: nome })).toBeVisible()
+})
+
+test('il closer non fissa call: «Nuova call» lo rimanda alle sue', async ({ page }) => {
+  await accedi(page, 'closer')
+  await page.goto('/calls/new')
+  await expect(page).toHaveURL('/calls')
+  await expect(page.getByRole('link', { name: 'Nuova call' })).toHaveCount(0)
 })
