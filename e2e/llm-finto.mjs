@@ -9,8 +9,15 @@ const PORTA = Number(process.env.PORTA_LLM_FINTO ?? 4010)
 // every other request for the unstable tool is refused: the first try, then the retry works
 let tentativiInstabili = 0
 
+// like Groq: every reply says the plan's tokens per minute (8K free, 250K Developer)
+const TOKEN_AL_MINUTO = process.env.TOKEN_AL_MINUTO_FINTO ?? '8000'
+
 function sse(res, chunks) {
-  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
+  res.writeHead(200, {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-cache',
+    'x-ratelimit-limit-tokens': TOKEN_AL_MINUTO,
+  })
   for (const c of chunks) res.write(`data: ${JSON.stringify(c)}\n\n`)
   res.write('data: [DONE]\n\n')
   res.end()

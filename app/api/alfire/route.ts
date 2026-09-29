@@ -9,7 +9,7 @@ import {
   type UIMessage,
 } from 'ai'
 
-import { alfireConfigurata, budgetAlfire, modelloAlfire } from '@/lib/alfire/config'
+import { alfireConfigurata, budgetAlfire, modelloAlfire, pianoAlfire } from '@/lib/alfire/config'
 import { dettaglioErroreAlfire, erroreStrumentoRiprovabile, messaggioErroreAlfire } from '@/lib/alfire/errori'
 import { conversazioneScrive } from '@/lib/alfire/intento'
 import { SCRITTURE } from '@/lib/alfire/permessi'
@@ -94,6 +94,7 @@ export async function POST(req: Request) {
         '[alfire] token',
         JSON.stringify({
           ruolo: profilo.ruolo,
+          piano: pianoAlfire(),
           input: totalUsage.inputTokens,
           inCache: totalUsage.inputTokenDetails?.cacheReadTokens,
           output: totalUsage.outputTokens,
