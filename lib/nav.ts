@@ -82,6 +82,8 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true },
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-sales', etichetta: 'Le mie vendite', Icona: Receipt },
+      // the closer half of the Excel: his calls and sales, day by day
+      { href: '/setting/closer', etichetta: 'I miei numeri', Icona: TrendingUp },
     ],
     altre: [PROGETTI, MIEI_TASK, TEMPO],
   },

@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase/server'
 import { reportGiornalieroSchema } from '@/lib/validation/report'
 
 export type EsitoSalvataggio =
-  | { ok: true; salvatoAlle: string; creato: boolean }
+  /** dmTotali: the saved row's generated column (outbound + inbound + follow up), never summed in TS */
+  | { ok: true; salvatoAlle: string; creato: boolean; dmTotali: number | null }
   | { ok: false; errore: string }
 
 /**
@@ -36,7 +37,7 @@ export async function salvaReportGiornaliero(input: unknown): Promise<EsitoSalva
       { ...parsed.data, setter_id: profilo.id, created_by: profilo.id },
       { onConflict: 'setter_id,data' },
     )
-    .select('created_at, updated_at')
+    .select('created_at, updated_at, dm_totali')
     .single()
 
   if (error) {
@@ -56,5 +57,6 @@ export async function salvaReportGiornaliero(input: unknown): Promise<EsitoSalva
     salvatoAlle: data.updated_at,
     // Same statement timestamp only on insert: the update trigger moves updated_at.
     creato: data.created_at === data.updated_at,
+    dmTotali: data.dm_totali,
   }
 }

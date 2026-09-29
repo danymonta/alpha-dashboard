@@ -33,7 +33,6 @@ test.describe('Nuova call', () => {
     await page.getByLabel('Nome del lead').fill(nome)
     await page.getByLabel(/Handle Instagram/).fill(`@E2E.${firma}`)
     await scegli(page, 'DM outbound')
-    await scegli(page, 'Strategy')
     await page.getByRole('button', { name: 'Domani' }).click()
     await page.getByLabel('Ora').fill('15:30')
 
@@ -42,7 +41,7 @@ test.describe('Nuova call', () => {
 
     await page.getByRole('button', { name: 'Fissa la call' }).click()
 
-    await expect(page.getByText(`Strategy con ${nome}: domani alle 15:30`)).toBeVisible()
+    await expect(page.getByText(`Discovery call con ${nome}: domani alle 15:30`)).toBeVisible()
     await expect(page).toHaveURL('/calls')
 
     const { data: lead } = await dbLocale()
@@ -58,28 +57,66 @@ test.describe('Nuova call', () => {
     })
     expect(lead?.calls).toHaveLength(1)
     const call = lead!.calls[0]
-    expect(call).toMatchObject({ tipo: 'strategy', stato: 'programmata', closer_id: ID_ADMIN })
+    expect(call).toMatchObject({ tipo: 'discovery', stato: 'programmata', closer_id: ID_ADMIN })
     expect(oggiRoma(new Date(call.programmata_il))).toBe(aggiungiGiorni(oggiRoma(), 1))
     expect(formatOra(call.programmata_il)).toBe('15:30')
   })
 
-  test('senza nome e senza ora non parte e dice cosa manca', async ({ page }) => {
+  test('solo discovery call, e la fonte spiega a cosa serve', async ({ page }) => {
+    await expect(page.getByRole('group', { name: 'Tipo di call' })).toHaveCount(0)
+    await expect(page.getByRole('radio', { name: 'Strategy' })).toHaveCount(0)
+    await expect(page.getByText('Fissa una discovery call: lead e call nascono insieme.')).toBeVisible()
+
+    const fonte = page.getByRole('group', { name: 'Fonte' })
+    await expect(fonte).toBeVisible()
+    await expect(
+      page.getByText('Scegli da dove arriva il lead: serve a contare le call prenotate da inbound e da outbound.'),
+    ).toBeVisible()
+    // the bookings by source are counted from it: nothing is chosen for the setter
+    await expect(fonte.getByRole('radio', { checked: true })).toHaveCount(0)
+  })
+
+  test('senza nome, fonte e ora non parte e dice cosa manca', async ({ page }) => {
     await page.getByRole('button', { name: 'Fissa la call' }).click()
 
     await expect(page.getByText('Scrivi il nome del lead')).toBeVisible()
+    await expect(page.getByText('Scegli la fonte')).toBeVisible()
     await expect(page.getByText('Scegli l’ora')).toBeVisible()
     await expect(page).toHaveURL('/calls/new')
+  })
+
+  test('senza fonte non parte, anche col resto compilato', async ({ page }) => {
+    const firma = Date.now()
+    await page.getByLabel('Nome del lead').fill(`Lead Senza Fonte ${firma}`)
+    await page.getByLabel(/Handle Instagram/).fill(`e2e.senzafonte.${firma}`)
+    await page.getByLabel('Ora').fill('16:00')
+    await page.getByRole('button', { name: 'Fissa la call' }).click()
+
+    await expect(page.getByRole('group', { name: 'Fonte' }).getByRole('alert')).toHaveText('Scegli la fonte')
+    await expect(page).toHaveURL('/calls/new')
+
+    // chosen, the same form goes through
+    await scegli(page, 'DM inbound')
+    await expect(page.getByText('Scegli la fonte')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Fissa la call' }).click()
+    await expect(page).toHaveURL('/calls')
+    const { data: lead } = await dbLocale()
+      .from('leads')
+      .select('fonte')
+      .eq('instagram_handle', `@e2e.senzafonte.${firma}`)
+      .single()
+    expect(lead?.fonte).toBe('dm_inbound')
   })
 
   test('lo stesso handle riusa il lead invece di duplicarlo', async ({ page }) => {
     const handle = `e2e.doppio.${Date.now()}`
 
-    for (const tipo of ['Discovery', 'Strategy']) {
+    for (const ora of ['11:00', '12:00']) {
       await page.goto('/calls/new')
       await page.getByLabel('Nome del lead').fill('Lead Doppio')
       await page.getByLabel(/Handle Instagram/).fill(handle)
-      await scegli(page, tipo)
-      await page.getByLabel('Ora').fill('11:00')
+      await scegli(page, 'DM inbound')
+      await page.getByLabel('Ora').fill(ora)
       await page.getByRole('button', { name: 'Fissa la call' }).click()
       await expect(page).toHaveURL('/calls')
     }
@@ -88,10 +125,10 @@ test.describe('Nuova call', () => {
 
     const { data } = await dbLocale()
       .from('leads')
-      .select('id, calls(id)')
+      .select('id, calls(id, tipo)')
       .eq('instagram_handle', `@${handle}`)
     expect(data).toHaveLength(1)
-    expect(data![0].calls).toHaveLength(2)
+    expect(data![0].calls.map((c) => c.tipo)).toEqual(['discovery', 'discovery'])
   })
 })
 

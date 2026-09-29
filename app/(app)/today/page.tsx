@@ -3,12 +3,32 @@ import Link from 'next/link'
 
 import { ReportForm } from '@/app/(app)/today/report-form'
 import { SceltaGiorno } from '@/app/(app)/today/scelta-giorno'
+import { LegendaSezione } from '@/components/metriche/legenda-sezione'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, dataReportValida, etichettaGiorno, oggiRoma } from '@/lib/date'
+import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
 import { createClient } from '@/lib/supabase/server'
 import { REPORT_VUOTO, type ValoriReport } from '@/lib/validation/report'
 
 export const dynamic = 'force-dynamic'
+
+// What the form asks, then what is computed from it and from "Nuova call"
+const VOCI_LEGENDA = [
+  LEGENDA_SETTING.dm_outbound,
+  LEGENDA_SETTING.dm_inbound,
+  LEGENDA_SETTING.follow_up,
+  LEGENDA_SETTING.conversazioni,
+  LEGENDA_SETTING.call_proposte,
+  LEGENDA_SETTING.discovery_prenotate,
+  LEGENDA_SETTING.discovery_svolte,
+  LEGENDA_SETTING.call_qualificate,
+  LEGENDA_SETTING.contenuto_pubblicato,
+  LEGENDA_SETTING.dm_totali,
+  LEGENDA_SETTING.tasso_conversazione,
+  LEGENDA_SETTING.dm_per_call,
+  LEGENDA_SETTING.prenotate_inbound,
+  LEGENDA_SETTING.prenotate_outbound,
+]
 
 function hrefGiorno(data: string, oggi: string) {
   return data === oggi ? '/today' : `/today?data=${data}`
@@ -27,7 +47,7 @@ export default async function OggiPage({
   const { data: report, error } = await supabase
     .from('setter_daily_reports')
     .select(
-      'dm_outbound, dm_inbound, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, follow_up, contenuto_pubblicato, note, updated_at',
+      'dm_outbound, dm_inbound, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, follow_up, contenuto_pubblicato, note, updated_at, dm_totali',
     )
     .eq('setter_id', profilo.id)
     .eq('data', data)
@@ -86,7 +106,12 @@ export default async function OggiPage({
         oggi={oggi}
         iniziale={iniziale}
         salvatoAlle={report?.updated_at ?? null}
+        dmTotali={report ? report.dm_totali : 0}
       />
+
+      <div className="mt-6">
+        <LegendaSezione voci={VOCI_LEGENDA} />
+      </div>
     </div>
   )
 }

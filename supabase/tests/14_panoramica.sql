@@ -36,9 +36,9 @@ select is(
 
 select is(
   (select dm_totali from public.oggi_team()),
-  (select coalesce(sum(dm_outbound + dm_inbound), 0)::bigint
+  (select coalesce(sum(dm_outbound + dm_inbound + follow_up), 0)::bigint
    from public.setter_daily_reports where data = public.oggi()),
-  'oggi_team somma i DM dei report di oggi'
+  'oggi_team somma i DM dei report di oggi, follow up compresi'
 );
 
 select ok(

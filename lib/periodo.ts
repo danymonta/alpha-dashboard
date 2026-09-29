@@ -234,9 +234,10 @@ export function presetPeriodi(oggi: string = oggiRoma()): PresetPeriodo[] {
   const trimestre = `${anno}-${String(primoTrimestre).padStart(2, '0')}-01`
 
   return [
+    // "Oggi" first: the daily tracking is looked at day by day (Dany, 28/09/2026)
+    { chiave: 'oggi', etichetta: 'Oggi', da: oggi, a: oggi },
     { chiave: 'questo-mese', etichetta: 'Questo mese', da: questoMese, a: fineMese(questoMese) },
     { chiave: 'mese-scorso', etichetta: 'Mese scorso', da: meseScorso, a: fineMese(meseScorso) },
-    { chiave: 'ultimi-30', etichetta: 'Ultimi 30 giorni', da: aggiungiGiorni(oggi, -29), a: oggi },
     { chiave: 'ultimi-90', etichetta: 'Ultimi 90 giorni', da: aggiungiGiorni(oggi, -89), a: oggi },
     { chiave: 'trimestre', etichetta: 'Trimestre in corso', da: trimestre, a: fineMese(aggiungiMesi(trimestre, 2)) },
     { chiave: 'anno', etichetta: 'Anno in corso', da: `${anno}-01-01`, a: `${anno}-12-31` },

@@ -1,4 +1,5 @@
 import { formatData, formatEuro } from '@/lib/format'
+import { elencoNomi } from '@/lib/progetti'
 import type { NomeScrittura } from '@/lib/alfire/permessi'
 
 /**
@@ -10,16 +11,16 @@ export type Riassunto = { titolo: string; dettagli: string[] }
 
 type Input = Record<string, unknown>
 
+/** The setter's counters, in the form's order. No strategy: he books discovery calls only. */
 const ETICHETTA_CAMPO_REPORT: Record<string, string> = {
   dm_outbound: 'DM outbound',
   dm_inbound: 'DM inbound',
   conversazioni: 'conversazioni',
+  follow_up: 'follow up',
   call_proposte: 'call proposte',
   discovery_prenotate: 'discovery prenotate',
   discovery_svolte: 'discovery svolte',
   call_qualificate: 'call qualificate',
-  strategy_prenotate: 'strategy prenotate',
-  follow_up: 'follow-up',
 }
 
 function testo(v: unknown): string | null {
@@ -76,9 +77,11 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
       }
     }
     case 'fissa_call':
+      // the setter books discovery calls only: the tool always writes that type
       return {
-        titolo: `Fisso una call ${testo(input.tipo) ?? ''} con ${testo(input.nome) ?? 'il lead'}`.replace('  ', ' '),
+        titolo: `Fisso una call con ${testo(input.nome) ?? 'il lead'}`,
         dettagli: [
+          'Discovery call',
           `${giorno(input.data)} alle ${testo(input.ora) ?? '?'}`,
           testo(input.instagram_handle) && `Instagram ${input.instagram_handle}`,
           testo(input.fonte) && `Fonte: ${String(input.fonte).replace('_', ' ')}`,
@@ -95,11 +98,19 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
           testo(input.data_fine) && `Fine ${formatData(input.data_fine as string)}`,
         ].filter((d): d is string => Boolean(d)),
       }
-    case 'aggiungi_task':
+    case 'aggiungi_task': {
+      const persone = (Array.isArray(input.assegnatari) ? input.assegnatari : [])
+        .map((p) => testo(p))
+        .filter((p): p is string => Boolean(p))
+        .map((p) => (p.toLowerCase() === 'io' ? 'te' : p))
       return {
         titolo: `Aggiungo il task «${testo(input.titolo) ?? ''}»`,
-        dettagli: [`Progetto: ${testo(input.progetto) ?? '?'}`],
+        dettagli: [
+          `Progetto: ${testo(input.progetto) ?? '?'}`,
+          persone.length > 0 ? `Assegnato a: ${elencoNomi(persone)}` : 'Senza assegnatario',
+        ],
       }
+    }
     case 'completa_task':
       return {
         titolo: `${input.completato === false ? 'Riapro' : 'Segno come fatto'} il task «${testo(input.titolo) ?? ''}»`,

@@ -58,6 +58,7 @@ export function ModificaCall({
   closers,
   prodotti,
   conDettagli,
+  sceltaTipo = conDettagli,
   eliminabile = false,
 }: {
   call: CallModificabile
@@ -67,6 +68,12 @@ export function ModificaCall({
   prodotti: Voce[]
   /** Closer and admin: link, performance, product and amount pitched. */
   conDettagli: boolean
+  /**
+   * Closer and admin: discovery or strategy (the history has strategy calls).
+   * The setter books discovery calls only (Dany, 29/09/2026): no choice for
+   * him, the call keeps its type and the form sends it back unchanged.
+   */
+  sceltaTipo?: boolean
   /** Admin only. */
   eliminabile?: boolean
 }) {
@@ -122,7 +129,7 @@ export function ModificaCall({
       }
       contenutoTrigger={<Pencil className="size-4" aria-hidden="true" />}
       titolo={`Call con ${nomeLead}`}
-      descrizione="Data, ora, tipo e note si correggono quando vuoi. L’esito si registra dalla scheda."
+      descrizione={`${sceltaTipo ? 'Data, ora, tipo e note' : 'Data, ora e note'} si correggono quando vuoi. L’esito si registra dalla scheda.`}
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
@@ -137,7 +144,9 @@ export function ModificaCall({
         </div>
         <ErroreCampo id={`mc-quando-errore-${call.id}`} messaggio={errors.data?.message ?? errors.ora?.message} />
 
-        <SceltaRapida legenda="Tipo di call" opzioni={OPZIONI_TIPO} registrazione={register('tipo')} colonne={2} />
+        {sceltaTipo ? (
+          <SceltaRapida legenda="Tipo di call" opzioni={OPZIONI_TIPO} registrazione={register('tipo')} colonne={2} />
+        ) : null}
 
         {closers.length > 0 ? (
           <div className="space-y-1.5">

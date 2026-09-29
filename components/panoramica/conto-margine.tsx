@@ -1,5 +1,7 @@
+import { EtichettaConNota } from '@/components/metriche/nota'
 import { DeltaKpi } from '@/components/panoramica/tile-kpi'
 import { formatEuro } from '@/lib/format'
+import { LEGENDA_ECONOMICS, type VoceLegenda } from '@/lib/metriche/legenda'
 import { cn } from '@/lib/utils'
 
 type Importo = number | string | null | undefined
@@ -31,7 +33,9 @@ function Segno({ segno, parola }: { segno?: string; parola?: string }) {
 /**
  * The month's bottom line, spelled out: cash − commissions − costs.
  * Every amount comes from SQL (metriche_periodo, kpi_periodo): this only
- * lays them out, to the cent. Never gold: the gold number is the hero cash.
+ * lays them out, to the cent; the cash in whole euros, as in the hero tile
+ * next to it, so the two read as the same number. Never gold: the gold number
+ * is the hero cash.
  * Always "Margine operativo", never "utile": taxes are not included.
  */
 export function ContoMargine({
@@ -44,10 +48,17 @@ export function ContoMargine({
   titolo = 'Margine operativo del mese',
   className,
 }: Props) {
-  const voci: { etichetta: string; valore: Importo; segno?: string; parola?: string }[] = [
-    { etichetta: 'Cash incassato', valore: cash },
-    { etichetta: 'Provvigioni maturate', valore: provvigioni, segno: '−', parola: 'meno' },
-    { etichetta: 'Costi', valore: costi, segno: '−', parola: 'meno' },
+  const voci: {
+    etichetta: string | VoceLegenda
+    valore: Importo
+    compatto?: true
+    segno?: string
+    parola?: string
+  }[] = [
+    // with the cents, like the lines below: the subtraction adds up at a glance
+    { etichetta: LEGENDA_ECONOMICS.cash_incassato, valore: cash },
+    { etichetta: LEGENDA_ECONOMICS.provvigioni_maturate, valore: provvigioni, segno: '−', parola: 'meno' },
+    { etichetta: LEGENDA_ECONOMICS.costi, valore: costi, segno: '−', parola: 'meno' },
   ]
 
   return (
@@ -58,18 +69,21 @@ export function ContoMargine({
     >
       <dl>
         {voci.map((v) => (
-          <div key={v.etichetta} className="flex min-h-8 items-center justify-between gap-3">
+          <div
+            key={typeof v.etichetta === 'string' ? v.etichetta : v.etichetta.etichetta}
+            className="flex min-h-8 items-center justify-between gap-3"
+          >
             <dt className="flex items-baseline text-sm text-muted-foreground">
               <Segno segno={v.segno} parola={v.parola} />
-              {v.etichetta}
+              {typeof v.etichetta === 'string' ? v.etichetta : <EtichettaConNota voce={v.etichetta} />}
             </dt>
-            <dd className="num text-right text-sm font-medium">{formatEuro(v.valore)}</dd>
+            <dd className="num text-right text-sm font-medium">{formatEuro(v.valore, { compatto: v.compatto })}</dd>
           </div>
         ))}
         <div className="mt-2 grid grid-cols-[1fr_auto] items-baseline gap-x-3 border-t border-border pt-3">
           <dt className="flex items-baseline text-sm font-medium">
             <Segno segno="=" parola="uguale" />
-            <span>Margine operativo</span>
+            <EtichettaConNota voce={LEGENDA_ECONOMICS.margine_operativo} />
           </dt>
           <dd className="num text-right text-3xl font-semibold tracking-tight text-foreground">
             {formatEuro(margine)}

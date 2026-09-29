@@ -49,6 +49,8 @@ test('il setter sposta la call, il closer registra com’è andata, il setter no
   await accedi(setter, 'setter')
   await setter.goto('/calls')
   await setter.getByRole('button', { name: `Modifica la call con ${nome}` }).click()
+  // the setter books discovery calls only: no type to choose (Dany, 29/09/2026)
+  await expect(foglio(setter).getByRole('group', { name: 'Tipo di call' })).toHaveCount(0)
   await foglio(setter).getByLabel('Data').fill(tra2giorni)
   await foglio(setter).getByLabel('Ora').fill('18:30')
   await foglio(setter).getByRole('button', { name: 'Salva la call' }).click()
@@ -59,6 +61,7 @@ test('il setter sposta la call, il closer registra com’è andata, il setter no
   await accedi(closer, 'closer')
   await closer.goto('/calls')
   await closer.getByRole('button', { name: `Modifica la call con ${nome}` }).click()
+  await expect(foglio(closer).getByRole('group', { name: 'Tipo di call' })).toBeVisible()
   await foglio(closer).getByText('Buona', { exact: true }).click()
   await foglio(closer).getByLabel('Link alla registrazione').fill('https://fathom.video/share/e2e')
   await foglio(closer).getByLabel('Importo proposto').fill('1.500')
@@ -67,10 +70,11 @@ test('il setter sposta la call, il closer registra com’è andata, il setter no
 
   const { data: call } = await dbLocale()
     .from('calls')
-    .select('performance, link_registrazione, pitch:call_pitch(importo_proposto)')
+    .select('tipo, performance, link_registrazione, pitch:call_pitch(importo_proposto)')
     .eq('id', callId)
     .single()
-  expect(call).toMatchObject({ performance: 'buona', link_registrazione: 'https://fathom.video/share/e2e' })
+  // the type the setter never saw went back unchanged
+  expect(call).toMatchObject({ tipo: 'discovery', performance: 'buona', link_registrazione: 'https://fathom.video/share/e2e' })
   expect(Number((call?.pitch as { importo_proposto: number } | null)?.importo_proposto)).toBe(1500)
 
   // the setter can reschedule, but the amount is not even in the form
@@ -102,7 +106,7 @@ test('l’admin corregge un report del setter dalla pagina Setting', async ({ pa
     .getByRole('button', { name: `Correggi il report di Loris Setter del ${formatData(report!.data)}` })
     .filter({ visible: true })
     .click()
-  await foglio(page).getByLabel('Follow-up del giorno').fill(String(report!.follow_up + 7))
+  await foglio(page).getByLabel('Follow up', { exact: true }).fill(String(report!.follow_up + 7))
   await foglio(page).getByRole('button', { name: 'Salva la correzione' }).click()
   await expect(page.getByText('Report corretto')).toBeVisible()
 

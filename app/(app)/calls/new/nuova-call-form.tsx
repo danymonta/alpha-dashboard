@@ -14,13 +14,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { aggiungiGiorni, etichettaGiorno } from '@/lib/date'
+import { cn } from '@/lib/utils'
 import {
   ETICHETTA_FONTE,
   ETICHETTA_TIPO_CALL,
   FONTI,
   GIORNI_AVANTI_CALL,
   GIORNI_INDIETRO_CALL,
-  TIPI_CALL,
   nuovaCallSchema,
   type NuovaCall,
   type NuovaCallInput,
@@ -35,7 +35,22 @@ type Props = {
 }
 
 const OPZIONI_FONTE = FONTI.map((f) => ({ valore: f, etichetta: ETICHETTA_FONTE[f] }))
-const OPZIONI_TIPO = TIPI_CALL.map((t) => ({ valore: t, etichetta: ETICHETTA_TIPO_CALL[t] }))
+
+// One look for every option on this form: unselected ones are outlined, the
+// selected one is tinted with a bordeaux ring. The solid fill is only for
+// "Fissa la call", so the choice never reads as the button to press.
+const OPZIONE = 'h-11 font-normal border-border bg-transparent text-foreground hover:bg-accent'
+const OPZIONE_SCELTA = 'border-primary bg-primary/15 ring-1 ring-primary hover:bg-primary/15'
+
+// Same look on the radio groups (SceltaRapida): its labels are restyled from
+// here. Descendant selectors outrank the label's own classes, and the keyboard
+// focus ring stays on top of the selected option.
+const SCELTE = cn(
+  '[&_label]:border-border [&_label]:bg-transparent',
+  '[&_label:has(:checked)]:border-primary [&_label:has(:checked)]:bg-primary/15 [&_label:has(:checked)]:text-foreground',
+  '[&_label:has(:checked)]:ring-1 [&_label:has(:checked)]:ring-primary',
+  '[&_label:has(:checked:focus-visible)]:ring-3 [&_label:has(:checked:focus-visible)]:ring-ring/50',
+)
 
 export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
   const router = useRouter()
@@ -53,7 +68,11 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
     defaultValues: {
       nome: '',
       instagram_handle: '',
-      fonte: 'dm_inbound',
+      // fonte has no default: the bookings by source (prenotate da inbound e da
+      // outbound) are counted from it, so the setter always picks it.
+
+      // The setter books discovery calls only: strategy calls are not done with
+      // leads (Dany, 29/09/2026). Not a choice on screen, the server still checks it.
       tipo: 'discovery',
       data: oggi,
       ora: '',
@@ -84,7 +103,7 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
     }
 
     toast.success(
-      `${ETICHETTA_TIPO_CALL[valori.tipo]} con ${valori.nome}: ${etichettaGiorno(valori.data, oggi).toLowerCase()} alle ${valori.ora}`,
+      `${ETICHETTA_TIPO_CALL[valori.tipo]} call con ${valori.nome}: ${etichettaGiorno(valori.data, oggi).toLowerCase()} alle ${valori.ora}`,
       {
         description: esito.leadEsistente
           ? 'Lead già presente: la call si aggiunge al suo storico.'
@@ -143,20 +162,15 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
         </div>
       </div>
 
-      <SceltaRapida
-        legenda="Fonte"
-        opzioni={OPZIONI_FONTE}
-        registrazione={register('fonte')}
-        errore={errors.fonte?.message}
-      />
-
-      <SceltaRapida
-        legenda="Tipo di call"
-        opzioni={OPZIONI_TIPO}
-        registrazione={register('tipo')}
-        errore={errors.tipo?.message}
-        colonne={2}
-      />
+      <div className={SCELTE}>
+        <SceltaRapida
+          legenda="Fonte"
+          opzioni={OPZIONI_FONTE}
+          registrazione={register('fonte')}
+          errore={errors.fonte?.message}
+          aiuto="Scegli da dove arriva il lead: serve a contare le call prenotate da inbound e da outbound."
+        />
+      </div>
 
       <fieldset className="space-y-2">
         <legend className="mb-2 text-sm font-medium">Quando</legend>
@@ -168,9 +182,9 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
             <Button
               key={etichetta}
               type="button"
-              variant={dataScelta === valore ? 'default' : 'secondary'}
+              variant="outline"
               aria-pressed={dataScelta === valore}
-              className="h-11"
+              className={cn(OPZIONE, dataScelta === valore && OPZIONE_SCELTA)}
               onClick={() => setValue('data', valore, { shouldValidate: true })}
             >
               {etichetta}
@@ -208,13 +222,15 @@ export function NuovaCallForm({ oggi, closers, closerPredefinito }: Props) {
         <ErroreCampo id="data-errore" messaggio={errors.data?.message ?? errors.ora?.message} />
       </fieldset>
 
-      <SceltaRapida
-        legenda="Closer"
-        opzioni={closers.map((c) => ({ valore: c.id, etichetta: c.nome }))}
-        registrazione={register('closer_id')}
-        errore={errors.closer_id?.message}
-        colonne={2}
-      />
+      <div className={SCELTE}>
+        <SceltaRapida
+          legenda="Closer"
+          opzioni={closers.map((c) => ({ valore: c.id, etichetta: c.nome }))}
+          registrazione={register('closer_id')}
+          errore={errors.closer_id?.message}
+          colonne={2}
+        />
+      </div>
 
       {erroreServer ? (
         <p

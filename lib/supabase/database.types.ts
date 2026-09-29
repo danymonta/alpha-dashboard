@@ -480,22 +480,16 @@ isOneToOne: false
                   ]
                 },"pm_task": {
                   Row: {
-                    "assegnatario_id": string | null,"completato_il": string | null,"created_at": string,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"ordine": number,"parent_id": string | null,"priorita": Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza": string | null,"stato": Database["public"]['Enums']["pm_stato_task"],"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string,"updated_at": string
+                    "completato_il": string | null,"created_at": string,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"ordine": number,"parent_id": string | null,"priorita": Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza": string | null,"stato": Database["public"]['Enums']["pm_stato_task"],"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string,"updated_at": string
                   }
                   Insert: {
-                    "assegnatario_id"?: string | null,"completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo": string,"updated_at"?: string
+                    "completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo": string,"updated_at"?: string
                   }
                   Update: {
-                    "assegnatario_id"?: string | null,"completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id"?: string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo"?: string,"updated_at"?: string
+                    "completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id"?: string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
-      foreignKeyName: "pm_task_assegnatario_id_fkey"
-      columns: ["assegnatario_id"]
-isOneToOne: false
-      referencedRelation: "profiles"
-      referencedColumns: ["id"]
-    },{
       foreignKeyName: "pm_task_created_by_fkey"
       columns: ["created_by"]
 isOneToOne: false
@@ -536,6 +530,43 @@ isOneToOne: false
       columns: ["tasklist_id"]
 isOneToOne: false
       referencedRelation: "v_pm_tasklist"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pm_task_assegnatari": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"profile_id": string,"task_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"profile_id": string,"task_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"profile_id"?: string,"task_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pm_task_assegnatari_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_assegnatari_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_assegnatari_task_id_fkey"
+      columns: ["task_id"]
+isOneToOne: false
+      referencedRelation: "pm_task"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_assegnatari_task_id_fkey"
+      columns: ["task_id"]
+isOneToOne: false
+      referencedRelation: "v_pm_task"
       referencedColumns: ["id"]
     }
                   ]
@@ -708,13 +739,13 @@ isOneToOne: false
                   ]
                 },"setter_daily_reports": {
                   Row: {
-                    "call_proposte": number,"call_qualificate": number,"contenuto_pubblicato": boolean,"conversazioni": number,"created_at": string,"created_by": string | null,"data": string,"discovery_prenotate": number,"discovery_svolte": number,"dm_inbound": number,"dm_outbound": number,"follow_up": number,"id": string,"note": string | null,"setter_id": string,"strategy_prenotate": number,"updated_at": string
+                    "call_proposte": number,"call_qualificate": number,"contenuto_pubblicato": boolean,"conversazioni": number,"created_at": string,"created_by": string | null,"data": string,"discovery_prenotate": number,"discovery_svolte": number,"dm_inbound": number,"dm_outbound": number,"dm_totali": number | null,"follow_up": number,"id": string,"note": string | null,"setter_id": string,"strategy_prenotate": number,"updated_at": string
                   }
                   Insert: {
-                    "call_proposte"?: number,"call_qualificate"?: number,"contenuto_pubblicato"?: boolean,"conversazioni"?: number,"created_at"?: string,"created_by"?: string | null,"data": string,"discovery_prenotate"?: number,"discovery_svolte"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"follow_up"?: number,"id"?: string,"note"?: string | null,"setter_id": string,"strategy_prenotate"?: number,"updated_at"?: string
+                    "call_proposte"?: number,"call_qualificate"?: number,"contenuto_pubblicato"?: boolean,"conversazioni"?: number,"created_at"?: string,"created_by"?: string | null,"data": string,"discovery_prenotate"?: number,"discovery_svolte"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"dm_totali"?: never,"follow_up"?: number,"id"?: string,"note"?: string | null,"setter_id": string,"strategy_prenotate"?: number,"updated_at"?: string
                   }
                   Update: {
-                    "call_proposte"?: number,"call_qualificate"?: number,"contenuto_pubblicato"?: boolean,"conversazioni"?: number,"created_at"?: string,"created_by"?: string | null,"data"?: string,"discovery_prenotate"?: number,"discovery_svolte"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"follow_up"?: number,"id"?: string,"note"?: string | null,"setter_id"?: string,"strategy_prenotate"?: number,"updated_at"?: string
+                    "call_proposte"?: number,"call_qualificate"?: number,"contenuto_pubblicato"?: boolean,"conversazioni"?: number,"created_at"?: string,"created_by"?: string | null,"data"?: string,"discovery_prenotate"?: number,"discovery_svolte"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"dm_totali"?: never,"follow_up"?: number,"id"?: string,"note"?: string | null,"setter_id"?: string,"strategy_prenotate"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -799,16 +830,10 @@ isOneToOne: false
                   ]
                 },"v_pm_task": {
                   Row: {
-                    "assegnatario_id": string | null,"completato_il": string | null,"created_at": string | null,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"in_ritardo": boolean | null,"ordine": number | null,"parent_id": string | null,"priorita": Database["public"]['Enums']["pm_priorita"] | null,"progetto_id": string | null,"scadenza": string | null,"sotto_task_completati": number | null,"sotto_task_totali": number | null,"stato": Database["public"]['Enums']["pm_stato_task"] | null,"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string | null,"updated_at": string | null
+                    "assegnatari": (string)[] | null,"completato_il": string | null,"created_at": string | null,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"in_ritardo": boolean | null,"ordine": number | null,"parent_id": string | null,"priorita": Database["public"]['Enums']["pm_priorita"] | null,"progetto_id": string | null,"scadenza": string | null,"sotto_task_completati": number | null,"sotto_task_totali": number | null,"stato": Database["public"]['Enums']["pm_stato_task"] | null,"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string | null,"updated_at": string | null
                   }
                   Relationships: [
                     {
-      foreignKeyName: "pm_task_assegnatario_id_fkey"
-      columns: ["assegnatario_id"]
-isOneToOne: false
-      referencedRelation: "profiles"
-      referencedColumns: ["id"]
-    },{
       foreignKeyName: "pm_task_created_by_fkey"
       columns: ["created_by"]
 isOneToOne: false
@@ -1077,6 +1102,16 @@ isOneToOne: false
               "fase": string,"ordine": number,"passaggio": number,"valore": number
             }[]
                            },
+"giornate_closer":
+{ Args: { "p_a": string,"p_closer"?: string,"p_da": string }; Returns: {
+              "call": number,"cancellate": number,"cash": number,"chiuse": number,"close_rate": number,"data": string,"follow_up": number,"no_show": number,"qualificate": number,"revenue": number,"show_rate": number
+            }[]
+                           },
+"giornate_setter":
+{ Args: { "p_a": string,"p_da": string,"p_setter"?: string }; Returns: {
+              "call_proposte": number,"call_qualificate": number,"cash": number,"closer_call": number,"closer_cancellate": number,"closer_chiuse": number,"closer_follow_up": number,"closer_no_show": number,"closer_qualificate": number,"conversazioni": number,"data": string,"discovery_prenotate": number,"discovery_svolte": number,"dm_inbound": number,"dm_outbound": number,"dm_totali": number,"follow_up": number,"prenotate_inbound": number,"prenotate_outbound": number,"revenue": number,"strategy_prenotate": number
+            }[]
+                           },
 "inserisci_piano":
 { Args: { "p_rate": Json,"p_sale_id": string }; Returns: undefined
                            },
@@ -1118,7 +1153,7 @@ isOneToOne: false
                            },
 "metriche_setting":
 { Args: { "p_a": string,"p_da": string }; Returns: {
-              "call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_per_call": number,"dm_totali": number,"giorni_compilati": number,"no_show": number,"nome": string,"setter_id": string,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
+              "call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_inbound": number,"dm_outbound": number,"dm_per_call": number,"dm_totali": number,"follow_up": number,"giorni_compilati": number,"no_show": number,"nome": string,"prenotate_inbound": number,"prenotate_outbound": number,"setter_id": string,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
             }[]
                            },
 "mia_foto_google":
@@ -1126,7 +1161,7 @@ isOneToOne: false
                            },
 "mie_vendite_setter":
 { Args: Record<PropertyKey, never>; Returns: {
-              "cliente": string,"data_vendita": string,"importo_incassato": number,"importo_previsto": number,"in_ritardo": boolean,"incassato_il": string,"incassato_vendita": number,"numero_rata": number,"numero_rate": number,"percentuale": number,"prodotto": string,"provvigione": number,"provvigione_vendita": number,"rate_in_ritardo": number,"rate_incassate": number,"sale_id": string,"scadenza": string,"stato": Database["public"]['Enums']["payment_status"],"tipo": Database["public"]['Enums']["sale_type"],"valore_contratto": number
+              "cliente": string,"data_vendita": string,"importo_incassato": number,"importo_previsto": number,"in_ritardo": boolean,"incassato_il": string,"incassato_vendita": number,"numero_rata": number,"numero_rate": number,"percentuale": number,"prodotto": string,"provvigione": number,"provvigione_prevista": boolean,"provvigione_vendita": number,"rate_in_ritardo": number,"rate_incassate": number,"sale_id": string,"scadenza": string,"stato": Database["public"]['Enums']["payment_status"],"tipo": Database["public"]['Enums']["sale_type"],"valore_contratto": number
             }[]
                            },
 "miei_clienti":
@@ -1136,12 +1171,12 @@ isOneToOne: false
                            },
 "miei_numeri":
 { Args: { "p_mese": string }; Returns: {
-              "call_fissate": number,"call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_per_call": number,"dm_totali": number,"giorni_compilati": number,"no_show": number,"provvigioni_maturate": number,"provvigioni_pagate": number,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
+              "call_fissate": number,"call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_inbound": number,"dm_outbound": number,"dm_per_call": number,"dm_totali": number,"follow_up": number,"giorni_compilati": number,"no_show": number,"prenotate_inbound": number,"prenotate_outbound": number,"provvigioni_maturate": number,"provvigioni_pagate": number,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
             }[]
                            },
 "miei_numeri_periodo":
 { Args: { "p_a": string,"p_da": string }; Returns: {
-              "call_fissate": number,"call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_per_call": number,"dm_totali": number,"giorni_compilati": number,"no_show": number,"provvigioni_maturate": number,"provvigioni_pagate": number,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
+              "call_fissate": number,"call_prenotate": number,"call_proposte": number,"call_svolte": number,"chiuse": number,"close_rate": number,"conversazioni": number,"dm_inbound": number,"dm_outbound": number,"dm_per_call": number,"dm_totali": number,"follow_up": number,"giorni_compilati": number,"no_show": number,"prenotate_inbound": number,"prenotate_outbound": number,"provvigioni_maturate": number,"provvigioni_pagate": number,"show_rate": number,"tasso_conversazione": number,"tasso_prenotazione": number
             }[]
                            },
 "modifica_call":
@@ -1168,6 +1203,9 @@ isOneToOne: false
               "importo": number,"numero_rata": number,"scadenza": string
             }[]
                            },
+"pm_assegnato":
+{ Args: { "p_task": string }; Returns: boolean
+                           },
 "pm_avvia_timer":
 { Args: { "p_nota"?: string,"p_progetto_id": string,"p_task_id"?: string }; Returns: string
                            },
@@ -1176,6 +1214,9 @@ isOneToOne: false
                            },
 "pm_ferma_timer":
 { Args: { "p_nota"?: string }; Returns: string
+                           },
+"pm_imposta_assegnatari":
+{ Args: { "p_persone": (string)[],"p_task": string }; Returns: undefined
                            },
 "pm_livello_corrente":
 { Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["pm_livello"]
@@ -1190,6 +1231,9 @@ isOneToOne: false
                            },
 "pm_puo_gestire":
 { Args: { "p_progetto": string }; Returns: boolean
+                           },
+"pm_puo_modificare_task":
+{ Args: { "p_task": string }; Returns: boolean
                            },
 "pm_puo_vedere":
 { Args: { "p_progetto": string }; Returns: boolean

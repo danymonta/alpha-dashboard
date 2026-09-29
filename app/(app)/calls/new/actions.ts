@@ -40,7 +40,8 @@ export async function fissaCall(input: unknown): Promise<EsitoNuovaCall> {
     .rpc('fissa_call', {
       p_nome: v.nome,
       p_fonte: v.fonte,
-      p_tipo: v.tipo,
+      // the setter books discovery calls only: strategy calls are not done with leads
+      p_tipo: 'discovery',
       p_data: v.data,
       p_ora: v.ora,
       p_closer_id: v.closer_id,

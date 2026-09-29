@@ -1,11 +1,14 @@
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { EtichettaConNota } from '@/components/metriche/nota'
 import { formatDelta } from '@/lib/format'
+import type { VoceLegenda } from '@/lib/metriche/legenda'
 import { cn } from '@/lib/utils'
 
 type Props = {
-  etichetta: string
+  /** A legend entry (lib/metriche/legenda): the label gets its "i". */
+  etichetta: string | VoceLegenda
   valore: string
   /** relative change from SQL (kpi_periodo.delta); null = no comparison */
   delta: number | null
@@ -48,11 +51,13 @@ export function DeltaKpi({
   )
 }
 
-/** KPI tile: label, value, delta. */
+/** KPI tile: label (with what it counts), value, delta. */
 export function TileKpi({ etichetta, valore, delta, confronto, hero = false, className, children }: Props) {
   return (
     <div className={cn('rounded-xl bg-card p-4', hero && 'md:p-5', className)} data-tour={hero ? 'kpi-cash' : undefined}>
-      <p className="text-sm text-muted-foreground">{etichetta}</p>
+      <p className="text-sm text-muted-foreground">
+        {typeof etichetta === 'string' ? etichetta : <EtichettaConNota voce={etichetta} />}
+      </p>
       <p
         className={cn(
           'mt-1 font-semibold tracking-tight',

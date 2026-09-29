@@ -38,7 +38,7 @@ describe('registro modifiche', () => {
       { campo: 'percentuale', prima: '5%', dopo: '7%' },
     ])
     expect(differenze(null, { periodo: '2026-09-01' })[0].dopo).toBe('settembre 2026')
-    expect(differenze({ ruolo: 'setter' }, { ruolo: 'admin' })[0]).toEqual({ campo: 'ruolo', prima: 'Setter', dopo: 'Admin' })
+    expect(differenze({ ruolo: 'setter' }, { ruolo: 'admin' })[0]).toEqual({ campo: 'ruolo', prima: 'Setter', dopo: 'Admin · Closer' })
   })
 
   it('ordina i campi in modo stabile, non secondo le chiavi del JSON', () => {

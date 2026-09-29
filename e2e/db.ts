@@ -155,14 +155,35 @@ export async function creaProgettoDiProva(
   return { progettoId: progetto.id as string, listaId: lista.id as string }
 }
 
-export async function creaTaskDiProva(progettoId: string, listaId: string, titolo: string, assegnatario: string | null) {
-  const { data, error } = await dbLocale()
+/** A task of a test project, assigned to nobody, one person or several (members of the project). */
+export async function creaTaskDiProva(
+  progettoId: string,
+  listaId: string,
+  titolo: string,
+  assegnatari: string | readonly string[] | null,
+) {
+  const db = dbLocale()
+  const { data, error } = await db
     .from('pm_task')
-    .insert({ progetto_id: progettoId, tasklist_id: listaId, titolo, assegnatario_id: assegnatario, created_by: ID_ADMIN })
+    .insert({ progetto_id: progettoId, tasklist_id: listaId, titolo, created_by: ID_ADMIN })
     .select('id')
     .single()
   if (error) throw error
+  const persone = assegnatari === null ? [] : typeof assegnatari === 'string' ? [assegnatari] : assegnatari
+  if (persone.length > 0) {
+    const { error: e2 } = await db
+      .from('pm_task_assegnatari')
+      .insert(persone.map((profile_id) => ({ task_id: data.id, profile_id, created_by: ID_ADMIN })))
+    if (e2) throw e2
+  }
   return data.id as string
+}
+
+/** Who a task is assigned to, straight from the database, ids sorted. */
+export async function assegnatariDelTask(taskId: string): Promise<string[]> {
+  const { data, error } = await dbLocale().from('pm_task_assegnatari').select('profile_id').eq('task_id', taskId)
+  if (error) throw error
+  return data.map((r) => r.profile_id).sort()
 }
 
 /** Projects of a test go away with their lists, tasks and members (on delete cascade). */

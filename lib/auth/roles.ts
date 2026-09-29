@@ -44,7 +44,8 @@ export function percorsoIniziale(ruolo: AppRole): string {
 }
 
 export const ETICHETTA_RUOLO: Record<AppRole, string> = {
-  admin: 'Admin',
+  // Dany runs the business and closes the calls himself (28/09/2026)
+  admin: 'Admin · Closer',
   setter: 'Setter',
   closer: 'Closer',
   coach: 'Coach',

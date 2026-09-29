@@ -1,0 +1,240 @@
+/**
+ * What every tracked number means, in one place (Dany, 28/09/2026: "DM totali
+ * non si capisce cosa è"). The report form, the Setting and Closer tabs, "I
+ * miei numeri" and the overview all explain a number with these words, so the
+ * same label always means the same thing. The formulas are the ones computed
+ * in SQL (CLAUDE.md section 9): change them there first, then here.
+ */
+export type VoceLegenda = { etichetta: string; spiegazione: string }
+
+export const LEGENDA_SETTING = {
+  dm_outbound: {
+    etichetta: 'DM outbound',
+    spiegazione:
+      'Persone nuove a cui hai scritto tu per primo. Si contano una volta sola, il giorno del primo messaggio: se rispondono nei giorni dopo è una conversazione.',
+  },
+  dm_inbound: {
+    etichetta: 'DM inbound',
+    spiegazione:
+      'Persone nuove che ti hanno scritto per chiedere informazioni sul percorso e a cui hai risposto. Si contano una volta sola, il primo giorno.',
+  },
+  conversazioni: {
+    etichetta: 'Conversazioni',
+    spiegazione:
+      'Conversazioni attive: la persona ti ha risposto e tu le hai risposto di nuovo. Se risponde il giorno dopo, è una conversazione di quel giorno. Non entrano nei DM totali.',
+  },
+  follow_up: {
+    etichetta: 'Follow up',
+    spiegazione: 'Messaggi di sollecito a chi non ti ha ancora risposto (per esempio un «?»). Non si dividono in inbound e outbound.',
+  },
+  dm_totali: {
+    etichetta: 'DM totali',
+    spiegazione: 'DM inbound + DM outbound + follow up: le persone a cui hai scritto. Le conversazioni non contano.',
+  },
+  call_proposte: {
+    etichetta: 'Call proposte',
+    spiegazione: 'Persone a cui hai proposto una call.',
+  },
+  discovery_prenotate: {
+    etichetta: 'Discovery prenotate',
+    spiegazione:
+      'Discovery call fissate nel giorno (o nel periodo scelto): sono le call che fissa il setter (con i lead non si fanno strategy call).',
+  },
+  strategy_storico: {
+    etichetta: 'Strategy (storico)',
+    spiegazione:
+      'Strategy call scritte nei report dei giorni passati, già comprese in «Call prenotate». Oggi il setter fissa solo discovery call: compaiono solo nei periodi che ne hanno.',
+  },
+  call_prenotate: {
+    etichetta: 'Call prenotate',
+    spiegazione: 'Le discovery call fissate nel periodo, dal report. Nei giorni passati comprendono anche le strategy call dello storico, indicate a parte quando ci sono: oggi il setter fissa solo discovery.',
+  },
+  prenotate_inbound: {
+    etichetta: 'Prenotate da DM inbound',
+    spiegazione: 'Call fissate nel giorno (o nel periodo scelto) con lead di fonte «DM inbound». Si leggono dalle call in agenda: referral, ads e organico non entrano.',
+  },
+  prenotate_outbound: {
+    etichetta: 'Prenotate da DM outbound',
+    spiegazione: 'Call fissate nel giorno (o nel periodo scelto) con lead di fonte «DM outbound». Si leggono dalle call in agenda: referral, ads e organico non entrano.',
+  },
+  discovery_svolte: {
+    etichetta: 'Discovery svolte',
+    spiegazione: 'Discovery call che si sono tenute nel giorno (o nel periodo scelto).',
+  },
+  call_qualificate: {
+    etichetta: 'Call qualificate',
+    spiegazione: 'Call con persone in target, secondo il setter.',
+  },
+  contenuto_pubblicato: {
+    etichetta: 'Contenuto pubblicato',
+    spiegazione: 'Se quel giorno è uscito un contenuto sul profilo.',
+  },
+  tasso_conversazione: {
+    etichetta: 'Tasso di conversazione',
+    spiegazione: 'Conversazioni ÷ DM totali.',
+  },
+  tasso_prenotazione: {
+    etichetta: 'Tasso di prenotazione',
+    spiegazione: 'Call prenotate ÷ call proposte.',
+  },
+  dm_per_call: {
+    etichetta: 'DM per call prenotata',
+    spiegazione:
+      'DM totali (inbound + outbound + follow up) ÷ call prenotate: quanti messaggi servono per fissare una call.',
+  },
+  // the overview's "per DM" ratios divide by the same DM totali
+  cash_per_dm: {
+    etichetta: 'Cash per DM',
+    spiegazione: 'Cash incassato ÷ DM totali (inbound + outbound + follow up).',
+  },
+  revenue_per_dm: {
+    etichetta: 'Revenue per DM',
+    spiegazione: 'Revenue firmata ÷ DM totali (inbound + outbound + follow up).',
+  },
+} satisfies Record<string, VoceLegenda>
+
+export const LEGENDA_CLOSER = {
+  call: {
+    etichetta: 'Call svolte',
+    spiegazione: 'Call che si sono tenute, con l’esito registrato in «Le mie call». Si contano nel giorno della call.',
+  },
+  qualificate: {
+    etichetta: 'Qualificate',
+    spiegazione: 'Call svolte con una persona in target. Una call chiusa è sempre qualificata.',
+  },
+  no_show: {
+    etichetta: 'No show',
+    spiegazione: 'Call fissate a cui la persona non si è presentata.',
+  },
+  follow_up: {
+    etichetta: 'Follow up (esito call)',
+    spiegazione: 'Call svolte con esito «Follow-up»: la decisione è rimandata, si ricontatta. Non sono i follow up in DM del setter.',
+  },
+  cancellate: {
+    etichetta: 'Cancellate',
+    spiegazione: 'Call annullate prima di tenersi.',
+  },
+  chiuse: {
+    etichetta: 'Chiuse',
+    spiegazione: 'Call con esito «Chiusa»: è nata una vendita.',
+  },
+  cash: {
+    etichetta: 'Cash',
+    spiegazione: 'Soldi incassati quel giorno sulle vendite del closer, al netto dei rimborsi.',
+  },
+  revenue: {
+    etichetta: 'Revenue',
+    spiegazione: 'Valore dei contratti firmati quel giorno.',
+  },
+  show_rate: {
+    etichetta: 'Show rate',
+    spiegazione: 'Call svolte ÷ (svolte + no show). Cancellate e riprogrammate non contano.',
+  },
+  close_rate: {
+    etichetta: 'Close rate',
+    spiegazione: 'Chiuse ÷ call svolte.',
+  },
+  close_rate_qualificate: {
+    etichetta: 'Close rate su qualificate',
+    spiegazione: 'Chiuse ÷ call svolte qualificate.',
+  },
+} satisfies Record<string, VoceLegenda>
+
+/**
+ * "I miei numeri": the calls the setter booked as the closer saw them, and the
+ * money of the clients he brought. The closer's numbers that share a name with
+ * a setting one say "(closer)": both halves sit in the same table.
+ */
+export const LEGENDA_SETTER = {
+  call_fissate: {
+    etichetta: 'In agenda nel periodo',
+    spiegazione: 'Call che hai fissato con la data della call nel periodo, qualunque sia l’esito.',
+  },
+  closer_qualificate: {
+    etichetta: 'Qualificate (closer)',
+    spiegazione: 'Call svolte con persona in target, secondo il closer. Una call chiusa è sempre qualificata.',
+  },
+  closer_follow_up: {
+    etichetta: 'Follow up (closer)',
+    spiegazione: 'Call svolte con esito «Follow-up»: la decisione è rimandata, il closer ricontatta. Non sono i tuoi follow up in DM.',
+  },
+  cash_miei_clienti: {
+    etichetta: 'Cash',
+    spiegazione: 'Soldi incassati nel giorno (o nel periodo scelto) dai clienti che hai portato tu, al netto dei rimborsi.',
+  },
+  revenue_miei_clienti: {
+    etichetta: 'Revenue',
+    spiegazione: 'Valore dei contratti firmati nel giorno (o nel periodo scelto) dai clienti che hai portato tu.',
+  },
+} satisfies Record<string, VoceLegenda>
+
+export type ChiaveSetting = keyof typeof LEGENDA_SETTING
+export type ChiaveCloser = keyof typeof LEGENDA_CLOSER
+
+/** The overview's economics and the team's day (CLAUDE.md section 9). */
+export const LEGENDA_ECONOMICS = {
+  cash_incassato: {
+    etichetta: 'Cash incassato',
+    spiegazione: 'Soldi entrati nel periodo, per data d’incasso, al netto dei rimborsi.',
+  },
+  revenue_firmata: {
+    etichetta: 'Revenue firmata',
+    spiegazione: 'Valore dei contratti firmati nel periodo, per data di vendita.',
+  },
+  nuovi_clienti: {
+    etichetta: 'Nuovi clienti',
+    spiegazione: 'Vendite di tipo «nuovo» firmate nel periodo.',
+  },
+  rinnovi: {
+    etichetta: 'Rinnovi',
+    spiegazione: 'Vendite di tipo «rinnovo» firmate nel periodo.',
+  },
+  margine_operativo: {
+    etichetta: 'Margine operativo',
+    spiegazione: 'Cash incassato − provvigioni maturate − costi del periodo. Le tasse non sono incluse.',
+  },
+  valore_medio_vendita: {
+    etichetta: 'Valore medio vendita',
+    spiegazione: 'Revenue firmata ÷ numero di vendite del periodo.',
+  },
+  cash_per_call_svolta: {
+    etichetta: 'Cash per call svolta',
+    spiegazione: 'Cash delle vendite nuove ÷ call svolte.',
+  },
+  tasso_rinnovo: {
+    etichetta: 'Tasso di rinnovo',
+    spiegazione: 'Clienti con il percorso in scadenza nel periodo che hanno rinnovato entro 30 giorni ÷ clienti in scadenza.',
+  },
+  call_da_fare: {
+    etichetta: 'Call da fare',
+    spiegazione: 'Call in agenda oggi di cui non è ancora stato registrato l’esito.',
+  },
+  cash_oggi: {
+    etichetta: 'Cash oggi',
+    spiegazione: 'Soldi incassati oggi, al netto dei rimborsi.',
+  },
+  tasso_qualificazione: {
+    etichetta: 'Tasso di qualificazione',
+    spiegazione: 'Call qualificate ÷ call svolte.',
+  },
+  provvigioni_maturate: {
+    etichetta: 'Provvigioni maturate',
+    spiegazione: 'Quanto spetta ai setter sugli incassi del periodo, secondo le loro regole provvigionali.',
+  },
+  costi: {
+    etichetta: 'Costi',
+    spiegazione: 'Spese registrate in «Costi» con data nel periodo.',
+  },
+  in_ritardo: {
+    etichetta: 'In ritardo',
+    spiegazione: 'Rate ancora da incassare con la scadenza già passata.',
+  },
+  prossimi_30: {
+    etichetta: 'Entro 30 giorni',
+    spiegazione: 'Rate da incassare che scadono da oggi ai prossimi 30 giorni.',
+  },
+  oltre_30: {
+    etichetta: 'Oltre',
+    spiegazione: 'Rate da incassare che scadono tra più di 30 giorni.',
+  },
+} satisfies Record<string, VoceLegenda>

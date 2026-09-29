@@ -92,10 +92,13 @@ In Economics contano `admin`, `setter`, `closer`. Tutti i ruoli hanno l'area Pro
 | Clienti | tutti | nome e stato dei clienti nati da suoi lead, niente contatti | clienti nati da sue call |
 | Vendite e rate | tutte | solo quelle dove è il setter: cliente, revenue, rate e incassi, in sola lettura | solo le vendite chiuse da lui |
 | Provvigioni | tutte | il proprio totale mensile maturato e pagato, e la provvigione di ogni incasso delle sue vendite | nessuna |
+| Giornata del closer (call, qualificate, no show, follow up, cancellate, chiuse, cash, revenue) | tutte (`giornate_closer`) | solo gli esiti delle call fissate da lui, e cash e revenue dei clienti che ha portato lui (`giornate_setter`) | la propria (`giornate_closer`) |
 | Costi, margine, compensi | tutto | nessuno | nessuno |
 | Gestione utenti, prodotti, impostazioni | tutto | nessuno | nessuno |
 
 Requisito duro: un collaboratore non vede mai quanto paga un singolo cliente, il compenso di un altro collaboratore, i costi o il margine. Unica eccezione (Dany, 27/09/2026): il setter vede quanto hanno pagato i clienti che ha portato lui (vendite con il suo `setter_id`), in quante rate, la revenue e la provvigione di ogni incasso, così sa quanto gli spetta; mai contatti, metodo o note, mai le vendite di altri. Passa solo dalla RPC `mie_vendite_setter()` (`security definer`, filtrata su `auth.uid()`): il setter non ha policy su `sales` e `payments`.
+
+**Dany è admin e closer** (28/09/2026): ha il ruolo `admin` (etichetta "Admin · Closer"), è il closer predefinito delle call e la scheda Closer mostra i suoi numeri. Il ruolo `closer` resta per un closer assunto in futuro, che vede solo i propri.
 
 Regole di implementazione:
 - I dati sensibili stanno in **tabelle separate**, non in colonne nascoste: RLS lavora per riga, non per colonna. Esempio: la percentuale provvigionale sta in `commission_rules`, non in `profiles`.
@@ -136,7 +139,8 @@ setter_daily_reports
   dm_outbound int, dm_inbound int, conversazioni int,
   call_proposte int, discovery_prenotate int, discovery_svolte int,
   call_qualificate int, strategy_prenotate int, follow_up int,
-  contenuto_pubblicato bool, note text
+  contenuto_pubblicato bool, note text,
+  dm_totali int generated always as (dm_outbound + dm_inbound + follow_up) stored
   unique (setter_id, data); tutti gli interi >= 0, default 0
 
 leads
@@ -245,10 +249,15 @@ Trigger su `sales`, `payments`, `commission_rules`, `commission_payouts`, `expen
 
 Tutte le metriche si calcolano in SQL (view `security_invoker` o funzioni RPC), mai sommando importi in JavaScript. Ogni metrica ha un test Vitest o pgTAP con dati noti. Denominatore zero: mostra "-", mai `NaN` o `Infinity`.
 
-**Setting** (da `setter_daily_reports`, periodo selezionato)
-- DM totali = `dm_outbound + dm_inbound`
+**Setting** (da `setter_daily_reports`, periodo selezionato; definizioni di Dany del 28/09/2026, spiegate nell'app da `lib/metriche/legenda.ts`)
+- DM outbound = persone nuove a cui scriviamo noi per primi, contate una volta, il giorno del primo messaggio
+- DM inbound = persone nuove che chiedono informazioni e a cui rispondiamo, contate una volta, il primo giorno
+- Conversazioni = conversazioni attive (hanno risposto e abbiamo risposto di nuovo; una risposta il giorno dopo è una conversazione di quel giorno). Non entrano nei DM totali
+- Follow up = solleciti a chi non risponde, senza divisione inbound/outbound
+- DM totali = `dm_outbound + dm_inbound + follow_up`
 - Tasso di conversazione = `conversazioni / DM totali`
-- Call prenotate = `discovery_prenotate + strategy_prenotate`
+- Call prenotate = `discovery_prenotate + strategy_prenotate`. Il setter fissa solo discovery call: con i lead non si fanno strategy call, il campo resta per lo storico e non si chiede più
+- Prenotate da inbound / da outbound = call fissate dal setter nel giorno (per `calls.created_at`) con lead di fonte `dm_inbound` / `dm_outbound`: si leggono dalle call, non si compilano
 - Tasso di prenotazione = `call prenotate / call_proposte`
 - DM per call prenotata = `DM totali / call prenotate`
 
@@ -271,6 +280,8 @@ Tutte le metriche si calcolano in SQL (view `security_invoker` o funzioni RPC), 
 - Tasso di rinnovo (mese M) = clienti con `data_fine` nel mese M che hanno una vendita `rinnovo` con `data_vendita` entro 30 giorni dalla scadenza / clienti con `data_fine` nel mese M
 - Provvigioni maturate (mese) = come da sezione 8
 - Margine operativo (mese) = cash incassato - provvigioni maturate - costi del mese. Etichetta sempre "Margine operativo", mai "utile": le tasse non sono incluse
+
+**Setter e closer giorno per giorno** (28/09/2026, le due metà del foglio Excel di Dany): la metà SETTER sono i 9 campi di `setter_daily_reports`; la metà CLOSER si calcola, mai inserita due volte, dalle call (per giorno di `programmata_il`) e dalle vendite: call = svolte, qualificate = svolte e qualificate (una chiusa lo è sempre), no show, follow up (svolte con esito follow_up), cancellate, chiuse, cash = incassato nel giorno sulle vendite del closer, revenue = contratti firmati nel giorno. `giornate_closer` (admin tutti, closer il proprio) e `giornate_setter` (il setter incrocia il suo setting con gli esiti delle sue call e i soldi dei suoi clienti) restituiscono un giorno per riga, solo i giorni in cui è successo qualcosa, più il totale (`data` null).
 
 **Periodo** (28/09/2026): ogni metrica si chiede su un mese (`?mese=YYYY-MM`) o su un intervallo (`?da=&a=`), con le RPC `*_periodo`; le mensili sono wrapper con gli stessi risultati. Confronto: se il periodo è fatto di mesi interi, gli stessi mesi prima; altrimenti la finestra di pari giorni subito prima. Trimestre e anno "in corso" coprono il periodo solare intero. Le provvigioni restano mensili (i pagamenti si riferiscono a un mese).
 
@@ -297,7 +308,7 @@ Navigazione: sidebar su desktop, bottom bar su mobile (massimo 4 voci più "Altr
 3. **Clienti** (`/clients`): lista con stato derivato, filtri per stato. Scheda cliente: storico vendite, rate, valore totale nel tempo (LTV), fonte, setter. Lo stato non si spegne a mano: per chi smette prima c'è "Interrompi il percorso" (`interrompi_percorso`, solo admin), che chiude la vendita in corso nel giorno scelto e, se si sceglie, toglie le rate non pagate dopo quel giorno abbassando il contratto; l'anteprima dice cosa cambia prima della conferma e gli incassi non si toccano. Eliminare un cliente toglie anche vendite e incassi (sezione 19).
 4. **Incassi** (`/payments`): tutte le rate, filtro per stato e mese, vista "in ritardo" in evidenza. In cima la previsione di cassa dei prossimi 3 mesi. Sulle rate da pagare, "Scrivi su WhatsApp" apre la chat del cliente col promemoria già scritto (`lib/whatsapp.ts`): l'app non invia niente da sola.
 4b. **Rinnovi** (`/rinnovi`): chi finisce il percorso entro 30 o 60 giorni e chi l'ha finito da meno di 90 senza rinnovo, con WhatsApp e "Registra rinnovo"; in cima il tasso di rinnovo del mese.
-5. **Setting** (`/setting`): metriche setting e call per periodo e per setter, tabella dei report giornalieri. "Aggiungi giornata" registra un giorno intero per un setter o per l'admin stesso; un giorno che c'è già si corregge dalla sua riga, mai sovrascritto.
+5. **Setting** (`/setting`): due schede, Setter e Closer. Setter: metriche setting e call per periodo e per setter, tabella dei report giornalieri. "Aggiungi giornata" registra un giorno intero per un setter o per l'admin stesso; un giorno che c'è già si corregge dalla sua riga, mai sovrascritto. Closer (`/setting/closer`): i numeri del periodo e la tabella giorno per giorno con le colonne CLOSER dell'Excel.
 6. **Provvigioni** (`/commissions`): per setter e mese, maturato, pagato, saldo. Registrazione pagamento. Sotto, "Per cliente": percentuale, incassato e provvigione di ogni vendita (`provvigioni_per_vendita`, solo admin); la stessa riga compare nella scheda della vendita.
 7. **Costi** (`/expenses`): inserimento e lista.
 8. **Impostazioni**: Team (sezione 7), Prodotti, Regole provvigioni, Esporta CSV (vendite, incassi, costi per mese: serve alla commercialista).
@@ -305,9 +316,9 @@ Navigazione: sidebar su desktop, bottom bar su mobile (massimo 4 voci più "Altr
 ### Setter (mobile first, è la sua schermata principale)
 
 1. **Oggi** (`/today`): il report del giorno in una sola schermata. Frecce e "Un altro giorno" aprono qualsiasi giorno passato da compilare o correggere. Ogni campo numerico è uno stepper con bottoni grandi (+1, +5, -1) e input diretto. Salvataggio automatico con debounce e stato visibile ("Salvato alle 18:42"). Se il report di oggi non esiste si crea al primo tocco. Nessun bottone "invia" da ricordarsi.
-2. **Nuova call** : form corto: nome lead, handle Instagram, fonte, tipo call, data e ora, closer (default Dany). Crea lead e call insieme.
+2. **Nuova call** : form corto: nome lead, handle Instagram, fonte (da scegliere ogni volta: conta le prenotate da inbound e da outbound), data e ora, closer (default Dany). Il setter fissa solo discovery call. Crea lead e call insieme.
 3. **Le mie call**: lista con stato ed esito.
-4. **I miei numeri**: metriche del periodo proprie, provvigioni maturate e pagate, e "I tuoi clienti": per ogni vendita dove è il setter, revenue, pagato, rate e la sua provvigione per incasso (sezione 6).
+4. **I miei numeri**: metriche del periodo proprie, provvigioni maturate e pagate, "Giorno per giorno" (il suo setting accanto agli esiti del closer sulle call che ha fissato, e cash e revenue dei suoi clienti) e "I tuoi clienti": per ogni vendita dove è il setter, revenue, pagato, rate e la sua provvigione per incasso (sezione 6).
 
 Obiettivo misurabile: il report giornaliero si compila in meno di 60 secondi dal telefono.
 
@@ -315,6 +326,7 @@ Obiettivo misurabile: il report giornaliero si compila in meno di 60 secondi dal
 
 1. **Le mie call**: di oggi e prossime. Aggiornamento esito in massimo 3 tap. Se `chiusa`, apre "Nuova vendita" precompilata.
 2. **Le mie vendite**: sola lettura più registrazione incasso delle proprie vendite.
+3. **I miei numeri** (`/setting/closer`): la propria giornata da closer, giorno per giorno.
 
 ### Stati obbligatori per ogni schermata
 
@@ -504,6 +516,7 @@ Chiesto da Dany il 27/09/2026. Schema in `20260928090000_project_management.sql`
 - **Scopo** (Dany, 27/09/2026): strumento semplice per tracciare il tempo per task, progetto e cliente, e assegnare task al team; il lavoro sui clienti vero e proprio sta su Coach Plus. Struttura ispirata a Zoho Projects, ma essenziale.
 - **Struttura**: reparto → progetto → liste (milestone, con date) → task → sotto-task (un livello). Reparti di partenza: Fitness Coaching, Contenuti e Video, Vendite e Marketing, Amministrazione. Un progetto può puntare a un cliente di `clients` (mai duplicato): lo collega solo l'admin dell'app, e solo nei reparti con `progetti_con_cliente` (di partenza solo Fitness Coaching, dove il progetto è il cliente: scelto il cliente, il nome si compila da solo). Un trigger rifiuta il cliente negli altri reparti e lo spegnimento del flag finché ci sono progetti con cliente.
 - **Schede del progetto**: Panoramica (prima: avanzamento, task per stato, in ritardo, tempo speso, tappe, prossime scadenze; conteggi da `pm_panoramica_progetto`), Attività (`/attivita`), Gantt, Tempo, Note, Membri. Un progetto appena creato si apre sulle Attività.
+- **Più assegnatari** (Dany, 29/09/2026): un task può essere assegnato a più persone, tutte membri del progetto (`pm_task_assegnatari`, `v_pm_task.assegnatari`); ognuna lo vede nei suoi task e lo lavora come l'autore; chi esce dal progetto perde i suoi incarichi lì.
 - **I miei task** (`/task`): i task assegnati a me in tutti i progetti, per scadenza (In ritardo, Oggi, Prossimi 7 giorni, Più avanti, Senza scadenza), con spunta e sveglia. È la pagina d'arrivo di coach, editor, nutrizione e dev.
 - **Modelli**: ogni reparto ha modelli di progetto; creando un progetto da un modello si aprono liste e task datati dall'inizio del progetto. "Percorso cliente" (Fitness Coaching): questionario iniziale, invio accessi, call di onboarding, scrittura programmazione, assistenza chat, revisione video settimanale, call di check, aggiornamento programmazione, call e aggiornamento di metà percorso, call di rinnovo, raccolta feedback e testimonianza. Si modificano in Impostazioni > Progetti.
 - **Livelli** (`profiles.livello_pm`, separati dal ruolo): `admin` tutto; `manager` crea progetti e gestisce quelli di cui è membro (liste, task, membri, dati del progetto); `employee` vede i progetti di cui è membro, aggiunge task, lavora quelli assegnati a lui o creati da lui. L'admin dell'app è sempre admin dei progetti. Il livello si cambia in Team.

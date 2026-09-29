@@ -32,7 +32,7 @@ export default async function NuovaCallPage() {
     <div className="max-w-xl">
       <IntestazionePagina
         titolo="Nuova call"
-        descrizione="Il lead nasce qui, nel momento in cui fissi la call."
+        descrizione="Fissa una discovery call: lead e call nascono insieme."
       />
 
       {closers.length === 0 ? (

@@ -19,12 +19,20 @@ import type { Profilo } from '@/lib/auth/session'
 import { aggiungiGiorni, fineDopoMesi, formatOra, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import type { createClient } from '@/lib/supabase/server'
 import { CATEGORIE_COSTO } from '@/lib/validation/anagrafiche'
-import { FONTI, TIPI_CALL } from '@/lib/validation/call'
+import { FONTI, TIPI_CALL, type TipoCall } from '@/lib/validation/call'
 import { METODI } from '@/lib/validation/incasso'
 import { PERSONALIZZATO } from '@/lib/validation/vendita'
-import { CAMPI_NUMERICI_REPORT as CAMPI_REPORT } from '@/lib/validation/report'
+import { CAMPI_NUMERICI_REPORT as CAMPI_REPORT, GRUPPI_REPORT } from '@/lib/validation/report'
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
+
+/**
+ * The report counters the setter fills in, with the form's one-line hint.
+ * No strategy_prenotate: he books discovery calls only (Dany, 29/09/2026);
+ * the column stays for history and keeps its value.
+ */
+const CAMPI_SETTER = GRUPPI_REPORT.flatMap((g) => g.campi.map(([campo, , aiuto]) => ({ campo, aiuto })))
+const NOMI_CAMPI_SETTER = new Set<string>(CAMPI_SETTER.map((c) => c.campo))
 
 const data = z.string().describe('Data ISO, AAAA-MM-GG')
 const periodo = z.object({
@@ -120,6 +128,38 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       closer_id: c as string | null,
     })
     return esito.ok ? null : `Setter e closer non impostati: ${esito.errore}`
+  }
+
+  /** Moves or corrects a call. The setter cannot change its type: it stays as it is. */
+  const campiModificaCall = z.object({
+    call_id: z.string().uuid(),
+    lead: z.string().describe('Nome del lead, per la conferma'),
+    data: data.optional(),
+    ora: z.string().optional().describe('HH:MM'),
+    closer: z.string().optional(),
+    note: z.string().max(1000).optional(),
+  })
+
+  async function eseguiModificaCall(v: z.infer<typeof campiModificaCall> & { tipo?: TipoCall }) {
+    const { data: call } = await supabase
+      .from('calls')
+      .select('tipo, programmata_il, closer_id, note')
+      .eq('id', v.call_id)
+      .maybeSingle()
+    if (!call) return errore('Call non trovata.')
+    const closer = await idPersona(v.closer, call.closer_id, ['admin', 'closer'])
+    if (typeof closer === 'object' && closer) return closer
+    if (!closer) return errore('La call ha bisogno di un closer.')
+    const esito = await modificaCall({
+      call_id: v.call_id,
+      // the existing type goes back as it is, strategy included (history)
+      tipo: profilo.ruolo === 'setter' ? call.tipo : (v.tipo ?? call.tipo),
+      data: v.data ?? oggiRoma(new Date(call.programmata_il)),
+      ora: v.ora ?? formatOra(call.programmata_il),
+      closer_id: closer,
+      note: v.note ?? call.note,
+    })
+    return esito.ok ? { fatto: true, link: '/calls' } : errore(esito.errore)
   }
 
   const tutti = {
@@ -339,13 +379,14 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
     }),
 
     miei_task: tool({
-      description: 'I task aperti assegnati a chi chatta, con progetto, scadenza e ritardo.',
+      description: 'I task aperti assegnati a chi chatta (anche quelli condivisi con altri), con progetto, scadenza e ritardo.',
       inputSchema: z.object({}),
       execute: async () => {
         const { data, error } = await supabase
           .from('v_pm_task')
           .select('id, titolo, stato, scadenza, in_ritardo, priorita, progetto_id')
-          .eq('assegnatario_id', profilo.id)
+          // a task can have several people: mine when I am one of them
+          .contains('assegnatari', [profilo.id])
           .neq('stato', 'completato')
           .order('scadenza', { nullsFirst: false })
           .limit(30)
@@ -414,7 +455,9 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       inputSchema: z.object({
         data: data.optional(),
         modalita: z.enum(['aggiungi', 'imposta']),
-        ...Object.fromEntries(CAMPI_REPORT.map((c) => [c, z.number().int().min(0).max(5000).optional()])),
+        ...Object.fromEntries(
+          CAMPI_SETTER.map(({ campo, aiuto }) => [campo, z.number().int().min(0).max(5000).optional().describe(aiuto)]),
+        ),
         contenuto_pubblicato: z.boolean().optional(),
       }),
       execute: async (v: Record<string, unknown>) => {
@@ -428,7 +471,8 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
         const valori: Record<string, unknown> = { data: giorno, note: attuale?.note ?? null }
         for (const campo of CAMPI_REPORT) {
           const prima = Number(attuale?.[campo] ?? 0)
-          const nuovo = v[campo]
+          // a field the setter does not fill any more keeps what is saved
+          const nuovo = NOMI_CAMPI_SETTER.has(campo) ? v[campo] : undefined
           valori[campo] = typeof nuovo === 'number' ? (v.modalita === 'aggiungi' ? prima + nuovo : nuovo) : prima
         }
         valori.contenuto_pubblicato =
@@ -438,13 +482,14 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
+    // Only the setter has it (permessi, and fissaCall checks it again): he books
+    // discovery calls only (Dany, 29/09/2026), so the type is not even asked.
     fissa_call: tool({
-      description: 'Fissa una call e crea il lead. Closer di default: l’admin.',
+      description: 'Fissa una discovery call e crea il lead. Closer di default: l’admin.',
       inputSchema: z.object({
         nome: z.string().min(2).max(120),
         instagram_handle: z.string().max(40).optional(),
         fonte: z.enum(FONTI),
-        tipo: z.enum(TIPI_CALL),
         data,
         ora: z.string().describe('HH:MM'),
         closer: z.string().optional().describe('Nome del closer'),
@@ -460,7 +505,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
         if (!scelto || scelto === 'ambiguo') {
           return errore(`Closer non trovato. Possibili: ${elenco.map((p) => p.nome).join(', ')}`)
         }
-        const esito = await fissaCall({ ...v, closer_id: scelto.id })
+        const esito = await fissaCall({ ...v, tipo: 'discovery', closer_id: scelto.id })
         return esito.ok ? { fatto: true, closer: scelto.nome, link: '/calls' } : errore(esito.errore)
       },
     }),
@@ -500,16 +545,50 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
     }),
 
     aggiungi_task: tool({
-      description: 'Aggiunge un task a un progetto (in fondo, senza lista).',
+      description:
+        'Aggiunge un task a un progetto (in fondo, senza lista), facoltativamente assegnato a una o più persone del progetto.',
       inputSchema: z.object({
         progetto: z.string().describe('Nome del progetto'),
         titolo: z.string().min(1).max(200),
+        assegnatari: z
+          .array(z.string().min(1))
+          .max(10)
+          .optional()
+          .describe('Nomi delle persone a cui assegnarlo, membri del progetto; "io" per chi chatta'),
       }),
-      execute: async ({ progetto, titolo }) => {
+      execute: async ({ progetto, titolo, assegnatari = [] }) => {
         const { data: progetti } = await supabase.from('v_pm_progetti').select('id, nome').limit(200)
         const p = trova((progetti ?? []) as { id: string; nome: string | null }[], progetto)
         if (!p || p === 'ambiguo') return errore('Progetto non trovato o non univoco: scrivi il nome completo.')
-        const esito = await aggiungiTask({ progetto_id: p.id, titolo, tasklist_id: null, parent_id: null })
+
+        // people by name among the project's members (the database checks membership again)
+        const persone: string[] = []
+        if (assegnatari.length > 0) {
+          const { data: membri } = await supabase
+            .from('pm_membri')
+            .select('profilo:profiles!pm_membri_profile_id_fkey(id, nome)')
+            .eq('progetto_id', p.id)
+          const elenco = (membri ?? []).flatMap((m) => (m.profilo ? [m.profilo] : []))
+          for (const nome of assegnatari) {
+            if (nome.trim().toLowerCase() === 'io') {
+              persone.push(profilo.id)
+              continue
+            }
+            const scelto = trova(elenco, nome)
+            if (!scelto || scelto === 'ambiguo') {
+              return errore(`"${nome}" non è tra i membri del progetto. Membri: ${elenco.map((x) => x.nome).join(', ')}`)
+            }
+            persone.push(scelto.id)
+          }
+        }
+
+        const esito = await aggiungiTask({
+          progetto_id: p.id,
+          titolo,
+          tasklist_id: null,
+          parent_id: null,
+          assegnatari: [...new Set(persone)],
+        })
         return esito.ok ? { fatto: true, link: `/progetti/${p.id}/attivita` } : errore(esito.errore)
       },
     }),
@@ -797,41 +876,24 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    modifica_call: tool({
-      description: 'Sposta o corregge una call (call_id da call_periodo): data, ora, tipo, closer, note.',
-      inputSchema: z.object({
-        call_id: z.string().uuid(),
-        lead: z.string().describe('Nome del lead, per la conferma'),
-        data: data.optional(),
-        ora: z.string().optional().describe('HH:MM'),
-        tipo: z.enum(TIPI_CALL).optional(),
-        closer: z.string().optional(),
-        note: z.string().max(1000).optional(),
-      }),
-      execute: async (v) => {
-        const { data: call } = await supabase
-          .from('calls')
-          .select('tipo, programmata_il, closer_id, note')
-          .eq('id', v.call_id)
-          .maybeSingle()
-        if (!call) return errore('Call non trovata.')
-        const closer = await idPersona(v.closer, call.closer_id, ['admin', 'closer'])
-        if (typeof closer === 'object' && closer) return closer
-        if (!closer) return errore('La call ha bisogno di un closer.')
-        const esito = await modificaCall({
-          call_id: v.call_id,
-          tipo: v.tipo ?? call.tipo,
-          data: v.data ?? oggiRoma(new Date(call.programmata_il)),
-          ora: v.ora ?? formatOra(call.programmata_il),
-          closer_id: closer,
-          note: v.note ?? call.note,
-        })
-        return esito.ok ? { fatto: true, link: '/calls' } : errore(esito.errore)
-      },
-    }),
+    // the setter books discovery calls only: no type to switch to strategy.
+    // Admin and closer keep the choice, the history has strategy calls.
+    modifica_call:
+      profilo.ruolo === 'setter'
+        ? tool({
+            description: 'Sposta o corregge una call (call_id da call_periodo): data, ora, closer, note.',
+            inputSchema: campiModificaCall,
+            execute: eseguiModificaCall,
+          })
+        : tool({
+            description: 'Sposta o corregge una call (call_id da call_periodo): data, ora, tipo, closer, note.',
+            inputSchema: campiModificaCall.extend({ tipo: z.enum(TIPI_CALL).optional() }),
+            execute: eseguiModificaCall,
+          }),
 
     completa_task: tool({
-      description: 'Segna un task come fatto (o lo riapre), cercandolo per titolo tra quelli visibili.',
+      description:
+        'Segna un task come fatto (o lo riapre), cercandolo per titolo tra quelli visibili. Lo può fare chi gestisce il progetto, chi l’ha creato o una delle persone a cui è assegnato.',
       inputSchema: z.object({
         titolo: z.string().min(1),
         progetto: z.string().optional(),
@@ -840,17 +902,23 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       execute: async (v) => {
         const { data: task } = await supabase
           .from('v_pm_task')
-          .select('id, titolo, progetto_id')
+          .select('id, titolo, progetto_id, assegnatari')
           .ilike('titolo', `%${v.titolo.trim()}%`)
           .limit(20)
-        let candidati = (task ?? []) as { id: string; titolo: string; progetto_id: string }[]
+        let candidati = (task ?? []) as { id: string; titolo: string; progetto_id: string; assegnatari: string[] | null }[]
         if (v.progetto && candidati.length > 1) {
           const { data: progetti } = await supabase.from('v_pm_progetti').select('id, nome').ilike('nome', `%${v.progetto}%`)
           const ids = new Set((progetti ?? []).map((p) => p.id))
           candidati = candidati.filter((t) => ids.has(t.progetto_id))
         }
         const esatto = candidati.filter((t) => t.titolo.toLowerCase() === v.titolo.trim().toLowerCase())
-        const scelto = esatto.length === 1 ? esatto[0] : candidati.length === 1 ? candidati[0] : null
+        let scelto = esatto.length === 1 ? esatto[0] : candidati.length === 1 ? candidati[0] : null
+        if (!scelto && esatto.length > 1) {
+          // same title in several places: the one I am assigned to (alone or with others).
+          // Only among exact titles: a partial match is never closed on a guess.
+          const miei = esatto.filter((t) => (t.assegnatari ?? []).includes(profilo.id))
+          if (miei.length === 1) scelto = miei[0]
+        }
         if (!scelto) {
           return errore(
             candidati.length === 0
@@ -859,7 +927,9 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
           )
         }
         const esito = await completaTask({ id: scelto.id, completato: v.completato })
-        return esito.ok ? { fatto: true, link: `/progetti/${scelto.progetto_id}/attivita` } : errore(esito.errore)
+        return esito.ok
+          ? { fatto: true, task: scelto.titolo, link: `/progetti/${scelto.progetto_id}/attivita` }
+          : errore(esito.errore)
       },
     }),
   } satisfies Record<NomeStrumento, unknown>

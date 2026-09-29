@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { etichettaGiorno, formatOra } from '@/lib/date'
+import { formatNumero } from '@/lib/format'
+import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
+import { cn } from '@/lib/utils'
 import {
   GRUPPI_REPORT,
   MASSIMO_GIORNALIERO,
@@ -33,10 +36,14 @@ type Props = {
   oggi: string
   iniziale: ValoriReport
   salvatoAlle: string | null
+  /** DM totali of the loaded row, as the database computed it (0 when there is no row) */
+  dmTotali: number | null
 }
 
-export function ReportForm({ data, oggi, iniziale, salvatoAlle }: Props) {
+export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTotaliIniziale }: Props) {
   const [valori, setValori] = useState<ValoriReport>(iniziale)
+  // Only the database adds the DM up: the value of the last saved row
+  const [dmTotali, setDmTotali] = useState(dmTotaliIniziale)
   const [stato, setStato] = useState<Stato>(
     salvatoAlle ? { tipo: 'salvato', alle: salvatoAlle } : { tipo: 'nuovo' },
   )
@@ -93,6 +100,7 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle }: Props) {
 
         ultimoSalvato.current = chiave
         ultimaOra.current = esito.salvatoAlle
+        setDmTotali(esito.dmTotali)
         if (esito.creato) {
           toast.success(`Report di ${etichettaGiorno(data, oggi).toLowerCase()} avviato`)
         }
@@ -162,17 +170,26 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle }: Props) {
             {gruppo.titolo}
           </h2>
           <div className="divide-y divide-border rounded-xl bg-card px-3">
-            {gruppo.campi.map(([campo, etichetta]) => (
-              <Stepper
-                key={campo}
-                etichetta={etichetta}
-                valore={valori[campo]}
-                massimo={MASSIMO_GIORNALIERO}
-                onCambia={(n) => aggiorna({ [campo]: n })}
-                onFineModifica={() => void salva()}
-              />
+            {gruppo.campi.map(([campo, etichetta, aiuto]) => (
+              <div key={campo} className="pb-2">
+                <Stepper
+                  etichetta={etichetta}
+                  valore={valori[campo]}
+                  massimo={MASSIMO_GIORNALIERO}
+                  onCambia={(n) => aggiorna({ [campo]: n })}
+                  onFineModifica={() => void salva()}
+                  className="pb-0.5"
+                />
+                <p className="text-xs leading-snug text-muted-foreground">{aiuto}</p>
+              </div>
             ))}
           </div>
+          {gruppo.campi.some(([campo]) => campo === 'dm_outbound') ? (
+            <DmTotali valore={dmTotali} inAggiornamento={inSospeso} />
+          ) : null}
+          {gruppo.nota ? (
+            <p className="mt-1.5 px-1 text-xs text-muted-foreground">{gruppo.nota}</p>
+          ) : null}
         </section>
       ))}
 
@@ -184,8 +201,13 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle }: Props) {
           Contenuto e note
         </h2>
         <div className="rounded-xl bg-card px-3">
-          <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3">
-            <span className="text-sm">Contenuto pubblicato</span>
+          <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 py-2">
+            <span className="min-w-0">
+              <span className="block text-sm">Contenuto pubblicato</span>
+              <span className="block text-xs leading-snug text-muted-foreground">
+                Se è uscito un contenuto sul profilo
+              </span>
+            </span>
             <Switch
               checked={valori.contenuto_pubblicato}
               onCheckedChange={(checked) =>
@@ -208,6 +230,27 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle }: Props) {
         </label>
       </section>
     </div>
+  )
+}
+
+/**
+ * The sum of the three counters above, read back from the saved row (a
+ * generated column). Until the save lands it shows the last saved value, dimmed.
+ */
+function DmTotali({ valore, inAggiornamento }: { valore: number | null; inAggiornamento: boolean }) {
+  return (
+    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 px-1" data-testid="dm-totali">
+      <span className="text-sm">
+        {LEGENDA_SETTING.dm_totali.etichetta}:{' '}
+        <span
+          className={cn('num font-semibold transition-colors', inAggiornamento && 'text-muted-foreground')}
+          data-testid="dm-totali-valore"
+        >
+          {formatNumero(valore)}
+        </span>
+      </span>
+      <span className="text-xs text-muted-foreground">= outbound + inbound + follow up</span>
+    </p>
   )
 }
 

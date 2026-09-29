@@ -1,10 +1,22 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 import { ID_COACH, pagineDinamiche } from './db'
 import { avviaTimerAltrove, fermaTimerAltrove } from './pm-db'
 import { PAGINE, PROGETTO_PERCORSO_CLIENTE, UTENTI, accedi, type RuoloSeed } from './utenti'
 
 const RUOLI = Object.keys(UTENTI) as RuoloSeed[]
+
+/**
+ * The phone's bottom bar (components/shell/bottom-bar.tsx) is fixed: in a
+ * full-page shot it lands on top of rows in the middle of the page. Put back in
+ * the flow, it sits after the content and every row stays readable.
+ */
+const BARRA_IN_BASSO_NEL_FLUSSO = 'nav[aria-label="Navigazione"].fixed { position: static !important; }'
+
+async function fotografa(page: Page, path: string) {
+  await page.addStyleTag({ content: BARRA_IN_BASSO_NEL_FLUSSO })
+  await page.screenshot({ path, fullPage: true })
+}
 
 /** Who has a running timer in the screenshots: the shell indicator must show up somewhere. */
 const CON_TIMER: RuoloSeed = 'coach'
@@ -23,10 +35,7 @@ for (const ruolo of RUOLI) {
         for (const pagina of [...PAGINE[ruolo], ...(await pagineDinamiche(ruolo))]) {
           await page.goto(pagina.url)
           await page.waitForLoadState('networkidle')
-          await page.screenshot({
-            path: `.shots/${ruolo}-${pagina.nome}-${larghezza}.png`,
-            fullPage: true,
-          })
+          await fotografa(page, `.shots/${ruolo}-${pagina.nome}-${larghezza}.png`)
           const misure = await page.evaluate(() => ({
             pagina: document.documentElement.scrollWidth,
             finestra: window.innerWidth,
@@ -52,7 +61,7 @@ test('screenshot login', async ({ page }) => {
   const larghezza = page.viewportSize()?.width ?? 0
   await page.goto('/login')
   await page.waitForLoadState('networkidle')
-  await page.screenshot({ path: `.shots/pubblico-login-${larghezza}.png`, fullPage: true })
+  await fotografa(page, `.shots/pubblico-login-${larghezza}.png`)
   const scorre = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
   expect(scorre, `scroll orizzontale del login a ${larghezza}px`).toBe(false)
 })

@@ -52,7 +52,7 @@ test('panoramica: intervallo personalizzato, KPI e confronto col periodo precede
   await expect(page.getByRole('button', { name: `Periodo: ${etichetta}` })).toBeVisible()
 
   const kpi = page.getByTestId('kpi')
-  for (const voce of ['Cash incassato', 'Revenue firmata', 'Nuovi clienti firmati', 'Rinnovi firmati']) {
+  for (const voce of ['Cash incassato', 'Revenue firmata', 'Nuovi clienti', 'Rinnovi']) {
     await expect(kpi.getByText(voce, { exact: true }).first()).toBeVisible()
   }
   await expect(page.getByTestId('conto-margine')).toContainText('Margine operativo')
@@ -79,14 +79,14 @@ test('panoramica: scelte rapide, stato attivo, ritorno al mese', async ({ page }
   await accedi(page, 'admin')
 
   await page.getByRole('button', { name: /^Periodo:/ }).click()
-  await page.getByRole('dialog', { name: 'Periodo' }).getByRole('link', { name: 'Ultimi 30 giorni' }).click()
-  await expect(page).toHaveURL(`/?da=${aggiungiGiorni(oggi, -29)}&a=${oggi}`)
+  await page.getByRole('dialog', { name: 'Periodo' }).getByRole('link', { name: 'Oggi', exact: true }).click()
+  await expect(page).toHaveURL(`/?da=${oggi}&a=${oggi}`)
   // the range includes today: the live block is there
   await expect(page.getByTestId('oggi-team')).toBeVisible()
 
   await page.getByRole('button', { name: /^Periodo:/ }).click()
   const foglio = page.getByRole('dialog', { name: 'Periodo' })
-  await expect(foglio.getByRole('link', { name: 'Ultimi 30 giorni' })).toHaveAttribute('aria-current', 'true')
+  await expect(foglio.getByRole('link', { name: 'Oggi', exact: true })).toHaveAttribute('aria-current', 'true')
   await foglio.getByRole('link', { name: 'Mese scorso' }).click()
 
   const meseScorso = aggiungiMesi(primoDelMeseISO(oggi), -1)

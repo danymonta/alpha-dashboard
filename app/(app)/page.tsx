@@ -1,8 +1,10 @@
 import { CalendarClock, ChevronRight, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 
 import { LinkBottone } from '@/components/link-bottone'
+import { LegendaSezione } from '@/components/metriche/legenda-sezione'
+import { EtichettaConNota } from '@/components/metriche/nota'
 import { AggiornamentoLive } from '@/components/panoramica/aggiornamento-live'
 import { ContoMargine } from '@/components/panoramica/conto-margine'
 import { Funnel } from '@/components/panoramica/funnel'
@@ -20,20 +22,85 @@ import {
   formatPercentuale,
   formatRapporto,
 } from '@/lib/format'
+import { LEGENDA_CLOSER, LEGENDA_ECONOMICS, LEGENDA_SETTING, type VoceLegenda } from '@/lib/metriche/legenda'
 import { contieneData, leggiPeriodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
+import { cn } from '@/lib/utils'
 import { ETICHETTA_FONTE } from '@/lib/validation/call'
 
 export const dynamic = 'force-dynamic'
 
-const KPI: Record<string, { etichetta: string; euro: boolean }> = {
-  cash_incassato: { etichetta: 'Cash incassato', euro: true },
-  revenue_firmata: { etichetta: 'Revenue firmata', euro: true },
-  nuovi_clienti: { etichetta: 'Nuovi clienti firmati', euro: false },
-  rinnovi: { etichetta: 'Rinnovi firmati', euro: false },
-  // always "Margine operativo", never "utile": taxes are not included
-  margine_operativo: { etichetta: 'Margine operativo', euro: true },
+// The two sources of the funnel, never mixed without saying so: the setters'
+// daily report (the first three stages) and the calls recorded in the app.
+const DAL_REPORT = 'Dal report giornaliero dei setter'
+const DALLE_CALL = 'Dalle call registrate nell’app'
+
+// what every funnel stage (funnel_periodo) counts, and where it comes from
+const FASI_FUNNEL: Record<string, { fonte: string; nota: string }> = {
+  'DM totali': { fonte: DAL_REPORT, nota: `${DAL_REPORT}. ${LEGENDA_SETTING.dm_totali.spiegazione}` },
+  Conversazioni: { fonte: DAL_REPORT, nota: `${DAL_REPORT}. ${LEGENDA_SETTING.conversazioni.spiegazione}` },
+  'Call prenotate': { fonte: DAL_REPORT, nota: `${DAL_REPORT}. ${LEGENDA_SETTING.call_prenotate.spiegazione}` },
+  'Call svolte': { fonte: DALLE_CALL, nota: `${DALLE_CALL}. ${LEGENDA_CLOSER.call.spiegazione}` },
+  Chiuse: { fonte: DALLE_CALL, nota: `${DALLE_CALL}. ${LEGENDA_CLOSER.chiuse.spiegazione}` },
 }
+
+// conversations are not a part of DM totali (Dany, 28/09/2026): no "% passa"
+// on that stage, the conversation rate instead (the same SQL value)
+const TASSO_CONVERSAZIONE = {
+  etichetta: 'tasso conv.',
+  spiegazione: `${LEGENDA_SETTING.tasso_conversazione.etichetta}: ${LEGENDA_SETTING.tasso_conversazione.spiegazione} Le conversazioni non sono una parte dei DM totali: per questo qui non c’è «passa».`,
+}
+
+// the calls held come from the calls in the app, the bookings above from the
+// report: two sources, no "% passa" between them. The show rate instead
+// (metriche_periodo), which stays within the calls
+const SHOW_RATE = {
+  etichetta: 'show rate',
+  spiegazione: `${LEGENDA_CLOSER.show_rate.etichetta}: ${LEGENDA_CLOSER.show_rate.spiegazione} Le call prenotate vengono dal report dei setter, le svolte dalle call registrate nell’app: due fonti diverse, per questo qui non c’è «passa».`,
+}
+
+const KPI: Record<string, { voce: VoceLegenda; euro: boolean }> = {
+  cash_incassato: { voce: LEGENDA_ECONOMICS.cash_incassato, euro: true },
+  revenue_firmata: { voce: LEGENDA_ECONOMICS.revenue_firmata, euro: true },
+  nuovi_clienti: { voce: LEGENDA_ECONOMICS.nuovi_clienti, euro: false },
+  rinnovi: { voce: LEGENDA_ECONOMICS.rinnovi, euro: false },
+  // always "Margine operativo", never "utile": taxes are not included
+  margine_operativo: { voce: LEGENDA_ECONOMICS.margine_operativo, euro: true },
+}
+
+// "Oggi dal team": the id is the test id ("oggi-DM" predates the "DM totali" label)
+type VoceOggi = [id: string, voce: VoceLegenda, valore: string]
+
+// every number of the page, in reading order: "Cosa significa ogni numero"
+const LEGENDA_PAGINA: VoceLegenda[] = [
+  LEGENDA_ECONOMICS.cash_incassato,
+  LEGENDA_ECONOMICS.revenue_firmata,
+  LEGENDA_ECONOMICS.nuovi_clienti,
+  LEGENDA_ECONOMICS.rinnovi,
+  LEGENDA_ECONOMICS.margine_operativo,
+  LEGENDA_ECONOMICS.provvigioni_maturate,
+  LEGENDA_ECONOMICS.costi,
+  LEGENDA_ECONOMICS.in_ritardo,
+  LEGENDA_ECONOMICS.prossimi_30,
+  LEGENDA_ECONOMICS.oltre_30,
+  LEGENDA_SETTING.dm_totali,
+  LEGENDA_SETTING.conversazioni,
+  LEGENDA_SETTING.tasso_conversazione,
+  LEGENDA_SETTING.call_prenotate,
+  LEGENDA_ECONOMICS.call_da_fare,
+  LEGENDA_CLOSER.call,
+  LEGENDA_CLOSER.chiuse,
+  LEGENDA_ECONOMICS.cash_oggi,
+  LEGENDA_SETTING.cash_per_dm,
+  LEGENDA_SETTING.revenue_per_dm,
+  LEGENDA_SETTING.dm_per_call,
+  LEGENDA_ECONOMICS.cash_per_call_svolta,
+  LEGENDA_ECONOMICS.valore_medio_vendita,
+  LEGENDA_CLOSER.show_rate,
+  LEGENDA_CLOSER.close_rate,
+  LEGENDA_CLOSER.close_rate_qualificate,
+  LEGENDA_ECONOMICS.tasso_rinnovo,
+]
 
 function Scheda({
   titolo,
@@ -63,11 +130,16 @@ function Scheda({
   )
 }
 
-function Voce({ etichetta, valore, nota }: { etichetta: string; valore: string; nota?: string }) {
+/** A label, or a legend entry whose label gets its "i". */
+function Etichetta({ etichetta }: { etichetta: string | VoceLegenda }) {
+  return typeof etichetta === 'string' ? etichetta : <EtichettaConNota voce={etichetta} />
+}
+
+function Voce({ etichetta, valore, nota }: { etichetta: string | VoceLegenda; valore: string; nota?: string }) {
   return (
     <div className="flex min-h-11 items-center justify-between gap-3 py-2">
       <dt className="text-sm text-muted-foreground">
-        {etichetta}
+        <Etichetta etichetta={etichetta} />
         {nota ? <span className="block text-xs">{nota}</span> : null}
       </dt>
       <dd className="num text-right text-sm font-medium">{valore}</dd>
@@ -162,7 +234,7 @@ export default async function PanoramicaPage({
         {hero ? (
           <TileKpi
             hero
-            etichetta={KPI[hero.chiave].etichetta}
+            etichetta={KPI[hero.chiave].voce}
             valore={valoreKpi(hero.chiave, hero.valore)}
             delta={hero.delta}
             confronto={confronto}
@@ -209,7 +281,7 @@ export default async function PanoramicaPage({
               key={k.chiave}
               // three tiles: on mobile the first takes a full row, no orphan cell
               className={i === 0 && altri.length % 2 === 1 ? 'col-span-2 sm:col-span-1' : undefined}
-              etichetta={KPI[k.chiave].etichetta}
+              etichetta={KPI[k.chiave].voce}
               valore={valoreKpi(k.chiave, k.valore)}
               delta={k.delta}
               confronto={confronto}
@@ -236,22 +308,52 @@ export default async function PanoramicaPage({
       {/* 2. Today, live */}
       {team.data ? (
         <Scheda titolo="Oggi dal team">
-          <dl className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-7" data-testid="oggi-team">
-            {[
-              ['DM', formatNumero(team.data.dm_totali)],
-              ['Conversazioni', formatNumero(team.data.conversazioni)],
-              ['Call prenotate', formatNumero(team.data.call_prenotate)],
-              ['Call da fare', formatNumero(team.data.call_in_programma)],
-              ['Call svolte', formatNumero(team.data.call_svolte)],
-              ['Chiuse', formatNumero(team.data.chiuse)],
-              ['Cash oggi', formatEuro(team.data.cash_incassato, { compatto: true })],
-            ].map(([etichetta, valore]) => (
-              <div key={etichetta}>
-                <dt className="text-xs text-muted-foreground">{etichetta}</dt>
-                <dd className="text-lg font-semibold" data-testid={`oggi-${etichetta}`}>{valore}</dd>
+          {/* three sources, each named: the report, the calls, the payments */}
+          <div className="grid gap-3 xl:grid-cols-[3fr_3fr_1fr] xl:gap-0" data-testid="oggi-team">
+            {(
+              [
+                [
+                  'Dai report di oggi',
+                  [
+                    ['DM', LEGENDA_SETTING.dm_totali, formatNumero(team.data.dm_totali)],
+                    ['Conversazioni', LEGENDA_SETTING.conversazioni, formatNumero(team.data.conversazioni)],
+                    ['Call prenotate', LEGENDA_SETTING.call_prenotate, formatNumero(team.data.call_prenotate)],
+                  ],
+                ],
+                [
+                  'Dalle call in agenda oggi',
+                  [
+                    ['Call da fare', LEGENDA_ECONOMICS.call_da_fare, formatNumero(team.data.call_in_programma)],
+                    ['Call svolte', LEGENDA_CLOSER.call, formatNumero(team.data.call_svolte)],
+                    ['Chiuse', LEGENDA_CLOSER.chiuse, formatNumero(team.data.chiuse)],
+                  ],
+                ],
+                [
+                  'Dagli incassi',
+                  [['Cash oggi', LEGENDA_ECONOMICS.cash_oggi, formatEuro(team.data.cash_incassato, { compatto: true })]],
+                ],
+              ] satisfies [string, VoceOggi[]][]
+            ).map(([fonte, voci], i) => (
+              <div
+                key={fonte}
+                className={i > 0 ? 'border-t border-border pt-3 xl:border-t-0 xl:border-l xl:pt-0 xl:pl-4' : 'xl:pr-4'}
+              >
+                <p className="mb-2 text-xs text-muted-foreground">{fonte}</p>
+                {/* the same three columns in every group on a phone; the cash alone fills its own on a wide screen */}
+                <dl className={cn('grid grid-cols-3 gap-x-2 gap-y-3 sm:gap-x-3', voci.length === 1 && 'xl:grid-cols-1')}>
+                  {voci.map(([id, voce, valore]) => (
+                    <div key={id} className="min-w-0">
+                      {/* min-h-5: the "i" of every label, the values stay on one line */}
+                      <dt className="flex min-h-5 items-center text-xs text-muted-foreground">
+                        <EtichettaConNota voce={voce} />
+                      </dt>
+                      <dd className="num text-lg font-semibold" data-testid={`oggi-${id}`}>{valore}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             ))}
-          </dl>
+          </div>
         </Scheda>
       ) : null}
 
@@ -308,37 +410,53 @@ export default async function PanoramicaPage({
 
       {/* 4. How the period is going */}
       <div className="grid gap-3 lg:grid-cols-2">
-        <Scheda titolo={unMese ? 'Funnel del mese' : 'Funnel del periodo'}>
+        <Scheda
+          titolo={unMese ? 'Funnel del mese' : 'Funnel del periodo'}
+          descrizione="«passa»: la parte della fase sopra che arriva a questa."
+        >
           <Funnel
             fasi={(funnel.data ?? []).map((f) => ({
               ordine: f.ordine,
               fase: f.fase,
               valore: Number(f.valore),
               passaggio: f.passaggio,
+              nota: FASI_FUNNEL[f.fase]?.nota,
+              fonte: FASI_FUNNEL[f.fase]?.fonte,
+              tasso:
+                f.fase === 'Conversazioni'
+                  ? TASSO_CONVERSAZIONE
+                  : f.fase === 'Call svolte'
+                    ? { ...SHOW_RATE, valore: m.show_rate }
+                    : undefined,
             }))}
           />
         </Scheda>
 
         <Scheda
           titolo="Indicatori"
+          descrizione="Rapporti del periodo: i DM vengono dal report dei setter, le call da quelle registrate nell’app."
           azione={
             <Link href="/setting" className="inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
               Setting <ChevronRight className="size-4" aria-hidden="true" />
             </Link>
           }
         >
-          <dl className="grid gap-x-6 divide-y divide-border sm:grid-cols-2 sm:divide-y-0">
-            <Voce etichetta="Cash per DM" valore={formatEuro(m.cash_per_dm)} />
-            <Voce etichetta="Revenue per DM" valore={formatEuro(m.revenue_per_dm)} />
-            <Voce etichetta="DM per call prenotata" valore={formatRapporto(m.dm_per_call)} />
-            <Voce etichetta="DM per strategy call" valore={formatRapporto(m.dm_per_strategy)} />
-            <Voce etichetta="Cash per call svolta" valore={formatEuro(m.cash_per_call_svolta)} nota="solo vendite nuove" />
-            <Voce etichetta="Valore medio vendita" valore={formatEuro(m.valore_medio_vendita)} />
-            <Voce etichetta="Show rate" valore={formatPercentuale(m.show_rate)} />
-            <Voce etichetta="Close rate" valore={formatPercentuale(m.close_rate)} />
-            <Voce etichetta="Close rate su qualificate" valore={formatPercentuale(m.close_rate_qualificate)} />
+          {/* one column next to the funnel: a label with its "i" never wraps */}
+          <dl className="grid gap-x-6 divide-y divide-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-1 lg:divide-y">
+            <Voce etichetta={LEGENDA_SETTING.cash_per_dm} valore={formatEuro(m.cash_per_dm)} />
+            <Voce etichetta={LEGENDA_SETTING.revenue_per_dm} valore={formatEuro(m.revenue_per_dm)} />
+            <Voce etichetta={LEGENDA_SETTING.dm_per_call} valore={formatRapporto(m.dm_per_call)} />
             <Voce
-              etichetta="Tasso di rinnovo"
+              etichetta={LEGENDA_ECONOMICS.cash_per_call_svolta}
+              valore={formatEuro(m.cash_per_call_svolta)}
+              nota="solo vendite nuove"
+            />
+            <Voce etichetta={LEGENDA_ECONOMICS.valore_medio_vendita} valore={formatEuro(m.valore_medio_vendita)} />
+            <Voce etichetta={LEGENDA_CLOSER.show_rate} valore={formatPercentuale(m.show_rate)} />
+            <Voce etichetta={LEGENDA_CLOSER.close_rate} valore={formatPercentuale(m.close_rate)} />
+            <Voce etichetta={LEGENDA_CLOSER.close_rate_qualificate} valore={formatPercentuale(m.close_rate_qualificate)} />
+            <Voce
+              etichetta={LEGENDA_ECONOMICS.tasso_rinnovo}
               valore={formatPercentuale(m.tasso_rinnovo)}
               nota={`${m.rinnovati} su ${m.in_scadenza} in scadenza nel ${unMese ? 'mese' : 'periodo'}`}
             />
@@ -365,7 +483,7 @@ export default async function PanoramicaPage({
                       </span>
                     </span>
                     <span className="shrink-0 text-right">
-                      <span className="num block text-sm font-medium">{formatEuro(f.cash, { compatto: true })}</span>
+                      <span className="num block text-sm font-medium">{formatEuro(f.cash)}</span>
                       <span className="num block text-xs text-muted-foreground">{formatPercentuale(f.quota_cash, { unDecimale: true })}</span>
                     </span>
                   </div>
@@ -394,25 +512,36 @@ export default async function PanoramicaPage({
             </Link>
           }
         >
-          <dl className="grid grid-cols-3 gap-3" data-testid="da-incassare">
-            <div>
-              <dt className="flex items-center gap-1 text-xs text-status-warning">
-                <TriangleAlert className="size-3.5" aria-hidden="true" />
-                In ritardo
-              </dt>
-              <dd className="num text-lg font-semibold">{formatEuro(fasce.in_ritardo?.totale, { compatto: true })}</dd>
-              <dd className="text-xs text-muted-foreground">{fasce.in_ritardo?.numero ?? 0} rate</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">Prossimi 30 giorni</dt>
-              <dd className="num text-lg font-semibold">{formatEuro(fasce.prossimi_30?.totale, { compatto: true })}</dd>
-              <dd className="text-xs text-muted-foreground">{fasce.prossimi_30?.numero ?? 0} rate</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">Oltre</dt>
-              <dd className="num text-lg font-semibold">{formatEuro(fasce.oltre?.totale, { compatto: true })}</dd>
-              <dd className="text-xs text-muted-foreground">{fasce.oltre?.numero ?? 0} rate</dd>
-            </div>
+          {/* one column per band, filled top to bottom: label, amount, rate count share
+              three rows, so the amounts line up even when a label wraps (390px) */}
+          <dl className="grid grid-flow-col grid-cols-3 grid-rows-[auto_auto_auto] gap-x-3" data-testid="da-incassare">
+            {(
+              [
+                ['in_ritardo', LEGENDA_ECONOMICS.in_ritardo],
+                ['prossimi_30', LEGENDA_ECONOMICS.prossimi_30],
+                ['oltre', LEGENDA_ECONOMICS.oltre_30],
+              ] as const
+            ).map(([fascia, voce]) => (
+              <Fragment key={fascia}>
+                <dt
+                  className={cn(
+                    'flex items-center gap-1 self-end pb-0.5 text-xs',
+                    fascia === 'in_ritardo' ? 'text-status-warning' : 'text-muted-foreground',
+                  )}
+                >
+                  {fascia === 'in_ritardo' ? <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" /> : null}
+                  {/* on two lines ("Entro 30 giorni") the "i" follows the last word, its width in the padding */}
+                  <EtichettaConNota
+                    voce={voce}
+                    className="inline min-w-0 pr-6 [&>button]:-mr-6 [&>button]:ml-1 [&>button]:align-middle"
+                  />
+                </dt>
+                <dd className="num text-lg font-semibold" data-testid={`da-incassare-${fascia}`}>
+                  {formatEuro(fasce[fascia]?.totale, { compatto: true })}
+                </dd>
+                <dd className="text-xs text-muted-foreground">{fasce[fascia]?.numero ?? 0} rate</dd>
+              </Fragment>
+            ))}
           </dl>
           {(ritardi.data ?? []).length > 0 ? (
             <ul className="mt-4 divide-y divide-border border-t border-border">
@@ -465,6 +594,8 @@ export default async function PanoramicaPage({
           )}
         </Scheda>
       </div>
+
+      <LegendaSezione voci={LEGENDA_PAGINA} />
     </div>
   )
 }

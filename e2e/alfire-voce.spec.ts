@@ -16,6 +16,8 @@ test('il vocale finisce nella casella: si rilegge e si manda con Invio', async (
   const casella = pannello.getByLabel('Scrivi ad Alfire')
 
   await pannello.getByRole('button', { name: 'Parla con Alfire' }).click()
+  // speak for a moment: a recording under 1 KB is taken for a mistaken tap and dropped
+  await page.waitForTimeout(1500)
   await pannello.getByRole('button', { name: 'Ferma e trascrivi' }).click()
 
   // the transcript waits in the box, nothing sent yet

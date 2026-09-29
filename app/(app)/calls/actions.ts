@@ -85,9 +85,18 @@ export async function modificaCall(input: unknown): Promise<EsitoModifica> {
 
   const v = parsed.data
   const supabase = await createClient()
+
+  // the setter never changes the type: a call of his keeps the one it has
+  let tipo = v.tipo
+  if (profilo.ruolo === 'setter') {
+    const { data: attuale, error: erroreLettura } = await supabase.from('calls').select('tipo').eq('id', v.call_id).maybeSingle()
+    if (erroreLettura || !attuale) return { ok: false, errore: 'Call non trovata.' }
+    tipo = attuale.tipo
+  }
+
   const { error } = await supabase.rpc('modifica_call', {
     p_call_id: v.call_id,
-    p_tipo: v.tipo,
+    p_tipo: tipo,
     p_data: v.data,
     p_ora: v.ora,
     p_closer_id: v.closer_id,
