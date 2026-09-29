@@ -62,27 +62,51 @@ export function InRitardo({ testo = 'In ritardo', className }: { testo?: string;
   )
 }
 
-/** Members as initials; the full names are there for screen readers and on hover. */
-export function InizialiMembri({ nomi, massimo = 4 }: { nomi: string[]; massimo?: number }) {
+/**
+ * People as initials (the members of a project, the assignees of a task); the
+ * full names are there for screen readers and on hover. "piccole" fits a line
+ * of small text, like the details under a task.
+ */
+export function InizialiMembri({
+  nomi,
+  massimo = 4,
+  etichetta = 'Membri',
+  piccole = false,
+}: {
+  nomi: string[]
+  massimo?: number
+  etichetta?: string
+  piccole?: boolean
+}) {
   if (nomi.length === 0) return null
   const visibili = nomi.slice(0, massimo)
   const altri = nomi.length - visibili.length
   return (
-    <span className="flex items-center -space-x-1.5">
-      <span className="sr-only">Membri: {nomi.join(', ')}</span>
+    // small circles sit side by side: overlapping, the next ring would cut the
+    // last letter of two initials ("MC" read "M(")
+    <span className={cn('flex items-center', !piccole && '-space-x-1.5')}>
+      <span className="sr-only">
+        {etichetta}: {nomi.join(', ')}
+      </span>
       {visibili.map((nome, i) => (
         <span
           key={`${nome}-${i}`}
           title={nome}
           aria-hidden="true"
           // the ring cuts each circle out of the card, also when the card lights up on hover
-          className="inline-flex size-7 items-center justify-center rounded-full bg-secondary text-[11px] font-medium text-secondary-foreground ring-2 ring-card group-hover/card:ring-accent"
+          className={cn(
+            'inline-flex items-center justify-center rounded-full bg-secondary font-medium text-secondary-foreground ring-2 ring-card group-hover/card:ring-accent',
+            piccole ? 'size-5 text-[10px]' : 'size-7 text-[11px]',
+          )}
         >
           {iniziali(nome)}
         </span>
       ))}
       {altri > 0 ? (
-        <span aria-hidden="true" className="num pl-2.5 text-xs text-muted-foreground">
+        <span
+          aria-hidden="true"
+          className={cn('num text-xs text-muted-foreground', piccole ? 'pl-1' : 'pl-2.5')}
+        >
           +{altri}
         </span>
       ) : null}

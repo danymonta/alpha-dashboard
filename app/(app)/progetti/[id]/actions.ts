@@ -67,15 +67,28 @@ export async function aggiungiTask(input: unknown): Promise<Esito> {
       : ultimo.is('tasklist_id', null).is('parent_id', null)
   const { data: righe } = await ultimo.order('ordine', { ascending: false }).limit(1)
 
-  const { error } = await supabase.from('pm_task').insert({
-    progetto_id: v.progetto_id,
-    tasklist_id: v.tasklist_id,
-    parent_id: v.parent_id,
-    titolo: v.titolo,
-    ordine: (righe?.[0]?.ordine ?? 0) + 1,
-    created_by: profilo!.id,
-  })
+  const { data: task, error } = await supabase
+    .from('pm_task')
+    .insert({
+      progetto_id: v.progetto_id,
+      tasklist_id: v.tasklist_id,
+      parent_id: v.parent_id,
+      titolo: v.titolo,
+      ordine: (righe?.[0]?.ordine ?? 0) + 1,
+      created_by: profilo!.id,
+    })
+    .select('id')
+    .single()
   if (error) return { ok: false, errore: errore(error, 'Task non aggiunto. Riprova.', 'Non fai parte di questo progetto.') }
+
+  if (v.assegnatari.length > 0) {
+    const { error: e2 } = await supabase.rpc('pm_imposta_assegnatari', { p_task: task.id, p_persone: v.assegnatari })
+    if (e2) {
+      // all or nothing: without its people the task would look done by nobody
+      await supabase.from('pm_task').delete().eq('id', task.id)
+      return { ok: false, errore: errore(e2, 'Task non aggiunto. Riprova.') }
+    }
+  }
 
   aggiorna(v.progetto_id)
   return { ok: true }
@@ -100,20 +113,52 @@ export async function completaTask(input: unknown): Promise<Esito> {
   return { ok: true }
 }
 
-export async function modificaTask(input: unknown): Promise<Esito> {
+/**
+ * Fields and people of a task. The people are checked against the project's
+ * members first: someone taken out of the project while the sheet was open is
+ * dropped with a word (avviso), instead of the database refusing every save.
+ */
+export async function modificaTask(input: unknown): Promise<Esito & { avviso?: string }> {
   const parsed = modificaTaskSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error) }
   const negato = await negaSeNonPm()
   if (negato) return { ok: false, errore: negato }
 
-  const { id, ...campi } = parsed.data
+  const { id, assegnatari, ...campi } = parsed.data
   const supabase = await createClient()
+
+  const { data: task, error: e0 } = await supabase.from('pm_task').select('progetto_id').eq('id', id).maybeSingle()
+  if (e0) return { ok: false, errore: errore(e0, 'Task non salvato. Riprova.') }
+  if (!task) return { ok: false, errore: 'Task non trovato: forse è stato eliminato.' }
+  const { data: membri, error: e1 } = await supabase
+    .from('pm_membri')
+    .select('profile_id')
+    .eq('progetto_id', task.progetto_id)
+  if (e1) return { ok: false, errore: errore(e1, 'Task non salvato. Riprova.') }
+  const nelProgetto = new Set(membri.map((m) => m.profile_id))
+  const persone = assegnatari.filter((p) => nelProgetto.has(p))
+  const usciti = assegnatari.filter((p) => !nelProgetto.has(p))
+
   const { data, error } = await supabase.from('pm_task').update(campi).eq('id', id).select('progetto_id')
   if (error) return { ok: false, errore: errore(error, 'Task non salvato. Riprova.') }
   if (data.length === 0) return { ok: false, errore: TASK_NON_TUO }
 
+  // the people in one call: the list sent is the list kept
+  const { error: e2 } = await supabase.rpc('pm_imposta_assegnatari', { p_task: id, p_persone: persone })
   aggiorna(data[0].progetto_id)
-  return { ok: true }
+  if (e2) return { ok: false, errore: errore(e2, 'Persone assegnate non salvate. Riprova.', TASK_NON_TUO) }
+  if (usciti.length === 0) return { ok: true }
+
+  // the directory of the team is readable by everyone: the names, when there
+  const { data: nomi } = await supabase.from('profiles').select('nome').in('id', usciti)
+  const chi = nomi?.length === usciti.length ? nomi.map((n) => n.nome).join(', ') : null
+  return {
+    ok: true,
+    avviso:
+      usciti.length === 1
+        ? `${chi ?? 'Una persona scelta'} non fa più parte del progetto: non è tra le persone assegnate.`
+        : `${chi ?? `${usciti.length} persone scelte`} non fanno più parte del progetto: non sono tra le persone assegnate.`,
+  }
 }
 
 export async function eliminaTask(input: unknown): Promise<Esito> {
@@ -280,7 +325,7 @@ export async function aggiungiMembro(input: unknown): Promise<Esito> {
   return { ok: true }
 }
 
-/** The database gives their tasks back to nobody and clears them as person in charge. */
+/** The database takes them off the tasks they were assigned to and clears them as person in charge. */
 export async function togliMembro(input: unknown): Promise<Esito> {
   const parsed = membroSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: 'Dati non validi.' }

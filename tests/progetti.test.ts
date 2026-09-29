@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
+import { riassuntoScrittura } from '@/lib/alfire/riassunto'
 import { differenze } from '@/lib/audit'
 import {
   alberoTask,
   corrisponde,
+  elencoNomi,
   filtroAttivo,
   formatStima,
   iniziali,
   isUuid,
+  nomiAssegnatari,
   parseFiltroStatoProgetto,
   parseFiltroStatoTask,
   parseStima,
@@ -98,14 +101,15 @@ describe('albero dei task', () => {
     parent_id: null,
     tasklist_id: 'L1',
     stato: 'da_fare',
-    assegnatario_id: null,
+    assegnatari: [],
     in_ritardo: false,
     ...campi,
   })
   const tasks = [
-    task(1, { assegnatario_id: io }),
+    task(1, { assegnatari: [io] }),
     task(2, { stato: 'completato' }),
-    task(3, { parent_id: ID(2), assegnatario_id: io, in_ritardo: true }),
+    // shared with someone else: still mine
+    task(3, { parent_id: ID(2), assegnatari: [ID(50), io], in_ritardo: true }),
     task(4, { parent_id: ID(2), stato: 'completato' }),
     task(5, { tasklist_id: null }),
   ]
@@ -137,9 +141,47 @@ describe('albero dei task', () => {
     expect(filtroAttivo({ stato: 'tutti', soloMiei: true })).toBe(true)
   })
 
+  it('"I miei task": basta essere una delle persone assegnate', () => {
+    const mieiSoltanto = { stato: 'tutti', soloMiei: true, io } as const
+    expect(corrisponde(task(1, { assegnatari: [ID(50), io] }), mieiSoltanto)).toBe(true)
+    expect(corrisponde(task(1, { assegnatari: [ID(50), ID(51)] }), mieiSoltanto)).toBe(false)
+    expect(corrisponde(task(1), mieiSoltanto)).toBe(false)
+  })
+
   it('un sotto-task con il principale fuori dai dati resta visibile come principale', () => {
     const albero = alberoTask([task(7, { parent_id: ID(70) })], { stato: 'tutti', soloMiei: false, io })
     expect(albero.get('L1')?.map((n) => n.task.id)).toEqual([ID(7)])
+  })
+})
+
+describe('persone assegnate', () => {
+  const nomi = new Map([
+    [ID(1), 'Marco Coach'],
+    [ID(2), 'Sara Editor'],
+    [ID(3), 'Dany'],
+  ])
+
+  it('i nomi seguono l’ordine della view, chi non è nell’elenco resta fuori', () => {
+    expect(nomiAssegnatari([ID(2), ID(1)], nomi)).toEqual(['Sara Editor', 'Marco Coach'])
+    expect(nomiAssegnatari([ID(9), ID(3)], nomi)).toEqual(['Dany'])
+    expect(nomiAssegnatari(null, nomi)).toEqual([])
+  })
+
+  it('in una frase: virgole e "e" prima dell’ultimo', () => {
+    expect(elencoNomi(['Marco'])).toBe('Marco')
+    expect(elencoNomi(['Marco', 'Sara'])).toBe('Marco e Sara')
+    expect(elencoNomi(['Marco', 'Sara', 'Dany'])).toBe('Marco, Sara e Dany')
+    expect(elencoNomi([])).toBe('')
+  })
+
+  it('Alfire dice a chi assegna il nuovo task prima di farlo', () => {
+    expect(
+      riassuntoScrittura('aggiungi_task', { titolo: 'Copertina', progetto: 'Reel', assegnatari: ['io', 'Sara Editor'] }).dettagli,
+    ).toEqual(['Progetto: Reel', 'Assegnato a: te e Sara Editor'])
+    expect(riassuntoScrittura('aggiungi_task', { titolo: 'Copertina', progetto: 'Reel' }).dettagli).toEqual([
+      'Progetto: Reel',
+      'Senza assegnatario',
+    ])
   })
 })
 
@@ -221,7 +263,7 @@ describe('schemi dei progetti', () => {
       descrizione: '',
       stato: 'in_corso',
       priorita: 'alta',
-      assegnatario_id: '',
+      assegnatari: [ID(3), ID(4)],
       data_inizio: '2026-10-01',
       scadenza: '2026-10-03',
       stima_minuti: '1 h 30 min',
@@ -229,7 +271,8 @@ describe('schemi dei progetti', () => {
       parent_id: '',
     }
     const v = rilettura(modificaTaskSchema, base)
-    expect(v).toMatchObject({ titolo: 'Call di check', stima_minuti: 90, assegnatario_id: null, parent_id: null })
+    expect(v).toMatchObject({ titolo: 'Call di check', stima_minuti: 90, assegnatari: [ID(3), ID(4)], parent_id: null })
+    expect(rilettura(modificaTaskSchema, { ...base, assegnatari: false }).assegnatari).toEqual([])
 
     const stima = modificaTaskSchema.safeParse({ ...base, stima_minuti: 'molto' })
     expect(stima.error?.issues[0].message).toBe('Scrivi la stima come 45 min, 2 h o 1 h 30 min')
@@ -245,7 +288,16 @@ describe('schemi dei progetti', () => {
       tasklist_id: null,
       parent_id: null,
       titolo: 'Montaggio',
+      assegnatari: [],
     })
+    // one or more people; a single checkbox gives a string, none gives false
+    expect(rilettura(nuovoTaskSchema, { progetto_id: ID(1), titolo: 'Reel', assegnatari: [ID(2), ID(3)] }).assegnatari).toEqual([
+      ID(2),
+      ID(3),
+    ])
+    expect(rilettura(nuovoTaskSchema, { progetto_id: ID(1), titolo: 'Reel', assegnatari: ID(2) }).assegnatari).toEqual([ID(2)])
+    expect(rilettura(nuovoTaskSchema, { progetto_id: ID(1), titolo: 'Reel', assegnatari: false }).assegnatari).toEqual([])
+    expect(nuovoTaskSchema.safeParse({ progetto_id: ID(1), titolo: 'Reel', assegnatari: ['Sara'] }).success).toBe(false)
     expect(nuovoTaskSchema.safeParse({ progetto_id: ID(1), titolo: '   ' }).error?.issues[0].message).toBe(
       'Scrivi il titolo del task',
     )

@@ -5,6 +5,7 @@ import { GanttProgetto, type ListaVista, type TaskVista } from '@/components/pm/
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireProfilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
+import { nomiAssegnatari } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -27,13 +28,13 @@ export default async function GanttPage({ params }: { params: Promise<{ id: stri
       .order('ordine'),
     supabase
       .from('v_pm_task')
-      .select('id, titolo, tasklist_id, parent_id, ordine, data_inizio, scadenza, stato, in_ritardo, assegnatario_id')
+      .select('id, titolo, tasklist_id, parent_id, ordine, data_inizio, scadenza, stato, in_ritardo, assegnatari')
       .eq('progetto_id', id)
       .order('ordine'),
   ])
   if (liste.error || task.error) throw new Error('Impossibile caricare il Gantt')
 
-  const idAssegnatari = [...new Set(task.data.map((t) => t.assegnatario_id).filter((v): v is string => Boolean(v)))]
+  const idAssegnatari = [...new Set(task.data.flatMap((t) => t.assegnatari ?? []))]
   const { data: persone, error: errorePersone } =
     idAssegnatari.length > 0
       ? await supabase.from('profiles').select('id, nome').in('id', idAssegnatari)
@@ -62,7 +63,7 @@ export default async function GanttPage({ params }: { params: Promise<{ id: stri
     scadenza: t.scadenza,
     stato: t.stato ?? 'da_fare',
     in_ritardo: t.in_ritardo ?? false,
-    assegnatario: t.assegnatario_id ? (nomi.get(t.assegnatario_id) ?? null) : null,
+    assegnatari: nomiAssegnatari(t.assegnatari, nomi),
   }))
 
   if (datiListe.length === 0 && datiTask.length === 0) {

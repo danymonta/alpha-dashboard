@@ -37,7 +37,7 @@ export default async function AttivitaPage({
     supabase
       .from('v_pm_task')
       .select(
-        'id, progetto_id, tasklist_id, parent_id, titolo, descrizione, stato, priorita, assegnatario_id, data_inizio, scadenza, stima_minuti, created_by, in_ritardo, sotto_task_totali, sotto_task_completati',
+        'id, progetto_id, tasklist_id, parent_id, titolo, descrizione, stato, priorita, assegnatari, data_inizio, scadenza, stima_minuti, created_by, in_ritardo, sotto_task_totali, sotto_task_completati',
       )
       .eq('progetto_id', id)
       .order('ordine')

@@ -139,11 +139,12 @@ select lives_ok(
 insert into ids
 select 'padre', id from public.pm_task
 where progetto_id = (select id from ids where chiave = 'progetto') and titolo = 'Call di check';
-insert into public.pm_task (id, progetto_id, tasklist_id, parent_id, titolo, assegnatario_id, created_by)
+insert into public.pm_task (id, progetto_id, tasklist_id, parent_id, titolo, created_by)
 values ('cccc0000-0000-4000-8000-0000000000f1', (select id from ids where chiave = 'progetto'),
         (select id from ids where chiave = 'onboarding'), (select id from ids where chiave = 'padre'),
-        'Preparare le domande del check', 'cccc0000-0000-4000-8000-00000000000e',
-        'cccc0000-0000-4000-8000-00000000000a');
+        'Preparare le domande del check', 'cccc0000-0000-4000-8000-00000000000a');
+insert into public.pm_task_assegnatari (task_id, profile_id)
+values ('cccc0000-0000-4000-8000-0000000000f1', 'cccc0000-0000-4000-8000-00000000000e');
 
 select is(
   (select tasklist_id from public.pm_task where id = 'cccc0000-0000-4000-8000-0000000000f1'),
@@ -255,9 +256,10 @@ where progetto_id = (select id from ids where chiave = 'progetto')
   and profile_id = 'cccc0000-0000-4000-8000-00000000000e';
 select is(
   (select array[
-     (select count(*) from public.pm_task
-      where progetto_id = (select id from ids where chiave = 'progetto')
-        and assegnatario_id = 'cccc0000-0000-4000-8000-00000000000e'),
+     (select count(*) from public.pm_task_assegnatari a
+      join public.pm_task t on t.id = a.task_id
+      where t.progetto_id = (select id from ids where chiave = 'progetto')
+        and a.profile_id = 'cccc0000-0000-4000-8000-00000000000e'),
      (select count(*) from public.pm_progetti
       where id = (select id from ids where chiave = 'progetto') and responsabile_id is not null)
    ]::int[]),

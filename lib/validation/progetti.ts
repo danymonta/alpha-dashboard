@@ -118,6 +118,8 @@ export const nuovoTaskSchema = z.object({
   tasklist_id: idFacoltativo,
   parent_id: idFacoltativo,
   titolo: z.string().trim().min(1, 'Scrivi il titolo del task').max(200, 'Al massimo 200 caratteri'),
+  /** Who works on it, members of the project: none, one or more (the database checks membership). */
+  assegnatari: elencoId,
 })
 
 export const completaTaskSchema = z.object({ id: z.string().uuid(), completato: z.boolean() })
@@ -141,7 +143,8 @@ export const modificaTaskSchema = z
     descrizione: testoFacoltativo(5000),
     stato: z.enum(STATI_TASK, { errorMap: () => ({ message: 'Scegli lo stato' }) }),
     priorita: z.enum(PRIORITA, { errorMap: () => ({ message: 'Scegli la priorità' }) }),
-    assegnatario_id: idFacoltativo,
+    /** The whole list: who is not in it is no longer assigned. */
+    assegnatari: elencoId,
     data_inizio: dataFacoltativa,
     scadenza: dataFacoltativa,
     stima_minuti: stima,

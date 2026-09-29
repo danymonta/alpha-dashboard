@@ -40,6 +40,7 @@ const ORDINE = [
   'pm_membri',
   'pm_tasklist',
   'pm_task',
+  'pm_task_assegnatari',
   'pm_tempo',
   'pm_note',
   'audit_log',
@@ -56,6 +57,31 @@ function letterale(valore: unknown): string {
   const json = JSON.stringify(valore)
   if (json.includes(TAG)) throw new Error('Il backup contiene la sequenza usata per le stringhe SQL')
   return `${TAG}${json}${TAG}`
+}
+
+/**
+ * Backups taken before 29/09/2026 keep a task's one assignee in
+ * pm_task.assegnatario_id, a column that is gone: jsonb_populate_recordset
+ * skips it, so the pairs go into pm_task_assegnatari here, as the migration
+ * did (only for members of the task's project, only the missing ones).
+ */
+function sqlAssegnatariVecchi(task: Record<string, unknown>[]): string | null {
+  const coppie = task
+    .filter((t) => typeof t.assegnatario_id === 'string' && t.assegnatario_id)
+    .map((t) => ({ id: t.id, assegnatario_id: t.assegnatario_id, updated_at: t.updated_at ?? null }))
+  if (coppie.length === 0) return null
+  return [
+    '-- tasks from before 29/09/2026: their one assignee was a column of pm_task',
+    'insert into public.pm_task_assegnatari (task_id, profile_id, created_at)',
+    'select t.id, r.assegnatario_id, coalesce(r.updated_at, now())',
+    `from jsonb_to_recordset(${letterale(coppie)}::jsonb)`,
+    '  as r(id uuid, assegnatario_id uuid, updated_at timestamptz)',
+    'join public.pm_task t on t.id = r.id',
+    'where exists (',
+    '  select 1 from public.pm_membri m where m.progetto_id = t.progetto_id and m.profile_id = r.assegnatario_id',
+    ')',
+    'on conflict (task_id, profile_id) do nothing;',
+  ].join('\n')
 }
 
 /**
@@ -93,6 +119,8 @@ on conflict (id) do nothing;`,
       `select * from jsonb_populate_recordset(null::public.${tabella}, ${letterale(dati)}::jsonb)`,
       'on conflict do nothing;',
     )
+    const vecchi = tabella === 'pm_task' ? sqlAssegnatariVecchi(dati) : null
+    if (vecchi) righe.push('', vecchi)
   }
   righe.push('', 'commit;', '')
   return righe.join('\n')

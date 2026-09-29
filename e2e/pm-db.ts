@@ -77,7 +77,6 @@ export async function creaProgettoDiProva(nome: string): Promise<ProgettoDiProva
           titolo: 'Montaggio',
           ordine: 2,
           stato: 'in_corso' as const,
-          assegnatario_id: ID_SETTER,
           data_inizio: giorno(-3),
           scadenza: giorno(4),
           created_by: ID_ADMIN,
@@ -96,6 +95,14 @@ export async function creaProgettoDiProva(nome: string): Promise<ProgettoDiProva
       .select('id, titolo'),
   )
   const idDi = (titolo: string) => task.find((t) => t.titolo === titolo)!.id
+
+  // "Montaggio" is the setter's: the others have nobody
+  await ok(
+    db
+      .from('pm_task_assegnatari')
+      .insert({ task_id: idDi('Montaggio'), profile_id: ID_SETTER, created_by: ID_ADMIN })
+      .select('task_id'),
+  )
 
   return {
     id: progetto.id,

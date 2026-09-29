@@ -18,7 +18,7 @@ import {
   type ScalaGantt,
   type TaskGantt,
 } from '@/lib/gantt'
-import { ETICHETTA_STATO_TASK, type StatoTask } from '@/lib/progetti'
+import { ETICHETTA_STATO_TASK, elencoNomi, type StatoTask } from '@/lib/progetti'
 import { cn } from '@/lib/utils'
 
 export type ListaVista = ListaGantt & {
@@ -32,7 +32,8 @@ export type TaskVista = TaskGantt & {
   stato: StatoTask
   /** From v_pm_task: open and past due, Europe/Rome. */
   in_ritardo: boolean
-  assegnatario: string | null
+  /** Names of the people it is assigned to, by name; empty when nobody. */
+  assegnatari: string[]
 }
 
 type Riga = RigaGantt<ListaVista, TaskVista>
@@ -197,7 +198,7 @@ function ContenutoTooltip({ riga, nomeLista }: { riga: Exclude<Riga, { tipo: 'gr
         <Dettaglio termine="Stato">
           <StatoTaskEtichetta task={task} />
         </Dettaglio>
-        <Dettaglio termine="Assegnata a">{task.assegnatario ?? 'Nessuno'}</Dettaglio>
+        <Dettaglio termine="Assegnata a">{task.assegnatari.length > 0 ? elencoNomi(task.assegnatari) : 'Nessuno'}</Dettaglio>
       </dl>
     </>
   )
@@ -518,7 +519,7 @@ function Tabella({
                 <td className="py-2 pr-3">
                   <StatoTaskEtichetta task={v.task} />
                 </td>
-                <td className="py-2">{v.task.assegnatario ?? '–'}</td>
+                <td className="py-2">{v.task.assegnatari.length > 0 ? elencoNomi(v.task.assegnatari) : '–'}</td>
               </tr>
             ),
           )}
@@ -544,7 +545,7 @@ function Tabella({
                 ) : (
                   <>
                     <StatoTaskEtichetta task={v.task} />
-                    {v.task.assegnatario ? ` · ${v.task.assegnatario}` : ''}
+                    {v.task.assegnatari.length > 0 ? ` · ${elencoNomi(v.task.assegnatari)}` : ''}
                   </>
                 )}
               </p>

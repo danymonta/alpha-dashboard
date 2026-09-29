@@ -34,6 +34,24 @@ export function puoCreareProgetti(livello: LivelloPm): boolean {
   return livello === 'admin' || livello === 'manager'
 }
 
+/**
+ * Names of a task's assignees, in the order v_pm_task gives them (by name).
+ * An id without a name (not in the list passed) is left out.
+ */
+export function nomiAssegnatari(ids: readonly string[] | null | undefined, nomi: ReadonlyMap<string, string>): string[] {
+  return (ids ?? []).flatMap((id) => {
+    const nome = nomi.get(id)
+    return nome ? [nome] : []
+  })
+}
+
+const ELENCO = new Intl.ListFormat('it-IT', { style: 'long', type: 'conjunction' })
+
+/** ["Marco", "Sara", "Dany"] -> "Marco, Sara e Dany". */
+export function elencoNomi(nomi: readonly string[]): string {
+  return ELENCO.format(nomi)
+}
+
 /** "Marco Coach" -> "MC", "Dany" -> "D". */
 export function iniziali(nome: string | null | undefined): string {
   const parole = (nome ?? '').trim().split(/\s+/).filter(Boolean)
@@ -132,7 +150,8 @@ export type TaskMinimo = {
   parent_id: string | null
   tasklist_id: string | null
   stato: StatoTask
-  assegnatario_id: string | null
+  /** Who it is assigned to: none, one or more people (v_pm_task.assegnatari). */
+  assegnatari: readonly string[]
   in_ritardo: boolean
 }
 
@@ -143,7 +162,8 @@ export function filtroAttivo(f: Pick<FiltroTask, 'stato' | 'soloMiei'>): boolean
 }
 
 export function corrisponde(task: TaskMinimo, f: FiltroTask): boolean {
-  if (f.soloMiei && task.assegnatario_id !== f.io) return false
+  // "I miei task": I am one of its assignees
+  if (f.soloMiei && !task.assegnatari.includes(f.io)) return false
   switch (f.stato) {
     case 'tutti':
       return true

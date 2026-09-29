@@ -191,7 +191,7 @@ begin
 
     insert into public.pm_task (
       id, progetto_id, tasklist_id, titolo, descrizione, ordine, data_inizio, scadenza,
-      stato, priorita, assegnatario_id, stima_minuti, created_by
+      stato, priorita, stima_minuti, created_by
     )
     select
       md5(v_p.id::text || '/task/' || v.titolo)::uuid,
@@ -214,11 +214,6 @@ begin
         else 'media'
       end)::public.pm_priorita,
       case
-        when v.titolo in ('Invio accessi e materiali di benvenuto', 'Revisione video settimanale',
-                          'Raccolta feedback e testimonianza') then v_editor
-        else v_coach
-      end,
-      case
         when v.titolo like 'Call%' then 45
         when v.titolo like '%programmazione%' then 120
         else null
@@ -228,11 +223,26 @@ begin
     where v.modello_id = v_modello
     order by v.ordine
     on conflict (id) do nothing;
+
+    -- who works on them: the weekly video review is the coach's and the editor's together
+    insert into public.pm_task_assegnatari (task_id, profile_id, created_by)
+    select md5(v_p.id::text || '/task/' || v.titolo)::uuid, x.persona, v_p.autore
+    from public.pm_modelli_voci v
+    cross join lateral unnest(
+      case
+        when v.titolo = 'Revisione video settimanale' then array[v_coach, v_editor]
+        when v.titolo in ('Invio accessi e materiali di benvenuto', 'Raccolta feedback e testimonianza') then array[v_editor]
+        else array[v_coach]
+      end
+    ) as x(persona)
+    where v.modello_id = v_modello
+      and exists (select 1 from public.pm_task t where t.id = md5(v_p.id::text || '/task/' || v.titolo)::uuid)
+    on conflict (task_id, profile_id) do nothing;
   end loop;
 end $$;
 
 -- the first program, split into its parts
-insert into public.pm_task (id, progetto_id, parent_id, titolo, ordine, stato, assegnatario_id, stima_minuti, created_by)
+insert into public.pm_task (id, progetto_id, parent_id, titolo, ordine, stato, stima_minuti, created_by)
 select
   md5('bbbbbbb1-0000-4000-8000-000000000001/sotto/' || s.titolo)::uuid,
   'bbbbbbb1-0000-4000-8000-000000000001',
@@ -240,7 +250,6 @@ select
   s.titolo,
   s.ordine,
   'completato',
-  '44444444-4444-4444-8444-444444444444',
   s.stima,
   '44444444-4444-4444-8444-444444444444'
 from (values
@@ -253,6 +262,12 @@ where exists (
   where t.id = md5('bbbbbbb1-0000-4000-8000-000000000001/task/Scrittura programmazione')::uuid
 )
 on conflict (id) do nothing;
+
+insert into public.pm_task_assegnatari (task_id, profile_id, created_by)
+select t.id, '44444444-4444-4444-8444-444444444444', '44444444-4444-4444-8444-444444444444'
+from public.pm_task t
+where t.parent_id = md5('bbbbbbb1-0000-4000-8000-000000000001/task/Scrittura programmazione')::uuid
+on conflict (task_id, profile_id) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- 4. The other projects: lists and tasks written by hand
@@ -280,7 +295,7 @@ on conflict (id) do nothing;
 
 insert into public.pm_task (
   id, progetto_id, tasklist_id, titolo, ordine, data_inizio, scadenza, stato, priorita,
-  assegnatario_id, stima_minuti, created_by
+  stima_minuti, created_by
 )
 select
   md5(t.progetto_id || '/task/' || t.titolo)::uuid,
@@ -292,56 +307,87 @@ select
   t.scadenza,
   t.stato::public.pm_stato_task,
   t.priorita::public.pm_priorita,
-  t.assegnatario::uuid,
   t.stima,
   '11111111-1111-4111-8111-111111111111'
 from (values
   -- Reel del mese
   ('bbbbbbb1-0000-4000-8000-000000000003', 'Pre-produzione', 'Scaletta dei quattro reel', 1,
-    public.oggi() - 12, public.oggi() - 10, 'completato', 'media', '55555555-5555-4555-8555-555555555555', 60),
+    public.oggi() - 12, public.oggi() - 10, 'completato', 'media', 60),
   ('bbbbbbb1-0000-4000-8000-000000000003', 'Pre-produzione', 'Script: trasformazione in 90 giorni', 2,
-    public.oggi() - 10, public.oggi() - 7, 'completato', 'alta', '44444444-4444-4444-8444-444444444444', 90),
+    public.oggi() - 10, public.oggi() - 7, 'completato', 'alta', 90),
   ('bbbbbbb1-0000-4000-8000-000000000003', 'Pre-produzione', 'Riprese degli esercizi a corpo libero', 3,
-    public.oggi() - 6, public.oggi() - 1, 'in_corso', 'alta', '44444444-4444-4444-8444-444444444444', 180),
+    public.oggi() - 6, public.oggi() - 1, 'in_corso', 'alta', 180),
   ('bbbbbbb1-0000-4000-8000-000000000003', 'Montaggio', 'Montaggio reel 1: la routine del mattino', 1,
-    public.oggi() - 3, public.oggi() + 1, 'in_revisione', 'alta', '55555555-5555-4555-8555-555555555555', 240),
+    public.oggi() - 3, public.oggi() + 1, 'in_revisione', 'alta', 240),
   ('bbbbbbb1-0000-4000-8000-000000000003', 'Montaggio', 'Montaggio reel 2: errori comuni nelle trazioni', 2,
-    public.oggi() + 1, public.oggi() + 5, 'da_fare', 'media', '55555555-5555-4555-8555-555555555555', 240),
+    public.oggi() + 1, public.oggi() + 5, 'da_fare', 'media', 240),
   ('bbbbbbb1-0000-4000-8000-000000000003', 'Montaggio', 'Copertine e miniature', 3,
-    public.oggi() + 4, public.oggi() + 8, 'da_fare', 'bassa', '55555555-5555-4555-8555-555555555555', 60),
+    public.oggi() + 4, public.oggi() + 8, 'da_fare', 'bassa', 60),
   ('bbbbbbb1-0000-4000-8000-000000000003', 'Pubblicazione', 'Calendario di pubblicazione', 1,
-    public.oggi() + 9, public.oggi() + 10, 'da_fare', 'media', '11111111-1111-4111-8111-111111111111', 30),
+    public.oggi() + 9, public.oggi() + 10, 'da_fare', 'media', 30),
   ('bbbbbbb1-0000-4000-8000-000000000003', 'Pubblicazione', 'Caption e hashtag', 2,
-    public.oggi() + 10, public.oggi() + 12, 'da_fare', 'bassa', null, 45),
+    public.oggi() + 10, public.oggi() + 12, 'da_fare', 'bassa', 45),
   -- Funnel webinar di gennaio
   ('bbbbbbb1-0000-4000-8000-000000000004', 'Strategia', 'Definire l’offerta del webinar', 1,
-    public.oggi() - 5, public.oggi() + 3, 'in_corso', 'alta', '11111111-1111-4111-8111-111111111111', 120),
+    public.oggi() - 5, public.oggi() + 3, 'in_corso', 'alta', 120),
   ('bbbbbbb1-0000-4000-8000-000000000004', 'Strategia', 'Script della call di vendita dopo il webinar', 2,
-    public.oggi() + 2, public.oggi() + 14, 'da_fare', 'alta', '33333333-3333-4333-8333-333333333333', 120),
+    public.oggi() + 2, public.oggi() + 14, 'da_fare', 'alta', 120),
   ('bbbbbbb1-0000-4000-8000-000000000004', 'Materiali', 'Pagina di registrazione', 1,
-    public.oggi() + 7, public.oggi() + 20, 'da_fare', 'media', '11111111-1111-4111-8111-111111111111', 180),
+    public.oggi() + 7, public.oggi() + 20, 'da_fare', 'media', 180),
   ('bbbbbbb1-0000-4000-8000-000000000004', 'Materiali', 'Sequenza email di promemoria', 2,
-    public.oggi() + 15, public.oggi() + 25, 'da_fare', 'media', null, 90),
+    public.oggi() + 15, public.oggi() + 25, 'da_fare', 'media', 90),
   -- Chiusura del trimestre
   ('bbbbbbb1-0000-4000-8000-000000000005', 'Chiusura', 'Raccolta delle fatture dei fornitori', 1,
-    public.oggi() - 30, public.oggi() - 20, 'completato', 'media', '11111111-1111-4111-8111-111111111111', 60),
+    public.oggi() - 30, public.oggi() - 20, 'completato', 'media', 60),
   ('bbbbbbb1-0000-4000-8000-000000000005', 'Chiusura', 'Invio dei documenti alla commercialista', 2,
-    public.oggi() - 20, public.oggi() - 10, 'completato', 'alta', '11111111-1111-4111-8111-111111111111', 30),
+    public.oggi() - 20, public.oggi() - 10, 'completato', 'alta', 30),
   ('bbbbbbb1-0000-4000-8000-000000000005', 'Chiusura', 'Controllo degli abbonamenti software', 3,
-    public.oggi() - 10, public.oggi() - 2, 'completato', 'bassa', '11111111-1111-4111-8111-111111111111', 45),
+    public.oggi() - 10, public.oggi() - 2, 'completato', 'bassa', 45),
   -- Libreria esercizi in video
   ('bbbbbbb1-0000-4000-8000-000000000006', 'Esercizi base', 'Elenco degli esercizi da girare', 1,
-    public.oggi() - 60, public.oggi() - 50, 'completato', 'media', '44444444-4444-4444-8444-444444444444', 60),
+    public.oggi() - 60, public.oggi() - 50, 'completato', 'media', 60),
   ('bbbbbbb1-0000-4000-8000-000000000006', 'Esercizi base', 'Riprese degli esercizi di spinta', 2,
-    null, null, 'da_fare', 'media', '55555555-5555-4555-8555-555555555555', null),
+    null, null, 'da_fare', 'media', null),
   ('bbbbbbb1-0000-4000-8000-000000000006', null, 'Scegliere la musica di sottofondo', 3,
-    null, null, 'da_fare', 'bassa', null, null)
-) as t(progetto_id, lista, titolo, ordine, inizio, scadenza, stato, priorita, assegnatario, stima)
+    null, null, 'da_fare', 'bassa', null)
+) as t(progetto_id, lista, titolo, ordine, inizio, scadenza, stato, priorita, stima)
 where exists (select 1 from public.pm_progetti p where p.id = t.progetto_id::uuid)
 on conflict (id) do nothing;
 
+-- who works on them: a task can have more than one person (Dany, 29/09/2026),
+-- some here have two; the rest have one, three have nobody yet
+insert into public.pm_task_assegnatari (task_id, profile_id, created_by)
+select md5(a.progetto_id || '/task/' || a.titolo)::uuid, a.persona::uuid, '11111111-1111-4111-8111-111111111111'
+from (values
+  -- Reel del mese
+  ('bbbbbbb1-0000-4000-8000-000000000003', 'Scaletta dei quattro reel', '55555555-5555-4555-8555-555555555555'),
+  ('bbbbbbb1-0000-4000-8000-000000000003', 'Script: trasformazione in 90 giorni', '44444444-4444-4444-8444-444444444444'),
+  ('bbbbbbb1-0000-4000-8000-000000000003', 'Riprese degli esercizi a corpo libero', '44444444-4444-4444-8444-444444444444'),
+  ('bbbbbbb1-0000-4000-8000-000000000003', 'Riprese degli esercizi a corpo libero', '55555555-5555-4555-8555-555555555555'),
+  ('bbbbbbb1-0000-4000-8000-000000000003', 'Montaggio reel 1: la routine del mattino', '55555555-5555-4555-8555-555555555555'),
+  ('bbbbbbb1-0000-4000-8000-000000000003', 'Montaggio reel 2: errori comuni nelle trazioni', '55555555-5555-4555-8555-555555555555'),
+  ('bbbbbbb1-0000-4000-8000-000000000003', 'Copertine e miniature', '55555555-5555-4555-8555-555555555555'),
+  ('bbbbbbb1-0000-4000-8000-000000000003', 'Calendario di pubblicazione', '11111111-1111-4111-8111-111111111111'),
+  ('bbbbbbb1-0000-4000-8000-000000000003', 'Calendario di pubblicazione', '55555555-5555-4555-8555-555555555555'),
+  -- Funnel webinar di gennaio
+  ('bbbbbbb1-0000-4000-8000-000000000004', 'Definire l’offerta del webinar', '11111111-1111-4111-8111-111111111111'),
+  ('bbbbbbb1-0000-4000-8000-000000000004', 'Script della call di vendita dopo il webinar', '33333333-3333-4333-8333-333333333333'),
+  ('bbbbbbb1-0000-4000-8000-000000000004', 'Script della call di vendita dopo il webinar', '11111111-1111-4111-8111-111111111111'),
+  ('bbbbbbb1-0000-4000-8000-000000000004', 'Pagina di registrazione', '11111111-1111-4111-8111-111111111111'),
+  -- Chiusura del trimestre
+  ('bbbbbbb1-0000-4000-8000-000000000005', 'Raccolta delle fatture dei fornitori', '11111111-1111-4111-8111-111111111111'),
+  ('bbbbbbb1-0000-4000-8000-000000000005', 'Invio dei documenti alla commercialista', '11111111-1111-4111-8111-111111111111'),
+  ('bbbbbbb1-0000-4000-8000-000000000005', 'Controllo degli abbonamenti software', '11111111-1111-4111-8111-111111111111'),
+  -- Libreria esercizi in video
+  ('bbbbbbb1-0000-4000-8000-000000000006', 'Elenco degli esercizi da girare', '44444444-4444-4444-8444-444444444444'),
+  ('bbbbbbb1-0000-4000-8000-000000000006', 'Riprese degli esercizi di spinta', '55555555-5555-4555-8555-555555555555'),
+  ('bbbbbbb1-0000-4000-8000-000000000006', 'Riprese degli esercizi di spinta', '44444444-4444-4444-8444-444444444444')
+) as a(progetto_id, titolo, persona)
+where exists (select 1 from public.pm_task t where t.id = md5(a.progetto_id || '/task/' || a.titolo)::uuid)
+on conflict (task_id, profile_id) do nothing;
+
 -- the first reel, split into its steps
-insert into public.pm_task (id, progetto_id, parent_id, titolo, ordine, stato, assegnatario_id, created_by)
+insert into public.pm_task (id, progetto_id, parent_id, titolo, ordine, stato, created_by)
 select
   md5('bbbbbbb1-0000-4000-8000-000000000003/sotto/' || s.titolo)::uuid,
   'bbbbbbb1-0000-4000-8000-000000000003',
@@ -349,7 +395,6 @@ select
   s.titolo,
   s.ordine,
   s.stato::public.pm_stato_task,
-  '55555555-5555-4555-8555-555555555555',
   '55555555-5555-4555-8555-555555555555'
 from (values
   ('Taglio e ritmo', 1, 'completato'),
@@ -361,3 +406,9 @@ where exists (
   where t.id = md5('bbbbbbb1-0000-4000-8000-000000000003/task/Montaggio reel 1: la routine del mattino')::uuid
 )
 on conflict (id) do nothing;
+
+insert into public.pm_task_assegnatari (task_id, profile_id, created_by)
+select t.id, '55555555-5555-4555-8555-555555555555', '55555555-5555-4555-8555-555555555555'
+from public.pm_task t
+where t.parent_id = md5('bbbbbbb1-0000-4000-8000-000000000003/task/Montaggio reel 1: la routine del mattino')::uuid
+on conflict (task_id, profile_id) do nothing;

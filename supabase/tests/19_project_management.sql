@@ -87,12 +87,12 @@ select throws_ok(
 insert into ids
 select 'task_manager', id from public.pm_task
 where progetto_id = (select id from ids where chiave = 'progetto') and titolo = 'Call di check';
-update public.pm_task set assegnatario_id = 'aaaa0000-0000-4000-8000-00000000000e'
-where id = (select id from ids where chiave = 'task_manager');
+insert into public.pm_task_assegnatari (task_id, profile_id)
+values ((select id from ids where chiave = 'task_manager'), 'aaaa0000-0000-4000-8000-00000000000e');
 
 select throws_ok(
-  $$ update public.pm_task set assegnatario_id = '22222222-2222-4222-8222-222222222222'
-     where id = (select id from ids where chiave = 'task_manager') $$,
+  $$ insert into public.pm_task_assegnatari (task_id, profile_id)
+     values ((select id from ids where chiave = 'task_manager'), '22222222-2222-4222-8222-222222222222') $$,
   '22023', 'La persona assegnata non fa parte del progetto',
   'un task si assegna solo a chi è nel progetto'
 );

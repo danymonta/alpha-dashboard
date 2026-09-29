@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Lock, Trash2 } from 'lucide-react'
-import { useState, useTransition, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useTransition, type ReactElement, type ReactNode } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
@@ -12,13 +12,20 @@ import { puoEliminare, puoModificare, useAttivita, type TaskVista } from '@/comp
 import { StatoTaskBadge } from '@/components/pm/attivita/meta-task'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, CLASSE_SELECT, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
+import { SceltaMultipla } from '@/components/form/scelta-multipla'
 import { SceltaRapida } from '@/components/form/scelta-rapida'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ETICHETTA_PRIORITA, ETICHETTA_STATO_TASK, formatStima } from '@/lib/progetti'
-import { PRIORITA, STATI_TASK, modificaTaskSchema, type ModificaTaskInput } from '@/lib/validation/progetti'
+import {
+  PRIORITA,
+  STATI_TASK,
+  modificaTaskSchema,
+  nuovoTaskSchema,
+  type ModificaTaskInput,
+} from '@/lib/validation/progetti'
 
 // the read-only sheet disables everything through its fieldset: selects must look it too
 const SELECT = `${CLASSE_SELECT} disabled:cursor-not-allowed disabled:opacity-50`
@@ -60,10 +67,14 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
   const figli = a.tasks.filter((t) => t.parent_id === task.id)
   const principali = a.tasks.filter((t) => t.parent_id === null && t.id !== task.id)
   const { errore, setErrore, salva } = useSalvataggio()
+  // only people still in the project: one taken out has no chip to untick
+  const nelProgetto = useMemo(() => new Set(a.membri.map((m) => m.id)), [a.membri])
   const {
     register,
     handleSubmit,
     control,
+    getValues,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ModificaTaskInput>({
     resolver: zodResolver(modificaTaskSchema),
@@ -73,7 +84,7 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
       descrizione: task.descrizione ?? '',
       stato: task.stato,
       priorita: task.priorita,
-      assegnatario_id: task.assegnatario_id ?? '',
+      assegnatari: task.assegnatari.filter((p) => nelProgetto.has(p)),
       data_inizio: task.data_inizio ?? '',
       scadenza: task.scadenza ?? '',
       stima_minuti: formatStima(task.stima_minuti),
@@ -83,8 +94,24 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
   })
   const principale = useWatch({ control, name: 'parent_id' })
 
+  // someone leaves the project while the sheet is open (Realtime refresh): off the choice too
+  useEffect(() => {
+    const scelti = nuovoTaskSchema.shape.assegnatari.safeParse(getValues('assegnatari')).data ?? []
+    const rimasti = scelti.filter((p) => nelProgetto.has(p))
+    if (rimasti.length < scelti.length) setValue('assegnatari', rimasti)
+  }, [nelProgetto, getValues, setValue])
+
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => modificaTask(valori), 'Task salvato')) chiudi()
+    let avviso: string | undefined
+    const salvato = await salva(async () => {
+      const esito = await modificaTask(valori)
+      if (esito.ok) avviso = esito.avviso
+      return esito
+    }, 'Task salvato')
+    if (!salvato) return
+    // saved without whoever left the project meanwhile: say who
+    if (avviso) toast.warning(avviso)
+    chiudi()
   })
 
   return (
@@ -95,7 +122,7 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
           {!modificabile ? (
             <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
               <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Lo modifica chi gestisce il progetto, chi l’ha creato o la persona a cui è assegnato.
+              Lo modifica chi gestisce il progetto, chi l’ha creato o una delle persone a cui è assegnato.
             </p>
           ) : null}
 
@@ -108,17 +135,18 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
           <SceltaRapida legenda="Stato" opzioni={OPZIONI_STATO} registrazione={register('stato')} colonne={2} />
           <SceltaRapida legenda="Priorità" opzioni={OPZIONI_PRIORITA} registrazione={register('priorita')} />
 
-          <div className="space-y-1.5">
-            <Label htmlFor={`t-assegnatario-${task.id}`}>Assegnato a</Label>
-            <select id={`t-assegnatario-${task.id}`} className={SELECT} {...register('assegnatario_id')}>
-              <option value="">Nessuno</option>
-              {a.membri.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nome}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">Solo i membri del progetto.</p>
+          {/* several people can share a task; read-only, the chips look disabled like the selects */}
+          <div className="[&_label:has(:disabled)]:cursor-not-allowed [&_label:has(:disabled)]:opacity-50">
+            <SceltaMultipla
+              legenda="Assegnato a"
+              opzioni={a.membri.map((m) => ({ valore: m.id, etichetta: m.nome }))}
+              registrazione={register('assegnatari')}
+              errore={errors.assegnatari?.message}
+              colonne={2}
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Anche più di una persona, tra i membri del progetto. Nessuna scelta: senza assegnatario.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">

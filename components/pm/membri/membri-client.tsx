@@ -133,8 +133,8 @@ export function TogliMembro({ progettoId, profileId, nome }: { progettoId: strin
           <DialogHeader>
             <DialogTitle>Togliere {nome} dal progetto?</DialogTitle>
             <DialogDescription>
-              Non vedrà più il progetto. I task assegnati a {nome} tornano senza assegnatario; se era il responsabile,
-              il progetto resta senza.
+              Non vedrà più il progetto ed esce dai task a cui è assegnato: chi li condivide li tiene. Se ne era
+              responsabile, il progetto resta senza responsabile.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

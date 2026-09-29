@@ -6,7 +6,7 @@ import { BarraAvanzamento, InRitardo } from '@/components/pm/stato-progetto'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
-import { isUuid } from '@/lib/progetti'
+import { elencoNomi, isUuid, nomiAssegnatari } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 import { formatDurata } from '@/lib/tempo'
 import { cn } from '@/lib/utils'
@@ -17,7 +17,7 @@ type RigaTask = {
   id: string | null
   titolo: string | null
   scadenza: string | null
-  assegnatario_id: string | null
+  assegnatari: string[] | null
 }
 
 /**
@@ -43,14 +43,14 @@ export default async function PanoramicaProgettoPage({ params }: { params: Promi
       .order('created_at'),
     supabase
       .from('v_pm_task')
-      .select('id, titolo, scadenza, assegnatario_id')
+      .select('id, titolo, scadenza, assegnatari')
       .eq('progetto_id', id)
       .eq('in_ritardo', true)
       .order('scadenza')
       .limit(6),
     supabase
       .from('v_pm_task')
-      .select('id, titolo, scadenza, assegnatario_id')
+      .select('id, titolo, scadenza, assegnatari')
       .eq('progetto_id', id)
       .neq('stato', 'completato')
       .gte('scadenza', oggi)
@@ -246,7 +246,9 @@ function ElencoTask({
           <span className="min-w-0">
             <span className="block truncate">{t.titolo}</span>
             <span className="block text-xs text-muted-foreground">
-              {t.assegnatario_id ? (nomi.get(t.assegnatario_id) ?? 'Assegnato') : 'Senza assegnatario'}
+              {(t.assegnatari ?? []).length > 0
+                ? elencoNomi(nomiAssegnatari(t.assegnatari, nomi)) || 'Assegnato'
+                : 'Senza assegnatario'}
             </span>
           </span>
           <span className={cn('num shrink-0 text-xs', ritardo ? 'text-status-warning' : 'text-muted-foreground')}>

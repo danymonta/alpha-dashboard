@@ -47,6 +47,48 @@ describe('ripristino del backup', () => {
   })
 })
 
+describe('ripristino di un backup con l’assegnatario unico (prima del 29/09/2026)', () => {
+  const vecchio: Backup = {
+    ...backup,
+    tabelle: {
+      pm_task: [
+        { id: 't1', progetto_id: 'pr1', titolo: 'Montaggio', assegnatario_id: 'u1', updated_at: '2026-09-20T10:00:00+00:00' },
+        { id: 't2', progetto_id: 'pr1', titolo: 'Senza nessuno', assegnatario_id: null },
+      ],
+      pm_membri: [{ id: 'm1', progetto_id: 'pr1', profile_id: 'u1' }],
+    },
+  }
+  const sql = sqlRipristino(vecchio)
+  const blocco = sql.slice(sql.indexOf('insert into public.pm_task_assegnatari'))
+  const coppie = blocco.slice(0, blocco.indexOf(';') + 1)
+
+  it('la colonna diventa una riga di pm_task_assegnatari, dopo membri e task', () => {
+    const pos = (testo: string) => sql.indexOf(testo)
+    expect(pos('insert into public.pm_task_assegnatari')).toBeGreaterThan(pos('insert into public.pm_task\n'))
+    expect(pos('insert into public.pm_task\n')).toBeGreaterThan(pos('insert into public.pm_membri\n'))
+    expect(coppie).toContain('"id":"t1","assegnatario_id":"u1","updated_at":"2026-09-20T10:00:00+00:00"')
+  })
+
+  it('solo i task che avevano qualcuno, solo tra i membri del progetto, solo le coppie che mancano', () => {
+    expect(coppie).not.toContain('t2')
+    expect(coppie).toContain('from public.pm_membri m where m.progetto_id = t.progetto_id and m.profile_id = r.assegnatario_id')
+    expect(coppie.endsWith('on conflict (task_id, profile_id) do nothing;')).toBe(true)
+  })
+
+  it('un backup recente ha già la tabella: nessuna riga in più', () => {
+    const recente = sqlRipristino({
+      ...backup,
+      tabelle: {
+        pm_task_assegnatari: [{ task_id: 't1', profile_id: 'u1' }],
+        pm_task: [{ id: 't1', progetto_id: 'pr1', titolo: 'Montaggio' }],
+      },
+    })
+    expect(recente.match(/insert into public\.pm_task_assegnatari/g)).toHaveLength(1)
+    expect(recente).not.toContain('assegnatario_id')
+    expect(recente.indexOf('insert into public.pm_task\n')).toBeLessThan(recente.indexOf('insert into public.pm_task_assegnatari\n'))
+  })
+})
+
 describe('email del backup', () => {
   it('dice cosa c’è dentro e come si rimette', () => {
     const { oggetto, testo } = emailBackup(backup, 'backup-alpha-2026-09-28.json.gz')

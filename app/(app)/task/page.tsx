@@ -6,7 +6,7 @@ import { LinkBottone } from '@/components/link-bottone'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireProfilo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
-import type { StatoTask } from '@/lib/progetti'
+import { nomiAssegnatari, type StatoTask } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic'
 type Gruppo = { chiave: string; titolo: string; task: MioTask[] }
 
 /**
- * "I miei task": what is assigned to me in every project, by when it is due.
+ * "I miei task": what is assigned to me in every project, by when it is due,
+ * also when I share it with someone else (then the row says with whom).
  * The daily page of whoever works on projects: tick it off, jump to the
  * project, start the timer. Tasks nobody assigned stay in their project.
  */
@@ -25,8 +26,9 @@ export default async function MieiTaskPage() {
 
   const { data: righe, error } = await supabase
     .from('v_pm_task')
-    .select('id, titolo, stato, scadenza, in_ritardo, progetto_id')
-    .eq('assegnatario_id', profilo.id)
+    .select('id, titolo, stato, scadenza, in_ritardo, progetto_id, assegnatari')
+    // a task can have several people: mine when I am one of them
+    .contains('assegnatari', [profilo.id])
     .neq('stato', 'completato')
     .order('scadenza', { nullsFirst: false })
     .order('created_at')
@@ -34,10 +36,17 @@ export default async function MieiTaskPage() {
   if (error) throw new Error('Impossibile caricare i tuoi task')
 
   const idProgetti = [...new Set((righe ?? []).map((t) => t.progetto_id).filter((id): id is string => Boolean(id)))]
-  const { data: progetti } = idProgetti.length
-    ? await supabase.from('v_pm_progetti').select('id, nome').in('id', idProgetti)
-    : { data: [] as { id: string | null; nome: string | null }[] }
+  const idAltri = [...new Set((righe ?? []).flatMap((t) => t.assegnatari ?? []).filter((id) => id !== profilo.id))]
+  const [{ data: progetti }, { data: persone }] = await Promise.all([
+    idProgetti.length
+      ? supabase.from('v_pm_progetti').select('id, nome').in('id', idProgetti)
+      : Promise.resolve({ data: [] as { id: string | null; nome: string | null }[] }),
+    idAltri.length
+      ? supabase.from('profiles').select('id, nome').in('id', idAltri)
+      : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+  ])
   const nomi = new Map((progetti ?? []).map((p) => [p.id, p.nome ?? 'Progetto']))
+  const nomiPersone = new Map((persone ?? []).map((p) => [p.id, p.nome]))
 
   const task: MioTask[] = (righe ?? []).map((t) => ({
     id: t.id!,
@@ -47,6 +56,10 @@ export default async function MieiTaskPage() {
     in_ritardo: Boolean(t.in_ritardo),
     progetto_id: t.progetto_id!,
     progetto: nomi.get(t.progetto_id) ?? 'Progetto',
+    con: nomiAssegnatari(
+      (t.assegnatari ?? []).filter((id) => id !== profilo.id),
+      nomiPersone,
+    ),
   }))
 
   const fraSette = aggiungiGiorni(oggi, 7)

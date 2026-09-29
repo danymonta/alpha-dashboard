@@ -9,7 +9,7 @@ import { InRitardo } from '@/components/pm/stato-progetto'
 import { AvviaTimer } from '@/components/pm/tempo/avvia-timer'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatData } from '@/lib/format'
-import { ETICHETTA_STATO_TASK, type StatoTask } from '@/lib/progetti'
+import { ETICHETTA_STATO_TASK, elencoNomi, type StatoTask } from '@/lib/progetti'
 import { cn } from '@/lib/utils'
 
 export type MioTask = {
@@ -20,6 +20,8 @@ export type MioTask = {
   in_ritardo: boolean
   progetto_id: string
   progetto: string
+  /** The other people it is assigned to, by name; empty when it is mine alone. */
+  con: string[]
 }
 
 /** One of my tasks: close it, jump to its project, start the timer on it. */
@@ -58,6 +60,7 @@ export function RigaMioTask({ task }: { task: MioTask }) {
             {task.progetto}
           </Link>
           <span>{ETICHETTA_STATO_TASK[task.stato]}</span>
+          {task.con.length > 0 ? <span>con {elencoNomi(task.con)}</span> : null}
           {task.in_ritardo ? (
             <InRitardo testo={`In ritardo, scadenza ${formatData(task.scadenza)}`} />
           ) : task.scadenza ? (

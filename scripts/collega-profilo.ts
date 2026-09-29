@@ -26,6 +26,25 @@ function esci(messaggio: string): never {
   process.exit(1)
 }
 
+/** Every query stops the script on error: nothing is left half moved in silence. */
+function fallita(cosa: string, messaggio: string): never {
+  esci(`${cosa}: ${messaggio}\n  Quello che è già stato spostato resta spostato: corretto il problema, rilancia (lo script salta ciò che è già fatto).`)
+}
+
+type Risposta = { data: unknown; error: { message: string } | null }
+type Dati<R extends Risposta> = Extract<R, { error: null }>['data']
+
+async function leggi<R extends Risposta>(cosa: string, query: PromiseLike<R>): Promise<Dati<R>> {
+  const esito = await query
+  if (esito.error) fallita(cosa, esito.error.message)
+  return esito.data as Dati<R>
+}
+
+async function scrivi(cosa: string, query: PromiseLike<{ error: { message: string } | null }>) {
+  const { error } = await query
+  if (error) fallita(cosa, error.message)
+}
+
 if (!o.da?.endsWith('.invalid')) esci('--da deve essere il profilo segnaposto (indirizzo .invalid)')
 if (!o.a) esci('Serve --a <email reale>')
 
@@ -39,7 +58,8 @@ const db = createClient<Database>(url, chiave, { auth: { persistSession: false, 
 
 type Tabella = keyof Database['public']['Tables']
 
-// every column that points to a person, except who created a row and the audit trail
+// every column that points to a person, except who created a row and the audit
+// trail; the pairs (reports, memberships, task assignments) are handled apart
 const COLONNE: [Tabella, string][] = [
   ['leads', 'setter_id'],
   ['calls', 'setter_id'],
@@ -51,14 +71,12 @@ const COLONNE: [Tabella, string][] = [
   ['commission_rules', 'profile_id'],
   ['commission_payouts', 'profile_id'],
   ['pm_progetti', 'responsabile_id'],
-  ['pm_task', 'assegnatario_id'],
   ['pm_tempo', 'profile_id'],
   ['pm_note', 'autore_id'],
 ]
 
 async function profilo(email: string) {
-  const { data, error } = await db.from('profiles').select('id, nome, ruolo, attivo').ilike('email', email).maybeSingle()
-  if (error) esci(error.message)
+  const data = await leggi(`profilo ${email}`, db.from('profiles').select('id, nome, ruolo, attivo').ilike('email', email).maybeSingle())
   if (!data) esci(`${email}: nessun profilo. La persona deve prima fare l'accesso con Google.`)
   return data
 }
@@ -69,40 +87,53 @@ async function principale() {
   console.log(`\nDa ${da.nome} (${o.da}) a ${a.nome} (${o.a})${o.prova ? ' · PROVA' : ''}\n`)
 
   // daily reports: one per person and day, the real one wins
-  const { data: reportDa } = await db.from('setter_daily_reports').select('id, data').eq('setter_id', da.id)
-  const { data: reportA } = await db.from('setter_daily_reports').select('data').eq('setter_id', a.id)
-  const giorniA = new Set((reportA ?? []).map((r) => r.data))
-  const spostabili = (reportDa ?? []).filter((r) => !giorniA.has(r.data))
-  console.log(`  report giornalieri: ${spostabili.length} da spostare, ${(reportDa ?? []).length - spostabili.length} già presenti sul profilo reale`)
+  const reportDa = await leggi('report del segnaposto', db.from('setter_daily_reports').select('id, data').eq('setter_id', da.id))
+  const reportA = await leggi('report del profilo reale', db.from('setter_daily_reports').select('data').eq('setter_id', a.id))
+  const giorniA = new Set(reportA.map((r) => r.data))
+  const spostabili = reportDa.filter((r) => !giorniA.has(r.data))
+  console.log(`  report giornalieri: ${spostabili.length} da spostare, ${reportDa.length - spostabili.length} già presenti sul profilo reale`)
   if (!o.prova && spostabili.length > 0) {
-    const { error } = await db.from('setter_daily_reports').update({ setter_id: a.id }).in('id', spostabili.map((r) => r.id))
-    if (error) esci(`report: ${error.message}`)
+    await scrivi('report', db.from('setter_daily_reports').update({ setter_id: a.id }).in('id', spostabili.map((r) => r.id)))
   }
 
   // project memberships: unique per project
-  const { data: membriDa } = await db.from('pm_membri').select('id, progetto_id').eq('profile_id', da.id)
-  const { data: membriA } = await db.from('pm_membri').select('progetto_id').eq('profile_id', a.id)
-  const progettiA = new Set((membriA ?? []).map((m) => m.progetto_id))
-  const nuoviMembri = (membriDa ?? []).filter((m) => !progettiA.has(m.progetto_id))
+  const membriDa = await leggi('progetti del segnaposto', db.from('pm_membri').select('id, progetto_id').eq('profile_id', da.id))
+  const membriA = await leggi('progetti del profilo reale', db.from('pm_membri').select('progetto_id').eq('profile_id', a.id))
+  const progettiA = new Set(membriA.map((m) => m.progetto_id))
+  const nuoviMembri = membriDa.filter((m) => !progettiA.has(m.progetto_id))
   console.log(`  progetti: ${nuoviMembri.length} da spostare`)
   if (!o.prova && nuoviMembri.length > 0) {
-    const { error } = await db.from('pm_membri').update({ profile_id: a.id }).in('id', nuoviMembri.map((m) => m.id))
-    if (error) esci(`membri: ${error.message}`)
+    await scrivi('membri', db.from('pm_membri').update({ profile_id: a.id }).in('id', nuoviMembri.map((m) => m.id)))
+  }
+
+  // task assignments: one per task and person, and only for members of the
+  // task's project, so after the memberships. A task both already share stays
+  // as it is (the placeholder keeps its copy there, as with the reports).
+  const incarichiDa = await leggi('task del segnaposto', db.from('pm_task_assegnatari').select('task_id').eq('profile_id', da.id))
+  const incarichiA = await leggi('task del profilo reale', db.from('pm_task_assegnatari').select('task_id').eq('profile_id', a.id))
+  const taskA = new Set(incarichiA.map((r) => r.task_id))
+  const taskDaSpostare = incarichiDa.map((r) => r.task_id).filter((t) => !taskA.has(t))
+  console.log(`  task assegnati: ${taskDaSpostare.length} da spostare, ${incarichiDa.length - taskDaSpostare.length} già condivisi con il profilo reale`)
+  if (!o.prova && taskDaSpostare.length > 0) {
+    await scrivi(
+      'task assegnati',
+      db.from('pm_task_assegnatari').update({ profile_id: a.id }).eq('profile_id', da.id).in('task_id', taskDaSpostare),
+    )
   }
 
   for (const [tabella, colonna] of COLONNE) {
-    const { count } = await db.from(tabella).select('*', { count: 'exact', head: true }).eq(colonna, da.id)
+    const { count, error } = await db.from(tabella).select('*', { count: 'exact', head: true }).eq(colonna, da.id)
+    if (error) fallita(`${tabella}.${colonna}`, error.message)
     console.log(`  ${tabella}.${colonna}: ${count ?? 0}`)
     if (!o.prova && (count ?? 0) > 0) {
-      const { error } = await db.from(tabella).update({ [colonna]: a.id } as never).eq(colonna, da.id)
-      if (error) esci(`${tabella}.${colonna}: ${error.message}`)
+      await scrivi(`${tabella}.${colonna}`, db.from(tabella).update({ [colonna]: a.id } as never).eq(colonna, da.id))
     }
   }
 
   if (!o.prova) {
-    await db.from('profiles').update({ attivo: false }).eq('id', da.id)
-    await db.from('invites').update({ revocato: true }).ilike('email', o.da!)
-    console.log(`\n✓ Fatto. ${da.nome} è disattivato: lo trovi in Team, puoi lasciarlo così.\n`)
+    await scrivi('disattivazione del segnaposto', db.from('profiles').update({ attivo: false }).eq('id', da.id))
+    await scrivi('invito del segnaposto', db.from('invites').update({ revocato: true }).ilike('email', o.da!))
+    console.log(`\n✓ Fatto. Il profilo segnaposto ${da.nome} è disattivato: lo trovi in Team, puoi lasciarlo così.\n`)
   }
 }
 

@@ -14,7 +14,8 @@ export type TaskVista = {
   descrizione: string | null
   stato: StatoTask
   priorita: Priorita
-  assegnatario_id: string | null
+  /** Who works on it, ordered by name: none, one or more members. */
+  assegnatari: string[]
   data_inizio: string | null
   scadenza: string | null
   stima_minuti: number | null
@@ -62,9 +63,9 @@ export function useAttivita(): Attivita {
   return valore
 }
 
-/** Who may change a task: who manages the project, its assignee, its author (same rule as RLS). */
-export function puoModificare(a: Pick<Attivita, 'gestisce' | 'io'>, t: Pick<TaskVista, 'assegnatario_id' | 'created_by'>) {
-  return a.gestisce || t.assegnatario_id === a.io || t.created_by === a.io
+/** Who may change a task: who manages the project, one of its assignees, its author (same rule as RLS). */
+export function puoModificare(a: Pick<Attivita, 'gestisce' | 'io'>, t: Pick<TaskVista, 'assegnatari' | 'created_by'>) {
+  return a.gestisce || t.assegnatari.includes(a.io) || t.created_by === a.io
 }
 
 /** Who may delete it: who manages the project, or its author. */
