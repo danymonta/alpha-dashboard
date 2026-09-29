@@ -1,7 +1,7 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { LoaderCircle, TriangleAlert, UserCheck } from 'lucide-react'
+import { History, LoaderCircle, TriangleAlert, UserCheck, UserX } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
@@ -43,13 +43,49 @@ type Prodotto = {
   piano_predefinito: { mese: number; importo: number }[] | null
 }
 
+/** Starting values of the sale itself (a renewal), all editable like a choice made by hand. */
+export type IniziVendita = {
+  data_inizio: string
+  product_id: string | undefined
+  valore_contratto: string
+  piano: 'uguale' | 'personalizzato'
+  rate: { scadenza: string; importo: string }[]
+}
+
+/** The period a renewal extends, shown above the form. */
+export type PercorsoPrecedente = {
+  prodotto: string
+  data_inizio: string
+  data_fine: string
+  valore_contratto: number
+  /**
+   * Where the renewal starts: the day after the old path, or today when that day
+   * is outside the form's window (over for more than a month, or more than a
+   * year ahead).
+   */
+  partenza: 'giorno_dopo' | 'oggi_finito' | 'oggi_lontano'
+}
+
 type Props = {
   oggi: string
+  /** The sale date the form opens with: today, or the day of the closed call. */
+  dataVenditaIniziale?: string
   prodotti: Prodotto[]
   callId: string | null
   clienteEsistente: { id: string; nome: string } | null
   prefill: { nome: string; cognome: string; instagram_handle: string }
   tipoIniziale: TipoVendita
+  iniziali?: IniziVendita | null
+  anteprimaIniziale?: RataAnteprima[] | null
+  percorsoPrecedente?: PercorsoPrecedente | null
+  /** Where to go after saving; the new sale's page when absent. */
+  ritorno?: string | null
+}
+
+const TITOLO_REGISTRATA: Record<TipoVendita, string> = {
+  nuovo: 'Vendita registrata',
+  rinnovo: 'Rinnovo registrato',
+  upsell: 'Upsell registrato',
 }
 
 const RITARDO_ANTEPRIMA_MS = 350
@@ -67,18 +103,25 @@ function Sezione({ titolo, children }: { titolo: string; children: React.ReactNo
 
 export function NuovaVenditaForm({
   oggi,
+  dataVenditaIniziale = oggi,
   prodotti,
   callId,
   clienteEsistente,
   prefill,
   tipoIniziale,
+  iniziali = null,
+  anteprimaIniziale = null,
+  percorsoPrecedente = null,
+  ritorno = null,
 }: Props) {
   const router = useRouter()
   const [erroreServer, setErroreServer] = useState<string | null>(null)
   const [venditaEsistente, setVenditaEsistente] = useState<string | null>(null)
-  const [anteprima, setAnteprima] = useState<RataAnteprima[] | null>(null)
+  const [anteprima, setAnteprima] = useState<RataAnteprima[] | null>(anteprimaIniziale)
   const [calcolo, setCalcolo] = useState(false)
   const richiesta = useRef(0)
+  // the start follows the sale date only while the two are the same day
+  const venditaPrima = useRef(dataVenditaIniziale)
 
   const {
     register,
@@ -101,22 +144,22 @@ export function NuovaVenditaForm({
       telefono: '',
       instagram_handle: prefill.instagram_handle,
       tipo: tipoIniziale,
-      product_id: undefined,
-      valore_contratto: '',
+      product_id: iniziali?.product_id,
+      valore_contratto: iniziali?.valore_contratto ?? '',
       numero_rate: 1,
-      data_vendita: oggi,
-      data_inizio: oggi,
+      data_vendita: dataVenditaIniziale,
+      data_inizio: iniziali?.data_inizio ?? dataVenditaIniziale,
       note: '',
       prodotto_personalizzato: '',
       data_fine: '',
-      piano: 'uguale',
-      rate: [],
+      piano: iniziali?.piano ?? 'uguale',
+      rate: iniziali?.rate ?? [],
     },
   })
 
-  const [productId, piano, valoreTesto, dataVendita, dataInizio] = useWatch({
+  const [productId, piano, valoreTesto, dataVendita, dataInizio, tipo] = useWatch({
     control,
-    name: ['product_id', 'piano', 'valore_contratto', 'data_vendita', 'data_inizio'],
+    name: ['product_id', 'piano', 'valore_contratto', 'data_vendita', 'data_inizio', 'tipo'],
   })
   const personalizzato = productId === PERSONALIZZATO
   const valoreNumero = typeof valoreTesto === 'number' ? valoreTesto : parseImporto(valoreTesto ?? '')
@@ -159,8 +202,12 @@ export function NuovaVenditaForm({
             }
           }
 
-          if (name === 'data_vendita' && !getFieldState('data_inizio').isDirty && valori.data_vendita) {
-            setValue('data_inizio', valori.data_vendita)
+          // a start set apart from the sale date (a renewal's) stays where it is
+          if (name === 'data_vendita' && valori.data_vendita) {
+            if (!getFieldState('data_inizio').isDirty && valori.data_inizio === venditaPrima.current) {
+              setValue('data_inizio', valori.data_vendita)
+            }
+            venditaPrima.current = valori.data_vendita
           }
         })
 
@@ -225,23 +272,56 @@ export function NuovaVenditaForm({
     }
 
     const numero = valori.piano === 'personalizzato' ? valori.rate.length : valori.numero_rate
-    toast.success('Vendita registrata', {
+    toast.success(TITOLO_REGISTRATA[valori.tipo], {
       description: `${numero === 1 ? 'Pagamento unico' : `${numero} rate`} da incassare.`,
     })
-    router.push(`/sales/${esito.idVendita}`)
+    router.push(ritorno ?? `/sales/${esito.idVendita}`)
   })
 
   return (
     <form onSubmit={invia} noValidate className="space-y-8">
       <Sezione titolo="Cliente">
         {clienteEsistente ? (
-          <p className="flex min-h-11 items-center gap-2 rounded-xl bg-card px-3 text-sm">
-            <UserCheck className="size-4 text-status-ok" aria-hidden="true" />
-            <span>
-              {clienteEsistente.nome}{' '}
-              <span className="text-muted-foreground">· cliente già registrato</span>
-            </span>
-          </p>
+          <div className="space-y-2">
+            <p className="flex min-h-11 items-center gap-2 rounded-xl bg-card px-3 text-sm">
+              <UserCheck className="size-4 text-status-ok" aria-hidden="true" />
+              <span>
+                {clienteEsistente.nome}{' '}
+                <span className="text-muted-foreground">· cliente già registrato</span>
+              </span>
+            </p>
+            {percorsoPrecedente ? (
+              <div className="flex gap-2 rounded-xl bg-card px-3 py-2.5 text-sm" data-testid="percorso-precedente">
+                <History className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <div className="space-y-0.5">
+                  <p>
+                    <span className="text-muted-foreground">Percorso precedente: </span>
+                    <span className="num">
+                      {percorsoPrecedente.prodotto}, dal {formatData(percorsoPrecedente.data_inizio)} al{' '}
+                      {formatData(percorsoPrecedente.data_fine)}, {formatEuro(percorsoPrecedente.valore_contratto)}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {percorsoPrecedente.partenza === 'oggi_finito'
+                      ? 'È finito da più di un mese: il rinnovo parte da oggi. Cambia l’inizio se serve.'
+                      : percorsoPrecedente.partenza === 'oggi_lontano'
+                        ? 'Finisce tra più di un anno: il rinnovo parte da oggi, e l’inizio può cadere al massimo un anno dopo la vendita.'
+                        : 'Il rinnovo parte il giorno dopo. Date, prodotto, contratto e rate restano modificabili.'}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+            {/* without a call, renewals and upsells get no setter: the database leaves it empty */}
+            {!callId && tipo !== 'nuovo' ? (
+              <p className="flex items-center gap-2 px-1 text-sm" data-testid="setter-vendita">
+                <UserX className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span>
+                  {ETICHETTA_TIPO_VENDITA[tipo]}: nessun setter{' '}
+                  <span className="text-muted-foreground">· nessuna provvigione</span>
+                </span>
+              </p>
+            ) : null}
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">

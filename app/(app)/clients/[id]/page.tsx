@@ -1,16 +1,15 @@
-import { Plus, RefreshCw, SearchX, TriangleAlert } from 'lucide-react'
+import { History, Plus, RefreshCw, SearchX, TriangleAlert } from 'lucide-react'
 
 import { InterrompiPercorso } from '@/app/(app)/clients/[id]/interrompi-percorso'
 import { ModificaCliente } from '@/app/(app)/clients/[id]/modifica-cliente'
+import { StoricoPercorsi, type Percorso } from '@/app/(app)/clients/[id]/storico-percorsi'
 import { StatoClienteBadge } from '@/components/cliente/stato-cliente'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { ElencoVendite } from '@/components/vendite/elenco-vendite'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formatData, formatEuro } from '@/lib/format'
-import { caricaVendite } from '@/lib/queries/vendite'
 import { createClient } from '@/lib/supabase/server'
 import { ETICHETTA_FONTE } from '@/lib/validation/call'
 
@@ -22,7 +21,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   const supabase = await createClient()
   const oggi = oggiRoma()
 
-  const [{ data: cliente }, { data: valore }, vendite, { data: persone }, { data: inCorso }] = await Promise.all([
+  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }] = await Promise.all([
     supabase
       .from('clients')
       .select('id, nome, cognome, email, telefono, instagram_handle, fonte, note, created_at, setter_id, closer_id, setter:profiles!clients_setter_id_fkey(nome), closer:profiles!clients_closer_id_fkey(nome)')
@@ -33,18 +32,23 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .select('stato, valore_firmato, incassato, da_incassare, in_ritardo, data_fine_ultima, numero_vendite')
       .eq('client_id', id)
       .maybeSingle(),
-    caricaVendite({ clientId: id }),
-    supabase.from('profiles').select('id, nome, ruolo, attivo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
-    // the path still running (or not started yet): the one "Interrompi il percorso" ends
+    // every sale is a period of the path, with its instalments: the client's history
     supabase
       .from('sales')
-      .select('id, data_inizio, data_fine')
+      .select(
+        'id, tipo, data_vendita, data_inizio, data_fine, created_at, valore_contratto, prodotto_personalizzato, prodotto:products(nome, durata_mesi), rate:payments(id, numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato, metodo)',
+      )
       .eq('client_id', id)
-      .gte('data_fine', oggi)
-      .order('data_fine', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .order('numero_rata', { referencedTable: 'payments' })
+      .order('created_at', { referencedTable: 'payments' }),
+    // the money of each period, summed in SQL (v_vendite, security_invoker)
+    supabase
+      .from('v_vendite')
+      .select('sale_id, incassato, da_incassare, in_ritardo, rate_incassate, rate_totali')
+      .eq('client_id', id),
+    supabase.from('profiles').select('id, nome, ruolo, attivo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
   ])
+  if (vendite.error || importi.error) throw new Error('Impossibile caricare lo storico del cliente')
 
   if (!cliente || !valore) {
     return (
@@ -61,6 +65,35 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   }
 
   const nome = [cliente.nome, cliente.cognome].filter(Boolean).join(' ')
+
+  const perVendita = new Map(importi.data.map((i) => [i.sale_id, i]))
+  const percorsi: Percorso[] = vendite.data.map((v) => {
+    const i = perVendita.get(v.id)
+    return {
+      id: v.id,
+      tipo: v.tipo,
+      prodotto: v.prodotto?.nome ?? v.prodotto_personalizzato ?? '–',
+      durata_mesi: v.prodotto?.durata_mesi ?? null,
+      data_vendita: v.data_vendita,
+      data_inizio: v.data_inizio,
+      data_fine: v.data_fine,
+      created_at: v.created_at,
+      valore_contratto: v.valore_contratto,
+      rate: v.rate,
+      incassato: i?.incassato ?? null,
+      da_incassare: i?.da_incassare ?? null,
+      in_ritardo: i?.in_ritardo ?? null,
+      rate_incassate: i?.rate_incassate ?? null,
+      rate_totali: i?.rate_totali ?? null,
+    }
+  })
+  // the path still running (or not started yet) that ends last: the one "Interrompi il percorso" ends
+  const inCorso =
+    percorsi
+      .filter((p) => p.data_fine >= oggi)
+      .sort((a, b) => b.data_fine.localeCompare(a.data_fine))
+      .map(({ id, data_inizio, data_fine }) => ({ id, data_inizio, data_fine }))[0] ?? null
+
   const contatti: [string, string][] = [
     ['Email', cliente.email ?? '–'],
     ['Telefono', cliente.telefono ?? '–'],
@@ -85,9 +118,10 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
             </LinkBottone>
           ) : (
             <div className="flex flex-wrap gap-2">
+              {/* a renewal is a new sale: the form starts the day after the last period ends */}
               <LinkBottone href={`/sales/new?cliente=${id}&tipo=rinnovo`}>
                 <RefreshCw className="size-4" aria-hidden="true" />
-                Registra rinnovo
+                Ha rinnovato
               </LinkBottone>
               <LinkBottone href={`/sales/new?cliente=${id}&tipo=upsell`} variant="outline">
                 Upsell
@@ -172,14 +206,17 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
 
       <section className="space-y-2">
         <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Storico vendite ({vendite.length})
+          Storico percorsi ({percorsi.length})
         </h2>
-        {vendite.length > 0 ? (
-          <ElencoVendite righe={vendite} mostraPersone mostraCliente={false} />
+        {percorsi.length > 0 ? (
+          <StoricoPercorsi percorsi={percorsi} oggi={oggi} />
         ) : (
-          <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            Nessuna vendita registrata.
-          </p>
+          // the action is the header's "Registra la prima vendita": one link, not two
+          <StatoVuoto
+            Icona={History}
+            titolo="Nessun percorso registrato"
+            descrizione="Con «Registra la prima vendita» parte lo storico: ogni rinnovo si aggiunge sopra e i periodi passati restano qui."
+          />
         )}
       </section>
     </div>

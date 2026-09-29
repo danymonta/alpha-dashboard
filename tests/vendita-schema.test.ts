@@ -71,6 +71,18 @@ describe('schema Nuova vendita', () => {
     expect(nuovaVenditaSchema.safeParse({ ...daCall, data_inizio: aggiungiGiorni(oggi, 200) }).success).toBe(false)
   })
 
+  it('un rinnovo firmato in anticipo parte quando finisce il percorso in corso, fino a un anno dopo', () => {
+    const rinnovo = { ...daCall, call_id: null, client_id: CLIENTE, tipo: 'rinnovo' }
+    // a 12-month path from June renewed in September: it starts the next June
+    expect(nuovaVenditaSchema.safeParse({ ...rinnovo, data_inizio: aggiungiGiorni(oggi, 245) }).success).toBe(true)
+    expect(nuovaVenditaSchema.safeParse({ ...rinnovo, data_inizio: aggiungiGiorni(oggi, 366) }).success).toBe(true)
+    const troppo = nuovaVenditaSchema.safeParse({ ...rinnovo, data_inizio: aggiungiGiorni(oggi, 367) })
+    expect(troppo.success).toBe(false)
+    expect(troppo.error?.issues[0]?.message).toBe('L’inizio del rinnovo deve cadere entro un anno dalla vendita')
+    // an upsell keeps the three months
+    expect(nuovaVenditaSchema.safeParse({ ...rinnovo, tipo: 'upsell', data_inizio: aggiungiGiorni(oggi, 200) }).success).toBe(false)
+  })
+
   it('rifiuta un’email sbagliata', () => {
     expect(nuovaVenditaSchema.safeParse({ ...daCall, email: 'marco@' }).success).toBe(false)
   })

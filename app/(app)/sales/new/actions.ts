@@ -124,6 +124,8 @@ export async function registraVendita(input: unknown): Promise<EsitoNuovaVendita
   for (const percorso of ['/sales', '/', '/payments', '/clients', '/calls', '/my-sales']) {
     revalidatePath(percorso)
   }
+  // the client's history: a sale opened from the client goes back there
+  revalidatePath('/clients/[id]', 'page')
 
   return { ok: true, idVendita: data.id_vendita }
 }

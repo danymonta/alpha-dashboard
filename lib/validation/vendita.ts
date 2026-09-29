@@ -19,6 +19,20 @@ export const MASSIMO_RATE = 24
 /** Typo guard, not a price rule. */
 export const MASSIMO_CONTRATTO = 100_000
 
+/**
+ * Typo guard on the start of the path, in days from the sale date: a month
+ * before, three months after. A renewal signed early starts when the current
+ * path ends, up to a year after the signature (a 12-month path renewed at once).
+ */
+export const GIORNI_INIZIO_PRIMA = 31
+export const GIORNI_INIZIO_DOPO = 92
+export const GIORNI_INIZIO_DOPO_RINNOVO = 366
+
+/** The latest start the form takes for a sale of that type signed on that day. */
+export function inizioMassimo(tipo: TipoVendita, dataVendita: string): string {
+  return aggiungiGiorni(dataVendita, tipo === 'rinnovo' ? GIORNI_INIZIO_DOPO_RINNOVO : GIORNI_INIZIO_DOPO)
+}
+
 const vuotoANull = (v: string | null | undefined) => {
   const t = v?.trim() ?? ''
   return t === '' ? null : t
@@ -132,13 +146,16 @@ export const nuovaVenditaSchema = z
 
     if (isDataISO(v.data_vendita) && isDataISO(v.data_inizio)) {
       if (
-        v.data_inizio < aggiungiGiorni(v.data_vendita, -31) ||
-        v.data_inizio > aggiungiGiorni(v.data_vendita, 92)
+        v.data_inizio < aggiungiGiorni(v.data_vendita, -GIORNI_INIZIO_PRIMA) ||
+        v.data_inizio > inizioMassimo(v.tipo, v.data_vendita)
       ) {
         ctx.addIssue({
           code: 'custom',
           path: ['data_inizio'],
-          message: 'L’inizio deve cadere entro tre mesi dalla vendita',
+          message:
+            v.tipo === 'rinnovo'
+              ? 'L’inizio del rinnovo deve cadere entro un anno dalla vendita'
+              : 'L’inizio deve cadere entro tre mesi dalla vendita',
         })
       }
     }

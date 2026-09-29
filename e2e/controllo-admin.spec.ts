@@ -197,7 +197,8 @@ test('un cliente senza vendite offre la prima vendita, non il rinnovo', async ({
     'href',
     `/sales/new?cliente=${cliente!.id}&tipo=nuovo`,
   )
-  await expect(page.getByRole('link', { name: 'Registra rinnovo' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Ha rinnovato' })).toHaveCount(0)
+  await expect(page.getByText('Nessun percorso registrato')).toBeVisible()
   await page.getByRole('link', { name: 'Registra la prima vendita' }).click()
   await expect(page.getByRole('radio', { name: 'Nuovo' })).toBeChecked()
 })

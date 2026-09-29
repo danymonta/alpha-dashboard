@@ -27,7 +27,8 @@ test('scheda cliente: valore nel tempo, rinnovo precompilato, contatti modificab
   await page.getByLabel('Cerca un cliente').press('Enter')
   await page.getByRole('link', { name: new RegExp(nome) }).filter({ visible: true }).click()
   await expect(page).toHaveURL(`/clients/${clienteId}`)
-  await expect(page.getByText('Storico vendite (1)')).toBeVisible()
+  await expect(page.getByText('Storico percorsi (1)')).toBeVisible()
+  await expect(page.getByTestId('percorso')).toHaveAccessibleName('Primo percorso')
 
   await page.getByRole('button', { name: 'Modifica', exact: true }).click()
   await page.getByLabel('Telefono').fill('+39 333 1234567')
@@ -35,7 +36,7 @@ test('scheda cliente: valore nel tempo, rinnovo precompilato, contatti modificab
   await expect(page.getByText('Cliente aggiornato')).toBeVisible()
   await expect(page.getByText('+39 333 1234567')).toBeVisible()
 
-  await page.getByRole('link', { name: 'Registra rinnovo' }).click()
+  await page.getByRole('link', { name: 'Ha rinnovato' }).click()
   await expect(page).toHaveURL(`/sales/new?cliente=${clienteId}&tipo=rinnovo`)
   await expect(page.getByRole('radio', { name: 'Rinnovo' })).toBeChecked()
 })
