@@ -131,6 +131,55 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
   }
 
   /** Moves or corrects a call. The setter cannot change its type: it stays as it is. */
+  const campiFissaCall = z.object({
+    nome: z.string().min(2).max(120),
+    instagram_handle: z.string().max(40).optional(),
+    fonte: z.enum(FONTI),
+    data,
+    ora: z.string().describe('HH:MM'),
+    closer: z.string().optional().describe('Nome del closer'),
+  })
+
+  async function eseguiFissaCall({ closer, setter, ...v }: z.infer<typeof campiFissaCall> & { setter?: string }) {
+    const admin = profilo.ruolo === 'admin'
+    const { data: persone } = await supabase
+      .from('profiles')
+      .select('id, nome, ruolo')
+      .in('ruolo', admin ? ['admin', 'closer', 'setter'] : ['admin', 'closer'])
+      .eq('attivo', true)
+    const elenco = persone ?? []
+    const chiude = elenco.filter((p) => p.ruolo === 'admin' || p.ruolo === 'closer')
+    // default closer: the admin who chats runs his own calls; for the setter, the admin
+    const predefinito = (admin ? chiude.find((p) => p.id === profilo.id) : null) ?? chiude.find((p) => p.ruolo === 'admin')
+    const scelto = closer ? trova(chiude, closer) : (predefinito ?? null)
+    if (!scelto || scelto === 'ambiguo') {
+      return errore(`Closer non trovato. Possibili: ${chiude.map((p) => p.nome).join(', ')}`)
+    }
+
+    // who set it: the admin himself unless he names an active setter; the setter never chooses
+    let setterId: string | null = null
+    let setterNome: string | null = null
+    if (admin) {
+      const n = setter?.trim().toLowerCase() ?? ''
+      if (n === '' || ['io', 'me', 'a me', 'me stesso'].includes(n)) {
+        setterId = profilo.id
+      } else {
+        const setters = elenco.filter((p) => p.ruolo === 'setter')
+        const trovato = trova(setters, setter ?? '')
+        if (!trovato || trovato === 'ambiguo') {
+          return errore(`Setter non trovato. Possibili: io, ${setters.map((p) => p.nome).join(', ')}`)
+        }
+        setterId = trovato.id
+        setterNome = trovato.nome
+      }
+    }
+
+    const esito = await fissaCall({ ...v, tipo: 'discovery', closer_id: scelto.id, setter_id: setterId })
+    return esito.ok
+      ? { fatto: true, closer: scelto.nome, ...(setterNome ? { setter: setterNome } : {}), link: '/calls' }
+      : errore(esito.errore)
+  }
+
   const campiModificaCall = z.object({
     call_id: z.string().uuid(),
     lead: z.string().describe('Nome del lead, per la conferma'),
@@ -171,21 +220,51 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
 
     numeri_periodo: tool({
       description:
-        'KPI del periodo con confronto col periodo precedente (cash, revenue, nuovi clienti, rinnovi, margine operativo...) e funnel DM → chiuse.',
+        'KPI del periodo con confronto col precedente (cash, revenue, nuovi clienti, rinnovi, margine operativo), ' +
+        'cash in 4 parti, provvigioni e costi, indicatori sui soli nuovi clienti e funnel DM → chiuse. Tassi in decimali.',
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
-        const [kpi, funnel] = await Promise.all([
+        const [kpi, metriche, funnel] = await Promise.all([
           supabase.rpc('kpi_periodo', { p_da: p.da, p_a: p.a }),
+          supabase.rpc('metriche_periodo', { p_da: p.da, p_a: p.a }).single(),
           supabase.rpc('funnel_periodo', { p_da: p.da, p_a: p.a }),
         ])
-        if (kpi.error || funnel.error) return errore('Numeri non disponibili.')
-        return { periodo: p, kpi: kpi.data, funnel: funnel.data }
+        if (kpi.error || metriche.error || funnel.error) return errore('Numeri non disponibili.')
+        const m = metriche.data
+        // picked and named for the model, never added up here: the SQL did it
+        return {
+          periodo: p,
+          kpi: kpi.data,
+          // the four parts always add up to cash_incassato
+          cash_in_4_parti: {
+            nuovi_clienti_del_periodo: m.cash_nuovi_clienti,
+            rate_di_clienti_gia_entrati: m.cash_rate_precedenti,
+            rinnovi: m.cash_rinnovo,
+            upsell: m.cash_upsell,
+          },
+          provvigioni_maturate: m.provvigioni_maturate,
+          costi: m.costi,
+          // acquisition: the new clients of the period only; null = no denominator
+          solo_nuovi_clienti: {
+            revenue: m.revenue_nuovi,
+            valore_medio: m.valore_medio_nuovo,
+            cash_per_dm: m.cash_per_dm,
+            revenue_per_dm: m.revenue_per_dm,
+            cash_per_call_svolta: m.cash_per_call_svolta,
+          },
+          show_rate: m.show_rate,
+          close_rate: m.close_rate,
+          tasso_rinnovo: m.tasso_rinnovo,
+          funnel: funnel.data,
+        }
       },
     }),
 
     cash_per_mese: tool({
-      description: 'Cash incassato per mese, diviso in nuovo, rinnovo, upsell.',
+      description:
+        'Cash incassato per mese in 4 parti: nuovi_clienti (vendite nuove firmate quel mese), rate_precedenti ' +
+        '(rate di clienti entrati nei mesi prima), rinnovo, upsell; più il totale.',
       inputSchema: z.object({ mesi: z.number().int().min(1).max(24).default(6) }),
       execute: async ({ mesi }) => {
         const { data, error } = await supabase.rpc('cash_mensile', { p_mesi: mesi })
@@ -252,7 +331,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
     }),
 
     vendite_periodo: tool({
-      description: 'Vendite firmate nel periodo, con tipo, valore, incassato e da incassare.',
+      description: 'Vendite firmate nel periodo, con tipo, valore, incassato, da incassare e rate in ritardo.',
       inputSchema: periodo.extend({ tipo: z.enum(['nuovo', 'rinnovo', 'upsell']).optional() }),
       execute: async (input) => {
         const p = leggiPeriodo(input)
@@ -266,17 +345,36 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
         if (input.tipo) q = q.eq('tipo', input.tipo)
         const { data, error } = await q
         if (error) return errore('Vendite non disponibili.')
+        // the money of each sale from v_vendite, merged by id: nothing is added up here
+        const importi =
+          data.length > 0
+            ? await supabase
+                .from('v_vendite')
+                .select('sale_id, incassato, da_incassare, rate_in_ritardo')
+                .in(
+                  'sale_id',
+                  data.map((v) => v.id),
+                )
+            : { data: [], error: null }
+        if (importi.error) return errore('Incassi delle vendite non disponibili.')
+        const perVendita = new Map((importi.data ?? []).map((i) => [i.sale_id, i]))
         return {
           periodo: p,
-          vendite: data.map((v) => ({
-            sale_id: v.id,
-            data: v.data_vendita,
-            tipo: v.tipo,
-            cliente: [v.cliente?.nome, v.cliente?.cognome].filter(Boolean).join(' '),
-            prodotto: v.prodotto?.nome ?? v.prodotto_personalizzato,
-            valore: v.valore_contratto,
-            rate: v.numero_rate,
-          })),
+          vendite: data.map((v) => {
+            const i = perVendita.get(v.id)
+            return {
+              sale_id: v.id,
+              data: v.data_vendita,
+              tipo: v.tipo,
+              cliente: [v.cliente?.nome, v.cliente?.cognome].filter(Boolean).join(' '),
+              prodotto: v.prodotto?.nome ?? v.prodotto_personalizzato,
+              valore: v.valore_contratto,
+              rate: v.numero_rate,
+              incassato: i?.incassato ?? null,
+              da_incassare: i?.da_incassare ?? null,
+              rate_in_ritardo: i?.rate_in_ritardo ?? null,
+            }
+          }),
         }
       },
     }),
@@ -482,33 +580,24 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    // Only the setter has it (permessi, and fissaCall checks it again): he books
-    // discovery calls only (Dany, 29/09/2026), so the type is not even asked.
-    fissa_call: tool({
-      description: 'Fissa una discovery call e crea il lead. Closer di default: l’admin.',
-      inputSchema: z.object({
-        nome: z.string().min(2).max(120),
-        instagram_handle: z.string().max(40).optional(),
-        fonte: z.enum(FONTI),
-        data,
-        ora: z.string().describe('HH:MM'),
-        closer: z.string().optional().describe('Nome del closer'),
-      }),
-      execute: async ({ closer, ...v }) => {
-        const { data: persone } = await supabase
-          .from('profiles')
-          .select('id, nome, ruolo')
-          .in('ruolo', ['admin', 'closer'])
-          .eq('attivo', true)
-        const elenco = persone ?? []
-        const scelto = closer ? trova(elenco, closer) : (elenco.find((p) => p.ruolo === 'admin') ?? null)
-        if (!scelto || scelto === 'ambiguo') {
-          return errore(`Closer non trovato. Possibili: ${elenco.map((p) => p.nome).join(', ')}`)
-        }
-        const esito = await fissaCall({ ...v, tipo: 'discovery', closer_id: scelto.id })
-        return esito.ok ? { fatto: true, closer: scelto.nome, link: '/calls' } : errore(esito.errore)
-      },
-    }),
+    // The setter and the admin (permessi, and fissaCall checks it again). Discovery
+    // calls only (Dany, 29/09/2026), so the type is not even asked. The admin also
+    // says who set it (himself by default) and may add a call already done.
+    fissa_call:
+      profilo.ruolo === 'admin'
+        ? tool({
+            description:
+              'Fissa una discovery call e crea il lead, anche per un setter o per una call già fatta (data passata, fino a un anno). Setter e closer di default: chi chatta.',
+            inputSchema: campiFissaCall.extend({
+              setter: z.string().optional().describe('Nome del setter che l’ha fissata; "io" o vuoto: chi chatta'),
+            }),
+            execute: eseguiFissaCall,
+          })
+        : tool({
+            description: 'Fissa una discovery call e crea il lead. Closer di default: l’admin.',
+            inputSchema: campiFissaCall,
+            execute: eseguiFissaCall,
+          }),
 
     crea_progetto: tool({
       description: 'Crea un progetto in un reparto, facoltativamente da un modello (liste e task già datati).',
@@ -645,7 +734,8 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       description:
         'Registra una vendita: cliente esistente (o nuovo, se il tipo è "nuovo"), prodotto del catalogo o percorso su misura, valore, date. ' +
         'Piano: numero_rate uguali mensili, oppure rate una per una. Le rate già pagate si mettono in rate con incassata_il e metodo ' +
-        '(es. pagato tutto subito in contanti: una rata con scadenza e incassata_il = data_vendita). setter e closer: nome o "io".',
+        '(es. pagato tutto subito in contanti: una rata con scadenza e incassata_il = data_vendita). setter e closer: nome o "io". ' +
+        'Un rinnovo è una vendita nuova col suo periodo: quella vecchia resta. Rinnovi e upsell: senza setter, salvo che nascano da una call fissata dal setter.',
       inputSchema: z.object({
         cliente: z.string().describe('Nome e cognome'),
         tipo: z.enum(['nuovo', 'rinnovo', 'upsell']),

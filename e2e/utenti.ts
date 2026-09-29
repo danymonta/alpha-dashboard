@@ -41,6 +41,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   admin: [
     { nome: 'panoramica', url: '/' },
     { nome: 'le-mie-call', url: '/calls' },
+    { nome: 'nuova-call', url: '/calls/new' },
     { nome: 'nuova-vendita', url: '/sales/new' },
     { nome: 'pipeline', url: '/leads' },
     { nome: 'vendite', url: '/sales' },
@@ -49,6 +50,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'rinnovi', url: '/rinnovi' },
     { nome: 'setting', url: '/setting' },
     { nome: 'closer', url: '/setting/closer' },
+    { nome: 'compila-giornata', url: '/setting/closer/giorno' },
     { nome: 'provvigioni', url: '/commissions' },
     { nome: 'costi', url: '/expenses' },
     { nome: 'impostazioni', url: '/settings' },
@@ -82,6 +84,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'nuova-vendita', url: '/sales/new' },
     { nome: 'le-mie-vendite', url: '/my-sales' },
     { nome: 'i-miei-numeri', url: '/setting/closer' },
+    { nome: 'compila-giornata', url: '/setting/closer/giorno' },
     PROGETTI,
     ...schedeProgetto(PROGETTO_FUNNEL),
     TEMPO,

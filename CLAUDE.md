@@ -86,19 +86,19 @@ In Economics contano `admin`, `setter`, `closer`. Tutti i ruoli hanno l'area Pro
 | Dato | admin | setter | closer |
 |---|---|---|---|
 | Report giornalieri setting | tutti, lettura e scrittura | solo i propri; compila e corregge qualsiasi giorno passato, mai il futuro | nessuno |
-| Lead | tutti | solo quelli creati da lui; ne aggiorna lo stato | quelli con call assegnate a lui; ne aggiorna lo stato |
-| Call | tutte | le proprie: data, stato, esito (chiusa sì o no), mai importi; le riprogramma e le riassegna | quelle assegnate a lui: esito, data, dettagli (link, performance, prodotto proposto) |
+| Lead | tutti; ne crea fissando una call (il lead va al setter della call) | solo quelli creati da lui; ne aggiorna lo stato | quelli con call assegnate a lui; ne aggiorna lo stato |
+| Call | tutte; le fissa anche lui, per sé o per un setter, comprese quelle già fatte (29/09/2026) | le proprie: data, stato, esito (chiusa sì o no), mai importi; le riprogramma e le riassegna | quelle assegnate a lui: esito, data, dettagli (link, performance, prodotto proposto); non ne fissa |
 | Importo proposto in call (`call_pitch`) | tutti | nessuno | solo delle call assegnate a lui |
 | Clienti | tutti | nome e stato dei clienti nati da suoi lead, niente contatti | clienti nati da sue call |
-| Vendite e rate | tutte | solo quelle dove è il setter: cliente, revenue, rate e incassi, in sola lettura | solo le vendite chiuse da lui |
+| Vendite e rate | tutte | solo quelle dove è il setter, cioè i clienti nuovi che ha portato (rinnovi e upsell nascono senza setter): cliente, revenue, rate e incassi, in sola lettura | solo le vendite chiuse da lui |
 | Provvigioni | tutte | il proprio totale mensile maturato e pagato, e la provvigione di ogni incasso delle sue vendite | nessuna |
-| Giornata del closer (call, qualificate, no show, follow up, cancellate, chiuse, cash, revenue) | tutte (`giornate_closer`) | solo gli esiti delle call fissate da lui, e cash e revenue dei clienti che ha portato lui (`giornate_setter`) | la propria (`giornate_closer`) |
+| Giornata del closer (call, qualificate, no show, follow up, cancellate, chiuse, cash, revenue; cash e revenue solo dei clienti nuovi) | tutte (`giornate_closer`) | solo gli esiti delle call fissate da lui, e cash e revenue dei clienti nuovi che ha portato lui (`giornate_setter`) | la propria (`giornate_closer`) |
 | Costi, margine, compensi | tutto | nessuno | nessuno |
 | Gestione utenti, prodotti, impostazioni | tutto | nessuno | nessuno |
 
-Requisito duro: un collaboratore non vede mai quanto paga un singolo cliente, il compenso di un altro collaboratore, i costi o il margine. Unica eccezione (Dany, 27/09/2026): il setter vede quanto hanno pagato i clienti che ha portato lui (vendite con il suo `setter_id`), in quante rate, la revenue e la provvigione di ogni incasso, così sa quanto gli spetta; mai contatti, metodo o note, mai le vendite di altri. Passa solo dalla RPC `mie_vendite_setter()` (`security definer`, filtrata su `auth.uid()`): il setter non ha policy su `sales` e `payments`.
+Requisito duro: un collaboratore non vede mai quanto paga un singolo cliente, il compenso di un altro collaboratore, i costi o il margine. Unica eccezione (Dany, 27/09/2026): il setter vede quanto hanno pagato i clienti che ha portato lui (vendite con il suo `setter_id`), in quante rate, la revenue e la provvigione di ogni incasso, così sa quanto gli spetta; mai contatti, metodo o note, mai le vendite di altri. Dal 29/09/2026 sono solo i clienti nuovi: rinnovi e upsell nascono senza setter, se non vengono da una call fissata (sezione 8), quindi il setter non li vede e non ci matura provvigione. Le vendite già registrate col setter restano come sono. Passa solo dalla RPC `mie_vendite_setter()` (`security definer`, filtrata su `auth.uid()`): il setter non ha policy su `sales` e `payments`.
 
-**Dany è admin e closer** (28/09/2026): ha il ruolo `admin` (etichetta "Admin · Closer"), è il closer predefinito delle call e la scheda Closer mostra i suoi numeri. Il ruolo `closer` resta per un closer assunto in futuro, che vede solo i propri.
+**Dany è admin e closer** (28/09/2026): ha il ruolo `admin` (etichetta "Admin · Closer"), è il closer predefinito delle call e la scheda Closer mostra i suoi numeri. Il ruolo `closer` resta per un closer assunto in futuro, che vede solo i propri. **E a volte setter** (29/09/2026): l'admin fissa call come il setter, per sé (predefinito) o per un setter attivo, e registra le call già fatte che nell'app mancano (`fissa_call`, sezione 8).
 
 Regole di implementazione:
 - I dati sensibili stanno in **tabelle separate**, non in colonne nascoste: RLS lavora per riga, non per colonna. Esempio: la percentuale provvigionale sta in `commission_rules`, non in `profiles`.
@@ -150,6 +150,8 @@ leads
   note, created_at
 ```
 
+Il report non chiede più (29/09/2026) `discovery_svolte` e `call_qualificate`: svolte e qualificate le registra il closer su ogni call, e si contano dalle call. Restano per lo storico, come `strategy_prenotate` (il setter fissa solo discovery call): le correzioni conservano i valori salvati.
+
 Il setter crea un lead **solo quando fissa una call**, non per ogni DM. I volumi dei DM vivono nel report giornaliero.
 
 Lo stato del lead è la **pipeline**: lo aggiornano a mano setter e closer con un tocco (Call da fare → Follow-up → Cliente / Perso; lo stato `call_fissata` si mostra come "Call da fare"). Nessun trigger lo cambia da solo (decisione di Dany, 26/09/2026).
@@ -172,7 +174,7 @@ call_pitch                          -- tabella separata: il setter legge le call
   id, call_id -> calls unique on delete cascade, importo_proposto numeric(12,2) >= 0
 ```
 
-Campi presi dal foglio prospect di Dany (27/09/2026). Si modificano con le RPC `modifica_call` (data, ora in Europe/Rome, tipo, closer, note) e `dettagli_call` (closer e admin).
+Campi presi dal foglio prospect di Dany (27/09/2026). Si creano con la RPC `fissa_call` (lead e call insieme, sempre discovery): il setter per sé; l'admin per sé (predefinito) o per un setter attivo (`p_setter_id`), anche per le call già fatte che nell'app mancano (29/09/2026); closer e altri ruoli no. La finestra di date la controlla il form (`lib/validation/call.ts`, contro gli errori di battitura): il setter da 7 giorni fa in avanti, l'admin fino a un anno indietro. Una call nel passato risulta prenotata alla sua ora (`created_at = least(now(), programmata_il)`, anche per il lead nato con lei): una call già fatta non conta mai come prenotata oggi. Si modificano con le RPC `modifica_call` (data, ora in Europe/Rome, tipo, closer, note) e `dettagli_call` (closer e admin).
 
 ### Clienti, prodotti, vendite, incassi
 
@@ -209,8 +211,10 @@ Regole:
 - In alternativa il piano si scrive a mano (`registra_vendita(..., p_rate jsonb)`): una riga per rata, con date e importi liberi (es. 3 × 500 € e, dopo una pausa, 3 × 333,33 €). La somma deve coincidere col contratto, lo verifica il database (`verifica_piano`). Se il prodotto ha un `piano_predefinito`, la nuova vendita parte da quello.
 - L'admin aggiunge e toglie rate (`aggiungi_rata`, `elimina_rata`): le rate si rinumerano per scadenza.
 - Una vendita `rinnovo` richiede che il cliente abbia già almeno una vendita precedente.
+- Setter della vendita (`registra_vendita`, 29/09/2026): una vendita `nuovo` prende il setter della call o, senza call, quello del cliente; rinnovi e upsell hanno un setter solo se nascono da una call fissata, altrimenti nessuno (quindi nessuna provvigione). Il closer è quello della call o chi registra. Setter e closer restano modificabili dalla vendita; le vendite già registrate non sono cambiate.
+- **Rinnovo** ("Ha rinnovato" nella scheda cliente, 29/09/2026): è una nuova vendita `rinnovo` col suo periodo e il suo contratto. Il form parte dal giorno dopo la fine dell'ultimo percorso (se è passato da più di 31 giorni, da oggi). L'inizio di una vendita cade da 31 giorni prima a 92 dopo la data di vendita (controllo del form contro gli errori di battitura); per un rinnovo firmato in anticipo fino a un anno dopo, con lo stesso prodotto se è ancora attivo e il suo prezzo o piano abituale; tutto si cambia. La vendita precedente non si tocca: resta con le sue date e i suoi incassi nello storico del cliente.
 - Una rata è **in ritardo** se `stato = 'prevista'` e `scadenza < oggi`. Non è uno stato salvato, è calcolato.
-- Al passaggio di una call a `esito = chiusa` l'app propone subito il form "Nuova vendita" precompilato (cliente dal lead, setter, closer, call_id).
+- Al passaggio di una call a `esito = chiusa` l'app propone subito il form "Nuova vendita" precompilato (cliente dal lead, setter, closer, call_id), con data di vendita e inizio nel giorno della call (mai nel futuro): chiusa, cash e revenue stanno sulla stessa riga della giornata del closer. Da "Compila la giornata" la vendita salvata torna su quel giorno.
 
 ### Provvigioni e costi
 
@@ -233,7 +237,7 @@ Il setter di una vendita o di un cliente può essere anche l'admin, quando il cl
 
 Una persona non ha mai due regole valide nello stesso giorno: un trigger rifiuta le date sovrapposte, perché la provvigione verrebbe contata due volte.
 
-La provvigione matura **sull'incasso**, non sulla firma: per ogni `payment` incassato di una vendita con `setter_id`, provvigione = `importo_incassato * percentuale` della regola valida alla data d'incasso e applicabile al tipo di vendita. Un rimborso genera provvigione negativa nel mese del rimborso. Se Dany decide diversamente (provvigione anche sui rinnovi, o su revenue invece che su cash), si cambia solo `commission_rules`, non il codice.
+La provvigione matura **sull'incasso**, non sulla firma: per ogni `payment` incassato di una vendita con `setter_id`, provvigione = `importo_incassato * percentuale` della regola valida alla data d'incasso e applicabile al tipo di vendita. Un rimborso genera provvigione negativa nel mese del rimborso. Se Dany decide diversamente (provvigione anche sui rinnovi, o su revenue invece che su cash), si cambia solo `commission_rules`, non il codice; sui rinnovi però matura solo dove la vendita ha un setter (nata da una call, o setter messo a mano), perché dal 29/09/2026 rinnovi e upsell nascono senza.
 
 ### Audit
 
@@ -257,7 +261,8 @@ Tutte le metriche si calcolano in SQL (view `security_invoker` o funzioni RPC), 
 - DM totali = `dm_outbound + dm_inbound + follow_up`
 - Tasso di conversazione = `conversazioni / DM totali`
 - Call prenotate = `discovery_prenotate + strategy_prenotate`. Il setter fissa solo discovery call: con i lead non si fanno strategy call, il campo resta per lo storico e non si chiede più
-- Prenotate da inbound / da outbound = call fissate dal setter nel giorno (per `calls.created_at`) con lead di fonte `dm_inbound` / `dm_outbound`: si leggono dalle call, non si compilano
+- Discovery svolte e call qualificate non vengono più dal report (29/09/2026): svolte, qualificate e il tasso di qualificazione si contano dalle call (sotto), con l'esito registrato dal closer
+- Prenotate da inbound / da outbound = call fissate dal setter nel giorno (per `calls.created_at`) con lead di fonte `dm_inbound` / `dm_outbound`: si leggono dalle call, non si compilano. Una call registrata dopo che si è tenuta conta nel suo giorno (sezione 8)
 - Tasso di prenotazione = `call prenotate / call_proposte`
 - DM per call prenotata = `DM totali / call prenotate`
 
@@ -269,11 +274,19 @@ Tutte le metriche si calcolano in SQL (view `security_invoker` o funzioni RPC), 
 - Close rate su qualificate = `esito chiusa / svolte qualificate`
 
 **Economics**
-- Cash incassato (mese) = somma `importo_incassato` con `incassato_il` nel mese, al netto dei rimborsi
-- Cash per tipo = stessa somma divisa per `sales.tipo` (nuovo, rinnovo, upsell)
-- Revenue firmata (mese) = somma `valore_contratto` con `data_vendita` nel mese
-- Valore medio vendita = revenue firmata / numero vendite
-- Cash per call svolta = cash da vendite nuove / call svolte
+- Cash incassato (mese) = somma `importo_incassato` con `incassato_il` nel mese, al netto dei rimborsi, di ogni tipo di vendita
+- Cash in 4 parti (29/09/2026), che sommano sempre al cash incassato (`metriche_periodo`):
+  - nuovi clienti del periodo = incassi delle vendite `nuovo` con `data_vendita` dall'inizio del periodo in poi (un acconto incassato prima della firma conta qui);
+  - rate di clienti già entrati = incassi delle vendite `nuovo` con `data_vendita` prima del periodo;
+  - rinnovi = incassi delle vendite `rinnovo`;
+  - upsell = incassi delle vendite `upsell`.
+  Il grafico dei 12 mesi (`cash_mensile`) ha le stesse 4 serie, mese per mese (nuovi clienti = vendite firmate da quel mese in poi).
+- Revenue firmata (mese) = somma `valore_contratto` con `data_vendita` nel mese, di ogni tipo. Revenue nuovi clienti = la stessa somma sulle sole vendite `nuovo`
+- Indicatori di acquisizione (29/09/2026), solo sui nuovi clienti del periodo: rinnovi, upsell e rate di clienti entrati prima non arrivano dai DM né dalle call
+  - Cash per DM = cash dei nuovi clienti del periodo / DM totali
+  - Revenue per DM = revenue nuovi clienti / DM totali
+  - Cash per call svolta = cash dei nuovi clienti del periodo / call svolte
+  - Valore medio nuovo cliente = revenue nuovi clienti / numero di vendite `nuovo` (sostituisce "Valore medio vendita")
 - Da incassare = somma `importo_previsto` delle rate `prevista`. Suddiviso in: in ritardo, prossimi 30 giorni, oltre
 - Clienti attivi = clienti con una vendita dove `oggi between data_inizio and data_fine`
 - In scadenza = clienti attivi con `data_fine` dell'ultima vendita entro 30 giorni e nessuna vendita successiva
@@ -281,14 +294,14 @@ Tutte le metriche si calcolano in SQL (view `security_invoker` o funzioni RPC), 
 - Provvigioni maturate (mese) = come da sezione 8
 - Margine operativo (mese) = cash incassato - provvigioni maturate - costi del mese. Etichetta sempre "Margine operativo", mai "utile": le tasse non sono incluse
 
-**Setter e closer giorno per giorno** (28/09/2026, le due metà del foglio Excel di Dany): la metà SETTER sono i 9 campi di `setter_daily_reports`; la metà CLOSER si calcola, mai inserita due volte, dalle call (per giorno di `programmata_il`) e dalle vendite: call = svolte, qualificate = svolte e qualificate (una chiusa lo è sempre), no show, follow up (svolte con esito follow_up), cancellate, chiuse, cash = incassato nel giorno sulle vendite del closer, revenue = contratti firmati nel giorno. `giornate_closer` (admin tutti, closer il proprio) e `giornate_setter` (il setter incrocia il suo setting con gli esiti delle sue call e i soldi dei suoi clienti) restituiscono un giorno per riga, solo i giorni in cui è successo qualcosa, più il totale (`data` null).
+**Setter e closer giorno per giorno** (28/09/2026, le due metà del foglio Excel di Dany): la metà SETTER è il report di `setter_daily_reports`; la metà CLOSER si calcola, mai inserita due volte, dalle call (per giorno di `programmata_il`) e dalle vendite: call = svolte, qualificate = svolte e qualificate (una chiusa lo è sempre), no show, follow up (svolte con esito follow_up), cancellate, chiuse. Cash e revenue contano solo i clienti nuovi (29/09/2026): revenue = `valore_contratto` delle vendite `nuovo` per `data_vendita`; cash = la prima rata (`numero_rata = 1`, `stato = incassata`) delle vendite `nuovo`, sul giorno della vendita. Rate successive, rinnovi, upsell e rimborsi restano in Incassi, Panoramica e provvigioni. Il closer non compila contatori: la sua riga nasce dagli esiti che registra su ogni call ("Compila la giornata", sezione 10), senza tabelle nuove. `giornate_closer` (admin tutti, closer il proprio) e `giornate_setter` (il setter incrocia il suo setting con gli esiti delle sue call e i soldi dei clienti nuovi che ha portato) restituiscono un giorno per riga, solo i giorni in cui è successo qualcosa, più il totale (`data` null).
 
 **Periodo** (28/09/2026): ogni metrica si chiede su un mese (`?mese=YYYY-MM`) o su un intervallo (`?da=&a=`), con le RPC `*_periodo`; le mensili sono wrapper con gli stessi risultati. Confronto: se il periodo è fatto di mesi interi, gli stessi mesi prima; altrimenti la finestra di pari giorni subito prima. Trimestre e anno "in corso" coprono il periodo solare intero. Le provvigioni restano mensili (i pagamenti si riferiscono a un mese).
 
 **Aggiunte del 27/09/2026** (tutte in SQL, solo admin):
 - Obiettivi del mese (`obiettivi_mese`, `avanzamento_obiettivi`): obiettivo di cash e di nuovi clienti; avanzamento = cash incassato del mese / obiettivo, vendite `nuovo` del mese / obiettivo.
 - Previsione di cassa (`previsione_cassa`): per il mese corrente e i due successivi, rate `prevista` con scadenza da oggi in poi; per il mese corrente anche il già incassato. Le rate in ritardo stanno a parte, sul mese corrente.
-- Per fonte (`metriche_per_fonte`): cash, quota del cash del periodo e clienti nuovi per `clients.fonte`; lead, call svolte, chiuse e close rate per `leads.fonte`.
+- Per fonte (`metriche_per_fonte`): cash dei nuovi clienti del periodo (come sopra), quota su quel cash e clienti nuovi per `clients.fonte` (un cliente senza fonte sta in `altro`); lead, call svolte, chiuse e close rate per `leads.fonte`. Dal 29/09/2026 rate di clienti entrati prima, rinnovi e upsell non contano: le fonti sommano al cash dei nuovi clienti.
 
 Stato cliente derivato (`v_client_status`): `attivo`, `in_scadenza`, `scaduto` (nessuna vendita attiva, l'ultima finita da meno di 90 giorni), `ex_cliente` (oltre 90 giorni), `mai_attivato`.
 
@@ -300,25 +313,28 @@ Navigazione: sidebar su desktop, bottom bar su mobile (massimo 4 voci più "Altr
 
 1. **Panoramica** (`/`). Selettore mese in alto (default mese corrente) con confronto col mese precedente.
    - Riga KPI: Cash incassato, Revenue firmata, Nuovi clienti, Rinnovi, Margine operativo. Ogni tile: valore grande, delta sul mese precedente con icona e segno (mai solo colore).
-   - Grafico: cash incassato per mese, ultimi 12 mesi, barre impilate nuovo / rinnovo / upsell.
+   - Sotto il cash, "Di cui" in 4 parti (29/09/2026, sezione 9): nuovi clienti del periodo, rate di clienti già entrati, rinnovi, upsell. "Oggi dal team" mostra l'incassato di oggi e, sotto, la parte dei nuovi clienti entrati oggi.
+   - Grafico: cash incassato per mese, ultimi 12 mesi, barre impilate nelle stesse 4 parti (nuovi clienti / rate di clienti già entrati / rinnovi / upsell), con vista tabella.
+   - Indicatori (cash e revenue per DM, cash per call svolta, valore medio nuovo cliente) e "Da dove arrivano i nuovi clienti" contano solo i nuovi clienti del periodo.
    - Funnel del mese: DM totali, conversazioni, call prenotate, call svolte, chiuse. Barre orizzontali con valore e tasso di passaggio.
    - Box "Da incassare": in ritardo (con elenco nominativo), prossimi 30 giorni.
-   - Box "In scadenza": clienti che scadono nei prossimi 30 giorni, con azione "Registra rinnovo".
+   - Box "In scadenza": clienti che scadono nei prossimi 30 giorni, con azione "Registra rinnovo" (apre il rinnovo precompilato, come "Ha rinnovato").
+1b. **Le mie call** (`/calls`): le call di cui è closer, con "Nuova call" (29/09/2026): l'admin fissa call come il setter, scegliendo il setter ("Io" predefinito, o un setter attivo) e anche una data passata, fino a un anno indietro (scorciatoia "Ieri"), per le call già fatte. Sempre discovery; il tipo si corregge dopo. Una call fissata con un altro closer si vede nella sua giornata (`/setting/closer/giorno`), dove porta il salvataggio.
 2. **Vendite** (`/sales`): tabella filtrabile per mese, tipo, setter, closer. Dettaglio vendita con piano rate modificabile e azione "Segna rata incassata" (un tap, data di oggi precompilata).
-3. **Clienti** (`/clients`): lista con stato derivato, filtri per stato. Scheda cliente: storico vendite, rate, valore totale nel tempo (LTV), fonte, setter. Lo stato non si spegne a mano: per chi smette prima c'è "Interrompi il percorso" (`interrompi_percorso`, solo admin), che chiude la vendita in corso nel giorno scelto e, se si sceglie, toglie le rate non pagate dopo quel giorno abbassando il contratto; l'anteprima dice cosa cambia prima della conferma e gli incassi non si toccano. Eliminare un cliente toglie anche vendite e incassi (sezione 19).
-4. **Incassi** (`/payments`): tutte le rate, filtro per stato e mese, vista "in ritardo" in evidenza. In cima la previsione di cassa dei prossimi 3 mesi. Sulle rate da pagare, "Scrivi su WhatsApp" apre la chat del cliente col promemoria già scritto (`lib/whatsapp.ts`): l'app non invia niente da sola.
+3. **Clienti** (`/clients`): lista con stato derivato, filtri per stato. Scheda cliente: valore totale nel tempo (LTV), fonte, setter e "Storico percorsi" (29/09/2026): una scheda per vendita, dalla più recente (Primo percorso, Rinnovo 1, 2…, Upsell), con prodotto, date, stato (Da iniziare, In corso, Concluso, Interrotto), contratto, incassato e da incassare, rate con "Segna incassata" e link alla vendita. "Ha rinnovato" apre la nuova vendita `rinnovo` precompilata (sezione 8): salvata, torna alla scheda, il nuovo periodo compare in cima e quello vecchio resta sotto. Lo stato non si spegne a mano: per chi smette prima c'è "Interrompi il percorso" (`interrompi_percorso`, solo admin), che chiude la vendita in corso nel giorno scelto e, se si sceglie, toglie le rate non pagate dopo quel giorno abbassando il contratto; l'anteprima dice cosa cambia prima della conferma e gli incassi non si toccano. Eliminare un cliente toglie anche vendite e incassi (sezione 19).
+4. **Incassi** (`/payments`): tutte le rate, filtro per stato e mese, vista "in ritardo" in evidenza. Ogni riga dice tipo e rata ("Primo percorso · Rata 2 di 4", "Rinnovo · Rata 2 di 2", le stesse parole dello storico del cliente). In cima la previsione di cassa dei prossimi 3 mesi. Sulle rate da pagare, "Scrivi su WhatsApp" apre la chat del cliente col promemoria già scritto (`lib/whatsapp.ts`): l'app non invia niente da sola.
 4b. **Rinnovi** (`/rinnovi`): chi finisce il percorso entro 30 o 60 giorni e chi l'ha finito da meno di 90 senza rinnovo, con WhatsApp e "Registra rinnovo"; in cima il tasso di rinnovo del mese.
-5. **Setting** (`/setting`): due schede, Setter e Closer. Setter: metriche setting e call per periodo e per setter, tabella dei report giornalieri. "Aggiungi giornata" registra un giorno intero per un setter o per l'admin stesso; un giorno che c'è già si corregge dalla sua riga, mai sovrascritto. Closer (`/setting/closer`): i numeri del periodo e la tabella giorno per giorno con le colonne CLOSER dell'Excel.
+5. **Setting** (`/setting`): due schede, Setter e Closer. Setter: metriche setting e call per periodo e per setter, tabella dei report giornalieri. "Aggiungi giornata" registra un giorno intero per un setter o per l'admin stesso; un giorno che c'è già si corregge dalla sua riga, mai sovrascritto. Closer (`/setting/closer`): i numeri del periodo e la tabella giorno per giorno con le colonne CLOSER dell'Excel; ogni giorno apre la sua giornata. **Compila la giornata** (`/setting/closer/giorno`, 29/09/2026): la riga del giorno (da `giornate_closer`) e sotto le call del giorno con i bottoni dell'esito di "Le mie call"; frecce e calendario per cambiare giorno. La riga si compila dagli esiti: nessun contatore a mano, nessuna tabella nuova. L'admin sceglie il closer e con "Aggiungi una call" registra una call fatta che nell'app non c'è (Nuova call su quel giorno, poi si torna lì).
 6. **Provvigioni** (`/commissions`): per setter e mese, maturato, pagato, saldo. Registrazione pagamento. Sotto, "Per cliente": percentuale, incassato e provvigione di ogni vendita (`provvigioni_per_vendita`, solo admin); la stessa riga compare nella scheda della vendita.
 7. **Costi** (`/expenses`): inserimento e lista.
 8. **Impostazioni**: Team (sezione 7), Prodotti, Regole provvigioni, Esporta CSV (vendite, incassi, costi per mese: serve alla commercialista).
 
 ### Setter (mobile first, è la sua schermata principale)
 
-1. **Oggi** (`/today`): il report del giorno in una sola schermata. Frecce e "Un altro giorno" aprono qualsiasi giorno passato da compilare o correggere. Ogni campo numerico è uno stepper con bottoni grandi (+1, +5, -1) e input diretto. Salvataggio automatico con debounce e stato visibile ("Salvato alle 18:42"). Se il report di oggi non esiste si crea al primo tocco. Nessun bottone "invia" da ricordarsi.
-2. **Nuova call** : form corto: nome lead, handle Instagram, fonte (da scegliere ogni volta: conta le prenotate da inbound e da outbound), data e ora, closer (default Dany). Il setter fissa solo discovery call. Crea lead e call insieme.
+1. **Oggi** (`/today`): il report del giorno in una sola schermata. Frecce e "Un altro giorno" aprono qualsiasi giorno passato da compilare o correggere. Ogni campo numerico è uno stepper con bottoni grandi (+1, +5, -1) e input diretto. Salvataggio automatico con debounce e stato visibile ("Salvato alle 18:42"). Se il report di oggi non esiste si crea al primo tocco. Nessun bottone "invia" da ricordarsi. Non chiede discovery svolte né call qualificate: le registra il closer su ogni call.
+2. **Nuova call** : form corto: nome lead, handle Instagram, fonte (da scegliere ogni volta: conta le prenotate da inbound e da outbound), data e ora (da 7 giorni fa in avanti), closer (default Dany). Il setter fissa solo discovery call. Crea lead e call insieme. La stessa schermata serve all'admin, con in più la scelta del setter e un anno di date passate (Admin, 1b).
 3. **Le mie call**: lista con stato ed esito.
-4. **I miei numeri**: metriche del periodo proprie, provvigioni maturate e pagate, "Giorno per giorno" (il suo setting accanto agli esiti del closer sulle call che ha fissato, e cash e revenue dei suoi clienti) e "I tuoi clienti": per ogni vendita dove è il setter, revenue, pagato, rate e la sua provvigione per incasso (sezione 6).
+4. **I miei numeri**: metriche del periodo proprie, provvigioni maturate e pagate, "Giorno per giorno" (il suo setting accanto agli esiti del closer sulle call che ha fissato, e cash e revenue dei clienti nuovi che ha portato, sezione 9) e "I tuoi clienti": per ogni vendita dove è il setter (clienti nuovi: rinnovi e upsell nascono senza setter), revenue, pagato, rate e la sua provvigione per incasso (sezione 6).
 
 Obiettivo misurabile: il report giornaliero si compila in meno di 60 secondi dal telefono.
 
@@ -326,7 +342,7 @@ Obiettivo misurabile: il report giornaliero si compila in meno di 60 secondi dal
 
 1. **Le mie call**: di oggi e prossime. Aggiornamento esito in massimo 3 tap. Se `chiusa`, apre "Nuova vendita" precompilata.
 2. **Le mie vendite**: sola lettura più registrazione incasso delle proprie vendite.
-3. **I miei numeri** (`/setting/closer`): la propria giornata da closer, giorno per giorno.
+3. **I miei numeri** (`/setting/closer`): la propria giornata da closer, giorno per giorno, e "Compila la giornata" per registrare gli esiti di un giorno (senza "Aggiungi una call": le call le fissano setter e admin).
 
 ### Stati obbligatori per ogni schermata
 
@@ -370,6 +386,7 @@ Unica eccezione alla sobrietà, confinata all'ingresso: chi entra deve essere co
 
 /* Serie grafici, validate per tema scuro su #1C1C1E (banda di luminosità, croma, separazione daltonismo, contrasto >= 3:1) */
 --chart-nuovo:   #C4515F;
+--chart-rate-precedenti: #824ACA;   /* rate di clienti già entrati (29/09/2026) */
 --chart-rinnovo: #B08A1C;
 --chart-upsell:  #4F8FD1;
 
@@ -543,8 +560,8 @@ Chiesto da Dany il 27/09/2026.
 - **Modello**: open source e gratuito. Groq, piano gratuito (1.000 richieste e 200k token al giorno, 8k token al minuto), `openai/gpt-oss-120b`; voce con Whisper sullo stesso account. Il codice parla il formato OpenAI (`lib/alfire/config.ts`): si cambia fornitore o modello solo con le variabili `ALFIRE_*`, anche verso un modello cinese (Qwen su Groq, GLM su z.ai).
 - **Privacy**: domande, dati letti e vocali passano dai server del fornitore (Groq: USA). Nessun audio salvato, la chat vive solo finché l'app è aperta (nessuna tabella). Detto in Profilo › Alfire.
 - **Permessi**: Alfire lavora con la sessione di chi chatta: RLS e le stesse server action dei form. In più riceve solo gli strumenti del suo ruolo (`lib/alfire/permessi.ts`, testato): nessun collaboratore riceve strumenti su soldi dei clienti, costi, margine o compensi altrui.
-- **Letture**: numeri del periodo, cash per mese, da incassare, clienti, vendite, setting, provvigioni, costi (admin); i miei numeri (setter); call; progetti e task; guida della dashboard (`lib/alfire/guida.ts`, letta solo quando serve per risparmiare token).
-- **Scritture** (crea cliente, segna rata incassata, registra costo, aggiorna report, fissa call, crea progetto, aggiungi task): mai senza conferma. Alfire propone, in chat compare una scheda con cosa verrà scritto (`lib/alfire/riassunto.ts`), si esegue solo dopo "Conferma" (`toolApproval: 'user-approval'`).
+- **Letture**: numeri del periodo (con il cash in 4 parti e gli indicatori sui soli nuovi clienti, sezione 9), cash per mese, da incassare, clienti, vendite con incassato e da incassare, setting, provvigioni, costi (admin); i miei numeri (setter); call; progetti e task; guida della dashboard (`lib/alfire/guida.ts`, letta solo quando serve per risparmiare token).
+- **Scritture** (crea cliente, segna rata incassata, registra costo, aggiorna report, fissa call, crea progetto, aggiungi task): mai senza conferma. `fissa_call` l'hanno il setter (per sé) e l'admin (29/09/2026: per sé o per un setter, anche una call già fatta; la scheda dice per chi è); il closer no. Alfire propone, in chat compare una scheda con cosa verrà scritto (`lib/alfire/riassunto.ts`), si esegue solo dopo "Conferma" (`toolApproval: 'user-approval'`).
 - **Voce**: si registra solo dopo il tocco sul microfono, al massimo 2 minuti, trascrizione in italiano via `/api/alfire/voce`. Lettura ad alta voce delle risposte: preferenza per dispositivo.
 - **Test**: `e2e/llm-finto.mjs` è un modello finto OpenAI-compatibile; con il dev server avviato con `ALFIRE_API_KEY=finta ALFIRE_BASE_URL=http://127.0.0.1:4010/v1` e `E2E_ALFIRE_FINTO=1`, `e2e/alfire-chat.spec.ts` prova lettura, conferma, scrittura, annullamento e voce senza Groq.
 - Nessuna sorveglianza (sezione 17): Alfire non segnala chi non compila e non confronta le persone di sua iniziativa.

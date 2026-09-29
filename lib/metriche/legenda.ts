@@ -57,14 +57,6 @@ export const LEGENDA_SETTING = {
     etichetta: 'Prenotate da DM outbound',
     spiegazione: 'Call fissate nel giorno (o nel periodo scelto) con lead di fonte «DM outbound». Si leggono dalle call in agenda: referral, ads e organico non entrano.',
   },
-  discovery_svolte: {
-    etichetta: 'Discovery svolte',
-    spiegazione: 'Discovery call che si sono tenute nel giorno (o nel periodo scelto).',
-  },
-  call_qualificate: {
-    etichetta: 'Call qualificate',
-    spiegazione: 'Call con persone in target, secondo il setter.',
-  },
   contenuto_pubblicato: {
     etichetta: 'Contenuto pubblicato',
     spiegazione: 'Se quel giorno è uscito un contenuto sul profilo.',
@@ -82,21 +74,25 @@ export const LEGENDA_SETTING = {
     spiegazione:
       'DM totali (inbound + outbound + follow up) ÷ call prenotate: quanti messaggi servono per fissare una call.',
   },
-  // the overview's "per DM" ratios divide by the same DM totali
+  // the overview's "per DM" ratios divide by the same DM totali, and only count
+  // the new clients of the period: DMs bring new clients, not renewals
   cash_per_dm: {
-    etichetta: 'Cash per DM',
-    spiegazione: 'Cash incassato ÷ DM totali (inbound + outbound + follow up).',
+    etichetta: 'Cash per DM (nuovi clienti)',
+    spiegazione:
+      'Cash dei nuovi clienti del periodo ÷ DM totali (inbound + outbound + follow up). Rate di clienti entrati prima, rinnovi e upsell non contano: non arrivano dai DM.',
   },
   revenue_per_dm: {
-    etichetta: 'Revenue per DM',
-    spiegazione: 'Revenue firmata ÷ DM totali (inbound + outbound + follow up).',
+    etichetta: 'Revenue per DM (nuovi clienti)',
+    spiegazione:
+      'Valore dei contratti dei nuovi clienti del periodo ÷ DM totali (inbound + outbound + follow up). Rinnovi e upsell esclusi.',
   },
 } satisfies Record<string, VoceLegenda>
 
 export const LEGENDA_CLOSER = {
   call: {
     etichetta: 'Call svolte',
-    spiegazione: 'Call che si sono tenute, con l’esito registrato in «Le mie call». Si contano nel giorno della call.',
+    spiegazione:
+      'Call che si sono tenute, con l’esito registrato in «Le mie call» o in «Compila la giornata». Si contano nel giorno della call.',
   },
   qualificate: {
     etichetta: 'Qualificate',
@@ -116,15 +112,17 @@ export const LEGENDA_CLOSER = {
   },
   chiuse: {
     etichetta: 'Chiuse',
-    spiegazione: 'Call con esito «Chiusa»: è nata una vendita.',
+    spiegazione:
+      'Call con esito «Chiusa»: di solito è entrato un nuovo cliente. Se dalla call nasce un rinnovo o un upsell conta qui, ma non in cash e revenue, che sono solo dei clienti nuovi.',
   },
   cash: {
     etichetta: 'Cash',
-    spiegazione: 'Soldi incassati quel giorno sulle vendite del closer, al netto dei rimborsi.',
+    spiegazione:
+      'Solo clienti nuovi: la prima rata incassata delle vendite nuove, sul giorno in cui le hai chiuse. Le rate successive, i rinnovi e gli upsell restano in Incassi e in Panoramica.',
   },
   revenue: {
     etichetta: 'Revenue',
-    spiegazione: 'Valore dei contratti firmati quel giorno.',
+    spiegazione: 'Solo clienti nuovi: valore dei contratti delle vendite nuove chiuse quel giorno. Rinnovi e upsell esclusi.',
   },
   show_rate: {
     etichetta: 'Show rate',
@@ -160,11 +158,12 @@ export const LEGENDA_SETTER = {
   },
   cash_miei_clienti: {
     etichetta: 'Cash',
-    spiegazione: 'Soldi incassati nel giorno (o nel periodo scelto) dai clienti che hai portato tu, al netto dei rimborsi.',
+    spiegazione:
+      'Solo i clienti nuovi che hai portato tu: la prima rata che hanno pagato per entrare, sul giorno della vendita. Le rate successive le trovi in «I tuoi clienti».',
   },
   revenue_miei_clienti: {
     etichetta: 'Revenue',
-    spiegazione: 'Valore dei contratti firmati nel giorno (o nel periodo scelto) dai clienti che hai portato tu.',
+    spiegazione: 'Solo i clienti nuovi che hai portato tu: valore dei contratti firmati nel giorno (o nel periodo scelto). Rinnovi esclusi.',
   },
 } satisfies Record<string, VoceLegenda>
 
@@ -175,15 +174,36 @@ export type ChiaveCloser = keyof typeof LEGENDA_CLOSER
 export const LEGENDA_ECONOMICS = {
   cash_incassato: {
     etichetta: 'Cash incassato',
-    spiegazione: 'Soldi entrati nel periodo, per data d’incasso, al netto dei rimborsi.',
+    spiegazione:
+      'Tutti i soldi entrati nel periodo, per data d’incasso, al netto dei rimborsi: nuovi clienti, rate di clienti entrati prima, rinnovi e upsell.',
+  },
+  // the four parts of the cash incassato: they always add up to it
+  cash_nuovi_clienti: {
+    etichetta: 'Nuovi clienti del periodo',
+    spiegazione:
+      'Parte del cash incassato: quanto hanno pagato nel periodo i clienti entrati nel periodo (vendite di tipo «nuovo» firmate nel periodo, o firmate dopo se nel periodo hanno versato un acconto), prima rata e rate successive.',
+  },
+  cash_rate_precedenti: {
+    etichetta: 'Rate di clienti già entrati',
+    spiegazione:
+      'Parte del cash incassato: rate pagate nel periodo da clienti entrati prima (vendite di tipo «nuovo» firmate prima del periodo). Non sono clienti nuovi.',
+  },
+  cash_rinnovi: {
+    etichetta: 'Rinnovi',
+    spiegazione: 'Parte del cash incassato: soldi entrati nel periodo dalle vendite di tipo «rinnovo», rate comprese.',
+  },
+  cash_upsell: {
+    etichetta: 'Upsell',
+    spiegazione: 'Parte del cash incassato: soldi entrati nel periodo dalle vendite di tipo «upsell», rate comprese.',
   },
   revenue_firmata: {
     etichetta: 'Revenue firmata',
-    spiegazione: 'Valore dei contratti firmati nel periodo, per data di vendita.',
+    spiegazione:
+      'Valore dei contratti firmati nel periodo, per data di vendita, di ogni tipo: nuovi clienti, rinnovi e upsell.',
   },
   nuovi_clienti: {
     etichetta: 'Nuovi clienti',
-    spiegazione: 'Vendite di tipo «nuovo» firmate nel periodo.',
+    spiegazione: 'Vendite di tipo «nuovo» firmate nel periodo: i clienti entrati nel periodo.',
   },
   rinnovi: {
     etichetta: 'Rinnovi',
@@ -193,13 +213,15 @@ export const LEGENDA_ECONOMICS = {
     etichetta: 'Margine operativo',
     spiegazione: 'Cash incassato − provvigioni maturate − costi del periodo. Le tasse non sono incluse.',
   },
-  valore_medio_vendita: {
-    etichetta: 'Valore medio vendita',
-    spiegazione: 'Revenue firmata ÷ numero di vendite del periodo.',
+  valore_medio_nuovo: {
+    etichetta: 'Valore medio nuovo cliente',
+    spiegazione:
+      'Valore dei contratti dei nuovi clienti del periodo ÷ numero di nuovi clienti (vendite di tipo «nuovo»). Rinnovi e upsell esclusi.',
   },
   cash_per_call_svolta: {
-    etichetta: 'Cash per call svolta',
-    spiegazione: 'Cash delle vendite nuove ÷ call svolte.',
+    etichetta: 'Cash per call svolta (nuovi clienti)',
+    spiegazione:
+      'Cash dei nuovi clienti del periodo ÷ call svolte. Rate di clienti entrati prima, rinnovi e upsell esclusi.',
   },
   tasso_rinnovo: {
     etichetta: 'Tasso di rinnovo',
@@ -209,17 +231,19 @@ export const LEGENDA_ECONOMICS = {
     etichetta: 'Call da fare',
     spiegazione: 'Call in agenda oggi di cui non è ancora stato registrato l’esito.',
   },
-  cash_oggi: {
-    etichetta: 'Cash oggi',
-    spiegazione: 'Soldi incassati oggi, al netto dei rimborsi.',
+  incassato_oggi: {
+    etichetta: 'Incassato oggi',
+    spiegazione:
+      'Tutti i soldi incassati oggi, al netto dei rimborsi: anche rate di clienti entrati prima e rinnovi, non solo le vendite chiuse oggi. Sotto, la parte pagata dai nuovi clienti entrati oggi.',
   },
   tasso_qualificazione: {
     etichetta: 'Tasso di qualificazione',
-    spiegazione: 'Call qualificate ÷ call svolte.',
+    spiegazione: 'Call svolte che il closer ha segnato come qualificate ÷ call svolte.',
   },
   provvigioni_maturate: {
     etichetta: 'Provvigioni maturate',
-    spiegazione: 'Quanto spetta ai setter sugli incassi del periodo, secondo le loro regole provvigionali.',
+    spiegazione:
+      'Quanto spetta ai setter sugli incassi del periodo delle vendite coperte dalla loro regola provvigionale (di solito solo clienti nuovi), anche sulle rate dei mesi dopo la firma.',
   },
   costi: {
     etichetta: 'Costi',

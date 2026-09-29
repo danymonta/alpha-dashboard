@@ -11,7 +11,7 @@ export type Riassunto = { titolo: string; dettagli: string[] }
 
 type Input = Record<string, unknown>
 
-/** The setter's counters, in the form's order. No strategy: he books discovery calls only. */
+/** The setter's counters, in the form's order. No strategy, discovery held or qualified: not asked any more. */
 const ETICHETTA_CAMPO_REPORT: Record<string, string> = {
   dm_outbound: 'DM outbound',
   dm_inbound: 'DM inbound',
@@ -19,8 +19,6 @@ const ETICHETTA_CAMPO_REPORT: Record<string, string> = {
   follow_up: 'follow up',
   call_proposte: 'call proposte',
   discovery_prenotate: 'discovery prenotate',
-  discovery_svolte: 'discovery svolte',
-  call_qualificate: 'call qualificate',
 }
 
 function testo(v: unknown): string | null {
@@ -77,7 +75,8 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
       }
     }
     case 'fissa_call':
-      // the setter books discovery calls only: the tool always writes that type
+      // discovery calls only, from the setter and the admin: the tool always writes that type.
+      // Only the admin can name a setter; without one the call is his own
       return {
         titolo: `Fisso una call con ${testo(input.nome) ?? 'il lead'}`,
         dettagli: [
@@ -85,6 +84,7 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
           `${giorno(input.data)} alle ${testo(input.ora) ?? '?'}`,
           testo(input.instagram_handle) && `Instagram ${input.instagram_handle}`,
           testo(input.fonte) && `Fonte: ${String(input.fonte).replace('_', ' ')}`,
+          testo(input.setter) && `Setter: ${input.setter}`,
           `Closer: ${testo(input.closer) ?? 'l’admin'}`,
         ].filter((d): d is string => Boolean(d)),
       }

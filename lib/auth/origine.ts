@@ -37,8 +37,30 @@ export function origineAmmessa(candidata: string | null | undefined, appUrl: str
  */
 export const COOKIE_DOPO_LOGIN = 'alpha-dopo-login'
 
-/** "da" after sign-in: only a path of this app, never another site. */
+// Resolving against a base that is never served: a path of this app keeps it
+const BASE_INTERNA = 'http://interno.invalid'
+
+/**
+ * "da" after sign-in: only a path of this app, never another site. The browser
+ * drops tabs and newlines anywhere in a URL and reads "\" as "/", so "/\t/x"
+ * would become "//x", another site: any control character or backslash is
+ * refused, and what is left must resolve to this very origin.
+ */
 export function destinazioneSicura(da: string | null | undefined): string {
-  if (!da || !da.startsWith('/') || da.startsWith('//') || da.startsWith('/\\') || da.startsWith('/login')) return '/'
+  if (!da || !da.startsWith('/') || da.startsWith('//') || da.startsWith('/login')) return '/'
+  for (const carattere of da) {
+    const codice = carattere.charCodeAt(0)
+    if (codice < 0x20 || codice === 0x7f || carattere === '\\') return '/'
+  }
+  try {
+    if (new URL(da, BASE_INTERNA).origin !== BASE_INTERNA) return '/'
+  } catch {
+    return '/'
+  }
   return da
+}
+
+/** "?da=" on a page: the way back to where the user came from, only a path of this app; otherwise null. */
+export function percorsoDiRitorno(da: string | null | undefined): string | null {
+  return da && destinazioneSicura(da) === da ? da : null
 }

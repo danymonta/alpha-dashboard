@@ -45,8 +45,10 @@ test.describe('profilo dal telefono', () => {
 
     await page.getByRole('button', { name: 'Togli la foto' }).click()
     await expect(page.getByText('Foto tolta')).toBeVisible()
-    const { data: dopo } = await dbLocale().storage.from('avatari').list(ID_SETTER)
-    expect(dopo ?? []).toHaveLength(0)
+    // the folder is emptied right after the toast: wait for it
+    await expect
+      .poll(async () => ((await dbLocale().storage.from('avatari').list(ID_SETTER)).data ?? []).length)
+      .toBe(0)
 
     await page.getByRole('tab', { name: 'Alfire' }).click()
     await expect(page).toHaveURL(/scheda=alfire/)

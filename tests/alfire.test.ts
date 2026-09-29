@@ -34,23 +34,22 @@ const IO = '00000000-0000-4000-8000-000000000001'
 const ALTRO = '00000000-0000-4000-8000-000000000002'
 const CALL = '00000000-0000-4000-8000-000000000003'
 
-/** A read-only Supabase stand-in: every query on a table answers with its rows. */
+/** A read-only Supabase stand-in: every query on a table (or rpc) answers with its rows. */
 function supabaseFinto(righe: Record<string, unknown[]>) {
-  return {
-    from(tabella: string) {
-      const dati = righe[tabella] ?? []
-      const query: Record<string, unknown> = {
-        maybeSingle: async () => ({ data: dati[0] ?? null, error: null }),
-        single: async () => ({ data: dati[0] ?? null, error: null }),
-        then: (ok: (r: unknown) => unknown, ko: (e: unknown) => unknown) =>
-          Promise.resolve({ data: dati, error: null }).then(ok, ko),
-      }
-      for (const metodo of ['select', 'eq', 'neq', 'in', 'ilike', 'contains', 'order', 'limit', 'gte', 'lt', 'lte']) {
-        query[metodo] = () => query
-      }
-      return query
-    },
+  function risposta(nome: string) {
+    const dati = righe[nome] ?? []
+    const query: Record<string, unknown> = {
+      maybeSingle: async () => ({ data: dati[0] ?? null, error: null }),
+      single: async () => ({ data: dati[0] ?? null, error: null }),
+      then: (ok: (r: unknown) => unknown, ko: (e: unknown) => unknown) =>
+        Promise.resolve({ data: dati, error: null }).then(ok, ko),
+    }
+    for (const metodo of ['select', 'eq', 'neq', 'in', 'ilike', 'contains', 'order', 'limit', 'gte', 'lt', 'lte']) {
+      query[metodo] = () => query
+    }
+    return query
   }
+  return { from: risposta, rpc: risposta }
 }
 
 function strumentiDi(ruolo: AppRole, livello: LivelloPm, righe: Record<string, unknown[]> = {}): ToolSet {
@@ -86,12 +85,21 @@ const SOLDI = [
 ]
 
 describe('strumenti di Alfire per ruolo', () => {
-  it('l’admin ha tutto tranne gli strumenti del setter', () => {
+  it('l’admin ha tutto tranne il report del setter, e fissa call anche lui', () => {
     const admin = strumentiConsentiti('admin', 'admin')
     for (const s of SOLDI) expect(admin).toContain(s)
     expect(admin).toContain('crea_cliente')
     expect(admin).toContain('crea_progetto')
     expect(admin).not.toContain('aggiorna_report')
+    // Dany is admin, closer and at times setter (29/09/2026)
+    expect(admin).toContain('fissa_call')
+  })
+
+  it('il closer non fissa call: le fissano il setter e l’admin', () => {
+    expect(strumentiConsentiti('closer', 'employee')).not.toContain('fissa_call')
+    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev'] as const) {
+      expect(strumentiConsentiti(ruolo, 'admin'), ruolo).not.toContain('fissa_call')
+    }
   })
 
   it('un collaboratore non riceve mai strumenti sui soldi dei clienti, i costi o i compensi altrui', () => {
@@ -115,9 +123,14 @@ describe('strumenti di Alfire per ruolo', () => {
       expect(await comeLoVedeIlModello(setter, nome), nome).not.toMatch(/strategy/i)
     }
     expect(await comeLoVedeIlModello(setter, 'fissa_call')).not.toContain('"tipo"')
+    // the setter books for himself: no setter to choose
+    expect(await comeLoVedeIlModello(setter, 'fissa_call')).not.toContain('"setter"')
     expect(await comeLoVedeIlModello(setter, 'modifica_call')).not.toContain('"tipo"')
     // the report asks what the form asks, strategy_prenotate included no more
-    expect(await comeLoVedeIlModello(setter, 'aggiorna_report')).toContain('"follow_up"')
+    const report = await comeLoVedeIlModello(setter, 'aggiorna_report')
+    expect(report).toContain('"follow_up"')
+    // held and qualified are the closer's, recorded on each call (29/09/2026)
+    expect(report).not.toMatch(/discovery_svolte|call_qualificate|svolt|qualific/i)
     // admin and closer can still correct the type: the history has strategy calls
     expect(await comeLoVedeIlModello(strumentiDi('admin', 'admin'), 'modifica_call')).toContain('strategy')
     expect(await comeLoVedeIlModello(strumentiDi('closer', 'employee'), 'modifica_call')).toContain('strategy')
@@ -149,6 +162,8 @@ describe('scritture di Alfire per il setter', () => {
       ora: '15:00',
     })
     expect(azioni.fissaCall).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'discovery', closer_id: ALTRO }))
+    // the setter never chooses who set the call
+    expect(azioni.fissaCall).toHaveBeenCalledWith(expect.objectContaining({ setter_id: null }))
   })
 
   it('modifica_call del setter lascia il tipo com’è, anche se gli arriva strategy', async () => {
@@ -160,6 +175,110 @@ describe('scritture di Alfire per il setter', () => {
     // the admin can still correct it
     await esegui(strumentiDi('admin', 'admin', righe), 'modifica_call', { call_id: CALL, lead: 'Luca', tipo: 'strategy' })
     expect(azioni.modificaCall).toHaveBeenLastCalledWith(expect.objectContaining({ tipo: 'strategy' }))
+  })
+})
+
+describe('fissa_call dell’admin', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const SETTER = '00000000-0000-4000-8000-000000000004'
+  const team = {
+    profiles: [
+      { id: IO, nome: 'Dany Montagnolo', ruolo: 'admin' },
+      { id: ALTRO, nome: 'Lorenzo Closer', ruolo: 'closer' },
+      { id: SETTER, nome: 'Loris Setter', ruolo: 'setter' },
+    ],
+  }
+  const chiamata = { nome: 'Luca Neri', fonte: 'dm_inbound', data: '2026-09-25', ora: '15:00' }
+
+  it('sceglie il setter; il tipo resta discovery', async () => {
+    const admin = strumentiDi('admin', 'admin', team)
+    expect(await comeLoVedeIlModello(admin, 'fissa_call')).toContain('"setter"')
+    expect(await comeLoVedeIlModello(admin, 'fissa_call')).not.toContain('"tipo"')
+  })
+
+  it('senza setter né closer: li fa lui, anche per una call già fatta', async () => {
+    await esegui(strumentiDi('admin', 'admin', team), 'fissa_call', chiamata)
+    expect(azioni.fissaCall).toHaveBeenCalledWith(
+      expect.objectContaining({ tipo: 'discovery', data: '2026-09-25', setter_id: IO, closer_id: IO }),
+    )
+  })
+
+  it('per il setter nominato, con il closer nominato', async () => {
+    const esito = await esegui(strumentiDi('admin', 'admin', team), 'fissa_call', {
+      ...chiamata,
+      setter: 'Loris',
+      closer: 'Lorenzo',
+    })
+    expect(azioni.fissaCall).toHaveBeenCalledWith(expect.objectContaining({ setter_id: SETTER, closer_id: ALTRO }))
+    expect(esito).toMatchObject({ fatto: true, setter: 'Loris Setter', closer: 'Lorenzo Closer' })
+  })
+
+  it('un setter che non c’è: non scrive e dice chi c’è', async () => {
+    const esito = await esegui(strumentiDi('admin', 'admin', team), 'fissa_call', { ...chiamata, setter: 'Lorenzo' })
+    expect(azioni.fissaCall).not.toHaveBeenCalled()
+    expect(esito).toMatchObject({ errore: 'Setter non trovato. Possibili: io, Loris Setter' })
+  })
+})
+
+describe('letture dell’admin: il cash in quattro parti', () => {
+  const metriche = {
+    cash_incassato: 6950,
+    cash_nuovi_clienti: 800,
+    cash_rate_precedenti: 5050,
+    cash_rinnovo: 1100,
+    cash_upsell: 0,
+    revenue_nuovi: 1500,
+    valore_medio_nuovo: 1500,
+    cash_per_dm: 2.5,
+    revenue_per_dm: 4.69,
+    cash_per_call_svolta: 200,
+    provvigioni_maturate: 292.5,
+    costi: 1200,
+    show_rate: 0.8,
+    close_rate: 0.25,
+    tasso_rinnovo: null,
+  }
+
+  it('numeri_periodo dà le quattro parti del cash e gli indicatori sui soli nuovi clienti, dal SQL', async () => {
+    const admin = strumentiDi('admin', 'admin', {
+      kpi_periodo: [{ chiave: 'cash_incassato', valore: 6950, precedente: 5000, delta: 0.39 }],
+      metriche_periodo: [metriche],
+      funnel_periodo: [],
+    })
+    const esito = await esegui(admin, 'numeri_periodo', { da: '2026-09-01', a: '2026-09-30' })
+    expect(esito).toMatchObject({
+      cash_in_4_parti: { nuovi_clienti_del_periodo: 800, rate_di_clienti_gia_entrati: 5050, rinnovi: 1100, upsell: 0 },
+      solo_nuovi_clienti: { valore_medio: 1500, cash_per_dm: 2.5, revenue_per_dm: 4.69, cash_per_call_svolta: 200 },
+      provvigioni_maturate: 292.5,
+      costi: 1200,
+    })
+    const descrizione = await comeLoVedeIlModello(admin, 'cash_per_mese')
+    expect(descrizione).toContain('rate_precedenti')
+    expect(descrizione).toContain('nuovi_clienti')
+  })
+
+  it('vendite_periodo dà davvero incassato e da incassare, letti da v_vendite', async () => {
+    const VENDITA = '00000000-0000-4000-8000-000000000009'
+    const admin = strumentiDi('admin', 'admin', {
+      sales: [
+        {
+          id: VENDITA,
+          tipo: 'rinnovo',
+          data_vendita: '2026-09-10',
+          valore_contratto: 1500,
+          numero_rate: 3,
+          prodotto_personalizzato: null,
+          cliente: { nome: 'Mario', cognome: 'Rossi' },
+          prodotto: { nome: 'Percorso Alpha 3 mesi' },
+        },
+      ],
+      v_vendite: [{ sale_id: VENDITA, incassato: 500, da_incassare: 1000, rate_in_ritardo: 0 }],
+    })
+    const esito = await esegui(admin, 'vendite_periodo', { da: '2026-09-01', a: '2026-09-30' })
+    expect(esito).toMatchObject({
+      vendite: [{ cliente: 'Mario Rossi', tipo: 'rinnovo', valore: 1500, incassato: 500, da_incassare: 1000 }],
+    })
   })
 })
 
@@ -224,6 +343,27 @@ describe('scheda di conferma', () => {
     expect(r.dettagli).toEqual(['+4 follow up'])
   })
 
+  it('la call fissata dall’admin per un setter dice per chi è', () => {
+    const r = riassuntoScrittura('fissa_call', {
+      nome: 'Luca Neri',
+      fonte: 'dm_inbound',
+      data: '2026-09-25',
+      ora: '15:00',
+      setter: 'Loris',
+    })
+    expect(r.dettagli).toEqual([
+      'Discovery call',
+      '25/09/2026 alle 15:00',
+      'Fonte: dm inbound',
+      'Setter: Loris',
+      'Closer: l’admin',
+    ])
+    // the setter's own call: no setter line
+    expect(riassuntoScrittura('fissa_call', { nome: 'Luca', data: '2026-09-30', ora: '15:00' }).dettagli.join()).not.toContain(
+      'Setter',
+    )
+  })
+
   it('cliente, incasso, call, progetto, task', () => {
     expect(riassuntoScrittura('crea_cliente', { nome: 'Mario', cognome: 'Rossi', fonte: 'dm_inbound' }).titolo).toBe(
       'Creo il cliente Mario Rossi',
@@ -282,7 +422,30 @@ describe('prompt e guida', () => {
     expect(p.split(/\s+/).length).toBeLessThan(330)
   })
 
+  it('il prompt dice cosa è un nuovo cliente e cosa è una rata', () => {
+    const p = promptAlfire({ nome: 'Dany', ruolo: 'admin', oggi: '2026-09-29' })
+    expect(p).toContain('Nuovo cliente = vendita di tipo nuovo')
+    expect(p).toContain('I numeri del closer contano solo i nuovi clienti')
+    // the same four parts as the overview: renewals are not "clienti già entrati"
+    expect(p).toContain('rate di clienti già entrati = rate di vendite nuove firmate prima del periodo')
+    expect(p).not.toContain('rinnovo e upsell = clienti già entrati')
+  })
+
   it('ogni argomento della guida ha un testo', () => {
     for (const a of ARGOMENTI_GUIDA) expect(GUIDA[a].length).toBeGreaterThan(40)
+  })
+
+  it('la guida racconta quello che c’è nell’app dal 29/09/2026', () => {
+    expect(GUIDA.panoramica).toContain('rate di clienti già entrati')
+    expect(GUIDA.panoramica).toContain('solo i nuovi clienti')
+    expect(GUIDA.call).toContain('Compila la giornata')
+    expect(GUIDA.call).toContain('l’admin da Le mie call')
+    expect(GUIDA.clienti).toContain('Ha rinnovato')
+    expect(GUIDA.clienti).toContain('Storico percorsi')
+    // the setter does see his new clients' payments and his commission on each
+    expect(GUIDA.permessi).not.toContain('mai quanto paga un cliente')
+    expect(GUIDA.permessi).toContain('provvigione su ogni incasso')
+    // renamed on the client sheet
+    for (const a of ARGOMENTI_GUIDA) expect(GUIDA[a], a).not.toContain('Registra rinnovo')
   })
 })

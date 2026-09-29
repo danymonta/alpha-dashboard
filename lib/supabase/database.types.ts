@@ -1043,7 +1043,7 @@ isOneToOne: false
                            },
 "cash_mensile":
 { Args: { "p_fino"?: string,"p_mesi"?: number }; Returns: {
-              "mese": string,"nuovo": number,"rinnovo": number,"totale": number,"upsell": number
+              "mese": string,"nuovi_clienti": number,"rate_precedenti": number,"rinnovo": number,"totale": number,"upsell": number
             }[]
                            },
 "chiudi_regola_provvigione":
@@ -1085,7 +1085,7 @@ isOneToOne: false
 { Args: { "p_importo": number }; Returns: string
                            },
 "fissa_call":
-{ Args: { "p_closer_id": string,"p_data": string,"p_fonte": Database["public"]['Enums']["lead_source"],"p_instagram_handle"?: string,"p_nome": string,"p_ora": string,"p_tipo": Database["public"]['Enums']["call_type"] }; Returns: {
+{ Args: { "p_closer_id": string,"p_data": string,"p_fonte": Database["public"]['Enums']["lead_source"],"p_instagram_handle"?: string,"p_nome": string,"p_ora": string,"p_setter_id"?: string,"p_tipo": Database["public"]['Enums']["call_type"] }; Returns: {
               "id_call": string,"id_lead": string,"lead_esistente": boolean
             }[]
                            },
@@ -1138,7 +1138,7 @@ isOneToOne: false
                            },
 "metriche_mese":
 { Args: { "p_mese": string }; Returns: {
-              "call_prenotate": number,"call_proposte": number,"call_svolte": number,"cash_incassato": number,"cash_nuovo": number,"cash_per_call_svolta": number,"cash_per_dm": number,"cash_rinnovo": number,"cash_upsell": number,"chiuse": number,"close_rate": number,"close_rate_qualificate": number,"conversazioni": number,"costi": number,"dm_per_call": number,"dm_per_strategy": number,"dm_totali": number,"in_scadenza_nel_mese": number,"margine_operativo": number,"mese": string,"no_show": number,"numero_vendite": number,"nuovi_clienti": number,"provvigioni_maturate": number,"qualificate": number,"revenue_firmata": number,"revenue_per_dm": number,"rinnovati_nel_mese": number,"rinnovi": number,"show_rate": number,"strategy_prenotate": number,"tasso_conversazione": number,"tasso_prenotazione": number,"tasso_qualificazione": number,"tasso_rinnovo": number,"valore_medio_vendita": number
+              "call_prenotate": number,"call_proposte": number,"call_svolte": number,"cash_incassato": number,"cash_nuovi_clienti": number,"cash_per_call_svolta": number,"cash_per_dm": number,"cash_rate_precedenti": number,"cash_rinnovo": number,"cash_upsell": number,"chiuse": number,"close_rate": number,"close_rate_qualificate": number,"conversazioni": number,"costi": number,"dm_per_call": number,"dm_per_strategy": number,"dm_totali": number,"in_scadenza_nel_mese": number,"margine_operativo": number,"mese": string,"no_show": number,"numero_vendite": number,"nuovi_clienti": number,"provvigioni_maturate": number,"qualificate": number,"revenue_firmata": number,"revenue_nuovi": number,"revenue_per_dm": number,"rinnovati_nel_mese": number,"rinnovi": number,"show_rate": number,"strategy_prenotate": number,"tasso_conversazione": number,"tasso_prenotazione": number,"tasso_qualificazione": number,"tasso_rinnovo": number,"valore_medio_nuovo": number
             }[]
                            },
 "metriche_per_fonte":
@@ -1148,7 +1148,7 @@ isOneToOne: false
                            },
 "metriche_periodo":
 { Args: { "p_a": string,"p_da": string }; Returns: {
-              "call_prenotate": number,"call_proposte": number,"call_svolte": number,"cash_incassato": number,"cash_nuovo": number,"cash_per_call_svolta": number,"cash_per_dm": number,"cash_rinnovo": number,"cash_upsell": number,"chiuse": number,"close_rate": number,"close_rate_qualificate": number,"conversazioni": number,"costi": number,"dm_per_call": number,"dm_per_strategy": number,"dm_totali": number,"fine": string,"in_scadenza": number,"inizio": string,"margine_operativo": number,"no_show": number,"numero_vendite": number,"nuovi_clienti": number,"provvigioni_maturate": number,"qualificate": number,"revenue_firmata": number,"revenue_per_dm": number,"rinnovati": number,"rinnovi": number,"show_rate": number,"strategy_prenotate": number,"tasso_conversazione": number,"tasso_prenotazione": number,"tasso_qualificazione": number,"tasso_rinnovo": number,"valore_medio_vendita": number
+              "call_prenotate": number,"call_proposte": number,"call_svolte": number,"cash_incassato": number,"cash_nuovi_clienti": number,"cash_per_call_svolta": number,"cash_per_dm": number,"cash_rate_precedenti": number,"cash_rinnovo": number,"cash_upsell": number,"chiuse": number,"close_rate": number,"close_rate_qualificate": number,"conversazioni": number,"costi": number,"dm_per_call": number,"dm_per_strategy": number,"dm_totali": number,"fine": string,"in_scadenza": number,"inizio": string,"margine_operativo": number,"no_show": number,"numero_vendite": number,"nuovi_clienti": number,"provvigioni_maturate": number,"qualificate": number,"revenue_firmata": number,"revenue_nuovi": number,"revenue_per_dm": number,"rinnovati": number,"rinnovi": number,"show_rate": number,"strategy_prenotate": number,"tasso_conversazione": number,"tasso_prenotazione": number,"tasso_qualificazione": number,"tasso_rinnovo": number,"valore_medio_nuovo": number
             }[]
                            },
 "metriche_setting":
@@ -1190,7 +1190,7 @@ isOneToOne: false
                            },
 "oggi_team":
 { Args: Record<PropertyKey, never>; Returns: {
-              "call_in_programma": number,"call_prenotate": number,"call_svolte": number,"cash_incassato": number,"chiuse": number,"conversazioni": number,"dm_totali": number,"report_compilati": number
+              "call_in_programma": number,"call_prenotate": number,"call_svolte": number,"cash_incassato": number,"cash_nuovi_clienti": number,"chiuse": number,"conversazioni": number,"dm_totali": number,"report_compilati": number
             }[]
                            },
 "periodo_precedente":
