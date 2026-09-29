@@ -109,6 +109,8 @@ createServer(async (req, res) => {
     const esito = contenuto(ultimo)
     const strumento = String(ultimo.tool_call_id ?? '').replace('call_', '')
     if (esito.includes('"errore"')) return testo(res, `Errore: ${esito}`)
+    // the card sent back a target that is not unique (anteprimaAlfire): ask which one
+    if (esito.startsWith('Più ')) return testo(res, `Quale intendi? ${esito}`)
     return testo(res, esito.includes('"fatto":true') ? `Fatto: ${strumento}.` : 'Questo mese hai incassato 6.950,00 €.')
   }
   const domanda = contenuto(ultimo).toLowerCase()
@@ -116,8 +118,23 @@ createServer(async (req, res) => {
   if (domanda.includes('strumento instabile') && tentativiInstabili++ % 2 === 0) {
     return rifiuto(res, "Failed to call a function. Please adjust your prompt. See 'failed_generation' for more details.", 'tool_use_failed')
   }
+  // e2e/alfire-agente.spec.ts: one entity tool, one action each
+  if (domanda.includes('elimina il cliente e2ealfire doppio')) {
+    return chiamata(res, 'cliente', { azione: 'elimina', cliente: 'E2EAlfire Doppio' })
+  }
+  if (domanda.includes('elimina il cliente')) {
+    return chiamata(res, 'cliente', { azione: 'elimina', cliente: 'E2EAlfire Cancellabile' })
+  }
+  if (domanda.includes('aggiungi una rata')) {
+    const scadenza = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10)
+    return chiamata(res, 'rata', { azione: 'aggiungi', cliente: 'E2EAlfire Rata Incassi', scadenza, importo: 300 })
+  }
+  if (domanda.includes('sposta il lead')) {
+    return chiamata(res, 'lead', { azione: 'stato', lead: 'E2EAlfire Neri', stato: 'follow_up' })
+  }
   if (domanda.includes('costo') || domanda.includes('canva') || domanda.includes('strumento instabile')) {
-    return chiamata(res, 'registra_costo', {
+    return chiamata(res, 'costo', {
+      azione: 'registra',
       descrizione: 'E2EAlfire Canva',
       importo: 12.99,
       categoria: 'software',
@@ -142,7 +159,7 @@ createServer(async (req, res) => {
     })
   }
   if (domanda.includes('telefono')) {
-    return chiamata(res, 'modifica_cliente', { cliente: 'E2EAlfire Loris Presti', telefono: '+39 333 000 0000' })
+    return chiamata(res, 'cliente', { azione: 'modifica', cliente: 'E2EAlfire Loris Presti', telefono: '+39 333 000 0000' })
   }
   if (domanda.includes('incassato') || domanda.includes('leggi e taci')) return chiamata(res, 'numeri_periodo', {})
   return testo(res, 'Ciao, sono Alfire.')

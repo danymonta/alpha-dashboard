@@ -31,7 +31,7 @@ test('Alfire legge i numeri e registra un costo solo dopo la conferma', async ({
 
   await scheda.getByRole('button', { name: 'Conferma' }).click()
   await expect(scheda).toContainText('Fatto')
-  await expect(pannello.getByText('Fatto: registra_costo.')).toBeVisible()
+  await expect(pannello.getByText('Fatto: costo.')).toBeVisible()
   const dopo = await dbLocale().from('expenses').select('importo, categoria').like('descrizione', 'E2EAlfire%').single()
   expect(dopo.data).toMatchObject({ importo: 12.99, categoria: 'software' })
 })
@@ -75,9 +75,10 @@ test('una vendita raccontata in chat diventa vendita, rata incassata e cliente, 
   await pannello.getByLabel('Scrivi ad Alfire').press('Enter')
   const correzione = pannello.getByTestId('alfire-conferma').last()
   await expect(correzione).toContainText('Correggo il cliente E2EAlfire Loris Presti')
-  await expect(correzione).toContainText('Telefono: +39 333 000 0000')
+  // before → after, read from the database before the tap
+  await expect(correzione).toContainText('Telefono: – → +39 333 000 0000')
   await correzione.getByRole('button', { name: 'Conferma' }).click()
-  await expect(pannello.getByText('Fatto: modifica_cliente.')).toBeVisible()
+  await expect(pannello.getByText('Fatto: cliente.')).toBeVisible()
   const { data: dopo } = await db.from('clients').select('telefono, fonte').eq('id', cliente!.id).single()
   expect(dopo).toEqual({ telefono: '+39 333 000 0000', fonte: 'referral' })
 })

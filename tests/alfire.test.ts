@@ -20,15 +20,72 @@ const azioni = vi.hoisted(() => ({
   completaTask: vi.fn<(input: unknown) => Promise<{ ok: true }>>(async () => ({ ok: true })),
 }))
 vi.mock('server-only', () => ({}))
-vi.mock('@/app/(app)/calls/actions', () => ({ modificaCall: azioni.modificaCall }))
+vi.mock('@/app/(app)/calls/actions', () => ({ modificaCall: azioni.modificaCall, registraEsito: vi.fn(), eliminaCall: vi.fn() }))
 vi.mock('@/app/(app)/calls/new/actions', () => ({ fissaCall: azioni.fissaCall }))
-vi.mock('@/app/(app)/progetti/[id]/actions', () => ({ aggiungiTask: vi.fn(), completaTask: azioni.completaTask }))
-vi.mock('@/app/(app)/clients/actions', () => ({ aggiornaCliente: vi.fn(), creaCliente: vi.fn() }))
-vi.mock('@/app/(app)/expenses/actions', () => ({ aggiungiCosto: vi.fn(), modificaCosto: vi.fn() }))
+vi.mock('@/app/(app)/progetti/[id]/actions', () => ({
+  aggiungiTask: vi.fn(),
+  completaTask: azioni.completaTask,
+  aggiungiMembro: vi.fn(),
+  eliminaLista: vi.fn(),
+  eliminaProgetto: vi.fn(),
+  eliminaTask: vi.fn(),
+  modificaProgetto: vi.fn(),
+  modificaTask: vi.fn(),
+  salvaLista: vi.fn(),
+  togliMembro: vi.fn(),
+}))
+vi.mock('@/app/(app)/progetti/[id]/note/actions', () => ({ aggiungiNota: vi.fn(), eliminaNota: vi.fn(), modificaNota: vi.fn() }))
+vi.mock('@/app/(app)/tempo/actions', () => ({
+  avviaTimer: vi.fn(),
+  eliminaTempo: vi.fn(),
+  fermaTimer: vi.fn(),
+  modificaTempo: vi.fn(),
+  registraTempo: vi.fn(),
+}))
+vi.mock('@/app/(app)/clients/actions', () => ({
+  aggiornaCliente: vi.fn(),
+  creaCliente: vi.fn(),
+  eliminaCliente: vi.fn(),
+  interrompiPercorso: vi.fn(),
+  anteprimaInterruzione: vi.fn(),
+}))
+vi.mock('@/app/(app)/expenses/actions', () => ({
+  aggiungiCosto: vi.fn(),
+  modificaCosto: vi.fn(),
+  eliminaCosto: vi.fn(),
+  copiaRicorrenti: vi.fn(),
+}))
 vi.mock('@/app/(app)/progetti/actions', () => ({ creaProgetto: vi.fn() }))
-vi.mock('@/app/(app)/sales/[id]/actions', () => ({ modificaRata: vi.fn(), modificaVendita: vi.fn(), segnaIncassata: vi.fn() }))
+vi.mock('@/app/(app)/sales/[id]/actions', () => ({
+  aggiungiRata: vi.fn(),
+  annullaIncasso: vi.fn(),
+  eliminaRata: vi.fn(),
+  eliminaVendita: vi.fn(),
+  modificaIncasso: vi.fn(),
+  modificaRata: vi.fn(),
+  modificaVendita: vi.fn(),
+  registraRimborso: vi.fn(),
+  segnaFallita: vi.fn(),
+  segnaIncassata: vi.fn(),
+}))
 vi.mock('@/app/(app)/sales/new/actions', () => ({ registraVendita: vi.fn() }))
 vi.mock('@/app/(app)/today/actions', () => ({ salvaReportGiornaliero: vi.fn() }))
+vi.mock('@/app/(app)/leads/actions', () => ({ aggiornaStatoLead: vi.fn(), eliminaLead: vi.fn(), modificaLead: vi.fn() }))
+vi.mock('@/app/(app)/setting/actions', () => ({ aggiungiReport: vi.fn(), correggiReport: vi.fn(), eliminaReport: vi.fn() }))
+vi.mock('@/app/(app)/commissions/actions', () => ({
+  eliminaPagamentoProvvigione: vi.fn(),
+  modificaPagamentoProvvigione: vi.fn(),
+  registraPagamentoProvvigione: vi.fn(),
+}))
+vi.mock('@/app/(app)/settings/commissions/actions', () => ({
+  chiudiRegola: vi.fn(),
+  eliminaRegola: vi.fn(),
+  modificaRegola: vi.fn(),
+  nuovaRegola: vi.fn(),
+}))
+vi.mock('@/app/(app)/settings/products/actions', () => ({ cambiaAttivoProdotto: vi.fn(), eliminaProdotto: vi.fn(), salvaProdotto: vi.fn() }))
+vi.mock('@/app/actions/obiettivi', () => ({ salvaObiettivi: vi.fn() }))
+vi.mock('@/app/actions/eliminazione', () => ({ anteprimaEliminazione: vi.fn() }))
 
 const IO = '00000000-0000-4000-8000-000000000001'
 const ALTRO = '00000000-0000-4000-8000-000000000002'
@@ -44,7 +101,7 @@ function supabaseFinto(righe: Record<string, unknown[]>) {
       then: (ok: (r: unknown) => unknown, ko: (e: unknown) => unknown) =>
         Promise.resolve({ data: dati, error: null }).then(ok, ko),
     }
-    for (const metodo of ['select', 'eq', 'neq', 'in', 'ilike', 'contains', 'order', 'limit', 'gte', 'lt', 'lte']) {
+    for (const metodo of ['select', 'eq', 'neq', 'in', 'ilike', 'or', 'is', 'not', 'contains', 'order', 'limit', 'gte', 'lt', 'lte']) {
       query[metodo] = () => query
     }
     return query
@@ -69,7 +126,7 @@ async function comeLoVedeIlModello(strumenti: ToolSet, nome: string) {
   return JSON.stringify({ descrizione: t.description, input: await asSchema(t.inputSchema).jsonSchema })
 }
 
-// Tools that read a client's money, costs, margin or other people's pay
+// Tools on a client's money, costs, margin or other people's pay
 const SOLDI = [
   'numeri_periodo',
   'cash_per_mese',
@@ -79,20 +136,24 @@ const SOLDI = [
   'vendite_periodo',
   'provvigioni',
   'costi_periodo',
-  'modifica_vendita',
-  'modifica_rata',
-  'modifica_costo',
+  'cliente',
+  'vendita',
+  'costo',
+  'pagamento_provvigione',
+  'regola_provvigione',
+  'obiettivi_mese',
+  'prodotto',
 ]
 
 describe('strumenti di Alfire per ruolo', () => {
-  it('l’admin ha tutto tranne il report del setter, e fissa call anche lui', () => {
+  it('l’admin ha tutto, report dei setter e call comprese', () => {
     const admin = strumentiConsentiti('admin', 'admin')
     for (const s of SOLDI) expect(admin).toContain(s)
-    expect(admin).toContain('crea_cliente')
-    expect(admin).toContain('crea_progetto')
-    expect(admin).not.toContain('aggiorna_report')
+    expect(admin).toEqual(expect.arrayContaining(['rata', 'registra_vendita', 'progetto', 'aggiorna_report', 'lead', 'call']))
     // Dany is admin, closer and at times setter (29/09/2026)
     expect(admin).toContain('fissa_call')
+    // the setter's own numbers are the setter's
+    expect(admin).not.toContain('miei_numeri')
   })
 
   it('il closer non fissa call: le fissano il setter e l’admin', () => {
@@ -106,14 +167,17 @@ describe('strumenti di Alfire per ruolo', () => {
     for (const ruolo of ['setter', 'closer', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
       const suoi = strumentiConsentiti(ruolo, 'employee')
       for (const s of SOLDI) expect(suoi, `${ruolo} → ${s}`).not.toContain(s)
-      expect(suoi).not.toContain('segna_incassata')
-      expect(suoi).not.toContain('registra_costo')
+    }
+    // the closer's only money: his own sales and their cash-ins (section 6)
+    for (const ruolo of ['setter', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
+      expect(strumentiConsentiti(ruolo, 'employee'), ruolo).not.toContain('rata')
+      expect(strumentiConsentiti(ruolo, 'employee'), ruolo).not.toContain('registra_vendita')
     }
   })
 
-  it('il setter ha i suoi numeri, il report e le call', () => {
+  it('il setter ha i suoi numeri, il report, le call e i suoi lead', () => {
     expect(strumentiConsentiti('setter', 'employee')).toEqual(
-      expect.arrayContaining(['miei_numeri', 'aggiorna_report', 'fissa_call', 'call_periodo', 'guida']),
+      expect.arrayContaining(['miei_numeri', 'aggiorna_report', 'fissa_call', 'call', 'lead', 'call_periodo', 'guida']),
     )
   })
 
@@ -125,26 +189,26 @@ describe('strumenti di Alfire per ruolo', () => {
     expect(await comeLoVedeIlModello(setter, 'fissa_call')).not.toContain('"tipo"')
     // the setter books for himself: no setter to choose
     expect(await comeLoVedeIlModello(setter, 'fissa_call')).not.toContain('"setter"')
-    expect(await comeLoVedeIlModello(setter, 'modifica_call')).not.toContain('"tipo"')
+    expect(await comeLoVedeIlModello(setter, 'call')).not.toContain('"tipo"')
     // the report asks what the form asks, strategy_prenotate included no more
     const report = await comeLoVedeIlModello(setter, 'aggiorna_report')
     expect(report).toContain('"follow_up"')
     // held and qualified are the closer's, recorded on each call (29/09/2026)
     expect(report).not.toMatch(/discovery_svolte|call_qualificate|svolt|qualific/i)
     // admin and closer can still correct the type: the history has strategy calls
-    expect(await comeLoVedeIlModello(strumentiDi('admin', 'admin'), 'modifica_call')).toContain('strategy')
-    expect(await comeLoVedeIlModello(strumentiDi('closer', 'employee'), 'modifica_call')).toContain('strategy')
+    expect(await comeLoVedeIlModello(strumentiDi('admin', 'admin'), 'call')).toContain('strategy')
+    expect(await comeLoVedeIlModello(strumentiDi('closer', 'employee'), 'call')).toContain('strategy')
   })
 
   it('crea progetti solo chi li gestisce', () => {
-    expect(strumentiConsentiti('coach', 'employee')).not.toContain('crea_progetto')
-    expect(strumentiConsentiti('coach', 'manager')).toContain('crea_progetto')
-    expect(strumentiConsentiti('coach', 'employee')).toContain('aggiungi_task')
+    expect(strumentiConsentiti('coach', 'employee')).not.toContain('progetto')
+    expect(strumentiConsentiti('coach', 'manager')).toContain('progetto')
+    expect(strumentiConsentiti('coach', 'employee')).toContain('task')
   })
 
   it('ogni scrittura è uno strumento esistente e passa dalla conferma', () => {
     for (const s of SCRITTURE) expect(Object.keys(STRUMENTI)).toContain(s)
-    expect(isScrittura('crea_cliente')).toBe(true)
+    expect(isScrittura('cliente')).toBe(true)
     expect(isScrittura('numeri_periodo')).toBe(false)
   })
 })
@@ -166,14 +230,15 @@ describe('scritture di Alfire per il setter', () => {
     expect(azioni.fissaCall).toHaveBeenCalledWith(expect.objectContaining({ setter_id: null }))
   })
 
-  it('modifica_call del setter lascia il tipo com’è, anche se gli arriva strategy', async () => {
+  it('la call del setter tiene il tipo com’è, anche se gli arriva strategy', async () => {
     const righe = {
-      calls: [{ tipo: 'discovery', programmata_il: '2026-09-30T13:00:00Z', closer_id: ALTRO, note: null }],
+      calls: [{ id: CALL, tipo: 'discovery', programmata_il: '2026-09-30T13:00:00Z', closer_id: ALTRO, note: null }],
     }
-    await esegui(strumentiDi('setter', 'employee', righe), 'modifica_call', { call_id: CALL, lead: 'Luca', tipo: 'strategy' })
+    const modifica = { azione: 'modifica', call_id: CALL, lead: 'Luca', tipo: 'strategy' }
+    await esegui(strumentiDi('setter', 'employee', righe), 'call', modifica)
     expect(azioni.modificaCall).toHaveBeenLastCalledWith(expect.objectContaining({ tipo: 'discovery' }))
     // the admin can still correct it
-    await esegui(strumentiDi('admin', 'admin', righe), 'modifica_call', { call_id: CALL, lead: 'Luca', tipo: 'strategy' })
+    await esegui(strumentiDi('admin', 'admin', righe), 'call', modifica)
     expect(azioni.modificaCall).toHaveBeenLastCalledWith(expect.objectContaining({ tipo: 'strategy' }))
   })
 })
@@ -282,7 +347,7 @@ describe('letture dell’admin: il cash in quattro parti', () => {
   })
 })
 
-describe('completa_task: quale task chiude', () => {
+describe('task completa: quale task chiude', () => {
   beforeEach(() => vi.clearAllMocks())
 
   const task = (id: string, titolo: string, assegnatari: string[]) => ({ id, titolo, progetto_id: 'p', assegnatari })
@@ -291,7 +356,7 @@ describe('completa_task: quale task chiude', () => {
     const strumenti = strumentiDi('coach', 'employee', {
       v_pm_task: [task('a', 'Script DM', [ALTRO]), task('b', 'Script DM', [ALTRO, IO])],
     })
-    const esito = await esegui(strumenti, 'completa_task', { titolo: 'script dm', completato: true })
+    const esito = await esegui(strumenti, 'task', { azione: 'completa', titolo: 'script dm' })
     expect(azioni.completaTask).toHaveBeenCalledWith({ id: 'b', completato: true })
     expect(esito).toMatchObject({ fatto: true, task: 'Script DM' })
   })
@@ -300,7 +365,7 @@ describe('completa_task: quale task chiude', () => {
     const strumenti = strumentiDi('coach', 'employee', {
       v_pm_task: [task('a', 'Script DM lancio', [ALTRO]), task('b', 'Script DM reel', [IO])],
     })
-    const esito = await esegui(strumenti, 'completa_task', { titolo: 'Script DM', completato: true })
+    const esito = await esegui(strumenti, 'task', { azione: 'completa', titolo: 'Script DM' })
     expect(azioni.completaTask).not.toHaveBeenCalled()
     expect(esito).toMatchObject({ errore: expect.stringMatching(/^Più task possibili/) })
   })
@@ -309,7 +374,7 @@ describe('completa_task: quale task chiude', () => {
     const strumenti = strumentiDi('coach', 'employee', {
       v_pm_task: [task('a', 'Script DM', [ALTRO]), task('b', 'Script DM reel', [IO])],
     })
-    const esito = await esegui(strumenti, 'completa_task', { titolo: 'Script DM', completato: true })
+    const esito = await esegui(strumenti, 'task', { azione: 'completa', titolo: 'Script DM' })
     expect(azioni.completaTask).toHaveBeenCalledWith({ id: 'a', completato: true })
     expect(esito).toMatchObject({ task: 'Script DM' })
   })
@@ -317,7 +382,8 @@ describe('completa_task: quale task chiude', () => {
 
 describe('scheda di conferma', () => {
   it('dice cosa verrà scritto, in italiano', () => {
-    const r = riassuntoScrittura('registra_costo', {
+    const r = riassuntoScrittura('costo', {
+      azione: 'registra',
       descrizione: 'Abbonamento Canva',
       importo: 12.99,
       categoria: 'software',
@@ -365,15 +431,19 @@ describe('scheda di conferma', () => {
   })
 
   it('cliente, incasso, call, progetto, task', () => {
-    expect(riassuntoScrittura('crea_cliente', { nome: 'Mario', cognome: 'Rossi', fonte: 'dm_inbound' }).titolo).toBe(
+    expect(riassuntoScrittura('cliente', { azione: 'crea', nome: 'Mario', cognome: 'Rossi', fonte: 'dm_inbound' }).titolo).toBe(
       'Creo il cliente Mario Rossi',
     )
-    expect(riassuntoScrittura('segna_incassata', { cliente: 'Saverio', payment_id: 'x' }).dettagli).toContain('Incassata oggi')
+    expect(riassuntoScrittura('rata', { azione: 'incassa', cliente: 'Saverio', payment_id: 'x' }).dettagli).toContain('Incassata oggi')
     const call = riassuntoScrittura('fissa_call', { nome: 'Luca', tipo: 'strategy', data: '2026-09-30', ora: '15:00' })
     expect(call.titolo).toBe('Fisso una call con Luca')
     expect(call.dettagli.slice(0, 2)).toEqual(['Discovery call', '30/09/2026 alle 15:00'])
-    expect(riassuntoScrittura('crea_progetto', { nome: 'Lancio', reparto: 'DM Setter' }).dettagli).toEqual(['Reparto: DM Setter'])
-    expect(riassuntoScrittura('aggiungi_task', { titolo: 'Script DM', progetto: 'Lancio' }).titolo).toBe('Aggiungo il task «Script DM»')
+    expect(riassuntoScrittura('progetto', { azione: 'crea', nome: 'Lancio', reparto: 'DM Setter' }).dettagli).toEqual([
+      'Reparto: DM Setter',
+    ])
+    expect(riassuntoScrittura('task', { azione: 'aggiungi', titolo: 'Script DM', progetto: 'Lancio' }).titolo).toBe(
+      'Aggiungo il task «Script DM»',
+    )
   })
 })
 
@@ -404,10 +474,10 @@ describe('scheda di conferma: vendite e modifiche', () => {
   })
 
   it('una modifica elenca solo i campi che cambiano', () => {
-    const r = riassuntoScrittura('modifica_cliente', { cliente: 'Loris Lo Presti', setter: 'io', closer: 'io' })
+    const r = riassuntoScrittura('cliente', { azione: 'modifica', cliente: 'Loris Lo Presti', setter: 'io', closer: 'io' })
     expect(r.titolo).toBe('Correggo il cliente Loris Lo Presti')
     expect(r.dettagli).toEqual(['Setter: io', 'Closer: io'])
-    const v = riassuntoScrittura('modifica_vendita', { cliente: 'Saverio', valore: 2500, data_fine: '2027-09-27' })
+    const v = riassuntoScrittura('vendita', { azione: 'modifica', cliente: 'Saverio', valore: 2500, data_fine: '2027-09-27' })
     expect(v.dettagli.map((d) => d.replace(/\u00a0/g, ' '))).toEqual(['Valore: 2.500,00 €', 'Fine: 27/09/2027'])
   })
 })
@@ -445,6 +515,9 @@ describe('prompt e guida', () => {
     // the setter does see his new clients' payments and his commission on each
     expect(GUIDA.permessi).not.toContain('mai quanto paga un cliente')
     expect(GUIDA.permessi).toContain('provvigione su ogni incasso')
+    // what Alfire itself may write, per role
+    expect(GUIDA.alfire).toContain('Conferma')
+    expect(GUIDA.alfire).toContain('Mai: team')
     // renamed on the client sheet
     for (const a of ARGOMENTI_GUIDA) expect(GUIDA[a], a).not.toContain('Registra rinnovo')
   })

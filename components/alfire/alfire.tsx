@@ -19,8 +19,9 @@ import { Fiamma } from '@/components/alfire/fiamma'
 import { useRegistratore } from '@/components/alfire/use-registratore'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { anteprimaAlfire } from '@/lib/alfire/anteprima'
 import { isScrittura } from '@/lib/alfire/permessi'
-import { riassuntoScrittura } from '@/lib/alfire/riassunto'
+import { azioneDistruttiva, riassuntoScrittura, type Anteprima } from '@/lib/alfire/riassunto'
 import type { AppRole } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
@@ -53,7 +54,9 @@ const LETTURE: Record<string, string> = {
   miei_numeri: 'i tuoi numeri',
   call_periodo: 'le call',
   progetti: 'i progetti',
+  progetto_dettaglio: 'il progetto',
   miei_task: 'i tuoi task',
+  mio_tempo: 'il tuo tempo',
 }
 
 type ContestoAlfire = { apri: () => void }
@@ -469,6 +472,12 @@ function StatoLettura({ nome, stato }: { nome: string; stato: string }) {
 
 type ParteStrumento = Extract<UIMessage['parts'][number], { toolCallId: string }>
 
+/** Said by the card when the database could not be read at all. */
+const ANTEPRIMA_NON_LETTA: Anteprima = {
+  righe: ['Non riesco a leggere i dati attuali: controlla bene prima di confermare.'],
+  incompleta: true,
+}
+
 function SchedaScrittura({
   parte,
   nome,
@@ -480,7 +489,33 @@ function SchedaScrittura({
   approva: Chat['addToolApprovalResponse']
   chiudi: () => void
 }) {
-  const input = (parte.input ?? {}) as Record<string, unknown>
+  const input = useMemo(() => (parte.input ?? {}) as Record<string, unknown>, [parte.input])
+  const approvazione =
+    'approval' in parte
+      ? (parte.approval as { id: string; isAutomatic?: boolean; reason?: string; approved?: boolean } | undefined)
+      : undefined
+  const daConfermare = parte.state === 'approval-requested' && Boolean(approvazione) && !approvazione?.isAutomatic
+
+  // what the database says before the tap: the real row, before → after, what goes with it
+  const [anteprima, setAnteprima] = useState<Anteprima | null>(null)
+  const chiesta = useRef(false)
+  const rifiutata = useRef(false)
+  useEffect(() => {
+    if (!daConfermare || chiesta.current) return
+    chiesta.current = true
+    anteprimaAlfire(nome, input)
+      .then(setAnteprima)
+      .catch(() => setAnteprima(ANTEPRIMA_NON_LETTA))
+  }, [daConfermare, nome, input])
+
+  // a target not found or not unique: the model gets the reason and asks the user which one
+  const erroreAnteprima = anteprima && 'errore' in anteprima ? anteprima.errore : null
+  useEffect(() => {
+    if (!erroreAnteprima || !daConfermare || !approvazione || rifiutata.current) return
+    rifiutata.current = true
+    void approva({ id: approvazione.id, approved: false, reason: erroreAnteprima })
+  }, [erroreAnteprima, daConfermare, approvazione, approva])
+
   if (parte.state === 'input-streaming') {
     return (
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -489,39 +524,77 @@ function SchedaScrittura({
       </p>
     )
   }
-  const { titolo, dettagli } = riassuntoScrittura(nome, input)
+  const riassunto = riassuntoScrittura(nome, input)
+  const letta = anteprima && !('errore' in anteprima) ? anteprima : null
+  const titolo = letta?.titolo ?? riassunto.titolo
+  const dettagli = letta?.sostituisceDettagli ? [] : riassunto.dettagli
+  const distruttiva = azioneDistruttiva(nome, input)
   const output = parte.state === 'output-available' ? (parte.output as { fatto?: boolean; errore?: string; link?: string }) : null
-  const approvazione = 'approval' in parte ? (parte.approval as { id: string; isAutomatic?: boolean } | undefined) : undefined
+  // a deletion never goes without its consequences on screen
+  const inAttesa = daConfermare && (!anteprima || Boolean(erroreAnteprima) || (Boolean(distruttiva) && Boolean(letta?.incompleta)))
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-card p-3" data-testid="alfire-conferma">
       <div className="space-y-1">
         <p className="text-sm font-medium">{titolo}</p>
         {dettagli.length > 0 ? (
-          <ul className="space-y-0.5 text-sm text-muted-foreground">
+          // notes are shown whole, with their line breaks
+          <ul className="space-y-0.5 text-sm break-words whitespace-pre-line text-muted-foreground">
             {dettagli.map((d) => (
               <li key={d}>{d}</li>
             ))}
           </ul>
         ) : null}
+        {letta && letta.righe.length > 0 ? (
+          <ul className="space-y-0.5 text-sm break-words whitespace-pre-line" data-testid="alfire-anteprima">
+            {letta.righe.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        ) : daConfermare && !anteprima ? (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+            <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+            Controllo i dati…
+          </p>
+        ) : null}
       </div>
 
-      {parte.state === 'approval-requested' && approvazione && !approvazione.isAutomatic ? (
+      {parte.state === 'approval-requested' && approvazione && !approvazione.isAutomatic && !erroreAnteprima ? (
         <div className="grid grid-cols-2 gap-2">
           <Button type="button" variant="outline" className="h-11" onClick={() => void approva({ id: approvazione.id, approved: false })}>
             Annulla
           </Button>
-          <Button type="button" className="h-11" onClick={() => void approva({ id: approvazione.id, approved: true })}>
-            Conferma
+          <Button
+            type="button"
+            variant={distruttiva ? 'destructive' : 'default'}
+            className="h-11"
+            disabled={inAttesa}
+            onClick={() => void approva({ id: approvazione.id, approved: true })}
+          >
+            {distruttiva ?? 'Conferma'}
           </Button>
         </div>
+      ) : parte.state === 'approval-responded' && approvazione?.approved === false ? (
+        <p className="text-sm text-muted-foreground">{approvazione.reason ? 'Serve una precisazione: te la chiedo.' : 'Annullato: non ho scritto niente.'}</p>
       ) : parte.state === 'approval-responded' || parte.state === 'input-available' ? (
         <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
           Lo faccio…
         </p>
       ) : parte.state === 'output-denied' ? (
-        <p className="text-sm text-muted-foreground">Annullato: non ho scritto niente.</p>
+        approvazione?.reason ? (
+          <p className="flex items-start gap-1.5 text-sm text-status-warning">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            Non l’ho fatto: {approvazione.reason}
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">Annullato: non ho scritto niente.</p>
+        )
+      ) : erroreAnteprima && daConfermare ? (
+        <p className="flex items-start gap-1.5 text-sm text-status-warning">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          Non l’ho fatto: {erroreAnteprima}
+        </p>
       ) : parte.state === 'output-error' ? (
         <p className="flex items-center gap-1.5 text-sm text-status-critical">
           <TriangleAlert className="size-4" aria-hidden="true" />

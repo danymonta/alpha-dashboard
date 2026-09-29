@@ -1,38 +1,19 @@
 import 'server-only'
 
-import { tool, type ToolSet } from 'ai'
+import type { ToolSet } from 'ai'
 import { z } from 'zod'
 
-import { modificaCall } from '@/app/(app)/calls/actions'
-import { fissaCall } from '@/app/(app)/calls/new/actions'
-import { aggiornaCliente, creaCliente } from '@/app/(app)/clients/actions'
-import { aggiungiCosto, modificaCosto } from '@/app/(app)/expenses/actions'
-import { aggiungiTask, completaTask } from '@/app/(app)/progetti/[id]/actions'
-import { creaProgetto } from '@/app/(app)/progetti/actions'
-import { modificaRata, modificaVendita, segnaIncassata } from '@/app/(app)/sales/[id]/actions'
-import { registraVendita } from '@/app/(app)/sales/new/actions'
-import { salvaReportGiornaliero } from '@/app/(app)/today/actions'
 import { ARGOMENTI_GUIDA, GUIDA, type ArgomentoGuida } from '@/lib/alfire/guida'
-import { strumentiConsentiti, type NomeStrumento } from '@/lib/alfire/permessi'
+import { isScrittura, strumentiConsentiti, type NomeStrumento } from '@/lib/alfire/permessi'
+import type { Anteprima } from '@/lib/alfire/riassunto'
+import { errore, etichettaRegola, isErrore, risolutori, type Supabase } from '@/lib/alfire/risolvi'
+import { definizione, type Contesto, type Definizione } from '@/lib/alfire/scritture/comune'
+import { scrittureEconomics } from '@/lib/alfire/scritture/economics'
+import { strumentiProgetti } from '@/lib/alfire/scritture/progetti'
+import { scrittureSetting } from '@/lib/alfire/scritture/setting'
 import type { LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
-import { aggiungiGiorni, fineDopoMesi, formatOra, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
-import type { createClient } from '@/lib/supabase/server'
-import { CATEGORIE_COSTO } from '@/lib/validation/anagrafiche'
-import { FONTI, TIPI_CALL, type TipoCall } from '@/lib/validation/call'
-import { METODI } from '@/lib/validation/incasso'
-import { PERSONALIZZATO } from '@/lib/validation/vendita'
-import { CAMPI_NUMERICI_REPORT as CAMPI_REPORT, GRUPPI_REPORT } from '@/lib/validation/report'
-
-type Supabase = Awaited<ReturnType<typeof createClient>>
-
-/**
- * The report counters the setter fills in, with the form's one-line hint.
- * No strategy_prenotate: he books discovery calls only (Dany, 29/09/2026);
- * the column stays for history and keeps its value.
- */
-const CAMPI_SETTER = GRUPPI_REPORT.flatMap((g) => g.campi.map(([campo, , aiuto]) => ({ campo, aiuto })))
-const NOMI_CAMPI_SETTER = new Set<string>(CAMPI_SETTER.map((c) => c.campo))
+import { aggiungiGiorni, aggiungiMesi, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
 
 const data = z.string().describe('Data ISO, AAAA-MM-GG')
 const periodo = z.object({
@@ -47,178 +28,16 @@ function leggiPeriodo({ da, a }: { da?: string; a?: string }) {
   return inizio <= fine ? { da: inizio, a: fine } : { da: fine, a: inizio }
 }
 
-/** Tool results stay small: the free tier counts every token. */
-function errore(messaggio: string) {
-  return { errore: messaggio }
-}
-
-/** Finds one row by name among a few: exact first, then "contains". */
-function trova<T extends { nome: string | null }>(righe: T[], nome: string): T | null | 'ambiguo' {
-  const cerca = nome.trim().toLowerCase()
-  const esatti = righe.filter((r) => r.nome?.toLowerCase() === cerca)
-  if (esatti.length === 1) return esatti[0]
-  const simili = righe.filter((r) => r.nome?.toLowerCase().includes(cerca))
-  if (simili.length === 1) return simili[0]
-  return simili.length > 1 ? 'ambiguo' : null
-}
-
-export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm: LivelloPm): ToolSet {
-  /** A client by full name. Among clients the user can see; a new name is fine only for a first sale. */
-  async function trovaCliente(
-    nome: string,
-    { anchePerNuovo = false }: { anchePerNuovo?: boolean } = {},
-  ): Promise<{ id: string; nome: string } | null | string> {
-    const parole = nome.trim().split(/\s+/).filter(Boolean)
-    if (parole.length === 0) return 'Scrivi il nome del cliente.'
-    const { data } = await supabase
-      .from('clients')
-      .select('id, nome, cognome')
-      .ilike('nome', `%${parole[0].replace(/[%,()]/g, '')}%`)
-      .limit(50)
-    const righe = (data ?? []).map((c) => ({ id: c.id, nome: [c.nome, c.cognome].filter(Boolean).join(' ') }))
-    const trovato = trova(righe, nome)
-    if (trovato === 'ambiguo') {
-      return `Più clienti possibili: ${righe
-        .filter((r) => r.nome.toLowerCase().includes(nome.trim().toLowerCase()))
-        .slice(0, 5)
-        .map((r) => r.nome)
-        .join(', ')}. Scrivi nome e cognome completi.`
-    }
-    if (trovato) return trovato
-    return anchePerNuovo ? null : `Nessun cliente "${nome}". Controlla il nome o crealo prima.`
-  }
-
-  /**
-   * A person's id from a name: "io" is whoever chats, "nessuno" empties the
-   * field, nothing keeps the current value. An error object when not found.
-   */
-  async function idPersona(
-    nome: string | undefined,
-    attuale: string | null,
-    ruoli: string[],
-  ): Promise<string | null | { errore: string }> {
-    if (!nome?.trim()) return attuale
-    const n = nome.trim().toLowerCase()
-    if (['io', 'me', 'a me', 'me stesso'].includes(n)) return profilo.id
-    if (['nessuno', 'nessuna', '-'].includes(n)) return null
-    const { data } = await supabase.from('profiles').select('id, nome, ruolo').in('ruolo', ruoli as never)
-    const trovato = trova(data ?? [], nome)
-    if (!trovato || trovato === 'ambiguo') {
-      return { errore: `Persona "${nome}" non trovata. Possibili: ${(data ?? []).map((p) => p.nome).join(', ')}` }
-    }
-    return trovato.id
-  }
-
-  /** Setter and closer of a sale just created, when the chat names them. */
-  async function cambiaPersoneVendita(saleId: string, setter?: string, closer?: string): Promise<string | null> {
-    const { data: vendita } = await supabase
-      .from('sales')
-      .select('id, tipo, product_id, prodotto_personalizzato, valore_contratto, data_vendita, data_inizio, data_fine, setter_id, closer_id, note')
-      .eq('id', saleId)
-      .single()
-    if (!vendita) return 'Vendita registrata, ma non ho potuto impostare setter e closer.'
-    const s = await idPersona(setter, vendita.setter_id, ['admin', 'setter', 'closer'])
-    const c = await idPersona(closer, vendita.closer_id, ['admin', 'closer'])
-    if (typeof s === 'object' && s) return s.errore
-    if (typeof c === 'object' && c) return c.errore
-    const esito = await modificaVendita({
-      ...vendita,
-      product_id: vendita.product_id ?? PERSONALIZZATO,
-      setter_id: s as string | null,
-      closer_id: c as string | null,
-    })
-    return esito.ok ? null : `Setter e closer non impostati: ${esito.errore}`
-  }
-
-  /** Moves or corrects a call. The setter cannot change its type: it stays as it is. */
-  const campiFissaCall = z.object({
-    nome: z.string().min(2).max(120),
-    instagram_handle: z.string().max(40).optional(),
-    fonte: z.enum(FONTI),
-    data,
-    ora: z.string().describe('HH:MM'),
-    closer: z.string().optional().describe('Nome del closer'),
-  })
-
-  async function eseguiFissaCall({ closer, setter, ...v }: z.infer<typeof campiFissaCall> & { setter?: string }) {
-    const admin = profilo.ruolo === 'admin'
-    const { data: persone } = await supabase
-      .from('profiles')
-      .select('id, nome, ruolo')
-      .in('ruolo', admin ? ['admin', 'closer', 'setter'] : ['admin', 'closer'])
-      .eq('attivo', true)
-    const elenco = persone ?? []
-    const chiude = elenco.filter((p) => p.ruolo === 'admin' || p.ruolo === 'closer')
-    // default closer: the admin who chats runs his own calls; for the setter, the admin
-    const predefinito = (admin ? chiude.find((p) => p.id === profilo.id) : null) ?? chiude.find((p) => p.ruolo === 'admin')
-    const scelto = closer ? trova(chiude, closer) : (predefinito ?? null)
-    if (!scelto || scelto === 'ambiguo') {
-      return errore(`Closer non trovato. Possibili: ${chiude.map((p) => p.nome).join(', ')}`)
-    }
-
-    // who set it: the admin himself unless he names an active setter; the setter never chooses
-    let setterId: string | null = null
-    let setterNome: string | null = null
-    if (admin) {
-      const n = setter?.trim().toLowerCase() ?? ''
-      if (n === '' || ['io', 'me', 'a me', 'me stesso'].includes(n)) {
-        setterId = profilo.id
-      } else {
-        const setters = elenco.filter((p) => p.ruolo === 'setter')
-        const trovato = trova(setters, setter ?? '')
-        if (!trovato || trovato === 'ambiguo') {
-          return errore(`Setter non trovato. Possibili: io, ${setters.map((p) => p.nome).join(', ')}`)
-        }
-        setterId = trovato.id
-        setterNome = trovato.nome
-      }
-    }
-
-    const esito = await fissaCall({ ...v, tipo: 'discovery', closer_id: scelto.id, setter_id: setterId })
-    return esito.ok
-      ? { fatto: true, closer: scelto.nome, ...(setterNome ? { setter: setterNome } : {}), link: '/calls' }
-      : errore(esito.errore)
-  }
-
-  const campiModificaCall = z.object({
-    call_id: z.string().uuid(),
-    lead: z.string().describe('Nome del lead, per la conferma'),
-    data: data.optional(),
-    ora: z.string().optional().describe('HH:MM'),
-    closer: z.string().optional(),
-    note: z.string().max(1000).optional(),
-  })
-
-  async function eseguiModificaCall(v: z.infer<typeof campiModificaCall> & { tipo?: TipoCall }) {
-    const { data: call } = await supabase
-      .from('calls')
-      .select('tipo, programmata_il, closer_id, note')
-      .eq('id', v.call_id)
-      .maybeSingle()
-    if (!call) return errore('Call non trovata.')
-    const closer = await idPersona(v.closer, call.closer_id, ['admin', 'closer'])
-    if (typeof closer === 'object' && closer) return closer
-    if (!closer) return errore('La call ha bisogno di un closer.')
-    const esito = await modificaCall({
-      call_id: v.call_id,
-      // the existing type goes back as it is, strategy included (history)
-      tipo: profilo.ruolo === 'setter' ? call.tipo : (v.tipo ?? call.tipo),
-      data: v.data ?? oggiRoma(new Date(call.programmata_il)),
-      ora: v.ora ?? formatOra(call.programmata_il),
-      closer_id: closer,
-      note: v.note ?? call.note,
-    })
-    return esito.ok ? { fatto: true, link: '/calls' } : errore(esito.errore)
-  }
-
-  const tutti = {
-    guida: tool({
+/** What Alfire reads: the same views and RPCs as the pages, with the user's session. */
+function letture({ supabase, profilo, r }: Contesto) {
+  return {
+    guida: definizione({
       description: 'Come funziona una parte della dashboard (pagine, regole, permessi).',
       inputSchema: z.object({ argomento: z.enum(ARGOMENTI_GUIDA as [ArgomentoGuida, ...ArgomentoGuida[]]) }),
       execute: async ({ argomento }) => ({ testo: GUIDA[argomento] }),
     }),
 
-    numeri_periodo: tool({
+    numeri_periodo: definizione({
       description:
         'KPI del periodo con confronto col precedente (cash, revenue, nuovi clienti, rinnovi, margine operativo), ' +
         'cash in 4 parti, provvigioni e costi, indicatori sui soli nuovi clienti e funnel DM → chiuse. Tassi in decimali.',
@@ -261,7 +80,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    cash_per_mese: tool({
+    cash_per_mese: definizione({
       description:
         'Cash incassato per mese in 4 parti: nuovi_clienti (vendite nuove firmate quel mese), rate_precedenti ' +
         '(rate di clienti entrati nei mesi prima), rinnovo, upsell; più il totale.',
@@ -272,7 +91,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    da_incassare: tool({
+    da_incassare: definizione({
       description:
         'Rate ancora da incassare: totali per fascia (in ritardo, prossimi 30 giorni, oltre) ed elenco delle rate in ritardo con cliente e payment_id.',
       inputSchema: z.object({}),
@@ -291,7 +110,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    cerca_clienti: tool({
+    cerca_clienti: definizione({
       description:
         'Cerca clienti per nome o cognome, o per stato. Dà stato, valore firmato, incassato, da incassare e rate in ritardo.',
       inputSchema: z.object({
@@ -314,12 +133,13 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    rate_cliente: tool({
+    rate_cliente: definizione({
       description: 'Le vendite e le rate di un cliente (con payment_id), incassate e da incassare.',
       inputSchema: z.object({ cliente: z.string().describe('Nome e cognome') }),
       execute: async ({ cliente }) => {
-        const c = await trovaCliente(cliente)
-        if (!c || typeof c === 'string') return errore(c ?? 'Cliente non trovato.')
+        const c = await r.trovaCliente(cliente)
+        if (!c) return errore('Cliente non trovato.')
+        if (isErrore(c)) return c
         const { data, error } = await supabase
           .from('v_rate')
           .select('payment_id, sale_id, tipo, numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato, metodo, in_ritardo')
@@ -330,7 +150,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    vendite_periodo: tool({
+    vendite_periodo: definizione({
       description: 'Vendite firmate nel periodo, con tipo, valore, incassato, da incassare e rate in ritardo.',
       inputSchema: periodo.extend({ tipo: z.enum(['nuovo', 'rinnovo', 'upsell']).optional() }),
       execute: async (input) => {
@@ -379,7 +199,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    metriche_setting: tool({
+    metriche_setting: definizione({
       description: 'Metriche di setting e call del periodo per ogni setter (DM, conversazioni, call, show rate, close rate).',
       inputSchema: periodo,
       execute: async (input) => {
@@ -389,17 +209,37 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    provvigioni: tool({
-      description: 'Provvigioni per persona e mese: maturato, pagato, saldo.',
+    provvigioni: definizione({
+      description:
+        'Provvigioni per persona e mese (maturato, pagato, saldo), le regole di ognuno e i pagamenti registrati (con id).',
       inputSchema: z.object({ mesi: z.number().int().min(1).max(12).default(3) }),
       execute: async ({ mesi }) => {
-        const { data, error } = await supabase.rpc('provvigioni_riepilogo', { p_mesi: mesi })
-        return error ? errore('Provvigioni non disponibili.') : { provvigioni: data }
+        const dal = aggiungiMesi(primoDelMeseISO(oggiRoma()), 1 - mesi)
+        const [riepilogo, regole, pagamenti] = await Promise.all([
+          supabase.rpc('provvigioni_riepilogo', { p_mesi: mesi }),
+          supabase
+            .from('commission_rules')
+            .select('percentuale, applica_a, valida_dal, valida_al, persona:profiles!commission_rules_profile_id_fkey(nome)')
+            .order('valida_dal', { ascending: false })
+            .limit(30),
+          supabase
+            .from('commission_payouts')
+            .select('id, periodo, importo, pagato_il, metodo, persona:profiles!commission_payouts_profile_id_fkey(nome)')
+            .gte('periodo', dal)
+            .order('pagato_il', { ascending: false })
+            .limit(30),
+        ])
+        if (riepilogo.error || regole.error || pagamenti.error) return errore('Provvigioni non disponibili.')
+        return {
+          provvigioni: riepilogo.data,
+          regole: (regole.data ?? []).map(({ persona, ...x }) => ({ persona: persona?.nome, ...x, percentuale: etichettaRegola(x) })),
+          pagamenti: (pagamenti.data ?? []).map(({ persona, ...x }) => ({ persona: persona?.nome, ...x })),
+        }
       },
     }),
 
-    costi_periodo: tool({
-      description: 'Costi del periodo: totali per categoria ed elenco delle voci (con id per modifica_costo).',
+    costi_periodo: definizione({
+      description: 'Costi del periodo: totali per categoria ed elenco delle voci (con id per costo).',
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
@@ -418,7 +258,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    miei_numeri: tool({
+    miei_numeri: definizione({
       description: 'I numeri del setter che chatta nel periodo, con provvigioni maturate e pagate (solo totali).',
       inputSchema: periodo,
       execute: async (input) => {
@@ -428,14 +268,14 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    call_periodo: tool({
-      description: 'Call programmate nel periodo visibili a chi chatta, con lead, tipo, stato ed esito.',
+    call_periodo: definizione({
+      description: 'Call programmate nel periodo visibili a chi chatta, con lead (e il suo stato), tipo, stato ed esito.',
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
         const { data, error } = await supabase
           .from('calls')
-          .select('id, tipo, programmata_il, stato, esito, qualificata, lead:leads(nome), closer:profiles!calls_closer_id_fkey(nome)')
+          .select('id, tipo, programmata_il, stato, esito, qualificata, lead:leads(nome, stato), closer:profiles!calls_closer_id_fkey(nome)')
           // a day of margin on both sides, then the Rome calendar day decides
           .gte('programmata_il', `${aggiungiGiorni(p.da, -1)}T00:00:00Z`)
           .lt('programmata_il', `${aggiungiGiorni(p.a, 2)}T00:00:00Z`)
@@ -451,6 +291,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
           call: nelPeriodo.map((c) => ({
             call_id: c.id,
             lead: c.lead?.nome,
+            stato_lead: c.lead?.stato,
             tipo: c.tipo,
             quando: c.programmata_il,
             stato: c.stato,
@@ -461,7 +302,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    progetti: tool({
+    progetti: definizione({
       description: 'Progetti visibili a chi chatta, con stato, avanzamento, task in ritardo e date.',
       inputSchema: z.object({ testo: z.string().max(60).optional() }),
       execute: async ({ testo }) => {
@@ -476,7 +317,7 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
       },
     }),
 
-    miei_task: tool({
+    miei_task: definizione({
       description: 'I task aperti assegnati a chi chatta (anche quelli condivisi con altri), con progetto, scadenza e ritardo.',
       inputSchema: z.object({}),
       execute: async () => {
@@ -491,539 +332,50 @@ export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm:
         return error ? errore('Task non disponibili.') : { task: data }
       },
     }),
+  }
+}
 
-    // --- writes: the user confirms each one in the chat before it runs ---
+/**
+ * Every tool, as definitions: reads, and writes with their preview. The
+ * writes live by area in lib/alfire/scritture.
+ */
+function definizioniAlfire(supabase: Supabase, profilo: Profilo, livelloPm: LivelloPm): Record<NomeStrumento, Definizione> {
+  const ctx: Contesto = { supabase, profilo, livelloPm, r: risolutori(supabase, profilo) }
+  return {
+    ...letture(ctx),
+    ...scrittureEconomics(ctx),
+    ...scrittureSetting(ctx),
+    ...strumentiProgetti(ctx),
+  } satisfies Record<NomeStrumento, Definizione>
+}
 
-    crea_cliente: tool({
-      description:
-        'Crea un cliente SENZA vendita (risulterà "mai attivato"). Se ha comprato o pagato qualcosa usa invece registra_vendita, che crea anche il cliente.',
-      inputSchema: z.object({
-        nome: z.string().min(1).max(80),
-        cognome: z.string().max(80).optional(),
-        email: z.string().max(160).optional(),
-        telefono: z.string().max(30).optional(),
-        instagram_handle: z.string().max(40).optional(),
-        fonte: z.enum(FONTI).optional(),
-        note: z.string().max(1000).optional(),
-      }),
-      execute: async (v) => {
-        const esito = await creaCliente({ ...v, setter_id: null, closer_id: null })
-        return esito.ok ? { fatto: true, link: `/clients/${esito.id}` } : errore(esito.errore)
-      },
-    }),
+export function strumentiAlfire(supabase: Supabase, profilo: Profilo, livelloPm: LivelloPm): ToolSet {
+  const tutti = definizioniAlfire(supabase, profilo, livelloPm)
+  return Object.fromEntries(
+    strumentiConsentiti(profilo.ruolo, livelloPm).map((nome) => [nome, tutti[nome].strumento]),
+  ) as ToolSet
+}
 
-    segna_incassata: tool({
-      description: 'Segna incassata una rata (payment_id da da_incassare). Senza data: oggi; senza importo: quello previsto.',
-      inputSchema: z.object({
-        payment_id: z.string().uuid(),
-        cliente: z.string().describe('Nome del cliente, per la conferma'),
-        incassato_il: data.optional(),
-        importo: z.number().positive().optional(),
-        metodo: z.enum(METODI).optional(),
-      }),
-      execute: async (v) => {
-        const esito = await segnaIncassata({
-          payment_id: v.payment_id,
-          incassato_il: v.incassato_il,
-          importo: v.importo,
-          metodo: v.metodo,
-        })
-        return esito.ok ? { fatto: true, importo: esito.importo } : errore(esito.errore)
-      },
-    }),
-
-    registra_costo: tool({
-      description: 'Registra un costo. Data di default: oggi.',
-      inputSchema: z.object({
-        data: data.optional(),
-        categoria: z.enum(CATEGORIE_COSTO),
-        descrizione: z.string().min(2).max(160),
-        importo: z.number().positive(),
-        ricorrente: z.boolean().default(false),
-      }),
-      execute: async (v) => {
-        const esito = await aggiungiCosto({ ...v, data: v.data ?? oggiRoma() })
-        return esito.ok ? { fatto: true, link: '/expenses' } : errore(esito.errore)
-      },
-    }),
-
-    aggiorna_report: tool({
-      description:
-        'Aggiorna il report giornaliero del setter. modalita "aggiungi" somma ai numeri già salvati, "imposta" li sostituisce. Data di default: oggi.',
-      inputSchema: z.object({
-        data: data.optional(),
-        modalita: z.enum(['aggiungi', 'imposta']),
-        ...Object.fromEntries(
-          CAMPI_SETTER.map(({ campo, aiuto }) => [campo, z.number().int().min(0).max(5000).optional().describe(aiuto)]),
-        ),
-        contenuto_pubblicato: z.boolean().optional(),
-      }),
-      execute: async (v: Record<string, unknown>) => {
-        const giorno = typeof v.data === 'string' && isDataISO(v.data) ? v.data : oggiRoma()
-        const { data: attuale } = await supabase
-          .from('setter_daily_reports')
-          .select('*')
-          .eq('setter_id', profilo.id)
-          .eq('data', giorno)
-          .maybeSingle()
-        const valori: Record<string, unknown> = { data: giorno, note: attuale?.note ?? null }
-        for (const campo of CAMPI_REPORT) {
-          const prima = Number(attuale?.[campo] ?? 0)
-          // a field the setter does not fill any more keeps what is saved
-          const nuovo = NOMI_CAMPI_SETTER.has(campo) ? v[campo] : undefined
-          valori[campo] = typeof nuovo === 'number' ? (v.modalita === 'aggiungi' ? prima + nuovo : nuovo) : prima
-        }
-        valori.contenuto_pubblicato =
-          typeof v.contenuto_pubblicato === 'boolean' ? v.contenuto_pubblicato : (attuale?.contenuto_pubblicato ?? false)
-        const esito = await salvaReportGiornaliero(valori)
-        return esito.ok ? { fatto: true, report: valori, link: '/today' } : errore(esito.errore)
-      },
-    }),
-
-    // The setter and the admin (permessi, and fissaCall checks it again). Discovery
-    // calls only (Dany, 29/09/2026), so the type is not even asked. The admin also
-    // says who set it (himself by default) and may add a call already done.
-    fissa_call:
-      profilo.ruolo === 'admin'
-        ? tool({
-            description:
-              'Fissa una discovery call e crea il lead, anche per un setter o per una call già fatta (data passata, fino a un anno). Setter e closer di default: chi chatta.',
-            inputSchema: campiFissaCall.extend({
-              setter: z.string().optional().describe('Nome del setter che l’ha fissata; "io" o vuoto: chi chatta'),
-            }),
-            execute: eseguiFissaCall,
-          })
-        : tool({
-            description: 'Fissa una discovery call e crea il lead. Closer di default: l’admin.',
-            inputSchema: campiFissaCall,
-            execute: eseguiFissaCall,
-          }),
-
-    crea_progetto: tool({
-      description: 'Crea un progetto in un reparto, facoltativamente da un modello (liste e task già datati).',
-      inputSchema: z.object({
-        nome: z.string().min(2).max(120),
-        reparto: z.string().describe('Nome del reparto'),
-        modello: z.string().optional().describe('Nome del modello'),
-        descrizione: z.string().max(2000).optional(),
-        data_inizio: data.optional(),
-        data_fine: data.optional(),
-      }),
-      execute: async ({ reparto, modello, ...v }) => {
-        const [reparti, modelli] = await Promise.all([
-          supabase.from('pm_reparti').select('id, nome').eq('attivo', true),
-          supabase.from('pm_modelli').select('id, nome').eq('attivo', true),
-        ])
-        const r = trova(reparti.data ?? [], reparto)
-        if (!r || r === 'ambiguo') {
-          return errore(`Reparto non trovato. Reparti: ${(reparti.data ?? []).map((x) => x.nome).join(', ')}`)
-        }
-        const m = modello ? trova(modelli.data ?? [], modello) : null
-        if (modello && (!m || m === 'ambiguo')) {
-          return errore(`Modello non trovato. Modelli: ${(modelli.data ?? []).map((x) => x.nome).join(', ')}`)
-        }
-        const esito = await creaProgetto({
-          ...v,
-          reparto_id: r.id,
-          modello_id: m && m !== 'ambiguo' ? m.id : null,
-          client_id: null,
-          membri: [],
-        })
-        return esito.ok ? { fatto: true, link: `/progetti/${esito.id}` } : errore(esito.errore)
-      },
-    }),
-
-    aggiungi_task: tool({
-      description:
-        'Aggiunge un task a un progetto (in fondo, senza lista), facoltativamente assegnato a una o più persone del progetto.',
-      inputSchema: z.object({
-        progetto: z.string().describe('Nome del progetto'),
-        titolo: z.string().min(1).max(200),
-        assegnatari: z
-          .array(z.string().min(1))
-          .max(10)
-          .optional()
-          .describe('Nomi delle persone a cui assegnarlo, membri del progetto; "io" per chi chatta'),
-      }),
-      execute: async ({ progetto, titolo, assegnatari = [] }) => {
-        const { data: progetti } = await supabase.from('v_pm_progetti').select('id, nome').limit(200)
-        const p = trova((progetti ?? []) as { id: string; nome: string | null }[], progetto)
-        if (!p || p === 'ambiguo') return errore('Progetto non trovato o non univoco: scrivi il nome completo.')
-
-        // people by name among the project's members (the database checks membership again)
-        const persone: string[] = []
-        if (assegnatari.length > 0) {
-          const { data: membri } = await supabase
-            .from('pm_membri')
-            .select('profilo:profiles!pm_membri_profile_id_fkey(id, nome)')
-            .eq('progetto_id', p.id)
-          const elenco = (membri ?? []).flatMap((m) => (m.profilo ? [m.profilo] : []))
-          for (const nome of assegnatari) {
-            if (nome.trim().toLowerCase() === 'io') {
-              persone.push(profilo.id)
-              continue
-            }
-            const scelto = trova(elenco, nome)
-            if (!scelto || scelto === 'ambiguo') {
-              return errore(`"${nome}" non è tra i membri del progetto. Membri: ${elenco.map((x) => x.nome).join(', ')}`)
-            }
-            persone.push(scelto.id)
-          }
-        }
-
-        const esito = await aggiungiTask({
-          progetto_id: p.id,
-          titolo,
-          tasklist_id: null,
-          parent_id: null,
-          assegnatari: [...new Set(persone)],
-        })
-        return esito.ok ? { fatto: true, link: `/progetti/${p.id}/attivita` } : errore(esito.errore)
-      },
-    }),
-
-    modifica_cliente: tool({
-      description:
-        'Corregge i dati di un cliente. Solo i campi da cambiare. setter e closer: nome della persona, "io" per chi chatta, "nessuno" per toglierlo.',
-      inputSchema: z.object({
-        cliente: z.string().describe('Nome e cognome attuali'),
-        nome: z.string().min(1).max(80).optional(),
-        cognome: z.string().max(80).optional(),
-        email: z.string().max(160).optional(),
-        telefono: z.string().max(30).optional(),
-        instagram_handle: z.string().max(40).optional(),
-        fonte: z.enum(FONTI).optional(),
-        setter: z.string().optional(),
-        closer: z.string().optional(),
-        note: z.string().max(1000).optional().describe('Sostituisce le note'),
-        aggiungi_nota: z.string().max(500).optional().describe('Si aggiunge in fondo alle note'),
-      }),
-      execute: async (v) => {
-        const c = await trovaCliente(v.cliente)
-        if (!c || typeof c === 'string') return errore(c ?? 'Cliente non trovato.')
-        const { data: attuale, error } = await supabase
-          .from('clients')
-          .select('id, nome, cognome, email, telefono, instagram_handle, fonte, setter_id, closer_id, note')
-          .eq('id', c.id)
-          .single()
-        if (error) return errore('Cliente non trovato.')
-        const setter = await idPersona(v.setter, attuale.setter_id, ['admin', 'setter', 'closer'])
-        const closer = await idPersona(v.closer, attuale.closer_id, ['admin', 'closer'])
-        if (typeof setter === 'object' && setter) return setter
-        if (typeof closer === 'object' && closer) return closer
-        const note = v.aggiungi_nota
-          ? [v.note ?? attuale.note, v.aggiungi_nota].filter(Boolean).join('\n')
-          : (v.note ?? attuale.note)
-        const esito = await aggiornaCliente({
-          ...attuale,
-          nome: v.nome ?? attuale.nome,
-          cognome: v.cognome ?? attuale.cognome,
-          email: v.email ?? attuale.email,
-          telefono: v.telefono ?? attuale.telefono,
-          instagram_handle: v.instagram_handle ?? attuale.instagram_handle,
-          fonte: v.fonte ?? attuale.fonte,
-          setter_id: setter as string | null,
-          closer_id: closer as string | null,
-          note,
-        })
-        return esito.ok ? { fatto: true, link: `/clients/${c.id}` } : errore(esito.errore)
-      },
-    }),
-
-    registra_vendita: tool({
-      description:
-        'Registra una vendita: cliente esistente (o nuovo, se il tipo è "nuovo"), prodotto del catalogo o percorso su misura, valore, date. ' +
-        'Piano: numero_rate uguali mensili, oppure rate una per una. Le rate già pagate si mettono in rate con incassata_il e metodo ' +
-        '(es. pagato tutto subito in contanti: una rata con scadenza e incassata_il = data_vendita). setter e closer: nome o "io". ' +
-        'Un rinnovo è una vendita nuova col suo periodo: quella vecchia resta. Rinnovi e upsell: senza setter, salvo che nascano da una call fissata dal setter.',
-      inputSchema: z.object({
-        cliente: z.string().describe('Nome e cognome'),
-        tipo: z.enum(['nuovo', 'rinnovo', 'upsell']),
-        prodotto: z.string().describe('Nome del prodotto del catalogo, o del percorso su misura (es. Annuale)'),
-        valore: z.number().positive().describe('Valore del contratto in euro'),
-        data_vendita: data,
-        data_inizio: data,
-        durata_mesi: z.number().int().min(1).max(36).optional(),
-        data_fine: data.optional(),
-        numero_rate: z.number().int().min(1).max(24).optional(),
-        rate: z
-          .array(
-            z.object({
-              scadenza: data,
-              importo: z.number().positive(),
-              incassata_il: data.optional(),
-              metodo: z.enum(METODI).optional(),
-            }),
-          )
-          .max(24)
-          .optional(),
-        setter: z.string().optional(),
-        closer: z.string().optional(),
-        note: z.string().max(1000).optional(),
-        // only for a client created by this sale
-        email: z.string().max(160).optional(),
-        telefono: z.string().max(30).optional(),
-        instagram_handle: z.string().max(40).optional(),
-        fonte: z.enum(FONTI).optional(),
-      }),
-      execute: async (v) => {
-        const c = await trovaCliente(v.cliente, { anchePerNuovo: v.tipo === 'nuovo' })
-        if (typeof c === 'string') return errore(c)
-
-        const { data: prodotti } = await supabase.from('products').select('id, nome, durata_mesi')
-        const catalogo = trova(prodotti ?? [], v.prodotto)
-        const prodotto = catalogo && catalogo !== 'ambiguo' ? catalogo : null
-        const dataFine = v.data_fine ?? (v.durata_mesi ? fineDopoMesi(v.data_inizio, v.durata_mesi) : null)
-        if (!prodotto && !dataFine) return errore('Per un percorso fuori catalogo servono la durata in mesi o la data di fine.')
-
-        const [nome, ...cognome] = v.cliente.trim().split(/\s+/)
-        const esito = await registraVendita({
-          call_id: null,
-          client_id: c?.id ?? null,
-          nome: c ? null : nome,
-          cognome: c ? null : cognome.join(' ') || null,
-          email: c ? null : (v.email ?? null),
-          telefono: c ? null : (v.telefono ?? null),
-          instagram_handle: c ? null : (v.instagram_handle ?? null),
-          tipo: v.tipo,
-          product_id: prodotto?.id ?? PERSONALIZZATO,
-          prodotto_personalizzato: prodotto ? null : v.prodotto,
-          data_fine: dataFine,
-          piano: v.rate?.length ? 'personalizzato' : 'uguale',
-          rate: (v.rate ?? []).map((r) => ({ scadenza: r.scadenza, importo: r.importo })),
-          valore_contratto: v.valore,
-          numero_rate: v.rate?.length || v.numero_rate || 1,
-          data_vendita: v.data_vendita,
-          data_inizio: v.data_inizio,
-          note: v.note ?? null,
-        })
-        if (!esito.ok) return errore([esito.errore, ...Object.values(esito.campi ?? {})].join(' '))
-        const saleId = esito.idVendita
-        const avvisi: string[] = []
-
-        // the source of a new client is not a sale field: set it on the client
-        if (!c && v.fonte && profilo.ruolo === 'admin') {
-          const { data: vendita } = await supabase.from('sales').select('client_id').eq('id', saleId).single()
-          const { data: nuovo } = vendita
-            ? await supabase
-                .from('clients')
-                .select('id, nome, cognome, email, telefono, instagram_handle, fonte, setter_id, closer_id, note')
-                .eq('id', vendita.client_id)
-                .single()
-            : { data: null }
-          if (nuovo) {
-            const fonte = await aggiornaCliente({ ...nuovo, fonte: v.fonte })
-            if (!fonte.ok) avvisi.push(`Fonte non salvata: ${fonte.errore}`)
-          }
-        }
-
-        // who brought and who closed it, when it is not the call's or the client's
-        if ((v.setter || v.closer) && profilo.ruolo === 'admin') {
-          const cambio = await cambiaPersoneVendita(saleId, v.setter, v.closer)
-          if (cambio) avvisi.push(cambio)
-        }
-
-        // instalments already paid, matched by due date and amount
-        const pagate = (v.rate ?? []).filter((r) => r.incassata_il)
-        if (pagate.length > 0) {
-          const { data: rate } = await supabase
-            .from('payments')
-            .select('id, scadenza, importo_previsto')
-            .eq('sale_id', saleId)
-            .order('numero_rata')
-          const libere = [...(rate ?? [])]
-          for (const r of pagate) {
-            const i = libere.findIndex((x) => x.scadenza === r.scadenza && Number(x.importo_previsto) === r.importo)
-            if (i < 0) {
-              avvisi.push(`Rata del ${r.scadenza} non trovata: segnala incassata dalla vendita.`)
-              continue
-            }
-            const [rata] = libere.splice(i, 1)
-            const incasso = await segnaIncassata({
-              payment_id: rata.id,
-              incassato_il: r.incassata_il,
-              importo: r.importo,
-              metodo: r.metodo ?? null,
-            })
-            if (!incasso.ok) avvisi.push(`Incasso del ${r.incassata_il}: ${incasso.errore}`)
-          }
-        }
-        return { fatto: true, link: `/sales/${saleId}`, cliente_nuovo: !c, avvisi }
-      },
-    }),
-
-    modifica_vendita: tool({
-      description:
-        'Corregge una vendita di un cliente (la più recente, o quella della data_vendita indicata). Solo i campi da cambiare. ' +
-        'Il piano rate non cambia: le rate si correggono con modifica_rata.',
-      inputSchema: z.object({
-        cliente: z.string().describe('Nome e cognome'),
-        data_vendita: data.optional().describe('Per scegliere la vendita, se il cliente ne ha più di una'),
-        tipo: z.enum(['nuovo', 'rinnovo', 'upsell']).optional(),
-        prodotto: z.string().optional(),
-        valore: z.number().positive().optional(),
-        nuova_data_vendita: data.optional(),
-        data_inizio: data.optional(),
-        data_fine: data.optional(),
-        setter: z.string().optional(),
-        closer: z.string().optional(),
-        note: z.string().max(1000).optional(),
-      }),
-      execute: async (v) => {
-        const c = await trovaCliente(v.cliente)
-        if (!c || typeof c === 'string') return errore(c ?? 'Cliente non trovato.')
-        let q = supabase
-          .from('sales')
-          .select('id, tipo, product_id, prodotto_personalizzato, valore_contratto, data_vendita, data_inizio, data_fine, setter_id, closer_id, note')
-          .eq('client_id', c.id)
-          .order('data_vendita', { ascending: false })
-        if (v.data_vendita) q = q.eq('data_vendita', v.data_vendita)
-        const { data: vendite } = await q.limit(2)
-        const vendita = vendite?.[0]
-        if (!vendita) return errore(`${c.nome} non ha vendite${v.data_vendita ? ' in quella data' : ''}.`)
-
-        let productId = vendita.product_id ?? PERSONALIZZATO
-        let personalizzato = vendita.prodotto_personalizzato
-        if (v.prodotto) {
-          const { data: prodotti } = await supabase.from('products').select('id, nome')
-          const trovato = trova(prodotti ?? [], v.prodotto)
-          productId = trovato && trovato !== 'ambiguo' ? trovato.id : PERSONALIZZATO
-          personalizzato = trovato && trovato !== 'ambiguo' ? null : v.prodotto
-        }
-        const setter = await idPersona(v.setter, vendita.setter_id, ['admin', 'setter', 'closer'])
-        const closer = await idPersona(v.closer, vendita.closer_id, ['admin', 'closer'])
-        if (typeof setter === 'object' && setter) return setter
-        if (typeof closer === 'object' && closer) return closer
-
-        const esito = await modificaVendita({
-          id: vendita.id,
-          tipo: v.tipo ?? vendita.tipo,
-          product_id: productId,
-          prodotto_personalizzato: personalizzato,
-          valore_contratto: v.valore ?? vendita.valore_contratto,
-          data_vendita: v.nuova_data_vendita ?? vendita.data_vendita,
-          data_inizio: v.data_inizio ?? vendita.data_inizio,
-          data_fine: v.data_fine ?? vendita.data_fine,
-          setter_id: setter as string | null,
-          closer_id: closer as string | null,
-          note: v.note ?? vendita.note,
-        })
-        return esito.ok ? { fatto: true, link: `/sales/${vendita.id}` } : errore(esito.errore)
-      },
-    }),
-
-    modifica_rata: tool({
-      description: 'Corregge scadenza o importo previsto di una rata (payment_id da rate_cliente o da_incassare).',
-      inputSchema: z.object({
-        payment_id: z.string().uuid(),
-        cliente: z.string().describe('Nome del cliente, per la conferma'),
-        scadenza: data.optional(),
-        importo: z.number().positive().optional(),
-      }),
-      execute: async (v) => {
-        const { data: rata } = await supabase
-          .from('payments')
-          .select('scadenza, importo_previsto, sale_id')
-          .eq('id', v.payment_id)
-          .maybeSingle()
-        if (!rata) return errore('Rata non trovata.')
-        const esito = await modificaRata({
-          payment_id: v.payment_id,
-          scadenza: v.scadenza ?? rata.scadenza,
-          importo_previsto: v.importo ?? rata.importo_previsto,
-        })
-        return esito.ok ? { fatto: true, link: `/sales/${rata.sale_id}` } : errore(esito.errore)
-      },
-    }),
-
-    modifica_costo: tool({
-      description: 'Corregge un costo (id da costi_periodo). Solo i campi da cambiare.',
-      inputSchema: z.object({
-        id: z.string().uuid(),
-        costo: z.string().describe('Descrizione attuale, per la conferma'),
-        data: data.optional(),
-        categoria: z.enum(CATEGORIE_COSTO).optional(),
-        descrizione: z.string().min(2).max(160).optional(),
-        importo: z.number().positive().optional(),
-        ricorrente: z.boolean().optional(),
-      }),
-      execute: async (v) => {
-        const { data: attuale } = await supabase
-          .from('expenses')
-          .select('data, categoria, descrizione, importo, ricorrente')
-          .eq('id', v.id)
-          .maybeSingle()
-        if (!attuale) return errore('Costo non trovato.')
-        const esito = await modificaCosto({
-          id: v.id,
-          data: v.data ?? attuale.data,
-          categoria: v.categoria ?? attuale.categoria,
-          descrizione: v.descrizione ?? attuale.descrizione,
-          importo: v.importo ?? attuale.importo,
-          ricorrente: v.ricorrente ?? attuale.ricorrente,
-        })
-        return esito.ok ? { fatto: true, link: '/expenses' } : errore(esito.errore)
-      },
-    }),
-
-    // the setter books discovery calls only: no type to switch to strategy.
-    // Admin and closer keep the choice, the history has strategy calls.
-    modifica_call:
-      profilo.ruolo === 'setter'
-        ? tool({
-            description: 'Sposta o corregge una call (call_id da call_periodo): data, ora, closer, note.',
-            inputSchema: campiModificaCall,
-            execute: eseguiModificaCall,
-          })
-        : tool({
-            description: 'Sposta o corregge una call (call_id da call_periodo): data, ora, tipo, closer, note.',
-            inputSchema: campiModificaCall.extend({ tipo: z.enum(TIPI_CALL).optional() }),
-            execute: eseguiModificaCall,
-          }),
-
-    completa_task: tool({
-      description:
-        'Segna un task come fatto (o lo riapre), cercandolo per titolo tra quelli visibili. Lo può fare chi gestisce il progetto, chi l’ha creato o una delle persone a cui è assegnato.',
-      inputSchema: z.object({
-        titolo: z.string().min(1),
-        progetto: z.string().optional(),
-        completato: z.boolean().default(true),
-      }),
-      execute: async (v) => {
-        const { data: task } = await supabase
-          .from('v_pm_task')
-          .select('id, titolo, progetto_id, assegnatari')
-          .ilike('titolo', `%${v.titolo.trim()}%`)
-          .limit(20)
-        let candidati = (task ?? []) as { id: string; titolo: string; progetto_id: string; assegnatari: string[] | null }[]
-        if (v.progetto && candidati.length > 1) {
-          const { data: progetti } = await supabase.from('v_pm_progetti').select('id, nome').ilike('nome', `%${v.progetto}%`)
-          const ids = new Set((progetti ?? []).map((p) => p.id))
-          candidati = candidati.filter((t) => ids.has(t.progetto_id))
-        }
-        const esatto = candidati.filter((t) => t.titolo.toLowerCase() === v.titolo.trim().toLowerCase())
-        let scelto = esatto.length === 1 ? esatto[0] : candidati.length === 1 ? candidati[0] : null
-        if (!scelto && esatto.length > 1) {
-          // same title in several places: the one I am assigned to (alone or with others).
-          // Only among exact titles: a partial match is never closed on a guess.
-          const miei = esatto.filter((t) => (t.assegnatari ?? []).includes(profilo.id))
-          if (miei.length === 1) scelto = miei[0]
-        }
-        if (!scelto) {
-          return errore(
-            candidati.length === 0
-              ? 'Task non trovato.'
-              : `Più task possibili: ${candidati.slice(0, 5).map((t) => t.titolo).join(', ')}. Indica il progetto o il titolo esatto.`,
-          )
-        }
-        const esito = await completaTask({ id: scelto.id, completato: v.completato })
-        return esito.ok
-          ? { fatto: true, task: scelto.titolo, link: `/progetti/${scelto.progetto_id}/attivita` }
-          : errore(esito.errore)
-      },
-    }),
-  } satisfies Record<NomeStrumento, unknown>
-
-  const consentiti = new Set<string>(strumentiConsentiti(profilo.ruolo, livelloPm))
-  return Object.fromEntries(Object.entries(tutti).filter(([nome]) => consentiti.has(nome))) as ToolSet
+/**
+ * What the confirmation card shows before the tap, read with the user's
+ * session: the real row the tool will write (its name from the database, not
+ * the model's), before → after for an edit, what a deletion takes with it.
+ * An { errore } means the target is not found or not unique: the card hands
+ * it to the model, which asks the user.
+ */
+export async function anteprimaScrittura(
+  supabase: Supabase,
+  profilo: Profilo,
+  livelloPm: LivelloPm,
+  nome: string,
+  input: unknown,
+): Promise<Anteprima> {
+  if (!isScrittura(nome) || !strumentiConsentiti(profilo.ruolo, livelloPm).includes(nome)) {
+    return errore('Operazione non disponibile per il tuo ruolo.')
+  }
+  const d = definizioniAlfire(supabase, profilo, livelloPm)[nome]
+  const parsed = d.schema.safeParse(input)
+  if (!parsed.success) return errore('Dati non validi per questa operazione.')
+  if (!d.anteprima) return { righe: [] }
+  return d.anteprima(parsed.data)
 }

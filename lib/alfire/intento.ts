@@ -9,7 +9,7 @@ import { SCRITTURE } from '@/lib/alfire/permessi'
  * question that still matches only costs a bigger request, never an answer.
  */
 const VERBI_SCRITTURA =
-  /\b(registr|segn|aggiung|crea|cre[ai]|modific|cambi|corregg|spost|fiss|pagat|ha pagato|hanno pagato|versat|bonific|contant|vendut|vend[ie]|rinnov|complet|mett|inserisc|salv|annull|chiud|imposta|assegn|elimin|cancell|togli)/i
+  /\b(registr|segn|aggiung|crea|cre[ai]|modific|cambi|corregg|spost|fiss|pagat|ha pagato|hanno pagato|versat|bonific|contant|vendut|vend[ie]|rinnov|complet|mett|inserisc|salv|annull|chiud|imposta|assegn|elimin|cancell|togli|avvi|ferm|rimbors|interromp|riapr|copia)/i
 const IMPORTO = /\d[\d.,]*\s?(€|euro)|€\s?\d/i
 
 function testoUtente(m: UIMessage): string {

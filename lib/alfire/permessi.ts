@@ -4,9 +4,14 @@ import type { AppRole, LivelloPm } from '@/lib/auth/roles'
  * Which tools Alfire receives for whom. The first filter only: every tool runs
  * with the user's own session, so RLS and the action guards still decide.
  * A collaborator never gets a tool that reads a client's payments, costs,
- * margin or someone else's pay (CLAUDE.md section 6).
+ * margin or someone else's pay (CLAUDE.md section 6). The closer's instalment
+ * tool is the one exception section 6 grants: cash-ins of his own sales, as on
+ * his sale page.
  */
 type Chi = { ruoli?: readonly AppRole[]; livelliPm?: readonly LivelloPm[] }
+
+const TUTTI_I_LIVELLI = ['admin', 'manager', 'employee'] as const
+const CHI_GESTISCE = ['admin', 'manager'] as const
 
 export const STRUMENTI = {
   // everyone
@@ -25,45 +30,56 @@ export const STRUMENTI = {
   miei_numeri: { ruoli: ['setter'] },
   // who has calls
   call_periodo: { ruoli: ['admin', 'setter', 'closer'] },
-  // projects: every level sees what RLS lets them see
-  progetti: { livelliPm: ['admin', 'manager', 'employee'] },
-  miei_task: { livelliPm: ['admin', 'manager', 'employee'] },
+  // projects: every level sees what RLS lets them see; time is always one's own
+  progetti: { livelliPm: TUTTI_I_LIVELLI },
+  progetto_dettaglio: { livelliPm: TUTTI_I_LIVELLI },
+  miei_task: { livelliPm: TUTTI_I_LIVELLI },
+  mio_tempo: { livelliPm: TUTTI_I_LIVELLI },
 
   // writes: always behind the user's confirmation
-  crea_cliente: { ruoli: ['admin'] },
-  modifica_cliente: { ruoli: ['admin'] },
+  cliente: { ruoli: ['admin'] },
+  vendita: { ruoli: ['admin'] },
   registra_vendita: { ruoli: ['admin', 'closer'] },
-  modifica_vendita: { ruoli: ['admin'] },
-  modifica_rata: { ruoli: ['admin'] },
-  modifica_costo: { ruoli: ['admin'] },
-  modifica_call: { ruoli: ['admin', 'setter', 'closer'] },
-  segna_incassata: { ruoli: ['admin'] },
-  registra_costo: { ruoli: ['admin'] },
-  aggiorna_report: { ruoli: ['setter'] },
+  rata: { ruoli: ['admin', 'closer'] },
+  costo: { ruoli: ['admin'] },
+  pagamento_provvigione: { ruoli: ['admin'] },
+  regola_provvigione: { ruoli: ['admin'] },
+  obiettivi_mese: { ruoli: ['admin'] },
+  prodotto: { ruoli: ['admin'] },
   // the setter for himself; the admin for himself or a setter (Dany, 29/09/2026)
   fissa_call: { ruoli: ['admin', 'setter'] },
-  crea_progetto: { livelliPm: ['admin', 'manager'] },
-  aggiungi_task: { livelliPm: ['admin', 'manager', 'employee'] },
-  completa_task: { livelliPm: ['admin', 'manager', 'employee'] },
+  call: { ruoli: ['admin', 'setter', 'closer'] },
+  lead: { ruoli: ['admin', 'setter', 'closer'] },
+  // the setter his own days; the admin any setter's (Setting › Aggiungi giornata)
+  aggiorna_report: { ruoli: ['admin', 'setter'] },
+  progetto: { livelliPm: CHI_GESTISCE },
+  lista: { livelliPm: CHI_GESTISCE },
+  task: { livelliPm: TUTTI_I_LIVELLI },
+  nota_progetto: { livelliPm: TUTTI_I_LIVELLI },
+  tempo: { livelliPm: TUTTI_I_LIVELLI },
 } as const satisfies Record<string, Chi>
 
 export type NomeStrumento = keyof typeof STRUMENTI
 
 export const SCRITTURE = [
-  'crea_cliente',
-  'modifica_cliente',
+  'cliente',
+  'vendita',
   'registra_vendita',
-  'modifica_vendita',
-  'modifica_rata',
-  'modifica_costo',
-  'modifica_call',
-  'completa_task',
-  'segna_incassata',
-  'registra_costo',
-  'aggiorna_report',
+  'rata',
+  'costo',
+  'pagamento_provvigione',
+  'regola_provvigione',
+  'obiettivi_mese',
+  'prodotto',
   'fissa_call',
-  'crea_progetto',
-  'aggiungi_task',
+  'call',
+  'lead',
+  'aggiorna_report',
+  'progetto',
+  'lista',
+  'task',
+  'nota_progetto',
+  'tempo',
 ] as const satisfies readonly NomeStrumento[]
 
 export type NomeScrittura = (typeof SCRITTURE)[number]
@@ -72,11 +88,68 @@ export function isScrittura(nome: string): nome is NomeScrittura {
   return (SCRITTURE as readonly string[]).includes(nome)
 }
 
+/**
+ * What each write tool may do, per role (Economics) or per projects level
+ * (Progetti): the same buttons the app shows that person. The tool's schema
+ * offers only these, so the model never sees an action it may not do; the
+ * server action checks again anyway.
+ */
+export const AZIONI = {
+  cliente: { admin: ['crea', 'modifica', 'elimina'] },
+  vendita: { admin: ['modifica', 'interrompi', 'elimina'] },
+  rata: {
+    admin: ['incassa', 'correggi_incasso', 'annulla_incasso', 'fallita', 'modifica', 'rimborso', 'aggiungi', 'elimina'],
+    // his own sales only (RLS), as on his sale page: cash-ins, never the plan
+    closer: ['incassa', 'correggi_incasso', 'annulla_incasso', 'fallita'],
+  },
+  costo: { admin: ['registra', 'modifica', 'elimina', 'copia_ricorrenti'] },
+  pagamento_provvigione: { admin: ['registra', 'modifica', 'elimina'] },
+  regola_provvigione: { admin: ['nuova', 'chiudi', 'modifica', 'elimina'] },
+  prodotto: { admin: ['crea', 'modifica', 'fuori_vendita', 'in_vendita', 'elimina'] },
+  // the outcome is the closer's (registraEsito refuses the setter)
+  call: { admin: ['esito', 'modifica', 'elimina'], closer: ['esito', 'modifica'], setter: ['modifica'] },
+  lead: { admin: ['stato', 'modifica', 'elimina'], setter: ['stato', 'modifica'], closer: ['stato'] },
+  // modalita of the daily report
+  aggiorna_report: { admin: ['aggiungi', 'imposta', 'elimina'], setter: ['aggiungi', 'imposta'] },
+  // per projects level from here on
+  progetto: {
+    admin: ['crea', 'modifica', 'aggiungi_membro', 'togli_membro', 'elimina'],
+    manager: ['crea', 'modifica', 'aggiungi_membro', 'togli_membro'],
+  },
+  lista: { admin: ['crea', 'modifica', 'elimina'], manager: ['crea', 'modifica', 'elimina'] },
+  task: {
+    admin: ['aggiungi', 'modifica', 'completa', 'riapri', 'elimina'],
+    manager: ['aggiungi', 'modifica', 'completa', 'riapri', 'elimina'],
+    employee: ['aggiungi', 'modifica', 'completa', 'riapri', 'elimina'],
+  },
+  nota_progetto: {
+    admin: ['aggiungi', 'modifica', 'elimina'],
+    manager: ['aggiungi', 'modifica', 'elimina'],
+    employee: ['aggiungi', 'modifica', 'elimina'],
+  },
+  tempo: {
+    admin: ['avvia', 'ferma', 'registra', 'modifica', 'elimina'],
+    manager: ['avvia', 'ferma', 'registra', 'modifica', 'elimina'],
+    employee: ['avvia', 'ferma', 'registra', 'modifica', 'elimina'],
+  },
+} as const satisfies Partial<Record<NomeScrittura, Partial<Record<AppRole | LivelloPm, readonly string[]>>>>
+
+type ConAzioni = keyof typeof AZIONI
+
+/** The actions of a write tool for this person: by projects level for the Progetti tools, by role otherwise. */
+export function azioniConsentite(nome: ConAzioni, ruolo: AppRole, livelloPm: LivelloPm | null): readonly string[] {
+  const perChi = AZIONI[nome] as Partial<Record<string, readonly string[]>>
+  const chiave = 'livelliPm' in STRUMENTI[nome] ? livelloPm : ruolo
+  return (chiave && perChi[chiave]) || []
+}
+
 export function strumentiConsentiti(ruolo: AppRole, livelloPm: LivelloPm | null): NomeStrumento[] {
   return (Object.entries(STRUMENTI) as [NomeStrumento, Chi][])
-    .filter(([, chi]) => {
+    .filter(([nome, chi]) => {
       if (chi.ruoli && !chi.ruoli.includes(ruolo)) return false
       if (chi.livelliPm && (!livelloPm || !chi.livelliPm.includes(livelloPm))) return false
+      // a write tool with no action for this person is not offered at all
+      if (nome in AZIONI && azioniConsentite(nome as ConAzioni, ruolo, livelloPm).length === 0) return false
       return true
     })
     .map(([nome]) => nome)

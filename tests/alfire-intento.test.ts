@@ -31,11 +31,16 @@ describe('sul piano gratuito, la conversazione chiede di scrivere?', () => {
     )
   })
 
+  it('una domanda sull’obiettivo legge soltanto; impostarlo scrive', () => {
+    expect(conversazioneScrive([utente('Quanto manca all’obiettivo di questo mese?')])).toBe(false)
+    expect(conversazioneScrive([utente('Imposta l’obiettivo di ottobre a 5 nuovi clienti')])).toBe(true)
+  })
+
   it('una scrittura in attesa di conferma tiene gli strumenti', () => {
     const scheda: UIMessage = {
       id: 'x',
       role: 'assistant',
-      parts: [{ type: 'tool-registra_costo', toolCallId: 'c1', state: 'approval-requested', input: {}, approval: { id: 'a1' } } as never],
+      parts: [{ type: 'tool-costo', toolCallId: 'c1', state: 'approval-requested', input: {}, approval: { id: 'a1' } } as never],
     }
     expect(conversazioneScrive([utente('sì'), scheda])).toBe(true)
   })

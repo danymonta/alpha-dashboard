@@ -176,9 +176,10 @@ describe('persone assegnate', () => {
 
   it('Alfire dice a chi assegna il nuovo task prima di farlo', () => {
     expect(
-      riassuntoScrittura('aggiungi_task', { titolo: 'Copertina', progetto: 'Reel', assegnatari: ['io', 'Sara Editor'] }).dettagli,
+      riassuntoScrittura('task', { azione: 'aggiungi', titolo: 'Copertina', progetto: 'Reel', assegnatari: ['io', 'Sara Editor'] })
+        .dettagli,
     ).toEqual(['Progetto: Reel', 'Assegnato a: te e Sara Editor'])
-    expect(riassuntoScrittura('aggiungi_task', { titolo: 'Copertina', progetto: 'Reel' }).dettagli).toEqual([
+    expect(riassuntoScrittura('task', { azione: 'aggiungi', titolo: 'Copertina', progetto: 'Reel' }).dettagli).toEqual([
       'Progetto: Reel',
       'Senza assegnatario',
     ])
