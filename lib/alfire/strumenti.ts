@@ -358,13 +358,16 @@ function letture({ supabase, profilo, r }: Contesto) {
     }),
 
     call_periodo: definizione({
-      description: 'Call programmate nel periodo visibili a chi chatta, con lead (e il suo stato), tipo, stato ed esito.',
+      description:
+        'Call programmate nel periodo visibili a chi chatta, con lead (e il suo stato), tipo, stato, esito e motivo di non chiusura.',
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
         const { data, error } = await supabase
           .from('calls')
-          .select('id, tipo, programmata_il, stato, esito, qualificata, lead:leads(nome, stato), closer:profiles!calls_closer_id_fkey(nome)')
+          .select(
+            'id, tipo, programmata_il, stato, esito, qualificata, obiezione_principale, lead:leads(nome, stato), closer:profiles!calls_closer_id_fkey(nome)',
+          )
           // a day of margin on both sides, then the Rome calendar day decides
           .gte('programmata_il', `${aggiungiGiorni(p.da, -1)}T00:00:00Z`)
           .lt('programmata_il', `${aggiungiGiorni(p.a, 2)}T00:00:00Z`)

@@ -11,14 +11,15 @@ type Enums = Database['public']['Enums']
 
 /** The columns of a call card, as CallVista reads them. */
 export const CAMPI_CALL =
-  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, note, link_registrazione, performance, prodotto_proposto_id, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
+  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, note, obiezione_principale, link_registrazione, performance, prodotto_proposto_id, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
 
 /**
  * The amount pitched is read only where RLS lets it through: closer and admin.
- * The reason for not closing is the closer's: his card shows it and his
- * outcome sheet opens on it.
+ * The reason for not closing is written by the closer (his outcome sheet opens
+ * on it) and read by the setter who booked the call (Dany, 30/09/2026): he
+ * learns why his leads did not close; the database keeps him from changing it.
  */
-export const CAMPI_CALL_CLOSER = `${CAMPI_CALL}, obiezione_principale, pitch:call_pitch(importo_proposto)`
+export const CAMPI_CALL_CLOSER = `${CAMPI_CALL}, pitch:call_pitch(importo_proposto)`
 
 export type CallVista = {
   id: string
@@ -32,7 +33,7 @@ export type CallVista = {
   link_registrazione: string | null
   performance: Enums['call_performance'] | null
   prodotto_proposto_id: string | null
-  /** "Motivo di non chiusura": only in the closer's query. */
+  /** "Motivo di non chiusura": the closer writes it, the setter reads it. */
   obiezione_principale?: string | null
   /** Embedded only in the closer's query: RLS keeps it from the setter anyway. */
   pitch?: { importo_proposto: number } | null
@@ -151,7 +152,8 @@ export function SchedaCall({
         </div>
       ) : null}
 
-      {vista === 'closer' && chiedeMotivo(call.esito) && call.obiezione_principale ? (
+      {/* both sides see it: the closer wrote it, the setter learns from it */}
+      {chiedeMotivo(call.esito) && call.obiezione_principale ? (
         <p className="mt-1 line-clamp-2 pl-[4.25rem] text-sm break-words" data-testid="motivo-non-chiusura">
           <span className="text-muted-foreground">{MOTIVO_NON_CHIUSURA.titolo}:</span> {call.obiezione_principale}
         </p>

@@ -189,6 +189,22 @@ test('il setter vede stato ed esito, ma non registra', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Registra esito' })).toHaveCount(0)
 })
 
+test('il setter vede il motivo di non chiusura delle sue call, scritto dal closer', async ({ page }) => {
+  const nome = nomeUnico('Motivo al setter')
+  const id = await creaCallDiProva(nome, ID_CLOSER, 3)
+  const { error } = await dbLocale()
+    .from('calls')
+    .update({ stato: 'svolta', qualificata: true, esito: 'persa', obiezione_principale: 'Fuori budget per ora' })
+    .eq('id', id)
+  if (error) throw error
+
+  await accedi(page, 'setter')
+  await page.goto('/calls')
+  await expect(scheda(page, nome).getByTestId('motivo-non-chiusura')).toContainText('Fuori budget per ora')
+  // he reads it, the closer writes it: no outcome sheet on his side
+  await expect(scheda(page, nome).getByRole('button', { name: /Registra esito|Cambia esito/ })).toHaveCount(0)
+})
+
 test('una call futura si può solo annullare o spostare', async ({ page }) => {
   const nome = nomeUnico('Futura')
   await creaCallDiProva(nome, ID_CLOSER, -48)
