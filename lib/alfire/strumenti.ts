@@ -9,7 +9,7 @@ import { isScrittura, strumentiConsentiti, type NomeStrumento } from '@/lib/alfi
 import type { Anteprima } from '@/lib/alfire/riassunto'
 import { DESCRIZIONE_PROPOSTE, schemaProposte } from '@/lib/alfire/risposte'
 import { errore, etichettaRegola, isErrore, risolutori, type Supabase } from '@/lib/alfire/risolvi'
-import { definizione, type Contesto, type Definizione } from '@/lib/alfire/scritture/comune'
+import { datiDi, definizione, SOLO_DI_CHI_CHATTA, type Contesto, type Definizione } from '@/lib/alfire/scritture/comune'
 import { scrittureEconomics } from '@/lib/alfire/scritture/economics'
 import { strumentiProgetti } from '@/lib/alfire/scritture/progetti'
 import { scrittureSetting } from '@/lib/alfire/scritture/setting'
@@ -36,6 +36,29 @@ const periodo = z.object({
 /** The notes of a call in call_periodo: their first characters, on one line. */
 const LUNGHEZZA_NOTE_CALL = 300
 
+/** Rows read by call_periodo and vendite_periodo: a list cut short says so. */
+const CALL_PERIODO = 60
+const VENDITE_PERIODO = 40
+
+/**
+ * Which calls RLS gives the setter and the closer: only their own. Said in the
+ * description and first in the result, so the model never takes them for all
+ * the calls of someone else (the bug of 30/09/2026, with the time). The admin
+ * reads every call, each with its setter and closer.
+ */
+const PERIMETRO_CALL: Partial<Record<Profilo['ruolo'], { descrizione: string; risultato: (nome: string) => string }>> = {
+  setter: {
+    descrizione: 'Solo le call fissate da chi chatta: di un’altra persona mai tutte le sue call.',
+    risultato: (nome) =>
+      `Solo le call fissate da ${nome}, cioè da chi sta chattando: non tutte le call del team. Di un’altra persona qui ci sono solo le call fissate da ${nome}, mai tutte le sue.`,
+  },
+  closer: {
+    descrizione: 'Solo le call assegnate a chi chatta: di un’altra persona mai tutte le sue call.',
+    risultato: (nome) =>
+      `Solo le call assegnate a ${nome}, cioè a chi sta chattando: non tutte le call del team. Di un’altra persona qui ci sono solo le call assegnate a ${nome}, mai tutte le sue.`,
+  },
+}
+
 function leggiPeriodo({ da, a }: { da?: string; a?: string }) {
   const oggi = oggiRoma()
   const inizio = da && isDataISO(da) ? da : primoDelMeseISO(oggi)
@@ -44,7 +67,17 @@ function leggiPeriodo({ da, a }: { da?: string; a?: string }) {
 }
 
 /** What Alfire reads: the same views and RPCs as the pages, with the user's session. */
-function letture({ supabase, profilo, r }: Contesto) {
+function letture({ supabase, profilo, livelloPm, r }: Contesto) {
+  /** Names of the team by id (the directory every role reads), for the rows that point to a person. */
+  async function nomiPersone(ids: readonly (string | null)[]): Promise<Map<string, string> | ReturnType<typeof errore>> {
+    const unici = [...new Set(ids.filter((id): id is string => Boolean(id)))]
+    if (unici.length === 0) return new Map()
+    const { data, error } = await supabase.from('profiles').select('id, nome').in('id', unici)
+    // a read that fails is never "no setter"
+    if (error) return errore('Persone non disponibili.')
+    return new Map(data.map((p) => [p.id, p.nome]))
+  }
+
   return {
     guida: definizione({
       description: 'Come funziona una parte della dashboard (pagine, regole, permessi).',
@@ -127,7 +160,7 @@ function letture({ supabase, profilo, r }: Contesto) {
 
     cerca_clienti: definizione({
       description:
-        'Cerca clienti per nome o cognome, o per stato. Dà stato, valore firmato, incassato, da incassare e rate in ritardo.',
+        'Cerca clienti per nome o cognome, o per stato. Dà stato, fonte, setter (chi l’ha portato) e closer, valore firmato, incassato, da incassare e rate in ritardo.',
       inputSchema: z.object({
         testo: z.string().max(60).optional(),
         stato: z.enum(['attivo', 'in_scadenza', 'scaduto', 'ex_cliente', 'mai_attivato']).optional(),
@@ -135,7 +168,7 @@ function letture({ supabase, profilo, r }: Contesto) {
       execute: async ({ testo, stato }) => {
         let q = supabase
           .from('v_clienti')
-          .select('client_id, nome, cognome, stato, fonte, valore_firmato, incassato, da_incassare, in_ritardo, data_fine_ultima')
+          .select('client_id, nome, cognome, stato, fonte, setter_id, closer_id, valore_firmato, incassato, da_incassare, in_ritardo, data_fine_ultima')
           .order('nome')
           .limit(20)
         if (stato) q = q.eq('stato', stato)
@@ -144,7 +177,17 @@ function letture({ supabase, profilo, r }: Contesto) {
           q = q.or(`nome.ilike.%${t}%,cognome.ilike.%${t}%`)
         }
         const { data, error } = await q
-        return error ? errore('Clienti non disponibili.') : { clienti: data }
+        if (error) return errore('Clienti non disponibili.')
+        // who brought each client, by name: never the admin's clients counted as a setter's
+        const nomi = await nomiPersone(data.flatMap((c) => [c.setter_id, c.closer_id]))
+        if (isErrore(nomi)) return nomi
+        return {
+          clienti: data.map(({ setter_id, closer_id, ...c }) => ({
+            ...c,
+            setter: setter_id ? (nomi.get(setter_id) ?? null) : null,
+            closer: closer_id ? (nomi.get(closer_id) ?? null) : null,
+          })),
+        }
       },
     }),
 
@@ -166,17 +209,20 @@ function letture({ supabase, profilo, r }: Contesto) {
     }),
 
     vendite_periodo: definizione({
-      description: 'Vendite firmate nel periodo, con tipo, valore, incassato, da incassare e rate in ritardo.',
+      description:
+        'Vendite firmate nel periodo, con tipo, setter (chi ha portato il cliente; vuoto: nessuno) e closer, valore, incassato, da incassare e rate in ritardo.',
       inputSchema: periodo.extend({ tipo: z.enum(['nuovo', 'rinnovo', 'upsell']).optional() }),
       execute: async (input) => {
         const p = leggiPeriodo(input)
         let q = supabase
           .from('sales')
-          .select('id, tipo, data_vendita, valore_contratto, numero_rate, prodotto_personalizzato, cliente:clients(nome, cognome), prodotto:products(nome)')
+          .select(
+            'id, tipo, data_vendita, valore_contratto, numero_rate, prodotto_personalizzato, cliente:clients(nome, cognome), prodotto:products(nome), setter:profiles!sales_setter_id_fkey(nome), closer:profiles!sales_closer_id_fkey(nome)',
+          )
           .gte('data_vendita', p.da)
           .lte('data_vendita', p.a)
           .order('data_vendita', { ascending: false })
-          .limit(40)
+          .limit(VENDITE_PERIODO)
         if (input.tipo) q = q.eq('tipo', input.tipo)
         const { data, error } = await q
         if (error) return errore('Vendite non disponibili.')
@@ -202,6 +248,9 @@ function letture({ supabase, profilo, r }: Contesto) {
               data: v.data_vendita,
               tipo: v.tipo,
               cliente: [v.cliente?.nome, v.cliente?.cognome].filter(Boolean).join(' '),
+              // who brought the client and who closed: "Loris's clients" are only the sales with his name
+              setter: v.setter?.nome ?? null,
+              closer: v.closer?.nome ?? null,
               prodotto: v.prodotto?.nome ?? v.prodotto_personalizzato,
               valore: v.valore_contratto,
               rate: v.numero_rate,
@@ -210,6 +259,10 @@ function letture({ supabase, profilo, r }: Contesto) {
               rate_in_ritardo: i?.rate_in_ritardo ?? null,
             }
           }),
+          // a list cut short is never the whole period
+          ...(data.length >= VENDITE_PERIODO
+            ? { nota: `Solo le ${VENDITE_PERIODO} vendite più recenti del periodo: per contarle tutte, un periodo più corto o un tipo.` }
+            : {}),
         }
       },
     }),
@@ -353,37 +406,41 @@ function letture({ supabase, profilo, r }: Contesto) {
     }),
 
     miei_numeri: definizione({
-      description: 'I numeri del setter che chatta nel periodo, con provvigioni maturate e pagate (solo totali).',
+      description: `I numeri del setter che chatta nel periodo, con provvigioni maturate e pagate (solo totali). ${SOLO_DI_CHI_CHATTA}`,
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
         const { data, error } = await supabase.rpc('miei_numeri_periodo', { p_da: p.da, p_a: p.a })
-        return error ? errore('Numeri non disponibili.') : { periodo: p, numeri: data?.[0] ?? null }
+        return error ? errore('Numeri non disponibili.') : { ...datiDi(profilo), periodo: p, numeri: data?.[0] ?? null }
       },
     }),
 
     call_periodo: definizione({
       description:
-        'Call programmate nel periodo visibili a chi chatta, con lead (e il suo stato), tipo, stato, esito, motivo di non chiusura, note del setter e note aggiuntive del closer.',
+        'Call programmate nel periodo, con lead (e il suo stato), setter (chi l’ha fissata), closer, tipo, stato, esito, motivo di non chiusura, note del setter e note aggiuntive del closer. ' +
+        (PERIMETRO_CALL[profilo.ruolo]?.descrizione ?? 'Tutte le call del team.'),
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
         const { data, error } = await supabase
           .from('calls')
           .select(
-            'id, tipo, programmata_il, stato, esito, qualificata, obiezione_principale, note, note_closer, lead:leads(nome, stato), closer:profiles!calls_closer_id_fkey(nome)',
+            'id, tipo, programmata_il, stato, esito, qualificata, obiezione_principale, note, note_closer, lead:leads(nome, stato), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)',
           )
           // a day of margin on both sides, then the Rome calendar day decides
           .gte('programmata_il', `${aggiungiGiorni(p.da, -1)}T00:00:00Z`)
           .lt('programmata_il', `${aggiungiGiorni(p.a, 2)}T00:00:00Z`)
           .order('programmata_il')
-          .limit(60)
+          .limit(CALL_PERIODO)
         if (error) return errore('Call non disponibili.')
         const nelPeriodo = data.filter((c) => {
           const giorno = oggiRoma(new Date(c.programmata_il))
           return giorno >= p.da && giorno <= p.a
         })
+        const perimetro = PERIMETRO_CALL[profilo.ruolo]
         return {
+          // RLS gives the setter and the closer only their own calls: said first, never read as someone else's all
+          ...(perimetro ? { persona: profilo.nome, di_chi: perimetro.risultato(profilo.nome) } : {}),
           periodo: p,
           call: nelPeriodo.map((c) => ({
             call_id: c.id,
@@ -393,13 +450,18 @@ function letture({ supabase, profilo, r }: Contesto) {
             quando: c.programmata_il,
             stato: c.stato,
             esito: c.esito,
-            closer: c.closer?.nome,
+            setter: c.setter?.nome ?? null,
+            closer: c.closer?.nome ?? null,
             // what was written, each text with its author; the notes (up to 2000 characters) shortened:
             // up to 60 calls must fit in a free-plan answer
             ...(c.obiezione_principale?.trim() ? { [MOTIVO_NON_CHIUSURA.titolo]: c.obiezione_principale.trim() } : {}),
             ...(c.note?.trim() ? { [NOTE_SETTER.titolo]: breve(c.note, LUNGHEZZA_NOTE_CALL) } : {}),
             ...(c.note_closer?.trim() ? { [NOTE_CLOSER.diChi]: breve(c.note_closer, LUNGHEZZA_NOTE_CALL) } : {}),
           })),
+          // the read stops at 60 calls (the margin days included): the later ones are missing, and the model is told
+          ...(data.length >= CALL_PERIODO
+            ? { nota: `Elenco parziale: più di ${CALL_PERIODO} call, qui le prime per data. Per contarle tutte, un periodo più corto.` }
+            : {}),
         }
       },
     }),
@@ -415,12 +477,22 @@ function letture({ supabase, profilo, r }: Contesto) {
           .limit(25)
         if (testo?.trim()) q = q.ilike('nome', `%${testo.trim()}%`)
         const { data, error } = await q
-        return error ? errore('Progetti non disponibili.') : { progetti: data }
+        if (error) return errore('Progetti non disponibili.')
+        return {
+          // below the projects' admin, RLS gives only the caller's projects: never "the projects Lorenzo works on"
+          ...(livelloPm === 'admin'
+            ? {}
+            : {
+                persona: profilo.nome,
+                di_chi: `Solo i progetti di cui ${profilo.nome}, cioè chi sta chattando, è membro: non tutti quelli del team, né quelli di un’altra persona.`,
+              }),
+          progetti: data,
+        }
       },
     }),
 
     miei_task: definizione({
-      description: 'I task aperti assegnati a chi chatta (anche quelli condivisi con altri), con progetto, scadenza e ritardo.',
+      description: `I task aperti assegnati a chi chatta (anche quelli condivisi con altri), con progetto, scadenza e ritardo. ${SOLO_DI_CHI_CHATTA}`,
       inputSchema: z.object({}),
       execute: async () => {
         const { data, error } = await supabase
@@ -431,7 +503,16 @@ function letture({ supabase, profilo, r }: Contesto) {
           .neq('stato', 'completato')
           .order('scadenza', { nullsFirst: false })
           .limit(30)
-        return error ? errore('Task non disponibili.') : { task: data }
+        if (error) return errore('Task non disponibili.')
+        // the project by name, as on I miei task: the model never shows an id
+        const ids = [...new Set(data.map((t) => t.progetto_id).filter((id): id is string => Boolean(id)))]
+        const progetti = ids.length ? await supabase.from('v_pm_progetti').select('id, nome').in('id', ids) : { data: [], error: null }
+        if (progetti.error) return errore('Task non disponibili.')
+        const nomi = new Map((progetti.data ?? []).map((x) => [x.id, x.nome]))
+        return {
+          ...datiDi(profilo),
+          task: data.map(({ progetto_id, ...t }) => ({ ...t, progetto: (progetto_id && nomi.get(progetto_id)) || null })),
+        }
       },
     }),
   }

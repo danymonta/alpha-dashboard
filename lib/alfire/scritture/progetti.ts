@@ -17,13 +17,24 @@ import {
 } from '@/app/(app)/progetti/[id]/actions'
 import { creaProgetto } from '@/app/(app)/progetti/actions'
 import { avviaTimer, eliminaTempo, fermaTimer, modificaTempo, registraTempo } from '@/app/(app)/tempo/actions'
+import { raggruppaTempoTeam } from '@/components/pm/tempo-team/dati'
 import { breve, cambi } from '@/lib/alfire/cambi'
 import { CONSEGUENZE, conseguenzeLista, conseguenzeTask } from '@/lib/alfire/conseguenze'
 import type { Anteprima } from '@/lib/alfire/riassunto'
 import { errore, isErrore, isIo, isNessuno, trova, type Errore } from '@/lib/alfire/risolvi'
-import { anteprima, data, definizione, enumAzioni, type Contesto, type Definizione } from '@/lib/alfire/scritture/comune'
-import { formatOra, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
+import {
+  anteprima,
+  data,
+  datiDi,
+  definizione,
+  enumAzioni,
+  SOLO_DI_CHI_CHATTA,
+  type Contesto,
+  type Definizione,
+} from '@/lib/alfire/scritture/comune'
+import { aggiungiGiorni, formatOra, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import { formatData } from '@/lib/format'
+import { hrefPeriodo } from '@/lib/periodo'
 import {
   ETICHETTA_PRIORITA,
   ETICHETTA_STATO_PROGETTO,
@@ -39,7 +50,9 @@ import { fasciaDellaVoce, modificaTempoSchema, tempoManualeSchema, timerSenzaFas
  * Alfire's writes on projects: the project and its members, lists, tasks,
  * notes and one's own time. RLS (pm_puo_vedere / pm_puo_gestire) decides who
  * may do what, as for the pages; time is always the user's own (CLAUDE.md
- * sections 17 and 18: self-declared, never anybody else's).
+ * sections 17 and 18: self-declared, never anybody else's). The one read of
+ * other people's time is the admin's tempo_team, as Tempo › Team: declared
+ * time only, never a running timer.
  */
 
 type Progetto = Exclude<Awaited<ReturnType<Contesto['r']['trovaProgetto']>>, Errore>
@@ -848,35 +861,74 @@ function progettoDettaglio(ctx: Contesto): Definizione {
   })
 }
 
+/** "ultimi 7 giorni" in days, today included; otherwise da–a, by default the month so far. */
+const periodoTempo = z.object({
+  ultimi_giorni: z
+    .number()
+    .int()
+    .min(1)
+    .max(366)
+    .optional()
+    .describe('Gli ultimi N giorni, oggi compreso: «ultimi 7 giorni» = 7. Al posto di da e a'),
+  da: data.optional().describe('Default: primo del mese'),
+  a: data.optional().describe('Default: oggi'),
+})
+
+function leggiPeriodoTempo({ ultimi_giorni, da, a }: z.infer<typeof periodoTempo>): { da: string; a: string } {
+  const oggi = oggiRoma()
+  // the same count as the period presets: "ultimi 90 giorni" = today and the 89 before
+  if (ultimi_giorni) return { da: aggiungiGiorni(oggi, 1 - ultimi_giorni), a: oggi }
+  const inizio = da && isDataISO(da) ? da : primoDelMeseISO(oggi)
+  const fine = a && isDataISO(a) ? a : oggi
+  return inizio <= fine ? { da: inizio, a: fine } : { da: fine, a: inizio }
+}
+
+/** Entries of mio_tempo: the most recent ones; the totals always count them all. */
+const VOCI_MIO_TEMPO = 40
+
+const PROGETTO_NON_DISPONIBILE = 'Progetto non più disponibile'
+
 function mioTempo(ctx: Contesto): Definizione {
   const { supabase, profilo, r } = ctx
   return definizione({
-    description: 'Il tuo tempo registrato nel periodo (voce_id per modificarlo) e il timer acceso, se c’è. Solo il tuo.',
-    inputSchema: z.object({ da: data.optional().describe('Default: primo del mese'), a: data.optional().describe('Default: oggi') }),
-    execute: async ({ da, a }) => {
-      const oggi = oggiRoma()
-      const inizio = da && isDataISO(da) ? da : primoDelMeseISO(oggi)
-      const fine = a && isDataISO(a) ? a : oggi
-      const [voci, acceso] = await Promise.all([
+    description:
+      'Il tempo registrato da chi chatta nel periodo: totale e per progetto (da SQL: non sommare le voci), le voci più recenti (voce_id per modificarle) e il suo timer acceso, se c’è. ' +
+      SOLO_DI_CHI_CHATTA +
+      (profilo.ruolo === 'admin' ? ' Per il tempo degli altri: tempo_team.' : ''),
+    inputSchema: periodoTempo,
+    execute: async (input) => {
+      const { da: inizio, a: fine } = leggiPeriodoTempo(input)
+      const [voci, riepilogo, acceso] = await Promise.all([
         supabase
           .from('pm_tempo')
           .select('id, data, minuti, nota, inizio, fine, progetto:pm_progetti(nome), task:pm_task(titolo)')
           // mine only, even when RLS lets a manager or the admin see more
           .eq('profile_id', profilo.id)
+          // the running timer is not an entry yet (it is timer_acceso) and never takes a place in the list
+          .not('minuti', 'is', null)
           .gte('data', inizio)
           .lte('data', fine)
           .order('data', { ascending: false })
-          .limit(40),
+          .limit(VOCI_MIO_TEMPO),
+        // the totals of Il mio tempo, from SQL: the model never adds up the entries (it once said "2 ore" from a partial list)
+        supabase.rpc('pm_riepilogo_tempo', { p_da: inizio, p_a: fine }),
         r.timerAcceso(),
       ])
-      if (voci.error) return errore('Tempo non disponibile.')
+      if (voci.error || riepilogo.error) return errore('Tempo non disponibile.')
+      const totale = riepilogo.data.find((x) => x.livello === 'totale')
+      const elenco = voci.data ?? []
       return {
+        // whose time this is, first: never someone else's (30/09/2026)
+        ...datiDi(profilo),
         periodo: { da: inizio, a: fine },
+        totale: { minuti: totale?.minuti ?? 0, durata: durataLeggibile(totale?.minuti), voci: totale?.voci ?? 0 },
+        per_progetto: riepilogo.data
+          .filter((x) => x.livello === 'progetto')
+          .map((x) => ({ progetto: x.progetto ?? PROGETTO_NON_DISPONIBILE, minuti: x.minuti, durata: durataLeggibile(x.minuti), voci: x.voci })),
         timer_acceso: acceso
           ? { progetto: acceso.progetto?.nome ?? null, task: acceso.task?.titolo ?? null, dalle: acceso.inizio ? formatOra(acceso.inizio) : null }
           : null,
-        // the running timer is not an entry yet: it is timer_acceso
-        voci: (voci.data ?? []).filter((v) => !(v.inizio && !v.fine)).map((v) => {
+        voci: elenco.map((v) => {
           const f = fasciaDellaVoce(v)
           return {
             voce_id: v.id,
@@ -888,6 +940,111 @@ function mioTempo(ctx: Contesto): Definizione {
             nota: v.nota,
           }
         }),
+        ...(elenco.length < (totale?.voci ?? 0)
+          ? { nota: `Qui le ${elenco.length} voci più recenti su ${totale?.voci}: il totale le conta tutte; l’elenco intero in [Il mio tempo](/tempo).` }
+          : {}),
+      }
+    },
+  })
+}
+
+/**
+ * What tempo_team shows per person: the latest entries, and the projects and
+ * tasks with the most time (the RPC orders them so), enough to say what the
+ * time went on. The whole team gets less of each: a month of a coach on the
+ * client projects must still fit a free-plan answer. The rest is on the page.
+ */
+export const LIMITI_TEMPO_TEAM = {
+  persona: { voci: 20, progetti: 15, task: 10 },
+  team: { voci: 5, progetti: 5, task: 3 },
+} as const
+
+const SENZA_TASK = 'senza task'
+
+/**
+ * The team's declared time, as Tempo › Team (Dany, 30/09/2026: "quanto tempo
+ * ha tracciato Loris negli ultimi 7 giorni?"). The app admin only; the RPC
+ * refuses anybody else anyway. Same limits as the page (CLAUDE.md sections 17
+ * and 18): only time already declared, never a running timer, only the people
+ * with time in the period, alphabetical. Every total comes from SQL.
+ */
+function tempoTeam(ctx: Contesto): Definizione {
+  const { supabase, r } = ctx
+  return definizione({
+    description:
+      'Il tempo già dichiarato dal team nel periodo, come Tempo › Team: per persona (in ordine alfabetico) totale, progetti, task e ultime voci. ' +
+      'È lo strumento per il tempo di un’altra persona: mio_tempo è solo di chi chatta. ' +
+      'Mai i timer accesi; compare solo chi ha registrato qualcosa: non dire chi manca, niente classifiche né confronti tra persone. ' +
+      'altri_progetti, altri_task: quanti non sono nell’elenco, tutti nel link.',
+    inputSchema: periodoTempo.extend({
+      persona: z.string().optional().describe('Nome; vuoto: tutto il team'),
+      progetto: z.string().optional().describe('Nome; vuoto: tutti i progetti'),
+    }),
+    execute: async (input) => {
+      const periodo = leggiPeriodoTempo(input)
+      let chi: { id: string; nome: string } | undefined
+      if (input.persona?.trim()) {
+        const trovata = await r.personaDelTeam(input.persona)
+        if (isErrore(trovata)) return trovata
+        chi = trovata
+      }
+      let progetto: Progetto | undefined
+      if (input.progetto?.trim()) {
+        const trovato = await r.trovaProgetto(input.progetto)
+        if (isErrore(trovato)) return trovato
+        progetto = trovato
+      }
+      const limiti = chi ? LIMITI_TEMPO_TEAM.persona : LIMITI_TEMPO_TEAM.team
+      const { data: righe, error } = await supabase.rpc('pm_tempo_per_persona', {
+        p_da: periodo.da,
+        p_a: periodo.a,
+        ...(chi ? { p_profilo: chi.id } : {}),
+        ...(progetto ? { p_progetto: progetto.id } : {}),
+        p_limite: limiti.voci,
+      })
+      // a read that fails is never "nobody logged anything"
+      if (error) return errore('Tempo del team non disponibile.')
+      // grouped as on the page; minutes and entries as SQL counted them
+      const team = raggruppaTempoTeam(righe ?? [])
+      return {
+        periodo,
+        ...(chi ? { persona: chi.nome } : {}),
+        ...(progetto ? { progetto: progetto.nome } : {}),
+        totale: { minuti: team.minuti, durata: durataLeggibile(team.minuti), voci: team.voci },
+        persone: team.persone.map((p) => ({
+          persona: p.nome,
+          minuti: p.minuti,
+          durata: durataLeggibile(p.minuti),
+          voci: p.voci,
+          // the projects and tasks with the most time first (as SQL ordered them); how many more, never their minutes added up here
+          progetti: p.progetti.slice(0, limiti.progetti).map((g) => ({
+            progetto: g.nome,
+            minuti: g.minuti,
+            durata: durataLeggibile(g.minuti),
+            task: g.task
+              .slice(0, limiti.task)
+              .map((t) => ({ task: t.titolo ?? SENZA_TASK, minuti: t.minuti, durata: durataLeggibile(t.minuti) })),
+            ...(g.task.length > limiti.task ? { altri_task: g.task.length - limiti.task } : {}),
+          })),
+          ...(p.progetti.length > limiti.progetti ? { altri_progetti: p.progetti.length - limiti.progetti } : {}),
+          ultime_voci: p.ultime.map((v) => {
+            const f = fasciaDellaVoce(v)
+            return {
+              data: v.data,
+              progetto: v.progetto,
+              task: v.task ?? SENZA_TASK,
+              minuti: v.minuti,
+              ...(f ? { fascia: fascia(f.dalle, f.alle) } : {}),
+              ...(v.nota?.trim() ? { nota: breve(v.nota) } : {}),
+            }
+          }),
+          ...(p.ultime.length < p.voci ? { nota: `Qui le ${p.ultime.length} voci più recenti su ${p.voci}: tutte in Tempo › Team.` } : {}),
+        })),
+        // asked about one person: the answer to that question, never a list of who did not log
+        ...(team.persone.length === 0
+          ? { nota: chi ? `${chi.nome} non ha tempo registrato nel periodo.` : 'Nessun tempo registrato nel periodo.' }
+          : {}),
+        link: hrefPeriodo('/tempo/team', periodo, { persona: chi?.id, progetto: progetto?.id }),
       }
     },
   })
@@ -897,6 +1054,7 @@ export function strumentiProgetti(ctx: Contesto) {
   return {
     progetto_dettaglio: progettoDettaglio(ctx),
     mio_tempo: mioTempo(ctx),
+    tempo_team: tempoTeam(ctx),
     progetto: progetto(ctx),
     lista: lista(ctx),
     task: task(ctx),

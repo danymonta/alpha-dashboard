@@ -56,7 +56,8 @@ test('l’admin apre le novità da Impostazioni e le vede tutte, con per chi è 
   expect(await page.getByTestId('changelog-voce').count()).toBe(TUTTE.length)
   const soloAdmin = voci('admin')[0]
   await expect(page.getByTestId('changelog-voce').filter({ hasText: soloAdmin.testo })).toContainText('Solo admin')
-  const condivisa = CORRENTE.novita.find((v) => v.per.join() === 'tutti')!
+  // the shared item of the current version may be a fix (1.14.0: Alfire no longer mixes people up)
+  const condivisa = [...CORRENTE.novita, ...(CORRENTE.correzioni ?? [])].find((v) => v.per.join() === 'tutti')!
   await expect(page.getByTestId('changelog-voce').filter({ hasText: condivisa.testo })).toContainText('Tutto il team')
 
   // the oldest version reads closed: title and counts, the lists open with a tap

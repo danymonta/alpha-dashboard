@@ -77,6 +77,8 @@ const LETTURE: Record<string, string> = {
   progetto_dettaglio: 'il progetto',
   miei_task: 'i tuoi task',
   mio_tempo: 'il tuo tempo',
+  tempo_team: 'il tempo del team',
+  commenti_marketing: 'cosa dicono i lead',
 }
 
 type ContestoAlfire = { apri: () => void }

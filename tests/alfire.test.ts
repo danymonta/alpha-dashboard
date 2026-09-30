@@ -342,8 +342,44 @@ describe('letture dell’admin: il cash in quattro parti', () => {
     })
     const esito = await esegui(admin, 'vendite_periodo', { da: '2026-09-01', a: '2026-09-30' })
     expect(esito).toMatchObject({
-      vendite: [{ cliente: 'Mario Rossi', tipo: 'rinnovo', valore: 1500, incassato: 500, da_incassare: 1000 }],
+      vendite: [{ cliente: 'Mario Rossi', tipo: 'rinnovo', valore: 1500, incassato: 500, da_incassare: 1000, setter: null }],
     })
+  })
+
+  it('vendite e clienti dicono chi ha portato il cliente e chi ha chiuso: mai i clienti dell’admin contati come del setter', async () => {
+    const vendita = (id: string, setter: string | null) => ({
+      id,
+      tipo: 'nuovo',
+      data_vendita: '2026-09-10',
+      valore_contratto: 1500,
+      numero_rate: 3,
+      prodotto_personalizzato: null,
+      cliente: { nome: 'Mario', cognome: id },
+      prodotto: null,
+      setter: setter ? { nome: setter } : null,
+      closer: { nome: 'Dany' },
+    })
+    const admin = strumentiDi('admin', 'admin', {
+      // a client Loris brought, and one Dany brought himself (section 8)
+      sales: [vendita('a', 'Loris'), vendita('b', 'Dany')],
+      v_vendite: [],
+      v_clienti: [{ client_id: 'c1', nome: 'Mario', cognome: 'Rossi', stato: 'attivo', setter_id: ALTRO, closer_id: IO }],
+      profiles: [
+        { id: IO, nome: 'Dany' },
+        { id: ALTRO, nome: 'Loris' },
+      ],
+    })
+    expect(await esegui(admin, 'vendite_periodo', { da: '2026-09-01', a: '2026-09-30' })).toMatchObject({
+      vendite: [
+        { cliente: 'Mario a', setter: 'Loris', closer: 'Dany' },
+        { cliente: 'Mario b', setter: 'Dany', closer: 'Dany' },
+      ],
+    })
+    const clienti = (await esegui(admin, 'cerca_clienti', { testo: 'Rossi' })) as { clienti: Record<string, unknown>[] }
+    expect(clienti.clienti).toEqual([expect.objectContaining({ nome: 'Mario', setter: 'Loris', closer: 'Dany' })])
+    // names, never the ids the model must not show
+    expect(clienti.clienti[0]).not.toHaveProperty('setter_id')
+    expect(clienti.clienti[0]).not.toHaveProperty('closer_id')
   })
 })
 
@@ -499,6 +535,24 @@ describe('prompt e guida', () => {
     // the same four parts as the overview: renewals are not "clienti già entrati"
     expect(p).toContain('rate di clienti già entrati = rate di vendite nuove firmate prima del periodo')
     expect(p).not.toContain('rinnovo e upsell = clienti già entrati')
+  })
+
+  it('il prompt: mai i dati di chi chatta al posto di quelli di un altro (30/09/2026)', () => {
+    for (const ruolo of ['admin', 'setter', 'closer', 'coach'] as const) {
+      const p = promptAlfire({ nome: 'Dany', ruolo, oggi: '2026-09-30' })
+      expect(p, ruolo).toContain(
+        'o dati di un’altra persona che nessuno strumento legge, dillo senza strade alternative, mai con i dati di chi chatta; all’admin indica la pagina.',
+      )
+    }
+  })
+
+  it('la guida dice che l’admin chiede ad Alfire il tempo del team, con i limiti della pagina', () => {
+    expect(GUIDA.progetti).toContain('l’admin lo chiede anche ad Alfire')
+    // the guide is read by every role: no real collaborator's name as the example (section 17)
+    for (const a of ARGOMENTI_GUIDA) expect(GUIDA[a], a).not.toMatch(/Loris|Lorenzo/)
+    expect(GUIDA.alfire).toContain('il tempo del team, come Tempo › Team (/tempo/team)')
+    expect(GUIDA.alfire).toContain('mai i timer accesi')
+    expect(GUIDA.alfire).toContain('Alfire non li dà mai per quelli di un altro')
   })
 
   it('ogni argomento della guida ha un testo', () => {

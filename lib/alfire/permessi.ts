@@ -6,7 +6,9 @@ import type { AppRole, LivelloPm } from '@/lib/auth/roles'
  * A collaborator never gets a tool that reads a client's payments, costs,
  * margin or someone else's pay (CLAUDE.md section 6). The closer's instalment
  * tool is the one exception section 6 grants: cash-ins of his own sales, as on
- * his sale page.
+ * his sale page. The "mine" reads (miei_numeri, miei_task, mio_tempo) always
+ * return the caller's data and say whose it is: another person's data comes
+ * only from a tool made for it (tempo_team), never from them.
  */
 type Chi = { ruoli?: readonly AppRole[]; livelliPm?: readonly LivelloPm[] }
 
@@ -35,11 +37,14 @@ export const STRUMENTI = {
   miei_numeri: { ruoli: ['setter'] },
   // who has calls
   call_periodo: { ruoli: ['admin', 'setter', 'closer'] },
-  // projects: every level sees what RLS lets them see; time is always one's own
+  // projects: every level sees what RLS lets them see; one's own time for everyone
   progetti: { livelliPm: TUTTI_I_LIVELLI },
   progetto_dettaglio: { livelliPm: TUTTI_I_LIVELLI },
   miei_task: { livelliPm: TUTTI_I_LIVELLI },
   mio_tempo: { livelliPm: TUTTI_I_LIVELLI },
+  // the team's declared time, as Tempo › Team (30/09/2026): the app admin only,
+  // like the RPC it reads (pm_tempo_per_persona refuses anybody else)
+  tempo_team: { ruoli: ['admin'] },
 
   // writes: always behind the user's confirmation
   cliente: { ruoli: ['admin'] },

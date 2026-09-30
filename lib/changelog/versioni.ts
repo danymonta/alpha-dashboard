@@ -80,6 +80,43 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.14.0',
+    data: '2026-09-30',
+    titolo: 'Alfire legge il tempo del team',
+    riassunto: 'Chiedi ad Alfire quanto tempo ha registrato una persona e su cosa, come in Tempo › Team; e non scambia più i tuoi dati per quelli di un altro.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'Chiedi ad Alfire «quanto tempo ha tracciato Loris negli ultimi 7 giorni, e su cosa?»: legge il tempo già dichiarato, come Tempo › Team, con il totale, i progetti, i task e le ultime voci. Per una persona o per tutti, per un progetto, per un periodo o per gli ultimi giorni.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Gli stessi limiti della pagina: mai il timer acceso di qualcuno, compare solo chi ha registrato qualcosa nel periodo, in ordine alfabetico, nessuna classifica. Se un nome vale per più persone, Alfire ti chiede quale.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['tutti'],
+        testo: 'Alfire non dà più i tuoi dati per quelli di un altro: chiedendo il tempo di Loris aveva risposto con le tue 2 ore. Ora ogni lettura dei tuoi numeri, task e tempo dice di chi sono, e se nessuno strumento legge un’altra persona Alfire te lo dice e ti indica la pagina.',
+        testoTeam: 'Alfire non scambia più le persone: i tuoi numeri, i tuoi task e il tuo tempo restano tuoi e non li dà mai per quelli di un collega. Se chiedi di qualcuno che non può leggere, te lo dice.',
+      },
+      {
+        per: ['setter', 'closer'],
+        testo: 'Le call che Alfire legge per il setter sono quelle fissate da lui, e per il closer quelle assegnate a lui: ora lo sa, e chiedendo le call di un collega non le dà più per tutte le sue.',
+        testoTeam: 'Le call che Alfire legge per te sono solo le tue (fissate da te, o assegnate a te): chiedendo le call di un collega non le dà più per tutte le sue, e ti dice che vede solo quelle in comune.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Chiedendo ad Alfire il tuo tempo hai il totale e le ore per progetto come in Il mio tempo, anche con tante voci: prima le sommava da solo, e oltre 40 voci ne contava solo una parte. Nei tuoi task ora dice anche il nome del progetto.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Nelle call, nelle vendite e nei clienti che legge Alfire c’è chi ha fissato la call o portato il cliente e chi ha chiuso: «quanti clienti ha portato Loris?» non conta più anche quelli che hai portato tu. Un elenco troppo lungo ora lo dice, invece di contarne solo una parte.',
+      },
+    ],
+  },
+  {
     versione: '1.13.0',
     data: '2026-09-30',
     titolo: 'Allegati in Alfire',

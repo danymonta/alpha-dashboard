@@ -1,6 +1,6 @@
 import 'server-only'
 
-import type { AppRole } from '@/lib/auth/roles'
+import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
 import { aggiungiMesi, formatOra, oggiRoma } from '@/lib/date'
 import { formatData, formatEuro, formatMese } from '@/lib/format'
@@ -62,6 +62,23 @@ function candidati<T extends { nome: string | null }>(righe: T[], nome: string):
   return righe.filter(
     (r) => minuscolo(r.nome).includes(cerca) || parole.every((p) => minuscolo(r.nome).split(' ').includes(p)),
   )
+}
+
+type PersonaDelTeam = { id: string; nome: string; ruolo: AppRole; attivo: boolean; email?: string | null }
+
+/**
+ * "Loris Setter (Setter)", "Loris Setter (Setter, non più attivo)": two people
+ * with the same name are told apart by role and state; when even those are
+ * the same (the Excel import's placeholder, an old account), by the email.
+ */
+export function etichettePersone<T extends PersonaDelTeam>(persone: readonly T[]): (T & { etichetta: string })[] {
+  const base = (p: T) => `${p.nome} (${ETICHETTA_RUOLO[p.ruolo]}${p.attivo ? '' : ', non più attivo'}`
+  const quante = new Map<string, number>()
+  for (const p of persone) quante.set(minuscolo(base(p)), (quante.get(minuscolo(base(p))) ?? 0) + 1)
+  return persone.map((p) => ({
+    ...p,
+    etichetta: `${base(p)}${(quante.get(minuscolo(base(p))) ?? 0) > 1 && p.email ? `, ${p.email}` : ''})`,
+  }))
 }
 
 /**
@@ -295,6 +312,35 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
     if (!trovato || trovato === 'ambiguo') {
       return errore(`Persona "${nome}" non trovata o non univoca. Possibili: ${(data ?? []).map((p) => p.nome).join(', ')}`)
     }
+    return { id: trovato.id, nome: trovato.nome }
+  }
+
+  /**
+   * Anyone of the team by name for a read on their work (tempo_team), people
+   * no longer active included: the time they declared stays. More than one
+   * fits: the error names only those, each with a label that tells them apart
+   * (role, "non più attivo", the email when two are still the same), and the
+   * model asks which one; the label as written finds that person.
+   */
+  async function personaDelTeam(nome: string): Promise<{ id: string; nome: string } | Errore> {
+    if (isIo(nome)) return { id: profilo.id, nome: profilo.nome }
+    const { data, error } = await supabase.from('profiles').select('id, nome, ruolo, attivo, email')
+    if (error) return errore(NON_LETTO)
+    const righe = etichettePersone(data ?? []).sort((x, y) => x.etichetta.localeCompare(y.etichetta, 'it'))
+    // the answer to the question below: the label as the error wrote it
+    const perEtichetta = righe.filter((p) => minuscolo(p.etichetta) === minuscolo(nome))
+    if (perEtichetta.length === 1) return { id: perEtichetta[0].id, nome: perEtichetta[0].nome }
+    const trovato = trova(righe, nome)
+    if (trovato === 'ambiguo') {
+      const possibili = candidati(righe, nome)
+      return errore(
+        `Più persone possibili per "${nome}": ${possibili
+          .slice(0, 6)
+          .map((p) => p.etichetta)
+          .join('; ')}${possibili.length > 6 ? '; …' : ''}. Chiedi quale, e cercala scritta come qui.`,
+      )
+    }
+    if (!trovato) return errore(`Nessuna persona "${nome}" nel team. Persone: ${[...new Set(righe.map((p) => p.nome))].join(', ')}`)
     return { id: trovato.id, nome: trovato.nome }
   }
 
@@ -747,6 +793,7 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
     trovaCliente,
     idPersona,
     persona,
+    personaDelTeam,
     trovaVendita,
     trovaRata,
     trovaCosto,

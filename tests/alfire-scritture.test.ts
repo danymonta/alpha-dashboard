@@ -9,7 +9,7 @@ import { azioneDistruttiva, riassuntoScrittura } from '@/lib/alfire/riassunto'
 import { anteprimaScrittura, strumentiAlfire } from '@/lib/alfire/strumenti'
 import type { AppRole, LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
-import { oggiRoma } from '@/lib/date'
+import { aggiungiGiorni, oggiRoma, primoDelMeseISO } from '@/lib/date'
 
 // Every write goes through the server action of the app's own form: stand-ins
 // here record what Alfire would write, without Next or a database.
@@ -240,8 +240,17 @@ function supabaseFinto(tabelle: Record<string, Riga[]>, registro: string[] = [],
     })
     return q
   }
-  return { from: query, rpc: query }
+  return {
+    from: query,
+    rpc: (nome: string, args: Record<string, unknown> = {}) => {
+      rpcChiamate.push({ nome, args })
+      return query(nome)
+    },
+  }
 }
+
+/** Every RPC the tools called, with its arguments (reset before each test). */
+const rpcChiamate: { nome: string; args: Record<string, unknown> }[] = []
 
 const IO = '00000000-0000-4000-8000-000000000001'
 const LORENZO = '00000000-0000-4000-8000-000000000002'
@@ -437,11 +446,14 @@ async function campiDi(s: ToolSet, nome: string): Promise<string[]> {
 
 const spazi = (t: string) => t.replace(/ /g, ' ')
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  rpcChiamate.length = 0
+})
 
 // ---------------------------------------------------------------------------
 describe('chi riceve quali strumenti (elenchi fissati)', () => {
-  it('admin: 16 letture, le risposte a un tocco e 18 scritture', () => {
+  it('admin: 17 letture, le risposte a un tocco e 18 scritture', () => {
     expect(strumentiConsentiti('admin', 'admin')).toEqual([
       'guida',
       'proponi_risposte',
@@ -460,6 +472,7 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
       'progetto_dettaglio',
       'miei_task',
       'mio_tempo',
+      'tempo_team',
       'cliente',
       'vendita',
       'registra_vendita',
@@ -534,6 +547,16 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
     ]
     expect(strumentiConsentiti('coach', 'employee')).toEqual(lavora)
     expect(strumentiConsentiti('coach', 'manager')).toEqual([...lavora.slice(0, 6), 'progetto', 'lista', ...lavora.slice(6)])
+  })
+
+  it('il tempo del team lo legge solo l’admin dell’app, non chi gestisce i progetti', () => {
+    expect(strumentiConsentiti('admin', 'admin')).toContain('tempo_team')
+    for (const ruolo of ['setter', 'closer', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
+      for (const livello of ['employee', 'manager', 'admin'] as const) {
+        expect(strumentiConsentiti(ruolo, livello), `${ruolo}/${livello}`).not.toContain('tempo_team')
+        expect(Object.keys(strumenti(ruolo, livello)), `${ruolo}/${livello}`).not.toContain('tempo_team')
+      }
+    }
   })
 })
 
@@ -1187,6 +1210,324 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
 })
 
 // ---------------------------------------------------------------------------
+describe('i dati di chi chatta dicono di chi sono', () => {
+  // Dany's chat of 30/09/2026: asked about Loris's time, Alfire read Dany's own
+  // (mio_tempo) and answered "Loris ha registrato 2 ore"
+  const DI_DANY = {
+    persona: 'Dany Montagnolo',
+    di_chi: 'Questi sono i dati di Dany Montagnolo, cioè di chi sta chattando: mai di un’altra persona.',
+  }
+
+  it('mio_tempo, miei_task e miei_numeri: il nome di chi chatta per primo, e la frase che lo dice', async () => {
+    const righe = mondo()
+    righe.v_pm_task = [{ id: 'k1', titolo: 'Montaggio reel', stato: 'da_fare', scadenza: null, in_ritardo: false, priorita: null, progetto_id: PROGETTO, assegnatari: [IO] }]
+    righe.miei_numeri_periodo = [{ dm_totali: 40 }]
+
+    const tempo = (await esegui(strumenti('admin', 'admin', righe), 'mio_tempo', { da: '2026-09-01', a: '2026-09-30' })) as Record<string, unknown>
+    const task = (await esegui(strumenti('coach', 'employee', righe), 'miei_task', {})) as Record<string, unknown>
+    const numeri = (await esegui(strumenti('setter', 'employee', righe), 'miei_numeri', { da: '2026-09-01', a: '2026-09-30' })) as Record<string, unknown>
+
+    for (const [nome, esito] of [
+      ['mio_tempo', tempo],
+      ['miei_task', task],
+      ['miei_numeri', numeri],
+    ] as const) {
+      expect(esito, nome).toMatchObject(DI_DANY)
+      // first in the result: the model reads whose data before the data
+      expect(Object.keys(esito).slice(0, 2), nome).toEqual(['persona', 'di_chi'])
+    }
+    expect(tempo).toMatchObject({ voci: [{ voce_id: 't-mio', minuti: 90 }] })
+    expect(task).toMatchObject({ task: [{ id: 'k1' }] })
+    expect(numeri).toMatchObject({ numeri: { dm_totali: 40 } })
+  })
+
+  it('le loro descrizioni dicono che sono solo di chi chatta; all’admin mio_tempo indica tempo_team', () => {
+    const admin = strumenti('admin', 'admin')
+    const setter = strumenti('setter', 'employee')
+    for (const [s, nome] of [
+      [admin, 'mio_tempo'],
+      [admin, 'miei_task'],
+      [setter, 'miei_numeri'],
+      [setter, 'miei_task'],
+      [setter, 'mio_tempo'],
+    ] as const) {
+      expect(s[nome].description, nome).toContain('Solo di chi chatta: mai per un’altra persona.')
+    }
+    expect(admin.mio_tempo.description).toContain('Per il tempo degli altri: tempo_team.')
+    // a tool the setter does not have is never named to him
+    expect(setter.mio_tempo.description).not.toContain('tempo_team')
+  })
+
+  it('mio_tempo: totale e progetti da SQL, mai il timer acceso tra le voci, e dice quando l’elenco non le ha tutte', async () => {
+    const righe = mondo()
+    righe.pm_tempo = [
+      ...Array.from({ length: 45 }, (_, i) => ({
+        id: `t${i}`,
+        profile_id: IO,
+        progetto_id: PROGETTO,
+        task_id: null,
+        data: '2026-09-15',
+        minuti: 60,
+        nota: null,
+        inizio: null,
+        fine: null,
+        progetto: { nome: 'Reel settembre' },
+      })),
+    ]
+    // a month of 45 entries: the list keeps 40, the totals count all of them
+    righe.pm_riepilogo_tempo = [
+      { livello: 'progetto', data: null, progetto_id: PROGETTO, progetto: 'Reel settembre', minuti: 2700, voci: 45 },
+      { livello: 'totale', data: null, progetto_id: null, progetto: null, minuti: 2700, voci: 45 },
+    ]
+    const registro: string[] = []
+    const esito = (await esegui(strumenti('coach', 'employee', righe, registro), 'mio_tempo', { da: '2026-09-01', a: '2026-09-30' })) as {
+      voci: unknown[]
+    }
+    expect(rpcChiamate).toContainEqual({ nome: 'pm_riepilogo_tempo', args: { p_da: '2026-09-01', p_a: '2026-09-30' } })
+    expect(esito).toMatchObject({
+      totale: { minuti: 2700, durata: '45 h', voci: 45 },
+      per_progetto: [{ progetto: 'Reel settembre', minuti: 2700, durata: '45 h', voci: 45 }],
+      nota: 'Qui le 40 voci più recenti su 45: il totale le conta tutte; l’elenco intero in [Il mio tempo](/tempo).',
+    })
+    expect(esito.voci).toHaveLength(40)
+
+    // a running timer is timer_acceso, never an entry that takes a place in the list
+    righe.pm_tempo = [
+      { id: 't-acceso', profile_id: IO, progetto_id: PROGETTO, task_id: null, data: '2026-09-30', minuti: null, nota: null, inizio: '2026-09-30T08:00:00Z', fine: null, progetto: { nome: 'Reel settembre' } },
+      ...righe.pm_tempo.slice(0, 2),
+    ]
+    righe.pm_riepilogo_tempo = [{ livello: 'totale', data: null, progetto_id: null, progetto: null, minuti: 120, voci: 2 }]
+    const conTimer = (await esegui(strumenti('coach', 'employee', righe), 'mio_tempo', { da: '2026-09-01', a: '2026-09-30' })) as Record<string, unknown>
+    expect(conTimer).toMatchObject({ totale: { minuti: 120, durata: '2 h', voci: 2 }, timer_acceso: { progetto: 'Reel settembre', dalle: '10:00' } })
+    expect((conTimer.voci as { voce_id: string }[]).map((v) => v.voce_id)).toEqual(['t0', 't1'])
+    expect(conTimer).not.toHaveProperty('nota')
+  })
+
+  it('mio_tempo: un totale che non si legge non diventa mai «nessun tempo»', async () => {
+    const s = strumentiAlfire(supabaseFinto(mondo(), [], ['pm_riepilogo_tempo']) as never, profiloDi('coach'), 'employee')
+    expect(await esegui(s, 'mio_tempo', {})).toEqual({ errore: 'Tempo non disponibile.' })
+  })
+
+  it('miei_task dice il progetto per nome, mai solo il suo id', async () => {
+    const righe = mondo()
+    righe.v_pm_task = [{ id: 'k1', titolo: 'Montaggio reel', stato: 'da_fare', scadenza: null, in_ritardo: false, priorita: null, progetto_id: PROGETTO, assegnatari: [IO] }]
+    const esito = (await esegui(strumenti('coach', 'employee', righe), 'miei_task', {})) as { task: Record<string, unknown>[] }
+    expect(esito.task).toEqual([expect.objectContaining({ id: 'k1', titolo: 'Montaggio reel', progetto: 'Reel settembre' })])
+    expect(esito.task[0]).not.toHaveProperty('progetto_id')
+  })
+
+  it('progetti: sotto l’admin dei progetti dice che sono solo quelli di chi chatta', async () => {
+    const employee = (await esegui(strumenti('coach', 'employee'), 'progetti', {})) as Record<string, unknown>
+    expect(Object.keys(employee).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(employee.di_chi).toBe(
+      'Solo i progetti di cui Dany Montagnolo, cioè chi sta chattando, è membro: non tutti quelli del team, né quelli di un’altra persona.',
+    )
+    expect(await esegui(strumenti('coach', 'manager'), 'progetti', {})).toHaveProperty('di_chi')
+    // the projects' admin reads them all
+    expect(await esegui(strumenti('admin', 'admin'), 'progetti', {})).not.toHaveProperty('di_chi')
+  })
+
+  it('mio_tempo: «ultimi 7 giorni» sono oggi e i 6 giorni prima', async () => {
+    const oggi = oggiRoma()
+    const esito = (await esegui(strumenti('coach', 'employee'), 'mio_tempo', { ultimi_giorni: 7 })) as { periodo: unknown }
+    expect(esito.periodo).toEqual({ da: aggiungiGiorni(oggi, -6), a: oggi })
+  })
+})
+
+// ---------------------------------------------------------------------------
+describe('tempo_team: il tempo dichiarato dal team, come Tempo › Team', () => {
+  const DM_SETTER = 'b0000000-0000-4000-8000-000000000002'
+  const TASK_DM = 'k0000000-0000-4000-8000-000000000001'
+  const TASK_CALL = 'k0000000-0000-4000-8000-000000000002'
+  const vuota = { profile_id: null, persona: null, progetto_id: null, progetto: null, task_id: null, task: null, voci: null, id: null, data: null, inizio: null, fine: null, nota: null }
+  const diLoris = { profile_id: LORIS, persona: 'Loris Setter' }
+  const suDm = { ...diLoris, progetto_id: DM_SETTER, progetto: 'DM Setter' }
+
+  /** The rows of pm_tempo_per_persona for Loris (the numbers of 30/09/2026: 566 minutes, 12 entries). */
+  function tempoDiLoris(): Riga[] {
+    return [
+      { ...vuota, livello: 'totale', minuti: 566, voci: 12 },
+      { ...vuota, ...diLoris, livello: 'persona', minuti: 566, voci: 12 },
+      { ...vuota, ...suDm, livello: 'progetto', minuti: 566, voci: 12 },
+      { ...vuota, ...suDm, livello: 'task', task_id: TASK_DM, task: 'DM Setting', minuti: 400, voci: 8 },
+      { ...vuota, ...suDm, livello: 'task', task_id: TASK_CALL, task: 'Call di allineamento', minuti: 120, voci: 2 },
+      { ...vuota, ...suDm, livello: 'task', minuti: 46, voci: 2 },
+      {
+        ...vuota,
+        ...suDm,
+        livello: 'voce',
+        task_id: TASK_DM,
+        task: 'DM Setting',
+        minuti: 60,
+        id: 'v1',
+        data: '2026-09-29',
+        inizio: '2026-09-29T07:00:00Z',
+        fine: '2026-09-29T08:00:00Z',
+        nota: 'Risposte ai DM',
+      },
+      { ...vuota, ...suDm, livello: 'voce', minuti: 23, id: 'v2', data: '2026-09-28' },
+    ]
+  }
+
+  function conTempo(extra: Partial<Record<string, Riga[]>> = {}): Record<string, Riga[]> {
+    const righe = mondo()
+    righe.pm_tempo_per_persona = tempoDiLoris()
+    righe.v_pm_progetti = [...righe.v_pm_progetti, { id: DM_SETTER, nome: 'DM Setter', reparto_id: 'rep-vendite', client_id: null, stato: 'attivo' }]
+    return { ...righe, ...extra } as Record<string, Riga[]>
+  }
+
+  it('«quanto ha tracciato Loris negli ultimi 7 giorni?»: la RPC con Loris e il periodo giusto, i totali di SQL con le parole', async () => {
+    const oggi = oggiRoma()
+    const esito = (await esegui(strumenti('admin', 'admin', conTempo()), 'tempo_team', { persona: 'Loris', ultimi_giorni: 7 })) as Record<string, unknown>
+
+    expect(rpcChiamate).toEqual([
+      { nome: 'pm_tempo_per_persona', args: { p_da: aggiungiGiorni(oggi, -6), p_a: oggi, p_profilo: LORIS, p_limite: 20 } },
+    ])
+    expect(esito).toMatchObject({
+      periodo: { da: aggiungiGiorni(oggi, -6), a: oggi },
+      persona: 'Loris Setter',
+      totale: { minuti: 566, durata: '9 h 26 min', voci: 12 },
+      persone: [
+        {
+          persona: 'Loris Setter',
+          minuti: 566,
+          durata: '9 h 26 min',
+          voci: 12,
+          progetti: [
+            {
+              progetto: 'DM Setter',
+              minuti: 566,
+              task: [
+                { task: 'DM Setting', minuti: 400, durata: '6 h 40 min' },
+                { task: 'Call di allineamento', minuti: 120, durata: '2 h' },
+                { task: 'senza task', minuti: 46, durata: '46 min' },
+              ],
+            },
+          ],
+          ultime_voci: [
+            { data: '2026-09-29', progetto: 'DM Setter', task: 'DM Setting', minuti: 60, fascia: '09:00–10:00', nota: 'Risposte ai DM' },
+            { data: '2026-09-28', progetto: 'DM Setter', task: 'senza task', minuti: 23 },
+          ],
+          // 2 entries of 12 here: the rest is on the page
+          nota: 'Qui le 2 voci più recenti su 12: tutte in Tempo › Team.',
+        },
+      ],
+      link: `/tempo/team?persona=${LORIS}&da=${aggiungiGiorni(oggi, -6)}&a=${oggi}`,
+    })
+    // never Dany's own time, never an id the model could repeat
+    expect(JSON.stringify(esito)).not.toContain('Dany')
+    expect(JSON.stringify((esito as { persone: unknown }).persone)).not.toMatch(/v1|v2|profile_id/)
+  })
+
+  it('senza persona: tutto il team del mese in corso, poche voci per persona; un progetto per nome', async () => {
+    const oggi = oggiRoma()
+    await esegui(strumenti('admin', 'admin', conTempo()), 'tempo_team', {})
+    expect(rpcChiamate.at(-1)).toEqual({ nome: 'pm_tempo_per_persona', args: { p_da: primoDelMeseISO(oggi), p_a: oggi, p_limite: 5 } })
+
+    await esegui(strumenti('admin', 'admin', conTempo()), 'tempo_team', { progetto: 'DM', da: '2026-09-01', a: '2026-09-30' })
+    expect(rpcChiamate.at(-1)).toEqual({
+      nome: 'pm_tempo_per_persona',
+      args: { p_da: '2026-09-01', p_a: '2026-09-30', p_progetto: DM_SETTER, p_limite: 5 },
+    })
+  })
+
+  it('un nome che vale per due persone: le candidate, nessuna lettura e nessuna scelta a caso', async () => {
+    const righe = conTempo()
+    righe.profiles = [...righe.profiles, { id: 'ex-loris', nome: 'Loris Rossi', ruolo: 'coach', attivo: false }]
+    const esito = await esegui(strumenti('admin', 'admin', righe), 'tempo_team', { persona: 'Loris', ultimi_giorni: 7 })
+    expect(esito).toEqual({
+      errore: 'Più persone possibili per "Loris": Loris Rossi (Coach, non più attivo); Loris Setter (Setter). Chiedi quale, e cercala scritta come qui.',
+    })
+    expect(rpcChiamate).toEqual([])
+
+    // who no longer works here keeps the time declared: found by name
+    await esegui(strumenti('admin', 'admin', righe), 'tempo_team', { persona: 'Loris Rossi' })
+    expect(rpcChiamate.at(-1)?.args).toMatchObject({ p_profilo: 'ex-loris' })
+  })
+
+  it('due persone con lo stesso nome: ruolo, stato e, se non basta, l’email le distinguono; scritta così, la risposta trova quella', async () => {
+    const righe = conTempo()
+    righe.profiles = [
+      { id: IO, nome: 'Dany Montagnolo', ruolo: 'admin', attivo: true, email: 'dany@esempio.it' },
+      { id: LORIS, nome: 'Loris Setter', ruolo: 'setter', attivo: true, email: 'loris@esempio.it' },
+      // the Excel import's placeholder, not merged yet, and an old account
+      { id: 'segnaposto', nome: 'Loris Setter', ruolo: 'setter', attivo: true, email: 'import@esempio.it' },
+      { id: 'vecchio', nome: 'Loris Setter', ruolo: 'setter', attivo: false, email: 'vecchio@esempio.it' },
+    ]
+    const s = strumenti('admin', 'admin', righe)
+    expect(await esegui(s, 'tempo_team', { persona: 'Loris Setter' })).toEqual({
+      errore:
+        'Più persone possibili per "Loris Setter": Loris Setter (Setter, import@esempio.it); Loris Setter (Setter, loris@esempio.it); ' +
+        'Loris Setter (Setter, non più attivo). Chiedi quale, e cercala scritta come qui.',
+    })
+    expect(rpcChiamate).toEqual([])
+
+    // the user's answer, as the question wrote it (a tap on its button sends exactly that)
+    await esegui(s, 'tempo_team', { persona: 'Loris Setter (Setter, non più attivo)' })
+    expect(rpcChiamate.at(-1)?.args).toMatchObject({ p_profilo: 'vecchio' })
+    await esegui(s, 'tempo_team', { persona: 'loris setter (setter, loris@esempio.it)' })
+    expect(rpcChiamate.at(-1)?.args).toMatchObject({ p_profilo: LORIS })
+  })
+
+  it('tutto il team per un mese: i progetti e i task con più tempo, quanti altri, e un risultato che resta piccolo', async () => {
+    // six people, a coach-like month: 26 client projects with 6 tasks each
+    const persone = Array.from({ length: 6 }, (_, i) => ({ profile_id: `p${i}`, persona: `Persona ${i}` }))
+    const righe: Riga[] = [{ ...vuota, livello: 'totale', minuti: 6 * 26 * 6 * 30, voci: 6 * 26 * 6 }]
+    for (const chi of persone) {
+      righe.push({ ...vuota, ...chi, livello: 'persona', minuti: 26 * 6 * 30, voci: 26 * 6 })
+      for (let g = 0; g < 26; g++) {
+        const progetto = { ...chi, progetto_id: `${chi.profile_id}-g${g}`, progetto: `Percorso cliente ${g}` }
+        righe.push({ ...vuota, ...progetto, livello: 'progetto', minuti: 6 * 30, voci: 6 })
+        for (let t = 0; t < 6; t++) {
+          righe.push({ ...vuota, ...progetto, livello: 'task', task_id: `t${t}`, task: `Call di check ${t}`, minuti: 30, voci: 1 })
+        }
+      }
+      for (let v = 0; v < 5; v++) {
+        righe.push({ ...vuota, ...chi, progetto_id: `${chi.profile_id}-g0`, progetto: 'Percorso cliente 0', livello: 'voce', minuti: 30, id: `${chi.profile_id}-v${v}`, data: '2026-09-29', nota: 'Call di check con il cliente, tutto regolare' })
+      }
+    }
+    const esito = (await esegui(strumenti('admin', 'admin', conTempo({ pm_tempo_per_persona: righe })), 'tempo_team', {})) as {
+      persone: { progetti: { task: unknown[]; altri_task?: number }[]; altri_progetti?: number }[]
+    }
+    expect(esito.persone).toHaveLength(6)
+    for (const p of esito.persone) {
+      expect(p.progetti).toHaveLength(5)
+      expect(p.altri_progetti).toBe(21)
+      expect(p.progetti[0].task).toHaveLength(3)
+      expect(p.progetti[0].altri_task).toBe(3)
+    }
+    // a free-plan answer: about 4.000 tokens for six busy people (without the caps, about six times as much)
+    expect(JSON.stringify(esito).length).toBeLessThan(14_000)
+  })
+
+  it('una persona che non c’è, o senza tempo nel periodo: lo dice, senza elenchi di chi non ha registrato', async () => {
+    const nessuno = await esegui(strumenti('admin', 'admin', conTempo()), 'tempo_team', { persona: 'Marta' })
+    expect(nessuno).toEqual({ errore: 'Nessuna persona "Marta" nel team. Persone: Dany Montagnolo, Lorenzo Closer, Loris Setter' })
+    expect(rpcChiamate).toEqual([])
+
+    const vuoto = (await esegui(strumenti('admin', 'admin', conTempo({ pm_tempo_per_persona: [] })), 'tempo_team', {
+      persona: 'Lorenzo',
+    })) as Record<string, unknown>
+    expect(vuoto).toMatchObject({ persona: 'Lorenzo Closer', persone: [], nota: 'Lorenzo Closer non ha tempo registrato nel periodo.' })
+    const team = (await esegui(strumenti('admin', 'admin', conTempo({ pm_tempo_per_persona: [] })), 'tempo_team', {})) as Record<string, unknown>
+    expect(team).toMatchObject({ persone: [], nota: 'Nessun tempo registrato nel periodo.' })
+  })
+
+  it('una lettura che non riesce non vale mai «nessuno ha registrato»', async () => {
+    const s = strumentiAlfire(supabaseFinto(conTempo(), [], ['pm_tempo_per_persona']) as never, profiloDi('admin'), 'admin')
+    expect(await esegui(s, 'tempo_team', { persona: 'Loris' })).toEqual({ errore: 'Tempo del team non disponibile.' })
+  })
+
+  it('la descrizione: l’unico strumento per il tempo di un altro, con i limiti della pagina', () => {
+    const d = strumenti('admin', 'admin').tempo_team.description ?? ''
+    expect(d).toContain('mio_tempo è solo di chi chatta')
+    expect(d).toContain('Mai i timer accesi')
+    expect(d).toContain('niente classifiche né confronti tra persone')
+    expect(d).toContain('non dire chi manca')
+  })
+})
+
+// ---------------------------------------------------------------------------
 describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta dietro', () => {
   it('tempo: la fascia si vede sulla scheda e segue le regole del modulo', async () => {
     const p = await anteprima('tempo', { azione: 'registra', progetto: 'Reel', data: '2026-09-28', dalle: '9:00', alle: '10:30' }, 'coach')
@@ -1427,6 +1768,46 @@ describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta
         }),
       ])
     }
+  })
+
+  it('call_periodo: chi ha fissato ogni call, e per setter e closer che sono solo le loro', async () => {
+    const leggi = async (ruolo: 'setter' | 'closer' | 'admin') =>
+      (await esegui(strumenti(ruolo, ruolo === 'admin' ? 'admin' : 'employee'), 'call_periodo', { da: '2026-09-28', a: '2026-09-28' })) as Record<string, unknown>
+    const righe = mondo()
+    righe.calls[0] = { ...righe.calls[0], setter: { nome: 'Loris Setter' }, closer: { nome: 'Dany Montagnolo' } }
+    const admin = (await esegui(strumenti('admin', 'admin', righe), 'call_periodo', { da: '2026-09-28', a: '2026-09-28' })) as {
+      call: Record<string, unknown>[]
+    }
+    // the admin reads every call: each one says who set it and who closes it ("Loris's calls" are only those with his name)
+    expect(admin.call[0]).toMatchObject({ setter: 'Loris Setter', closer: 'Dany Montagnolo' })
+    expect(admin).not.toHaveProperty('di_chi')
+
+    const setter = await leggi('setter')
+    expect(Object.keys(setter).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(setter).toMatchObject({
+      persona: 'Dany Montagnolo',
+      di_chi:
+        'Solo le call fissate da Dany Montagnolo, cioè da chi sta chattando: non tutte le call del team. ' +
+        'Di un’altra persona qui ci sono solo le call fissate da Dany Montagnolo, mai tutte le sue.',
+    })
+    expect(await leggi('closer')).toMatchObject({
+      di_chi:
+        'Solo le call assegnate a Dany Montagnolo, cioè a chi sta chattando: non tutte le call del team. ' +
+        'Di un’altra persona qui ci sono solo le call assegnate a Dany Montagnolo, mai tutte le sue.',
+    })
+
+    expect(strumenti('setter', 'employee').call_periodo.description).toContain('Solo le call fissate da chi chatta')
+    expect(strumenti('closer', 'employee').call_periodo.description).toContain('Solo le call assegnate a chi chatta')
+    expect(strumenti('admin', 'admin').call_periodo.description).toContain('Tutte le call del team.')
+  })
+
+  it('call_periodo: oltre 60 call l’elenco dice che è parziale', async () => {
+    const righe = mondo()
+    righe.calls = Array.from({ length: 61 }, (_, i) => ({ ...righe.calls[0], id: `c${i}` }))
+    const esito = (await esegui(strumenti('admin', 'admin', righe), 'call_periodo', { da: '2026-09-28', a: '2026-09-28' })) as Record<string, unknown>
+    expect(esito.call).toHaveLength(60)
+    expect(esito.nota).toBe('Elenco parziale: più di 60 call, qui le prime per data. Per contarle tutte, un periodo più corto.')
+    expect(await esegui(strumenti('admin', 'admin'), 'call_periodo', { da: '2026-09-28', a: '2026-09-28' })).not.toHaveProperty('nota')
   })
 
   it('un altro esito toglie il motivo di non chiusura salvato, e la scheda lo dice', async () => {

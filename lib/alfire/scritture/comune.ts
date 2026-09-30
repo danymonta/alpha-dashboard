@@ -55,6 +55,22 @@ export function enumAzioni(ctx: Contesto, nome: keyof typeof AZIONI) {
 
 export const data = z.string().describe('AAAA-MM-GG')
 
+/**
+ * Whose data a "mine" read returns (mio_tempo, miei_numeri, miei_task), first
+ * in the result. The model must never hand them out as someone else's: asked
+ * about Loris's time, Alfire once answered with Dany's own two hours (Dany's
+ * chat of 30/09/2026).
+ */
+export function datiDi(profilo: Pick<Profilo, 'nome'>) {
+  return {
+    persona: profilo.nome,
+    di_chi: `Questi sono i dati di ${profilo.nome}, cioè di chi sta chattando: mai di un’altra persona.`,
+  }
+}
+
+/** The end of a "mine" read's description: the caller's data only. */
+export const SOLO_DI_CHI_CHATTA = 'Solo di chi chatta: mai per un’altra persona.'
+
 /** Titles and lines of a preview that knows the row. */
 export function anteprima(titolo: string | undefined, righe: (string | null | false | undefined)[], sostituisceDettagli = true): Anteprima {
   return { ...(titolo ? { titolo } : {}), righe: righe.filter((r): r is string => Boolean(r)), sostituisceDettagli }

@@ -104,6 +104,29 @@ async function trascrizione(req, corpo) {
   return DETTATO.slice(0, Math.min(DETTATO.length, Math.max(1, Math.ceil(byte / BYTE_PER_PAROLA)))).join(' ')
 }
 
+// e2e/alfire-tempo-team.spec.ts: "quanto tempo ha tracciato Loris?", the name asked about
+function personaChiesta(domanda) {
+  return /ha tracciato ([a-zà-ù]+)/i.exec(domanda)?.[1] ?? ''
+}
+
+// the answer about someone's time, from what the tool read: tempo_team names each
+// person; mio_tempo says whose data it is, and it is never someone else's
+function rispostaTempo(strumento, esito, domanda) {
+  const dati = JSON.parse(esito)
+  if (strumento === 'tempo_team') {
+    const [p] = dati.persone ?? []
+    if (!p) return dati.nota ?? 'Nessun tempo registrato nel periodo.'
+    const task = p.progetti.flatMap((g) => g.task.map((t) => t.task))
+    return `${p.persona} ha registrato ${p.durata} dal ${dati.periodo.da} al ${dati.periodo.a}, su: ${task.join(', ')}.`
+  }
+  const chiesta = personaChiesta(domanda)
+  if (chiesta && !String(dati.persona ?? '').toLowerCase().includes(chiesta.toLowerCase())) {
+    const nome = chiesta[0].toUpperCase() + chiesta.slice(1)
+    return `Non posso leggere il tempo di ${nome}: questi sono i dati di ${dati.persona}, cioè di chi sta chattando.`
+  }
+  return `Hai registrato ${dati.voci?.length ?? 0} voci.`
+}
+
 function contenuto(m) {
   return typeof m.content === 'string' ? m.content : (m.content ?? []).map((p) => p.text ?? '').join(' ')
 }
@@ -211,6 +234,7 @@ createServer(async (req, res) => {
     if (esito.includes('"errore"')) return testo(res, `Errore: ${esito}`)
     // the card sent back a target that is not unique (anteprimaAlfire): ask which one
     if (esito.startsWith('Più ')) return testo(res, `Quale intendi? ${esito}`)
+    if (strumento === 'tempo_team' || strumento === 'mio_tempo') return testo(res, rispostaTempo(strumento, esito, ultimaDomanda))
     return testo(res, esito.includes('"fatto":true') ? `Fatto: ${strumento}.` : 'Questo mese hai incassato 6.950,00 €.')
   }
   const domanda = contenuto(ultimo).toLowerCase()
@@ -268,6 +292,14 @@ createServer(async (req, res) => {
       { tipo: 'scelta', domanda: 'Di che categoria è la spesa?', opzioni: ['Software', 'Formazione'] },
       'Di che categoria è la spesa?',
     )
+  }
+  // e2e/alfire-tempo-team.spec.ts: someone else's time. The admin has tempo_team; anyone
+  // else only his own mio_tempo, as the model did on 30/09/2026 (the answer must see whose it is)
+  if (domanda.includes('ha tracciato')) {
+    if (strumentiDellaRichiesta.includes('tempo_team')) {
+      return chiamata(res, 'tempo_team', { persona: personaChiesta(domanda), ultimi_giorni: 7 })
+    }
+    return chiamata(res, 'mio_tempo', { ultimi_giorni: 7 })
   }
   if (domanda.includes('andato il mese')) return chiamata(res, 'numeri_periodo', {})
   if (domanda.includes('chi è in ritardo')) return testo(res, 'Nessuno è in ritardo con i pagamenti.')
