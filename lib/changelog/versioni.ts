@@ -80,6 +80,39 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.13.0',
+    data: '2026-09-30',
+    titolo: 'Allegati in Alfire',
+    riassunto: 'Con la graffetta alleghi PDF, foto, Word, Excel e CSV, e Alfire li legge per risponderti.',
+    intestazionePer: ['tutti'],
+    novita: [
+      {
+        per: ['tutti'],
+        testo: 'In Alfire, accanto al microfono, c’è la graffetta: alleghi fino a 3 file per messaggio (PDF, foto e screenshot, Word, Excel, CSV, fino a 4 MB l’uno) e chiedi cosa c’è dentro. Se chiedi di registrare qualcosa, passa sempre dalla scheda di conferma.',
+      },
+      {
+        per: ['tutti'],
+        testo: 'Foto e documenti scansionati li legge un secondo modello open source, che ne trascrive il testo e descrive l’immagine. Dal telefono puoi anche scattare la foto al momento.',
+      },
+      {
+        per: ['tutti'],
+        testo: 'I file non si salvano da nessuna parte: vanno a Groq solo per essere letti e restano nella chat aperta finché non la chiudi. Lo trovi scritto in Profilo › Alfire.',
+      },
+      {
+        per: ['tutti'],
+        testo: 'Quello che c’è scritto in un file, per Alfire, è un dato da leggere e mai un ordine: fa solo quello che chiedi tu.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Una ricevuta in foto o un piano di rate in PDF si registrano in chat: Alfire li legge e prepara la scheda con i dati, tu confermi.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Il modello che legge foto e scansioni si sceglie su Vercel con ALFIRE_MODEL_VISIONE (di serie Qwen 3.8 su Groq, ancora in anteprima), e con «off» si spegne: PDF con testo, Word, Excel e CSV si leggono lo stesso.',
+      },
+    ],
+  },
+  {
     versione: '1.12.0',
     data: '2026-09-30',
     titolo: 'Il changelog per tutto il team',

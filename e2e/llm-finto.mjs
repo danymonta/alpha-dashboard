@@ -2,6 +2,9 @@
 // Groq, so the whole flow (tool call, confirmation, write, answer) is testable
 // offline. Start: node e2e/llm-finto.mjs (port 4010), then run the dev server
 // with ALFIRE_API_KEY=finta ALFIRE_BASE_URL=http://127.0.0.1:4010/v1.
+// It also plays the vision model (a request with an image gets a fixed
+// transcription) and remembers the last requests: GET /__ultime answers
+// { chat, visione }, the bodies as received (e2e/alfire-allegati.spec.ts).
 import { createServer } from 'node:http'
 
 const PORTA = Number(process.env.PORTA_LLM_FINTO ?? 4010)
@@ -105,12 +108,49 @@ function contenuto(m) {
   return typeof m.content === 'string' ? m.content : (m.content ?? []).map((p) => p.text ?? '').join(' ')
 }
 
+// e2e/alfire-allegati.spec.ts: what a photo or a scanned page "says"
+const TRASCRIZIONE_FINTA = 'Ricevuta Canva E2EVISIONE: 12,99 € del 30/09/2026'
+
+// the last requests, for the specs to check what reached the model
+const ultime = { chat: null, visione: null }
+
+function conImmagine(messages) {
+  return messages.some((m) => Array.isArray(m.content) && m.content.some((p) => p.type === 'image_url'))
+}
+
+// like Groq without streaming: one JSON answer
+function completamento(res, testo) {
+  res.writeHead(200, { 'content-type': 'application/json', 'x-ratelimit-limit-tokens': '30000' })
+  res.end(
+    JSON.stringify({
+      id: 'finto-visione',
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model: 'finto-visione',
+      choices: [{ index: 0, message: { role: 'assistant', content: testo }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 2048, completion_tokens: 20, total_tokens: 2068 },
+    }),
+  )
+}
+
+// the text of the attachments in the user's message, between the markers of the route
+function allegatiDi(testo) {
+  return [...testo.matchAll(/\[Allegato «([^»]+)»[^\n]*\]\n(?:Contenuto del file[^\n]*\n)?([\s\S]*?)\n\[Fine allegato rif\. [0-9a-f]{8}\]/g)].map(
+    (m) => ({ nome: m[1], testo: m[2] }),
+  )
+}
+
 createServer(async (req, res) => {
   const pezzi = []
   for await (const pezzo of req) pezzi.push(pezzo)
   const grezzo = Buffer.concat(pezzi)
   const corpo = grezzo.toString()
 
+  if (req.method === 'GET' && req.url === '/__ultime') {
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(ultime))
+    return
+  }
   if (req.url?.endsWith('/audio/transcriptions')) {
     const text = await trascrizione(req, grezzo)
     res.writeHead(200, { 'content-type': 'application/json' })
@@ -122,7 +162,14 @@ createServer(async (req, res) => {
     return
   }
 
-  const { messages = [], tools = [] } = JSON.parse(corpo || '{}')
+  const richiesta = JSON.parse(corpo || '{}')
+  const { messages = [], tools = [] } = richiesta
+  // the vision model: an image in, a transcription out (no streaming)
+  if (conImmagine(messages)) {
+    ultime.visione = richiesta
+    return completamento(res, TRASCRIZIONE_FINTA)
+  }
+  ultime.chat = richiesta
   strumentiDellaRichiesta = tools.map((t) => t.function?.name)
   // like Groq: reasoning sent back on an assistant message is refused
   const conRagionamento = messages.findIndex((m) => m.role === 'assistant' && 'reasoning_content' in m)
@@ -167,6 +214,21 @@ createServer(async (req, res) => {
     return testo(res, esito.includes('"fatto":true') ? `Fatto: ${strumento}.` : 'Questo mese hai incassato 6.950,00 €.')
   }
   const domanda = contenuto(ultimo).toLowerCase()
+  // e2e/alfire-allegati.spec.ts: files attached to the question, read back from the request
+  const allegati = ultimo.role === 'user' ? allegatiDi(contenuto(ultimo)) : []
+  if (allegati.length > 0) {
+    const tutto = allegati.map((a) => a.testo).join('\n')
+    // the user's own words: after the last file
+    const parole = domanda.split(/\[fine allegato rif\. [0-9a-f]{8}\]/).at(-1)
+    // a naive model obeys what a file says: the route must not give it the means (free plan: no write tools)
+    if (/ignora le regole/i.test(tutto)) return chiamata(res, 'cliente', { azione: 'elimina', cliente: 'E2EAllegati Vittima' })
+    if (parole.includes('seconda rata')) {
+      const riga = tutto.split('\n').find((r) => /seconda rata/i.test(r))
+      return testo(res, riga ? `Dal file: ${riga}` : 'Nel file non trovo la seconda rata.')
+    }
+    if (parole.includes('foto')) return testo(res, `Nella foto: ${tutto.split('\n')[0]}`)
+    return testo(res, `Ho letto ${allegati.map((a) => a.nome).join(', ')}.`)
+  }
   // the user answered a closed question (a tap or typed): the model knows what it asked
   const precedente = contenuto(messages.at(-2) ?? {}).toLowerCase()
   if (ultimo.role === 'user' && messages.at(-2)?.role === 'assistant') {

@@ -9,7 +9,7 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { RivediTutorial } from '@/components/tutorial/rivedi-tutorial'
 import { TestaTutorial } from '@/components/tutorial/testa-tutorial'
 import { Button } from '@/components/ui/button'
-import { alfireConfigurata, nomeModelloAlfire } from '@/lib/alfire/config'
+import { alfireConfigurata, nomeModelloAlfire, nomeModelloVisione } from '@/lib/alfire/config'
 import { ETICHETTA_LIVELLO_PM, ETICHETTA_RUOLO, livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 
@@ -24,7 +24,13 @@ export default async function AccountPage() {
       <IntestazionePagina titolo="Il tuo profilo" descrizione="Foto, nome e preferenze: valgono solo per te." />
       <SchedeAccount
         profilo={<ProfiloForm id={profilo.id} nome={profilo.nome} foto={profilo.foto_url} />}
-        alfire={<PreferenzeAlfire configurata={alfireConfigurata()} modello={nomeModelloAlfire()} />}
+        alfire={
+          <PreferenzeAlfire
+            configurata={alfireConfigurata()}
+            modello={nomeModelloAlfire()}
+            modelloVisione={nomeModelloVisione()}
+          />
+        }
         account={
           <div className="space-y-6">
             <dl className="divide-y divide-border rounded-xl bg-card">

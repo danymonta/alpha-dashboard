@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, getToolName, isToolUIPart, type UIMessage } from 'ai'
-import { ArrowUp, Check, LoaderCircle, Mic, RotateCcw, Square, TriangleAlert, X } from 'lucide-react'
+import { ArrowUp, Check, LoaderCircle, Mic, Paperclip, RotateCcw, Square, TriangleAlert, X } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -16,14 +16,20 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 
+import { AllegatiInAttesa, AllegatiInviati, useAllegati } from '@/components/alfire/allegati'
 import { Fiamma } from '@/components/alfire/fiamma'
+import { Markdown } from '@/components/alfire/markdown'
 import { RisposteProposte } from '@/components/alfire/proposte'
 import { useRegistratore } from '@/components/alfire/use-registratore'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import {
+  ACCETTA_ALLEGATI,
+  allegatiDelMessaggio,
+  alleggerisciAllegati,
+  messaggioConAllegati,
+} from '@/lib/alfire/allegati'
 import { anteprimaAlfire } from '@/lib/alfire/anteprima'
 import { avvisoTrascrizione, unisciTesto } from '@/lib/alfire/dettatura'
 import { isScrittura } from '@/lib/alfire/permessi'
@@ -128,7 +134,13 @@ export function AlfireProvider({
   const [aperto, setAperto] = useState(false)
   const valore = useMemo(() => ({ apri: () => setAperto(true) }), [])
   const chat = useChat({
-    transport: new DefaultChatTransport({ api: '/api/alfire' }),
+    transport: new DefaultChatTransport({
+      api: '/api/alfire',
+      // old attachments travel without their text: the request stays small (alleggerisciAllegati)
+      prepareSendMessagesRequest: ({ id, messages, body, trigger, messageId }) => ({
+        body: { ...body, id, messages: alleggerisciAllegati(messages), trigger, messageId },
+      }),
+    }),
     // on after the confirmation cards; a proposal waiting for its tap never holds it back
     sendAutomaticallyWhen: confermeComplete,
     onFinish: ({ message }) => {
@@ -206,8 +218,18 @@ function Pannello({
   const { messages, sendMessage, status, error, stop, setMessages, regenerate, addToolApprovalResponse, clearError } = chat
   const [testo, setTesto] = useState('')
   const [erroreVoce, setErroreVoce] = useState<string | null>(null)
+  const [erroriAllegati, setErroriAllegati] = useState<string[]>([])
   const fondo = useRef<HTMLDivElement>(null)
   const campo = useRef<HTMLTextAreaElement>(null)
+  const sceltaFile = useRef<HTMLInputElement>(null)
+  // files for the next message: read as soon as they are picked, sent with it
+  const allegati = useAllegati({
+    onErrore: useCallback(
+      (m: string[], sostituisci: boolean) =>
+        setErroriAllegati((prima) => (sostituisci ? m : [...prima.filter((p) => !m.includes(p)), ...m])),
+      [],
+    ),
+  })
   const router = useRouter()
   const aggiornati = useRef(new Set<string>())
   const occupato = status === 'submitted' || status === 'streaming'
@@ -255,26 +277,32 @@ function Pannello({
     if (c) c.scrollTop = c.scrollHeight
   }, [testo])
 
+  const { pronti, inLettura, svuota: svuotaAllegati } = allegati
   const invia = useCallback(
     (contenuto: string) => {
       const t = contenuto.trim()
-      // the live text is not the final one: it goes after the stop, with Invio
-      if (!t || occupato || inAscolto) return
+      // the live text is not the final one: it goes after the stop, with Invio;
+      // a file still being read holds the message back until its text is there
+      if ((!t && pronti.length === 0) || occupato || inAscolto || inLettura) return
       clearError()
-      void sendMessage({ text: t })
+      void sendMessage(messaggioConAllegati(t, pronti))
       setTesto('')
+      setErroriAllegati([])
+      svuotaAllegati()
     },
-    [clearError, inAscolto, occupato, sendMessage],
+    [clearError, inAscolto, inLettura, occupato, pronti, sendMessage, svuotaAllegati],
   )
 
-  // a tap on an option Alfire proposed: the user's answer, as if typed (the box stays as it is)
+  // a tap on an option Alfire proposed: the user's answer, as if typed (the box stays as it is;
+  // files waiting go with it, as they would with a typed answer)
   const rispondi = useCallback(
     (opzione: string) => {
-      if (occupato || inAscolto) return
+      if (occupato || inAscolto || inLettura) return
       clearError()
-      void sendMessage({ text: opzione })
+      void sendMessage(messaggioConAllegati(opzione, pronti))
+      if (pronti.length > 0) svuotaAllegati()
     },
-    [clearError, inAscolto, occupato, sendMessage],
+    [clearError, inAscolto, inLettura, occupato, pronti, sendMessage, svuotaAllegati],
   )
 
   // follow the conversation
@@ -315,6 +343,8 @@ function Pannello({
               stop()
               setMessages([])
               clearError()
+              svuotaAllegati()
+              setErroriAllegati([])
             }}
           >
             <RotateCcw className="size-4" aria-hidden="true" />
@@ -328,16 +358,16 @@ function Pannello({
         ) : messages.length === 0 ? (
           <div className="space-y-4">
             <p className="text-sm">
-              Ciao {nome.split(' ')[0]}, sono Alfire. Posso leggere i numeri della dashboard e, con la tua conferma, registrare
-              al posto tuo.
+              Ciao {nome.split(' ')[0]}, sono Alfire. Posso leggere i numeri della dashboard e i file che alleghi e, con la tua
+              conferma, registrare al posto tuo.
             </p>
             <div className="flex flex-col gap-2" role="group" aria-label="Domande suggerite">
               {suggerimenti.map((s) => (
                 <button
                   key={s}
                   type="button"
-                  // while dictating nothing is sent: the send button waits for the stop too
-                  disabled={inAscolto}
+                  // while dictating nothing is sent: the send button waits for the stop too (and for a file being read)
+                  disabled={inAscolto || inLettura}
                   onClick={() => invia(s)}
                   className="min-h-11 rounded-lg border border-border px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                 >
@@ -355,7 +385,7 @@ function Pannello({
               chiudi={chiudi}
               // the buttons answer only on the last message, when Alfire is not busy and nobody dictates
               proposte={{
-                attive: i === messages.length - 1 && !occupato && !inAscolto && configurata,
+                attive: i === messages.length - 1 && !occupato && !inAscolto && !inLettura && configurata,
                 correnti: i === messages.length - 1,
                 seguente: messages[i + 1],
                 rispondi,
@@ -411,6 +441,20 @@ function Pannello({
             </button>
           </p>
         ) : null}
+        {erroriAllegati.length > 0 ? (
+          <div role="alert" className="mb-2 flex items-start gap-2 text-sm text-status-warning" data-testid="alfire-errore-allegato">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <ul className="flex-1 space-y-0.5">
+              {erroriAllegati.map((m) => (
+                <li key={m}>{m}</li>
+              ))}
+            </ul>
+            <button type="button" aria-label="Chiudi l’avviso" className="-my-1 p-1" onClick={() => setErroriAllegati([])}>
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+        <AllegatiInAttesa file={allegati.file} togli={allegati.togli} />
         {registratore.stato === 'registra' ? (
           <p id="alfire-ascolto" className="mb-2 flex items-center gap-2 text-sm text-status-critical" role="status">
             <span className="size-2 shrink-0 rounded-full bg-status-critical" aria-hidden="true" />
@@ -458,6 +502,37 @@ function Pannello({
               inAscolto && 'text-muted-foreground italic',
             )}
           />
+          {configurata ? (
+            <>
+              <input
+                ref={sceltaFile}
+                type="file"
+                multiple
+                accept={ACCETTA_ALLEGATI}
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
+                data-testid="alfire-scegli-file"
+                onChange={(e) => {
+                  allegati.aggiungi(e.currentTarget.files)
+                  // the same file can be picked again after removing it
+                  e.currentTarget.value = ''
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-11 shrink-0"
+                aria-label="Allega un file"
+                // like the microphone: not while Alfire answers or while dictating
+                disabled={occupato || inAscolto || allegati.pieno}
+                onClick={() => sceltaFile.current?.click()}
+              >
+                <Paperclip className="size-4" aria-hidden="true" />
+              </Button>
+            </>
+          ) : null}
           {registratore.supportato && configurata ? (
             <Button
               type="button"
@@ -496,7 +571,7 @@ function Pannello({
               size="icon"
               className="size-11 shrink-0"
               aria-label="Invia"
-              disabled={!configurata || testo.trim() === '' || inAscolto}
+              disabled={!configurata || (testo.trim() === '' && pronti.length === 0) || inAscolto || inLettura}
             >
               <ArrowUp className="size-4" aria-hidden="true" />
             </Button>
@@ -545,11 +620,16 @@ function Messaggio({
   proposte: StatoRisposte
 }) {
   if (messaggio.role === 'user') {
+    const testo = testoDelMessaggio(messaggio)
     return (
-      <div className="flex justify-end">
-        <p className="max-w-[85%] rounded-xl bg-primary/20 px-3 py-2 text-sm whitespace-pre-wrap" data-testid="alfire-mio-messaggio">
-          {testoDelMessaggio(messaggio)}
-        </p>
+      <div className="flex flex-col items-end gap-2">
+        {/* the files as chips, never the text read from them */}
+        <AllegatiInviati allegati={allegatiDelMessaggio(messaggio)} />
+        {testo ? (
+          <p className="max-w-[85%] rounded-xl bg-primary/20 px-3 py-2 text-sm whitespace-pre-wrap" data-testid="alfire-mio-messaggio">
+            {testo}
+          </p>
+        ) : null}
       </div>
     )
   }
@@ -757,45 +837,6 @@ function SchedaScrittura({
           ) : null}
         </div>
       ) : null}
-    </div>
-  )
-}
-
-function Markdown({ testo, chiudi }: { testo: string; chiudi: () => void }) {
-  return (
-    <div className="prosa-alfire text-sm leading-relaxed">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ href, children }) =>
-            href?.startsWith('/') ? (
-              <Link href={href} onClick={chiudi} className="font-medium underline underline-offset-4">
-                {children}
-              </Link>
-            ) : (
-              <a href={href} target="_blank" rel="noreferrer noopener" className="font-medium underline underline-offset-4">
-                {children}
-              </a>
-            ),
-          table: ({ children }) => (
-            <div className="my-2 overflow-x-auto">
-              <table className="w-full text-sm">{children}</table>
-            </div>
-          ),
-          th: ({ children }) => <th className="border-b border-border px-2 py-1 text-left font-medium">{children}</th>,
-          td: ({ children }) => <td className="num border-b border-border px-2 py-1">{children}</td>,
-          ul: ({ children }) => <ul className="my-1 list-disc space-y-0.5 pl-5">{children}</ul>,
-          ol: ({ children }) => <ol className="my-1 list-decimal space-y-0.5 pl-5">{children}</ol>,
-          p: ({ children }) => <p className="my-1.5">{children}</p>,
-          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-          h1: ({ children }) => <p className="my-1.5 font-semibold">{children}</p>,
-          h2: ({ children }) => <p className="my-1.5 font-semibold">{children}</p>,
-          h3: ({ children }) => <p className="my-1.5 font-semibold">{children}</p>,
-          code: ({ children }) => <code className="rounded bg-muted px-1">{children}</code>,
-        }}
-      >
-        {testo}
-      </ReactMarkdown>
     </div>
   )
 }

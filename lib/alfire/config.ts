@@ -3,6 +3,7 @@ import 'server-only'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { wrapLanguageModel } from 'ai'
 
+import { ALLEGATI_PER_MESSAGGIO_MAX, ALLEGATI_STORIA_MAX } from '@/lib/alfire/allegati'
 import { erroreStrumentoRiprovabile } from '@/lib/alfire/errori'
 
 /**
@@ -13,10 +14,22 @@ import { erroreStrumentoRiprovabile } from '@/lib/alfire/errori'
 const BASE_URL = process.env.ALFIRE_BASE_URL || 'https://api.groq.com/openai/v1'
 const MODELLO = process.env.ALFIRE_MODEL || 'openai/gpt-oss-120b'
 const MODELLO_VOCE = process.env.ALFIRE_MODEL_VOCE || 'whisper-large-v3-turbo'
+/**
+ * Reads photos and scanned pages for the text-only chat model (attachments,
+ * 30/09/2026). Groq's vision model on that day: Qwen 3.8 27B (preview, text
+ * and images, at most 3 images a request, 2,048 tokens each). "off" turns
+ * the reading of images off; PDF, Word, Excel and CSV with text still work.
+ */
+const MODELLO_VISIONE = process.env.ALFIRE_MODEL_VISIONE || 'qwen/qwen3.8-27b'
 
 /** For the settings page: which model answers. */
 export function nomeModelloAlfire(): string {
   return MODELLO.split('/').at(-1) ?? MODELLO
+}
+
+/** For the settings page: which model reads photos and scans, or null when it is off. */
+export function nomeModelloVisione(): string | null {
+  return MODELLO_VISIONE === 'off' ? null : (MODELLO_VISIONE.split('/').at(-1) ?? MODELLO_VISIONE)
 }
 
 export function alfireConfigurata(): boolean {
@@ -63,6 +76,100 @@ export function budgetAlfire(): { messaggi: number; passi: number; risposta: num
     ? { messaggi: 30, passi: 10, risposta: 4000, sempreTutti: true }
     : // a chat that only reads goes without the write tools (conversazioneScrive)
       { messaggi: 8, passi: 6, risposta: 1200, sempreTutti: false }
+}
+
+export type BudgetAllegati = {
+  /** Characters of attachments the model reads with one message (all its files together). */
+  perMessaggio: number
+  /** Characters of attachments in the whole history: the newest keep theirs first. */
+  storia: number
+}
+
+/**
+ * How much of an attachment travels. Every step of an answer sends the whole
+ * history again: on the Developer plan about 6,000 tokens a message; on the
+ * free tier (8K tokens a minute, tools and answer included) a short excerpt.
+ * The Developer numbers are the most any plan reads: the browser sends no
+ * more than that (alleggerisciAllegati).
+ */
+export function budgetAllegati(): BudgetAllegati {
+  return pianoAlfire() === 'developer'
+    ? { perMessaggio: ALLEGATI_PER_MESSAGGIO_MAX, storia: ALLEGATI_STORIA_MAX }
+    : { perMessaggio: 3_000, storia: 3_000 }
+}
+
+/** One reading of photos or scanned pages: images in one request (Groq takes 3 at most), longest transcription in tokens. */
+export type BudgetVisione = { pagine: number; risposta: number }
+
+export const VISIONE_PIENA: BudgetVisione = { pagine: 3, risposta: 4000 }
+/** The free tier: one image and a short transcription fit its per-minute budget. */
+export const VISIONE_RIDOTTA: BudgetVisione = { pagine: 1, risposta: 1500 }
+
+/** What a full reading asks of the vision model in a minute: 3 images of 2,048 tokens, the instructions, the answer. */
+const TOKEN_VISIONE_PIENA = 3 * 2048 + 1000 + VISIONE_PIENA.risposta
+
+/** The vision model's own per-minute budget, as its last answer said (a refusal included). */
+let tokenVisioneAlMinuto: number | null = null
+/** The provider found a full reading too big for the plan (413): from then on, the small one. */
+let visioneRifiutata = false
+
+export function ricordaLimitiVisione(headers: Headers): void {
+  const limite = Number(headers.get('x-ratelimit-limit-tokens'))
+  if (Number.isFinite(limite) && limite > 0) tokenVisioneAlMinuto = limite
+}
+
+export function segnaVisioneRifiutata(): void {
+  visioneRifiutata = true
+}
+
+/**
+ * How much of a scan the vision model reads, and how long it may write
+ * (attachments, 30/09/2026). The plan when it is known: ALFIRE_PIANO, or the
+ * chat's own answers. The attachment route, though, often runs where the chat
+ * never answered (a cold start, or its own function on Vercel): then the
+ * vision model's own budget, once one of its answers said it; before that,
+ * the full reading, and a provider that refuses it (413) gets the first page
+ * alone (leggiConVisione), remembered for the next files.
+ */
+export function budgetVisione(): BudgetVisione {
+  const forzato = process.env.ALFIRE_PIANO
+  if (forzato === 'developer') return VISIONE_PIENA
+  if (forzato === 'gratuito' || visioneRifiutata) return VISIONE_RIDOTTA
+  if (tokenAlMinuto !== null) return pianoAlfire() === 'developer' ? VISIONE_PIENA : VISIONE_RIDOTTA
+  if (tokenVisioneAlMinuto !== null) return tokenVisioneAlMinuto >= TOKEN_VISIONE_PIENA ? VISIONE_PIENA : VISIONE_RIDOTTA
+  return VISIONE_PIENA
+}
+
+export function visioneAttiva(): boolean {
+  return alfireConfigurata() && MODELLO_VISIONE !== 'off'
+}
+
+/**
+ * The vision model, on the same provider and key. Its per-minute budget is its
+ * own (ricordaLimitiVisione): it would mislead the plan of the chat.
+ */
+export function modelloVisione() {
+  const provider = createOpenAICompatible({
+    name: 'visione',
+    baseURL: BASE_URL,
+    apiKey: process.env.ALFIRE_API_KEY,
+    includeUsage: true,
+    fetch: async (input, init) => {
+      const risposta = await fetch(input, init)
+      ricordaLimitiVisione(risposta.headers)
+      return risposta
+    },
+  })
+  return provider.chatModel(MODELLO_VISIONE)
+}
+
+/**
+ * Qwen 3 reasons by default: a transcription does not need it (and any
+ * reasoning that still comes back stays out of the text). Other models may
+ * refuse the field: the reading then asks once more without it.
+ */
+export function opzioniVisione(): Record<string, string> {
+  return /qwen3/i.test(MODELLO_VISIONE) ? { reasoningEffort: 'none' } : {}
 }
 
 export function modelloAlfire() {

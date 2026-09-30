@@ -29,7 +29,16 @@ function scrivi(valore: boolean) {
   ascoltatori.forEach((cb) => cb())
 }
 
-export function PreferenzeAlfire({ configurata, modello }: { configurata: boolean; modello: string }) {
+export function PreferenzeAlfire({
+  configurata,
+  modello,
+  modelloVisione,
+}: {
+  configurata: boolean
+  modello: string
+  /** Reads photos and scans; null when the reading of images is off. */
+  modelloVisione: string | null
+}) {
   const { apri } = useAlfire()
   const leggiRisposte = useSyncExternalStore(iscrivi, leggi, () => false)
 
@@ -59,9 +68,18 @@ export function PreferenzeAlfire({ configurata, modello }: { configurata: boolea
       <section className="space-y-1.5 text-sm text-muted-foreground">
         <p className="font-medium text-foreground">Dove vanno i dati</p>
         <p>
-          Alfire usa il modello open source <span className="text-foreground">{modello}</span> sul piano gratuito di Groq, con
-          server negli Stati Uniti. Le tue domande, i dati che Alfire legge per risponderti e i vocali passano da lì; nella
-          dashboard non resta nessuna registrazione audio e la chat si cancella quando chiudi l’app.
+          Alfire usa il modello open source <span className="text-foreground">{modello}</span> su Groq, con server negli Stati
+          Uniti. Le tue domande, i dati che Alfire legge per risponderti e i vocali passano da lì; nella dashboard non resta
+          nessuna registrazione audio e la chat si cancella quando chiudi l’app.
+        </p>
+        <p data-testid="privacy-allegati">
+          Anche i file che alleghi (PDF, foto, Word, Excel, CSV) vanno a Groq per essere letti
+          {modelloVisione ? (
+            <>
+              ; foto e scansioni le legge il modello open source <span className="text-foreground">{modelloVisione}</span>
+            </>
+          ) : null}
+          . Non vengono salvati da nessuna parte: vivono solo nella chat aperta e spariscono con lei.
         </p>
       </section>
     </div>

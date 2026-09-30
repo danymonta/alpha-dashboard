@@ -9,7 +9,9 @@ import {
   type UIMessage,
 } from 'ai'
 
-import { alfireConfigurata, budgetAlfire, modelloAlfire, pianoAlfire } from '@/lib/alfire/config'
+import { isParteAllegato } from '@/lib/alfire/allegati'
+import { allegatiComeTesto } from '@/lib/alfire/allegati-chat'
+import { alfireConfigurata, budgetAlfire, budgetAllegati, modelloAlfire, pianoAlfire } from '@/lib/alfire/config'
 import { dettaglioErroreAlfire, erroreStrumentoRiprovabile, messaggioErroreAlfire } from '@/lib/alfire/errori'
 import { conversazioneScrive } from '@/lib/alfire/intento'
 import { SCRITTURE } from '@/lib/alfire/permessi'
@@ -70,10 +72,19 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: modelloAlfire(),
-    system: promptAlfire({ nome: profilo.nome.split(' ')[0], ruolo: profilo.ruolo, oggi: oggiRoma() }),
-    // the buttons Alfire proposed come back as their question, in words (proposteComeTesto)
+    system: promptAlfire({
+      nome: profilo.nome.split(' ')[0],
+      ruolo: profilo.ruolo,
+      oggi: oggiRoma(),
+      allegati: messaggi.some((m) => m.parts.some(isParteAllegato)),
+    }),
+    // the buttons Alfire proposed come back as their question, in words (proposteComeTesto);
+    // attached files as delimited text, within the plan's budget (allegatiComeTesto)
     messages: storiaLeggera(
-      await convertToModelMessages(proposteComeTesto(messaggi), { tools: tutti, ignoreIncompleteToolCalls: true }),
+      await convertToModelMessages(proposteComeTesto(allegatiComeTesto(messaggi, budgetAllegati())), {
+        tools: tutti,
+        ignoreIncompleteToolCalls: true,
+      }),
     ),
     // gpt-oss reasons before answering; Groq refuses that reasoning when it comes
     // back as reasoning_content in the next step (after a tool call). The model
