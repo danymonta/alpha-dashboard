@@ -7,7 +7,7 @@ import {
   LIMITE_MARKETING,
   MARKETING,
   MOTIVO_NON_CHIUSURA,
-  NOTE_CALL,
+  NOTE_CLOSER,
   SCALE_COMMENTO,
   TESTI_COMMENTO,
   etichettaLivello,
@@ -22,12 +22,12 @@ type RigaSql = Funzioni['commenti_setter_periodo']['Returns'][number]
 export type RigaCommento = { [K in keyof RigaSql]: RigaSql[K] | null }
 
 type RigaMotivoSql = Funzioni['motivi_non_chiusura_periodo']['Returns'][number]
-/** Lead, closer, reason and notes can be missing (a deleted closer, a call with notes only). */
-export type RigaMotivo = Omit<RigaMotivoSql, 'lead' | 'closer' | 'motivo' | 'note' | 'qualificata'> & {
+/** Lead, closer, reason and notes can be missing (a deleted closer, a call with the closer's notes only). */
+export type RigaMotivo = Omit<RigaMotivoSql, 'lead' | 'closer' | 'motivo' | 'note_closer' | 'qualificata'> & {
   lead: string | null
   closer: string | null
   motivo: string | null
-  note: string | null
+  note_closer: string | null
   qualificata: boolean | null
 }
 
@@ -36,8 +36,9 @@ export type RigaMotivo = Omit<RigaMotivoSql, 'lead' | 'closer' | 'motivo' | 'not
  * and the setter chosen, in two parts:
  * - "Dal setting": what the setters answered in their daily report. The days
  *   per level and their share come from SQL (commenti_setter_periodo);
- * - "Dalle call": why the held calls did not close, as the closers wrote it
- *   (motivi_non_chiusura_periodo). The price objections live here.
+ * - "Dalle call": why the held calls did not close, and the closers' notes,
+ *   as they wrote them (motivi_non_chiusura_periodo). The price objections
+ *   live here. Never the setter's note of the call: it is his, not the lead's.
  * Everything is only written out here. One setter or all together, never side
  * by side: no comparison between people (CLAUDE.md section 17). Only what was
  * answered is shown: a day never says which answer is missing.
@@ -168,17 +169,17 @@ export function CommentiMarketing({
                   ) : null}
                 </p>
                 <dl className="space-y-2 text-sm">
-                  {/* what was written: an older call may have only its notes */}
+                  {/* what the closer wrote: a call may have only his notes */}
                   {c.motivo ? (
                     <div>
                       <dt className="text-xs text-muted-foreground">{MOTIVO_NON_CHIUSURA.titolo}</dt>
                       <dd className="break-words whitespace-pre-line">{c.motivo}</dd>
                     </div>
                   ) : null}
-                  {c.note ? (
+                  {c.note_closer ? (
                     <div>
-                      <dt className="text-xs text-muted-foreground">{NOTE_CALL.titolo}</dt>
-                      <dd className="break-words whitespace-pre-line">{c.note}</dd>
+                      <dt className="text-xs text-muted-foreground">{NOTE_CLOSER.titolo}</dt>
+                      <dd className="break-words whitespace-pre-line">{c.note_closer}</dd>
                     </div>
                   ) : null}
                 </dl>

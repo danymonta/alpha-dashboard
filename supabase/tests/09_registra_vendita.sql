@@ -149,6 +149,9 @@ select throws_ok(
 );
 
 reset role;
+-- fixtures without a session: the setter's claims would still say "setter",
+-- and the outcome of a call is never his (calls_esito_solo_closer)
+set local request.jwt.claims to '{}';
 update public.calls set closer_id = '11111111-1111-4111-8111-111111111111'
 where id = 'cccc0000-0000-4000-8000-000000000002';
 update public.calls set stato = 'svolta', qualificata = true, esito = 'chiusa'

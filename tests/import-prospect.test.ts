@@ -58,6 +58,14 @@ describe('mappatura delle call', () => {
     expect(call[0]).toMatchObject({ prodotto: null, note: 'Tipologia: Rinnovo.' })
   })
 
+  it('note aggiuntive oltre 2000 caratteri: tagliate con un avviso, l’import non si ferma', () => {
+    const lunghe = 'Richiamare dopo le feste. '.repeat(100).trim()
+    const { call, avvisi } = mappa(`"Lungo","01/02/2031","Persa","","","","Costa troppo","","${lunghe}"`)
+    expect(call[0].note).toHaveLength(2000)
+    expect(call[0].note?.endsWith('…')).toBe(true)
+    expect(avvisi).toEqual(['Riga 2 (Lungo): note aggiuntive oltre 2000 caratteri, tagliate'])
+  })
+
   it('senza data o con uno stato sconosciuto la riga resta fuori, con un avviso', () => {
     const { call, avvisi } = mappa(
       '"Senza data","","Chiusa","","","","","",""',

@@ -340,7 +340,8 @@ function mondo(): Record<string, Riga[]> {
         qualificata: true,
         closer_id: IO,
         setter_id: LORIS,
-        note: 'Da richiamare',
+        note: 'Chiamarlo dopo le 18',
+        note_closer: 'Da richiamare',
         obiezione_principale: 'Ci deve pensare',
         link_registrazione: null,
         performance: null,
@@ -570,6 +571,49 @@ describe('azioni per ruolo: il modello vede solo quelle che la persona può fare
     expect(await campiDi(strumenti('closer', 'employee'), 'call')).not.toContain('closer')
   })
 
+  it('due note (Dany, 30/09/2026): il setter scrive le sue, il closer le sue, l’admin tutte e due', async () => {
+    const setter = await campiDi(strumenti('setter', 'employee'), 'call')
+    expect(setter).toContain('note')
+    for (const c of ['note_closer', 'motivo', 'qualificata', 'esito']) expect(setter, c).not.toContain(c)
+    const closer = await campiDi(strumenti('closer', 'employee'), 'call')
+    expect(closer).toContain('note_closer')
+    expect(closer).not.toContain('note')
+    const admin = await campiDi(strumenti(), 'call')
+    expect(admin).toEqual(expect.arrayContaining(['note', 'note_closer']))
+  })
+
+  it('il setter sposta la call e scrive le sue note, senza dettagli né note del closer', async () => {
+    await esegui(strumenti('setter', 'employee'), 'call', {
+      azione: 'modifica',
+      lead: 'Luca Neri',
+      data: '2026-10-02',
+      ora: '18:30',
+      note: 'Preferisce la sera',
+      // not in his schema: dropped before anything is written
+      note_closer: 'Scritto dal setter',
+    })
+    expect(a.modificaCall).toHaveBeenCalledWith(
+      expect.objectContaining({ call_id: CALL, data: '2026-10-02', ora: '18:30', note: 'Preferisce la sera', dettagli: null }),
+    )
+  })
+
+  it('il closer scrive le sue note con i dettagli e lascia quelle del setter come sono', async () => {
+    await esegui(strumenti('closer', 'employee'), 'call', {
+      azione: 'modifica',
+      lead: 'Luca Neri',
+      note_closer: 'Vuole la versione da 3 mesi',
+      // not in his schema
+      note: 'Riscritto dal closer',
+    })
+    expect(a.modificaCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        call_id: CALL,
+        note: 'Chiamarlo dopo le 18',
+        dettagli: expect.objectContaining({ note_closer: 'Vuole la versione da 3 mesi', importo_proposto: 1500 }),
+      }),
+    )
+  })
+
   it('lead: il setter corregge i suoi, il closer ne sposta solo lo stato', async () => {
     expect(await azioniDi(strumenti(), 'lead')).toEqual(['stato', 'modifica', 'elimina'])
     expect(await azioniDi(strumenti('setter', 'employee'), 'lead')).toEqual(['stato', 'modifica'])
@@ -796,14 +840,14 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
       esito: 'persa',
       qualificata: false,
       motivo: 'Fuori budget',
-      note: 'Riprovare a gennaio',
+      note_closer: 'Riprovare a gennaio',
     })
     expect(a.registraEsito).toHaveBeenCalledWith({
       call_id: CALL,
       esito: 'persa',
       qualificata: false,
       motivo: 'Fuori budget',
-      note: 'Riprovare a gennaio',
+      note_closer: 'Riprovare a gennaio',
     })
     // the setter never records an outcome, so he has no reason field either
     expect(await campiDi(strumenti('setter', 'employee'), 'call')).not.toContain('motivo')
@@ -815,7 +859,14 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
       expect.objectContaining({
         call_id: CALL,
         closer_id: IO,
-        dettagli: { link_registrazione: null, performance: 'buona', prodotto_proposto_id: null, importo_proposto: 1500 },
+        dettagli: {
+          link_registrazione: null,
+          performance: 'buona',
+          prodotto_proposto_id: null,
+          importo_proposto: 1500,
+          // the closer's notes go back as they are
+          note_closer: 'Da richiamare',
+        },
       }),
     )
   })
@@ -928,8 +979,8 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
       },
     ]
     righe.motivi_non_chiusura_periodo = [
-      { call_id: CALL, data: '2026-09-28', lead: 'Luca Neri', closer: 'Dany Montagnolo', esito: 'persa', qualificata: true, motivo: 'Fuori budget', note: 'Riprovare a gennaio' },
-      { call_id: 'ca000000-0000-4000-8000-000000000002', data: '2026-09-27', lead: 'Marco Bianchi', closer: 'Dany Montagnolo', esito: 'follow_up', qualificata: true, motivo: null, note: 'Solo una nota' },
+      { call_id: CALL, data: '2026-09-28', lead: 'Luca Neri', closer: 'Dany Montagnolo', esito: 'persa', qualificata: true, motivo: 'Fuori budget', note_closer: 'Riprovare a gennaio' },
+      { call_id: 'ca000000-0000-4000-8000-000000000002', data: '2026-09-27', lead: 'Marco Bianchi', closer: 'Dany Montagnolo', esito: 'follow_up', qualificata: true, motivo: null, note_closer: 'Solo una nota' },
     ]
     const esito = (await esegui(strumenti('admin', 'admin', righe), 'commenti_marketing', { da: '2026-09-01', a: '2026-09-30', setter: 'Loris' })) as Record<string, unknown>
     expect(esito).toMatchObject({
@@ -1326,7 +1377,7 @@ describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta
     expect(
       await anteprima(
         'call',
-        { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: true, motivo: 'Deve parlarne con la compagna', note: 'Richiamare lunedì' },
+        { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: true, motivo: 'Deve parlarne con la compagna', note_closer: 'Richiamare lunedì' },
         'closer',
       ),
     ).toMatchObject({
@@ -1342,6 +1393,40 @@ describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta
     expect(
       await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: true, motivo: ' Ci deve pensare ' }, 'closer'),
     ).toMatchObject({ righe: ['Ora: Follow-up', 'Qualificata: sì', 'Motivo di non chiusura: Ci deve pensare'] })
+  })
+
+  it('correggere una call: le due note col loro nome, prima → dopo', async () => {
+    expect(
+      await anteprima('call', { azione: 'modifica', lead: 'Luca Neri', note: 'Solo dopo le 19', note_closer: 'Vuole la versione da 3 mesi' }),
+    ).toMatchObject({
+      righe: ['Note del setter: Chiamarlo dopo le 18 → Solo dopo le 19', 'Note aggiuntive: Da richiamare → Vuole la versione da 3 mesi'],
+    })
+    // the closer changes his own notes; the setter's stay as they are
+    expect(await anteprima('call', { azione: 'modifica', lead: 'Luca Neri', note_closer: 'Nuove' }, 'closer')).toMatchObject({
+      righe: ['Note aggiuntive: Da richiamare → Nuove'],
+    })
+    // the setter moves his call: nothing of the closer's on the card
+    expect(await anteprima('call', { azione: 'modifica', lead: 'Luca Neri', note: 'Solo dopo le 19' }, 'setter')).toMatchObject({
+      righe: ['Note del setter: Chiamarlo dopo le 18 → Solo dopo le 19'],
+    })
+  })
+
+  it('call_periodo: il motivo e le due note, ognuna col suo autore', async () => {
+    for (const ruolo of ['setter', 'closer', 'admin'] as const) {
+      const letto = (await esegui(strumenti(ruolo, ruolo === 'admin' ? 'admin' : 'employee'), 'call_periodo', {
+        da: '2026-09-28',
+        a: '2026-09-28',
+      })) as { call: Record<string, unknown>[] }
+      expect(letto.call, ruolo).toEqual([
+        expect.objectContaining({
+          call_id: CALL,
+          lead: 'Luca Neri',
+          'Motivo di non chiusura': 'Ci deve pensare',
+          'Note del setter': 'Chiamarlo dopo le 18',
+          'Note aggiuntive del closer': 'Da richiamare',
+        }),
+      ])
+    }
   })
 
   it('un altro esito toglie il motivo di non chiusura salvato, e la scheda lo dice', async () => {
@@ -1386,7 +1471,7 @@ describe('la scheda dall’input: una frase per azione', () => {
     ['call', { azione: 'esito', lead: 'Luca Neri', esito: 'chiusa' }, 'Registro l’esito della call con Luca Neri: Chiusa', ['Poi registriamo la vendita']],
     [
       'call',
-      { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: false, motivo: 'Fuori budget', note: 'Riprovare a gennaio' },
+      { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: false, motivo: 'Fuori budget', note_closer: 'Riprovare a gennaio' },
       'Registro l’esito della call con Luca Neri: Persa',
       ['Qualificata: no', 'Motivo di non chiusura: Fuori budget', 'Note aggiuntive: Riprovare a gennaio'],
     ],

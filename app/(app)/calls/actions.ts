@@ -14,9 +14,11 @@ export type EsitoRegistrazione =
   | { ok: false; errore: string }
 
 /**
- * The closer records how a call went. The closer only on calls assigned to
- * him (RLS enforces it, the filter says it). The admin on any call: his own in
- * "Le mie call", any closer's in "Compila la giornata" (section 19).
+ * The closer records how a call went, with his notes (note_closer). The closer
+ * only on calls assigned to him (RLS enforces it, the filter says it). The
+ * admin on any call: his own in "Le mie call", any closer's in "Compila la
+ * giornata" (section 19). Never the setter (Dany, 30/09/2026): the database
+ * refuses him too (calls_esito_solo_closer).
  */
 export async function registraEsito(input: unknown): Promise<EsitoRegistrazione> {
   const parsed = esitoCallSchema.safeParse(input)
@@ -53,10 +55,6 @@ export async function registraEsito(input: unknown): Promise<EsitoRegistrazione>
 
 export type EsitoModifica = { ok: true } | { ok: false; errore: string }
 
-/**
- * Reschedule, change type, closer or notes; the closer and the admin also record
- * how the call went. Who may touch which call is decided by RLS inside the RPCs.
- */
 /** Admin only (public.elimina_call): a sale that came from it stays, without the call. */
 export async function eliminaCall(input: unknown): Promise<EsitoModifica> {
   const parsed = z.object({ id: z.string().uuid() }).safeParse(input)
@@ -72,6 +70,12 @@ export async function eliminaCall(input: unknown): Promise<EsitoModifica> {
   return { ok: true }
 }
 
+/**
+ * Reschedule, change type, closer or the setter's note; the closer and the
+ * admin also record how the call went, with the closer's notes (dettagli_call).
+ * Who may touch which call is decided by RLS inside the RPCs. The closer reads
+ * the setter's note and never rewrites it: modifica_call keeps it for him.
+ */
 export async function modificaCall(input: unknown): Promise<EsitoModifica> {
   const parsed = modificaCallSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
@@ -96,7 +100,8 @@ export async function modificaCall(input: unknown): Promise<EsitoModifica> {
     p_data: v.data,
     p_ora: v.ora,
     p_closer_id: v.closer_id,
-    p_note: v.note ?? undefined,
+    // the closer's sheet never sends the setter's note; the RPC keeps it for him anyway
+    p_note: profilo.ruolo === 'closer' ? undefined : (v.note ?? undefined),
   })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Call non aggiornata. Riprova.') }
 
@@ -107,6 +112,7 @@ export async function modificaCall(input: unknown): Promise<EsitoModifica> {
       p_performance: v.dettagli.performance ?? undefined,
       p_prodotto_proposto_id: v.dettagli.prodotto_proposto_id ?? undefined,
       p_importo_proposto: v.dettagli.importo_proposto ?? undefined,
+      p_note_closer: v.dettagli.note_closer ?? undefined,
     })
     if (erroreDettagli) {
       return { ok: false, errore: messaggioErrore(erroreDettagli, 'Data salvata, dettagli no. Riprova.') }

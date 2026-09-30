@@ -31,7 +31,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
-import { MASSIMO_MOTIVO, MASSIMO_NOTE_CALL, MOTIVO_NON_CHIUSURA, NOTE_CALL } from '@/lib/setting/commento'
+import { MASSIMO_MOTIVO, MASSIMO_NOTE_CLOSER, MOTIVO_NON_CHIUSURA, NOTE_CLOSER } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 import { ETICHETTA_ESITO, esitoCallSchema, type EsitoCallInput, type SceltaEsito } from '@/lib/validation/esito'
 
@@ -46,7 +46,8 @@ type Props = {
   tornaA?: string | null
   /** What is saved now: the sheet opens on them when the outcome changes. */
   motivo?: string | null
-  note?: string | null
+  /** The closer's "Note aggiuntive" (calls.note_closer), never the setter's note. */
+  noteCloser?: string | null
 }
 
 const SOLO_FUTURE: SceltaEsito[] = ['cancellata', 'riprogrammata']
@@ -63,8 +64,9 @@ const SCELTE: { esito: SceltaEsito; Icona: LucideIcon }[] = [
 /**
  * Outcome in a few taps: open (1), pick (2). Closed jumps to the sale. For
  * follow-up or lost, the closer writes why it did not close (required, Dany
- * 30/09/2026), may add notes, then says whether the lead was qualified: that
- * tap saves (3). The shared schema decides what is missing.
+ * 30/09/2026), may add his notes (note_closer: the setter reads them, never
+ * writes them), then says whether the lead was qualified: that tap saves (3).
+ * The shared schema decides what is missing.
  */
 export function RegistraEsito({
   callId,
@@ -74,7 +76,7 @@ export function RegistraEsito({
   futura,
   tornaA = null,
   motivo: motivoSalvato = null,
-  note: noteSalvate = null,
+  noteCloser: noteSalvate = null,
 }: Props) {
   const router = useRouter()
   const id = useId()
@@ -132,7 +134,7 @@ export function RegistraEsito({
 
   /** Sì or No: the schema says what is missing before anything is sent. */
   function salvaNonChiusa(esito: 'follow_up' | 'persa', qualificata: boolean) {
-    const input: EsitoCallInput = { call_id: callId, esito, qualificata, motivo, note }
+    const input: EsitoCallInput = { call_id: callId, esito, qualificata, motivo, note_closer: note }
     const verifica = esitoCallSchema.safeParse(input)
     if (!verifica.success) {
       const problema = verifica.error.issues[0]
@@ -246,16 +248,16 @@ export function RegistraEsito({
 
               <div className="space-y-1.5">
                 <Label htmlFor={`${id}-note`}>
-                  {NOTE_CALL.titolo} <span className="font-normal text-muted-foreground">({NOTE_CALL.facoltative})</span>
+                  {NOTE_CLOSER.titolo} <span className="font-normal text-muted-foreground">({NOTE_CLOSER.facoltative})</span>
                 </Label>
                 <Textarea
                   id={`${id}-note`}
                   value={note}
                   onChange={(e) => setNote(e.currentTarget.value)}
-                  maxLength={MASSIMO_NOTE_CALL}
+                  maxLength={MASSIMO_NOTE_CLOSER}
                   rows={2}
                   aria-describedby={`${id}-senza-importi`}
-                  placeholder={NOTE_CALL.placeholder}
+                  placeholder={NOTE_CLOSER.placeholder}
                   className="max-h-40"
                 />
                 {/* the setter who booked the call reads these two texts, never the amount pitched */}

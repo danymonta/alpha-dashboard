@@ -43,8 +43,26 @@ describe('modifica della call', () => {
       ...base,
       dettagli: { link_registrazione: '', performance: null, prodotto_proposto_id: '', importo_proposto: '1.500' },
     })
-    expect(v.dettagli).toEqual({ link_registrazione: null, performance: null, prodotto_proposto_id: null, importo_proposto: 1500 })
+    expect(v.dettagli).toEqual({
+      link_registrazione: null,
+      performance: null,
+      prodotto_proposto_id: null,
+      importo_proposto: 1500,
+      note_closer: null,
+    })
     expect(v.note).toBeNull()
+  })
+
+  it('due note: quelle del setter fuori, quelle del closer nei dettagli', () => {
+    const v = rilegge(modificaCallSchema, {
+      ...base,
+      note: ' Vuole essere chiamato dopo le 18 ',
+      dettagli: { note_closer: ' Vuole la versione da 3 mesi ' },
+    })
+    expect(v.note).toBe('Vuole essere chiamato dopo le 18')
+    expect(v.dettagli?.note_closer).toBe('Vuole la versione da 3 mesi')
+    expect(errore(modificaCallSchema, { ...base, note: 'x'.repeat(1001) })).toBe('Al massimo 1000 caratteri')
+    expect(errore(modificaCallSchema, { ...base, dettagli: { note_closer: 'x'.repeat(2001) } })).toBe('Al massimo 2000 caratteri')
   })
 
   it('un importo illeggibile è un errore, non un campo svuotato', () => {

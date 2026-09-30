@@ -51,13 +51,13 @@ isOneToOne: false
                   ]
                 },"calls": {
                   Row: {
-                    "closer_id": string | null,"created_at": string,"created_by": string | null,"esito": Database["public"]['Enums']["call_outcome"] | null,"id": string,"lead_id": string,"link_registrazione": string | null,"note": string | null,"obiezione_principale": string | null,"performance": Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id": string | null,"programmata_il": string,"qualificata": boolean | null,"setter_id": string | null,"stato": Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at": string
+                    "closer_id": string | null,"created_at": string,"created_by": string | null,"esito": Database["public"]['Enums']["call_outcome"] | null,"id": string,"lead_id": string,"link_registrazione": string | null,"note": string | null,"note_closer": string | null,"obiezione_principale": string | null,"performance": Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id": string | null,"programmata_il": string,"qualificata": boolean | null,"setter_id": string | null,"stato": Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at": string
                   }
                   Insert: {
-                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id": string,"link_registrazione"?: string | null,"note"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il": string,"qualificata"?: boolean | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at"?: string
+                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id": string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il": string,"qualificata"?: boolean | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at"?: string
                   }
                   Update: {
-                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id"?: string,"link_registrazione"?: string | null,"note"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il"?: string,"qualificata"?: boolean | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo"?: Database["public"]['Enums']["call_type"],"updated_at"?: string
+                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id"?: string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il"?: string,"qualificata"?: boolean | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo"?: Database["public"]['Enums']["call_type"],"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1066,7 +1066,7 @@ isOneToOne: false
             }[]
                            },
 "dettagli_call":
-{ Args: { "p_call_id": string,"p_importo_proposto"?: number,"p_link_registrazione"?: string,"p_performance"?: Database["public"]['Enums']["call_performance"],"p_prodotto_proposto_id"?: string }; Returns: undefined
+{ Args: { "p_call_id": string,"p_importo_proposto"?: number,"p_link_registrazione"?: string,"p_note_closer"?: string,"p_performance"?: Database["public"]['Enums']["call_performance"],"p_prodotto_proposto_id"?: string }; Returns: undefined
                            },
 "elimina_call":
 { Args: { "p_call_id": string }; Returns: undefined
@@ -1189,7 +1189,7 @@ isOneToOne: false
                            },
 "motivi_non_chiusura_periodo":
 { Args: { "p_a": string,"p_da": string,"p_limite"?: number,"p_setter"?: string }; Returns: {
-              "call_id": string,"closer": string,"data": string,"esito": Database["public"]['Enums']["call_outcome"],"lead": string,"motivo": string,"note": string,"programmata_il": string,"qualificata": boolean
+              "call_id": string,"closer": string,"data": string,"esito": Database["public"]['Enums']["call_outcome"],"lead": string,"motivo": string,"note_closer": string,"programmata_il": string,"qualificata": boolean
             }[]
                            },
 "nuova_regola_provvigione":

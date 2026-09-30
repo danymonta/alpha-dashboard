@@ -105,7 +105,8 @@ async function principale() {
         qualificata: c.qualificata,
         esito: c.esito,
         obiezione_principale: c.obiezione,
-        note: c.note,
+        // the sheet is the closer's: its "Note aggiuntive" are his (calls.note_closer)
+        note_closer: c.note,
         link_registrazione: c.link,
         performance: c.performance as Database['public']['Enums']['call_performance'] | null,
         prodotto_proposto_id: c.prodotto ? (prodotto.get(c.prodotto) ?? null) : null,

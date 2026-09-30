@@ -3,6 +3,7 @@ import 'server-only'
 import { tool, type ToolSet } from 'ai'
 import { z } from 'zod'
 
+import { breve } from '@/lib/alfire/cambi'
 import { ARGOMENTI_GUIDA, GUIDA, type ArgomentoGuida } from '@/lib/alfire/guida'
 import { isScrittura, strumentiConsentiti, type NomeStrumento } from '@/lib/alfire/permessi'
 import type { Anteprima } from '@/lib/alfire/riassunto'
@@ -17,7 +18,8 @@ import type { Profilo } from '@/lib/auth/session'
 import { aggiungiGiorni, aggiungiMesi, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import {
   MOTIVO_NON_CHIUSURA,
-  NOTE_CALL,
+  NOTE_CLOSER,
+  NOTE_SETTER,
   SCALE_COMMENTO,
   TESTI_COMMENTO,
   etichettaLivello,
@@ -30,6 +32,9 @@ const periodo = z.object({
   da: data.optional().describe('Inizio, incluso. Default: primo giorno del mese corrente'),
   a: data.optional().describe('Fine, inclusa. Default: oggi'),
 })
+
+/** The notes of a call in call_periodo: their first characters, on one line. */
+const LUNGHEZZA_NOTE_CALL = 300
 
 function leggiPeriodo({ da, a }: { da?: string; a?: string }) {
   const oggi = oggiRoma()
@@ -223,7 +228,7 @@ function letture({ supabase, profilo, r }: Contesto) {
       description:
         'Cosa dicono i lead, per il marketing, nel periodo. Dal setting (report giornaliero): giorni per livello di lead in target e ' +
         'qualità delle conversazioni, e i giorni con cosa frenava i lead dal fissare la call, domande e contenuti, altre note. ' +
-        'Dalle call: il motivo di non chiusura scritto dal closer sulle call svolte finite in follow-up o persa (qui stanno le obiezioni sul prezzo). ' +
+        'Dalle call: il motivo di non chiusura e le note aggiuntive scritti dal closer sulle call svolte finite in follow-up o persa (qui stanno le obiezioni sul prezzo). ' +
         'Per riassumere cosa frena i lead o le obiezioni del mese. Con setter: i suoi report e le call che ha fissato.',
       inputSchema: periodo.extend({ setter: z.string().optional().describe('Nome; vuoto: tutti') }),
       execute: async (input) => {
@@ -282,7 +287,7 @@ function letture({ supabase, profilo, r }: Contesto) {
           closer: c.closer,
           esito: ETICHETTA_ESITO[c.esito],
           ...(c.motivo ? { [MOTIVO_NON_CHIUSURA.titolo]: c.motivo } : {}),
-          ...(c.note ? { [NOTE_CALL.titolo]: c.note } : {}),
+          ...(c.note_closer ? { [NOTE_CLOSER.titolo]: c.note_closer } : {}),
         }))
         return {
           periodo: p,
@@ -359,14 +364,14 @@ function letture({ supabase, profilo, r }: Contesto) {
 
     call_periodo: definizione({
       description:
-        'Call programmate nel periodo visibili a chi chatta, con lead (e il suo stato), tipo, stato, esito e motivo di non chiusura.',
+        'Call programmate nel periodo visibili a chi chatta, con lead (e il suo stato), tipo, stato, esito, motivo di non chiusura, note del setter e note aggiuntive del closer.',
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
         const { data, error } = await supabase
           .from('calls')
           .select(
-            'id, tipo, programmata_il, stato, esito, qualificata, obiezione_principale, lead:leads(nome, stato), closer:profiles!calls_closer_id_fkey(nome)',
+            'id, tipo, programmata_il, stato, esito, qualificata, obiezione_principale, note, note_closer, lead:leads(nome, stato), closer:profiles!calls_closer_id_fkey(nome)',
           )
           // a day of margin on both sides, then the Rome calendar day decides
           .gte('programmata_il', `${aggiungiGiorni(p.da, -1)}T00:00:00Z`)
@@ -389,6 +394,11 @@ function letture({ supabase, profilo, r }: Contesto) {
             stato: c.stato,
             esito: c.esito,
             closer: c.closer?.nome,
+            // what was written, each text with its author; the notes (up to 2000 characters) shortened:
+            // up to 60 calls must fit in a free-plan answer
+            ...(c.obiezione_principale?.trim() ? { [MOTIVO_NON_CHIUSURA.titolo]: c.obiezione_principale.trim() } : {}),
+            ...(c.note?.trim() ? { [NOTE_SETTER.titolo]: breve(c.note, LUNGHEZZA_NOTE_CALL) } : {}),
+            ...(c.note_closer?.trim() ? { [NOTE_CLOSER.diChi]: breve(c.note_closer, LUNGHEZZA_NOTE_CALL) } : {}),
           })),
         }
       },

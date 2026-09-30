@@ -267,7 +267,7 @@ export default async function SettingPage({
     // who can have a day of setting: the setters, and the admin who does it too
     supabase.from('profiles').select('id, nome, ruolo').eq('attivo', true).in('ruolo', ['setter', 'admin']).order('nome'),
     // what the leads say, for marketing: counted and listed in SQL, from the
-    // setters' reports and from the closers' reasons for not closing
+    // setters' reports and from the closers' reasons for not closing and notes
     supabase.rpc('commenti_setter_periodo', { p_da: periodo.da, p_a: periodo.a, ...filtroSetter }),
     supabase.rpc('motivi_non_chiusura_periodo', { p_da: periodo.da, p_a: periodo.a, ...filtroSetter }),
   ])

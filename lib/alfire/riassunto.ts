@@ -1,7 +1,14 @@
 import { formatData, formatEuro, formatMese } from '@/lib/format'
 import { elencoNomi } from '@/lib/progetti'
 import type { NomeScrittura } from '@/lib/alfire/permessi'
-import { MOTIVO_NON_CHIUSURA, NOTE_CALL, SCALE_COMMENTO, TESTI_COMMENTO, etichettaLivello } from '@/lib/setting/commento'
+import {
+  MOTIVO_NON_CHIUSURA,
+  NOTE_CLOSER,
+  NOTE_SETTER,
+  SCALE_COMMENTO,
+  TESTI_COMMENTO,
+  etichettaLivello,
+} from '@/lib/setting/commento'
 import { ETICHETTA_ESITO, type SceltaEsito } from '@/lib/validation/esito'
 import { ETICHETTA_STATO_LEAD, type StatoLead } from '@/lib/validation/lead'
 
@@ -328,13 +335,17 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
           dettagli: righe(
             typeof input.qualificata === 'boolean' && `Qualificata: ${input.qualificata ? 'sì' : 'no'}`,
             testo(input.motivo) && `${MOTIVO_NON_CHIUSURA.titolo}: ${input.motivo}`,
-            testo(input.note) && `${NOTE_CALL.titolo}: ${input.note}`,
+            testo(input.note_closer) && `${NOTE_CLOSER.titolo}: ${input.note_closer}`,
             esito === 'chiusa' && 'Poi registriamo la vendita',
           ),
         }
       }
       if (azione === 'elimina') return { titolo: `Elimino la call con ${chi}`, dettagli: [] }
-      return { titolo: `Correggo la call con ${chi}`, dettagli: cambi(input, ['azione', 'lead', 'call_id']) }
+      // two notes on a call: the setter's and the closer's, each with its name
+      return {
+        titolo: `Correggo la call con ${chi}`,
+        dettagli: cambi(input, ['azione', 'lead', 'call_id'], { note: NOTE_SETTER.titolo, note_closer: NOTE_CLOSER.titolo }),
+      }
     }
     case 'lead': {
       const chi = testo(input.lead) ?? '?'
@@ -500,11 +511,11 @@ const ETICHETTA_CAMBIO: Record<string, string> = {
 const IMPORTI = ['valore', 'importo', 'prezzo_listino', 'importo_proposto']
 
 /** "Campo: nuovo valore" for every field the edit changes (the card adds before → after from the database). */
-function cambi(input: Input, esclusi: string[]): string[] {
+function cambi(input: Input, esclusi: string[], etichette: Record<string, string> = {}): string[] {
   return Object.entries(input)
     .filter(([campo, valore]) => !esclusi.includes(campo) && valore !== undefined && valore !== null && valore !== '')
     .map(([campo, valore]) => {
-      const etichetta = ETICHETTA_CAMBIO[campo] ?? campo
+      const etichetta = etichette[campo] ?? ETICHETTA_CAMBIO[campo] ?? campo
       if (campo === 'piano_predefinito') return `${etichetta}: ${pianoAbituale(valore) ?? 'nessuno'}`
       if (typeof valore === 'number' && IMPORTI.includes(campo)) return `${etichetta}: ${formatEuro(valore)}`
       if (typeof valore === 'boolean') return `${etichetta}: ${valore ? 'sì' : 'no'}`

@@ -255,6 +255,7 @@ export default async function CompilaGiornataPage({ searchParams }: { searchPara
                 oggi={oggi}
                 adesso={adesso}
                 vista="closer"
+                admin={admin}
                 mostraGiorno={false}
                 eliminabile={admin}
                 // a call closed here: the sale is dated on this day and comes back here

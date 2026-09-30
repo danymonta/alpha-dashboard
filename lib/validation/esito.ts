@@ -2,15 +2,15 @@ import { z } from 'zod'
 
 import {
   MASSIMO_MOTIVO,
-  MASSIMO_NOTE_CALL,
+  MASSIMO_NOTE_CLOSER,
   MOTIVO_NON_CHIUSURA,
-  NOTE_CALL,
+  NOTE_CLOSER,
 } from '@/lib/setting/commento'
 import type { Database } from '@/lib/supabase/database.types'
 
 type AggiornamentoCall = Pick<
   Database['public']['Tables']['calls']['Update'],
-  'stato' | 'esito' | 'qualificata' | 'obiezione_principale' | 'note'
+  'stato' | 'esito' | 'qualificata' | 'obiezione_principale' | 'note_closer'
 >
 
 const callId = z.string().uuid('Call non valida')
@@ -28,10 +28,14 @@ const motivoNonChiusura = z
   .min(1, MOTIVO_NON_CHIUSURA.manca)
   .max(MASSIMO_MOTIVO, MOTIVO_NON_CHIUSURA.troppoLungo)
 
-/** "Note aggiuntive" (calls.note), optional: left out, the saved ones stay; blank clears them. */
-const noteCall = z
+/**
+ * "Note aggiuntive" of the closer (calls.note_closer, Dany 30/09/2026), optional:
+ * left out, the saved ones stay; blank clears them. The setter's note
+ * (calls.note) is never touched by an outcome.
+ */
+const noteCloser = z
   .string()
-  .max(MASSIMO_NOTE_CALL, NOTE_CALL.troppoLungo)
+  .max(MASSIMO_NOTE_CLOSER, NOTE_CLOSER.troppoLungo)
   .nullish()
   .transform((v) => (v === undefined ? undefined : v && v.trim() !== '' ? v.trim() : null))
 
@@ -47,7 +51,7 @@ export const esitoCallSchema = z.discriminatedUnion('esito', [
     esito: z.enum(['follow_up', 'persa']),
     qualificata: z.boolean({ required_error: 'Indica se era qualificata' }),
     motivo: motivoNonChiusura,
-    note: noteCall,
+    note_closer: noteCloser,
   }),
   z.object({
     call_id: callId,
@@ -80,8 +84,8 @@ export const ETICHETTA_ESITO: Record<SceltaEsito, string> = {
  * Translates a tap into the columns of `calls`, respecting the table checks
  * (qualificata and esito only when svolta). A closed call is always qualified:
  * otherwise "close rate su qualificate" could exceed 100%. The reason for not
- * closing only belongs to a held call that did not close; the notes are
- * touched only when the sheet sends them.
+ * closing only belongs to a held call that did not close; the closer's notes
+ * are touched only when the sheet sends them.
  */
 export function aggiornamentoDaEsito(v: EsitoCall): AggiornamentoCall {
   switch (v.esito) {
@@ -94,7 +98,7 @@ export function aggiornamentoDaEsito(v: EsitoCall): AggiornamentoCall {
         esito: v.esito,
         qualificata: v.qualificata,
         obiezione_principale: v.motivo,
-        ...(v.note !== undefined ? { note: v.note } : {}),
+        ...(v.note_closer !== undefined ? { note_closer: v.note_closer } : {}),
       }
     default:
       return { stato: v.esito, esito: null, qualificata: null, obiezione_principale: null }

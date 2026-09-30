@@ -4,6 +4,9 @@
  * Nothing economic is created from it: sales come from the DM tracking Excel.
  */
 
+/** The closer's notes on a call: the same limit as the database (calls_note_closer_lunghezza). */
+const MASSIMO_NOTE_CLOSER = 2000
+
 /** A CSV file with "," or ";" and quoted fields that may contain newlines. */
 export function leggiCsv(testo: string): string[][] {
   const pulito = testo.replace(/^﻿/, '')
@@ -147,6 +150,14 @@ export function mappaProspect(righe: string[][]): { call: CallProspect[]; avvisi
       testo(r[8]),
     ].filter(Boolean)
 
+    // "Note aggiuntive" go to calls.note_closer, at most 2000 characters (calls_note_closer_lunghezza):
+    // a longer cell is cut and said, instead of stopping the import halfway
+    let testoNote = note.length > 0 ? note.join(' ') : null
+    if (testoNote && testoNote.length > MASSIMO_NOTE_CLOSER) {
+      testoNote = `${testoNote.slice(0, MASSIMO_NOTE_CLOSER - 1)}…`
+      avvisi.push(`Riga ${n} (${nome}): note aggiuntive oltre ${MASSIMO_NOTE_CLOSER} caratteri, tagliate`)
+    }
+
     call.push({
       riga: n,
       nome,
@@ -157,7 +168,7 @@ export function mappaProspect(righe: string[][]): { call: CallProspect[]; avvisi
       qualificata: stato.qualificata,
       stato_lead: stato.lead,
       obiezione: stato.esito === 'chiusa' ? null : motivo,
-      note: note.length > 0 ? note.join(' ') : null,
+      note: testoNote,
       link: link && /^https?:\/\/\S+$/i.test(link) && link.length <= 500 ? link : null,
       performance: PERFORMANCE[(r[5] ?? '').trim().toLowerCase()] ?? null,
       prodotto,

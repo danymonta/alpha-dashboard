@@ -277,3 +277,54 @@ test('giornata: il closer compila la sua, senza aggiungere call', async ({ page 
   await page.goto('/calls/new')
   await expect(page).toHaveURL('/calls')
 })
+
+test('giornata: dopo l’esito la matita apre le note aggiuntive appena salvate, e il solo link non le cancella', async ({
+  page,
+}) => {
+  const nome = `${PREFISSO} Note ${Date.now()}`
+  const id = await creaCallDiProva(nome, ID_CLOSER, 2)
+  const giorno = oggiRoma(new Date(Date.now() - 2 * 3_600_000))
+
+  await accedi(page, 'closer')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/setting/closer/giorno?data=${giorno}`)
+  const scheda = page.getByRole('article', { name: nome })
+
+  // the outcome with the closer's notes, then the pencil on the same page, without reloading
+  await scheda.getByRole('button', { name: 'Registra esito' }).click()
+  const esito = page.getByRole('dialog')
+  await esito.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await esito.getByLabel(/Motivo di non chiusura/).fill('Deve parlarne con la compagna')
+  await esito.getByLabel(/Note aggiuntive/).fill('Richiamare lunedì')
+  await esito.getByRole('button', { name: 'Sì', exact: true }).click()
+  await expect(scheda.getByText('Follow-up')).toBeVisible()
+
+  await scheda.getByRole('button', { name: `Modifica la call con ${nome}` }).click()
+  const matita = page.getByRole('dialog')
+  await expect(matita.getByLabel(/Note aggiuntive/)).toHaveValue('Richiamare lunedì')
+  await matita.getByLabel('Link alla registrazione').fill('https://fathom.video/share/e2e')
+  await matita.getByRole('button', { name: 'Salva la call' }).click()
+  await expect(page.getByText('Call aggiornata')).toBeVisible()
+  await expect(matita).toHaveCount(0)
+
+  // a new outcome with new notes: the pencil opens on those, not on the first ones
+  await scheda.getByRole('button', { name: 'Cambia esito' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Persa', exact: true }).click()
+  await page.getByRole('dialog').getByLabel(/Note aggiuntive/).fill('Ha scelto un altro coach')
+  await page.getByRole('dialog').getByRole('button', { name: 'No', exact: true }).click()
+  await expect(scheda.getByText('Persa')).toBeVisible()
+  await scheda.getByRole('button', { name: `Modifica la call con ${nome}` }).click()
+  await expect(page.getByRole('dialog').getByLabel(/Note aggiuntive/)).toHaveValue('Ha scelto un altro coach')
+  await expect(page.getByRole('dialog').getByLabel('Link alla registrazione')).toHaveValue('https://fathom.video/share/e2e')
+
+  const { data } = await dbLocale()
+    .from('calls')
+    .select('note_closer, link_registrazione, esito')
+    .eq('id', id)
+    .single()
+  expect(data).toEqual({
+    note_closer: 'Ha scelto un altro coach',
+    link_registrazione: 'https://fathom.video/share/e2e',
+    esito: 'persa',
+  })
+})

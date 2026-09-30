@@ -2,7 +2,7 @@ import { ModificaCall } from '@/app/(app)/calls/modifica-call'
 import { RegistraEsito } from '@/app/(app)/calls/registra-esito'
 import { StatoCall } from '@/components/call/stato-call'
 import { etichettaGiorno, etichettaGiornoBreve, formatOra, oggiRoma } from '@/lib/date'
-import { MOTIVO_NON_CHIUSURA } from '@/lib/setting/commento'
+import { MOTIVO_NON_CHIUSURA, NOTE_CLOSER, NOTE_SETTER } from '@/lib/setting/commento'
 import type { Database } from '@/lib/supabase/database.types'
 import { ETICHETTA_TIPO_CALL } from '@/lib/validation/call'
 import { chiedeMotivo } from '@/lib/validation/esito'
@@ -11,13 +11,15 @@ type Enums = Database['public']['Enums']
 
 /** The columns of a call card, as CallVista reads them. */
 export const CAMPI_CALL =
-  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, note, obiezione_principale, link_registrazione, performance, prodotto_proposto_id, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
+  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, note, note_closer, obiezione_principale, link_registrazione, performance, prodotto_proposto_id, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
 
 /**
  * The amount pitched is read only where RLS lets it through: closer and admin.
- * The reason for not closing is written by the closer (his outcome sheet opens
- * on it) and read by the setter who booked the call (Dany, 30/09/2026): he
- * learns why his leads did not close; the database keeps him from changing it.
+ * The outcome, the reason for not closing and the closer's notes are written
+ * by the closer (his outcome sheet opens on them) and read by the setter who
+ * booked the call (Dany, 30/09/2026): he learns why his leads did not close;
+ * the database keeps him from changing them. The setter's note goes the other
+ * way: he writes it, the closer reads it.
  */
 export const CAMPI_CALL_CLOSER = `${CAMPI_CALL}, pitch:call_pitch(importo_proposto)`
 
@@ -29,7 +31,10 @@ export type CallVista = {
   esito: Enums['call_outcome'] | null
   qualificata: boolean | null
   closer_id: string | null
+  /** "Note del setter": the setter writes them, the closer reads them. */
   note: string | null
+  /** "Note aggiuntive" of the closer: the closer writes them, the setter reads them. */
+  note_closer: string | null
   link_registrazione: string | null
   performance: Enums['call_performance'] | null
   prodotto_proposto_id: string | null
@@ -53,6 +58,8 @@ type Props = {
   adesso: number
   /** closer: can record the outcome; setter: read only. */
   vista: 'closer' | 'setter'
+  /** The admin also writes the setter's note; the closer only reads it. */
+  admin?: boolean
   mostraGiorno?: boolean
   eliminabile?: boolean
   /** Where the sale of a closed call returns after saving (an internal path, e.g. the closer's day). */
@@ -66,6 +73,7 @@ export function SchedaCall({
   oggi,
   adesso,
   vista,
+  admin = false,
   mostraGiorno = true,
   eliminabile = false,
   tornaA = null,
@@ -122,6 +130,8 @@ export function SchedaCall({
               ora,
               closer_id: call.closer_id,
               note: call.note,
+              note_closer: call.note_closer,
+              obiezione_principale: call.obiezione_principale ?? null,
               link_registrazione: call.link_registrazione,
               performance: call.performance,
               prodotto_proposto_id: call.prodotto_proposto_id,
@@ -131,6 +141,7 @@ export function SchedaCall({
             closers={closers}
             prodotti={prodotti}
             conDettagli={vista === 'closer'}
+            noteSetterModificabili={vista === 'setter' || admin}
             eliminabile={eliminabile}
           />
         </div>
@@ -147,17 +158,31 @@ export function SchedaCall({
             futura={!passata}
             tornaA={tornaA}
             motivo={call.obiezione_principale ?? null}
-            note={call.note}
+            noteCloser={call.note_closer}
           />
         </div>
       ) : null}
 
+      {/* the closer reads what the setter wrote with the call's pencil */}
+      {vista === 'closer' ? <TestoCall etichetta={NOTE_SETTER.titolo} testo={call.note} testId="note-setter" /> : null}
+
       {/* both sides see it: the closer wrote it, the setter learns from it */}
-      {chiedeMotivo(call.esito) && call.obiezione_principale ? (
-        <p className="mt-1 line-clamp-2 pl-[4.25rem] text-sm break-words" data-testid="motivo-non-chiusura">
-          <span className="text-muted-foreground">{MOTIVO_NON_CHIUSURA.titolo}:</span> {call.obiezione_principale}
-        </p>
+      {chiedeMotivo(call.esito) ? (
+        <TestoCall etichetta={MOTIVO_NON_CHIUSURA.titolo} testo={call.obiezione_principale} testId="motivo-non-chiusura" />
       ) : null}
+
+      {/* the setter reads the closer's notes, never writes them */}
+      {vista === 'setter' ? <TestoCall etichetta={NOTE_CLOSER.diChi} testo={call.note_closer} testId="note-closer" /> : null}
     </article>
+  )
+}
+
+/** A text of the call, under the card: two lines at most, in full in the edit sheet. */
+function TestoCall({ etichetta, testo, testId }: { etichetta: string; testo: string | null | undefined; testId: string }) {
+  if (!testo?.trim()) return null
+  return (
+    <p className="mt-1 line-clamp-2 pl-[4.25rem] text-sm break-words" data-testid={testId}>
+      <span className="text-muted-foreground">{etichetta}:</span> {testo}
+    </p>
   )
 }

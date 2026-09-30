@@ -12,7 +12,9 @@ import {
   TESTI_COMMENTO,
   MARKETING,
   MOTIVO_NON_CHIUSURA,
-  NOTE_CALL,
+  NOTE_CLOSER,
+  NOTE_SETTER,
+  ESITO_DEL_CLOSER,
   commentoDaCompletare,
   etichettaLivello,
   giornataConAttivita,
@@ -178,7 +180,16 @@ describe('le parole del commento stanno in un solo posto', () => {
     expect(MOTIVO_NON_CHIUSURA).toMatchObject({ titolo: 'Motivo di non chiusura', domanda: 'Perché non ha chiuso?' })
     expect(MOTIVO_NON_CHIUSURA.salva).toBe('Un tocco su Sì o No salva l’esito.')
     expect(MOTIVO_NON_CHIUSURA.senzaImporti).toMatch(/importo proposto/)
-    expect(NOTE_CALL).toMatchObject({ titolo: 'Note aggiuntive', facoltative: 'facoltative' })
+    expect(NOTE_CLOSER).toMatchObject({ titolo: 'Note aggiuntive', diChi: 'Note aggiuntive del closer', facoltative: 'facoltative' })
+  })
+
+  it('due note sulla call, ognuna col suo autore (Dany, 30/09/2026)', () => {
+    expect(NOTE_SETTER.titolo).toBe('Note del setter')
+    expect(NOTE_SETTER.troppoLungo).toBe('Al massimo 1000 caratteri')
+    // the database checks 2000 characters on calls.note_closer
+    expect(NOTE_CLOSER.troppoLungo).toBe('Al massimo 2000 caratteri')
+    expect(ESITO_DEL_CLOSER).toMatch(/esito.*motivo di non chiusura.*note aggiuntive.*closer/i)
+    expect(MARKETING.call.descrizione).toMatch(/note aggiuntive/)
   })
 
   it('il commento sta con le conversazioni, prima delle call', () => {

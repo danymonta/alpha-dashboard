@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { aggiungiGiorni, isDataISO, oggiRoma } from '@/lib/date'
 import { parseImporto } from '@/lib/importi'
+import { MASSIMO_NOTE_CLOSER, MASSIMO_NOTE_SETTER, NOTE_CLOSER, NOTE_SETTER } from '@/lib/setting/commento'
 import { Constants } from '@/lib/supabase/database.types'
 
 export const FONTI = Constants.public.Enums.lead_source
@@ -110,7 +111,11 @@ export const ETICHETTA_PERFORMANCE: Record<Performance, string> = {
 
 const vuotoANull = (v: string | null | undefined) => (v?.trim() ? v.trim() : null)
 
-/** The closer's record of the call: all optional, an empty field clears it. */
+/**
+ * The closer's record of the call (public.dettagli_call): all optional, an
+ * empty field clears it. His notes ("Note aggiuntive", calls.note_closer) are
+ * here: the setter never sends this part, and the database refuses them from him.
+ */
 export const dettagliCallSchema = z.object({
   link_registrazione: z
     .string()
@@ -130,6 +135,7 @@ export const dettagliCallSchema = z.object({
     .transform((v) => (typeof v === 'number' ? v : v?.trim() ? (parseImporto(v) ?? Number.NaN) : null))
     .refine((v) => v === null || (!Number.isNaN(v) && v >= 0), 'Scrivi l’importo, ad esempio 1.500')
     .refine((v) => v === null || v <= 100_000, 'Importo troppo alto: controlla gli zeri'),
+  note_closer: z.string().max(MASSIMO_NOTE_CLOSER, NOTE_CLOSER.troppoLungo).nullish().transform(vuotoANull),
 })
 
 export const modificaCallSchema = z
@@ -139,7 +145,8 @@ export const modificaCallSchema = z
     data: z.string().refine(isDataISO, 'Scegli la data'),
     ora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Scegli l’ora'),
     closer_id: z.string().uuid('Scegli il closer'),
-    note: z.string().max(1000, 'Al massimo 1000 caratteri').nullish().transform(vuotoANull),
+    /** "Note del setter" (calls.note): the setter's and the admin's; the closer's sheet never sends them. */
+    note: z.string().max(MASSIMO_NOTE_SETTER, NOTE_SETTER.troppoLungo).nullish().transform(vuotoANull),
     /** Only for the closer and the admin: the setter never sends it. */
     dettagli: dettagliCallSchema.nullish(),
   })

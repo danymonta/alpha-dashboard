@@ -165,6 +165,7 @@ export default async function LeMieCallPage() {
       oggi={oggi}
       adesso={adesso}
       vista={vista}
+      admin={admin}
       mostraGiorno={mostraGiorno}
       eliminabile={admin}
     />

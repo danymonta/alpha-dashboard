@@ -187,11 +187,13 @@ test('l’admin legge per il marketing cosa dicono i lead: dal setting e dalle c
     qualificata: true,
     esito: 'persa',
     obiezione_principale: 'Fuori budget',
-    note: 'Riprovare a marzo',
+    note_closer: 'Riprovare a marzo',
+    // the setter's own note: his side of the call, never in "Dalle call"
+    note: 'Nota del setter riservata',
     created_by: ID_SETTER,
   })
   if (e2) throw e2
-  // a day with text and one answer only, and an older call with notes only
+  // a day with text and one answer only, and an older call with the closer's notes only
   const { error: e3 } = await db.from('setter_daily_reports').insert({
     setter_id: ID_SETTER,
     data: GIORNO_ADMIN,
@@ -210,7 +212,7 @@ test('l’admin legge per il marketing cosa dicono i lead: dal setting e dalle c
     stato: 'svolta',
     qualificata: false,
     esito: 'follow_up',
-    note: 'Solo le note, senza motivo',
+    note_closer: 'Solo le note, senza motivo',
     created_by: ID_SETTER,
   })
   if (e4) throw e4
@@ -260,6 +262,7 @@ test('l’admin legge per il marketing cosa dicono i lead: dal setting e dalle c
   const soloNote = sezione.getByTestId('motivi-non-chiusura').getByRole('listitem').filter({ hasText: '05/02/2020' })
   await expect(soloNote).toContainText('Note aggiuntiveSolo le note, senza motivo')
   await expect(soloNote).not.toContainText('Motivo di non chiusura')
+  await expect(sezione.getByText('Nota del setter riservata')).toHaveCount(0)
   // shares of a column with one decimal, aligned
   await expect(target.getByRole('row', { name: /^Pochi/ }).getByRole('cell').nth(1)).toHaveText('100,0%')
 

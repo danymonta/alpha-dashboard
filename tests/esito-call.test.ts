@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { MOTIVO_NON_CHIUSURA, NOTE_CALL } from '@/lib/setting/commento'
+import { MOTIVO_NON_CHIUSURA, NOTE_CLOSER } from '@/lib/setting/commento'
 import { aggiornamentoDaEsito, chiedeMotivo, esitoCallSchema } from '@/lib/validation/esito'
 
 const call_id = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d'
@@ -57,15 +57,33 @@ describe('esito della call', () => {
     expect(chiedeMotivo('persa')).toBe(true)
   })
 
-  it('le note aggiuntive sono facoltative: non mandate restano, vuote si tolgono', () => {
+  it('le note aggiuntive del closer sono facoltative: non mandate restano, vuote si tolgono', () => {
     const senza = esitoCallSchema.parse({ call_id, esito: 'follow_up', qualificata: true, motivo: 'Deve parlarne con la compagna' })
-    expect(aggiornamentoDaEsito(senza)).not.toHaveProperty('note')
-    const con = esitoCallSchema.parse({ call_id, esito: 'follow_up', qualificata: true, motivo: 'Non è il momento', note: ' Richiamare a gennaio ' })
-    expect(aggiornamentoDaEsito(con)).toMatchObject({ obiezione_principale: 'Non è il momento', note: 'Richiamare a gennaio' })
-    const vuote = esitoCallSchema.parse({ call_id, esito: 'persa', qualificata: false, motivo: 'Vuole provare da solo', note: '  ' })
-    expect(aggiornamentoDaEsito(vuote)).toMatchObject({ note: null })
-    const r = esitoCallSchema.safeParse({ call_id, esito: 'persa', qualificata: false, motivo: 'x', note: 'x'.repeat(1001) })
-    expect(r.error?.issues[0]?.message).toBe(NOTE_CALL.troppoLungo)
+    expect(aggiornamentoDaEsito(senza)).not.toHaveProperty('note_closer')
+    const con = esitoCallSchema.parse({
+      call_id,
+      esito: 'follow_up',
+      qualificata: true,
+      motivo: 'Non è il momento',
+      note_closer: ' Richiamare a gennaio ',
+    })
+    expect(aggiornamentoDaEsito(con)).toMatchObject({ obiezione_principale: 'Non è il momento', note_closer: 'Richiamare a gennaio' })
+    const vuote = esitoCallSchema.parse({ call_id, esito: 'persa', qualificata: false, motivo: 'Vuole provare da solo', note_closer: '  ' })
+    expect(aggiornamentoDaEsito(vuote)).toMatchObject({ note_closer: null })
+    // 2000 characters, as the database checks
+    expect(esitoCallSchema.safeParse({ call_id, esito: 'persa', qualificata: false, motivo: 'x', note_closer: 'x'.repeat(2000) }).success).toBe(true)
+    const r = esitoCallSchema.safeParse({ call_id, esito: 'persa', qualificata: false, motivo: 'x', note_closer: 'x'.repeat(2001) })
+    expect(r.error?.issues[0]?.message).toBe(NOTE_CLOSER.troppoLungo)
+  })
+
+  it('un esito non tocca mai le note del setter (calls.note)', () => {
+    for (const input of [
+      { call_id, esito: 'chiusa' },
+      { call_id, esito: 'no_show' },
+      { call_id, esito: 'persa', qualificata: false, motivo: 'Fuori budget', note_closer: 'Riprovare a gennaio', note: 'dal setter' },
+    ]) {
+      expect(aggiornamentoDaEsito(esitoCallSchema.parse(input))).not.toHaveProperty('note')
+    }
   })
 
   it('no show, cancellata e riprogrammata non hanno esito, qualifica né motivo', () => {

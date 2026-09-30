@@ -153,8 +153,10 @@ export const COMMENTO_CHIESTO_DAL = '2026-09-30'
 
 /** Ceiling of the reason (calls.obiezione_principale). */
 export const MASSIMO_MOTIVO = 500
-/** Ceiling of the call's notes (calls.note), the same as in "Modifica la call". */
-export const MASSIMO_NOTE_CALL = 1000
+/** Ceiling of the closer's notes (calls.note_closer): the database checks it too. */
+export const MASSIMO_NOTE_CLOSER = 2000
+/** Ceiling of the setter's notes (calls.note), in "Modifica la call". */
+export const MASSIMO_NOTE_SETTER = 1000
 
 /**
  * "Motivo di non chiusura" (calls.obiezione_principale): required for a held
@@ -181,13 +183,42 @@ export const MOTIVO_NON_CHIUSURA = {
   troppoLungo: `Al massimo ${MASSIMO_MOTIVO} caratteri`,
 } as const
 
-/** The call's notes (calls.note), optional in the outcome sheet: what the closer wants to add. */
-export const NOTE_CALL = {
+// ---------------------------------------------------------------------------
+// The two notes of a call (Dany, 30/09/2026): "Solo il closer registra
+// l'esito, e le note del closer non le può modificare il setter."
+// ---------------------------------------------------------------------------
+
+/**
+ * "Note aggiuntive" (calls.note_closer): the closer's, like the column of his
+ * prospect sheet. Written by the closer of the call (outcome sheet, call
+ * sheet) and by the admin; the setter who booked the call reads them and never
+ * writes them (a trigger refuses it).
+ */
+export const NOTE_CLOSER = {
   titolo: 'Note aggiuntive',
+  /** Where someone other than the closer reads them: the setter's card, Alfire */
+  diChi: 'Note aggiuntive del closer',
   facoltative: 'facoltative',
   placeholder: 'Quello che vuoi ricordare della call',
-  troppoLungo: `Al massimo ${MASSIMO_NOTE_CALL} caratteri`,
+  troppoLungo: `Al massimo ${MASSIMO_NOTE_CLOSER} caratteri`,
 } as const
+
+/**
+ * "Note del setter" (calls.note): written by the setter with the call's pencil
+ * ("Nuova call" has no notes field) and by the admin; the closer reads them
+ * (his sheet shows them read only). The notes saved before 30/09/2026 stay
+ * here, whoever wrote them.
+ */
+export const NOTE_SETTER = {
+  titolo: 'Note del setter',
+  placeholder: 'Quello che il closer deve sapere prima della call',
+  /** The closer's sheet, under the setter's note he cannot change */
+  soloLettura: 'Le scrive il setter con la matita della call.',
+  troppoLungo: `Al massimo ${MASSIMO_NOTE_SETTER} caratteri`,
+} as const
+
+/** The setter's call sheet: what stays the closer's. */
+export const ESITO_DEL_CLOSER = 'L’esito, il motivo di non chiusura e le note aggiuntive li scrive il closer.'
 
 // ---------------------------------------------------------------------------
 // The admin's section in Setting (and Alfire's read of it)
@@ -199,7 +230,7 @@ export const LIMITE_MARKETING = 200
 export const MARKETING = {
   titolo: 'Per il marketing: cosa dicono i lead',
   descrizione:
-    'Quello che setter e closer scrivono sui lead del periodo: il report giornaliero del setter e il motivo di non chiusura delle call.',
+    'Quello che setter e closer scrivono sui lead del periodo: il report giornaliero del setter, il motivo di non chiusura e le note aggiuntive del closer sulle call.',
   filtroSetter: 'Setter',
   filtroSetterSpiegazione: 'Con un setter scelto: i suoi report e le call che ha fissato lui.',
   tutti: 'Tutti',
@@ -218,7 +249,8 @@ export const MARKETING = {
   troncati: 'Si vedono i più recenti: per leggere gli altri scegli un periodo più corto.',
   call: {
     titolo: 'Dalle call',
-    descrizione: 'Le call svolte e non chiuse (Follow-up o Persa), con il motivo di non chiusura scritto dal closer, dalla più recente.',
+    descrizione:
+      'Le call svolte e non chiuse (Follow-up o Persa), con il motivo di non chiusura e le note aggiuntive scritti dal closer, dalla più recente.',
     vuoto: 'Nessun motivo di non chiusura nel periodo',
     vuotoDescrizione: 'Il closer lo scrive quando registra l’esito Follow-up o Persa di una call.',
   },

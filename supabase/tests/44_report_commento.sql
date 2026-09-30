@@ -86,12 +86,12 @@ insert into public.leads (id, nome, setter_id, fonte) values
   ('abab0000-0000-4000-8000-000000000003', 'Paolo Chiusa', '22222222-2222-4222-8222-222222222222', 'dm_inbound');
 
 insert into public.calls
-  (id, lead_id, setter_id, closer_id, tipo, programmata_il, stato, qualificata, esito, obiezione_principale, note)
+  (id, lead_id, setter_id, closer_id, tipo, programmata_il, stato, qualificata, esito, obiezione_principale, note_closer)
 values
   -- in: a lost call with its reason
   ('acac0000-0000-4000-8000-000000000001', 'abab0000-0000-4000-8000-000000000001', '22222222-2222-4222-8222-222222222222',
    '33333333-3333-4333-8333-333333333333', 'discovery', '2021-03-05 09:00:00+00', 'svolta', true, 'persa', ' Fuori budget ', null),
-  -- in: a follow-up with notes only, booked by the admin, on the 9th in Rome
+  -- in: a follow-up with the closer's notes only, booked by the admin, on the 9th in Rome
   ('acac0000-0000-4000-8000-000000000002', 'abab0000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111',
    '11111111-1111-4111-8111-111111111111', 'discovery', '2021-03-08 23:30:00+00', 'svolta', true, 'follow_up', null, 'Richiamare a gennaio'),
   -- out: closed
@@ -195,7 +195,7 @@ select is(
 
 -- The closers' reasons for not closing
 select is(
-  (select array_agg(data::text || ' ' || lead || ' ' || esito || ' ' || coalesce(motivo, '-') || ' ' || coalesce(note, '-') order by ordinality)
+  (select array_agg(data::text || ' ' || lead || ' ' || esito || ' ' || coalesce(motivo, '-') || ' ' || coalesce(note_closer, '-') order by ordinality)
    from motivi),
   array[
     '2021-03-09 Luca Follow follow_up - Richiamare a gennaio',
@@ -246,10 +246,10 @@ select throws_ok(
 );
 
 -- Old calls without a reason stay editable: the requirement is the app's schema, not a constraint
-update public.calls set note = 'Aggiornata dal closer'
+update public.calls set note_closer = 'Aggiornata dal closer'
 where id = 'acac0000-0000-4000-8000-000000000004';
 select is(
-  (select note from public.calls where id = 'acac0000-0000-4000-8000-000000000004'),
+  (select note_closer from public.calls where id = 'acac0000-0000-4000-8000-000000000004'),
   'Aggiornata dal closer',
   'una call persa senza motivo si aggiorna ancora'
 );

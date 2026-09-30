@@ -21,7 +21,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { formatImportoInput } from '@/lib/format'
-import { NOTE_CALL } from '@/lib/setting/commento'
+import {
+  ESITO_DEL_CLOSER,
+  MASSIMO_NOTE_CLOSER,
+  MASSIMO_NOTE_SETTER,
+  MOTIVO_NON_CHIUSURA,
+  NOTE_CLOSER,
+  NOTE_SETTER,
+} from '@/lib/setting/commento'
 import {
   ETICHETTA_PERFORMANCE,
   ETICHETTA_TIPO_CALL,
@@ -43,7 +50,12 @@ export type CallModificabile = {
   data: string
   ora: string
   closer_id: string | null
+  /** "Note del setter" (calls.note) */
   note: string | null
+  /** "Note aggiuntive" of the closer (calls.note_closer) */
+  note_closer: string | null
+  /** "Motivo di non chiusura": the setter's sheet shows it read only, with the closer's notes. */
+  obiezione_principale: string | null
   link_registrazione: string | null
   performance: Performance | null
   prodotto_proposto_id: string | null
@@ -60,6 +72,7 @@ export function ModificaCall({
   prodotti,
   conDettagli,
   sceltaTipo = conDettagli,
+  noteSetterModificabili = true,
   eliminabile = false,
 }: {
   call: CallModificabile
@@ -67,7 +80,7 @@ export function ModificaCall({
   /** Who the call can be handed to. Empty: the closer, who cannot reassign it. */
   closers: Voce[]
   prodotti: Voce[]
-  /** Closer and admin: link, performance, product and amount pitched. */
+  /** Closer and admin: link, performance, product and amount pitched, the closer's notes. */
   conDettagli: boolean
   /**
    * Closer and admin: discovery or strategy (the history has strategy calls).
@@ -75,6 +88,11 @@ export function ModificaCall({
    * him, the call keeps its type and the form sends it back unchanged.
    */
   sceltaTipo?: boolean
+  /**
+   * The setter's note: the setter and the admin write it; the closer reads it
+   * here and never changes it (Dany, 30/09/2026).
+   */
+  noteSetterModificabili?: boolean
   /** Admin only. */
   eliminabile?: boolean
 }) {
@@ -87,22 +105,7 @@ export function ModificaCall({
     formState: { errors, isSubmitting },
   } = useForm<ModificaCallInput>({
     resolver: zodResolver(modificaCallSchema),
-    defaultValues: {
-      call_id: call.id,
-      tipo: call.tipo,
-      data: call.data,
-      ora: call.ora,
-      closer_id: call.closer_id ?? '',
-      note: call.note ?? '',
-      dettagli: conDettagli
-        ? {
-            link_registrazione: call.link_registrazione ?? '',
-            performance: call.performance,
-            prodotto_proposto_id: call.prodotto_proposto_id ?? '',
-            importo_proposto: formatImportoInput(call.importo_proposto),
-          }
-        : null,
-    },
+    defaultValues: valoriDa(call, noteSetterModificabili, conDettagli),
   })
 
   const invia = handleSubmit(async (valori) => {
@@ -114,10 +117,10 @@ export function ModificaCall({
       aperto={aperto}
       onApertoChange={(v) => {
         setAperto(v)
-        if (!v) {
-          setErrore(null)
-          reset()
-        }
+        setErrore(null)
+        // every opening starts from what is saved now: react-hook-form keeps the
+        // first defaultValues, and the outcome sheet may have changed the notes since
+        reset(valoriDa(call, noteSetterModificabili, conDettagli))
       }}
       trigger={
         <Button
@@ -130,7 +133,11 @@ export function ModificaCall({
       }
       contenutoTrigger={<Pencil className="size-4" aria-hidden="true" />}
       titolo={`Call con ${nomeLead}`}
-      descrizione={`${sceltaTipo ? 'Data, ora, tipo e note' : 'Data, ora e note'} si correggono quando vuoi. L’esito si registra dalla scheda.`}
+      descrizione={
+        conDettagli
+          ? `${sceltaTipo ? 'Data, ora, tipo e note' : 'Data, ora e note'} si correggono quando vuoi. L’esito si registra dalla scheda.`
+          : `Data, ora e le tue note si correggono quando vuoi. ${ESITO_DEL_CLOSER}`
+      }
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
@@ -163,10 +170,38 @@ export function ModificaCall({
           </div>
         ) : null}
 
-        <div className="space-y-1.5">
-          <Label htmlFor={`mc-note-${call.id}`}>{NOTE_CALL.titolo}</Label>
-          <Textarea id={`mc-note-${call.id}`} rows={2} {...register('note')} />
-        </div>
+        {noteSetterModificabili ? (
+          <div className="space-y-1.5">
+            <Label htmlFor={`mc-note-${call.id}`}>{NOTE_SETTER.titolo}</Label>
+            <Textarea
+              id={`mc-note-${call.id}`}
+              rows={2}
+              maxLength={MASSIMO_NOTE_SETTER}
+              placeholder={NOTE_SETTER.placeholder}
+              className="max-h-40"
+              aria-invalid={errors.note ? true : undefined}
+              aria-describedby={errors.note ? `mc-note-errore-${call.id}` : undefined}
+              {...register('note')}
+            />
+            <ErroreCampo id={`mc-note-errore-${call.id}`} messaggio={errors.note?.message} />
+          </div>
+        ) : (
+          // the closer reads what the setter wrote, never changes it
+          <SolaLettura
+            titolo={NOTE_SETTER.titolo}
+            testo={call.note}
+            spiegazione={NOTE_SETTER.soloLettura}
+            testId="note-setter-sola-lettura"
+          />
+        )}
+
+        {/* the setter reads, in full, what the closer wrote; he never changes it (Dany, 30/09/2026) */}
+        {conDettagli ? null : (
+          <>
+            <SolaLettura titolo={MOTIVO_NON_CHIUSURA.titolo} testo={call.obiezione_principale} testId="motivo-sola-lettura" />
+            <SolaLettura titolo={NOTE_CLOSER.diChi} testo={call.note_closer} testId="note-closer-sola-lettura" />
+          </>
+        )}
 
         {conDettagli ? (
           <fieldset className="space-y-4 border-t border-border pt-4">
@@ -220,6 +255,26 @@ export function ModificaCall({
               id={`mc-importo-errore-${call.id}`}
               messaggio={errors.dettagli?.importo_proposto?.message}
             />
+            <div className="space-y-1.5">
+              <Label htmlFor={`mc-note-closer-${call.id}`}>
+                {NOTE_CLOSER.titolo}{' '}
+                <span className="font-normal text-muted-foreground">({NOTE_CLOSER.facoltative})</span>
+              </Label>
+              <Textarea
+                id={`mc-note-closer-${call.id}`}
+                rows={2}
+                maxLength={MASSIMO_NOTE_CLOSER}
+                placeholder={NOTE_CLOSER.placeholder}
+                className="max-h-40"
+                aria-invalid={errors.dettagli?.note_closer ? true : undefined}
+                aria-describedby={errors.dettagli?.note_closer ? `mc-note-closer-errore-${call.id}` : undefined}
+                {...register('dettagli.note_closer')}
+              />
+              <ErroreCampo
+                id={`mc-note-closer-errore-${call.id}`}
+                messaggio={errors.dettagli?.note_closer?.message}
+              />
+            </div>
           </fieldset>
         ) : null}
 
@@ -241,5 +296,54 @@ export function ModificaCall({
         ) : null}
       </form>
     </FoglioModifica>
+  )
+}
+
+/**
+ * The form's values from the call as the page has it now. dettagli_call
+ * replaces every detail, the closer's notes included: the sheet must open on
+ * the saved ones, or saving just a link would wipe them.
+ */
+function valoriDa(call: CallModificabile, noteSetterModificabili: boolean, conDettagli: boolean): ModificaCallInput {
+  return {
+    call_id: call.id,
+    tipo: call.tipo,
+    data: call.data,
+    ora: call.ora,
+    closer_id: call.closer_id ?? '',
+    // the closer's sheet never sends the setter's note
+    note: noteSetterModificabili ? (call.note ?? '') : undefined,
+    dettagli: conDettagli
+      ? {
+          link_registrazione: call.link_registrazione ?? '',
+          performance: call.performance,
+          prodotto_proposto_id: call.prodotto_proposto_id ?? '',
+          importo_proposto: formatImportoInput(call.importo_proposto),
+          note_closer: call.note_closer ?? '',
+        }
+      : null,
+  }
+}
+
+/** A text of the other side of the call, in full: read here, written elsewhere. */
+function SolaLettura({
+  titolo,
+  testo,
+  spiegazione,
+  testId,
+}: {
+  titolo: string
+  testo: string | null
+  spiegazione?: string
+  testId: string
+}) {
+  if (!testo?.trim()) return null
+  return (
+    <div className="space-y-1" data-testid={testId}>
+      <p className="text-sm font-medium">{titolo}</p>
+      {/* a quote, not a field: nothing to type here */}
+      <blockquote className="border-l-2 border-border py-0.5 pl-3 text-sm break-words whitespace-pre-line">{testo}</blockquote>
+      {spiegazione ? <p className="text-xs text-muted-foreground">{spiegazione}</p> : null}
+    </div>
   )
 }

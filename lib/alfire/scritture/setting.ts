@@ -26,9 +26,12 @@ import {
   LIVELLI_IN_TARGET,
   LIVELLI_QUALITA,
   MASSIMO_MOTIVO,
+  MASSIMO_NOTE_CLOSER,
+  MASSIMO_NOTE_SETTER,
   MASSIMO_TESTO_COMMENTO,
   MOTIVO_NON_CHIUSURA,
-  NOTE_CALL,
+  NOTE_CLOSER,
+  NOTE_SETTER,
   SCALA_IN_TARGET,
   SCALA_QUALITA,
   TESTI_COMMENTO,
@@ -167,6 +170,12 @@ function fissaCallStrumento(ctx: Contesto): Definizione {
 
 // ---------------------------------------------------------------------------
 // A call: outcome, edit, delete
+//
+// Two notes (Dany, 30/09/2026): "Note del setter" (calls.note), written by the
+// setter and the admin, read by the closer; "Note aggiuntive" of the closer
+// (calls.note_closer), written with the outcome or the call's details by the
+// closer and the admin, read by the setter. The setter gets neither the
+// outcome nor the closer's notes; the closer does not get the setter's note.
 // ---------------------------------------------------------------------------
 function call(ctx: Contesto): Definizione {
   const { supabase, profilo, r } = ctx
@@ -193,9 +202,14 @@ function call(ctx: Contesto): Definizione {
     ...(chiFaLaCall ? { tipo: z.enum(TIPI_CALL).optional() } : {}),
     // the setter reassigns his calls, the admin any; the closer keeps his own
     ...(ruolo !== 'closer' ? { closer: z.string().optional() } : {}),
-    note: z.string().max(1000).optional(),
+    ...(ruolo !== 'closer' ? { note: z.string().max(MASSIMO_NOTE_SETTER).optional().describe(NOTE_SETTER.titolo) } : {}),
     ...(chiFaLaCall
       ? {
+          note_closer: z
+            .string()
+            .max(MASSIMO_NOTE_CLOSER)
+            .optional()
+            .describe(`${NOTE_CLOSER.diChi}: con esito follow_up o persa, o con modifica; "" le toglie`),
           link_registrazione: z.string().max(500).optional(),
           performance: z.enum(PERFORMANCE).optional(),
           prodotto_proposto: z.string().optional().describe('Nome del prodotto; "nessuno" lo toglie'),
@@ -215,6 +229,7 @@ function call(ctx: Contesto): Definizione {
     tipo?: TipoCall
     closer?: string
     note?: string
+    note_closer?: string
     link_registrazione?: string
     performance?: Performance
     prodotto_proposto?: string
@@ -223,7 +238,7 @@ function call(ctx: Contesto): Definizione {
 
   const dettagliChiesti = (v: Input) =>
     chiFaLaCall &&
-    [v.link_registrazione, v.performance, v.prodotto_proposto, v.importo_proposto].some((x) => x !== undefined)
+    [v.link_registrazione, v.performance, v.prodotto_proposto, v.importo_proposto, v.note_closer].some((x) => x !== undefined)
 
   async function prodottoProposto(nome: string | undefined, attuale: string | null) {
     if (nome === undefined) return attuale
@@ -249,6 +264,7 @@ function call(ctx: Contesto): Definizione {
         performance: v.performance ?? c.performance,
         prodotto_proposto_id: prodotto,
         importo_proposto: v.importo_proposto ?? pitchPrima,
+        note_closer: v.note_closer ?? c.note_closer,
       }
     }
     return {
@@ -260,16 +276,17 @@ function call(ctx: Contesto): Definizione {
         data: v.data ?? oggiRoma(new Date(c.programmata_il)),
         ora: v.ora ?? formatOra(c.programmata_il),
         closer_id: closer,
-        note: v.note ?? c.note,
+        // the closer never rewrites the setter's note (and modifica_call keeps it for him)
+        note: ruolo === 'closer' ? c.note : (v.note ?? c.note),
         dettagli,
       },
     }
   }
 
-  /** What registraEsito receives: the notes only with follow_up and persa, as in the sheet. */
+  /** What registraEsito receives: the closer's notes only with follow_up and persa, as in the sheet. */
   function inputEsito(v: Input, callId: string) {
     return chiedeMotivo(v.esito)
-      ? { call_id: callId, esito: v.esito, qualificata: v.qualificata, motivo: v.motivo, note: v.note }
+      ? { call_id: callId, esito: v.esito, qualificata: v.qualificata, motivo: v.motivo, note_closer: v.note_closer }
       : { call_id: callId, esito: v.esito }
   }
 
@@ -293,10 +310,10 @@ function call(ctx: Contesto): Definizione {
 
   const descrizione =
     ruolo === 'setter'
-      ? 'Sposta o corregge una tua call (call_id da call_periodo, o il nome del lead): data, ora, closer, note.'
+      ? 'Sposta o corregge una tua call (call_id da call_periodo, o il nome del lead): data, ora, closer, note del setter. Esito, motivo e note aggiuntive li scrive il closer.'
       : `Una call (call_id da call_periodo, o il nome del lead). modifica: sposta a nuova data e ora (data, ora), tipo${
-          ruolo === 'admin' ? ', closer' : ''
-        }, note, link, performance, prodotto e importo proposti. esito = come è andata: chiusa, follow_up o persa (con qualificata e motivo di non chiusura, obbligatorio; note facoltative), ` +
+          ruolo === 'admin' ? ', closer, note del setter' : ''
+        }, note aggiuntive del closer, link, performance, prodotto e importo proposti. esito = come è andata: chiusa, follow_up o persa (con qualificata e motivo di non chiusura, obbligatorio; note_closer facoltative), ` +
         'no_show, cancellata, riprogrammata (solo se questa call salta e se ne fisserà un’altra; per spostarla usa modifica), ' +
         'programmata (annulla l’esito); dopo chiusa registra la vendita con registra_vendita e il call_id. ' +
         `Lo stato del lead in pipeline non cambia da solo: lead stato.${ruolo === 'admin' ? ' elimina.' : ''}`
@@ -326,7 +343,7 @@ function call(ctx: Contesto): Definizione {
           !nonChiusa && c.obiezione_principale?.trim()
             ? `${MOTIVO_NON_CHIUSURA.titolo}: ${breve(c.obiezione_principale)} → ${MOTIVO_NON_CHIUSURA.tolto}`
             : null,
-          nonChiusa && v.note !== undefined ? cambio(NOTE_CALL.titolo, c.note, v.note, 'lungo') : null,
+          nonChiusa && v.note_closer !== undefined ? cambio(NOTE_CLOSER.titolo, c.note_closer, v.note_closer, 'lungo') : null,
           esito === 'chiusa' ? 'Poi registriamo la vendita.' : null,
         ])
       }
@@ -350,7 +367,7 @@ function call(ctx: Contesto): Definizione {
           ['Ora', formatOra(c.programmata_il), u.dopo.ora],
           ['Tipo', ETICHETTA_TIPO_CALL[c.tipo], ETICHETTA_TIPO_CALL[u.dopo.tipo]],
           ['Closer', nomi.get(c.closer_id), nomi.get(u.dopo.closer_id)],
-          ['Note', c.note, u.dopo.note, 'lungo'],
+          [NOTE_SETTER.titolo, c.note, u.dopo.note, 'lungo'],
           ...(d
             ? ([
                 ['Registrazione', c.link_registrazione, d.link_registrazione],
@@ -365,6 +382,7 @@ function call(ctx: Contesto): Definizione {
                   d.prodotto_proposto_id ? nomiProdotti.get(d.prodotto_proposto_id) : null,
                 ],
                 ['Importo proposto', u.pitchPrima, d.importo_proposto, 'euro'],
+                [NOTE_CLOSER.titolo, c.note_closer, d.note_closer, 'lungo'],
               ] as const)
             : []),
         ]),
