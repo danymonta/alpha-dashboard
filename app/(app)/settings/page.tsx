@@ -1,9 +1,9 @@
-import { ChevronRight, Download, FolderKanban, History, Package, Percent, ScrollText, Users } from 'lucide-react'
+import { ChevronRight, Download, FolderKanban, History, Package, Percent, Users } from 'lucide-react'
 import Link from 'next/link'
 
+import { VoceNovita } from '@/components/changelog/voce-novita'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { requireRuolo } from '@/lib/auth/session'
-import { VERSIONE_CORRENTE } from '@/lib/changelog/versioni'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,26 +49,7 @@ export default async function ImpostazioniPage() {
       </ul>
 
       {/* the app itself: which version is live and what changed (CLAUDE.md section 23) */}
-      <Link
-        href="/changelog"
-        className="flex min-h-16 items-center gap-3 rounded-xl bg-card p-4 hover:bg-accent"
-        data-testid="voce-changelog"
-      >
-        <ScrollText className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium">Changelog</span>
-          <span className="block text-sm text-muted-foreground">
-            {VERSIONE_CORRENTE ? (
-              <>
-                <span className="num">Versione {VERSIONE_CORRENTE.versione}</span> · cosa è cambiato a ogni aggiornamento.
-              </>
-            ) : (
-              'Cosa è cambiato a ogni aggiornamento.'
-            )}
-          </span>
-        </span>
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      </Link>
+      <VoceNovita testId="voce-changelog" descrizione="il changelog: cosa cambia a ogni aggiornamento, per te e per il team." />
     </div>
   )
 }

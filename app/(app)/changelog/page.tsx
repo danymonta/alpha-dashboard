@@ -1,66 +1,83 @@
-import { ChevronDown, ScrollText } from 'lucide-react'
+import { ChevronDown, Sparkles } from 'lucide-react'
 
+import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { TUTTI_I_RUOLI, percorsoIniziale } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { NOME_APP } from '@/lib/brand/nome'
-import { ETICHETTA_DESTINATARIO, VERSIONE_CORRENTE, VERSIONI, type Versione } from '@/lib/changelog/versioni'
+import { ETICHETTA_PUBBLICO, VERSIONE_CORRENTE, type Pubblico } from '@/lib/changelog/versioni'
+import { versioniPer, type VersioneVisibile, type VoceVisibile } from '@/lib/changelog/visibili'
 import { formatData } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ChangelogPage() {
-  await requireRuolo(['admin'])
+/**
+ * The changelog, for every role (CLAUDE.md section 23): the version in use on
+ * top for everyone, then only the items of the person's work, filtered here on
+ * the server. The admin reads everything, with who reads each item.
+ */
+export default async function NovitaPage() {
+  const { ruolo } = await requireRuolo(TUTTI_I_RUOLI)
+  const admin = ruolo === 'admin'
   const corrente = VERSIONE_CORRENTE
+  const versioni = versioniPer(ruolo)
+  // the heading of the version in use, when this role reads it
+  const inUso = versioni[0]?.versione === corrente?.versione ? versioni[0]?.intestazione : null
 
   return (
     <div className="max-w-3xl space-y-5">
       <IntestazionePagina
-        titolo="Changelog"
-        descrizione={`Ogni versione di ${NOME_APP}, dalla più recente. Le 0.x sono le tappe prima della produzione.`}
-        indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
+        titolo="Novità"
+        descrizione={
+          admin
+            ? `Il changelog di ${NOME_APP}, dalla più recente: ogni voce dice per chi è, e il team legge solo le voci del suo lavoro. Le 0.x sono le tappe prima della produzione.`
+            : `Cosa cambia nel tuo lavoro a ogni versione di ${NOME_APP}, dalla più recente. Le 0.x sono le tappe prima della produzione.`
+        }
       />
 
-      {!corrente ? (
+      {corrente ? (
+        <section aria-labelledby="versione-in-uso" className="rounded-xl bg-card p-4" data-testid="versione-corrente">
+          <h2 id="versione-in-uso" className="text-sm text-muted-foreground">
+            Versione in uso
+          </h2>
+          {/* the one gold element of the screen */}
+          <p className="num mt-1 text-4xl font-semibold tracking-tight text-gold">v{corrente.versione}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            <span className="num">{formatData(corrente.data)}</span>
+            {inUso ? <> · {inUso.titolo}</> : null}
+          </p>
+        </section>
+      ) : null}
+
+      {versioni.length === 0 ? (
         <StatoVuoto
-          Icona={ScrollText}
-          titolo="Nessuna versione registrata"
-          descrizione="Le versioni compaiono qui a ogni aggiornamento pubblicato della Dashboard."
+          Icona={Sparkles}
+          titolo="Ancora nessuna novità per te"
+          descrizione="Le novità del tuo lavoro compaiono qui a ogni aggiornamento dell’app."
+          azione={<LinkBottone href={percorsoIniziale(ruolo)}>Torna al lavoro</LinkBottone>}
         />
       ) : (
-        <>
-          <section aria-labelledby="versione-in-uso" className="rounded-xl bg-card p-4" data-testid="versione-corrente">
-            <h2 id="versione-in-uso" className="text-sm text-muted-foreground">
-              Versione in uso
-            </h2>
-            {/* the one gold element of the screen */}
-            <p className="num mt-1 text-4xl font-semibold tracking-tight text-gold">v{corrente.versione}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              <span className="num">{formatData(corrente.data)}</span> · {corrente.titolo}
-            </p>
-          </section>
-
-          <ol className="space-y-3" aria-label="Versioni, dalla più recente">
-            {VERSIONI.map((v) => (
-              <li key={v.versione}>
-                {/* the latest day reads in full; older versions open with a tap, so the page stays short on a phone */}
-                <SchedaVersione versione={v} aperta={v.data === corrente.data} />
-              </li>
-            ))}
-          </ol>
-        </>
+        <ol className="space-y-3" aria-label="Versioni, dalla più recente">
+          {versioni.map((v) => (
+            <li key={v.versione}>
+              {/* the latest day reads in full; older versions open with a tap, so the page stays short on a phone */}
+              <SchedaVersione versione={v} aperta={v.data === corrente?.data} />
+            </li>
+          ))}
+        </ol>
       )}
     </div>
   )
 }
 
-function idTitolo(v: Versione): string {
+function idTitolo(v: VersioneVisibile): string {
   return `versione-${v.versione.replaceAll('.', '-')}`
 }
 
 /** "7 novità · 2 correzioni": what a closed card holds. */
-function conteggio(v: Versione): string {
-  const correzioni = v.correzioni?.length ?? 0
+function conteggio(v: VersioneVisibile): string {
+  const correzioni = v.correzioni.length
   return [
     v.novita.length > 0 ? `${v.novita.length} novità` : null,
     correzioni > 0 ? `${correzioni} ${correzioni === 1 ? 'correzione' : 'correzioni'}` : null,
@@ -70,42 +87,31 @@ function conteggio(v: Versione): string {
 }
 
 /** Version, date, title and summary: spans and one heading, valid inside <summary> too. */
-function Testata({ v }: { v: Versione }) {
+function Testata({ v }: { v: VersioneVisibile }) {
   return (
     <>
       <span className="num block text-sm text-muted-foreground">
         <span className="font-medium text-foreground">v{v.versione}</span> · {formatData(v.data)}
       </span>
       <h2 id={idTitolo(v)} className="text-base font-semibold">
-        {v.titolo}
+        {/* a heading about what this role does not read: a neutral one, never the admin's */}
+        {v.intestazione?.titolo ?? (v.novita.length > 0 ? 'Novità per te' : 'Correzioni per te')}
       </h2>
-      <span className="block text-sm text-muted-foreground">{v.riassunto}</span>
+      {v.intestazione ? <span className="block text-sm text-muted-foreground">{v.intestazione.riassunto}</span> : null}
     </>
   )
 }
 
-function Corpo({ v }: { v: Versione }) {
+function Corpo({ v }: { v: VersioneVisibile }) {
   return (
     <>
       <Elenco titolo="Novità" voci={v.novita} />
-      <Elenco titolo="Correzioni" voci={v.correzioni ?? []} />
-      {v.perChi?.length ? (
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <span className="text-xs text-muted-foreground">Per</span>
-          <ul className="flex flex-wrap gap-1.5" aria-label="Per chi">
-            {v.perChi.map((chi) => (
-              <li key={chi} className="rounded-md border border-border px-2 py-0.5 text-xs text-foreground">
-                {ETICHETTA_DESTINATARIO[chi]}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <Elenco titolo="Correzioni" voci={v.correzioni} />
     </>
   )
 }
 
-function SchedaVersione({ versione: v, aperta }: { versione: Versione; aperta: boolean }) {
+function SchedaVersione({ versione: v, aperta }: { versione: VersioneVisibile; aperta: boolean }) {
   if (aperta) {
     return (
       <article aria-labelledby={idTitolo(v)} className="space-y-3 rounded-xl bg-card p-4" data-testid="versione">
@@ -132,16 +138,33 @@ function SchedaVersione({ versione: v, aperta }: { versione: Versione; aperta: b
   )
 }
 
-function Elenco({ titolo, voci }: { titolo: string; voci: string[] }) {
+function Elenco({ titolo, voci }: { titolo: string; voci: VoceVisibile[] }) {
   if (voci.length === 0) return null
   return (
     <section className="space-y-1.5">
       <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{titolo}</h3>
       <ul className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed break-words marker:text-muted-foreground">
         {voci.map((voce) => (
-          <li key={voce}>{voce}</li>
+          <li key={voce.testo} data-testid="changelog-voce">
+            {voce.testo}
+            {voce.per ? <PerChi per={voce.per} /> : null}
+          </li>
         ))}
       </ul>
     </section>
+  )
+}
+
+/** Admin only: who else reads the item, as small tags after its text. */
+function PerChi({ per }: { per: readonly Pubblico[] }) {
+  return (
+    <span className="ml-1.5 inline-flex flex-wrap gap-1 align-[1px]">
+      <span className="sr-only">Per:</span>
+      {per.map((p) => (
+        <span key={p} className="rounded-md border border-border px-1.5 text-xs whitespace-nowrap text-muted-foreground">
+          {ETICHETTA_PUBBLICO[p]}
+        </span>
+      ))}
+    </span>
   )
 }

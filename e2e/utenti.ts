@@ -36,6 +36,8 @@ const TEMPO = { nome: 'il-mio-tempo', url: '/tempo' }
 /** Pages reachable by each role, as the navigation offers them. */
 const PROFILO = { nome: 'profilo', url: '/account' }
 const MIEI_TASK = { nome: 'miei-task', url: '/task' }
+// every role opens the changelog, from "Altro" (CLAUDE.md section 23)
+const CHANGELOG = { nome: 'changelog', url: '/changelog' }
 
 export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   admin: [
@@ -60,7 +62,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'export', url: '/settings/export' },
     { nome: 'registro', url: '/settings/audit' },
     { nome: 'impostazioni-progetti', url: '/settings/progetti' },
-    { nome: 'changelog', url: '/changelog' },
+    CHANGELOG,
     PROGETTI,
     ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE),
     TEMPO,
@@ -78,6 +80,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     PROGETTI,
     TEMPO,
     MIEI_TASK,
+    CHANGELOG,
     PROFILO,
   ],
   closer: [
@@ -91,10 +94,11 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     ...schedeProgetto(PROGETTO_FUNNEL),
     TEMPO,
     MIEI_TASK,
+    CHANGELOG,
     PROFILO,
   ],
-  coach: [MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE), TEMPO, PROFILO],
-  editor: [MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO, PROFILO],
+  coach: [MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE), TEMPO, CHANGELOG, PROFILO],
+  editor: [MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO, CHANGELOG, PROFILO],
 }
 
 const IN_ATTESA_DELLO_STREAMING = new WeakSet<Page>()

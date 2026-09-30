@@ -10,6 +10,7 @@ import {
   Receipt,
   RefreshCw,
   Settings,
+  Sparkles,
   SquareKanban,
   Timer,
   TrendingUp,
@@ -28,8 +29,6 @@ export type VoceNav = {
   Icona: LucideIcon
   /** Only match the exact path (used by "/"). */
   esatto?: boolean
-  /** Pages outside its path that still belong to it (/changelog opens from Impostazioni). */
-  anche?: string[]
   /** Area of the app shell: the desktop sidebar groups by it. Default Economics. */
   sezione?: SezioneNav
 }
@@ -38,7 +37,10 @@ export type VoceNav = {
 const PROGETTI: VoceNav = { href: '/progetti', etichetta: 'Progetti', Icona: FolderKanban, sezione: 'Progetti' }
 const MIEI_TASK: VoceNav = { href: '/task', etichetta: 'I miei task', Icona: ListChecks, sezione: 'Progetti' }
 const TEMPO: VoceNav = { href: '/tempo', etichetta: 'Il mio tempo', Icona: Timer, sezione: 'Progetti' }
-const SOLO_PROGETTI: NavRuolo = { principali: [MIEI_TASK, PROGETTI, TEMPO], altre: [] }
+// The changelog, for every role: each person reads the items of their own work
+// (CLAUDE.md section 23). In "Altro", never in the bottom bar's four items.
+const NOVITA: VoceNav = { href: '/changelog', etichetta: 'Novità', Icona: Sparkles, sezione: 'Generale' }
+const SOLO_PROGETTI: NavRuolo = { principali: [MIEI_TASK, PROGETTI, TEMPO], altre: [NOVITA] }
 
 export type NavRuolo = {
   /** Up to 4 items: they are the mobile bottom bar. */
@@ -69,7 +71,8 @@ const NAV: Record<AppRole, NavRuolo> = {
       MIEI_TASK,
       // his own time and, in the "Team" tab, everyone's (29/09/2026)
       { ...TEMPO, etichetta: 'Tempo' },
-      { href: '/settings', etichetta: 'Impostazioni', Icona: Settings, sezione: 'Generale', anche: ['/changelog'] },
+      NOVITA,
+      { href: '/settings', etichetta: 'Impostazioni', Icona: Settings, sezione: 'Generale' },
     ],
   },
   setter: {
@@ -79,7 +82,7 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-numbers', etichetta: 'I miei numeri', Icona: TrendingUp },
     ],
-    altre: [{ href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true }, PROGETTI, MIEI_TASK, TEMPO],
+    altre: [{ href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true }, PROGETTI, MIEI_TASK, TEMPO, NOVITA],
   },
   closer: {
     principali: [
@@ -89,7 +92,7 @@ const NAV: Record<AppRole, NavRuolo> = {
       // the closer half of the Excel: his calls and sales, day by day
       { href: '/setting/closer', etichetta: 'I miei numeri', Icona: TrendingUp },
     ],
-    altre: [PROGETTI, MIEI_TASK, TEMPO],
+    altre: [PROGETTI, MIEI_TASK, TEMPO, NOVITA],
   },
   coach: SOLO_PROGETTI,
   editor: SOLO_PROGETTI,
@@ -103,7 +106,7 @@ export function vociNav(ruolo: AppRole): NavRuolo {
 
 export function isAttiva(pathname: string, voce: VoceNav): boolean {
   if (voce.esatto) return pathname === voce.href
-  return [voce.href, ...(voce.anche ?? [])].some((href) => pathname === href || pathname.startsWith(`${href}/`))
+  return pathname === voce.href || pathname.startsWith(`${voce.href}/`)
 }
 
 /** Items grouped by area, in order, for the sidebar headings. */
