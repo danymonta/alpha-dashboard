@@ -2,18 +2,18 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Pencil } from 'lucide-react'
-import { useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Fragment, useState } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { correggiReport, eliminaReport } from '@/app/(app)/setting/actions'
 import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
+import { CommentoReport } from '@/components/setter/commento-report'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { formatData } from '@/lib/format'
 import {
   GRUPPI_REPORT,
@@ -39,11 +39,19 @@ export function ModificaReport({
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CorrezioneReportInput>({
     resolver: zodResolver(correzioneReportSchema),
     defaultValues: { ...report, note: report.note ?? '' },
   })
+
+  // what the sheet shows right now: the scales and texts are drawn from it
+  const [leadInTarget, qualita, cosaFrenava, domande, note] = useWatch({
+    control,
+    name: ['lead_in_target', 'qualita_conversazioni', 'cosa_frenava', 'domande_contenuti', 'note'],
+  })
+  const attuali = { lead_in_target: leadInTarget, qualita_conversazioni: qualita, cosa_frenava: cosaFrenava, domande_contenuti: domande, note }
 
   const invia = handleSubmit(async (valori) => {
     if (await salva(() => correggiReport(valori), 'Report corretto')) setAperto(false)
@@ -76,28 +84,39 @@ export function ModificaReport({
     >
       <form onSubmit={invia} noValidate className="space-y-5">
         {GRUPPI_REPORT.map((gruppo) => (
-          <fieldset key={gruppo.titolo} className="space-y-2">
-            <legend className="mb-2 text-sm font-medium">{gruppo.titolo}</legend>
-            <div className="grid grid-cols-2 gap-2">
-              {gruppo.campi.map(([campo, etichetta]) => (
-                <div key={campo} className="space-y-1.5">
-                  <Label htmlFor={`r-${campo}`} className="text-xs text-muted-foreground">
-                    {etichetta}
-                  </Label>
-                  <Input
-                    id={`r-${campo}`}
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={MASSIMO_GIORNALIERO}
-                    className="num h-11 text-right"
-                    aria-invalid={errors[campo] ? true : undefined}
-                    {...register(campo, { valueAsNumber: true })}
-                  />
-                </div>
-              ))}
-            </div>
-          </fieldset>
+          <Fragment key={gruppo.titolo}>
+            <fieldset className="space-y-2">
+              <legend className="mb-2 text-sm font-medium">{gruppo.titolo}</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {gruppo.campi.map(([campo, etichetta]) => (
+                  <div key={campo} className="space-y-1.5">
+                    <Label htmlFor={`r-${campo}`} className="text-xs text-muted-foreground">
+                      {etichetta}
+                    </Label>
+                    <Input
+                      id={`r-${campo}`}
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={MASSIMO_GIORNALIERO}
+                      className="num h-11 text-right"
+                      aria-invalid={errors[campo] ? true : undefined}
+                      {...register(campo, { valueAsNumber: true })}
+                    />
+                  </div>
+                ))}
+              </div>
+            </fieldset>
+            {/* the setter's answers on the day, right under the conversations as on his "Oggi" */}
+            {gruppo.commento ? (
+              <CommentoReport
+                variante="foglio"
+                valori={attuali}
+                onScala={(campo, valore) => setValue(campo, valore as never, { shouldDirty: true })}
+                onTesto={(campo, testo) => setValue(campo, testo, { shouldDirty: true })}
+              />
+            ) : null}
+          </Fragment>
         ))}
         <ErroreCampo
           id="r-numeri-errore"
@@ -114,11 +133,6 @@ export function ModificaReport({
             </label>
           )}
         />
-
-        <div className="space-y-1.5">
-          <Label htmlFor="r-note">Note</Label>
-          <Textarea id="r-note" rows={2} {...register('note')} />
-        </div>
 
         <ErroreModulo testo={errore} />
         <BottoneSalva inCorso={isSubmitting}>Salva la correzione</BottoneSalva>

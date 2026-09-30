@@ -2,17 +2,17 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
-import { useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Fragment, useState } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { aggiungiReport } from '@/app/(app)/setting/actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, CLASSE_SELECT, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
+import { CommentoReport } from '@/components/setter/commento-report'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { GRUPPI_REPORT, MASSIMO_GIORNALIERO, REPORT_VUOTO, nuovoReportSchema, type NuovoReportInput } from '@/lib/validation/report'
 
 export type PersonaSetting = { id: string; nome: string }
@@ -30,8 +30,16 @@ export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; o
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<NuovoReportInput>({ resolver: zodResolver(nuovoReportSchema), defaultValues: iniziali })
+
+  // what the sheet shows right now: the scales and texts are drawn from it
+  const [leadInTarget, qualita, cosaFrenava, domande, note] = useWatch({
+    control,
+    name: ['lead_in_target', 'qualita_conversazioni', 'cosa_frenava', 'domande_contenuti', 'note'],
+  })
+  const attuali = { lead_in_target: leadInTarget, qualita_conversazioni: qualita, cosa_frenava: cosaFrenava, domande_contenuti: domande, note }
 
   const invia = handleSubmit(async (valori) => {
     if (await salva(() => aggiungiReport(valori), 'Giornata aggiunta')) setAperto(false)
@@ -55,7 +63,7 @@ export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; o
         </>
       }
       titolo="Aggiungi una giornata di setting"
-      descrizione="I numeri di un giorno: DM, conversazioni, call. Se quel giorno c’è già, si corregge dalla tabella."
+      descrizione="I numeri di un giorno (DM, conversazioni, call) e com’è andata. Se quel giorno c’è già, si corregge dalla tabella."
     >
       <form onSubmit={invia} noValidate className="space-y-5">
         <div className="grid grid-cols-2 gap-2">
@@ -78,28 +86,39 @@ export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; o
         </div>
 
         {GRUPPI_REPORT.map((gruppo) => (
-          <fieldset key={gruppo.titolo} className="space-y-2">
-            <legend className="mb-2 text-sm font-medium">{gruppo.titolo}</legend>
-            <div className="grid grid-cols-2 gap-2">
-              {gruppo.campi.map(([campo, etichetta]) => (
-                <div key={campo} className="space-y-1.5">
-                  <Label htmlFor={`ag-${campo}`} className="text-xs text-muted-foreground">
-                    {etichetta}
-                  </Label>
-                  <Input
-                    id={`ag-${campo}`}
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={MASSIMO_GIORNALIERO}
-                    className="num h-11 text-right"
-                    aria-invalid={errors[campo] ? true : undefined}
-                    {...register(campo, { valueAsNumber: true })}
-                  />
-                </div>
-              ))}
-            </div>
-          </fieldset>
+          <Fragment key={gruppo.titolo}>
+            <fieldset className="space-y-2">
+              <legend className="mb-2 text-sm font-medium">{gruppo.titolo}</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {gruppo.campi.map(([campo, etichetta]) => (
+                  <div key={campo} className="space-y-1.5">
+                    <Label htmlFor={`ag-${campo}`} className="text-xs text-muted-foreground">
+                      {etichetta}
+                    </Label>
+                    <Input
+                      id={`ag-${campo}`}
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={MASSIMO_GIORNALIERO}
+                      className="num h-11 text-right"
+                      aria-invalid={errors[campo] ? true : undefined}
+                      {...register(campo, { valueAsNumber: true })}
+                    />
+                  </div>
+                ))}
+              </div>
+            </fieldset>
+            {/* the setter's answers on the day, right under the conversations as on his "Oggi" */}
+            {gruppo.commento ? (
+              <CommentoReport
+                variante="foglio"
+                valori={attuali}
+                onScala={(campo, valore) => setValue(campo, valore as never, { shouldDirty: true })}
+                onTesto={(campo, testo) => setValue(campo, testo, { shouldDirty: true })}
+              />
+            ) : null}
+          </Fragment>
         ))}
         <ErroreCampo
           id="ag-numeri-errore"
@@ -116,11 +135,6 @@ export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; o
             </label>
           )}
         />
-
-        <div className="space-y-1.5">
-          <Label htmlFor="ag-note">Note</Label>
-          <Textarea id="ag-note" rows={2} {...register('note')} />
-        </div>
 
         <ErroreModulo testo={errore} />
         <BottoneSalva inCorso={isSubmitting}>Salva la giornata</BottoneSalva>

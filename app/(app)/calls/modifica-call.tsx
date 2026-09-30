@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { formatImportoInput } from '@/lib/format'
+import { NOTE_CALL } from '@/lib/setting/commento'
 import {
   ETICHETTA_PERFORMANCE,
   ETICHETTA_TIPO_CALL,
@@ -163,7 +164,7 @@ export function ModificaCall({
         ) : null}
 
         <div className="space-y-1.5">
-          <Label htmlFor={`mc-note-${call.id}`}>Note</Label>
+          <Label htmlFor={`mc-note-${call.id}`}>{NOTE_CALL.titolo}</Label>
           <Textarea id={`mc-note-${call.id}`} rows={2} {...register('note')} />
         </div>
 

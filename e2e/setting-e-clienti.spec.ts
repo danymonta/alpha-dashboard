@@ -25,10 +25,11 @@ test('setting: l’admin aggiunge una giornata, e un giorno che c’è già non 
   const aggiungi = async () => {
     await page.getByTestId('aggiungi-giornata').click()
     const foglio = page.getByRole('dialog')
-    await foglio.getByLabel('Chi').selectOption({ label: 'Dany Montagnolo' })
+    await foglio.getByLabel('Chi', { exact: true }).selectOption({ label: 'Dany Montagnolo' })
     await foglio.getByLabel('Giorno', { exact: true }).fill(GIORNO)
     await foglio.getByLabel('DM outbound').fill('12')
-    await foglio.getByLabel('Conversazioni').fill('4')
+    // exact: the day's comment asks about the conversations too
+    await foglio.getByLabel('Conversazioni', { exact: true }).fill('4')
     await foglio.getByRole('button', { name: 'Salva la giornata' }).click()
     return foglio
   }

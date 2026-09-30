@@ -1,10 +1,12 @@
 import { Skeleton } from '@/components/ui/skeleton'
 
-// Same shape as the form: Messaggi (4 counters), Call (4 counters), then the
-// content switch. A counter row is the stepper plus its one-line hint.
+// Same shape as the form: Messaggi (3 counters), Conversazioni (1 counter and,
+// under it, "Com'è andata la giornata": the two scales and the texts), Call
+// (2 counters), then the content switch. A counter row is the stepper plus its hint.
 const GRUPPI = [
-  { righe: 4, altezza: 'h-20' },
-  { righe: 4, altezza: 'h-20' },
+  { righe: 3, altezza: 'h-20' },
+  { righe: 1, altezza: 'h-20', commento: true },
+  { righe: 2, altezza: 'h-20' },
   { righe: 1, altezza: 'h-14' },
 ]
 
@@ -16,7 +18,7 @@ export default function Loading() {
         <Skeleton className="h-4 w-20" />
       </div>
       <Skeleton className="h-5 w-56" />
-      {GRUPPI.map(({ righe, altezza }, i) => (
+      {GRUPPI.map(({ righe, altezza, commento }, i) => (
         <div key={i} className="space-y-1">
           <Skeleton className="h-3 w-20" />
           <div className="space-y-px overflow-hidden rounded-xl">
@@ -24,6 +26,15 @@ export default function Loading() {
               <Skeleton key={j} className={`${altezza} rounded-none`} />
             ))}
           </div>
+          {/* heights measured on the real section (390 px, then md), so changing day does not jump */}
+          {commento ? (
+            <div className="space-y-2 pt-5">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-12 md:h-8" />
+              <Skeleton className="h-[510px] rounded-xl md:h-[410px]" />
+              <Skeleton className="h-[390px] rounded-xl md:h-[318px]" />
+            </div>
+          ) : null}
         </div>
       ))}
       <span className="sr-only">Caricamento del report</span>

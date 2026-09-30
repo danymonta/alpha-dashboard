@@ -26,6 +26,9 @@ export const STRUMENTI = {
   rate_cliente: { ruoli: ['admin'] },
   vendite_periodo: { ruoli: ['admin'] },
   metriche_setting: { ruoli: ['admin'] },
+  // what the leads say, for marketing (30/09/2026): the setters' reports and
+  // the closers' reasons for not closing
+  commenti_marketing: { ruoli: ['admin'] },
   provvigioni: { ruoli: ['admin'] },
   costi_periodo: { ruoli: ['admin'] },
   // setter: own numbers only

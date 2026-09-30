@@ -7,6 +7,7 @@ import { LegendaSezione } from '@/components/metriche/legenda-sezione'
 import { EtichettaConNota } from '@/components/metriche/nota'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
+import { CommentiMarketing, type RigaCommento, type RigaMotivo } from '@/components/setting/commenti-marketing'
 import { SchedeSetting } from '@/components/setting/schede-setting'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
@@ -14,6 +15,8 @@ import { oggiRoma } from '@/lib/date'
 import { formatData, formatNumero, formatPercentuale, formatRapporto } from '@/lib/format'
 import { LEGENDA_CLOSER, LEGENDA_SETTING, type VoceLegenda } from '@/lib/metriche/legenda'
 import { leggiPeriodo } from '@/lib/periodo'
+import { LIMITE_MARKETING } from '@/lib/setting/commento'
+import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 
@@ -227,7 +230,13 @@ const LEGENDA_PAGINA: VoceLegenda[] = [
   LEGENDA_SETTING.call_proposte,
   LEGENDA_SETTING.discovery_prenotate,
   LEGENDA_SETTING.contenuto_pubblicato,
+  LEGENDA_SETTING.lead_in_target,
+  LEGENDA_SETTING.qualita_conversazioni,
 ]
+
+function primo(valore: string | string[] | undefined): string | undefined {
+  return Array.isArray(valore) ? valore[0] : valore
+}
 
 export default async function SettingPage({
   searchParams,
@@ -236,14 +245,20 @@ export default async function SettingPage({
 }) {
   await requireRuolo(['admin'])
   const oggi = oggiRoma()
-  const periodo = leggiPeriodo(await searchParams, oggi)
+  const parametri = await searchParams
+  const periodo = leggiPeriodo(parametri, oggi)
+  // the marketing section reads one setter or everyone (?setter=)
+  const setterScelto = primo(parametri.setter)
+  const setter = isUuid(setterScelto) ? setterScelto : null
   const supabase = await createClient()
 
-  const [metriche, report, giornate, persone] = await Promise.all([
+  // the most recent LIMITE_MARKETING days and calls with something written: the section says when it cuts
+  const filtroSetter = { p_limite: LIMITE_MARKETING, ...(setter ? { p_setter: setter } : {}) }
+  const [metriche, report, giornate, persone, commenti, motivi] = await Promise.all([
     supabase.rpc('metriche_setting', { p_da: periodo.da, p_a: periodo.a }),
     supabase
       .from('setter_daily_reports')
-      .select('id, data, dm_outbound, dm_inbound, follow_up, dm_totali, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, contenuto_pubblicato, note, setter:profiles!setter_daily_reports_setter_id_fkey(nome)')
+      .select('id, data, dm_outbound, dm_inbound, follow_up, dm_totali, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, contenuto_pubblicato, note, lead_in_target, qualita_conversazioni, cosa_frenava, domande_contenuti, setter:profiles!setter_daily_reports_setter_id_fkey(nome)')
       .gte('data', periodo.da)
       .lte('data', periodo.a)
       .order('data', { ascending: false }),
@@ -251,8 +266,14 @@ export default async function SettingPage({
     supabase.rpc('giornate_setter', { p_da: periodo.da, p_a: periodo.a }),
     // who can have a day of setting: the setters, and the admin who does it too
     supabase.from('profiles').select('id, nome, ruolo').eq('attivo', true).in('ruolo', ['setter', 'admin']).order('nome'),
+    // what the leads say, for marketing: counted and listed in SQL, from the
+    // setters' reports and from the closers' reasons for not closing
+    supabase.rpc('commenti_setter_periodo', { p_da: periodo.da, p_a: periodo.a, ...filtroSetter }),
+    supabase.rpc('motivi_non_chiusura_periodo', { p_da: periodo.da, p_a: periodo.a, ...filtroSetter }),
   ])
-  if (metriche.error || report.error || giornate.error || persone.error) throw new Error('Impossibile caricare il setting')
+  if (metriche.error || report.error || giornate.error || persone.error || commenti.error || motivi.error) {
+    throw new Error('Impossibile caricare il setting')
+  }
 
   const aggiungi = (
     <AggiungiReport
@@ -279,6 +300,10 @@ export default async function SettingPage({
         follow_up: r.follow_up,
         contenuto_pubblicato: r.contenuto_pubblicato,
         note: r.note,
+        lead_in_target: r.lead_in_target,
+        qualita_conversazioni: r.qualita_conversazioni,
+        cosa_frenava: r.cosa_frenava,
+        domande_contenuti: r.domande_contenuti,
       }}
     />
   )
@@ -312,7 +337,7 @@ export default async function SettingPage({
         azione={aggiungi}
       />
       <SchedeSetting attiva="setter" />
-      <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/setting" />
+      <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/setting" parametri={setter ? { setter } : undefined} />
 
       {perSetter.length === 0 ? (
         <StatoVuoto
@@ -436,9 +461,20 @@ export default async function SettingPage({
             </div>
           </section>
 
-          <LegendaSezione voci={legenda} />
         </>
       )}
+
+      {/* what the leads say: its own empty states, also in a period without reports */}
+      <CommentiMarketing
+        righe={commenti.data as RigaCommento[]}
+        motivi={motivi.data as RigaMotivo[]}
+        periodo={periodo.etichetta}
+        setter={setter}
+        persone={persone.data}
+        parametri={periodo.parametri}
+      />
+
+      {perSetter.length > 0 ? <LegendaSezione voci={legenda} /> : null}
     </div>
   )
 }

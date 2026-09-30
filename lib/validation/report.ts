@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { isDataISO } from '@/lib/date'
 import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
+import { LIVELLI_IN_TARGET, LIVELLI_QUALITA, MASSIMO_TESTO_COMMENTO } from '@/lib/setting/commento'
 
 /** Numeric fields of setter_daily_reports, in the same order as the schema. */
 export const CAMPI_NUMERICI_REPORT = [
@@ -27,11 +28,16 @@ export type CampoNumericoReport = (typeof CAMPI_NUMERICI_REPORT)[number]
  * Not asked any more, but kept in the schema so old values stay (Dany, 29/09/2026):
  * strategy_prenotate (the setter books discovery calls only), discovery_svolte and
  * call_qualificate (held and qualified are the closer's, recorded on each call).
+ * The setter's comment on his day (lib/setting/commento.ts) sits with the
+ * conversations, before the calls (Dany, 30/09/2026: "insieme ai volumi dove
+ * mette il numero di conversazioni"): the group that carries `commento`.
  */
 export const GRUPPI_REPORT: {
   titolo: string
   /** A read-only line under the group. */
   nota?: string
+  /** The four guided answers come right after this group's counters. */
+  commento?: true
   campi: [CampoNumericoReport, string, string][]
 }[] = [
   {
@@ -45,6 +51,7 @@ export const GRUPPI_REPORT: {
   {
     titolo: 'Conversazioni',
     nota: 'Non entrano nei DM totali.',
+    commento: true,
     campi: [
       ['conversazioni', LEGENDA_SETTING.conversazioni.etichetta, 'Chi ti risponde e a cui rispondi, anche il giorno dopo'],
     ],
@@ -67,9 +74,19 @@ const conteggio = z
   .min(0, 'Non può essere negativo')
   .max(MASSIMO_GIORNALIERO, `Al massimo ${MASSIMO_GIORNALIERO}`)
 
+/** A free answer of the comment: blank is no answer (null); left out, the saved one stays. */
+const testoCommento = z
+  .string()
+  .max(MASSIMO_TESTO_COMMENTO, `Al massimo ${MASSIMO_TESTO_COMMENTO} caratteri`)
+  .nullish()
+  .transform((v) => (v === undefined ? undefined : v && v.trim() !== '' ? v : null))
+
 /**
  * One schema for the client form and the server action.
  * setter_id is deliberately absent: the server takes it from the session.
+ * The comment's answers are optional: the scales are asked on days with
+ * activity ("Da completare" on the setter's screen) but never block a save.
+ * A key left out keeps what is saved; null clears it.
  */
 export const reportGiornalieroSchema = z.object({
   data: z.string().refine(isDataISO, 'Data non valida'),
@@ -88,6 +105,10 @@ export const reportGiornalieroSchema = z.object({
     .max(2000, 'Al massimo 2000 caratteri')
     .nullable()
     .transform((v) => (v && v.trim() !== '' ? v : null)),
+  lead_in_target: z.enum(LIVELLI_IN_TARGET, { message: 'Scegli uno dei tre livelli' }).nullish(),
+  qualita_conversazioni: z.enum(LIVELLI_QUALITA, { message: 'Scegli uno dei tre livelli' }).nullish(),
+  cosa_frenava: testoCommento,
+  domande_contenuti: testoCommento,
 })
 
 export type ReportGiornalieroInput = z.input<typeof reportGiornalieroSchema>
@@ -107,6 +128,10 @@ export const REPORT_VUOTO: ValoriReport = {
   follow_up: 0,
   contenuto_pubblicato: false,
   note: null,
+  lead_in_target: null,
+  qualita_conversazioni: null,
+  cosa_frenava: null,
+  domande_contenuti: null,
 }
 
 /** The admin corrects an existing report: same fields, the day stays the same. */

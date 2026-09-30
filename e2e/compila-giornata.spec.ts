@@ -127,6 +127,8 @@ test('giornata: l’admin aggiunge una call passata per il setter, ne registra l
   await scheda.getByRole('button', { name: 'Registra esito' }).click()
   const foglio = page.getByRole('dialog', { name: nome })
   await foglio.getByRole('button', { name: 'Follow-up' }).click()
+  // the reason for not closing is required (Dany, 30/09/2026)
+  await foglio.getByLabel(/Motivo di non chiusura/).fill('Vuole provare da solo')
   await foglio.getByRole('button', { name: 'Sì' }).click()
   await expect(page.getByText(`${nome}: follow-up`)).toBeVisible()
 
@@ -136,8 +138,8 @@ test('giornata: l’admin aggiunge una call passata per il setter, ne registra l
   await expect(page.getByTestId('conto-follow_up').locator('dd')).toHaveText(formatNumero(prima.follow_up + 1))
   await expect(scheda.getByRole('button', { name: 'Cambia esito' })).toBeVisible()
 
-  const { data: dopo } = await dbLocale().from('calls').select('stato, qualificata, esito').eq('id', call!.id).single()
-  expect(dopo).toEqual({ stato: 'svolta', qualificata: true, esito: 'follow_up' })
+  const { data: dopo } = await dbLocale().from('calls').select('stato, qualificata, esito, obiezione_principale').eq('id', call!.id).single()
+  expect(dopo).toEqual({ stato: 'svolta', qualificata: true, esito: 'follow_up', obiezione_principale: 'Vuole provare da solo' })
 
   // the setter sees the outcome of the call booked for him in "Giorno per giorno"
   const attesi = await esitiDelSetter(giorno)

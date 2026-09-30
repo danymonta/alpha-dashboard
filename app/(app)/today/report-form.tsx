@@ -6,12 +6,13 @@ import { toast } from 'sonner'
 
 import { salvaReportGiornaliero, type EsitoSalvataggio } from '@/app/(app)/today/actions'
 import { Stepper } from '@/components/numeri/stepper'
+import { ANCORA_COMMENTO, CommentoReport, DaCompletare } from '@/components/setter/commento-report'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { etichettaGiorno, formatOra } from '@/lib/date'
 import { formatNumero } from '@/lib/format'
 import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
+import { commentoDaCompletare } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 import {
   GRUPPI_REPORT,
@@ -38,9 +39,11 @@ type Props = {
   salvatoAlle: string | null
   /** DM totali of the loaded row, as the database computed it (0 when there is no row) */
   dmTotali: number | null
+  /** created_at of the loaded row (null when there is none): a day reported before the questions is never asked */
+  creatoIl?: string | null
 }
 
-export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTotaliIniziale }: Props) {
+export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTotaliIniziale, creatoIl = null }: Props) {
   const [valori, setValori] = useState<ValoriReport>(iniziale)
   // Only the database adds the DM up: the value of the last saved row
   const [dmTotali, setDmTotali] = useState(dmTotaliIniziale)
@@ -130,6 +133,10 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
   const inSospeso =
     stato.tipo === 'modificato' || stato.tipo === 'salvataggio' || stato.tipo === 'errore'
 
+  // A day with DM or conversations asks for the two scales: a reminder for the
+  // setter on his own day, from what is on screen; the save never waits for it
+  const daCompletare = commentoDaCompletare(valori, creatoIl)
+
   // Leaving the screen: flush now, and warn if something is still unsaved.
   useEffect(() => {
     const suNascondi = () => {
@@ -155,7 +162,7 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
 
   return (
     <div className="space-y-5">
-      <StatoSalvataggio stato={stato} riprova={() => void salva()} />
+      <StatoSalvataggio stato={stato} riprova={() => void salva()} daCompletare={daCompletare} />
 
       {GRUPPI.map((gruppo, i) => (
         <section
@@ -190,6 +197,19 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
           {gruppo.nota ? (
             <p className="mt-1.5 px-1 text-xs text-muted-foreground">{gruppo.nota}</p>
           ) : null}
+          {/* with the volumes, right under the conversations (Dany, 30/09/2026) */}
+          {gruppo.commento ? (
+            <div className="mt-5">
+              <CommentoReport
+                valori={valori}
+                daCompletare={daCompletare}
+                // one tap: saved at once, like the switch
+                onScala={(campo, valore) => aggiorna({ [campo]: valore }, 0)}
+                onTesto={(campo, testo) => aggiorna({ [campo]: testo }, RITARDO_NOTE_MS)}
+                onFineTesto={() => void salva()}
+              />
+            </div>
+          ) : null}
         </section>
       ))}
 
@@ -198,7 +218,7 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
           id="gruppo-contenuto"
           className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
         >
-          Contenuto e note
+          Contenuto
         </h2>
         <div className="rounded-xl bg-card px-3">
           <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 py-2">
@@ -216,18 +236,6 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
             />
           </label>
         </div>
-        <label className="block">
-          <span className="sr-only">Note</span>
-          <Textarea
-            value={valori.note ?? ''}
-            onChange={(e) => aggiorna({ note: e.currentTarget.value }, RITARDO_NOTE_MS)}
-            onBlur={() => void salva()}
-            placeholder="Note della giornata (facoltative)"
-            maxLength={2000}
-            rows={3}
-            className="bg-card"
-          />
-        </label>
       </section>
     </div>
   )
@@ -254,7 +262,16 @@ function DmTotali({ valore, inAggiornamento }: { valore: number | null; inAggior
   )
 }
 
-function StatoSalvataggio({ stato, riprova }: { stato: Stato; riprova: () => void }) {
+function StatoSalvataggio({
+  stato,
+  riprova,
+  daCompletare,
+}: {
+  stato: Stato
+  riprova: () => void
+  /** The day's own reminder, in view while scrolling: never while an error needs the space */
+  daCompletare: boolean
+}) {
   return (
     // Stays in view while scrolling. On mobile it sits under the sticky top
     // bar (size-11 button + py-2.5 + 1px border = 65px); no top bar from md up.
@@ -294,6 +311,11 @@ function StatoSalvataggio({ stato, riprova }: { stato: Stato; riprova: () => voi
             Riprova
           </Button>
         </>
+      ) : null}
+
+      {daCompletare && stato.tipo !== 'errore' ? (
+        // a link to the two questions: from the Call group, one tap brings them back
+        <DaCompletare className="ml-auto" testId="da-completare-giorno" href={`#${ANCORA_COMMENTO}`} />
       ) : null}
     </div>
   )

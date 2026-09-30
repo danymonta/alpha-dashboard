@@ -18,6 +18,8 @@ const VOCI_LEGENDA = [
   LEGENDA_SETTING.dm_inbound,
   LEGENDA_SETTING.follow_up,
   LEGENDA_SETTING.conversazioni,
+  LEGENDA_SETTING.lead_in_target,
+  LEGENDA_SETTING.qualita_conversazioni,
   LEGENDA_SETTING.call_proposte,
   LEGENDA_SETTING.discovery_prenotate,
   LEGENDA_SETTING.contenuto_pubblicato,
@@ -45,7 +47,7 @@ export default async function OggiPage({
   const { data: report, error } = await supabase
     .from('setter_daily_reports')
     .select(
-      'dm_outbound, dm_inbound, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, follow_up, contenuto_pubblicato, note, updated_at, dm_totali',
+      'dm_outbound, dm_inbound, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, follow_up, contenuto_pubblicato, note, lead_in_target, qualita_conversazioni, cosa_frenava, domande_contenuti, created_at, updated_at, dm_totali',
     )
     .eq('setter_id', profilo.id)
     .eq('data', data)
@@ -66,6 +68,10 @@ export default async function OggiPage({
         follow_up: report.follow_up,
         contenuto_pubblicato: report.contenuto_pubblicato,
         note: report.note,
+        lead_in_target: report.lead_in_target,
+        qualita_conversazioni: report.qualita_conversazioni,
+        cosa_frenava: report.cosa_frenava,
+        domande_contenuti: report.domande_contenuti,
       }
     : REPORT_VUOTO
 
@@ -105,6 +111,7 @@ export default async function OggiPage({
         iniziale={iniziale}
         salvatoAlle={report?.updated_at ?? null}
         dmTotali={report ? report.dm_totali : 0}
+        creatoIl={report?.created_at ?? null}
       />
 
       <div className="mt-6">

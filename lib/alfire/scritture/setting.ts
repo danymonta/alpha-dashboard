@@ -7,7 +7,7 @@ import { fissaCall } from '@/app/(app)/calls/new/actions'
 import { aggiornaStatoLead, eliminaLead, modificaLead } from '@/app/(app)/leads/actions'
 import { aggiungiReport, correggiReport, eliminaReport } from '@/app/(app)/setting/actions'
 import { salvaReportGiornaliero } from '@/app/(app)/today/actions'
-import { cambi } from '@/lib/alfire/cambi'
+import { breve, cambi, cambio } from '@/lib/alfire/cambi'
 import { CONSEGUENZE } from '@/lib/alfire/conseguenze'
 import type { Anteprima } from '@/lib/alfire/riassunto'
 import { errore, isErrore, isIo, quandoCall, trova, type Call } from '@/lib/alfire/risolvi'
@@ -23,6 +23,19 @@ import {
 import { formatOra, isDataISO, oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
 import {
+  LIVELLI_IN_TARGET,
+  LIVELLI_QUALITA,
+  MASSIMO_MOTIVO,
+  MASSIMO_TESTO_COMMENTO,
+  MOTIVO_NON_CHIUSURA,
+  NOTE_CALL,
+  SCALA_IN_TARGET,
+  SCALA_QUALITA,
+  TESTI_COMMENTO,
+  etichettaLivello,
+  type Scala,
+} from '@/lib/setting/commento'
+import {
   ETICHETTA_FONTE,
   ETICHETTA_PERFORMANCE,
   ETICHETTA_TIPO_CALL,
@@ -34,7 +47,7 @@ import {
   type Performance,
   type TipoCall,
 } from '@/lib/validation/call'
-import { ETICHETTA_ESITO, type SceltaEsito } from '@/lib/validation/esito'
+import { ETICHETTA_ESITO, chiedeMotivo, esitoCallSchema, type SceltaEsito } from '@/lib/validation/esito'
 import { ETICHETTA_STATO_LEAD, STATI_LEAD, type StatoLead } from '@/lib/validation/lead'
 import { CAMPI_NUMERICI_REPORT as CAMPI_REPORT, GRUPPI_REPORT } from '@/lib/validation/report'
 
@@ -53,6 +66,29 @@ const CAMPI_SETTER = GRUPPI_REPORT.flatMap((g) => g.campi.map(([campo, etichetta
 const NOMI_CAMPI_SETTER = new Set<string>(CAMPI_SETTER.map((c) => c.campo))
 
 const ESITI = ['chiusa', 'follow_up', 'persa', 'no_show', 'cancellata', 'riprogrammata', 'programmata'] as const
+
+/**
+ * The setter's comment on the day (lib/setting/commento.ts): the two scales
+ * with their meaning, as the form shows them, and the three texts ("Altre
+ * note" is the report's note).
+ */
+const scelteScala = (scala: Scala) => scala.opzioni.map((o) => `${o.valore} = ${o.definizione}`).join('; ')
+const TESTI_REPORT = TESTI_COMMENTO
+const campiCommento = {
+  lead_in_target: z.enum(LIVELLI_IN_TARGET).optional().describe(`${SCALA_IN_TARGET.domanda} ${scelteScala(SCALA_IN_TARGET)}`),
+  qualita_conversazioni: z.enum(LIVELLI_QUALITA).optional().describe(`${SCALA_QUALITA.domanda} ${scelteScala(SCALA_QUALITA)}`),
+  cosa_frenava: z
+    .string()
+    .max(MASSIMO_TESTO_COMMENTO)
+    .optional()
+    .describe('Cosa frenava i lead dal fissare la call (non il prezzo: è del closer). aggiungi accoda, imposta sostituisce, "" toglie'),
+  domande_contenuti: z
+    .string()
+    .max(MASSIMO_TESTO_COMMENTO)
+    .optional()
+    .describe('Cosa chiedevano i lead e quale contenuto li ha portati a scrivere. Come cosa_frenava'),
+  note: z.string().max(2000).optional().describe('Altre note della giornata. Come cosa_frenava'),
+}
 
 // ---------------------------------------------------------------------------
 // Booking a call (lead and call together)
@@ -144,7 +180,11 @@ function call(ctx: Contesto): Definizione {
       ? {
           esito: z.enum(ESITI).optional().describe('programmata annulla l’esito'),
           qualificata: z.boolean().optional().describe('follow_up, persa'),
-          obiezione: z.string().max(200).optional(),
+          motivo: z
+            .string()
+            .max(MASSIMO_MOTIVO)
+            .optional()
+            .describe('Motivo di non chiusura: obbligatorio con follow_up e persa, se manca chiedilo'),
         }
       : {}),
     data: data.optional(),
@@ -169,7 +209,7 @@ function call(ctx: Contesto): Definizione {
     lead: string
     esito?: SceltaEsito
     qualificata?: boolean
-    obiezione?: string
+    motivo?: string
     data?: string
     ora?: string
     tipo?: TipoCall
@@ -226,12 +266,27 @@ function call(ctx: Contesto): Definizione {
     }
   }
 
-  function controllaEsito(v: Input) {
+  /** What registraEsito receives: the notes only with follow_up and persa, as in the sheet. */
+  function inputEsito(v: Input, callId: string) {
+    return chiedeMotivo(v.esito)
+      ? { call_id: callId, esito: v.esito, qualificata: v.qualificata, motivo: v.motivo, note: v.note }
+      : { call_id: callId, esito: v.esito }
+  }
+
+  function controllaEsito(v: Input, callId: string) {
     if (!v.esito) return errore('Dimmi l’esito della call.')
     // "sposta la call a domani": a new date is an edit, the outcome would drop it
     if (v.data || v.ora) return errore('L’esito non cambia data e ora: per spostare la call usa azione modifica con data e ora.')
-    if ((v.esito === 'follow_up' || v.esito === 'persa') && v.qualificata === undefined) {
+    if (chiedeMotivo(v.esito) && v.qualificata === undefined) {
       return errore('Dimmi se il lead era qualificato.')
+    }
+    // the outcome sheet's own schema: follow_up and persa need the reason for not closing
+    const verifica = esitoCallSchema.safeParse(inputEsito(v, callId))
+    if (!verifica.success) {
+      const problema = verifica.error.issues[0]
+      return problema?.path[0] === 'motivo'
+        ? errore(`${problema.message}: chiedi perché non ha chiuso (${MOTIVO_NON_CHIUSURA.placeholder.replace(/^Es\. /, 'es. ')}).`)
+        : errore(problema?.message ?? 'Esito non valido.')
     }
     return null
   }
@@ -241,7 +296,7 @@ function call(ctx: Contesto): Definizione {
       ? 'Sposta o corregge una tua call (call_id da call_periodo, o il nome del lead): data, ora, closer, note.'
       : `Una call (call_id da call_periodo, o il nome del lead). modifica: sposta a nuova data e ora (data, ora), tipo${
           ruolo === 'admin' ? ', closer' : ''
-        }, note, link, performance, prodotto e importo proposti. esito = come è andata: chiusa, follow_up o persa (con qualificata), ` +
+        }, note, link, performance, prodotto e importo proposti. esito = come è andata: chiusa, follow_up o persa (con qualificata e motivo di non chiusura, obbligatorio; note facoltative), ` +
         'no_show, cancellata, riprogrammata (solo se questa call salta e se ne fisserà un’altra; per spostarla usa modifica), ' +
         'programmata (annulla l’esito); dopo chiusa registra la vendita con registra_vendita e il call_id. ' +
         `Lo stato del lead in pipeline non cambia da solo: lead stato.${ruolo === 'admin' ? ' elimina.' : ''}`
@@ -255,13 +310,23 @@ function call(ctx: Contesto): Definizione {
       if (isErrore(c)) return c
       const chi = `${c.lead?.nome ?? v.lead} del ${quandoCall(c)}`
       if (v.azione === 'esito') {
-        const manca = controllaEsito(v)
+        const manca = controllaEsito(v, c.id)
         if (manca) return manca
         const esito = v.esito as SceltaEsito
+        const nonChiusa = chiedeMotivo(esito)
         return anteprima(`Registro l’esito della call con ${chi}: ${ETICHETTA_ESITO[esito]}`, [
           `Ora: ${c.esito ? ETICHETTA_ESITO[c.esito as SceltaEsito] : (ETICHETTA_ESITO[c.stato as SceltaEsito] ?? c.stato)}`,
-          esito === 'follow_up' || esito === 'persa' ? `Qualificata: ${v.qualificata ? 'sì' : 'no'}` : null,
-          v.obiezione ? `Obiezione: ${v.obiezione}` : null,
+          nonChiusa ? `Qualificata: ${v.qualificata ? 'sì' : 'no'}` : null,
+          // written in full, as the database will keep them; a saved one shows before → after
+          nonChiusa
+            ? (cambio(MOTIVO_NON_CHIUSURA.titolo, c.obiezione_principale, v.motivo?.trim(), 'lungo') ??
+              `${MOTIVO_NON_CHIUSURA.titolo}: ${v.motivo?.trim()}`)
+            : null,
+          // any other outcome clears it (aggiornamentoDaEsito): the card says so
+          !nonChiusa && c.obiezione_principale?.trim()
+            ? `${MOTIVO_NON_CHIUSURA.titolo}: ${breve(c.obiezione_principale)} → ${MOTIVO_NON_CHIUSURA.tolto}`
+            : null,
+          nonChiusa && v.note !== undefined ? cambio(NOTE_CALL.titolo, c.note, v.note, 'lungo') : null,
           esito === 'chiusa' ? 'Poi registriamo la vendita.' : null,
         ])
       }
@@ -310,14 +375,9 @@ function call(ctx: Contesto): Definizione {
       const c = await r.trovaCall({ call_id: v.call_id, lead: v.lead })
       if (isErrore(c)) return c
       if (v.azione === 'esito') {
-        const manca = controllaEsito(v)
+        const manca = controllaEsito(v, c.id)
         if (manca) return manca
-        const esito = await registraEsito({
-          call_id: c.id,
-          esito: v.esito,
-          qualificata: v.qualificata,
-          obiezione: v.obiezione,
-        })
+        const esito = await registraEsito(inputEsito(v, c.id))
         if (!esito.ok) return errore(esito.errore)
         return v.esito === 'chiusa'
           ? { fatto: true, call_id: c.id, poi: 'Registra la vendita con registra_vendita e questo call_id.', link: '/calls' }
@@ -429,8 +489,17 @@ function aggiornaReport(ctx: Contesto): Definizione {
       CAMPI_SETTER.map(({ campo, aiuto }) => [campo, z.number().int().min(0).max(5000).optional().describe(aiuto)]),
     ),
     contenuto_pubblicato: z.boolean().optional(),
+    ...campiCommento,
   })
-  type Riga = Record<string, unknown> & { id: string; note: string | null; contenuto_pubblicato: boolean }
+  type Riga = Record<string, unknown> & {
+    id: string
+    note: string | null
+    contenuto_pubblicato: boolean
+    lead_in_target: string | null
+    qualita_conversazioni: string | null
+    cosa_frenava: string | null
+    domande_contenuti: string | null
+  }
 
   async function giornata(v: Record<string, unknown>) {
     const giorno = typeof v.data === 'string' && isDataISO(v.data) ? v.data : oggiRoma()
@@ -451,15 +520,36 @@ function aggiornaReport(ctx: Contesto): Definizione {
     }
     valori.contenuto_pubblicato =
       typeof v.contenuto_pubblicato === 'boolean' ? v.contenuto_pubblicato : (attuale?.contenuto_pubblicato ?? false)
+    // the comment: a scale said is set, one not said keeps what is saved
+    for (const campo of ['lead_in_target', 'qualita_conversazioni'] as const) {
+      valori[campo] = typeof v[campo] === 'string' ? v[campo] : (attuale?.[campo] ?? null)
+    }
+    // a text: aggiungi puts it under the saved one, imposta replaces it, "" clears it
+    for (const { campo } of TESTI_REPORT) {
+      const prima = (attuale?.[campo] as string | null | undefined) ?? null
+      const nuovo = v[campo]
+      if (typeof nuovo !== 'string') valori[campo] = prima
+      else if (nuovo.trim() === '') valori[campo] = null
+      else valori[campo] = v.modalita === 'aggiungi' && prima ? `${prima}\n${nuovo.trim()}` : nuovo.trim()
+    }
     return { giorno, chi, attuale: (attuale ?? null) as Riga | null, valori }
   }
+
+  /** The comment's lines for a new day: every answer that will be written, texts in full. */
+  const righeCommento = (valori: Record<string, unknown>) => [
+    ...[SCALA_IN_TARGET, SCALA_QUALITA].map((s) => {
+      const livello = etichettaLivello(s.campo, valori[s.campo] as string | null)
+      return livello ? `${s.titolo}: ${livello}` : null
+    }),
+    ...TESTI_REPORT.map((t) => (valori[t.campo] ? `${t.titolo}: ${valori[t.campo]}` : null)),
+  ]
 
   const di = (chi: { id: string; nome: string }) => (chi.id === profilo.id ? 'il tuo report' : `il report di ${chi.nome}`)
 
   return definizione({
     description: admin
-      ? 'Il report giornaliero di un setter (o tuo): aggiungi somma ai numeri già salvati, imposta li sostituisce, elimina toglie il giorno. Data di default: oggi.'
-      : 'Aggiorna il report giornaliero del setter. modalita "aggiungi" somma ai numeri già salvati, "imposta" li sostituisce. Data di default: oggi.',
+      ? 'Il report giornaliero di un setter (o tuo), numeri e com’è andata (lead in target, qualità delle conversazioni, cosa frenava i lead, domande e contenuti, altre note): aggiungi somma ai numeri già salvati, imposta li sostituisce, elimina toglie il giorno. Data di default: oggi.'
+      : 'Aggiorna il report giornaliero del setter, numeri e com’è andata (lead in target, qualità delle conversazioni, cosa frenava i lead, domande e contenuti, altre note). modalita "aggiungi" somma ai numeri già salvati, "imposta" li sostituisce. Data di default: oggi.',
     inputSchema: schema,
     anteprima: async (input): Promise<Anteprima> => {
       const v = input as Record<string, unknown>
@@ -478,6 +568,7 @@ function aggiornaReport(ctx: Contesto): Definizione {
         return anteprima(titolo('Compilo'), [
           'Giornata nuova.',
           ...CAMPI_SETTER.filter(({ campo }) => Number(g.valori[campo]) > 0).map(({ campo, etichetta }) => `${etichetta}: ${g.valori[campo]}`),
+          ...righeCommento(g.valori),
         ])
       }
       const riga = g.attuale
@@ -486,6 +577,15 @@ function aggiornaReport(ctx: Contesto): Definizione {
         ...cambi([
           ...CAMPI_SETTER.map(({ campo, etichetta }) => [etichetta, riga[campo] ?? 0, g.valori[campo]] as const),
           ['Contenuto pubblicato', riga.contenuto_pubblicato, g.valori.contenuto_pubblicato, 'si_no'] as const,
+          ...[SCALA_IN_TARGET, SCALA_QUALITA].map(
+            (s) =>
+              [
+                s.titolo,
+                etichettaLivello(s.campo, riga[s.campo]),
+                etichettaLivello(s.campo, g.valori[s.campo] as string | null),
+              ] as const,
+          ),
+          ...TESTI_REPORT.map((t) => [t.titolo, riga[t.campo], g.valori[t.campo], 'lungo'] as const),
         ]),
       ])
     },

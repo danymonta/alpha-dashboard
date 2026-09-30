@@ -41,29 +41,91 @@ test.describe('Le mie call, closer', () => {
     await expect(scheda(page, nome).getByText('No show')).toBeVisible()
   })
 
-  test('persa in tre tocchi, con qualifica e obiezione', async ({ page }) => {
+  test('persa: senza il motivo di non chiusura non si salva, con il motivo sì', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
     const nome = nomeUnico('Persa')
     const callId = await creaCallDiProva(nome, ID_CLOSER)
+    await dbLocale().from('calls').update({ note: 'Fissata dal setter' }).eq('id', callId)
     await page.goto('/calls')
 
     const foglio = await apriEsito(page, nome) // 1
     await foglio.getByRole('button', { name: 'Persa', exact: true }).click() // 2
-    await foglio.getByLabel(/Obiezione principale/).fill('prezzo')
+
+    // the reason is asked, with its guidance; the save line says what is missing
+    const motivo = foglio.getByLabel(/Motivo di non chiusura/)
+    await expect(motivo).toBeVisible()
+    await expect(foglio.getByText('Perché non ha chiuso?')).toBeVisible()
+    await expect(motivo).toHaveAttribute('placeholder', /fuori budget/)
+    await expect(foglio.getByTestId('salva-esito-aiuto')).toHaveText(/scrivi il motivo di non chiusura/)
+    // the call's notes open on what is saved, and are optional
+    await expect(foglio.getByLabel(/Note aggiuntive/)).toHaveValue('Fissata dal setter')
+
+    // a tap without the reason saves nothing
+    await foglio.getByRole('button', { name: 'No', exact: true }).click()
+    await expect(foglio.getByText('Scrivi il motivo di non chiusura', { exact: true })).toBeVisible()
+    await expect(motivo).toBeFocused()
+    await expect(motivo).toHaveAttribute('aria-invalid', 'true')
+    const { data: prima } = await dbLocale().from('calls').select('stato, esito').eq('id', callId).single()
+    expect(prima).toEqual({ stato: 'programmata', esito: null })
+
+    // with the reason it saves
+    await motivo.fill('Fuori budget, ci risentiamo a gennaio')
+    await expect(foglio.getByTestId('salva-esito-aiuto')).toHaveText('Un tocco su Sì o No salva l’esito.')
+    await foglio.getByLabel(/Note aggiuntive/).fill('Fissata dal setter. Vuole la versione da 3 mesi')
     await foglio.getByRole('button', { name: 'No', exact: true }).click() // 3
 
     await expect(scheda(page, nome).getByText('non qualificata')).toBeVisible()
+    await expect(scheda(page, nome).getByTestId('motivo-non-chiusura')).toHaveText(
+      'Motivo di non chiusura: Fuori budget, ci risentiamo a gennaio',
+    )
 
     const { data } = await dbLocale()
       .from('calls')
-      .select('stato, esito, qualificata, obiezione_principale')
+      .select('stato, esito, qualificata, obiezione_principale, note')
       .eq('id', callId)
       .single()
     expect(data).toEqual({
       stato: 'svolta',
       esito: 'persa',
       qualificata: false,
-      obiezione_principale: 'prezzo',
+      obiezione_principale: 'Fuori budget, ci risentiamo a gennaio',
+      note: 'Fissata dal setter. Vuole la versione da 3 mesi',
     })
+
+    // changing the outcome opens on the saved reason
+    const ancora = await apriEsito(page, nome)
+    await ancora.getByRole('button', { name: 'Follow-up', exact: true }).click()
+    await expect(ancora.getByLabel(/Motivo di non chiusura/)).toHaveValue('Fuori budget, ci risentiamo a gennaio')
+  })
+
+  test('il foglio dell’esito sta nello schermo anche con testi lunghi su un telefono piccolo', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 500 })
+    const nome = nomeUnico('Lungo')
+    const callId = await creaCallDiProva(nome, ID_CLOSER)
+    await dbLocale()
+      .from('calls')
+      .update({
+        obiezione_principale: 'Fuori budget, ne parla con la compagna. '.repeat(10).trim(),
+        note: 'Vuole ripensarci con calma, richiamare dopo le feste. '.repeat(10).trim(),
+      })
+      .eq('id', callId)
+    await page.goto('/calls')
+
+    const foglio = await apriEsito(page, nome)
+    await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+    // never taller than the screen: it scrolls, and the two texts stop growing
+    const box = (await foglio.boundingBox())!
+    expect(box.y).toBeGreaterThanOrEqual(0)
+    expect(box.y + box.height).toBeLessThanOrEqual(500)
+    for (const campo of [foglio.getByLabel(/Motivo di non chiusura/), foglio.getByLabel(/Note aggiuntive/)]) {
+      expect((await campo.boundingBox())!.height).toBeLessThanOrEqual(160)
+    }
+    // no amounts in these texts: the setter who booked the call reads them
+    await expect(foglio.getByText('Niente importi qui', { exact: false })).toBeAttached()
+    await foglio.evaluate((el) => el.scrollTo(0, el.scrollHeight))
+    await expect(foglio.getByRole('button', { name: 'Sì', exact: true })).toBeInViewport()
+    await foglio.evaluate((el) => el.scrollTo(0, 0))
+    await expect(foglio.getByRole('heading', { name: nome })).toBeInViewport()
   })
 
   test('chiusa porta alla nuova vendita precompilata', async ({ page }) => {
@@ -111,6 +173,7 @@ test('l’admin registra l’esito delle call assegnate a lui', async ({ page })
 
   const foglio = await apriEsito(page, nome)
   await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await foglio.getByLabel(/Motivo di non chiusura/).fill('Deve parlarne con la compagna')
   await foglio.getByRole('button', { name: 'Sì', exact: true }).click()
   await expect(scheda(page, nome).getByText('Follow-up')).toBeVisible()
 })

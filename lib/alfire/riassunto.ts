@@ -1,6 +1,7 @@
 import { formatData, formatEuro, formatMese } from '@/lib/format'
 import { elencoNomi } from '@/lib/progetti'
 import type { NomeScrittura } from '@/lib/alfire/permessi'
+import { MOTIVO_NON_CHIUSURA, NOTE_CALL, SCALE_COMMENTO, TESTI_COMMENTO, etichettaLivello } from '@/lib/setting/commento'
 import { ETICHETTA_ESITO, type SceltaEsito } from '@/lib/validation/esito'
 import { ETICHETTA_STATO_LEAD, type StatoLead } from '@/lib/validation/lead'
 
@@ -289,6 +290,16 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
       if (typeof input.contenuto_pubblicato === 'boolean') {
         campi.push(input.contenuto_pubblicato ? 'contenuto pubblicato' : 'nessun contenuto pubblicato')
       }
+      // how the day went: each answer in the form's words, the texts in full
+      for (const scala of SCALE_COMMENTO) {
+        const livello = etichettaLivello(scala.campo, testo(input[scala.campo]))
+        if (livello) campi.push(`${scala.titolo}: ${livello}`)
+      }
+      for (const t of TESTI_COMMENTO) {
+        if (typeof input[t.campo] !== 'string') continue
+        const scritto = testo(input[t.campo])
+        campi.push(scritto ? `${t.titolo}${aggiungi ? ' (in aggiunta)' : ''}: ${scritto}` : `${t.titolo}: da togliere`)
+      }
       return {
         titolo: `${aggiungi ? 'Aggiungo al' : 'Imposto il'} report${di} di ${giorno(input.data)}`,
         dettagli: campi,
@@ -316,7 +327,8 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
           titolo: `Registro l’esito della call con ${chi}: ${esito ? (ETICHETTA_ESITO[esito] ?? esito) : '?'}`,
           dettagli: righe(
             typeof input.qualificata === 'boolean' && `Qualificata: ${input.qualificata ? 'sì' : 'no'}`,
-            testo(input.obiezione) && `Obiezione: ${input.obiezione}`,
+            testo(input.motivo) && `${MOTIVO_NON_CHIUSURA.titolo}: ${input.motivo}`,
+            testo(input.note) && `${NOTE_CALL.titolo}: ${input.note}`,
             esito === 'chiusa' && 'Poi registriamo la vendita',
           ),
         }

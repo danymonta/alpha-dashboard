@@ -5,7 +5,18 @@
  * same label always means the same thing. The formulas are the ones computed
  * in SQL (CLAUDE.md section 9): change them there first, then here.
  */
+import { SCALA_IN_TARGET, SCALA_QUALITA, type Scala } from '@/lib/setting/commento'
+
 export type VoceLegenda = { etichetta: string; spiegazione: string }
+
+/** A scale of the setter's comment, explained with the very words of the form (lib/setting/commento.ts). */
+function voceScala(scala: Scala): VoceLegenda {
+  const livelli = scala.opzioni.map((o) => `${o.etichetta}: ${o.definizione.replace(/\.$/, '')}`).join('. ')
+  return {
+    etichetta: scala.titolo,
+    spiegazione: [scala.domanda, scala.spiegazione, `${livelli}.`].filter(Boolean).join(' '),
+  }
+}
 
 export const LEGENDA_SETTING = {
   dm_outbound: {
@@ -61,6 +72,9 @@ export const LEGENDA_SETTING = {
     etichetta: 'Contenuto pubblicato',
     spiegazione: 'Se quel giorno è uscito un contenuto sul profilo.',
   },
+  // the setter's comment on his day (30/09/2026): asked with the conversations
+  lead_in_target: voceScala(SCALA_IN_TARGET),
+  qualita_conversazioni: voceScala(SCALA_QUALITA),
   tasso_conversazione: {
     etichetta: 'Tasso di conversazione',
     spiegazione: 'Conversazioni ÷ DM totali.',

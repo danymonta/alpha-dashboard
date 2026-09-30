@@ -2,8 +2,10 @@ import { ModificaCall } from '@/app/(app)/calls/modifica-call'
 import { RegistraEsito } from '@/app/(app)/calls/registra-esito'
 import { StatoCall } from '@/components/call/stato-call'
 import { etichettaGiorno, etichettaGiornoBreve, formatOra, oggiRoma } from '@/lib/date'
+import { MOTIVO_NON_CHIUSURA } from '@/lib/setting/commento'
 import type { Database } from '@/lib/supabase/database.types'
 import { ETICHETTA_TIPO_CALL } from '@/lib/validation/call'
+import { chiedeMotivo } from '@/lib/validation/esito'
 
 type Enums = Database['public']['Enums']
 
@@ -11,8 +13,12 @@ type Enums = Database['public']['Enums']
 export const CAMPI_CALL =
   'id, programmata_il, tipo, stato, esito, qualificata, closer_id, note, link_registrazione, performance, prodotto_proposto_id, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
 
-/** The amount pitched is read only where RLS lets it through: closer and admin. */
-export const CAMPI_CALL_CLOSER = `${CAMPI_CALL}, pitch:call_pitch(importo_proposto)`
+/**
+ * The amount pitched is read only where RLS lets it through: closer and admin.
+ * The reason for not closing is the closer's: his card shows it and his
+ * outcome sheet opens on it.
+ */
+export const CAMPI_CALL_CLOSER = `${CAMPI_CALL}, obiezione_principale, pitch:call_pitch(importo_proposto)`
 
 export type CallVista = {
   id: string
@@ -26,6 +32,8 @@ export type CallVista = {
   link_registrazione: string | null
   performance: Enums['call_performance'] | null
   prodotto_proposto_id: string | null
+  /** "Motivo di non chiusura": only in the closer's query. */
+  obiezione_principale?: string | null
   /** Embedded only in the closer's query: RLS keeps it from the setter anyway. */
   pitch?: { importo_proposto: number } | null
   lead: { nome: string; instagram_handle: string | null } | null
@@ -137,8 +145,16 @@ export function SchedaCall({
             giaRegistrata={call.stato !== 'programmata'}
             futura={!passata}
             tornaA={tornaA}
+            motivo={call.obiezione_principale ?? null}
+            note={call.note}
           />
         </div>
+      ) : null}
+
+      {vista === 'closer' && chiedeMotivo(call.esito) && call.obiezione_principale ? (
+        <p className="mt-1 line-clamp-2 pl-[4.25rem] text-sm break-words" data-testid="motivo-non-chiusura">
+          <span className="text-muted-foreground">{MOTIVO_NON_CHIUSURA.titolo}:</span> {call.obiezione_principale}
+        </p>
       ) : null}
     </article>
   )

@@ -176,6 +176,8 @@ export type Call = {
   closer_id: string
   setter_id: string | null
   note: string | null
+  /** "Motivo di non chiusura": the outcome card shows it before → after, or that it goes */
+  obiezione_principale: string | null
   link_registrazione: string | null
   performance: string | null
   prodotto_proposto_id: string | null
@@ -184,7 +186,7 @@ export type Call = {
 }
 
 const CAMPI_CALL =
-  'id, tipo, programmata_il, stato, esito, qualificata, closer_id, setter_id, note, link_registrazione, performance, prodotto_proposto_id, lead_id, lead:leads(nome, stato, fonte)'
+  'id, tipo, programmata_il, stato, esito, qualificata, closer_id, setter_id, note, obiezione_principale, link_registrazione, performance, prodotto_proposto_id, lead_id, lead:leads(nome, stato, fonte)'
 
 /** "12/09/2026 alle 15:00" in Europe/Rome */
 export function quandoCall(c: Pick<Call, 'programmata_il'>): string {

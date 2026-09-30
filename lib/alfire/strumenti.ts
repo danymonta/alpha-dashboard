@@ -15,6 +15,15 @@ import { scrittureSetting } from '@/lib/alfire/scritture/setting'
 import type { LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
 import { aggiungiGiorni, aggiungiMesi, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
+import {
+  MOTIVO_NON_CHIUSURA,
+  NOTE_CALL,
+  SCALE_COMMENTO,
+  TESTI_COMMENTO,
+  etichettaLivello,
+  type CampoScala,
+} from '@/lib/setting/commento'
+import { ETICHETTA_ESITO } from '@/lib/validation/esito'
 
 const data = z.string().describe('Data ISO, AAAA-MM-GG')
 const periodo = z.object({
@@ -207,6 +216,85 @@ function letture({ supabase, profilo, r }: Contesto) {
         const p = leggiPeriodo(input)
         const { data, error } = await supabase.rpc('metriche_setting', { p_da: p.da, p_a: p.a })
         return error ? errore('Metriche non disponibili.') : { periodo: p, setter: data }
+      },
+    }),
+
+    commenti_marketing: definizione({
+      description:
+        'Cosa dicono i lead, per il marketing, nel periodo. Dal setting (report giornaliero): giorni per livello di lead in target e ' +
+        'qualità delle conversazioni, e i giorni con cosa frenava i lead dal fissare la call, domande e contenuti, altre note. ' +
+        'Dalle call: il motivo di non chiusura scritto dal closer sulle call svolte finite in follow-up o persa (qui stanno le obiezioni sul prezzo). ' +
+        'Per riassumere cosa frena i lead o le obiezioni del mese. Con setter: i suoi report e le call che ha fissato.',
+      inputSchema: periodo.extend({ setter: z.string().optional().describe('Nome; vuoto: tutti') }),
+      execute: async (input) => {
+        const p = leggiPeriodo(input)
+        let setterId: string | undefined
+        let setterNome: string | undefined
+        if (input.setter?.trim()) {
+          const chi = await r.persona(input.setter, ['admin', 'setter'])
+          if (isErrore(chi)) return chi
+          setterId = chi.id
+          setterNome = chi.nome
+        }
+        // the most recent 60 days and 60 calls with something written: enough to summarize a month
+        const limite = 60
+        const filtro = { p_da: p.da, p_a: p.a, p_limite: limite, ...(setterId ? { p_setter: setterId } : {}) }
+        const [commenti, motivi] = await Promise.all([
+          supabase.rpc('commenti_setter_periodo', filtro),
+          supabase.rpc('motivi_non_chiusura_periodo', filtro),
+        ])
+        // a read that fails is never "nothing written"
+        if (commenti.error || motivi.error) return errore('Commenti per il marketing non disponibili.')
+        // counted in SQL; here only the form's words for each level
+        const scale = Object.fromEntries(
+          SCALE_COMMENTO.map((scala) => {
+            const righe = commenti.data.filter((x) => x.tipo === 'scala' && x.scala === scala.campo)
+            return [
+              scala.titolo,
+              {
+                giorni_con_risposta: righe[0]?.su_giorni ?? 0,
+                livelli: righe.map((x) => ({
+                  livello: etichettaLivello(scala.campo, x.livello),
+                  giorni: x.giorni,
+                  quota: x.quota,
+                })),
+              },
+            ]
+          }),
+        )
+        // only what was answered and written: a day never says which answer is missing (section 17)
+        const giorni = commenti.data
+          .filter((x) => x.tipo === 'giorno')
+          .map((x) => ({
+            data: x.data,
+            setter: x.setter,
+            ...Object.fromEntries(
+              SCALE_COMMENTO.flatMap((scala) => {
+                const livello = etichettaLivello(scala.campo as CampoScala, x[scala.campo])
+                return livello ? [[scala.titolo, livello]] : []
+              }),
+            ),
+            ...Object.fromEntries(TESTI_COMMENTO.flatMap((t) => (x[t.campo] ? [[t.titolo, x[t.campo]]] : []))),
+          }))
+        const call = motivi.data.map((c) => ({
+          data: c.data,
+          lead: c.lead,
+          closer: c.closer,
+          esito: ETICHETTA_ESITO[c.esito],
+          ...(c.motivo ? { [MOTIVO_NON_CHIUSURA.titolo]: c.motivo } : {}),
+          ...(c.note ? { [NOTE_CALL.titolo]: c.note } : {}),
+        }))
+        return {
+          periodo: p,
+          setter: setterNome ?? 'tutti',
+          dal_setting: {
+            scale,
+            giorni_con_testo: giorni,
+            ...(giorni.length >= limite ? { nota: `Solo i ${limite} giorni più recenti del periodo.` } : {}),
+          },
+          dalle_call: call,
+          ...(call.length >= limite ? { nota_call: `Solo le ${limite} call più recenti del periodo.` } : {}),
+        }
       },
     }),
 

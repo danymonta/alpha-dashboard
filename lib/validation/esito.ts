@@ -1,17 +1,44 @@
 import { z } from 'zod'
 
+import {
+  MASSIMO_MOTIVO,
+  MASSIMO_NOTE_CALL,
+  MOTIVO_NON_CHIUSURA,
+  NOTE_CALL,
+} from '@/lib/setting/commento'
 import type { Database } from '@/lib/supabase/database.types'
 
 type AggiornamentoCall = Pick<
   Database['public']['Tables']['calls']['Update'],
-  'stato' | 'esito' | 'qualificata' | 'obiezione_principale'
+  'stato' | 'esito' | 'qualificata' | 'obiezione_principale' | 'note'
 >
 
 const callId = z.string().uuid('Call non valida')
 
 /**
+ * "Motivo di non chiusura" (calls.obiezione_principale), Dany 30/09/2026: "il
+ * closer deve inserire motivo di non chiusura sempre". Required for a held
+ * call that did not close; the same schema binds the outcome sheet, the
+ * server action and Alfire. Calls recorded before stay as they are: the
+ * database has no constraint on it.
+ */
+const motivoNonChiusura = z
+  .string({ required_error: MOTIVO_NON_CHIUSURA.manca, invalid_type_error: MOTIVO_NON_CHIUSURA.manca })
+  .trim()
+  .min(1, MOTIVO_NON_CHIUSURA.manca)
+  .max(MASSIMO_MOTIVO, MOTIVO_NON_CHIUSURA.troppoLungo)
+
+/** "Note aggiuntive" (calls.note), optional: left out, the saved ones stay; blank clears them. */
+const noteCall = z
+  .string()
+  .max(MASSIMO_NOTE_CALL, NOTE_CALL.troppoLungo)
+  .nullish()
+  .transform((v) => (v === undefined ? undefined : v && v.trim() !== '' ? v.trim() : null))
+
+/**
  * What the closer can tap. "programmata" undoes a wrong outcome.
- * follow_up and persa need to know whether the lead was qualified.
+ * follow_up and persa need to know whether the lead was qualified, and why
+ * the call did not close.
  */
 export const esitoCallSchema = z.discriminatedUnion('esito', [
   z.object({ call_id: callId, esito: z.literal('chiusa') }),
@@ -19,12 +46,8 @@ export const esitoCallSchema = z.discriminatedUnion('esito', [
     call_id: callId,
     esito: z.enum(['follow_up', 'persa']),
     qualificata: z.boolean({ required_error: 'Indica se era qualificata' }),
-    obiezione: z
-      .string()
-      .trim()
-      .max(200, 'Al massimo 200 caratteri')
-      .nullish()
-      .transform((v) => (v ? v : null)),
+    motivo: motivoNonChiusura,
+    note: noteCall,
   }),
   z.object({
     call_id: callId,
@@ -35,6 +58,13 @@ export const esitoCallSchema = z.discriminatedUnion('esito', [
 export type EsitoCallInput = z.input<typeof esitoCallSchema>
 export type EsitoCall = z.output<typeof esitoCallSchema>
 export type SceltaEsito = EsitoCall['esito']
+
+/** The outcomes that ask for the reason: a held call that did not close. */
+export const ESITI_NON_CHIUSI = ['follow_up', 'persa'] as const
+
+export function chiedeMotivo(esito: string | null | undefined): esito is (typeof ESITI_NON_CHIUSI)[number] {
+  return esito === 'follow_up' || esito === 'persa'
+}
 
 export const ETICHETTA_ESITO: Record<SceltaEsito, string> = {
   chiusa: 'Chiusa',
@@ -49,7 +79,9 @@ export const ETICHETTA_ESITO: Record<SceltaEsito, string> = {
 /**
  * Translates a tap into the columns of `calls`, respecting the table checks
  * (qualificata and esito only when svolta). A closed call is always qualified:
- * otherwise "close rate su qualificate" could exceed 100%.
+ * otherwise "close rate su qualificate" could exceed 100%. The reason for not
+ * closing only belongs to a held call that did not close; the notes are
+ * touched only when the sheet sends them.
  */
 export function aggiornamentoDaEsito(v: EsitoCall): AggiornamentoCall {
   switch (v.esito) {
@@ -61,7 +93,8 @@ export function aggiornamentoDaEsito(v: EsitoCall): AggiornamentoCall {
         stato: 'svolta',
         esito: v.esito,
         qualificata: v.qualificata,
-        obiezione_principale: v.obiezione,
+        obiezione_principale: v.motivo,
+        ...(v.note !== undefined ? { note: v.note } : {}),
       }
     default:
       return { stato: v.esito, esito: null, qualificata: null, obiezione_principale: null }

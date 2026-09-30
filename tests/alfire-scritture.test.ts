@@ -340,7 +340,8 @@ function mondo(): Record<string, Riga[]> {
         qualificata: true,
         closer_id: IO,
         setter_id: LORIS,
-        note: null,
+        note: 'Da richiamare',
+        obiezione_principale: 'Ci deve pensare',
         link_registrazione: null,
         performance: null,
         prodotto_proposto_id: null,
@@ -372,6 +373,10 @@ function mondo(): Record<string, Riga[]> {
         follow_up: 4,
         contenuto_pubblicato: false,
         note: null,
+        lead_in_target: null,
+        qualita_conversazioni: 'medie',
+        cosa_frenava: 'Non ho tempo per una call',
+        domande_contenuti: null,
       },
     ],
     v_pm_progetti: [
@@ -435,7 +440,7 @@ beforeEach(() => vi.clearAllMocks())
 
 // ---------------------------------------------------------------------------
 describe('chi riceve quali strumenti (elenchi fissati)', () => {
-  it('admin: 15 letture, le risposte a un tocco e 18 scritture', () => {
+  it('admin: 16 letture, le risposte a un tocco e 18 scritture', () => {
     expect(strumentiConsentiti('admin', 'admin')).toEqual([
       'guida',
       'proponi_risposte',
@@ -446,6 +451,7 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
       'rate_cliente',
       'vendite_periodo',
       'metriche_setting',
+      'commenti_marketing',
       'provvigioni',
       'costi_periodo',
       'call_periodo',
@@ -578,6 +584,16 @@ describe('azioni per ruolo: il modello vede solo quelle che la persona può fare
     const setter = strumenti('setter', 'employee')
     expect(await azioniDi(setter, 'aggiorna_report', 'modalita')).toEqual(['aggiungi', 'imposta'])
     expect(await campiDi(setter, 'aggiorna_report')).not.toContain('setter')
+  })
+
+  it('report: le quattro risposte sulla giornata, per il setter e per l’admin, coi livelli del form', async () => {
+    for (const s of [strumenti(), strumenti('setter', 'employee')]) {
+      expect(await campiDi(s, 'aggiorna_report')).toEqual(
+        expect.arrayContaining(['lead_in_target', 'qualita_conversazioni', 'cosa_frenava', 'domande_contenuti', 'note']),
+      )
+      expect(await azioniDi(s, 'aggiorna_report', 'lead_in_target')).toEqual(['quasi_tutti', 'circa_meta', 'pochi'])
+      expect(await azioniDi(s, 'aggiorna_report', 'qualita_conversazioni')).toEqual(['buone', 'medie', 'scarse'])
+    }
   })
 
   it('progetto: il manager non elimina; il cliente lo collega solo l’admin dell’app', async () => {
@@ -749,12 +765,48 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
   it('call: l’esito chiusa restituisce il call_id per la vendita; follow-up vuole la qualifica', async () => {
     const s = strumenti('closer', 'employee')
     const chiusa = await esegui(s, 'call', { azione: 'esito', lead: 'Luca Neri', esito: 'chiusa' })
-    expect(a.registraEsito).toHaveBeenCalledWith({ call_id: CALL, esito: 'chiusa', qualificata: undefined, obiezione: undefined })
+    expect(a.registraEsito).toHaveBeenCalledWith({ call_id: CALL, esito: 'chiusa' })
     expect(chiusa).toMatchObject({ fatto: true, call_id: CALL })
     vi.clearAllMocks()
     const senza = await esegui(s, 'call', { azione: 'esito', lead: 'Luca Neri', esito: 'follow_up' })
     expect(a.registraEsito).not.toHaveBeenCalled()
     expect(senza).toEqual({ errore: 'Dimmi se il lead era qualificato.' })
+  })
+
+  it('call: follow-up e persa vogliono il motivo di non chiusura, con lo schema del foglio', async () => {
+    for (const [ruolo, livello] of [
+      ['closer', 'employee'],
+      ['admin', 'admin'],
+    ] as const) {
+      const s = strumenti(ruolo, livello)
+      expect(await campiDi(s, 'call')).toContain('motivo')
+      for (const motivo of [undefined, '', '   ']) {
+        const senza = await esegui(s, 'call', { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: false, motivo })
+        expect(senza).toMatchObject({ errore: expect.stringContaining('Scrivi il motivo di non chiusura') })
+        // the card stops before the tap: the model asks why it did not close
+        expect(await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: false, motivo }, ruolo)).toMatchObject({
+          errore: expect.stringContaining('chiedi perché non ha chiuso'),
+        })
+      }
+      expect(a.registraEsito).not.toHaveBeenCalled()
+    }
+    await esegui(strumenti('closer', 'employee'), 'call', {
+      azione: 'esito',
+      lead: 'Luca Neri',
+      esito: 'persa',
+      qualificata: false,
+      motivo: 'Fuori budget',
+      note: 'Riprovare a gennaio',
+    })
+    expect(a.registraEsito).toHaveBeenCalledWith({
+      call_id: CALL,
+      esito: 'persa',
+      qualificata: false,
+      motivo: 'Fuori budget',
+      note: 'Riprovare a gennaio',
+    })
+    // the setter never records an outcome, so he has no reason field either
+    expect(await campiDi(strumenti('setter', 'employee'), 'call')).not.toContain('motivo')
   })
 
   it('call: i dettagli del closer si fondono con quelli salvati (importo proposto compreso)', async () => {
@@ -792,6 +844,160 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
     await esegui(s, 'aggiorna_report', { setter: 'Loris', data: '2026-09-26', modalita: 'elimina' })
     expect(a.eliminaReport).toHaveBeenCalledWith({ id: 'rep1' })
     expect(a.salvaReportGiornaliero).not.toHaveBeenCalled()
+  })
+
+  it('report: le risposte sulla giornata passano con i numeri; aggiungi accoda il testo, imposta lo sostituisce', async () => {
+    const s = strumenti()
+    await esegui(s, 'aggiorna_report', {
+      setter: 'Loris',
+      data: '2026-09-26',
+      modalita: 'aggiungi',
+      lead_in_target: 'pochi',
+      cosa_frenava: 'Sono solo curioso',
+    })
+    // a scale not said keeps the saved one; the text goes under the saved one
+    expect(a.correggiReport).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: 'rep1',
+        dm_outbound: 10,
+        lead_in_target: 'pochi',
+        qualita_conversazioni: 'medie',
+        cosa_frenava: 'Non ho tempo per una call\nSono solo curioso',
+        domande_contenuti: null,
+      }),
+    )
+    await esegui(s, 'aggiorna_report', { setter: 'Loris', data: '2026-09-26', modalita: 'imposta', cosa_frenava: 'Ci devo pensare' })
+    expect(a.correggiReport).toHaveBeenLastCalledWith(expect.objectContaining({ cosa_frenava: 'Ci devo pensare' }))
+    await esegui(s, 'aggiorna_report', { setter: 'Loris', data: '2026-09-26', modalita: 'imposta', cosa_frenava: '' })
+    expect(a.correggiReport).toHaveBeenLastCalledWith(expect.objectContaining({ cosa_frenava: null }))
+    // "Altre note" is the report's note, with the same rules
+    await esegui(s, 'aggiorna_report', { setter: 'Loris', data: '2026-09-26', modalita: 'imposta', note: 'Giornata corta' })
+    expect(a.correggiReport).toHaveBeenLastCalledWith(expect.objectContaining({ note: 'Giornata corta' }))
+    // a new day for someone: the answers go with the numbers
+    await esegui(s, 'aggiorna_report', {
+      setter: 'Loris',
+      data: '2026-09-27',
+      modalita: 'imposta',
+      conversazioni: 6,
+      qualita_conversazioni: 'buone',
+      domande_contenuti: 'Serve la palestra?',
+    })
+    expect(a.aggiungiReport).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        setter_id: LORIS,
+        conversazioni: 6,
+        lead_in_target: null,
+        qualita_conversazioni: 'buone',
+        domande_contenuti: 'Serve la palestra?',
+      }),
+    )
+  })
+
+  it('report del setter: le sue risposte dalla stessa azione di «Oggi»', async () => {
+    const righe = mondo()
+    righe.setter_daily_reports = righe.setter_daily_reports.map((r) => ({ ...r, setter_id: IO }))
+    await esegui(strumenti('setter', 'employee', righe), 'aggiorna_report', {
+      data: '2026-09-26',
+      modalita: 'imposta',
+      lead_in_target: 'quasi_tutti',
+      qualita_conversazioni: 'buone',
+    })
+    expect(a.salvaReportGiornaliero).toHaveBeenCalledWith(
+      expect.objectContaining({ data: '2026-09-26', dm_outbound: 10, lead_in_target: 'quasi_tutti', qualita_conversazioni: 'buone', cosa_frenava: 'Non ho tempo per una call' }),
+    )
+  })
+
+  it('commenti_marketing: il setting con le parole del form e i motivi di non chiusura del closer, un setter per nome', async () => {
+    const righe = mondo()
+    righe.commenti_setter_periodo = [
+      { tipo: 'scala', scala: 'lead_in_target', livello: 'quasi_tutti', giorni: 2, su_giorni: 3, quota: 0.6667 },
+      { tipo: 'scala', scala: 'lead_in_target', livello: 'circa_meta', giorni: 1, su_giorni: 3, quota: 0.3333 },
+      { tipo: 'scala', scala: 'lead_in_target', livello: 'pochi', giorni: 0, su_giorni: 3, quota: 0 },
+      { tipo: 'scala', scala: 'qualita_conversazioni', livello: 'buone', giorni: 1, su_giorni: 1, quota: 1 },
+      { tipo: 'scala', scala: 'qualita_conversazioni', livello: 'medie', giorni: 0, su_giorni: 1, quota: 0 },
+      { tipo: 'scala', scala: 'qualita_conversazioni', livello: 'scarse', giorni: 0, su_giorni: 1, quota: 0 },
+      {
+        tipo: 'giorno',
+        data: '2026-09-26',
+        setter: 'Loris Setter',
+        lead_in_target: 'circa_meta',
+        qualita_conversazioni: null,
+        cosa_frenava: 'Sono solo curiosi',
+        domande_contenuti: null,
+        note: 'Giornata corta',
+      },
+    ]
+    righe.motivi_non_chiusura_periodo = [
+      { call_id: CALL, data: '2026-09-28', lead: 'Luca Neri', closer: 'Dany Montagnolo', esito: 'persa', qualificata: true, motivo: 'Fuori budget', note: 'Riprovare a gennaio' },
+      { call_id: 'ca000000-0000-4000-8000-000000000002', data: '2026-09-27', lead: 'Marco Bianchi', closer: 'Dany Montagnolo', esito: 'follow_up', qualificata: true, motivo: null, note: 'Solo una nota' },
+    ]
+    const esito = (await esegui(strumenti('admin', 'admin', righe), 'commenti_marketing', { da: '2026-09-01', a: '2026-09-30', setter: 'Loris' })) as Record<string, unknown>
+    expect(esito).toMatchObject({
+      periodo: { da: '2026-09-01', a: '2026-09-30' },
+      setter: 'Loris Setter',
+      dal_setting: {
+        scale: {
+          'Lead in target': {
+            giorni_con_risposta: 3,
+            livelli: [
+              { livello: 'Quasi tutti', giorni: 2, quota: 0.6667 },
+              { livello: 'Circa metà', giorni: 1, quota: 0.3333 },
+              { livello: 'Pochi', giorni: 0, quota: 0 },
+            ],
+          },
+        },
+        giorni_con_testo: [
+          {
+            data: '2026-09-26',
+            setter: 'Loris Setter',
+            'Lead in target': 'Circa metà',
+            'Cosa frenava i lead': 'Sono solo curiosi',
+            'Altre note': 'Giornata corta',
+          },
+        ],
+      },
+      dalle_call: [
+        {
+          data: '2026-09-28',
+          lead: 'Luca Neri',
+          closer: 'Dany Montagnolo',
+          esito: 'Persa',
+          'Motivo di non chiusura': 'Fuori budget',
+          'Note aggiuntive': 'Riprovare a gennaio',
+        },
+        { lead: 'Marco Bianchi', esito: 'Follow-up', 'Note aggiuntive': 'Solo una nota' },
+      ],
+    })
+    // only what was answered and written: an unanswered scale or reason is not there (section 17)
+    const [giorno] = (esito.dal_setting as { giorni_con_testo: Record<string, unknown>[] }).giorni_con_testo
+    expect(giorno).not.toHaveProperty('Qualità delle conversazioni')
+    expect(giorno).not.toHaveProperty('Domande e contenuti')
+    expect((esito.dalle_call as Record<string, unknown>[])[1]).not.toHaveProperty('Motivo di non chiusura')
+    expect(JSON.stringify(esito)).not.toMatch(/non indicato|non scritto|null/)
+    // a setter that is not there: the list of who is, no read
+    expect(await esegui(strumenti('admin', 'admin', righe), 'commenti_marketing', { setter: 'Mario' })).toMatchObject({
+      errore: expect.stringContaining('Loris Setter'),
+    })
+  })
+
+  it('commenti_marketing: una lettura che fallisce non vale «nessun commento»', async () => {
+    for (const rotta of ['commenti_setter_periodo', 'motivi_non_chiusura_periodo']) {
+      const s = strumenti('admin', 'admin', mondo(), [], [rotta])
+      expect(await esegui(s, 'commenti_marketing', {})).toEqual({ errore: 'Commenti per il marketing non disponibili.' })
+    }
+  })
+
+  it('i commenti per il marketing li legge solo l’admin', () => {
+    expect(strumentiConsentiti('admin', 'admin')).toContain('commenti_marketing')
+    for (const [ruolo, livello] of [
+      ['setter', 'employee'],
+      ['closer', 'employee'],
+      ['coach', 'employee'],
+      ['coach', 'admin'],
+      ['editor', 'manager'],
+    ] as const) {
+      expect(strumentiConsentiti(ruolo, livello), `${ruolo}/${livello}`).not.toContain('commenti_marketing')
+    }
   })
 
   it('report del setter: il suo giorno, sommato a quello salvato, dalla stessa azione di «Oggi»', async () => {
@@ -1078,6 +1284,73 @@ describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta
     })
   })
 
+  it('il report: le risposte sulla giornata con le parole del form, prima → dopo, i testi per intero', async () => {
+    const p = await anteprima('aggiorna_report', {
+      setter: 'Loris',
+      data: '2026-09-26',
+      modalita: 'imposta',
+      lead_in_target: 'pochi',
+      qualita_conversazioni: 'scarse',
+      domande_contenuti: 'Chiedono se serve la palestra',
+    })
+    expect(p).toMatchObject({
+      righe: [
+        'C’è già: lo correggo.',
+        'Lead in target: – → Pochi',
+        'Qualità delle conversazioni: Medie → Scarse',
+        'Domande e contenuti: – → Chiedono se serve la palestra',
+      ],
+    })
+    const nuovo = await anteprima('aggiorna_report', {
+      setter: 'Loris',
+      data: '2026-09-27',
+      modalita: 'imposta',
+      conversazioni: 3,
+      lead_in_target: 'quasi_tutti',
+      cosa_frenava: 'Non hanno tempo per una call',
+      note: 'Giornata corta',
+    })
+    expect(nuovo).toMatchObject({
+      titolo: 'Compilo il report di Loris Setter del 27/09/2026',
+      righe: [
+        'Giornata nuova.',
+        'Conversazioni: 3',
+        'Lead in target: Quasi tutti',
+        'Cosa frenava i lead: Non hanno tempo per una call',
+        'Altre note: Giornata corta',
+      ],
+    })
+  })
+
+  it('l’esito di una call non chiusa: motivo di non chiusura prima → dopo, per intero, e note prima → dopo', async () => {
+    expect(
+      await anteprima(
+        'call',
+        { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: true, motivo: 'Deve parlarne con la compagna', note: 'Richiamare lunedì' },
+        'closer',
+      ),
+    ).toMatchObject({
+      titolo: 'Registro l’esito della call con Luca Neri del 28/09/2026 alle 15:00: Persa',
+      righe: [
+        'Ora: Follow-up',
+        'Qualificata: sì',
+        'Motivo di non chiusura: Ci deve pensare → Deve parlarne con la compagna',
+        'Note aggiuntive: Da richiamare → Richiamare lunedì',
+      ],
+    })
+    // the same reason: still on the card, as it will stay
+    expect(
+      await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: true, motivo: ' Ci deve pensare ' }, 'closer'),
+    ).toMatchObject({ righe: ['Ora: Follow-up', 'Qualificata: sì', 'Motivo di non chiusura: Ci deve pensare'] })
+  })
+
+  it('un altro esito toglie il motivo di non chiusura salvato, e la scheda lo dice', async () => {
+    for (const esito of ['chiusa', 'no_show', 'programmata'] as const) {
+      const p = await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito }, 'closer')
+      expect(p, esito).toMatchObject({ righe: expect.arrayContaining(['Motivo di non chiusura: Ci deve pensare → tolto']) })
+    }
+  })
+
   it('un bersaglio ambiguo è un errore da girare al modello; uno strumento non del ruolo non si legge', async () => {
     expect(await anteprima('cliente', { azione: 'elimina', cliente: 'Rossi' })).toEqual({
       errore: 'Più clienti possibili: Mario Rossi, Luca Rossi. Chiedi quale, con nome e cognome.',
@@ -1111,9 +1384,21 @@ describe('la scheda dall’input: una frase per azione', () => {
     ['obiettivi_mese', { mese: '2026-10', cash: null, nuovi_clienti: null }, 'Tolgo gli obiettivi di ottobre 2026', []],
     ['prodotto', { azione: 'fuori_vendita', prodotto: 'Annuale' }, 'Metto fuori vendita «Annuale»'],
     ['call', { azione: 'esito', lead: 'Luca Neri', esito: 'chiusa' }, 'Registro l’esito della call con Luca Neri: Chiusa', ['Poi registriamo la vendita']],
-    ['call', { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: false, obiezione: 'Prezzo' }, 'Registro l’esito della call con Luca Neri: Persa', ['Qualificata: no', 'Obiezione: Prezzo']],
+    [
+      'call',
+      { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: false, motivo: 'Fuori budget', note: 'Riprovare a gennaio' },
+      'Registro l’esito della call con Luca Neri: Persa',
+      ['Qualificata: no', 'Motivo di non chiusura: Fuori budget', 'Note aggiuntive: Riprovare a gennaio'],
+    ],
     ['lead', { azione: 'stato', lead: 'Luca Neri', stato: 'call_fissata' }, 'Sposto Luca Neri in «Call da fare»'],
     ['aggiorna_report', { setter: 'Loris', data: '2026-09-26', modalita: 'elimina' }, 'Elimino il report di Loris di 26/09/2026', []],
+    [
+      'aggiorna_report',
+      { modalita: 'aggiungi', conversazioni: 4, lead_in_target: 'circa_meta', qualita_conversazioni: 'buone', cosa_frenava: 'Ci devo pensare' },
+      'Aggiungo al report di oggi',
+      ['+4 conversazioni', 'Lead in target: Circa metà', 'Qualità delle conversazioni: Buone', 'Cosa frenava i lead (in aggiunta): Ci devo pensare'],
+    ],
+    ['aggiorna_report', { modalita: 'imposta', domande_contenuti: '' }, 'Imposto il report di oggi', ['Domande e contenuti: da togliere']],
     ['progetto', { azione: 'togli_membro', progetto: 'Reel', persone: ['Sara Editor'] }, 'Tolgo Sara Editor dal progetto «Reel»'],
     ['lista', { azione: 'crea', progetto: 'Reel', nome: 'Pubblicazione', data_fine: '2026-10-31' }, 'Creo la lista «Pubblicazione» in «Reel»', ['Fine: 31/10/2026']],
     ['task', { azione: 'elimina', titolo: 'Copertina', progetto: 'Reel' }, 'Elimino il task «Copertina»', ['Progetto: Reel']],

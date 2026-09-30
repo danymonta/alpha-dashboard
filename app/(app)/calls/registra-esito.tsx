@@ -4,6 +4,7 @@ import {
   Ban,
   CalendarClock,
   ChevronLeft,
+  CircleAlert,
   CircleCheck,
   CircleX,
   LoaderCircle,
@@ -14,12 +15,12 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useId, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { registraEsito } from '@/app/(app)/calls/actions'
+import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Sheet,
@@ -29,7 +30,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { ETICHETTA_ESITO, type EsitoCallInput, type SceltaEsito } from '@/lib/validation/esito'
+import { Textarea } from '@/components/ui/textarea'
+import { MASSIMO_MOTIVO, MASSIMO_NOTE_CALL, MOTIVO_NON_CHIUSURA, NOTE_CALL } from '@/lib/setting/commento'
+import { cn } from '@/lib/utils'
+import { ETICHETTA_ESITO, esitoCallSchema, type EsitoCallInput, type SceltaEsito } from '@/lib/validation/esito'
 
 type Props = {
   callId: string
@@ -40,6 +44,9 @@ type Props = {
   futura: boolean
   /** Where the sale form returns after saving (an internal path): the closer's day. */
   tornaA?: string | null
+  /** What is saved now: the sheet opens on them when the outcome changes. */
+  motivo?: string | null
+  note?: string | null
 }
 
 const SOLO_FUTURE: SceltaEsito[] = ['cancellata', 'riprogrammata']
@@ -54,24 +61,40 @@ const SCELTE: { esito: SceltaEsito; Icona: LucideIcon }[] = [
 ]
 
 /**
- * Outcome in at most three taps: open (1), pick (2), and only for follow-up
- * or lost, say whether the lead was qualified (3). Closed jumps to the sale.
+ * Outcome in a few taps: open (1), pick (2). Closed jumps to the sale. For
+ * follow-up or lost, the closer writes why it did not close (required, Dany
+ * 30/09/2026), may add notes, then says whether the lead was qualified: that
+ * tap saves (3). The shared schema decides what is missing.
  */
-export function RegistraEsito({ callId, nomeLead, descrizione, giaRegistrata, futura, tornaA = null }: Props) {
+export function RegistraEsito({
+  callId,
+  nomeLead,
+  descrizione,
+  giaRegistrata,
+  futura,
+  tornaA = null,
+  motivo: motivoSalvato = null,
+  note: noteSalvate = null,
+}: Props) {
   const router = useRouter()
+  const id = useId()
   const [aperto, setAperto] = useState(false)
   const [inAttesaQualifica, setInAttesaQualifica] = useState<'follow_up' | 'persa' | null>(null)
-  const [obiezione, setObiezione] = useState('')
+  const [motivo, setMotivo] = useState(motivoSalvato ?? '')
+  const [note, setNote] = useState(noteSalvate ?? '')
+  const [erroreMotivo, setErroreMotivo] = useState<string | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
+  const campoMotivo = useRef<HTMLTextAreaElement>(null)
 
   function apriChiudi(valore: boolean) {
     setAperto(valore)
-    if (!valore) {
-      setInAttesaQualifica(null)
-      setObiezione('')
-      setErrore(null)
-    }
+    // every opening starts from what is saved
+    setInAttesaQualifica(null)
+    setMotivo(motivoSalvato ?? '')
+    setNote(noteSalvate ?? '')
+    setErroreMotivo(null)
+    setErrore(null)
   }
 
   function salva(input: EsitoCallInput) {
@@ -107,6 +130,25 @@ export function RegistraEsito({ callId, nomeLead, descrizione, giaRegistrata, fu
     salva({ call_id: callId, esito })
   }
 
+  /** Sì or No: the schema says what is missing before anything is sent. */
+  function salvaNonChiusa(esito: 'follow_up' | 'persa', qualificata: boolean) {
+    const input: EsitoCallInput = { call_id: callId, esito, qualificata, motivo, note }
+    const verifica = esitoCallSchema.safeParse(input)
+    if (!verifica.success) {
+      const problema = verifica.error.issues[0]
+      if (problema?.path[0] === 'motivo') {
+        setErroreMotivo(problema.message)
+        campoMotivo.current?.focus()
+      } else {
+        setErrore(problema?.message ?? 'Esito non valido.')
+      }
+      return
+    }
+    salva(input)
+  }
+
+  const senzaMotivo = motivo.trim() === ''
+
   return (
     <Sheet open={aperto} onOpenChange={apriChiudi}>
       <SheetTrigger
@@ -122,9 +164,10 @@ export function RegistraEsito({ callId, nomeLead, descrizione, giaRegistrata, fu
         {giaRegistrata ? 'Cambia esito' : futura ? 'Annulla o sposta' : 'Registra esito'}
       </SheetTrigger>
 
+      {/* never taller than the screen: with the texts filled (or the keyboard open) it scrolls */}
       <SheetContent
         side="bottom"
-        className="mx-auto w-full max-w-lg rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
+        className="mx-auto max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
       >
         <SheetHeader>
           <SheetTitle>{nomeLead}</SheetTitle>
@@ -174,21 +217,54 @@ export function RegistraEsito({ callId, nomeLead, descrizione, giaRegistrata, fu
               </button>
 
               <div className="space-y-1.5">
-                <Label htmlFor={`obiezione-${callId}`}>
-                  Obiezione principale{' '}
-                  <span className="font-normal text-muted-foreground">(facoltativa)</span>
+                <Label htmlFor={`${id}-motivo`}>
+                  {MOTIVO_NON_CHIUSURA.titolo}{' '}
+                  <span className="font-normal text-muted-foreground">({MOTIVO_NON_CHIUSURA.obbligatorio})</span>
                 </Label>
-                <Input
-                  id={`obiezione-${callId}`}
-                  value={obiezione}
-                  onChange={(e) => setObiezione(e.currentTarget.value)}
-                  maxLength={200}
-                  placeholder="prezzo, tempo, ci devo pensare…"
-                  className="h-11"
+                <p id={`${id}-motivo-domanda`} className="text-xs text-muted-foreground">
+                  {MOTIVO_NON_CHIUSURA.domanda}
+                </p>
+                <Textarea
+                  ref={campoMotivo}
+                  id={`${id}-motivo`}
+                  value={motivo}
+                  onChange={(e) => {
+                    setMotivo(e.currentTarget.value)
+                    if (erroreMotivo) setErroreMotivo(null)
+                  }}
+                  maxLength={MASSIMO_MOTIVO}
+                  rows={2}
+                  required
+                  aria-required="true"
+                  aria-invalid={erroreMotivo ? true : undefined}
+                  aria-describedby={`${id}-motivo-domanda ${id}-senza-importi${erroreMotivo ? ` ${id}-motivo-errore` : ''}`}
+                  placeholder={MOTIVO_NON_CHIUSURA.placeholder}
+                  className="max-h-40"
                 />
+                <ErroreCampo id={`${id}-motivo-errore`} messaggio={erroreMotivo ?? undefined} />
               </div>
 
-              <fieldset>
+              <div className="space-y-1.5">
+                <Label htmlFor={`${id}-note`}>
+                  {NOTE_CALL.titolo} <span className="font-normal text-muted-foreground">({NOTE_CALL.facoltative})</span>
+                </Label>
+                <Textarea
+                  id={`${id}-note`}
+                  value={note}
+                  onChange={(e) => setNote(e.currentTarget.value)}
+                  maxLength={MASSIMO_NOTE_CALL}
+                  rows={2}
+                  aria-describedby={`${id}-senza-importi`}
+                  placeholder={NOTE_CALL.placeholder}
+                  className="max-h-40"
+                />
+                {/* the setter who booked the call reads these two texts, never the amount pitched */}
+                <p id={`${id}-senza-importi`} className="text-xs text-muted-foreground">
+                  {MOTIVO_NON_CHIUSURA.senzaImporti}
+                </p>
+              </div>
+
+              <fieldset aria-describedby={`${id}-salva`}>
                 <legend className="mb-2 text-sm font-medium">Era qualificata?</legend>
                 <div className="grid grid-cols-2 gap-2">
                   {[
@@ -201,19 +277,25 @@ export function RegistraEsito({ callId, nomeLead, descrizione, giaRegistrata, fu
                       variant="outline"
                       className="h-14"
                       disabled={inCorso}
-                      onClick={() =>
-                        salva({
-                          call_id: callId,
-                          esito: inAttesaQualifica,
-                          qualificata: valore,
-                          obiezione,
-                        })
-                      }
+                      aria-describedby={`${id}-salva`}
+                      onClick={() => salvaNonChiusa(inAttesaQualifica, valore)}
                     >
                       {etichetta}
                     </Button>
                   ))}
                 </div>
+                {/* what the tap does, and what is still missing before it can */}
+                <p
+                  id={`${id}-salva`}
+                  className={cn(
+                    'mt-2 flex items-start gap-1.5 text-xs',
+                    senzaMotivo ? 'text-status-warning' : 'text-muted-foreground',
+                  )}
+                  data-testid="salva-esito-aiuto"
+                >
+                  {senzaMotivo ? <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" /> : null}
+                  {senzaMotivo ? MOTIVO_NON_CHIUSURA.perSalvare : MOTIVO_NON_CHIUSURA.salva}
+                </p>
               </fieldset>
             </>
           )}
