@@ -28,6 +28,8 @@ export type VoceNav = {
   Icona: LucideIcon
   /** Only match the exact path (used by "/"). */
   esatto?: boolean
+  /** Pages outside its path that still belong to it (/changelog opens from Impostazioni). */
+  anche?: string[]
   /** Area of the app shell: the desktop sidebar groups by it. Default Economics. */
   sezione?: SezioneNav
 }
@@ -67,7 +69,7 @@ const NAV: Record<AppRole, NavRuolo> = {
       MIEI_TASK,
       // his own time and, in the "Team" tab, everyone's (29/09/2026)
       { ...TEMPO, etichetta: 'Tempo' },
-      { href: '/settings', etichetta: 'Impostazioni', Icona: Settings, sezione: 'Generale' },
+      { href: '/settings', etichetta: 'Impostazioni', Icona: Settings, sezione: 'Generale', anche: ['/changelog'] },
     ],
   },
   setter: {
@@ -101,7 +103,7 @@ export function vociNav(ruolo: AppRole): NavRuolo {
 
 export function isAttiva(pathname: string, voce: VoceNav): boolean {
   if (voce.esatto) return pathname === voce.href
-  return pathname === voce.href || pathname.startsWith(`${voce.href}/`)
+  return [voce.href, ...(voce.anche ?? [])].some((href) => pathname === href || pathname.startsWith(`${href}/`))
 }
 
 /** Items grouped by area, in order, for the sidebar headings. */

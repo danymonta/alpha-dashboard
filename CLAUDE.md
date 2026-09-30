@@ -543,6 +543,7 @@ Lavora una fase alla volta. A fine fase: tutti i controlli verdi, istruzioni di 
 - Dany è sviluppatore: niente spiegazioni di base, vai al punto.
 - Se una scelta non è coperta da questo file, proponi un'opzione con il motivo in una riga e chiedi conferma. Non decidere da solo su permessi, calcoli economici o schema.
 - Mai funzioni di sorveglianza dei collaboratori (tracking automatico, screenshot, alert su chi non compila). Il report giornaliero è auto-dichiarazione dei risultati, non monitoraggio.
+- Ogni deploy aggiunge una voce in `lib/changelog/versioni.ts` e aggiorna la versione in `package.json` (sezione 23).
 
 ## 18. Project management (area Progetti)
 
@@ -615,6 +616,15 @@ Chiesto da Dany il 27/09/2026.
 
 - **App installabile (PWA)**: `app/manifest.ts` (nome "Percorso Alpha", "Alpha" sotto l'icona, `standalone`, colori di `--alpha-bg`), icone in `public/icons` e `app/apple-icon.png`, generate da `scripts/genera-icone.mjs` (emblema per le misure piccole, logo intero per la Home dell'iPhone). iPhone: Safari › Condividi › Aggiungi alla schermata Home. Android: Chrome › Installa app. Il manifest è tra i percorsi pubblici del proxy: il browser lo scarica senza cookie.
 - **Dominio**: `dashboard.percorsoalpha.com` (Vercel) al posto di `alpha-dashboard-eta.vercel.app`. Cambiando dominio vanno aggiornati `APP_URL` su Vercel (redirect del login e link degli inviti) e Site URL e Redirect URLs in Supabase › Authentication.
+
+## 23. Changelog
+
+Chiesto da Dany il 30/09/2026.
+
+- **Pagina** `/changelog`, solo admin (gli altri ruoli tornano alla loro pagina): si apre da Impostazioni, dalla voce "Changelog" che mostra la versione in uso; non sta nella barra in basso. In cima la versione in uso (l'elemento oro della schermata), poi una scheda per versione, dalla più recente: "v1.9.0 · 30/09/2026", titolo, riassunto, Novità, Correzioni e per chi (admin, setter, closer, oppure tutto il team da solo). La descrizione dice che le 0.x sono le tappe prima della produzione.
+- **Dati** in `lib/changelog/versioni.ts`, dalla più recente: italiano semplice e concreto, scritto per Dany da titolare (cosa cambia per lui e per il team), mai nomi di file.
+- **Versioni semver**: 1.0.0 è il 27/09/2026, il primo giorno in produzione su Vercel con i dati veri (storico dell'Excel e foglio delle call); le 0.x sono le tappe di prima. MINOR per un deploy che aggiunge o cambia funzioni, PATCH per un deploy che corregge soltanto (solo Correzioni); la MAJOR resta 1 finché Dany non decide altro. Un deploy di sola documentazione o di soli test non ha voce. Dal 29/09/2026 una voce per deploy (o per deploy a pochi minuti l'uno dall'altro che chiudono la stessa funzione); prima, poche tappe riassunte.
+- **Regola di lavoro**: ogni deploy aggiunge una voce in `lib/changelog/versioni.ts` e aggiorna la versione in `package.json` (`npm version <x.y.z> --no-git-tag-version`). `tests/changelog.test.ts` verifica semver, ordine, date mai nel futuro, una PATCH senza novità e `package.json` uguale alla prima voce.
 
 <!-- Everything above this line is ours. The block below is rewritten by `next dev`: never write inside it. -->
 

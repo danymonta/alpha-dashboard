@@ -60,6 +60,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'export', url: '/settings/export' },
     { nome: 'registro', url: '/settings/audit' },
     { nome: 'impostazioni-progetti', url: '/settings/progetti' },
+    { nome: 'changelog', url: '/changelog' },
     PROGETTI,
     ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE),
     TEMPO,
