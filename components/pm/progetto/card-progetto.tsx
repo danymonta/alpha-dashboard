@@ -1,7 +1,7 @@
 import { CalendarDays } from 'lucide-react'
 import Link from 'next/link'
 
-import { BarraAvanzamento, InRitardo, InizialiMembri, StatoProgettoBadge } from '@/components/pm/stato-progetto'
+import { BarraAvanzamento, InRitardo, InizialiMembri, SenzaCoach, StatoProgettoBadge } from '@/components/pm/stato-progetto'
 import { formatData } from '@/lib/format'
 import type { StatoProgetto } from '@/lib/progetti'
 
@@ -15,6 +15,9 @@ export type ProgettoCard = {
   task_in_ritardo: number
   avanzamento: number | null
   scaduto: boolean
+  /** A client's project (02/10/2026): its end is the end of the client's path. */
+  per_cliente?: boolean
+  senza_coach?: boolean
 }
 
 /** One project in the list: the whole card opens it. */
@@ -38,9 +41,15 @@ export function CardProgetto({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-medium break-words">{p.nome}</h3>
-          {cliente ? <p className="truncate text-xs text-muted-foreground">Cliente: {cliente}</p> : null}
+          {/* a client's own project is named after the client: the name is said once */}
+          {cliente && cliente !== p.nome ? (
+            <p className="truncate text-xs text-muted-foreground">Cliente: {cliente}</p>
+          ) : null}
         </div>
-        <StatoProgettoBadge stato={p.stato} />
+        <span className="flex shrink-0 flex-col items-end gap-1">
+          <StatoProgettoBadge stato={p.stato} />
+          {p.senza_coach ? <SenzaCoach /> : null}
+        </span>
       </div>
 
       <BarraAvanzamento completati={p.task_completati} totali={p.task_totali} avanzamento={p.avanzamento} />
@@ -49,7 +58,13 @@ export function CardProgetto({
       <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 text-xs">
         <span className="flex flex-col items-start gap-1">
           {p.data_fine ? (
-            p.scaduto ? (
+            p.scaduto && p.per_cliente ? (
+              // the client's path is over: nothing late about it
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <CalendarDays className="size-3.5" aria-hidden="true" />
+                <span className="num">Percorso finito il {formatData(p.data_fine)}</span>
+              </span>
+            ) : p.scaduto ? (
               <InRitardo testo={`Doveva finire il ${formatData(p.data_fine)}`} />
             ) : (
               <span className="inline-flex items-center gap-1 text-muted-foreground">

@@ -1,4 +1,4 @@
-import { Archive, CircleCheck, CircleDot, CirclePause, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { Archive, CircleCheck, CircleDot, CirclePause, TriangleAlert, UserRoundX, type LucideIcon } from 'lucide-react'
 
 import { iniziali, ETICHETTA_STATO_PROGETTO, type StatoProgetto } from '@/lib/progetti'
 import { cn } from '@/lib/utils'
@@ -49,6 +49,16 @@ export function BarraAvanzamento({
         {inRitardo > 0 ? <InRitardo testo={`${inRitardo} in ritardo`} /> : null}
       </p>
     </div>
+  )
+}
+
+/** A client's project still without its coach (02/10/2026): icon and words. */
+export function SenzaCoach({ className }: { className?: string }) {
+  return (
+    <span className={cn('inline-flex shrink-0 items-center gap-1 text-xs text-status-warning', className)}>
+      <UserRoundX className="size-3.5 shrink-0" aria-hidden="true" />
+      Senza coach
+    </span>
   )
 }
 

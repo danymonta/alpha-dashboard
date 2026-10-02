@@ -5,6 +5,9 @@ set local search_path to extensions, public;
 
 select plan(6);
 
+-- a client of the test's own, without a project: since 02/10/2026 every paying client has one
+insert into public.clients (id, nome, cognome) values ('eeee0000-0000-4000-8000-0000000000c1', 'Cliente', 'Senza progetto');
+
 select is(
   (select array_agg(nome order by nome) from public.pm_reparti where progetti_con_cliente),
   array['Fitness Coaching'],
@@ -14,7 +17,7 @@ select is(
 select throws_ok(
   $$ insert into public.pm_progetti (reparto_id, nome, client_id, created_by)
      select (select id from public.pm_reparti where nome = 'Vendite e Marketing'), 'Funnel con cliente',
-            (select id from public.clients limit 1), '11111111-1111-4111-8111-111111111111' $$,
+            'eeee0000-0000-4000-8000-0000000000c1', '11111111-1111-4111-8111-111111111111' $$,
   '22023', 'Questo reparto non lavora sui clienti: togli il cliente o scegli un reparto per clienti',
   'un progetto di Vendite e Marketing non prende un cliente'
 );
@@ -22,7 +25,7 @@ select throws_ok(
 select lives_ok(
   $$ insert into public.pm_progetti (reparto_id, nome, client_id, created_by)
      select (select id from public.pm_reparti where nome = 'Fitness Coaching'), 'Percorso di prova',
-            (select id from public.clients limit 1), '11111111-1111-4111-8111-111111111111' $$,
+            'eeee0000-0000-4000-8000-0000000000c1', '11111111-1111-4111-8111-111111111111' $$,
   'uno del Fitness Coaching sì'
 );
 

@@ -1,4 +1,4 @@
-import { ChevronRight, FolderKanban, LayoutTemplate } from 'lucide-react'
+import { ChevronRight, FolderKanban, LayoutTemplate, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 
 import { IntestazionePagina } from '@/components/pagina/intestazione'
@@ -24,14 +24,21 @@ export default async function ImpostazioniProgettiPage() {
       .order('nome'),
     supabase
       .from('pm_modelli')
-      .select('id, nome, descrizione, attivo, reparto_id, voci:pm_modelli_voci(count)')
+      .select('id, nome, descrizione, attivo, reparto_id, per_nuovi_clienti, voci:pm_modelli_voci(count)')
       .order('attivo', { ascending: false })
       .order('nome'),
   ])
   if (reparti.error || modelli.error) throw new Error('Impossibile caricare reparti e modelli')
 
   const nomeReparto = new Map(reparti.data.map((r) => [r.id, r.nome]))
-  const opzioniReparto = reparti.data.filter((r) => r.attivo).map((r) => ({ id: r.id, nome: r.nome }))
+  const opzioniReparto = reparti.data
+    .filter((r) => r.attivo)
+    .map((r) => ({ id: r.id, nome: r.nome, progetti_con_cliente: r.progetti_con_cliente }))
+  // every paying client gets a project (02/10/2026): without the template it opens with no tasks
+  const repartiAttivi = new Set(reparti.data.filter((r) => r.attivo).map((r) => r.id))
+  const senzaModelloClienti =
+    reparti.data.some((r) => r.attivo && r.progetti_con_cliente) &&
+    !modelli.data.some((m) => m.per_nuovi_clienti && m.attivo && m.reparto_id && repartiAttivi.has(m.reparto_id))
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -103,6 +110,15 @@ export default async function ImpostazioniProgettiPage() {
           </h2>
           <ModelloForm reparti={opzioniReparto} />
         </div>
+        {senzaModelloClienti ? (
+          <p className="flex items-start gap-2 rounded-xl bg-card px-3 py-2.5 text-sm" data-testid="senza-modello-clienti">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
+            <span>
+              Nessun modello per i nuovi clienti: il progetto di chi paga la prima rata nasce senza task. Apri un modello
+              di un reparto «Per clienti» e scegli «Per i nuovi clienti».
+            </span>
+          </p>
+        ) : null}
         {modelli.data.length === 0 ? (
           <StatoVuoto
             Icona={LayoutTemplate}
@@ -120,7 +136,10 @@ export default async function ImpostazioniProgettiPage() {
                     className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg py-1 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium">{m.nome}</span>
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
+                        {m.nome}
+                        {m.per_nuovi_clienti ? <Badge variant="outline">Per i nuovi clienti</Badge> : null}
+                      </span>
                       <span className="block text-sm text-muted-foreground">
                         {m.reparto_id ? (nomeReparto.get(m.reparto_id) ?? 'Reparto') : 'Tutti i reparti'} ·{' '}
                         <span className="num">{voci === 1 ? '1 attività' : `${voci} attività`}</span>
@@ -128,7 +147,7 @@ export default async function ImpostazioniProgettiPage() {
                     </span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   </Link>
-                  <AttivoModello id={m.id} nome={m.nome} attivo={m.attivo} />
+                  <AttivoModello id={m.id} nome={m.nome} attivo={m.attivo} perNuoviClienti={m.per_nuovi_clienti} />
                 </li>
               )
             })}

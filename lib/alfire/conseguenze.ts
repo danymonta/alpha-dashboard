@@ -21,7 +21,7 @@ export const CONSEGUENZE = {
   report: ['Le metriche di setting del periodo si ricalcolano senza questo giorno.'],
   // components/pm/membri/membri-client.tsx
   membro: [
-    'Non vedrà più il progetto ed esce dai task a cui è assegnato: chi li condivide li tiene. Se ne era responsabile, il progetto resta senza responsabile.',
+    'Non vedrà più il progetto ed esce dai task a cui è assegnato: chi li condivide li tiene. Se ne era responsabile o coach, il progetto resta senza responsabile o senza coach.',
   ],
   // components/pm/progetto/modifica-progetto.tsx
   progetto: ['Se ne vanno liste, task, tempo registrato e note del progetto. Non si può annullare.'],

@@ -126,6 +126,8 @@ export async function registraVendita(input: unknown): Promise<EsitoNuovaVendita
   }
   // the client's history: a sale opened from the client goes back there
   revalidatePath('/clients/[id]', 'page')
+  // a renewal moves the end of the client's project (02/10/2026)
+  revalidatePath('/progetti', 'layout')
 
   return { ok: true, idVendita: data.id_vendita }
 }

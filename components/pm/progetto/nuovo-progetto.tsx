@@ -212,7 +212,8 @@ export function NuovoProgetto({
               ))}
             </select>
             <p className="text-xs text-muted-foreground">
-              In questo reparto il progetto è il percorso del cliente: il nome si compila da solo. Solo tu vedi il
+              In questo reparto il progetto è il percorso del cliente: il nome si compila da solo e le date sono quelle
+              del suo percorso. Un cliente che paga ha già il suo progetto, quindi qui non compare. Solo tu vedi il
               collegamento al cliente.
             </p>
           </div>
@@ -243,7 +244,7 @@ export function NuovoProgetto({
           </select>
           <p className="text-xs text-muted-foreground">
             {modelloScelto
-              ? `Apre il progetto con ${voci === 1 ? '1 attività' : `${voci} attività`} già divise in liste e datate.`
+              ? `Apre il progetto con ${voci === 1 ? '1 attività' : `${voci} attività`} del modello.`
               : 'Il progetto parte vuoto: liste e task li aggiungi tu.'}
           </p>
         </div>

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import {
+  ID_ADMIN,
   ID_COACH,
   ID_EDITOR,
   assegnatariDelTask,
@@ -17,7 +18,7 @@ test.afterAll(async () => {
   await pulisciProgetti(PREFISSO)
 })
 
-test('il manager crea il progetto di un cliente dal modello e trova le 12 attività', async ({ page }) => {
+test('il manager crea il progetto di un cliente dal modello e trova le 8 attività del coach', async ({ page }) => {
   const nome = `${PREFISSO} percorso ${Date.now()}`
   await accedi(page, 'coach')
   await page.goto('/progetti')
@@ -27,7 +28,7 @@ test('il manager crea il progetto di un cliente dal modello e trova le 12 attivi
   await foglio.getByLabel('Nome', { exact: true }).fill(nome)
   // the first template of the department is already chosen
   await expect(foglio.getByLabel('Modello').locator('option:checked')).toHaveText('Percorso cliente')
-  await expect(foglio.getByText('Apre il progetto con 12 attività')).toBeVisible()
+  await expect(foglio.getByText('Apre il progetto con 8 attività')).toBeVisible()
   // only the app admin links a client
   await expect(foglio.getByLabel('Cliente')).toHaveCount(0)
   await foglio.getByText('Sara Editor').click()
@@ -35,11 +36,11 @@ test('il manager crea il progetto di un cliente dal modello e trova le 12 attivi
 
   await page.waitForURL(/\/progetti\/[0-9a-f-]{36}\/attivita$/)
   await expect(page.getByRole('heading', { level: 1, name: nome })).toBeVisible()
-  await expect(page.getByTestId('task')).toHaveCount(12)
-  for (const lista of ['Onboarding', 'Percorso', 'Chiusura e rinnovo']) {
-    await expect(page.getByRole('heading', { level: 2, name: lista })).toBeVisible()
+  // since 02/10/2026 the client's path is 8 buckets, outside any list and without dates
+  await expect(page.getByTestId('task')).toHaveCount(8)
+  for (const titolo of ['Call di onboarding', 'Revisione video', 'Altre attività']) {
+    await expect(page.getByRole('listitem', { name: titolo })).toBeVisible()
   }
-  await expect(page.getByRole('listitem', { name: 'Call di onboarding' })).toBeVisible()
 
   const progettoId = page.url().split('/').at(-2)!
   const { data: membri } = await dbLocale().from('pm_membri').select('profile_id').eq('progetto_id', progettoId)
@@ -138,7 +139,12 @@ test('il manager assegna un task a due persone e lo trovano entrambe nei loro ta
 test('l’admin collega un cliente, e chi non vede i clienti non vede il collegamento', async ({ page, browser }) => {
   const nome = `${PREFISSO} cliente ${Date.now()}`
   const { progettoId } = await creaProgettoDiProva(nome, { reparto: 'Fitness Coaching' })
-  const { data: cliente } = await dbLocale().from('clients').select('id, nome, cognome').order('created_at').limit(1).single()
+  // a client without a project: since 02/10/2026 every paying client has its own, and is not offered again
+  const { data: cliente } = await dbLocale()
+    .from('clients')
+    .insert({ nome: `${PREFISSO} cliente`, cognome: 'Senza progetto', created_by: ID_ADMIN })
+    .select('id, nome, cognome')
+    .single()
   const nomeCliente = [cliente!.nome, cliente!.cognome].filter(Boolean).join(' ')
 
   await accedi(page, 'admin')
@@ -162,6 +168,8 @@ test('l’admin collega un cliente, e chi non vede i clienti non vede il collega
   await coach.getByRole('button', { name: 'Modifica', exact: true }).click()
   await expect(coach.getByRole('dialog').getByLabel('Cliente')).toHaveCount(0)
   await coach.context().close()
+  await dbLocale().from('pm_progetti').delete().eq('id', progettoId)
+  await dbLocale().from('clients').delete().eq('id', cliente!.id)
 })
 
 test('chi non è membro non vede il progetto', async ({ page }) => {

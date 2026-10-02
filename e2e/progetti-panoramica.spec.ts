@@ -59,6 +59,16 @@ test.describe('progetti come in Zoho, ma semplici', () => {
 })
 
 test('il cliente compare solo nei reparti che lavorano sui clienti, e dà il nome al progetto', async ({ page }) => {
+  // every paying client of the seed already has its project (02/10/2026): one without, made here
+  const db = dbLocale()
+  await db.from('clients').delete().eq('nome', 'E2E Panoramica').eq('cognome', 'Senza Progetto')
+  const { data: nuovo, error } = await db
+    .from('clients')
+    .insert({ nome: 'E2E Panoramica', cognome: 'Senza Progetto', fonte: 'referral' })
+    .select('id')
+    .single()
+  if (error) throw error
+
   await accedi(page, 'admin')
   await page.goto('/progetti')
   await attendiPagina(page)
@@ -71,13 +81,14 @@ test('il cliente compare solo nei reparti che lavorano sui clienti, e dà il nom
   await foglio.getByLabel('Reparto').selectOption({ label: 'Fitness Coaching' })
   const cliente = foglio.getByLabel('Cliente')
   await expect(cliente).toBeVisible()
-  const scelta = (await cliente.locator('option').nth(1).textContent())!.trim()
+  const scelta = 'E2E Panoramica Senza Progetto'
   await cliente.selectOption({ label: scelta })
   await expect(foglio.getByLabel('Nome', { exact: true })).toHaveValue(scelta)
 
   // back to a department without clients: the client goes away
   await foglio.getByLabel('Reparto').selectOption({ label: 'Contenuti e Video' })
   await expect(foglio.getByLabel('Cliente')).toHaveCount(0)
+  await db.from('clients').delete().eq('id', nuovo.id)
 })
 
 test('scelto il reparto, il modello mostrato è quello proposto', async ({ page }) => {
@@ -88,5 +99,5 @@ test('scelto il reparto, il modello mostrato è quello proposto', async ({ page 
   const foglio = page.getByRole('dialog', { name: 'Nuovo progetto' })
   await foglio.getByLabel('Reparto').selectOption({ label: 'Fitness Coaching' })
   await expect(foglio.getByLabel('Modello').locator('option:checked')).toHaveText('Percorso cliente')
-  await expect(foglio.getByText('Apre il progetto con 12 attività')).toBeVisible()
+  await expect(foglio.getByText('Apre il progetto con 8 attività')).toBeVisible()
 })

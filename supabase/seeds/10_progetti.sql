@@ -70,6 +70,21 @@ update public.profiles set livello_pm = 'employee' where id = '55555555-5555-455
 --   ...005 Amministrazione, completed
 --   ...006 Contenuti e Video, paused
 -- ---------------------------------------------------------------------------
+-- A paid instalment in seed.sql already opened the automatic project of the
+-- client ...001 links (one project per client, 02/10/2026): the demo path,
+-- with its fixed id, takes its place.
+delete from public.pm_progetti p
+where p.id <> 'bbbbbbb1-0000-4000-8000-000000000001'
+  and p.client_id = (
+    select c.id
+    from public.clients c
+    join public.v_client_status s on s.client_id = c.id
+    where s.stato = 'attivo'
+    order by c.created_at desc, c.id
+    limit 1
+  )
+  and not exists (select 1 from public.pm_progetti x where x.id = 'bbbbbbb1-0000-4000-8000-000000000001');
+
 insert into public.pm_progetti (
   id, reparto_id, nome, descrizione, client_id, stato, data_inizio, data_fine, responsabile_id, created_by
 )
@@ -154,21 +169,39 @@ from (values
 where exists (select 1 from public.pm_progetti p where p.id = m.progetto_id::uuid)
 on conflict (progetto_id, profile_id) do nothing;
 
+-- the client's path has its coach (02/10/2026): Marco, a member of it
+update public.pm_progetti
+set coach_id = '44444444-4444-4444-8444-444444444444'
+where id = 'bbbbbbb1-0000-4000-8000-000000000001' and client_id is not null and coach_id is null;
+
 -- ---------------------------------------------------------------------------
--- 3. The two client paths, from the "Percorso cliente" template, the same way
---    pm_crea_progetto builds them. Status follows the dates: done well before
---    today, in progress once started, one update left late on purpose.
+-- 3. The two client paths, from the dated path the "Percorso cliente"
+--    template had before 02/10/2026 (written here: the template is now the 8
+--    undated buckets of a client's path), the way pm_crea_progetto builds
+--    them. Status follows the dates: done well before today, in progress once
+--    started, one update left late on purpose.
 -- ---------------------------------------------------------------------------
 do $$
 declare
-  v_modello uuid := (select m.id from public.pm_modelli m where m.nome = 'Percorso cliente' order by m.created_at limit 1);
   v_coach uuid := '44444444-4444-4444-8444-444444444444';
   v_editor uuid := '55555555-5555-4555-8555-555555555555';
   v_p record;
 begin
-  if v_modello is null then
-    return;
-  end if;
+  create temp table voci_demo (tasklist text, titolo text, descrizione text, ordine int, inizio_giorni int, durata_giorni int)
+    on commit drop;
+  insert into voci_demo (tasklist, titolo, ordine, inizio_giorni, durata_giorni) values
+    ('Onboarding', 'Questionario iniziale e obiettivi', 1, 0, 2),
+    ('Onboarding', 'Invio accessi e materiali di benvenuto', 2, 0, 2),
+    ('Onboarding', 'Call di onboarding', 3, 1, 3),
+    ('Onboarding', 'Scrittura programmazione', 4, 2, 5),
+    ('Percorso', 'Assistenza chat', 10, 0, 90),
+    ('Percorso', 'Revisione video settimanale', 11, 7, 77),
+    ('Percorso', 'Call di check', 12, 14, 7),
+    ('Percorso', 'Aggiornamento programmazione', 13, 28, 7),
+    ('Percorso', 'Call di check di metà percorso', 14, 42, 7),
+    ('Percorso', 'Aggiornamento programmazione di metà percorso', 15, 45, 7),
+    ('Chiusura e rinnovo', 'Call di rinnovo', 20, 75, 7),
+    ('Chiusura e rinnovo', 'Raccolta feedback e testimonianza', 21, 84, 7);
 
   for v_p in
     select p.id, p.data_inizio as inizio, p.created_by as autore
@@ -184,8 +217,7 @@ begin
       v_p.inizio + min(v.inizio_giorni),
       v_p.inizio + max(v.inizio_giorni + v.durata_giorni) - 1,
       v_p.autore
-    from public.pm_modelli_voci v
-    where v.modello_id = v_modello
+    from voci_demo v
     group by v.tasklist
     on conflict (id) do nothing;
 
@@ -219,15 +251,14 @@ begin
         else null
       end,
       v_p.autore
-    from public.pm_modelli_voci v
-    where v.modello_id = v_modello
+    from voci_demo v
     order by v.ordine
     on conflict (id) do nothing;
 
     -- who works on them: the weekly video review is the coach's and the editor's together
     insert into public.pm_task_assegnatari (task_id, profile_id, created_by)
     select md5(v_p.id::text || '/task/' || v.titolo)::uuid, x.persona, v_p.autore
-    from public.pm_modelli_voci v
+    from voci_demo v
     cross join lateral unnest(
       case
         when v.titolo = 'Revisione video settimanale' then array[v_coach, v_editor]
@@ -235,8 +266,7 @@ begin
         else array[v_coach]
       end
     ) as x(persona)
-    where v.modello_id = v_modello
-      and exists (select 1 from public.pm_task t where t.id = md5(v_p.id::text || '/task/' || v.titolo)::uuid)
+    where exists (select 1 from public.pm_task t where t.id = md5(v_p.id::text || '/task/' || v.titolo)::uuid)
     on conflict (task_id, profile_id) do nothing;
   end loop;
 end $$;

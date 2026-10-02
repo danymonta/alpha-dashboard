@@ -13,6 +13,8 @@ test.afterAll(async () => {
     const { data: clienti } = await db.from('clients').select('id').in('lead_id', ids)
     const idClienti = (clienti ?? []).map((c) => c.id)
     if (idClienti.length) {
+      // a paid instalment opened the client's project (02/10/2026): it goes too
+      await db.from('pm_progetti').delete().in('client_id', idClienti)
       await db.from('sales').delete().in('client_id', idClienti)
       await db.from('clients').delete().in('id', idClienti)
     }

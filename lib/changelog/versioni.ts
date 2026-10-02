@@ -80,6 +80,43 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.15.0',
+    data: '2026-10-02',
+    titolo: 'Un progetto per ogni cliente',
+    riassunto: 'Alla prima rata incassata ogni cliente ha il suo progetto in Fitness Coaching, con gli 8 task del coach e le date del suo percorso; il coach lo scegli con un tocco.',
+    intestazionePer: ['progetti'],
+    intestazioneTeam: {
+      titolo: 'Un progetto per ogni cliente',
+      riassunto: 'Ogni cliente che inizia il percorso ha il suo progetto, con i task del coach su cui registrare il tempo.',
+    },
+    novita: [
+      {
+        per: ['progetti'],
+        testo: 'Ogni cliente che inizia il percorso ha il suo progetto con i task del coach: call di onboarding, analisi e strategia iniziale, programmazione allenamento, programmazione alimentare, revisione video, call di check, assistenza chat e altre attività. Sono aperti per tutto il percorso, senza scadenze: ci registri il tempo.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Chi gestisce il progetto di un cliente sceglie il coach con un tocco: il coach entra nel progetto e prende i task ancora senza nessuno (cambiando coach, anche quelli del coach di prima), mentre la programmazione alimentare va a chi si occupa di nutrizione, se c’è; i task a cui lavorano altre persone restano a loro. Nell’elenco dei progetti si vede quali sono ancora «Senza coach».',
+      },
+      {
+        per: ['admin'],
+        testo: 'Quando incassi la prima rata di una vendita nuova o di un rinnovo, il progetto del cliente nasce da solo in Fitness Coaching, col suo nome e senza membri: tu scegli il coach. Un upsell non apre mai un progetto. Se correggi dopo l’incasso una vendita registrata male (un upsell che era una vendita nuova, date sbagliate), il progetto nasce in quel momento. I clienti con un percorso pagato in corso lo hanno già.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Le date del progetto sono quelle del percorso del cliente: un rinnovo lo allunga, «Interrompi il percorso» lo accorcia, una vendita eliminata lo riporta indietro. Il progetto prende anche il nuovo nome del cliente, se lo cambi. Dalla scheda del cliente apri il suo progetto, e dal progetto torni alla scheda.',
+      },
+      {
+        per: ['admin'],
+        testo: 'In Impostazioni › Progetti il modello «Percorso cliente» è quello dei nuovi clienti: lì cambi le sue attività senza toccare il codice. Il modello resta attivo finché è quello dei nuovi clienti, e se non ce n’è nessuno la pagina lo dice. Un’attività ora può stare fuori dalle liste, non avere date e andare a chi si occupa di nutrizione.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Nella nuova vendita l’inizio del percorso è proposto una settimana dopo la data di vendita, come succede di solito: controllalo e cambialo se serve.',
+      },
+    ],
+  },
+  {
     versione: '1.14.0',
     data: '2026-09-30',
     titolo: 'Alfire legge il tempo del team',

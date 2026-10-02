@@ -128,6 +128,13 @@ describe('anteprima delle eliminazioni', () => {
     expect(frasiAnteprima('cliente', { vendite: 1, rate: 1, incassato: '0,00\u00a0€' })[0]).toBe('Si eliminano anche 1 vendita e 1 rata.')
   })
 
+  it('il progetto di un cliente eliminato resta, e la domanda lo dice', () => {
+    expect(frasiAnteprima('cliente', { vendite: 1, rate: 1, progetti: 1 }).at(-1)).toBe(
+      'Il suo progetto in Progetti resta, senza il collegamento al cliente.',
+    )
+    expect(frasiAnteprima('cliente', { vendite: 1, rate: 1, progetti: 0 }).join(' ')).not.toContain('progetto')
+  })
+
   it('una persona: cosa sparisce, cosa resta senza nome', () => {
     const frasi = frasiAnteprima('persona', { report: 1, regole: 1, vendite: 4 })
     expect(frasi[0]).toBe('Si eliminano anche: 1 report giornaliero, 1 regola provvigionale.')

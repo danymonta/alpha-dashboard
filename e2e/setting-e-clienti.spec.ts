@@ -13,6 +13,8 @@ test.afterEach(async () => {
   await db.from('setter_daily_reports').delete().eq('setter_id', ID_ADMIN).eq('data', GIORNO)
   const { data: clienti } = await db.from('clients').select('id').eq('nome', ALTRUI)
   for (const c of clienti ?? []) {
+    // a paid instalment opened the client's project (02/10/2026): it goes too
+    await db.from('pm_progetti').delete().eq('client_id', c.id)
     await db.from('sales').delete().eq('client_id', c.id)
     await db.from('clients').delete().eq('id', c.id)
   }

@@ -28,6 +28,7 @@ import {
   OPZIONI_RATE,
   PERSONALIZZATO,
   TIPI_VENDITA,
+  inizioPredefinito,
   nuovaVenditaSchema,
   type NuovaVendita,
   type NuovaVenditaInput,
@@ -120,7 +121,7 @@ export function NuovaVenditaForm({
   const [anteprima, setAnteprima] = useState<RataAnteprima[] | null>(anteprimaIniziale)
   const [calcolo, setCalcolo] = useState(false)
   const richiesta = useRef(0)
-  // the start follows the sale date only while the two are the same day
+  // the start follows the sale date (a week later) only while it is still the proposed day
   const venditaPrima = useRef(dataVenditaIniziale)
 
   const {
@@ -148,7 +149,8 @@ export function NuovaVenditaForm({
       valore_contratto: iniziali?.valore_contratto ?? '',
       numero_rate: 1,
       data_vendita: dataVenditaIniziale,
-      data_inizio: iniziali?.data_inizio ?? dataVenditaIniziale,
+      // usually a week after the payment; a renewal starts the day after the previous path
+      data_inizio: iniziali?.data_inizio ?? inizioPredefinito(dataVenditaIniziale),
       note: '',
       prodotto_personalizzato: '',
       data_fine: '',
@@ -202,10 +204,13 @@ export function NuovaVenditaForm({
             }
           }
 
-          // a start set apart from the sale date (a renewal's) stays where it is
+          // a start chosen by hand, or a renewal's, stays where it is
           if (name === 'data_vendita' && valori.data_vendita) {
-            if (!getFieldState('data_inizio').isDirty && valori.data_inizio === venditaPrima.current) {
-              setValue('data_inizio', valori.data_vendita)
+            if (
+              !getFieldState('data_inizio').isDirty &&
+              valori.data_inizio === inizioPredefinito(venditaPrima.current)
+            ) {
+              setValue('data_inizio', inizioPredefinito(valori.data_vendita))
             }
             venditaPrima.current = valori.data_vendita
           }
@@ -534,10 +539,17 @@ export function NuovaVenditaForm({
               type="date"
               className="num h-11"
               aria-invalid={errors.data_inizio ? true : undefined}
+              aria-describedby={percorsoPrecedente ? undefined : 'inizio-aiuto'}
               {...register('data_inizio')}
             />
           </div>
         </div>
+        {/* a renewal says where it starts in the box above */}
+        {percorsoPrecedente ? null : (
+          <p id="inizio-aiuto" className="px-1 text-xs text-muted-foreground">
+            Il percorso di solito inizia una settimana dopo il pagamento: controlla la data.
+          </p>
+        )}
         <ErroreCampo
           id="date-errore"
           messaggio={errors.data_vendita?.message ?? errors.data_inizio?.message}

@@ -53,14 +53,14 @@ export default async function ProgettiPage({
 
   let query = supabase
     .from('v_pm_progetti')
-    .select('id, reparto_id, nome, stato, data_fine, client_id, task_totali, task_completati, task_in_ritardo, avanzamento, scaduto')
+    .select('id, reparto_id, nome, stato, data_fine, client_id, coach_id, task_totali, task_completati, task_in_ritardo, avanzamento, scaduto')
     .order('nome')
   const stati = STATI_DEL_FILTRO[filtroStato]
   if (stati) query = query.in('stato', stati)
   if (repartoFiltro) query = query.eq('reparto_id', repartoFiltro)
   if (soloMiei) query = query.eq('sono_membro', true)
 
-  const [reparti, progetti, modelli, persone, clienti] = await Promise.all([
+  const [reparti, progetti, modelli, persone, clienti, collegati] = await Promise.all([
     supabase.from('pm_reparti').select('id, nome, descrizione, attivo, progetti_con_cliente').order('ordine').order('nome'),
     query,
     creatore
@@ -72,8 +72,12 @@ export default async function ProgettiPage({
     adminApp
       ? supabase.from('clients').select('id, nome, cognome').order('nome').order('cognome')
       : Promise.resolve({ data: [], error: null }),
+    // one project per client (02/10/2026): a client that has one is not offered again
+    adminApp
+      ? supabase.from('pm_progetti').select('client_id').not('client_id', 'is', null)
+      : Promise.resolve({ data: [], error: null }),
   ])
-  if (reparti.error || progetti.error || modelli.error || persone.error || clienti.error) {
+  if (reparti.error || progetti.error || modelli.error || persone.error || clienti.error || collegati.error) {
     throw new Error('Impossibile caricare i progetti')
   }
 
@@ -108,8 +112,11 @@ export default async function ProgettiPage({
     reparto_id: m.reparto_id,
     voci: m.voci[0]?.count ?? 0,
   }))
+  const conProgetto = new Set(collegati.data.map((p) => p.client_id))
   const opzioniCliente: OpzioneCliente[] | null = adminApp
-    ? clienti.data.map((c) => ({ id: c.id, etichetta: [c.nome, c.cognome].filter(Boolean).join(' ') }))
+    ? clienti.data
+        .filter((c) => !conProgetto.has(c.id))
+        .map((c) => ({ id: c.id, etichetta: [c.nome, c.cognome].filter(Boolean).join(' ') }))
     : null
   const oggi = oggiRoma()
 
@@ -262,6 +269,8 @@ export default async function ProgettiPage({
                         task_in_ritardo: p.task_in_ritardo ?? 0,
                         avanzamento: p.avanzamento,
                         scaduto: p.scaduto ?? false,
+                        per_cliente: p.client_id !== null,
+                        senza_coach: p.client_id !== null && p.coach_id === null,
                       }}
                       membri={nomiMembri.get(p.id!) ?? []}
                       cliente={p.client_id ? (nomeCliente.get(p.client_id) ?? null) : null}

@@ -5,10 +5,11 @@ import type { ReactNode } from 'react'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { ModificaProgetto } from '@/components/pm/progetto/modifica-progetto'
+import { CoachDelCliente, ScegliCoach, type PersonaCoach } from '@/components/pm/progetto/scegli-coach'
 import { SchedeProgetto } from '@/components/pm/schede-progetto'
 import { BarraAvanzamento } from '@/components/pm/stato-progetto'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { livelloPmEffettivo } from '@/lib/auth/roles'
+import { ETICHETTA_RUOLO, livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { formatData } from '@/lib/format'
 import { ETICHETTA_STATO_PROGETTO, isUuid } from '@/lib/progetti'
@@ -32,7 +33,7 @@ export default async function LayoutProgetto({
     ? await supabase
         .from('pm_progetti')
         .select(
-          'id, nome, descrizione, stato, data_inizio, data_fine, responsabile_id, client_id, reparto_id, reparto:pm_reparti(nome), responsabile:profiles!pm_progetti_responsabile_id_fkey(nome)',
+          'id, nome, descrizione, stato, data_inizio, data_fine, responsabile_id, client_id, coach_id, reparto_id, reparto:pm_reparti(nome), responsabile:profiles!pm_progetti_responsabile_id_fkey(nome), coach:profiles!pm_progetti_coach_id_fkey(id, nome)',
         )
         .eq('id', id)
         .maybeSingle()
@@ -54,7 +55,7 @@ export default async function LayoutProgetto({
 
   const adminApp = profilo.ruolo === 'admin'
   const adminPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === 'admin'
-  const [gestisce, avanzamento, membri, cliente, clienti, reparti] = await Promise.all([
+  const [gestisce, avanzamento, membri, cliente, clienti, collegati, reparti] = await Promise.all([
     supabase.rpc('pm_puo_gestire', { p_progetto: progetto.id }),
     // progress and late tasks: computed by the view, only read here
     supabase
@@ -73,8 +74,29 @@ export default async function LayoutProgetto({
     adminApp
       ? supabase.from('clients').select('id, nome, cognome').order('nome').order('cognome')
       : Promise.resolve({ data: [], error: null }),
+    // one project per client: the clients that already have another one are not offered
+    adminApp
+      ? supabase.from('pm_progetti').select('client_id').not('client_id', 'is', null).neq('id', progetto.id)
+      : Promise.resolve({ data: [], error: null }),
     supabase.from('pm_reparti').select('id, nome, attivo, progetti_con_cliente').order('ordine').order('nome'),
   ])
+
+  const conProgetto = new Set((collegati.data ?? []).map((p) => p.client_id))
+
+  // a client's project: who manages it picks the coach (02/10/2026)
+  const sceltaCoach = progetto.client_id !== null && gestisce.data === true
+  const [attivi, compitiDiRuolo] = sceltaCoach
+    ? await Promise.all([
+        supabase.from('profiles').select('id, nome, ruolo').eq('attivo', true).order('nome'),
+        supabase
+          .from('pm_task')
+          .select('titolo, per_ruolo, assegnatari:pm_task_assegnatari(profile_id)')
+          .eq('progetto_id', progetto.id)
+          .is('parent_id', null)
+          .not('per_ruolo', 'is', null)
+          .order('ordine'),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }]
 
   const persone = (membri.data ?? [])
     .flatMap((m) => (m.profilo ? [m.profilo] : []))
@@ -93,6 +115,28 @@ export default async function LayoutProgetto({
     .filter(Boolean)
     .join(' · ')
   const numeri = avanzamento.data
+
+  const personeCoach: PersonaCoach[] = (attivi.data ?? [])
+    .map((p) => ({ id: p.id, nome: p.nome, ruolo: ETICHETTA_RUOLO[p.ruolo], coach: p.ruolo === 'coach' }))
+    .sort((a, b) => Number(b.coach) - Number(a.coach) || a.nome.localeCompare(b.nome, 'it'))
+  // the same choice pm_scegli_coach makes: only tasks still free or the coach's move, to
+  // someone with the role (already in the project first)
+  const nelProgetto = new Set(persone.map((p) => p.id))
+  const elencoNonCaricato = Boolean(attivi.error || compitiDiRuolo.error)
+  const daRuolo = (compitiDiRuolo.data ?? []).flatMap((t) => {
+    if (!t.per_ruolo) return []
+    const suChi = t.assegnatari.map((a) => a.profile_id)
+    if (suChi.length > 0 && !(progetto.coach_id && suChi.includes(progetto.coach_id))) return []
+    const chi = (attivi.data ?? [])
+      .filter((p) => p.ruolo === t.per_ruolo)
+      .sort((a, b) => Number(nelProgetto.has(b.id)) - Number(nelProgetto.has(a.id)) || a.nome.localeCompare(b.nome, 'it'))[0]
+    const ruolo = ETICHETTA_RUOLO[t.per_ruolo]
+    return [
+      chi
+        ? `«${t.titolo}» va a ${chi.nome} (${ruolo}).`
+        : `«${t.titolo}» va al coach: nel team nessuno ha il ruolo ${ruolo}.`,
+    ]
+  })
 
   return (
     // one width for header, tabs and every tab's content: the right edge never jumps
@@ -129,13 +173,39 @@ export default async function LayoutProgetto({
               membri={persone}
               clienti={
                 adminApp
-                  ? (clienti.data ?? []).map((c) => ({ id: c.id, etichetta: [c.nome, c.cognome].filter(Boolean).join(' ') }))
+                  ? (clienti.data ?? [])
+                      .filter((c) => !conProgetto.has(c.id))
+                      .map((c) => ({ id: c.id, etichetta: [c.nome, c.cognome].filter(Boolean).join(' ') }))
                   : null
               }
               eliminabile={adminPm}
             />
           ) : null}
         </div>
+        {progetto.client_id ? (
+          // a client's project: its coach (or that it has none yet), and for the admin the way to the client
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1" data-testid="coach-del-cliente">
+            <CoachDelCliente coach={progetto.coach} />
+            {sceltaCoach ? (
+              <ScegliCoach
+                progettoId={progetto.id}
+                cliente={nomeCliente ?? progetto.nome}
+                coach={progetto.coach}
+                persone={personeCoach}
+                daRuolo={daRuolo}
+                elencoNonCaricato={elencoNonCaricato}
+              />
+            ) : null}
+            {adminApp ? (
+              <Link
+                href={`/clients/${progetto.client_id}`}
+                className="inline-flex min-h-11 items-center gap-1 text-sm font-medium underline underline-offset-4"
+              >
+                Scheda del cliente
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
         {numeri ? (
           <BarraAvanzamento
             completati={numeri.task_completati ?? 0}

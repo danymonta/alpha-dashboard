@@ -24,6 +24,7 @@ import {
   modificaTaskSchema,
   nuovoProgettoSchema,
   nuovoTaskSchema,
+  modelloSchema,
   voceModelloSchema,
 } from '@/lib/validation/progetti'
 import { cambioLivelloPmSchema } from '@/lib/validation/team'
@@ -325,6 +326,35 @@ describe('schemi dei progetti', () => {
     expect(v).toMatchObject({ ordine: 12, inizio_giorni: 14, durata_giorni: 7, id: null, descrizione: null })
     const zero = voceModelloSchema.safeParse({ ...v, durata_giorni: '0' })
     expect(zero.error?.issues[0].message).toBe('Almeno un giorno')
+  })
+
+  it('voce di modello senza lista e senza date: un task aperto per tutto il percorso (02/10/2026)', () => {
+    const v = rilettura(voceModelloSchema, {
+      modello_id: ID(1),
+      tasklist: '  ',
+      titolo: 'Programmazione alimentare (creazione e aggiornamenti)',
+      ordine: '4',
+      inizio_giorni: '',
+      durata_giorni: '',
+      per_ruolo: 'nutrizione',
+    })
+    expect(v).toMatchObject({ tasklist: null, inizio_giorni: null, durata_giorni: null, per_ruolo: 'nutrizione' })
+    expect(rilettura(voceModelloSchema, { ...v, per_ruolo: '' }).per_ruolo).toBeNull()
+    // the start without the length, or the other way round, is half a date
+    const meta = voceModelloSchema.safeParse({ ...v, inizio_giorni: '3' })
+    expect(meta.error?.issues[0]).toMatchObject({
+      path: ['durata_giorni'],
+      message: 'Scrivi sia da che giorno sia quanti giorni, o togli le date',
+    })
+    expect(voceModelloSchema.safeParse({ ...v, per_ruolo: 'capo' }).success).toBe(false)
+  })
+
+  it('modello: «per i nuovi clienti» è spento finché non lo si sceglie', () => {
+    expect(rilettura(modelloSchema, { nome: 'Percorso cliente', reparto_id: ID(1) }).per_nuovi_clienti).toBe(false)
+    expect(rilettura(modelloSchema, { nome: 'Percorso cliente', reparto_id: ID(1), per_nuovi_clienti: true })).toMatchObject({
+      reparto_id: ID(1),
+      per_nuovi_clienti: true,
+    })
   })
 
   it('livello progetti: solo admin, manager, employee', () => {

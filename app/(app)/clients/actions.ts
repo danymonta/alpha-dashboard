@@ -55,6 +55,8 @@ export async function eliminaCliente(input: unknown): Promise<Esito> {
   if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non eliminato. Riprova.') }
 
   for (const pagina of ['/clients', '/sales', '/payments', '/commissions', '/']) revalidatePath(pagina)
+  // its project stays, without the link to the client
+  revalidatePath('/progetti', 'layout')
   return { ok: true }
 }
 
@@ -114,5 +116,7 @@ export async function interrompiPercorso(input: unknown): Promise<Esito> {
   revalidatePath('/payments')
   revalidatePath('/rinnovi')
   revalidatePath('/')
+  // the client's project ends with the path (02/10/2026)
+  revalidatePath('/progetti', 'layout')
   return { ok: true }
 }

@@ -13,6 +13,8 @@ with progetti as (
   select p.id
   from public.pm_progetti p
   where p.stato <> 'archiviato'
+    -- the demo projects: a client's automatic project has nobody in it yet
+    and exists (select 1 from public.pm_membri m where m.progetto_id = p.id)
   order by p.created_at, p.id
   limit 6
 ),
@@ -81,6 +83,8 @@ with progetti as (
   select p.id, row_number() over (order by p.created_at, p.id) as n
   from public.pm_progetti p
   where p.stato <> 'archiviato'
+    -- the demo projects: a client's automatic project has nobody in it yet
+    and exists (select 1 from public.pm_membri m where m.progetto_id = p.id)
   order by p.created_at, p.id
   limit 6
 ),

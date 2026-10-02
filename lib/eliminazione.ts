@@ -50,6 +50,7 @@ export function frasiAnteprima(tipo: TipoEliminazione, dati: Dati): string[] {
         )
       }
       frasi.push('I numeri dei mesi passati cambiano di conseguenza.')
+      if (n(dati, 'progetti') > 0) frasi.push('Il suo progetto in Progetti resta, senza il collegamento al cliente.')
       break
     case 'vendita':
       frasi.push(

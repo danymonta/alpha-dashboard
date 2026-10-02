@@ -337,13 +337,13 @@ isOneToOne: false
                   ]
                 },"pm_modelli": {
                   Row: {
-                    "attivo": boolean,"created_at": string,"created_by": string | null,"descrizione": string | null,"id": string,"nome": string,"reparto_id": string | null,"updated_at": string
+                    "attivo": boolean,"created_at": string,"created_by": string | null,"descrizione": string | null,"id": string,"nome": string,"per_nuovi_clienti": boolean,"reparto_id": string | null,"updated_at": string
                   }
                   Insert: {
-                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"reparto_id"?: string | null,"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"per_nuovi_clienti"?: boolean,"reparto_id"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"reparto_id"?: string | null,"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"per_nuovi_clienti"?: boolean,"reparto_id"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -362,13 +362,13 @@ isOneToOne: false
                   ]
                 },"pm_modelli_voci": {
                   Row: {
-                    "created_at": string,"descrizione": string | null,"durata_giorni": number,"id": string,"inizio_giorni": number,"modello_id": string,"ordine": number,"tasklist": string,"titolo": string,"updated_at": string
+                    "created_at": string,"descrizione": string | null,"durata_giorni": number | null,"id": string,"inizio_giorni": number | null,"modello_id": string,"ordine": number,"per_ruolo": Database["public"]['Enums']["app_role"] | null,"tasklist": string | null,"titolo": string,"updated_at": string
                   }
                   Insert: {
-                    "created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number,"id"?: string,"inizio_giorni"?: number,"modello_id": string,"ordine"?: number,"tasklist": string,"titolo": string,"updated_at"?: string
+                    "created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number | null,"id"?: string,"inizio_giorni"?: number | null,"modello_id": string,"ordine"?: number,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"tasklist"?: string | null,"titolo": string,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number,"id"?: string,"inizio_giorni"?: number,"modello_id"?: string,"ordine"?: number,"tasklist"?: string,"titolo"?: string,"updated_at"?: string
+                    "created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number | null,"id"?: string,"inizio_giorni"?: number | null,"modello_id"?: string,"ordine"?: number,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"tasklist"?: string | null,"titolo"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -412,13 +412,13 @@ isOneToOne: false
                   ]
                 },"pm_progetti": {
                   Row: {
-                    "client_id": string | null,"created_at": string,"created_by": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"nome": string,"reparto_id": string,"responsabile_id": string | null,"stato": Database["public"]['Enums']["pm_stato_progetto"],"updated_at": string
+                    "client_id": string | null,"coach_id": string | null,"created_at": string,"created_by": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"nome": string,"reparto_id": string,"responsabile_id": string | null,"stato": Database["public"]['Enums']["pm_stato_progetto"],"updated_at": string
                   }
                   Insert: {
-                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"reparto_id": string,"responsabile_id"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_progetto"],"updated_at"?: string
+                    "client_id"?: string | null,"coach_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"reparto_id": string,"responsabile_id"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_progetto"],"updated_at"?: string
                   }
                   Update: {
-                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"reparto_id"?: string,"responsabile_id"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_progetto"],"updated_at"?: string
+                    "client_id"?: string | null,"coach_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"reparto_id"?: string,"responsabile_id"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_progetto"],"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -439,6 +439,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_clienti"
       referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "pm_progetti_coach_id_fkey"
+      columns: ["coach_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
     },{
       foreignKeyName: "pm_progetti_created_by_fkey"
       columns: ["created_by"]
@@ -480,13 +486,13 @@ isOneToOne: false
                   ]
                 },"pm_task": {
                   Row: {
-                    "completato_il": string | null,"created_at": string,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"ordine": number,"parent_id": string | null,"priorita": Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza": string | null,"stato": Database["public"]['Enums']["pm_stato_task"],"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string,"updated_at": string
+                    "completato_il": string | null,"created_at": string,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"ordine": number,"parent_id": string | null,"per_ruolo": Database["public"]['Enums']["app_role"] | null,"priorita": Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza": string | null,"stato": Database["public"]['Enums']["pm_stato_task"],"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string,"updated_at": string
                   }
                   Insert: {
-                    "completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo": string,"updated_at"?: string
+                    "completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo": string,"updated_at"?: string
                   }
                   Update: {
-                    "completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id"?: string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo"?: string,"updated_at"?: string
+                    "completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id"?: string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -793,7 +799,7 @@ isOneToOne: false
                   ]
                 },"v_pm_progetti": {
                   Row: {
-                    "avanzamento": number | null,"client_id": string | null,"created_at": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"nome": string | null,"reparto_id": string | null,"responsabile_id": string | null,"scaduto": boolean | null,"sono_membro": boolean | null,"stato": Database["public"]['Enums']["pm_stato_progetto"] | null,"task_completati": number | null,"task_in_ritardo": number | null,"task_totali": number | null
+                    "avanzamento": number | null,"client_id": string | null,"coach_id": string | null,"created_at": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"nome": string | null,"reparto_id": string | null,"responsabile_id": string | null,"scaduto": boolean | null,"sono_membro": boolean | null,"stato": Database["public"]['Enums']["pm_stato_progetto"] | null,"task_completati": number | null,"task_in_ritardo": number | null,"task_totali": number | null
                   }
                   Relationships: [
                     {
@@ -814,6 +820,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_clienti"
       referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "pm_progetti_coach_id_fkey"
+      columns: ["coach_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
     },{
       foreignKeyName: "pm_progetti_reparto_id_fkey"
       columns: ["reparto_id"]
@@ -1213,14 +1225,26 @@ isOneToOne: false
               "importo": number,"numero_rata": number,"scadenza": string
             }[]
                            },
+"pm_allinea_progetto_cliente":
+{ Args: { "p_client_id": string }; Returns: undefined
+                           },
+"pm_applica_modello":
+{ Args: { "p_autore": string,"p_inizio": string,"p_modello": string,"p_progetto": string }; Returns: undefined
+                           },
 "pm_assegnato":
 { Args: { "p_task": string }; Returns: boolean
                            },
 "pm_avvia_timer":
 { Args: { "p_nota"?: string,"p_progetto_id": string,"p_task_id"?: string }; Returns: string
                            },
+"pm_crea_progetti_clienti_attivi":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
 "pm_crea_progetto":
 { Args: { "p_client_id"?: string,"p_data_fine"?: string,"p_data_inizio"?: string,"p_descrizione"?: string,"p_membri"?: (string)[],"p_modello_id"?: string,"p_nome": string,"p_reparto_id": string }; Returns: string
+                           },
+"pm_crea_progetto_cliente":
+{ Args: { "p_client_id": string }; Returns: string
                            },
 "pm_fascia_tempo":
 { Args: { "p_alle": string,"p_dalle": string,"p_data": string }; Returns: Record<string, unknown>
@@ -1240,10 +1264,16 @@ isOneToOne: false
 "pm_modifica_tempo":
 { Args: { "p_alle"?: string,"p_dalle"?: string,"p_data": string,"p_id": string,"p_minuti"?: number,"p_nota"?: string,"p_progetto_id": string,"p_task_id"?: string }; Returns: string
                            },
+"pm_nome_progetto_cliente":
+{ Args: { "p_cognome": string,"p_nome": string }; Returns: string
+                           },
 "pm_panoramica_progetto":
 { Args: { "p_progetto": string }; Returns: {
               "completati": number,"da_fare": number,"in_corso": number,"in_revisione": number,"in_ritardo": number,"in_scadenza_7_giorni": number,"minuti_totali": number,"minuti_ultimi_7_giorni": number,"senza_assegnatario": number
             }[]
+                           },
+"pm_periodo_percorso":
+{ Args: { "p_client_id": string }; Returns: Record<string, unknown>
                            },
 "pm_puo_gestire":
 { Args: { "p_progetto": string }; Returns: boolean
@@ -1267,6 +1297,9 @@ isOneToOne: false
                            },
 "pm_riordina_reparti":
 { Args: { "p_ids": (string)[] }; Returns: number
+                           },
+"pm_scegli_coach":
+{ Args: { "p_coach": string,"p_progetto": string }; Returns: undefined
                            },
 "pm_tempo_per_persona":
 { Args: { "p_a": string,"p_da": string,"p_limite"?: number,"p_profilo"?: string,"p_progetto"?: string }; Returns: {

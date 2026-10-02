@@ -186,10 +186,11 @@ test('giornata: una call chiusa su un giorno passato porta la vendita su quel gi
   await scheda.getByRole('button', { name: 'Registra esito' }).click()
   await page.getByRole('dialog', { name: lead }).getByRole('button', { name: 'Chiusa' }).click()
 
-  // the prefilled sale: dated on the call's day, with the way back to the day
+  // the prefilled sale: dated on the call's day, with the way back to the day;
+  // the path usually starts a week after the payment (02/10/2026)
   await expect(page).toHaveURL(new RegExp(`/sales/new\\?call=${callId}&da=`))
   await expect(page.getByLabel('Data vendita')).toHaveValue(giorno)
-  await expect(page.getByLabel('Inizio percorso')).toHaveValue(giorno)
+  await expect(page.getByLabel('Inizio percorso')).toHaveValue(aggiungiGiorni(giorno, 7))
   await expect(page.getByRole('link', { name: 'Indietro' })).toHaveAttribute('href', `/setting/closer/giorno?data=${giorno}`)
   await page
     .locator('label')
@@ -208,7 +209,7 @@ test('giornata: una call chiusa su un giorno passato porta la vendita su quel gi
     .select('tipo, closer_id, data_vendita, data_inizio')
     .eq('call_id', callId)
     .single()
-  expect(vendita).toEqual({ tipo: 'nuovo', closer_id: ID_ADMIN, data_vendita: giorno, data_inizio: giorno })
+  expect(vendita).toEqual({ tipo: 'nuovo', closer_id: ID_ADMIN, data_vendita: giorno, data_inizio: aggiungiGiorni(giorno, 7) })
 })
 
 test('giornata: un «da» che porta fuori dall’app non diventa mai il ritorno', async ({ page }) => {

@@ -33,6 +33,17 @@ export function inizioMassimo(tipo: TipoVendita, dataVendita: string): string {
   return aggiungiGiorni(dataVendita, tipo === 'rinnovo' ? GIORNI_INIZIO_DOPO_RINNOVO : GIORNI_INIZIO_DOPO)
 }
 
+/**
+ * A path usually starts a week after the payment (Dany, 02/10/2026): the form
+ * proposes it and the sales person checks it. A renewal keeps its own start,
+ * the day after the previous path ends.
+ */
+export const GIORNI_INIZIO_DOPO_PAGAMENTO = 7
+
+export function inizioPredefinito(dataVendita: string): string {
+  return aggiungiGiorni(dataVendita, GIORNI_INIZIO_DOPO_PAGAMENTO)
+}
+
 const vuotoANull = (v: string | null | undefined) => {
   const t = v?.trim() ?? ''
   return t === '' ? null : t

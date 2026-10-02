@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
-import { nuovaVenditaSchema } from '@/lib/validation/vendita'
+import { GIORNI_INIZIO_DOPO_PAGAMENTO, inizioPredefinito, nuovaVenditaSchema } from '@/lib/validation/vendita'
 
 const oggi = oggiRoma()
 const PRODOTTO = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d'
@@ -85,5 +85,23 @@ describe('schema Nuova vendita', () => {
 
   it('rifiuta un’email sbagliata', () => {
     expect(nuovaVenditaSchema.safeParse({ ...daCall, email: 'marco@' }).success).toBe(false)
+  })
+})
+
+describe('inizio del percorso proposto (02/10/2026)', () => {
+  it('di solito una settimana dopo il pagamento, anche a cavallo di mese e anno', () => {
+    expect(GIORNI_INIZIO_DOPO_PAGAMENTO).toBe(7)
+    expect(inizioPredefinito('2026-10-02')).toBe('2026-10-09')
+    expect(inizioPredefinito('2026-10-28')).toBe('2026-11-04')
+    expect(inizioPredefinito('2026-12-28')).toBe('2027-01-04')
+    expect(inizioPredefinito('2028-02-25')).toBe('2028-03-03')
+  })
+
+  it('la data proposta passa la validazione della vendita, ed è sempre modificabile', () => {
+    const proposta = inizioPredefinito(oggi)
+    expect(proposta).toBe(aggiungiGiorni(oggi, 7))
+    expect(nuovaVenditaSchema.safeParse({ ...daCall, data_inizio: proposta }).success).toBe(true)
+    // the sales person may move it back to the day of the payment
+    expect(nuovaVenditaSchema.safeParse({ ...daCall, data_inizio: oggi }).success).toBe(true)
   })
 })

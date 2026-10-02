@@ -388,7 +388,7 @@ function registraVenditaStrumento(ctx: Contesto): Definizione {
     prodotto: z.string().describe('Nome del prodotto del catalogo, o del percorso su misura (es. Annuale)'),
     valore: z.number().positive().describe('Valore del contratto in euro'),
     data_vendita: data,
-    data_inizio: data,
+    data_inizio: data.describe('AAAA-MM-GG. Di solito una settimana dopo il pagamento; un rinnovo, il giorno dopo la fine del precedente'),
     durata_mesi: z.number().int().min(1).max(36).optional(),
     data_fine: data.optional(),
     numero_rate: z.number().int().min(1).max(24).optional(),

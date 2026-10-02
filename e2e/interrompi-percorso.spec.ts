@@ -13,6 +13,8 @@ test.afterEach(async () => {
   const db = dbLocale()
   const { data: clienti } = await db.from('clients').select('id').eq('nome', NOME)
   for (const c of clienti ?? []) {
+    // a paid instalment opened the client's project (02/10/2026): it goes too
+    await db.from('pm_progetti').delete().eq('client_id', c.id)
     await db.from('sales').delete().eq('client_id', c.id)
     await db.from('clients').delete().eq('id', c.id)
   }

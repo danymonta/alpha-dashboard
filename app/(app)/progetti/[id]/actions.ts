@@ -281,6 +281,8 @@ export async function modificaProgetto(input: unknown): Promise<Esito> {
     .update(client_id === undefined ? campi : { ...campi, client_id })
     .eq('id', id)
     .select('id')
+  // one project per client (02/10/2026)
+  if (error?.code === '23505') return { ok: false, errore: 'Questo cliente ha già il suo progetto: lo apri dalla scheda del cliente.' }
   if (error) return { ok: false, errore: errore(error, 'Progetto non salvato. Riprova.') }
   if (data.length === 0) return { ok: false, errore: NON_GESTISCI }
 
@@ -322,6 +324,29 @@ export async function aggiungiMembro(input: unknown): Promise<Esito> {
   }
 
   aggiorna(parsed.data.progetto_id)
+  return { ok: true }
+}
+
+/**
+ * "Coach del cliente" (02/10/2026): one call, pm_scegli_coach does the rest in
+ * the database. The coach joins and takes the client's tasks; a task of a
+ * role (the meal plan) goes to an active person with that role, if any.
+ */
+export async function scegliCoach(input: unknown): Promise<Esito> {
+  const parsed = membroSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error) }
+  const negato = await negaSeNonPm(['admin', 'manager'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('pm_scegli_coach', {
+    p_progetto: parsed.data.progetto_id,
+    p_coach: parsed.data.profile_id,
+  })
+  if (error) return { ok: false, errore: errore(error, 'Coach non salvato. Riprova.') }
+
+  aggiorna(parsed.data.progetto_id)
+  revalidatePath('/task')
   return { ok: true }
 }
 

@@ -94,6 +94,8 @@ export async function pulisciVendite(prefisso: string) {
   const { data: clienti } = await db.from('clients').select('id').like('nome', `${prefisso}%`)
   const idClienti = (clienti ?? []).map((c) => c.id)
   if (idClienti.length > 0) {
+    // a paid instalment opened the client's project (02/10/2026): it goes too
+    await db.from('pm_progetti').delete().in('client_id', idClienti)
     await db.from('sales').delete().in('client_id', idClienti)
     await db.from('clients').delete().in('id', idClienti)
   }

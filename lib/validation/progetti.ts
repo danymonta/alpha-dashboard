@@ -176,6 +176,8 @@ export const modelloSchema = z.object({
   reparto_id: idFacoltativo,
   nome: z.string().trim().min(2, 'Scrivi il nome del modello').max(120, 'Al massimo 120 caratteri'),
   descrizione: testoFacoltativo(500),
+  /** The template every paying client's project starts from (02/10/2026): one in the app. */
+  per_nuovi_clienti: z.boolean().default(false),
 })
 
 const giorni = (minimo: number, messaggio: string) =>
@@ -185,16 +187,42 @@ const giorni = (minimo: number, messaggio: string) =>
     .min(minimo, messaggio)
     .max(3650, 'Al massimo 3650 giorni')
 
-export const voceModelloSchema = z.object({
-  id: z.string().uuid().nullish().transform((v) => v ?? null),
-  modello_id: z.string().uuid(),
-  tasklist: z.string().trim().min(1, 'Scrivi la lista').max(120, 'Al massimo 120 caratteri'),
-  titolo: z.string().trim().min(1, 'Scrivi il titolo').max(200, 'Al massimo 200 caratteri'),
-  descrizione: testoFacoltativo(2000),
-  ordine: z.coerce.number({ invalid_type_error: 'Scrivi un numero' }).int('Solo numeri interi').min(0, 'Da 0 in su').max(9999),
-  inizio_giorni: giorni(0, 'Da 0 in su: 0 è il giorno di inizio del progetto'),
-  durata_giorni: giorni(1, 'Almeno un giorno'),
-})
+const vuotoANull = (v: unknown) => (v === '' || v === undefined ? null : v)
+
+/** Days of a template item; empty: the item has no dates (02/10/2026). */
+const giorniFacoltativi = (minimo: number, messaggio: string) => z.preprocess(vuotoANull, giorni(minimo, messaggio).nullable())
+
+export const RUOLI = Constants.public.Enums.app_role
+
+export const voceModelloSchema = z
+  .object({
+    id: z.string().uuid().nullish().transform((v) => v ?? null),
+    modello_id: z.string().uuid(),
+    /** Empty: the task stays outside any list. */
+    tasklist: z
+      .string()
+      .trim()
+      .max(120, 'Al massimo 120 caratteri')
+      .nullish()
+      .transform((v) => (v ? v : null)),
+    titolo: z.string().trim().min(1, 'Scrivi il titolo').max(200, 'Al massimo 200 caratteri'),
+    descrizione: testoFacoltativo(2000),
+    ordine: z.coerce.number({ invalid_type_error: 'Scrivi un numero' }).int('Solo numeri interi').min(0, 'Da 0 in su').max(9999),
+    /** Both empty: a task without dates, open for the whole project. */
+    inizio_giorni: giorniFacoltativi(0, 'Da 0 in su: 0 è il giorno di inizio del progetto'),
+    durata_giorni: giorniFacoltativi(1, 'Almeno un giorno'),
+    /** Who does it in a client's project when it is not the coach (the meal plan: nutrition). */
+    per_ruolo: z.preprocess(vuotoANull, z.enum(RUOLI).nullable()),
+  })
+  .superRefine((v, ctx) => {
+    if ((v.inizio_giorni === null) !== (v.durata_giorni === null)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [v.inizio_giorni === null ? 'inizio_giorni' : 'durata_giorni'],
+        message: 'Scrivi sia da che giorno sia quanti giorni, o togli le date',
+      })
+    }
+  })
 
 export type NuovoProgettoInput = z.input<typeof nuovoProgettoSchema>
 export type ModificaProgettoInput = z.input<typeof modificaProgettoSchema>

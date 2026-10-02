@@ -40,7 +40,33 @@ select ok(
 
 create temp table ids (chiave text primary key, id uuid);
 grant all on ids to authenticated;
-insert into ids select 'cliente', id from public.clients limit 1;
+-- a client of the test's own, without a project: since 02/10/2026 every paying client has one
+with c as (insert into public.clients (nome, cognome) values ('Cliente', 'Senza progetto') returning id)
+insert into ids select 'cliente', id from c;
+
+-- A dated template of the test's own: "Percorso cliente" is the 8 undated
+-- buckets of a client's path since 02/10/2026; this keeps the old dated one.
+with modello as (
+  insert into public.pm_modelli (reparto_id, nome)
+  select r.id, 'Percorso datato (prova)' from public.pm_reparti r where r.nome = 'Fitness Coaching'
+  returning id
+)
+insert into public.pm_modelli_voci (modello_id, tasklist, titolo, ordine, inizio_giorni, durata_giorni)
+select modello.id, v.tasklist, v.titolo, v.ordine, v.inizio, v.durata
+from modello, (values
+  ('Onboarding', 'Questionario iniziale e obiettivi', 1, 0, 2),
+  ('Onboarding', 'Invio accessi e materiali di benvenuto', 2, 0, 2),
+  ('Onboarding', 'Call di onboarding', 3, 1, 3),
+  ('Onboarding', 'Scrittura programmazione', 4, 2, 5),
+  ('Percorso', 'Assistenza chat', 10, 0, 90),
+  ('Percorso', 'Revisione video settimanale', 11, 7, 77),
+  ('Percorso', 'Call di check', 12, 14, 7),
+  ('Percorso', 'Aggiornamento programmazione', 13, 28, 7),
+  ('Percorso', 'Call di check di metà percorso', 14, 42, 7),
+  ('Percorso', 'Aggiornamento programmazione di metà percorso', 15, 45, 7),
+  ('Chiusura e rinnovo', 'Call di rinnovo', 20, 75, 7),
+  ('Chiusura e rinnovo', 'Raccolta feedback e testimonianza', 21, 84, 7)
+) as v(tasklist, titolo, ordine, inizio, durata);
 
 set local role authenticated;
 
@@ -51,7 +77,7 @@ select 'progetto', public.pm_crea_progetto(
   (select id from public.pm_reparti where nome = 'Fitness Coaching'),
   'Percorso di prova UI',
   null, null,
-  (select id from public.pm_modelli where nome = 'Percorso cliente'),
+  (select id from public.pm_modelli where nome = 'Percorso datato (prova)'),
   public.oggi() - 200,
   null,
   array['cccc0000-0000-4000-8000-00000000000e']::uuid[]

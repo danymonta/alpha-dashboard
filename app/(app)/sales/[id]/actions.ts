@@ -30,12 +30,17 @@ async function autorizza(ruoli: Ruolo[]): Promise<string | null> {
   return null
 }
 
-/** Every page that shows cash or instalments, sale details included. */
+/**
+ * Every page that shows cash or instalments, sale details included, and the
+ * Projects area: a first cashed instalment opens the client's project, a
+ * sale's dates move its period (02/10/2026).
+ */
 function aggiornaPagine() {
   for (const percorso of ['/', '/sales', '/payments', '/my-sales', '/clients', '/commissions']) {
     revalidatePath(percorso)
   }
   revalidatePath('/sales/[id]', 'page')
+  revalidatePath('/progetti', 'layout')
 }
 
 function messaggio(error: { code?: string; message: string }, fallback: string) {

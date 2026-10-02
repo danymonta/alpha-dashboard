@@ -1,10 +1,12 @@
-import { History, Plus, RefreshCw, SearchX, TriangleAlert } from 'lucide-react'
+import { ChevronRight, FolderKanban, History, Plus, RefreshCw, SearchX, TriangleAlert } from 'lucide-react'
+import Link from 'next/link'
 
 import { InterrompiPercorso } from '@/app/(app)/clients/[id]/interrompi-percorso'
 import { ModificaCliente } from '@/app/(app)/clients/[id]/modifica-cliente'
 import { StoricoPercorsi, type Percorso } from '@/app/(app)/clients/[id]/storico-percorsi'
 import { StatoClienteBadge } from '@/components/cliente/stato-cliente'
 import { LinkBottone } from '@/components/link-bottone'
+import { SenzaCoach } from '@/components/pm/stato-progetto'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
@@ -21,7 +23,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   const supabase = await createClient()
   const oggi = oggiRoma()
 
-  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }] = await Promise.all([
+  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto] = await Promise.all([
     supabase
       .from('clients')
       .select('id, nome, cognome, email, telefono, instagram_handle, fonte, note, created_at, setter_id, closer_id, setter:profiles!clients_setter_id_fkey(nome), closer:profiles!clients_closer_id_fkey(nome)')
@@ -47,8 +49,14 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .select('sale_id, incassato, da_incassare, in_ritardo, rate_incassate, rate_totali')
       .eq('client_id', id),
     supabase.from('profiles').select('id, nome, ruolo, attivo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
+    // the client's project in the Projects area: one per client (02/10/2026)
+    supabase
+      .from('pm_progetti')
+      .select('id, nome, coach:profiles!pm_progetti_coach_id_fkey(nome)')
+      .eq('client_id', id)
+      .maybeSingle(),
   ])
-  if (vendite.error || importi.error) throw new Error('Impossibile caricare lo storico del cliente')
+  if (vendite.error || importi.error || progetto.error) throw new Error('Impossibile caricare lo storico del cliente')
 
   if (!cliente || !valore) {
     return (
@@ -162,6 +170,27 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
           </p>
         ) : null}
       </div>
+
+      {progetto.data ? (
+        // the coach's side of the client: the project with the tasks and the time, never the money
+        <Link
+          href={`/progetti/${progetto.data.id}`}
+          data-testid="progetto-cliente"
+          className="flex min-h-11 items-center gap-3 rounded-xl bg-card px-3 py-2.5 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <FolderKanban className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">Progetto del percorso</span>
+            <span className="block text-xs text-muted-foreground">I task del coach e il tempo, in Progetti</span>
+          </span>
+          {progetto.data.coach ? (
+            <span className="shrink-0 text-xs text-muted-foreground">Coach: {progetto.data.coach.nome}</span>
+          ) : (
+            <SenzaCoach />
+          )}
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </Link>
+      ) : null}
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2 px-1">
