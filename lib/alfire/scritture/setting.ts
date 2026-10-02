@@ -9,7 +9,14 @@ import { aggiungiReport, correggiReport, eliminaReport } from '@/app/(app)/setti
 import { salvaReportGiornaliero } from '@/app/(app)/today/actions'
 import { breve, cambi, cambio } from '@/lib/alfire/cambi'
 import { CONSEGUENZE } from '@/lib/alfire/conseguenze'
-import { SPOSTA, motivoNonSpostabile, motivoQuandoBloccato, quandoBreve, quandoBreveDa } from '@/lib/call/spostamento'
+import {
+  SPOSTA,
+  correzioneSenzaTraccia,
+  motivoQuandoBloccato,
+  quandoBreve,
+  quandoBreveDa,
+  rifiutoSpostaAlfire,
+} from '@/lib/call/spostamento'
 import type { Anteprima } from '@/lib/alfire/riassunto'
 import { errore, isErrore, isIo, quandoCall, trova, type Call } from '@/lib/alfire/risolvi'
 import {
@@ -275,8 +282,9 @@ function call(ctx: Contesto): Definizione {
     }
     const data = v.data ?? oggiRoma(new Date(c.programmata_il))
     const ora = v.ora ?? formatOra(c.programmata_il)
-    // the pencil never moves a no-show, for anyone, nor the setter's a call
-    // with an outcome (calls_esito_solo_closer): the card stops before the tap
+    // the setter's pencil never moves a call with an outcome, a no-show
+    // included (calls_esito_solo_closer): the card stops before the tap. The
+    // closer and the admin correct the date of any call (Dany, 03/10/2026)
     if (data !== oggiRoma(new Date(c.programmata_il)) || ora !== formatOra(c.programmata_il)) {
       const bloccato = motivoQuandoBloccato(c.stato, ruolo)
       if (bloccato) return errore(bloccato)
@@ -329,7 +337,8 @@ function call(ctx: Contesto): Definizione {
    */
   function controllaSpostamento(v: Input, c: Call) {
     if (!v.data || !v.ora) return errore('Dimmi il nuovo giorno e l’ora della call.')
-    const nonSpostabile = motivoNonSpostabile(c.stato, ruolo)
+    // closer and admin also read that a wrong day only is modifica's (Dany, 03/10/2026)
+    const nonSpostabile = rifiutoSpostaAlfire(c.stato, ruolo)
     if (nonSpostabile) return errore(nonSpostabile)
     const verifica = schemaSpostamento(ruolo === 'admin').safeParse({ call_id: c.id, data: v.data, ora: v.ora })
     if (!verifica.success) return errore(verifica.error.issues[0]?.message ?? 'Giorno o ora non validi.')
@@ -344,13 +353,13 @@ function call(ctx: Contesto): Definizione {
       ? 'sposta = la call passa a un nuovo giorno e ora (data, ora, da oggi in avanti), resta «Spostata dal…»: per «spostala a», «riprogrammata a»; solo una call ancora da fare: una svolta o un no show non si spostano, le altre con un esito le sposta il closer. '
       : `sposta = la stessa call passa a un nuovo giorno e ora (data, ora${
           ruolo === 'admin' ? ', anche passati' : ', da oggi in avanti'
-        }) e torna da fare senza esito, resta «Spostata dal…»: per «spostala a», «è stata riprogrammata a»; una call svolta o un no show non si spostano, e modifica non cambia data e ora di un no show: per rivedere il lead serve una nuova call, ${
+        }) e torna da fare senza esito, resta «Spostata dal…»: per «spostala a», «è stata riprogrammata a»; una call svolta o un no show non si spostano: per rivedere il lead serve una nuova call, ${
           ruolo === 'admin' ? 'con fissa_call' : 'che fissa il setter (o l’admin)'
         }. `
   const descrizione =
     ruolo === 'setter'
       ? `Una tua call (call_id da call_periodo, o il nome del lead). ${sposta}modifica = corregge data e ora sbagliate (senza traccia), closer, note del setter. Esito, motivo e note aggiuntive li scrive il closer.`
-      : `Una call (call_id da call_periodo, o il nome del lead). ${sposta}modifica = corregge data e ora sbagliate (senza traccia), tipo${
+      : `Una call (call_id da call_periodo, o il nome del lead). ${sposta}modifica = corregge data e ora sbagliate (senza traccia; anche di una call svolta o di un no show, che restano tali: è una correzione, mai per spostarla), tipo${
           ruolo === 'admin' ? ', closer, note del setter' : ''
         }, note aggiuntive del closer, link, performance, prodotto e importo proposti. esito = come è andata: chiusa, follow_up o persa (con qualificata e motivo di non chiusura, obbligatorio; note_closer facoltative), ` +
         'no_show, cancellata, programmata (annulla l’esito, solo se è sbagliato: mai per spostare un no show vero o una call svolta); riprogrammata non è un esito: usa sposta. Dopo chiusa registra la vendita con registra_vendita e il call_id. ' +
@@ -415,9 +424,9 @@ function call(ctx: Contesto): Definizione {
         }
       }
       const d = u.dopo.dettagli
-      return anteprima(
-        `Correggo la call con ${chi}`,
-        cambi([
+      const corretta = u.dopo.data !== oggiRoma(new Date(c.programmata_il)) || u.dopo.ora !== formatOra(c.programmata_il)
+      return anteprima(`Correggo la call con ${chi}`, [
+        ...cambi([
           ['Data', oggiRoma(new Date(c.programmata_il)), u.dopo.data, 'data'],
           ['Ora', formatOra(c.programmata_il), u.dopo.ora],
           ['Tipo', ETICHETTA_TIPO_CALL[c.tipo], ETICHETTA_TIPO_CALL[u.dopo.tipo]],
@@ -441,7 +450,9 @@ function call(ctx: Contesto): Definizione {
               ] as const)
             : []),
         ]),
-      )
+        // a correction, never a move: the held call or the no-show keeps its outcome, without a trace
+        corretta ? correzioneSenzaTraccia(c.stato) : null,
+      ])
     },
     execute: async (input) => {
       const v = input as Input

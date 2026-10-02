@@ -49,8 +49,8 @@ type Props = {
   /**
    * A held call or a no-show never moves (public.sposta_call, lib/call/spostamento.ts
    * restaNelSuoGiorno): no "Riprogrammata" among its outcomes, and these words
-   * (avvisoEsitoFermo) say why, above «Annulla l’esito»: a wrong outcome is
-   * undone first. Null: the call moves.
+   * (avvisoEsitoFermo) say why, above «Annulla l’esito»: a wrong date is
+   * corrected with the pencil, a wrong outcome is undone first. Null: the call moves.
    */
   ferma?: string | null
   /** Where the sale form returns after saving (an internal path): the closer's day. */

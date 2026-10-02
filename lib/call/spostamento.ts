@@ -31,8 +31,9 @@ export const SPOSTA = {
   /**
    * A held call and a no-show never move, for anyone (public.sposta_call,
    * Dany 02/10/2026): the held one happened (a closed one may have its sale),
-   * the no-show stays in its day's show rate. A wrong outcome is undone first
-   * («Annulla l’esito»); the new call is booked by the setter or the admin.
+   * the no-show stays in the show rate. A wrong outcome is undone first
+   * («Annulla l’esito»); the new call is booked by the setter or the admin. A
+   * wrong date the closer and the admin correct with the pencil (03/10/2026).
    */
   svolta:
     'Questa call è stata fatta: non si sposta. Se l’esito è sbagliato annullalo prima; per rivedere il lead serve una nuova call, che fissa il setter (o l’admin)',
@@ -45,14 +46,27 @@ export const SPOSTA = {
     'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato lo corregge il closer (o l’admin); per rivederlo fissa una nuova call',
   /**
    * The outcome sheet of a held call or a no-show (closer and admin), above
-   * «Annulla l’esito»: why "Riprogrammata" is not there and how to correct a
-   * wrong outcome. Its own words: there the outcome also changes directly.
+   * «Annulla l’esito»: why "Riprogrammata" is not there, and how to correct a
+   * wrong date (the pencil, without a trace: Dany, 03/10/2026, also on a
+   * no-show) and a wrong outcome (undone first). Its own words: there the
+   * outcome also changes directly.
    */
   foglioEsito: {
     svolta:
-      'Una call svolta non si sposta. Se l’esito è sbagliato annullalo qui sotto, poi sposta la call; per rivedere il lead serve una nuova call, che fissa il setter (o l’admin).',
+      'Una call svolta non si sposta. Se la data è sbagliata correggila con la matita («Modifica»); se è sbagliato l’esito annullalo qui sotto, poi sposta la call. Per rivedere il lead serve una nuova call, che fissa il setter (o l’admin).',
     noShow:
-      'Un no show non si sposta: resta nel suo giorno e nello show rate. Se l’esito è sbagliato annullalo qui sotto, poi sposta la call; per rivedere il lead serve una nuova call, che fissa il setter (o l’admin).',
+      'Un no show non si sposta: resta un no show e conta nello show rate. Se la data è sbagliata correggila con la matita («Modifica»); se è sbagliato l’esito annullalo qui sotto, poi sposta la call. Per rivedere il lead serve una nuova call, che fissa il setter (o l’admin).',
+  },
+  /**
+   * Alfire to the closer and the admin, after the refused "sposta" of a held
+   * call or a no-show: a wrong date only is the pencil's ("modifica"), without
+   * a trace (Dany, 03/10/2026). Only Alfire's: the database keeps sposta_call's words.
+   */
+  soloLaData: 'Se sono sbagliati solo il giorno o l’ora, usa modifica: li corregge senza traccia e l’esito resta',
+  /** Alfire's card when the pencil corrects the day of a held call or a no-show: a correction, not a move. */
+  correzione: {
+    svolta: 'Resta svolta, col suo esito: è una correzione, senza «Spostata dal…»',
+    noShow: 'Resta un no show: è una correzione, senza «Spostata dal…»',
   },
   stessoMomento: 'La call è già a quel giorno e a quell’ora: scegline un altro',
   /** The calls marked "Riprogrammata" before the move existed: still without their new day. */
@@ -88,6 +102,25 @@ export function motivoNonSpostabile(stato: string, ruolo: string): string | null
   return null
 }
 
+/**
+ * Alfire's refused "sposta" (public.sposta_call's words): the closer and the
+ * admin also read that a wrong day or time of a held call or a no-show is the
+ * pencil's ("modifica"), so a correction is never answered with "it cannot be
+ * done". The setter's words stay his: his pencil never changes them.
+ */
+export function rifiutoSpostaAlfire(stato: string, ruolo: string): string | null {
+  const motivo = motivoNonSpostabile(stato, ruolo)
+  if (!motivo || ruolo === 'setter' || !restaNelSuoGiorno(stato)) return motivo
+  return `${motivo}. ${SPOSTA.soloLaData}`
+}
+
+/** The line on Alfire's card when the pencil corrects the day of a held call or a no-show; null otherwise. */
+export function correzioneSenzaTraccia(stato: string): string | null {
+  if (stato === 'svolta') return SPOSTA.correzione.svolta
+  if (stato === 'no_show') return SPOSTA.correzione.noShow
+  return null
+}
+
 /** The outcome sheet's words on a call that never moves (SPOSTA.foglioEsito); null when it moves. */
 export function avvisoEsitoFermo(stato: string): string | null {
   if (stato === 'svolta') return SPOSTA.foglioEsito.svolta
@@ -98,14 +131,13 @@ export function avvisoEsitoFermo(stato: string): string | null {
 /**
  * Why the pencil (modifica_call) keeps date and time read only, null when they
  * change (calls_esito_solo_closer): the setter's on every call not to be held
- * any more, as for "Sposta"; everyone's on a no-show, the admin included, or
- * the pencil would take it out of its day's show rate (Dany, 02/10/2026). A
- * held call's date and time the closer and the admin still correct: a typo is
- * not a move.
+ * any more, as for "Sposta", in his words. The closer's and the admin's pencil
+ * corrects the date and time of every call, a held call and a no-show
+ * included (Dany, 03/10/2026: "metti il modifica anche per i no show non si sa
+ * mai"): a typo is not a move, the call keeps its outcome and gets no trace.
  */
 export function motivoQuandoBloccato(stato: string, ruolo: string): string | null {
-  if (ruolo === 'setter') return motivoNonSpostabile(stato, ruolo)
-  return stato === 'no_show' ? SPOSTA.noShow : null
+  return ruolo === 'setter' ? motivoNonSpostabile(stato, ruolo) : null
 }
 
 /** "03/10 alle 18:00" from a day and a time; "30/12/2025 alle 18:00" outside the current year. */

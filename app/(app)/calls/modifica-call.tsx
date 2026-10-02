@@ -99,8 +99,9 @@ export function ModificaCall({
   /**
    * Why date and time are read only here (lib/call/spostamento.ts,
    * motivoQuandoBloccato): the setter never moves a call with an outcome, or
-   * marked "Riprogrammata", and nobody a no-show; the database refuses it too.
-   * Null: they can change.
+   * marked "Riprogrammata"; the database refuses it too. Closer and admin
+   * correct the date of every call, a held call and a no-show included
+   * (Dany, 03/10/2026): a typo is not a move. Null: they can change.
    */
   quandoBloccato?: string | null
   /** The card has "Sposta": only then the description points to it. */
@@ -158,6 +159,8 @@ export function ModificaCall({
               id={`mc-data-${call.id}`}
               type="date"
               readOnly={Boolean(quandoBloccato)}
+              // read only: out of the tab order, so the sheet never opens with focus on it as if it could change
+              tabIndex={quandoBloccato ? -1 : undefined}
               aria-describedby={quandoBloccato ? `mc-quando-bloccato-${call.id}` : undefined}
               className={cn('num h-11', quandoBloccato && 'bg-muted text-muted-foreground')}
               {...register('data')}
@@ -170,6 +173,8 @@ export function ModificaCall({
               type="time"
               step={300}
               readOnly={Boolean(quandoBloccato)}
+              // read only: out of the tab order, so the sheet never opens with focus on it as if it could change
+              tabIndex={quandoBloccato ? -1 : undefined}
               aria-describedby={quandoBloccato ? `mc-quando-bloccato-${call.id}` : undefined}
               className={cn('num h-11', quandoBloccato && 'bg-muted text-muted-foreground')}
               {...register('ora')}

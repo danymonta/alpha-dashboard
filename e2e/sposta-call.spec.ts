@@ -245,9 +245,10 @@ test('una call svolta non si sposta: «Cambia esito» non offre Riprogrammata', 
   expect(await letta(id)).toMatchObject({ stato: 'svolta', volte_spostata: 0 })
 })
 
-test('un no show non si sposta: niente «Sposta», «Cambia esito» non offre Riprogrammata', async ({ browser }) => {
+test('un no show non si sposta: niente «Sposta» né Riprogrammata, la matita del closer ne corregge la data', async ({ browser }) => {
   test.setTimeout(90_000)
   const ieri = aggiungiGiorni(oggiRoma(), -1)
+  const dueGiorniFa = aggiungiGiorni(oggiRoma(), -2)
   const noShow = nomeUnico('NoShow')
   const svolta = nomeUnico('SvoltaSetter')
   const { id } = await callAlle(noShow, ieri, '19:00')
@@ -280,23 +281,44 @@ test('un no show non si sposta: niente «Sposta», «Cambia esito» non offre Ri
   await expect(foglio.getByRole('button', { name: 'Annulla l’esito, torna da fare' })).toBeVisible()
   await closer.keyboard.press('Escape')
   await expect(foglio).toHaveCount(0)
-  // nor the pencil: date and time read only, the reason under them
+  // the pencil corrects a wrong date and time, as on a held call (Dany, 03/10/2026):
+  // a typo is not a move, the call stays a no-show and gets no trace
   await scheda(closer, noShow).getByRole('button', { name: `Modifica la call con ${noShow}` }).click()
   const matitaCloser = closer.getByRole('dialog')
-  await expect(matitaCloser.getByLabel('Data')).toHaveAttribute('readonly', '')
-  await expect(matitaCloser.getByLabel('Ora')).toHaveAttribute('readonly', '')
-  await expect(matitaCloser.getByTestId('quando-bloccato')).toHaveText(SPOSTA.noShow)
+  await expect(matitaCloser.getByLabel('Data')).not.toHaveAttribute('readonly', '')
+  await expect(matitaCloser.getByLabel('Ora')).not.toHaveAttribute('readonly', '')
+  await expect(matitaCloser.getByTestId('quando-bloccato')).toHaveCount(0)
+  await expect(matitaCloser).toContainText('data e ora se sono sbagliate. L’esito si registra dalla scheda.')
   await expect(matitaCloser).not.toContainText('«Sposta»')
-  // the rest still saves, and the no-show stays where it is
+  await matitaCloser.getByLabel('Data').fill(dueGiorniFa)
+  await matitaCloser.getByLabel('Ora').fill('18:30')
   await matitaCloser.getByLabel('Link alla registrazione').fill('https://esempio.it/registrazione')
   await matitaCloser.getByRole('button', { name: 'Salva la call' }).click()
   await expect(closer.getByText('Call aggiornata')).toBeVisible()
+  await expect(matitaCloser).toHaveCount(0)
   // 390px: the sheets never scroll the page sideways
   expect(await closer.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  const corretta = await letta(id)
+  expect(corretta).toMatchObject({ stato: 'no_show', esito: null, spostata_dal: null, volte_spostata: 0 })
+  expect(new Date(corretta.programmata_il).toISOString()).toBe(istanteRoma(dueGiorniFa, '18:30'))
+  // it left the wrong day and counts on the right one, still a no-show, still without «Sposta»
+  await closer.goto(`/setting/closer/giorno?data=${ieri}`)
+  await expect(scheda(closer, noShow)).toHaveCount(0)
+  await closer.goto(`/setting/closer/giorno?data=${dueGiorniFa}`)
+  await expect(scheda(closer, noShow)).toContainText('No show')
+  await expect(scheda(closer, noShow)).toContainText('18:30')
+  await expect(scheda(closer, noShow).getByTestId('spostata')).toHaveCount(0)
+  await expect(scheda(closer, noShow).getByRole('button', { name: `Sposta la call con ${noShow}` })).toHaveCount(0)
+  await scheda(closer, noShow).getByRole('button', { name: 'Cambia esito' }).click()
+  await expect(foglio.getByRole('button', { name: 'Riprogrammata', exact: true })).toHaveCount(0)
+  await expect(foglio.getByTestId('esito-fermo')).toHaveText(SPOSTA.foglioEsito.noShow)
+  await closer.keyboard.press('Escape')
+  await expect(foglio).toHaveCount(0)
   await closer.context().close()
 
-  // the setter: no «Sposta» either, and his pencil says why in his words:
-  // nobody moves it, the closer corrects a wrong outcome, he books a new call
+  // the setter: no «Sposta» either, and his pencil keeps date and time read
+  // only, saying why in his words: nobody moves it, the closer corrects a
+  // wrong outcome, he books a new call
   const setter = await (await browser.newContext()).newPage()
   await accedi(setter, 'setter')
   await setter.goto('/calls')
@@ -308,6 +330,11 @@ test('un no show non si sposta: niente «Sposta», «Cambia esito» non offre Ri
     await scheda(setter, nome).getByRole('button', { name: `Modifica la call con ${nome}` }).click()
     const matita = setter.getByRole('dialog')
     await expect(matita.getByLabel('Data')).toHaveAttribute('readonly', '')
+    await expect(matita.getByLabel('Ora')).toHaveAttribute('readonly', '')
+    // out of the tab order: the sheet opens on the first field he can change, never on them
+    await expect(matita.getByLabel('Closer')).toBeFocused()
+    await expect(matita.getByLabel('Data')).toHaveAttribute('tabindex', '-1')
+    await expect(matita.getByLabel('Ora')).toHaveAttribute('tabindex', '-1')
     await expect(matita.getByTestId('quando-bloccato')).toHaveText(frase)
     await setter.keyboard.press('Escape')
     await expect(matita).toHaveCount(0)
@@ -316,6 +343,6 @@ test('un no show non si sposta: niente «Sposta», «Cambia esito» non offre Ri
 
   const dopo = await letta(id)
   expect(dopo).toMatchObject({ stato: 'no_show', volte_spostata: 0 })
-  expect(new Date(dopo.programmata_il).toISOString()).toBe(istanteRoma(ieri, '19:00'))
+  expect(new Date(dopo.programmata_il).toISOString()).toBe(istanteRoma(dueGiorniFa, '18:30'))
   expect(await letta(idSvolta)).toMatchObject({ stato: 'svolta', volte_spostata: 0 })
 })

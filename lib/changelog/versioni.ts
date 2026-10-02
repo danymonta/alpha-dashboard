@@ -80,6 +80,31 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.18.0',
+    data: '2026-10-03',
+    titolo: 'Al rinnovo i task si riaprono da soli; la matita corregge di nuovo la data di un no show',
+    riassunto: 'Quando un cliente rinnova, le attività completate del suo progetto tornano da fare da sole; con la matita il closer e l’admin correggono di nuovo data e ora sbagliate di un no show, che resta un no show.',
+    intestazionePer: ['closer', 'progetti'],
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'Quando un cliente rinnova (o torna con una vendita nuova), alla prima rata incassata anche i task del suo progetto si riaprono da soli: quelli del modello che il coach aveva completato prima del rinnovo tornano da fare, che il progetto fosse completato, ancora attivo o in pausa (resta in pausa). Restano come sono i task aggiunti dalle persone, i sotto-task, quelli con la scadenza già passata, il tempo registrato e le note. Nel primo percorso non si riaprono mai, nemmeno se annulli e rifai l’incasso della prima rata o allunghi la fine del percorso; nel rinnovo la seconda rata, o la prima incassata di nuovo, non riapre quelli completati durante il rinnovo, e un upsell mai. Lo stesso se dopo l’incasso correggi in rinnovo una vendita salvata come upsell.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Quando un cliente rinnova il percorso, le attività completate del suo progetto (quelle nate col progetto) tornano da fare da sole, con le stesse persone assegnate: si ritrovano in I miei task senza riaprirle a mano, anche se il progetto era ancora attivo o in pausa (resta in pausa). Si riaprono una volta sola, al rinnovo: quelle completate dopo restano completate. I task aggiunti dalle persone, i sotto-task e quelli con la scadenza già passata restano come sono, e il tempo già registrato resta dov’era.',
+      },
+      {
+        per: ['closer'],
+        testo: 'La matita corregge di nuovo data e ora di un no show, come per una call svolta: se l’hai segnato al giorno o all’ora sbagliati, li sistemi lì, senza «Spostata dal…», e la call resta un no show nel giorno giusto, dove conta nello show rate. «Sposta» e «Riprogrammata» restano bloccati: un no show non torna da fare in un altro giorno, e per rivedere il lead la nuova call la fissa il setter (o l’admin). Lo stesso da Alfire: la scheda di conferma dice che resta un no show, e se gli chiedi di spostarlo ti ricorda la matita. Il foglio dell’esito ora dice anche questo: data sbagliata con la matita, esito sbagliato da annullare prima.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Anche la tua matita corregge di nuovo data e ora di un no show, come per una call svolta: la call resta un no show, senza traccia, e conta nello show rate del giorno corretto. «Sposta» e «Riprogrammata» restano bloccati per tutti, e il setter continua a vedere data e ora in sola lettura, con la sua frase. Lo stesso da Alfire, sempre con la scheda di conferma (prima → dopo, e che resta un no show senza «Spostata dal…»).',
+      },
+    ],
+  },
+  {
     versione: '1.17.0',
     data: '2026-10-02',
     titolo: 'Il progetto riapre al rinnovo, il no show resta fermo',

@@ -175,7 +175,8 @@ export function SchedaCall({
             prodotti={prodotti}
             conDettagli={vista === 'closer'}
             noteSetterModificabili={vista === 'setter' || admin}
-            // the setter's on any call not to be held any more, everyone's on a no-show
+            // the setter's on any call not to be held any more; closer and admin
+            // correct the date of every call, a no-show included (03/10/2026)
             quandoBloccato={motivoQuandoBloccato(call.stato, ruolo)}
             conSposta={sposta !== null}
             eliminabile={eliminabile}

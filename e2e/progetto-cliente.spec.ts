@@ -174,7 +174,7 @@ test('un upsell incassato non apre nessun progetto', async ({ page }) => {
   await expect(page.getByTestId('progetto-cliente')).toHaveCount(0)
 })
 
-test('al rinnovo il progetto chiuso dal coach torna tra gli attivi, col suo coach e i suoi task, alla prima rata incassata', async ({
+test('al rinnovo il progetto chiuso dal coach torna tra gli attivi col suo coach, e i suoi task si riaprono da soli, alla prima rata incassata', async ({
   page,
   browser,
 }) => {
@@ -246,17 +246,32 @@ test('al rinnovo il progetto chiuso dal coach torna tra gli attivi, col suo coac
   await expect(page.getByText(new RegExp(`→ ${formatData(rinnovo!.data_fine)}`))).toBeVisible()
   await expect(page.getByTestId('coach-del-cliente')).toContainText('Coach: Marco Coach')
 
-  // the coach finds it among his active projects, with its 8 tasks still completed
+  // the 8 tasks are to do again by themselves (Dany, 03/10/2026), with the same people on them
+  const statiTask = async () => {
+    const { data, error } = await db.from('v_pm_task').select('stato, completato_il').eq('progetto_id', progettoId!)
+    if (error) throw error
+    return data.map((t) => `${t.stato} · ${t.completato_il ?? '-'}`)
+  }
+  await expect.poll(statiTask).toEqual(Array(8).fill('da_fare · -'))
+  const { data: suoi, error: e2 } = await db
+    .from('v_pm_task')
+    .select('titolo')
+    .eq('progetto_id', progettoId!)
+    .contains('assegnatari', [ID_COACH])
+  if (e2) throw e2
+  expect(suoi.length).toBeGreaterThan(0)
+
+  // the coach finds it among his active projects, its 8 tasks open, without a tap
   await coach.goto('/progetti')
   await expect(voce(coach)).toBeVisible()
   await coach.goto(`/progetti/${progettoId}/attivita`)
   await expect(coach.getByTestId('task')).toHaveCount(8)
-  await expect(coach.getByRole('checkbox', { name: /^Riapri / })).toHaveCount(8)
+  await expect(coach.getByRole('checkbox', { name: /^Completa / })).toHaveCount(8)
+  await expect(coach.getByRole('checkbox', { name: /^Riapri / })).toHaveCount(0)
 
-  // one tap reopens the one he needs, and it is back in his tasks
-  await coach.getByRole('checkbox', { name: 'Riapri Call di check' }).click()
-  await expect(coach.getByText('Task riaperto')).toBeVisible()
+  // and back in his tasks, every one assigned to him
   await coach.goto('/task')
+  await expect(coach.getByTestId('mio-task').filter({ hasText: `${nome} Rinnovo` })).toHaveCount(suoi.length)
   await expect(coach.getByRole('listitem', { name: 'Call di check' }).filter({ hasText: `${nome} Rinnovo` })).toBeVisible()
   await coach.context().close()
 })

@@ -6,11 +6,13 @@ import {
   SPOSTA,
   STATI_FERMI,
   avvisoEsitoFermo,
+  correzioneSenzaTraccia,
   motivoNonSpostabile,
   motivoQuandoBloccato,
   quandoBreve,
   quandoBreveDa,
   restaNelSuoGiorno,
+  rifiutoSpostaAlfire,
   scorciatoieSpostamento,
   spostamentoPredefinito,
   tracciaSpostamento,
@@ -143,17 +145,37 @@ describe('sposta la call: chi sposta quale call', () => {
     expect(SPOSTA.noShow).toContain('show rate')
   })
 
-  it('la matita: il setter corregge data e ora solo delle call da fare, nessuno di un no show', () => {
+  it('la matita: il setter corregge data e ora solo delle call da fare; closer e admin di ogni call, no show compreso', () => {
     for (const stato of ['programmata', 'riprogrammata', 'cancellata', 'svolta', 'no_show']) {
       expect(motivoQuandoBloccato(stato, 'setter'), stato).toBe(motivoNonSpostabile(stato, 'setter'))
     }
+    expect(motivoQuandoBloccato('no_show', 'setter')).toBe(SPOSTA.setterNoShow)
+    expect(motivoQuandoBloccato('svolta', 'setter')).toBe(SPOSTA.setterSvolta)
+    // a typo is not a move: closer and admin correct the date of a held call and
+    // of a no-show (Dany, 03/10/2026), while «Sposta» still refuses both
     for (const ruolo of ['admin', 'closer'] as const) {
-      expect(motivoQuandoBloccato('no_show', ruolo), ruolo).toBe(SPOSTA.noShow)
-      // a held call's date closer and admin still correct: a typo is not a move
-      for (const stato of ['programmata', 'riprogrammata', 'cancellata', 'svolta']) {
+      for (const stato of ['programmata', 'riprogrammata', 'cancellata', 'svolta', 'no_show']) {
         expect(motivoQuandoBloccato(stato, ruolo), `${ruolo} ${stato}`).toBeNull()
       }
+      expect(motivoNonSpostabile('no_show', ruolo)).toBe(SPOSTA.noShow)
     }
+  })
+
+  it('Alfire: «sposta» rifiutato dice a closer e admin che una data sbagliata la corregge modifica; al setter le sue parole', () => {
+    for (const ruolo of ['admin', 'closer'] as const) {
+      expect(rifiutoSpostaAlfire('svolta', ruolo)).toBe(`${SPOSTA.svolta}. ${SPOSTA.soloLaData}`)
+      expect(rifiutoSpostaAlfire('no_show', ruolo)).toBe(`${SPOSTA.noShow}. ${SPOSTA.soloLaData}`)
+      for (const stato of ['programmata', 'riprogrammata', 'cancellata']) expect(rifiutoSpostaAlfire(stato, ruolo), stato).toBeNull()
+    }
+    for (const stato of ['programmata', 'riprogrammata', 'cancellata', 'svolta', 'no_show']) {
+      expect(rifiutoSpostaAlfire(stato, 'setter'), stato).toBe(motivoNonSpostabile(stato, 'setter'))
+    }
+    expect(SPOSTA.soloLaData).toContain('usa modifica')
+    // the card of the pencil on a held call or a no-show: a correction, never a move
+    expect(correzioneSenzaTraccia('no_show')).toBe(SPOSTA.correzione.noShow)
+    expect(correzioneSenzaTraccia('svolta')).toBe(SPOSTA.correzione.svolta)
+    for (const stato of ['programmata', 'riprogrammata', 'cancellata']) expect(correzioneSenzaTraccia(stato), stato).toBeNull()
+    for (const frase of Object.values(SPOSTA.correzione)) expect(frase).toContain('senza «Spostata dal…»')
   })
 
   it('il foglio dell’esito dice perché manca «Riprogrammata» e come si corregge', () => {
@@ -162,14 +184,19 @@ describe('sposta la call: chi sposta quale call', () => {
     for (const stato of ['programmata', 'riprogrammata', 'cancellata']) expect(avvisoEsitoFermo(stato), stato).toBeNull()
     for (const frase of Object.values(SPOSTA.foglioEsito)) {
       expect(frase).toContain('non si sposta')
+      // a wrong date: the pencil (closer and admin, 03/10/2026); a wrong outcome: undone first
+      expect(frase).toContain('Se la data è sbagliata correggila con la matita («Modifica»)')
       expect(frase).toContain('annullalo qui sotto, poi sposta la call')
       expect(frase).toContain('che fissa il setter (o l’admin)')
     }
     expect(SPOSTA.foglioEsito.noShow).toContain('show rate')
+    // the no-show's date changes with the pencil: the sheet never says it stays on its day
+    expect(SPOSTA.foglioEsito.noShow).not.toContain('resta nel suo giorno')
   })
 
   it('le stesse parole del database (public.sposta_call, calls_esito_solo_closer), apostrofi compresi', () => {
-    const migration = readFileSync(new URL('../supabase/migrations/20261002120000_no_show_fermo.sql', import.meta.url), 'utf8')
+    // sposta_call: 20261002120000, untouched since
+    const spostaCall = readFileSync(new URL('../supabase/migrations/20261002120000_no_show_fermo.sql', import.meta.url), 'utf8')
     for (const frase of [
       SPOSTA.svolta,
       SPOSTA.noShow,
@@ -179,7 +206,15 @@ describe('sposta la call: chi sposta quale call', () => {
       SPOSTA.setterConEsito,
       SPOSTA.stessoMomento,
     ]) {
-      expect(migration, frase).toContain(`'${frase}'`)
+      expect(spostaCall, frase).toContain(`'${frase}'`)
     }
+    // calls_esito_solo_closer: 20261003090000, the setter's words only; closer
+    // and admin are never refused a no-show's date any more
+    const trigger = readFileSync(new URL('../supabase/migrations/20261003090000_matita_no_show.sql', import.meta.url), 'utf8')
+    for (const frase of [SPOSTA.setterSvolta, SPOSTA.setterNoShow, SPOSTA.setterRiprogrammata, SPOSTA.setterConEsito]) {
+      expect(trigger, frase).toContain(`'${frase}'`)
+    }
+    expect(trigger).not.toContain(SPOSTA.noShow)
+    expect(trigger).not.toContain(SPOSTA.svolta)
   })
 })

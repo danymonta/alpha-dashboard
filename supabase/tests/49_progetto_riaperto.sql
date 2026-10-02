@@ -4,8 +4,9 @@
 -- pausa" stays; a second instalment never reopens a project closed again; an
 -- upsell never reopens; the closer cashing his sale reopens it too; a sale
 -- corrected into a renewal reopens it; a client back with a new sale reopens
--- it; an active project is not touched; nothing else changes, and nothing ever
--- blocks the cash.
+-- it; an active project is not touched; nothing else changes (but the
+-- completed template tasks, which reopen since 03/10/2026:
+-- 50_task_riaperti.sql), and nothing ever blocks the cash.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
@@ -65,6 +66,9 @@ select lives_ok(
 
 -- what must not change
 reset role;
+-- the task was completed during the first path, long before the renewal
+update public.pm_task set completato_il = now() - interval '40 days'
+where progetto_id = (select id from ids where chiave = 'completato') and stato = 'completato';
 create temp table prima as
 select p.nome, p.reparto_id, p.coach_id, p.responsabile_id, p.created_by, p.descrizione,
        (select array_agg(m.profile_id order by m.profile_id) from public.pm_membri m where m.progetto_id = p.id) as membri,
@@ -125,11 +129,13 @@ select is(
   (select membri from prima),
   'i membri restano'
 );
+-- since 03/10/2026 the completed template tasks reopen too: 50_task_riaperti.sql
 select is(
   (select array_agg(t.titolo || ' · ' || t.stato || ' · ' || coalesce(t.completato_il::text, '-') order by t.ordine, t.id)
    from public.pm_task t where t.progetto_id = (select id from ids where chiave = 'completato')),
-  (select task from prima),
-  'i task restano come sono: quello completato resta completato'
+  (select array_agg(regexp_replace(x, ' · completato · .*$', ' · da_fare · -') order by o)
+   from unnest((select task from prima)) with ordinality u(x, o)),
+  'gli stessi task, e quello completato si riapre'
 );
 select is(
   (select array_agg(a.task_id::text || a.profile_id::text order by a.task_id, a.profile_id)
@@ -386,18 +392,18 @@ drop trigger conta_scritture on public.pm_progetti;
 -- ---------------------------------------------------------------------------
 select ok(
   (select p.prosecdef and p.proconfig @> array['search_path=""']
-   from pg_proc p where p.oid = 'public.pm_apri_progetto_cliente(uuid)'::regprocedure),
+   from pg_proc p where p.oid = 'public.pm_apri_progetto_cliente(uuid, uuid)'::regprocedure),
   'la funzione che apre il progetto gira come l''app, search_path vuoto'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.pm_apri_progetto_cliente(uuid)', 'execute')
-  and not has_function_privilege('anon', 'public.pm_apri_progetto_cliente(uuid)', 'execute'),
+  not has_function_privilege('authenticated', 'public.pm_apri_progetto_cliente(uuid, uuid)', 'execute')
+  and not has_function_privilege('anon', 'public.pm_apri_progetto_cliente(uuid, uuid)', 'execute'),
   'nessuna grant: la chiamano solo i trigger'
 );
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 select throws_ok(
-  $$ select public.pm_apri_progetto_cliente('f4900000-0000-4000-8000-0000000000c3') $$,
+  $$ select public.pm_apri_progetto_cliente('f4900000-0000-4000-8000-0000000000c3', null) $$,
   '42501', null, 'neanche l''admin la chiama'
 );
 
