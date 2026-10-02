@@ -80,6 +80,39 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.16.0',
+    data: '2026-10-02',
+    titolo: 'Sposta la call',
+    riassunto: 'Le call si spostano con «Sposta»: la stessa call passa a un nuovo giorno e ora, torna da fare e sulla scheda resta «Spostata dal…».',
+    intestazionePer: ['setter', 'closer'],
+    novita: [
+      {
+        per: ['closer'],
+        testo: 'Sulle call da fare, e su quelle segnate «Riprogrammata», c’è «Sposta», accanto a «Registra esito»: scegli Oggi, Domani, Dopodomani o un giorno e un’ora qualsiasi, da oggi in avanti. La stessa call passa lì e torna da fare, e sulla scheda resta «Spostata dal 30/09 alle 19:00», con quante volte se sono più di una. Una call già fatta non si sposta: se l’esito è sbagliato, annullalo prima.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Quando segni «Riprogrammata» ti chiede a quando è stata riprogrammata: la call passa a quel giorno, da fare, e l’esito lo registri lì. Le call segnate «Riprogrammata» prima di oggi sono in cima a Le mie call, in «Da spostare»: con un tocco su «Sposta» prendono la loro nuova data.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Una call spostata lascia il giorno vecchio e conta nel nuovo: in Compila la giornata la trovi lì, e i tuoi numeri seguono.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Anche tu sposti le tue call ancora da fare con «Sposta», da oggi in avanti: la scheda dice «Spostata dal…». Il giorno in cui l’hai fissata non cambia, quindi le tue call prenotate restano dove sono. Una call che ha già un esito, o segnata «Riprogrammata», la sposta il closer: la matita ne corregge solo le tue note.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Sposti ogni call che non è stata fatta, anche in un giorno passato per registrare uno spostamento già avvenuto; una call svolta non si sposta, se l’esito è sbagliato lo annulli prima. La matita corregge ancora data e ora sbagliate senza lasciare traccia.',
+      },
+      {
+        per: ['setter', 'closer'],
+        testo: 'Alfire sposta una call quando glielo chiedi («sposta la call di Andrea a venerdì alle 18», «è stata riprogrammata a domani»): la scheda di conferma dice da quando a quando.',
+      },
+    ],
+  },
+  {
     versione: '1.15.0',
     data: '2026-10-02',
     titolo: 'Un progetto per ogni cliente',

@@ -116,8 +116,9 @@ export const AZIONI = {
   pagamento_provvigione: { admin: ['registra', 'modifica', 'elimina'] },
   regola_provvigione: { admin: ['nuova', 'chiudi', 'modifica', 'elimina'] },
   prodotto: { admin: ['crea', 'modifica', 'fuori_vendita', 'in_vendita', 'elimina'] },
-  // the outcome is the closer's (registraEsito refuses the setter)
-  call: { admin: ['esito', 'modifica', 'elimina'], closer: ['esito', 'modifica'], setter: ['modifica'] },
+  // the outcome is the closer's (registraEsito refuses the setter); everyone with
+  // calls moves them (sposta_call: the setter only those still to be held)
+  call: { admin: ['esito', 'sposta', 'modifica', 'elimina'], closer: ['esito', 'sposta', 'modifica'], setter: ['sposta', 'modifica'] },
   lead: { admin: ['stato', 'modifica', 'elimina'], setter: ['stato', 'modifica'], closer: ['stato'] },
   // modalita of the daily report
   aggiorna_report: { admin: ['aggiungi', 'imposta', 'elimina'], setter: ['aggiungi', 'imposta'] },

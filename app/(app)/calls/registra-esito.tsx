@@ -19,6 +19,7 @@ import { useId, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { registraEsito } from '@/app/(app)/calls/actions'
+import { CampiSpostamento } from '@/app/(app)/calls/sposta-call'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -31,8 +32,11 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
+import { SPOSTA, spostamentoPredefinito } from '@/lib/call/spostamento'
+import { etichettaGiorno } from '@/lib/date'
 import { MASSIMO_MOTIVO, MASSIMO_NOTE_CLOSER, MOTIVO_NON_CHIUSURA, NOTE_CLOSER } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
+import { schemaSpostamento } from '@/lib/validation/call'
 import { ETICHETTA_ESITO, esitoCallSchema, type EsitoCallInput, type SceltaEsito } from '@/lib/validation/esito'
 
 type Props = {
@@ -40,17 +44,26 @@ type Props = {
   nomeLead: string
   descrizione: string
   giaRegistrata: boolean
-  /** A call still to come can only be cancelled or moved, not closed. */
+  /** A call still to come can only be cancelled here; it moves with «Sposta», beside this button. */
   futura: boolean
+  /** A held call never moves (public.sposta_call): no "Riprogrammata" among its outcomes. */
+  svolta?: boolean
   /** Where the sale form returns after saving (an internal path): the closer's day. */
   tornaA?: string | null
   /** What is saved now: the sheet opens on them when the outcome changes. */
   motivo?: string | null
   /** The closer's "Note aggiuntive" (calls.note_closer), never the setter's note. */
   noteCloser?: string | null
+  /** Europe/Rome day and time of the call: "Riprogrammata" starts from the day after. */
+  giorno: string
+  ora: string
+  oggi: string
+  /** The admin also records a move already happened, up to a year back. */
+  admin?: boolean
 }
 
-const SOLO_FUTURE: SceltaEsito[] = ['cancellata', 'riprogrammata']
+/** A future call: moving it is «Sposta», right beside the button. */
+const SOLO_FUTURE: SceltaEsito[] = ['cancellata']
 
 const SCELTE: { esito: SceltaEsito; Icona: LucideIcon }[] = [
   { esito: 'chiusa', Icona: CircleCheck },
@@ -66,7 +79,8 @@ const SCELTE: { esito: SceltaEsito; Icona: LucideIcon }[] = [
  * follow-up or lost, the closer writes why it did not close (required, Dany
  * 30/09/2026), may add his notes (note_closer: the setter reads them, never
  * writes them), then says whether the lead was qualified: that tap saves (3).
- * The shared schema decides what is missing.
+ * "Riprogrammata" asks when (Dany, 02/10/2026): the same call moves there and
+ * is still to be held, like "Sposta". The shared schema decides what is missing.
  */
 export function RegistraEsito({
   callId,
@@ -74,14 +88,24 @@ export function RegistraEsito({
   descrizione,
   giaRegistrata,
   futura,
+  svolta = false,
   tornaA = null,
   motivo: motivoSalvato = null,
   noteCloser: noteSalvate = null,
+  giorno,
+  ora,
+  oggi,
+  admin = false,
 }: Props) {
   const router = useRouter()
   const id = useId()
+  const nuovaDataIniziale = spostamentoPredefinito(giorno, ora, oggi)
   const [aperto, setAperto] = useState(false)
   const [inAttesaQualifica, setInAttesaQualifica] = useState<'follow_up' | 'persa' | null>(null)
+  const [inAttesaData, setInAttesaData] = useState(false)
+  const [nuovaData, setNuovaData] = useState(nuovaDataIniziale.data)
+  const [nuovaOra, setNuovaOra] = useState(nuovaDataIniziale.ora)
+  const [erroreData, setErroreData] = useState<string | null>(null)
   const [motivo, setMotivo] = useState(motivoSalvato ?? '')
   const [note, setNote] = useState(noteSalvate ?? '')
   const [erroreMotivo, setErroreMotivo] = useState<string | null>(null)
@@ -93,6 +117,10 @@ export function RegistraEsito({
     setAperto(valore)
     // every opening starts from what is saved
     setInAttesaQualifica(null)
+    setInAttesaData(false)
+    setNuovaData(nuovaDataIniziale.data)
+    setNuovaOra(nuovaDataIniziale.ora)
+    setErroreData(null)
     setMotivo(motivoSalvato ?? '')
     setNote(noteSalvate ?? '')
     setErroreMotivo(null)
@@ -114,7 +142,11 @@ export function RegistraEsito({
         return
       }
       toast.success(`${nomeLead}: ${ETICHETTA_ESITO[input.esito].toLowerCase()}`, {
-        description: esito.vaiA ? 'Ora registra la vendita.' : undefined,
+        description: esito.vaiA
+          ? 'Ora registra la vendita.'
+          : input.esito === 'riprogrammata'
+            ? `${etichettaGiorno(input.data, oggi)} alle ${input.ora}`
+            : undefined,
       })
       apriChiudi(false)
       if (esito.vaiA) {
@@ -129,7 +161,22 @@ export function RegistraEsito({
       setInAttesaQualifica(esito)
       return
     }
+    if (esito === 'riprogrammata') {
+      setInAttesaData(true)
+      return
+    }
     salva({ call_id: callId, esito })
+  }
+
+  /** Riprogrammata: the new day and time first, as "Sposta" asks them. */
+  function salvaRiprogrammata() {
+    const input: EsitoCallInput = { call_id: callId, esito: 'riprogrammata', data: nuovaData, ora: nuovaOra }
+    const verifica = schemaSpostamento(admin).safeParse(input)
+    if (!verifica.success) {
+      setErroreData(verifica.error.issues[0]?.message ?? 'Scegli il nuovo giorno')
+      return
+    }
+    salva(input)
   }
 
   /** Sì or No: the schema says what is missing before anything is sent. */
@@ -163,7 +210,7 @@ export function RegistraEsito({
           />
         }
       >
-        {giaRegistrata ? 'Cambia esito' : futura ? 'Annulla o sposta' : 'Registra esito'}
+        {giaRegistrata ? 'Cambia esito' : futura ? 'Annulla la call' : 'Registra esito'}
       </SheetTrigger>
 
       {/* never taller than the screen: with the texts filled (or the keyboard open) it scrolls */}
@@ -177,10 +224,45 @@ export function RegistraEsito({
         </SheetHeader>
 
         <div className="space-y-4 px-4">
-          {inAttesaQualifica === null ? (
+          {inAttesaData ? (
+            <>
+              <button
+                type="button"
+                className="flex min-h-11 items-center gap-1 text-sm text-muted-foreground"
+                onClick={() => setInAttesaData(false)}
+              >
+                <ChevronLeft className="size-4" aria-hidden="true" />
+                {ETICHETTA_ESITO.riprogrammata}: cambia esito
+              </button>
+              <CampiSpostamento
+                id={`${id}-nuova-data`}
+                legenda={SPOSTA.riprogrammata.domanda}
+                data={nuovaData}
+                ora={nuovaOra}
+                onData={(valore) => {
+                  setNuovaData(valore)
+                  setErroreData(null)
+                }}
+                onOra={(valore) => {
+                  setNuovaOra(valore)
+                  setErroreData(null)
+                }}
+                oggi={oggi}
+                admin={admin}
+                errore={erroreData}
+              />
+              <p className="text-xs text-muted-foreground">{SPOSTA.riprogrammata.spiegazione}</p>
+              <Button type="button" className="h-11 w-full" disabled={inCorso} onClick={salvaRiprogrammata}>
+                <CalendarClock className="size-4" aria-hidden="true" />
+                {SPOSTA.riprogrammata.salva}
+              </Button>
+            </>
+          ) : inAttesaQualifica === null ? (
             <>
               <div className="grid grid-cols-2 gap-2">
-                {SCELTE.filter(({ esito }) => !futura || SOLO_FUTURE.includes(esito)).map(({ esito, Icona }) => (
+                {SCELTE.filter(
+                  ({ esito }) => (!futura || SOLO_FUTURE.includes(esito)) && !(svolta && esito === 'riprogrammata'),
+                ).map(({ esito, Icona }) => (
                   <Button
                     key={esito}
                     type="button"

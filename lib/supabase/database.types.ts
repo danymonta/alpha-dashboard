@@ -51,13 +51,13 @@ isOneToOne: false
                   ]
                 },"calls": {
                   Row: {
-                    "closer_id": string | null,"created_at": string,"created_by": string | null,"esito": Database["public"]['Enums']["call_outcome"] | null,"id": string,"lead_id": string,"link_registrazione": string | null,"note": string | null,"note_closer": string | null,"obiezione_principale": string | null,"performance": Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id": string | null,"programmata_il": string,"qualificata": boolean | null,"setter_id": string | null,"stato": Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at": string
+                    "closer_id": string | null,"created_at": string,"created_by": string | null,"esito": Database["public"]['Enums']["call_outcome"] | null,"id": string,"lead_id": string,"link_registrazione": string | null,"note": string | null,"note_closer": string | null,"obiezione_principale": string | null,"performance": Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id": string | null,"programmata_il": string,"qualificata": boolean | null,"setter_id": string | null,"spostata_dal": string | null,"stato": Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at": string,"volte_spostata": number
                   }
                   Insert: {
-                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id": string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il": string,"qualificata"?: boolean | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at"?: string
+                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id": string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il": string,"qualificata"?: boolean | null,"setter_id"?: string | null,"spostata_dal"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at"?: string,"volte_spostata"?: number
                   }
                   Update: {
-                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id"?: string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il"?: string,"qualificata"?: boolean | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo"?: Database["public"]['Enums']["call_type"],"updated_at"?: string
+                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id"?: string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il"?: string,"qualificata"?: boolean | null,"setter_id"?: string | null,"spostata_dal"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo"?: Database["public"]['Enums']["call_type"],"updated_at"?: string,"volte_spostata"?: number
                   }
                   Relationships: [
                     {
@@ -1365,6 +1365,9 @@ isOneToOne: false
                            },
 "segna_tutorial_visto":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"sposta_call":
+{ Args: { "p_call_id": string,"p_data": string,"p_ora": string }; Returns: undefined
                            },
 "unisci_profili":
 { Args: { "p_a": string,"p_da": string }; Returns: undefined

@@ -1,6 +1,10 @@
+import { CalendarClock } from 'lucide-react'
+
 import { ModificaCall } from '@/app/(app)/calls/modifica-call'
 import { RegistraEsito } from '@/app/(app)/calls/registra-esito'
+import { SpostaCall } from '@/app/(app)/calls/sposta-call'
 import { StatoCall } from '@/components/call/stato-call'
+import { motivoNonSpostabile, tracciaSpostamento } from '@/lib/call/spostamento'
 import { etichettaGiorno, etichettaGiornoBreve, formatOra, oggiRoma } from '@/lib/date'
 import { MOTIVO_NON_CHIUSURA, NOTE_CLOSER, NOTE_SETTER } from '@/lib/setting/commento'
 import type { Database } from '@/lib/supabase/database.types'
@@ -11,7 +15,7 @@ type Enums = Database['public']['Enums']
 
 /** The columns of a call card, as CallVista reads them. */
 export const CAMPI_CALL =
-  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, note, note_closer, obiezione_principale, link_registrazione, performance, prodotto_proposto_id, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
+  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, note, note_closer, obiezione_principale, link_registrazione, performance, prodotto_proposto_id, spostata_dal, volte_spostata, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)'
 
 /**
  * The amount pitched is read only where RLS lets it through: closer and admin.
@@ -38,6 +42,9 @@ export type CallVista = {
   link_registrazione: string | null
   performance: Enums['call_performance'] | null
   prodotto_proposto_id: string | null
+  /** Where the call was before its last move ("Spostata dal …"), and how many moves. */
+  spostata_dal: string | null
+  volte_spostata: number
   /** "Motivo di non chiusura": the closer writes it, the setter reads it. */
   obiezione_principale?: string | null
   /** Embedded only in the closer's query: RLS keeps it from the setter anyway. */
@@ -56,7 +63,7 @@ type Props = {
   prodotti: Voce[]
   oggi: string
   adesso: number
-  /** closer: can record the outcome; setter: read only. */
+  /** closer: records the outcome and moves the call; setter: moves the calls still to be held. */
   vista: 'closer' | 'setter'
   /** The admin also writes the setter's note; the closer only reads it. */
   admin?: boolean
@@ -86,6 +93,24 @@ export function SchedaCall({
   const stato = (
     <StatoCall stato={call.stato} esito={call.esito} qualificata={call.qualificata} passata={passata} />
   )
+  const descrizione = `${ETICHETTA_TIPO_CALL[call.tipo]} · ${etichettaGiorno(giorno, oggi).toLowerCase()} alle ${ora}`
+  const traccia = tracciaSpostamento(call, oggi)
+  // "Sposta" (Dany, 02/10/2026): a call still to be held, or one marked
+  // "Riprogrammata" before the move existed. The setter moves only the first:
+  // an outcome is the closer's, and moving a call clears it.
+  const spostabile = call.stato === 'programmata' || (vista === 'closer' && call.stato === 'riprogrammata')
+  const sposta = spostabile ? (
+    <SpostaCall
+      callId={call.id}
+      nomeLead={nome}
+      descrizione={descrizione}
+      giorno={giorno}
+      ora={ora}
+      oggi={oggi}
+      admin={admin}
+      inEvidenza={call.stato === 'riprogrammata'}
+    />
+  ) : null
 
   const dettagli = [
     ETICHETTA_TIPO_CALL[call.tipo],
@@ -118,8 +143,14 @@ export function SchedaCall({
             {nome}
           </h3>
           <p className="truncate text-sm text-muted-foreground">{dettagli.join(' · ')}</p>
-          {/* setter: no outcome to record, no action row to reserve space for */}
-          {vista === 'setter' ? <div className="mt-1">{stato}</div> : null}
+          {traccia ? (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground" data-testid="spostata">
+              <CalendarClock className="size-3.5 shrink-0" aria-hidden="true" />
+              {traccia}
+            </p>
+          ) : null}
+          {/* setter: no outcome to record; a call he can move has the action row below */}
+          {vista === 'setter' && !sposta ? <div className="mt-1">{stato}</div> : null}
         </div>
         <div className="-mt-1.5 -mr-1.5">
           <ModificaCall
@@ -142,24 +173,36 @@ export function SchedaCall({
             prodotti={prodotti}
             conDettagli={vista === 'closer'}
             noteSetterModificabili={vista === 'setter' || admin}
+            quandoBloccato={vista === 'setter' ? motivoNonSpostabile(call.stato, 'setter') : null}
             eliminabile={eliminabile}
           />
         </div>
       </div>
 
-      {vista === 'closer' ? (
-        <div className="mt-2 flex min-h-11 items-center justify-between gap-2 pl-[4.25rem]">
+      {/* 390px: the state on one line, the buttons on the next when they do not fit beside it */}
+      {vista === 'closer' || sposta ? (
+        <div className="mt-2 flex min-h-11 flex-wrap items-center justify-between gap-x-2 gap-y-1 pl-[4.25rem]">
           {stato}
-          <RegistraEsito
-            callId={call.id}
-            nomeLead={nome}
-            descrizione={`${ETICHETTA_TIPO_CALL[call.tipo]} · ${etichettaGiorno(giorno, oggi).toLowerCase()} alle ${ora}`}
-            giaRegistrata={call.stato !== 'programmata'}
-            futura={!passata}
-            tornaA={tornaA}
-            motivo={call.obiezione_principale ?? null}
-            noteCloser={call.note_closer}
-          />
+          <div className="ml-auto flex items-center gap-2">
+            {sposta}
+            {vista === 'closer' ? (
+              <RegistraEsito
+                callId={call.id}
+                nomeLead={nome}
+                descrizione={descrizione}
+                giaRegistrata={call.stato !== 'programmata'}
+                futura={!passata}
+                svolta={call.stato === 'svolta'}
+                tornaA={tornaA}
+                motivo={call.obiezione_principale ?? null}
+                noteCloser={call.note_closer}
+                giorno={giorno}
+                ora={ora}
+                oggi={oggi}
+                admin={admin}
+              />
+            ) : null}
+          </div>
         </div>
       ) : null}
 

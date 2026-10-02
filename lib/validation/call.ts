@@ -96,6 +96,61 @@ export type NuovaCallInput = z.input<typeof nuovaCallSchema>
 export type NuovaCall = z.output<typeof nuovaCallSchema>
 
 // ---------------------------------------------------------------------------
+// Moving a call (public.sposta_call, Dany 02/10/2026)
+// ---------------------------------------------------------------------------
+const MESSAGGIO_GIORNO = 'Scegli il nuovo giorno'
+const MESSAGGIO_ORA = 'Scegli l’ora'
+
+/**
+ * The new moment of a moved call, Europe/Rome. Shared by the "Sposta" sheet,
+ * the outcome "Riprogrammata" (lib/validation/esito.ts) and Alfire.
+ */
+export const campiSpostamento = {
+  data: z
+    .string({ required_error: MESSAGGIO_GIORNO, invalid_type_error: MESSAGGIO_GIORNO })
+    .refine(isDataISO, MESSAGGIO_GIORNO),
+  ora: z
+    .string({ required_error: MESSAGGIO_ORA, invalid_type_error: MESSAGGIO_ORA })
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, MESSAGGIO_ORA),
+}
+
+export const SPOSTA_SOLO_AVANTI = 'Una call si sposta da oggi in avanti: la data di una call passata si corregge con la matita'
+
+/**
+ * Where a call may move. From today on (an earlier hour of today too: the
+ * call held this morning instead of tonight); the admin also records a move
+ * that already happened, up to a year back, as he books calls already done.
+ * Six months ahead at most: further is a typo. The database refuses a move to
+ * the past from anyone but the admin as well.
+ */
+export function erroreFinestraSpostamento(data: string, admin: boolean, oggi: string = oggiRoma()): string | null {
+  if (!isDataISO(data)) return null
+  if (data > aggiungiGiorni(oggi, GIORNI_AVANTI_CALL)) return 'Al massimo 6 mesi da oggi'
+  if (admin) return data < aggiungiGiorni(oggi, -GIORNI_INDIETRO_CALL_ADMIN) ? 'Al massimo un anno indietro' : null
+  return data < oggi ? SPOSTA_SOLO_AVANTI : null
+}
+
+function spostamento(admin: boolean) {
+  return z
+    .object({ call_id: z.string().uuid('Call non valida'), ...campiSpostamento })
+    .superRefine((valori, ctx) => {
+      const errore = erroreFinestraSpostamento(valori.data, admin)
+      if (errore) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['data'], message: errore })
+    })
+}
+
+/** The closer and the setter: from today on. */
+export const spostaCallSchema = spostamento(false)
+/** The admin: also a move already happened, up to a year back. */
+export const spostaCallAdminSchema = spostamento(true)
+
+export function schemaSpostamento(admin: boolean) {
+  return admin ? spostaCallAdminSchema : spostaCallSchema
+}
+
+export type SpostaCallInput = z.input<typeof spostaCallSchema>
+
+// ---------------------------------------------------------------------------
 // Editing a call after it was booked
 // ---------------------------------------------------------------------------
 export const PERFORMANCE = Constants.public.Enums.call_performance

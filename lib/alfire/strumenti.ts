@@ -15,6 +15,7 @@ import { strumentiProgetti } from '@/lib/alfire/scritture/progetti'
 import { scrittureSetting } from '@/lib/alfire/scritture/setting'
 import type { LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
+import { tracciaSpostamento } from '@/lib/call/spostamento'
 import { aggiungiGiorni, aggiungiMesi, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import {
   MOTIVO_NON_CHIUSURA,
@@ -417,7 +418,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
 
     call_periodo: definizione({
       description:
-        'Call programmate nel periodo, con lead (e il suo stato), setter (chi l’ha fissata), closer, tipo, stato, esito, motivo di non chiusura, note del setter e note aggiuntive del closer. ' +
+        'Call programmate nel periodo, con lead (e il suo stato), setter (chi l’ha fissata), closer, tipo, stato, esito, da dove è stata spostata, motivo di non chiusura, note del setter e note aggiuntive del closer. ' +
         (PERIMETRO_CALL[profilo.ruolo]?.descrizione ?? 'Tutte le call del team.'),
       inputSchema: periodo,
       execute: async (input) => {
@@ -425,7 +426,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
         const { data, error } = await supabase
           .from('calls')
           .select(
-            'id, tipo, programmata_il, stato, esito, qualificata, obiezione_principale, note, note_closer, lead:leads(nome, stato), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)',
+            'id, tipo, programmata_il, stato, esito, qualificata, obiezione_principale, note, note_closer, spostata_dal, volte_spostata, lead:leads(nome, stato), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)',
           )
           // a day of margin on both sides, then the Rome calendar day decides
           .gte('programmata_il', `${aggiungiGiorni(p.da, -1)}T00:00:00Z`)
@@ -452,6 +453,8 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
             esito: c.esito,
             setter: c.setter?.nome ?? null,
             closer: c.closer?.nome ?? null,
+            // a moved call, as its card says: "Spostata dal 30/09 alle 19:00"
+            ...(tracciaSpostamento(c) ? { spostata: tracciaSpostamento(c) } : {}),
             // what was written, each text with its author; the notes (up to 2000 characters) shortened:
             // up to 60 calls must fit in a free-plan answer
             ...(c.obiezione_principale?.trim() ? { [MOTIVO_NON_CHIUSURA.titolo]: c.obiezione_principale.trim() } : {}),

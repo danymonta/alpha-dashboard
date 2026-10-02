@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { formatImportoInput } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import {
   ESITO_DEL_CLOSER,
   MASSIMO_NOTE_CLOSER,
@@ -73,6 +74,7 @@ export function ModificaCall({
   conDettagli,
   sceltaTipo = conDettagli,
   noteSetterModificabili = true,
+  quandoBloccato = null,
   eliminabile = false,
 }: {
   call: CallModificabile
@@ -93,6 +95,12 @@ export function ModificaCall({
    * here and never changes it (Dany, 30/09/2026).
    */
   noteSetterModificabili?: boolean
+  /**
+   * Why date and time are read only here (lib/call/spostamento.ts,
+   * motivoNonSpostabile): the setter never moves a call with an outcome, or
+   * marked "Riprogrammata"; the database refuses it too. Null: they can change.
+   */
+  quandoBloccato?: string | null
   /** Admin only. */
   eliminabile?: boolean
 }) {
@@ -135,21 +143,43 @@ export function ModificaCall({
       titolo={`Call con ${nomeLead}`}
       descrizione={
         conDettagli
-          ? `${sceltaTipo ? 'Data, ora, tipo e note' : 'Data, ora e note'} si correggono quando vuoi. L’esito si registra dalla scheda.`
-          : `Data, ora e le tue note si correggono quando vuoi. ${ESITO_DEL_CLOSER}`
+          ? `${sceltaTipo ? 'Tipo e note' : 'Le note'} si correggono quando vuoi, data e ora se sono sbagliate: per spostare la call usa «Sposta». L’esito si registra dalla scheda.`
+          : quandoBloccato
+            ? `Le tue note si correggono quando vuoi. ${ESITO_DEL_CLOSER}`
+            : `Le tue note si correggono quando vuoi, data e ora se sono sbagliate: per spostare la call usa «Sposta». ${ESITO_DEL_CLOSER}`
       }
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
             <Label htmlFor={`mc-data-${call.id}`}>Data</Label>
-            <Input id={`mc-data-${call.id}`} type="date" className="num h-11" {...register('data')} />
+            <Input
+              id={`mc-data-${call.id}`}
+              type="date"
+              readOnly={Boolean(quandoBloccato)}
+              aria-describedby={quandoBloccato ? `mc-quando-bloccato-${call.id}` : undefined}
+              className={cn('num h-11', quandoBloccato && 'bg-muted text-muted-foreground')}
+              {...register('data')}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`mc-ora-${call.id}`}>Ora</Label>
-            <Input id={`mc-ora-${call.id}`} type="time" step={300} className="num h-11" {...register('ora')} />
+            <Input
+              id={`mc-ora-${call.id}`}
+              type="time"
+              step={300}
+              readOnly={Boolean(quandoBloccato)}
+              aria-describedby={quandoBloccato ? `mc-quando-bloccato-${call.id}` : undefined}
+              className={cn('num h-11', quandoBloccato && 'bg-muted text-muted-foreground')}
+              {...register('ora')}
+            />
           </div>
         </div>
+        {quandoBloccato ? (
+          <p id={`mc-quando-bloccato-${call.id}`} className="text-xs text-muted-foreground" data-testid="quando-bloccato">
+            {quandoBloccato}
+          </p>
+        ) : null}
         <ErroreCampo id={`mc-quando-errore-${call.id}`} messaggio={errors.data?.message ?? errors.ora?.message} />
 
         {sceltaTipo ? (

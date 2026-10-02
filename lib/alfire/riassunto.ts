@@ -1,6 +1,8 @@
 import { formatData, formatEuro, formatMese } from '@/lib/format'
 import { elencoNomi } from '@/lib/progetti'
 import type { NomeScrittura } from '@/lib/alfire/permessi'
+import { quandoBreveDa } from '@/lib/call/spostamento'
+import { isDataISO } from '@/lib/date'
 import {
   MOTIVO_NON_CHIUSURA,
   NOTE_CLOSER,
@@ -341,6 +343,16 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
         }
       }
       if (azione === 'elimina') return { titolo: `Elimino la call con ${chi}`, dettagli: [] }
+      // the same call moves to its new day, still to be held (Dany, 02/10/2026)
+      if (azione === 'sposta') {
+        return {
+          // the card's preview (read from the database) adds where it comes from
+          titolo: `Sposto la call di ${chi} al ${
+            isDataISO(testo(input.data) ?? '') && testo(input.ora) ? quandoBreveDa(input.data as string, input.ora as string) : '?'
+          }`,
+          dettagli: [],
+        }
+      }
       // two notes on a call: the setter's and the closer's, each with its name
       return {
         titolo: `Correggo la call con ${chi}`,

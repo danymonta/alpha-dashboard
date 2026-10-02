@@ -278,9 +278,13 @@ test('una call futura si può solo annullare o spostare', async ({ page }) => {
   await accedi(page, 'closer')
   await page.goto('/calls')
 
-  await scheda(page, nome).getByRole('button', { name: 'Annulla o sposta' }).click()
+  // moving has its own button (Dany, 02/10/2026): e2e/sposta-call.spec.ts
+  await expect(scheda(page, nome).getByRole('button', { name: `Sposta la call con ${nome}` })).toBeVisible()
+  await scheda(page, nome).getByRole('button', { name: 'Annulla la call' }).click()
   const foglio = page.getByRole('dialog')
-  await expect(foglio.getByRole('button', { name: 'Riprogrammata', exact: true })).toBeVisible()
+  await expect(foglio.getByRole('button', { name: 'Cancellata', exact: true })).toBeVisible()
+  // moving it is «Sposta», right beside: the sheet only cancels it
+  await expect(foglio.getByRole('button', { name: 'Riprogrammata', exact: true })).toHaveCount(0)
   await expect(foglio.getByRole('button', { name: 'Chiusa', exact: true })).toHaveCount(0)
   await expect(foglio.getByRole('button', { name: 'No show', exact: true })).toHaveCount(0)
 })

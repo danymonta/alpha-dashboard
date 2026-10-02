@@ -7,6 +7,7 @@ import {
   NOTE_CLOSER,
 } from '@/lib/setting/commento'
 import type { Database } from '@/lib/supabase/database.types'
+import { campiSpostamento } from '@/lib/validation/call'
 
 type AggiornamentoCall = Pick<
   Database['public']['Tables']['calls']['Update'],
@@ -42,7 +43,9 @@ const noteCloser = z
 /**
  * What the closer can tap. "programmata" undoes a wrong outcome.
  * follow_up and persa need to know whether the lead was qualified, and why
- * the call did not close.
+ * the call did not close. "riprogrammata" moves the call (Dany, 02/10/2026):
+ * it asks the new day and time, and the same call goes there, still to be held
+ * (public.sposta_call); the window per role is checked with schemaSpostamento.
  */
 export const esitoCallSchema = z.discriminatedUnion('esito', [
   z.object({ call_id: callId, esito: z.literal('chiusa') }),
@@ -53,15 +56,18 @@ export const esitoCallSchema = z.discriminatedUnion('esito', [
     motivo: motivoNonChiusura,
     note_closer: noteCloser,
   }),
+  z.object({ call_id: callId, esito: z.literal('riprogrammata'), ...campiSpostamento }),
   z.object({
     call_id: callId,
-    esito: z.enum(['no_show', 'cancellata', 'riprogrammata', 'programmata']),
+    esito: z.enum(['no_show', 'cancellata', 'programmata']),
   }),
 ])
 
 export type EsitoCallInput = z.input<typeof esitoCallSchema>
 export type EsitoCall = z.output<typeof esitoCallSchema>
 export type SceltaEsito = EsitoCall['esito']
+/** An outcome written on the call where it is; "riprogrammata" moves it instead. */
+export type EsitoSulPosto = Exclude<EsitoCall, { esito: 'riprogrammata' }>
 
 /** The outcomes that ask for the reason: a held call that did not close. */
 export const ESITI_NON_CHIUSI = ['follow_up', 'persa'] as const
@@ -87,7 +93,7 @@ export const ETICHETTA_ESITO: Record<SceltaEsito, string> = {
  * closing only belongs to a held call that did not close; the closer's notes
  * are touched only when the sheet sends them.
  */
-export function aggiornamentoDaEsito(v: EsitoCall): AggiornamentoCall {
+export function aggiornamentoDaEsito(v: EsitoSulPosto): AggiornamentoCall {
   switch (v.esito) {
     case 'chiusa':
       return { stato: 'svolta', esito: 'chiusa', qualificata: true, obiezione_principale: null }

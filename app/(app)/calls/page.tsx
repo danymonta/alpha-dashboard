@@ -5,6 +5,7 @@ import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
+import { SPOSTA } from '@/lib/call/spostamento'
 import { oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 
@@ -45,8 +46,9 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
           .from('calls')
           .select(CAMPI_CALL_CLOSER)
           .eq('closer_id', profiloId)
-          // everything still open, plus what was recorded in the last week
-          .or(`stato.eq.programmata,programmata_il.gte.${new Date(adesso - 7 * GIORNO_MS).toISOString()}`)
+          // everything still open (a call marked "riprogrammata" waits for its new day),
+          // plus what was recorded in the last week
+          .or(`stato.in.(programmata,riprogrammata),programmata_il.gte.${new Date(adesso - 7 * GIORNO_MS).toISOString()}`)
           .order('programmata_il', { ascending: true })
           .limit(200)
       : supabase
@@ -91,7 +93,9 @@ export default async function LeMieCallPage() {
   const future = aperte.filter((c) => !passata(c))
   const diOggi = future.filter((c) => giorno(c) === oggi)
   const prossime = future.filter((c) => giorno(c) !== oggi)
-  const concluse = calls.filter((c) => c.stato !== 'programmata').reverse()
+  // marked "Riprogrammata" before a call could move (02/10/2026): still without their new day
+  const daSpostare = calls.filter((c) => c.stato === 'riprogrammata')
+  const concluse = calls.filter((c) => c.stato !== 'programmata' && c.stato !== 'riprogrammata').reverse()
 
   // the admin books too (Dany, 29/09/2026): for himself, for a setter, or a call already done
   const admin = profilo.ruolo === 'admin'
@@ -177,6 +181,12 @@ export default async function LeMieCallPage() {
 
       {vista === 'closer' ? (
         <>
+          {daSpostare.length > 0 ? (
+            <Sezione titolo={`${SPOSTA.daSpostare.titolo} (${daSpostare.length})`} descrizione={SPOSTA.daSpostare.descrizione}>
+              {[...daSpostare].reverse().map((c) => scheda(c))}
+            </Sezione>
+          ) : null}
+
           {daRegistrare.length > 0 ? (
             <Sezione
               titolo={`Da registrare (${daRegistrare.length})`}
@@ -221,9 +231,9 @@ export default async function LeMieCallPage() {
             )}
           </Sezione>
 
-          {daRegistrare.length + concluse.length > 0 ? (
+          {daRegistrare.length + daSpostare.length + concluse.length > 0 ? (
             <Sezione titolo="Ultimi 30 giorni">
-              {[...daRegistrare, ...concluse]
+              {[...daRegistrare, ...daSpostare, ...concluse]
                 .sort((a, b) => b.programmata_il.localeCompare(a.programmata_il))
                 .map((c) => scheda(c))}
             </Sezione>

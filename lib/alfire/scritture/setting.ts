@@ -2,13 +2,14 @@ import 'server-only'
 
 import { z } from 'zod'
 
-import { eliminaCall, modificaCall, registraEsito } from '@/app/(app)/calls/actions'
+import { eliminaCall, modificaCall, registraEsito, spostaCall } from '@/app/(app)/calls/actions'
 import { fissaCall } from '@/app/(app)/calls/new/actions'
 import { aggiornaStatoLead, eliminaLead, modificaLead } from '@/app/(app)/leads/actions'
 import { aggiungiReport, correggiReport, eliminaReport } from '@/app/(app)/setting/actions'
 import { salvaReportGiornaliero } from '@/app/(app)/today/actions'
 import { breve, cambi, cambio } from '@/lib/alfire/cambi'
 import { CONSEGUENZE } from '@/lib/alfire/conseguenze'
+import { SPOSTA, motivoNonSpostabile, quandoBreve, quandoBreveDa } from '@/lib/call/spostamento'
 import type { Anteprima } from '@/lib/alfire/riassunto'
 import { errore, isErrore, isIo, quandoCall, trova, type Call } from '@/lib/alfire/risolvi'
 import {
@@ -46,6 +47,7 @@ import {
   PERFORMANCE,
   TIPI_CALL,
   normalizzaHandle,
+  schemaSpostamento,
   type Fonte,
   type Performance,
   type TipoCall,
@@ -68,7 +70,11 @@ import { CAMPI_NUMERICI_REPORT as CAMPI_REPORT, GRUPPI_REPORT } from '@/lib/vali
 const CAMPI_SETTER = GRUPPI_REPORT.flatMap((g) => g.campi.map(([campo, etichetta, aiuto]) => ({ campo, etichetta, aiuto })))
 const NOMI_CAMPI_SETTER = new Set<string>(CAMPI_SETTER.map((c) => c.campo))
 
-const ESITI = ['chiusa', 'follow_up', 'persa', 'no_show', 'cancellata', 'riprogrammata', 'programmata'] as const
+/**
+ * The outcomes Alfire records. "Riprogrammata" is a move (Dany, 02/10/2026):
+ * azione sposta, with the new day and time, never an outcome without them.
+ */
+const ESITI = ['chiusa', 'follow_up', 'persa', 'no_show', 'cancellata', 'programmata'] as const
 
 /**
  * The setter's comment on the day (lib/setting/commento.ts): the two scales
@@ -196,8 +202,8 @@ function call(ctx: Contesto): Definizione {
             .describe('Motivo di non chiusura: obbligatorio con follow_up e persa, se manca chiedilo'),
         }
       : {}),
-    data: data.optional(),
-    ora: z.string().optional().describe('HH:MM'),
+    data: data.optional().describe('sposta: il nuovo giorno; modifica: il giorno corretto'),
+    ora: z.string().optional().describe('HH:MM, come data'),
     // the setter books discovery calls only; admin and closer correct the type of old ones
     ...(chiFaLaCall ? { tipo: z.enum(TIPI_CALL).optional() } : {}),
     // the setter reassigns his calls, the admin any; the closer keeps his own
@@ -267,14 +273,21 @@ function call(ctx: Contesto): Definizione {
         note_closer: v.note_closer ?? c.note_closer,
       }
     }
+    const data = v.data ?? oggiRoma(new Date(c.programmata_il))
+    const ora = v.ora ?? formatOra(c.programmata_il)
+    // the setter's pencil never moves a call with an outcome (calls_esito_solo_closer)
+    if (ruolo === 'setter' && (data !== oggiRoma(new Date(c.programmata_il)) || ora !== formatOra(c.programmata_il))) {
+      const nonSpostabile = motivoNonSpostabile(c.stato, ruolo)
+      if (nonSpostabile) return errore(nonSpostabile)
+    }
     return {
       pitchPrima,
       dopo: {
         call_id: c.id,
         // the setter never changes the type: modificaCall keeps his call's own
         tipo: chiFaLaCall ? (v.tipo ?? c.tipo) : c.tipo,
-        data: v.data ?? oggiRoma(new Date(c.programmata_il)),
-        ora: v.ora ?? formatOra(c.programmata_il),
+        data,
+        ora,
         closer_id: closer,
         // the closer never rewrites the setter's note (and modifica_call keeps it for him)
         note: ruolo === 'closer' ? c.note : (v.note ?? c.note),
@@ -292,8 +305,8 @@ function call(ctx: Contesto): Definizione {
 
   function controllaEsito(v: Input, callId: string) {
     if (!v.esito) return errore('Dimmi l’esito della call.')
-    // "sposta la call a domani": a new date is an edit, the outcome would drop it
-    if (v.data || v.ora) return errore('L’esito non cambia data e ora: per spostare la call usa azione modifica con data e ora.')
+    // "sposta la call a domani", "è stata riprogrammata a venerdì": a move, never an outcome
+    if (v.data || v.ora) return errore('L’esito non cambia data e ora: per spostare la call usa azione sposta con data e ora.')
     if (chiedeMotivo(v.esito) && v.qualificata === undefined) {
       return errore('Dimmi se il lead era qualificato.')
     }
@@ -308,14 +321,36 @@ function call(ctx: Contesto): Definizione {
     return null
   }
 
+  /**
+   * A move (public.sposta_call): the same checks as the "Sposta" sheet, so the
+   * card stops before the tap. The setter moves a call still to be held, and a
+   * held call never moves.
+   */
+  function controllaSpostamento(v: Input, c: Call) {
+    if (!v.data || !v.ora) return errore('Dimmi il nuovo giorno e l’ora della call.')
+    const nonSpostabile = motivoNonSpostabile(c.stato, ruolo)
+    if (nonSpostabile) return errore(nonSpostabile)
+    const verifica = schemaSpostamento(ruolo === 'admin').safeParse({ call_id: c.id, data: v.data, ora: v.ora })
+    if (!verifica.success) return errore(verifica.error.issues[0]?.message ?? 'Giorno o ora non validi.')
+    if (v.data === oggiRoma(new Date(c.programmata_il)) && v.ora === formatOra(c.programmata_il)) {
+      return errore(SPOSTA.stessoMomento)
+    }
+    return null
+  }
+
+  const sposta =
+    ruolo === 'setter'
+      ? 'sposta = la call passa a un nuovo giorno e ora (data, ora, da oggi in avanti), resta «Spostata dal…»: per «spostala a», «riprogrammata a»; solo una call ancora da fare, una con un esito la sposta il closer. '
+      : `sposta = la stessa call passa a un nuovo giorno e ora (data, ora${
+          ruolo === 'admin' ? ', anche passati' : ', da oggi in avanti'
+        }) e torna da fare senza esito, resta «Spostata dal…»: per «spostala a», «è stata riprogrammata a»; una call svolta non si sposta. `
   const descrizione =
     ruolo === 'setter'
-      ? 'Sposta o corregge una tua call (call_id da call_periodo, o il nome del lead): data, ora, closer, note del setter. Esito, motivo e note aggiuntive li scrive il closer.'
-      : `Una call (call_id da call_periodo, o il nome del lead). modifica: sposta a nuova data e ora (data, ora), tipo${
+      ? `Una tua call (call_id da call_periodo, o il nome del lead). ${sposta}modifica = corregge data e ora sbagliate (senza traccia), closer, note del setter. Esito, motivo e note aggiuntive li scrive il closer.`
+      : `Una call (call_id da call_periodo, o il nome del lead). ${sposta}modifica = corregge data e ora sbagliate (senza traccia), tipo${
           ruolo === 'admin' ? ', closer, note del setter' : ''
         }, note aggiuntive del closer, link, performance, prodotto e importo proposti. esito = come è andata: chiusa, follow_up o persa (con qualificata e motivo di non chiusura, obbligatorio; note_closer facoltative), ` +
-        'no_show, cancellata, riprogrammata (solo se questa call salta e se ne fisserà un’altra; per spostarla usa modifica), ' +
-        'programmata (annulla l’esito); dopo chiusa registra la vendita con registra_vendita e il call_id. ' +
+        'no_show, cancellata, programmata (annulla l’esito); riprogrammata non è un esito: usa sposta. Dopo chiusa registra la vendita con registra_vendita e il call_id. ' +
         `Lo stato del lead in pipeline non cambia da solo: lead stato.${ruolo === 'admin' ? ' elimina.' : ''}`
 
   return definizione({
@@ -348,6 +383,23 @@ function call(ctx: Contesto): Definizione {
         ])
       }
       if (v.azione === 'elimina') return anteprima(`Elimino la call con ${chi}`, [...CONSEGUENZE.call])
+      if (v.azione === 'sposta') {
+        const manca = controllaSpostamento(v, c)
+        if (manca) return manca
+        const daFare = c.stato === 'programmata'
+        const ora = c.esito ? ETICHETTA_ESITO[c.esito as SceltaEsito] : (ETICHETTA_ESITO[c.stato as SceltaEsito] ?? c.stato)
+        return anteprima(
+          `Sposto la call di ${c.lead?.nome ?? v.lead} dal ${quandoBreve(c.programmata_il)} al ${quandoBreveDa(v.data as string, v.ora as string)}`,
+          [
+            // moving clears the outcome: the call is to be held again on its new day
+            daFare ? null : `Esito: ${ora} → ${ETICHETTA_ESITO.programmata.toLowerCase()}`,
+            !daFare && c.obiezione_principale?.trim()
+              ? `${MOTIVO_NON_CHIUSURA.titolo}: ${breve(c.obiezione_principale)} → ${MOTIVO_NON_CHIUSURA.tolto}`
+              : null,
+            `Sulla scheda: «Spostata dal ${quandoBreve(c.programmata_il)}»`,
+          ],
+        )
+      }
       const u = await unisci(v, c)
       if (isErrore(u)) return u
       const nomi = await r.nomi([c.closer_id, u.dopo.closer_id])
@@ -403,6 +455,12 @@ function call(ctx: Contesto): Definizione {
       }
       if (v.azione === 'elimina') {
         const esito = await eliminaCall({ id: c.id })
+        return esito.ok ? { fatto: true, link: '/calls' } : errore(esito.errore)
+      }
+      if (v.azione === 'sposta') {
+        const manca = controllaSpostamento(v, c)
+        if (manca) return manca
+        const esito = await spostaCall({ call_id: c.id, data: v.data, ora: v.ora })
         return esito.ok ? { fatto: true, link: '/calls' } : errore(esito.errore)
       }
       const u = await unisci(v, c)
