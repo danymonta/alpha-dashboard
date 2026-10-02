@@ -632,8 +632,9 @@ describe('azioni per ruolo: il modello vede solo quelle che la persona può fare
   })
 
   it('sulla call con un esito il setter scrive le sue note, ma data e ora restano (Dany, 02/10/2026)', async () => {
+    // a held call: nobody moves it, and the setter reads who corrects the outcome
     expect(await anteprima('call', { azione: 'modifica', lead: 'Luca Neri', data: '2026-10-05', ora: '18:30' }, 'setter')).toEqual({
-      errore: SPOSTA.setterConEsito,
+      errore: SPOSTA.setterSvolta,
     })
     await esegui(strumenti('setter', 'employee'), 'call', { azione: 'modifica', lead: 'Luca Neri', ora: '18:30' })
     expect(a.modificaCall).not.toHaveBeenCalled()
@@ -2067,19 +2068,21 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
       return righe
     }
 
-    const noShow = () => {
+    const conStato = (stato: 'no_show' | 'cancellata') => () => {
       const righe = mondo()
-      righe.calls = [{ ...righe.calls[0], stato: 'no_show', esito: null, qualificata: null, obiezione_principale: null }]
+      righe.calls = [{ ...righe.calls[0], stato, esito: null, qualificata: null, obiezione_principale: null }]
       return righe
     }
+    const noShow = conStato('no_show')
+    const cancellata = conStato('cancellata')
 
     it('la scheda dice da quando a quando, e che l’esito si toglie', async () => {
-      const p = await anteprima('call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' }, 'closer', noShow())
+      const p = await anteprima('call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' }, 'closer', cancellata())
       expect(p).toMatchObject({
         titolo: `Sposto la call di Luca Neri dal ${quandoBreve('2026-09-28T13:00:00Z')} al ${quandoBreveDa(domani, '18:00')}`,
-        righe: ['Esito: No show → da fare', `Sulla scheda: «Spostata dal ${quandoBreve('2026-09-28T13:00:00Z')}»`],
+        righe: ['Esito: Cancellata → da fare', `Sulla scheda: «Spostata dal ${quandoBreve('2026-09-28T13:00:00Z')}»`],
       })
-      await esegui(strumenti('closer', 'employee', noShow()), 'call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' })
+      await esegui(strumenti('closer', 'employee', cancellata()), 'call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' })
       expect(a.spostaCall).toHaveBeenCalledWith({ call_id: CALL, data: domani, ora: '18:00' })
       expect(a.modificaCall).not.toHaveBeenCalled()
       expect(a.registraEsito).not.toHaveBeenCalled()
@@ -2091,9 +2094,72 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
           errore: SPOSTA.svolta,
         })
       }
+      // the setter reads who corrects the outcome, never «la sposta lui»
+      expect(await anteprima('call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' }, 'setter')).toEqual({
+        errore: SPOSTA.setterSvolta,
+      })
       await esegui(strumenti('closer', 'employee'), 'call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' })
       await esegui(strumenti(), 'call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' })
+      await esegui(strumenti('setter', 'employee'), 'call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' })
       expect(a.spostaCall).not.toHaveBeenCalled()
+    })
+
+    it('un no show non si sposta, per nessuno: resta nello show rate (Dany, 02/10/2026)', async () => {
+      const ieri = aggiungiGiorni(oggiRoma(), -1)
+      for (const [ruolo, frase] of [
+        ['closer', SPOSTA.noShow],
+        ['admin', SPOSTA.noShow],
+        ['setter', SPOSTA.setterNoShow],
+      ] as const) {
+        // the card stops before the tap, whatever the day (the admin also moves to the past)
+        for (const giorno of [domani, ieri]) {
+          expect(await anteprima('call', { azione: 'sposta', lead: 'Luca Neri', data: giorno, ora: '18:00' }, ruolo, noShow()), ruolo).toEqual({
+            errore: frase,
+          })
+        }
+        await esegui(strumenti(ruolo, 'employee', noShow()), 'call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' })
+      }
+      expect(a.spostaCall).not.toHaveBeenCalled()
+      // «è stata riprogrammata» is a move too: the outcome never carries a new day
+      expect(
+        await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'programmata', data: domani, ora: '18:00' }, 'closer', noShow()),
+      ).toEqual({ errore: 'L’esito non cambia data e ora: per spostare la call usa azione sposta con data e ora.' })
+      // the description says it to the model, for every role
+      for (const ruolo of ['closer', 'admin'] as const) {
+        expect(strumenti(ruolo, 'employee').call.description, ruolo).toContain('una call svolta o un no show non si spostano')
+      }
+      expect(strumenti('setter', 'employee').call.description).toContain('una svolta o un no show non si spostano')
+    })
+
+    it('nemmeno «modifica» sposta un no show, per nessuno; la data di una svolta closer e admin la correggono ancora', async () => {
+      for (const [ruolo, frase] of [
+        ['closer', SPOSTA.noShow],
+        ['admin', SPOSTA.noShow],
+        ['setter', SPOSTA.setterNoShow],
+      ] as const) {
+        // another day, or another time of the same day: the card stops before the tap
+        for (const cambio of [{ data: domani }, { ora: '18:30' }]) {
+          expect(await anteprima('call', { azione: 'modifica', lead: 'Luca Neri', ...cambio }, ruolo, noShow()), ruolo).toEqual({
+            errore: frase,
+          })
+          await esegui(strumenti(ruolo, 'employee', noShow()), 'call', { azione: 'modifica', lead: 'Luca Neri', ...cambio })
+        }
+      }
+      expect(a.modificaCall).not.toHaveBeenCalled()
+      // the rest of the pencil still writes, with day and time as they are
+      await esegui(strumenti('closer', 'employee', noShow()), 'call', { azione: 'modifica', lead: 'Luca Neri', link_registrazione: 'https://esempio.it/rec' })
+      expect(a.modificaCall).toHaveBeenLastCalledWith(expect.objectContaining({ call_id: CALL, data: '2026-09-28', ora: '15:00' }))
+      // a held call: closer and admin still correct a wrong date (a typo is not a move)
+      await esegui(strumenti('closer', 'employee'), 'call', { azione: 'modifica', lead: 'Luca Neri', data: '2026-09-29' })
+      expect(a.modificaCall).toHaveBeenLastCalledWith(expect.objectContaining({ call_id: CALL, data: '2026-09-29', ora: '15:00' }))
+      // the description says it, and that a real no-show is never undone to move it
+      for (const ruolo of ['closer', 'admin'] as const) {
+        const descrizione = strumenti(ruolo, 'employee').call.description ?? ''
+        expect(descrizione, ruolo).toContain('modifica non cambia data e ora di un no show')
+        expect(descrizione, ruolo).toContain('mai per spostare un no show vero o una call svolta')
+      }
+      expect(strumenti('closer', 'employee').call.description).toContain('che fissa il setter (o l’admin)')
+      expect(strumenti().call.description).toContain('con fissa_call')
     })
 
     it('senza giorno e ora non si sposta; nel passato solo l’admin', async () => {
@@ -2116,7 +2182,7 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
     })
 
     it('il setter sposta una sua call da fare; con un esito la sposta il closer', async () => {
-      expect(await anteprima('call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' }, 'setter')).toEqual({
+      expect(await anteprima('call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' }, 'setter', cancellata())).toEqual({
         errore: SPOSTA.setterConEsito,
       })
       const riprogrammata = mondo()

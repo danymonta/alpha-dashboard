@@ -21,11 +21,39 @@ export const SPOSTA = {
     spiegazione: 'La call passa al nuovo giorno e torna da fare: l’esito lo registri lì.',
     salva: 'Salva la nuova data',
   },
-  /** The setter moves a call still to be held: the same words as public.sposta_call. */
+  /**
+   * The setter moves a call still to be held: the same words as public.sposta_call
+   * and calls_esito_solo_closer. A cancelled call, or one marked riprogrammata,
+   * the closer (or the admin) moves.
+   */
   setterRiprogrammata: 'Questa call è segnata come riprogrammata: la nuova data la mette il closer (o l’admin)',
   setterConEsito: 'Questa call ha già un esito del closer: la sposta lui (o l’admin)',
-  /** A held call never moves, for anyone (public.sposta_call): it happened, a closed one may have its sale. */
-  svolta: 'Questa call è stata fatta: non si sposta. Se l’esito è sbagliato annullalo prima; per rivedere il lead serve una nuova call',
+  /**
+   * A held call and a no-show never move, for anyone (public.sposta_call,
+   * Dany 02/10/2026): the held one happened (a closed one may have its sale),
+   * the no-show stays in its day's show rate. A wrong outcome is undone first
+   * («Annulla l’esito»); the new call is booked by the setter or the admin.
+   */
+  svolta:
+    'Questa call è stata fatta: non si sposta. Se l’esito è sbagliato annullalo prima; per rivedere il lead serve una nuova call, che fissa il setter (o l’admin)',
+  noShow:
+    'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato annullalo prima; per rivederlo serve una nuova call, che fissa il setter (o l’admin)',
+  /** The same for the setter: he never undoes an outcome, and he books the new call himself. */
+  setterSvolta:
+    'Questa call è stata fatta: non si sposta. Se l’esito è sbagliato lo corregge il closer (o l’admin); per rivedere il lead fissa una nuova call',
+  setterNoShow:
+    'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato lo corregge il closer (o l’admin); per rivederlo fissa una nuova call',
+  /**
+   * The outcome sheet of a held call or a no-show (closer and admin), above
+   * «Annulla l’esito»: why "Riprogrammata" is not there and how to correct a
+   * wrong outcome. Its own words: there the outcome also changes directly.
+   */
+  foglioEsito: {
+    svolta:
+      'Una call svolta non si sposta. Se l’esito è sbagliato annullalo qui sotto, poi sposta la call; per rivedere il lead serve una nuova call, che fissa il setter (o l’admin).',
+    noShow:
+      'Un no show non si sposta: resta nel suo giorno e nello show rate. Se l’esito è sbagliato annullalo qui sotto, poi sposta la call; per rivedere il lead serve una nuova call, che fissa il setter (o l’admin).',
+  },
   stessoMomento: 'La call è già a quel giorno e a quell’ora: scegline un altro',
   /** The calls marked "Riprogrammata" before the move existed: still without their new day. */
   daSpostare: {
@@ -35,15 +63,49 @@ export const SPOSTA = {
 } as const
 
 /**
+ * The states a call never moves from, for anyone (public.sposta_call): a held
+ * call and a no-show. "Sposta" never shows on them and the outcome sheet does
+ * not offer "Riprogrammata": it says why (avvisoEsitoFermo).
+ */
+export const STATI_FERMI = ['svolta', 'no_show'] as const
+
+export function restaNelSuoGiorno(stato: string): boolean {
+  return (STATI_FERMI as readonly string[]).includes(stato)
+}
+
+/**
  * Who moves a call in this state (public.sposta_call, calls_esito_solo_closer):
- * nobody a held one; the setter only one still to be held. Null when the move
- * is allowed, otherwise the words that say why not.
+ * nobody a held one or a no-show; the setter only one still to be held. Null
+ * when the move is allowed, otherwise the words that say why not.
  */
 export function motivoNonSpostabile(stato: string, ruolo: string): string | null {
-  if (ruolo === 'setter' && stato !== 'programmata') {
+  const setter = ruolo === 'setter'
+  if (stato === 'svolta') return setter ? SPOSTA.setterSvolta : SPOSTA.svolta
+  if (stato === 'no_show') return setter ? SPOSTA.setterNoShow : SPOSTA.noShow
+  if (setter && stato !== 'programmata') {
     return stato === 'riprogrammata' ? SPOSTA.setterRiprogrammata : SPOSTA.setterConEsito
   }
-  return stato === 'svolta' ? SPOSTA.svolta : null
+  return null
+}
+
+/** The outcome sheet's words on a call that never moves (SPOSTA.foglioEsito); null when it moves. */
+export function avvisoEsitoFermo(stato: string): string | null {
+  if (stato === 'svolta') return SPOSTA.foglioEsito.svolta
+  if (stato === 'no_show') return SPOSTA.foglioEsito.noShow
+  return null
+}
+
+/**
+ * Why the pencil (modifica_call) keeps date and time read only, null when they
+ * change (calls_esito_solo_closer): the setter's on every call not to be held
+ * any more, as for "Sposta"; everyone's on a no-show, the admin included, or
+ * the pencil would take it out of its day's show rate (Dany, 02/10/2026). A
+ * held call's date and time the closer and the admin still correct: a typo is
+ * not a move.
+ */
+export function motivoQuandoBloccato(stato: string, ruolo: string): string | null {
+  if (ruolo === 'setter') return motivoNonSpostabile(stato, ruolo)
+  return stato === 'no_show' ? SPOSTA.noShow : null
 }
 
 /** "03/10 alle 18:00" from a day and a time; "30/12/2025 alle 18:00" outside the current year. */

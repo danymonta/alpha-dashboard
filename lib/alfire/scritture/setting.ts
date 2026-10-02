@@ -9,7 +9,7 @@ import { aggiungiReport, correggiReport, eliminaReport } from '@/app/(app)/setti
 import { salvaReportGiornaliero } from '@/app/(app)/today/actions'
 import { breve, cambi, cambio } from '@/lib/alfire/cambi'
 import { CONSEGUENZE } from '@/lib/alfire/conseguenze'
-import { SPOSTA, motivoNonSpostabile, quandoBreve, quandoBreveDa } from '@/lib/call/spostamento'
+import { SPOSTA, motivoNonSpostabile, motivoQuandoBloccato, quandoBreve, quandoBreveDa } from '@/lib/call/spostamento'
 import type { Anteprima } from '@/lib/alfire/riassunto'
 import { errore, isErrore, isIo, quandoCall, trova, type Call } from '@/lib/alfire/risolvi'
 import {
@@ -275,10 +275,11 @@ function call(ctx: Contesto): Definizione {
     }
     const data = v.data ?? oggiRoma(new Date(c.programmata_il))
     const ora = v.ora ?? formatOra(c.programmata_il)
-    // the setter's pencil never moves a call with an outcome (calls_esito_solo_closer)
-    if (ruolo === 'setter' && (data !== oggiRoma(new Date(c.programmata_il)) || ora !== formatOra(c.programmata_il))) {
-      const nonSpostabile = motivoNonSpostabile(c.stato, ruolo)
-      if (nonSpostabile) return errore(nonSpostabile)
+    // the pencil never moves a no-show, for anyone, nor the setter's a call
+    // with an outcome (calls_esito_solo_closer): the card stops before the tap
+    if (data !== oggiRoma(new Date(c.programmata_il)) || ora !== formatOra(c.programmata_il)) {
+      const bloccato = motivoQuandoBloccato(c.stato, ruolo)
+      if (bloccato) return errore(bloccato)
     }
     return {
       pitchPrima,
@@ -324,7 +325,7 @@ function call(ctx: Contesto): Definizione {
   /**
    * A move (public.sposta_call): the same checks as the "Sposta" sheet, so the
    * card stops before the tap. The setter moves a call still to be held, and a
-   * held call never moves.
+   * held call or a no-show never moves, for anyone (Dany, 02/10/2026).
    */
   function controllaSpostamento(v: Input, c: Call) {
     if (!v.data || !v.ora) return errore('Dimmi il nuovo giorno e l’ora della call.')
@@ -340,17 +341,19 @@ function call(ctx: Contesto): Definizione {
 
   const sposta =
     ruolo === 'setter'
-      ? 'sposta = la call passa a un nuovo giorno e ora (data, ora, da oggi in avanti), resta «Spostata dal…»: per «spostala a», «riprogrammata a»; solo una call ancora da fare, una con un esito la sposta il closer. '
+      ? 'sposta = la call passa a un nuovo giorno e ora (data, ora, da oggi in avanti), resta «Spostata dal…»: per «spostala a», «riprogrammata a»; solo una call ancora da fare: una svolta o un no show non si spostano, le altre con un esito le sposta il closer. '
       : `sposta = la stessa call passa a un nuovo giorno e ora (data, ora${
           ruolo === 'admin' ? ', anche passati' : ', da oggi in avanti'
-        }) e torna da fare senza esito, resta «Spostata dal…»: per «spostala a», «è stata riprogrammata a»; una call svolta non si sposta. `
+        }) e torna da fare senza esito, resta «Spostata dal…»: per «spostala a», «è stata riprogrammata a»; una call svolta o un no show non si spostano, e modifica non cambia data e ora di un no show: per rivedere il lead serve una nuova call, ${
+          ruolo === 'admin' ? 'con fissa_call' : 'che fissa il setter (o l’admin)'
+        }. `
   const descrizione =
     ruolo === 'setter'
       ? `Una tua call (call_id da call_periodo, o il nome del lead). ${sposta}modifica = corregge data e ora sbagliate (senza traccia), closer, note del setter. Esito, motivo e note aggiuntive li scrive il closer.`
       : `Una call (call_id da call_periodo, o il nome del lead). ${sposta}modifica = corregge data e ora sbagliate (senza traccia), tipo${
           ruolo === 'admin' ? ', closer, note del setter' : ''
         }, note aggiuntive del closer, link, performance, prodotto e importo proposti. esito = come è andata: chiusa, follow_up o persa (con qualificata e motivo di non chiusura, obbligatorio; note_closer facoltative), ` +
-        'no_show, cancellata, programmata (annulla l’esito); riprogrammata non è un esito: usa sposta. Dopo chiusa registra la vendita con registra_vendita e il call_id. ' +
+        'no_show, cancellata, programmata (annulla l’esito, solo se è sbagliato: mai per spostare un no show vero o una call svolta); riprogrammata non è un esito: usa sposta. Dopo chiusa registra la vendita con registra_vendita e il call_id. ' +
         `Lo stato del lead in pipeline non cambia da solo: lead stato.${ruolo === 'admin' ? ' elimina.' : ''}`
 
   return definizione({

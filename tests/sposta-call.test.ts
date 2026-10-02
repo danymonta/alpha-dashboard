@@ -1,10 +1,16 @@
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it } from 'vitest'
 
 import {
   SPOSTA,
+  STATI_FERMI,
+  avvisoEsitoFermo,
   motivoNonSpostabile,
+  motivoQuandoBloccato,
   quandoBreve,
   quandoBreveDa,
+  restaNelSuoGiorno,
   scorciatoieSpostamento,
   spostamentoPredefinito,
   tracciaSpostamento,
@@ -93,18 +99,87 @@ describe('sposta la call: il foglio e la traccia sulla scheda', () => {
 })
 
 describe('sposta la call: chi sposta quale call', () => {
-  it('una call svolta non si sposta, per nessuno; il setter sposta solo le call da fare', () => {
+  it('una call svolta e un no show non si spostano, per nessuno (Dany, 02/10/2026)', () => {
+    expect(STATI_FERMI).toEqual(['svolta', 'no_show'])
+    for (const stato of ['svolta', 'no_show']) expect(restaNelSuoGiorno(stato), stato).toBe(true)
+    for (const stato of ['programmata', 'riprogrammata', 'cancellata']) expect(restaNelSuoGiorno(stato), stato).toBe(false)
     for (const ruolo of ['admin', 'closer'] as const) {
-      expect(motivoNonSpostabile('programmata', ruolo)).toBeNull()
-      expect(motivoNonSpostabile('riprogrammata', ruolo)).toBeNull()
-      expect(motivoNonSpostabile('no_show', ruolo)).toBeNull()
-      expect(motivoNonSpostabile('cancellata', ruolo)).toBeNull()
       expect(motivoNonSpostabile('svolta', ruolo)).toBe(SPOSTA.svolta)
+      expect(motivoNonSpostabile('no_show', ruolo)).toBe(SPOSTA.noShow)
     }
+    expect(motivoNonSpostabile('svolta', 'setter')).toBe(SPOSTA.setterSvolta)
+    expect(motivoNonSpostabile('no_show', 'setter')).toBe(SPOSTA.setterNoShow)
+  })
+
+  it('closer e admin spostano le call da fare, le cancellate e le riprogrammate', () => {
+    for (const ruolo of ['admin', 'closer'] as const) {
+      for (const stato of ['programmata', 'riprogrammata', 'cancellata']) {
+        expect(motivoNonSpostabile(stato, ruolo), `${ruolo} ${stato}`).toBeNull()
+      }
+    }
+  })
+
+  it('il setter sposta solo le call da fare; le altre con un esito le sposta il closer', () => {
     expect(motivoNonSpostabile('programmata', 'setter')).toBeNull()
     expect(motivoNonSpostabile('riprogrammata', 'setter')).toBe(SPOSTA.setterRiprogrammata)
-    for (const stato of ['svolta', 'no_show', 'cancellata']) {
-      expect(motivoNonSpostabile(stato, 'setter')).toBe(SPOSTA.setterConEsito)
+    expect(motivoNonSpostabile('cancellata', 'setter')).toBe(SPOSTA.setterConEsito)
+  })
+
+  it('le frasi dicono la verità: nessuno sposta una call svolta o un no show, il closer non fissa call', () => {
+    // never "la sposta lui": nobody moves it
+    for (const frase of [SPOSTA.svolta, SPOSTA.noShow, SPOSTA.setterSvolta, SPOSTA.setterNoShow]) {
+      expect(frase).not.toMatch(/la sposta/)
+    }
+    // the closer and the admin undo a wrong outcome; the setter asks them
+    expect(SPOSTA.svolta).toContain('annullalo prima')
+    expect(SPOSTA.noShow).toContain('annullalo prima')
+    expect(SPOSTA.setterSvolta).toContain('lo corregge il closer (o l’admin)')
+    expect(SPOSTA.setterNoShow).toContain('lo corregge il closer (o l’admin)')
+    // the closer books no call: who does is said
+    expect(SPOSTA.svolta).toContain('che fissa il setter (o l’admin)')
+    expect(SPOSTA.noShow).toContain('che fissa il setter (o l’admin)')
+    expect(SPOSTA.setterSvolta).toContain('fissa una nuova call')
+    expect(SPOSTA.setterNoShow).toContain('fissa una nuova call')
+    expect(SPOSTA.noShow).toContain('show rate')
+  })
+
+  it('la matita: il setter corregge data e ora solo delle call da fare, nessuno di un no show', () => {
+    for (const stato of ['programmata', 'riprogrammata', 'cancellata', 'svolta', 'no_show']) {
+      expect(motivoQuandoBloccato(stato, 'setter'), stato).toBe(motivoNonSpostabile(stato, 'setter'))
+    }
+    for (const ruolo of ['admin', 'closer'] as const) {
+      expect(motivoQuandoBloccato('no_show', ruolo), ruolo).toBe(SPOSTA.noShow)
+      // a held call's date closer and admin still correct: a typo is not a move
+      for (const stato of ['programmata', 'riprogrammata', 'cancellata', 'svolta']) {
+        expect(motivoQuandoBloccato(stato, ruolo), `${ruolo} ${stato}`).toBeNull()
+      }
+    }
+  })
+
+  it('il foglio dell’esito dice perché manca «Riprogrammata» e come si corregge', () => {
+    expect(avvisoEsitoFermo('svolta')).toBe(SPOSTA.foglioEsito.svolta)
+    expect(avvisoEsitoFermo('no_show')).toBe(SPOSTA.foglioEsito.noShow)
+    for (const stato of ['programmata', 'riprogrammata', 'cancellata']) expect(avvisoEsitoFermo(stato), stato).toBeNull()
+    for (const frase of Object.values(SPOSTA.foglioEsito)) {
+      expect(frase).toContain('non si sposta')
+      expect(frase).toContain('annullalo qui sotto, poi sposta la call')
+      expect(frase).toContain('che fissa il setter (o l’admin)')
+    }
+    expect(SPOSTA.foglioEsito.noShow).toContain('show rate')
+  })
+
+  it('le stesse parole del database (public.sposta_call, calls_esito_solo_closer), apostrofi compresi', () => {
+    const migration = readFileSync(new URL('../supabase/migrations/20261002120000_no_show_fermo.sql', import.meta.url), 'utf8')
+    for (const frase of [
+      SPOSTA.svolta,
+      SPOSTA.noShow,
+      SPOSTA.setterSvolta,
+      SPOSTA.setterNoShow,
+      SPOSTA.setterRiprogrammata,
+      SPOSTA.setterConEsito,
+      SPOSTA.stessoMomento,
+    ]) {
+      expect(migration, frase).toContain(`'${frase}'`)
     }
   })
 })

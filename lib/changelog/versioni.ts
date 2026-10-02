@@ -80,6 +80,49 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.17.0',
+    data: '2026-10-02',
+    titolo: 'Il progetto riapre al rinnovo, il no show resta fermo',
+    riassunto: 'Quando un cliente rinnova, il suo progetto completato o archiviato torna tra gli attivi col suo coach e i suoi task; un no show non si sposta più, per nessuno, e resta nello show rate del suo giorno.',
+    intestazionePer: ['progetti'],
+    intestazioneTeam: {
+      titolo: 'Il progetto del cliente riapre al rinnovo',
+      riassunto: 'Quando un cliente rinnova, il suo progetto completato o archiviato torna tra gli attivi, col suo coach e i suoi task.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'Quando un cliente rinnova (o torna con una vendita nuova), alla prima rata incassata il suo progetto torna tra gli attivi, se era completato o archiviato: stesso coach, stessi membri, stessi task (quelli completati restano completati). Un progetto in pausa resta in pausa, la seconda rata non riapre un progetto chiuso di nuovo e un upsell non lo riapre mai. Lo stesso se, dopo l’incasso, correggi in rinnovo una vendita salvata come upsell.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Quando un cliente rinnova il percorso, il suo progetto torna tra gli attivi se era completato o archiviato, con lo stesso coach, gli stessi membri e i suoi task; un progetto in pausa resta in pausa. I task completati restano completati: si riaprono con un tocco, per tornare a registrarci il tempo.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Un no show non si sposta più: «Cambia esito» non offre più «Riprogrammata» e nella matita data e ora sono in sola lettura. Il lead non si è presentato e la call resta un no show in quel giorno, così conta nello show rate. Se l’hai segnato per sbaglio, tocca «Annulla l’esito, torna da fare» e poi spostala; per rivedere il lead la nuova call la fissa il setter (o l’admin). Il foglio dell’esito te lo ricorda.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Nemmeno tu sposti un no show: niente «Riprogrammata», e la matita (anche la tua) tiene data e ora in sola lettura, così la call resta nel suo giorno e nello show rate. Se l’esito è sbagliato lo annulli prima. La data di una call svolta la matita la corregge ancora.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Alfire non sposta un no show, nemmeno correggendo la data: te lo dice prima della scheda di conferma, con come correggere un esito sbagliato e chi fissa la nuova call.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['setter'],
+        testo: 'Su una call svolta o no show la matita (e Alfire) ora dicono la cosa giusta: la call non si sposta, l’esito sbagliato lo corregge il closer (o l’admin) e per rivedere il lead fissi una nuova call. Prima dicevano che la spostava il closer.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Su una call svolta la matita non ti rimanda più a «Sposta», che lì non c’è.',
+      },
+    ],
+  },
+  {
     versione: '1.16.0',
     data: '2026-10-02',
     titolo: 'Sposta la call',

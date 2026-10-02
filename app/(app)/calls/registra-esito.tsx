@@ -46,8 +46,13 @@ type Props = {
   giaRegistrata: boolean
   /** A call still to come can only be cancelled here; it moves with «Sposta», beside this button. */
   futura: boolean
-  /** A held call never moves (public.sposta_call): no "Riprogrammata" among its outcomes. */
-  svolta?: boolean
+  /**
+   * A held call or a no-show never moves (public.sposta_call, lib/call/spostamento.ts
+   * restaNelSuoGiorno): no "Riprogrammata" among its outcomes, and these words
+   * (avvisoEsitoFermo) say why, above «Annulla l’esito»: a wrong outcome is
+   * undone first. Null: the call moves.
+   */
+  ferma?: string | null
   /** Where the sale form returns after saving (an internal path): the closer's day. */
   tornaA?: string | null
   /** What is saved now: the sheet opens on them when the outcome changes. */
@@ -88,7 +93,7 @@ export function RegistraEsito({
   descrizione,
   giaRegistrata,
   futura,
-  svolta = false,
+  ferma = null,
   tornaA = null,
   motivo: motivoSalvato = null,
   noteCloser: noteSalvate = null,
@@ -261,7 +266,7 @@ export function RegistraEsito({
             <>
               <div className="grid grid-cols-2 gap-2">
                 {SCELTE.filter(
-                  ({ esito }) => (!futura || SOLO_FUTURE.includes(esito)) && !(svolta && esito === 'riprogrammata'),
+                  ({ esito }) => (!futura || SOLO_FUTURE.includes(esito)) && !(ferma && esito === 'riprogrammata'),
                 ).map(({ esito, Icona }) => (
                   <Button
                     key={esito}
@@ -276,6 +281,11 @@ export function RegistraEsito({
                   </Button>
                 ))}
               </div>
+              {ferma && giaRegistrata ? (
+                <p className="text-xs text-muted-foreground" data-testid="esito-fermo">
+                  {ferma}
+                </p>
+              ) : null}
               {giaRegistrata ? (
                 <Button
                   type="button"

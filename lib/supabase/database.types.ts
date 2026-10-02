@@ -1231,6 +1231,9 @@ isOneToOne: false
 "pm_applica_modello":
 { Args: { "p_autore": string,"p_inizio": string,"p_modello": string,"p_progetto": string }; Returns: undefined
                            },
+"pm_apri_progetto_cliente":
+{ Args: { "p_client_id": string }; Returns: string
+                           },
 "pm_assegnato":
 { Args: { "p_task": string }; Returns: boolean
                            },

@@ -233,5 +233,89 @@ test('una call svolta non si sposta: «Cambia esito» non offre Riprogrammata', 
   const foglio = page.getByRole('dialog')
   await expect(foglio.getByRole('button', { name: 'Persa', exact: true })).toBeVisible()
   await expect(foglio.getByRole('button', { name: 'Riprogrammata', exact: true })).toHaveCount(0)
+  await expect(foglio.getByTestId('esito-fermo')).toHaveText(SPOSTA.foglioEsito.svolta)
+  await page.keyboard.press('Escape')
+  await expect(foglio).toHaveCount(0)
+  // the pencil still corrects a wrong date of a held call, and never points to a «Sposta» that is not there
+  await scheda(page, nome).getByRole('button', { name: `Modifica la call con ${nome}` }).click()
+  const matita = page.getByRole('dialog')
+  await expect(matita.getByLabel('Data')).not.toHaveAttribute('readonly', '')
+  await expect(matita).toContainText('data e ora se sono sbagliate. L’esito si registra dalla scheda.')
+  await expect(matita).not.toContainText('«Sposta»')
   expect(await letta(id)).toMatchObject({ stato: 'svolta', volte_spostata: 0 })
+})
+
+test('un no show non si sposta: niente «Sposta», «Cambia esito» non offre Riprogrammata', async ({ browser }) => {
+  test.setTimeout(90_000)
+  const ieri = aggiungiGiorni(oggiRoma(), -1)
+  const noShow = nomeUnico('NoShow')
+  const svolta = nomeUnico('SvoltaSetter')
+  const { id } = await callAlle(noShow, ieri, '19:00')
+  const { id: idSvolta } = await callAlle(svolta, ieri, '20:00')
+  const db = dbLocale()
+  const { error } = await db.from('calls').update({ stato: 'no_show' }).eq('id', id)
+  if (error) throw error
+  const { error: erroreSvolta } = await db
+    .from('calls')
+    .update({ stato: 'svolta', esito: 'follow_up', qualificata: true, obiezione_principale: 'Ci deve pensare' })
+    .eq('id', idSvolta)
+  if (erroreSvolta) throw erroreSvolta
+
+  // the closer: on his day and in Le mie call, no «Sposta»; the outcome sheet
+  // corrects a wrong no-show (undo first) but never moves it
+  const closer = await (await browser.newContext()).newPage()
+  await closer.setViewportSize({ width: 390, height: 844 })
+  await accedi(closer, 'closer')
+  for (const pagina of [`/setting/closer/giorno?data=${ieri}`, '/calls']) {
+    await closer.goto(pagina)
+    await expect(scheda(closer, noShow)).toContainText('No show')
+    await expect(scheda(closer, noShow).getByRole('button', { name: `Sposta la call con ${noShow}` })).toHaveCount(0)
+  }
+  await scheda(closer, noShow).getByRole('button', { name: 'Cambia esito' }).click()
+  const foglio = closer.getByRole('dialog')
+  await expect(foglio.getByRole('button', { name: 'No show', exact: true })).toBeVisible()
+  await expect(foglio.getByRole('button', { name: 'Cancellata', exact: true })).toBeVisible()
+  await expect(foglio.getByRole('button', { name: 'Riprogrammata', exact: true })).toHaveCount(0)
+  await expect(foglio.getByTestId('esito-fermo')).toHaveText(SPOSTA.foglioEsito.noShow)
+  await expect(foglio.getByRole('button', { name: 'Annulla l’esito, torna da fare' })).toBeVisible()
+  await closer.keyboard.press('Escape')
+  await expect(foglio).toHaveCount(0)
+  // nor the pencil: date and time read only, the reason under them
+  await scheda(closer, noShow).getByRole('button', { name: `Modifica la call con ${noShow}` }).click()
+  const matitaCloser = closer.getByRole('dialog')
+  await expect(matitaCloser.getByLabel('Data')).toHaveAttribute('readonly', '')
+  await expect(matitaCloser.getByLabel('Ora')).toHaveAttribute('readonly', '')
+  await expect(matitaCloser.getByTestId('quando-bloccato')).toHaveText(SPOSTA.noShow)
+  await expect(matitaCloser).not.toContainText('«Sposta»')
+  // the rest still saves, and the no-show stays where it is
+  await matitaCloser.getByLabel('Link alla registrazione').fill('https://esempio.it/registrazione')
+  await matitaCloser.getByRole('button', { name: 'Salva la call' }).click()
+  await expect(closer.getByText('Call aggiornata')).toBeVisible()
+  // 390px: the sheets never scroll the page sideways
+  expect(await closer.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await closer.context().close()
+
+  // the setter: no «Sposta» either, and his pencil says why in his words:
+  // nobody moves it, the closer corrects a wrong outcome, he books a new call
+  const setter = await (await browser.newContext()).newPage()
+  await accedi(setter, 'setter')
+  await setter.goto('/calls')
+  for (const [nome, frase] of [
+    [noShow, SPOSTA.setterNoShow],
+    [svolta, SPOSTA.setterSvolta],
+  ] as const) {
+    await expect(scheda(setter, nome).getByRole('button', { name: `Sposta la call con ${nome}` })).toHaveCount(0)
+    await scheda(setter, nome).getByRole('button', { name: `Modifica la call con ${nome}` }).click()
+    const matita = setter.getByRole('dialog')
+    await expect(matita.getByLabel('Data')).toHaveAttribute('readonly', '')
+    await expect(matita.getByTestId('quando-bloccato')).toHaveText(frase)
+    await setter.keyboard.press('Escape')
+    await expect(matita).toHaveCount(0)
+  }
+  await setter.context().close()
+
+  const dopo = await letta(id)
+  expect(dopo).toMatchObject({ stato: 'no_show', volte_spostata: 0 })
+  expect(new Date(dopo.programmata_il).toISOString()).toBe(istanteRoma(ieri, '19:00'))
+  expect(await letta(idSvolta)).toMatchObject({ stato: 'svolta', volte_spostata: 0 })
 })

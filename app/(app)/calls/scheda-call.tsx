@@ -4,7 +4,7 @@ import { ModificaCall } from '@/app/(app)/calls/modifica-call'
 import { RegistraEsito } from '@/app/(app)/calls/registra-esito'
 import { SpostaCall } from '@/app/(app)/calls/sposta-call'
 import { StatoCall } from '@/components/call/stato-call'
-import { motivoNonSpostabile, tracciaSpostamento } from '@/lib/call/spostamento'
+import { avvisoEsitoFermo, motivoQuandoBloccato, tracciaSpostamento } from '@/lib/call/spostamento'
 import { etichettaGiorno, etichettaGiornoBreve, formatOra, oggiRoma } from '@/lib/date'
 import { MOTIVO_NON_CHIUSURA, NOTE_CLOSER, NOTE_SETTER } from '@/lib/setting/commento'
 import type { Database } from '@/lib/supabase/database.types'
@@ -95,9 +95,11 @@ export function SchedaCall({
   )
   const descrizione = `${ETICHETTA_TIPO_CALL[call.tipo]} · ${etichettaGiorno(giorno, oggi).toLowerCase()} alle ${ora}`
   const traccia = tracciaSpostamento(call, oggi)
+  const ruolo = vista === 'setter' ? 'setter' : admin ? 'admin' : 'closer'
   // "Sposta" (Dany, 02/10/2026): a call still to be held, or one marked
   // "Riprogrammata" before the move existed. The setter moves only the first:
-  // an outcome is the closer's, and moving a call clears it.
+  // an outcome is the closer's, and moving a call clears it. A held call and a
+  // no-show never move, for anyone (restaNelSuoGiorno): they are neither.
   const spostabile = call.stato === 'programmata' || (vista === 'closer' && call.stato === 'riprogrammata')
   const sposta = spostabile ? (
     <SpostaCall
@@ -173,7 +175,9 @@ export function SchedaCall({
             prodotti={prodotti}
             conDettagli={vista === 'closer'}
             noteSetterModificabili={vista === 'setter' || admin}
-            quandoBloccato={vista === 'setter' ? motivoNonSpostabile(call.stato, 'setter') : null}
+            // the setter's on any call not to be held any more, everyone's on a no-show
+            quandoBloccato={motivoQuandoBloccato(call.stato, ruolo)}
+            conSposta={sposta !== null}
             eliminabile={eliminabile}
           />
         </div>
@@ -192,7 +196,7 @@ export function SchedaCall({
                 descrizione={descrizione}
                 giaRegistrata={call.stato !== 'programmata'}
                 futura={!passata}
-                svolta={call.stato === 'svolta'}
+                ferma={avvisoEsitoFermo(call.stato)}
                 tornaA={tornaA}
                 motivo={call.obiezione_principale ?? null}
                 noteCloser={call.note_closer}

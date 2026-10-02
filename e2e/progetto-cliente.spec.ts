@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { aggiungiGiorni, oggiRoma } from '../lib/date'
 import { formatData } from '../lib/format'
-import { ID_ADMIN, ID_COACH, dbLocale, pulisciVendite } from './db'
+import { ID_ADMIN, ID_COACH, creaClienteConVendita, dbLocale, pulisciVendite } from './db'
 import { accedi } from './utenti'
 
 /**
@@ -172,6 +172,93 @@ test('un upsell incassato non apre nessun progetto', async ({ page }) => {
   expect(await progettiDelCliente(cliente.id)).toHaveLength(0)
   await page.goto(`/clients/${cliente.id}`)
   await expect(page.getByTestId('progetto-cliente')).toHaveCount(0)
+})
+
+test('al rinnovo il progetto chiuso dal coach torna tra gli attivi, col suo coach e i suoi task, alla prima rata incassata', async ({
+  page,
+  browser,
+}) => {
+  // two people and a renewal: longer than one screen
+  test.setTimeout(60_000)
+  // a client whose first path is over, with the project the app made for it at the first cashed instalment
+  const nome = `${PREFISSO}${Date.now()}`
+  const clienteId = await creaClienteConVendita(nome, ID_ADMIN)
+  const db = dbLocale()
+  const { data: progettoId, error } = await db.rpc('pm_crea_progetto_cliente', { p_client_id: clienteId })
+  if (error) throw error
+  const statoProgetto = async () => {
+    const { data, error } = await db.from('pm_progetti').select('stato').eq('id', progettoId!).single()
+    if (error) throw error
+    return data.stato
+  }
+  const voce = (p: Page) => p.getByRole('link', { name: new RegExp(`${nome} Rinnovo`) })
+
+  // the admin picks the coach
+  await accedi(page, 'admin')
+  await page.goto(`/progetti/${progettoId}`)
+  await page.getByRole('button', { name: 'Scegli il coach' }).click()
+  await page.getByRole('dialog', { name: 'Scegli il coach' }).getByRole('button', { name: /^Marco Coach/ }).click()
+  await expect(page.getByTestId('coach-del-cliente')).toContainText('Coach: Marco Coach')
+
+  // at the end of the path the coach has completed the 8 tasks, then closes the project
+  const { error: e1 } = await db.from('pm_task').update({ stato: 'completato' }).eq('progetto_id', progettoId!)
+  if (e1) throw e1
+  const coach = await (await browser.newContext()).newPage()
+  await accedi(coach, 'coach')
+  await coach.goto(`/progetti/${progettoId}`)
+  await coach.getByRole('button', { name: 'Modifica', exact: true }).click()
+  await scegli(coach, 'Completato')
+  await coach.getByRole('dialog').getByRole('button', { name: 'Salva il progetto' }).click()
+  await expect.poll(statoProgetto).toBe('completato')
+
+  // closed: out of the default list of projects, under "Completati"
+  await page.goto('/progetti')
+  await expect(page.getByRole('heading', { level: 1, name: 'Progetti' })).toBeVisible()
+  await expect(voce(page)).toHaveCount(0)
+  await page.goto('/progetti?stato=completati')
+  await expect(voce(page)).toBeVisible()
+
+  // "Ha rinnovato": the renewal signed, nothing paid yet, the project stays closed
+  await page.goto(`/clients/${clienteId}`)
+  await page.getByRole('link', { name: 'Ha rinnovato' }).click()
+  await expect(page).toHaveURL(`/sales/new?cliente=${clienteId}&tipo=rinnovo`)
+  await expect(page.getByRole('radio', { name: 'Rinnovo' })).toBeChecked()
+  await expect(page.getByRole('radio', { name: /Percorso Alpha 3 mesi/ })).toBeChecked()
+  await page.getByRole('button', { name: 'Registra vendita' }).click()
+  await expect(page).toHaveURL(`/clients/${clienteId}`)
+  await expect(page.getByText('Rinnovo registrato')).toBeVisible()
+  expect(await statoProgetto()).toBe('completato')
+
+  // the first instalment of the renewal, cashed from the client's history: the project is active again
+  const rata1 = page.getByTestId('storico-percorsi').getByRole('listitem', { name: 'Rinnovo 1 rata 1', exact: true })
+  await rata1.getByRole('button', { name: 'Segna incassata' }).click()
+  await expect(page.getByText(/Rata 1 incassata/)).toBeVisible()
+  await expect.poll(statoProgetto).toBe('attivo')
+  await expect(page.getByTestId('progetto-cliente')).toContainText('Marco Coach')
+
+  // back in the default list of projects, with the dates of the renewal
+  const { data: rinnovo } = await db.from('sales').select('data_fine').eq('client_id', clienteId).eq('tipo', 'rinnovo').single()
+  await page.goto('/progetti')
+  await expect(voce(page)).toBeVisible()
+  await voce(page).click()
+  await expect(page).toHaveURL(`/progetti/${progettoId}`)
+  await expect(page.getByText(/Fitness Coaching · Attivo/)).toBeVisible()
+  await expect(page.getByText(new RegExp(`→ ${formatData(rinnovo!.data_fine)}`))).toBeVisible()
+  await expect(page.getByTestId('coach-del-cliente')).toContainText('Coach: Marco Coach')
+
+  // the coach finds it among his active projects, with its 8 tasks still completed
+  await coach.goto('/progetti')
+  await expect(voce(coach)).toBeVisible()
+  await coach.goto(`/progetti/${progettoId}/attivita`)
+  await expect(coach.getByTestId('task')).toHaveCount(8)
+  await expect(coach.getByRole('checkbox', { name: /^Riapri / })).toHaveCount(8)
+
+  // one tap reopens the one he needs, and it is back in his tasks
+  await coach.getByRole('checkbox', { name: 'Riapri Call di check' }).click()
+  await expect(coach.getByText('Task riaperto')).toBeVisible()
+  await coach.goto('/task')
+  await expect(coach.getByRole('listitem', { name: 'Call di check' }).filter({ hasText: `${nome} Rinnovo` })).toBeVisible()
+  await coach.context().close()
 })
 
 test('in Impostazioni il modello dei nuovi clienti si riconosce, con le 8 attività senza date', async ({ page }) => {

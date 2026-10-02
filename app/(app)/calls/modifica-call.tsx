@@ -75,6 +75,7 @@ export function ModificaCall({
   sceltaTipo = conDettagli,
   noteSetterModificabili = true,
   quandoBloccato = null,
+  conSposta = false,
   eliminabile = false,
 }: {
   call: CallModificabile
@@ -97,10 +98,13 @@ export function ModificaCall({
   noteSetterModificabili?: boolean
   /**
    * Why date and time are read only here (lib/call/spostamento.ts,
-   * motivoNonSpostabile): the setter never moves a call with an outcome, or
-   * marked "Riprogrammata"; the database refuses it too. Null: they can change.
+   * motivoQuandoBloccato): the setter never moves a call with an outcome, or
+   * marked "Riprogrammata", and nobody a no-show; the database refuses it too.
+   * Null: they can change.
    */
   quandoBloccato?: string | null
+  /** The card has "Sposta": only then the description points to it. */
+  conSposta?: boolean
   /** Admin only. */
   eliminabile?: boolean
 }) {
@@ -141,13 +145,10 @@ export function ModificaCall({
       }
       contenutoTrigger={<Pencil className="size-4" aria-hidden="true" />}
       titolo={`Call con ${nomeLead}`}
-      descrizione={
-        conDettagli
-          ? `${sceltaTipo ? 'Tipo e note' : 'Le note'} si correggono quando vuoi, data e ora se sono sbagliate: per spostare la call usa «Sposta». L’esito si registra dalla scheda.`
-          : quandoBloccato
-            ? `Le tue note si correggono quando vuoi. ${ESITO_DEL_CLOSER}`
-            : `Le tue note si correggono quando vuoi, data e ora se sono sbagliate: per spostare la call usa «Sposta». ${ESITO_DEL_CLOSER}`
-      }
+      descrizione={`${conDettagli ? (sceltaTipo ? 'Tipo e note' : 'Le note') : 'Le tue note'} si correggono quando vuoi${
+        // read only: the reason sits under them; «Sposta» only where the card has it
+        quandoBloccato ? '' : `, data e ora se sono sbagliate${conSposta ? ': per spostare la call usa «Sposta»' : ''}`
+      }. ${conDettagli ? 'L’esito si registra dalla scheda.' : ESITO_DEL_CLOSER}`}
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="grid grid-cols-2 gap-2">

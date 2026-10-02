@@ -2,15 +2,18 @@
 -- time, still to be held again, with the trace of where it came from and how
 -- many times it moved. sposta_call is the one path: the closer moves his
 -- calls, the admin any (also to the past), the setter the calls he booked
--- while they are still to be held; a held call never moves. The setter's
--- pencil and direct updates never move a call with an outcome either, and
--- only a real move writes the trace. created_at never changes; the call's
+-- while they are still to be held; a held call and a no-show never move, for
+-- anyone (20261002120000), cancelled calls and the ones marked riprogrammata
+-- still do. The setter's pencil and direct updates never move a call with an
+-- outcome either, and nobody's a no-show (the admin included); closer and
+-- admin still correct a held call's date with the pencil. Only a real move
+-- writes the trace. created_at never changes; the call's
 -- numbers follow programmata_il, so the old day loses it.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(59);
+select plan(86);
 
 -- ---------------------------------------------------------------------------
 -- Schema
@@ -44,7 +47,11 @@ insert into public.leads (id, nome, setter_id, fonte) values
   ('48480000-0000-4000-8000-000000000004', 'Lead Persa', '22222222-2222-4222-8222-222222222222', 'dm_inbound'),
   ('48480000-0000-4000-8000-000000000005', 'Lead Dell Admin', '11111111-1111-4111-8111-111111111111', 'referral'),
   ('48480000-0000-4000-8000-000000000006', 'Lead Riprogrammata Due', '22222222-2222-4222-8222-222222222222', 'dm_inbound'),
-  ('48480000-0000-4000-8000-000000000007', 'Lead Svolta', '22222222-2222-4222-8222-222222222222', 'dm_inbound');
+  ('48480000-0000-4000-8000-000000000007', 'Lead Svolta', '22222222-2222-4222-8222-222222222222', 'dm_inbound'),
+  ('48480000-0000-4000-8000-000000000008', 'Lead Cancellata', '22222222-2222-4222-8222-222222222222', 'dm_inbound'),
+  ('48480000-0000-4000-8000-000000000009', 'Lead Cancellata Due', '22222222-2222-4222-8222-222222222222', 'dm_outbound'),
+  ('48480000-0000-4000-8000-000000000010', 'Lead No Show Matita', '22222222-2222-4222-8222-222222222222', 'dm_inbound'),
+  ('48480000-0000-4000-8000-000000000011', 'Lead Svolta Matita', '22222222-2222-4222-8222-222222222222', 'dm_inbound');
 
 insert into public.calls
   (id, lead_id, setter_id, closer_id, tipo, programmata_il, stato, qualificata, esito, obiezione_principale, note, note_closer, created_at)
@@ -73,7 +80,20 @@ values
   ('48481111-0000-4000-8000-000000000007', '48480000-0000-4000-8000-000000000007',
    '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333', 'discovery',
    -- booked with seconds (an import, a script): the pencil sends day and time
-   '2019-06-16 17:00:42+00', 'svolta', true, 'follow_up', 'Ci deve pensare', null, null, '2019-06-07 10:00:00+00');
+   '2019-06-16 17:00:42+00', 'svolta', true, 'follow_up', 'Ci deve pensare', null, null, '2019-06-07 10:00:00+00'),
+  ('48481111-0000-4000-8000-000000000008', '48480000-0000-4000-8000-000000000008',
+   '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333', 'discovery',
+   '2019-06-18 17:00:00+00', 'cancellata', null, null, null, null, null, '2019-06-08 10:00:00+00'),
+  ('48481111-0000-4000-8000-000000000009', '48480000-0000-4000-8000-000000000009',
+   '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333', 'discovery',
+   '2019-06-19 17:00:00+00', 'cancellata', null, null, null, null, null, '2019-06-09 10:00:00+00'),
+  -- the pencil and direct updates on a no-show and on a held call
+  ('48481111-0000-4000-8000-000000000010', '48480000-0000-4000-8000-000000000010',
+   '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333', 'discovery',
+   '2019-06-20 17:00:00+00', 'no_show', null, null, null, null, null, '2019-06-10 10:00:00+00'),
+  ('48481111-0000-4000-8000-000000000011', '48480000-0000-4000-8000-000000000011',
+   '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333', 'discovery',
+   '2019-06-21 17:00:00+00', 'svolta', true, 'persa', 'Fuori budget', null, null, '2019-06-11 10:00:00+00');
 
 select is(
   (select row(spostata_dal, volte_spostata)::text from public.calls where id = '48481111-0000-4000-8000-000000000001'),
@@ -89,6 +109,11 @@ select throws_ok(
   $$ update public.calls set spostata_dal = now() where id = '48481111-0000-4000-8000-000000000001' $$,
   '23514', null,
   'e una call mai spostata non ha un''origine'
+);
+-- no session (the seed, the imports, the service role): a no-show's date still changes
+select lives_ok(
+  $$ update public.calls set programmata_il = '2019-06-20 17:30:00+00' where id = '48481111-0000-4000-8000-000000000010' $$,
+  'senza sessione (seed, import) la data di un no show si corregge ancora'
 );
 
 set local role authenticated;
@@ -132,24 +157,40 @@ select is(
   1,
   'prima della mossa il no show conta nel suo giorno'
 );
-select lives_ok(
+-- a no-show never moves (Dany, 02/10/2026): it stays in its day's show rate
+select throws_ok(
   $$ select public.sposta_call('48481111-0000-4000-8000-000000000003', '2099-06-22', '17:00') $$,
-  'il closer sposta una call segnata no show'
+  '22023', 'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato annullalo prima; per rivederlo serve una nuova call, che fissa il setter (o l’admin)',
+  'il closer non sposta un no show: la frase dice perché, come correggerlo e chi fissa la nuova call'
 );
 select is(
-  (select coalesce(no_show, 0) from public.giornate_closer('2019-06-12', '2019-06-12') where data is null),
-  0,
-  'il giorno vecchio non ha più quella call'
+  (select row(stato, programmata_il, spostata_dal, volte_spostata)::text
+   from public.calls where id = '48481111-0000-4000-8000-000000000003'),
+  row('no_show'::public.call_status, '2019-06-12 17:00:00+00'::timestamptz, null::timestamptz, 0)::text,
+  'il no show resta nel suo giorno, senza traccia'
 );
 select is(
-  (select row(stato, esito, qualificata)::text from public.calls where id = '48481111-0000-4000-8000-000000000003'),
-  row('programmata'::public.call_status, null::public.call_outcome, null::boolean)::text,
-  'e la call è di nuovo da fare'
+  (select no_show from public.giornate_closer('2019-06-12', '2019-06-12') where data is null),
+  1,
+  'e conta ancora lì'
+);
+
+-- a cancelled call still moves: the closer gives it its new day
+select lives_ok(
+  $$ select public.sposta_call('48481111-0000-4000-8000-000000000008', '2099-06-22', '17:00') $$,
+  'il closer sposta una call cancellata'
+);
+select is(
+  (select row(stato, esito, programmata_il, spostata_dal, volte_spostata)::text
+   from public.calls where id = '48481111-0000-4000-8000-000000000008'),
+  row('programmata'::public.call_status, null::public.call_outcome, '2099-06-22 15:00:00+00'::timestamptz,
+      '2019-06-18 17:00:00+00'::timestamptz, 1)::text,
+  'che torna da fare nel nuovo giorno'
 );
 
 select throws_ok(
   $$ select public.sposta_call('48481111-0000-4000-8000-000000000004', '2099-06-23', '17:00') $$,
-  '22023', 'Questa call è stata fatta: non si sposta. Se l''esito è sbagliato annullalo prima; per rivedere il lead serve una nuova call',
+  '22023', 'Questa call è stata fatta: non si sposta. Se l’esito è sbagliato annullalo prima; per rivedere il lead serve una nuova call, che fissa il setter (o l’admin)',
   'una call svolta non si sposta: è stata fatta'
 );
 select is(
@@ -183,12 +224,12 @@ select throws_ok(
 );
 select throws_ok(
   $$ select public.sposta_call('48481111-0000-4000-8000-000000000001', '2099-06-20', '18:00') $$,
-  '22023', 'La call è già a quel giorno e a quell''ora: scegline un altro',
+  '22023', 'La call è già a quel giorno e a quell’ora: scegline un altro',
   'né allo stesso momento'
 );
 select throws_ok(
   $$ select public.sposta_call('48481111-0000-4000-8000-000000000001', null, '18:00') $$,
-  '22023', 'Scegli il giorno e l''ora della call',
+  '22023', 'Scegli il giorno e l’ora della call',
   'senza giorno non si sposta'
 );
 select throws_ok(
@@ -200,6 +241,52 @@ select throws_ok(
   $$ update public.calls set volte_spostata = 0, spostata_dal = null where id = '48481111-0000-4000-8000-000000000002' $$,
   '42501', 'La traccia dello spostamento la scrive solo «Sposta»',
   'il closer non cancella la traccia di una mossa'
+);
+
+-- the pencil and a direct update never move a no-show either (Dany, 02/10/2026):
+-- it would leave its day's show rate, even for the future, without a trace
+select throws_ok(
+  $$ select public.modifica_call('48481111-0000-4000-8000-000000000010', 'discovery', '2099-06-21', '19:30',
+       '33333333-3333-4333-8333-333333333333', null) $$,
+  '22023', 'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato annullalo prima; per rivederlo serve una nuova call, che fissa il setter (o l’admin)',
+  'la matita del closer non porta un no show a un altro giorno'
+);
+select throws_ok(
+  $$ select public.modifica_call('48481111-0000-4000-8000-000000000010', 'discovery', '2019-06-20', '20:00',
+       '33333333-3333-4333-8333-333333333333', null) $$,
+  '22023', null,
+  'né a un''altra ora dello stesso giorno'
+);
+select throws_ok(
+  $$ update public.calls set programmata_il = '2019-06-27 17:30:00+00' where id = '48481111-0000-4000-8000-000000000010' $$,
+  '22023', 'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato annullalo prima; per rivederlo serve una nuova call, che fissa il setter (o l’admin)',
+  'né un update diretto'
+);
+select lives_ok(
+  $$ select public.modifica_call('48481111-0000-4000-8000-000000000010', 'strategy', '2019-06-20', '19:30',
+       '33333333-3333-4333-8333-333333333333', null) $$,
+  'con data e ora come sono la matita salva ancora il resto'
+);
+select is(
+  (select row(stato, tipo, programmata_il, volte_spostata)::text from public.calls where id = '48481111-0000-4000-8000-000000000010'),
+  row('no_show'::public.call_status, 'strategy'::public.call_type, '2019-06-20 17:30:00+00'::timestamptz, 0)::text,
+  'e il no show resta alla sua ora, nel suo giorno'
+);
+select is(
+  (select no_show from public.giornate_closer('2019-06-20', '2019-06-20') where data is null),
+  1,
+  'dove conta ancora'
+);
+-- a held call's date the closer still corrects: a typo is not a move
+select lives_ok(
+  $$ select public.modifica_call('48481111-0000-4000-8000-000000000011', 'discovery', '2019-06-22', '19:00',
+       '33333333-3333-4333-8333-333333333333', null) $$,
+  'la matita del closer corregge ancora la data di una call svolta'
+);
+select is(
+  (select row(stato, esito, programmata_il, volte_spostata)::text from public.calls where id = '48481111-0000-4000-8000-000000000011'),
+  row('svolta'::public.call_status, 'persa'::public.call_outcome, '2019-06-22 17:00:00+00'::timestamptz, 0)::text,
+  'senza traccia e col suo esito'
 );
 
 -- ---------------------------------------------------------------------------
@@ -220,13 +307,25 @@ select is(
 );
 select throws_ok(
   $$ select public.sposta_call('48481111-0000-4000-8000-000000000006', '2099-06-26', '17:00') $$,
-  '42501', 'Questa call è segnata come riprogrammata: la nuova data la mette il closer (o l''admin)',
+  '42501', 'Questa call è segnata come riprogrammata: la nuova data la mette il closer (o l’admin)',
   'una call segnata riprogrammata la sposta il closer: il setter riceve una frase chiara'
 );
 select throws_ok(
+  $$ select public.sposta_call('48481111-0000-4000-8000-000000000009', '2099-06-26', '17:00') $$,
+  '42501', 'Questa call ha già un esito del closer: la sposta lui (o l’admin)',
+  'e una call cancellata pure'
+);
+-- a held call and a no-show nobody moves: the setter's words say who corrects
+-- the outcome (he never does) and that the new call is his to book
+select throws_ok(
   $$ select public.sposta_call('48481111-0000-4000-8000-000000000007', '2099-06-26', '17:00') $$,
-  '42501', 'Questa call ha già un esito del closer: la sposta lui (o l''admin)',
-  'e una call con un esito pure'
+  '22023', 'Questa call è stata fatta: non si sposta. Se l’esito è sbagliato lo corregge il closer (o l’admin); per rivedere il lead fissa una nuova call',
+  'una call svolta non la sposta nessuno: al setter non dice «la sposta lui»'
+);
+select throws_ok(
+  $$ select public.sposta_call('48481111-0000-4000-8000-000000000003', '2099-06-26', '17:00') $$,
+  '22023', 'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato lo corregge il closer (o l’admin); per rivederlo fissa una nuova call',
+  'nemmeno un no show'
 );
 select is(
   (select row(stato, esito, programmata_il)::text from public.calls where id = '48481111-0000-4000-8000-000000000007'),
@@ -253,18 +352,34 @@ select throws_ok(
 select throws_ok(
   $$ select public.modifica_call('48481111-0000-4000-8000-000000000006', 'discovery', '2099-07-01', '17:00',
        '33333333-3333-4333-8333-333333333333', null) $$,
-  '42501', 'Questa call è segnata come riprogrammata: la nuova data la mette il closer (o l''admin)',
+  '42501', 'Questa call è segnata come riprogrammata: la nuova data la mette il closer (o l’admin)',
   'nemmeno con la matita una call segnata riprogrammata'
 );
 select throws_ok(
   $$ select public.modifica_call('48481111-0000-4000-8000-000000000007', 'discovery', '2099-07-01', '17:00',
        '33333333-3333-4333-8333-333333333333', null) $$,
-  '42501', 'Questa call ha già un esito del closer: la sposta lui (o l''admin)',
-  'né una call con un esito'
+  '22023', 'Questa call è stata fatta: non si sposta. Se l’esito è sbagliato lo corregge il closer (o l’admin); per rivedere il lead fissa una nuova call',
+  'né una call svolta, con le stesse parole e lo stesso codice di sposta_call'
+);
+select throws_ok(
+  $$ select public.modifica_call('48481111-0000-4000-8000-000000000003', 'discovery', '2099-07-01', '17:00',
+       '33333333-3333-4333-8333-333333333333', null) $$,
+  '22023', 'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato lo corregge il closer (o l’admin); per rivederlo fissa una nuova call',
+  'né un no show'
+);
+select throws_ok(
+  $$ update public.calls set programmata_il = '2099-07-01 15:00:00+00' where id = '48481111-0000-4000-8000-000000000003' $$,
+  '22023', 'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato lo corregge il closer (o l’admin); per rivederlo fissa una nuova call',
+  'nemmeno con un update diretto'
+);
+select throws_ok(
+  $$ update public.calls set programmata_il = '2099-07-01 15:00:00+00' where id = '48481111-0000-4000-8000-000000000009' $$,
+  '42501', 'Questa call ha già un esito del closer: la sposta lui (o l’admin)',
+  'né una call cancellata'
 );
 select throws_ok(
   $$ update public.calls set programmata_il = '2099-07-01 15:00:00+00' where id = '48481111-0000-4000-8000-000000000006' $$,
-  '42501', 'Questa call è segnata come riprogrammata: la nuova data la mette il closer (o l''admin)',
+  '42501', 'Questa call è segnata come riprogrammata: la nuova data la mette il closer (o l’admin)',
   'né con un update diretto'
 );
 select lives_ok(
@@ -327,8 +442,48 @@ select lives_ok(
 );
 select throws_ok(
   $$ select public.sposta_call('48481111-0000-4000-8000-000000000007', '2099-06-27', '17:00') $$,
-  '22023', 'Questa call è stata fatta: non si sposta. Se l''esito è sbagliato annullalo prima; per rivedere il lead serve una nuova call',
+  '22023', 'Questa call è stata fatta: non si sposta. Se l’esito è sbagliato annullalo prima; per rivedere il lead serve una nuova call, che fissa il setter (o l’admin)',
   'nemmeno l''admin sposta una call svolta'
+);
+select throws_ok(
+  $$ select public.sposta_call('48481111-0000-4000-8000-000000000003', '2019-06-13', '17:00') $$,
+  '22023', 'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato annullalo prima; per rivederlo serve una nuova call, che fissa il setter (o l’admin)',
+  'né un no show, nemmeno nel passato'
+);
+select is(
+  (select row(stato, programmata_il, volte_spostata)::text from public.calls where id = '48481111-0000-4000-8000-000000000003'),
+  row('no_show'::public.call_status, '2019-06-12 17:00:00+00'::timestamptz, 0)::text,
+  'che resta un no show nel suo giorno'
+);
+select throws_ok(
+  $$ select public.modifica_call('48481111-0000-4000-8000-000000000010', 'discovery', '2019-06-19', '19:30',
+       '33333333-3333-4333-8333-333333333333', null) $$,
+  '22023', 'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato annullalo prima; per rivederlo serve una nuova call, che fissa il setter (o l’admin)',
+  'nemmeno la matita dell''admin porta un no show a un altro giorno'
+);
+select throws_ok(
+  $$ update public.calls set programmata_il = '2019-06-19 17:30:00+00' where id = '48481111-0000-4000-8000-000000000010' $$,
+  '22023', null,
+  'né un suo update diretto'
+);
+select lives_ok(
+  $$ select public.modifica_call('48481111-0000-4000-8000-000000000010', 'discovery', '2019-06-20', '19:30',
+       '33333333-3333-4333-8333-333333333333', 'Scritta dall''admin') $$,
+  'l''admin scrive le note di un no show, con data e ora come sono'
+);
+select is(
+  (select row(stato, programmata_il, note)::text from public.calls where id = '48481111-0000-4000-8000-000000000010'),
+  row('no_show'::public.call_status, '2019-06-20 17:30:00+00'::timestamptz, 'Scritta dall''admin')::text,
+  'e il no show resta lì'
+);
+select lives_ok(
+  $$ select public.modifica_call('48481111-0000-4000-8000-000000000011', 'discovery', '2019-06-21', '19:00',
+       '33333333-3333-4333-8333-333333333333', null) $$,
+  'la data di una call svolta l''admin la corregge ancora'
+);
+select lives_ok(
+  $$ select public.sposta_call('48481111-0000-4000-8000-000000000009', '2099-06-27', '17:00') $$,
+  'una call cancellata invece l''admin la sposta'
 );
 select is(
   (select row(stato, esito, qualificata, obiezione_principale, programmata_il)::text
@@ -346,7 +501,11 @@ select is(
      when '48481111-0000-4000-8000-000000000004' then '2019-06-04 10:00:00+00'::timestamptz
      when '48481111-0000-4000-8000-000000000005' then '2019-06-05 10:00:00+00'::timestamptz
      when '48481111-0000-4000-8000-000000000006' then '2019-06-06 10:00:00+00'::timestamptz
-     else '2019-06-07 10:00:00+00'::timestamptz
+     when '48481111-0000-4000-8000-000000000007' then '2019-06-07 10:00:00+00'::timestamptz
+     when '48481111-0000-4000-8000-000000000008' then '2019-06-08 10:00:00+00'::timestamptz
+     when '48481111-0000-4000-8000-000000000010' then '2019-06-10 10:00:00+00'::timestamptz
+     when '48481111-0000-4000-8000-000000000011' then '2019-06-11 10:00:00+00'::timestamptz
+     else '2019-06-09 10:00:00+00'::timestamptz
    end),
   0,
   'nessuna mossa cambia il giorno della prenotazione (created_at)'
@@ -362,13 +521,29 @@ select is(
   'nel nuovo giorno la call conta quando ha un esito: da fare non è ancora svolta'
 );
 select lives_ok(
-  $$ update public.calls set stato = 'no_show' where id = '48481111-0000-4000-8000-000000000003' $$,
+  $$ update public.calls set stato = 'no_show' where id = '48481111-0000-4000-8000-000000000008' $$,
   'il nuovo esito si registra nel nuovo giorno'
 );
 select is(
   (select no_show from public.giornate_closer('2099-06-22', '2099-06-22', '33333333-3333-4333-8333-333333333333') where data is null),
   1,
   'e conta lì'
+);
+
+-- a wrong no-show is undone first («Annulla l'esito»), then the call moves
+set local request.jwt.claims to '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select lives_ok(
+  $$ update public.calls set stato = 'programmata' where id = '48481111-0000-4000-8000-000000000003' $$,
+  'il closer annulla il no show sbagliato'
+);
+select lives_ok(
+  $$ select public.sposta_call('48481111-0000-4000-8000-000000000003', '2099-06-29', '17:00') $$,
+  'e poi la call si sposta'
+);
+select is(
+  (select row(stato, volte_spostata)::text from public.calls where id = '48481111-0000-4000-8000-000000000003'),
+  row('programmata'::public.call_status, 1)::text,
+  'da fare nel nuovo giorno'
 );
 
 -- ---------------------------------------------------------------------------
