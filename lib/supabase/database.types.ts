@@ -1264,6 +1264,11 @@ isOneToOne: false
 "pm_membro":
 { Args: { "p_progetto": string }; Returns: boolean
                            },
+"pm_mio_tempo_per_task":
+{ Args: { "p_a": string,"p_da": string,"p_progetto"?: string,"p_task"?: string,"p_tasks"?: (string)[] }; Returns: {
+              "livello": string,"minuti": number,"progetto": string,"progetto_id": string,"task": string,"task_id": string,"voci": number
+            }[]
+                           },
 "pm_modifica_tempo":
 { Args: { "p_alle"?: string,"p_dalle"?: string,"p_data": string,"p_id": string,"p_minuti"?: number,"p_nota"?: string,"p_progetto_id": string,"p_task_id"?: string }; Returns: string
                            },

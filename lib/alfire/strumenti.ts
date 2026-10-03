@@ -8,7 +8,17 @@ import { argomentiGuida, testoGuida, type ArgomentoGuida } from '@/lib/alfire/gu
 import { isScrittura, strumentiConsentiti, type NomeStrumento } from '@/lib/alfire/permessi'
 import type { Anteprima } from '@/lib/alfire/riassunto'
 import { DESCRIZIONE_PROPOSTE, schemaProposte } from '@/lib/alfire/risposte'
-import { errore, etichettaRegola, isErrore, risolutori, type Errore, type Supabase } from '@/lib/alfire/risolvi'
+import {
+  candidati,
+  errore,
+  etichettaRegola,
+  isErrore,
+  nomeCompleto,
+  risolutori,
+  trova,
+  type Errore,
+  type Supabase,
+} from '@/lib/alfire/risolvi'
 import { dataISO, datiDi, definizione, erroreData, SOLO_DI_CHI_CHATTA, type Contesto, type Definizione } from '@/lib/alfire/scritture/comune'
 import { scrittureEconomics } from '@/lib/alfire/scritture/economics'
 import { strumentiProgetti } from '@/lib/alfire/scritture/progetti'
@@ -17,6 +27,8 @@ import type { LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
 import { tracciaSpostamento } from '@/lib/call/spostamento'
 import { aggiungiGiorni, aggiungiMesi, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
+import { LEGENDA_CLOSER, LEGENDA_SETTER, LEGENDA_SETTING } from '@/lib/metriche/legenda'
+import { hrefPeriodo } from '@/lib/periodo'
 import {
   MOTIVO_NON_CHIUSURA,
   NOTE_CLOSER,
@@ -26,7 +38,9 @@ import {
   etichettaLivello,
   type CampoScala,
 } from '@/lib/setting/commento'
+import type { Database } from '@/lib/supabase/database.types'
 import { ETICHETTA_ESITO } from '@/lib/validation/esito'
+import { ETICHETTA_TIPO_VENDITA } from '@/lib/validation/vendita'
 
 const periodo = z.object({
   da: dataISO('Inizio, incluso. Default: primo giorno del mese corrente').optional(),
@@ -60,6 +74,144 @@ const PERIMETRO_CALL: Partial<Record<Profilo['ruolo'], { descrizione: string; ri
     risultato: (nome) =>
       `Solo le call assegnate a ${nome}, cioè a chi sta chattando: non tutte le call del team. Di un’altra persona qui ci sono solo le call assegnate a ${nome}, mai tutte le sue.`,
   },
+}
+
+// ---------------------------------------------------------------------------
+// The setter's and the closer's own money (Dany, 03/10/2026): exactly what the
+// app already shows them (CLAUDE.md section 6), read with the same RPCs and
+// RLS as their pages, always only theirs and said so first (datiDi). Every
+// amount comes from SQL, per sale or per day: never added up here.
+// ---------------------------------------------------------------------------
+
+/** Sales of miei_clienti and mie_vendite: the most recent ones; a list cut short says so. */
+const MIE_VENDITE = 25
+/** Cash-ins of the setter's clients in a period (miei_clienti with da/a): the most recent ones, said when cut. */
+const INCASSI_SETTER = 60
+/** Days of mie_giornate: the most recent ones; the total counts them all. */
+const MIE_GIORNATE = 31
+
+type RigaClienteSetter = Database['public']['Functions']['mie_vendite_setter']['Returns'][number]
+
+/** «A te» of a sale when nothing matured yet, as I miei numeri › I tuoi clienti says it. */
+const NON_PREVISTA: Record<RigaClienteSetter['tipo'], string> = {
+  nuovo: 'non prevista (nessuna regola)',
+  rinnovo: 'non prevista (rinnovo)',
+  upsell: 'non prevista (upsell)',
+}
+
+/** The setter's commission on a sale: what matured, nothing yet, or none due (as the page says it). */
+function aTeVendita(v: RigaClienteSetter): number | string {
+  // null until something matures: the generated type does not say so
+  const maturata = v.provvigione_vendita as number | null
+  if (maturata !== null) return maturata
+  return v.provvigione_prevista ? 'matura quando paga' : NON_PREVISTA[v.tipo]
+}
+
+/** The same, for one instalment. */
+function aTeRata(r: RigaClienteSetter): number | string {
+  const maturata = r.provvigione as number | null
+  if (maturata !== null) return maturata
+  return r.provvigione_prevista && (r.stato === 'prevista' || r.stato === 'fallita') ? 'matura quando paga' : 'non prevista'
+}
+
+/** How an instalment of his client stands, in the page's words. */
+function statoRataCliente(r: RigaClienteSetter): string {
+  if (r.stato === 'incassata') return 'pagata'
+  if (r.stato === 'rimborsata') return 'rimborsata'
+  if (r.stato === 'fallita') return 'pagamento non andato a buon fine'
+  return r.in_ritardo ? 'in ritardo' : 'da pagare'
+}
+
+/**
+ * How an instalment of the closer's sale stands: the words of the sale page.
+ * Late is not stored: planned and past due (StatoRata).
+ */
+function statoRataVendita(r: { stato: string; scadenza: string }, oggi: string): string {
+  if (r.stato === 'prevista' && r.scadenza < oggi) return 'in ritardo'
+  if (r.stato === 'incassata') return 'incassata'
+  if (r.stato === 'fallita') return 'fallita'
+  if (r.stato === 'rimborsata') return 'rimborso'
+  return 'da incassare'
+}
+
+const S = LEGENDA_SETTING
+const C = LEGENDA_CLOSER
+const M = LEGENDA_SETTER
+
+/**
+ * Cash and revenue of a day say what they count (03/10/2026): only the new
+ * clients, their first instalment and their contract on the day of the sale.
+ * A bare «Cash» read as everything his clients paid in the period.
+ */
+const CASH_GIORNATA = 'Cash (prima rata dei clienti nuovi)'
+const REVENUE_GIORNATA = 'Revenue (contratti dei clienti nuovi)'
+
+type RigaGiornataSetter = Database['public']['Functions']['giornate_setter']['Returns'][number]
+type RigaGiornataCloser = Database['public']['Functions']['giornate_closer']['Returns'][number]
+
+/**
+ * The setter's day, as I miei numeri › Giorno per giorno: his report, then the
+ * calls he booked as the closer recorded them, then cash and revenue of the new
+ * clients he brought. The legend's names: «(closer)» where a name is the report's too.
+ */
+const GIORNATA_SETTER: readonly (readonly [keyof RigaGiornataSetter, string])[] = [
+  ['dm_outbound', S.dm_outbound.etichetta],
+  ['dm_inbound', S.dm_inbound.etichetta],
+  ['follow_up', S.follow_up.etichetta],
+  ['dm_totali', S.dm_totali.etichetta],
+  ['conversazioni', S.conversazioni.etichetta],
+  ['call_proposte', S.call_proposte.etichetta],
+  ['discovery_prenotate', S.discovery_prenotate.etichetta],
+  ['strategy_prenotate', S.strategy_storico.etichetta],
+  ['prenotate_inbound', S.prenotate_inbound.etichetta],
+  ['prenotate_outbound', S.prenotate_outbound.etichetta],
+  ['closer_call', C.call.etichetta],
+  ['closer_qualificate', M.closer_qualificate.etichetta],
+  ['closer_no_show', C.no_show.etichetta],
+  ['closer_follow_up', M.closer_follow_up.etichetta],
+  ['closer_cancellate', C.cancellate.etichetta],
+  ['closer_chiuse', C.chiuse.etichetta],
+  ['cash', CASH_GIORNATA],
+  ['revenue', REVENUE_GIORNATA],
+]
+
+/** The closer's day, as his I miei numeri: the CLOSER half of the Excel. */
+const GIORNATA_CLOSER: readonly (readonly [keyof RigaGiornataCloser, string])[] = [
+  ['call', C.call.etichetta],
+  ['qualificate', C.qualificate.etichetta],
+  ['no_show', C.no_show.etichetta],
+  ['follow_up', C.follow_up.etichetta],
+  ['cancellate', C.cancellate.etichetta],
+  ['chiuse', C.chiuse.etichetta],
+  ['cash', CASH_GIORNATA],
+  ['revenue', REVENUE_GIORNATA],
+]
+
+/** A day's numbers by their names; a day leaves out its zeros (as the page's closed lines), the total keeps them. */
+function numeriDelGiorno<R extends Record<string, unknown>>(
+  riga: R,
+  colonne: readonly (readonly [keyof R, string])[],
+  senzaZeri: boolean,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    colonne.flatMap(([campo, nome]) => (senzaZeri && Number(riga[campo] ?? 0) === 0 ? [] : [[nome, riga[campo]]])),
+  )
+}
+
+const DESCRIZIONE_GIORNATE: Partial<Record<Profilo['ruolo'], string>> = {
+  // Dany is admin and closer (CLAUDE.md section 6): his own day as the closer, as Setting › Closer with himself chosen
+  admin:
+    'La giornata da closer dell’admin che chatta, giorno per giorno come Setting › Closer con lui scelto: le call assegnate a lui (svolte, qualificate, no show, follow up, cancellate, chiuse), ' +
+    'cash e revenue dei soli clienti nuovi delle vendite chiuse da lui (prima rata incassata e contratto, nel giorno della vendita). Più il totale del periodo con show rate e close rate (decimali), dal SQL. ' +
+    'Mai di un altro closer né del team: per quelli call_periodo e vendite_periodo. ',
+  setter:
+    'La giornata del setter che chatta, giorno per giorno come in I miei numeri: il suo report, gli esiti del closer sulle call che ha fissato, ' +
+    'cash e revenue dei soli clienti nuovi che ha portato (prima rata pagata e contratto, nel giorno della vendita). Più il totale del periodo, dal SQL. ' +
+    'Il cash non è quanto hanno pagato i suoi clienti nel periodo (rate successive, rinnovi): quello è miei_clienti con da/a. ',
+  closer:
+    'La giornata del closer che chatta, giorno per giorno come in I miei numeri: call svolte, qualificate, no show, follow up, cancellate, chiuse, ' +
+    'cash e revenue dei soli clienti nuovi (prima rata incassata e contratto, nel giorno della vendita). Più il totale del periodo con show rate e close rate (decimali), dal SQL. ' +
+    'Il cash non è tutto l’incassato delle sue vendite (rate successive, rinnovi, upsell: mie_vendite). ',
 }
 
 /**
@@ -428,6 +580,290 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
         if (isErrore(p)) return p
         const { data, error } = await supabase.rpc('miei_numeri_periodo', { p_da: p.da, p_a: p.a })
         return error ? errore('Numeri non disponibili.') : { ...datiDi(profilo), periodo: p, numeri: data?.[0] ?? null }
+      },
+    }),
+
+    // the clients the setter brought, as I miei numeri › I tuoi clienti (03/10/2026): the one
+    // exception of section 6, through mie_vendite_setter (security definer, filtered on the caller)
+    miei_clienti: definizione({
+      description:
+        'I clienti portati dal setter che chatta (le vendite col suo nome), come I miei numeri › I tuoi clienti: per vendita cliente, prodotto, tipo, data, revenue, ' +
+        'pagato_in_tutto (dall’inizio della vendita, non per periodo), rate pagate e in ritardo, e a_te (la provvigione maturata su quella vendita). ' +
+        'Con cliente anche le rate, ognuna con la provvigione del suo incasso. Con da e/o a, invece, gli incassi di quel periodo uno per uno, ognuno con la sua provvigione. ' +
+        'Importi per vendita o per incasso, dal SQL: non sommarli. La provvigione maturata in un periodo, già sommata: miei_numeri. ' +
+        SOLO_DI_CHI_CHATTA,
+      inputSchema: z.object({
+        cliente: z.string().max(60).optional().describe('Nome o cognome: le sue vendite, con le rate'),
+        da: dataISO('Facoltativo: solo gli incassi da questo giorno, incluso («questo mese»: il primo del mese)').optional(),
+        a: dataISO('Facoltativo: solo gli incassi fino a questo giorno, incluso. Default con da: oggi').optional(),
+      }),
+      execute: async ({ cliente, da, a }) => {
+        const p = da?.trim() || a?.trim() ? leggiPeriodo({ da, a }) : null
+        if (p && isErrore(p)) return p
+        const { data, error } = await supabase.rpc('mie_vendite_setter')
+        // a read that fails is never "no clients"
+        if (error) return errore('I tuoi clienti non sono disponibili in questo momento.')
+        // one sale, its instalments: the SQL order (the newest sale first, its instalments in order)
+        const perVendita = new Map<string, RigaClienteSetter[]>()
+        for (const riga of data) perVendita.set(riga.sale_id, [...(perVendita.get(riga.sale_id) ?? []), riga])
+        let vendite = [...perVendita.values()]
+        let chi: string | undefined
+        if (cliente?.trim()) {
+          // only among his own clients: the RPC gives nobody else's
+          const nomi = [...new Set(vendite.map((rate) => rate[0].cliente))].map((nome) => ({ nome }))
+          const trovato = trova(nomi, cliente)
+          if (trovato === 'ambiguo') {
+            return errore(
+              `Più clienti possibili tra i tuoi: ${candidati(nomi, cliente)
+                .slice(0, 6)
+                .map((c) => c.nome)
+                .join(', ')}.`,
+              'Chiedi quale, con nome e cognome.',
+            )
+          }
+          if (!trovato) return { ...datiDi(profilo), vendite: [], nota: `Nessun cliente «${cliente.trim()}» tra quelli che ha portato ${profilo.nome}.` }
+          chi = trovato.nome
+          vendite = vendite.filter((rate) => rate[0].cliente === chi)
+        }
+
+        if (p) {
+          // what his clients paid in the period (03/10/2026): each cash-in and refund with its own
+          // commission, the most recent first; the total is never added up here
+          const incassi = vendite
+            .flat()
+            .filter((x) => (x.stato === 'incassata' || x.stato === 'rimborsata') && x.incassato_il && x.incassato_il >= p.da && x.incassato_il <= p.a)
+            .sort((x, y) => (x.incassato_il === y.incassato_il ? 0 : x.incassato_il < y.incassato_il ? 1 : -1))
+          return {
+            // whose clients these are, first: never another setter's
+            ...datiDi(profilo),
+            ...(chi ? { cliente: chi } : {}),
+            periodo: p,
+            incassi: incassi.slice(0, INCASSI_SETTER).map((x) => ({
+              cliente: x.cliente,
+              tipo: ETICHETTA_TIPO_VENDITA[x.tipo],
+              rata: `${x.numero_rata} di ${x.numero_rate}`,
+              stato: statoRataCliente(x),
+              pagata_il: x.incassato_il,
+              importo: x.importo_incassato,
+              a_te: aTeRata(x),
+            })),
+            nota:
+              incassi.length === 0
+                ? 'Nessun incasso dei tuoi clienti nel periodo.'
+                : `Un incasso per riga, dal SQL: il totale non è calcolato qui, non sommarli; la provvigione maturata nel periodo è in miei_numeri.${
+                    incassi.length > INCASSI_SETTER ? ` Qui i ${INCASSI_SETTER} più recenti su ${incassi.length}.` : ''
+                  }`,
+          }
+        }
+
+        const mostrate = vendite.slice(0, MIE_VENDITE)
+        return {
+          // whose clients these are, first: never another setter's
+          ...datiDi(profilo),
+          ...(chi ? { cliente: chi } : {}),
+          vendite: mostrate.map((rate) => {
+            const v = rate[0]
+            return {
+              cliente: v.cliente,
+              prodotto: v.prodotto,
+              tipo: ETICHETTA_TIPO_VENDITA[v.tipo],
+              venduta_il: v.data_vendita,
+              revenue: v.valore_contratto,
+              // since the sale began, never a period's (03/10/2026)
+              pagato_in_tutto: v.incassato_vendita,
+              rate_pagate: `${v.rate_incassate} di ${v.numero_rate}`,
+              ...(v.rate_in_ritardo > 0 ? { rate_in_ritardo: v.rate_in_ritardo } : {}),
+              a_te: aTeVendita(v),
+              // the instalments of the client asked about: what each paid and what it gave him
+              ...(chi
+                ? {
+                    rate: rate.map((r) => ({
+                      rata: r.numero_rata,
+                      stato: statoRataCliente(r),
+                      scadenza: r.scadenza,
+                      ...(r.incassato_il ? { pagata_il: r.incassato_il } : {}),
+                      importo: r.importo_incassato ?? r.importo_previsto,
+                      a_te: aTeRata(r),
+                    })),
+                  }
+                : {}),
+            }
+          }),
+          ...(vendite.length > MIE_VENDITE
+            ? { nota: `Qui le ${MIE_VENDITE} vendite più recenti su ${vendite.length}: per un cliente, chiedi col suo nome; tutte in [I miei numeri](/my-numbers).` }
+            : chi
+              ? {}
+              : { nota: 'Le rate e la provvigione di ogni incasso: chiedi per cliente. Quanto hanno pagato in un periodo: chiedi con le date.' }),
+        }
+      },
+    }),
+
+    // the closer's sales, as Le mie vendite and the sale page (03/10/2026): RLS gives him only
+    // the sales he closed (and their instalments); never contacts, payment method or notes
+    mie_vendite: definizione({
+      description:
+        'Le vendite dove chi chatta è il closer, come Le mie vendite e la scheda della vendita: per vendita cliente, tipo, prodotto, data, percorso, setter, contratto, incassato, ' +
+        'da incassare (le rate previste; una rata fallita non conta), in ritardo e la prossima rata da oggi in poi (importi dal SQL: non sommarli tra vendite). ' +
+        'da_incassare: solo quelle con rate da incassare, ognuna con le sue rate da incassare. Con cliente: le sue vendite con tutte le rate. Con da e/o a: le vendite chiuse in quel periodo. ' +
+        'I totali di un periodo (call, chiuse, cash e revenue dei clienti nuovi) sono in mie_giornate. ' +
+        SOLO_DI_CHI_CHATTA,
+      inputSchema: z.object({
+        cliente: z.string().max(60).optional().describe('Nome e cognome: le sue vendite, con tutte le rate'),
+        da_incassare: z.boolean().optional().describe('Solo le vendite con rate ancora da incassare'),
+        da: dataISO('Facoltativo: solo le vendite da questo giorno (data di vendita), incluso').optional(),
+        a: dataISO('Facoltativo: solo le vendite fino a questo giorno, incluso. Default con da: oggi').optional(),
+      }),
+      execute: async ({ cliente, da_incassare, da, a }) => {
+        const p = da?.trim() || a?.trim() ? leggiPeriodo({ da, a }) : null
+        if (p && isErrore(p)) return p
+        let chi: { id: string; nome: string } | undefined
+        if (cliente?.trim()) {
+          // among the clients he sees: a name not there is none of his, never "create it"
+          const c = await r.trovaCliente(cliente, { anchePerNuovo: true })
+          if (isErrore(c)) return c
+          if (!c) return { ...datiDi(profilo), vendite: [], nota: `Nessun cliente «${cliente.trim()}» tra le tue vendite.` }
+          chi = c
+        }
+        // the money of each sale from v_vendite (SQL); his own sales, as RLS already decides
+        let q = supabase
+          .from('v_vendite')
+          .select('sale_id, data_vendita, incassato, da_incassare, in_ritardo, rate_in_ritardo')
+          .eq('closer_id', profilo.id)
+        if (chi) q = q.eq('client_id', chi.id)
+        if (da_incassare) q = q.gt('da_incassare', 0)
+        if (p) q = q.gte('data_vendita', p.da).lte('data_vendita', p.a)
+        const importi = await q.order('data_vendita', { ascending: false }).limit(MIE_VENDITE + 1)
+        if (importi.error) return errore('Le tue vendite non sono disponibili in questo momento.')
+        const righe = importi.data.slice(0, MIE_VENDITE)
+        const ids = righe.map((x) => x.sale_id).filter((id): id is string => Boolean(id))
+        // the instalments through the sale, as the sale page reads them: the closer reads the
+        // payments of his sales even when the client is not one he sees (v_rate joins clients)
+        const vendite = ids.length
+          ? await supabase
+              .from('sales')
+              .select(
+                'id, tipo, data_vendita, data_inizio, data_fine, valore_contratto, numero_rate, prodotto_personalizzato, cliente:clients(nome, cognome), prodotto:products(nome), setter:profiles!sales_setter_id_fkey(nome), rate:payments(numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato, created_at)',
+              )
+              .in('id', ids)
+          : null
+        if (vendite?.error) return errore('Le tue vendite non sono disponibili in questo momento.')
+        const perId = new Map((vendite?.data ?? []).map((v) => [v.id, v]))
+        const oggi = oggiRoma()
+        let conFallite = false
+        const elenco = righe.flatMap((i) => {
+          const v = i.sale_id ? perId.get(i.sale_id) : undefined
+          if (!v) return []
+          // plan order, as the sale page: the instalment number, then when it was added (a refund after its instalment)
+          const rate = [...(v.rate ?? [])].sort((x, y) => x.numero_rata - y.numero_rata || x.created_at.localeCompare(y.created_at))
+          // still to collect = planned (CLAUDE.md section 9): a failed one is not counted in da_incassare
+          const previste = rate.filter((x) => x.stato === 'prevista')
+          const fallite = rate.filter((x) => x.stato === 'fallita')
+          // the next one from today on: a late one is in in_ritardo
+          const prossima = previste.filter((x) => x.scadenza >= oggi).sort((x, y) => x.scadenza.localeCompare(y.scadenza))[0]
+          const vista = (x: (typeof rate)[number]) => ({
+            rata: x.numero_rata,
+            stato: statoRataVendita(x, oggi),
+            scadenza: x.scadenza,
+            ...(x.incassato_il ? { incassata_il: x.incassato_il } : {}),
+            importo: x.importo_incassato ?? x.importo_previsto,
+          })
+          if (da_incassare && !chi && fallite.length > 0) conFallite = true
+          return [
+            {
+              cliente: nomeCompleto(v.cliente ?? { nome: 'Cliente' }) || 'Cliente',
+              tipo: ETICHETTA_TIPO_VENDITA[v.tipo],
+              prodotto: v.prodotto?.nome ?? v.prodotto_personalizzato,
+              venduta_il: v.data_vendita,
+              percorso: { inizio: v.data_inizio, fine: v.data_fine },
+              setter: v.setter?.nome ?? null,
+              contratto: v.valore_contratto,
+              numero_rate: v.numero_rate,
+              incassato: i.incassato,
+              da_incassare: i.da_incassare,
+              ...(Number(i.in_ritardo ?? 0) > 0 ? { in_ritardo: i.in_ritardo, rate_in_ritardo: i.rate_in_ritardo } : {}),
+              ...(prossima ? { prossima_rata: { scadenza: prossima.scadenza, importo: prossima.importo_previsto } } : {}),
+              ...(chi
+                ? { rate: rate.map(vista) }
+                : da_incassare
+                  ? { rate_da_incassare: previste.map(vista), ...(fallite.length > 0 ? { rate_fallite: fallite.map(vista) } : {}) }
+                  : {}),
+            },
+          ]
+        })
+        const note = [
+          chi && elenco.length === 0 ? `Nessuna vendita di ${chi.nome} tra le tue${p ? ' nel periodo' : ''}.` : null,
+          conFallite ? 'rate_fallite: pagamenti non andati a buon fine, non contati in da_incassare.' : null,
+          importi.data.length > MIE_VENDITE
+            ? `Qui le ${MIE_VENDITE} vendite più recenti: per un cliente, chiedi col suo nome; tutte in [Le mie vendite](/my-sales).`
+            : null,
+        ].filter(Boolean)
+        return {
+          // whose sales these are, first: never another closer's
+          ...datiDi(profilo),
+          ...(chi ? { cliente: chi.nome } : {}),
+          ...(da_incassare ? { solo: 'le vendite con rate da incassare' } : {}),
+          ...(p ? { periodo: p } : {}),
+          vendite: elenco,
+          ...(note.length > 0 ? { nota: note.join(' ') } : {}),
+        }
+      },
+    }),
+
+    // each one's own day (03/10/2026): the setter's as I miei numeri › Giorno per giorno
+    // (giornate_setter), the closer's as his I miei numeri (giornate_closer)
+    mie_giornate: definizione({
+      description: (DESCRIZIONE_GIORNATE[profilo.ruolo] ?? '') + SOLO_DI_CHI_CHATTA,
+      inputSchema: periodo,
+      execute: async (input) => {
+        const p = leggiPeriodo(input)
+        if (isErrore(p)) return p
+        // the caller's own days, said explicitly: the RPC keeps a setter or a closer to himself,
+        // but without a person it would give the admin everyone's, under his name; the admin
+        // reads his own as the closer he is (Dany, admin and closer: CLAUDE.md section 6)
+        const setter = profilo.ruolo === 'setter'
+        if (!setter && profilo.ruolo !== 'closer' && profilo.ruolo !== 'admin') {
+          return errore('La giornata giorno per giorno è del setter e del closer.')
+        }
+        const { data, error } = setter
+          ? await supabase.rpc('giornate_setter', { p_da: p.da, p_a: p.a, p_setter: profilo.id })
+          : await supabase.rpc('giornate_closer', { p_da: p.da, p_a: p.a, p_closer: profilo.id })
+        // a read that fails is never "nothing happened"
+        if (error) return errore('La tua giornata non è disponibile in questo momento.')
+        const righe = data as (RigaGiornataSetter | RigaGiornataCloser)[]
+        // the total row has data null (grouping sets): the generated type does not say so
+        const giorni = righe.filter((x) => x.data)
+        // a period without days keeps a total row of nulls: no total then, as the page's empty state
+        const totale = giorni.length > 0 ? righe.find((x) => !x.data) : undefined
+        // strategy calls are history: a column only when the period has some, as on the page
+        const colonne = (
+          setter
+            ? GIORNATA_SETTER.filter(([campo]) => campo !== 'strategy_prenotate' || Number((totale as RigaGiornataSetter | undefined)?.strategy_prenotate ?? 0) > 0)
+            : GIORNATA_CLOSER
+        ) as readonly (readonly [string, string])[]
+        const numeri = (riga: Record<string, unknown>, senzaZeri: boolean) => numeriDelGiorno(riga, colonne, senzaZeri)
+        const chiuso = totale as RigaGiornataCloser | undefined
+        return {
+          // whose day this is, first: never another person's
+          ...datiDi(profilo),
+          periodo: p,
+          totale: totale
+            ? {
+                ...numeri(totale, false),
+                ...(setter ? {} : { [C.show_rate.etichetta]: chiuso?.show_rate ?? null, [C.close_rate.etichetta]: chiuso?.close_rate ?? null }),
+              }
+            : null,
+          // the most recent day first, as SQL ordered them
+          giorni: giorni.slice(0, MIE_GIORNATE).map((g) => ({ data: g.data, ...numeri(g, true) })),
+          ...(giorni.length > MIE_GIORNATE
+            ? { nota: `Qui i ${MIE_GIORNATE} giorni più recenti su ${giorni.length}: il totale li conta tutti.` }
+            : giorni.length === 0
+              ? { nota: 'Nessun giorno con attività nel periodo.' }
+              : {}),
+          // the admin's page shows every closer unless one is chosen: himself
+          link: setter
+            ? hrefPeriodo('/my-numbers', p)
+            : hrefPeriodo('/setting/closer', p, profilo.ruolo === 'admin' ? { closer: profilo.id } : {}),
+        }
       },
     }),
 

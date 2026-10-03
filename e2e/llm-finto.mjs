@@ -119,6 +119,8 @@ function rispostaTempo(strumento, esito, domanda) {
     const task = p.progetti.flatMap((g) => g.task.map((t) => t.task))
     return `${p.persona} ha registrato ${p.durata} dal ${dati.periodo.da} al ${dati.periodo.a}, su: ${task.join(', ')}.`
   }
+  // e2e/alfire-miei-dati.spec.ts: one's own time on one task, the total as the tool counted it
+  if (dati.solo) return `Su ${dati.solo.task ?? 'tutto il progetto'} di ${dati.solo.progetto} hai registrato ${dati.totale.durata}.`
   const chiesta = personaChiesta(domanda)
   if (chiesta && !String(dati.persona ?? '').toLowerCase().includes(chiesta.toLowerCase())) {
     const nome = chiesta[0].toUpperCase() + chiesta.slice(1)
@@ -240,6 +242,15 @@ createServer(async (req, res) => {
     // the card sent back a target that is not unique (anteprimaAlfire): ask which one
     if (esito.startsWith('Più ')) return testo(res, `Quale intendi? ${esito}`)
     if (strumento === 'tempo_team' || strumento === 'mio_tempo') return testo(res, rispostaTempo(strumento, esito, ultimaDomanda))
+    // e2e/alfire-miei-dati.spec.ts: the setter's clients and the closer's sales, as the tools read them
+    if (strumento === 'miei_clienti') {
+      const dati = JSON.parse(esito)
+      return testo(res, `Clienti di ${dati.persona}: ${dati.vendite.map((v) => `${v.cliente}: pagato ${v.pagato_in_tutto}`).join('; ')}.`)
+    }
+    if (strumento === 'mie_vendite') {
+      const dati = JSON.parse(esito)
+      return testo(res, `Vendite di ${dati.persona}: ${dati.vendite.map((v) => `${v.cliente}: da incassare ${v.da_incassare}`).join('; ')}.`)
+    }
     return testo(res, esito.includes('"fatto":true') ? `Fatto: ${strumento}.` : 'Questo mese hai incassato 6.950,00 €.')
   }
   const domanda = contenuto(ultimo).toLowerCase()
@@ -316,6 +327,12 @@ createServer(async (req, res) => {
   if (fascia) {
     return chiamata(res, 'tempo', { azione: 'registra', progetto: fascia[1], task: fascia[2], data: ieriRoma(), dalle: '09:00', alle: '10:30' })
   }
+  // e2e/alfire-miei-dati.spec.ts: one's own time on a task of a client, his clients, his sales
+  const dedicato = /^quanto ho dedicato alla (.+?) di (.+?) questo mese\??$/.exec(domanda.trim())
+  if (dedicato) return chiamata(res, 'mio_tempo', { progetto: dedicato[2], task: dedicato[1] })
+  // the empty chat's suggestions of setter and closer (components/alfire/alfire.tsx)
+  if (domanda.includes('a che punto sono i miei clienti')) return chiamata(res, 'miei_clienti', {})
+  if (domanda.includes('cosa mi resta da incassare')) return chiamata(res, 'mie_vendite', { da_incassare: true })
   if (domanda.includes('andato il mese')) return chiamata(res, 'numeri_periodo', {})
   if (domanda.includes('chi è in ritardo')) return testo(res, 'Nessuno è in ritardo con i pagamenti.')
   // a tool call Groq refuses once ("failed_generation"): asked again, it comes out right

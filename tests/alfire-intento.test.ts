@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import type { UIMessage } from 'ai'
 import { describe, expect, it } from 'vitest'
 
@@ -29,6 +31,24 @@ describe('sul piano gratuito, la conversazione chiede di scrivere?', () => {
     expect(conversazioneScrive([utente('Quanto ho incassato questo mese?'), alfire('6.950 €'), utente('E il mese scorso?')])).toBe(
       false,
     )
+  })
+
+  // the reading questions in the empty chat (components/alfire/alfire.tsx, 03/10/2026): the setter's, the closer's
+  // and the time of coach, editor, nutrizione and dev; on the free plan they never load the write tools, that would
+  // more than double the request
+  it.each([
+    'A che punto sono i miei clienti con le rate?',
+    'Cosa mi resta da incassare?',
+    'Com’è andata la mia settimana?',
+    'Come sto andando questo mese?',
+    'Quanto ho lavorato questa settimana?',
+  ])('la domanda suggerita «%s» legge soltanto', (domanda) => {
+    expect(conversazioneScrive([utente(domanda)])).toBe(false)
+  })
+
+  it('la domanda di prima sul tempo («registrato») caricava le scritture: non è più tra le suggerite', () => {
+    expect(conversazioneScrive([utente('Quanto tempo ho registrato questa settimana?')])).toBe(true)
+    expect(readFileSync(new URL('../components/alfire/alfire.tsx', import.meta.url), 'utf8')).not.toContain('Quanto tempo ho registrato')
   })
 
   it('una domanda sull’obiettivo legge soltanto; impostarlo scrive', () => {

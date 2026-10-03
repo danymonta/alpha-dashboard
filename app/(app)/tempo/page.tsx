@@ -33,7 +33,7 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
   const periodo = periodoTempo(await searchParams, oggi)
   const supabase = await createClient()
 
-  const [progetti, task, voci, riepilogo] = await Promise.all([
+  const [progetti, task, voci, riepilogo, perTask] = await Promise.all([
     supabase.from('pm_progetti').select('id, nome').neq('stato', 'archiviato').order('nome'),
     supabase.from('pm_task').select('id, titolo, progetto_id, stato').order('ordine').order('titolo'),
     supabase
@@ -47,8 +47,10 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
       .order('inizio', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }),
     supabase.rpc('pm_riepilogo_tempo', { p_da: periodo.da, p_a: periodo.a }),
+    // my own time per project › task (03/10/2026), from SQL like every other total
+    supabase.rpc('pm_mio_tempo_per_task', { p_da: periodo.da, p_a: periodo.a }),
   ])
-  if (progetti.error || task.error || voci.error || riepilogo.error) {
+  if (progetti.error || task.error || voci.error || riepilogo.error || perTask.error) {
     throw new Error('Impossibile caricare il tuo tempo')
   }
 
@@ -64,6 +66,12 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
   const totale = riepilogo.data.find((r) => r.livello === 'totale')?.minuti ?? 0
   const totaliGiorno = new Map(riepilogo.data.filter((r) => r.livello === 'giorno').map((r) => [r.data!, r.minuti]))
   const perProgetto = riepilogo.data.filter((r) => r.livello === 'progetto')
+  // under each project, its tasks with the most time first (as SQL ordered them); a project
+  // whose only row is the time without a task needs none
+  const taskDelProgetto = new Map<string, { task_id: string | null; task: string | null; minuti: number }[]>()
+  for (const r of perTask.data.filter((x) => x.livello === 'task')) {
+    taskDelProgetto.set(r.progetto_id, [...(taskDelProgetto.get(r.progetto_id) ?? []), r])
+  }
 
   const elenco: (VoceTempo & VoceModificabile)[] = voci.data.map((v) => ({
     id: v.id,
@@ -128,12 +136,39 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
               <p className="num text-3xl font-semibold">{formatDurata(totale)}</p>
               {perProgetto.length > 0 ? (
                 <dl className="mt-4 space-y-2 border-t border-border pt-4">
-                  {perProgetto.map((r) => (
-                    <div key={r.progetto_id ?? 'senza'} className="flex items-baseline justify-between gap-3 text-sm">
-                      <dt className="min-w-0 truncate text-muted-foreground">{r.progetto ?? 'Progetto non più accessibile'}</dt>
-                      <dd className="num shrink-0 font-medium">{formatDurata(r.minuti)}</dd>
-                    </div>
-                  ))}
+                  {perProgetto.map((r) => {
+                    const sottoTask = (r.progetto_id && taskDelProgetto.get(r.progetto_id)) || []
+                    const conTask = sottoTask.some((t) => t.task_id !== null)
+                    return (
+                      // one row: the project and its total, then (a second dd) its tasks under it
+                      <div
+                        key={r.progetto_id ?? 'senza'}
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 text-sm"
+                        data-testid="totale-progetto"
+                      >
+                        <dt className="min-w-0 truncate text-muted-foreground">{r.progetto ?? 'Progetto non più accessibile'}</dt>
+                        <dd className="num font-medium">{formatDurata(r.minuti)}</dd>
+                        {conTask ? (
+                          <dd className="col-span-2">
+                            <dl className="space-y-1 border-l border-border pl-3" aria-label={`Per task, ${r.progetto ?? 'progetto'}`}>
+                              {sottoTask.map((t) => (
+                                <div
+                                  key={t.task_id ?? 'senza-task'}
+                                  className="flex items-baseline justify-between gap-3 text-xs"
+                                  data-testid="totale-task"
+                                >
+                                  <dt className="min-w-0 truncate text-muted-foreground">
+                                    {t.task_id ? (t.task ?? 'Task non più accessibile') : 'Senza task'}
+                                  </dt>
+                                  <dd className="num shrink-0 text-muted-foreground">{formatDurata(t.minuti)}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          </dd>
+                        ) : null}
+                      </div>
+                    )
+                  })}
                 </dl>
               ) : null}
             </div>

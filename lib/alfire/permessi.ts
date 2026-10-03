@@ -4,11 +4,17 @@ import type { AppRole, LivelloPm } from '@/lib/auth/roles'
  * Which tools Alfire receives for whom. The first filter only: every tool runs
  * with the user's own session, so RLS and the action guards still decide.
  * A collaborator never gets a tool that reads a client's payments, costs,
- * margin or someone else's pay (CLAUDE.md section 6). The closer's instalment
- * tool is the one exception section 6 grants: cash-ins of his own sales, as on
- * his sale page. The "mine" reads (miei_numeri, miei_task, mio_tempo) always
- * return the caller's data and say whose it is: another person's data comes
- * only from a tool made for it (tempo_team), never from them.
+ * margin or someone else's pay (CLAUDE.md section 6). The exceptions are the
+ * ones section 6 grants, each on his own money only and as the app shows it
+ * to him (03/10/2026): the setter the clients he brought, what they paid and
+ * his commission on each cash-in (miei_clienti); the closer his own sales,
+ * their instalments and cash-ins (mie_vendite, rata); both their own day
+ * (mie_giornate), which the admin has too, as the closer he is (section 6):
+ * his own day only, the others' through his admin tools. The "mine" reads
+ * (miei_numeri, miei_clienti, mie_vendite, mie_giornate, miei_task,
+ * mio_tempo) always return the caller's data and say whose it is: another
+ * person's data comes only from a tool made for it (tempo_team), never from
+ * them.
  */
 type Chi = { ruoli?: readonly AppRole[]; livelliPm?: readonly LivelloPm[] }
 
@@ -35,6 +41,13 @@ export const STRUMENTI = {
   costi_periodo: { ruoli: ['admin'] },
   // setter: own numbers only
   miei_numeri: { ruoli: ['setter'] },
+  // each one's own money, as the app already shows it to him (03/10/2026): the setter
+  // the clients he brought (I miei numeri › I tuoi clienti), the closer the sales he
+  // closed (Le mie vendite), both their day by day; the admin his own day as the
+  // closer he is (Setting › Closer with himself chosen), never anyone else's
+  miei_clienti: { ruoli: ['setter'] },
+  mie_vendite: { ruoli: ['closer'] },
+  mie_giornate: { ruoli: ['admin', 'setter', 'closer'] },
   // who has calls
   call_periodo: { ruoli: ['admin', 'setter', 'closer'] },
   // projects: every level sees what RLS lets them see; one's own time for everyone

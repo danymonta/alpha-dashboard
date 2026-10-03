@@ -111,7 +111,7 @@ test.describe('il coach registra il suo tempo con Alfire', () => {
 
     // the chat greets a coach with his own time, never with "numbers"
     const pannello = page.getByTestId('alfire')
-    await expect(pannello.getByRole('group', { name: 'Domande suggerite' })).toContainText('Quanto tempo ho registrato questa settimana?')
+    await expect(pannello.getByRole('group', { name: 'Domande suggerite' })).toContainText('Quanto ho lavorato questa settimana?')
 
     await scrivi(page, `Avvia il timer su ${progetto.nome}, la revisione dei video`)
     const avvio = pannello.getByTestId('alfire-conferma')

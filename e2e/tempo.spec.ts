@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 import { aggiungiGiorni, oggiRoma } from '../lib/date'
 import { formatData } from '../lib/format'
 import { intestazioneGiorno } from '../lib/tempo'
-import { ID_SETTER } from './db'
+import { ID_ADMIN, ID_SETTER, dbLocale } from './db'
 import { attendiPagina, avviaTimerAltrove, creaProgettoDiProva, pulisciProgetti, type ProgettoDiProva } from './pm-db'
 import { accedi } from './utenti'
 
@@ -235,6 +235,37 @@ test.describe('Il mio tempo', () => {
     await expect(page.getByText('Tempo registrato', { exact: true })).toBeVisible()
     await expect(page.getByTestId(`giorno-${giorno}`).getByTestId('durata-voce')).toHaveText('14:00–15:45 · 1 h 45 min')
 
+    const scorre = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+    expect(scorre).toBe(false)
+  })
+
+  test('il totale del periodo si divide per progetto e, sotto, per task: solo il mio tempo, dal database (03/10/2026)', async ({ page }) => {
+    const giorno = aggiungiGiorni(oggiRoma(), -21)
+    const { error } = await dbLocale()
+      .from('pm_tempo')
+      .insert([
+        { profile_id: ID_SETTER, progetto_id: progetto.id, task_id: progetto.task.montaggio, data: giorno, minuti: 60 },
+        { profile_id: ID_SETTER, progetto_id: progetto.id, task_id: progetto.task.montaggio, data: giorno, minuti: 30 },
+        { profile_id: ID_SETTER, progetto_id: progetto.id, task_id: progetto.task.revisione, data: giorno, minuti: 30 },
+        { profile_id: ID_SETTER, progetto_id: progetto.id, data: giorno, minuti: 15 },
+        // someone else's hour on the same task: never in my totals
+        { profile_id: ID_ADMIN, progetto_id: progetto.id, task_id: progetto.task.montaggio, data: giorno, minuti: 60 },
+      ])
+    if (error) throw error
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await accedi(page, 'setter')
+    await page.goto(`/tempo?settimana=${giorno}`)
+    await attendiPagina(page)
+
+    const suProgetto = page.getByTestId('totale-progetto').filter({ hasText: progetto.nome })
+    await expect(suProgetto.locator('dd').first()).toHaveText('2 h 15 min')
+    // the most time first, the time without a task by its name
+    await expect(suProgetto.getByTestId('totale-task')).toHaveText([
+      /^Montaggio\s*1 h 30 min$/,
+      /^Revisione cliente\s*30 min$/,
+      /^Senza task\s*15 min$/,
+    ])
     const scorre = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
     expect(scorre).toBe(false)
   })

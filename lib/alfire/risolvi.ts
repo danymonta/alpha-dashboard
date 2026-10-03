@@ -178,6 +178,26 @@ export function nomiDistinti<T extends ProgettoConNome>(elenco: readonly T[]): M
 /** The candidates a task question lists: a title every client has repeats in 13 projects (03/10/2026). */
 const CANDIDATI_TASK = 15
 
+/** A title as two people say the same one: no accents, no case, one space. */
+function titoloNormale(titolo: string | null | undefined): string {
+  return minuscolo((titolo ?? '').normalize('NFD').replace(/[̀-ͯ]/g, ''))
+}
+
+/**
+ * The same task title said for every client (03/10/2026: «quanto ho dedicato
+ * alla revisione video questo mese?»): all the visible tasks with that title,
+ * in more than one project. The time on them is summed by SQL
+ * (pm_mio_tempo_per_task with p_tasks), never by the model.
+ */
+export type TaskInPiuProgetti = { titolo: string; task: { id: string; progetto_id: string }[]; progetti: number }
+
+export function isTaskInPiuProgetti(v: unknown): v is TaskInPiuProgetti {
+  return typeof v === 'object' && v !== null && Array.isArray((v as TaskInPiuProgetti).task) && typeof (v as TaskInPiuProgetti).progetti === 'number'
+}
+
+/** The tasks of one title a sum reads at most: more is "say the client". */
+const TASK_IN_PIU_PROGETTI_MAX = 500
+
 /** Finds one row by name among a few: exact first, then "contains", then all the words in any order. */
 export function trova<T extends { nome: string | null }>(righe: T[], nome: string): T | null | 'ambiguo' {
   const cerca = minuscolo(nome)
@@ -195,7 +215,7 @@ export function trova<T extends { nome: string | null }>(righe: T[], nome: strin
 }
 
 /** The rows `trova` hesitated between, for the error that lists them. */
-function candidati<T extends { nome: string | null }>(righe: T[], nome: string): T[] {
+export function candidati<T extends { nome: string | null }>(righe: T[], nome: string): T[] {
   const cerca = minuscolo(nome)
   const parole = cerca.split(' ')
   return righe.filter(
@@ -386,6 +406,9 @@ export type TaskTrovato = {
   /** Other tasks of its project with the same title, when it was chosen among them. */
   omonimi?: number
 }
+
+/** Where a task is looked for (trovaTask). */
+type DoveTask = { task_id?: string; progettoId?: string; progetto?: string; completato?: boolean; lettura?: boolean }
 
 /** A time entry of mine as the resolver reads it, with its project and task. */
 export type VoceTempo = {
@@ -852,12 +875,58 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
    * when reopening), then the one assigned to me. A title said differently
    * (no accents, other little words, 03/10/2026) is found by its key words.
    * Otherwise the question names project and due date of each candidate, and
-   * a title not found lists the open tasks there.
+   * a title not found lists the open tasks there. A read (`lettura`, the time
+   * of mio_tempo) never picks among tasks with one title: it would count one
+   * and leave out the other (03/10/2026); the question gives their task_id.
    */
-  async function trovaTask(
-    titolo: string,
-    dove: { task_id?: string; progettoId?: string; progetto?: string; completato?: boolean } = {},
-  ): Promise<TaskTrovato | Errore> {
+  async function trovaTask(titolo: string, dove: DoveTask = {}): Promise<TaskTrovato | Errore> {
+    const t = await cercaTask(titolo, dove)
+    // only a sum (trovaTaskDaContare) gives the tasks of several projects
+    return isTaskInPiuProgetti(t) ? errore(NON_LETTO) : t
+  }
+
+  /**
+   * The task whose time to count (mio_tempo, 03/10/2026), with no project
+   * said: one task as trovaTask finds it in a read, or, when the title said
+   * fits tasks of several projects that all have the same title (accents,
+   * case and spaces aside), all of them, to sum their time in SQL. Different
+   * titles, or one project only: the question, as in any read.
+   */
+  async function trovaTaskDaContare(titolo: string, dove: { task_id?: string } = {}): Promise<TaskTrovato | TaskInPiuProgetti | Errore> {
+    return cercaTask(titolo, { ...dove, lettura: true, somma: true })
+  }
+
+  /**
+   * Every visible task titled as the ones found, for a sum: the candidates
+   * stop at 50 and the admin sees every client's project, so the title is
+   * read again in full. The pattern lets vowels (accented or not) and spaces
+   * vary, then the normalized title decides; the ones found are always in.
+   * Too many to read in full: an answer that asks for the client, never a
+   * partial sum.
+   */
+  async function taskConLoStessoTitolo(trovati: readonly Pick<TaskTrovato, 'id' | 'titolo' | 'progetto_id'>[]): Promise<TaskInPiuProgetti | Errore> {
+    const titolo = trovati[0].titolo
+    const schema = titolo
+      .trim()
+      .split(/\s+/)
+      .map((p) => perIlike(p).replace(/[aeiou]|[^\x20-\x7e]/gi, '_'))
+      .join('%')
+    const { data, error } = await supabase.from('v_pm_task').select('id, titolo, progetto_id').ilike('titolo', schema).limit(TASK_IN_PIU_PROGETTI_MAX + 1)
+    if (error) return errore(NON_LETTO)
+    if ((data ?? []).length > TASK_IN_PIU_PROGETTI_MAX) {
+      return errore(`«${titolo}» c’è in troppi progetti per sommarli tutti: dimmi di quale cliente.`, 'Chiedi il progetto.')
+    }
+    const voluto = titoloNormale(titolo)
+    const task = new Map(trovati.map((t) => [t.id, t.progetto_id]))
+    for (const t of data ?? []) if (t.id && t.progetto_id && titoloNormale(t.titolo) === voluto) task.set(t.id, t.progetto_id)
+    return {
+      titolo,
+      task: [...task].map(([id, progetto_id]) => ({ id, progetto_id })),
+      progetti: new Set(task.values()).size,
+    }
+  }
+
+  async function cercaTask(titolo: string, dove: DoveTask & { somma?: boolean }): Promise<TaskTrovato | TaskInPiuProgetti | Errore> {
     if (dove.task_id) {
       const { data, error } = await supabase.from('v_pm_task').select(CAMPI_TASK).eq('id', dove.task_id).maybeSingle()
       if (error) return errore(NON_LETTO)
@@ -894,6 +963,7 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
      */
     function traUguali(uguali: TaskTrovato[]): TaskTrovato | null {
       if (uguali.length === 1) return uguali[0]
+      if (dove.lettura) return null
       if (new Set(uguali.map((t) => minuscolo(t.titolo))).size > 1) return null
       const voluti = uguali.filter((t) => (t.stato === 'completato') === Boolean(dove.completato))
       const miei = (voluti.length > 0 ? voluti : uguali).filter((t) => (t.assegnatari ?? []).includes(profilo.id))
@@ -937,6 +1007,17 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
       dubbi = perParole as TaskTrovato[]
     }
 
+    // the time to count of one title every client has, no project said: all of them, summed in SQL
+    // (03/10/2026); different titles, or two tasks in one project, still ask which
+    if (
+      dove.somma &&
+      !progetti &&
+      new Set(dubbi.map((t) => titoloNormale(t.titolo))).size === 1 &&
+      new Set(dubbi.map((t) => t.progetto_id)).size > 1
+    ) {
+      return taskConLoStessoTitolo(dubbi)
+    }
+
     const progetto = await nomiDeiProgetti([...new Set(dubbi.map((t) => t.progetto_id))])
     // a title every client has: up to 15 in the text, so the right client is there (the buttons hold 4, the user can type)
     const elenco = dubbi
@@ -945,14 +1026,16 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
         const dove_ = progetto.get(t.progetto_id)
         return `«${t.titolo}»${dove_ ? ` in ${dove_}` : ''}${t.scadenza ? `, scadenza ${formatData(t.scadenza)}` : ''}${
           t.stato === 'completato' ? ', completato' : ''
-        }`
+        }${dove.lettura ? ` (task_id ${t.id})` : ''}`
       })
       .join('; ')
     // more than the 4 buttons of proponi_risposte: the text names them all, the user can type the one he means
     const tutti = dubbi.length > 4 ? ' Nel testo elencali tutti: i bottoni ne mostrano 4, l’utente può scrivere il nome.' : ''
     return errore(
       `Più task possibili: ${elenco}${dubbi.length > CANDIDATI_TASK ? `; e altri ${dubbi.length - CANDIDATI_TASK}` : ''}.`,
-      `Chiedi quale (il progetto, o passa il task_id da progetto_dettaglio o miei_task).${tutti}`,
+      dove.lettura
+        ? `Chiedi quale (il progetto, e se due hanno lo stesso progetto quello aperto o completato), poi passa il suo task_id; mai sommare i loro tempi.${tutti}`
+        : `Chiedi quale (il progetto, o passa il task_id da progetto_dettaglio o miei_task).${tutti}`,
     )
   }
 
@@ -1165,6 +1248,7 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
     membri,
     idMembri,
     trovaTask,
+    trovaTaskDaContare,
     trovaRegola,
     trovaPagamento,
     trovaNota,

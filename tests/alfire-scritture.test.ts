@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CONSEGUENZE } from '@/lib/alfire/conseguenze'
 import { strumentiConsentiti } from '@/lib/alfire/permessi'
 import { azioneDistruttiva, riassuntoScrittura } from '@/lib/alfire/riassunto'
-import { nomiDistinti } from '@/lib/alfire/risolvi'
+import { nomiDistinti, type Errore } from '@/lib/alfire/risolvi'
 import { anteprimaScrittura, strumentiAlfire } from '@/lib/alfire/strumenti'
 import type { AppRole, LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
@@ -187,9 +187,10 @@ vi.mock('@/app/actions/eliminazione', () => ({ anteprimaEliminazione: a.anteprim
 type Riga = Record<string, unknown>
 
 function simile(valore: unknown, schema: string): boolean {
+  // like LIKE: % any run, _ any one character
   const regex = schema
     .split('%')
-    .map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.'))
     .join('.*')
   return new RegExp(`^${regex}$`, 'i').test(String(valore ?? ''))
 }
@@ -495,7 +496,7 @@ beforeEach(() => {
 
 // ---------------------------------------------------------------------------
 describe('chi riceve quali strumenti (elenchi fissati)', () => {
-  it('admin: 17 letture, le risposte a un tocco e 18 scritture', () => {
+  it('admin: 18 letture (la sua giornata da closer compresa), le risposte a un tocco e 18 scritture', () => {
     expect(strumentiConsentiti('admin', 'admin')).toEqual([
       'guida',
       'proponi_risposte',
@@ -509,6 +510,7 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
       'commenti_marketing',
       'provvigioni',
       'costi_periodo',
+      'mie_giornate',
       'call_periodo',
       'progetti',
       'progetto_dettaglio',
@@ -536,11 +538,13 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
     ])
   })
 
-  it('setter: i suoi numeri, report, call, lead e i progetti', () => {
+  it('setter: i suoi numeri, i suoi clienti, la sua giornata, report, call, lead e i progetti', () => {
     expect(strumentiConsentiti('setter', 'employee')).toEqual([
       'guida',
       'proponi_risposte',
       'miei_numeri',
+      'miei_clienti',
+      'mie_giornate',
       'call_periodo',
       'progetti',
       'progetto_dettaglio',
@@ -556,10 +560,12 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
     ])
   })
 
-  it('closer: le sue call, le sue vendite e i loro incassi, i progetti', () => {
+  it('closer: le sue call, le sue vendite e i loro incassi, la sua giornata, i progetti', () => {
     expect(strumentiConsentiti('closer', 'employee')).toEqual([
       'guida',
       'proponi_risposte',
+      'mie_vendite',
+      'mie_giornate',
       'call_periodo',
       'progetti',
       'progetto_dettaglio',
@@ -3165,5 +3171,750 @@ describe('il tempo con Alfire: la destinazione detta al posto della voce', () =>
       atteso,
     )
     expect(a.modificaTempo).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// One's own time per task (Dany, 03/10/2026: «Quanto ho dedicato alla revisione
+// video di Rossi questo mese?»): the totals per project › task come from SQL
+// (pm_mio_tempo_per_task), only of whoever chats, narrowed by name as the time
+// tool finds projects and tasks.
+// ---------------------------------------------------------------------------
+describe('mio_tempo per task (03/10/2026)', () => {
+  const PER_TASK = [
+    { livello: 'totale', progetto_id: null, progetto: null, task_id: null, task: null, minuti: 135, voci: 2 },
+    { livello: 'progetto', progetto_id: SERGIO, progetto: 'Sergio Bellini', task_id: null, task: null, minuti: 135, voci: 2 },
+    { livello: 'task', progetto_id: SERGIO, progetto: 'Sergio Bellini', task_id: TASK(1, 4), task: 'Revisione video', minuti: 90, voci: 1 },
+    { livello: 'task', progetto_id: SERGIO, progetto: 'Sergio Bellini', task_id: TASK(1, 5), task: 'Call di check', minuti: 45, voci: 1 },
+  ]
+
+  it('ogni ruolo ce l’ha, con progetto e task facoltativi e mai una persona', async () => {
+    for (const [ruolo, livello] of [
+      ['coach', 'employee'],
+      ['coach', 'manager'],
+      ['setter', 'employee'],
+      ['closer', 'employee'],
+      ['admin', 'admin'],
+    ] as const) {
+      const campi = await campiDi(strumenti(ruolo, livello), 'mio_tempo')
+      expect(campi, ruolo).toEqual(expect.arrayContaining(['ultimi_giorni', 'da', 'a', 'progetto', 'task', 'task_id']))
+      for (const c of ['persona', 'profile_id', 'chi', 'setter']) expect(campi, `${ruolo}: ${c}`).not.toContain(c)
+    }
+    const d = strumenti('coach', 'employee').mio_tempo.description ?? ''
+    expect(d).toContain('per task (progetto › task), da SQL: non sommare voci né totali')
+    expect(d).toContain('«quanto ho dedicato alla revisione video di Rossi?» = progetto Rossi, task revisione video')
+  })
+
+  it('senza filtro: totali per giorno, progetto e task, tutti dal SQL e solo di chi chatta', async () => {
+    const m = mondoCoach()
+    m.pm_mio_tempo_per_task = PER_TASK
+    m.pm_riepilogo_tempo = [
+      { livello: 'giorno', data: aggiungiGiorni(oggiRoma(), -1), progetto_id: null, progetto: null, minuti: 135, voci: 2 },
+      { livello: 'progetto', data: null, progetto_id: SERGIO, progetto: 'Sergio Bellini', minuti: 135, voci: 2 },
+      { livello: 'totale', data: null, progetto_id: null, progetto: null, minuti: 135, voci: 2 },
+    ]
+    const esito = (await esegui(strumenti('coach', 'employee', m), 'mio_tempo', { ultimi_giorni: 7 })) as Record<string, unknown>
+    const periodo = { p_da: aggiungiGiorni(oggiRoma(), -6), p_a: oggiRoma() }
+    // never a person among the arguments: the RPC reads auth.uid() only
+    expect(rpcChiamate).toContainEqual({ nome: 'pm_mio_tempo_per_task', args: periodo })
+    expect(rpcChiamate).toContainEqual({ nome: 'pm_riepilogo_tempo', args: periodo })
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(esito).not.toHaveProperty('solo')
+    expect(esito).toMatchObject({
+      totale: { minuti: 135, durata: '2 h 15 min', voci: 2 },
+      per_progetto: [{ progetto: 'Sergio Bellini', minuti: 135 }],
+      per_task: [
+        { progetto: 'Sergio Bellini', task: 'Revisione video', minuti: 90, durata: '1 h 30 min', voci: 1 },
+        { progetto: 'Sergio Bellini', task: 'Call di check', minuti: 45, durata: '45 min', voci: 1 },
+      ],
+    })
+    expect(esito.per_giorno).toHaveLength(1)
+  })
+
+  it('«quanto ho dedicato alla revisione video di Sergio?»: progetto e task per nome, totale e voci solo lì', async () => {
+    const m = mondoCoach()
+    // what pm_mio_tempo_per_task gives for that project and task
+    m.pm_mio_tempo_per_task = [
+      { livello: 'totale', progetto_id: null, progetto: null, task_id: null, task: null, minuti: 90, voci: 1 },
+      { livello: 'progetto', progetto_id: SERGIO, progetto: 'Sergio Bellini', task_id: null, task: null, minuti: 90, voci: 1 },
+      PER_TASK[2],
+    ]
+    const registro: string[] = []
+    const esito = (await esegui(strumenti('coach', 'employee', m, registro), 'mio_tempo', {
+      progetto: 'Sergio',
+      task: 'la revisione dei video',
+    })) as Record<string, unknown>
+    expect(rpcChiamate).toContainEqual({
+      nome: 'pm_mio_tempo_per_task',
+      args: { p_da: primoDelMeseISO(oggiRoma()), p_a: oggiRoma(), p_progetto: SERGIO, p_task: TASK(1, 4) },
+    })
+    // narrowed, the totals per day of the whole period would not be about that task: not read
+    expect(rpcChiamate.map((c) => c.nome)).not.toContain('pm_riepilogo_tempo')
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(esito).toMatchObject({
+      solo: { progetto: 'Sergio Bellini', task: 'Revisione video' },
+      totale: { minuti: 90, durata: '1 h 30 min', voci: 1 },
+      per_task: [{ progetto: 'Sergio Bellini', task: 'Revisione video', minuti: 90 }],
+    })
+    expect(esito).not.toHaveProperty('per_giorno')
+    expect(esito).not.toHaveProperty('per_progetto')
+    // the entries too: mine, on that task
+    expect(registro).toContain(`pm_tempo.profile_id=${IO}`)
+    expect(registro).toContain(`pm_tempo.task_id=${TASK(1, 4)}`)
+    expect((esito.voci as { voce_id: string }[]).map((v) => v.voce_id)).toEqual([VOCE_VIDEO])
+  })
+
+  // «Quanto ho dedicato alla revisione video questo mese?», across all his clients: one title every
+  // client's project has, no project said. The sum is SQL's (p_tasks), never the model's.
+  const VOCE_STEFANO = '7e000000-0000-4000-8000-000000000010'
+  function conRevisioneDiStefano(m = mondoCoach()) {
+    m.pm_tempo.push(
+      {
+        id: VOCE_STEFANO,
+        profile_id: IO,
+        progetto_id: STEFANO,
+        task_id: TASK(2, 4),
+        data: oggiRoma(),
+        minuti: 30,
+        nota: null,
+        inizio: null,
+        fine: null,
+        created_at: new Date().toISOString(),
+        progetto: { nome: 'Stefano Moretti' },
+        task: { titolo: 'Revisione video' },
+      },
+      // someone else on the same task: never in his answer
+      { ...m.pm_tempo[1], id: 'altrui', profile_id: MARCO, progetto_id: STEFANO, task_id: TASK(2, 4), data: oggiRoma(), minuti: 200 },
+    )
+    // what pm_mio_tempo_per_task gives for his entries on the two «Revisione video»
+    m.pm_mio_tempo_per_task = [
+      { livello: 'totale', progetto_id: null, progetto: null, task_id: null, task: null, minuti: 120, voci: 2 },
+      { livello: 'progetto', progetto_id: SERGIO, progetto: 'Sergio Bellini', task_id: null, task: null, minuti: 90, voci: 1 },
+      { livello: 'progetto', progetto_id: STEFANO, progetto: 'Stefano Moretti', task_id: null, task: null, minuti: 30, voci: 1 },
+      PER_TASK[2],
+      { livello: 'task', progetto_id: STEFANO, progetto: 'Stefano Moretti', task_id: TASK(2, 4), task: 'Revisione video', minuti: 30, voci: 1 },
+    ]
+    return m
+  }
+
+  it('un task che hanno più clienti, senza progetto: la somma dal SQL con i progetti, solo di chi chatta', async () => {
+    const registro: string[] = []
+    const esito = (await esegui(strumenti('coach', 'employee', conRevisioneDiStefano(), registro), 'mio_tempo', {
+      task: 'Revisione video',
+    })) as Record<string, unknown>
+    const chiamata = rpcChiamate.find((c) => c.nome === 'pm_mio_tempo_per_task')
+    // the tasks of that title, never a person: the RPC reads auth.uid() only
+    expect(chiamata?.args).toEqual({ p_da: primoDelMeseISO(oggiRoma()), p_a: oggiRoma(), p_tasks: expect.any(Array) })
+    expect([...(chiamata?.args.p_tasks as string[])].sort()).toEqual([TASK(1, 4), TASK(2, 4)])
+    expect(rpcChiamate.map((c) => c.nome)).not.toContain('pm_riepilogo_tempo')
+    // whose time, first; then that it is the sum of that task, made by the app
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(esito.solo).toEqual({ task: 'Revisione video', progetti: 'tutti quelli dove c’è (2)' })
+    expect(esito.somma).toBe(
+      `Tempo di ${profiloDi('coach').nome} sul task «Revisione video» in tutti i progetti dove c’è (uno per cliente), sommato dall’app: dillo così, con il totale e, se serve, per_progetto. Non sommare altro.`,
+    )
+    expect(esito).toMatchObject({
+      totale: { minuti: 120, durata: '2 h', voci: 2 },
+      per_progetto: [
+        { progetto: 'Sergio Bellini', minuti: 90, durata: '1 h 30 min', voci: 1 },
+        { progetto: 'Stefano Moretti', minuti: 30, durata: '30 min', voci: 1 },
+      ],
+    })
+    for (const via of ['per_task', 'per_giorno']) expect(esito).not.toHaveProperty(via)
+    // his entries on those tasks only, the most recent first: never the other person's 200 minutes
+    expect(registro).toContain(`pm_tempo.profile_id=${IO}`)
+    expect((esito.voci as { voce_id: string }[]).map((v) => v.voce_id)).toEqual([VOCE_STEFANO, VOCE_VIDEO])
+    expect(JSON.stringify(esito)).not.toContain('200')
+  })
+
+  it('lo stesso task detto a parole sue, o con accenti e spazi diversi: è lo stesso titolo, la somma', async () => {
+    const m = conRevisioneDiStefano()
+    // a third client, his task typed by hand: the same title, another accent and two spaces
+    m.v_pm_task.push({ ...m.v_pm_task.find((t) => t.id === TASK(1, 4))!, id: 'terzo', progetto_id: 'progetto-terzo', titolo: 'REVISIONE  vìdeo' })
+    for (const detto of ['la revisione dei video', 'Revisione video']) {
+      rpcChiamate.length = 0
+      const esito = (await esegui(strumenti('coach', 'employee', m), 'mio_tempo', { task: detto })) as Record<string, unknown>
+      const chiamata = rpcChiamate.find((c) => c.nome === 'pm_mio_tempo_per_task')
+      expect([...(chiamata?.args.p_tasks as string[])].sort(), detto).toEqual([TASK(1, 4), TASK(2, 4), 'terzo'])
+      expect(esito.solo, detto).toEqual({ task: 'Revisione video', progetti: 'tutti quelli dove c’è (3)' })
+    }
+  })
+
+  it('titoli diversi, senza progetto: chiede quale, con il task_id di ognuno, e non somma', async () => {
+    const m = mondoCoach()
+    // Stefano's review is a different task: «Revisione video tecnica»
+    m.v_pm_task = m.v_pm_task.map((t) => (t.id === TASK(2, 4) ? { ...t, titolo: 'Revisione video tecnica' } : t))
+    const esito = (await esegui(strumenti('coach', 'employee', m), 'mio_tempo', { task: 'revisione' })) as Errore
+    expect(esito.errore).toBe(
+      `Più task possibili: «Revisione video» in Sergio Bellini (task_id ${TASK(1, 4)}); «Revisione video tecnica» in Stefano Moretti (task_id ${TASK(2, 4)}).`,
+    )
+    expect(esito.per_alfire).toContain('mai sommare i loro tempi')
+    expect(rpcChiamate.map((c) => c.nome)).not.toContain('pm_mio_tempo_per_task')
+  })
+
+  it('una somma che non si legge non diventa mai «nessun tempo»', async () => {
+    const s = strumentiAlfire(supabaseFinto(conRevisioneDiStefano(), [], ['pm_mio_tempo_per_task']) as never, profiloDi('coach'), 'employee')
+    expect(await esegui(s, 'mio_tempo', { task: 'Revisione video' })).toEqual({ errore: 'Tempo non disponibile.' })
+  })
+
+  it('la somma è solo di mio_tempo: il tempo da registrare su un task che hanno più clienti chiede ancora di quale', async () => {
+    const esito = await anteprimaCoach('tempo', { azione: 'registra', task: 'Revisione video', durata: '30 min' })
+    expect(JSON.stringify(esito)).toContain('Più task possibili')
+  })
+
+  it('due task con lo stesso titolo nello stesso progetto: chiede quale, mai uno dei due a caso', async () => {
+    // an old completed «Call di check» next to the open one: picking the open one would leave the other's time out
+    const VECCHIA = '7a000000-0000-4000-8000-000000001099'
+    const m = mondoCoach()
+    m.v_pm_task.push({ ...m.v_pm_task.find((t) => t.id === TASK(1, 5))!, id: VECCHIA, stato: 'completato' })
+    const esito = (await esegui(strumenti('coach', 'employee', m), 'mio_tempo', { progetto: 'Sergio', task: 'call di check' })) as Errore
+    expect(esito.errore).toBe(
+      `Più task possibili: «Call di check» in Sergio Bellini (task_id ${TASK(1, 5)}); «Call di check» in Sergio Bellini, completato (task_id ${VECCHIA}).`,
+    )
+    expect(rpcChiamate.map((c) => c.nome)).not.toContain('pm_mio_tempo_per_task')
+
+    // the one chosen, by its task_id: only its time
+    m.pm_mio_tempo_per_task = [{ livello: 'totale', progetto_id: null, progetto: null, task_id: null, task: null, minuti: 30, voci: 1 }]
+    await esegui(strumenti('coach', 'employee', m), 'mio_tempo', { progetto: 'Sergio', task_id: VECCHIA })
+    expect(rpcChiamate).toContainEqual({
+      nome: 'pm_mio_tempo_per_task',
+      args: { p_da: primoDelMeseISO(oggiRoma()), p_a: oggiRoma(), p_progetto: SERGIO, p_task: VECCHIA },
+    })
+  })
+
+  it('senza filtro, due task con lo stesso titolo in un progetto portano il loro task_id', async () => {
+    const m = mondoCoach()
+    m.pm_mio_tempo_per_task = [
+      PER_TASK[0],
+      { ...PER_TASK[3], minuti: 30 },
+      { ...PER_TASK[3], task_id: 'vecchia', minuti: 15 },
+      PER_TASK[2],
+    ]
+    const esito = (await esegui(strumenti('coach', 'employee', m), 'mio_tempo', {})) as { per_task: Record<string, unknown>[] }
+    expect(esito.per_task.map((x) => [x.task, x.task_id ?? null])).toEqual([
+      ['Call di check', TASK(1, 5)],
+      ['Call di check', 'vecchia'],
+      ['Revisione video', null],
+    ])
+  })
+
+  it('un progetto che non c’è non diventa mai «nessun tempo»', async () => {
+    const esito = (await esegui(strumenti('coach', 'employee', mondoCoach()), 'mio_tempo', { progetto: 'Zzzz Inesistente' })) as Errore
+    expect(esito).toHaveProperty('errore')
+    expect(esito).not.toHaveProperty('totale')
+  })
+
+  it('un totale per task che non si legge non diventa mai «nessun tempo»', async () => {
+    const s = strumentiAlfire(supabaseFinto(mondoCoach(), [], ['pm_mio_tempo_per_task']) as never, profiloDi('coach'), 'employee')
+    expect(await esegui(s, 'mio_tempo', {})).toEqual({ errore: 'Tempo non disponibile.' })
+  })
+
+  it('il tempo senza task e i task oltre i 30 con più tempo lo dicono', async () => {
+    const m = mondoCoach()
+    m.pm_mio_tempo_per_task = [
+      PER_TASK[0],
+      { livello: 'task', progetto_id: SERGIO, progetto: 'Sergio Bellini', task_id: null, task: null, minuti: 20, voci: 1 },
+      ...Array.from({ length: 31 }, (_, i) => ({
+        livello: 'task',
+        progetto_id: STEFANO,
+        progetto: 'Stefano Moretti',
+        task_id: `t-${i}`,
+        task: i === 0 ? null : `Task ${i}`,
+        minuti: 10,
+        voci: 1,
+      })),
+    ]
+    const esito = (await esegui(strumenti('coach', 'employee', m), 'mio_tempo', {})) as {
+      per_task: { task: string }[]
+      nota_task: string
+    }
+    expect(esito.per_task).toHaveLength(30)
+    expect(esito.per_task[0].task).toBe('senza task')
+    // a task the caller no longer sees keeps its minutes, without a name
+    expect(esito.per_task[1].task).toBe('Task non più disponibile')
+    expect(esito.nota_task).toBe('Qui i 30 task con più tempo su 32: per gli altri, chiedi con il progetto.')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The setter's and the closer's own money in Alfire (Dany, 03/10/2026): only
+// theirs, exactly what the app shows them (CLAUDE.md section 6), never
+// contacts, payment method or notes, and whose data it is said first.
+// ---------------------------------------------------------------------------
+const VENDITA_2 = '50000000-0000-4000-8000-000000000002'
+const VENDITA_ALTRO = '50000000-0000-4000-8000-000000000003'
+
+/** Rows of mie_vendite_setter as the RPC gives them to the setter: his sales only, filtered in SQL. */
+function venditeDelSetter(): Riga[] {
+  const base = {
+    sale_id: VENDITA,
+    cliente: 'Mario Rossi',
+    prodotto: 'Percorso Alpha 3 mesi',
+    tipo: 'nuovo',
+    data_vendita: '2026-09-10',
+    valore_contratto: 1500,
+    numero_rate: 3,
+    incassato_vendita: 500,
+    rate_incassate: 1,
+    rate_in_ritardo: 1,
+    provvigione_vendita: 25,
+    provvigione_prevista: true,
+  }
+  return [
+    { ...base, numero_rata: 1, scadenza: '2026-09-10', importo_previsto: 500, stato: 'incassata', incassato_il: '2026-09-10', importo_incassato: 500, in_ritardo: false, percentuale: 0.05, provvigione: 25 },
+    { ...base, numero_rata: 2, scadenza: '2026-09-25', importo_previsto: 500, stato: 'prevista', incassato_il: null, importo_incassato: null, in_ritardo: true, percentuale: null, provvigione: null },
+    { ...base, numero_rata: 3, scadenza: '2026-11-10', importo_previsto: 500, stato: 'prevista', incassato_il: null, importo_incassato: null, in_ritardo: false, percentuale: null, provvigione: null },
+    {
+      sale_id: VENDITA_2,
+      cliente: 'Luca Rossi',
+      prodotto: 'Percorso Alpha 3 mesi',
+      tipo: 'rinnovo',
+      data_vendita: '2026-08-01',
+      valore_contratto: 900,
+      numero_rate: 1,
+      numero_rata: 1,
+      scadenza: '2026-08-01',
+      importo_previsto: 900,
+      stato: 'incassata',
+      incassato_il: '2026-08-01',
+      importo_incassato: 900,
+      in_ritardo: false,
+      percentuale: null,
+      provvigione: null,
+      incassato_vendita: 900,
+      rate_incassate: 1,
+      rate_in_ritardo: 0,
+      provvigione_vendita: null,
+      provvigione_prevista: false,
+    },
+  ]
+}
+
+/** What must never reach a collaborator through these reads. */
+function senzaDatiRiservati(esito: unknown) {
+  const testo = JSON.stringify(esito)
+  for (const vietato of ['+39 111 111 1111', 'telefono', 'email', 'instagram', 'metodo', 'bonifico', 'percentuale', '0.05', 'Nota riservata', 'note']) {
+    expect(testo, vietato).not.toContain(vietato)
+  }
+}
+
+describe('i soldi del setter in Alfire: i clienti che ha portato (03/10/2026)', () => {
+  it('solo il setter ha miei_clienti; solo il closer mie_vendite; la giornata a tutti e due e all’admin che chiude, a nessun altro', () => {
+    for (const [ruolo, livello] of [
+      ['admin', 'admin'],
+      ['setter', 'employee'],
+      ['closer', 'employee'],
+      ['coach', 'employee'],
+      ['coach', 'manager'],
+      ['editor', 'employee'],
+      ['nutrizione', 'employee'],
+      ['dev', 'admin'],
+    ] as const) {
+      const suoi = strumentiConsentiti(ruolo, livello)
+      expect(suoi.includes('miei_clienti'), `${ruolo}/${livello} miei_clienti`).toBe(ruolo === 'setter')
+      expect(suoi.includes('mie_vendite'), `${ruolo}/${livello} mie_vendite`).toBe(ruolo === 'closer')
+      expect(suoi.includes('mie_giornate'), `${ruolo}/${livello} mie_giornate`).toBe(ruolo === 'setter' || ruolo === 'closer' || ruolo === 'admin')
+    }
+  })
+
+  it('le loro descrizioni dicono che sono solo di chi chatta, e nessuna sceglie una persona', async () => {
+    const setter = strumenti('setter', 'employee')
+    const closer = strumenti('closer', 'employee')
+    const admin = strumenti('admin', 'admin')
+    for (const [s, nome] of [
+      [setter, 'miei_clienti'],
+      [setter, 'mie_giornate'],
+      [closer, 'mie_vendite'],
+      [closer, 'mie_giornate'],
+      [admin, 'mie_giornate'],
+    ] as const) {
+      expect(s[nome].description, nome).toContain('Solo di chi chatta: mai per un’altra persona.')
+      for (const c of ['persona', 'setter', 'closer', 'profile_id']) expect(await campiDi(s, nome), `${nome}: ${c}`).not.toContain(c)
+    }
+    expect(setter.mie_giornate.description).toContain('gli esiti del closer sulle call che ha fissato')
+    expect(closer.mie_giornate.description).toContain('show rate e close rate')
+    expect(admin.mie_giornate.description).toContain('La giornata da closer dell’admin che chatta')
+    expect(admin.mie_giornate.description).toContain('Mai di un altro closer né del team: per quelli call_periodo e vendite_periodo.')
+  })
+
+  it('miei_clienti: per vendita revenue, pagato, rate e la provvigione maturata, dal SQL; mai la percentuale, i contatti o il metodo', async () => {
+    const m = mondo()
+    m.mie_vendite_setter = venditeDelSetter()
+    const esito = (await esegui(strumenti('setter', 'employee', m), 'miei_clienti', {})) as Record<string, unknown>
+    // the RPC filters on the caller: nobody to choose
+    expect(rpcChiamate).toContainEqual({ nome: 'mie_vendite_setter', args: {} })
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(esito.di_chi).toBe('Questi sono i dati di Dany Montagnolo, cioè di chi sta chattando: mai di un’altra persona.')
+    expect(esito.vendite).toEqual([
+      {
+        cliente: 'Mario Rossi',
+        prodotto: 'Percorso Alpha 3 mesi',
+        tipo: 'Nuovo',
+        venduta_il: '2026-09-10',
+        revenue: 1500,
+        pagato_in_tutto: 500,
+        rate_pagate: '1 di 3',
+        rate_in_ritardo: 1,
+        a_te: 25,
+      },
+      {
+        cliente: 'Luca Rossi',
+        prodotto: 'Percorso Alpha 3 mesi',
+        tipo: 'Rinnovo',
+        venduta_il: '2026-08-01',
+        revenue: 900,
+        pagato_in_tutto: 900,
+        rate_pagate: '1 di 1',
+        a_te: 'non prevista (rinnovo)',
+      },
+    ])
+    expect(esito.nota).toBe('Le rate e la provvigione di ogni incasso: chiedi per cliente. Quanto hanno pagato in un periodo: chiedi con le date.')
+    senzaDatiRiservati(esito)
+  })
+
+  it('miei_clienti con da e a: gli incassi del periodo uno per uno, ognuno con la sua provvigione, mai sommati', async () => {
+    const m = mondo()
+    m.mie_vendite_setter = venditeDelSetter()
+    const esito = (await esegui(strumenti('setter', 'employee', m), 'miei_clienti', { da: '2026-09-01', a: '2026-09-30' })) as Record<string, unknown>
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(esito.periodo).toEqual({ da: '2026-09-01', a: '2026-09-30' })
+    // Luca Rossi paid in August: not in September
+    expect(esito.incassi).toEqual([
+      { cliente: 'Mario Rossi', tipo: 'Nuovo', rata: '1 di 3', stato: 'pagata', pagata_il: '2026-09-10', importo: 500, a_te: 25 },
+    ])
+    expect(esito).not.toHaveProperty('vendite')
+    expect(esito.nota).toBe(
+      'Un incasso per riga, dal SQL: il totale non è calcolato qui, non sommarli; la provvigione maturata nel periodo è in miei_numeri.',
+    )
+    senzaDatiRiservati(esito)
+
+    // a month without cash-ins says so; a date written otherwise is never the month
+    expect(await esegui(strumenti('setter', 'employee', m), 'miei_clienti', { da: '2026-07-01', a: '2026-07-31' })).toMatchObject({
+      incassi: [],
+      nota: 'Nessun incasso dei tuoi clienti nel periodo.',
+    })
+    expect(await esegui(strumenti('setter', 'employee', m), 'miei_clienti', { da: '01/09/2026' })).toEqual(DATA_SBAGLIATA)
+  })
+
+  it('miei_clienti con un cliente: le sue rate, ognuna con la provvigione del suo incasso', async () => {
+    const m = mondo()
+    m.mie_vendite_setter = venditeDelSetter()
+    const esito = (await esegui(strumenti('setter', 'employee', m), 'miei_clienti', { cliente: 'Mario' })) as {
+      cliente: string
+      vendite: { rate: unknown[] }[]
+    }
+    expect(esito.cliente).toBe('Mario Rossi')
+    expect(esito.vendite).toHaveLength(1)
+    expect(esito.vendite[0].rate).toEqual([
+      { rata: 1, stato: 'pagata', scadenza: '2026-09-10', pagata_il: '2026-09-10', importo: 500, a_te: 25 },
+      { rata: 2, stato: 'in ritardo', scadenza: '2026-09-25', importo: 500, a_te: 'matura quando paga' },
+      { rata: 3, stato: 'da pagare', scadenza: '2026-11-10', importo: 500, a_te: 'matura quando paga' },
+    ])
+    expect(esito).not.toHaveProperty('nota')
+    senzaDatiRiservati(esito)
+
+    // two of his clients fit: he says which, among his own only
+    const doppio = (await esegui(strumenti('setter', 'employee', m), 'miei_clienti', { cliente: 'Rossi' })) as Errore
+    expect(doppio).toEqual({ errore: 'Più clienti possibili tra i tuoi: Mario Rossi, Luca Rossi.', per_alfire: 'Chiedi quale, con nome e cognome.' })
+    // a client he did not bring: not among his, never someone else's sale
+    expect(await esegui(strumenti('setter', 'employee', m), 'miei_clienti', { cliente: 'Bianchi' })).toMatchObject({
+      persona: 'Dany Montagnolo',
+      vendite: [],
+      nota: 'Nessun cliente «Bianchi» tra quelli che ha portato Dany Montagnolo.',
+    })
+  })
+
+  it('una lettura che non riesce non diventa mai «nessun cliente»', async () => {
+    const s = strumentiAlfire(supabaseFinto(mondo(), [], ['mie_vendite_setter']) as never, profiloDi('setter'), 'employee')
+    expect(await esegui(s, 'miei_clienti', {})).toEqual({ errore: 'I tuoi clienti non sono disponibili in questo momento.' })
+  })
+})
+
+describe('i soldi del closer in Alfire: le vendite che ha chiuso (03/10/2026)', () => {
+  const oggi = oggiRoma()
+  const PASSATA = aggiungiGiorni(oggi, -8)
+  const FUTURA = aggiungiGiorni(oggi, 22)
+  const DOPO = aggiungiGiorni(oggi, 52)
+
+  /** An instalment as the sale page reads it, through the sale (RLS: his sales only). */
+  function rataVendita(n: number, stato: string, scadenza: string, extra: Riga = {}): Riga {
+    return {
+      numero_rata: n,
+      scadenza,
+      importo_previsto: 500,
+      stato,
+      incassato_il: null,
+      importo_incassato: null,
+      metodo: 'bonifico',
+      created_at: `2026-09-10T10:00:0${n}Z`,
+      ...extra,
+    }
+  }
+
+  /** His two sales and one of another closer, as v_vendite and sales give them (the fake filters the eq). */
+  function mondoCloser(): Record<string, Riga[]> {
+    const m = mondo()
+    const vendita = (id: string, cliente: { nome: string; cognome: string }, extra: Riga) => ({
+      id,
+      tipo: 'nuovo',
+      data_inizio: '2026-09-17',
+      data_fine: '2026-12-16',
+      valore_contratto: 1500,
+      numero_rate: 3,
+      prodotto_personalizzato: null,
+      note: 'Nota riservata',
+      cliente: { ...cliente, telefono: '+39 111 111 1111', instagram_handle: '@mario' },
+      prodotto: { nome: 'Percorso Alpha 3 mesi' },
+      setter: { nome: 'Loris Setter' },
+      rate: [],
+      ...extra,
+    })
+    m.sales = [
+      vendita(VENDITA, { nome: 'Mario', cognome: 'Rossi' }, {
+        client_id: MARIO,
+        closer_id: IO,
+        data_vendita: '2026-09-10',
+        // out of order, as the embedded rows may come: the plan order is the instalment number
+        rate: [
+          rataVendita(3, 'prevista', FUTURA),
+          rataVendita(1, 'incassata', '2026-09-10', { incassato_il: '2026-09-10', importo_incassato: 500 }),
+          rataVendita(2, 'prevista', PASSATA),
+        ],
+      }),
+      vendita(VENDITA_2, { nome: 'Luca', cognome: 'Rossi' }, {
+        client_id: LUCA_ROSSI,
+        closer_id: IO,
+        data_vendita: '2026-08-01',
+        tipo: 'rinnovo',
+        setter: null,
+        numero_rate: 1,
+        valore_contratto: 900,
+        rate: [rataVendita(1, 'incassata', '2026-08-01', { importo_previsto: 900, incassato_il: '2026-08-01', importo_incassato: 900, metodo: 'contanti' })],
+      }),
+      vendita(VENDITA_ALTRO, { nome: 'Gino', cognome: 'Altri' }, { client_id: 'c-altro', closer_id: LORENZO, data_vendita: '2026-09-20' }),
+    ]
+    m.v_vendite = [
+      { sale_id: VENDITA, closer_id: IO, client_id: MARIO, data_vendita: '2026-09-10', incassato: 500, da_incassare: 1000, in_ritardo: 500, rate_in_ritardo: 1, prossima_scadenza: PASSATA },
+      { sale_id: VENDITA_2, closer_id: IO, client_id: LUCA_ROSSI, data_vendita: '2026-08-01', incassato: 900, da_incassare: 0, in_ritardo: 0, rate_in_ritardo: 0, prossima_scadenza: null },
+      { sale_id: VENDITA_ALTRO, closer_id: LORENZO, client_id: 'c-altro', data_vendita: '2026-09-20', incassato: 0, da_incassare: 1500, in_ritardo: 0, rate_in_ritardo: 0, prossima_scadenza: '2026-10-20' },
+    ]
+    return m
+  }
+
+  it('mie_vendite: solo le sue, con incassato e da incassare dal SQL e la prossima rata da oggi; mai contatti, metodo o note', async () => {
+    const registro: string[] = []
+    const esito = (await esegui(strumenti('closer', 'employee', mondoCloser(), registro), 'mie_vendite', {})) as Record<string, unknown>
+    expect(registro).toContain(`v_vendite.closer_id=${IO}`)
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(esito.vendite).toEqual([
+      {
+        cliente: 'Mario Rossi',
+        tipo: 'Nuovo',
+        prodotto: 'Percorso Alpha 3 mesi',
+        venduta_il: '2026-09-10',
+        percorso: { inizio: '2026-09-17', fine: '2026-12-16' },
+        setter: 'Loris Setter',
+        contratto: 1500,
+        numero_rate: 3,
+        incassato: 500,
+        da_incassare: 1000,
+        in_ritardo: 500,
+        rate_in_ritardo: 1,
+        // the late one is in in_ritardo: the next is the one still ahead (v_vendite's prossima_scadenza is the late one)
+        prossima_rata: { scadenza: FUTURA, importo: 500 },
+      },
+      {
+        cliente: 'Luca Rossi',
+        tipo: 'Rinnovo',
+        prodotto: 'Percorso Alpha 3 mesi',
+        venduta_il: '2026-08-01',
+        percorso: { inizio: '2026-09-17', fine: '2026-12-16' },
+        setter: null,
+        contratto: 900,
+        numero_rate: 1,
+        incassato: 900,
+        da_incassare: 0,
+      },
+    ])
+    expect(esito).not.toHaveProperty('nota')
+    // another closer's sale never shows up
+    expect(JSON.stringify(esito)).not.toContain('Gino')
+    senzaDatiRiservati(esito)
+  })
+
+  it('mie_vendite da incassare: solo le vendite con rate da incassare, ognuna con le sue rate previste; le fallite a parte', async () => {
+    const m = mondoCloser()
+    // the first instalment did not go through: not counted in da_incassare (section 9), said apart
+    const mario = m.sales.find((v) => v.id === VENDITA)!
+    mario.rate = [
+      rataVendita(1, 'fallita', '2026-09-10'),
+      rataVendita(2, 'prevista', PASSATA),
+      rataVendita(3, 'prevista', FUTURA),
+      rataVendita(4, 'prevista', DOPO),
+    ]
+    const esito = (await esegui(strumenti('closer', 'employee', m), 'mie_vendite', { da_incassare: true })) as {
+      solo: string
+      nota: string
+      vendite: Record<string, unknown>[]
+    }
+    expect(esito.solo).toBe('le vendite con rate da incassare')
+    expect(esito.vendite.map((v) => v.cliente)).toEqual(['Mario Rossi'])
+    expect(esito.vendite[0].rate_da_incassare).toEqual([
+      { rata: 2, stato: 'in ritardo', scadenza: PASSATA, importo: 500 },
+      { rata: 3, stato: 'da incassare', scadenza: FUTURA, importo: 500 },
+      { rata: 4, stato: 'da incassare', scadenza: DOPO, importo: 500 },
+    ])
+    expect(esito.vendite[0].rate_fallite).toEqual([{ rata: 1, stato: 'fallita', scadenza: '2026-09-10', importo: 500 }])
+    expect(esito.nota).toBe('rate_fallite: pagamenti non andati a buon fine, non contati in da_incassare.')
+    senzaDatiRiservati(esito)
+  })
+
+  it('mie_vendite con un cliente: le sue vendite con tutte le rate, nell’ordine del piano', async () => {
+    const esito = (await esegui(strumenti('closer', 'employee', mondoCloser()), 'mie_vendite', { cliente: 'Mario Rossi' })) as {
+      cliente: string
+      vendite: { cliente: string; rate: unknown[] }[]
+    }
+    expect(esito.cliente).toBe('Mario Rossi')
+    expect(esito.vendite.map((v) => v.cliente)).toEqual(['Mario Rossi'])
+    expect(esito.vendite[0].rate).toEqual([
+      { rata: 1, stato: 'incassata', scadenza: '2026-09-10', incassata_il: '2026-09-10', importo: 500 },
+      { rata: 2, stato: 'in ritardo', scadenza: PASSATA, importo: 500 },
+      { rata: 3, stato: 'da incassare', scadenza: FUTURA, importo: 500 },
+    ])
+    senzaDatiRiservati(esito)
+  })
+
+  it('mie_vendite: un cliente che non è tra i suoi non diventa mai «crealo prima»', async () => {
+    const esito = await esegui(strumenti('closer', 'employee', mondoCloser()), 'mie_vendite', { cliente: 'Zzzz Nessuno' })
+    expect(esito).toEqual({
+      persona: 'Dany Montagnolo',
+      di_chi: 'Questi sono i dati di Dany Montagnolo, cioè di chi sta chattando: mai di un’altra persona.',
+      vendite: [],
+      nota: 'Nessun cliente «Zzzz Nessuno» tra le tue vendite.',
+    })
+  })
+
+  it('mie_vendite con da e a: le vendite chiuse in quel periodo, per data di vendita', async () => {
+    const esito = (await esegui(strumenti('closer', 'employee', mondoCloser()), 'mie_vendite', { da: '2026-09-01', a: '2026-09-30' })) as {
+      periodo: unknown
+      vendite: { cliente: string }[]
+    }
+    expect(esito.periodo).toEqual({ da: '2026-09-01', a: '2026-09-30' })
+    expect(esito.vendite.map((v) => v.cliente)).toEqual(['Mario Rossi'])
+    expect(await esegui(strumenti('closer', 'employee', mondoCloser()), 'mie_vendite', { da: '01/09/2026' })).toEqual(DATA_SBAGLIATA)
+  })
+
+  it('una lettura che non riesce non diventa mai «nessuna vendita»', async () => {
+    for (const rotta of ['v_vendite', 'sales']) {
+      const s = strumentiAlfire(supabaseFinto(mondoCloser(), [], [rotta]) as never, profiloDi('closer'), 'employee')
+      expect(await esegui(s, 'mie_vendite', {}), rotta).toEqual({ errore: 'Le tue vendite non sono disponibili in questo momento.' })
+    }
+  })
+})
+
+describe('la giornata del setter e del closer in Alfire (03/10/2026)', () => {
+  it('il setter: il suo report accanto agli esiti delle sue call e ai soldi dei suoi clienti nuovi, giorno per giorno', async () => {
+    const m = mondo()
+    const zero = {
+      dm_outbound: 0, dm_inbound: 0, conversazioni: 0, call_proposte: 0, discovery_prenotate: 0, discovery_svolte: 0, call_qualificate: 0,
+      strategy_prenotate: 0, follow_up: 0, dm_totali: 0, prenotate_inbound: 0, prenotate_outbound: 0, closer_call: 0, closer_qualificate: 0,
+      closer_no_show: 0, closer_follow_up: 0, closer_cancellate: 0, closer_chiuse: 0, cash: 0, revenue: 0,
+    }
+    m.giornate_setter = [
+      { ...zero, data: null, dm_outbound: 20, dm_totali: 20, discovery_prenotate: 1, closer_call: 1, closer_chiuse: 1, cash: 500, revenue: 1500 },
+      { ...zero, data: '2026-10-02', closer_call: 1, closer_chiuse: 1, cash: 500, revenue: 1500 },
+      { ...zero, data: '2026-10-01', dm_outbound: 20, dm_totali: 20, discovery_prenotate: 1 },
+    ]
+    const esito = (await esegui(strumenti('setter', 'employee', m), 'mie_giornate', { da: '2026-10-01', a: '2026-10-03' })) as Record<string, unknown>
+    // his own days whatever is asked: always himself, said explicitly (never everyone's under his name)
+    expect(rpcChiamate).toContainEqual({ nome: 'giornate_setter', args: { p_da: '2026-10-01', p_a: '2026-10-03', p_setter: IO } })
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(esito.totale).toMatchObject({
+      'DM outbound': 20,
+      'DM totali': 20,
+      'Discovery prenotate': 1,
+      'Call svolte': 1,
+      Chiuse: 1,
+      // what they count, in the name: never read as everything his clients paid
+      'Cash (prima rata dei clienti nuovi)': 500,
+      'Revenue (contratti dei clienti nuovi)': 1500,
+    })
+    // strategy calls are history: no column when the period has none
+    expect(esito.totale).not.toHaveProperty('Strategy (storico)')
+    expect(esito.giorni).toEqual([
+      { data: '2026-10-02', 'Call svolte': 1, Chiuse: 1, 'Cash (prima rata dei clienti nuovi)': 500, 'Revenue (contratti dei clienti nuovi)': 1500 },
+      { data: '2026-10-01', 'DM outbound': 20, 'DM totali': 20, 'Discovery prenotate': 1 },
+    ])
+    expect(esito.link).toBe('/my-numbers?da=2026-10-01&a=2026-10-03')
+  })
+
+  it('il closer: la sua giornata, con show rate e close rate del periodo', async () => {
+    const m = mondo()
+    m.giornate_closer = [
+      { data: null, call: 2, qualificate: 2, no_show: 2, follow_up: 1, cancellate: 0, chiuse: 1, cash: 500, revenue: 1500, show_rate: 0.5, close_rate: 0.5 },
+      { data: '2026-10-02', call: 2, qualificate: 2, no_show: 2, follow_up: 1, cancellate: 0, chiuse: 1, cash: 500, revenue: 1500, show_rate: 0.5, close_rate: 0.5 },
+    ]
+    const esito = (await esegui(strumenti('closer', 'employee', m), 'mie_giornate', { da: '2026-10-01', a: '2026-10-03' })) as Record<string, unknown>
+    // always his own, said explicitly (the RPC keeps a closer to himself anyway)
+    expect(rpcChiamate).toContainEqual({ nome: 'giornate_closer', args: { p_da: '2026-10-01', p_a: '2026-10-03', p_closer: IO } })
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(esito.totale).toEqual({
+      'Call svolte': 2,
+      Qualificate: 2,
+      'No show': 2,
+      'Follow up (esito call)': 1,
+      Cancellate: 0,
+      Chiuse: 1,
+      'Cash (prima rata dei clienti nuovi)': 500,
+      'Revenue (contratti dei clienti nuovi)': 1500,
+      'Show rate': 0.5,
+      'Close rate': 0.5,
+    })
+    expect(esito.giorni).toEqual([
+      {
+        data: '2026-10-02',
+        'Call svolte': 2,
+        Qualificate: 2,
+        'No show': 2,
+        'Follow up (esito call)': 1,
+        Chiuse: 1,
+        'Cash (prima rata dei clienti nuovi)': 500,
+        'Revenue (contratti dei clienti nuovi)': 1500,
+      },
+    ])
+  })
+
+  // Dany is admin and closer (CLAUDE.md section 6): his own day as the closer, as Setting › Closer with himself chosen;
+  // without p_closer the RPC would give the admin every closer's days under his name
+  it('l’admin: la sua giornata da closer, sempre con sé come closer, mai quella di tutti', async () => {
+    const m = mondo()
+    m.giornate_closer = [
+      { data: null, call: 1, qualificate: 1, no_show: 0, follow_up: 0, cancellate: 0, chiuse: 1, cash: 700, revenue: 2100, show_rate: 1, close_rate: 1 },
+      { data: '2026-10-01', call: 1, qualificate: 1, no_show: 0, follow_up: 0, cancellate: 0, chiuse: 1, cash: 700, revenue: 2100, show_rate: 1, close_rate: 1 },
+    ]
+    const esito = (await esegui(strumenti('admin', 'admin', m), 'mie_giornate', { da: '2026-10-01', a: '2026-10-03' })) as Record<string, unknown>
+    expect(rpcChiamate).toEqual([{ nome: 'giornate_closer', args: { p_da: '2026-10-01', p_a: '2026-10-03', p_closer: IO } }])
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(esito.persona).toBe(profiloDi('admin').nome)
+    expect(esito.totale).toMatchObject({ 'Call svolte': 1, Chiuse: 1, 'Cash (prima rata dei clienti nuovi)': 700, 'Show rate': 1, 'Close rate': 1 })
+    // the page with himself chosen: without closer it shows every closer
+    expect(esito.link).toBe(`/setting/closer?closer=${IO}&da=2026-10-01&a=2026-10-03`)
+    // no person to choose: another closer's day never comes from here
+    for (const c of ['persona', 'closer', 'setter', 'profile_id']) expect(await campiDi(strumenti('admin', 'admin'), 'mie_giornate')).not.toContain(c)
+  })
+
+  it('una giornata che non si legge non diventa mai «niente da fare»; una data scritta male non legge il mese', async () => {
+    const s = strumentiAlfire(supabaseFinto(mondo(), [], ['giornate_closer']) as never, profiloDi('closer'), 'employee')
+    expect(await esegui(s, 'mie_giornate', {})).toEqual({ errore: 'La tua giornata non è disponibile in questo momento.' })
+    expect(await esegui(strumenti('setter', 'employee'), 'mie_giornate', { da: '01/10/2026' })).toEqual(DATA_SBAGLIATA)
+  })
+
+  it('un periodo senza giorni: nessun totale (la riga dei totali di SQL è tutta vuota), e lo dice', async () => {
+    const m = mondo()
+    m.giornate_closer = [
+      { data: null, call: null, qualificate: null, no_show: null, follow_up: null, cancellate: null, chiuse: null, cash: null, revenue: null, show_rate: null, close_rate: null },
+    ]
+    const esito = await esegui(strumenti('closer', 'employee', m), 'mie_giornate', { da: '2021-01-01', a: '2021-01-31' })
+    expect(esito).toMatchObject({ totale: null, giorni: [], nota: 'Nessun giorno con attività nel periodo.' })
   })
 })

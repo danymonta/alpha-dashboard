@@ -46,8 +46,8 @@ describe('quanto pesano gli strumenti di Alfire', () => {
   it('l’admin fa tutto restando sotto i 40.000 caratteri di strumenti', async () => {
     const admin = await dimensione('admin', 'admin')
     console.info('[alfire] strumenti admin', admin)
-    // 17 reads, the answers at a tap, 18 writes
-    expect(admin.strumenti).toBe(36)
+    // 18 reads (his own day as the closer included), the answers at a tap, 18 writes
+    expect(admin.strumenti).toBe(37)
     expect(admin.caratteri).toBeLessThan(40_000)
   })
 

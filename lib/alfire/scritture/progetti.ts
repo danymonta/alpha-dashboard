@@ -22,7 +22,19 @@ import { raggruppaTempoTeam } from '@/components/pm/tempo-team/dati'
 import { breve, cambi, giorno } from '@/lib/alfire/cambi'
 import { CONSEGUENZE, conseguenzeLista, conseguenzeTask } from '@/lib/alfire/conseguenze'
 import type { Anteprima } from '@/lib/alfire/riassunto'
-import { errore, isErrore, isIo, isNessuno, stessoTask, trova, type Errore, type TaskTrovato, type VoceTempo } from '@/lib/alfire/risolvi'
+import {
+  errore,
+  isErrore,
+  isIo,
+  isNessuno,
+  isTaskInPiuProgetti,
+  stessoTask,
+  trova,
+  type Errore,
+  type TaskInPiuProgetti,
+  type TaskTrovato,
+  type VoceTempo,
+} from '@/lib/alfire/risolvi'
 import {
   anteprima,
   data,
@@ -64,6 +76,39 @@ type Progetto = Exclude<Awaited<ReturnType<Contesto['r']['trovaProgetto']>>, Err
 async function progettoPerNome(ctx: Contesto, nome: string | undefined): Promise<Progetto | Errore> {
   if (!nome?.trim()) return errore('Dimmi il nome del progetto.')
   return ctx.r.trovaProgetto(nome)
+}
+
+/**
+ * Project and (optional) task by name, as people say their time: the task
+ * must belong to the project; the task alone is enough when it is one among
+ * the projects I see (03/10/2026): a title every client has makes the question
+ * name the projects. Nothing said: no project and no task. The same lookup for
+ * where time goes (tempo) and for what time to count (mio_tempo, a `lettura`:
+ * between two tasks with one title, even in one project, it asks which; one
+ * title every client has, with no project said, is all of them, `insieme`,
+ * and SQL sums them).
+ */
+async function progettoETask(
+  ctx: Contesto,
+  v: { progetto?: string; task?: string; task_id?: string },
+  { lettura = false }: { lettura?: boolean } = {},
+): Promise<{ progetto: Progetto | null; task: TaskTrovato | null; insieme?: TaskInPiuProgetti } | Errore> {
+  const nomeTask = v.task?.trim() ?? ''
+  if (!v.progetto?.trim()) {
+    if (!nomeTask && !v.task_id) return { progetto: null, task: null }
+    // a read counts the same title of every client together (trovaTaskDaContare): the sum is SQL's
+    const t = lettura ? await ctx.r.trovaTaskDaContare(nomeTask, { task_id: v.task_id }) : await ctx.r.trovaTask(nomeTask, { task_id: v.task_id })
+    if (isErrore(t)) return t
+    if (isTaskInPiuProgetti(t)) return { progetto: null, task: null, insieme: t }
+    const p = await ctx.r.progettoPerId(t.progetto_id)
+    return isErrore(p) ? p : { progetto: p, task: t }
+  }
+  const p = await progettoPerNome(ctx, v.progetto)
+  if (isErrore(p)) return p
+  if (!nomeTask && !v.task_id) return { progetto: p, task: null }
+  const t = await ctx.r.trovaTask(nomeTask, { task_id: v.task_id, progettoId: p.id, lettura })
+  if (isErrore(t)) return t
+  return { progetto: p, task: t }
 }
 
 /** Who manages the project (pm_puo_gestire): the projects' admin always, a manager where he is a member. */
@@ -863,26 +908,13 @@ function tempo(ctx: Contesto): Definizione {
     }
   }
 
-  /**
-   * Project and (optional) task by name: the task must belong to the project.
-   * The task alone is enough when it is one among the projects I see (03/10/2026):
-   * a title every client has makes the question name the projects.
-   */
+  /** Where the time goes: a project, and the task if said (progettoETask). */
   async function dove(v: Input): Promise<{ progetto: Progetto; task: TaskTrovato | null } | Errore> {
-    const nomeTask = v.task?.trim() ?? ''
-    if (!v.progetto?.trim()) {
-      if (!nomeTask && !v.task_id) return errore('Dimmi il progetto (quello di un cliente porta il suo nome) e, se vuoi, il task.')
-      const t = await r.trovaTask(nomeTask, { task_id: v.task_id })
-      if (isErrore(t)) return t
-      const p = await r.progettoPerId(t.progetto_id)
-      return isErrore(p) ? p : { progetto: p, task: t }
-    }
-    const p = await progettoPerNome(ctx, v.progetto)
-    if (isErrore(p)) return p
-    if (!nomeTask && !v.task_id) return { progetto: p, task: null }
-    const t = await r.trovaTask(nomeTask, { task_id: v.task_id, progettoId: p.id })
-    if (isErrore(t)) return t
-    return { progetto: p, task: t }
+    const x = await progettoETask(ctx, v)
+    if (isErrore(x)) return x
+    return x.progetto
+      ? { progetto: x.progetto, task: x.task }
+      : errore('Dimmi il progetto (quello di un cliente porta il suo nome) e, se vuoi, il task.')
   }
 
   /**
@@ -1184,81 +1216,209 @@ function leggiPeriodoTempo({ ultimi_giorni, da, a }: z.infer<typeof periodoTempo
 
 /** Entries of mio_tempo: the most recent ones; the totals always count them all. */
 const VOCI_MIO_TEMPO = 40
+/** Project › task totals of mio_tempo: the ones with the most time (a coach has 8 tasks per client). */
+const TASK_MIO_TEMPO = 30
 
 const PROGETTO_NON_DISPONIBILE = 'Progetto non più disponibile'
+const TASK_NON_DISPONIBILE = 'Task non più disponibile'
+/** Time on a project without a task, as Tempo › Team and mio_tempo say it. */
+const SENZA_TASK = 'senza task'
 
+/**
+ * One's own time (03/10/2026: «Quanto ho dedicato alla revisione video di
+ * Rossi questo mese?»): the totals per day and per project of Il mio tempo
+ * (pm_riepilogo_tempo) and per project › task (pm_mio_tempo_per_task), all
+ * from SQL, only of whoever chats. A project or a task said narrows totals
+ * and entries to it, found by name as the time tool finds them.
+ */
 function mioTempo(ctx: Contesto): Definizione {
   const { supabase, profilo, r } = ctx
   return definizione({
     description:
-      `Il tempo registrato da chi chatta nel periodo: totale, per giorno e per progetto (da SQL: non sommare le voci), le voci ${ORDINE_VOCI} (voce_id per modificarle) e il suo timer acceso, se c’è. ` +
+      `Il tempo registrato da chi chatta nel periodo: totale, per giorno, per progetto e per task (progetto › task), da SQL: non sommare voci né totali. Le voci ${ORDINE_VOCI} (voce_id per modificarle) e il suo timer acceso, se c’è. ` +
+      'Con progetto e/o task solo il tempo lì: «quanto ho dedicato alla revisione video di Rossi?» = progetto Rossi, task revisione video. ' +
+      'Un task detto senza progetto che ha lo stesso titolo in più progetti (la revisione video di tutti i clienti): il risultato è già la somma, con il dettaglio per progetto. ' +
+      'Titoli diversi, o due task con lo stesso titolo in un progetto: il risultato chiede quale; mai sommare tu i loro tempi. ' +
       SOLO_DI_CHI_CHATTA +
       (profilo.ruolo === 'admin' ? ' Per il tempo degli altri: tempo_team.' : ''),
-    inputSchema: periodoTempo,
+    inputSchema: periodoTempo.extend({
+      progetto: z.string().optional().describe('Facoltativo: solo il tempo su questo progetto (quello di un cliente porta il suo nome)'),
+      task: z.string().optional().describe('Facoltativo: solo il tempo su questo task, anche detto a parole tue'),
+      task_id: z.string().uuid().optional().describe('Se più task hanno quel titolo: quello scelto, dalla domanda «quale?», da per_task, progetto_dettaglio o miei_task'),
+    }),
     execute: async (input) => {
       const periodo = leggiPeriodoTempo(input)
       if (isErrore(periodo)) return periodo
       const { da: inizio, a: fine } = periodo
-      const [voci, riepilogo, acceso] = await Promise.all([
-        supabase
-          .from('pm_tempo')
-          .select('id, data, minuti, nota, inizio, fine, progetto:pm_progetti(nome), task:pm_task(titolo)')
-          // mine only, even when RLS lets a manager or the admin see more
-          .eq('profile_id', profilo.id)
-          // the running timer is not an entry yet (it is timer_acceso) and never takes a place in the list
-          .not('minuti', 'is', null)
-          .gte('data', inizio)
-          .lte('data', fine)
-          // ORDINE_VOCI, the same as the candidates of a correction (trovaVoce), with the same tie-break
-          .order('data', { ascending: false })
-          .order('created_at', { ascending: false })
-          .order('id', { ascending: false })
-          .limit(VOCI_MIO_TEMPO),
-        // the totals of Il mio tempo, from SQL: the model never adds up the entries (it once said "2 ore" from a partial list)
-        supabase.rpc('pm_riepilogo_tempo', { p_da: inizio, p_a: fine }),
+      // the same lookup as the time tool: a task said alone, among more projects, asks which; and a
+      // read never picks one of two tasks with one title (it would leave the other's time out)
+      const filtro = await progettoETask(ctx, input, { lettura: true })
+      if (isErrore(filtro)) return filtro
+      if (filtro.insieme) return tempoSuUnTaskDiPiuProgetti(ctx, filtro.insieme, periodo)
+      const progettoId = filtro.progetto?.id
+      const taskId = filtro.task?.id
+      const filtrato = Boolean(progettoId || taskId)
+
+      let voci = mieVoci(ctx, periodo)
+      if (progettoId) voci = voci.eq('progetto_id', progettoId)
+      if (taskId) voci = voci.eq('task_id', taskId)
+      const [letteVoci, perTask, acceso, riepilogo] = await Promise.all([
+        piuRecenti(voci),
+        // per project › task, from SQL and only mine (never another person's, even for the admin)
+        supabase.rpc('pm_mio_tempo_per_task', {
+          p_da: inizio,
+          p_a: fine,
+          ...(progettoId ? { p_progetto: progettoId } : {}),
+          ...(taskId ? { p_task: taskId } : {}),
+        }),
         r.timerAcceso(),
+        // the totals of Il mio tempo, from SQL: the model never adds up the entries (it once said "2 ore" from a partial
+        // list). Narrowed to a project or a task, the totals are pm_mio_tempo_per_task's, and per day there is none
+        filtrato ? null : supabase.rpc('pm_riepilogo_tempo', { p_da: inizio, p_a: fine }),
       ])
-      if (voci.error || riepilogo.error) return errore('Tempo non disponibile.')
-      const totale = riepilogo.data.find((x) => x.livello === 'totale')
-      const elenco = voci.data ?? []
+      if (letteVoci.error || perTask.error || riepilogo?.error) return errore('Tempo non disponibile.')
+      const totale = riepilogo ? riepilogo.data.find((x) => x.livello === 'totale') : perTask.data.find((x) => x.livello === 'totale')
+      const elenco = letteVoci.data ?? []
+      const righeTask = perTask.data.filter((x) => x.livello === 'task')
+      const etichettaTask = (x: (typeof righeTask)[number]) =>
+        `${x.progetto_id ?? ''}›${x.task_id ? (x.task ?? TASK_NON_DISPONIBILE).toLowerCase() : SENZA_TASK}`
+      const doppi = new Map<string, number>()
+      for (const x of righeTask) doppi.set(etichettaTask(x), (doppi.get(etichettaTask(x)) ?? 0) + 1)
       return {
         // whose time this is, first: never someone else's (30/09/2026)
         ...datiDi(profilo),
         periodo: { da: inizio, a: fine },
-        totale: { minuti: totale?.minuti ?? 0, durata: durataLeggibile(totale?.minuti), voci: totale?.voci ?? 0 },
-        // the days with time, from SQL: "quanto ho fatto ogni giorno?" without adding up the entries
-        per_giorno: riepilogo.data
-          .filter((x) => x.livello === 'giorno')
-          .map((x) => ({ data: x.data, minuti: x.minuti, durata: durataLeggibile(x.minuti) })),
-        per_progetto: riepilogo.data
-          .filter((x) => x.livello === 'progetto')
-          .map((x) => ({ progetto: x.progetto ?? PROGETTO_NON_DISPONIBILE, minuti: x.minuti, durata: durataLeggibile(x.minuti), voci: x.voci })),
-        timer_acceso: acceso
-          ? {
-              progetto: acceso.progetto?.nome ?? null,
-              task: acceso.task?.titolo ?? null,
-              data: acceso.data,
-              dalle: acceso.inizio ? formatOra(acceso.inizio) : null,
-            }
-          : null,
-        voci: elenco.map((v) => {
-          const f = fasciaDellaVoce(v)
-          return {
-            voce_id: v.id,
-            data: v.data,
-            progetto: v.progetto?.nome ?? null,
-            task: v.task?.titolo ?? null,
-            minuti: v.minuti,
-            fascia: fascia(f?.dalle, f?.alle),
-            nota: v.nota,
-          }
-        }),
-        ...(elenco.length < (totale?.voci ?? 0)
-          ? { nota: `Qui le ${elenco.length} voci più recenti su ${totale?.voci}: il totale le conta tutte; l’elenco intero in [Il mio tempo](/tempo).` }
+        // what the totals and the entries are about, when narrowed
+        ...(filtrato
+          ? { solo: { progetto: filtro.progetto?.nome ?? PROGETTO_NON_DISPONIBILE, ...(filtro.task ? { task: filtro.task.titolo } : {}) } }
           : {}),
+        totale: { minuti: totale?.minuti ?? 0, durata: durataLeggibile(totale?.minuti), voci: totale?.voci ?? 0 },
+        ...(riepilogo
+          ? {
+              // the days with time, from SQL: "quanto ho fatto ogni giorno?" without adding up the entries
+              per_giorno: riepilogo.data
+                .filter((x) => x.livello === 'giorno')
+                .map((x) => ({ data: x.data, minuti: x.minuti, durata: durataLeggibile(x.minuti) })),
+              per_progetto: riepilogo.data
+                .filter((x) => x.livello === 'progetto')
+                .map((x) => ({ progetto: x.progetto ?? PROGETTO_NON_DISPONIBILE, minuti: x.minuti, durata: durataLeggibile(x.minuti), voci: x.voci })),
+            }
+          : {}),
+        // project › task, the most time first (as SQL ordered them); two tasks with one title in a
+        // project (an old completed one and the open one) carry their task_id, to ask about one
+        per_task: righeTask.slice(0, TASK_MIO_TEMPO).map((x) => ({
+          progetto: x.progetto ?? PROGETTO_NON_DISPONIBILE,
+          task: x.task_id ? (x.task ?? TASK_NON_DISPONIBILE) : SENZA_TASK,
+          ...(x.task_id && (doppi.get(etichettaTask(x)) ?? 0) > 1 ? { task_id: x.task_id } : {}),
+          minuti: x.minuti,
+          durata: durataLeggibile(x.minuti),
+          voci: x.voci,
+        })),
+        ...(righeTask.length > TASK_MIO_TEMPO
+          ? { nota_task: `Qui i ${TASK_MIO_TEMPO} task con più tempo su ${righeTask.length}: per gli altri, chiedi con il progetto.` }
+          : {}),
+        timer_acceso: timerInBreve(acceso),
+        voci: elenco.map(voceInBreve),
+        ...notaVoci(elenco.length, totale?.voci),
       }
     },
   })
+}
+
+type Periodo = { da: string; a: string }
+
+/** My entries of the period, never the running timer (it is timer_acceso and never takes a place in the list). */
+function mieVoci({ supabase, profilo }: Contesto, { da, a }: Periodo) {
+  return (
+    supabase
+      .from('pm_tempo')
+      .select('id, data, minuti, nota, inizio, fine, progetto:pm_progetti(nome), task:pm_task(titolo)')
+      // mine only, even when RLS lets a manager or the admin see more
+      .eq('profile_id', profilo.id)
+      .not('minuti', 'is', null)
+      .gte('data', da)
+      .lte('data', a)
+  )
+}
+
+/** ORDINE_VOCI, the same as the candidates of a correction (trovaVoce), with the same tie-break. */
+function piuRecenti(voci: ReturnType<typeof mieVoci>) {
+  return voci
+    .order('data', { ascending: false })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(VOCI_MIO_TEMPO)
+}
+
+type VoceLetta = NonNullable<Awaited<ReturnType<typeof piuRecenti>>['data']>[number]
+
+function voceInBreve(v: VoceLetta) {
+  const f = fasciaDellaVoce(v)
+  return {
+    voce_id: v.id,
+    data: v.data,
+    progetto: v.progetto?.nome ?? null,
+    task: v.task?.titolo ?? null,
+    minuti: v.minuti,
+    fascia: fascia(f?.dalle, f?.alle),
+    nota: v.nota,
+  }
+}
+
+function timerInBreve(acceso: Awaited<ReturnType<Contesto['r']['timerAcceso']>>) {
+  return acceso
+    ? { progetto: acceso.progetto?.nome ?? null, task: acceso.task?.titolo ?? null, data: acceso.data, dalle: acceso.inizio ? formatOra(acceso.inizio) : null }
+    : null
+}
+
+function notaVoci(lette: number, tutte: number | null | undefined) {
+  return lette < (tutte ?? 0)
+    ? { nota: `Qui le ${lette} voci più recenti su ${tutte}: il totale le conta tutte; l’elenco intero in [Il mio tempo](/tempo).` }
+    : {}
+}
+
+/**
+ * One task title across the projects of every client, no project said
+ * (03/10/2026: «quanto ho dedicato alla revisione video questo mese?»): the
+ * total and the projects from SQL (pm_mio_tempo_per_task with p_tasks, only
+ * the caller's entries), and the entries of the tasks with time in the period.
+ * The model never sums: the answer says it is the sum, and whose.
+ */
+async function tempoSuUnTaskDiPiuProgetti(ctx: Contesto, insieme: TaskInPiuProgetti, periodo: Periodo) {
+  const { supabase, profilo, r } = ctx
+  const [perTask, acceso] = await Promise.all([
+    supabase.rpc('pm_mio_tempo_per_task', { p_da: periodo.da, p_a: periodo.a, p_tasks: insieme.task.map((t) => t.id) }),
+    r.timerAcceso(),
+  ])
+  if (perTask.error) return errore('Tempo non disponibile.')
+  const totale = perTask.data.find((x) => x.livello === 'totale')
+  const progetti = perTask.data.filter((x) => x.livello === 'progetto')
+  // the entries of the tasks with time (SQL said which): never every client's task in the request
+  const conTempo = [...new Set(perTask.data.flatMap((x) => (x.livello === 'task' && x.task_id ? [x.task_id] : [])))]
+  const letteVoci = conTempo.length > 0 ? await piuRecenti(mieVoci(ctx, periodo).in('task_id', conTempo)) : null
+  if (letteVoci?.error) return errore('Tempo non disponibile.')
+  const elenco = letteVoci?.data ?? []
+  return {
+    // whose time this is, first: never someone else's (30/09/2026)
+    ...datiDi(profilo),
+    periodo,
+    solo: { task: insieme.titolo, progetti: `tutti quelli dove c’è (${insieme.progetti})` },
+    somma: `Tempo di ${profilo.nome} sul task «${insieme.titolo}» in tutti i progetti dove c’è (uno per cliente), sommato dall’app: dillo così, con il totale e, se serve, per_progetto. Non sommare altro.`,
+    totale: { minuti: totale?.minuti ?? 0, durata: durataLeggibile(totale?.minuti), voci: totale?.voci ?? 0 },
+    // the most time first, as SQL ordered them
+    per_progetto: progetti.slice(0, TASK_MIO_TEMPO).map((x) => ({
+      progetto: x.progetto ?? PROGETTO_NON_DISPONIBILE,
+      minuti: x.minuti,
+      durata: durataLeggibile(x.minuti),
+      voci: x.voci,
+    })),
+    ...(progetti.length > TASK_MIO_TEMPO
+      ? { nota_progetti: `Qui i ${TASK_MIO_TEMPO} progetti con più tempo su ${progetti.length}: il totale li conta tutti.` }
+      : {}),
+    timer_acceso: timerInBreve(acceso),
+    voci: elenco.map(voceInBreve),
+    ...notaVoci(elenco.length, totale?.voci),
+  }
 }
 
 /**
@@ -1272,7 +1432,6 @@ export const LIMITI_TEMPO_TEAM = {
   team: { voci: 5, progetti: 5, task: 3 },
 } as const
 
-const SENZA_TASK = 'senza task'
 
 /**
  * The team's declared time, as Tempo › Team (Dany, 30/09/2026: "quanto tempo

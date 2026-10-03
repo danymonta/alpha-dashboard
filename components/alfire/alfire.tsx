@@ -55,10 +55,18 @@ const SUGGERIMENTI: Record<'admin' | 'setter' | 'closer' | 'altro', string[]> = 
     'Com’è andato il setting questo mese?',
     'Come funzionano le provvigioni?',
   ],
-  setter: ['Come sto andando questo mese?', 'Aggiungi 20 DM outbound al report di oggi', 'Che call ho questa settimana?'],
-  closer: ['Che call ho oggi e domani?', 'Come registro l’esito di una call?'],
-  // the team's own time first (Dany, 03/10/2026: "chiedere ad Alfire di tracciare il tempo")
-  altro: ['Quanto tempo ho registrato questa settimana?', 'Avvia il timer su un progetto', 'Quali task ho aperti?', 'Come registro il mio tempo?'],
+  // their own money too, as the app shows it to them (03/10/2026); a reading question in words
+  // that never load the write tools on the free plan (tests/alfire-intento.test.ts)
+  setter: [
+    'Come sto andando questo mese?',
+    'A che punto sono i miei clienti con le rate?',
+    'Aggiungi 20 DM outbound al report di oggi',
+    'Che call ho questa settimana?',
+  ],
+  closer: ['Che call ho oggi e domani?', 'Cosa mi resta da incassare?', 'Com’è andata la mia settimana?', 'Come registro l’esito di una call?'],
+  // the team's own time first (Dany, 03/10/2026: "chiedere ad Alfire di tracciare il tempo"); the reading
+  // question without a write verb («registrato» loaded the write tools on the free plan)
+  altro: ['Quanto ho lavorato questa settimana?', 'Avvia il timer su un progetto', 'Quali task ho aperti?', 'Come registro il mio tempo?'],
 }
 
 const LETTURE: Record<string, string> = {
@@ -73,6 +81,9 @@ const LETTURE: Record<string, string> = {
   provvigioni: 'le provvigioni',
   costi_periodo: 'i costi',
   miei_numeri: 'i tuoi numeri',
+  miei_clienti: 'i tuoi clienti',
+  mie_vendite: 'le tue vendite',
+  mie_giornate: 'la tua giornata',
   call_periodo: 'le call',
   progetti: 'i progetti',
   progetto_dettaglio: 'il progetto',

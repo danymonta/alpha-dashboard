@@ -80,6 +80,47 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.20.0',
+    data: '2026-10-03',
+    titolo: 'Il tempo per task, e Alfire coi tuoi numeri',
+    riassunto:
+      'Quanto hai dedicato a ogni task lo vedi in Il mio tempo e lo chiedi ad Alfire; chi lavora alle vendite chiede ad Alfire anche i suoi clienti, le sue vendite e la sua giornata, solo i suoi.',
+    // the heading speaks of time and of the sales roles' numbers: the other roles read a neutral one
+    intestazionePer: ['setter', 'closer'],
+    novita: [
+      {
+        per: ['progetti'],
+        testo: 'In Il mio tempo il totale del periodo si divide per progetto e, sotto ogni progetto, per task: quanto hai dedicato alla revisione video, alle call di check, all’assistenza in chat, dal task con più tempo, con il tempo senza task a parte. Conta l’app, ed è sempre e solo il tuo tempo.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Chiedi ad Alfire «quanto ho dedicato alla revisione video di Rossi questo mese?»: trova il progetto del cliente e il task detti a parole tue, come quando registri il tempo, e ti dà il totale contato dall’app, con le voci di quel task. Senza dire un task, «quanto ho fatto questo mese?» ti dà il totale anche task per task. Senza dire il cliente, «quanto ho dedicato alla revisione video questo mese?» ti dà il totale di quel task su tutti i progetti dove c’è con lo stesso nome, contato dall’app, e quanto su ognuno. Se i task hanno nomi diversi, o in un progetto ce ne sono due con lo stesso nome, te li elenca e ti chiede di quale: non ne sceglie mai uno a caso. È sempre il tuo tempo: quello degli altri Alfire non lo legge.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Chiedi ad Alfire dei tuoi clienti, come in I miei numeri: «a che punto sono i miei clienti con le rate?», «a che punto è Rossi?», «cosa mi hanno pagato questo mese?». Per ogni cliente che hai portato ti dice la revenue, quanto ha pagato dall’inizio, le rate pagate e in ritardo e quanto ti è maturato; con il nome di un cliente anche ogni rata con la provvigione che ti dà; con un periodo ogni pagamento di quei giorni, con la sua provvigione. E la tua giornata, giorno per giorno: il tuo report accanto a com’è andata con il closer sulle call che hai fissato, e cash e revenue dei tuoi clienti nuovi. Solo i tuoi, mai quelli di un altro setter, e mai i contatti dei clienti.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Chiedi ad Alfire delle tue vendite, come in Le mie vendite: «cosa mi resta da incassare?», «quanto deve ancora pagare Rossi?», «che vendite ho chiuso a settembre?». Per ogni vendita che hai chiuso ti dice contratto, incassato, da incassare, se ci sono rate in ritardo e la prossima rata, e le rate ancora da incassare (un pagamento non andato a buon fine a parte); con il nome di un cliente tutte le sue rate. E la tua giornata, giorno per giorno, come in I miei numeri: call svolte, qualificate, no show, follow up, chiuse, cash e revenue dei clienti nuovi. Solo le tue, mai le vendite di un altro closer.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Alfire dà a setter e closer i loro soldi esattamente come li vedono nell’app, con gli stessi permessi del database e nessuno nuovo: il setter i clienti che ha portato, quanto hanno pagato e la sua provvigione su ogni incasso (mai la percentuale della sua regola, contatti, metodo o note), il closer le vendite che ha chiuso con incassato, da incassare e le rate; tutti e due la loro giornata. Nella chat vuota il setter trova «A che punto sono i miei clienti con le rate?», il closer «Cosa mi resta da incassare?» e «Com’è andata la mia settimana?».',
+      },
+      {
+        per: ['admin'],
+        testo: 'Tu chiudi le call: chiedi ad Alfire anche la tua giornata da closer, come in Setting › Closer con te scelto: call svolte, qualificate, no show, follow up, chiuse, cash e revenue dei clienti nuovi delle vendite chiuse da te, giorno per giorno e in totale con show rate e close rate. Solo la tua: gli altri closer li leggi come prima, call per call e vendita per vendita.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['progetti'],
+        testo: 'Nella chat vuota di Alfire la domanda sul tuo tempo è ora «Quanto ho lavorato questa settimana?»: chiede la stessa cosa, e Alfire la tratta come una domanda da leggere, quindi risponde più in fretta.',
+      },
+    ],
+  },
+  {
     versione: '1.19.0',
     data: '2026-10-03',
     titolo: 'Ognuno registra il suo tempo con Alfire',

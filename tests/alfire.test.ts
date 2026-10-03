@@ -592,6 +592,29 @@ describe('prompt e guida', () => {
     expect(p).not.toContain('rinnovo e upsell = clienti già entrati')
   })
 
+  it('il prompt: i soldi di setter e closer, solo i loro e come li mostra l’app (03/10/2026)', () => {
+    const setter = promptAlfire({ nome: 'Loris', ruolo: 'setter', oggi: '2026-10-03' })
+    expect(setter).toContain('I soldi del setter, solo suoi: miei_numeri')
+    expect(setter).toContain('miei_clienti (i clienti che ha portato: pagato, rate e provvigione di ogni incasso; con da/a gli incassi del periodo)')
+    // a read's limit, never a write's: the setter still writes handles and notes (fissa_call, aggiorna_report)
+    expect(setter).toContain('In lettura i suoi clienti non hanno contatti, metodo di pagamento né note delle vendite; mai vendite o provvigioni di altri.')
+    expect(setter).not.toContain('Mai contatti, metodo o note')
+    expect(setter).not.toContain('mie_vendite')
+    const closer = promptAlfire({ nome: 'Lorenzo', ruolo: 'closer', oggi: '2026-10-03' })
+    expect(closer).toContain('I soldi del closer, solo suoi: mie_vendite (le vendite che ha chiuso: incassato, da incassare, rate)')
+    expect(closer).toContain('Mai vendite di altri closer.')
+    // registra_vendita and rata still take contacts, payment method and notes from him
+    expect(closer).not.toMatch(/Mai contatti|metodo o note/)
+    expect(closer).not.toContain('miei_clienti')
+    for (const p of [setter, closer]) expect(p).toContain('mie_giornate')
+    // the admin reads everything with his own tools; his own day as the closer he is (mie_giornate) says so in
+    // its description, not in the prompt (the free tier counts every word); the Projects area's roles no money at all
+    for (const ruolo of ['admin', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
+      const p = promptAlfire({ nome: 'X', ruolo, oggi: '2026-10-03' })
+      for (const nome of ['miei_clienti', 'mie_vendite', 'mie_giornate']) expect(p, `${ruolo}: ${nome}`).not.toContain(nome)
+    }
+  })
+
   it('il prompt: mai i dati di chi chatta al posto di quelli di un altro (30/09/2026)', () => {
     for (const ruolo of ['admin', 'setter', 'closer', 'coach'] as const) {
       const p = promptAlfire({ nome: 'Dany', ruolo, oggi: '2026-09-30' })
