@@ -124,7 +124,7 @@ export async function POST(req: Request) {
       onError: (error) => {
         // the real cause in Vercel's logs; a precise, human message in the chat
         console.error('[alfire]', dettaglioErroreAlfire(error))
-        return messaggioErroreAlfire(error, { admin: profilo.ruolo === 'admin' })
+        return messaggioErroreAlfire(error, { admin: profilo.ruolo === 'admin', ruolo: profilo.ruolo })
       },
     }),
   })

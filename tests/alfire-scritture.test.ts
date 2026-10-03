@@ -6,11 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CONSEGUENZE } from '@/lib/alfire/conseguenze'
 import { strumentiConsentiti } from '@/lib/alfire/permessi'
 import { azioneDistruttiva, riassuntoScrittura } from '@/lib/alfire/riassunto'
+import { nomiDistinti } from '@/lib/alfire/risolvi'
 import { anteprimaScrittura, strumentiAlfire } from '@/lib/alfire/strumenti'
 import type { AppRole, LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
 import { SPOSTA, quandoBreve, quandoBreveDa } from '@/lib/call/spostamento'
-import { aggiungiGiorni, oggiRoma, primoDelMeseISO } from '@/lib/date'
+import { aggiungiGiorni, giornoEsteso, oggiRoma, primoDelMeseISO } from '@/lib/date'
+import { formatData } from '@/lib/format'
 import { SPOSTA_SOLO_AVANTI } from '@/lib/validation/call'
 
 // Every write goes through the server action of the app's own form: stand-ins
@@ -72,6 +74,7 @@ const a = vi.hoisted(() => {
     modificaProgetto: ok(),
     modificaTask: ok(),
     salvaLista: ok(),
+    scegliCoach: ok(),
     aggiungiNota: ok(),
     eliminaNota: ok(),
     modificaNota: ok(),
@@ -160,6 +163,7 @@ vi.mock('@/app/(app)/progetti/[id]/actions', () => ({
   modificaProgetto: a.modificaProgetto,
   modificaTask: a.modificaTask,
   salvaLista: a.salvaLista,
+  scegliCoach: a.scegliCoach,
 }))
 vi.mock('@/app/(app)/progetti/[id]/note/actions', () => ({
   aggiungiNota: a.aggiungiNota,
@@ -212,9 +216,27 @@ function supabaseFinto(tabelle: Record<string, Riga[]>, registro: string[] = [],
       if (dataInesistente(v)) errore = { message: 'date/time field value out of range' }
       return filtra(f)
     }
+    // order like Postgres (nulls last ascending, first descending), every key so far: the latest call is the minor one
+    const chiavi: { c: string; su: boolean; nulliPrima: boolean }[] = []
     Object.assign(q, {
       select: () => q,
-      order: () => q,
+      order: (c: string, o: { ascending?: boolean; nullsFirst?: boolean } = {}) => {
+        const su = o.ascending !== false
+        chiavi.push({ c, su, nulliPrima: o.nullsFirst ?? !su })
+        righe = [...righe].sort((x, y) => {
+          for (const k of chiavi) {
+            const a = x[k.c] ?? null
+            const b = y[k.c] ?? null
+            if (a === b) continue
+            if (a === null) return k.nulliPrima ? -1 : 1
+            if (b === null) return k.nulliPrima ? 1 : -1
+            const d = String(a) < String(b) ? -1 : 1
+            return k.su ? d : -d
+          }
+          return 0
+        })
+        return q
+      },
       eq: (c: string, v: unknown) => {
         registro.push(`${nome}.${c}=${String(v)}`)
         return filtra((r) => r[c] === v)
@@ -454,6 +476,18 @@ async function campiDi(s: ToolSet, nome: string): Promise<string[]> {
 
 const spazi = (t: string) => t.replace(/ /g, ' ')
 
+/** A date in another format: the person reads that Alfire rewrites it, the model the format (03/10/2026). */
+const DATA_SBAGLIATA = {
+  errore: 'La data non è scritta nel formato che serve: la riscrivo e riprovo.',
+  per_alfire: 'Date in formato AAAA-MM-GG (es. 2026-09-28): riprova così.',
+}
+
+/** An outcome said with a new day: the person reads that the call moves, the model with which action. */
+const ESITO_SENZA_DATA = {
+  errore: 'L’esito non cambia il giorno né l’ora della call: per quello la call si sposta.',
+  per_alfire: 'Per spostarla: call, azione sposta con data e ora.',
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   rpcChiamate.length = 0
@@ -688,7 +722,7 @@ describe('azioni per ruolo: il modello vede solo quelle che la persona può fare
   it('progetto: il manager non elimina; il cliente lo collega solo l’admin dell’app', async () => {
     expect(await azioniDi(strumenti(), 'progetto')).toContain('elimina')
     const manager = strumenti('coach', 'manager')
-    expect(await azioniDi(manager, 'progetto')).toEqual(['crea', 'modifica', 'aggiungi_membro', 'togli_membro'])
+    expect(await azioniDi(manager, 'progetto')).toEqual(['crea', 'modifica', 'aggiungi_membro', 'togli_membro', 'scegli_coach'])
     expect(await campiDi(manager, 'progetto')).not.toContain('cliente')
     expect(await campiDi(strumenti(), 'progetto')).toContain('cliente')
   })
@@ -704,17 +738,19 @@ describe('nomi, non id: quando più righe vanno bene lo strumento chiede quale',
   it('«Rossi» sono due clienti: nessuna scrittura, i candidati nell’errore', async () => {
     const esito = await esegui(strumenti(), 'cliente', { azione: 'modifica', cliente: 'Rossi', telefono: '+39 333 000 0000' })
     expect(a.aggiornaCliente).not.toHaveBeenCalled()
-    expect(esito).toEqual({ errore: 'Più clienti possibili: Mario Rossi, Luca Rossi. Chiedi quale, con nome e cognome.' })
+    // the person reads the candidates; how to tell them apart is the model's
+    expect(esito).toEqual({ errore: 'Più clienti possibili: Mario Rossi, Luca Rossi.', per_alfire: 'Chiedi quale, con nome e cognome.' })
   })
 
   it('«la rata di Rossi» con due rate da incassare: chiede quale; «di marzo» la trova', async () => {
     const s = strumenti()
-    const dubbio = (await esegui(s, 'rata', { azione: 'incassa', cliente: 'Mario Rossi' })) as { errore: string }
+    const dubbio = (await esegui(s, 'rata', { azione: 'incassa', cliente: 'Mario Rossi' })) as { errore: string; per_alfire: string }
     expect(a.segnaIncassata).not.toHaveBeenCalled()
     expect(spazi(dubbio.errore)).toBe(
       'Più rate possibili di Mario Rossi: Rata 2 di 3 (scadenza 10/02/2026, 500,00 €, da incassare); ' +
-        'Rata 3 di 3 (scadenza 10/03/2026, 500,00 €, da incassare). Chiedi quale, con il numero della rata o il mese.',
+        'Rata 3 di 3 (scadenza 10/03/2026, 500,00 €, da incassare).',
     )
+    expect(dubbio.per_alfire).toBe('Chiedi quale, con il numero della rata o il mese.')
     const esito = await esegui(s, 'rata', { azione: 'incassa', cliente: 'Mario Rossi', mese: '2026-03', metodo: 'bonifico' })
     expect(a.segnaIncassata).toHaveBeenCalledWith({ payment_id: RATA(3), incassato_il: undefined, importo: undefined, metodo: 'bonifico' })
     expect(esito).toMatchObject({ fatto: true, rata: 'rata 3 di 3' })
@@ -730,18 +766,20 @@ describe('nomi, non id: quando più righe vanno bene lo strumento chiede quale',
     const s = strumenti()
     const dubbio = (await esegui(s, 'costo', { azione: 'elimina', costo: 'Canva' })) as { errore: string }
     expect(a.eliminaCosto).not.toHaveBeenCalled()
-    expect(dubbio.errore).toMatch(/^Più costi possibili: «Canva» del 12\/08\/2026 .*«Canva» del 12\/09\/2026/)
+    // newest first, as the database orders them
+    expect(dubbio.errore).toMatch(/^Più costi possibili: «Canva» del 12\/09\/2026 .*«Canva» del 12\/08\/2026/)
     await esegui(s, 'costo', { azione: 'elimina', costo: 'canva', mese: '2026-09' })
     expect(a.eliminaCosto).toHaveBeenCalledWith({ id: 'e2' })
   })
 
   it('«Luca» sono due lead; con l’handle è uno solo', async () => {
     const s = strumenti()
-    const dubbio = (await esegui(s, 'lead', { azione: 'stato', lead: 'Luca', stato: 'perso' })) as { errore: string }
+    const dubbio = await esegui(s, 'lead', { azione: 'stato', lead: 'Luca', stato: 'perso' })
     expect(a.aggiornaStatoLead).not.toHaveBeenCalled()
-    expect(dubbio.errore).toBe(
-      'Più lead possibili: Luca Neri (@luca.neri), Call da fare; Luca Bianchi (@lucab), Follow-up. Chiedi quale (nome completo o @handle).',
-    )
+    expect(dubbio).toEqual({
+      errore: 'Più lead possibili: Luca Neri (@luca.neri), Call da fare; Luca Bianchi (@lucab), Follow-up.',
+      per_alfire: 'Chiedi quale (nome completo o @handle).',
+    })
     await esegui(s, 'lead', { azione: 'stato', lead: '@Luca.Neri', stato: 'follow_up' })
     expect(a.aggiornaStatoLead).toHaveBeenCalledWith({ lead_id: LEAD_NERI, stato: 'follow_up' })
   })
@@ -872,9 +910,10 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
       for (const motivo of [undefined, '', '   ']) {
         const senza = await esegui(s, 'call', { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: false, motivo })
         expect(senza).toMatchObject({ errore: expect.stringContaining('Scrivi il motivo di non chiusura') })
-        // the card stops before the tap: the model asks why it did not close
-        expect(await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: false, motivo }, ruolo)).toMatchObject({
-          errore: expect.stringContaining('chiedi perché non ha chiuso'),
+        // the card stops before the tap with the form's words; the model reads that it asks why it did not close
+        expect(await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: false, motivo }, ruolo)).toEqual({
+          errore: 'Scrivi il motivo di non chiusura.',
+          per_alfire: expect.stringMatching(/^Chiedi perché non ha chiuso \(es\. /),
         })
       }
       expect(a.registraEsito).not.toHaveBeenCalled()
@@ -1232,6 +1271,486 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
 })
 
 // ---------------------------------------------------------------------------
+// The team tracking its time through Alfire (Dany, 03/10/2026): a coach on the
+// projects of his clients, where the same 8 tasks repeat in every project.
+// ---------------------------------------------------------------------------
+const SERGIO = 'b0000000-0000-4000-8000-0000000000a1'
+const STEFANO = 'b0000000-0000-4000-8000-0000000000a2'
+const MARCO = '00000000-0000-4000-8000-000000000005'
+const NINA = '00000000-0000-4000-8000-000000000006'
+const PERCORSO = [
+  'Call di onboarding',
+  'Analisi e strategia iniziale',
+  'Programmazione allenamento (creazione e aggiornamenti)',
+  'Programmazione alimentare (creazione e aggiornamenti)',
+  'Revisione video',
+  'Call di check',
+  'Assistenza chat',
+  'Altre attività',
+]
+/** The id of the n-th task of the path in a client's project (1: Sergio, 2: Stefano). */
+const TASK = (cliente: 1 | 2, n: number) => `7a000000-0000-4000-8000-00000000${cliente}0${String(n).padStart(2, '0')}`
+const VOCE_CALL = '7e000000-0000-4000-8000-000000000001'
+const VOCE_VIDEO = '7e000000-0000-4000-8000-000000000002'
+const TIMER = '7e000000-0000-4000-8000-000000000003'
+
+function taskDelPercorso(cliente: 1 | 2, progetto: string): Riga[] {
+  return PERCORSO.map((titolo, n) => ({
+    id: TASK(cliente, n),
+    titolo,
+    progetto_id: progetto,
+    tasklist_id: null,
+    parent_id: null,
+    descrizione: null,
+    stato: 'da_fare',
+    priorita: 'media',
+    data_inizio: null,
+    scadenza: null,
+    stima_minuti: null,
+    // the coach works them; the template made them (not him)
+    assegnatari: [IO],
+    sotto_task_totali: 0,
+    created_by: LORENZO,
+  }))
+}
+
+/** Two clients' projects, each with the 8 tasks of the path; the coach chatting is IO. */
+function mondoCoach(): Record<string, Riga[]> {
+  const m = mondo()
+  const progetto = (id: string, nome: string, coach: string | null) => ({
+    id,
+    nome,
+    reparto_id: 'rep-fitness',
+    client_id: `cl-${id.slice(-2)}`,
+    coach_id: coach,
+    stato: 'attivo',
+    descrizione: null,
+    data_inizio: '2026-09-01',
+    data_fine: '2026-12-01',
+    responsabile_id: null,
+    task_totali: 8,
+  })
+  m.v_pm_progetti = [...m.v_pm_progetti, progetto(SERGIO, 'Sergio Bellini', IO), progetto(STEFANO, 'Stefano Moretti', null)]
+  m.v_pm_task = [...taskDelPercorso(1, SERGIO), ...taskDelPercorso(2, STEFANO)]
+  m.profiles = [
+    ...m.profiles,
+    { id: MARCO, nome: 'Marco Coach', ruolo: 'coach', attivo: true },
+    { id: NINA, nome: 'Nina Nutri', ruolo: 'nutrizione', attivo: true },
+  ]
+  const ieri = aggiungiGiorni(oggiRoma(), -1)
+  m.pm_tempo = [
+    // yesterday on Sergio: 45 minutes typed in the morning, then a range in the afternoon
+    {
+      id: VOCE_CALL,
+      profile_id: IO,
+      progetto_id: SERGIO,
+      task_id: TASK(1, 5),
+      data: ieri,
+      minuti: 45,
+      nota: null,
+      inizio: null,
+      fine: null,
+      created_at: `${ieri}T07:00:00Z`,
+      progetto: { nome: 'Sergio Bellini' },
+      task: { titolo: 'Call di check' },
+    },
+    {
+      id: VOCE_VIDEO,
+      profile_id: IO,
+      progetto_id: SERGIO,
+      task_id: TASK(1, 4),
+      data: ieri,
+      minuti: 90,
+      nota: 'Tre video',
+      inizio: `${ieri}T13:00:00.000Z`,
+      fine: `${ieri}T14:30:00.000Z`,
+      created_at: `${ieri}T15:00:00Z`,
+      progetto: { nome: 'Sergio Bellini' },
+      task: { titolo: 'Revisione video' },
+    },
+    // someone else's entry on the same project and day: never one of mine
+    { ...m.pm_tempo[1], progetto_id: SERGIO, data: ieri, progetto: { nome: 'Sergio Bellini' }, task: null },
+  ]
+  return m
+}
+
+/** The coach's timer, running for half an hour on Stefano's analysis. */
+function conTimer(m: Record<string, Riga[]>): Record<string, Riga[]> {
+  m.pm_tempo.push({
+    id: TIMER,
+    profile_id: IO,
+    progetto_id: STEFANO,
+    task_id: TASK(2, 1),
+    data: oggiRoma(),
+    minuti: null,
+    nota: 'Analisi',
+    inizio: new Date(Date.now() - 30 * 60_000 - 5_000).toISOString(),
+    fine: null,
+    created_at: new Date().toISOString(),
+    progetto: { nome: 'Stefano Moretti' },
+    task: { titolo: 'Analisi e strategia iniziale' },
+  })
+  return m
+}
+
+async function anteprimaCoach(nome: string, input: Record<string, unknown>, righe = mondoCoach()) {
+  return anteprimaScrittura(supabaseFinto(righe) as never, profiloDi('coach'), 'employee', nome, input)
+}
+
+describe('il tempo dei collaboratori con Alfire (03/10/2026)', () => {
+  const IERI = aggiungiGiorni(oggiRoma(), -1)
+
+  it('chi riceve cosa (elenchi fissati): ogni ruolo dei progetti ha il tempo, nessuno strumento sui soldi', () => {
+    const lavora = ['guida', 'proponi_risposte', 'progetti', 'progetto_dettaglio', 'miei_task', 'mio_tempo', 'task', 'nota_progetto', 'tempo']
+    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev'] as const) {
+      expect(strumentiConsentiti(ruolo, 'employee'), ruolo).toEqual(lavora)
+      expect(strumentiConsentiti(ruolo, 'manager'), ruolo).toEqual([...lavora.slice(0, 6), 'progetto', 'lista', ...lavora.slice(6)])
+    }
+  })
+
+  it('lo schema del tempo: task_id per i titoli ripetuti, nuovo_task per spostare una voce, mai una persona', async () => {
+    const campi = await campiDi(strumenti('coach', 'employee'), 'tempo')
+    expect(campi).toEqual(expect.arrayContaining(['progetto', 'task', 'task_id', 'nuovo_task', 'data', 'durata', 'dalle', 'alle', 'nota', 'voce_id']))
+    for (const c of ['persona', 'profile_id', 'chi']) expect(campi).not.toContain(c)
+    const d = strumenti('coach', 'employee').tempo.description ?? ''
+    expect(d).toContain('per un’altra persona non si registra, dillo')
+    expect(d).toContain('Ogni cliente ha un progetto col suo nome')
+    expect(d).toContain('Revisione video')
+  })
+
+  it('ogni data che il modello scrive porta il formato AAAA-MM-GG nella sua descrizione', async () => {
+    const DATE = /^(data|da|a|data_inizio|data_fine|scadenza|data_vendita|nuova_data_vendita|ultimo_giorno|pagato_il|valida_dal|valida_al|alla_data|incassata_il)$/
+    type Schema = { properties?: Record<string, Schema>; items?: Schema; description?: string; type?: string | string[] }
+    const senzaFormato: string[] = []
+    const visita = (nome: string, schema: Schema, percorso: string) => {
+      for (const [campo, figlio] of Object.entries(schema.properties ?? {})) {
+        if (DATE.test(campo) && (figlio.type === 'string' || figlio.type === undefined) && !figlio.description?.startsWith('AAAA-MM-GG')) {
+          senzaFormato.push(`${nome}.${percorso}${campo}: ${figlio.description}`)
+        }
+        visita(nome, figlio, `${percorso}${campo}.`)
+        if (figlio.items) visita(nome, figlio.items, `${percorso}${campo}[].`)
+      }
+    }
+    for (const [ruolo, livello] of [['admin', 'admin'], ['setter', 'employee'], ['closer', 'employee'], ['coach', 'employee']] as const) {
+      const s = strumenti(ruolo, livello)
+      for (const nome of Object.keys(s)) visita(nome, (await asSchema(s[nome].inputSchema).jsonSchema) as Schema, '')
+    }
+    expect(senzaFormato).toEqual([])
+  })
+
+  it('una data scritta in un altro formato non diventa mai il mese in corso: lo strumento lo dice', async () => {
+    const atteso = DATA_SBAGLIATA
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'mio_tempo', { da: '28/09/2026' })).toEqual(atteso)
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'mio_tempo', { da: 'lunedì', a: oggiRoma() })).toEqual(atteso)
+    expect(await esegui(strumenti(), 'tempo_team', { da: '2026-09-28', a: '03/10/2026' })).toEqual(atteso)
+    expect(await esegui(strumenti(), 'numeri_periodo', { da: '01/09/2026' })).toEqual(atteso)
+    expect(rpcChiamate).toEqual([])
+  })
+
+  it('mio_tempo: le voci dalla più recente, come Il mio tempo, e i totali per giorno dal SQL', async () => {
+    const righe = mondoCoach()
+    righe.pm_riepilogo_tempo = [
+      { livello: 'giorno', data: IERI, progetto_id: null, progetto: null, minuti: 135, voci: 2 },
+      { livello: 'progetto', data: null, progetto_id: SERGIO, progetto: 'Sergio Bellini', minuti: 135, voci: 2 },
+      { livello: 'totale', data: null, progetto_id: null, progetto: null, minuti: 135, voci: 2 },
+    ]
+    const esito = (await esegui(strumenti('coach', 'employee', righe), 'mio_tempo', { ultimi_giorni: 7 })) as {
+      voci: { voce_id: string; task: string; fascia: string | null }[]
+      per_giorno: unknown
+    }
+    expect(esito.voci.map((v) => v.voce_id)).toEqual([VOCE_VIDEO, VOCE_CALL])
+    expect(esito.voci[0]).toMatchObject({ task: 'Revisione video', fascia: '15:00–16:30' })
+    expect(esito.per_giorno).toEqual([{ data: IERI, minuti: 135, durata: '2 h 15 min' }])
+  })
+
+  it('«correggi la voce di ieri»: due voci, la domanda le dice dalla più recente, con task e fascia', async () => {
+    const dubbio = (await anteprimaCoach('tempo', { azione: 'modifica', progetto: 'Sergio Bellini', data: IERI, durata: '1h' })) as {
+      errore: string
+      per_alfire: string
+    }
+    expect(spazi(dubbio.errore)).toBe(
+      `Più voci possibili, dalla più recente: ${giornoEsteso(IERI)}, 1 h 30 min su «Sergio Bellini» · Revisione video, 15:00–16:30; ` +
+        `${giornoEsteso(IERI)}, 45 min su «Sergio Bellini» · Call di check.`,
+    )
+    expect(dubbio.per_alfire).toBe('Chiedi quale (o passa il voce_id da mio_tempo).')
+    expect(a.modificaTempo).not.toHaveBeenCalled()
+  })
+
+  it('il task detto trova la voce, senza spostarla: la scheda dice quale voce e cosa cambia', async () => {
+    const p = await anteprimaCoach('tempo', { azione: 'modifica', progetto: 'Sergio Bellini', task: 'revisione video', data: IERI, durata: '1h' })
+    expect(p).toMatchObject({
+      titolo: 'Correggo 1 h 30 min del tuo tempo su «Sergio Bellini» · Revisione video',
+      righe: [`Voce: ${giornoEsteso(IERI)}, 15:00–16:30`, 'Fascia: 15:00–16:30 → tolta', 'Durata: 1 h 30 min → 1 h'],
+    })
+    // a title every client has, said without the project: the entries say whose it is
+    await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'modifica', task: 'Call di check', data: IERI, durata: '30 min' })
+    expect(a.modificaTempo).toHaveBeenLastCalledWith(expect.objectContaining({ id: VOCE_CALL, task_id: TASK(1, 5), durata: '30 min' }))
+  })
+
+  it('nuovo_task sposta la voce, e la scheda lo dice prima → dopo', async () => {
+    const p = await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_task: 'assistenza in chat' })
+    expect(p).toMatchObject({ righe: [`Voce: ${giornoEsteso(IERI)}`, 'Task: Call di check → Assistenza chat'] })
+    await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_task: 'assistenza in chat' })
+    expect(a.modificaTempo).toHaveBeenLastCalledWith(expect.objectContaining({ id: VOCE_CALL, task_id: TASK(1, 6), durata: 45 }))
+  })
+
+  it('il timer acceso non è una voce: niente «Elimino 0 min», la scheda dice di fermarlo', async () => {
+    const m = conTimer(mondoCoach())
+    const atteso = {
+      errore: 'Non c’è una voce chiusa: il tempo che corre è il timer acceso su «Stefano Moretti». Fermalo, poi correggi la voce.',
+      per_alfire: 'Per fermarlo: tempo, azione ferma.',
+    }
+    expect(await anteprimaCoach('tempo', { azione: 'elimina', progetto: 'Stefano Moretti', data: oggiRoma() }, m)).toEqual(atteso)
+    expect(await esegui(strumenti('coach', 'employee', conTimer(mondoCoach())), 'tempo', { azione: 'elimina', data: oggiRoma() })).toEqual(atteso)
+    expect(a.eliminaTempo).not.toHaveBeenCalled()
+  })
+
+  it('fermare il timer: da quanto va e quale nota resta', async () => {
+    const p = (await anteprimaCoach('tempo', { azione: 'ferma', nota: 'Fatta la call' }, conTimer(mondoCoach()))) as { titolo: string; righe: string[] }
+    expect(p.titolo).toBe('Fermo il timer su «Stefano Moretti» · Analisi e strategia iniziale')
+    expect(p.righe).toEqual([expect.stringMatching(/^Acceso dalle \d{2}:\d{2}, finora circa 30 min$/), 'Nota: Fatta la call (al posto di «Analisi»)'])
+    const senzaNota = (await anteprimaCoach('tempo', { azione: 'ferma' }, conTimer(mondoCoach()))) as { righe: string[] }
+    expect(senzaNota.righe[1]).toBe('Nota: Analisi')
+  })
+
+  it.each([
+    ['altre attivita', 'Altre attività'],
+    ['call check', 'Call di check'],
+    ['le call di check', 'Call di check'],
+    ['programmazione dell’allenamento', 'Programmazione allenamento (creazione e aggiornamenti)'],
+    ['analisi iniziale', 'Analisi e strategia iniziale'],
+    ['revisione dei video', 'Revisione video'],
+    ['assistenza in chat', 'Assistenza chat'],
+  ])('il task detto a voce «%s» è «%s»', async (detto, titolo) => {
+    const p = (await anteprimaCoach('tempo', { azione: 'registra', progetto: 'Sergio', task: detto, durata: '30 min' })) as { righe: string[] }
+    expect(p.righe).toContain(`Task: ${titolo}`)
+  })
+
+  it('un task che non c’è: l’errore elenca i task del progetto', async () => {
+    expect(await anteprimaCoach('tempo', { azione: 'registra', progetto: 'Sergio Bellini', task: 'dieta', durata: '30 min' })).toEqual({
+      errore: `Task "dieta" non trovato nel progetto. Task del progetto: ${PERCORSO.join(', ')}.`,
+    })
+  })
+
+  it('il task da solo basta quando è uno; un titolo di tutti i clienti fa chiedere quale progetto', async () => {
+    const m = mondoCoach()
+    m.v_pm_task.push({ ...taskDelPercorso(1, PROGETTO)[0], id: TASK(1, 20), titolo: 'Copertina reel' })
+    await esegui(strumenti('coach', 'employee', m), 'tempo', { azione: 'registra', task: 'copertina', durata: '20 min' })
+    expect(a.registraTempo).toHaveBeenLastCalledWith(expect.objectContaining({ progetto_id: PROGETTO, task_id: TASK(1, 20), durata: '20 min' }))
+
+    expect(await anteprimaCoach('tempo', { azione: 'avvia', task: 'Revisione video' })).toEqual({
+      errore: 'Più task possibili: «Revisione video» in Sergio Bellini; «Revisione video» in Stefano Moretti.',
+      per_alfire: 'Chiedi quale (il progetto, o passa il task_id da progetto_dettaglio o miei_task).',
+    })
+    // the task_id the question points to: that task, in its project
+    await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'avvia', task_id: TASK(2, 4) })
+    expect(a.avviaTimer).toHaveBeenLastCalledWith({ progetto_id: STEFANO, task_id: TASK(2, 4), nota: undefined })
+    // never a task of another project than the one said
+    expect(await anteprimaCoach('tempo', { azione: 'avvia', progetto: 'Sergio Bellini', task_id: TASK(2, 4) })).toEqual({
+      errore: 'Task non trovato tra quelli che vedi.',
+    })
+    expect(await anteprimaCoach('tempo', { azione: 'registra', durata: '30 min' })).toEqual({
+      errore: 'Dimmi il progetto (quello di un cliente porta il suo nome) e, se vuoi, il task.',
+    })
+  })
+
+  it('tra due task con lo stesso titolo vince quello aperto; uno completato la scheda lo dice', async () => {
+    const m = mondoCoach()
+    m.v_pm_task.push({ ...m.v_pm_task[5], id: TASK(1, 21), stato: 'completato' })
+    m.v_pm_task[0] = { ...m.v_pm_task[0], stato: 'completato' }
+    await esegui(strumenti('coach', 'employee', m), 'tempo', { azione: 'registra', progetto: 'Sergio Bellini', task: 'Call di check', durata: '15 min' })
+    expect(a.registraTempo).toHaveBeenLastCalledWith(expect.objectContaining({ task_id: TASK(1, 5) }))
+    expect(await anteprimaCoach('tempo', { azione: 'avvia', progetto: 'Sergio Bellini', task: 'call di onboarding' }, m)).toMatchObject({
+      titolo: 'Avvio il timer su «Sergio Bellini» · Call di onboarding (task completato)',
+    })
+  })
+
+  it('la scheda di registra: del tuo tempo, il giorno col suo nome', async () => {
+    expect(
+      await anteprimaCoach('tempo', { azione: 'registra', progetto: 'Sergio Bellini', task: 'Call di check', data: '2026-09-28', durata: '45 min' }),
+    ).toMatchObject({
+      titolo: `Registro 45 min del tuo tempo su «Sergio Bellini», ${giornoEsteso('2026-09-28')}`,
+      righe: ['Task: Call di check'],
+    })
+  })
+})
+
+describe('task e note: la scheda si ferma prima del tocco quando l’app non lo permette (03/10/2026)', () => {
+  function conAltri(): Record<string, Riga[]> {
+    const m = mondoCoach()
+    m.v_pm_task.push({ ...taskDelPercorso(1, SERGIO)[0], id: TASK(1, 22), titolo: 'Brief del cliente', assegnatari: [LORENZO] })
+    m.pm_note = [{ id: '7c000000-0000-4000-8000-000000000001', progetto_id: SERGIO, data: '2026-10-01', testo: 'Nota di Lorenzo', autore_id: LORENZO }]
+    return m
+  }
+
+  it('completare un task: la scheda dice di quale progetto', async () => {
+    expect(await anteprimaCoach('task', { azione: 'completa', titolo: 'Revisione video', progetto: 'Sergio Bellini' })).toMatchObject({
+      titolo: 'Segno come fatto il task «Revisione video»',
+      righe: ['Progetto: Sergio Bellini'],
+    })
+  })
+
+  it('un task né suo né assegnato a lui, o da eliminare senza averlo creato: lo dice prima del tocco', async () => {
+    expect(await anteprimaCoach('task', { azione: 'completa', titolo: 'Brief del cliente', progetto: 'Sergio' }, conAltri())).toEqual({
+      errore: 'Puoi lavorare solo i task assegnati a te o creati da te: chiedi a chi gestisce il progetto.',
+    })
+    expect(await anteprimaCoach('task', { azione: 'elimina', titolo: 'Revisione video', progetto: 'Sergio' }, conAltri())).toEqual({
+      errore: 'Puoi eliminare solo i task creati da te: chiedi a chi gestisce il progetto.',
+    })
+    await esegui(strumenti('coach', 'employee', conAltri()), 'task', { azione: 'elimina', titolo: 'Revisione video', progetto: 'Sergio' })
+    expect(a.eliminaTask).not.toHaveBeenCalled()
+    // the projects' admin manages them all
+    expect(await anteprima('task', { azione: 'elimina', titolo: 'Revisione video', progetto: 'Sergio' }, 'admin', conAltri())).toMatchObject({
+      titolo: 'Elimino il task «Revisione video»',
+    })
+  })
+
+  it('la nota di un altro non si corregge né si elimina', async () => {
+    expect(await anteprimaCoach('nota_progetto', { azione: 'elimina', progetto: 'Sergio Bellini', data: '2026-10-01' }, conAltri())).toEqual({
+      errore: 'Puoi correggere o eliminare solo le tue note: questa l’ha scritta un’altra persona.',
+    })
+    expect(await anteprima('nota_progetto', { azione: 'elimina', progetto: 'Sergio Bellini', data: '2026-10-01' }, 'admin', conAltri())).toMatchObject({
+      titolo: 'Elimino la nota del 01/10/2026 di «Sergio Bellini»',
+    })
+  })
+})
+
+describe('«Scegli il coach» da Alfire, come nella pagina del progetto (03/10/2026)', () => {
+  function conRuolo(): Record<string, Riga[]> {
+    const m = mondoCoach()
+    m.pm_task = [
+      { progetto_id: STEFANO, titolo: PERCORSO[3], per_ruolo: 'nutrizione', parent_id: null, ordine: 4, assegnatari: [] },
+    ]
+    return m
+  }
+
+  it('solo chi gestisce i progetti lo riceve', async () => {
+    expect(await azioniDi(strumenti(), 'progetto')).toContain('scegli_coach')
+    expect(await campiDi(strumenti('coach', 'manager'), 'progetto')).toContain('coach')
+    expect(Object.keys(strumenti('coach', 'employee'))).not.toContain('progetto')
+  })
+
+  it('la scheda dice cosa succede, come il foglio della pagina; poi la stessa azione', async () => {
+    expect(await anteprima('progetto', { azione: 'scegli_coach', progetto: 'Stefano Moretti', coach: 'Marco' }, 'admin', conRuolo())).toEqual({
+      titolo: 'Marco Coach diventa il coach di «Stefano Moretti»',
+      righe: [
+        'Entra nel progetto e prende i task del cliente ancora senza nessuno: ci registra il tempo.',
+        `«${PERCORSO[3]}» va a Nina Nutri (Nutrizione).`,
+        'I task a cui lavorano già altre persone restano a loro.',
+      ],
+      sostituisceDettagli: true,
+    })
+    const esito = await esegui(strumenti('admin', 'admin', conRuolo()), 'progetto', { azione: 'scegli_coach', progetto: 'Stefano Moretti', coach: 'Marco' })
+    expect(a.scegliCoach).toHaveBeenCalledWith({ progetto_id: STEFANO, profile_id: MARCO })
+    expect(esito).toMatchObject({ fatto: true, coach: 'Marco Coach' })
+  })
+
+  it('un progetto senza cliente, o lo stesso coach: niente da confermare', async () => {
+    expect(await anteprima('progetto', { azione: 'scegli_coach', progetto: 'Reel', coach: 'Marco' }, 'admin', conRuolo())).toEqual({
+      errore: 'Il coach si sceglie solo nei progetti dei clienti: «Reel settembre» non ne ha uno.',
+    })
+    expect(await anteprima('progetto', { azione: 'scegli_coach', progetto: 'Sergio Bellini', coach: 'io' }, 'admin', conRuolo())).toEqual({
+      errore: 'Dany Montagnolo è già il coach di «Sergio Bellini».',
+    })
+  })
+})
+
+describe('elenchi lunghi: lo dicono (03/10/2026)', () => {
+  it('miei_task e progetti oltre il limite: un elenco parziale lo dice', async () => {
+    const m = mondoCoach()
+    m.v_pm_task = Array.from({ length: 45 }, (_, i) => ({ ...taskDelPercorso(1, SERGIO)[0], id: `t-${i}`, titolo: `Task ${i}` }))
+    const task = (await esegui(strumenti('coach', 'employee', m), 'miei_task', {})) as { task: unknown[]; nota: string }
+    expect(task.task).toHaveLength(40)
+    expect(task.nota).toMatch(/^Elenco parziale: qui i primi 40/)
+    m.v_pm_progetti = Array.from({ length: 41 }, (_, i) => ({ ...m.v_pm_progetti[0], id: `p-${i}`, nome: `Cliente ${String(i).padStart(2, '0')}` }))
+    const progetti = (await esegui(strumenti('coach', 'employee', m), 'progetti', {})) as { progetti: unknown[]; nota: string }
+    expect(progetti.progetti).toHaveLength(40)
+    expect(progetti.nota).toMatch(/^Elenco parziale/)
+    // within the limit, no note
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'miei_task', {})).not.toHaveProperty('nota')
+  })
+})
+
+describe('la guida: ogni ruolo legge la sua parte (03/10/2026)', () => {
+  it('gli argomenti per ruolo, fissati', async () => {
+    expect(await azioniDi(strumenti('coach', 'employee'), 'guida', 'argomento')).toEqual(['progetti', 'alfire', 'permessi'])
+    expect(await azioniDi(strumenti('setter', 'employee'), 'guida', 'argomento')).toEqual(['setting', 'call', 'provvigioni', 'progetti', 'alfire', 'permessi'])
+    expect(await azioniDi(strumenti('closer', 'employee'), 'guida', 'argomento')).toEqual(['call', 'vendite', 'incassi', 'progetti', 'alfire', 'permessi'])
+    expect(await azioniDi(strumenti(), 'guida', 'argomento')).toContain('panoramica')
+  })
+
+  it('cosa fa Alfire, per chi chiede: al coach mai la lista dei soldi dell’admin', async () => {
+    const coach = (await esegui(strumenti('coach', 'employee'), 'guida', { argomento: 'alfire' })) as { testo: string }
+    expect(coach.testo).toContain('avvia e ferma il timer')
+    for (const parola of ['rate', 'costi', 'provvigioni', 'vendite', 'obiettivi', 'ricevuta']) expect(coach.testo, parola).not.toContain(parola)
+    const admin = (await esegui(strumenti(), 'guida', { argomento: 'alfire' })) as { testo: string }
+    expect(admin.testo).toContain('pagamenti e regole delle provvigioni')
+    expect(admin.testo).toContain('il tempo del team')
+    expect(admin.testo).toContain('(una ricevuta come costo, un piano di rate)')
+    // what a file can become, for who asks: the setter writes no costs or instalments, the closer no costs
+    const setter = (await esegui(strumenti('setter', 'employee'), 'guida', { argomento: 'alfire' })) as { testo: string }
+    expect(setter.testo).toContain('(i numeri del tuo report da uno screenshot)')
+    for (const parola of ['costo', 'costi', 'rate', 'ricevuta']) expect(setter.testo, parola).not.toContain(parola)
+    const closer = (await esegui(strumenti('closer', 'employee'), 'guida', { argomento: 'alfire' })) as { testo: string }
+    expect(closer.testo).toContain('(il piano di rate di una vendita che registri)')
+    for (const parola of ['costo', 'costi', 'ricevuta']) expect(closer.testo, parola).not.toContain(parola)
+    expect(coach.testo).toContain('(task e note di un progetto)')
+  })
+
+  it('ogni ruolo legge i testi che lo riguardano, dal suo lato: mai i soldi a chi lavora solo nei progetti', async () => {
+    const testo = async (ruolo: AppRole, argomento: string) =>
+      ((await esegui(strumenti(ruolo, ruolo === 'admin' ? 'admin' : 'employee'), 'guida', { argomento })) as { testo: string }).testo
+    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev'] as const) {
+      const permessi = await testo(ruolo, 'permessi')
+      expect(permessi, ruolo).toContain('Il tempo è il tuo')
+      // who manages a project sees the others' time there (section 18): never "nobody sees it"
+      expect(permessi, ruolo).toContain('Quello degli altri lo vede chi gestisce un progetto, nella scheda Tempo del progetto; Alfire non lo legge.')
+      for (const parola of ['provvigion', 'incass', 'vendit', 'cliente', 'setter', 'closer', 'margine', 'costi', 'soldi']) {
+        expect(permessi, `${ruolo}: ${parola}`).not.toContain(parola)
+      }
+    }
+    // the setter: his own commission, never the rules or another person's
+    const provvigioni = await testo('setter', 'provvigioni')
+    expect(provvigioni).toContain('Le tue provvigioni')
+    expect(provvigioni).toContain('dei clienti nuovi che hai portato tu')
+    for (const parola of ['Regole provvigioni', 'Impostazioni', 'percentuale', 'Si registra il pagamento al setter']) {
+      expect(provvigioni, parola).not.toContain(parola)
+    }
+    expect(await testo('setter', 'permessi')).toContain('la sua provvigione su ogni incasso')
+    expect(await testo('setter', 'permessi')).not.toContain('Il closer vede')
+    for (const ruolo of ['setter', 'closer'] as const) {
+      expect(await testo(ruolo, 'permessi'), ruolo).toContain('il tempo degli altri solo nei progetti che gestisce, nella scheda Tempo del progetto')
+    }
+    // the closer: his own sales and cash-ins, never the admin's pages
+    const vendite = await testo('closer', 'vendite')
+    expect(vendite).toContain('Le tue vendite (Le mie vendite, /my-sales)')
+    expect(vendite).not.toContain('Vendite (/sales)')
+    const incassi = await testo('closer', 'incassi')
+    expect(incassi).toContain('Gli incassi delle tue vendite')
+    expect(incassi).not.toContain('/payments')
+    expect(await testo('closer', 'permessi')).not.toContain('Il setter vede')
+    // the admin reads the whole guide, as it is
+    expect(await testo('admin', 'provvigioni')).toContain('Regole provvigioni')
+    expect(await testo('admin', 'incassi')).toContain('Incassi (/payments)')
+  })
+
+  it('i progetti dal lato di chi legge: Tempo › Team e Impostazioni solo all’admin', async () => {
+    const testo = async (ruolo: AppRole) =>
+      ((await esegui(strumenti(ruolo, ruolo === 'admin' ? 'admin' : 'employee'), 'guida', { argomento: 'progetti' })) as { testo: string }).testo
+    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev', 'setter', 'closer'] as const) {
+      const progetti = await testo(ruolo)
+      expect(progetti, ruolo).toContain('Il tuo tempo lo dichiari tu')
+      expect(progetti, ruolo).toContain('Il tempo degli altri lo vede chi gestisce un progetto, nella scheda Tempo del progetto')
+      expect(progetti, ruolo).toContain('«Scegli il coach»')
+      for (const parola of ['/tempo/team', 'Impostazioni', 'L’admin', 'per l’admin']) expect(progetti, `${ruolo}: ${parola}`).not.toContain(parola)
+    }
+    const admin = await testo('admin')
+    expect(admin).toContain('L’admin ha anche la scheda Team (/tempo/team)')
+    expect(admin).toContain('Reparti e modelli in Impostazioni › Progetti.')
+  })
+})
+
+// ---------------------------------------------------------------------------
 describe('i dati di chi chatta dicono di chi sono', () => {
   // Dany's chat of 30/09/2026: asked about Loris's time, Alfire read Dany's own
   // (mio_tempo) and answered "Loris ha registrato 2 ore"
@@ -1321,7 +1840,8 @@ describe('i dati di chi chatta dicono di chi sono', () => {
     righe.pm_riepilogo_tempo = [{ livello: 'totale', data: null, progetto_id: null, progetto: null, minuti: 120, voci: 2 }]
     const conTimer = (await esegui(strumenti('coach', 'employee', righe), 'mio_tempo', { da: '2026-09-01', a: '2026-09-30' })) as Record<string, unknown>
     expect(conTimer).toMatchObject({ totale: { minuti: 120, durata: '2 h', voci: 2 }, timer_acceso: { progetto: 'Reel settembre', dalle: '10:00' } })
-    expect((conTimer.voci as { voce_id: string }[]).map((v) => v.voce_id)).toEqual(['t0', 't1'])
+    // same day, same created_at: the id decides, as for the candidates of a correction (trovaVoce)
+    expect((conTimer.voci as { voce_id: string }[]).map((v) => v.voce_id)).toEqual(['t1', 't0'])
     expect(conTimer).not.toHaveProperty('nota')
   })
 
@@ -1458,7 +1978,8 @@ describe('tempo_team: il tempo dichiarato dal team, come Tempo › Team', () => 
     righe.profiles = [...righe.profiles, { id: 'ex-loris', nome: 'Loris Rossi', ruolo: 'coach', attivo: false }]
     const esito = await esegui(strumenti('admin', 'admin', righe), 'tempo_team', { persona: 'Loris', ultimi_giorni: 7 })
     expect(esito).toEqual({
-      errore: 'Più persone possibili per "Loris": Loris Rossi (Coach, non più attivo); Loris Setter (Setter). Chiedi quale, e cercala scritta come qui.',
+      errore: 'Più persone possibili per "Loris": Loris Rossi (Coach, non più attivo); Loris Setter (Setter).',
+      per_alfire: 'Chiedi quale, e cercala scritta come qui.',
     })
     expect(rpcChiamate).toEqual([])
 
@@ -1480,7 +2001,8 @@ describe('tempo_team: il tempo dichiarato dal team, come Tempo › Team', () => 
     expect(await esegui(s, 'tempo_team', { persona: 'Loris Setter' })).toEqual({
       errore:
         'Più persone possibili per "Loris Setter": Loris Setter (Setter, import@esempio.it); Loris Setter (Setter, loris@esempio.it); ' +
-        'Loris Setter (Setter, non più attivo). Chiedi quale, e cercala scritta come qui.',
+        'Loris Setter (Setter, non più attivo).',
+      per_alfire: 'Chiedi quale, e cercala scritta come qui.',
     })
     expect(rpcChiamate).toEqual([])
 
@@ -1553,7 +2075,9 @@ describe('tempo_team: il tempo dichiarato dal team, come Tempo › Team', () => 
 describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta dietro', () => {
   it('tempo: la fascia si vede sulla scheda e segue le regole del modulo', async () => {
     const p = await anteprima('tempo', { azione: 'registra', progetto: 'Reel', data: '2026-09-28', dalle: '9:00', alle: '10:30' }, 'coach')
-    expect(p).toMatchObject({ titolo: 'Registro 1 h 30 min su «Reel settembre» il 28/09/2026' })
+    // "del tuo tempo", and the weekday: a day the model worked out wrong shows (03/10/2026)
+    expect(p).toMatchObject({ titolo: `Registro 1 h 30 min del tuo tempo su «Reel settembre», ${giornoEsteso('2026-09-28')}` })
+    expect(giornoEsteso('2026-09-28', '2026-10-03')).toBe('lunedì 28/09/2026')
     expect((p as { righe: string[] }).righe).toContain('Fascia: 09:00–10:30')
 
     expect(await anteprima('tempo', { azione: 'registra', progetto: 'Reel', data: '2026-09-28', dalle: '9:00' }, 'coach')).toEqual({
@@ -1561,13 +2085,16 @@ describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta
     })
     expect(
       await anteprima('tempo', { azione: 'registra', progetto: 'Reel', data: '2026-09-28', dalle: '10:30', alle: '09:00' }, 'coach'),
-    ).toEqual({ errore: 'L’ora di fine deve essere dopo quella di inizio' })
+    ).toEqual({
+      errore:
+        'L’ora di fine deve essere dopo quella di inizio. Se passa la mezzanotte sono due voci: nel giorno dell’inizio 13 h 30 min come durata, senza fascia (dalle 10:30 a mezzanotte), e nel giorno dopo la fascia 00:00–09:00',
+    })
 
     // the entry typed as 1 h 30 min gets a range: before → after, and the minutes it gives
     const righe = mondo()
     righe.pm_tempo[0] = { ...righe.pm_tempo[0], id: '6a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d' }
     const m = await anteprima('tempo', { azione: 'modifica', progetto: 'Reel', data: '2026-09-28', dalle: '14:00', alle: '16:00' }, 'coach', righe)
-    expect(m).toMatchObject({ righe: ['Fascia: – → 14:00–16:00', 'Durata: 1 h 30 min → 2 h'] })
+    expect(m).toMatchObject({ righe: [`Voce: ${giornoEsteso('2026-09-28')}`, 'Fascia: – → 14:00–16:00', 'Durata: 1 h 30 min → 2 h'] })
   })
 
   it('tempo: il timer senza fascia di un giorno la perde sulla scheda solo se cambiano giorno o durata', async () => {
@@ -1575,25 +2102,26 @@ describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta
     // 23:30–00:30 across midnight, 60 minutes
     const notte = mondo()
     notte.pm_tempo[0] = { ...notte.pm_tempo[0], id: VOCE, minuti: 60, inizio: '2026-09-28T21:30:00.000Z', fine: '2026-09-28T22:30:00.000Z' }
+    const voce = `Voce: ${giornoEsteso('2026-09-28')}`
     expect(await anteprima('tempo', { azione: 'modifica', voce_id: VOCE, durata: '2h' }, 'coach', notte)).toMatchObject({
-      righe: ['Fascia: 23:30–00:30, a cavallo della mezzanotte → tolta', 'Durata: 1 h → 2 h'],
+      righe: [`${voce}, 23:30–00:30, a cavallo della mezzanotte`, 'Fascia: 23:30–00:30, a cavallo della mezzanotte → tolta', 'Durata: 1 h → 2 h'],
     })
     expect(await anteprima('tempo', { azione: 'modifica', voce_id: VOCE, nota: 'Consegna' }, 'coach', notte)).toMatchObject({
-      righe: ['Nota: – → Consegna'],
+      righe: [`${voce}, 23:30–00:30, a cavallo della mezzanotte`, 'Nota: – → Consegna'],
     })
 
     // started and stopped within 09:00: the note changes, nothing blocks the card
     const breve = mondo()
     breve.pm_tempo[0] = { ...breve.pm_tempo[0], id: VOCE, minuti: 1, inizio: '2026-09-28T07:00:05.000Z', fine: '2026-09-28T07:00:50.000Z' }
     expect(await anteprima('tempo', { azione: 'modifica', voce_id: VOCE, nota: 'Cambio di task' }, 'coach', breve)).toMatchObject({
-      righe: ['Nota: – → Cambio di task'],
+      righe: [`${voce}, 09:00–09:00, meno di un minuto`, 'Nota: – → Cambio di task'],
     })
 
     // a range the forms show, taken away
     const conFascia = mondo()
     conFascia.pm_tempo[0] = { ...conFascia.pm_tempo[0], id: VOCE, inizio: '2026-09-28T07:00:00.000Z', fine: '2026-09-28T08:30:00.000Z' }
     expect(await anteprima('tempo', { azione: 'modifica', voce_id: VOCE, dalle: 'nessuna' }, 'coach', conFascia)).toMatchObject({
-      righe: ['Fascia: 09:00–10:30 → tolta'],
+      righe: [`${voce}, 09:00–10:30`, 'Fascia: 09:00–10:30 → tolta'],
     })
   })
 
@@ -1841,7 +2369,8 @@ describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta
 
   it('un bersaglio ambiguo è un errore da girare al modello; uno strumento non del ruolo non si legge', async () => {
     expect(await anteprima('cliente', { azione: 'elimina', cliente: 'Rossi' })).toEqual({
-      errore: 'Più clienti possibili: Mario Rossi, Luca Rossi. Chiedi quale, con nome e cognome.',
+      errore: 'Più clienti possibili: Mario Rossi, Luca Rossi.',
+      per_alfire: 'Chiedi quale, con nome e cognome.',
     })
     expect(await anteprima('cliente', { azione: 'elimina', cliente: 'Mario Rossi' }, 'setter')).toEqual({
       errore: 'Operazione non disponibile per il tuo ruolo.',
@@ -1897,8 +2426,9 @@ describe('la scheda dall’input: una frase per azione', () => {
     ['lista', { azione: 'crea', progetto: 'Reel', nome: 'Pubblicazione', data_fine: '2026-10-31' }, 'Creo la lista «Pubblicazione» in «Reel»', ['Fine: 31/10/2026']],
     ['task', { azione: 'elimina', titolo: 'Copertina', progetto: 'Reel' }, 'Elimino il task «Copertina»', ['Progetto: Reel']],
     ['nota_progetto', { azione: 'aggiungi', progetto: 'Reel', testo: 'Consegna spostata' }, 'Aggiungo una nota a «Reel»', ['Giorno: oggi', '«Consegna spostata»']],
-    ['tempo', { azione: 'registra', progetto: 'Reel', durata: '1h30', task: 'Copertina' }, 'Registro 1h30 su «Reel»', ['Giorno: oggi', 'Task: Copertina']],
-    ['tempo', { azione: 'registra', progetto: 'Reel', dalle: '09:00', alle: '10:30' }, 'Registro 09:00–10:30 su «Reel»', ['Giorno: oggi']],
+    ['tempo', { azione: 'registra', progetto: 'Reel', durata: '1h30', task: 'Copertina' }, 'Registro 1h30 del tuo tempo su «Reel»', ['Giorno: oggi', 'Task: Copertina']],
+    ['tempo', { azione: 'registra', progetto: 'Reel', dalle: '09:00', alle: '10:30' }, 'Registro 09:00–10:30 del tuo tempo su «Reel»', ['Giorno: oggi']],
+    ['progetto', { azione: 'scegli_coach', progetto: 'Andrea Russo', coach: 'Marco Coach' }, 'Marco Coach diventa il coach di «Andrea Russo»', []],
     ['tempo', { azione: 'modifica', voce_id: 'x', dalle: 'nessuna' }, 'Correggo una tua voce di tempo', ['Tolgo la fascia oraria']],
     ['tempo', { azione: 'ferma' }, 'Fermo il timer', []],
   ]
@@ -2046,9 +2576,7 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
 
   it('«sposta la call» non passa dall’esito: data e ora con l’esito si rifiutano', async () => {
     const input = { azione: 'esito', lead: 'Luca Neri', esito: 'no_show', data: '2026-09-30', ora: '18:00' }
-    expect(await anteprima('call', input, 'closer')).toEqual({
-      errore: 'L’esito non cambia data e ora: per spostare la call usa azione sposta con data e ora.',
-    })
+    expect(await anteprima('call', input, 'closer')).toEqual(ESITO_SENZA_DATA)
     await esegui(strumenti('closer', 'employee'), 'call', input)
     expect(a.registraEsito).not.toHaveBeenCalled()
     // riprogrammata is a move (Dany, 02/10/2026): never an outcome without the new day
@@ -2093,6 +2621,7 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
         // sposta_call's words, and where a wrong day goes: modifica (Dany, 03/10/2026)
         expect(await anteprima('call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' }, ruolo)).toEqual({
           errore: `${SPOSTA.svolta}. ${SPOSTA.soloLaData}`,
+          per_alfire: SPOSTA.soloLaDataPerAlfire,
         })
       }
       // the setter reads who corrects the outcome, never «la sposta lui»
@@ -2107,17 +2636,16 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
 
     it('un no show non si sposta, per nessuno: resta nello show rate (Dany, 02/10/2026)', async () => {
       const ieri = aggiungiGiorni(oggiRoma(), -1)
+      const correggi = { errore: `${SPOSTA.noShow}. ${SPOSTA.soloLaData}`, per_alfire: SPOSTA.soloLaDataPerAlfire }
       for (const [ruolo, frase] of [
         // closer and admin also read that a wrong day is modifica's (Dany, 03/10/2026)
-        ['closer', `${SPOSTA.noShow}. ${SPOSTA.soloLaData}`],
-        ['admin', `${SPOSTA.noShow}. ${SPOSTA.soloLaData}`],
-        ['setter', SPOSTA.setterNoShow],
+        ['closer', correggi],
+        ['admin', correggi],
+        ['setter', { errore: SPOSTA.setterNoShow }],
       ] as const) {
         // the card stops before the tap, whatever the day (the admin also moves to the past)
         for (const giorno of [domani, ieri]) {
-          expect(await anteprima('call', { azione: 'sposta', lead: 'Luca Neri', data: giorno, ora: '18:00' }, ruolo, noShow()), ruolo).toEqual({
-            errore: frase,
-          })
+          expect(await anteprima('call', { azione: 'sposta', lead: 'Luca Neri', data: giorno, ora: '18:00' }, ruolo, noShow()), ruolo).toEqual(frase)
         }
         await esegui(strumenti(ruolo, 'employee', noShow()), 'call', { azione: 'sposta', lead: 'Luca Neri', data: domani, ora: '18:00' })
       }
@@ -2125,7 +2653,7 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
       // «è stata riprogrammata» is a move too: the outcome never carries a new day
       expect(
         await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'programmata', data: domani, ora: '18:00' }, 'closer', noShow()),
-      ).toEqual({ errore: 'L’esito non cambia data e ora: per spostare la call usa azione sposta con data e ora.' })
+      ).toEqual(ESITO_SENZA_DATA)
       // the description says it to the model, for every role
       for (const ruolo of ['closer', 'admin'] as const) {
         expect(strumenti(ruolo, 'employee').call.description, ruolo).toContain('una call svolta o un no show non si spostano')
@@ -2245,7 +2773,10 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
       'admin',
       righe,
     )) as { righe: string[] }
-    expect(task.righe).toEqual(expect.arrayContaining(['Stato: In corso', 'Stima: 2 h', 'Inizio 01/10/2026', `Descrizione: ${lunga}`]))
+    // a task's dates with their weekday, as a time entry's day (03/10/2026)
+    expect(task.righe).toEqual(
+      expect.arrayContaining(['Stato: In corso', 'Stima: 2 h', `Inizio ${giornoEsteso('2026-10-01')}`, `Descrizione: ${lunga}`]),
+    )
 
     const cliente = (await anteprima('cliente', { azione: 'modifica', cliente: 'Luca Rossi', note: lunga })) as { righe: string[] }
     expect(cliente.righe).toEqual([`Note: – → ${lunga}`])
@@ -2296,15 +2827,343 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
     await esegui(s, 'task', { azione: 'aggiungi', titolo: 'Preparare il questionario', progetto: 'Reel settembre', sotto_task_di: 'Call di onboarding' })
     expect(a.aggiungiTask).toHaveBeenCalledWith(expect.objectContaining({ progetto_id: PROGETTO, parent_id: 'k1' }))
 
-    const dubbio = (await esegui(s, 'task', { azione: 'completa', titolo: 'Call di onboarding' })) as { errore: string }
+    const dubbio = await esegui(s, 'task', { azione: 'completa', titolo: 'Call di onboarding' })
     expect(a.completaTask).not.toHaveBeenCalled()
-    expect(dubbio.errore).toBe(
-      'Più task possibili: «Call di onboarding» in Reel settembre, scadenza 03/10/2026; «Call di onboarding» in Percorso Tiziano Mele. ' +
-        'Chiedi quale (il progetto, o passa il task_id da progetto_dettaglio o miei_task).',
-    )
+    expect(dubbio).toEqual({
+      errore: 'Più task possibili: «Call di onboarding» in Reel settembre, scadenza 03/10/2026; «Call di onboarding» in Percorso Tiziano Mele.',
+      per_alfire: 'Chiedi quale (il progetto, o passa il task_id da progetto_dettaglio o miei_task).',
+    })
     await esegui(s, 'task', { azione: 'completa', titolo: 'Call di onboarding', progetto: 'Tiziano' })
     expect(a.completaTask).toHaveBeenLastCalledWith({ id: 'k2', completato: true })
     await esegui(s, 'task', { azione: 'completa', titolo: 'Call di onboarding', task_id: 'k1' })
     expect(a.completaTask).toHaveBeenLastCalledWith({ id: 'k1', completato: true })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The second round on the team's time (03/10/2026): a move to another project
+// as the form allows, the entry registered last, typos and the long lists.
+// ---------------------------------------------------------------------------
+describe('il tempo con Alfire: spostare, l’ultima voce, i nomi detti male (03/10/2026)', () => {
+  const IERI = aggiungiGiorni(oggiRoma(), -1)
+
+  it('nuovo_progetto sposta la voce su un altro progetto, sul task con lo stesso titolo; la scheda lo dice', async () => {
+    const p = await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_progetto: 'Stefano Moretti' })
+    expect(p).toMatchObject({
+      titolo: 'Correggo 45 min del tuo tempo su «Sergio Bellini» · Call di check',
+      righe: [`Voce: ${giornoEsteso(IERI)}`, 'Progetto: Sergio Bellini → Stefano Moretti'],
+    })
+    // the sentence from the input, before the database answers
+    expect(riassuntoScrittura('tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_progetto: 'Stefano Moretti' }).dettagli).toEqual([
+      'Sposto sul progetto: Stefano Moretti',
+    ])
+    await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_progetto: 'Stefano Moretti' })
+    expect(a.modificaTempo).toHaveBeenLastCalledWith(expect.objectContaining({ id: VOCE_CALL, progetto_id: STEFANO, task_id: TASK(2, 5), durata: 45 }))
+
+    // nuovo_task is found in the new project
+    const altro = await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_progetto: 'Stefano Moretti', nuovo_task: 'assistenza in chat' })
+    expect(altro).toMatchObject({ righe: expect.arrayContaining(['Progetto: Sergio Bellini → Stefano Moretti', 'Task: Call di check → Assistenza chat']) })
+    await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', {
+      azione: 'modifica',
+      voce_id: VOCE_CALL,
+      nuovo_progetto: 'Stefano Moretti',
+      nuovo_task: 'assistenza in chat',
+    })
+    expect(a.modificaTempo).toHaveBeenLastCalledWith(expect.objectContaining({ progetto_id: STEFANO, task_id: TASK(2, 6) }))
+
+    // a project without that task: the entry goes without one, as the form leaves it
+    const reel = await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_progetto: 'Reel' })
+    expect(reel).toMatchObject({ righe: [`Voce: ${giornoEsteso(IERI)}`, 'Progetto: Sergio Bellini → Reel settembre', 'Task: Call di check → –'] })
+  })
+
+  it('un progetto detto accanto a voce_id non viene mai ignorato: o è quello della voce, o si dice nuovo_progetto', async () => {
+    // the person reads that it can move there, the model with which field
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, progetto: 'Stefano Moretti', durata: '1h' })).toEqual({
+      errore: 'Questa voce è su «Sergio Bellini», non su «Stefano Moretti»: se vuoi, la sposto su «Stefano Moretti».',
+      per_alfire: 'Per spostarla: voce_id e nuovo_progetto «Stefano Moretti», senza progetto (o col progetto della voce).',
+    })
+    // a deletion only says where the entry is
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'elimina', voce_id: VOCE_CALL, progetto: 'Stefano Moretti' })).toEqual({
+      errore: 'Questa voce è su «Sergio Bellini», non su «Stefano Moretti».',
+      per_alfire: 'Chiedi quale voce intendeva.',
+    })
+    expect(a.eliminaTempo).not.toHaveBeenCalled()
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, progetto: 'Sergio Bellini', durata: '1h' })).toMatchObject({
+      righe: [`Voce: ${giornoEsteso(IERI)}`, 'Durata: 45 min → 1 h'],
+    })
+  })
+
+  it('l’ultima voce è l’ultima registrata, con o senza fascia; registra, avvia e ferma danno la loro voce', async () => {
+    const m = mondoCoach()
+    // a duration registered after the afternoon range: it is the last one
+    m.pm_tempo[0] = { ...m.pm_tempo[0], created_at: `${IERI}T17:00:00Z` }
+    const letto = (await esegui(strumenti('coach', 'employee', m), 'mio_tempo', { ultimi_giorni: 7 })) as { voci: { voce_id: string }[] }
+    expect(letto.voci.map((v) => v.voce_id)).toEqual([VOCE_CALL, VOCE_VIDEO])
+    const dubbio = (await anteprimaCoach('tempo', { azione: 'elimina', progetto: 'Sergio Bellini', data: IERI }, m)) as { errore: string }
+    expect(spazi(dubbio.errore)).toMatch(new RegExp(`^Più voci possibili, dalla più recente: ${giornoEsteso(IERI)}, 45 min su «Sergio Bellini» · Call di check; `))
+    const d = strumenti('coach', 'employee').mio_tempo.description ?? ''
+    expect(d).toContain('nello stesso giorno dall’ultima registrata')
+
+    a.registraTempo.mockResolvedValueOnce({ ok: true, id: VOCE_VIDEO })
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'registra', progetto: 'Sergio Bellini', durata: '30 min' })).toEqual({
+      fatto: true,
+      voce_id: VOCE_VIDEO,
+      link: '/tempo',
+    })
+    a.avviaTimer.mockResolvedValueOnce({ ok: true, id: TIMER })
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'avvia', progetto: 'Stefano Moretti' })).toMatchObject({
+      voce_id: TIMER,
+    })
+    a.fermaTimer.mockResolvedValueOnce({ ok: true, minuti: 30, id: TIMER })
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'ferma' })).toMatchObject({ minuti: 30, voce_id: TIMER })
+
+    // the voce_id of a timer still running: stop it first, never "not found"
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: TIMER, durata: '1h' }, conTimer(mondoCoach()))).toEqual({
+      errore: 'Non c’è una voce chiusa: il tempo che corre è il timer acceso su «Stefano Moretti». Fermalo, poi correggi la voce.',
+      per_alfire: 'Per fermarlo: tempo, azione ferma.',
+    })
+  })
+
+  it('un progetto detto male: i più vicini tra quelli che vedi; un nome lontano da tutti, mai se quel cliente esiste', async () => {
+    const forse = 'Chiedi se è questo; se sì, usa il suo nome come scritto qui.'
+    expect(await anteprimaCoach('tempo', { azione: 'registra', progetto: 'Stefano Moreti', durata: '30 min' })).toEqual({
+      errore: 'Progetto "Stefano Moreti" non trovato tra quelli che vedi. Forse: Stefano Moretti.',
+      per_alfire: forse,
+    })
+    expect(await anteprimaCoach('tempo', { azione: 'avvia', progetto: 'Belini' })).toEqual({
+      errore: 'Progetto "Belini" non trovato tra quelli che vedi. Forse: Sergio Bellini.',
+      per_alfire: forse,
+    })
+    // the project of a client he is not in (03/10/2026): he reads that whoever manages it can add him, never his list
+    // nor whether that client exists
+    const fuori = {
+      errore: 'Non sei in un progetto "Zorro": vedi solo quelli di cui fai parte. Se è il progetto di un cliente, chi lo gestisce può aggiungerti.',
+      per_alfire: 'Non somiglia a nessuno dei suoi progetti: diglielo così, senza proporne altri al suo posto.',
+    }
+    expect(await anteprimaCoach('tempo', { azione: 'avvia', progetto: 'Zorro' })).toEqual(fuori)
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'progetto_dettaglio', { progetto: 'Zorro' })).toEqual(fuori)
+    // who sees every project reads their names
+    expect(await anteprimaScrittura(supabaseFinto(mondoCoach()) as never, profiloDi('admin'), 'admin', 'tempo', { azione: 'avvia', progetto: 'Zorro' })).toEqual({
+      errore: 'Progetto "Zorro" non trovato tra quelli che vedi. Progetti: Reel settembre, Sergio Bellini, Stefano Moretti.',
+      per_alfire: 'Chiedi quale.',
+    })
+    // the same from a task said with its project
+    expect(await anteprimaCoach('task', { azione: 'completa', titolo: 'Revisione video', progetto: 'Moreti' })).toEqual({
+      errore: 'Progetto "Moreti" non trovato tra quelli che vedi. Forse: Stefano Moretti.',
+      per_alfire: forse,
+    })
+  })
+
+  it('un titolo che hanno 13 clienti: nel testo fino a 15 candidati, i bottoni restano 4', async () => {
+    const m = mondoCoach()
+    const clienti = Array.from({ length: 13 }, (_, i) => `Cliente ${String(i + 1).padStart(2, '0')}`)
+    m.v_pm_progetti = clienti.map((nome, i) => ({ ...m.v_pm_progetti[1], id: `p-${i}`, nome }))
+    m.v_pm_task = clienti.map((_, i) => ({ ...taskDelPercorso(1, `p-${i}`)[4], id: `t-${i}` }))
+    const dubbio = (await anteprimaCoach('tempo', { azione: 'avvia', task: 'Revisione video' }, m)) as { errore: string; per_alfire: string }
+    for (const nome of clienti) expect(dubbio.errore).toContain(`«Revisione video» in ${nome}`)
+    // how to ask is the model's: never on the card
+    expect(dubbio.per_alfire).toContain('Nel testo elencali tutti: i bottoni ne mostrano 4, l’utente può scrivere il nome.')
+    expect(dubbio.errore).not.toContain('bottoni')
+  })
+
+  it('il giorno col suo nome anche in una correzione; il timer di un altro giorno lo dice', async () => {
+    const p = (await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, data: oggiRoma() })) as { righe: string[] }
+    expect(p.righe).toContain(`Giorno: ${giornoEsteso(IERI)} → ${giornoEsteso(oggiRoma())}`)
+    const m = conTimer(mondoCoach())
+    const timer = m.pm_tempo.at(-1)!
+    timer.data = IERI
+    timer.inizio = `${IERI}T20:10:00.000Z`
+    const fermo = (await anteprimaCoach('tempo', { azione: 'ferma' }, m)) as { righe: string[] }
+    expect(fermo.righe[0]).toMatch(new RegExp(`^Acceso dalle \\d{2}:\\d{2} di ${giornoEsteso(IERI)}, finora`))
+  })
+
+  it('una data scritta in un altro formato in una scrittura: il formato giusto, mai «Data non valida» da sola', async () => {
+    const atteso = DATA_SBAGLIATA
+    expect(await anteprimaCoach('tempo', { azione: 'registra', progetto: 'Sergio Bellini', data: '02/10/2026', durata: '30 min' })).toEqual(atteso)
+    expect(await anteprimaCoach('tempo', { azione: 'elimina', progetto: 'Sergio Bellini', data: 'venerdì' })).toEqual(atteso)
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'registra', progetto: 'Sergio', data: '02/10/2026', durata: '30 min' })).toEqual(atteso)
+    expect(a.registraTempo).not.toHaveBeenCalled()
+    expect(await anteprimaCoach('task', { azione: 'modifica', titolo: 'Revisione video', progetto: 'Sergio', scadenza: '5/10' })).toEqual(atteso)
+    // a form's own "Data non valida" says the format too
+    a.registraTempo.mockResolvedValueOnce({ ok: false, errore: 'Data non valida' })
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'registra', progetto: 'Sergio', durata: '30 min' })).toEqual(
+      DATA_SBAGLIATA,
+    )
+  })
+
+  it('completare un task già fatto, o riaprirne uno aperto: la scheda lo dice; tra due uguali dice quale', async () => {
+    const m = mondoCoach()
+    m.v_pm_task[4] = { ...m.v_pm_task[4], stato: 'completato' }
+    expect(await anteprimaCoach('task', { azione: 'completa', titolo: 'Revisione video', progetto: 'Sergio Bellini' }, m)).toEqual({
+      errore: 'Il task «Revisione video» di «Sergio Bellini» è già completato: non c’è niente da segnare.',
+    })
+    await esegui(strumenti('coach', 'employee', m), 'task', { azione: 'completa', titolo: 'Revisione video', progetto: 'Sergio Bellini' })
+    expect(a.completaTask).not.toHaveBeenCalled()
+    expect(await anteprimaCoach('task', { azione: 'riapri', titolo: 'Call di check', progetto: 'Sergio Bellini' }, m)).toEqual({
+      errore: 'Il task «Call di check» di «Sergio Bellini» è già aperto: non c’è niente da riaprire.',
+    })
+
+    // two «Call di check» in Sergio's project, one completed: the card says which one
+    const due = mondoCoach()
+    due.v_pm_task.push({ ...due.v_pm_task[5], id: TASK(1, 21), stato: 'completato' })
+    expect(await anteprimaCoach('task', { azione: 'completa', titolo: 'Call di check', progetto: 'Sergio Bellini' }, due)).toEqual({
+      titolo: 'Segno come fatto il task «Call di check»',
+      righe: ['Progetto: Sergio Bellini', 'È quello aperto: nel progetto c’è un altro task con questo titolo.'],
+      sostituisceDettagli: true,
+    })
+    expect(await anteprimaCoach('task', { azione: 'riapri', titolo: 'Call di check', progetto: 'Sergio Bellini' }, due)).toMatchObject({
+      righe: ['Progetto: Sergio Bellini', 'È quello completato: nel progetto c’è un altro task con questo titolo.'],
+    })
+  })
+
+  it('una scadenza col suo giorno della settimana', async () => {
+    const p = (await anteprimaCoach('task', { azione: 'modifica', titolo: 'Revisione video', progetto: 'Sergio', scadenza: '2026-10-12' })) as { righe: string[] }
+    expect(p.righe).toContain(`Scadenza: – → ${giornoEsteso('2026-10-12')}`)
+    expect(giornoEsteso('2026-10-12', '2026-10-03')).toBe('lunedì 12/10/2026')
+  })
+
+  it('un task detto accanto a voce_id non viene mai ignorato: o è quello della voce, o si dice nuovo_task', async () => {
+    const perSpostare = 'Per spostarla: voce_id e nuovo_task col titolo del task ("nessuno" lo toglie), senza task né task_id.'
+    const atteso = {
+      errore: 'Questa voce è sul task «Call di check», non su «Revisione video»: se vuoi, la sposto su «Revisione video».',
+      per_alfire: perSpostare,
+    }
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, task: 'Revisione video', durata: '1h' })).toEqual(atteso)
+    await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'modifica', voce_id: VOCE_CALL, task: 'Revisione video', durata: '1h' })
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'elimina', voce_id: VOCE_CALL, task: 'Revisione video' })).toEqual({
+      errore: 'Questa voce è sul task «Call di check», non su «Revisione video».',
+      per_alfire: 'Chiedi quale voce intendeva.',
+    })
+    expect(a.modificaTempo).not.toHaveBeenCalled()
+    expect(a.eliminaTempo).not.toHaveBeenCalled()
+    // a task_id that is not the entry's, and "nessuno" for an entry that has one
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, task_id: TASK(1, 4), durata: '1h' })).toEqual({
+      errore: 'Questa voce è sul task «Call di check», non su quel task: se vuoi, la sposto su quel task.',
+      per_alfire: perSpostare,
+    })
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, task: 'nessuno', durata: '1h' })).toEqual({
+      errore: 'Questa voce è sul task «Call di check», non senza task: se vuoi, le tolgo il task.',
+      per_alfire: perSpostare,
+    })
+    // its own task, said as it comes (no capitals, other little words): the card goes on
+    for (const task of ['Call di check', 'le call di check']) {
+      expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, task, durata: '1h' }), task).toMatchObject({
+        righe: [`Voce: ${giornoEsteso(IERI)}`, 'Durata: 45 min → 1 h'],
+      })
+    }
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, task_id: TASK(1, 5), durata: '1h' })).toMatchObject({
+      righe: [`Voce: ${giornoEsteso(IERI)}`, 'Durata: 45 min → 1 h'],
+    })
+  })
+
+  it('spostata sul task con lo stesso titolo, già completato: la scheda lo dice', async () => {
+    const m = mondoCoach()
+    m.v_pm_task = m.v_pm_task.map((t) => (t.id === TASK(2, 5) ? { ...t, stato: 'completato' } : t))
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_progetto: 'Stefano Moretti' }, m)).toMatchObject({
+      righe: [`Voce: ${giornoEsteso(IERI)}`, 'Progetto: Sergio Bellini → Stefano Moretti', 'Task: Call di check → Call di check (completato)'],
+    })
+    // an open one with that title wins over the completed one
+    m.v_pm_task.push({ ...m.v_pm_task.find((t) => t.id === TASK(2, 5))!, id: TASK(2, 21), stato: 'da_fare' })
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_progetto: 'Stefano Moretti' }, m)).toMatchObject({
+      righe: [`Voce: ${giornoEsteso(IERI)}`, 'Progetto: Sergio Bellini → Stefano Moretti'],
+    })
+    await esegui(strumenti('coach', 'employee', m), 'tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_progetto: 'Stefano Moretti' })
+    expect(a.modificaTempo).toHaveBeenLastCalledWith(expect.objectContaining({ progetto_id: STEFANO, task_id: TASK(2, 21) }))
+  })
+
+  it('due clienti con lo stesso nome: la domanda li distingue, e il nome che dice trova il progetto', async () => {
+    const OMONIMO = 'b0000000-0000-4000-8000-0000000000a3'
+    const m = mondoCoach()
+    const sergio = m.v_pm_progetti.find((p) => p.id === SERGIO)!
+    m.v_pm_progetti.push({ ...sergio, id: OMONIMO, client_id: 'cl-a3', data_inizio: '2026-07-01' })
+    m.v_pm_task.push(...taskDelPercorso(1, OMONIMO).map((t, n) => ({ ...t, id: `omonimo-${n}` })))
+    expect(await anteprimaCoach('tempo', { azione: 'registra', progetto: 'Sergio Bellini', durata: '30 min' }, m)).toEqual({
+      errore: 'Più progetti possibili: Sergio Bellini (dal 01/07/2026); Sergio Bellini (dal 01/09/2026).',
+      per_alfire: 'Chiedi quale; poi passa il nome come scritto qui, con quello che c’è tra parentesi.',
+    })
+    // the name the question gave, with or without its brackets
+    for (const progetto of ['Sergio Bellini (dal 01/07/2026)', 'sergio bellini dal 01/07/2026']) {
+      expect(await anteprimaCoach('tempo', { azione: 'registra', progetto, durata: '30 min' }, m), progetto).toMatchObject({
+        titolo: expect.stringContaining('del tuo tempo su «Sergio Bellini»'),
+      })
+    }
+    await esegui(strumenti('coach', 'employee', m), 'tempo', { azione: 'registra', progetto: 'Sergio Bellini (dal 01/07/2026)', task: 'Revisione video', durata: '30 min' })
+    expect(a.registraTempo).toHaveBeenLastCalledWith(expect.objectContaining({ progetto_id: OMONIMO, task_id: 'omonimo-4' }))
+    // a task both have: the candidates name their project the same way
+    const task = (await anteprimaCoach('task', { azione: 'completa', titolo: 'Revisione video', progetto: 'Sergio Bellini' }, m)) as { errore: string }
+    expect(task.errore).toContain('«Revisione video» in Sergio Bellini (dal 01/07/2026)')
+    expect(task.errore).toContain('«Revisione video» in Sergio Bellini (dal 01/09/2026)')
+    // the same start too: the state, then a number
+    m.v_pm_progetti = m.v_pm_progetti.map((p) => (p.id === OMONIMO ? { ...p, data_inizio: '2026-09-01', stato: 'in_pausa' } : p))
+    expect(((await anteprimaCoach('tempo', { azione: 'avvia', progetto: 'Sergio Bellini' }, m)) as { errore: string }).errore).toContain(
+      'Sergio Bellini (dal 01/09/2026, attivo); Sergio Bellini (dal 01/09/2026, in pausa)',
+    )
+  })
+})
+
+describe('i nomi dei progetti omonimi', () => {
+  it('un nome che nessun altro ha resta com’è; due uguali con data e stato uguali prendono un numero', () => {
+    const p = (id: string, nome: string, data_inizio: string | null, stato = 'attivo') => ({ id, nome, data_inizio, stato })
+    const nomi = nomiDistinti([p('a', 'Reel', null), p('b', 'Mario', '2026-01-01'), p('c', 'mario', '2026-01-01'), p('d', 'Luca', null), p('e', 'Luca', '2026-02-01')])
+    expect(nomi.get('a')).toBe('Reel')
+    expect(nomi.get('b')).toBe('Mario (dal 01/01/2026, attivo, n. 1)')
+    expect(nomi.get('c')).toBe('mario (dal 01/01/2026, attivo, n. 2)')
+    expect(nomi.get('d')).toBe('Luca (senza date)')
+    expect(nomi.get('e')).toBe('Luca (dal 01/02/2026)')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The third round (03/10/2026): the destination said as the entry's own, and
+// an entry's project that cannot be taken away.
+// ---------------------------------------------------------------------------
+describe('il tempo con Alfire: la destinazione detta al posto della voce', () => {
+  const IERI = aggiungiGiorni(oggiRoma(), -1)
+  const voci = `${giornoEsteso(IERI)}, 1 h 30 min su «Sergio Bellini» · Revisione video, 15:00–16:30; ${giornoEsteso(IERI)}, 45 min su «Sergio Bellini» · Call di check`
+
+  it('«quella di ieri va su Stefano Moretti»: nessuna voce lì, le voci di quel giorno e lo spostamento proposto', async () => {
+    const esito = (await anteprimaCoach('tempo', { azione: 'modifica', progetto: 'Stefano Moretti', data: IERI })) as { errore: string; per_alfire: string }
+    expect(spazi(esito.errore)).toBe(
+      `Nessuna tua voce di tempo su «Stefano Moretti» del ${formatData(IERI)}. Quel giorno hai: ${voci}. Se è una di queste, posso spostarla su «Stefano Moretti».`,
+    )
+    // the model gets the ids and the field that moves it; the person never reads them
+    expect(esito.per_alfire).toContain(`= ${VOCE_VIDEO}`)
+    expect(esito.per_alfire).toContain(`= ${VOCE_CALL}`)
+    expect(esito.per_alfire).toMatch(/^Chiedi quale; per spostarla: modifica con il suo voce_id \(.*\) e nuovo_progetto «Stefano Moretti»\.$/)
+    expect(esito.errore).not.toMatch(/voce_id|nuovo_/)
+    expect(a.modificaTempo).not.toHaveBeenCalled()
+  })
+
+  it('un task detto al posto di quello della voce: lo stesso, con nuovo_task; per eliminare solo le voci del giorno', async () => {
+    const esito = (await anteprimaCoach('tempo', { azione: 'modifica', progetto: 'Sergio Bellini', task: 'Assistenza chat', data: IERI })) as {
+      errore: string
+      per_alfire: string
+    }
+    expect(spazi(esito.errore)).toContain('posso spostarla su «Sergio Bellini» · «Assistenza chat».')
+    expect(esito.per_alfire).toContain('nuovo_progetto «Sergio Bellini» e nuovo_task «Assistenza chat»')
+
+    const elimina = (await anteprimaCoach('tempo', { azione: 'elimina', progetto: 'Stefano Moretti', data: IERI })) as { errore: string; per_alfire: string }
+    expect(spazi(elimina.errore)).toBe(`Nessuna tua voce di tempo su «Stefano Moretti» del ${formatData(IERI)}. Quel giorno hai: ${voci}.`)
+    expect(elimina.per_alfire).toMatch(/^Chiedi se intendeva una di queste; poi usa il suo voce_id/)
+    expect(a.eliminaTempo).not.toHaveBeenCalled()
+  })
+
+  it('un giorno senza voci resta «non trovata»: niente da spostare', async () => {
+    const giorno = aggiungiGiorni(oggiRoma(), -3)
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', progetto: 'Stefano Moretti', data: giorno })).toEqual({
+      errore: `Voce di tempo non trovata tra le tue del ${formatData(giorno)}.`,
+    })
+  })
+
+  it('una voce sta sempre su un progetto: «nessuno» lo dice, invece di non cambiare niente', async () => {
+    const atteso = {
+      errore: 'Una voce di tempo sta sempre su un progetto: posso spostarla su un altro, non toglierglielo.',
+      per_alfire: 'Chiedi su quale progetto spostarla.',
+    }
+    expect(await anteprimaCoach('tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_progetto: 'nessuno' })).toEqual(atteso)
+    expect(await esegui(strumenti('coach', 'employee', mondoCoach()), 'tempo', { azione: 'modifica', voce_id: VOCE_CALL, nuovo_progetto: 'nessuno' })).toEqual(
+      atteso,
+    )
+    expect(a.modificaTempo).not.toHaveBeenCalled()
   })
 })

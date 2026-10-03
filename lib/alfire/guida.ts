@@ -2,6 +2,79 @@
  * How the dashboard works, in short sections Alfire reads only when asked
  * (the free tier counts every token: the guide stays out of the system prompt).
  */
+import { haEconomics, type AppRole } from '@/lib/auth/roles'
+
+/**
+ * What Alfire does in chat, for who asks: each role reads its own part, never
+ * the admin's list of money tools (CLAUDE.md section 23: the team's texts stay
+ * away from the admin's economics). The admin reads the whole list.
+ */
+const ALFIRE_PER_RUOLO: Partial<Record<AppRole, string>> = {
+  admin:
+    'Admin: clienti (crea, correggi, elimina), vendite (registra, correggi, interrompi il percorso, elimina), rate (incassa, correggi o annulla l’incasso, fallita, scadenza e importo, rimborso, aggiungi, elimina), costi (anche copia dei ricorrenti), pagamenti e regole delle provvigioni, obiettivi del mese, prodotti, call (fissa, esito, correggi, elimina), lead (stato, correggi, elimina), report giornalieri di ogni setter. Setter: il suo report, le sue call (fissa, sposta), i suoi lead (stato, correggi). Closer: esito e dettagli delle sue call, stato dei lead, vendite e incassi delle sue vendite.',
+  setter: 'Setter: il suo report, le sue call (fissa, sposta, le sue note), i suoi lead (stato, correggi).',
+  closer: 'Closer: esito e dettagli delle sue call, stato dei lead, vendite e incassi delle sue vendite.',
+}
+
+/**
+ * What Alfire can record from an attached file, for who asks (03/10/2026):
+ * the admin a receipt as a cost or a plan of instalments, the closer the plan
+ * of a sale he registers, the setter the numbers of his report. The Projects
+ * area's roles: tasks and notes, never money.
+ */
+const DA_UN_ALLEGATO: Record<AppRole, string> = {
+  admin: 'una ricevuta come costo, un piano di rate',
+  setter: 'i numeri del tuo report da uno screenshot',
+  closer: 'il piano di rate di una vendita che registri',
+  coach: 'task e note di un progetto',
+  editor: 'task e note di un progetto',
+  nutrizione: 'task e note di un progetto',
+  dev: 'task e note di un progetto',
+}
+
+export function guidaAlfire(ruolo: AppRole): string {
+  return [
+    'Cosa fa Alfire in chat (testo o voce), sempre dopo il tocco su "Conferma" nella scheda, che mostra la riga vera, prima → dopo, e cosa si porta dietro un’eliminazione (bottone rosso "Elimina").',
+    ALFIRE_PER_RUOLO[ruolo],
+    'Progetti, per livello: progetti e membri, liste e il coach dei progetti dei clienti (chi gestisce), task, note e il proprio tempo (tutti): avvia e ferma il timer, registra una durata o una fascia Dalle–Alle di oggi o di un giorno passato, correggi (anche spostandole su un altro task o progetto) o elimina le proprie voci, sempre solo le proprie.',
+    ruolo === 'admin'
+      ? 'In lettura l’admin ha anche il tempo del team, come Tempo › Team (/tempo/team): solo il tempo già dichiarato, mai i timer accesi, nessuna classifica.'
+      : null,
+    'I propri numeri, task e tempo, e le call di setter e closer, sono sempre di chi chatta: Alfire non li dà mai per quelli di un altro, e se nessuno strumento legge un’altra persona lo dice.',
+    'Mai: team, inviti, ruoli, accessi, export, backup, impostazioni dei progetti, dati di altri che il ruolo non vede.',
+    'Quando Alfire chiede quale (cliente, progetto, mese) le risposte compaiono come bottoni: un tocco risponde, oppure si scrive o si detta la risposta; un bottone non scrive mai niente da solo. Dopo una risposta può proporre qualche domanda successiva.',
+    'Col microfono il testo compare nella casella mentre parli: a fine vocale si rilegge, si corregge e si manda con Invio.',
+    `Con la graffetta si allegano fino a 3 file per messaggio (PDF, foto e screenshot, Word, Excel, CSV; 4 MB al massimo): Alfire li legge e risponde, e può registrare quello che contengono (${DA_UN_ALLEGATO[ruolo]}), sempre con la scheda di conferma. I file non si salvano da nessuna parte: restano solo nella chat aperta.`,
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+/** The projects topic in its parts: the admin reads them all, the team without his (PROGETTI_TEAM). */
+const PROGETTI = {
+  struttura:
+    'Progetti (/progetti): reparto → progetto → liste con date → task e sotto-task. Livelli: admin, manager (crea e gestisce i suoi progetti), employee (lavora i task suoi).',
+  tempo:
+    'Tempo dichiarato: la sveglia accanto a ogni task avvia il timer, che resta in alto a destra su ogni pagina accanto ad Alfire; fermandolo chiede una nota. Oppure tempo caricato dopo in Il mio tempo (/tempo; per l’admin la voce si chiama Tempo): la durata, o la fascia oraria facoltativa Dalle–Alle da cui si calcola la durata; correggendo una voce la fascia si aggiunge, si cambia o si toglie.',
+  team: 'L’admin ha anche la scheda Team (/tempo/team): il tempo già registrato da ognuno nel periodo, persona per persona in ordine alfabetico, per progetto e task, con le voci; mai i timer accesi degli altri, nessun elenco di chi non ha registrato, nessuna classifica. Lo stesso tempo l’admin lo chiede anche ad Alfire (es. «quanto ha registrato una persona negli ultimi 7 giorni, e su cosa?»), con gli stessi limiti.',
+  note: 'Note datate e Gantt per progetto.',
+  impostazioni: 'Reparti e modelli in Impostazioni › Progetti.',
+  clienti:
+    'Ogni cliente che inizia il percorso ha il suo progetto in Fitness Coaching, nato da solo, con 8 task del coach senza scadenze dove si registra il tempo (call di onboarding, analisi e strategia iniziale, programmazione allenamento, programmazione alimentare, revisione video, call di check, assistenza chat, altre attività); chi gestisce il progetto sceglie il coach con «Scegli il coach», e la programmazione alimentare va a chi si occupa di nutrizione, se c’è. Quando il cliente rinnova, il suo progetto torna attivo se era completato o archiviato (in pausa resta in pausa), con lo stesso coach, e i task del modello completati prima del rinnovo (nati col progetto, senza una scadenza passata) tornano da fare da soli, anche se il progetto era attivo o in pausa; i task aggiunti dalle persone, i sotto-task e quelli con la scadenza passata restano come sono, il tempo registrato e le note pure.',
+}
+
+/**
+ * The projects topic from the side of who is not the admin (03/10/2026): his
+ * own time, and who sees the others' (whoever manages a project, on its Tempo
+ * tab); Tempo › Team and Impostazioni › Progetti are the admin's.
+ */
+const PROGETTI_TEAM = [
+  PROGETTI.struttura,
+  'Il tuo tempo lo dichiari tu: la sveglia accanto a ogni task avvia il timer, che resta in alto a destra su ogni pagina accanto ad Alfire; fermandolo chiede una nota. Oppure lo carichi dopo in Il mio tempo (/tempo): la durata, o la fascia oraria facoltativa Dalle–Alle da cui si calcola la durata; correggendo una voce la fascia si aggiunge, si cambia o si toglie. Il tempo degli altri lo vede chi gestisce un progetto, nella scheda Tempo del progetto; Alfire non lo legge.',
+  PROGETTI.note,
+  PROGETTI.clienti,
+].join(' ')
+
 export const GUIDA = {
   panoramica:
     'Panoramica (/, solo admin): selettore di mese o periodo con confronto col precedente. KPI: cash incassato, revenue firmata (ogni tipo), nuovi clienti, rinnovi, margine operativo (cash - provvigioni - costi, tasse escluse). Sotto il cash, "Di cui" in 4 parti che sommano al totale: nuovi clienti del periodo (incassi delle vendite di tipo nuovo firmate nel periodo), rate di clienti già entrati (vendite nuove firmate prima), rinnovi, upsell; le stesse 4 serie nel grafico dei 12 mesi. Gli indicatori di acquisizione contano solo i nuovi clienti del periodo: cash e revenue per DM, cash per call svolta, valore medio nuovo cliente, e "Da dove arrivano i nuovi clienti" (cash per fonte). "Oggi dal team": incassato oggi (tutto) e di cui nuovi clienti. Funnel DM → conversazioni → call prenotate → svolte → chiuse. Box "Da incassare" (in ritardo, prossimi 30 giorni) e "In scadenza".',
@@ -18,16 +91,66 @@ export const GUIDA = {
   provvigioni:
     'Provvigioni (/commissions): maturano sull’incasso, non sulla firma: importo incassato × percentuale della regola valida alla data d’incasso e applicabile al tipo di vendita (di solito solo nuovo, rate successive comprese). Le regole si gestiscono in Impostazioni › Regole provvigioni. Si registra il pagamento al setter; il saldo è maturato meno pagato.',
   costi: 'Costi (/expenses): data, categoria (team, software, ads, formazione, altro), importo, ricorrente. Entrano nel margine operativo del mese.',
-  progetti:
-    'Progetti (/progetti): reparto → progetto → liste con date → task e sotto-task. Livelli: admin, manager (crea e gestisce i suoi progetti), employee (lavora i task suoi). Tempo dichiarato: la sveglia accanto a ogni task avvia il timer, che resta in alto a destra su ogni pagina accanto ad Alfire; fermandolo chiede una nota. Oppure tempo caricato dopo in Il mio tempo (/tempo; per l’admin la voce si chiama Tempo): la durata, o la fascia oraria facoltativa Dalle–Alle da cui si calcola la durata; correggendo una voce la fascia si aggiunge, si cambia o si toglie. L’admin ha anche la scheda Team (/tempo/team): il tempo già registrato da ognuno nel periodo, persona per persona in ordine alfabetico, per progetto e task, con le voci; mai i timer accesi degli altri, nessun elenco di chi non ha registrato, nessuna classifica. Lo stesso tempo l’admin lo chiede anche ad Alfire (es. «quanto ha registrato una persona negli ultimi 7 giorni, e su cosa?»), con gli stessi limiti. Note datate e Gantt per progetto. Reparti e modelli in Impostazioni › Progetti. Ogni cliente che inizia il percorso ha il suo progetto in Fitness Coaching, nato da solo, con 8 task del coach senza scadenze dove si registra il tempo (call di onboarding, analisi e strategia iniziale, programmazione allenamento, programmazione alimentare, revisione video, call di check, assistenza chat, altre attività); chi gestisce il progetto sceglie il coach con «Scegli il coach», e la programmazione alimentare va a chi si occupa di nutrizione, se c’è. Quando il cliente rinnova, il suo progetto torna attivo se era completato o archiviato (in pausa resta in pausa), con lo stesso coach, e i task del modello completati prima del rinnovo (nati col progetto, senza una scadenza passata) tornano da fare da soli, anche se il progetto era attivo o in pausa; i task aggiunti dalle persone, i sotto-task e quelli con la scadenza passata restano come sono, il tempo registrato e le note pure.',
+  progetti: [PROGETTI.struttura, PROGETTI.tempo, PROGETTI.team, PROGETTI.note, PROGETTI.impostazioni, PROGETTI.clienti].join(' '),
   impostazioni:
     'Impostazioni (admin): Team (inviti via email, ruoli, livelli progetti, disattiva, elimina, unisci profili), Prodotti (prezzo, durata, piano rate abituale), Regole provvigioni, Progetti (reparti e modelli), Esporta CSV per la commercialista, Registro modifiche. Il profilo personale (nome, foto) si apre dalla foto in fondo alla sidebar.',
-  alfire:
-    'Cosa fa Alfire in chat (testo o voce), sempre dopo il tocco su "Conferma" nella scheda, che mostra la riga vera, prima → dopo, e cosa si porta dietro un’eliminazione (bottone rosso "Elimina"). Admin: clienti (crea, correggi, elimina), vendite (registra, correggi, interrompi il percorso, elimina), rate (incassa, correggi o annulla l’incasso, fallita, scadenza e importo, rimborso, aggiungi, elimina), costi (anche copia dei ricorrenti), pagamenti e regole delle provvigioni, obiettivi del mese, prodotti, call (fissa, esito, correggi, elimina), lead (stato, correggi, elimina), report giornalieri di ogni setter. Setter: il suo report, le sue call (fissa, sposta), i suoi lead (stato, correggi). Closer: esito e dettagli delle sue call, stato dei lead, vendite e incassi delle sue vendite. Progetti, per livello: progetti e membri, liste (chi gestisce), task, note e il proprio tempo (tutti). In lettura l’admin ha anche il tempo del team, come Tempo › Team (/tempo/team): solo il tempo già dichiarato, mai i timer accesi, nessuna classifica. I propri numeri, task e tempo, e le call di setter e closer, sono sempre di chi chatta: Alfire non li dà mai per quelli di un altro, e se nessuno strumento legge un’altra persona lo dice. Mai: team, inviti, ruoli, accessi, export, backup, impostazioni dei progetti, dati di altri che il ruolo non vede. Quando Alfire chiede quale (cliente, rata, mese) le risposte compaiono come bottoni: un tocco risponde, oppure si scrive o si detta la risposta; un bottone non scrive mai niente da solo. Dopo una risposta può proporre qualche domanda successiva. Col microfono il testo compare nella casella mentre parli: a fine vocale si rilegge, si corregge e si manda con Invio. Con la graffetta si allegano fino a 3 file per messaggio (PDF, foto e screenshot, Word, Excel, CSV; 4 MB al massimo): Alfire li legge e risponde, e può registrare quello che contengono (una ricevuta come costo, un piano di rate) sempre con la scheda di conferma. I file non si salvano da nessuna parte: restano solo nella chat aperta.',
+  alfire: guidaAlfire('admin'),
   permessi:
-    'Permessi: l’admin vede tutto. Il setter vede i suoi report, i suoi lead e le call che ha fissato con il loro esito; in I miei numeri (/my-numbers), dei clienti nuovi portati da lui (rinnovi e upsell nascono senza setter), revenue, rate pagate e la sua provvigione su ogni incasso, e i suoi totali di provvigioni. Mai contatti dei clienti né clienti di altri. Il closer vede le call assegnate a lui, le vendite chiuse da lui e la sua giornata. Nessun collaboratore vede costi, margine o compensi altrui.',
+    'Permessi: l’admin vede tutto. Il setter vede i suoi report, i suoi lead e le call che ha fissato con il loro esito; in I miei numeri (/my-numbers), dei clienti nuovi portati da lui (rinnovi e upsell nascono senza setter), revenue, rate pagate e la sua provvigione su ogni incasso, e i suoi totali di provvigioni. Mai contatti dei clienti né clienti di altri. Il closer vede le call assegnate a lui, le vendite chiuse da lui e la sua giornata. Nessun collaboratore vede costi, margine o compensi altrui. Coach, video editor, nutrizione e sviluppo vedono i progetti di cui sono membri, i loro task e il loro tempo, mai i soldi dei clienti. Il tempo degli altri lo vede, oltre all’admin, chi gestisce un progetto, nella scheda Tempo del progetto; Alfire lo legge solo all’admin.',
 } as const
 
 export type ArgomentoGuida = keyof typeof GUIDA
 
 export const ARGOMENTI_GUIDA = Object.keys(GUIDA) as ArgomentoGuida[]
+
+/**
+ * The topics a collaborator reads in his own words (03/10/2026): the setter
+ * his own commission, the closer his own sales and cash-ins, the roles of the
+ * Projects area their projects and time, never a money explanation that is
+ * not theirs. The admin reads GUIDA as it is.
+ */
+const PER_RUOLO: Partial<Record<AppRole, Partial<Record<ArgomentoGuida, string>>>> = {
+  setter: {
+    provvigioni:
+      'Le tue provvigioni (I miei numeri, /my-numbers): maturano sull’incasso, non sulla firma: su ogni rata incassata dei clienti nuovi che hai portato tu, rate successive comprese, nel mese in cui è incassata. Rinnovi e upsell nascono senza setter, quindi senza provvigione, a meno che nascano da una call fissata da te. Un rimborso toglie la provvigione nel mese del rimborso. Per mese vedi maturato, pagato e saldo; in «I tuoi clienti», la provvigione di ogni incasso. I pagamenti li registra l’admin.',
+    permessi:
+      'Permessi del setter: i suoi report, i suoi lead e le call che ha fissato, con l’esito, il motivo di non chiusura e le note aggiuntive del closer (le legge, non le scrive). In I miei numeri (/my-numbers), dei clienti nuovi portati da lui: revenue, rate pagate e la sua provvigione su ogni incasso, e i suoi totali di provvigioni. Mai i contatti dei clienti, né clienti e provvigioni di altri. Nei progetti: quelli di cui è membro, i suoi task e il suo tempo; il tempo degli altri solo nei progetti che gestisce, nella scheda Tempo del progetto (Alfire non lo legge).',
+  },
+  closer: {
+    vendite:
+      'Le tue vendite (Le mie vendite, /my-sales): quelle dove sei il closer, nuovi clienti, rinnovi e upsell. Con l’esito «Chiusa» di una call si apre «Nuova vendita» già compilata (cliente, setter, closer e la call), con la data di vendita nel giorno della call: prodotto del catalogo o "Personalizzato", piano a rate uguali o scritto rata per rata, e la somma delle rate deve coincidere col contratto. L’inizio del percorso è proposto una settimana dopo la data di vendita: controllalo. La prima rata incassata di una vendita nuova o di un rinnovo apre il progetto del cliente in Progetti. Correggere la vendita, cambiare il piano rate ed eliminare restano all’admin.',
+    incassi:
+      'Gli incassi delle tue vendite: apri la vendita da Le mie vendite (/my-sales) e tocca «Segna incassata», con la data di oggi già messa; un incasso si corregge o si annulla, e una rata da incassare si segna fallita. Una rata è in ritardo se è da incassare e la scadenza è passata. Scadenze, importi delle rate, rate in più o in meno e rimborsi li cambia l’admin.',
+    permessi:
+      'Permessi del closer: le call assegnate a lui (esito, motivo di non chiusura e note aggiuntive li scrive lui; le note del setter le legge), le vendite chiuse da lui con le loro rate, di cui registra gli incassi, e la sua giornata (I miei numeri, /setting/closer). Mai vendite o call di altri closer. Nei progetti: quelli di cui è membro, i suoi task e il suo tempo; il tempo degli altri solo nei progetti che gestisce, nella scheda Tempo del progetto (Alfire non lo legge).',
+  },
+}
+
+/** The Projects area's roles (coach, video editor, nutrition, development): no money, nothing that is not theirs. */
+const PERMESSI_PROGETTI =
+  'Permessi: vedi i progetti di cui sei membro, con liste, task e note; lavori i task assegnati a te o creati da te, e chi gestisce un progetto li lavora tutti. Il tempo è il tuo: lo registri, lo correggi e lo leggi. Quello degli altri lo vede chi gestisce un progetto, nella scheda Tempo del progetto; Alfire non lo legge. Le altre aree del gestionale non sono del tuo ruolo.'
+
+/**
+ * The topics each role reads (03/10/2026): the admin all of them; the team
+ * only what is theirs, never the overview, costs or settings.
+ */
+export function argomentiGuida(ruolo: AppRole): ArgomentoGuida[] {
+  switch (ruolo) {
+    case 'admin':
+      return ARGOMENTI_GUIDA
+    case 'setter':
+      return ['setting', 'call', 'provvigioni', 'progetti', 'alfire', 'permessi']
+    case 'closer':
+      return ['call', 'vendite', 'incassi', 'progetti', 'alfire', 'permessi']
+    default:
+      return ['progetti', 'alfire', 'permessi']
+  }
+}
+
+/** A topic's text for who asks: the Alfire topic says what this role does, the others what concerns that role. */
+export function testoGuida(argomento: ArgomentoGuida, ruolo: AppRole): string {
+  if (argomento === 'alfire') return guidaAlfire(ruolo)
+  if (argomento === 'permessi' && !haEconomics(ruolo)) return PERMESSI_PROGETTI
+  if (argomento === 'progetti' && ruolo !== 'admin') return PROGETTI_TEAM
+  return PER_RUOLO[ruolo]?.[argomento] ?? GUIDA[argomento]
+}

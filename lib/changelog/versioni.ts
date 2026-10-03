@@ -80,6 +80,101 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.19.0',
+    data: '2026-10-03',
+    titolo: 'Ognuno registra il suo tempo con Alfire',
+    riassunto: 'A voce o per iscritto, anche sui progetti dei clienti: Alfire capisce progetti e task detti a parole tue, dice il giorno col suo nome e fa solo quello che l’app ti permette.',
+    intestazionePer: ['tutti'],
+    novita: [
+      {
+        per: ['progetti'],
+        testo: 'Chiedi ad Alfire di tenere il tuo tempo come lo diresti a voce: «ho lavorato un’ora e mezza su Sergio Bellini, revisione video», «ieri dalle 9 alle 10:30 call di check con Moretti», «fai partire il timer», «inizia a contare il tempo», «stoppalo», «basta, ho finito». Il progetto di un cliente è il suo nome; il task basta anche detto a parole tue («le call di check», «altre attivita»), e se quel task ce l’hanno tutti i tuoi clienti Alfire te li elenca e ti chiede di quale. Se non dici su cosa, prima te lo chiede, con i tuoi task. Le durate le capisce anche in lettere, come escono dettando: «due ore», «venti minuti», «un’ora e venti», «un paio d’ore», «una ventina di minuti», «tre quarti d’ora», «dalle nove alle dieci e mezza». La scheda di conferma dice «del tuo tempo» e il giorno col suo nome («ieri, venerdì 02/10/2026»), anche quando correggi il giorno di una voce o la scadenza di un task; fermando il timer dice da quanto va (e da quale giorno, se l’hai acceso ieri) e quale nota resta.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Per correggere o eliminare una voce basta dire il task e il giorno, o «quella che ho appena registrato»: Alfire sa quale voce ha appena registrato o fermato. Se le voci sono più di una te le elenca, dall’ultima registrata, con task e orario, e ti chiede quale. Puoi spostarla su un altro task o su un altro progetto, come nel modulo del tempo, anche dicendo solo «era per Tiziano Mele»: la scheda mostra il progetto e il task prima → dopo, e se il task dove finisce è già completato lo dice. Se per una voce dici un progetto o un task che non sono i suoi, Alfire non li ignora: la scheda si ferma prima del tocco e, se vuoi spostarla, la sposta. E se dici dove deve andare («quella di martedì va su Tiziano Mele») e quel giorno non hai voci lì, Alfire ti dice quali voci hai quel giorno e ti propone di spostarla dove hai detto. Il timer acceso non si corregge: prima lo fermi.',
+      },
+      {
+        per: ['progetti'],
+        testo: '«Quanto ho fatto questa settimana?»: Alfire sa che giorno è e da quale lunedì parte la settimana, e ti dà il totale giorno per giorno e per progetto, contato dall’app.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Le durate dette a voce valgono anche nel modulo del tempo, con o senza apostrofo e con i numeri in lettere: «un’ora e mezza», «un ora e mezza», «mezz’ora», «mezzora», «2 ore e 30», «due ore», «venti minuti», «un’ora e venti», «un paio d’ore», «una ventina di minuti». «1.30» resta da scrivere come 1:30.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Se lavori solo nei progetti (coach, video editor, nutrizione, sviluppo), la chat vuota di Alfire ti propone le domande sul tuo tempo, come «Quanto tempo ho registrato questa settimana?» e «Avvia il timer su un progetto», e Alfire ti parla dei tuoi progetti, dei tuoi task e del tuo tempo.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Chi gestisce il progetto di un cliente sceglie il coach anche chiedendolo ad Alfire, come con «Scegli il coach»: la scheda dice che il coach entra nel progetto e prende i task ancora liberi, a chi va la programmazione alimentare e che fine fanno i task del coach di prima.',
+      },
+      {
+        per: ['tutti'],
+        testo: 'Quando chiedi ad Alfire come funziona l’app, ti risponde sulle parti che usi tu, dal tuo lato.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Alfire spiega a ognuno solo la sua parte: coach, video editor, nutrizione e sviluppo leggono la guida dei progetti, di Alfire e dei loro permessi, senza una parola sui soldi; il setter le sue provvigioni dal suo lato, il closer le sue vendite e i suoi incassi; le istruzioni di Alfire su come registrare vendite e incassi vanno solo a te e al closer, che hanno gli strumenti per farlo, e quelle sul margine solo a te. A te dicono anche che il tempo si registra solo per sé e che quello del team lo leggi tu, come in Tempo › Team: «quanto ha fatto Loris questa settimana?» ha la sua risposta.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['progetti'],
+        testo: 'Correggere o eliminare una voce di tempo con Alfire: con più voci nello stesso giorno ti chiedeva quale, ma le elencava solo con giorno, minuti e progetto, e due voci sembravano uguali; il timer ancora acceso compariva come una voce di 0 minuti, e nel tuo tempo le voci di uno stesso giorno non avevano un ordine. Ora ogni voce dice task e orario, dall’ultima registrata, e il timer acceso si ferma prima di correggerlo.',
+      },
+      {
+        per: ['tutti'],
+        testo: 'Una data detta in un altro formato («02/10/2026», «venerdì») non fa più leggere il mese intero al posto del giorno che chiedi, né fa fermare una scrittura con un semplice «Data non valida»: Alfire la riscrive e riprova.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Un progetto detto con un errore («Stefano Moreti», «Belini»): Alfire ti propone i progetti più vicini tra i tuoi, invece di dire solo che non lo trova.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Due clienti con lo stesso nome hanno due progetti con lo stesso nome: Alfire li elencava uguali e non c’era modo di sceglierne uno. Ora li distingue con l’inizio del percorso, «Marco Bianchi (dal 01/09/2026)», e capisce quale scegli.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Se gestisci un progetto e chiedi ad Alfire il tempo di un’altra persona, ti dice che lo trovi nella scheda Tempo del progetto, invece di dirti solo che non lo legge.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Un task che non puoi toccare (né tuo né assegnato a te, o da eliminare senza averlo creato) e la nota di un altro: la scheda di Alfire te lo dice prima del tocco, non più dopo. La scheda di un task dice anche di quale progetto è; un task già completato non si segna di nuovo come fatto (né se ne riapre uno aperto), e se nel progetto due task hanno lo stesso titolo dice se è quello aperto o quello completato.',
+      },
+      {
+        per: ['progetti'],
+        testo: '«Ho fatto la revisione video» senza dire quanto tempo: Alfire ti chiede quanto, invece di chiudere il task del cliente, che raccoglie il tempo di tutto il percorso.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Con tanti clienti, l’elenco dei tuoi task e dei progetti che legge Alfire dice quando non li mostra tutti, invece di sembrare completo.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Una fascia che passa la mezzanotte («dalle 23 all’1») ti dice quali due voci registrare senza perdere un minuto: fino a mezzanotte come durata, senza fascia, e il giorno dopo la fascia dalle 00:00. «24:00» non è un orario: fino a mezzanotte si scrive la durata, e una fascia che parte a mezzanotte si scrive dalle 00:00.',
+      },
+      {
+        per: ['tutti'],
+        testo: 'Quando la scheda di Alfire si ferma prima del tocco («Non l’ho fatto: …»), il perché è in parole semplici, senza nomi tecnici; poi Alfire ti chiede quello che manca.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Un progetto che non è tra i tuoi e non somiglia a nessuno, come quello di un cliente che non segui: Alfire ti dice che non ne fai parte e che chi lo gestisce può aggiungerti, invece di elencarti i tuoi progetti e chiederti quale.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Chiedere ad Alfire di togliere il progetto a una voce di tempo: ti dice che una voce sta sempre su un progetto e che può solo spostarla, invece di rispondere che non cambia niente.',
+      },
+      {
+        per: ['tutti'],
+        testo: 'Quando Alfire non riesce a usare uno strumento, l’esempio che ti propone è del tuo lavoro: al setter, il suo report del giorno; a chi lavora nei progetti, un tempo da registrare.',
+      },
+    ],
+  },
+  {
     versione: '1.18.0',
     data: '2026-10-03',
     titolo: 'Al rinnovo i task si riaprono da soli; la matita corregge di nuovo la data di un no show',

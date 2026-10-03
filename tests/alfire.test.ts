@@ -386,11 +386,22 @@ describe('letture dell’admin: il cash in quattro parti', () => {
 describe('task completa: quale task chiude', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  const task = (id: string, titolo: string, assegnatari: string[]) => ({ id, titolo, progetto_id: 'p', assegnatari })
+  const task = (id: string, titolo: string, assegnatari: string[], extra: Record<string, unknown> = {}) => ({
+    id,
+    titolo,
+    progetto_id: 'p',
+    assegnatari,
+    stato: 'da_fare',
+    created_by: ALTRO,
+    ...extra,
+  })
+  // the card names the project: 13 clients have a «Revisione video» (03/10/2026)
+  const progetti = [{ id: 'p', nome: 'Reel settembre' }]
 
   it('tra più task con lo stesso titolo chiude quello assegnato a me, e dice quale', async () => {
     const strumenti = strumentiDi('coach', 'employee', {
       v_pm_task: [task('a', 'Script DM', [ALTRO]), task('b', 'Script DM', [ALTRO, IO])],
+      v_pm_progetti: progetti,
     })
     const esito = await esegui(strumenti, 'task', { azione: 'completa', titolo: 'script dm' })
     expect(azioni.completaTask).toHaveBeenCalledWith({ id: 'b', completato: true })
@@ -408,7 +419,8 @@ describe('task completa: quale task chiude', () => {
 
   it('un titolo esatto vince sui simili', async () => {
     const strumenti = strumentiDi('coach', 'employee', {
-      v_pm_task: [task('a', 'Script DM', [ALTRO]), task('b', 'Script DM reel', [IO])],
+      v_pm_task: [task('a', 'Script DM', [ALTRO], { created_by: IO }), task('b', 'Script DM reel', [IO])],
+      v_pm_progetti: progetti,
     })
     const esito = await esegui(strumenti, 'task', { azione: 'completa', titolo: 'Script DM' })
     expect(azioni.completaTask).toHaveBeenCalledWith({ id: 'a', completato: true })
@@ -524,8 +536,51 @@ describe('prompt e guida', () => {
     expect(p).toContain('2026-09-27')
     expect(p).toContain('Dany')
     expect(p).toContain('margine operativo')
-    // the free tier counts tokens: a few hundred words at most
-    expect(p.split(/\s+/).length).toBeLessThan(330)
+    // the free tier counts tokens: a few hundred words at most (the time line and the weekday
+    // came on 03/10/2026; a coach's prompt has no Economics lines and stays shorter)
+    expect(p.split(/\s+/).length).toBeLessThan(400)
+    expect(promptAlfire({ nome: 'Marco', ruolo: 'coach', oggi: '2026-09-27' }).split(/\s+/).length).toBeLessThan(330)
+  })
+
+  it('il prompt dice il giorno della settimana e da quando conta la settimana (03/10/2026)', () => {
+    const p = promptAlfire({ nome: 'Marco', ruolo: 'coach', oggi: '2026-10-03' })
+    expect(p).toContain('Oggi è sabato 03/10/2026 (2026-10-03, Europe/Rome); la settimana è iniziata lunedì 2026-09-28.')
+    expect(promptAlfire({ nome: 'Dany', ruolo: 'admin', oggi: '2026-09-28' })).toContain('la settimana è iniziata lunedì 2026-09-28.')
+    expect(promptAlfire({ nome: 'Dany', ruolo: 'admin', oggi: '2026-10-04' })).toContain('Oggi è domenica 04/10/2026 (2026-10-04, Europe/Rome); la settimana è iniziata lunedì 2026-09-28.')
+    // the tools take ISO dates, the answers the Italian way
+    expect(p).toContain('negli strumenti le date sono sempre AAAA-MM-GG')
+  })
+
+  it('il tempo è per tutti; vendite, rate e margine solo per i ruoli di Economics', () => {
+    for (const ruolo of ['admin', 'setter', 'closer', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
+      const p = promptAlfire({ nome: 'X', ruolo, oggi: '2026-10-03' })
+      // writing is always one's own; the admin reads the others' time with tempo_team, never refuses it (03/10/2026)
+      if (ruolo === 'admin') {
+        expect(p).toContain('Tempo: si scrive solo il proprio; degli altri si legge con tempo_team.')
+        expect(p).not.toContain('Tempo, solo di chi chatta')
+      } else {
+        expect(p, ruolo).toContain('Tempo, solo di chi chatta')
+        expect(p, ruolo).not.toContain('tempo_team')
+        // a manager sees the others' time on his project's Tempo tab (section 18): Alfire says where, never "you cannot see it"
+        expect(p, ruolo).toContain('quello degli altri Alfire non lo legge: chi gestisce un progetto lo vede nella sua scheda Tempo')
+        expect(p, ruolo).not.toContain('il tempo degli altri non li vede')
+      }
+      expect(p, ruolo).toContain('senza durata = chiedi quanto tempo, non completarlo')
+      const economics = ['admin', 'setter', 'closer'].includes(ruolo)
+      for (const parola of ['Nuovo cliente = vendita', 'euro']) {
+        if (economics) expect(p, `${ruolo}: ${parola}`).toContain(parola)
+        else expect(p, `${ruolo}: ${parola}`).not.toContain(parola)
+      }
+      // each line to who has its tools: the setter has no registra_vendita, rata or cliente, only the admin reads the margin
+      expect(p.includes('registra_vendita'), ruolo).toBe(ruolo === 'admin' || ruolo === 'closer')
+      expect(p.includes('rata, azione incassa'), ruolo).toBe(ruolo === 'admin' || ruolo === 'closer')
+      expect(p.includes('cliente crea'), ruolo).toBe(ruolo === 'admin')
+      expect(p.includes('margine operativo'), ruolo).toBe(ruolo === 'admin')
+      expect(p.includes('soldi dei clienti, vendite e provvigioni non li vede'), ruolo).toBe(!economics)
+      expect(p, ruolo).not.toContain('null')
+      // a link that is everybody's page, never Incassi
+      expect(p, ruolo).not.toContain('/payments')
+    }
   })
 
   it('il prompt dice cosa è un nuovo cliente e cosa è una rata', () => {

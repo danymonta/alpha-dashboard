@@ -4,6 +4,9 @@ import {
   aggiungiGiorni,
   dataReportValida,
   etichettaGiorno,
+  giornoEsteso,
+  lunediDellaSettimana,
+  nomeGiorno,
   etichettaGiornoBreve,
   formatOra,
   isDataISO,
@@ -102,5 +105,21 @@ describe('mesi', () => {
     expect(fineMese('2026-02-01')).toBe('2026-02-28')
     expect(fineMese('2028-02-01')).toBe('2028-02-29')
     expect(fineMese('2026-09-01')).toBe('2026-09-30')
+  })
+})
+
+describe('il giorno per esteso, per Alfire (03/10/2026)', () => {
+  it('oggi, ieri, poi il nome del giorno con la data intera', () => {
+    expect(giornoEsteso('2026-10-03', '2026-10-03')).toBe('oggi, sabato 03/10/2026')
+    expect(giornoEsteso('2026-10-02', '2026-10-03')).toBe('ieri, venerdì 02/10/2026')
+    expect(giornoEsteso('2026-09-28', '2026-10-03')).toBe('lunedì 28/09/2026')
+    expect(nomeGiorno('2026-10-04')).toBe('domenica')
+  })
+
+  it('il lunedì della settimana, anche di domenica', () => {
+    expect(lunediDellaSettimana('2026-10-03')).toBe('2026-09-28')
+    expect(lunediDellaSettimana('2026-09-28')).toBe('2026-09-28')
+    expect(lunediDellaSettimana('2026-10-04')).toBe('2026-09-28')
+    expect(lunediDellaSettimana('2026-01-01')).toBe('2025-12-29')
   })
 })

@@ -9,6 +9,8 @@ import { accedi } from './utenti'
 // ALFIRE_API_KEY=finta ALFIRE_BASE_URL=http://127.0.0.1:4010/v1 and E2E_ALFIRE_FINTO=1.
 test.skip(!process.env.E2E_ALFIRE_FINTO, 'serve il modello finto: vedi e2e/llm-finto.mjs')
 
+const LLM_FINTO = `http://127.0.0.1:${process.env.PORTA_LLM_FINTO ?? 4010}`
+
 test.afterEach(async () => {
   await pulisciVendite('E2EAlfire')
 })
@@ -85,6 +87,10 @@ test('un nome che vale per due clienti: niente scheda da confermare, Alfire chie
   await expect(scheda).toContainText('Non l’ho fatto: Più clienti possibili')
   await expect(scheda.getByRole('button', { name: 'Elimina' })).toHaveCount(0)
   await expect(pannello.getByText(/^Quale intendi\? Più clienti possibili/)).toBeVisible()
+  // the card shows the person's words; how to ask is the model's, in the reason it gets back
+  await expect(scheda).not.toContainText('Chiedi quale')
+  const { chat } = (await (await fetch(`${LLM_FINTO}/__ultime`)).json()) as { chat: { messages: { role: string; content: unknown }[] } }
+  expect(JSON.stringify(chat.messages.at(-1))).toContain('Chiedi quale, con nome e cognome.')
   const { data } = await dbLocale().from('clients').select('id').in('id', [uno, due])
   expect(data).toHaveLength(2)
 })

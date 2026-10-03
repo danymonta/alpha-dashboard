@@ -1,18 +1,69 @@
 import { z } from 'zod'
 
-import { formatOra, isDataISO, oggiRoma } from '@/lib/date'
+import { aggiungiGiorni, formatOra, isDataISO, oggiRoma } from '@/lib/date'
+import { NUMERO_IN_LETTERE, numeroInLettere } from '@/lib/numeri-in-lettere'
+import { formatStima } from '@/lib/progetti'
 
 /** Longest single entry: the database caps a time entry at one day. */
 export const MAX_MINUTI = 1440
 
+const FRAZIONI: Record<string, number> = { mezza: 30, mezzo: 30, 'un quarto': 15, 'tre quarti': 45 }
+
+/** "una ventina di minuti": about that many, said as the round number. */
+const CIRCA: Record<string, number> = { decina: 10, quindicina: 15, ventina: 20, trentina: 30, quarantina: 40, cinquantina: 50 }
+
+/** How many, in digits or in letters: "2", "due", "un'", "una". */
+function quanti(testo: string): number | null {
+  const t = testo.trim().replace(/'$/, '')
+  return /^\d+$/.test(t) ? Number(t) : numeroInLettere(t)
+}
+
+/** "2 ore e 30", "due ore", "un'ora e venti", "tre ore e un quarto": the hours, then the minutes or a fraction. */
+const ORE_E_MINUTI = new RegExp(
+  `^(\\d{1,2}|un'? ?|una ?|${NUMERO_IN_LETTERE}) ?(?:h|ore|ora)(?: e (mezza|mezzo|un quarto|tre quarti|\\d{1,2}|${NUMERO_IN_LETTERE})(?: ?(?:m|min|minuti))?)?$`,
+)
+const MINUTI_IN_LETTERE = new RegExp(`^(${NUMERO_IN_LETTERE}) ?(?:m|min|minuto|minuti)$`)
+const CIRCA_MINUTI = new RegExp(`^una (${Object.keys(CIRCA).join('|')}) di minuti$`)
+
+/**
+ * A duration as people say it (Alfire, by voice, 03/10/2026): "mezz'ora",
+ * "un quarto d'ora", "un'ora", "1 ora e mezza", "2 ore e 30", "un'ora e un
+ * quarto", with or without the apostrophe (dictation often drops it: "un ora
+ * e mezza", "mezzora", "mezz ora"), and the numbers in letters as dictation
+ * writes them: "due ore", "venti minuti", "un'ora e venti", "un paio d'ore",
+ * "una ventina di minuti". Null when it is not one of these.
+ */
+function durataParlata(valore: string): number | null {
+  const testo = valore.trim().toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, ' ')
+  if (/^mezz'? ?ora$/.test(testo) || testo === 'mezza ora' || /^mezz'? ?oretta$/.test(testo)) return 30
+  if (/^(?:un'? ?)?oretta$/.test(testo)) return 60
+  if (/^un quarto d'? ?ora$/.test(testo)) return 15
+  if (/^tre quarti d'? ?ora$/.test(testo)) return 45
+  if (/^un paio d(?:i |'? ?)ore$/.test(testo)) return 120
+  const circa = CIRCA_MINUTI.exec(testo)
+  if (circa) return CIRCA[circa[1]]
+  const inLettere = MINUTI_IN_LETTERE.exec(testo)
+  if (inLettere) return numeroInLettere(inLettere[1])
+  const m = ORE_E_MINUTI.exec(testo)
+  if (!m) return null
+  const ore = quanti(m[1])
+  const minuti = m[2] === undefined ? 0 : (FRAZIONI[m[2]] ?? quanti(m[2]))
+  return ore !== null && minuti !== null && minuti < 60 ? ore * 60 + minuti : null
+}
+
 /**
  * A duration as people type it, in minutes:
- * "1:30", "90", "1h30", "1h 30m", "2h", "45m", "45 min", "1,5h", "1.5 ore".
+ * "1:30", "90", "1h30", "1h 30m", "2h", "45m", "45 min", "1,5h", "1.5 ore",
+ * and as they say it: "mezz'ora", "mezzora", "un ora e mezza", "2 ore e 30",
+ * "due ore", "venti minuti", "un paio d'ore". "1.30" is not a duration.
  * A bare number is minutes. Returns null when it cannot be read.
  */
 export function parseDurata(valore: string | number | null | undefined): number | null {
   if (valore === null || valore === undefined) return null
   if (typeof valore === 'number') return Number.isInteger(valore) && valore >= 0 ? valore : null
+
+  const parlato = durataParlata(valore)
+  if (parlato !== null) return parlato
 
   const testo = valore.trim().toLowerCase().replace(/\s+/g, '')
   if (testo === '') return null
@@ -135,20 +186,49 @@ export function minutiFascia(
   return Math.round((istanteRoma(data, fine).getTime() - istanteRoma(data, inizio).getTime()) / 60_000)
 }
 
-const oraFacoltativa = z
-  .string()
-  .nullish()
-  .transform((v, ctx) => {
-    if (!v?.trim()) return null
-    const ora = parseOra(v)
-    if (!ora) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Scrivi l’ora come 09:30' })
-      return z.NEVER
-    }
-    return ora
-  })
+/**
+ * "24:00" is not an hour of the day: a range ends on its own day (the database
+ * refuses an end on the next one), so the time up to midnight is a duration.
+ * Said as the start ("dalle mezzanotte"), midnight is 00:00 of that day.
+ */
+export const MESSAGGIO_24 = 'La fascia finisce entro le 23:59: fino a mezzanotte scrivi la durata, senza fascia'
+export const MESSAGGIO_24_INIZIO = 'Una fascia che parte a mezzanotte comincia alle 00:00: scrivi 00:00'
+
+/** "Dalle" or "Alle": "mezzanotte" and "24:00" are refused with the words of that end of the range. */
+const oraFacoltativa = (estremo: 'dalle' | 'alle') =>
+  z
+    .string()
+    .nullish()
+    .transform((v, ctx) => {
+      if (!v?.trim()) return null
+      const ora = parseOra(v)
+      if (!ora) {
+        const mezzanotte = /^(24([:.]00)?|mezzanotte)$/i.test(v.trim())
+        const message = !mezzanotte ? 'Scrivi l’ora come 09:30' : estremo === 'dalle' ? MESSAGGIO_24_INIZIO : MESSAGGIO_24
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message })
+        return z.NEVER
+      }
+      return ora
+    })
 
 export const MESSAGGIO_FASCIA_A_META = 'Indica sia l’inizio sia la fine, o nessuno dei due'
+export const MESSAGGIO_FINE_PRIMA = 'L’ora di fine deve essere dopo quella di inizio'
+
+/**
+ * A range across midnight, "dalle 23 all'1": one entry stays inside its day,
+ * so it is two, and the error says which two without losing a minute: the
+ * time up to midnight as a duration on the first day (a range cannot end at
+ * 24:00), the rest as a range on the next day.
+ */
+export function messaggioMezzanotte(data: string, dalle: string, alle: string): string {
+  const finoAMezzanotte = Math.round(
+    (istanteRoma(aggiungiGiorni(data, 1), '00:00').getTime() - istanteRoma(data, dalle).getTime()) / 60_000,
+  )
+  const durata = `${formatStima(finoAMezzanotte)} come durata, senza fascia (dalle ${dalle} a mezzanotte)`
+  return alle === '00:00'
+    ? `${MESSAGGIO_FINE_PRIMA}. Fino a mezzanotte registra ${durata}`
+    : `${MESSAGGIO_FINE_PRIMA}. Se passa la mezzanotte sono due voci: nel giorno dell’inizio ${durata}, e nel giorno dopo la fascia 00:00–${alle}`
+}
 
 /** The fields of an entry typed afterwards: a duration, or a range that gives it. */
 const campiTempo = z.object({
@@ -156,8 +236,8 @@ const campiTempo = z.object({
   task_id: idFacoltativo,
   data: giornoPassato,
   durata: z.union([z.string(), z.number()]).nullish(),
-  dalle: oraFacoltativa,
-  alle: oraFacoltativa,
+  dalle: oraFacoltativa('dalle'),
+  alle: oraFacoltativa('alle'),
   nota: testoFacoltativo(2000),
 })
 
@@ -183,7 +263,9 @@ function verificaTempo(v: CampiTempo, ctx: z.RefinementCtx) {
     if (!isDataISO(v.data) || v.data > oggiRoma()) return
     const minuti = minutiFascia(v.data, v.dalle, v.alle)!
     if (v.alle <= v.dalle || minuti < 1) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['alle'], message: 'L’ora di fine deve essere dopo quella di inizio' })
+      // an end before the start is often a night across midnight: one entry stays inside its day
+      const message = v.alle < v.dalle ? messaggioMezzanotte(v.data, v.dalle, v.alle) : MESSAGGIO_FINE_PRIMA
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['alle'], message })
     } else if (minuti > MAX_MINUTI) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['alle'], message: 'Al massimo 24 ore in una voce' })
     } else if (istanteRoma(v.data, v.alle).getTime() > Date.now()) {

@@ -23,6 +23,7 @@ import {
   anteprima,
   anteprimaConConseguenze,
   data,
+  dataISO,
   definizione,
   enumAzioni,
   type Contesto,
@@ -209,7 +210,7 @@ function call(ctx: Contesto): Definizione {
             .describe('Motivo di non chiusura: obbligatorio con follow_up e persa, se manca chiedilo'),
         }
       : {}),
-    data: data.optional().describe('sposta: il nuovo giorno; modifica: il giorno corretto'),
+    data: dataISO('sposta: il nuovo giorno; modifica: il giorno corretto').optional(),
     ora: z.string().optional().describe('HH:MM, come data'),
     // the setter books discovery calls only; admin and closer correct the type of old ones
     ...(chiFaLaCall ? { tipo: z.enum(TIPI_CALL).optional() } : {}),
@@ -315,7 +316,9 @@ function call(ctx: Contesto): Definizione {
   function controllaEsito(v: Input, callId: string) {
     if (!v.esito) return errore('Dimmi l’esito della call.')
     // "sposta la call a domani", "è stata riprogrammata a venerdì": a move, never an outcome
-    if (v.data || v.ora) return errore('L’esito non cambia data e ora: per spostare la call usa azione sposta con data e ora.')
+    if (v.data || v.ora) {
+      return errore('L’esito non cambia il giorno né l’ora della call: per quello la call si sposta.', 'Per spostarla: call, azione sposta con data e ora.')
+    }
     if (chiedeMotivo(v.esito) && v.qualificata === undefined) {
       return errore('Dimmi se il lead era qualificato.')
     }
@@ -324,7 +327,7 @@ function call(ctx: Contesto): Definizione {
     if (!verifica.success) {
       const problema = verifica.error.issues[0]
       return problema?.path[0] === 'motivo'
-        ? errore(`${problema.message}: chiedi perché non ha chiuso (${MOTIVO_NON_CHIUSURA.placeholder.replace(/^Es\. /, 'es. ')}).`)
+        ? errore(`${problema.message}.`, `Chiedi perché non ha chiuso (${MOTIVO_NON_CHIUSURA.placeholder.replace(/^Es\. /, 'es. ')}).`)
         : errore(problema?.message ?? 'Esito non valido.')
     }
     return null
@@ -339,7 +342,7 @@ function call(ctx: Contesto): Definizione {
     if (!v.data || !v.ora) return errore('Dimmi il nuovo giorno e l’ora della call.')
     // closer and admin also read that a wrong day only is modifica's (Dany, 03/10/2026)
     const nonSpostabile = rifiutoSpostaAlfire(c.stato, ruolo)
-    if (nonSpostabile) return errore(nonSpostabile)
+    if (nonSpostabile) return errore(nonSpostabile.errore, nonSpostabile.per_alfire)
     const verifica = schemaSpostamento(ruolo === 'admin').safeParse({ call_id: c.id, data: v.data, ora: v.ora })
     if (!verifica.success) return errore(verifica.error.issues[0]?.message ?? 'Giorno o ora non validi.')
     if (v.data === oggiRoma(new Date(c.programmata_il)) && v.ora === formatOra(c.programmata_il)) {

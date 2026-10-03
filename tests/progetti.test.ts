@@ -4,6 +4,7 @@ import { riassuntoScrittura } from '@/lib/alfire/riassunto'
 import { differenze } from '@/lib/audit'
 import {
   alberoTask,
+  compitiDiRuoloInParole,
   corrisponde,
   elencoNomi,
   filtroAttivo,
@@ -368,5 +369,27 @@ describe('registro modifiche', () => {
     expect(differenze({ livello_pm: 'employee' }, { livello_pm: 'manager' })).toEqual([
       { campo: 'livello progetti', prima: 'Employee', dopo: 'Manager' },
     ])
+  })
+})
+
+describe('«Scegli il coach»: dove vanno i task di un ruolo, in parole (pagina e Alfire)', () => {
+  const attivi = [
+    { id: 'n2', nome: 'Zoe Nutri', ruolo: 'nutrizione' as const },
+    { id: 'n1', nome: 'Anna Nutri', ruolo: 'nutrizione' as const },
+    { id: 'c1', nome: 'Marco Coach', ruolo: 'coach' as const },
+  ]
+  const piano = { titolo: 'Programmazione alimentare', per_ruolo: 'nutrizione' as const, assegnatari: [] as string[] }
+
+  it('a chi ha il ruolo, prima chi è già nel progetto, poi per nome; altrimenti al coach', () => {
+    expect(compitiDiRuoloInParole([piano], attivi, new Set(), null)).toEqual(['«Programmazione alimentare» va a Anna Nutri (Nutrizione).'])
+    expect(compitiDiRuoloInParole([piano], attivi, new Set(['n2']), null)).toEqual(['«Programmazione alimentare» va a Zoe Nutri (Nutrizione).'])
+    expect(compitiDiRuoloInParole([piano], attivi.slice(2), new Set(), null)).toEqual([
+      '«Programmazione alimentare» va al coach: nel team nessuno ha il ruolo Nutrizione.',
+    ])
+  })
+
+  it('un task già di qualcuno che non è il coach resta suo: nessuna riga', () => {
+    expect(compitiDiRuoloInParole([{ ...piano, assegnatari: ['n1'] }], attivi, new Set(), 'c1')).toEqual([])
+    expect(compitiDiRuoloInParole([{ ...piano, assegnatari: ['c1'] }], attivi, new Set(), 'c1')).toHaveLength(1)
   })
 })

@@ -1,3 +1,4 @@
+import { giornoEsteso, isDataISO } from '@/lib/date'
 import { VUOTO, formatData, formatEuro } from '@/lib/format'
 import { formatStima } from '@/lib/progetti'
 
@@ -6,10 +7,18 @@ import { formatStima } from '@/lib/progetti'
  * with the user's session and the values the tool is about to write. Only
  * presentation: the numbers come from the database or from the user.
  */
-export type Formato = 'testo' | 'lungo' | 'euro' | 'data' | 'si_no' | 'minuti' | 'percento'
+export type Formato = 'testo' | 'lungo' | 'euro' | 'data' | 'giorno' | 'si_no' | 'minuti' | 'percento'
 
 function vuoto(v: unknown): boolean {
   return v === null || v === undefined || (typeof v === 'string' && v.trim() === '') || (Array.isArray(v) && v.length === 0)
+}
+
+/**
+ * A day with its weekday, where the model may have worked it out wrong (a time
+ * entry's day, a task's dates): "ieri, venerdì 02/10/2026".
+ */
+export function giorno(v: string): string {
+  return isDataISO(v) ? giornoEsteso(v) : formatData(v)
 }
 
 /** A value as the card shows it: dates the Italian way, euro, sì/no, "–" for nothing. */
@@ -20,6 +29,8 @@ export function mostra(v: unknown, formato: Formato = 'testo'): string {
       return formatEuro(v as number | string)
     case 'data':
       return formatData(String(v))
+    case 'giorno':
+      return giorno(String(v))
     case 'si_no':
       return v ? 'sì' : 'no'
     case 'minuti':

@@ -163,14 +163,17 @@ describe('sposta la call: chi sposta quale call', () => {
 
   it('Alfire: «sposta» rifiutato dice a closer e admin che una data sbagliata la corregge modifica; al setter le sue parole', () => {
     for (const ruolo of ['admin', 'closer'] as const) {
-      expect(rifiutoSpostaAlfire('svolta', ruolo)).toBe(`${SPOSTA.svolta}. ${SPOSTA.soloLaData}`)
-      expect(rifiutoSpostaAlfire('no_show', ruolo)).toBe(`${SPOSTA.noShow}. ${SPOSTA.soloLaData}`)
+      // the person reads the words, the model also which action corrects the day
+      expect(rifiutoSpostaAlfire('svolta', ruolo)).toEqual({ errore: `${SPOSTA.svolta}. ${SPOSTA.soloLaData}`, per_alfire: SPOSTA.soloLaDataPerAlfire })
+      expect(rifiutoSpostaAlfire('no_show', ruolo)).toEqual({ errore: `${SPOSTA.noShow}. ${SPOSTA.soloLaData}`, per_alfire: SPOSTA.soloLaDataPerAlfire })
       for (const stato of ['programmata', 'riprogrammata', 'cancellata']) expect(rifiutoSpostaAlfire(stato, ruolo), stato).toBeNull()
     }
     for (const stato of ['programmata', 'riprogrammata', 'cancellata', 'svolta', 'no_show']) {
-      expect(rifiutoSpostaAlfire(stato, 'setter'), stato).toBe(motivoNonSpostabile(stato, 'setter'))
+      const motivo = motivoNonSpostabile(stato, 'setter')
+      expect(rifiutoSpostaAlfire(stato, 'setter'), stato).toEqual(motivo ? { errore: motivo } : null)
     }
-    expect(SPOSTA.soloLaData).toContain('usa modifica')
+    expect(SPOSTA.soloLaData).not.toContain('modifica')
+    expect(SPOSTA.soloLaDataPerAlfire).toContain('azione modifica')
     // the card of the pencil on a held call or a no-show: a correction, never a move
     expect(correzioneSenzaTraccia('no_show')).toBe(SPOSTA.correzione.noShow)
     expect(correzioneSenzaTraccia('svolta')).toBe(SPOSTA.correzione.svolta)

@@ -13,32 +13,36 @@ import {
   modificaProgetto,
   modificaTask,
   salvaLista,
+  scegliCoach,
   togliMembro,
 } from '@/app/(app)/progetti/[id]/actions'
 import { creaProgetto } from '@/app/(app)/progetti/actions'
 import { avviaTimer, eliminaTempo, fermaTimer, modificaTempo, registraTempo } from '@/app/(app)/tempo/actions'
 import { raggruppaTempoTeam } from '@/components/pm/tempo-team/dati'
-import { breve, cambi } from '@/lib/alfire/cambi'
+import { breve, cambi, giorno } from '@/lib/alfire/cambi'
 import { CONSEGUENZE, conseguenzeLista, conseguenzeTask } from '@/lib/alfire/conseguenze'
 import type { Anteprima } from '@/lib/alfire/riassunto'
-import { errore, isErrore, isIo, isNessuno, trova, type Errore } from '@/lib/alfire/risolvi'
+import { errore, isErrore, isIo, isNessuno, stessoTask, trova, type Errore, type TaskTrovato, type VoceTempo } from '@/lib/alfire/risolvi'
 import {
   anteprima,
   data,
+  dataISO,
   datiDi,
   definizione,
   enumAzioni,
+  erroreData,
   SOLO_DI_CHI_CHATTA,
   type Contesto,
   type Definizione,
 } from '@/lib/alfire/scritture/comune'
-import { aggiungiGiorni, formatOra, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
+import { aggiungiGiorni, formatOra, giornoEsteso, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import { formatData } from '@/lib/format'
 import { hrefPeriodo } from '@/lib/periodo'
 import {
   ETICHETTA_PRIORITA,
   ETICHETTA_STATO_PROGETTO,
   ETICHETTA_STATO_TASK,
+  compitiDiRuoloInParole,
   elencoNomi,
   formatStima,
   parseStima,
@@ -60,6 +64,14 @@ type Progetto = Exclude<Awaited<ReturnType<Contesto['r']['trovaProgetto']>>, Err
 async function progettoPerNome(ctx: Contesto, nome: string | undefined): Promise<Progetto | Errore> {
   if (!nome?.trim()) return errore('Dimmi il nome del progetto.')
   return ctx.r.trovaProgetto(nome)
+}
+
+/** Who manages the project (pm_puo_gestire): the projects' admin always, a manager where he is a member. */
+async function gestisce(ctx: Contesto, progettoId: string): Promise<boolean> {
+  if (ctx.livelloPm === 'admin') return true
+  if (ctx.livelloPm !== 'manager') return false
+  const { data } = await ctx.supabase.rpc('pm_puo_gestire', { p_progetto: progettoId })
+  return data === true
 }
 
 /** Active people of the team by name, for a new project's members or a member to add. */
@@ -92,8 +104,48 @@ function progetto(ctx: Contesto): Definizione {
     data_fine: data.optional(),
     responsabile: z.string().optional().describe('Un membro; "nessuno" lo toglie'),
     persone: z.array(z.string().min(1)).max(20).optional().describe('crea: membri; aggiungi_membro, togli_membro: chi'),
+    coach: z.string().optional().describe('scegli_coach: la persona del team'),
   })
   type Input = z.infer<typeof schema> & { cliente?: string }
+
+  /** «Scegli il coach» (02/10/2026): only a client's project, an active person, a change. */
+  async function coachDaScegliere(v: Input) {
+    const p = await progettoPerNome(ctx, v.progetto)
+    if (isErrore(p)) return p
+    if (!p.client_id) return errore(`Il coach si sceglie solo nei progetti dei clienti: «${p.nome}» non ne ha uno.`)
+    if (!v.coach?.trim()) return errore('Dimmi chi è il coach.')
+    const coach = await r.persona(v.coach)
+    if (isErrore(coach)) return coach
+    if (p.coach_id === coach.id) return errore(`${coach.nome} è già il coach di «${p.nome}».`)
+    return { progetto: p, coach }
+  }
+
+  /** What the page's sheet says before the tap: who joins, who keeps what, where the role tasks go. */
+  async function coseDelCoach(p: Progetto) {
+    const [attivi, compiti, membri] = await Promise.all([
+      supabase.from('profiles').select('id, nome, ruolo').eq('attivo', true).order('nome'),
+      supabase
+        .from('pm_task')
+        .select('titolo, per_ruolo, assegnatari:pm_task_assegnatari(profile_id)')
+        .eq('progetto_id', p.id)
+        .is('parent_id', null)
+        .not('per_ruolo', 'is', null)
+        .order('ordine'),
+      r.membri(p.id),
+    ])
+    // a list that could not be read is never "nobody has the role"
+    if (attivi.error || compiti.error) return errore('Non riesco a leggere il team in questo momento: riprova tra poco.')
+    const vecchio = p.coach_id ? (attivi.data ?? []).find((x) => x.id === p.coach_id)?.nome ?? null : null
+    return {
+      vecchio,
+      daRuolo: compitiDiRuoloInParole(
+        (compiti.data ?? []).map((t) => ({ titolo: t.titolo, per_ruolo: t.per_ruolo, assegnatari: (t.assegnatari ?? []).map((a) => a.profile_id) })),
+        attivi.data ?? [],
+        new Set(membri.map((m) => m.id)),
+        p.coach_id,
+      ),
+    }
+  }
 
   async function reparto(nome: string) {
     const { data: reparti } = await supabase.from('pm_reparti').select('id, nome').eq('attivo', true)
@@ -183,7 +235,8 @@ function progetto(ctx: Contesto): Definizione {
   return definizione({
     description:
       'Un progetto. crea: nome, reparto, modello, date, persone come membri. modifica: solo i campi da cambiare. ' +
-      'aggiungi_membro, togli_membro: persone.' +
+      'aggiungi_membro, togli_membro: persone. ' +
+      'scegli_coach (solo i progetti dei clienti): il coach entra nel progetto e prende i task del cliente; per il coach mai aggiungi_membro.' +
       (ctx.livelloPm === 'admin' ? ' elimina: con liste, task, tempo e note.' : ''),
     inputSchema: schema,
     anteprima: async (input): Promise<Anteprima> => {
@@ -208,6 +261,19 @@ function progetto(ctx: Contesto): Definizione {
         return v.azione === 'aggiungi_membro'
           ? anteprima(`Aggiungo ${chi} al progetto «${m.progetto.nome}»`, ['Vedrà il progetto e potrà lavorarne i task.'])
           : anteprima(`Tolgo ${chi} dal progetto «${m.progetto.nome}»`, [...CONSEGUENZE.membro])
+      }
+      if (v.azione === 'scegli_coach') {
+        const c = await coachDaScegliere(v)
+        if (isErrore(c)) return c
+        const cose = await coseDelCoach(c.progetto)
+        if (isErrore(cose)) return cose
+        return anteprima(`${c.coach.nome} diventa il coach di «${c.progetto.nome}»`, [
+          cose.vecchio ? `Coach: ${cose.vecchio} → ${c.coach.nome}` : null,
+          'Entra nel progetto e prende i task del cliente ancora senza nessuno: ci registra il tempo.',
+          ...cose.daRuolo,
+          'I task a cui lavorano già altre persone restano a loro.',
+          cose.vecchio ? `${cose.vecchio} lascia i suoi task e resta nel team del progetto.` : null,
+        ])
       }
       if (v.azione === 'elimina') {
         const p = await progettoPerNome(ctx, v.progetto)
@@ -272,6 +338,12 @@ function progetto(ctx: Contesto): Definizione {
         }
         if (errori.length === m.persone.length) return errore(errori.join(' '))
         return { fatto: true, ...(errori.length ? { avvisi: errori } : {}), link: `/progetti/${m.progetto.id}/membri` }
+      }
+      if (v.azione === 'scegli_coach') {
+        const c = await coachDaScegliere(v)
+        if (isErrore(c)) return c
+        const esito = await scegliCoach({ progetto_id: c.progetto.id, profile_id: c.coach.id })
+        return esito.ok ? { fatto: true, coach: c.coach.nome, link: `/progetti/${c.progetto.id}` } : errore(esito.errore)
       }
       if (v.azione === 'elimina') {
         const p = await progettoPerNome(ctx, v.progetto)
@@ -446,11 +518,51 @@ function task(ctx: Contesto): Definizione {
     return ids.map((id) => (id === profilo.id ? 'te' : (nomi.get(id) ?? '?')))
   }
 
+  /**
+   * The task said, and the project it is in: 13 clients have a «Revisione
+   * video», the card says whose. A task already done is not done again, nor
+   * an open one reopened: the card says so instead of «Segno come fatto».
+   */
+  async function trovato(v: Input) {
+    const t = await r.trovaTask(v.titolo, { task_id: v.task_id, progetto: v.progetto, completato: v.azione === 'riapri' })
+    if (isErrore(t)) return t
+    const p = await r.progettoPerId(t.progetto_id)
+    if (isErrore(p)) return p
+    const fatto = t.stato === 'completato'
+    if (v.azione === 'completa' && fatto) return errore(`Il task «${t.titolo}» di «${p.nome}» è già completato: non c’è niente da segnare.`)
+    if (v.azione === 'riapri' && !fatto) return errore(`Il task «${t.titolo}» di «${p.nome}» è già aperto: non c’è niente da riaprire.`)
+    const negato = await permesso(v, t)
+    return negato ?? { task: t, progetto: p }
+  }
+
+  /** Two tasks with this title in the project: the card says which one, the open or the completed. */
+  function quale(t: TaskTrovato): string | null {
+    if (!t.omonimi) return null
+    const altri = t.omonimi === 1 ? 'c’è un altro task' : `ci sono altri ${t.omonimi} task`
+    return `È quello ${t.stato === 'completato' ? 'completato' : 'aperto'}: nel progetto ${altri} con questo titolo.`
+  }
+
+  /**
+   * The rule the page shows its buttons by (puoModificare, puoEliminare) and
+   * RLS enforces: who manages the project does anything; the others work the
+   * tasks assigned to them or created by them, and delete only their own. The
+   * card stops before the tap instead of an error after it.
+   */
+  async function permesso(v: Input, t: TaskTrovato): Promise<Errore | null> {
+    if (await gestisce(ctx, t.progetto_id)) return null
+    const mio = t.created_by === profilo.id
+    if (v.azione === 'elimina') return mio ? null : errore('Puoi eliminare solo i task creati da te: chiedi a chi gestisce il progetto.')
+    return mio || (t.assegnatari ?? []).includes(profilo.id)
+      ? null
+      : errore('Puoi lavorare solo i task assegnati a te o creati da te: chiedi a chi gestisce il progetto.')
+  }
+
   return definizione({
     description:
       'Un task di un progetto. aggiungi (progetto obbligatorio; lista, sotto_task_di, assegnatari, scadenza…). ' +
       'modifica: solo i campi da cambiare. completa, riapri, elimina (con i sotto-task). ' +
-      'Lo lavora chi gestisce il progetto, chi l’ha creato o chi ci è assegnato.',
+      'Lo lavora chi gestisce il progetto, chi l’ha creato o chi ci è assegnato. ' +
+      'I task del percorso nei progetti dei clienti (Revisione video, Call di check…) raccolgono il tempo e restano aperti: completali solo se l’utente lo chiede esplicitamente.',
     inputSchema: schema,
     anteprima: async (v): Promise<Anteprima> => {
       if (v.azione === 'aggiungi') {
@@ -472,17 +584,21 @@ function task(ctx: Contesto): Definizione {
           ids.length > 0 ? `Assegnato a: ${elencoNomi(await nomiDi(ids))}` : 'Senza assegnatario',
           v.stato ? `Stato: ${ETICHETTA_STATO_TASK[v.stato]}` : null,
           v.priorita ? `Priorità: ${ETICHETTA_PRIORITA[v.priorita]}` : null,
-          v.data_inizio ? `Inizio ${formatData(v.data_inizio)}` : null,
-          v.scadenza ? `Scadenza ${formatData(v.scadenza)}` : null,
+          v.data_inizio ? `Inizio ${giorno(v.data_inizio)}` : null,
+          v.scadenza ? `Scadenza ${giorno(v.scadenza)}` : null,
           stima ? `Stima: ${formatStima(stima)}` : null,
           v.descrizione ? `Descrizione: ${v.descrizione}` : null,
         ])
       }
-      const t = await r.trovaTask(v.titolo, { task_id: v.task_id, progetto: v.progetto })
-      if (isErrore(t)) return t
-      if (v.azione === 'completa') return anteprima(`Segno come fatto il task «${t.titolo}»`, [])
-      if (v.azione === 'riapri') return anteprima(`Riapro il task «${t.titolo}»`, [])
-      if (v.azione === 'elimina') return anteprima(`Elimino il task «${t.titolo}»`, conseguenzeTask(t.sotto_task_totali ?? 0))
+      const x = await trovato(v)
+      if (isErrore(x)) return x
+      const t = x.task
+      const dove_ = `Progetto: ${x.progetto.nome}`
+      if (v.azione === 'completa') return anteprima(`Segno come fatto il task «${t.titolo}»`, [dove_, quale(t)])
+      if (v.azione === 'riapri') return anteprima(`Riapro il task «${t.titolo}»`, [dove_, quale(t)])
+      if (v.azione === 'elimina') {
+        return anteprima(`Elimino il task «${t.titolo}»`, [dove_, quale(t), ...conseguenzeTask(t.sotto_task_totali ?? 0)])
+      }
       const u = await unisci(v, t)
       if (isErrore(u)) return u
       const prima = await nomiDi(u.attuale.assegnatari ?? [])
@@ -492,20 +608,21 @@ function task(ctx: Contesto): Definizione {
         ? await supabase.from('pm_tasklist').select('id, nome').in('id', idListe)
         : { data: [] as { id: string; nome: string }[] }
       const nomeLista = (id: string | null) => (id ? ((liste ?? []).find((l) => l.id === id)?.nome ?? '?') : null)
-      return anteprima(
-        `Correggo il task «${t.titolo}»`,
-        cambi([
+      return anteprima(`Correggo il task «${t.titolo}»`, [
+        dove_,
+        quale(t),
+        ...cambi([
           ['Titolo', u.attuale.titolo, u.dopo.titolo],
           ['Stato', ETICHETTA_STATO_TASK[u.attuale.stato as keyof typeof ETICHETTA_STATO_TASK], ETICHETTA_STATO_TASK[u.dopo.stato as keyof typeof ETICHETTA_STATO_TASK]],
           ['Priorità', ETICHETTA_PRIORITA[u.attuale.priorita as keyof typeof ETICHETTA_PRIORITA], ETICHETTA_PRIORITA[u.dopo.priorita as keyof typeof ETICHETTA_PRIORITA]],
           ['Assegnato a', prima.length ? elencoNomi(prima) : null, dopo.length ? elencoNomi(dopo) : null],
-          ['Inizio', u.attuale.data_inizio, u.dopo.data_inizio, 'data'],
-          ['Scadenza', u.attuale.scadenza, u.dopo.scadenza, 'data'],
+          ['Inizio', u.attuale.data_inizio, u.dopo.data_inizio, 'giorno'],
+          ['Scadenza', u.attuale.scadenza, u.dopo.scadenza, 'giorno'],
           ['Stima', u.attuale.stima_minuti, u.dopo.stima_minuti, 'minuti'],
           ['Descrizione', u.attuale.descrizione, u.dopo.descrizione, 'lungo'],
           ['Lista', nomeLista(u.attuale.tasklist_id), nomeLista(u.dopo.tasklist_id)],
         ]),
-      )
+      ])
     },
     execute: async (v) => {
       if (v.azione === 'aggiungi') {
@@ -547,8 +664,9 @@ function task(ctx: Contesto): Definizione {
         const dettagli = await modificaTask(u.dopo)
         return dettagli.ok ? { fatto: true, link } : { fatto: true, avvisi: [`Task creato, dettagli non salvati: ${dettagli.errore}`], link }
       }
-      const t = await r.trovaTask(v.titolo, { task_id: v.task_id, progetto: v.progetto })
-      if (isErrore(t)) return t
+      const x = await trovato(v)
+      if (isErrore(x)) return x
+      const t = x.task
       const link = `/progetti/${t.progetto_id}/attivita`
       if (v.azione === 'completa' || v.azione === 'riapri') {
         const esito = await completaTask({ id: t.id, completato: v.azione === 'completa' })
@@ -576,7 +694,7 @@ function notaProgetto(ctx: Contesto): Definizione {
     azione: enumAzioni(ctx, 'nota_progetto'),
     progetto: z.string(),
     nota_id: z.string().uuid().optional().describe('Da progetto_dettaglio'),
-    data: data.optional().describe('Giorno della nota; default oggi'),
+    data: dataISO('Giorno della nota; default oggi').optional(),
     testo: z.string().max(5000).optional(),
   })
   type Input = z.infer<typeof schema>
@@ -586,7 +704,12 @@ function notaProgetto(ctx: Contesto): Definizione {
     if (isErrore(p)) return p
     if (v.azione === 'aggiungi') return { progetto: p, nota: null }
     const n = await r.trovaNota(p.id, { nota_id: v.nota_id, data: v.nota_id ? undefined : v.data })
-    return isErrore(n) ? n : { progetto: p, nota: n }
+    if (isErrore(n)) return n
+    // RLS: the author, or the projects' admin; the card stops before the tap
+    if (n.autore_id !== ctx.profilo.id && ctx.livelloPm !== 'admin') {
+      return errore('Puoi correggere o eliminare solo le tue note: questa l’ha scritta un’altra persona.')
+    }
+    return { progetto: p, nota: n }
   }
 
   return definizione({
@@ -639,21 +762,74 @@ function fascia(dalle: string | null | undefined, alle: string | null | undefine
   return dalle && alle ? `${dalle}–${alle}` : null
 }
 
+/** "(task completato)": the time form hides completed tasks, Alfire says when it writes on one. */
+function titoloTask(t: Pick<TaskTrovato, 'titolo' | 'stato'> | null | undefined): string {
+  return t ? ` · ${t.titolo}${t.stato === 'completato' ? ' (task completato)' : ''}` : ''
+}
+
+/** A task in a «prima → dopo» row: its title, marked when completed. */
+function comeTask(t: { titolo: string; stato?: string } | null | undefined): string | null {
+  return t ? `${t.titolo}${t.stato === 'completato' ? ' (completato)' : ''}` : null
+}
+
+/** The task as a line of the card: «Revisione video», marked when completed. */
+function rigaTask(t: Pick<TaskTrovato, 'titolo' | 'stato'> | null | undefined): string | null {
+  return t ? `Task: ${t.titolo}${t.stato === 'completato' ? ' (completato)' : ''}` : null
+}
+
+/** A running timer's minutes so far, as the card says them. */
+function finora(inizio: string | null | undefined): string {
+  if (!inizio) return '?'
+  const minuti = Math.floor((Date.now() - new Date(inizio).getTime()) / 60_000)
+  return minuti < 1 ? 'meno di un minuto' : `circa ${durataLeggibile(minuti)}`
+}
+
+/** "dalle 09:12", and the day when the timer started on another one: "dalle 22:10 di ieri, venerdì 02/10/2026". */
+function daQuando(acceso: { inizio: string | null; data: string }): string {
+  const ora = acceso.inizio ? formatOra(acceso.inizio) : '?'
+  return `dalle ${ora}${acceso.data !== oggiRoma() ? ` di ${giornoEsteso(acceso.data)}` : ''}`
+}
+
+/**
+ * The order Alfire gives a person's entries (mio_tempo, and the candidates of
+ * a correction, 03/10/2026): by day, the most recent first, and inside a day
+ * the last registered first (a timer counts from its start; then the id, so
+ * both reads agree). Only inside one day is the first the last registered: an
+ * entry registered today for yesterday comes after today's, and the one just
+ * registered is found by the voce_id registra gives. Il mio tempo orders a
+ * day otherwise: first the entries with a start time (a range or a timer),
+ * the latest start first, then those without, the last registered first.
+ */
+const ORDINE_VOCI = 'per giorno dal più recente, e nello stesso giorno dall’ultima registrata (un timer: dal suo avvio)'
+
 function tempo(ctx: Contesto): Definizione {
-  const { r } = ctx
+  const { supabase, r } = ctx
   const schema = z.object({
     azione: enumAzioni(ctx, 'tempo'),
-    progetto: z.string().optional(),
-    task: z.string().optional().describe('Titolo del task, facoltativo'),
-    data: data.optional().describe('Default oggi, mai nel futuro'),
+    progetto: z
+      .string()
+      .optional()
+      .describe(
+        'Il progetto: quello di un cliente porta il suo nome. avvia, registra: serve se il task da solo non basta a trovarlo. modifica, elimina: il progetto della voce (per spostarla: nuovo_progetto)',
+      ),
+    task: z
+      .string()
+      .optional()
+      .describe('Titolo del task, facoltativo. modifica, elimina: il task della voce da trovare (per spostarla: nuovo_task)'),
+    task_id: z.string().uuid().optional().describe('Da progetto_dettaglio o miei_task, se più task hanno quel titolo'),
+    nuovo_progetto: z
+      .string()
+      .optional()
+      .describe('modifica: sposta la voce su questo progetto; senza nuovo_task va sul task con lo stesso titolo, se c’è'),
+    nuovo_task: z.string().optional().describe('modifica: sposta la voce su questo task (del nuovo progetto, se cambia); "nessuno" lo toglie'),
+    data: dataISO('Default oggi, mai nel futuro. modifica, elimina senza voce_id: il giorno della voce; con voce_id: il giorno nuovo').optional(),
     durata: z.string().optional().describe('Es. 1h30, 45 min, 1:30. Con dalle e alle non serve'),
     dalle: z.string().optional().describe('Fascia facoltativa con alle, es. 09:00; "nessuna" la toglie'),
     alle: z.string().optional().describe('Es. 10:30'),
     nota: z.string().max(2000).optional(),
-    voce_id: z.string().uuid().optional().describe('Da mio_tempo'),
+    voce_id: z.string().uuid().optional().describe('Da mio_tempo, o da registra e avvia: la voce da correggere o eliminare'),
   })
   type Input = z.infer<typeof schema>
-  type Voce = Exclude<Awaited<ReturnType<typeof voce>>, Errore>
 
   /** registra: what the form's server action receives, checked with the same schema. */
   function daRegistrare(v: Input, progettoId: string, taskId: string | null) {
@@ -672,13 +848,13 @@ function tempo(ctx: Contesto): Definizione {
    * modifica: what is not said stays, the range too. A new duration without
    * a range takes the range away (it would not match); "nessuna" takes it away.
    */
-  function daCorreggere(v: Input, x: Voce, taskId: string | null) {
+  function daCorreggere(v: Input, x: VoceTempo, d: Destinazione) {
     const attuale = fasciaDellaVoce(x)
     const togli = isNessuno(v.dalle) || isNessuno(v.alle) || (v.durata !== undefined && v.dalle === undefined && v.alle === undefined)
     return {
       id: x.id,
-      progetto_id: x.progetto_id,
-      task_id: taskId,
+      progetto_id: d.progetto?.id ?? x.progetto_id,
+      task_id: d.taskId,
       data: v.data ?? x.data,
       durata: v.durata ?? x.minuti ?? 0,
       dalle: togli ? null : (v.dalle ?? attuale?.dalle ?? null),
@@ -687,77 +863,194 @@ function tempo(ctx: Contesto): Definizione {
     }
   }
 
-  /** Project and (optional) task by name: the task must belong to the project. */
-  async function dove(nomeProgetto: string | undefined, nomeTask: string | undefined) {
-    const p = await progettoPerNome(ctx, nomeProgetto)
+  /**
+   * Project and (optional) task by name: the task must belong to the project.
+   * The task alone is enough when it is one among the projects I see (03/10/2026):
+   * a title every client has makes the question name the projects.
+   */
+  async function dove(v: Input): Promise<{ progetto: Progetto; task: TaskTrovato | null } | Errore> {
+    const nomeTask = v.task?.trim() ?? ''
+    if (!v.progetto?.trim()) {
+      if (!nomeTask && !v.task_id) return errore('Dimmi il progetto (quello di un cliente porta il suo nome) e, se vuoi, il task.')
+      const t = await r.trovaTask(nomeTask, { task_id: v.task_id })
+      if (isErrore(t)) return t
+      const p = await r.progettoPerId(t.progetto_id)
+      return isErrore(p) ? p : { progetto: p, task: t }
+    }
+    const p = await progettoPerNome(ctx, v.progetto)
     if (isErrore(p)) return p
-    if (!nomeTask?.trim()) return { progetto: p, task: null }
-    const t = await r.trovaTask(nomeTask, { progettoId: p.id })
+    if (!nomeTask && !v.task_id) return { progetto: p, task: null }
+    const t = await r.trovaTask(nomeTask, { task_id: v.task_id, progettoId: p.id })
     if (isErrore(t)) return t
     return { progetto: p, task: t }
   }
 
+  /**
+   * The entry to correct or delete: by voce_id, or by project, task and day
+   * (mine only, stopped only). A project or a task said next to a voce_id
+   * that is not the entry's own is never ignored: a move is nuovo_progetto
+   * or nuovo_task.
+   */
   async function voce(v: Input) {
-    const p = v.voce_id || !v.progetto ? null : await progettoPerNome(ctx, v.progetto)
+    if (v.voce_id) {
+      const x = await r.trovaVoce({ voce_id: v.voce_id })
+      if (isErrore(x)) return x
+      // a deletion only says where the entry is; a correction offers the move
+      const sposta = v.azione === 'modifica'
+      if (v.progetto?.trim()) {
+        const p = await progettoPerNome(ctx, v.progetto)
+        if (isErrore(p)) return p
+        if (p.id !== x.progetto_id) {
+          return sposta
+            ? errore(
+                `Questa voce è su «${x.progetto?.nome ?? '?'}», non su «${p.nome}»: se vuoi, la sposto su «${p.nome}».`,
+                `Per spostarla: voce_id e nuovo_progetto «${p.nome}», senza progetto (o col progetto della voce).`,
+              )
+            : errore(`Questa voce è su «${x.progetto?.nome ?? '?'}», non su «${p.nome}».`, 'Chiedi quale voce intendeva.')
+        }
+      }
+      const detto = v.task?.trim()
+      const altroTask = v.task_id
+        ? v.task_id !== x.task_id
+        : detto
+          ? isNessuno(detto)
+            ? x.task_id !== null
+            : !stessoTask(x.task?.titolo, detto)
+          : false
+      if (altroTask) {
+        const qui = x.task?.titolo ? `sul task «${x.task.titolo}»` : 'senza task'
+        const li = detto && !isNessuno(detto) ? `su «${detto}»` : v.task_id ? 'su quel task' : 'senza task'
+        return sposta
+          ? errore(
+              `Questa voce è ${qui}, non ${li}: ${li === 'senza task' ? 'se vuoi, le tolgo il task' : `se vuoi, la sposto ${li}`}.`,
+              'Per spostarla: voce_id e nuovo_task col titolo del task ("nessuno" lo toglie), senza task né task_id.',
+            )
+          : errore(`Questa voce è ${qui}, non ${li}.`, 'Chiedi quale voce intendeva.')
+      }
+      return x
+    }
+    const p = v.progetto?.trim() ? await progettoPerNome(ctx, v.progetto) : null
     if (isErrore(p)) return p
-    return r.trovaVoce({ voce_id: v.voce_id, progettoId: p?.id, data: v.voce_id ? undefined : v.data })
+    return r.trovaVoce({
+      progettoId: p?.id,
+      progetto: p?.nome,
+      taskId: v.task_id,
+      task: v.task,
+      data: v.data,
+      perSpostare: v.azione === 'modifica',
+    })
   }
 
-  /** modifica: a task named moves the entry onto that task of the same project. */
-  async function nuovoTask(v: Input, progettoId: string, attuale: string | null) {
-    if (v.task === undefined) return { id: attuale, titolo: null as string | null }
-    if (isNessuno(v.task)) return { id: null, titolo: 'nessuno' }
-    const t = await r.trovaTask(v.task, { progettoId })
-    if (isErrore(t)) return t
-    return { id: t.id, titolo: t.titolo }
+  type Destinazione = { progetto: Progetto | null; taskId: string | null; task: { titolo: string; stato?: string } | null }
+
+  /**
+   * modifica: where the entry ends up, as the form lets it (pm_modifica_tempo
+   * with its project): nuovo_progetto moves it to another project, nuovo_task
+   * onto a task of the project it ends up in. Moved without a task said, it
+   * keeps its task's title when that project has one (the path's tasks repeat
+   * in every client's project), or stays without one, as the form leaves it.
+   */
+  async function destinazione(v: Input, x: VoceTempo): Promise<Destinazione | Errore> {
+    let progetto: Progetto | null = null
+    // an entry always has a project: «nessuno» is never a move (it was once ignored with «Nessun dato cambia»)
+    if (isNessuno(v.nuovo_progetto)) {
+      return errore('Una voce di tempo sta sempre su un progetto: posso spostarla su un altro, non toglierglielo.', 'Chiedi su quale progetto spostarla.')
+    }
+    if (v.nuovo_progetto?.trim()) {
+      const p = await progettoPerNome(ctx, v.nuovo_progetto)
+      if (isErrore(p)) return p
+      if (p.id !== x.progetto_id) progetto = p
+    }
+    if (v.nuovo_task !== undefined) {
+      if (isNessuno(v.nuovo_task)) return { progetto, taskId: null, task: null }
+      const t = await r.trovaTask(v.nuovo_task, { progettoId: progetto?.id ?? x.progetto_id })
+      return isErrore(t) ? t : { progetto, taskId: t.id, task: t }
+    }
+    if (!progetto) return { progetto, taskId: x.task_id, task: x.task }
+    if (!x.task_id || !x.task) return { progetto, taskId: null, task: null }
+    const { data, error } = await supabase
+      .from('v_pm_task')
+      .select('id, titolo, stato')
+      .eq('progetto_id', progetto.id)
+      .eq('titolo', x.task.titolo)
+    // a read that failed is never "no such task there"
+    if (error) return errore('Non riesco a leggere i task del progetto in questo momento: riprova tra poco.')
+    const uguali = (data ?? []) as { id: string; titolo: string; stato: string }[]
+    const aperti = uguali.filter((t) => t.stato !== 'completato')
+    const t = aperti.length === 1 ? aperti[0] : uguali.length === 1 ? uguali[0] : null
+    return { progetto, taskId: t?.id ?? null, task: t }
+  }
+
+  /** "Voce: ieri, venerdì 02/10/2026, 09:00–10:30": which entry, before what changes. */
+  function rigaVoce(x: VoceTempo): string {
+    const f = fasciaDellaVoce(x) ?? timerSenzaFascia(x)
+    return `Voce: ${giornoEsteso(x.data)}${f ? `, ${typeof f === 'string' ? f : fascia(f.dalle, f.alle)}` : ''}`
   }
 
   return definizione({
     description:
-      'Il tuo tempo, mai quello di altri. avvia o ferma il timer (una nota facoltativa); registra a posteriori una durata o una fascia dalle-alle (data default oggi, mai nel futuro); ' +
-      'modifica (giorno, durata o fascia, nota, task) o elimina una tua voce (voce_id da mio_tempo).',
+      'Il tuo tempo, mai quello di altri: per un’altra persona non si registra, dillo. ' +
+      'avvia o ferma il timer (nota facoltativa: fermando, una nota nuova sostituisce quella dell’avvio); ' +
+      'avvia o registra senza progetto né task detti: non chiamarlo, chiedi prima su cosa, con i suoi task da miei_task in proponi_risposte; ' +
+      'registra a posteriori una durata o una fascia dalle-alle (data default oggi, mai nel futuro); ' +
+      'registra, avvia e ferma danno il voce_id della voce: per correggere quella appena registrata usa quello. ' +
+      'modifica o elimina una tua voce: con voce_id, o con progetto, task e data; le voci candidate sono ' +
+      ORDINE_VOCI +
+      '. modifica sposta la voce con nuovo_progetto e nuovo_task. ' +
+      'Ogni cliente ha un progetto col suo nome con i task del percorso: Call di onboarding, Analisi e strategia iniziale, Programmazione allenamento, Programmazione alimentare, Revisione video, Call di check, Assistenza chat, Altre attività.',
     inputSchema: schema,
     anteprima: async (v): Promise<Anteprima> => {
       if (v.azione === 'avvia') {
-        const x = await dove(v.progetto, v.task)
+        const x = await dove(v)
         if (isErrore(x)) return x
         const acceso = await r.timerAcceso()
-        return anteprima(`Avvio il timer su «${x.progetto.nome}»${x.task ? ` · ${x.task.titolo}` : ''}`, [
-          acceso ? `Fermo quello acceso su «${acceso.progetto?.nome ?? '?'}» dalle ${acceso.inizio ? formatOra(acceso.inizio) : '?'}.` : null,
+        return anteprima(`Avvio il timer su «${x.progetto.nome}»${titoloTask(x.task)}`, [
+          acceso ? `Fermo quello acceso su «${acceso.progetto?.nome ?? '?'}» ${daQuando(acceso)}.` : null,
           v.nota ? `Nota: ${v.nota}` : null,
         ])
       }
       if (v.azione === 'ferma') {
         const acceso = await r.timerAcceso()
         if (!acceso) return errore('Non hai un timer acceso.')
+        const notaNuova = v.nota?.trim()
         return anteprima(
           `Fermo il timer su «${acceso.progetto?.nome ?? '?'}»${acceso.task?.titolo ? ` · ${acceso.task.titolo}` : ''}`,
-          [`Acceso dalle ${acceso.inizio ? formatOra(acceso.inizio) : '?'}`, v.nota ? `Nota: ${v.nota}` : null],
+          [
+            `Acceso ${daQuando(acceso)}, finora ${finora(acceso.inizio)}`,
+            notaNuova
+              ? `Nota: ${notaNuova}${acceso.nota?.trim() ? ` (al posto di «${breve(acceso.nota)}»)` : ''}`
+              : acceso.nota?.trim()
+                ? `Nota: ${acceso.nota.trim()}`
+                : null,
+          ],
         )
       }
       if (v.azione === 'registra') {
         if (!v.durata && !v.dalle && !v.alle) return errore('Dimmi la durata, ad esempio 1h30 o 45 min, o la fascia (dalle, alle).')
-        const x = await dove(v.progetto, v.task)
+        const x = await dove(v)
         if (isErrore(x)) return x
         const dati = tempoManualeSchema.safeParse(daRegistrare(v, x.progetto.id, x.task?.id ?? null))
         if (!dati.success) return errore(dati.error.issues[0].message)
         const f = fascia(dati.data.dalle, dati.data.alle)
-        return anteprima(`Registro ${durataLeggibile(dati.data.durata)} su «${x.progetto.nome}» il ${formatData(dati.data.data)}`, [
+        // "del tuo tempo": the time of whoever confirms, never someone else's (no tool writes it)
+        return anteprima(`Registro ${durataLeggibile(dati.data.durata)} del tuo tempo su «${x.progetto.nome}», ${giornoEsteso(dati.data.data)}`, [
           f ? `Fascia: ${f}` : null,
-          x.task ? `Task: ${x.task.titolo}` : null,
+          rigaTask(x.task),
           v.nota ? `Nota: ${v.nota}` : null,
         ])
       }
       const x = await voce(v)
       if (isErrore(x)) return x
+      const suCosa = `«${x.progetto?.nome ?? '?'}»${x.task?.titolo ? ` · ${x.task.titolo}` : ''}`
       if (v.azione === 'elimina') {
-        return anteprima(`Elimino ${durataLeggibile(x.minuti)} su «${x.progetto?.nome ?? '?'}» del ${formatData(x.data)}`, [
+        return anteprima(`Elimino ${durataLeggibile(x.minuti)} del tuo tempo su ${suCosa}`, [
+          rigaVoce(x),
           x.nota ? `Nota: ${breve(x.nota)}` : null,
         ])
       }
-      const t = await nuovoTask(v, x.progetto_id, x.task_id)
-      if (isErrore(t)) return t
-      const dati = modificaTempoSchema.safeParse(daCorreggere(v, x, t.id))
+      const d = await destinazione(v, x)
+      if (isErrore(d)) return d
+      const dati = modificaTempoSchema.safeParse(daCorreggere(v, x, d))
       if (!dati.success) return errore(dati.error.issues[0].message)
       const prima = fasciaDellaVoce(x)
       // the same range on the same day keeps a timer's seconds, and so its minutes
@@ -767,32 +1060,36 @@ function tempo(ctx: Contesto): Definizione {
       const restaIlTimer = senzaFascia !== null && dati.data.data === x.data && dati.data.durata === x.minuti
       const fasciaPrima = fascia(prima?.dalle, prima?.alle) ?? senzaFascia
       const fasciaDopo = fascia(dati.data.dalle, dati.data.alle) ?? (restaIlTimer ? senzaFascia : fasciaPrima ? 'tolta' : null)
-      return anteprima(`Correggo ${durataLeggibile(x.minuti)} su «${x.progetto?.nome ?? '?'}» del ${formatData(x.data)}`, [
+      return anteprima(`Correggo ${durataLeggibile(x.minuti)} del tuo tempo su ${suCosa}`, [
+        rigaVoce(x),
         ...cambi([
-          ['Giorno', x.data, dati.data.data, 'data'],
+          ['Progetto', x.progetto?.nome ?? null, d.progetto?.nome ?? x.progetto?.nome ?? null],
+          ['Giorno', x.data, dati.data.data, 'giorno'],
           ['Fascia', fasciaPrima, fasciaDopo],
           ['Durata', x.minuti, stessaFascia ? x.minuti : dati.data.durata, 'minuti'],
+          // a completed task says so: the form does not offer one, a move onto one keeping its title shows it (03/10/2026)
+          ['Task', comeTask(x.task), comeTask(d.task)],
           ['Nota', x.nota, v.nota ?? x.nota, 'lungo'],
-        ]).filter((riga) => riga !== 'Nessun dato cambia.' || !t.titolo),
-        t.titolo ? `Task: ${t.titolo}` : null,
+        ]),
       ])
     },
     execute: async (v) => {
       if (v.azione === 'avvia') {
-        const x = await dove(v.progetto, v.task)
+        const x = await dove(v)
         if (isErrore(x)) return x
         const esito = await avviaTimer({ progetto_id: x.progetto.id, task_id: x.task?.id ?? null, nota: v.nota })
-        return esito.ok ? { fatto: true, link: '/tempo' } : errore(esito.errore)
+        // the entry the timer becomes when it stops: "correggi quella appena registrata" needs no search
+        return esito.ok ? { fatto: true, voce_id: esito.id, link: '/tempo' } : errore(esito.errore)
       }
       if (v.azione === 'ferma') {
         const esito = await fermaTimer({ nota: v.nota })
-        return esito.ok ? { fatto: true, minuti: esito.minuti, link: '/tempo' } : errore(esito.errore)
+        return esito.ok ? { fatto: true, minuti: esito.minuti, voce_id: esito.id, link: '/tempo' } : errore(esito.errore)
       }
       if (v.azione === 'registra') {
-        const x = await dove(v.progetto, v.task)
+        const x = await dove(v)
         if (isErrore(x)) return x
         const esito = await registraTempo(daRegistrare(v, x.progetto.id, x.task?.id ?? null))
-        return esito.ok ? { fatto: true, link: '/tempo' } : errore(esito.errore)
+        return esito.ok ? { fatto: true, voce_id: esito.id, link: '/tempo' } : errore(esito.errore)
       }
       const x = await voce(v)
       if (isErrore(x)) return x
@@ -800,9 +1097,9 @@ function tempo(ctx: Contesto): Definizione {
         const esito = await eliminaTempo({ id: x.id })
         return esito.ok ? { fatto: true, link: '/tempo' } : errore(esito.errore)
       }
-      const t = await nuovoTask(v, x.progetto_id, x.task_id)
-      if (isErrore(t)) return t
-      const esito = await modificaTempo(daCorreggere(v, x, t.id))
+      const d = await destinazione(v, x)
+      if (isErrore(d)) return d
+      const esito = await modificaTempo(daCorreggere(v, x, d))
       return esito.ok ? { fatto: true, link: '/tempo' } : errore(esito.errore)
     },
   })
@@ -870,16 +1167,18 @@ const periodoTempo = z.object({
     .max(366)
     .optional()
     .describe('Gli ultimi N giorni, oggi compreso: «ultimi 7 giorni» = 7. Al posto di da e a'),
-  da: data.optional().describe('Default: primo del mese'),
-  a: data.optional().describe('Default: oggi'),
+  da: dataISO('Default: primo del mese').optional(),
+  a: dataISO('Default: oggi').optional(),
 })
 
-function leggiPeriodoTempo({ ultimi_giorni, da, a }: z.infer<typeof periodoTempo>): { da: string; a: string } {
+function leggiPeriodoTempo({ ultimi_giorni, da, a }: z.infer<typeof periodoTempo>): { da: string; a: string } | Errore {
   const oggi = oggiRoma()
   // the same count as the period presets: "ultimi 90 giorni" = today and the 89 before
   if (ultimi_giorni) return { da: aggiungiGiorni(oggi, 1 - ultimi_giorni), a: oggi }
-  const inizio = da && isDataISO(da) ? da : primoDelMeseISO(oggi)
-  const fine = a && isDataISO(a) ? a : oggi
+  // "28/09/2026" or "lunedì" is an error, never the month so far: the answer would be about another period (03/10/2026)
+  if ((da?.trim() && !isDataISO(da)) || (a?.trim() && !isDataISO(a))) return erroreData()
+  const inizio = da?.trim() ? da : primoDelMeseISO(oggi)
+  const fine = a?.trim() ? a : oggi
   return inizio <= fine ? { da: inizio, a: fine } : { da: fine, a: inizio }
 }
 
@@ -892,12 +1191,14 @@ function mioTempo(ctx: Contesto): Definizione {
   const { supabase, profilo, r } = ctx
   return definizione({
     description:
-      'Il tempo registrato da chi chatta nel periodo: totale e per progetto (da SQL: non sommare le voci), le voci più recenti (voce_id per modificarle) e il suo timer acceso, se c’è. ' +
+      `Il tempo registrato da chi chatta nel periodo: totale, per giorno e per progetto (da SQL: non sommare le voci), le voci ${ORDINE_VOCI} (voce_id per modificarle) e il suo timer acceso, se c’è. ` +
       SOLO_DI_CHI_CHATTA +
       (profilo.ruolo === 'admin' ? ' Per il tempo degli altri: tempo_team.' : ''),
     inputSchema: periodoTempo,
     execute: async (input) => {
-      const { da: inizio, a: fine } = leggiPeriodoTempo(input)
+      const periodo = leggiPeriodoTempo(input)
+      if (isErrore(periodo)) return periodo
+      const { da: inizio, a: fine } = periodo
       const [voci, riepilogo, acceso] = await Promise.all([
         supabase
           .from('pm_tempo')
@@ -908,7 +1209,10 @@ function mioTempo(ctx: Contesto): Definizione {
           .not('minuti', 'is', null)
           .gte('data', inizio)
           .lte('data', fine)
+          // ORDINE_VOCI, the same as the candidates of a correction (trovaVoce), with the same tie-break
           .order('data', { ascending: false })
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
           .limit(VOCI_MIO_TEMPO),
         // the totals of Il mio tempo, from SQL: the model never adds up the entries (it once said "2 ore" from a partial list)
         supabase.rpc('pm_riepilogo_tempo', { p_da: inizio, p_a: fine }),
@@ -922,11 +1226,20 @@ function mioTempo(ctx: Contesto): Definizione {
         ...datiDi(profilo),
         periodo: { da: inizio, a: fine },
         totale: { minuti: totale?.minuti ?? 0, durata: durataLeggibile(totale?.minuti), voci: totale?.voci ?? 0 },
+        // the days with time, from SQL: "quanto ho fatto ogni giorno?" without adding up the entries
+        per_giorno: riepilogo.data
+          .filter((x) => x.livello === 'giorno')
+          .map((x) => ({ data: x.data, minuti: x.minuti, durata: durataLeggibile(x.minuti) })),
         per_progetto: riepilogo.data
           .filter((x) => x.livello === 'progetto')
           .map((x) => ({ progetto: x.progetto ?? PROGETTO_NON_DISPONIBILE, minuti: x.minuti, durata: durataLeggibile(x.minuti), voci: x.voci })),
         timer_acceso: acceso
-          ? { progetto: acceso.progetto?.nome ?? null, task: acceso.task?.titolo ?? null, dalle: acceso.inizio ? formatOra(acceso.inizio) : null }
+          ? {
+              progetto: acceso.progetto?.nome ?? null,
+              task: acceso.task?.titolo ?? null,
+              data: acceso.data,
+              dalle: acceso.inizio ? formatOra(acceso.inizio) : null,
+            }
           : null,
         voci: elenco.map((v) => {
           const f = fasciaDellaVoce(v)
@@ -982,6 +1295,7 @@ function tempoTeam(ctx: Contesto): Definizione {
     }),
     execute: async (input) => {
       const periodo = leggiPeriodoTempo(input)
+      if (isErrore(periodo)) return periodo
       let chi: { id: string; nome: string } | undefined
       if (input.persona?.trim()) {
         const trovata = await r.personaDelTeam(input.persona)

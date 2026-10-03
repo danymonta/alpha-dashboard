@@ -1,5 +1,7 @@
 import { APICallError, RetryError, StreamProviderError } from 'ai'
 
+import type { AppRole } from '@/lib/auth/roles'
+
 /** After its last retry the SDK wraps the provider's error: the cause is inside. */
 function causa(error: unknown): unknown {
   return RetryError.isInstance(error) ? (error.lastError ?? error) : error
@@ -59,10 +61,17 @@ export function attesa(testo: string): string | null {
  * are the usual cause: which one, and when it comes back. The admin also sees
  * the provider's words for anything unexpected.
  */
-export function messaggioErroreAlfire(error: unknown, { admin }: { admin: boolean }): string {
+export function messaggioErroreAlfire(error: unknown, { admin, ruolo }: { admin: boolean; ruolo?: AppRole }): string {
   const e = causa(error)
   if (erroreStrumentoRiprovabile(e)) {
-    return 'Alfire non è riuscito a usare lo strumento giusto nemmeno riprovando. Ripeti la richiesta con parole semplici, ad esempio «registra l’incasso di 400 € di Mario Rossi».'
+    // the example fits who reads it: money for who records cash-ins, the report for the setter, one's own time for everyone else
+    const esempio =
+      admin || ruolo === 'closer'
+        ? '«registra l’incasso di 400 € di Mario Rossi»'
+        : ruolo === 'setter'
+          ? '«aggiungi 20 DM outbound al report di oggi»'
+          : '«registra 30 minuti su Mario Rossi, Revisione video»'
+    return `Alfire non è riuscito a usare lo strumento giusto nemmeno riprovando. Ripeti la richiesta con parole semplici, ad esempio ${esempio}.`
   }
   if (!APICallError.isInstance(e)) {
     return admin && e instanceof Error && e.message ? `Alfire non ha risposto: ${breve(e.message)}` : 'Alfire non ha risposto. Riprova.'

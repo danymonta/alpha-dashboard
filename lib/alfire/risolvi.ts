@@ -1,12 +1,14 @@
 import 'server-only'
 
-import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
+import { ETICHETTA_RUOLO, livelloPmEffettivo, type AppRole } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
-import { aggiungiMesi, formatOra, oggiRoma } from '@/lib/date'
+import { aggiungiMesi, formatOra, giornoEsteso, oggiRoma } from '@/lib/date'
 import { formatData, formatEuro, formatMese } from '@/lib/format'
+import { ETICHETTA_STATO_PROGETTO, formatStima, type StatoProgetto } from '@/lib/progetti'
 import type { createClient } from '@/lib/supabase/server'
 import { normalizzaHandle } from '@/lib/validation/call'
 import { ETICHETTA_STATO_LEAD } from '@/lib/validation/lead'
+import { fasciaDellaVoce } from '@/lib/validation/tempo'
 
 /**
  * From the names people say to the rows they mean, with the user's own
@@ -16,11 +18,17 @@ import { ETICHETTA_STATO_LEAD } from '@/lib/validation/lead'
  * one, it never picks.
  */
 export type Supabase = Awaited<ReturnType<typeof createClient>>
-export type Errore = { errore: string }
+/**
+ * errore: what the person reads when a card stops («Non l’ho fatto: …») or a
+ * write fails, in plain Italian, never a tool or a field name. per_alfire:
+ * what only the model reads (which tool or field to use, what to ask), with
+ * the tool result and after the card's reason (motivoAlModello).
+ */
+export type Errore = { errore: string; per_alfire?: string }
 
 /** Tool results stay small: the free tier counts every token. */
-export function errore(messaggio: string): Errore {
-  return { errore: messaggio }
+export function errore(messaggio: string, perAlfire?: string): Errore {
+  return perAlfire ? { errore: messaggio, per_alfire: perAlfire } : { errore: messaggio }
 }
 
 export function isErrore(v: unknown): v is Errore {
@@ -38,6 +46,137 @@ function perIlike(testo: string): string {
 function minuscolo(testo: string | null | undefined): string {
   return (testo ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
+
+/** Little words a title said aloud gains or loses: "le call di check", "revisione dei video". */
+const PAROLE_VUOTE = new Set(
+  'a ad al alla alle allo ai agli all con d da dal dalla dei degli del della delle dell dello di e ed gli i il in l la le lo nel nella nei per su sul sulla un una uno'.split(' '),
+)
+
+/** The words that tell a title apart: no accents, no apostrophes, no little words. */
+function paroleChiave(testo: string | null | undefined): string[] {
+  return (testo ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((p) => p && !PAROLE_VUOTE.has(p))
+}
+
+/**
+ * A title said differently (Dany's team dictates them, 03/10/2026): every key
+ * word said is a word of the title, or the start of one ("allenam"). "altre
+ * attivita", "call check", "programmazione dell'allenamento" find their task.
+ */
+function titoloDetto(titolo: string, detto: string): boolean {
+  const cercate = paroleChiave(detto)
+  const parole = paroleChiave(titolo)
+  return cercate.length > 0 && cercate.every((c) => parole.some((p) => p === c || (c.length >= 4 && p.startsWith(c))))
+}
+
+/** A task's title as said for it: the same title, or the same key words (titoloDetto). */
+export function stessoTask(titolo: string | null | undefined, detto: string | null | undefined): boolean {
+  if (!titolo || !detto?.trim()) return false
+  return minuscolo(titolo) === minuscolo(detto) || titoloDetto(titolo, detto)
+}
+
+/** One letter added, dropped or changed: "Moreti" for Moretti, "Belini" for Bellini. */
+function unaLetteraDiDifferenza(a: string, b: string): boolean {
+  const [corta, lunga] = a.length <= b.length ? [a, b] : [b, a]
+  if (lunga.length - corta.length > 1) return false
+  let i = 0
+  while (i < corta.length && corta[i] === lunga[i]) i++
+  return corta.length === lunga.length ? corta.slice(i + 1) === lunga.slice(i + 1) : corta.slice(i) === lunga.slice(i + 1)
+}
+
+/** A word said that stands for a word of a name: the same, its start, or a typo of it (4 letters and up). */
+function parolaVicina(parola: string, detta: string): boolean {
+  if (parola === detta) return true
+  if (parola.length < 4 || detta.length < 4) return false
+  return parola.startsWith(detta) || detta.startsWith(parola) || unaLetteraDiDifferenza(parola, detta)
+}
+
+/** Names offered when a project is not found: at most this many. */
+const PROGETTI_PROPOSTI = 15
+
+/**
+ * A project not found ("Stefano Moreti", "Belini", 03/10/2026): the visible
+ * ones closest to what was said (the most words in common, without accents,
+ * a typo counts), and the model asks which one. A name close to none: who
+ * sees every project (the projects admin) reads their names; anyone else
+ * reads that he is not in a project with that name and that whoever manages
+ * it can add him, as with no project at all: never whether such a client exists.
+ */
+function progettoNonTrovato(
+  elenco: readonly { id: string; nome: string | null }[],
+  nome: string,
+  distinti: Map<string, string>,
+  vedeTutti: boolean,
+): Errore {
+  const nonTrovato = `Progetto "${nome.trim()}" non trovato tra quelli che vedi.`
+  if (elenco.length === 0) return errore(`${nonTrovato} Non sei in nessun progetto: chiedi a chi lo gestisce di aggiungerti.`)
+  const dette = paroleChiave(nome)
+  const punteggi = elenco.map((p) => {
+    const parole = paroleChiave(p.nome)
+    return { nome: distinti.get(p.id) ?? p.nome ?? '', punti: dette.filter((d) => parole.some((x) => parolaVicina(x, d))).length }
+  })
+  const migliore = Math.max(...punteggi.map((p) => p.punti))
+  const vicini = migliore > 0 ? punteggi.filter((p) => p.punti === migliore).map((p) => p.nome) : []
+  if (vicini.length === 1) return errore(`${nonTrovato} Forse: ${vicini[0]}.`, 'Chiedi se è questo; se sì, usa il suo nome come scritto qui.')
+  if (vicini.length === 0 && !vedeTutti) {
+    return errore(
+      `Non sei in un progetto "${nome.trim()}": vedi solo quelli di cui fai parte. Se è il progetto di un cliente, chi lo gestisce può aggiungerti.`,
+      'Non somiglia a nessuno dei suoi progetti: diglielo così, senza proporne altri al suo posto.',
+    )
+  }
+  const nomi = vicini.length > 0 ? vicini : elenco.map((p) => p.nome ?? '')
+  const altri = nomi.length > PROGETTI_PROPOSTI ? ` e altri ${nomi.length - PROGETTI_PROPOSTI}` : ''
+  // a name that says what tells two homonyms apart has commas in it: then the names go apart with ";"
+  const separa = nomi.some((n) => n.includes(',')) ? '; ' : ', '
+  return errore(`${nonTrovato} ${vicini.length > 0 ? 'Forse' : 'Progetti'}: ${nomi.slice(0, PROGETTI_PROPOSTI).join(separa)}${altri}.`, 'Chiedi quale.')
+}
+
+type ProgettoConNome = { id: string; nome: string | null; data_inizio: string | null; stato: string | null }
+
+/** "marco bianchi dal 01/09/2026": a name said back with or without its brackets and commas. */
+function senzaSegni(testo: string | null | undefined): string {
+  return minuscolo(testo).replace(/[(),;]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Projects with one same name: two clients called Marco Bianchi each have
+ * their project (03/10/2026). In a question their names say what tells them
+ * apart: «Marco Bianchi (dal 01/09/2026)», then the state too, then a number;
+ * said back, that name finds its project. A name nobody else has stays as it is.
+ */
+export function nomiDistinti<T extends ProgettoConNome>(elenco: readonly T[]): Map<string, string> {
+  const gruppi = new Map<string, T[]>()
+  for (const p of elenco) gruppi.set(minuscolo(p.nome), [...(gruppi.get(minuscolo(p.nome)) ?? []), p])
+  const nomi = new Map<string, string>()
+  for (const gruppo of gruppi.values()) {
+    if (gruppo.length === 1) {
+      nomi.set(gruppo[0].id, gruppo[0].nome ?? '')
+      continue
+    }
+    const ordinati = [...gruppo].sort((a, b) => (a.data_inizio ?? '').localeCompare(b.data_inizio ?? '') || a.id.localeCompare(b.id))
+    const quando = (p: T) => (p.data_inizio ? `dal ${formatData(p.data_inizio)}` : 'senza date')
+    const conStato = (p: T) => `${quando(p)}, ${(ETICHETTA_STATO_PROGETTO[p.stato as StatoProgetto] ?? p.stato ?? '').toLowerCase()}`
+    const quanti = (chiave: (p: T) => string) => {
+      const n = new Map<string, number>()
+      for (const p of ordinati) n.set(chiave(p), (n.get(chiave(p)) ?? 0) + 1)
+      return n
+    }
+    const perData = quanti(quando)
+    const perStato = quanti(conStato)
+    ordinati.forEach((p, i) => {
+      const cosa = perData.get(quando(p)) === 1 ? quando(p) : perStato.get(conStato(p)) === 1 ? conStato(p) : `${conStato(p)}, n. ${i + 1}`
+      nomi.set(p.id, `${p.nome ?? ''} (${cosa})`)
+    })
+  }
+  return nomi
+}
+
+/** The candidates a task question lists: a title every client has repeats in 13 projects (03/10/2026). */
+const CANDIDATI_TASK = 15
 
 /** Finds one row by name among a few: exact first, then "contains", then all the words in any order. */
 export function trova<T extends { nome: string | null }>(righe: T[], nome: string): T | null | 'ambiguo' {
@@ -82,8 +221,8 @@ export function etichettePersone<T extends PersonaDelTeam>(persone: readonly T[]
 }
 
 /**
- * Exactly one row, or an error that lists the candidates (at most six) and
- * says what would tell them apart.
+ * Exactly one row, or an error that lists the candidates (at most six); what
+ * would tell them apart (`come`) is for the model only.
  */
 export function unico<T>(
   righe: readonly T[],
@@ -93,7 +232,7 @@ export function unico<T>(
   if (righe.length === 1) return righe[0]
   if (righe.length === 0) return errore(nessuno)
   const elenco = righe.slice(0, 6).map(etichetta).join('; ')
-  return errore(`${piu}: ${elenco}${righe.length > 6 ? '; …' : ''}. ${come}`)
+  return errore(`${piu}: ${elenco}${righe.length > 6 ? '; …' : ''}.`, come)
 }
 
 const IO = ['io', 'me', 'a me', 'me stesso', 'me stessa']
@@ -227,7 +366,7 @@ export type Lead = {
 export type Costo = { id: string; data: string; categoria: string; descrizione: string; importo: number; ricorrente: boolean }
 
 const CAMPI_TASK =
-  'id, titolo, progetto_id, tasklist_id, parent_id, descrizione, stato, priorita, data_inizio, scadenza, stima_minuti, assegnatari, sotto_task_totali'
+  'id, titolo, progetto_id, tasklist_id, parent_id, descrizione, stato, priorita, data_inizio, scadenza, stima_minuti, assegnatari, sotto_task_totali, created_by'
 
 export type TaskTrovato = {
   id: string
@@ -243,6 +382,49 @@ export type TaskTrovato = {
   stima_minuti: number | null
   assegnatari: string[] | null
   sotto_task_totali: number | null
+  created_by: string | null
+  /** Other tasks of its project with the same title, when it was chosen among them. */
+  omonimi?: number
+}
+
+/** A time entry of mine as the resolver reads it, with its project and task. */
+export type VoceTempo = {
+  id: string
+  progetto_id: string
+  task_id: string | null
+  data: string
+  minuti: number | null
+  nota: string | null
+  inizio: string | null
+  fine: string | null
+  progetto: { nome: string } | null
+  task: { titolo: string; stato?: string } | null
+}
+
+const CAMPI_VOCE = 'id, progetto_id, task_id, data, minuti, nota, inizio, fine, progetto:pm_progetti(nome), task:pm_task(titolo, stato)'
+
+/** "lunedì 28/09/2026, 45 min su «Sergio Bellini» · Revisione video, 09:00–09:45": the task and range tell entries apart. */
+function etichettaVoce(v: VoceTempo): string {
+  const f = fasciaDellaVoce(v)
+  return `${giornoEsteso(v.data)}, ${formatStima(v.minuti) || '0 min'} su «${v.progetto?.nome ?? '?'}»${v.task?.titolo ? ` · ${v.task.titolo}` : ''}${
+    f ? `, ${f.dalle}–${f.alle}` : ''
+  }`
+}
+
+const CAMPI_PROGETTO = 'id, nome, reparto_id, client_id, coach_id, stato, descrizione, data_inizio, data_fine, responsabile_id, task_totali'
+
+export type ProgettoTrovato = {
+  id: string
+  nome: string
+  reparto_id: string
+  client_id: string | null
+  coach_id: string | null
+  stato: string
+  descrizione: string | null
+  data_inizio: string | null
+  data_fine: string | null
+  responsabile_id: string | null
+  task_totali: number | null
 }
 
 export type Risolutori = ReturnType<typeof risolutori>
@@ -278,7 +460,8 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
         `Più clienti possibili: ${candidati(righe, nome)
           .slice(0, 5)
           .map((r) => r.nome)
-          .join(', ')}. Chiedi quale, con nome e cognome.`,
+          .join(', ')}.`,
+        'Chiedi quale, con nome e cognome.',
       )
     }
     if (trovato) return trovato
@@ -337,7 +520,8 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
         `Più persone possibili per "${nome}": ${possibili
           .slice(0, 6)
           .map((p) => p.etichetta)
-          .join('; ')}${possibili.length > 6 ? '; …' : ''}. Chiedi quale, e cercala scritta come qui.`,
+          .join('; ')}${possibili.length > 6 ? '; …' : ''}.`,
+        'Chiedi quale, e cercala scritta come qui.',
       )
     }
     if (!trovato) return errore(`Nessuna persona "${nome}" nel team. Persone: ${[...new Set(righe.map((p) => p.nome))].join(', ')}`)
@@ -568,29 +752,48 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
   }
 
   async function trovaProgetto(nome: string) {
-    const { data, error } = await supabase
-      .from('v_pm_progetti')
-      .select('id, nome, reparto_id, client_id, stato, descrizione, data_inizio, data_fine, responsabile_id, task_totali')
-      .order('nome')
-      .limit(200)
+    const { data, error } = await supabase.from('v_pm_progetti').select(CAMPI_PROGETTO).order('nome').limit(200)
     if (error) return errore(NON_LETTO)
-    const elenco = (data ?? []) as {
-      id: string
-      nome: string
-      reparto_id: string
-      client_id: string | null
-      stato: string
-      descrizione: string | null
-      data_inizio: string | null
-      data_fine: string | null
-      responsabile_id: string | null
-      task_totali: number | null
-    }[]
+    const elenco = (data ?? []) as ProgettoTrovato[]
+    const distinti = nomiDistinti(elenco)
+    // the name a question gave back for one of two homonyms: «Marco Bianchi (dal 01/09/2026)»
+    const ridetto = elenco.filter((x) => distinti.get(x.id) !== x.nome && senzaSegni(distinti.get(x.id)) === senzaSegni(nome))
+    if (ridetto.length === 1) return ridetto[0]
     const p = trova(elenco, nome)
     if (p === 'ambiguo') {
-      return errore(`Più progetti possibili: ${candidati(elenco, nome).slice(0, 5).map((x) => x.nome).join(', ')}. Chiedi quale.`)
+      // homonyms side by side, the earliest start first
+      const scelti = [...candidati(elenco, nome)]
+        .sort((x, y) => minuscolo(x.nome).localeCompare(minuscolo(y.nome)) || (x.data_inizio ?? '').localeCompare(y.data_inizio ?? '') || x.id.localeCompare(y.id))
+        .slice(0, 5)
+      const nomi = scelti.map((x) => distinti.get(x.id) ?? x.nome)
+      const omonimi = scelti.some((x) => distinti.get(x.id) !== x.nome)
+      return errore(
+        `Più progetti possibili: ${nomi.join('; ')}.`,
+        `Chiedi quale${omonimi ? '; poi passa il nome come scritto qui, con quello che c’è tra parentesi' : ''}.`,
+      )
     }
-    return p ?? errore(`Progetto "${nome}" non trovato tra quelli che vedi.`)
+    return p ?? progettoNonTrovato(elenco, nome, distinti, livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === 'admin')
+  }
+
+  /**
+   * The names of these projects as a question says them: told apart from the
+   * visible projects with the same name (nomiDistinti), so «Revisione video in
+   * Marco Bianchi (dal 01/09/2026)» can be answered with its project.
+   */
+  async function nomiDeiProgetti(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map()
+    const { data } = await supabase.from('v_pm_progetti').select('id, nome').in('id', ids)
+    const nomi = [...new Set((data ?? []).map((p) => p.nome).filter((n): n is string => Boolean(n)))]
+    if (nomi.length === 0) return new Map()
+    const { data: conLoStessoNome } = await supabase.from('v_pm_progetti').select('id, nome, data_inizio, stato').in('nome', nomi)
+    return nomiDistinti((conLoStessoNome ?? []) as ProgettoConNome[])
+  }
+
+  /** The project of a task found on its own (the time said with the task only). */
+  async function progettoPerId(id: string): Promise<ProgettoTrovato | Errore> {
+    const { data, error } = await supabase.from('v_pm_progetti').select(CAMPI_PROGETTO).eq('id', id).maybeSingle()
+    if (error) return errore(NON_LETTO)
+    return (data as ProgettoTrovato | null) ?? errore('Progetto non trovato tra quelli che vedi.')
   }
 
   async function trovaLista(progettoId: string, nome: string) {
@@ -645,12 +848,15 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
   /**
    * A task by id, or by title among the visible ones, inside the project when
    * it is known (by id, or the projects whose name fits): the exact title
-   * wins; between tasks with the same exact title, the one assigned to me.
-   * Otherwise the question names project and due date of each candidate.
+   * wins; between tasks with the same title, the open one (the completed one
+   * when reopening), then the one assigned to me. A title said differently
+   * (no accents, other little words, 03/10/2026) is found by its key words.
+   * Otherwise the question names project and due date of each candidate, and
+   * a title not found lists the open tasks there.
    */
   async function trovaTask(
     titolo: string,
-    dove: { task_id?: string; progettoId?: string; progetto?: string } = {},
+    dove: { task_id?: string; progettoId?: string; progetto?: string; completato?: boolean } = {},
   ): Promise<TaskTrovato | Errore> {
     if (dove.task_id) {
       const { data, error } = await supabase.from('v_pm_task').select(CAMPI_TASK).eq('id', dove.task_id).maybeSingle()
@@ -666,7 +872,12 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
       const { data, error } = await supabase.from('v_pm_progetti').select('id').ilike('nome', `%${perIlike(dove.progetto)}%`).limit(50)
       if (error) return errore(NON_LETTO)
       progetti = (data ?? []).map((p) => p.id).filter((id): id is string => Boolean(id))
-      if (progetti.length === 0) return errore(`Progetto "${dove.progetto}" non trovato tra quelli che vedi.`)
+      if (progetti.length === 0) {
+        // the words in another order, or a typo: the project lookup finds it, or names the closest ones
+        const p = await trovaProgetto(dove.progetto)
+        if (isErrore(p)) return p
+        progetti = [p.id]
+      }
     }
     // the project filter goes into the query, before the limit: a template title repeats in every client's project
     async function cerca(schema: string): Promise<TaskTrovato[] | Errore> {
@@ -676,36 +887,72 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
       return error ? errore(NON_LETTO) : ((data ?? []) as TaskTrovato[])
     }
 
+    /**
+     * Tasks with one same title: the open one (or the completed one, to reopen
+     * it), then mine. The one chosen says how many others in its project have
+     * that title, so the card says whether it is the open or the completed one.
+     */
+    function traUguali(uguali: TaskTrovato[]): TaskTrovato | null {
+      if (uguali.length === 1) return uguali[0]
+      if (new Set(uguali.map((t) => minuscolo(t.titolo))).size > 1) return null
+      const voluti = uguali.filter((t) => (t.stato === 'completato') === Boolean(dove.completato))
+      const miei = (voluti.length > 0 ? voluti : uguali).filter((t) => (t.assegnatari ?? []).includes(profilo.id))
+      const scelto = voluti.length === 1 ? voluti[0] : miei.length === 1 ? miei[0] : null
+      if (!scelto) return null
+      const omonimi = uguali.filter((t) => t.id !== scelto.id && t.progetto_id === scelto.progetto_id).length
+      return omonimi > 0 ? { ...scelto, omonimi } : scelto
+    }
+
     const trovati = await cerca(perIlike(titolo))
     if (isErrore(trovati)) return trovati
     const esatti = trovati.filter((t) => minuscolo(t.titolo) === cercato)
-    if (esatti.length === 1) return esatti[0]
     let dubbi = esatti
-    if (esatti.length > 1) {
-      const miei = esatti.filter((t) => (t.assegnatari ?? []).includes(profilo.id))
-      if (miei.length === 1) return miei[0]
+    if (esatti.length > 0) {
+      const scelto = traUguali(esatti)
+      if (scelto) return scelto
     } else {
       const simili = await cerca(`%${perIlike(titolo)}%`)
       if (isErrore(simili)) return simili
       dubbi = simili.filter((t) => minuscolo(t.titolo).includes(cercato))
       if (dubbi.length === 1) return dubbi[0]
     }
-    if (dubbi.length === 0) return errore(`Task "${titolo}" non trovato${progetti ? ' nel progetto' : ''}.`)
+    if (dubbi.length === 0) {
+      // said differently: the key words, among the tasks there (a light read, then the whole row of the one found)
+      let q = supabase.from('v_pm_task').select('id, titolo, progetto_id, stato, assegnatari')
+      if (progetti) q = q.in('progetto_id', progetti)
+      const { data, error } = await q.order('scadenza', { nullsFirst: false }).order('id').limit(500)
+      if (error) return errore(NON_LETTO)
+      const tutti = (data ?? []) as Pick<TaskTrovato, 'id' | 'titolo' | 'progetto_id' | 'stato' | 'assegnatari'>[]
+      const perParole = tutti.filter((t) => titoloDetto(t.titolo, titolo))
+      const scelto = perParole.length > 0 ? traUguali(perParole as TaskTrovato[]) : null
+      if (scelto) {
+        const t = await trovaTask(scelto.titolo, { task_id: scelto.id })
+        return isErrore(t) || !scelto.omonimi ? t : { ...t, omonimi: scelto.omonimi }
+      }
+      if (perParole.length === 0) {
+        const aperti = [...new Set(tutti.filter((t) => t.stato !== 'completato').map((t) => t.titolo))]
+        const elenco = aperti.length > 0 ? ` Task ${progetti?.length === 1 ? 'del progetto' : 'che vedi'}: ${aperti.slice(0, 15).join(', ')}${aperti.length > 15 ? ', …' : ''}.` : ''
+        return errore(`Task "${titolo}" non trovato${progetti ? ' nel progetto' : ''}.${elenco}`)
+      }
+      dubbi = perParole as TaskTrovato[]
+    }
 
-    const { data: nomiProgetti } = await supabase
-      .from('v_pm_progetti')
-      .select('id, nome')
-      .in('id', [...new Set(dubbi.map((t) => t.progetto_id))])
-    const progetto = new Map((nomiProgetti ?? []).map((p) => [p.id, p.nome]))
+    const progetto = await nomiDeiProgetti([...new Set(dubbi.map((t) => t.progetto_id))])
+    // a title every client has: up to 15 in the text, so the right client is there (the buttons hold 4, the user can type)
     const elenco = dubbi
-      .slice(0, 6)
+      .slice(0, CANDIDATI_TASK)
       .map((t) => {
         const dove_ = progetto.get(t.progetto_id)
-        return `«${t.titolo}»${dove_ ? ` in ${dove_}` : ''}${t.scadenza ? `, scadenza ${formatData(t.scadenza)}` : ''}`
+        return `«${t.titolo}»${dove_ ? ` in ${dove_}` : ''}${t.scadenza ? `, scadenza ${formatData(t.scadenza)}` : ''}${
+          t.stato === 'completato' ? ', completato' : ''
+        }`
       })
       .join('; ')
+    // more than the 4 buttons of proponi_risposte: the text names them all, the user can type the one he means
+    const tutti = dubbi.length > 4 ? ' Nel testo elencali tutti: i bottoni ne mostrano 4, l’utente può scrivere il nome.' : ''
     return errore(
-      `Più task possibili: ${elenco}${dubbi.length > 6 ? '; …' : ''}. Chiedi quale (il progetto, o passa il task_id da progetto_dettaglio o miei_task).`,
+      `Più task possibili: ${elenco}${dubbi.length > CANDIDATI_TASK ? `; e altri ${dubbi.length - CANDIDATI_TASK}` : ''}.`,
+      `Chiedi quale (il progetto, o passa il task_id da progetto_dettaglio o miei_task).${tutti}`,
     )
   }
 
@@ -720,11 +967,11 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
     const regole = (data ?? []).map((r) => ({ ...r, percentuale: Number(r.percentuale) }))
     const giorno = allaData ?? oggiRoma()
     const valide = regole.filter((r) => r.valida_dal <= giorno && (!r.valida_al || r.valida_al >= giorno))
+    if (valide.length === 0 && regole.length > 0) {
+      return errore(`Nessuna regola valida il ${formatData(giorno)}. Regole: ${regole.map(etichettaRegola).join('; ')}.`, 'Indica alla_data.')
+    }
     return unico(valide, etichettaRegola, {
-      nessuno:
-        regole.length === 0
-          ? 'Nessuna regola provvigionale per questa persona.'
-          : `Nessuna regola valida il ${formatData(giorno)}. Regole: ${regole.map(etichettaRegola).join('; ')}. Indica alla_data.`,
+      nessuno: 'Nessuna regola provvigionale per questa persona.',
       piu: 'Più regole valide',
       come: 'Indica alla_data.',
     })
@@ -758,21 +1005,133 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
     })
   }
 
-  /** One of MY time entries: never anybody else's, whatever RLS would allow a manager. */
-  async function trovaVoce({ voce_id, progettoId, data }: { voce_id?: string; progettoId?: string; data?: string }) {
+  /**
+   * One of MY time entries: never anybody else's, whatever RLS would allow a
+   * manager. Only stopped ones: the running timer is not an entry yet (stop
+   * it first). In ORDINE_VOCI (the most recent day first, and inside a day the
+   * last registered first, then the id: the same order as mio_tempo,
+   * 03/10/2026); the candidates name their task and range, so it is never a
+   * guess. The entry just registered is found by the voce_id registra gives.
+   * A project or task said that day with no entry of mine on it, while I have
+   * entries elsewhere that day (03/10/2026: «quella di martedì va su Tiziano
+   * Mele», the destination said as the entry's own): the error names them
+   * and, for a correction, offers to move one there.
+   */
+  async function trovaVoce({
+    voce_id,
+    progettoId,
+    progetto,
+    taskId,
+    task,
+    data,
+    perSpostare = false,
+  }: {
+    voce_id?: string
+    progettoId?: string
+    /** The name of progettoId, for the words of the error. */
+    progetto?: string
+    taskId?: string | null
+    /** The task's title as said: matched on the entries' own tasks, so a title every client has needs no project. */
+    task?: string
+    data?: string
+    /** A correction: an entry on another project or task that day can be moved where it was said. */
+    perSpostare?: boolean
+  }): Promise<VoceTempo | Errore> {
     let q = supabase
       .from('pm_tempo')
-      .select('id, progetto_id, task_id, data, minuti, nota, inizio, fine, progetto:pm_progetti(nome)')
+      .select(CAMPI_VOCE)
       .eq('profile_id', profilo.id)
+      .not('minuti', 'is', null)
     if (voce_id) q = q.eq('id', voce_id)
     if (progettoId) q = q.eq('progetto_id', progettoId)
+    if (taskId) q = q.eq('task_id', taskId)
     if (data) q = q.eq('data', data)
-    const { data: righe, error } = await q.order('data', { ascending: false }).limit(20)
+    const { data: righe, error } = await q
+      .order('data', { ascending: false })
+      .order('created_at', { ascending: false })
+      // the same tie-break as mio_tempo: entries registered together (an import, a seed) keep one order in both
+      .order('id', { ascending: false })
+      .limit(task?.trim() ? 200 : 20)
     if (error) return errore(NON_LETTO)
-    return unico(
-      righe ?? [],
-      (v) => `${formatData(v.data)}, ${v.minuti ?? 0} min su «${v.progetto?.nome ?? '?'}»`,
-      { nessuno: 'Voce di tempo non trovata tra le tue.', piu: 'Più voci possibili', come: 'Chiedi quale (voce_id da mio_tempo).' },
+    const detto = minuscolo(task)
+    const voci = ((righe ?? []) as unknown as VoceTempo[]).filter(
+      (v) => !detto || (v.task?.titolo && (minuscolo(v.task.titolo) === detto || titoloDetto(v.task.titolo, detto))),
+    )
+    if (voci.length === 0) {
+      const acceso = await timerAcceso()
+      const stessoTask = !detto || (acceso?.task?.titolo && (minuscolo(acceso.task.titolo) === detto || titoloDetto(acceso.task.titolo, detto)))
+      // the voce_id avvia gave back is the running timer until it stops
+      const questo = voce_id
+        ? acceso?.id === voce_id
+        : stessoTask && (!progettoId || acceso?.progetto_id === progettoId) && (!data || acceso?.data === data)
+      if (acceso && questo) {
+        return errore(
+          `Non c’è una voce chiusa: il tempo che corre è il timer acceso su «${acceso.progetto?.nome ?? '?'}». Fermalo, poi correggi la voce.`,
+          'Per fermarlo: tempo, azione ferma.',
+        )
+      }
+      if (!voce_id && data && (progettoId || taskId || detto)) {
+        const altrove = await vociAltrove({ progetto, taskId, task, data, perSpostare })
+        if (altrove) return altrove
+      }
+    }
+    return unico(voci, etichettaVoce, {
+      nessuno: `Voce di tempo non trovata tra le tue${detto ? ` sul task «${task?.trim()}»` : ''}${data ? ` del ${formatData(data)}` : ''}.`,
+      piu: 'Più voci possibili, dalla più recente',
+      come: 'Chiedi quale (o passa il voce_id da mio_tempo).',
+    })
+  }
+
+  /**
+   * My stopped entries of a day, when none is on the project or task said:
+   * named with their task and range; a correction can move one there (the
+   * model gets the ids, the person the words). Null when that day has none.
+   */
+  async function vociAltrove({
+    progetto,
+    taskId,
+    task,
+    data,
+    perSpostare,
+  }: {
+    progetto?: string
+    taskId?: string | null
+    task?: string
+    data: string
+    perSpostare: boolean
+  }): Promise<Errore | null> {
+    const { data: righe, error } = await supabase
+      .from('pm_tempo')
+      .select(CAMPI_VOCE)
+      .eq('profile_id', profilo.id)
+      .not('minuti', 'is', null)
+      .eq('data', data)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(6)
+    if (error) return errore(NON_LETTO)
+    const voci = (righe ?? []) as unknown as VoceTempo[]
+    if (voci.length === 0) return null
+    const titolo = task?.trim()
+    const dove = [progetto ? `«${progetto}»` : null, titolo ? `«${titolo}»` : null].filter(Boolean).join(' · ') || 'quel task'
+    const una = voci.length === 1
+    const elenco = voci.map(etichettaVoce).join('; ')
+    const ids = voci.map((v) => `${etichettaVoce(v)} = ${v.id}`).join('; ')
+    if (!perSpostare) {
+      return errore(
+        `Nessuna tua voce di tempo su ${dove} del ${formatData(data)}. Quel giorno hai: ${elenco}.`,
+        `Chiedi se intendeva ${una ? 'questa' : 'una di queste'}; poi usa il suo voce_id (${ids}).`,
+      )
+    }
+    const sposta = [
+      progetto ? `nuovo_progetto «${progetto}»` : null,
+      titolo ? `nuovo_task «${titolo}»` : taskId ? 'nuovo_task col titolo di quel task' : null,
+    ]
+      .filter(Boolean)
+      .join(' e ')
+    return errore(
+      `Nessuna tua voce di tempo su ${dove} del ${formatData(data)}. Quel giorno hai: ${elenco}. ${una ? 'Se è questa' : 'Se è una di queste'}, posso spostarla su ${dove}.`,
+      `${una ? 'Chiedi se è questa' : 'Chiedi quale'}; per spostarla: modifica con il suo voce_id (${ids}) e ${sposta}.`,
     )
   }
 
@@ -780,7 +1139,7 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
   async function timerAcceso() {
     const { data } = await supabase
       .from('pm_tempo')
-      .select('id, inizio, progetto:pm_progetti(nome), task:pm_task(titolo)')
+      .select('id, progetto_id, data, inizio, nota, progetto:pm_progetti(nome), task:pm_task(titolo)')
       .eq('profile_id', profilo.id)
       .not('inizio', 'is', null)
       .is('fine', null)
@@ -801,6 +1160,7 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
     trovaCall,
     trovaProdotto,
     trovaProgetto,
+    progettoPerId,
     trovaLista,
     membri,
     idMembri,

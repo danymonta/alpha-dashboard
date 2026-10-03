@@ -80,5 +80,20 @@ describe('una chiamata a uno strumento rifiutata da Groq', () => {
     const testo = messaggioErroreAlfire(groq(400, STRUMENTO_ASSENTE), { admin: true })
     expect(testo).toContain('Ripeti la richiesta con parole semplici')
     expect(testo).not.toContain('request.tools')
+    expect(testo).toContain('registra l’incasso di 400 € di Mario Rossi')
+  })
+
+  it('l’esempio è di chi legge: il proprio tempo per il team, mai un incasso (03/10/2026)', () => {
+    // the setter's work is his report
+    const setter = messaggioErroreAlfire(groq(400, STRUMENTO_ASSENTE), { admin: false, ruolo: 'setter' })
+    expect(setter).toContain('«aggiungi 20 DM outbound al report di oggi»')
+    expect(setter).not.toMatch(/€|incasso/)
+    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev'] as const) {
+      const testo = messaggioErroreAlfire(groq(400, STRUMENTO_ASSENTE), { admin: false, ruolo })
+      expect(testo, ruolo).toContain('«registra 30 minuti su Mario Rossi, Revisione video»')
+      expect(testo, ruolo).not.toMatch(/€|incasso/)
+    }
+    // the closer records the cash-ins of his sales (section 6)
+    expect(messaggioErroreAlfire(groq(400, STRUMENTO_ASSENTE), { admin: false, ruolo: 'closer' })).toContain('incasso')
   })
 })

@@ -73,6 +73,29 @@ export function etichettaGiorno(iso: string, oggi: string = oggiRoma()): string 
   return `${giornoSettimana.format(d)} ${gg}/${mm}`
 }
 
+/** "sabato", from a 'YYYY-MM-DD'. */
+export function nomeGiorno(iso: string): string {
+  return giornoSettimana.format(parseDataISO(iso))
+}
+
+/**
+ * The day in full, for Alfire's prompt and cards, where a weekday the model
+ * worked out wrong must show: "oggi, sabato 03/10/2026",
+ * "ieri, venerdì 02/10/2026", "lunedì 28/09/2026".
+ */
+export function giornoEsteso(iso: string, oggi: string = oggiRoma()): string {
+  const d = parseDataISO(iso)
+  const data = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+  const relativo = iso === oggi ? 'oggi, ' : iso === aggiungiGiorni(oggi, -1) ? 'ieri, ' : ''
+  return `${relativo}${giornoSettimana.format(d)} ${data}`
+}
+
+/** Monday of the week of a 'YYYY-MM-DD' (Italian weeks start on Monday). */
+export function lunediDellaSettimana(iso: string): string {
+  const giorno = parseDataISO(iso).getDay()
+  return aggiungiGiorni(iso, giorno === 0 ? -6 : 1 - giorno)
+}
+
 /** Compact version for narrow columns: "oggi", "ieri", "domani", "lun 22/09". */
 export function etichettaGiornoBreve(iso: string, oggi: string = oggiRoma()): string {
   if (iso === oggi) return 'oggi'

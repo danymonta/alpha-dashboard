@@ -60,9 +60,11 @@ export const SPOSTA = {
   /**
    * Alfire to the closer and the admin, after the refused "sposta" of a held
    * call or a no-show: a wrong date only is the pencil's ("modifica"), without
-   * a trace (Dany, 03/10/2026). Only Alfire's: the database keeps sposta_call's words.
+   * a trace (Dany, 03/10/2026). Only Alfire's: the database keeps sposta_call's
+   * words. The person reads soloLaData, the model also soloLaDataPerAlfire.
    */
-  soloLaData: 'Se sono sbagliati solo il giorno o l’ora, usa modifica: li corregge senza traccia e l’esito resta',
+  soloLaData: 'Se sono sbagliati solo il giorno o l’ora, posso correggerli senza traccia e l’esito resta',
+  soloLaDataPerAlfire: 'Per correggere solo giorno e ora: call, azione modifica con data e ora.',
   /** Alfire's card when the pencil corrects the day of a held call or a no-show: a correction, not a move. */
   correzione: {
     svolta: 'Resta svolta, col suo esito: è una correzione, senza «Spostata dal…»',
@@ -103,15 +105,17 @@ export function motivoNonSpostabile(stato: string, ruolo: string): string | null
 }
 
 /**
- * Alfire's refused "sposta" (public.sposta_call's words): the closer and the
- * admin also read that a wrong day or time of a held call or a no-show is the
- * pencil's ("modifica"), so a correction is never answered with "it cannot be
- * done". The setter's words stay his: his pencil never changes them.
+ * Alfire's refused "sposta" (public.sposta_call's words), as a tool error: the
+ * closer and the admin also read that a wrong day or time of a held call or a
+ * no-show is the pencil's ("modifica"), so a correction is never answered with
+ * "it cannot be done"; the model reads which action that is. The setter's
+ * words stay his: his pencil never changes them. Null when the move is allowed.
  */
-export function rifiutoSpostaAlfire(stato: string, ruolo: string): string | null {
+export function rifiutoSpostaAlfire(stato: string, ruolo: string): { errore: string; per_alfire?: string } | null {
   const motivo = motivoNonSpostabile(stato, ruolo)
-  if (!motivo || ruolo === 'setter' || !restaNelSuoGiorno(stato)) return motivo
-  return `${motivo}. ${SPOSTA.soloLaData}`
+  if (!motivo) return null
+  if (ruolo === 'setter' || !restaNelSuoGiorno(stato)) return { errore: motivo }
+  return { errore: `${motivo}. ${SPOSTA.soloLaData}`, per_alfire: SPOSTA.soloLaDataPerAlfire }
 }
 
 /** The line on Alfire's card when the pencil corrects the day of a held call or a no-show; null otherwise. */

@@ -50,6 +50,7 @@ import {
   anteprima,
   anteprimaConConseguenze,
   data,
+  dataISO,
   definizione,
   enumAzioni,
   unisciNote,
@@ -245,7 +246,7 @@ async function prodottoPerNome(ctx: Contesto, nome: string): Promise<ProdottoCat
   const simili = esatti.length > 1 ? esatti : elenco.filter((p) => parole.test(piano(p.nome)))
   if (simili.length === 1) return simili[0]
   if (simili.length > 1) {
-    return errore(`Più prodotti possibili: ${simili.map((p) => p.nome).join(', ')}. Chiedi quale, o il nome del percorso su misura.`)
+    return errore(`Più prodotti possibili: ${simili.map((p) => p.nome).join(', ')}.`, 'Chiedi quale, o il nome del percorso su misura.')
   }
   return null
 }
@@ -259,7 +260,7 @@ function vendita(ctx: Contesto): Definizione {
   const schema = z.object({
     azione: enumAzioni(ctx, 'vendita'),
     cliente: z.string().describe('Nome e cognome'),
-    data_vendita: data.optional().describe('Quale vendita, se ne ha più di una'),
+    data_vendita: dataISO('Quale vendita, se ne ha più di una').optional(),
     tipo: z.enum(TIPI_VENDITA).optional(),
     prodotto: z.string().optional(),
     valore: z.number().positive().optional(),
@@ -269,7 +270,7 @@ function vendita(ctx: Contesto): Definizione {
     setter: z.string().optional(),
     closer: z.string().optional(),
     note: z.string().max(1000).optional(),
-    ultimo_giorno: data.optional().describe('interrompi: ultimo giorno del percorso'),
+    ultimo_giorno: dataISO('interrompi: ultimo giorno del percorso').optional(),
     togli_rate: z.boolean().optional().describe('interrompi: toglie le rate non pagate dopo, il contratto scende'),
   })
   type Input = z.infer<typeof schema>
@@ -388,7 +389,7 @@ function registraVenditaStrumento(ctx: Contesto): Definizione {
     prodotto: z.string().describe('Nome del prodotto del catalogo, o del percorso su misura (es. Annuale)'),
     valore: z.number().positive().describe('Valore del contratto in euro'),
     data_vendita: data,
-    data_inizio: data.describe('AAAA-MM-GG. Di solito una settimana dopo il pagamento; un rinnovo, il giorno dopo la fine del precedente'),
+    data_inizio: dataISO('Di solito una settimana dopo il pagamento; un rinnovo, il giorno dopo la fine del precedente'),
     durata_mesi: z.number().int().min(1).max(36).optional(),
     data_fine: data.optional(),
     numero_rate: z.number().int().min(1).max(24).optional(),
@@ -613,15 +614,15 @@ function rata(ctx: Contesto): Definizione {
     cliente: z.string().describe('Nome del cliente'),
     numero: z.number().int().min(1).optional().describe('Numero della rata'),
     mese: z.string().optional().describe('AAAA-MM della scadenza, per scegliere la rata'),
-    data: data.optional().describe('Data di incasso o rimborso; default oggi'),
+    data: dataISO('Data di incasso o rimborso; default oggi').optional(),
     importo: z.number().positive().optional(),
     metodo: z.enum(METODI).optional(),
     // the closer has no reading that gives a payment_id: number or month pick his instalment
     ...(admin
       ? {
           payment_id: z.string().uuid().optional().describe('Da rate_cliente o da_incassare'),
-          scadenza: data.optional().describe('modifica, aggiungi'),
-          data_vendita: data.optional().describe('aggiungi: quale vendita, default la più recente'),
+          scadenza: dataISO('modifica, aggiungi').optional(),
+          data_vendita: dataISO('aggiungi: quale vendita, default la più recente').optional(),
           note: z.string().max(300).optional(),
         }
       : {}),
@@ -900,7 +901,7 @@ function pagamentoProvvigione(ctx: Contesto): Definizione {
     id: z.string().uuid().optional().describe('Se nel mese ci sono più pagamenti (da provvigioni)'),
     nuovo_mese: z.string().optional().describe('modifica: il mese giusto, AAAA-MM'),
     importo: z.number().positive().optional(),
-    pagato_il: data.optional().describe('Default oggi'),
+    pagato_il: dataISO('Default oggi').optional(),
     metodo: z.enum(METODI).optional(),
     note: z.string().max(300).optional(),
   })
@@ -988,8 +989,8 @@ function regolaProvvigione(ctx: Contesto): Definizione {
     percentuale: z.number().positive().max(50).optional().describe('In punti: 5 = 5%'),
     applica_a: z.array(z.enum(TIPI_VENDITA)).min(1).optional().describe('Default: nuovo'),
     valida_dal: data.optional(),
-    valida_al: data.optional().describe('chiudi: ultimo giorno'),
-    alla_data: data.optional().describe('Quale regola: quella valida quel giorno, default oggi'),
+    valida_al: dataISO('chiudi: ultimo giorno').optional(),
+    alla_data: dataISO('Quale regola: quella valida quel giorno, default oggi').optional(),
   })
 
   const punti = (frazione: number) => Math.round(frazione * 10000) / 100

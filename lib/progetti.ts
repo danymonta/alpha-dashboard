@@ -3,7 +3,7 @@
  * progress, late tasks and counts come from the SQL views (v_pm_*).
  */
 import type { Database } from '@/lib/supabase/database.types'
-import type { LivelloPm } from '@/lib/auth/roles'
+import { ETICHETTA_RUOLO, type AppRole, type LivelloPm } from '@/lib/auth/roles'
 
 export type StatoProgetto = Database['public']['Enums']['pm_stato_progetto']
 export type StatoTask = Database['public']['Enums']['pm_stato_task']
@@ -27,6 +27,30 @@ export const ETICHETTA_PRIORITA: Record<Priorita, string> = {
   bassa: 'Bassa',
   media: 'Media',
   alta: 'Alta',
+}
+
+/**
+ * What the tasks of a role (the meal plan) do when a client's coach is picked,
+ * in words, as public.pm_scegli_coach does it: only the tasks still free or
+ * the previous coach's move, to an active person with that role (already in
+ * the project first, then by name), otherwise to the coach. The project page
+ * and Alfire's card say the same.
+ */
+export function compitiDiRuoloInParole(
+  compiti: readonly { titolo: string; per_ruolo: AppRole | null; assegnatari: readonly string[] }[],
+  attivi: readonly { id: string; nome: string; ruolo: AppRole }[],
+  nelProgetto: ReadonlySet<string>,
+  coachAttuale: string | null,
+): string[] {
+  return compiti.flatMap((t) => {
+    if (!t.per_ruolo) return []
+    if (t.assegnatari.length > 0 && !(coachAttuale && t.assegnatari.includes(coachAttuale))) return []
+    const chi = attivi
+      .filter((p) => p.ruolo === t.per_ruolo)
+      .sort((a, b) => Number(nelProgetto.has(b.id)) - Number(nelProgetto.has(a.id)) || a.nome.localeCompare(b.nome, 'it'))[0]
+    const ruolo = ETICHETTA_RUOLO[t.per_ruolo]
+    return [chi ? `«${t.titolo}» va a ${chi.nome} (${ruolo}).` : `«${t.titolo}» va al coach: nel team nessuno ha il ruolo ${ruolo}.`]
+  })
 }
 
 /** Admin and manager open new projects; employees work inside them. */

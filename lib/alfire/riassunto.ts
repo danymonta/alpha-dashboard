@@ -29,11 +29,25 @@ export type Riassunto = { titolo: string; dettagli: string[] }
  * before → after lines or consequences; sostituisceDettagli: the righe say it
  * all, the input's details are not repeated; incompleta: the database could
  * not be read (a deletion then waits). An errore: the target is not found or
- * not unique, the model has to ask.
+ * not unique, the model has to ask. The card shows errore, in the person's
+ * words; per_alfire (which tool or field, what to ask) goes to the model only.
  */
 export type Anteprima =
   | { titolo?: string; righe: string[]; sostituisceDettagli?: boolean; incompleta?: boolean }
-  | { errore: string }
+  | { errore: string; per_alfire?: string }
+
+/** Between the person's words and the model's hint in the reason a stopped card sends back. */
+const PER_ALFIRE = '\nPer Alfire: '
+
+/** The reason a stopped card sends back to the model: the person's words, then the hint only the model reads. */
+export function motivoAlModello(e: { errore: string; per_alfire?: string }): string {
+  return e.per_alfire ? `${e.errore}${PER_ALFIRE}${e.per_alfire}` : e.errore
+}
+
+/** What the card shows of that reason, after the model has it: the person's words only. */
+export function motivoPerLaPersona(motivo: string): string {
+  return motivo.split(PER_ALFIRE)[0]
+}
 
 type Input = Record<string, unknown>
 
@@ -385,6 +399,7 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
       }
       if (azione === 'aggiungi_membro') return { titolo: `Aggiungo ${elencoNomi(persone(input.persone))} al progetto «${quale}»`, dettagli: [] }
       if (azione === 'togli_membro') return { titolo: `Tolgo ${elencoNomi(persone(input.persone))} dal progetto «${quale}»`, dettagli: [] }
+      if (azione === 'scegli_coach') return { titolo: `${testo(input.coach) ?? '?'} diventa il coach di «${quale}»`, dettagli: [] }
       if (azione === 'elimina') return { titolo: `Elimino il progetto «${quale}»`, dettagli: [] }
       return { titolo: `Correggo il progetto «${quale}»`, dettagli: cambi(input, ['azione', 'progetto', 'persone']) }
     }
@@ -417,7 +432,7 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
       if (azione === 'completa') return { titolo: `Segno come fatto il task «${titolo}»`, dettagli: righe(testo(input.progetto) && `Progetto: ${input.progetto}`) }
       if (azione === 'riapri') return { titolo: `Riapro il task «${titolo}»`, dettagli: righe(testo(input.progetto) && `Progetto: ${input.progetto}`) }
       if (azione === 'elimina') return { titolo: `Elimino il task «${titolo}»`, dettagli: righe(testo(input.progetto) && `Progetto: ${input.progetto}`) }
-      return { titolo: `Correggo il task «${titolo}»`, dettagli: cambi(input, ['azione', 'titolo', 'progetto']) }
+      return { titolo: `Correggo il task «${titolo}»`, dettagli: cambi(input, ['azione', 'titolo', 'progetto', 'task_id']) }
     }
     case 'nota_progetto': {
       const dove = testo(input.progetto) ?? '?'
@@ -434,9 +449,10 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
       const dove = testo(input.progetto)
       switch (azione) {
         case 'avvia':
+          // only the task said: the task names it until the preview finds its project
           return {
-            titolo: `Avvio il timer su «${dove ?? '?'}»`,
-            dettagli: righe(testo(input.task) && `Task: ${input.task}`, testo(input.nota) && `Nota: ${input.nota}`),
+            titolo: `Avvio il timer su «${dove ?? testo(input.task) ?? '?'}»`,
+            dettagli: righe(dove && testo(input.task) && `Task: ${input.task}`, testo(input.nota) && `Nota: ${input.nota}`),
           }
         case 'ferma':
           return { titolo: 'Fermo il timer', dettagli: righe(testo(input.nota) && `Nota: ${input.nota}`) }
@@ -444,12 +460,12 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
           // with a range the duration comes from it
           const fascia = testo(input.dalle) && testo(input.alle) ? `${testo(input.dalle)}–${testo(input.alle)}` : null
           return {
-            titolo: `Registro ${fascia ?? testo(input.durata) ?? '?'} su «${dove ?? '?'}»`,
-            dettagli: righe(`Giorno: ${giorno(input.data)}`, testo(input.task) && `Task: ${input.task}`, testo(input.nota) && `Nota: ${input.nota}`),
+            titolo: `Registro ${fascia ?? testo(input.durata) ?? '?'} del tuo tempo su «${dove ?? testo(input.task) ?? '?'}»`,
+            dettagli: righe(`Giorno: ${giorno(input.data)}`, dove && testo(input.task) && `Task: ${input.task}`, testo(input.nota) && `Nota: ${input.nota}`),
           }
         }
         case 'elimina':
-          return { titolo: 'Elimino una tua voce di tempo', dettagli: righe(dove && `Progetto: ${dove}`) }
+          return { titolo: 'Elimino una tua voce di tempo', dettagli: righe(dove && `Progetto: ${dove}`, testo(input.task) && `Task: ${input.task}`) }
         default: {
           const togli = ['nessuna', 'nessuno', '-'].includes((testo(input.dalle) ?? testo(input.alle) ?? '').toLowerCase())
           const fascia = togli
@@ -459,7 +475,7 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
               : null
           return {
             titolo: 'Correggo una tua voce di tempo',
-            dettagli: [...cambi(input, ['azione', 'progetto', 'voce_id', 'dalle', 'alle']), ...righe(fascia)],
+            dettagli: [...cambi(input, ['azione', 'progetto', 'voce_id', 'task_id', 'dalle', 'alle']), ...righe(fascia)],
           }
         }
       }
@@ -503,6 +519,7 @@ const ETICHETTA_CAMBIO: Record<string, string> = {
   priorita: 'Priorità',
   nuovo_titolo: 'Titolo',
   assegnatari: 'Assegnato a',
+  sotto_task_di: 'Sotto-task di',
   lista: 'Lista',
   stima: 'Stima',
   responsabile: 'Responsabile',
@@ -512,6 +529,8 @@ const ETICHETTA_CAMBIO: Record<string, string> = {
   durata: 'Durata',
   nota: 'Nota',
   task: 'Task',
+  nuovo_progetto: 'Sposto sul progetto',
+  nuovo_task: 'Sposto sul task',
   esito: 'Esito',
   link_registrazione: 'Registrazione',
   performance: 'Performance',
@@ -531,6 +550,7 @@ function cambi(input: Input, esclusi: string[], etichette: Record<string, string
       if (campo === 'piano_predefinito') return `${etichetta}: ${pianoAbituale(valore) ?? 'nessuno'}`
       if (typeof valore === 'number' && IMPORTI.includes(campo)) return `${etichetta}: ${formatEuro(valore)}`
       if (typeof valore === 'boolean') return `${etichetta}: ${valore ? 'sì' : 'no'}`
+      if (campo === 'assegnatari') return `${etichetta}: ${persone(valore).length > 0 ? elencoNomi(persone(valore)) : 'nessuno'}`
       if (Array.isArray(valore)) return `${etichetta}: ${valore.join(', ')}`
       if (typeof valore === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(valore)) return `${etichetta}: ${formatData(valore)}`
       if (typeof valore === 'object') return etichetta

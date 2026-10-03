@@ -12,7 +12,7 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { ETICHETTA_RUOLO, livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { formatData } from '@/lib/format'
-import { ETICHETTA_STATO_PROGETTO, isUuid } from '@/lib/progetti'
+import { ETICHETTA_STATO_PROGETTO, compitiDiRuoloInParole, isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -119,24 +119,14 @@ export default async function LayoutProgetto({
   const personeCoach: PersonaCoach[] = (attivi.data ?? [])
     .map((p) => ({ id: p.id, nome: p.nome, ruolo: ETICHETTA_RUOLO[p.ruolo], coach: p.ruolo === 'coach' }))
     .sort((a, b) => Number(b.coach) - Number(a.coach) || a.nome.localeCompare(b.nome, 'it'))
-  // the same choice pm_scegli_coach makes: only tasks still free or the coach's move, to
-  // someone with the role (already in the project first)
-  const nelProgetto = new Set(persone.map((p) => p.id))
+  // the same choice pm_scegli_coach makes, in words (Alfire's card says the same)
   const elencoNonCaricato = Boolean(attivi.error || compitiDiRuolo.error)
-  const daRuolo = (compitiDiRuolo.data ?? []).flatMap((t) => {
-    if (!t.per_ruolo) return []
-    const suChi = t.assegnatari.map((a) => a.profile_id)
-    if (suChi.length > 0 && !(progetto.coach_id && suChi.includes(progetto.coach_id))) return []
-    const chi = (attivi.data ?? [])
-      .filter((p) => p.ruolo === t.per_ruolo)
-      .sort((a, b) => Number(nelProgetto.has(b.id)) - Number(nelProgetto.has(a.id)) || a.nome.localeCompare(b.nome, 'it'))[0]
-    const ruolo = ETICHETTA_RUOLO[t.per_ruolo]
-    return [
-      chi
-        ? `«${t.titolo}» va a ${chi.nome} (${ruolo}).`
-        : `«${t.titolo}» va al coach: nel team nessuno ha il ruolo ${ruolo}.`,
-    ]
-  })
+  const daRuolo = compitiDiRuoloInParole(
+    (compitiDiRuolo.data ?? []).map((t) => ({ titolo: t.titolo, per_ruolo: t.per_ruolo, assegnatari: t.assegnatari.map((a) => a.profile_id) })),
+    attivi.data ?? [],
+    new Set(persone.map((p) => p.id)),
+    progetto.coach_id,
+  )
 
   return (
     // one width for header, tabs and every tab's content: the right edge never jumps

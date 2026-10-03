@@ -4,12 +4,12 @@ import { tool, type ToolSet } from 'ai'
 import { z } from 'zod'
 
 import { breve } from '@/lib/alfire/cambi'
-import { ARGOMENTI_GUIDA, GUIDA, type ArgomentoGuida } from '@/lib/alfire/guida'
+import { argomentiGuida, testoGuida, type ArgomentoGuida } from '@/lib/alfire/guida'
 import { isScrittura, strumentiConsentiti, type NomeStrumento } from '@/lib/alfire/permessi'
 import type { Anteprima } from '@/lib/alfire/riassunto'
 import { DESCRIZIONE_PROPOSTE, schemaProposte } from '@/lib/alfire/risposte'
-import { errore, etichettaRegola, isErrore, risolutori, type Supabase } from '@/lib/alfire/risolvi'
-import { datiDi, definizione, SOLO_DI_CHI_CHATTA, type Contesto, type Definizione } from '@/lib/alfire/scritture/comune'
+import { errore, etichettaRegola, isErrore, risolutori, type Errore, type Supabase } from '@/lib/alfire/risolvi'
+import { dataISO, datiDi, definizione, erroreData, SOLO_DI_CHI_CHATTA, type Contesto, type Definizione } from '@/lib/alfire/scritture/comune'
 import { scrittureEconomics } from '@/lib/alfire/scritture/economics'
 import { strumentiProgetti } from '@/lib/alfire/scritture/progetti'
 import { scrittureSetting } from '@/lib/alfire/scritture/setting'
@@ -28,10 +28,9 @@ import {
 } from '@/lib/setting/commento'
 import { ETICHETTA_ESITO } from '@/lib/validation/esito'
 
-const data = z.string().describe('Data ISO, AAAA-MM-GG')
 const periodo = z.object({
-  da: data.optional().describe('Inizio, incluso. Default: primo giorno del mese corrente'),
-  a: data.optional().describe('Fine, inclusa. Default: oggi'),
+  da: dataISO('Inizio, incluso. Default: primo giorno del mese corrente').optional(),
+  a: dataISO('Fine, inclusa. Default: oggi').optional(),
 })
 
 /** The notes of a call in call_periodo: their first characters, on one line. */
@@ -40,6 +39,9 @@ const LUNGHEZZA_NOTE_CALL = 300
 /** Rows read by call_periodo and vendite_periodo: a list cut short says so. */
 const CALL_PERIODO = 60
 const VENDITE_PERIODO = 40
+/** Projects and my open tasks: the same, said in the result (03/10/2026). */
+const PROGETTI_ALFIRE = 40
+const MIEI_TASK = 40
 
 /**
  * Which calls RLS gives the setter and the closer: only their own. Said in the
@@ -60,10 +62,16 @@ const PERIMETRO_CALL: Partial<Record<Profilo['ruolo'], { descrizione: string; ri
   },
 }
 
-function leggiPeriodo({ da, a }: { da?: string; a?: string }) {
+/**
+ * The period asked for, by default the month so far. A date in another format
+ * ("28/09/2026", "lunedì") is an error, never the default: the model would
+ * answer about a period nobody asked for (03/10/2026).
+ */
+function leggiPeriodo({ da, a }: { da?: string; a?: string }): { da: string; a: string } | Errore {
+  if ((da?.trim() && !isDataISO(da)) || (a?.trim() && !isDataISO(a))) return erroreData()
   const oggi = oggiRoma()
-  const inizio = da && isDataISO(da) ? da : primoDelMeseISO(oggi)
-  const fine = a && isDataISO(a) ? a : oggi
+  const inizio = da?.trim() ? da : primoDelMeseISO(oggi)
+  const fine = a?.trim() ? a : oggi
   return inizio <= fine ? { da: inizio, a: fine } : { da: fine, a: inizio }
 }
 
@@ -80,10 +88,11 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
   }
 
   return {
+    // each role reads its own topics (03/10/2026): a coach never the overview, costs or settings
     guida: definizione({
       description: 'Come funziona una parte della dashboard (pagine, regole, permessi).',
-      inputSchema: z.object({ argomento: z.enum(ARGOMENTI_GUIDA as [ArgomentoGuida, ...ArgomentoGuida[]]) }),
-      execute: async ({ argomento }) => ({ testo: GUIDA[argomento] }),
+      inputSchema: z.object({ argomento: z.enum(argomentiGuida(profilo.ruolo) as [ArgomentoGuida, ...ArgomentoGuida[]]) }),
+      execute: async ({ argomento }) => ({ testo: testoGuida(argomento, profilo.ruolo) }),
     }),
 
     numeri_periodo: definizione({
@@ -93,6 +102,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
+        if (isErrore(p)) return p
         const [kpi, metriche, funnel] = await Promise.all([
           supabase.rpc('kpi_periodo', { p_da: p.da, p_a: p.a }),
           supabase.rpc('metriche_periodo', { p_da: p.da, p_a: p.a }).single(),
@@ -215,6 +225,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       inputSchema: periodo.extend({ tipo: z.enum(['nuovo', 'rinnovo', 'upsell']).optional() }),
       execute: async (input) => {
         const p = leggiPeriodo(input)
+        if (isErrore(p)) return p
         let q = supabase
           .from('sales')
           .select(
@@ -273,6 +284,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
+        if (isErrore(p)) return p
         const { data, error } = await supabase.rpc('metriche_setting', { p_da: p.da, p_a: p.a })
         return error ? errore('Metriche non disponibili.') : { periodo: p, setter: data }
       },
@@ -287,6 +299,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       inputSchema: periodo.extend({ setter: z.string().optional().describe('Nome; vuoto: tutti') }),
       execute: async (input) => {
         const p = leggiPeriodo(input)
+        if (isErrore(p)) return p
         let setterId: string | undefined
         let setterNome: string | undefined
         if (input.setter?.trim()) {
@@ -391,6 +404,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
+        if (isErrore(p)) return p
         const [totali, voci] = await Promise.all([
           supabase.rpc('riepilogo_costi_periodo', { p_da: p.da, p_a: p.a }),
           supabase
@@ -411,6 +425,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
+        if (isErrore(p)) return p
         const { data, error } = await supabase.rpc('miei_numeri_periodo', { p_da: p.da, p_a: p.a })
         return error ? errore('Numeri non disponibili.') : { ...datiDi(profilo), periodo: p, numeri: data?.[0] ?? null }
       },
@@ -423,6 +438,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
+        if (isErrore(p)) return p
         const { data, error } = await supabase
           .from('calls')
           .select(
@@ -470,17 +486,19 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
     }),
 
     progetti: definizione({
-      description: 'Progetti visibili a chi chatta, con stato, avanzamento, task in ritardo e date.',
+      description: 'Progetti visibili a chi chatta, con stato, avanzamento, task in ritardo e date. Quello di un cliente porta il suo nome.',
       inputSchema: z.object({ testo: z.string().max(60).optional() }),
       execute: async ({ testo }) => {
         let q = supabase
           .from('v_pm_progetti')
           .select('id, nome, stato, avanzamento, task_totali, task_completati, task_in_ritardo, data_inizio, data_fine')
           .order('nome')
-          .limit(25)
+          // one more than shown: a list cut short says so (a project per paying client, 02/10/2026)
+          .limit(PROGETTI_ALFIRE + 1)
         if (testo?.trim()) q = q.ilike('nome', `%${testo.trim()}%`)
-        const { data, error } = await q
+        const { data: righe, error } = await q
         if (error) return errore('Progetti non disponibili.')
+        const data = righe.slice(0, PROGETTI_ALFIRE)
         return {
           // below the projects' admin, RLS gives only the caller's projects: never "the projects Lorenzo works on"
           ...(livelloPm === 'admin'
@@ -490,6 +508,9 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
                 di_chi: `Solo i progetti di cui ${profilo.nome}, cioè chi sta chattando, è membro: non tutti quelli del team, né quelli di un’altra persona.`,
               }),
           progetti: data,
+          ...(righe.length > PROGETTI_ALFIRE
+            ? { nota: `Elenco parziale: qui i primi ${PROGETTI_ALFIRE} per nome. Per uno in particolare, cercalo per nome (testo); tutti in [Progetti](/progetti).` }
+            : {}),
         }
       },
     }),
@@ -505,8 +526,11 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
           .contains('assegnatari', [profilo.id])
           .neq('stato', 'completato')
           .order('scadenza', { nullsFirst: false })
-          .limit(30)
+          // one more than shown: a coach with a dozen clients has a hundred undated tasks, and the list says it is cut
+          .limit(MIEI_TASK + 1)
         if (error) return errore('Task non disponibili.')
+        const parziale = data.length > MIEI_TASK
+        data.splice(MIEI_TASK)
         // the project by name, as on I miei task: the model never shows an id
         const ids = [...new Set(data.map((t) => t.progetto_id).filter((id): id is string => Boolean(id)))]
         const progetti = ids.length ? await supabase.from('v_pm_progetti').select('id, nome').in('id', ids) : { data: [], error: null }
@@ -515,6 +539,11 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
         return {
           ...datiDi(profilo),
           task: data.map(({ progetto_id, ...t }) => ({ ...t, progetto: (progetto_id && nomi.get(progetto_id)) || null })),
+          ...(parziale
+            ? {
+                nota: `Elenco parziale: qui i primi ${MIEI_TASK}, per scadenza (quelli senza scadenza per ultimi), non tutti. Per un progetto: progetto_dettaglio; tutti in [I miei task](/task).`,
+              }
+            : {}),
         }
       },
     }),

@@ -33,7 +33,7 @@ import {
 import { anteprimaAlfire } from '@/lib/alfire/anteprima'
 import { avvisoTrascrizione, unisciTesto } from '@/lib/alfire/dettatura'
 import { isScrittura } from '@/lib/alfire/permessi'
-import { azioneDistruttiva, riassuntoScrittura, type Anteprima } from '@/lib/alfire/riassunto'
+import { azioneDistruttiva, motivoAlModello, motivoPerLaPersona, riassuntoScrittura, type Anteprima } from '@/lib/alfire/riassunto'
 import {
   confermeComplete,
   domandaNonDetta,
@@ -42,7 +42,7 @@ import {
   propostaCheRisponde,
   rispostaScelta,
 } from '@/lib/alfire/risposte'
-import type { AppRole } from '@/lib/auth/roles'
+import { haEconomics, type AppRole } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
 /** Per-viewer convenience (not data): read answers aloud. */
@@ -57,7 +57,8 @@ const SUGGERIMENTI: Record<'admin' | 'setter' | 'closer' | 'altro', string[]> = 
   ],
   setter: ['Come sto andando questo mese?', 'Aggiungi 20 DM outbound al report di oggi', 'Che call ho questa settimana?'],
   closer: ['Che call ho oggi e domani?', 'Come registro l’esito di una call?'],
-  altro: ['Quali task ho aperti?', 'Come funzionano i progetti?'],
+  // the team's own time first (Dany, 03/10/2026: "chiedere ad Alfire di tracciare il tempo")
+  altro: ['Quanto tempo ho registrato questa settimana?', 'Avvia il timer su un progetto', 'Quali task ho aperti?', 'Come registro il mio tempo?'],
 }
 
 const LETTURE: Record<string, string> = {
@@ -324,6 +325,7 @@ function Pannello({
     }
   }, [messages, router])
 
+  const economics = haEconomics(ruolo)
   const suggerimenti = SUGGERIMENTI[ruolo === 'admin' || ruolo === 'setter' || ruolo === 'closer' ? ruolo : 'altro']
 
   return (
@@ -332,7 +334,9 @@ function Pannello({
         <Fiamma className="size-8" accesa />
         <div className="min-w-0 flex-1">
           <SheetTitle>Alfire</SheetTitle>
-          <SheetDescription>Chiedi dei numeri o fatti aiutare a registrare.</SheetDescription>
+          <SheetDescription>
+            {economics ? 'Chiedi dei numeri o fatti aiutare a registrare.' : 'Chiedi dei tuoi task o fatti aiutare a registrare il tempo.'}
+          </SheetDescription>
         </div>
         {messages.length > 0 ? (
           <Button
@@ -360,8 +364,10 @@ function Pannello({
         ) : messages.length === 0 ? (
           <div className="space-y-4">
             <p className="text-sm">
-              Ciao {nome.split(' ')[0]}, sono Alfire. Posso leggere i numeri della dashboard e i file che alleghi e, con la tua
-              conferma, registrare al posto tuo.
+              Ciao {nome.split(' ')[0]}, sono Alfire.{' '}
+              {economics
+                ? 'Posso leggere i numeri della dashboard e i file che alleghi e, con la tua conferma, registrare al posto tuo.'
+                : 'Posso leggere i tuoi progetti, i tuoi task, il tuo tempo e i file che alleghi e, con la tua conferma, registrare al posto tuo.'}
             </p>
             <div className="flex flex-col gap-2" role="group" aria-label="Domande suggerite">
               {suggerimenti.map((s) => (
@@ -729,13 +735,16 @@ function SchedaScrittura({
       .catch(() => setAnteprima(ANTEPRIMA_NON_LETTA))
   }, [daConfermare, nome, input])
 
-  // a target not found or not unique: the model gets the reason and asks the user which one
-  const erroreAnteprima = anteprima && 'errore' in anteprima ? anteprima.errore : null
+  // a target not found or not unique: the model gets the reason (with its hint) and asks the user which one;
+  // the card shows the person's words only
+  const fermata = anteprima && 'errore' in anteprima ? anteprima : null
+  const erroreAnteprima = fermata?.errore ?? null
+  const motivo = fermata ? motivoAlModello(fermata) : null
   useEffect(() => {
-    if (!erroreAnteprima || !daConfermare || !approvazione || rifiutata.current) return
+    if (!motivo || !daConfermare || !approvazione || rifiutata.current) return
     rifiutata.current = true
-    void approva({ id: approvazione.id, approved: false, reason: erroreAnteprima })
-  }, [erroreAnteprima, daConfermare, approvazione, approva])
+    void approva({ id: approvazione.id, approved: false, reason: motivo })
+  }, [motivo, daConfermare, approvazione, approva])
 
   if (parte.state === 'input-streaming') {
     return (
@@ -806,7 +815,7 @@ function SchedaScrittura({
         approvazione?.reason ? (
           <p className="flex items-start gap-1.5 text-sm text-status-warning">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            Non l’ho fatto: {approvazione.reason}
+            Non l’ho fatto: {motivoPerLaPersona(approvazione.reason)}
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">Annullato: non ho scritto niente.</p>

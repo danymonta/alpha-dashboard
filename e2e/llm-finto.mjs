@@ -127,6 +127,11 @@ function rispostaTempo(strumento, esito, domanda) {
   return `Hai registrato ${dati.voci?.length ?? 0} voci.`
 }
 
+/** Yesterday in Europe/Rome, as the tools want it: AAAA-MM-GG. */
+function ieriRoma() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(new Date(Date.now() - 86_400_000))
+}
+
 function contenuto(m) {
   return typeof m.content === 'string' ? m.content : (m.content ?? []).map((p) => p.text ?? '').join(' ')
 }
@@ -300,6 +305,16 @@ createServer(async (req, res) => {
       return chiamata(res, 'tempo_team', { persona: personaChiesta(domanda), ultimi_giorni: 7 })
     }
     return chiamata(res, 'mio_tempo', { ultimi_giorni: 7 })
+  }
+  // e2e/alfire-tempo-coach.spec.ts: a coach tracks his time on a client's project, the
+  // project said by the client's name and the task in his own words
+  const timer = /^avvia il timer su (.+?), (.+)$/.exec(domanda.trim())
+  if (timer) return chiamata(res, 'tempo', { azione: 'avvia', progetto: timer[1], task: timer[2] })
+  const ferma = /^ferma il timer: (.+)$/.exec(domanda.trim())
+  if (ferma) return chiamata(res, 'tempo', { azione: 'ferma', nota: ferma[1] })
+  const fascia = /^registra ieri dalle 9 alle 10:30 su (.+?), (.+)$/.exec(domanda.trim())
+  if (fascia) {
+    return chiamata(res, 'tempo', { azione: 'registra', progetto: fascia[1], task: fascia[2], data: ieriRoma(), dalle: '09:00', alle: '10:30' })
   }
   if (domanda.includes('andato il mese')) return chiamata(res, 'numeri_periodo', {})
   if (domanda.includes('chi è in ritardo')) return testo(res, 'Nessuno è in ritardo con i pagamenti.')

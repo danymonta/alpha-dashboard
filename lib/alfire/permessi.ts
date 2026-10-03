@@ -123,9 +123,10 @@ export const AZIONI = {
   // modalita of the daily report
   aggiorna_report: { admin: ['aggiungi', 'imposta', 'elimina'], setter: ['aggiungi', 'imposta'] },
   // per projects level from here on
+  // scegli_coach: «Scegli il coach» of a client's project, for who manages it (02/10/2026)
   progetto: {
-    admin: ['crea', 'modifica', 'aggiungi_membro', 'togli_membro', 'elimina'],
-    manager: ['crea', 'modifica', 'aggiungi_membro', 'togli_membro'],
+    admin: ['crea', 'modifica', 'aggiungi_membro', 'togli_membro', 'scegli_coach', 'elimina'],
+    manager: ['crea', 'modifica', 'aggiungi_membro', 'togli_membro', 'scegli_coach'],
   },
   lista: { admin: ['crea', 'modifica', 'elimina'], manager: ['crea', 'modifica', 'elimina'] },
   task: {

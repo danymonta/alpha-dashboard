@@ -20,7 +20,9 @@ import {
  */
 
 export type Esito = { ok: true } | { ok: false; errore: string }
-export type EsitoFermo = { ok: true; minuti: number | null } | { ok: false; errore: string }
+/** The entry a timer or a save created: Alfire corrects "the one just registered" by it. */
+export type EsitoVoce = { ok: true; id: string | null } | { ok: false; errore: string }
+export type EsitoFermo = { ok: true; minuti: number | null; id: string | null } | { ok: false; errore: string }
 
 function primoErrore(issues: { message: string }[]) {
   return issues[0]?.message ?? 'Dati non validi.'
@@ -31,14 +33,14 @@ function aggiorna(progettoId?: string | null) {
   if (progettoId) revalidatePath(`/progetti/${progettoId}`, 'layout')
 }
 
-export async function avviaTimer(input: unknown): Promise<Esito> {
+export async function avviaTimer(input: unknown): Promise<EsitoVoce> {
   const parsed = avviaTimerSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error.issues) }
   const negato = await negaSeNon(TUTTI_I_RUOLI)
   if (negato) return { ok: false, errore: negato }
 
   const supabase = await createClient()
-  const { error } = await supabase.rpc('pm_avvia_timer', {
+  const { data: id, error } = await supabase.rpc('pm_avvia_timer', {
     p_progetto_id: parsed.data.progetto_id,
     p_task_id: parsed.data.task_id ?? undefined,
     p_nota: parsed.data.nota ?? undefined,
@@ -46,7 +48,7 @@ export async function avviaTimer(input: unknown): Promise<Esito> {
   if (error) return { ok: false, errore: messaggioErrore(error, 'Timer non avviato. Riprova.') }
 
   aggiorna(parsed.data.progetto_id)
-  return { ok: true }
+  return { ok: true, id: id ?? null }
 }
 
 export async function fermaTimer(input: unknown): Promise<EsitoFermo> {
@@ -61,12 +63,12 @@ export async function fermaTimer(input: unknown): Promise<EsitoFermo> {
   // already stopped elsewhere (another device): nothing to do, the screens catch up
   if (!id) {
     aggiorna()
-    return { ok: true, minuti: null }
+    return { ok: true, minuti: null, id: null }
   }
 
   const { data: voce } = await supabase.from('pm_tempo').select('minuti, progetto_id').eq('id', id).maybeSingle()
   aggiorna(voce?.progetto_id)
-  return { ok: true, minuti: voce?.minuti ?? null }
+  return { ok: true, minuti: voce?.minuti ?? null, id }
 }
 
 /**
@@ -74,7 +76,7 @@ export async function fermaTimer(input: unknown): Promise<EsitoFermo> {
  * the database builds start and end in Europe/Rome and computes the minutes
  * (pm_registra_tempo).
  */
-export async function registraTempo(input: unknown): Promise<Esito> {
+export async function registraTempo(input: unknown): Promise<EsitoVoce> {
   const parsed = tempoManualeSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error.issues) }
   const negato = await negaSeNon(TUTTI_I_RUOLI)
@@ -82,7 +84,7 @@ export async function registraTempo(input: unknown): Promise<Esito> {
 
   const { progetto_id, task_id, data, durata, dalle, alle, nota } = parsed.data
   const supabase = await createClient()
-  const { error } = await supabase.rpc('pm_registra_tempo', {
+  const { data: id, error } = await supabase.rpc('pm_registra_tempo', {
     p_progetto_id: progetto_id,
     p_data: data,
     ...(dalle && alle ? { p_dalle: dalle, p_alle: alle } : { p_minuti: durata }),
@@ -92,7 +94,7 @@ export async function registraTempo(input: unknown): Promise<Esito> {
   if (error) return { ok: false, errore: messaggioErrore(error, 'Tempo non salvato. Riprova.') }
 
   aggiorna(progetto_id)
-  return { ok: true }
+  return { ok: true, id: id ?? null }
 }
 
 /**
