@@ -140,7 +140,7 @@ export const LEGENDA_CLOSER = {
   },
   show_rate: {
     etichetta: 'Show rate',
-    spiegazione: 'Call svolte ÷ (svolte + no show). Cancellate e riprogrammate non contano.',
+    spiegazione: 'Call svolte ÷ (svolte + no show). Cancellate e in attesa di conferma non contano.',
   },
   close_rate: {
     etichetta: 'Close rate',

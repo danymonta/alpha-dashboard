@@ -12,9 +12,11 @@ import { CONSEGUENZE } from '@/lib/alfire/conseguenze'
 import {
   SPOSTA,
   correzioneSenzaTraccia,
+  motivoNonSpostabile,
   motivoQuandoBloccato,
   quandoBreve,
   quandoBreveDa,
+  restaNelSuoGiorno,
   rifiutoSpostaAlfire,
 } from '@/lib/call/spostamento'
 import type { Anteprima } from '@/lib/alfire/riassunto'
@@ -79,10 +81,11 @@ const CAMPI_SETTER = GRUPPI_REPORT.flatMap((g) => g.campi.map(([campo, etichetta
 const NOMI_CAMPI_SETTER = new Set<string>(CAMPI_SETTER.map((c) => c.campo))
 
 /**
- * The outcomes Alfire records. "Riprogrammata" is a move (Dany, 02/10/2026):
- * azione sposta, with the new day and time, never an outcome without them.
+ * The outcomes Alfire records. "riprogrammata" is "In attesa di conferma"
+ * (Dany, 04/10/2026): the lead has to confirm a new date, the call stays on
+ * its day. With the new day already known it is a move: azione sposta.
  */
-const ESITI = ['chiusa', 'follow_up', 'persa', 'no_show', 'cancellata', 'programmata'] as const
+const ESITI = ['chiusa', 'follow_up', 'persa', 'no_show', 'cancellata', 'riprogrammata', 'programmata'] as const
 
 /**
  * The setter's comment on the day (lib/setting/commento.ts): the two scales
@@ -201,7 +204,10 @@ function call(ctx: Contesto): Definizione {
     lead: z.string().describe('Nome del lead'),
     ...(chiFaLaCall
       ? {
-          esito: z.enum(ESITI).optional().describe('programmata annulla l’esito'),
+          esito: z
+            .enum(ESITI)
+            .optional()
+            .describe(`programmata annulla l’esito; riprogrammata = ${SPOSTA.attesa.etichetta} (senza data)`),
           qualificata: z.boolean().optional().describe('follow_up, persa'),
           motivo: z
             .string()
@@ -223,7 +229,7 @@ function call(ctx: Contesto): Definizione {
             .string()
             .max(MASSIMO_NOTE_CLOSER)
             .optional()
-            .describe(`${NOTE_CLOSER.diChi}: con esito follow_up o persa, o con modifica; "" le toglie`),
+            .describe(`${NOTE_CLOSER.diChi}: con esito follow_up, persa o riprogrammata, o con modifica; "" le toglie`),
           link_registrazione: z.string().max(500).optional(),
           performance: z.enum(PERFORMANCE).optional(),
           prodotto_proposto: z.string().optional().describe('Nome del prodotto; "nessuno" lo toglie'),
@@ -306,19 +312,29 @@ function call(ctx: Contesto): Definizione {
     }
   }
 
-  /** What registraEsito receives: the closer's notes only with follow_up and persa, as in the sheet. */
+  /**
+   * What registraEsito receives: the closer's notes only with follow_up, persa
+   * and "In attesa di conferma" (riprogrammata, without a date), as in the sheet.
+   */
   function inputEsito(v: Input, callId: string) {
-    return chiedeMotivo(v.esito)
-      ? { call_id: callId, esito: v.esito, qualificata: v.qualificata, motivo: v.motivo, note_closer: v.note_closer }
-      : { call_id: callId, esito: v.esito }
+    if (chiedeMotivo(v.esito)) {
+      return { call_id: callId, esito: v.esito, qualificata: v.qualificata, motivo: v.motivo, note_closer: v.note_closer }
+    }
+    if (v.esito === 'riprogrammata') return { call_id: callId, esito: v.esito, note_closer: v.note_closer }
+    return { call_id: callId, esito: v.esito }
   }
 
-  function controllaEsito(v: Input, callId: string) {
+  function controllaEsito(v: Input, c: Call) {
     if (!v.esito) return errore('Dimmi l’esito della call.')
     // "sposta la call a domani", "è stata riprogrammata a venerdì": a move, never an outcome
     if (v.data || v.ora) {
       return errore('L’esito non cambia il giorno né l’ora della call: per quello la call si sposta.', 'Per spostarla: call, azione sposta con data e ora.')
     }
+    // "In attesa di conferma": a held call or a no-show never leaves its day (04/10/2026)
+    if (v.esito === 'riprogrammata' && restaNelSuoGiorno(c.stato)) {
+      return errore(motivoNonSpostabile(c.stato, ruolo) ?? 'Questa call non si riprogramma.')
+    }
+    const callId = c.id
     if (chiedeMotivo(v.esito) && v.qualificata === undefined) {
       return errore('Dimmi se il lead era qualificato.')
     }
@@ -365,7 +381,8 @@ function call(ctx: Contesto): Definizione {
       : `Una call (call_id da call_periodo, o il nome del lead). ${sposta}modifica = corregge data e ora sbagliate (senza traccia; anche di una call svolta o di un no show, che restano tali: è una correzione, mai per spostarla), tipo${
           ruolo === 'admin' ? ', closer, note del setter' : ''
         }, note aggiuntive del closer, link, performance, prodotto e importo proposti. esito = come è andata: chiusa, follow_up o persa (con qualificata e motivo di non chiusura, obbligatorio; note_closer facoltative), ` +
-        'no_show, cancellata, programmata (annulla l’esito, solo se è sbagliato: mai per spostare un no show vero o una call svolta); riprogrammata non è un esito: usa sposta. Dopo chiusa registra la vendita con registra_vendita e il call_id. ' +
+        `no_show, cancellata, riprogrammata = «${SPOSTA.attesa.etichetta}»: il lead deve confermare una nuova data che ancora non c’è, la call resta sul suo giorno senza esito (note_closer facoltative; con la nuova data già decisa usa sposta), ` +
+        'programmata (annulla l’esito, solo se è sbagliato: mai per spostare un no show vero o una call svolta). Dopo chiusa registra la vendita con registra_vendita e il call_id. ' +
         `Lo stato del lead in pipeline non cambia da solo: lead stato.${ruolo === 'admin' ? ' elimina.' : ''}`
 
   return definizione({
@@ -377,10 +394,11 @@ function call(ctx: Contesto): Definizione {
       if (isErrore(c)) return c
       const chi = `${c.lead?.nome ?? v.lead} del ${quandoCall(c)}`
       if (v.azione === 'esito') {
-        const manca = controllaEsito(v, c.id)
+        const manca = controllaEsito(v, c)
         if (manca) return manca
         const esito = v.esito as SceltaEsito
         const nonChiusa = chiedeMotivo(esito)
+        const inAttesa = esito === 'riprogrammata'
         return anteprima(`Registro l’esito della call con ${chi}: ${ETICHETTA_ESITO[esito]}`, [
           `Ora: ${c.esito ? ETICHETTA_ESITO[c.esito as SceltaEsito] : (ETICHETTA_ESITO[c.stato as SceltaEsito] ?? c.stato)}`,
           nonChiusa ? `Qualificata: ${v.qualificata ? 'sì' : 'no'}` : null,
@@ -393,7 +411,10 @@ function call(ctx: Contesto): Definizione {
           !nonChiusa && c.obiezione_principale?.trim()
             ? `${MOTIVO_NON_CHIUSURA.titolo}: ${breve(c.obiezione_principale)} → ${MOTIVO_NON_CHIUSURA.tolto}`
             : null,
-          nonChiusa && v.note_closer !== undefined ? cambio(NOTE_CLOSER.titolo, c.note_closer, v.note_closer, 'lungo') : null,
+          (nonChiusa || inAttesa) && v.note_closer !== undefined
+            ? cambio(NOTE_CLOSER.titolo, c.note_closer, v.note_closer, 'lungo')
+            : null,
+          inAttesa ? SPOSTA.attesa.descrizione : null,
           esito === 'chiusa' ? 'Poi registriamo la vendita.' : null,
         ])
       }
@@ -462,7 +483,7 @@ function call(ctx: Contesto): Definizione {
       const c = await r.trovaCall({ call_id: v.call_id, lead: v.lead })
       if (isErrore(c)) return c
       if (v.azione === 'esito') {
-        const manca = controllaEsito(v, c.id)
+        const manca = controllaEsito(v, c)
         if (manca) return manca
         const esito = await registraEsito(inputEsito(v, c.id))
         if (!esito.ok) return errore(esito.errore)

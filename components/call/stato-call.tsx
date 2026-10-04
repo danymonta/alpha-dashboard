@@ -1,6 +1,6 @@
 import {
   Ban,
-  CalendarClock,
+  Hourglass,
   CircleCheck,
   CircleX,
   Clock,
@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
+import { SPOSTA } from '@/lib/call/spostamento'
 import type { Database } from '@/lib/supabase/database.types'
 import { cn } from '@/lib/utils'
 
@@ -32,7 +33,8 @@ function aspetto(stato: Stato, esito: Esito | null, passata: boolean): Aspetto {
   }
   if (stato === 'no_show') return { etichetta: 'No show', Icona: UserX, tono: 'text-status-warning' }
   if (stato === 'cancellata') return { etichetta: 'Cancellata', Icona: Ban, tono: 'text-muted-foreground' }
-  return { etichetta: 'Riprogrammata', Icona: CalendarClock, tono: 'text-muted-foreground' }
+  // stato riprogrammata: the lead has to confirm a new date (04/10/2026)
+  return { etichetta: SPOSTA.attesa.etichetta, Icona: Hourglass, tono: 'text-status-warning' }
 }
 
 /** Call state: always icon + words, colour only reinforces. */

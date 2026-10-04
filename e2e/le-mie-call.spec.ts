@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { SPOSTA } from '../lib/call/spostamento'
 import { ID_ADMIN, ID_CLOSER, creaCallDiProva, dbLocale } from './db'
 import { accedi } from './utenti'
 
@@ -272,7 +273,7 @@ test('le note aggiuntive sono del closer: il setter le legge, scrive solo le sue
   })
 })
 
-test('una call futura si può solo annullare o spostare', async ({ page }) => {
+test('una call futura si può solo annullare, mettere in attesa di conferma o spostare', async ({ page }) => {
   const nome = nomeUnico('Futura')
   await creaCallDiProva(nome, ID_CLOSER, -48)
   await accedi(page, 'closer')
@@ -280,10 +281,12 @@ test('una call futura si può solo annullare o spostare', async ({ page }) => {
 
   // moving has its own button (Dany, 02/10/2026): e2e/sposta-call.spec.ts
   await expect(scheda(page, nome).getByRole('button', { name: `Sposta la call con ${nome}` })).toBeVisible()
-  await scheda(page, nome).getByRole('button', { name: 'Annulla la call' }).click()
+  await scheda(page, nome).getByRole('button', { name: 'Annulla o rimanda' }).click()
   const foglio = page.getByRole('dialog')
   await expect(foglio.getByRole('button', { name: 'Cancellata', exact: true })).toBeVisible()
-  // moving it is «Sposta», right beside: the sheet only cancels it
+  // the lead will confirm a new date (Dany, 04/10/2026); a known date is «Sposta», right beside
+  await expect(foglio.getByRole('button', { name: SPOSTA.attesa.etichetta, exact: true })).toBeVisible()
+  await expect(foglio.getByRole('button', { name: SPOSTA.riprogrammata.scelta, exact: true })).toHaveCount(0)
   await expect(foglio.getByRole('button', { name: 'Riprogrammata', exact: true })).toHaveCount(0)
   await expect(foglio.getByRole('button', { name: 'Chiusa', exact: true })).toHaveCount(0)
   await expect(foglio.getByRole('button', { name: 'No show', exact: true })).toHaveCount(0)

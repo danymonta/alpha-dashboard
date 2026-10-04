@@ -5,9 +5,10 @@ import { z } from 'zod'
 
 import { messaggioErrore } from '@/lib/auth/azioni'
 import { getProfilo } from '@/lib/auth/session'
+import { motivoNonSpostabile } from '@/lib/call/spostamento'
 import { createClient } from '@/lib/supabase/server'
 import { modificaCallSchema, schemaSpostamento } from '@/lib/validation/call'
-import { aggiornamentoDaEsito, esitoCallSchema } from '@/lib/validation/esito'
+import { aggiornamentoDaEsito, esitoCallSchema, nuovaDataEsito } from '@/lib/validation/esito'
 
 /** Every page that lists calls or counts them by day. */
 const PAGINE_DELLE_CALL = ['/calls', '/', '/setting', '/setting/closer', '/setting/closer/giorno', '/leads', '/my-numbers']
@@ -37,15 +38,33 @@ export async function registraEsito(input: unknown): Promise<EsitoRegistrazione>
     return { ok: false, errore: 'L’esito lo registra chi ha fatto la call.' }
   }
 
-  // "Riprogrammata" moves the same call to its new day (Dany, 02/10/2026)
-  if (parsed.data.esito === 'riprogrammata') {
-    const { call_id, data: giorno, ora } = parsed.data
-    const mossa = await sposta({ call_id, data: giorno, ora }, profilo.ruolo === 'admin')
-    return mossa.ok ? { ok: true, vaiA: null } : mossa
+  const supabase = await createClient()
+  const v = parsed.data
+
+  // "Ha già una nuova data" moves the same call to its new day (Dany, 02/10/2026)
+  const nuova = nuovaDataEsito(v)
+  if (nuova) {
+    const mossa = await sposta({ call_id: v.call_id, ...nuova }, profilo.ruolo === 'admin')
+    if (!mossa.ok) return mossa
+    if (v.esito === 'riprogrammata' && v.note_closer !== undefined) {
+      let note = supabase.from('calls').update({ note_closer: v.note_closer }).eq('id', v.call_id)
+      if (profilo.ruolo === 'closer') note = note.eq('closer_id', profilo.id)
+      const { error } = await note
+      if (error) return { ok: false, errore: 'Call spostata, note non salvate. Riprova.' }
+    }
+    return { ok: true, vaiA: null }
   }
 
-  const supabase = await createClient()
-  let query = supabase.from('calls').update(aggiornamentoDaEsito(parsed.data)).eq('id', parsed.data.call_id)
+  // "In attesa di conferma" (04/10/2026): a held call or a no-show never leaves
+  // its outcome for it, as it never moves (lib/call/spostamento.ts)
+  if (v.esito === 'riprogrammata') {
+    const { data: attuale, error } = await supabase.from('calls').select('stato').eq('id', v.call_id).maybeSingle()
+    if (error) return { ok: false, errore: 'Esito non salvato. Riprova.' }
+    const ferma = attuale ? motivoNonSpostabile(attuale.stato, profilo.ruolo) : null
+    if (ferma) return { ok: false, errore: ferma }
+  }
+
+  let query = supabase.from('calls').update(aggiornamentoDaEsito(v)).eq('id', v.call_id)
   if (profilo.ruolo === 'closer') query = query.eq('closer_id', profilo.id)
   const { data, error } = await query.select('id').maybeSingle()
 
@@ -57,7 +76,7 @@ export async function registraEsito(input: unknown): Promise<EsitoRegistrazione>
   // A closed call goes straight to the prefilled sale
   return {
     ok: true,
-    vaiA: parsed.data.esito === 'chiusa' ? `/sales/new?call=${data.id}` : null,
+    vaiA: v.esito === 'chiusa' ? `/sales/new?call=${data.id}` : null,
   }
 }
 
@@ -68,7 +87,7 @@ export type EsitoModifica = { ok: true } | { ok: false; errore: string }
  * still to be held, with the trace "Spostata dal …" (public.sposta_call). The
  * closer his calls, the admin any (also to the past), the setter the calls he
  * booked while they are still to be held: the RPC decides with RLS and says
- * why in words. From the "Sposta" button, the outcome "Riprogrammata" and Alfire.
+ * why in words. From the "Sposta" button, the outcome "Ha già una nuova data" and Alfire.
  */
 export async function spostaCall(input: unknown): Promise<EsitoModifica> {
   const profilo = await getProfilo()

@@ -99,7 +99,7 @@ export function ModificaCall({
   /**
    * Why date and time are read only here (lib/call/spostamento.ts,
    * motivoQuandoBloccato): the setter never moves a call with an outcome, or
-   * marked "Riprogrammata"; the database refuses it too. Closer and admin
+   * "In attesa di conferma"; the database refuses it too. Closer and admin
    * correct the date of every call, a held call and a no-show included
    * (Dany, 03/10/2026): a typo is not a move. Null: they can change.
    */

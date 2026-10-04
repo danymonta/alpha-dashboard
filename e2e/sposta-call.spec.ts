@@ -7,8 +7,9 @@ import { ID_CLOSER, creaCallDiProva, dbLocale } from './db'
 import { accedi } from './utenti'
 
 // Moving a call (Dany, 02/10/2026): "Sposta" on the card and the outcome
-// "Riprogrammata" ask the new day and time; the same call goes there, still to
-// be held, with "Spostata dal …" on its card.
+// "Ha già una nuova data" ask the new day and time; the same call goes there,
+// still to be held, with "Spostata dal …" on its card. "In attesa di conferma"
+// (04/10/2026) asks no date: the call waits on its day until the lead confirms.
 const PREFISSO = 'E2E Sposta'
 
 test.afterAll(async () => {
@@ -55,7 +56,7 @@ async function letta(id: string) {
   return data
 }
 
-test('Riprogrammata chiede la nuova data: la call passa a quel giorno e lascia il giorno vecchio', async ({ page }) => {
+test('«Ha già una nuova data» chiede la nuova data: la call passa a quel giorno e lascia il giorno vecchio', async ({ page }) => {
   test.setTimeout(60_000)
   const oggi = oggiRoma()
   const ieri = aggiungiGiorni(oggi, -1)
@@ -67,7 +68,7 @@ test('Riprogrammata chiede la nuova data: la call passa a quel giorno e lascia i
   await page.goto(`/setting/closer/giorno?data=${ieri}`)
   await scheda(page, nome).getByRole('button', { name: 'Registra esito' }).click()
   const foglio = page.getByRole('dialog')
-  await foglio.getByRole('button', { name: 'Riprogrammata', exact: true }).click()
+  await foglio.getByRole('button', { name: SPOSTA.riprogrammata.scelta, exact: true }).click()
 
   // the new day is asked, from the day after at the same time (never before tomorrow)
   await expect(foglio.getByRole('group', { name: SPOSTA.riprogrammata.domanda })).toBeVisible()
@@ -84,7 +85,7 @@ test('Riprogrammata chiede la nuova data: la call passa a quel giorno e lascia i
   await expect(foglio.getByRole('button', { name: 'Domani', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await foglio.getByLabel('Ora').fill('18:00')
   await foglio.getByRole('button', { name: SPOSTA.riprogrammata.salva }).click()
-  await expect(page.getByText(`${nome}: riprogrammata`)).toBeVisible()
+  await expect(page.getByText(SPOSTA.fatto(nome))).toBeVisible()
 
   // the old day no longer has the call: its numbers follow programmata_il
   await expect(scheda(page, nome)).toHaveCount(0)
@@ -123,8 +124,8 @@ test('«Sposta» dalla scheda, a 390 px: da oggi in avanti, con la traccia e qua
   const bottone = scheda(page, nome).getByRole('button', { name: `Sposta la call con ${nome}` })
   await expect(bottone).toHaveText(SPOSTA.bottone)
   expect((await bottone.boundingBox())!.height).toBeGreaterThanOrEqual(44)
-  // a future call: the outcome sheet only cancels it now
-  await expect(scheda(page, nome).getByRole('button', { name: 'Annulla la call' })).toBeVisible()
+  // a future call: the outcome sheet only cancels it or puts it in attesa di conferma
+  await expect(scheda(page, nome).getByRole('button', { name: 'Annulla o rimanda' })).toBeVisible()
   // no horizontal scroll with the two buttons on the card
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 
@@ -157,7 +158,7 @@ test('«Sposta» dalla scheda, a 390 px: da oggi in avanti, con la traccia e qua
   expect(await letta(id)).toMatchObject({ stato: 'programmata', volte_spostata: 2 })
 })
 
-test('il setter sposta una sua call da fare; una segnata Riprogrammata la sposta il closer', async ({ browser }) => {
+test('il setter sposta una sua call da fare; una in attesa di conferma la sposta il closer', async ({ browser }) => {
   test.setTimeout(90_000)
   const oggi = oggiRoma()
   const domani = aggiungiGiorni(oggi, 1)
@@ -166,14 +167,14 @@ test('il setter sposta una sua call da fare; una segnata Riprogrammata la sposta
   const daFare = nomeUnico('Setter')
   const vecchia = nomeUnico('Vecchia')
   const { id, prenotata } = await callAlle(daFare, tra2, '17:30')
-  // recorded as "Riprogrammata" before a call could move: no new day yet
+  // "In attesa di conferma" (stato riprogrammata): no new day yet
   const { id: idVecchia } = await callAlle(vecchia, ieri, '19:00', 'riprogrammata')
 
   const setter = await (await browser.newContext()).newPage()
   await accedi(setter, 'setter')
   await setter.goto('/calls')
   // the setter moves, he never records an outcome
-  await expect(scheda(setter, daFare).getByRole('button', { name: /Registra esito|Annulla la call/ })).toHaveCount(0)
+  await expect(scheda(setter, daFare).getByRole('button', { name: /Registra esito|Annulla o rimanda/ })).toHaveCount(0)
   await scheda(setter, daFare).getByRole('button', { name: `Sposta la call con ${daFare}` }).click()
   const foglio = setter.getByRole('dialog')
   await foglio.getByRole('button', { name: 'Domani', exact: true }).click()
@@ -185,8 +186,8 @@ test('il setter sposta una sua call da fare; una segnata Riprogrammata la sposta
   // his booking stays on the day he booked it
   expect(mossa.created_at).toBe(prenotata)
 
-  // a call marked "Riprogrammata": the setter reads it, the closer gives it its new day
-  await expect(scheda(setter, vecchia)).toContainText('Riprogrammata')
+  // a call "In attesa di conferma": the setter reads it, the closer gives it its new day
+  await expect(scheda(setter, vecchia)).toContainText(SPOSTA.attesa.etichetta)
   await expect(scheda(setter, vecchia).getByRole('button', { name: `Sposta la call con ${vecchia}` })).toHaveCount(0)
   // nor does his pencil move it: date and time read only, his notes still his
   await scheda(setter, vecchia).getByRole('button', { name: `Modifica la call con ${vecchia}` }).click()
@@ -203,7 +204,7 @@ test('il setter sposta una sua call da fare; una segnata Riprogrammata la sposta
   const closer = await (await browser.newContext()).newPage()
   await accedi(closer, 'closer')
   await closer.goto('/calls')
-  const daSpostare = closer.locator('section').filter({ has: closer.getByRole('heading', { name: /^Da spostare/ }) })
+  const daSpostare = closer.locator('section').filter({ has: closer.getByRole('heading', { name: /^In attesa di conferma/ }) })
   await expect(daSpostare.getByRole('article', { name: vecchia })).toBeVisible()
   await daSpostare.getByRole('button', { name: `Sposta la call con ${vecchia}` }).click()
   // from tomorrow, at the time it had
@@ -216,7 +217,7 @@ test('il setter sposta una sua call da fare; una segnata Riprogrammata la sposta
   await closer.context().close()
 })
 
-test('una call svolta non si sposta: «Cambia esito» non offre Riprogrammata', async ({ page }) => {
+test('una call svolta non si sposta: «Cambia esito» non offre di riprogrammarla', async ({ page }) => {
   const ieri = aggiungiGiorni(oggiRoma(), -1)
   const nome = nomeUnico('Svolta')
   const { id } = await callAlle(nome, ieri, '19:00')
@@ -232,7 +233,9 @@ test('una call svolta non si sposta: «Cambia esito» non offre Riprogrammata', 
   await scheda(page, nome).getByRole('button', { name: 'Cambia esito' }).click()
   const foglio = page.getByRole('dialog')
   await expect(foglio.getByRole('button', { name: 'Persa', exact: true })).toBeVisible()
-  await expect(foglio.getByRole('button', { name: 'Riprogrammata', exact: true })).toHaveCount(0)
+  for (const scelta of [SPOSTA.riprogrammata.scelta, SPOSTA.attesa.etichetta]) {
+    await expect(foglio.getByRole('button', { name: scelta, exact: true })).toHaveCount(0)
+  }
   await expect(foglio.getByTestId('esito-fermo')).toHaveText(SPOSTA.foglioEsito.svolta)
   await page.keyboard.press('Escape')
   await expect(foglio).toHaveCount(0)
@@ -245,7 +248,7 @@ test('una call svolta non si sposta: «Cambia esito» non offre Riprogrammata', 
   expect(await letta(id)).toMatchObject({ stato: 'svolta', volte_spostata: 0 })
 })
 
-test('un no show non si sposta: niente «Sposta» né Riprogrammata, la matita del closer ne corregge la data', async ({ browser }) => {
+test('un no show non si sposta: niente «Sposta» né riprogrammazione, la matita del closer ne corregge la data', async ({ browser }) => {
   test.setTimeout(90_000)
   const ieri = aggiungiGiorni(oggiRoma(), -1)
   const dueGiorniFa = aggiungiGiorni(oggiRoma(), -2)
@@ -276,7 +279,9 @@ test('un no show non si sposta: niente «Sposta» né Riprogrammata, la matita d
   const foglio = closer.getByRole('dialog')
   await expect(foglio.getByRole('button', { name: 'No show', exact: true })).toBeVisible()
   await expect(foglio.getByRole('button', { name: 'Cancellata', exact: true })).toBeVisible()
-  await expect(foglio.getByRole('button', { name: 'Riprogrammata', exact: true })).toHaveCount(0)
+  for (const scelta of [SPOSTA.riprogrammata.scelta, SPOSTA.attesa.etichetta]) {
+    await expect(foglio.getByRole('button', { name: scelta, exact: true })).toHaveCount(0)
+  }
   await expect(foglio.getByTestId('esito-fermo')).toHaveText(SPOSTA.foglioEsito.noShow)
   await expect(foglio.getByRole('button', { name: 'Annulla l’esito, torna da fare' })).toBeVisible()
   await closer.keyboard.press('Escape')
@@ -310,7 +315,9 @@ test('un no show non si sposta: niente «Sposta» né Riprogrammata, la matita d
   await expect(scheda(closer, noShow).getByTestId('spostata')).toHaveCount(0)
   await expect(scheda(closer, noShow).getByRole('button', { name: `Sposta la call con ${noShow}` })).toHaveCount(0)
   await scheda(closer, noShow).getByRole('button', { name: 'Cambia esito' }).click()
-  await expect(foglio.getByRole('button', { name: 'Riprogrammata', exact: true })).toHaveCount(0)
+  for (const scelta of [SPOSTA.riprogrammata.scelta, SPOSTA.attesa.etichetta]) {
+    await expect(foglio.getByRole('button', { name: scelta, exact: true })).toHaveCount(0)
+  }
   await expect(foglio.getByTestId('esito-fermo')).toHaveText(SPOSTA.foglioEsito.noShow)
   await closer.keyboard.press('Escape')
   await expect(foglio).toHaveCount(0)
@@ -345,4 +352,72 @@ test('un no show non si sposta: niente «Sposta» né Riprogrammata, la matita d
   expect(dopo).toMatchObject({ stato: 'no_show', volte_spostata: 0 })
   expect(new Date(dopo.programmata_il).toISOString()).toBe(istanteRoma(dueGiorniFa, '18:30'))
   expect(await letta(idSvolta)).toMatchObject({ stato: 'svolta', volte_spostata: 0 })
+})
+
+test('«In attesa di conferma»: senza data la call resta sul suo giorno, in cima a Le mie call; poi «Sposta» le dà la data', async ({ page }) => {
+  test.setTimeout(90_000)
+  const oggi = oggiRoma()
+  const ieri = aggiungiGiorni(oggi, -1)
+  const domani = aggiungiGiorni(oggi, 1)
+  const nome = nomeUnico('Attesa')
+  const { id, prenotata } = await callAlle(nome, ieri, '19:00')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await accedi(page, 'closer')
+  await page.goto(`/setting/closer/giorno?data=${ieri}`)
+  await scheda(page, nome).getByRole('button', { name: 'Registra esito' }).click()
+  const foglio = page.getByRole('dialog')
+  // two clear ways of rescheduling, 44px at least
+  await expect(foglio.getByRole('group', { name: SPOSTA.attesa.gruppo })).toBeVisible()
+  for (const scelta of [SPOSTA.riprogrammata.scelta, SPOSTA.attesa.etichetta]) {
+    const bottone = foglio.getByRole('button', { name: scelta, exact: true })
+    await expect(bottone).toBeVisible()
+    const box = (await bottone.boundingBox())!
+    expect(box.height, scelta).toBeGreaterThanOrEqual(44)
+    expect(box.width, scelta).toBeGreaterThanOrEqual(44)
+  }
+  await expect(foglio.getByRole('button', { name: 'Riprogrammata', exact: true })).toHaveCount(0)
+
+  await foglio.getByRole('button', { name: SPOSTA.attesa.etichetta, exact: true }).click()
+  // no date asked: only the closer's notes, if he wants
+  await expect(foglio.getByLabel('Giorno')).toHaveCount(0)
+  await expect(foglio).toContainText(SPOSTA.attesa.spiegazione)
+  await foglio.getByLabel(/Note aggiuntive/).fill('Mi scrive lui quando sa i turni')
+  const salva = foglio.getByRole('button', { name: SPOSTA.attesa.salva })
+  expect((await salva.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await salva.click()
+  await expect(page.getByText(`${nome}: in attesa di conferma`)).toBeVisible()
+  await expect(foglio).toHaveCount(0)
+
+  // it stays on its day, with the label, and without an outcome
+  await expect(scheda(page, nome)).toContainText(SPOSTA.attesa.etichetta)
+  expect(await letta(id)).toMatchObject({ stato: 'riprogrammata', esito: null, volte_spostata: 0, created_at: prenotata })
+  const { data: note } = await dbLocale().from('calls').select('note_closer').eq('id', id).single()
+  expect(note?.note_closer).toBe('Mi scrive lui quando sa i turni')
+  const prima = await letta(id)
+  expect(new Date(prima.programmata_il).toISOString()).toBe(istanteRoma(ieri, '19:00'))
+
+  // Le mie call: on top, under «In attesa di conferma»
+  await page.goto('/calls')
+  const sezioni = page.locator('section')
+  await expect(sezioni.first().getByRole('heading', { name: /^In attesa di conferma \(\d+\)$/ })).toBeVisible()
+  const inAttesa = sezioni.filter({ has: page.getByRole('heading', { name: /^In attesa di conferma/ }) })
+  await expect(inAttesa.getByRole('article', { name: nome })).toContainText(SPOSTA.attesa.etichetta)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+
+  // the lead confirms: «Sposta» gives it the new day
+  const sposta = inAttesa.getByRole('button', { name: `Sposta la call con ${nome}` })
+  expect((await sposta.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  await sposta.click()
+  const foglioSposta = page.getByRole('dialog')
+  await expect(foglioSposta.getByLabel('Giorno')).toHaveValue(domani)
+  await foglioSposta.getByLabel('Ora').fill('18:00')
+  await foglioSposta.getByRole('button', { name: SPOSTA.salva, exact: true }).click()
+  await expect(page.getByText(SPOSTA.fatto(nome))).toBeVisible()
+  await expect(inAttesa.getByRole('article', { name: nome })).toHaveCount(0)
+  await expect(scheda(page, nome).getByTestId('spostata')).toHaveText(`Spostata dal ${quandoBreveDa(ieri, '19:00')}`)
+  const dopo = await letta(id)
+  expect(dopo).toMatchObject({ stato: 'programmata', esito: null, volte_spostata: 1 })
+  expect(new Date(dopo.programmata_il).toISOString()).toBe(istanteRoma(domani, '18:00'))
 })

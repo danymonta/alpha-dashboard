@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
 import { MOTIVO_NON_CHIUSURA, NOTE_CLOSER } from '@/lib/setting/commento'
-import { aggiornamentoDaEsito, chiedeMotivo, esitoCallSchema, type EsitoSulPosto } from '@/lib/validation/esito'
+import { SPOSTA } from '@/lib/call/spostamento'
+import { ETICHETTA_ESITO, aggiornamentoDaEsito, chiedeMotivo, esitoCallSchema, nuovaDataEsito, type EsitoSulPosto } from '@/lib/validation/esito'
 
 const call_id = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d'
 
-/** An outcome written on the call where it is: "riprogrammata" moves it instead (sposta_call). */
+/** An outcome written on the call where it is: "riprogrammata" with a new day moves it instead (sposta_call). */
 function sulPosto(input: unknown): EsitoSulPosto {
   const v = esitoCallSchema.parse(input)
-  if (v.esito === 'riprogrammata') throw new Error('riprogrammata sposta la call')
+  if (nuovaDataEsito(v)) throw new Error('con la nuova data la call si sposta')
   return v
 }
 
@@ -95,12 +96,35 @@ describe('esito della call', () => {
     }
   })
 
-  it('riprogrammata chiede il nuovo giorno e l’ora (Dany, 02/10/2026)', () => {
-    const senza = esitoCallSchema.safeParse({ call_id, esito: 'riprogrammata' })
-    expect(senza.success).toBe(false)
-    expect(senza.error?.issues[0]).toMatchObject({ path: ['data'], message: 'Scegli il nuovo giorno' })
+  it('«In attesa di conferma»: riprogrammata senza data resta sul suo giorno, senza esito (Dany, 04/10/2026)', () => {
+    expect(ETICHETTA_ESITO.riprogrammata).toBe('In attesa di conferma')
+    expect(SPOSTA.attesa.etichetta).toBe('In attesa di conferma')
+    const v = sulPosto({ call_id, esito: 'riprogrammata' })
+    expect(nuovaDataEsito(v)).toBeNull()
+    expect(aggiornamentoDaEsito(v)).toEqual({ stato: 'riprogrammata', esito: null, qualificata: null, obiezione_principale: null })
+    // the closer's notes if he writes them; blank clears them; never the setter's note
+    const conNote = sulPosto({ call_id, esito: 'riprogrammata', note_closer: ' Richiama lunedì ', note: 'dal setter' })
+    expect(aggiornamentoDaEsito(conNote)).toEqual({
+      stato: 'riprogrammata',
+      esito: null,
+      qualificata: null,
+      obiezione_principale: null,
+      note_closer: 'Richiama lunedì',
+    })
+    expect(aggiornamentoDaEsito(sulPosto({ call_id, esito: 'riprogrammata', note_closer: ' ' }))).toMatchObject({ note_closer: null })
+    const lunghe = esitoCallSchema.safeParse({ call_id, esito: 'riprogrammata', note_closer: 'x'.repeat(2001) })
+    expect(lunghe.error?.issues[0]?.message).toBe(NOTE_CLOSER.troppoLungo)
+  })
+
+  it('«Ha già una nuova data»: riprogrammata con giorno e ora sposta la call, sempre tutti e due (Dany, 02/10/2026)', () => {
     const senzaOra = esitoCallSchema.safeParse({ call_id, esito: 'riprogrammata', data: '2026-10-03' })
     expect(senzaOra.error?.issues[0]).toMatchObject({ path: ['ora'], message: 'Scegli l’ora' })
+    const senzaGiorno = esitoCallSchema.safeParse({ call_id, esito: 'riprogrammata', ora: '18:00' })
+    expect(senzaGiorno.error?.issues[0]).toMatchObject({ path: ['data'], message: 'Scegli il nuovo giorno' })
+    expect(nuovaDataEsito(esitoCallSchema.parse({ call_id, esito: 'riprogrammata', data: '2026-10-03', ora: '18:00' }))).toEqual({
+      data: '2026-10-03',
+      ora: '18:00',
+    })
     for (const data of ['', '2026-02-30', '03/10/2026']) {
       expect(esitoCallSchema.safeParse({ call_id, esito: 'riprogrammata', data, ora: '18:00' }).success, data).toBe(false)
     }

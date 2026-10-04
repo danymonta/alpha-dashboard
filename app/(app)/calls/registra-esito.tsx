@@ -3,6 +3,7 @@
 import {
   Ban,
   CalendarClock,
+  Hourglass,
   ChevronLeft,
   CircleAlert,
   CircleCheck,
@@ -44,11 +45,14 @@ type Props = {
   nomeLead: string
   descrizione: string
   giaRegistrata: boolean
-  /** A call still to come can only be cancelled here; it moves with «Sposta», beside this button. */
+  /**
+   * A call still to come is only cancelled, or put "In attesa di conferma",
+   * here; it moves to a known date with «Sposta», beside this button.
+   */
   futura: boolean
   /**
    * A held call or a no-show never moves (public.sposta_call, lib/call/spostamento.ts
-   * restaNelSuoGiorno): no "Riprogrammata" among its outcomes, and these words
+   * restaNelSuoGiorno): neither rescheduling choice among its outcomes, and these words
    * (avvisoEsitoFermo) say why, above «Annulla l’esito»: a wrong date is
    * corrected with the pencil, a wrong outcome is undone first. Null: the call moves.
    */
@@ -59,7 +63,7 @@ type Props = {
   motivo?: string | null
   /** The closer's "Note aggiuntive" (calls.note_closer), never the setter's note. */
   noteCloser?: string | null
-  /** Europe/Rome day and time of the call: "Riprogrammata" starts from the day after. */
+  /** Europe/Rome day and time of the call: "Ha già una nuova data" starts from the day after. */
   giorno: string
   ora: string
   oggi: string
@@ -67,7 +71,10 @@ type Props = {
   admin?: boolean
 }
 
-/** A future call: moving it is «Sposta», right beside the button. */
+/**
+ * A future call: cancelled, or waiting for the lead to confirm a new date;
+ * moving it to a known date is «Sposta», right beside the button.
+ */
 const SOLO_FUTURE: SceltaEsito[] = ['cancellata']
 
 const SCELTE: { esito: SceltaEsito; Icona: LucideIcon }[] = [
@@ -76,7 +83,6 @@ const SCELTE: { esito: SceltaEsito; Icona: LucideIcon }[] = [
   { esito: 'persa', Icona: CircleX },
   { esito: 'no_show', Icona: UserX },
   { esito: 'cancellata', Icona: Ban },
-  { esito: 'riprogrammata', Icona: CalendarClock },
 ]
 
 /**
@@ -84,8 +90,10 @@ const SCELTE: { esito: SceltaEsito; Icona: LucideIcon }[] = [
  * follow-up or lost, the closer writes why it did not close (required, Dany
  * 30/09/2026), may add his notes (note_closer: the setter reads them, never
  * writes them), then says whether the lead was qualified: that tap saves (3).
- * "Riprogrammata" asks when (Dany, 02/10/2026): the same call moves there and
- * is still to be held, like "Sposta". The shared schema decides what is missing.
+ * Rescheduling is two choices (Dany, 04/10/2026): "Ha già una nuova data"
+ * asks when, and the same call moves there, still to be held, like "Sposta";
+ * "In attesa di conferma" asks no date: the call stays on its day until the
+ * lead confirms one. The shared schema decides what is missing.
  */
 export function RegistraEsito({
   callId,
@@ -108,6 +116,7 @@ export function RegistraEsito({
   const [aperto, setAperto] = useState(false)
   const [inAttesaQualifica, setInAttesaQualifica] = useState<'follow_up' | 'persa' | null>(null)
   const [inAttesaData, setInAttesaData] = useState(false)
+  const [inAttesaConferma, setInAttesaConferma] = useState(false)
   const [nuovaData, setNuovaData] = useState(nuovaDataIniziale.data)
   const [nuovaOra, setNuovaOra] = useState(nuovaDataIniziale.ora)
   const [erroreData, setErroreData] = useState<string | null>(null)
@@ -123,6 +132,7 @@ export function RegistraEsito({
     // every opening starts from what is saved
     setInAttesaQualifica(null)
     setInAttesaData(false)
+    setInAttesaConferma(false)
     setNuovaData(nuovaDataIniziale.data)
     setNuovaOra(nuovaDataIniziale.ora)
     setErroreData(null)
@@ -146,11 +156,13 @@ export function RegistraEsito({
         setErrore(esito.errore)
         return
       }
-      toast.success(`${nomeLead}: ${ETICHETTA_ESITO[input.esito].toLowerCase()}`, {
+      const spostata =
+        input.esito === 'riprogrammata' && input.data && input.ora ? { data: input.data, ora: input.ora } : null
+      toast.success(spostata ? SPOSTA.fatto(nomeLead) : `${nomeLead}: ${ETICHETTA_ESITO[input.esito].toLowerCase()}`, {
         description: esito.vaiA
           ? 'Ora registra la vendita.'
-          : input.esito === 'riprogrammata'
-            ? `${etichettaGiorno(input.data, oggi)} alle ${input.ora}`
+          : spostata
+            ? `${etichettaGiorno(spostata.data, oggi)} alle ${spostata.ora}`
             : undefined,
       })
       apriChiudi(false)
@@ -166,14 +178,21 @@ export function RegistraEsito({
       setInAttesaQualifica(esito)
       return
     }
-    if (esito === 'riprogrammata') {
-      setInAttesaData(true)
-      return
-    }
     salva({ call_id: callId, esito })
   }
 
-  /** Riprogrammata: the new day and time first, as "Sposta" asks them. */
+  /** "In attesa di conferma": no date, the closer's notes if he wants (note_closer). */
+  function salvaInAttesa() {
+    const input: EsitoCallInput = { call_id: callId, esito: 'riprogrammata', note_closer: note }
+    const verifica = esitoCallSchema.safeParse(input)
+    if (!verifica.success) {
+      setErrore(verifica.error.issues[0]?.message ?? 'Esito non valido.')
+      return
+    }
+    salva(input)
+  }
+
+  /** "Ha già una nuova data": the new day and time first, as "Sposta" asks them. */
   function salvaRiprogrammata() {
     const input: EsitoCallInput = { call_id: callId, esito: 'riprogrammata', data: nuovaData, ora: nuovaOra }
     const verifica = schemaSpostamento(admin).safeParse(input)
@@ -215,7 +234,7 @@ export function RegistraEsito({
           />
         }
       >
-        {giaRegistrata ? 'Cambia esito' : futura ? 'Annulla la call' : 'Registra esito'}
+        {giaRegistrata ? 'Cambia esito' : futura ? 'Annulla o rimanda' : 'Registra esito'}
       </SheetTrigger>
 
       {/* never taller than the screen: with the texts filled (or the keyboard open) it scrolls */}
@@ -237,7 +256,7 @@ export function RegistraEsito({
                 onClick={() => setInAttesaData(false)}
               >
                 <ChevronLeft className="size-4" aria-hidden="true" />
-                {ETICHETTA_ESITO.riprogrammata}: cambia esito
+                {SPOSTA.riprogrammata.scelta}: cambia esito
               </button>
               <CampiSpostamento
                 id={`${id}-nuova-data`}
@@ -262,12 +281,44 @@ export function RegistraEsito({
                 {SPOSTA.riprogrammata.salva}
               </Button>
             </>
+          ) : inAttesaConferma ? (
+            <>
+              <button
+                type="button"
+                className="flex min-h-11 items-center gap-1 text-sm text-muted-foreground"
+                onClick={() => setInAttesaConferma(false)}
+              >
+                <ChevronLeft className="size-4" aria-hidden="true" />
+                {SPOSTA.attesa.etichetta}: cambia esito
+              </button>
+              <p className="text-sm text-muted-foreground">{SPOSTA.attesa.spiegazione}</p>
+              <div className="space-y-1.5">
+                <Label htmlFor={`${id}-note-attesa`}>
+                  {NOTE_CLOSER.titolo} <span className="font-normal text-muted-foreground">({NOTE_CLOSER.facoltative})</span>
+                </Label>
+                <Textarea
+                  id={`${id}-note-attesa`}
+                  value={note}
+                  onChange={(e) => setNote(e.currentTarget.value)}
+                  maxLength={MASSIMO_NOTE_CLOSER}
+                  rows={2}
+                  aria-describedby={`${id}-attesa-senza-importi`}
+                  placeholder={NOTE_CLOSER.placeholder}
+                  className="max-h-40"
+                />
+                <p id={`${id}-attesa-senza-importi`} className="text-xs text-muted-foreground">
+                  {MOTIVO_NON_CHIUSURA.senzaImporti}
+                </p>
+              </div>
+              <Button type="button" className="h-11 w-full" disabled={inCorso} onClick={salvaInAttesa}>
+                <Hourglass className="size-4" aria-hidden="true" />
+                {SPOSTA.attesa.salva}
+              </Button>
+            </>
           ) : inAttesaQualifica === null ? (
             <>
               <div className="grid grid-cols-2 gap-2">
-                {SCELTE.filter(
-                  ({ esito }) => (!futura || SOLO_FUTURE.includes(esito)) && !(ferma && esito === 'riprogrammata'),
-                ).map(({ esito, Icona }) => (
+                {SCELTE.filter(({ esito }) => !futura || SOLO_FUTURE.includes(esito)).map(({ esito, Icona }) => (
                   <Button
                     key={esito}
                     type="button"
@@ -281,6 +332,37 @@ export function RegistraEsito({
                   </Button>
                 ))}
               </div>
+              {/* rescheduling (04/10/2026): never for a held call or a no-show, which never move */}
+              {ferma ? null : (
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium">{SPOSTA.attesa.gruppo}</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* a future call moves to a known date with «Sposta», beside the button */}
+                    {futura ? null : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-14 justify-start gap-2 px-3 text-left text-sm leading-tight whitespace-normal"
+                        disabled={inCorso}
+                        onClick={() => setInAttesaData(true)}
+                      >
+                        <CalendarClock className="size-4 shrink-0" aria-hidden="true" />
+                        {SPOSTA.riprogrammata.scelta}
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-14 justify-start gap-2 px-3 text-left text-sm leading-tight whitespace-normal"
+                      disabled={inCorso}
+                      onClick={() => setInAttesaConferma(true)}
+                    >
+                      <Hourglass className="size-4 shrink-0" aria-hidden="true" />
+                      {SPOSTA.attesa.etichetta}
+                    </Button>
+                  </div>
+                </fieldset>
+              )}
               {ferma && giaRegistrata ? (
                 <p className="text-xs text-muted-foreground" data-testid="esito-fermo">
                   {ferma}

@@ -1,7 +1,7 @@
 import { formatData, formatEuro, formatMese } from '@/lib/format'
 import { elencoNomi } from '@/lib/progetti'
 import type { NomeScrittura } from '@/lib/alfire/permessi'
-import { quandoBreveDa } from '@/lib/call/spostamento'
+import { SPOSTA, quandoBreveDa } from '@/lib/call/spostamento'
 import { isDataISO } from '@/lib/date'
 import {
   MOTIVO_NON_CHIUSURA,
@@ -353,6 +353,8 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
             testo(input.motivo) && `${MOTIVO_NON_CHIUSURA.titolo}: ${input.motivo}`,
             testo(input.note_closer) && `${NOTE_CLOSER.titolo}: ${input.note_closer}`,
             esito === 'chiusa' && 'Poi registriamo la vendita',
+            // "In attesa di conferma" (04/10/2026): no date, the call stays on its day
+            esito === 'riprogrammata' && SPOSTA.attesa.descrizione,
           ),
         }
       }

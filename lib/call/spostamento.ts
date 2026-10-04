@@ -3,8 +3,8 @@ import { aggiungiGiorni, formatOra, oggiRoma } from '@/lib/date'
 /**
  * Moving a call (Dany, 02/10/2026): the same call goes to a new day and time,
  * still to be held, and its card keeps the trace of the last move. The words
- * of the "Sposta" button, its sheet, the outcome "Riprogrammata" and Alfire
- * live here: a word changes here.
+ * of the "Sposta" button, its sheet, the outcome "Ha già una nuova data", the
+ * state "In attesa di conferma" and Alfire live here: a word changes here.
  */
 export const SPOSTA = {
   bottone: 'Sposta',
@@ -15,8 +15,9 @@ export const SPOSTA = {
   quando: 'Nuovo giorno e ora',
   salva: 'Sposta la call',
   fatto: (lead: string) => `${lead}: call spostata`,
-  /** The outcome "Riprogrammata": the same move, from the outcome sheet. */
+  /** The outcome "Ha già una nuova data": the same move, from the outcome sheet. */
   riprogrammata: {
+    scelta: 'Ha già una nuova data',
     domanda: 'A quando è stata riprogrammata?',
     spiegazione: 'La call passa al nuovo giorno e torna da fare: l’esito lo registri lì.',
     salva: 'Salva la nuova data',
@@ -46,7 +47,7 @@ export const SPOSTA = {
     'Il lead non si è presentato: la call resta un no show, così conta nello show rate. Se l’esito è sbagliato lo corregge il closer (o l’admin); per rivederlo fissa una nuova call',
   /**
    * The outcome sheet of a held call or a no-show (closer and admin), above
-   * «Annulla l’esito»: why "Riprogrammata" is not there, and how to correct a
+   * «Annulla l’esito»: why the two rescheduling options are not there, and how to correct a
    * wrong date (the pencil, without a trace: Dany, 03/10/2026, also on a
    * no-show) and a wrong outcome (undone first). Its own words: there the
    * outcome also changes directly.
@@ -71,17 +72,28 @@ export const SPOSTA = {
     noShow: 'Resta un no show: è una correzione, senza «Spostata dal…»',
   },
   stessoMomento: 'La call è già a quel giorno e a quell’ora: scegline un altro',
-  /** The calls marked "Riprogrammata" before the move existed: still without their new day. */
-  daSpostare: {
-    titolo: 'Da spostare',
-    descrizione: 'Segnate come riprogrammate senza la nuova data: con «Sposta» la call passa al suo nuovo giorno.',
+  /**
+   * "In attesa di conferma" (Dany, 04/10/2026: a lead who must reschedule often
+   * vanishes): the call stays on its day with stato 'riprogrammata', without a
+   * date, until the lead confirms one; then «Sposta». The calls marked
+   * "Riprogrammata" before 02/10/2026 are the same. The enum value stays: these
+   * are its words everywhere in the app.
+   */
+  attesa: {
+    etichetta: 'In attesa di conferma',
+    /** The two ways of rescheduling in the outcome sheet. */
+    gruppo: 'Va riprogrammata',
+    spiegazione:
+      'Il lead deve ancora confermare una nuova data: la call resta su questo giorno, in cima a «Le mie call» sotto «In attesa di conferma». Quando la conferma, «Sposta» la porta al nuovo giorno.',
+    salva: 'Segna in attesa di conferma',
+    descrizione: 'Il lead deve confermare una nuova data: quando la conferma, «Sposta» porta la call al suo nuovo giorno.',
   },
 } as const
 
 /**
  * The states a call never moves from, for anyone (public.sposta_call): a held
- * call and a no-show. "Sposta" never shows on them and the outcome sheet does
- * not offer "Riprogrammata": it says why (avvisoEsitoFermo).
+ * call and a no-show. "Sposta" never shows on them and the outcome sheet
+ * offers neither "Ha già una nuova data" nor "In attesa di conferma": it says why (avvisoEsitoFermo).
  */
 export const STATI_FERMI = ['svolta', 'no_show'] as const
 

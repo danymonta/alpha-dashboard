@@ -7,6 +7,7 @@ import {
   NOTE_CLOSER,
 } from '@/lib/setting/commento'
 import type { Database } from '@/lib/supabase/database.types'
+import { SPOSTA } from '@/lib/call/spostamento'
 import { campiSpostamento } from '@/lib/validation/call'
 
 type AggiornamentoCall = Pick<
@@ -43,11 +44,14 @@ const noteCloser = z
 /**
  * What the closer can tap. "programmata" undoes a wrong outcome.
  * follow_up and persa need to know whether the lead was qualified, and why
- * the call did not close. "riprogrammata" moves the call (Dany, 02/10/2026):
- * it asks the new day and time, and the same call goes there, still to be held
- * (public.sposta_call); the window per role is checked with schemaSpostamento.
+ * the call did not close. "riprogrammata" is two choices (Dany, 04/10/2026):
+ * with a new day and time the call moves there, still to be held
+ * (public.sposta_call, the window per role checked with schemaSpostamento);
+ * without them it is "In attesa di conferma": it stays on its day with stato
+ * riprogrammata until the lead confirms a date, then «Sposta». Day and time go
+ * together: one without the other is refused.
  */
-export const esitoCallSchema = z.discriminatedUnion('esito', [
+const scelte = z.discriminatedUnion('esito', [
   z.object({ call_id: callId, esito: z.literal('chiusa') }),
   z.object({
     call_id: callId,
@@ -56,18 +60,37 @@ export const esitoCallSchema = z.discriminatedUnion('esito', [
     motivo: motivoNonChiusura,
     note_closer: noteCloser,
   }),
-  z.object({ call_id: callId, esito: z.literal('riprogrammata'), ...campiSpostamento }),
+  z.object({
+    call_id: callId,
+    esito: z.literal('riprogrammata'),
+    data: campiSpostamento.data.optional(),
+    ora: campiSpostamento.ora.optional(),
+    note_closer: noteCloser,
+  }),
   z.object({
     call_id: callId,
     esito: z.enum(['no_show', 'cancellata', 'programmata']),
   }),
 ])
 
+export const esitoCallSchema = scelte.superRefine((v, ctx) => {
+  if (v.esito !== 'riprogrammata' || (v.data === undefined) === (v.ora === undefined)) return
+  // a day without the time (or the reverse): the same words as the move
+  const campo = v.data === undefined ? 'data' : 'ora'
+  const messaggio = campiSpostamento[campo].safeParse(undefined).error?.issues[0]?.message ?? 'Scegli il nuovo giorno e l’ora'
+  ctx.addIssue({ code: z.ZodIssueCode.custom, path: [campo], message: messaggio })
+})
+
 export type EsitoCallInput = z.input<typeof esitoCallSchema>
 export type EsitoCall = z.output<typeof esitoCallSchema>
 export type SceltaEsito = EsitoCall['esito']
-/** An outcome written on the call where it is; "riprogrammata" moves it instead. */
-export type EsitoSulPosto = Exclude<EsitoCall, { esito: 'riprogrammata' }>
+/** An outcome written on the call where it is: every one but "riprogrammata" with a new day. */
+export type EsitoSulPosto = EsitoCall
+
+/** The new day and time of a "riprogrammata" that moves the call; null for every other outcome. */
+export function nuovaDataEsito(v: EsitoCall): { data: string; ora: string } | null {
+  return v.esito === 'riprogrammata' && v.data !== undefined && v.ora !== undefined ? { data: v.data, ora: v.ora } : null
+}
 
 /** The outcomes that ask for the reason: a held call that did not close. */
 export const ESITI_NON_CHIUSI = ['follow_up', 'persa'] as const
@@ -82,7 +105,7 @@ export const ETICHETTA_ESITO: Record<SceltaEsito, string> = {
   persa: 'Persa',
   no_show: 'No show',
   cancellata: 'Cancellata',
-  riprogrammata: 'Riprogrammata',
+  riprogrammata: SPOSTA.attesa.etichetta,
   programmata: 'Da fare',
 }
 
@@ -104,6 +127,15 @@ export function aggiornamentoDaEsito(v: EsitoSulPosto): AggiornamentoCall {
         esito: v.esito,
         qualificata: v.qualificata,
         obiezione_principale: v.motivo,
+        ...(v.note_closer !== undefined ? { note_closer: v.note_closer } : {}),
+      }
+    case 'riprogrammata':
+      // "In attesa di conferma": the call stays on its day, without an outcome
+      return {
+        stato: 'riprogrammata',
+        esito: null,
+        qualificata: null,
+        obiezione_principale: null,
         ...(v.note_closer !== undefined ? { note_closer: v.note_closer } : {}),
       }
     default:

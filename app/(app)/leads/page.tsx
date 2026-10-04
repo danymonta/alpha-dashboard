@@ -29,7 +29,7 @@ const ETICHETTA_STATO_CALL: Record<string, string> = {
   svolta: 'svolta',
   no_show: 'no show',
   cancellata: 'cancellata',
-  riprogrammata: 'riprogrammata',
+  riprogrammata: 'in attesa di conferma',
 }
 
 /** Same reading as the suggestion below it: a past call without outcome is not "in programma". */

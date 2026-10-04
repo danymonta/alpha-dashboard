@@ -2,6 +2,7 @@ import 'server-only'
 
 import { ETICHETTA_RUOLO, livelloPmEffettivo, type AppRole } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
+import { SPOSTA } from '@/lib/call/spostamento'
 import { aggiungiMesi, formatOra, giornoEsteso, oggiRoma } from '@/lib/date'
 import { formatData, formatEuro, formatMese } from '@/lib/format'
 import { ETICHETTA_STATO_PROGETTO, formatStima, type StatoProgetto } from '@/lib/progetti'
@@ -755,7 +756,7 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
       const aperte = call.filter((c) => c.stato === 'programmata' || c.stato === 'riprogrammata')
       if (aperte.length === 1) return aperte[0]
     }
-    return unico(call, (c) => `${quandoCall(c)} (${c.esito ?? c.stato})`, {
+    return unico(call, (c) => `${quandoCall(c)} (${c.esito ?? (c.stato === 'riprogrammata' ? SPOSTA.attesa.etichetta : c.stato)})`, {
       nessuno: `${l.nome} non ha call che vedi.`,
       piu: `Più call con ${l.nome}`,
       come: 'Chiedi quale, con data e ora (o passa il call_id).',

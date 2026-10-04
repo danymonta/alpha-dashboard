@@ -2585,13 +2585,60 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
     expect(await anteprima('call', input, 'closer')).toEqual(ESITO_SENZA_DATA)
     await esegui(strumenti('closer', 'employee'), 'call', input)
     expect(a.registraEsito).not.toHaveBeenCalled()
-    // riprogrammata is a move (Dany, 02/10/2026): never an outcome without the new day
-    expect(await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'riprogrammata' }, 'closer')).toEqual({
-      errore: 'Dati non validi per questa operazione.',
-    })
+    // riprogrammata with a new day is a move: the outcome never carries it
+    expect(
+      await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'riprogrammata', data: '2026-09-30', ora: '18:00' }, 'closer'),
+    ).toEqual(ESITO_SENZA_DATA)
     const descrizione = strumenti('closer', 'employee').call.description ?? ''
-    expect(descrizione).toContain('riprogrammata non è un esito: usa sposta')
+    expect(descrizione).toContain('riprogrammata = «In attesa di conferma»')
+    expect(descrizione).toContain('con la nuova data già decisa usa sposta')
     expect(descrizione).toContain('lead stato')
+  })
+
+  describe('«In attesa di conferma»: riprogrammata senza data (Dany, 04/10/2026)', () => {
+    const conStato = (stato: 'programmata' | 'no_show') => () => {
+      const righe = mondo()
+      righe.calls = [{ ...righe.calls[0], stato, esito: null, qualificata: null, obiezione_principale: null }]
+      return righe
+    }
+
+    it('closer e admin la segnano su una call da fare: resta sul suo giorno, con le note del closer', async () => {
+      for (const ruolo of ['closer', 'admin'] as const) {
+        const p = await anteprima(
+          'call',
+          { azione: 'esito', lead: 'Luca Neri', esito: 'riprogrammata', note_closer: 'Richiama lunedì' },
+          ruolo,
+          conStato('programmata')(),
+        )
+        expect(p, ruolo).toMatchObject({ titolo: expect.stringMatching(/: In attesa di conferma$/) })
+        expect((p as { righe: string[] }).righe, ruolo).toContain(SPOSTA.attesa.descrizione)
+        expect((p as { righe: string[] }).righe.join(' '), ruolo).toContain('Richiama lunedì')
+      }
+      await esegui(strumenti('closer', 'employee', conStato('programmata')()), 'call', {
+        azione: 'esito',
+        lead: 'Luca Neri',
+        esito: 'riprogrammata',
+        note_closer: 'Richiama lunedì',
+      })
+      expect(a.registraEsito).toHaveBeenCalledWith({ call_id: CALL, esito: 'riprogrammata', note_closer: 'Richiama lunedì' })
+      expect(a.spostaCall).not.toHaveBeenCalled()
+    })
+
+    it('mai su una call svolta o un no show: non lasciano il loro giorno', async () => {
+      expect(await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'riprogrammata' }, 'closer')).toEqual({
+        errore: SPOSTA.svolta,
+      })
+      expect(
+        await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'riprogrammata' }, 'admin', conStato('no_show')()),
+      ).toEqual({ errore: SPOSTA.noShow })
+      await esegui(strumenti('closer', 'employee'), 'call', { azione: 'esito', lead: 'Luca Neri', esito: 'riprogrammata' })
+      expect(a.registraEsito).not.toHaveBeenCalled()
+    })
+
+    it('il setter non ha l’esito: nemmeno «In attesa di conferma»', () => {
+      const descrizione = strumenti('setter', 'employee').call.description ?? ''
+      expect(descrizione).not.toContain('riprogrammata =')
+    })
   })
 
   describe('sposta: la stessa call passa al nuovo giorno (Dany, 02/10/2026)', () => {

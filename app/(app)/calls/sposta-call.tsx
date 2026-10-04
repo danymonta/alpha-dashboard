@@ -30,7 +30,7 @@ const OPZIONE_SCELTA = 'border-primary bg-primary/15 ring-1 ring-primary hover:b
 /**
  * The new day and time of a moved call: a tap on today, tomorrow or the day
  * after (the admin also yesterday), or any date and time. Controlled: the
- * "Sposta" sheet and the outcome "Riprogrammata" hold the values.
+ * "Sposta" sheet and the outcome "Ha già una nuova data" hold the values.
  */
 export function CampiSpostamento({
   id,
@@ -120,7 +120,7 @@ type Props = {
   oggi: string
   /** The admin also records a move already happened, up to a year back. */
   admin: boolean
-  /** A call marked "Riprogrammata" before the move existed: moving it is the thing to do. */
+  /** A call "In attesa di conferma": once the lead confirms, moving it is the thing to do. */
   inEvidenza?: boolean
 }
 

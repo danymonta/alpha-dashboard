@@ -46,7 +46,7 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
           .from('calls')
           .select(CAMPI_CALL_CLOSER)
           .eq('closer_id', profiloId)
-          // everything still open (a call marked "riprogrammata" waits for its new day),
+          // everything still open (one "In attesa di conferma" waits for its new day),
           // plus what was recorded in the last week
           .or(`stato.in.(programmata,riprogrammata),programmata_il.gte.${new Date(adesso - 7 * GIORNO_MS).toISOString()}`)
           .order('programmata_il', { ascending: true })
@@ -93,8 +93,8 @@ export default async function LeMieCallPage() {
   const future = aperte.filter((c) => !passata(c))
   const diOggi = future.filter((c) => giorno(c) === oggi)
   const prossime = future.filter((c) => giorno(c) !== oggi)
-  // marked "Riprogrammata" before a call could move (02/10/2026): still without their new day
-  const daSpostare = calls.filter((c) => c.stato === 'riprogrammata')
+  // "In attesa di conferma" (stato riprogrammata, 04/10/2026): the lead still has to confirm a new day
+  const inAttesa = calls.filter((c) => c.stato === 'riprogrammata')
   const concluse = calls.filter((c) => c.stato !== 'programmata' && c.stato !== 'riprogrammata').reverse()
 
   // the admin books too (Dany, 29/09/2026): for himself, for a setter, or a call already done
@@ -181,9 +181,9 @@ export default async function LeMieCallPage() {
 
       {vista === 'closer' ? (
         <>
-          {daSpostare.length > 0 ? (
-            <Sezione titolo={`${SPOSTA.daSpostare.titolo} (${daSpostare.length})`} descrizione={SPOSTA.daSpostare.descrizione}>
-              {[...daSpostare].reverse().map((c) => scheda(c))}
+          {inAttesa.length > 0 ? (
+            <Sezione titolo={`${SPOSTA.attesa.etichetta} (${inAttesa.length})`} descrizione={SPOSTA.attesa.descrizione}>
+              {[...inAttesa].reverse().map((c) => scheda(c))}
             </Sezione>
           ) : null}
 
@@ -231,9 +231,9 @@ export default async function LeMieCallPage() {
             )}
           </Sezione>
 
-          {daRegistrare.length + daSpostare.length + concluse.length > 0 ? (
+          {daRegistrare.length + inAttesa.length + concluse.length > 0 ? (
             <Sezione titolo="Ultimi 30 giorni">
-              {[...daRegistrare, ...daSpostare, ...concluse]
+              {[...daRegistrare, ...inAttesa, ...concluse]
                 .sort((a, b) => b.programmata_il.localeCompare(a.programmata_il))
                 .map((c) => scheda(c))}
             </Sezione>

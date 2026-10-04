@@ -96,8 +96,8 @@ export function SchedaCall({
   const descrizione = `${ETICHETTA_TIPO_CALL[call.tipo]} · ${etichettaGiorno(giorno, oggi).toLowerCase()} alle ${ora}`
   const traccia = tracciaSpostamento(call, oggi)
   const ruolo = vista === 'setter' ? 'setter' : admin ? 'admin' : 'closer'
-  // "Sposta" (Dany, 02/10/2026): a call still to be held, or one marked
-  // "Riprogrammata" before the move existed. The setter moves only the first:
+  // "Sposta" (Dany, 02/10/2026): a call still to be held, or one "In attesa di
+  // conferma" (stato riprogrammata, 04/10/2026). The setter moves only the first:
   // an outcome is the closer's, and moving a call clears it. A held call and a
   // no-show never move, for anyone (restaNelSuoGiorno): they are neither.
   const spostabile = call.stato === 'programmata' || (vista === 'closer' && call.stato === 'riprogrammata')

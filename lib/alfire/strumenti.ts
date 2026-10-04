@@ -25,7 +25,7 @@ import { strumentiProgetti } from '@/lib/alfire/scritture/progetti'
 import { scrittureSetting } from '@/lib/alfire/scritture/setting'
 import type { LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
-import { tracciaSpostamento } from '@/lib/call/spostamento'
+import { SPOSTA, tracciaSpostamento } from '@/lib/call/spostamento'
 import { aggiungiGiorni, aggiungiMesi, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import { LEGENDA_CLOSER, LEGENDA_SETTER, LEGENDA_SETTING } from '@/lib/metriche/legenda'
 import { hrefPeriodo } from '@/lib/periodo'
@@ -941,7 +941,8 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
             stato_lead: c.lead?.stato,
             tipo: c.tipo,
             quando: c.programmata_il,
-            stato: c.stato,
+            // riprogrammata is "In attesa di conferma" in the app (04/10/2026): the same words here
+            stato: c.stato === 'riprogrammata' ? SPOSTA.attesa.etichetta : c.stato,
             esito: c.esito,
             setter: c.setter?.nome ?? null,
             closer: c.closer?.nome ?? null,

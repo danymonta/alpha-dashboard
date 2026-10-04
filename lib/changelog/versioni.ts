@@ -80,6 +80,32 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.22.0',
+    data: '2026-10-04',
+    titolo: 'Call in attesa di conferma',
+    riassunto:
+      'Quando un lead deve spostare la call ma non ha ancora una data, la call si segna «In attesa di conferma»: niente data inventata, e resta in vista finché il lead non conferma.',
+    intestazionePer: ['closer', 'setter'],
+    novita: [
+      {
+        per: ['closer'],
+        testo: 'Nel foglio dell’esito, sotto «Va riprogrammata», ci sono due scelte. «Ha già una nuova data» chiede giorno e ora e sposta la call, come prima. «In attesa di conferma» non chiede nessuna data: la call resta sul suo giorno, senza esito, e puoi lasciare le tue note aggiuntive. Su una call ancora da fare la trovi in «Annulla o rimanda», accanto a «Sposta».',
+      },
+      {
+        per: ['closer'],
+        testo: 'In Le mie call le call in attesa di conferma stanno in cima, nella loro sezione «In attesa di conferma». Quando il lead ti dà la data, «Sposta» porta la call al nuovo giorno e torna da fare.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Nelle tue call, una call che il lead deve ancora riconfermare si legge «In attesa di conferma» (prima «Riprogrammata»). La nuova data la mette il closer quando il lead la conferma.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Le call «Riprogrammata» si chiamano ora «In attesa di conferma» in tutta l’app e in Alfire: badge, Le mie call, Compila la giornata, la guida. Le registri come il closer, anche dicendo ad Alfire «mettila in attesa di conferma»; mai su una call svolta o un no show. Restano fuori dallo show rate, come prima.',
+      },
+    ],
+  },
+  {
     versione: '1.21.0',
     data: '2026-10-04',
     titolo: 'Alfire ti dà i totali',
