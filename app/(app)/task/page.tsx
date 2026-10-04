@@ -1,41 +1,60 @@
-import { ListChecks } from 'lucide-react'
-
 import { IntestazionePagina } from '@/components/pagina/intestazione'
-import { RigaMioTask, type MioTask } from '@/components/pm/miei-task/riga-mio-task'
-import { LinkBottone } from '@/components/link-bottone'
-import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { ElencoMieiTask } from '@/components/pm/miei-task/elenco-miei-task'
 import { requireProfilo } from '@/lib/auth/session'
-import { aggiungiGiorni, oggiRoma } from '@/lib/date'
+import { oggiRoma } from '@/lib/date'
+import {
+  COMPLETATI_MAX,
+  COMPLETATI_RECENTI,
+  mostraTuttiICompletati,
+  type MioTask,
+  type MioTaskCompletato,
+} from '@/lib/miei-task'
 import { nomiAssegnatari, type StatoTask } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-type Gruppo = { chiave: string; titolo: string; task: MioTask[] }
-
 /**
  * "I miei task": what is assigned to me in every project, by when it is due,
- * also when I share it with someone else (then the row says with whom).
- * The daily page of whoever works on projects: tick it off, jump to the
- * project, start the timer. Tasks nobody assigned stay in their project.
+ * also when I share it with someone else (then the row says with whom), and
+ * below what I closed, newest first. The daily page of whoever works on
+ * projects: tick it off, jump to the project, start the timer, reopen.
+ * Tasks nobody assigned stay in their project. Only my own tasks: RLS and the
+ * assignees decide, nobody sees anyone else's list (CLAUDE.md section 17).
  */
-export default async function MieiTaskPage() {
+export default async function MieiTaskPage({ searchParams }: { searchParams: Promise<{ completati?: string }> }) {
   const profilo = await requireProfilo()
+  const tutti = mostraTuttiICompletati((await searchParams).completati)
   const supabase = await createClient()
   const oggi = oggiRoma()
 
-  const { data: righe, error } = await supabase
-    .from('v_pm_task')
-    .select('id, titolo, stato, scadenza, in_ritardo, progetto_id, assegnatari')
-    // a task can have several people: mine when I am one of them
-    .contains('assegnatari', [profilo.id])
-    .neq('stato', 'completato')
-    .order('scadenza', { nullsFirst: false })
-    .order('created_at')
-    .limit(200)
-  if (error) throw new Error('Impossibile caricare i tuoi task')
+  const [{ data: righe, error }, { data: chiusi, count, error: errChiusi }] = await Promise.all([
+    supabase
+      .from('v_pm_task')
+      .select('id, titolo, stato, scadenza, in_ritardo, progetto_id, assegnatari, created_at')
+      // a task can have several people: mine when I am one of them
+      .contains('assegnatari', [profilo.id])
+      .neq('stato', 'completato')
+      // the same order as lib/miei-task.ts, which puts back the tasks ticked on the page
+      .order('scadenza', { nullsFirst: false })
+      .order('created_at')
+      .order('id')
+      .limit(200),
+    supabase
+      .from('v_pm_task')
+      // the count is the database's: "Completati (n)" and "Mostra tutti (n)"
+      .select('id, titolo, scadenza, progetto_id, completato_il', { count: 'exact' })
+      .contains('assegnatari', [profilo.id])
+      .eq('stato', 'completato')
+      .order('completato_il', { ascending: false, nullsFirst: false })
+      .order('id')
+      .limit(tutti ? COMPLETATI_MAX : COMPLETATI_RECENTI),
+  ])
+  if (error || errChiusi) throw new Error('Impossibile caricare i tuoi task')
 
-  const idProgetti = [...new Set((righe ?? []).map((t) => t.progetto_id).filter((id): id is string => Boolean(id)))]
+  const idProgetti = [
+    ...new Set([...(righe ?? []), ...(chiusi ?? [])].map((t) => t.progetto_id).filter((id): id is string => Boolean(id))),
+  ]
   const idAltri = [...new Set((righe ?? []).flatMap((t) => t.assegnatari ?? []).filter((id) => id !== profilo.id))]
   const [{ data: progetti }, { data: persone }] = await Promise.all([
     idProgetti.length
@@ -48,7 +67,7 @@ export default async function MieiTaskPage() {
   const nomi = new Map((progetti ?? []).map((p) => [p.id, p.nome ?? 'Progetto']))
   const nomiPersone = new Map((persone ?? []).map((p) => [p.id, p.nome]))
 
-  const task: MioTask[] = (righe ?? []).map((t) => ({
+  const aperti: MioTask[] = (righe ?? []).map((t) => ({
     id: t.id!,
     titolo: t.titolo ?? '',
     stato: t.stato as StatoTask,
@@ -60,53 +79,31 @@ export default async function MieiTaskPage() {
       (t.assegnatari ?? []).filter((id) => id !== profilo.id),
       nomiPersone,
     ),
+    creato_il: t.created_at ?? '',
   }))
 
-  const fraSette = aggiungiGiorni(oggi, 7)
-  const gruppi: Gruppo[] = [
-    { chiave: 'ritardo', titolo: 'In ritardo', task: task.filter((t) => t.scadenza && t.scadenza < oggi) },
-    { chiave: 'oggi', titolo: 'Oggi', task: task.filter((t) => t.scadenza === oggi) },
-    {
-      chiave: 'settimana',
-      titolo: 'Prossimi 7 giorni',
-      task: task.filter((t) => t.scadenza && t.scadenza > oggi && t.scadenza <= fraSette),
-    },
-    { chiave: 'dopo', titolo: 'Più avanti', task: task.filter((t) => t.scadenza && t.scadenza > fraSette) },
-    { chiave: 'senza', titolo: 'Senza scadenza', task: task.filter((t) => !t.scadenza) },
-  ].filter((g) => g.task.length > 0)
+  const completati: MioTaskCompletato[] = (chiusi ?? []).map((t) => ({
+    id: t.id!,
+    titolo: t.titolo ?? '',
+    scadenza: t.scadenza,
+    progetto_id: t.progetto_id!,
+    progetto: nomi.get(t.progetto_id) ?? 'Progetto',
+    completato_il: t.completato_il,
+  }))
 
   return (
     <div className="max-w-3xl">
       <IntestazionePagina
         titolo="I miei task"
-        descrizione="Quello che ti è stato assegnato in tutti i progetti. Spunta quando è fatto, tocca la sveglia per contare il tempo."
+        descrizione="Quello che ti è stato assegnato in tutti i progetti. Spunta quando è fatto, tocca la sveglia per contare il tempo; sotto, quelli che hai chiuso."
       />
-      {task.length === 0 ? (
-        <StatoVuoto
-          Icona={ListChecks}
-          titolo="Nessun task assegnato a te"
-          descrizione="Quando qualcuno ti assegna un task in un progetto, lo trovi qui con la sua scadenza."
-          azione={<LinkBottone href="/progetti">Vai ai progetti</LinkBottone>}
-        />
-      ) : (
-        <div className="space-y-5">
-          {gruppi.map((g) => (
-            <section key={g.chiave} aria-labelledby={`gruppo-${g.chiave}`} data-testid={`gruppo-${g.chiave}`}>
-              <h2
-                id={`gruppo-${g.chiave}`}
-                className="mb-1 px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
-              >
-                {g.titolo} <span className="num">({g.task.length})</span>
-              </h2>
-              <ul className="divide-y divide-border rounded-xl bg-card">
-                {g.task.map((t) => (
-                  <RigaMioTask key={t.id} task={t} />
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      )}
+      <ElencoMieiTask
+        aperti={aperti}
+        completati={completati}
+        totaleCompletati={count ?? completati.length}
+        tutti={tutti}
+        oggi={oggi}
+      />
     </div>
   )
 }

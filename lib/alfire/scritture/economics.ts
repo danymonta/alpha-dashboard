@@ -6,9 +6,11 @@ import { salvaObiettivi } from '@/app/actions/obiettivi'
 import {
   anteprimaInterruzione,
   aggiornaCliente,
+  chiudiCliente,
   creaCliente,
   eliminaCliente,
   interrompiPercorso,
+  riapriCliente,
 } from '@/app/(app)/clients/actions'
 import {
   eliminaPagamentoProvvigione,
@@ -62,6 +64,7 @@ import { aggiungiMesi, fineDopoMesi, oggiRoma } from '@/lib/date'
 import { formatData, formatEuro, formatMese } from '@/lib/format'
 import { CATEGORIE_COSTO } from '@/lib/validation/anagrafiche'
 import { ETICHETTA_FONTE, FONTI, normalizzaHandle, type Fonte } from '@/lib/validation/call'
+import { MOTIVO_CHIUSURA_MAX } from '@/lib/validation/chiusura'
 import { ETICHETTA_METODO, METODI, type Metodo } from '@/lib/validation/incasso'
 import { PERSONALIZZATO, TIPI_VENDITA } from '@/lib/validation/vendita'
 
@@ -91,7 +94,7 @@ function cliente(ctx: Contesto): Definizione {
   const { supabase, r } = ctx
   const schema = z.object({
     azione: enumAzioni(ctx, 'cliente'),
-    cliente: z.string().optional().describe('Nome e cognome attuali (modifica, elimina)'),
+    cliente: z.string().optional().describe('Nome e cognome attuali (modifica, chiudi, riapri, elimina)'),
     nome: z.string().min(1).max(80).optional(),
     cognome: z.string().max(80).optional(),
     email: z.string().max(160).optional(),
@@ -102,9 +105,51 @@ function cliente(ctx: Contesto): Definizione {
     closer: z.string().optional(),
     note: z.string().max(1000).optional().describe('Sostituisce le note'),
     aggiungi_nota: z.string().max(500).optional().describe('In fondo alle note'),
+    chiuso_il: dataISO('chiudi: da quando non rinnova; di base oggi (o il giorno già salvato), mai nel futuro').optional(),
+    motivo: z.string().max(MOTIVO_CHIUSURA_MAX).optional().describe('chiudi: perché non rinnova, facoltativo; "" lo toglie'),
   })
   type Input = z.infer<typeof schema>
   const campi = 'id, nome, cognome, email, telefono, instagram_handle, fonte, setter_id, closer_id, note'
+
+  /** The client and his closure in force ("Non rinnova"), if any. */
+  async function chiusuraDi(v: Input) {
+    const c = await r.trovaCliente(v.cliente ?? '')
+    if (!c) return errore('Dimmi quale cliente.')
+    if (isErrore(c)) return c
+    const { data, error } = await supabase.from('v_clienti_chiusi').select('chiuso_il, motivo').eq('client_id', c.id).maybeSingle()
+    if (error) return errore('Non riesco a leggere il cliente: riprova tra poco.')
+    return { cliente: c, chiusura: data?.chiuso_il ? { chiuso_il: data.chiuso_il, motivo: data.motivo } : null }
+  }
+
+  /**
+   * "Non rinnova": the closure as it will be saved. A day in the future or
+   * before the latest path was signed stops the card, as the database would.
+   */
+  async function chiusuraNuova(v: Input) {
+    const letta = await chiusuraDi(v)
+    if (isErrore(letta)) return letta
+    const oggi = oggiRoma()
+    const dopo = {
+      chiuso_il: v.chiuso_il?.trim() || letta.chiusura?.chiuso_il || oggi,
+      motivo: v.motivo === undefined ? (letta.chiusura?.motivo ?? null) : v.motivo.trim() || null,
+    }
+    if (dopo.chiuso_il > oggi) return errore('Il giorno della chiusura non può essere nel futuro.')
+    const { data: firme, error } = await supabase
+      .from('sales')
+      .select('data_vendita')
+      .eq('client_id', letta.cliente.id)
+      .in('tipo', ['nuovo', 'rinnovo'])
+      .order('data_vendita', { ascending: false })
+      .limit(1)
+    if (error) return errore('Non riesco a leggere le vendite del cliente: riprova tra poco.')
+    const firma = firme?.[0]?.data_vendita
+    if (firma && dopo.chiuso_il < firma) {
+      return errore(
+        `Il ${formatData(firma)} ${letta.cliente.nome} ha firmato il suo ultimo percorso: la chiusura va da quel giorno in poi.`,
+      )
+    }
+    return { ...letta, dopo }
+  }
 
   /** The row as it is, and as it will be after the edit. */
   async function unisci(v: Input) {
@@ -145,7 +190,10 @@ function cliente(ctx: Contesto): Definizione {
     description:
       'Anagrafica di un cliente. crea: solo per chi non ha comprato niente (se ha comprato usa registra_vendita). ' +
       'modifica: solo i campi da cambiare; setter e closer dell’anagrafica: nome, "io" o "nessuno" (provvigioni e "I tuoi clienti" ' +
-      'seguono il setter della vendita: vendita modifica). elimina: con le sue vendite e rate.',
+      'seguono il setter della vendita: vendita modifica). chiudi: il cliente non rinnova ("Non rinnova" nella scheda), ' +
+      'da chiuso_il con un motivo facoltativo: va tra i chiusi, fuori da In scadenza, Da recuperare e dai promemoria del percorso; ' +
+      'su un cliente già chiuso corregge giorno o motivo. riapri: toglie la chiusura (anche una nuova vendita nuovo o rinnovo lo riapre da sola). ' +
+      'elimina: con le sue vendite e rate.',
     inputSchema: schema,
     anteprima: async (v): Promise<Anteprima> => {
       if (v.azione === 'crea') {
@@ -160,6 +208,32 @@ function cliente(ctx: Contesto): Definizione {
         if (!c) return errore('Dimmi quale cliente.')
         if (isErrore(c)) return c
         return anteprimaConConseguenze(`Elimino il cliente ${c.nome}`, 'cliente', c.id)
+      }
+      if (v.azione === 'chiudi') {
+        const x = await chiusuraNuova(v)
+        if (isErrore(x)) return x
+        if (x.chiusura) {
+          return anteprima(`Correggo la chiusura di ${x.cliente.nome}`, [
+            ...cambi([
+              ['Chiuso dal', x.chiusura.chiuso_il, x.dopo.chiuso_il, 'data'],
+              ['Motivo', x.chiusura.motivo, x.dopo.motivo, 'lungo'],
+            ]),
+          ])
+        }
+        return anteprima(`${x.cliente.nome} non rinnova: lo chiudo`, [
+          `Chiuso dal ${formatData(x.dopo.chiuso_il)}`,
+          x.dopo.motivo ? `Motivo: ${x.dopo.motivo}` : 'Motivo: nessuno',
+          'Va tra i clienti chiusi: esce da In scadenza e Da recuperare, niente più promemoria del percorso. Vendite e incassi restano; se compra di nuovo torna da solo.',
+        ])
+      }
+      if (v.azione === 'riapri') {
+        const x = await chiusuraDi(v)
+        if (isErrore(x)) return x
+        if (!x.chiusura) return errore(`${x.cliente.nome} non è chiuso: non c’è niente da riaprire.`)
+        return anteprima(`Riapro il cliente ${x.cliente.nome}`, [
+          `Era chiuso dal ${formatData(x.chiusura.chiuso_il)}${x.chiusura.motivo ? `: ${x.chiusura.motivo}` : ''}`,
+          'Torna con lo stato che dicono le date del percorso, con i promemoria ancora dovuti; giorno e motivo della chiusura si tolgono.',
+        ])
       }
       const u = await unisci(v)
       if (isErrore(u)) return u
@@ -214,6 +288,19 @@ function cliente(ctx: Contesto): Definizione {
         if (isErrore(c)) return c
         const esito = await eliminaCliente({ id: c.id })
         return esito.ok ? { fatto: true, cliente: c.nome, link: '/clients' } : errore(esito.errore)
+      }
+      if (v.azione === 'chiudi') {
+        const x = await chiusuraNuova(v)
+        if (isErrore(x)) return x
+        const esito = await chiudiCliente({ client_id: x.cliente.id, ...x.dopo })
+        return esito.ok ? { fatto: true, cliente: x.cliente.nome, link: '/rinnovi' } : errore(esito.errore)
+      }
+      if (v.azione === 'riapri') {
+        const x = await chiusuraDi(v)
+        if (isErrore(x)) return x
+        if (!x.chiusura) return errore(`${x.cliente.nome} non è chiuso: non c’è niente da riaprire.`)
+        const esito = await riapriCliente({ client_id: x.cliente.id })
+        return esito.ok ? { fatto: true, cliente: x.cliente.nome, link: `/clients/${x.cliente.id}` } : errore(esito.errore)
       }
       const u = await unisci(v)
       if (isErrore(u)) return u

@@ -51,7 +51,8 @@ test.describe('progetti come in Zoho, ma semplici', () => {
     await expect(page.getByRole('listitem', { name: 'Revisione cliente' })).toHaveCount(0)
 
     await riga.getByRole('checkbox', { name: 'Completa Montaggio' }).click()
-    await expect(page.getByText('Task completato')).toBeVisible()
+    await expect(page.getByText('Fatto', { exact: true })).toBeVisible()
+    await expect(riga).toContainText('Completato adesso')
     await expect
       .poll(async () => (await dbLocale().from('pm_task').select('stato').eq('id', progetto.task.montaggio).single()).data?.stato)
       .toBe('completato')

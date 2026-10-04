@@ -1,6 +1,7 @@
-import { CalendarClock, History, RefreshCw } from 'lucide-react'
+import { Archive, CalendarClock, History, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
+import { RiapriCliente } from '@/app/(app)/clients/[id]/chiusura-cliente'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { BottoneWhatsApp } from '@/components/pagamento/whatsapp'
@@ -31,7 +32,9 @@ function giorniTra(da: string, a: string) {
 /**
  * "Rinnovi": who ends soon and who ended not long ago, each with "Registra
  * rinnovo" and a WhatsApp message ready. The renewal rate of the month comes
- * from metriche_periodo (CLAUDE.md section 9).
+ * from metriche_periodo (CLAUDE.md section 9). The clients the admin closed
+ * ("Non rinnova", 04/10/2026) are never among them: they have their own
+ * section, "Non rinnovano", with "Riapri".
  */
 export default async function RinnoviPage({ searchParams }: { searchParams: Promise<{ entro?: string }> }) {
   await requireRuolo(['admin'])
@@ -41,13 +44,15 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
   const primo = primoDelMeseISO(oggi)
   const supabase = await createClient()
 
-  const [inScadenza, scaduti, metriche] = await Promise.all([
+  const [inScadenza, scaduti, chiusi, chiusure, metriche] = await Promise.all([
     supabase
       .from('v_clienti')
       .select('client_id, nome, cognome, data_fine_ultima, valore_firmato')
       // the dates say it: whoever ends in the window, started or not (attivo, in_scadenza, da_iniziare)
       .gte('data_fine_ultima', oggi)
       .lte('data_fine_ultima', aggiungiGiorni(oggi, giorni))
+      // a closed client does not renew: never among the ones to chase
+      .neq('stato', 'chiuso')
       .order('data_fine_ultima'),
     supabase
       .from('v_clienti')
@@ -56,11 +61,27 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
       // ended means an end in the past: never "finito il …, -182 giorni fa" for a path not started yet
       .lt('data_fine_ultima', oggi)
       .order('data_fine_ultima', { ascending: false }),
+    supabase
+      .from('v_clienti')
+      .select('client_id, nome, cognome, data_fine_ultima, valore_firmato')
+      .eq('stato', 'chiuso'),
+    // the day and the reason of each closure in force
+    supabase.from('v_clienti_chiusi').select('client_id, chiuso_il, motivo'),
     supabase.rpc('metriche_periodo', { p_da: primo, p_a: fineMese(primo) }).single(),
   ])
-  if (inScadenza.error || scaduti.error || metriche.error) throw new Error('Impossibile caricare i rinnovi')
+  if (inScadenza.error || scaduti.error || chiusi.error || chiusure.error || metriche.error) {
+    throw new Error('Impossibile caricare i rinnovi')
+  }
 
-  const ids = [...inScadenza.data, ...scaduti.data].map((c) => c.client_id).filter((id): id is string => Boolean(id))
+  const chiusura = new Map(chiusure.data.map((c) => [c.client_id, c]))
+  // the most recent closure first
+  const nonRinnovano = chiusi.data
+    .map((c) => ({ ...c, chiuso_il: chiusura.get(c.client_id)?.chiuso_il ?? null, motivo: chiusura.get(c.client_id)?.motivo ?? null }))
+    .sort((a, b) => (b.chiuso_il ?? '').localeCompare(a.chiuso_il ?? ''))
+
+  const ids = [...inScadenza.data, ...scaduti.data, ...nonRinnovano]
+    .map((c) => c.client_id)
+    .filter((id): id is string => Boolean(id))
   const { data: contatti } = ids.length
     ? await supabase.from('clients').select('id, telefono').in('id', ids)
     : { data: [] as { id: string; telefono: string | null }[] }
@@ -80,7 +101,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
             {scaduto ? <History className="size-3.5" aria-hidden="true" /> : <CalendarClock className="size-3.5" aria-hidden="true" />}
             <span className="num">
               {scaduto
-                ? `finito il ${formatData(c.data_fine_ultima)}, ${-(mancano ?? 0)} giorni fa`
+                ? `finito il ${formatData(c.data_fine_ultima)}, ${-(mancano ?? 0)} ${mancano === -1 ? 'giorno' : 'giorni'} fa`
                 : mancano === 0
                   ? 'finisce oggi'
                   : `finisce il ${formatData(c.data_fine_ultima)}, tra ${mancano} ${mancano === 1 ? 'giorno' : 'giorni'}`}
@@ -108,11 +129,53 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
     )
   }
 
+  const rigaChiuso = (c: Cliente & { chiuso_il: string | null; motivo: string | null }) => {
+    const nome = [c.nome, c.cognome].filter(Boolean).join(' ')
+    return (
+      <li key={c.client_id} aria-label={nome} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
+        <div className="min-w-0 flex-1 basis-48">
+          <Link href={`/clients/${c.client_id}`} className="block truncate text-sm font-medium hover:underline">
+            {nome}
+          </Link>
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Archive className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="num">
+              {c.chiuso_il ? `chiuso il ${formatData(c.chiuso_il)}` : 'chiuso'}
+              {c.data_fine_ultima ? `, percorso fino al ${formatData(c.data_fine_ultima)}` : ''}
+            </span>
+          </p>
+          {c.motivo ? (
+            <p className="mt-0.5 line-clamp-2 text-xs break-words text-muted-foreground" title={c.motivo}>
+              {c.motivo}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {c.data_fine_ultima ? (
+            <BottoneWhatsApp
+              compatto
+              etichetta={`Scrivi a ${nome} su WhatsApp`}
+              href={linkWhatsApp(
+                c.client_id ? telefono.get(c.client_id) : null,
+                messaggioRinnovo({ nome, data_fine: c.data_fine_ultima, oggi }),
+              )}
+            />
+          ) : null}
+          {c.client_id ? <RiapriCliente clientId={c.client_id} cliente={nome} /> : null}
+          <LinkBottone href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} variant="outline">
+            <RefreshCw className="size-4" aria-hidden="true" />
+            Registra rinnovo
+          </LinkBottone>
+        </div>
+      </li>
+    )
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         titolo="Rinnovi"
-        descrizione="Chi finisce il percorso a breve e chi l’ha finito da poco: scrivigli e registra il rinnovo con un tocco."
+        descrizione="Chi finisce il percorso a breve e chi l’ha finito da poco: scrivigli e registra il rinnovo con un tocco. In fondo chi non rinnova."
       />
 
       <dl className="grid grid-cols-2 gap-3 rounded-xl bg-card p-4 sm:grid-cols-3" data-testid="tasso-rinnovo">
@@ -182,6 +245,21 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
         ) : (
           <ul className="divide-y divide-border rounded-xl bg-card" data-testid="elenco-da-recuperare">
             {scaduti.data.map((c) => riga(c, true))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="titolo-non-rinnovano" className="space-y-2">
+        <h2 id="titolo-non-rinnovano" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Non rinnovano <span className="num">({nonRinnovano.length})</span>
+        </h2>
+        {nonRinnovano.length === 0 ? (
+          <p className="rounded-xl bg-card px-3 py-4 text-sm text-muted-foreground">
+            Nessun cliente chiuso. Quando un cliente non rinnova, «Non rinnova» nella sua scheda lo mette qui.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border rounded-xl bg-card" data-testid="elenco-non-rinnovano">
+            {nonRinnovano.map(rigaChiuso)}
           </ul>
         )}
       </section>

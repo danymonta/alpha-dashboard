@@ -33,6 +33,8 @@ const a = vi.hoisted(() => {
     eliminaReport: ok(),
     salvaReportGiornaliero: ok(),
     aggiornaCliente: ok(),
+    chiudiCliente: ok(),
+    riapriCliente: ok(),
     creaCliente: ok(),
     eliminaCliente: ok(),
     interrompiPercorso: ok(),
@@ -110,6 +112,8 @@ vi.mock('@/app/(app)/setting/actions', () => ({
 vi.mock('@/app/(app)/today/actions', () => ({ salvaReportGiornaliero: a.salvaReportGiornaliero }))
 vi.mock('@/app/(app)/clients/actions', () => ({
   aggiornaCliente: a.aggiornaCliente,
+  chiudiCliente: a.chiudiCliente,
+  riapriCliente: a.riapriCliente,
   creaCliente: a.creaCliente,
   eliminaCliente: a.eliminaCliente,
   interrompiPercorso: a.interrompiPercorso,
@@ -809,6 +813,60 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
     )
     await esegui(s, 'cliente', { azione: 'elimina', cliente: 'Mario Rossi' })
     expect(a.eliminaCliente).toHaveBeenCalledWith({ id: MARIO })
+  })
+
+  it('cliente: «non rinnova» chiude da oggi con il motivo; riapre solo un cliente chiuso', async () => {
+    const s = strumenti()
+    expect(await azioniDi(s, 'cliente')).toEqual(['crea', 'modifica', 'chiudi', 'riapri', 'elimina'])
+    expect(await anteprima('cliente', { azione: 'chiudi', cliente: 'Mario Rossi', motivo: 'Si allena da solo' })).toEqual({
+      titolo: 'Mario Rossi non rinnova: lo chiudo',
+      righe: [
+        `Chiuso dal ${formatData(oggiRoma())}`,
+        'Motivo: Si allena da solo',
+        'Va tra i clienti chiusi: esce da In scadenza e Da recuperare, niente più promemoria del percorso. Vendite e incassi restano; se compra di nuovo torna da solo.',
+      ],
+      sostituisceDettagli: true,
+    })
+    await esegui(s, 'cliente', { azione: 'chiudi', cliente: 'Mario Rossi', motivo: ' Si allena da solo ' })
+    expect(a.chiudiCliente).toHaveBeenCalledWith({ client_id: MARIO, chiuso_il: oggiRoma(), motivo: 'Si allena da solo' })
+
+    // not closed: nothing to reopen, before the tap and at the tap
+    expect(await anteprima('cliente', { azione: 'riapri', cliente: 'Mario Rossi' })).toEqual({
+      errore: 'Mario Rossi non è chiuso: non c’è niente da riaprire.',
+    })
+    await esegui(s, 'cliente', { azione: 'riapri', cliente: 'Mario Rossi' })
+    expect(a.riapriCliente).not.toHaveBeenCalled()
+  })
+
+  it('cliente: mai chiuso nel futuro né prima della firma del suo ultimo percorso', async () => {
+    const futuro = await esegui(strumenti(), 'cliente', { azione: 'chiudi', cliente: 'Mario Rossi', chiuso_il: aggiungiGiorni(oggiRoma(), 1) })
+    expect(futuro).toEqual({ errore: 'Il giorno della chiusura non può essere nel futuro.' })
+    const prima = await anteprima('cliente', { azione: 'chiudi', cliente: 'Mario Rossi', chiuso_il: '2026-01-09' })
+    expect(prima).toEqual({ errore: 'Il 10/01/2026 Mario Rossi ha firmato il suo ultimo percorso: la chiusura va da quel giorno in poi.' })
+    expect(a.chiudiCliente).not.toHaveBeenCalled()
+  })
+
+  it('cliente: su un cliente chiuso, chiudi corregge giorno o motivo e riapri toglie la chiusura', async () => {
+    const righe = { ...mondo(), v_clienti_chiusi: [{ client_id: MARIO, chiuso_il: '2026-09-30', motivo: 'Trasloco' }] }
+    expect(await anteprima('cliente', { azione: 'chiudi', cliente: 'Mario Rossi', chiuso_il: '2026-10-01' }, 'admin', righe)).toEqual({
+      titolo: 'Correggo la chiusura di Mario Rossi',
+      righe: ['Chiuso dal: 30/09/2026 → 01/10/2026'],
+      sostituisceDettagli: true,
+    })
+    const s = strumenti('admin', 'admin', righe)
+    // the reason already saved stays when only the day changes
+    await esegui(s, 'cliente', { azione: 'chiudi', cliente: 'Mario Rossi', chiuso_il: '2026-10-01' })
+    expect(a.chiudiCliente).toHaveBeenCalledWith({ client_id: MARIO, chiuso_il: '2026-10-01', motivo: 'Trasloco' })
+    expect(await anteprima('cliente', { azione: 'riapri', cliente: 'Mario Rossi' }, 'admin', righe)).toEqual({
+      titolo: 'Riapro il cliente Mario Rossi',
+      righe: [
+        'Era chiuso dal 30/09/2026: Trasloco',
+        'Torna con lo stato che dicono le date del percorso, con i promemoria ancora dovuti; giorno e motivo della chiusura si tolgono.',
+      ],
+      sostituisceDettagli: true,
+    })
+    await esegui(s, 'cliente', { azione: 'riapri', cliente: 'Mario Rossi' })
+    expect(a.riapriCliente).toHaveBeenCalledWith({ client_id: MARIO })
   })
 
   it('cliente: creare senza vendita, con setter e closer per nome', async () => {

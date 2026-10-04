@@ -80,6 +80,70 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.24.0',
+    data: '2026-10-05',
+    titolo: 'Chi non rinnova, la cartella da Drive, la timeline dei progetti e i task completati',
+    riassunto:
+      'Un cliente che non rinnova lo chiudi con un tocco e va in una categoria a parte; la sua cartella Drive la scegli direttamente da Drive; in Progetti la timeline di tutti i progetti, e in I miei task i task chiusi restano in vista.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'Nella scheda del cliente, accanto a «Ha rinnovato», c’è «Non rinnova»: scegli da quando (di base oggi) e, se vuoi, scrivi il motivo. Il cliente diventa «Chiuso», anche se il percorso è ancora in corso (il coach continua fino alla fine), e la scheda mostra «Non rinnova · chiuso il …» col motivo, la matita per correggerli e «Riapri».',
+      },
+      {
+        per: ['admin'],
+        testo: 'Un cliente chiuso sta in una categoria a parte: in Clienti ha il suo filtro «Chiuso», in Rinnovi la sezione «Non rinnovano» in fondo, con giorno, motivo, WhatsApp, «Riapri» e «Registra rinnovo». Non compare più tra chi è in scadenza o da recuperare e non ti arrivano più i promemoria del suo percorso. Se compra di nuovo torna da solo tra i clienti, anche se registri il rinnovo lo stesso giorno della chiusura o in ritardo, con i promemoria del nuovo percorso; riaperto a mano, riprendono quelli ancora dovuti. Cash, revenue e tasso di rinnovo non cambiano.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Anche Alfire lo fa: «Rossi non rinnova, chiudilo» o «riapri Rossi», con la solita scheda da confermare, e cerca i clienti chiusi con giorno e motivo.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Nel foglio «Cartella Drive» c’è «Scegli da Drive»: ti colleghi con Google, si apre Drive con le tue cartelle e quelle condivise con te, tocchi quella del cliente e il link si salva da solo. L’app vede solo le cartelle che scegli. Il bottone compare quando Google è configurato (i passi sono nella documentazione del progetto); fino ad allora resta il link da incollare.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'In I miei task, quando spunti un task non sparisce più: resta al suo posto, spuntato e barrato, con «Completato adesso», e in alto compare «Fatto» con «Annulla» per riaprirlo con un tocco. Quando torni sulla pagina lo ritrovi in Completati.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'In fondo a I miei task c’è «Completati»: tutti i task assegnati a te già chiusi, dal più recente, ognuno col suo progetto e il giorno in cui è stato chiuso («Completato oggi alle 18:42», «ieri» o la data), e «Riapri» per rimetterlo tra quelli da fare, nel suo gruppo. Si vedono gli ultimi 30; «Mostra tutti» apre gli altri. Sono sempre e solo i tuoi task.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Progetti ha due viste, Elenco e Timeline. La timeline mette ogni progetto su una linea del tempo, dall’inizio alla fine, reparto per reparto, con quello che finisce prima in cima e la linea di oggi. Sotto ogni nome c’è quanto manca alla fine («tra 17 giorni»); chi finisce entro 30 giorni ha l’orologio. Stato, reparto e «Solo i miei» valgono anche qui.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Nella timeline la freccia accanto al nome apre le liste e le attività con le date del progetto, e il grafico scorre fino a loro. Ogni barra, al passaggio del mouse o con un tocco, dice inizio, fine, giorni alla fine, coach (o «Senza coach») e attività completate, con «Apri il progetto».',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Trimestri mostra tutto il periodo nella pagina (sul telefono scorre), Mesi guarda da vicino; il grafico si apre su oggi. «Tabella» mostra gli stessi progetti con reparto, inizio, fine, giorni alla fine, coach e avanzamento. I progetti senza data di fine sono elencati a parte.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Nella timeline del Fitness Coaching vedi a colpo d’occhio quali percorsi dei clienti stanno finendo e, con l’icona accanto alla data, quali sono ancora senza coach.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo: 'Il box «In scadenza» della Panoramica usa la stessa regola di Rinnovi: chi finisce il percorso entro 30 giorni, iniziato o no, senza i clienti chiusi.',
+      },
+      {
+        per: ['admin'],
+        testo: '«Interrompi il percorso» su un percorso non ancora cominciato propone il suo primo giorno, non oggi che viene prima.',
+      },
+      {
+        per: ['admin'],
+        testo: 'In Rinnovi, tra chi ha finito da poco, chi ha finito ieri risultava «1 giorni fa»: ora «1 giorno fa».',
+      },
+    ],
+  },
+  {
     versione: '1.23.1',
     data: '2026-10-04',
     titolo: 'Clienti da iniziare',

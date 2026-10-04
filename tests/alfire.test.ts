@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ARGOMENTI_GUIDA, GUIDA } from '@/lib/alfire/guida'
 import { SCRITTURE, STRUMENTI, isScrittura, strumentiConsentiti } from '@/lib/alfire/permessi'
 import { promptAlfire } from '@/lib/alfire/prompt'
-import { riassuntoScrittura } from '@/lib/alfire/riassunto'
+import { azioneDistruttiva, riassuntoScrittura } from '@/lib/alfire/riassunto'
 import { strumentiAlfire } from '@/lib/alfire/strumenti'
 import type { AppRole, LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
@@ -44,10 +44,12 @@ vi.mock('@/app/(app)/tempo/actions', () => ({
 }))
 vi.mock('@/app/(app)/clients/actions', () => ({
   aggiornaCliente: vi.fn(),
+  chiudiCliente: vi.fn(),
   creaCliente: vi.fn(),
   eliminaCliente: vi.fn(),
   interrompiPercorso: vi.fn(),
   anteprimaInterruzione: vi.fn(),
+  riapriCliente: vi.fn(),
 }))
 vi.mock('@/app/(app)/expenses/actions', () => ({
   aggiungiCosto: vi.fn(),
@@ -527,6 +529,19 @@ describe('scheda di conferma: vendite e modifiche', () => {
     expect(r.dettagli).toEqual(['Setter: io', 'Closer: io'])
     const v = riassuntoScrittura('vendita', { azione: 'modifica', cliente: 'Saverio', valore: 2500, data_fine: '2027-09-27' })
     expect(v.dettagli.map((d) => d.replace(/\u00a0/g, ' '))).toEqual(['Valore: 2.500,00 €', 'Fine: 27/09/2027'])
+  })
+
+  it('«non rinnova» e «riapri»: la scheda dice cosa succede, col bottone di sempre', () => {
+    const chiudi = { azione: 'chiudi', cliente: 'Mario Rossi', chiuso_il: '2026-10-04', motivo: 'Si allena da solo' }
+    expect(riassuntoScrittura('cliente', chiudi)).toEqual({
+      titolo: 'Mario Rossi non rinnova: lo chiudo',
+      dettagli: ['Chiuso dal 04/10/2026', 'Motivo: Si allena da solo'],
+    })
+    expect(riassuntoScrittura('cliente', { azione: 'chiudi', cliente: 'Mario Rossi' }).dettagli).toEqual(['Chiuso da oggi'])
+    expect(riassuntoScrittura('cliente', { azione: 'riapri', cliente: 'Mario Rossi' }).titolo).toBe('Riapro il cliente Mario Rossi')
+    // reversible: "Conferma", never a red button
+    expect(azioneDistruttiva('cliente', chiudi)).toBeNull()
+    expect(azioneDistruttiva('cliente', { azione: 'riapri', cliente: 'Mario Rossi' })).toBeNull()
   })
 })
 

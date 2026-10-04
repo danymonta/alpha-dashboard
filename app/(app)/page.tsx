@@ -13,7 +13,7 @@ import { ObiettiviMese } from '@/components/panoramica/obiettivi'
 import { TileKpi } from '@/components/panoramica/tile-kpi'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { requireRuolo } from '@/lib/auth/session'
-import { oggiRoma } from '@/lib/date'
+import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import {
   formatData,
   formatEuro,
@@ -190,10 +190,14 @@ export default async function PanoramicaPage({
       .eq('in_ritardo', true)
       .order('scadenza')
       .limit(6),
+    // the same rule as Rinnovi (04/10/2026): whoever ends within 30 days by the dates,
+    // started or not, never a client closed with "Non rinnova"
     supabase
       .from('v_clienti')
       .select('client_id, nome, cognome, data_fine_ultima')
-      .eq('stato', 'in_scadenza')
+      .gte('data_fine_ultima', oggi)
+      .lte('data_fine_ultima', aggiungiGiorni(oggi, 30))
+      .neq('stato', 'chiuso')
       .order('data_fine_ultima')
       .limit(6),
     inCorso ? supabase.rpc('oggi_team').single() : Promise.resolve({ data: null, error: null }),

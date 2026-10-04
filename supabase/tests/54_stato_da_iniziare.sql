@@ -11,7 +11,7 @@ select plan(17);
 
 select is(
   enum_range(null::public.client_status)::text[],
-  array['attivo', 'in_scadenza', 'da_iniziare', 'scaduto', 'ex_cliente', 'mai_attivato'],
+  array['attivo', 'in_scadenza', 'da_iniziare', 'scaduto', 'chiuso', 'ex_cliente', 'mai_attivato'],
   'da_iniziare sta dopo in_scadenza (l''elenco Clienti è ordinato per stato)'
 );
 

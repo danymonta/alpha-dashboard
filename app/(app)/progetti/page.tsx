@@ -1,10 +1,14 @@
 import { FolderKanban, Settings2 } from 'lucide-react'
+import { Suspense } from 'react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { FiltroInterruttore, FiltroSelect } from '@/components/pm/filtri'
 import { CardProgetto } from '@/components/pm/progetto/card-progetto'
 import { NuovoProgetto, type OpzioneCliente, type OpzioneModello } from '@/components/pm/progetto/nuovo-progetto'
+import { SceltaVista } from '@/components/pm/timeline/scelta-vista'
+import { ScheletroTimeline } from '@/components/pm/timeline/scheletro-timeline'
+import { TimelineDati } from '@/components/pm/timeline/timeline-dati'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
@@ -16,6 +20,7 @@ import {
   parseFiltroStatoProgetto,
   puoCreareProgetti,
 } from '@/lib/progetti'
+import { parseVistaProgetti } from '@/lib/progetti-timeline'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -38,7 +43,7 @@ const DESCRIZIONE = {
 export default async function ProgettiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; reparto?: string; miei?: string }>
+  searchParams: Promise<{ stato?: string; reparto?: string; miei?: string; vista?: string }>
 }) {
   const profilo = await requireProfilo()
   const livello = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm)
@@ -46,6 +51,8 @@ export default async function ProgettiPage({
   const adminApp = profilo.ruolo === 'admin'
   const parametri = await searchParams
   const filtroStato = parseFiltroStatoProgetto(parametri.stato)
+  // "Elenco | Timeline" (05/10/2026): the same projects, as cards or on the time axis
+  const vista = parseVistaProgetti(parametri.vista)
   const repartoFiltro = isUuid(parametri.reparto) ? parametri.reparto : null
   // everybody else only sees the projects they are in: the filter would change nothing
   const soloMiei = livello === 'admin' && parametri.miei === '1'
@@ -53,7 +60,7 @@ export default async function ProgettiPage({
 
   let query = supabase
     .from('v_pm_progetti')
-    .select('id, reparto_id, nome, stato, data_fine, client_id, coach_id, task_totali, task_completati, task_in_ritardo, avanzamento, scaduto')
+    .select('id, reparto_id, nome, stato, data_inizio, data_fine, client_id, coach_id, task_totali, task_completati, task_in_ritardo, avanzamento, scaduto')
     .order('nome')
   const stati = STATI_DEL_FILTRO[filtroStato]
   if (stati) query = query.in('stato', stati)
@@ -84,7 +91,8 @@ export default async function ProgettiPage({
   const ids = progetti.data.map((p) => p.id!)
   const idClienti = [...new Set(progetti.data.map((p) => p.client_id).filter((c): c is string => !!c))]
   const [membri, clientiCollegati] = await Promise.all([
-    ids.length > 0
+    // the members' initials are on the cards only
+    ids.length > 0 && vista === 'elenco'
       ? supabase
           .from('pm_membri')
           .select('progetto_id, profilo:profiles!pm_membri_profile_id_fkey(nome)')
@@ -141,6 +149,7 @@ export default async function ProgettiPage({
     stato: parametri.stato,
     reparto: repartoFiltro ?? undefined,
     miei: soloMiei ? '1' : undefined,
+    vista: vista === 'timeline' ? vista : undefined,
   }
 
   return (
@@ -193,9 +202,14 @@ export default async function ProgettiPage({
             attivo={soloMiei}
             etichetta="Solo i miei"
             parametri={parametriCorrenti}
-            className="col-span-2 justify-self-start"
+            className="justify-self-start"
           />
         ) : null}
+        <SceltaVista
+          vista={vista}
+          parametri={parametriCorrenti}
+          className={livello === 'admin' ? 'justify-self-end sm:ml-auto' : 'col-span-2 justify-self-start sm:ml-auto'}
+        />
       </div>
 
       {tuttiVuoti ? (
@@ -209,7 +223,7 @@ export default async function ProgettiPage({
           }
           azione={
             filtroStato !== 'tutti' || repartoFiltro ? (
-              <LinkBottone href="/progetti?stato=tutti" variant="outline">
+              <LinkBottone href={vista === 'timeline' ? '/progetti?stato=tutti&vista=timeline' : '/progetti?stato=tutti'} variant="outline">
                 Mostra tutti i progetti
               </LinkBottone>
             ) : null
@@ -226,12 +240,20 @@ export default async function ProgettiPage({
           }
           azione={
             filtroStato !== 'tutti' || repartoFiltro ? (
-              <LinkBottone href="/progetti?stato=tutti" variant="outline">
+              <LinkBottone href={vista === 'timeline' ? '/progetti?stato=tutti&vista=timeline' : '/progetti?stato=tutti'} variant="outline">
                 Mostra tutti i progetti
               </LinkBottone>
             ) : null
           }
         />
+      ) : vista === 'timeline' ? (
+        <Suspense fallback={<ScheletroTimeline />}>
+          <TimelineDati
+            reparti={sezioni.map((s) => ({ id: s.reparto.id, nome: s.reparto.nome, progetti: s.progetti }))}
+            nomeCliente={nomeCliente}
+            oggi={oggi}
+          />
+        </Suspense>
       ) : (
         sezioni.map(({ reparto, progetti: elenco }) => (
           <section key={reparto.id} aria-labelledby={`reparto-${reparto.id}`} className="space-y-2">

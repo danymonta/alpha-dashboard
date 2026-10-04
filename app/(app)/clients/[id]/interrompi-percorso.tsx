@@ -31,7 +31,8 @@ export function InterrompiPercorso({
   cliente: string
   oggi: string
 }) {
-  const giornoProposto = oggi < vendita.data_fine ? oggi : vendita.data_fine
+  // today, within the path: a path not started yet proposes its first day, never a day before it
+  const giornoProposto = oggi < vendita.data_inizio ? vendita.data_inizio : oggi < vendita.data_fine ? oggi : vendita.data_fine
   const [aperto, setAperto] = useState(false)
   const [giorno, setGiorno] = useState(giornoProposto)
   const [togli, setTogli] = useState(false)

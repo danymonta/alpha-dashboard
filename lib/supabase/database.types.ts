@@ -129,6 +129,43 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"clienti_chiusure": {
+                  Row: {
+                    "chiuso_il": string,"client_id": string,"created_at": string,"created_by": string | null,"motivo": string | null,"updated_at": string
+                  }
+                  Insert: {
+                    "chiuso_il": string,"client_id": string,"created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "chiuso_il"?: string,"client_id"?: string,"created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "clienti_chiusure_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_chiusure_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_chiusure_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_chiusure_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"clients": {
                   Row: {
                     "closer_id": string | null,"cognome": string | null,"created_at": string,"created_by": string | null,"email": string | null,"fonte": Database["public"]['Enums']["lead_source"] | null,"id": string,"instagram_handle": string | null,"lead_id": string | null,"nome": string,"note": string | null,"setter_id": string | null,"telefono": string | null,"updated_at": string
@@ -889,6 +926,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"v_clienti_chiusi": {
+                  Row: {
+                    "chiuso_il": string | null,"client_id": string | null,"created_at": string | null,"motivo": string | null
+                  }
+                  Insert: {
+                           "chiuso_il"?: string | null,"client_id"?: string | null,"created_at"?: string | null,"motivo"?: string | null
+                         }
+                        Update: {
+                           "chiuso_il"?: string | null,"client_id"?: string | null,"created_at"?: string | null,"motivo"?: string | null
+                         }
+                        Relationships: [
+                    {
+      foreignKeyName: "clienti_chiusure_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_chiusure_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_chiusure_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    }
+                  ]
                 },"v_pm_progetti": {
                   Row: {
                     "avanzamento": number | null,"client_id": string | null,"coach_id": string | null,"created_at": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"nome": string | null,"reparto_id": string | null,"responsabile_id": string | null,"scaduto": boolean | null,"sono_membro": boolean | null,"stato": Database["public"]['Enums']["pm_stato_progetto"] | null,"task_completati": number | null,"task_in_ritardo": number | null,"task_totali": number | null
@@ -1501,7 +1569,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"scaduto"|"ex_cliente"|"mai_attivato","expense_category": "team"|"software"|"ads"|"formazione"|"altro","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
+            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","expense_category": "team"|"software"|"ads"|"formazione"|"altro","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1617,7 +1685,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "app_role": ["admin", "setter", "closer", "coach", "editor", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "scaduto", "ex_cliente", "mai_attivato"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
+            "app_role": ["admin", "setter", "closer", "coach", "editor", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
           }
         }
 } as const

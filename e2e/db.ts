@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 
+import { aggiungiGiorni, oggiRoma } from '../lib/date'
 import type { Database } from '../lib/supabase/database.types'
 import type { RuoloSeed } from './utenti'
 
@@ -207,7 +208,8 @@ export async function creaVenditaDiProva(
     .single()
   if (e1) throw e1
 
-  const data = new Date(Date.now() - giorniFa * 86_400_000).toISOString().slice(0, 10)
+  // days in Europe/Rome, as the app counts them: after midnight in Rome UTC is still yesterday
+  const data = aggiungiGiorni(oggiRoma(), -giorniFa)
   const { data: vendita, error: e2 } = await db
     .from('sales')
     .insert({
@@ -218,7 +220,7 @@ export async function creaVenditaDiProva(
       closer_id: closerId,
       data_vendita: data,
       data_inizio: data,
-      data_fine: new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10),
+      data_fine: aggiungiGiorni(oggiRoma(), 60),
       valore_contratto: valore,
       numero_rate: rate,
     })

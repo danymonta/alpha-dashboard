@@ -129,7 +129,9 @@ test('il manager assegna un task a due persone e lo trovano entrambe nei loro ta
   await expect(suo).toContainText('con Marco Coach')
   // one of two people, she closes it
   await suo.getByRole('checkbox', { name: 'Completa Reel a quattro mani' }).click()
-  await expect(editor.getByText('Task completato')).toBeVisible()
+  // it stays in its place, ticked, until she leaves the page (04/10/2026)
+  await expect(editor.getByText('Fatto', { exact: true })).toBeVisible()
+  await expect(suo).toContainText('Completato adesso')
   await expect
     .poll(async () => (await dbLocale().from('pm_task').select('stato').eq('id', taskId).single()).data?.stato)
     .toBe('completato')

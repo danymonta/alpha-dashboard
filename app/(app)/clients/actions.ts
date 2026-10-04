@@ -8,6 +8,7 @@ import { isDataISO } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 import { clienteSchema } from '@/lib/validation/anagrafiche'
 import { cartellaDriveSchema } from '@/lib/validation/cartella'
+import { chiusuraClienteSchema } from '@/lib/validation/chiusura'
 
 export type Esito = { ok: true } | { ok: false; errore: string }
 
@@ -154,5 +155,51 @@ export async function togliCartellaDrive(input: unknown): Promise<Esito> {
   if (error) return { ok: false, errore: messaggioErrore(error, 'Link non tolto. Riprova.') }
 
   revalidatePath(`/clients/${parsed.data.client_id}`)
+  return { ok: true }
+}
+
+/** Every page that lists a client by status: Clienti, Rinnovi, the Panoramica box. */
+function rivalidaStatoCliente(clientId: string) {
+  revalidatePath('/clients')
+  revalidatePath(`/clients/${clientId}`)
+  revalidatePath('/rinnovi')
+  revalidatePath('/')
+}
+
+/**
+ * "Non rinnova" (04/10/2026): the client is closed from that day, with an
+ * optional reason. Its own table, admin only (RLS); the database refuses a day
+ * in the future or before the client's latest path was signed. Closing again
+ * replaces the day and the reason.
+ */
+export async function chiudiCliente(input: unknown): Promise<Esito> {
+  const parsed = chiusuraClienteSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const { client_id, chiuso_il, motivo } = parsed.data
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('clienti_chiusure')
+    .upsert({ client_id, chiuso_il, motivo }, { onConflict: 'client_id' })
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non chiuso. Riprova.') }
+
+  rivalidaStatoCliente(client_id)
+  return { ok: true }
+}
+
+/** "Riapri": the closure goes, the status comes back from the sale dates. */
+export async function riapriCliente(input: unknown): Promise<Esito> {
+  const parsed = z.object({ client_id: z.string().uuid() }).safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Cliente non valido.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('clienti_chiusure').delete().eq('client_id', parsed.data.client_id)
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non riaperto. Riprova.') }
+
+  rivalidaStatoCliente(parsed.data.client_id)
   return { ok: true }
 }

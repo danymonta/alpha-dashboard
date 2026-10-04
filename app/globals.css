@@ -36,6 +36,11 @@
      separation, contrast >= 3:1. Never reused for another entity. */
   --gantt-lista: #0fa094;
   --gantt-task: #9179d0;
+  /* the project as a whole, on the timeline of /progetti (05/10/2026), with
+     its lists and tasks beneath it: validated with the two above on all pairs
+     (CVD 9.8, normal vision 19.6), and >= 15 from --status-warning (the
+     "in scadenza" icon beside its bars) and --status-ok. */
+  --gantt-progetto: #b36d2a;
 
   /* Status: always paired with an icon and a label, never colour alone */
   --status-ok: #4caf7a;
@@ -120,6 +125,7 @@
   --color-chart-upsell: var(--chart-upsell);
   --color-gantt-lista: var(--gantt-lista);
   --color-gantt-task: var(--gantt-task);
+  --color-gantt-progetto: var(--gantt-progetto);
   --color-status-ok: var(--status-ok);
   --color-status-warning: var(--status-warning);
   --color-status-critical: var(--status-critical);

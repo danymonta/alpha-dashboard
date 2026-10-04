@@ -142,6 +142,16 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
       const chi = testo(input.cliente) ?? '?'
       if (azione === 'elimina') return { titolo: `Elimino il cliente ${chi}`, dettagli: [] }
       if (azione === 'modifica') return { titolo: `Correggo il cliente ${chi}`, dettagli: cambi(input, ['azione', 'cliente']) }
+      if (azione === 'chiudi') {
+        return {
+          titolo: `${chi} non rinnova: lo chiudo`,
+          dettagli: righe(
+            testo(input.chiuso_il) ? `Chiuso dal ${formatData(input.chiuso_il as string)}` : 'Chiuso da oggi',
+            testo(input.motivo) && `Motivo: ${input.motivo}`,
+          ),
+        }
+      }
+      if (azione === 'riapri') return { titolo: `Riapro il cliente ${chi}`, dettagli: [] }
       return {
         titolo: `Creo il cliente ${[testo(input.nome), testo(input.cognome)].filter(Boolean).join(' ')}`,
         dettagli: righe(

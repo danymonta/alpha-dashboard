@@ -1,8 +1,8 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ExternalLink, FolderOpen, LoaderCircle, Pencil, Plus, TriangleAlert } from 'lucide-react'
-import { useState } from 'react'
+import { ExternalLink, FolderOpen, FolderSearch, Info, LoaderCircle, Pencil, Plus, TriangleAlert } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
@@ -20,27 +20,108 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import {
+  ErroreDrive,
+  apriPicker,
+  caricaGoogle,
+  chiediToken,
+  googlePronto,
+  type TokenDrive,
+} from '@/lib/google/drive-browser'
+import { ERRORI_DRIVE, cartellaScelta, type ConfigPicker } from '@/lib/google/picker'
 import { cartellaDriveSchema, type CartellaDriveInput } from '@/lib/validation/cartella'
 
 /**
  * The client's Google Drive folder (Dany, 04/10/2026), admin only: open it,
  * add or change the link, take it away. The folder on Drive is never touched.
+ * With the Google Picker configured, "Scegli da Drive" picks the folder from
+ * Drive itself: Google's sign-in gives a token with the drive.file scope, kept
+ * in this page's memory only, and the folder's URL, rebuilt from its id, is
+ * saved by the same action and schema as a typed link.
  */
-export function CartellaDrive({ clientId, cliente, url }: { clientId: string; cliente: string; url: string | null }) {
+export function CartellaDrive({
+  clientId,
+  cliente,
+  url,
+  picker = null,
+}: {
+  clientId: string
+  cliente: string
+  url: string | null
+  /** The Picker's public configuration; null: no button, the typed link only. */
+  picker?: ConfigPicker | null
+}) {
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
+  const [avviso, setAvviso] = useState<string | null>(null)
+  const [inDrive, setInDrive] = useState(false)
+  // Google's access token: this page's memory only, never sent to the server
+  const token = useRef<TokenDrive | null>(null)
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CartellaDriveInput>({
     resolver: zodResolver(cartellaDriveSchema),
     defaultValues: { client_id: clientId, url: url ?? '' },
   })
 
+  // Google's libraries load while the sheet is open, so the tap opens the popup at once
+  useEffect(() => {
+    if (aperto && picker) caricaGoogle().catch(() => undefined)
+  }, [aperto, picker])
+
+  async function scegliDaDrive() {
+    if (!picker || inDrive) return
+    setErrore(null)
+    setAvviso(null)
+    setInDrive(true)
+    try {
+      if (!googlePronto()) {
+        // still loading: asking for the token now would open Google's window
+        // after the tap, and the browser would block it as a popup
+        await caricaGoogle()
+        setAvviso(ERRORI_DRIVE.pronto)
+        return
+      }
+      if (!token.current || token.current.scadeAlle - Date.now() < 60_000) {
+        token.current = await chiediToken(picker)
+      }
+      // the Picker is a window of its own over the page: the sheet steps aside
+      setAperto(false)
+      const scelta = await apriPicker(picker, token.current.valore)
+      if (scelta.azione === 'annullata') {
+        setAvviso(ERRORI_DRIVE.nessuna)
+        setAperto(true)
+        return
+      }
+      const cartella = cartellaScelta(scelta.documento)
+      if (!cartella.ok) {
+        setErrore(cartella.errore)
+        setAperto(true)
+        return
+      }
+      setValue('url', cartella.url)
+      const esito = await salvaCartellaDrive({ client_id: clientId, url: cartella.url })
+      if (!esito.ok) {
+        setErrore(esito.errore)
+        setAperto(true)
+        return
+      }
+      toast.success(url ? 'Link aggiornato' : 'Cartella collegata')
+    } catch (e) {
+      setErrore(e instanceof ErroreDrive ? e.message : 'Connessione assente. Riprova.')
+      setAperto(true)
+    } finally {
+      setInDrive(false)
+    }
+  }
+
   const invia = handleSubmit(async (valori) => {
     setErrore(null)
+    setAvviso(null)
     let esito
     try {
       esito = await salvaCartellaDrive(valori)
@@ -85,6 +166,7 @@ export function CartellaDrive({ clientId, cliente, url }: { clientId: string; cl
         onOpenChange={(v) => {
           setAperto(v)
           setErrore(null)
+          setAvviso(null)
           // always on the saved link
           reset({ client_id: clientId, url: url ?? '' })
         }}
@@ -118,6 +200,27 @@ export function CartellaDrive({ clientId, cliente, url }: { clientId: string; cl
           </SheetHeader>
           <form onSubmit={invia} noValidate className="space-y-4 px-4 pb-6">
             <input type="hidden" {...register('client_id')} />
+            {picker ? (
+              <div className="space-y-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full"
+                  disabled={inDrive || isSubmitting}
+                  onClick={() => void scegliDaDrive()}
+                >
+                  {inDrive ? (
+                    <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <FolderSearch className="size-4" aria-hidden="true" />
+                  )}
+                  Scegli da Drive
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Ti colleghi con Google e scegli la cartella: l’app vede solo le cartelle che scegli tu.
+                </p>
+              </div>
+            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="cd-url">Link della cartella</Label>
               <Input
@@ -135,15 +238,22 @@ export function CartellaDrive({ clientId, cliente, url }: { clientId: string; cl
               />
               <ErroreCampo id="cd-url-errore" messaggio={errors.url?.message} />
               <p id="cd-url-aiuto" className="text-xs text-muted-foreground">
-                Su Drive: tasto destro sulla cartella › Condividi › Copia link.
+                {picker ? 'Oppure incolla il link. ' : null}Su Drive: tasto destro sulla cartella › Condividi › Copia link.
               </p>
             </div>
+            {avviso ? (
+              <p role="status" className="flex items-start gap-2 text-sm text-muted-foreground">
+                <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                {avviso}
+              </p>
+            ) : null}
             {errore ? (
               <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 {errore}
               </p>
             ) : null}
+            {/* never held by the Drive flow: the pasted link always saves */}
             <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
               {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
               Salva

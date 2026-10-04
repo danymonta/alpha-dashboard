@@ -118,7 +118,8 @@ export function isScrittura(nome: string): nome is NomeScrittura {
  * server action checks again anyway.
  */
 export const AZIONI = {
-  cliente: { admin: ['crea', 'modifica', 'elimina'] },
+  // chiudi / riapri: "Non rinnova" and "Riapri" of the client sheet (04/10/2026)
+  cliente: { admin: ['crea', 'modifica', 'chiudi', 'riapri', 'elimina'] },
   vendita: { admin: ['modifica', 'interrompi', 'elimina'] },
   rata: {
     admin: ['incassa', 'correggi_incasso', 'annulla_incasso', 'fallita', 'modifica', 'rimborso', 'aggiungi', 'elimina'],

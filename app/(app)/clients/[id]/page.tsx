@@ -2,6 +2,7 @@ import { ChevronRight, FolderKanban, History, Plus, RefreshCw, SearchX, Triangle
 import Link from 'next/link'
 
 import { CartellaDrive } from '@/app/(app)/clients/[id]/cartella-drive'
+import { ChiusuraCliente, NonRinnova } from '@/app/(app)/clients/[id]/chiusura-cliente'
 import { InterrompiPercorso } from '@/app/(app)/clients/[id]/interrompi-percorso'
 import { ModificaCliente } from '@/app/(app)/clients/[id]/modifica-cliente'
 import { StoricoPercorsi, type Percorso } from '@/app/(app)/clients/[id]/storico-percorsi'
@@ -13,6 +14,7 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formatData, formatEuro } from '@/lib/format'
+import { configPickerRichiesta } from '@/lib/google/picker-server'
 import { createClient } from '@/lib/supabase/server'
 import { ETICHETTA_FONTE } from '@/lib/validation/call'
 
@@ -24,7 +26,9 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   const supabase = await createClient()
   const oggi = oggiRoma()
 
-  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto, cartella] = await Promise.all([
+  // "Scegli da Drive": the Google Picker's public values, read now; none = the typed link only
+  const picker = await configPickerRichiesta()
+  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto, cartella, chiusura] = await Promise.all([
     supabase
       .from('clients')
       .select('id, nome, cognome, email, telefono, instagram_handle, fonte, note, created_at, setter_id, closer_id, setter:profiles!clients_setter_id_fkey(nome), closer:profiles!clients_closer_id_fkey(nome)')
@@ -58,8 +62,10 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .maybeSingle(),
     // the link to the client's Drive folder: its own table, admin only (04/10/2026)
     supabase.from('clienti_cartelle').select('url').eq('client_id', id).maybeSingle(),
+    // "Non rinnova" in force (04/10/2026): a later nuovo/rinnovo sale already reopened him
+    supabase.from('v_clienti_chiusi').select('chiuso_il, motivo').eq('client_id', id).maybeSingle(),
   ])
-  if (vendite.error || importi.error || progetto.error || cartella.error) {
+  if (vendite.error || importi.error || progetto.error || cartella.error || chiusura.error) {
     throw new Error('Impossibile caricare lo storico del cliente')
   }
 
@@ -106,6 +112,17 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .filter((p) => p.data_fine >= oggi)
       .sort((a, b) => b.data_fine.localeCompare(a.data_fine))
       .map(({ id, data_inizio, data_fine }) => ({ id, data_inizio, data_fine }))[0] ?? null
+  // a closure starts on or after the day the latest path was signed (the database checks it too)
+  const ultimaFirma =
+    percorsi
+      .filter((p) => p.tipo !== 'upsell')
+      .map((p) => p.data_vendita)
+      .sort()
+      .at(-1) ?? null
+  const chiuso =
+    valore.stato === 'chiuso' && chiusura.data?.chiuso_il
+      ? { chiuso_il: chiusura.data.chiuso_il, motivo: chiusura.data.motivo }
+      : null
 
   const contatti: [string, string][] = [
     ['Email', cliente.email ?? '–'],
@@ -136,6 +153,8 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
                 <RefreshCw className="size-4" aria-hidden="true" />
                 Ha rinnovato
               </LinkBottone>
+              {/* the other answer: he does not renew, and goes among the closed clients (04/10/2026) */}
+              {chiuso ? null : <NonRinnova clientId={id} cliente={nome} oggi={oggi} minimo={ultimaFirma} />}
               <LinkBottone href={`/sales/new?cliente=${id}&tipo=upsell`} variant="outline">
                 Upsell
               </LinkBottone>
@@ -176,6 +195,8 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         ) : null}
       </div>
 
+      {chiuso ? <ChiusuraCliente clientId={id} cliente={nome} oggi={oggi} minimo={ultimaFirma} chiusura={chiuso} /> : null}
+
       {progetto.data ? (
         // the coach's side of the client: the project with the tasks and the time, never the money
         <Link
@@ -197,7 +218,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         </Link>
       ) : null}
 
-      <CartellaDrive clientId={cliente.id} cliente={nome} url={cartella.data?.url ?? null} />
+      <CartellaDrive clientId={cliente.id} cliente={nome} url={cartella.data?.url ?? null} picker={picker} />
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2 px-1">
