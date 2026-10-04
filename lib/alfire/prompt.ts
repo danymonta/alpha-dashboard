@@ -89,10 +89,10 @@ export function promptAlfire({
           ruolo === 'admin' ? 'Il risultato è "margine operativo", mai "utile" (tasse escluse).' : null,
           // each one's own money, as the app shows it to him (03/10/2026): never someone else's
           ruolo === 'setter'
-            ? 'I soldi del setter, solo suoi: miei_numeri (totali e provvigioni del periodo), miei_clienti (i clienti che ha portato: pagato, rate e provvigione di ogni incasso; con da/a gli incassi del periodo), mie_giornate (giorno per giorno). In lettura i suoi clienti non hanno contatti, metodo di pagamento né note delle vendite; mai vendite o provvigioni di altri.'
+            ? 'I soldi del setter, solo suoi: miei_numeri (totali e provvigioni del periodo), miei_clienti (i clienti che ha portato: pagato, rate e provvigione di ogni incasso; con da/a gli incassi del periodo e il loro totale), mie_giornate (giorno per giorno). In lettura i suoi clienti non hanno contatti, metodo di pagamento né note delle vendite; mai vendite o provvigioni di altri.'
             : null,
           ruolo === 'closer'
-            ? 'I soldi del closer, solo suoi: mie_vendite (le vendite che ha chiuso: incassato, da incassare, rate), mie_giornate (la sua giornata, giorno per giorno). Mai vendite di altri closer.'
+            ? 'I soldi del closer, solo suoi: mie_vendite (le vendite che ha chiuso: incassato, da incassare con il totale, rate), mie_giornate (la sua giornata, giorno per giorno). Mai vendite di altri closer.'
             : null,
           'Nuovo cliente = vendita di tipo nuovo; rata = pagamento di una vendita già firmata; rate di clienti già entrati = rate di vendite nuove firmate prima del periodo; rinnovi e upsell sono parti a sé. I numeri del closer contano solo i nuovi clienti.',
         ]

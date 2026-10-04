@@ -595,13 +595,13 @@ describe('prompt e guida', () => {
   it('il prompt: i soldi di setter e closer, solo i loro e come li mostra l’app (03/10/2026)', () => {
     const setter = promptAlfire({ nome: 'Loris', ruolo: 'setter', oggi: '2026-10-03' })
     expect(setter).toContain('I soldi del setter, solo suoi: miei_numeri')
-    expect(setter).toContain('miei_clienti (i clienti che ha portato: pagato, rate e provvigione di ogni incasso; con da/a gli incassi del periodo)')
+    expect(setter).toContain('miei_clienti (i clienti che ha portato: pagato, rate e provvigione di ogni incasso; con da/a gli incassi del periodo e il loro totale)')
     // a read's limit, never a write's: the setter still writes handles and notes (fissa_call, aggiorna_report)
     expect(setter).toContain('In lettura i suoi clienti non hanno contatti, metodo di pagamento né note delle vendite; mai vendite o provvigioni di altri.')
     expect(setter).not.toContain('Mai contatti, metodo o note')
     expect(setter).not.toContain('mie_vendite')
     const closer = promptAlfire({ nome: 'Lorenzo', ruolo: 'closer', oggi: '2026-10-03' })
-    expect(closer).toContain('I soldi del closer, solo suoi: mie_vendite (le vendite che ha chiuso: incassato, da incassare, rate)')
+    expect(closer).toContain('I soldi del closer, solo suoi: mie_vendite (le vendite che ha chiuso: incassato, da incassare con il totale, rate)')
     expect(closer).toContain('Mai vendite di altri closer.')
     // registra_vendita and rata still take contacts, payment method and notes from him
     expect(closer).not.toMatch(/Mai contatti|metodo o note/)

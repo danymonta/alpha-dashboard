@@ -80,6 +80,27 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.21.0',
+    data: '2026-10-04',
+    titolo: 'Alfire ti dà i totali',
+    riassunto: 'Quanto ti resta da incassare e quanto hanno pagato i tuoi clienti in un periodo: Alfire risponde con un totale contato dall’app, solo sui tuoi numeri.',
+    intestazionePer: ['setter', 'closer'],
+    novita: [
+      {
+        per: ['closer'],
+        testo: 'Chiedi ad Alfire «quanto mi resta da incassare?»: ti dà il totale delle rate ancora da incassare di tutte le vendite che hai chiuso, contato dall’app e non sommato a mano, e quanto ne è in ritardo, quanto scade nei prossimi 30 giorni e quanto più avanti. Un pagamento non andato a buon fine non conta. Sotto, come prima, le vendite con le loro rate. Solo le tue vendite, mai quelle di un altro closer.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Chiedi ad Alfire «quanto hanno pagato i miei clienti questo mese?» (o in qualsiasi periodo): ti dà il totale pagato dai clienti che hai portato, già al netto dei rimborsi, quanti pagamenti, quanti clienti e quanto ti è maturato, contato dall’app come in I miei numeri. Sotto, come prima, ogni pagamento con la sua provvigione. Solo i tuoi clienti, mai quelli di un altro setter.',
+      },
+      {
+        per: ['admin'],
+        testo: 'I due totali li conta il database, sempre e solo sui soldi di chi chiede: il da incassare del closer sulle vendite chiuse da lui (diviso come il tuo Da incassare: in ritardo, prossimi 30 giorni, oltre), quanto hanno pagato i clienti del setter nel periodo con la sua provvigione, la stessa di I miei numeri. Alfire risponde con quel totale e non somma più le righe da sé.',
+      },
+    ],
+  },
+  {
     versione: '1.20.0',
     data: '2026-10-03',
     titolo: 'Il tempo per task, e Alfire coi tuoi numeri',

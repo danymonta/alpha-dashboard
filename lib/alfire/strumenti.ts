@@ -589,8 +589,9 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       description:
         'I clienti portati dal setter che chatta (le vendite col suo nome), come I miei numeri › I tuoi clienti: per vendita cliente, prodotto, tipo, data, revenue, ' +
         'pagato_in_tutto (dall’inizio della vendita, non per periodo), rate pagate e in ritardo, e a_te (la provvigione maturata su quella vendita). ' +
-        'Con cliente anche le rate, ognuna con la provvigione del suo incasso. Con da e/o a, invece, gli incassi di quel periodo uno per uno, ognuno con la sua provvigione. ' +
-        'Importi per vendita o per incasso, dal SQL: non sommarli. La provvigione maturata in un periodo, già sommata: miei_numeri. ' +
+        'Con cliente anche le rate, ognuna con la provvigione del suo incasso. Con da e/o a, invece, gli incassi di quel periodo uno per uno, ognuno con la sua provvigione, ' +
+        'e senza cliente totale_periodo: quanto hanno pagato i suoi clienti nel periodo (al netto dei rimborsi), quanti incassi e la provvigione maturata, già sommati dal SQL. ' +
+        '«Quanto hanno pagato i miei clienti questo mese?»: da/a e rispondi con totale_periodo. Importi per vendita o per incasso, dal SQL: non sommarli mai, i totali sono già lì. ' +
         SOLO_DI_CHI_CHATTA,
       inputSchema: z.object({
         cliente: z.string().max(60).optional().describe('Nome o cognome: le sue vendite, con le rate'),
@@ -603,6 +604,10 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
         const { data, error } = await supabase.rpc('mie_vendite_setter')
         // a read that fails is never "no clients"
         if (error) return errore('I tuoi clienti non sono disponibili in questo momento.')
+        // what his clients paid in the period, summed in SQL (04/10/2026): all his clients
+        // (never only the rows listed here), on the same base as mie_vendite_setter
+        const totale = p && !cliente?.trim() ? await supabase.rpc('incassi_clienti_setter', { p_da: p.da, p_a: p.a }).single() : null
+        if (totale?.error || (totale && !totale.data)) return errore('I tuoi clienti non sono disponibili in questo momento.')
         // one sale, its instalments: the SQL order (the newest sale first, its instalments in order)
         const perVendita = new Map<string, RigaClienteSetter[]>()
         for (const riga of data) perVendita.set(riga.sale_id, [...(perVendita.get(riga.sale_id) ?? []), riga])
@@ -638,6 +643,17 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
             ...datiDi(profilo),
             ...(chi ? { cliente: chi } : {}),
             periodo: p,
+            ...(totale?.data
+              ? {
+                  totale_periodo: {
+                    pagato_netto: totale.data.incassato,
+                    incassi: totale.data.numero_incassi,
+                    ...(totale.data.numero_rimborsi > 0 ? { rimborsi: totale.data.numero_rimborsi, rimborsato: totale.data.rimborsato } : {}),
+                    clienti: totale.data.clienti,
+                    provvigione_maturata: totale.data.provvigione,
+                  },
+                }
+              : {}),
             incassi: incassi.slice(0, INCASSI_SETTER).map((x) => ({
               cliente: x.cliente,
               tipo: ETICHETTA_TIPO_VENDITA[x.tipo],
@@ -650,9 +666,11 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
             nota:
               incassi.length === 0
                 ? 'Nessun incasso dei tuoi clienti nel periodo.'
-                : `Un incasso per riga, dal SQL: il totale non è calcolato qui, non sommarli; la provvigione maturata nel periodo è in miei_numeri.${
-                    incassi.length > INCASSI_SETTER ? ` Qui i ${INCASSI_SETTER} più recenti su ${incassi.length}.` : ''
-                  }`,
+                : `${
+                    totale?.data
+                      ? 'Un incasso per riga; il totale è totale_periodo, dal SQL: usa quello, non sommare le righe.'
+                      : 'Un incasso per riga, dal SQL: non sommarli; il totale di tutti i tuoi clienti nel periodo: chiedi senza cliente.'
+                  }${incassi.length > INCASSI_SETTER ? ` Qui i ${INCASSI_SETTER} più recenti su ${incassi.length}.` : ''}`,
           }
         }
 
@@ -704,7 +722,9 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       description:
         'Le vendite dove chi chatta è il closer, come Le mie vendite e la scheda della vendita: per vendita cliente, tipo, prodotto, data, percorso, setter, contratto, incassato, ' +
         'da incassare (le rate previste; una rata fallita non conta), in ritardo e la prossima rata da oggi in poi (importi dal SQL: non sommarli tra vendite). ' +
-        'da_incassare: solo quelle con rate da incassare, ognuna con le sue rate da incassare. Con cliente: le sue vendite con tutte le rate. Con da e/o a: le vendite chiuse in quel periodo. ' +
+        'da_incassare: solo quelle con rate da incassare, ognuna con le sue rate da incassare, e totale_da_incassare: quanto gli resta da incassare su tutte le sue vendite, ' +
+        'di cui in ritardo, nei prossimi 30 giorni e oltre, già sommato dal SQL. «Quanto mi resta da incassare?»: da_incassare e rispondi con totale_da_incassare, mai sommando le vendite. ' +
+        'Con cliente: le sue vendite con tutte le rate. Con da e/o a: le vendite chiuse in quel periodo. ' +
         'I totali di un periodo (call, chiuse, cash e revenue dei clienti nuovi) sono in mie_giornate. ' +
         SOLO_DI_CHI_CHATTA,
       inputSchema: z.object({
@@ -732,8 +752,15 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
         if (chi) q = q.eq('client_id', chi.id)
         if (da_incassare) q = q.gt('da_incassare', 0)
         if (p) q = q.gte('data_vendita', p.da).lte('data_vendita', p.a)
-        const importi = await q.order('data_vendita', { ascending: false }).limit(MIE_VENDITE + 1)
+        // what is still to collect on all his sales, summed in SQL (04/10/2026): asked with
+        // da_incassare, never for one client or a period (the total is of every sale of his)
+        const [importi, totale] = await Promise.all([
+          q.order('data_vendita', { ascending: false }).limit(MIE_VENDITE + 1),
+          da_incassare && !chi && !p ? supabase.rpc('da_incassare_closer').single() : null,
+        ])
         if (importi.error) return errore('Le tue vendite non sono disponibili in questo momento.')
+        // a read that fails is never "nothing to collect"
+        if (totale?.error || (totale && !totale.data)) return errore('Le tue vendite non sono disponibili in questo momento.')
         const righe = importi.data.slice(0, MIE_VENDITE)
         const ids = righe.map((x) => x.sale_id).filter((id): id is string => Boolean(id))
         // the instalments through the sale, as the sale page reads them: the closer reads the
@@ -791,6 +818,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
           ]
         })
         const note = [
+          totale?.data ? 'totale_da_incassare è il totale di tutte le tue vendite, dal SQL: usa quello, non sommare le vendite.' : null,
           chi && elenco.length === 0 ? `Nessuna vendita di ${chi.nome} tra le tue${p ? ' nel periodo' : ''}.` : null,
           conFallite ? 'rate_fallite: pagamenti non andati a buon fine, non contati in da_incassare.' : null,
           importi.data.length > MIE_VENDITE
@@ -803,6 +831,18 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
           ...(chi ? { cliente: chi.nome } : {}),
           ...(da_incassare ? { solo: 'le vendite con rate da incassare' } : {}),
           ...(p ? { periodo: p } : {}),
+          ...(totale?.data
+            ? {
+                totale_da_incassare: {
+                  totale: totale.data.totale,
+                  rate: totale.data.numero_rate,
+                  vendite: totale.data.vendite,
+                  in_ritardo: { importo: totale.data.in_ritardo, rate: totale.data.numero_in_ritardo },
+                  prossimi_30_giorni: { importo: totale.data.prossimi_30, rate: totale.data.numero_prossimi_30 },
+                  oltre_30_giorni: { importo: totale.data.oltre, rate: totale.data.numero_oltre },
+                },
+              }
+            : {}),
           vendite: elenco,
           ...(note.length > 0 ? { nota: note.join(' ') } : {}),
         }

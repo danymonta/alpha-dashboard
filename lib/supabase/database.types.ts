@@ -1077,6 +1077,11 @@ isOneToOne: false
               "fascia": string,"numero": number,"totale": number
             }[]
                            },
+"da_incassare_closer":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "in_ritardo": number,"numero_in_ritardo": number,"numero_oltre": number,"numero_prossimi_30": number,"numero_rate": number,"oltre": number,"prossimi_30": number,"totale": number,"vendite": number
+            }[]
+                           },
 "dettagli_call":
 { Args: { "p_call_id": string,"p_importo_proposto"?: number,"p_link_registrazione"?: string,"p_note_closer"?: string,"p_performance"?: Database["public"]['Enums']["call_performance"],"p_prodotto_proposto_id"?: string }; Returns: undefined
                            },
@@ -1127,6 +1132,11 @@ isOneToOne: false
 "giornate_setter":
 { Args: { "p_a": string,"p_da": string,"p_setter"?: string }; Returns: {
               "call_proposte": number,"call_qualificate": number,"cash": number,"closer_call": number,"closer_cancellate": number,"closer_chiuse": number,"closer_follow_up": number,"closer_no_show": number,"closer_qualificate": number,"conversazioni": number,"data": string,"discovery_prenotate": number,"discovery_svolte": number,"dm_inbound": number,"dm_outbound": number,"dm_totali": number,"follow_up": number,"prenotate_inbound": number,"prenotate_outbound": number,"revenue": number,"strategy_prenotate": number
+            }[]
+                           },
+"incassi_clienti_setter":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "clienti": number,"incassato": number,"numero_incassi": number,"numero_rimborsi": number,"provvigione": number,"rimborsato": number
             }[]
                            },
 "inserisci_piano":

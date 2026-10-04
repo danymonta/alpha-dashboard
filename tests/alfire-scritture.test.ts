@@ -3572,28 +3572,60 @@ describe('i soldi del setter in Alfire: i clienti che ha portato (03/10/2026)', 
     senzaDatiRiservati(esito)
   })
 
-  it('miei_clienti con da e a: gli incassi del periodo uno per uno, ognuno con la sua provvigione, mai sommati', async () => {
+  it('miei_clienti con da e a: gli incassi del periodo uno per uno e il totale dal SQL, mai sommato qui', async () => {
     const m = mondo()
     m.mie_vendite_setter = venditeDelSetter()
+    // the SQL total of all his clients (04/10/2026): different from the rows on purpose, so it is never their sum
+    m.incassi_clienti_setter = [{ incassato: 1234.5, numero_incassi: 3, rimborsato: 100, numero_rimborsi: 1, clienti: 2, provvigione: 56.78 }]
     const esito = (await esegui(strumenti('setter', 'employee', m), 'miei_clienti', { da: '2026-09-01', a: '2026-09-30' })) as Record<string, unknown>
     expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(rpcChiamate).toContainEqual({ nome: 'incassi_clienti_setter', args: { p_da: '2026-09-01', p_a: '2026-09-30' } })
     expect(esito.periodo).toEqual({ da: '2026-09-01', a: '2026-09-30' })
+    expect(esito.totale_periodo).toEqual({
+      pagato_netto: 1234.5,
+      incassi: 3,
+      rimborsi: 1,
+      rimborsato: 100,
+      clienti: 2,
+      provvigione_maturata: 56.78,
+    })
     // Luca Rossi paid in August: not in September
     expect(esito.incassi).toEqual([
       { cliente: 'Mario Rossi', tipo: 'Nuovo', rata: '1 di 3', stato: 'pagata', pagata_il: '2026-09-10', importo: 500, a_te: 25 },
     ])
     expect(esito).not.toHaveProperty('vendite')
-    expect(esito.nota).toBe(
-      'Un incasso per riga, dal SQL: il totale non è calcolato qui, non sommarli; la provvigione maturata nel periodo è in miei_numeri.',
-    )
+    expect(esito.nota).toBe('Un incasso per riga; il totale è totale_periodo, dal SQL: usa quello, non sommare le righe.')
     senzaDatiRiservati(esito)
 
-    // a month without cash-ins says so; a date written otherwise is never the month
+    // a month without cash-ins says so, with the SQL's zeros; a date written otherwise is never the month
+    m.incassi_clienti_setter = [{ incassato: 0, numero_incassi: 0, rimborsato: 0, numero_rimborsi: 0, clienti: 0, provvigione: 0 }]
     expect(await esegui(strumenti('setter', 'employee', m), 'miei_clienti', { da: '2026-07-01', a: '2026-07-31' })).toMatchObject({
+      totale_periodo: { pagato_netto: 0, incassi: 0, clienti: 0, provvigione_maturata: 0 },
       incassi: [],
       nota: 'Nessun incasso dei tuoi clienti nel periodo.',
     })
     expect(await esegui(strumenti('setter', 'employee', m), 'miei_clienti', { da: '01/09/2026' })).toEqual(DATA_SBAGLIATA)
+  })
+
+  it('miei_clienti: il totale del periodo è di tutti i suoi clienti, mai di uno solo; una lettura che non riesce non è mai zero', async () => {
+    const m = mondo()
+    m.mie_vendite_setter = venditeDelSetter()
+    rpcChiamate.length = 0
+    const uno = (await esegui(strumenti('setter', 'employee', m), 'miei_clienti', { cliente: 'Mario', da: '2026-09-01', a: '2026-09-30' })) as Record<string, unknown>
+    expect(uno).not.toHaveProperty('totale_periodo')
+    expect(rpcChiamate.map((c) => c.nome)).not.toContain('incassi_clienti_setter')
+    expect(uno.nota).toBe('Un incasso per riga, dal SQL: non sommarli; il totale di tutti i tuoi clienti nel periodo: chiedi senza cliente.')
+
+    const s = strumentiAlfire(supabaseFinto(m, [], ['incassi_clienti_setter']) as never, profiloDi('setter'), 'employee')
+    expect(await esegui(s, 'miei_clienti', { da: '2026-09-01', a: '2026-09-30' })).toEqual({
+      errore: 'I tuoi clienti non sono disponibili in questo momento.',
+    })
+  })
+
+  it('miei_clienti: la descrizione manda al totale del SQL, mai a sommare', () => {
+    const d = strumenti('setter', 'employee').miei_clienti.description
+    expect(d).toContain('«Quanto hanno pagato i miei clienti questo mese?»: da/a e rispondi con totale_periodo.')
+    expect(d).toContain('non sommarli mai')
   })
 
   it('miei_clienti con un cliente: le sue rate, ognuna con la provvigione del suo incasso', async () => {
@@ -3752,12 +3784,28 @@ describe('i soldi del closer in Alfire: le vendite che ha chiuso (03/10/2026)', 
       rataVendita(3, 'prevista', FUTURA),
       rataVendita(4, 'prevista', DOPO),
     ]
+    // the SQL total of all his sales (04/10/2026): never the sum of the listed ones
+    m.da_incassare_closer = [
+      { totale: 2100, numero_rate: 5, vendite: 2, in_ritardo: 500, numero_in_ritardo: 1, prossimi_30: 1000, numero_prossimi_30: 2, oltre: 600, numero_oltre: 2 },
+    ]
+    rpcChiamate.length = 0
     const esito = (await esegui(strumenti('closer', 'employee', m), 'mie_vendite', { da_incassare: true })) as {
       solo: string
       nota: string
+      totale_da_incassare: unknown
       vendite: Record<string, unknown>[]
     }
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['persona', 'di_chi'])
+    expect(rpcChiamate).toContainEqual({ nome: 'da_incassare_closer', args: {} })
     expect(esito.solo).toBe('le vendite con rate da incassare')
+    expect(esito.totale_da_incassare).toEqual({
+      totale: 2100,
+      rate: 5,
+      vendite: 2,
+      in_ritardo: { importo: 500, rate: 1 },
+      prossimi_30_giorni: { importo: 1000, rate: 2 },
+      oltre_30_giorni: { importo: 600, rate: 2 },
+    })
     expect(esito.vendite.map((v) => v.cliente)).toEqual(['Mario Rossi'])
     expect(esito.vendite[0].rate_da_incassare).toEqual([
       { rata: 2, stato: 'in ritardo', scadenza: PASSATA, importo: 500 },
@@ -3765,8 +3813,27 @@ describe('i soldi del closer in Alfire: le vendite che ha chiuso (03/10/2026)', 
       { rata: 4, stato: 'da incassare', scadenza: DOPO, importo: 500 },
     ])
     expect(esito.vendite[0].rate_fallite).toEqual([{ rata: 1, stato: 'fallita', scadenza: '2026-09-10', importo: 500 }])
-    expect(esito.nota).toBe('rate_fallite: pagamenti non andati a buon fine, non contati in da_incassare.')
+    expect(esito.nota).toBe(
+      'totale_da_incassare è il totale di tutte le tue vendite, dal SQL: usa quello, non sommare le vendite. rate_fallite: pagamenti non andati a buon fine, non contati in da_incassare.',
+    )
     senzaDatiRiservati(esito)
+  })
+
+  it('mie_vendite: il totale da incassare solo con da_incassare, mai per un cliente o un periodo; una lettura che non riesce non è mai zero', async () => {
+    rpcChiamate.length = 0
+    for (const input of [{}, { cliente: 'Mario Rossi', da_incassare: true }, { da: '2026-09-01', a: '2026-09-30', da_incassare: true }]) {
+      const esito = await esegui(strumenti('closer', 'employee', mondoCloser()), 'mie_vendite', input)
+      expect(esito, JSON.stringify(input)).not.toHaveProperty('totale_da_incassare')
+    }
+    expect(rpcChiamate.map((c) => c.nome)).not.toContain('da_incassare_closer')
+
+    const s = strumentiAlfire(supabaseFinto(mondoCloser(), [], ['da_incassare_closer']) as never, profiloDi('closer'), 'employee')
+    expect(await esegui(s, 'mie_vendite', { da_incassare: true })).toEqual({ errore: 'Le tue vendite non sono disponibili in questo momento.' })
+  })
+
+  it('mie_vendite: la descrizione manda al totale del SQL, mai a sommare', () => {
+    const d = strumenti('closer', 'employee').mie_vendite.description
+    expect(d).toContain('«Quanto mi resta da incassare?»: da_incassare e rispondi con totale_da_incassare, mai sommando le vendite.')
   })
 
   it('mie_vendite con un cliente: le sue vendite con tutte le rate, nell’ordine del piano', async () => {
