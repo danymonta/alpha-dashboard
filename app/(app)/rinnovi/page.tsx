@@ -45,7 +45,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
     supabase
       .from('v_clienti')
       .select('client_id, nome, cognome, data_fine_ultima, valore_firmato')
-      .in('stato', ['attivo', 'in_scadenza'])
+      // the dates say it: whoever ends in the window, started or not (attivo, in_scadenza, da_iniziare)
       .gte('data_fine_ultima', oggi)
       .lte('data_fine_ultima', aggiungiGiorni(oggi, giorni))
       .order('data_fine_ultima'),
@@ -53,6 +53,8 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
       .from('v_clienti')
       .select('client_id, nome, cognome, data_fine_ultima, valore_firmato')
       .eq('stato', 'scaduto')
+      // ended means an end in the past: never "finito il …, -182 giorni fa" for a path not started yet
+      .lt('data_fine_ultima', oggi)
       .order('data_fine_ultima', { ascending: false }),
     supabase.rpc('metriche_periodo', { p_da: primo, p_a: fineMese(primo) }).single(),
   ])

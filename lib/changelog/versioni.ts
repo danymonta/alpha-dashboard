@@ -80,6 +80,20 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.23.1',
+    data: '2026-10-04',
+    titolo: 'Clienti da iniziare',
+    riassunto: 'Un cliente il cui percorso non è ancora cominciato risulta «Da iniziare», non più «Scaduto».',
+    intestazionePer: ['admin'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo: 'Un cliente nuovo, nella settimana tra la vendita e l’inizio del percorso, risultava «Scaduto» in Clienti e nella sua scheda, e in Rinnovi finiva tra chi ha finito, con «finito il …, -92 giorni fa» e il messaggio di rinnovo. Ora è «Da iniziare»: ha il suo filtro in Clienti e non compare tra chi ha finito. Lo stesso per chi rinnova dopo una pausa, finché il nuovo percorso non comincia. Il giorno dell’inizio diventa «Attivo».',
+      },
+    ],
+  },
+  {
     versione: '1.23.0',
     data: '2026-10-04',
     titolo: 'Promemoria del percorso e cartella Drive',

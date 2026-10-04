@@ -326,7 +326,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
         'Cerca clienti per nome o cognome, o per stato. Dà stato, fonte, setter (chi l’ha portato) e closer, valore firmato, incassato, da incassare e rate in ritardo.',
       inputSchema: z.object({
         testo: z.string().max(60).optional(),
-        stato: z.enum(['attivo', 'in_scadenza', 'scaduto', 'ex_cliente', 'mai_attivato']).optional(),
+        stato: z.enum(['attivo', 'in_scadenza', 'da_iniziare', 'scaduto', 'ex_cliente', 'mai_attivato']).optional(),
       }),
       execute: async ({ testo, stato }) => {
         let q = supabase

@@ -360,7 +360,7 @@ Tutte le metriche si calcolano in SQL (view `security_invoker` o funzioni RPC), 
 - Previsione di cassa (`previsione_cassa`): per il mese corrente e i due successivi, rate `prevista` con scadenza da oggi in poi; per il mese corrente anche il già incassato. Le rate in ritardo stanno a parte, sul mese corrente.
 - Per fonte (`metriche_per_fonte`): cash dei nuovi clienti del periodo (come sopra), quota su quel cash e clienti nuovi per `clients.fonte` (un cliente senza fonte sta in `altro`); lead, call svolte, chiuse e close rate per `leads.fonte`. Dal 29/09/2026 rate di clienti entrati prima, rinnovi e upsell non contano: le fonti sommano al cash dei nuovi clienti.
 
-Stato cliente derivato (`v_client_status`): `attivo`, `in_scadenza`, `scaduto` (nessuna vendita attiva, l'ultima finita da meno di 90 giorni), `ex_cliente` (oltre 90 giorni), `mai_attivato`.
+Stato cliente derivato (`v_client_status`): `attivo`, `in_scadenza`, `da_iniziare` (nessuna vendita in corso e una che inizia dopo oggi: il cliente nuovo nella settimana prima dell'inizio, sezione 8, o un rinnovo che riparte dopo una pausa; 04/10/2026, prima risultava `scaduto`), `scaduto` (nessuna vendita attiva, l'ultima finita da meno di 90 giorni), `ex_cliente` (oltre 90 giorni), `mai_attivato`. Una vendita in corso vince: un rinnovo firmato in anticipo lascia il cliente `attivo`. "Clienti attivi" resta `oggi between data_inizio and data_fine`: chi deve iniziare non è attivo, e non è nemmeno tra chi ha finito in Rinnovi.
 
 ## 10. Schermate
 
