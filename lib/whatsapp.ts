@@ -42,6 +42,12 @@ export function messaggioRata(r: {
     : `${saluto}, un promemoria per ${quanto}, in scadenza il ${formatData(r.scadenza)}. Grazie!`
 }
 
+/** The "call dei 3 mesi" (04/10/2026): how the path is going, to collect the client's feedback. */
+export function messaggioFeedback(r: { nome: string | null }): string {
+  const saluto = nomeProprio(r.nome) ? `Ciao ${nomeProprio(r.nome)}` : 'Ciao'
+  return `${saluto}! Come sta andando il tuo percorso con Percorso Alpha? Mi farebbe piacere sentirci per una call: voglio sapere come ti stai trovando e raccogliere il tuo feedback. Quando ti va bene?`
+}
+
 /** The renewal conversation, opened a few weeks before the end. */
 export function messaggioRinnovo(r: { nome: string | null; data_fine: string; oggi: string }): string {
   const saluto = nomeProprio(r.nome) ? `Ciao ${nomeProprio(r.nome)}` : 'Ciao'

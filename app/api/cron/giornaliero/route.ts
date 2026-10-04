@@ -5,19 +5,28 @@ import { oggiRoma } from '@/lib/date'
 import { emailConfigurata, inviaEmail } from '@/lib/email/invia'
 import { emailRiepilogo, type Riepilogo } from '@/lib/email/riepilogo'
 import { publicEnv } from '@/lib/env'
+import { inviaPromemoriaPercorso } from '@/lib/promemoria/percorso'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
+/**
+ * Every reminder email is over (Resend's answer or its timeout) by this much
+ * of the 60 seconds: one is started only if it fits, the rest go tomorrow.
+ */
+const TEMPO_PROMEMORIA_MS = 50_000
 
 /**
  * The one daily job (vercel.json, every evening), so the plan's cron limits
  * never bite:
  * - its queries keep the Supabase Free project awake;
  * - the evening summary by email to the active admins;
- * - on Mondays, the weekly backup too.
+ * - on Mondays, the weekly backup too;
+ * - the path reminders ("Call dei 3 mesi", "Call di rinnovo"), one email each,
+ *   to the same admins (04/10/2026), last because they can wait a day.
  */
 export async function GET(request: NextRequest) {
+  const avvio = Date.now()
   const atteso = process.env.CRON_SECRET
   if (!atteso) return NextResponse.json({ errore: 'CRON_SECRET non configurato' }, { status: 500 })
   if (request.headers.get('authorization') !== `Bearer ${atteso}`) {
@@ -47,6 +56,23 @@ export async function GET(request: NextRequest) {
       console.error('[giornaliero] backup', e)
       esito.backup = 'non riuscito'
     }
+  }
+
+  // Last, as they can wait: each one booked before its email (a second run of
+  // the cron the same evening never doubles it) and recorded as sent only once
+  // Resend took it, so a failed one, or one past the time limit, goes again
+  // tomorrow evening.
+  try {
+    esito.promemoria = await inviaPromemoriaPercorso({
+      db: admin,
+      oggi,
+      indirizzi,
+      urlApp: publicEnv.appUrl,
+      entro: avvio + TEMPO_PROMEMORIA_MS,
+    })
+  } catch (e) {
+    console.error('[giornaliero] promemoria', e)
+    esito.promemoria = 'non riusciti'
   }
   return NextResponse.json(esito)
 }

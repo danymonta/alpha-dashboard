@@ -17,6 +17,13 @@ export async function inviaEmail(m: {
   html: string
   testo: string
   allegati?: { nome: string; contenuto: Buffer }[]
+  /**
+   * Resend's Idempotency-Key: the same key with the same email within 24 hours
+   * is sent once (a retry after a lost answer never doubles it).
+   */
+  idempotenza?: string
+  /** Gives up after this long (the answer may be lost, the email maybe sent). */
+  timeoutMs?: number
 }): Promise<EsitoInvio> {
   const chiave = process.env.RESEND_API_KEY
   const mittente = process.env.EMAIL_MITTENTE
@@ -25,7 +32,12 @@ export async function inviaEmail(m: {
   try {
     const risposta = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${chiave}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${chiave}`,
+        'Content-Type': 'application/json',
+        ...(m.idempotenza ? { 'Idempotency-Key': m.idempotenza } : {}),
+      },
+      ...(m.timeoutMs ? { signal: AbortSignal.timeout(m.timeoutMs) } : {}),
       body: JSON.stringify({
         from: mittente,
         to: Array.isArray(m.a) ? m.a : [m.a],

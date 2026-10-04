@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 
+import { dbLocale } from './db'
 import { UTENTI, accedi } from './utenti'
 
 test('senza sessione ogni pagina porta al login', async ({ page }) => {
@@ -74,6 +75,30 @@ test('chi è già entrato non rivede il login: va dritto dove stava andando', as
   await expect(page).toHaveURL(/\/tempo$/)
   await page.goto('/login?da=//evil.example.com')
   await expect(page).toHaveURL(/localhost:3000\/(today)?$/)
+})
+
+test('senza sessione «Registra rinnovo» da un’email apre, dopo l’accesso, il rinnovo di quel cliente', async ({ page }) => {
+  const db = dbLocale()
+  const { data: vendita, error } = await db
+    .from('sales')
+    .select('client_id')
+    .eq('tipo', 'nuovo')
+    .limit(1)
+    .single()
+  if (error) throw error
+  const destinazione = `/sales/new?cliente=${vendita.client_id}&tipo=rinnovo`
+
+  await page.goto(destinazione)
+  await expect(page).toHaveURL(/\/login\?da=/)
+  expect(new URL(page.url()).searchParams.get('da')).toBe(destinazione)
+  // the Google button carries it to the callback (cookie), query included
+  await expect(page.locator('form input[name="da"]')).toHaveValue(destinazione)
+
+  // signed in, the same "da" leads there, as the callback does after Google
+  await accedi(page, 'admin')
+  await page.goto(`/login?da=${encodeURIComponent(destinazione)}`)
+  await expect(page).toHaveURL(destinazione)
+  await expect(page.getByRole('radio', { name: 'Rinnovo' })).toBeChecked()
 })
 
 // the PKCE verifier the server exchange reads: present while a Google sign-in is pending

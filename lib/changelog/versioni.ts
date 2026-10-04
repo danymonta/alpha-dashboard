@@ -80,6 +80,28 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.23.0',
+    data: '2026-10-04',
+    titolo: 'Promemoria del percorso e cartella Drive',
+    riassunto:
+      'Ti arriva un’email quando mancano 3 mesi alla fine del percorso di un cliente, per la call del feedback, e quando manca un mese, per la call di rinnovo. Nella scheda del cliente puoi collegare la sua cartella Drive.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'Quando mancano 3 mesi alla fine del percorso di un cliente ti arriva un’email «Call dei 3 mesi con Mario Rossi: raccogli il feedback», e quando manca un mese «Call di rinnovo con Mario Rossi: il percorso finisce il …». Dentro: prodotto, inizio, fine, giorni alla fine, il link alla scheda del cliente, «Scrivi su WhatsApp» col messaggio già scritto se hai il suo numero e, in quella del rinnovo, «Registra rinnovo», che apre il rinnovo di quel cliente anche se prima devi rientrare con Google. Arrivano con il riepilogo della sera, solo a te.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Ognuna arriva una volta sola, e di nuovo solo se cambia la data di fine del percorso. Un percorso di 3 mesi ha solo quella del rinnovo; chi ha già rinnovato riceve i promemoria del percorso nuovo, mai di quello vecchio; un percorso finito o interrotto non ne riceve. Ne partono al massimo 20 a sera: le altre arrivano le sere dopo. Se una sera l’email non parte, riprova la sera dopo; la prima sera, a chi è già a meno di un mese dalla fine arriva solo quella del rinnovo.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Nella scheda del cliente c’è «Cartella Drive»: incolli il link della sua cartella su Google Drive e la apri con un tocco. Con la matita lo cambi o lo togli (la cartella su Drive resta com’è). La vedi solo tu: closer, setter e coach no.',
+      },
+    ],
+  },
+  {
     versione: '1.22.0',
     data: '2026-10-04',
     titolo: 'Call in attesa di conferma',

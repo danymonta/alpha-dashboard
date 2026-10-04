@@ -7,6 +7,7 @@ import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
 import { isDataISO } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 import { clienteSchema } from '@/lib/validation/anagrafiche'
+import { cartellaDriveSchema } from '@/lib/validation/cartella'
 
 export type Esito = { ok: true } | { ok: false; errore: string }
 
@@ -118,5 +119,40 @@ export async function interrompiPercorso(input: unknown): Promise<Esito> {
   revalidatePath('/')
   // the client's project ends with the path (02/10/2026)
   revalidatePath('/progetti', 'layout')
+  return { ok: true }
+}
+
+/**
+ * The link to the client's Google Drive folder (04/10/2026): its own table,
+ * admin only (RLS). Saving again replaces it.
+ */
+export async function salvaCartellaDrive(input: unknown): Promise<Esito> {
+  const parsed = cartellaDriveSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('clienti_cartelle')
+    .upsert({ client_id: parsed.data.client_id, url: parsed.data.url }, { onConflict: 'client_id' })
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Link non salvato. Riprova.') }
+
+  revalidatePath(`/clients/${parsed.data.client_id}`)
+  return { ok: true }
+}
+
+/** Only the link goes: the folder on Drive stays as it is. */
+export async function togliCartellaDrive(input: unknown): Promise<Esito> {
+  const parsed = z.object({ client_id: z.string().uuid() }).safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Cliente non valido.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('clienti_cartelle').delete().eq('client_id', parsed.data.client_id)
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Link non tolto. Riprova.') }
+
+  revalidatePath(`/clients/${parsed.data.client_id}`)
   return { ok: true }
 }

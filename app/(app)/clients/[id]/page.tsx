@@ -1,6 +1,7 @@
 import { ChevronRight, FolderKanban, History, Plus, RefreshCw, SearchX, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 
+import { CartellaDrive } from '@/app/(app)/clients/[id]/cartella-drive'
 import { InterrompiPercorso } from '@/app/(app)/clients/[id]/interrompi-percorso'
 import { ModificaCliente } from '@/app/(app)/clients/[id]/modifica-cliente'
 import { StoricoPercorsi, type Percorso } from '@/app/(app)/clients/[id]/storico-percorsi'
@@ -23,7 +24,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   const supabase = await createClient()
   const oggi = oggiRoma()
 
-  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto] = await Promise.all([
+  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto, cartella] = await Promise.all([
     supabase
       .from('clients')
       .select('id, nome, cognome, email, telefono, instagram_handle, fonte, note, created_at, setter_id, closer_id, setter:profiles!clients_setter_id_fkey(nome), closer:profiles!clients_closer_id_fkey(nome)')
@@ -55,8 +56,12 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .select('id, nome, coach:profiles!pm_progetti_coach_id_fkey(nome)')
       .eq('client_id', id)
       .maybeSingle(),
+    // the link to the client's Drive folder: its own table, admin only (04/10/2026)
+    supabase.from('clienti_cartelle').select('url').eq('client_id', id).maybeSingle(),
   ])
-  if (vendite.error || importi.error || progetto.error) throw new Error('Impossibile caricare lo storico del cliente')
+  if (vendite.error || importi.error || progetto.error || cartella.error) {
+    throw new Error('Impossibile caricare lo storico del cliente')
+  }
 
   if (!cliente || !valore) {
     return (
@@ -191,6 +196,8 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Link>
       ) : null}
+
+      <CartellaDrive clientId={cliente.id} cliente={nome} url={cartella.data?.url ?? null} />
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2 px-1">

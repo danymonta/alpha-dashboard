@@ -1,6 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton'
 
-/** The shape of the client sheet: header and actions, value, contacts, history of the paths. */
+/** The shape of the client sheet: header and actions, value, Drive folder, contacts, history of the paths. */
 export default function Loading() {
   return (
     <div className="max-w-3xl space-y-6" aria-busy="true" aria-live="polite">
@@ -24,6 +24,9 @@ export default function Loading() {
           ))}
         </div>
       </div>
+
+      {/* the Drive folder row */}
+      <Skeleton className="h-14 rounded-xl" />
 
       <div className="space-y-2">
         <Skeleton className="h-3 w-24" />

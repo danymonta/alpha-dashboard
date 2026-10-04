@@ -53,3 +53,20 @@ describe('il pulsante «Accedi con Google» premuto da una pagina /login?code=�
     expect(risposta.headers.get('location')).toBeNull()
   })
 })
+
+describe('senza sessione, il login ricorda l’indirizzo intero', () => {
+  it('«Registra rinnovo» da un’email torna sul rinnovo di quel cliente, query compresa', async () => {
+    const risposta = await updateSession(new NextRequest('http://localhost:3000/sales/new?cliente=c1&tipo=rinnovo'))
+    const verso = new URL(risposta.headers.get('location') ?? '')
+    expect(verso.pathname).toBe('/login')
+    // only "da": the page's own parameters never land on /login
+    expect([...verso.searchParams.keys()]).toEqual(['da'])
+    expect(verso.searchParams.get('da')).toBe('/sales/new?cliente=c1&tipo=rinnovo')
+  })
+
+  it('una pagina col suo ?da= lo tiene dentro il "da" del login', async () => {
+    const risposta = await updateSession(new NextRequest('http://localhost:3000/setting?da=2026-07-01&a=2026-07-31'))
+    const verso = new URL(risposta.headers.get('location') ?? '')
+    expect(verso.searchParams.get('da')).toBe('/setting?da=2026-07-01&a=2026-07-31')
+  })
+})

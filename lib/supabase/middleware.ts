@@ -80,7 +80,11 @@ export async function updateSession(request: NextRequest) {
   if (!user && !isPubblico(pathname)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('da', pathname)
+    // the whole address, query included, rides in "da" alone: "Registra
+    // rinnovo" from a reminder email (/sales/new?cliente=…&tipo=rinnovo)
+    // opens that client's renewal after the sign-in, not an empty sale
+    url.search = ''
+    url.searchParams.set('da', `${pathname}${request.nextUrl.search}`)
     return NextResponse.redirect(url)
   }
 
