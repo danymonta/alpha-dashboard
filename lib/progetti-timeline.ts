@@ -24,6 +24,29 @@ export function parseVistaProgetti(valore: unknown): VistaProgetti {
   return valore === 'timeline' ? 'timeline' : 'elenco'
 }
 
+/**
+ * The view each person last chose (Dany, 05/10/2026): a cookie of the
+ * browser, written when switching, read by /progetti. One year, the whole
+ * area of the projects.
+ */
+export const COOKIE_VISTA_PROGETTI = 'alpha_vista_progetti'
+export const DURATA_COOKIE_VISTA = 60 * 60 * 24 * 365
+
+/** ?vista as written in the address: a valid view, or null when it says nothing. */
+export function vistaDaUrl(valore: unknown): VistaProgetti | null {
+  return valore === 'timeline' || valore === 'elenco' ? valore : null
+}
+
+/** The view of /progetti: the address always wins, then the remembered one, then the cards. */
+export function vistaIniziale(daUrl: unknown, ricordata: unknown): VistaProgetti {
+  return vistaDaUrl(daUrl) ?? vistaDaUrl(ricordata) ?? 'elenco'
+}
+
+/** The cookie as document.cookie takes it; Secure on https. */
+export function cookieVista(vista: VistaProgetti, https: boolean): string {
+  return `${COOKIE_VISTA_PROGETTI}=${vista}; Path=/progetti; Max-Age=${DURATA_COOKIE_VISTA}; SameSite=Lax${https ? '; Secure' : ''}`
+}
+
 // ---------------------------------------------------------------------------
 // End of a project: days left, "in scadenza"
 // ---------------------------------------------------------------------------

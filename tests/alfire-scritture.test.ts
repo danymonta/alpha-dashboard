@@ -34,6 +34,8 @@ const a = vi.hoisted(() => {
     salvaReportGiornaliero: ok(),
     aggiornaCliente: ok(),
     chiudiCliente: ok(),
+    archiviaCliente: ok(),
+    togliDallArchivio: ok(),
     riapriCliente: ok(),
     creaCliente: ok(),
     eliminaCliente: ok(),
@@ -113,6 +115,8 @@ vi.mock('@/app/(app)/today/actions', () => ({ salvaReportGiornaliero: a.salvaRep
 vi.mock('@/app/(app)/clients/actions', () => ({
   aggiornaCliente: a.aggiornaCliente,
   chiudiCliente: a.chiudiCliente,
+  archiviaCliente: a.archiviaCliente,
+  togliDallArchivio: a.togliDallArchivio,
   riapriCliente: a.riapriCliente,
   creaCliente: a.creaCliente,
   eliminaCliente: a.eliminaCliente,
@@ -817,7 +821,7 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
 
   it('cliente: «non rinnova» chiude da oggi con il motivo; riapre solo un cliente chiuso', async () => {
     const s = strumenti()
-    expect(await azioniDi(s, 'cliente')).toEqual(['crea', 'modifica', 'chiudi', 'riapri', 'elimina'])
+    expect(await azioniDi(s, 'cliente')).toEqual(['crea', 'modifica', 'chiudi', 'archivia', 'togli_archivio', 'riapri', 'elimina'])
     expect(await anteprima('cliente', { azione: 'chiudi', cliente: 'Mario Rossi', motivo: 'Si allena da solo' })).toEqual({
       titolo: 'Mario Rossi non rinnova: lo chiudo',
       righe: [
@@ -867,6 +871,71 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
     })
     await esegui(s, 'cliente', { azione: 'riapri', cliente: 'Mario Rossi' })
     expect(a.riapriCliente).toHaveBeenCalledWith({ client_id: MARIO })
+  })
+
+  it('cliente: archivia come ex cliente un chiuso, lo toglie dall’archivio; mai chi non è chiuso', async () => {
+    // not closed: nothing to archive, before the tap and at the tap
+    expect(await anteprima('cliente', { azione: 'archivia', cliente: 'Mario Rossi' })).toEqual({
+      errore: 'Mario Rossi non è chiuso: prima va chiuso (non rinnova), poi si archivia.',
+    })
+    await esegui(strumenti(), 'cliente', { azione: 'archivia', cliente: 'Mario Rossi' })
+    expect(a.archiviaCliente).not.toHaveBeenCalled()
+
+    const chiuso = { ...mondo(), v_clienti_chiusi: [{ client_id: MARIO, chiuso_il: '2026-09-30', motivo: 'Trasloco', archiviato_il: null }] }
+    expect(await anteprima('cliente', { azione: 'archivia', cliente: 'Mario Rossi' }, 'admin', chiuso)).toEqual({
+      titolo: 'Archivio Mario Rossi come ex cliente',
+      righe: [
+        `Archiviato dal ${formatData(oggiRoma())}`,
+        'Chiuso dal 30/09/2026: Trasloco',
+        'Esce da Non rinnovano e va sotto Ex cliente in Clienti; niente promemoria del percorso. Vendite e incassi restano; se compra di nuovo torna da solo.',
+      ],
+      sostituisceDettagli: true,
+    })
+    // closed, not archived: nothing to take out of the archive
+    expect(await anteprima('cliente', { azione: 'togli_archivio', cliente: 'Mario Rossi' }, 'admin', chiuso)).toEqual({
+      errore: 'Mario Rossi non è archiviato: non c’è niente da togliere dall’archivio.',
+    })
+    expect(await esegui(strumenti('admin', 'admin', chiuso), 'cliente', { azione: 'archivia', cliente: 'Mario Rossi' })).toEqual({
+      fatto: true,
+      cliente: 'Mario Rossi',
+      link: `/clients/${MARIO}`,
+    })
+    expect(a.archiviaCliente).toHaveBeenCalledWith({ client_id: MARIO })
+    // archived elsewhere between the card and the tap: his day stays, and Alfire says so
+    a.archiviaCliente.mockResolvedValueOnce({ ok: true, archiviato_il: '2026-10-01', gia: true })
+    expect(await esegui(strumenti('admin', 'admin', chiuso), 'cliente', { azione: 'archivia', cliente: 'Mario Rossi' })).toEqual({
+      errore: 'Mario Rossi era già archiviato come ex cliente dal 01/10/2026.',
+    })
+
+    const archiviato = {
+      ...mondo(),
+      v_clienti_chiusi: [{ client_id: MARIO, chiuso_il: '2026-09-30', motivo: null, archiviato_il: '2026-10-02' }],
+    }
+    expect(await anteprima('cliente', { azione: 'archivia', cliente: 'Mario Rossi' }, 'admin', archiviato)).toEqual({
+      errore: 'Mario Rossi è già archiviato come ex cliente dal 02/10/2026.',
+    })
+    expect(await anteprima('cliente', { azione: 'togli_archivio', cliente: 'Mario Rossi' }, 'admin', archiviato)).toEqual({
+      titolo: 'Tolgo Mario Rossi dall’archivio',
+      righe: ['Era archiviato dal 02/10/2026', 'Torna chiuso (dal 30/09/2026), in Rinnovi sotto Non rinnovano.'],
+      sostituisceDettagli: true,
+    })
+    const s = strumenti('admin', 'admin', archiviato)
+    await esegui(s, 'cliente', { azione: 'togli_archivio', cliente: 'Mario Rossi' })
+    expect(a.togliDallArchivio).toHaveBeenCalledWith({ client_id: MARIO })
+    // "Riapri" says the archive goes too
+    expect(await anteprima('cliente', { azione: 'riapri', cliente: 'Mario Rossi' }, 'admin', archiviato)).toEqual({
+      titolo: 'Riapro il cliente Mario Rossi',
+      righe: [
+        'Era chiuso dal 30/09/2026',
+        'Archiviato come ex cliente dal 02/10/2026',
+        'Torna con lo stato che dicono le date del percorso, con i promemoria ancora dovuti; giorno e motivo della chiusura e l’archivio si tolgono.',
+      ],
+      sostituisceDettagli: true,
+    })
+    // the closure never moves after the archiving day
+    expect(await anteprima('cliente', { azione: 'chiudi', cliente: 'Mario Rossi', chiuso_il: '2026-10-03' }, 'admin', archiviato)).toEqual({
+      errore: 'Mario Rossi è archiviato dal 02/10/2026: la chiusura non può venire dopo quel giorno.',
+    })
   })
 
   it('cliente: creare senza vendita, con setter e closer per nome', async () => {
@@ -2946,8 +3015,10 @@ describe('la scheda dice esattamente cosa si scrive, e un dubbio si chiede prima
     })
     await esegui(s, 'task', { azione: 'completa', titolo: 'Call di onboarding', progetto: 'Tiziano' })
     expect(a.completaTask).toHaveBeenLastCalledWith({ id: 'k2', completato: true })
-    await esegui(s, 'task', { azione: 'completa', titolo: 'Call di onboarding', task_id: 'k1' })
+    const fatto = await esegui(s, 'task', { azione: 'completa', titolo: 'Call di onboarding', task_id: 'k1' })
     expect(a.completaTask).toHaveBeenLastCalledWith({ id: 'k1', completato: true })
+    // the link opens the task where it lives, its sheet open (05/10/2026)
+    expect(fatto).toMatchObject({ fatto: true, link: `/progetti/${PROGETTO}/attivita?task=k1` })
   })
 })
 

@@ -6,11 +6,13 @@ import { salvaObiettivi } from '@/app/actions/obiettivi'
 import {
   anteprimaInterruzione,
   aggiornaCliente,
+  archiviaCliente,
   chiudiCliente,
   creaCliente,
   eliminaCliente,
   interrompiPercorso,
   riapriCliente,
+  togliDallArchivio,
 } from '@/app/(app)/clients/actions'
 import {
   eliminaPagamentoProvvigione,
@@ -94,7 +96,7 @@ function cliente(ctx: Contesto): Definizione {
   const { supabase, r } = ctx
   const schema = z.object({
     azione: enumAzioni(ctx, 'cliente'),
-    cliente: z.string().optional().describe('Nome e cognome attuali (modifica, chiudi, riapri, elimina)'),
+    cliente: z.string().optional().describe('Nome e cognome attuali (modifica, chiudi, archivia, togli_archivio, riapri, elimina)'),
     nome: z.string().min(1).max(80).optional(),
     cognome: z.string().max(80).optional(),
     email: z.string().max(160).optional(),
@@ -116,9 +118,16 @@ function cliente(ctx: Contesto): Definizione {
     const c = await r.trovaCliente(v.cliente ?? '')
     if (!c) return errore('Dimmi quale cliente.')
     if (isErrore(c)) return c
-    const { data, error } = await supabase.from('v_clienti_chiusi').select('chiuso_il, motivo').eq('client_id', c.id).maybeSingle()
+    const { data, error } = await supabase
+      .from('v_clienti_chiusi')
+      .select('chiuso_il, motivo, archiviato_il')
+      .eq('client_id', c.id)
+      .maybeSingle()
     if (error) return errore('Non riesco a leggere il cliente: riprova tra poco.')
-    return { cliente: c, chiusura: data?.chiuso_il ? { chiuso_il: data.chiuso_il, motivo: data.motivo } : null }
+    return {
+      cliente: c,
+      chiusura: data?.chiuso_il ? { chiuso_il: data.chiuso_il, motivo: data.motivo, archiviato_il: data.archiviato_il } : null,
+    }
   }
 
   /**
@@ -134,6 +143,10 @@ function cliente(ctx: Contesto): Definizione {
       motivo: v.motivo === undefined ? (letta.chiusura?.motivo ?? null) : v.motivo.trim() || null,
     }
     if (dopo.chiuso_il > oggi) return errore('Il giorno della chiusura non può essere nel futuro.')
+    const archiviato = letta.chiusura?.archiviato_il
+    if (archiviato && dopo.chiuso_il > archiviato) {
+      return errore(`${letta.cliente.nome} è archiviato dal ${formatData(archiviato)}: la chiusura non può venire dopo quel giorno.`)
+    }
     const { data: firme, error } = await supabase
       .from('sales')
       .select('data_vendita')
@@ -192,7 +205,9 @@ function cliente(ctx: Contesto): Definizione {
       'modifica: solo i campi da cambiare; setter e closer dell’anagrafica: nome, "io" o "nessuno" (provvigioni e "I tuoi clienti" ' +
       'seguono il setter della vendita: vendita modifica). chiudi: il cliente non rinnova ("Non rinnova" nella scheda), ' +
       'da chiuso_il con un motivo facoltativo: va tra i chiusi, fuori da In scadenza, Da recuperare e dai promemoria del percorso; ' +
-      'su un cliente già chiuso corregge giorno o motivo. riapri: toglie la chiusura (anche una nuova vendita nuovo o rinnovo lo riapre da sola). ' +
+      'su un cliente già chiuso corregge giorno o motivo. archivia: un cliente chiuso che non ricompra diventa ex cliente da oggi ' +
+      '("Archivia come ex cliente"): esce da Non rinnovano, va sotto Ex cliente in Clienti. togli_archivio: torna chiuso. ' +
+      'riapri: toglie la chiusura e l’archivio (anche una nuova vendita nuovo o rinnovo lo riapre da sola). ' +
       'elimina: con le sue vendite e rate.',
     inputSchema: schema,
     anteprima: async (v): Promise<Anteprima> => {
@@ -226,13 +241,38 @@ function cliente(ctx: Contesto): Definizione {
           'Va tra i clienti chiusi: esce da In scadenza e Da recuperare, niente più promemoria del percorso. Vendite e incassi restano; se compra di nuovo torna da solo.',
         ])
       }
+      if (v.azione === 'archivia') {
+        const x = await chiusuraDi(v)
+        if (isErrore(x)) return x
+        if (!x.chiusura) return errore(`${x.cliente.nome} non è chiuso: prima va chiuso (non rinnova), poi si archivia.`)
+        if (x.chiusura.archiviato_il) {
+          return errore(`${x.cliente.nome} è già archiviato come ex cliente dal ${formatData(x.chiusura.archiviato_il)}.`)
+        }
+        return anteprima(`Archivio ${x.cliente.nome} come ex cliente`, [
+          `Archiviato dal ${formatData(oggiRoma())}`,
+          `Chiuso dal ${formatData(x.chiusura.chiuso_il)}${x.chiusura.motivo ? `: ${x.chiusura.motivo}` : ''}`,
+          'Esce da Non rinnovano e va sotto Ex cliente in Clienti; niente promemoria del percorso. Vendite e incassi restano; se compra di nuovo torna da solo.',
+        ])
+      }
+      if (v.azione === 'togli_archivio') {
+        const x = await chiusuraDi(v)
+        if (isErrore(x)) return x
+        if (!x.chiusura?.archiviato_il) return errore(`${x.cliente.nome} non è archiviato: non c’è niente da togliere dall’archivio.`)
+        return anteprima(`Tolgo ${x.cliente.nome} dall’archivio`, [
+          `Era archiviato dal ${formatData(x.chiusura.archiviato_il)}`,
+          `Torna chiuso (dal ${formatData(x.chiusura.chiuso_il)}), in Rinnovi sotto Non rinnovano.`,
+        ])
+      }
       if (v.azione === 'riapri') {
         const x = await chiusuraDi(v)
         if (isErrore(x)) return x
         if (!x.chiusura) return errore(`${x.cliente.nome} non è chiuso: non c’è niente da riaprire.`)
         return anteprima(`Riapro il cliente ${x.cliente.nome}`, [
           `Era chiuso dal ${formatData(x.chiusura.chiuso_il)}${x.chiusura.motivo ? `: ${x.chiusura.motivo}` : ''}`,
-          'Torna con lo stato che dicono le date del percorso, con i promemoria ancora dovuti; giorno e motivo della chiusura si tolgono.',
+          x.chiusura.archiviato_il ? `Archiviato come ex cliente dal ${formatData(x.chiusura.archiviato_il)}` : null,
+          x.chiusura.archiviato_il
+            ? 'Torna con lo stato che dicono le date del percorso, con i promemoria ancora dovuti; giorno e motivo della chiusura e l’archivio si tolgono.'
+            : 'Torna con lo stato che dicono le date del percorso, con i promemoria ancora dovuti; giorno e motivo della chiusura si tolgono.',
         ])
       }
       const u = await unisci(v)
@@ -293,6 +333,28 @@ function cliente(ctx: Contesto): Definizione {
         const x = await chiusuraNuova(v)
         if (isErrore(x)) return x
         const esito = await chiudiCliente({ client_id: x.cliente.id, ...x.dopo })
+        return esito.ok ? { fatto: true, cliente: x.cliente.nome, link: '/rinnovi' } : errore(esito.errore)
+      }
+      if (v.azione === 'archivia') {
+        const x = await chiusuraDi(v)
+        if (isErrore(x)) return x
+        if (!x.chiusura) return errore(`${x.cliente.nome} non è chiuso: prima va chiuso (non rinnova), poi si archivia.`)
+        if (x.chiusura.archiviato_il) {
+          return errore(`${x.cliente.nome} è già archiviato come ex cliente dal ${formatData(x.chiusura.archiviato_il)}.`)
+        }
+        const esito = await archiviaCliente({ client_id: x.cliente.id })
+        if (!esito.ok) return errore(esito.errore)
+        // archived elsewhere between the card and the tap: his day stays, said as it is
+        if (esito.gia) {
+          return errore(`${x.cliente.nome} era già archiviato come ex cliente dal ${formatData(esito.archiviato_il)}.`)
+        }
+        return { fatto: true, cliente: x.cliente.nome, link: `/clients/${x.cliente.id}` }
+      }
+      if (v.azione === 'togli_archivio') {
+        const x = await chiusuraDi(v)
+        if (isErrore(x)) return x
+        if (!x.chiusura?.archiviato_il) return errore(`${x.cliente.nome} non è archiviato: non c’è niente da togliere dall’archivio.`)
+        const esito = await togliDallArchivio({ client_id: x.cliente.id })
         return esito.ok ? { fatto: true, cliente: x.cliente.nome, link: '/rinnovi' } : errore(esito.errore)
       }
       if (v.azione === 'riapri') {

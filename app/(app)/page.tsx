@@ -191,13 +191,13 @@ export default async function PanoramicaPage({
       .order('scadenza')
       .limit(6),
     // the same rule as Rinnovi (04/10/2026): whoever ends within 30 days by the dates,
-    // started or not, never a client closed with "Non rinnova"
+    // started or not, never a client closed with "Non rinnova" (or then archived as ex cliente)
     supabase
       .from('v_clienti')
       .select('client_id, nome, cognome, data_fine_ultima')
       .gte('data_fine_ultima', oggi)
       .lte('data_fine_ultima', aggiungiGiorni(oggi, 30))
-      .neq('stato', 'chiuso')
+      .not('stato', 'in', '(chiuso,ex_cliente)')
       .order('data_fine_ultima')
       .limit(6),
     inCorso ? supabase.rpc('oggi_team').single() : Promise.resolve({ data: null, error: null }),

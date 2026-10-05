@@ -4,8 +4,16 @@ import { CircleCheck, LoaderCircle, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 
+import {
+  CLASSE_DETTAGLI,
+  CLASSE_PROGETTO,
+  CLASSE_RIGA_PROGETTO,
+  CLASSE_TITOLO,
+} from '@/components/pm/miei-task/riga-mio-task'
 import { Button } from '@/components/ui/button'
 import { etichettaCompletato, type MioTaskCompletato } from '@/lib/miei-task'
+import { linkTask } from '@/lib/progetti'
+import { cn } from '@/lib/utils'
 
 type Props = {
   task: MioTaskCompletato
@@ -15,8 +23,9 @@ type Props = {
 }
 
 /**
- * A task I closed: its project, the day it was closed and "Riapri". No timer:
- * time is counted on open tasks.
+ * A task I closed: the title opens it in its project (05/10/2026), then its
+ * project, the day it was closed and "Riapri". No timer: time is counted on
+ * open tasks.
  */
 export function RigaCompletato({ task, oggi, onRiapri }: Props) {
   const [inCorso, setInCorso] = useState(false)
@@ -41,18 +50,21 @@ export function RigaCompletato({ task, oggi, onRiapri }: Props) {
       <span className="flex size-11 shrink-0 items-center justify-center">
         <CircleCheck className="size-5 text-status-ok" aria-hidden="true" />
       </span>
-      <div className="min-w-0 flex-1 py-2">
-        <p className="text-sm font-medium break-words text-muted-foreground">{task.titolo}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-          <Link
-            href={`/progetti/${task.progetto_id}/attivita`}
-            // an inline link: its touch area grows to 44px without moving the text
-            className="relative rounded-sm underline-offset-4 after:absolute after:-inset-x-1 after:-inset-y-3.5 after:content-[''] hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-          >
+      <div className="min-w-0 flex-1 pb-3">
+        <Link
+          href={linkTask(task.progetto_id, task.id)}
+          className={cn(CLASSE_TITOLO, 'text-muted-foreground hover:text-foreground')}
+        >
+          {task.titolo}
+        </Link>
+        <div className={CLASSE_RIGA_PROGETTO}>
+          <Link href={`/progetti/${task.progetto_id}/attivita`} className={CLASSE_PROGETTO}>
             {task.progetto}
           </Link>
-          <span className="num">{etichettaCompletato(task.completato_il, oggi)}</span>
-        </p>
+          <p className={CLASSE_DETTAGLI}>
+            <span className="num">{etichettaCompletato(task.completato_il, oggi)}</span>
+          </p>
+        </div>
       </div>
       <Button
         type="button"

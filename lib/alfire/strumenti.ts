@@ -324,7 +324,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
     cerca_clienti: definizione({
       description:
         'Cerca clienti per nome o cognome, o per stato. Dà stato, fonte, setter (chi l’ha portato) e closer, valore firmato, incassato, da incassare e rate in ritardo; ' +
-        'per un cliente chiuso (non rinnova, lo decide l’admin) anche da quando e perché.',
+        'per un cliente chiuso (non rinnova, lo decide l’admin) anche da quando e perché, e se l’admin l’ha archiviato come ex cliente da quando (archiviato_il).',
       inputSchema: z.object({
         testo: z.string().max(60).optional(),
         stato: z.enum(['attivo', 'in_scadenza', 'da_iniziare', 'scaduto', 'chiuso', 'ex_cliente', 'mai_attivato']).optional(),
@@ -345,10 +345,13 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
         // who brought each client, by name: never the admin's clients counted as a setter's
         const nomi = await nomiPersone(data.flatMap((c) => [c.setter_id, c.closer_id]))
         if (isErrore(nomi)) return nomi
-        // "Non rinnova" (04/10/2026): since when and why, for the closed ones
-        const idChiusi = data.filter((c) => c.stato === 'chiuso' && c.client_id).map((c) => c.client_id as string)
+        // "Non rinnova" (04/10/2026): since when and why, for the closed ones; and the
+        // archived ones (05/10/2026), ex clienti whose closure says since when
+        const idChiusi = data
+          .filter((c) => (c.stato === 'chiuso' || c.stato === 'ex_cliente') && c.client_id)
+          .map((c) => c.client_id as string)
         const chiusure = idChiusi.length
-          ? await supabase.from('v_clienti_chiusi').select('client_id, chiuso_il, motivo').in('client_id', idChiusi)
+          ? await supabase.from('v_clienti_chiusi').select('client_id, chiuso_il, motivo, archiviato_il').in('client_id', idChiusi)
           : { data: [], error: null }
         if (chiusure.error) return errore('Clienti non disponibili.')
         const chiusura = new Map((chiusure.data ?? []).map((c) => [c.client_id, c]))
@@ -358,7 +361,11 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
             setter: setter_id ? (nomi.get(setter_id) ?? null) : null,
             closer: closer_id ? (nomi.get(closer_id) ?? null) : null,
             ...(chiusura.has(c.client_id)
-              ? { chiuso_il: chiusura.get(c.client_id)?.chiuso_il ?? null, motivo_chiusura: chiusura.get(c.client_id)?.motivo ?? null }
+              ? {
+                  chiuso_il: chiusura.get(c.client_id)?.chiuso_il ?? null,
+                  motivo_chiusura: chiusura.get(c.client_id)?.motivo ?? null,
+                  ...(chiusura.get(c.client_id)?.archiviato_il ? { archiviato_il: chiusura.get(c.client_id)?.archiviato_il } : {}),
+                }
               : {}),
           })),
         }

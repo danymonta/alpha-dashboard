@@ -9,7 +9,12 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-/** "Attività" tab: lists, tasks and sub-tasks of one project. */
+/**
+ * "Attività" tab: lists, tasks and sub-tasks of one project. ?task=<id>
+ * (05/10/2026: "I miei task", the timeline, Alfire) opens that task's sheet
+ * (AttivitaProgetto reads it); a task that is gone, or not visible to this
+ * person, leaves a short message.
+ */
 export default async function AttivitaPage({
   params,
   searchParams,

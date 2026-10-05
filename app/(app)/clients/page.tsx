@@ -75,7 +75,7 @@ export default async function ClientiPage({
     <div className="space-y-5">
       <IntestazionePagina
         titolo="Clienti"
-        descrizione="Lo stato si calcola dalle vendite: attivo, in scadenza, da iniziare, scaduto, ex cliente. Chiuso lo decidi tu, con «Non rinnova» nella scheda del cliente."
+        descrizione="Lo stato si calcola dalle vendite: attivo, in scadenza, da iniziare, scaduto, ex cliente. Chiuso lo decidi tu, con «Non rinnova» nella scheda del cliente; se poi non ricompra, «Archivia come ex cliente» lo mette tra gli ex clienti."
       />
 
       <nav aria-label="Filtra per stato" className="flex flex-wrap gap-2">

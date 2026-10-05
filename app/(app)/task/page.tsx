@@ -18,7 +18,8 @@ export const dynamic = 'force-dynamic'
  * "I miei task": what is assigned to me in every project, by when it is due,
  * also when I share it with someone else (then the row says with whom), and
  * below what I closed, newest first. The daily page of whoever works on
- * projects: tick it off, jump to the project, start the timer, reopen.
+ * projects: open it where it lives (05/10/2026), tick it off, jump to the
+ * project, start the timer, reopen.
  * Tasks nobody assigned stay in their project. Only my own tasks: RLS and the
  * assignees decide, nobody sees anyone else's list (CLAUDE.md section 17).
  */
@@ -95,7 +96,7 @@ export default async function MieiTaskPage({ searchParams }: { searchParams: Pro
     <div className="max-w-3xl">
       <IntestazionePagina
         titolo="I miei task"
-        descrizione="Quello che ti è stato assegnato in tutti i progetti. Spunta quando è fatto, tocca la sveglia per contare il tempo; sotto, quelli che hai chiuso."
+        descrizione="Quello che ti è stato assegnato in tutti i progetti. Tocca il titolo per aprirlo nel suo progetto, spunta quando è fatto, tocca la sveglia per contare il tempo; sotto, quelli che hai chiuso."
       />
       <ElencoMieiTask
         aperti={aperti}

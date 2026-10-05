@@ -131,13 +131,13 @@ isOneToOne: false
                   ]
                 },"clienti_chiusure": {
                   Row: {
-                    "chiuso_il": string,"client_id": string,"created_at": string,"created_by": string | null,"motivo": string | null,"updated_at": string
+                    "archiviato_il": string | null,"chiuso_il": string,"client_id": string,"created_at": string,"created_by": string | null,"motivo": string | null,"updated_at": string
                   }
                   Insert: {
-                    "chiuso_il": string,"client_id": string,"created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"updated_at"?: string
+                    "archiviato_il"?: string | null,"chiuso_il": string,"client_id": string,"created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "chiuso_il"?: string,"client_id"?: string,"created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"updated_at"?: string
+                    "archiviato_il"?: string | null,"chiuso_il"?: string,"client_id"?: string,"created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -928,13 +928,13 @@ isOneToOne: false
                   ]
                 },"v_clienti_chiusi": {
                   Row: {
-                    "chiuso_il": string | null,"client_id": string | null,"created_at": string | null,"motivo": string | null
+                    "archiviato_il": string | null,"chiuso_il": string | null,"client_id": string | null,"created_at": string | null,"motivo": string | null
                   }
                   Insert: {
-                           "chiuso_il"?: string | null,"client_id"?: string | null,"created_at"?: string | null,"motivo"?: string | null
+                           "archiviato_il"?: string | null,"chiuso_il"?: string | null,"client_id"?: string | null,"created_at"?: string | null,"motivo"?: string | null
                          }
                         Update: {
-                           "chiuso_il"?: string | null,"client_id"?: string | null,"created_at"?: string | null,"motivo"?: string | null
+                           "archiviato_il"?: string | null,"chiuso_il"?: string | null,"client_id"?: string | null,"created_at"?: string | null,"motivo"?: string | null
                          }
                         Relationships: [
                     {

@@ -57,6 +57,7 @@ import {
   compitiDiRuoloInParole,
   elencoNomi,
   formatStima,
+  linkTask,
   parseStima,
 } from '@/lib/progetti'
 import { PRIORITA, STATI_PROGETTO, STATI_TASK } from '@/lib/validation/progetti'
@@ -685,7 +686,7 @@ function task(ctx: Contesto): Definizione {
           assegnatari,
         })
         if (!esito.ok) return errore(esito.errore)
-        const link = `/progetti/${p.id}/attivita`
+        let link = `/progetti/${p.id}/attivita`
         if (!dettagliChiesti(v)) return { fatto: true, link }
         // the quick add takes the title only: the details go on with the task's own edit
         const { data: creati } = await supabase
@@ -700,6 +701,8 @@ function task(ctx: Contesto): Definizione {
           .limit(1)
         const nuovo = creati?.[0]
         if (!nuovo) return { fatto: true, avvisi: ['Task creato, ma scadenza e dettagli vanno messi dalla pagina.'], link }
+        // found: the link opens it (05/10/2026)
+        link = linkTask(p.id, nuovo.id as string)
         // the title stays the one on the card: nuovo_titolo is for edits only
         const u = await unisci(
           { ...v, azione: 'modifica', nuovo_titolo: undefined, lista: undefined, sotto_task_di: undefined, assegnatari: undefined },
@@ -712,14 +715,15 @@ function task(ctx: Contesto): Definizione {
       const x = await trovato(v)
       if (isErrore(x)) return x
       const t = x.task
-      const link = `/progetti/${t.progetto_id}/attivita`
+      // the task where it lives, its sheet open (05/10/2026); a deleted one: its project
+      const link = linkTask(t.progetto_id, t.id)
       if (v.azione === 'completa' || v.azione === 'riapri') {
         const esito = await completaTask({ id: t.id, completato: v.azione === 'completa' })
         return esito.ok ? { fatto: true, task: t.titolo, link } : errore(esito.errore)
       }
       if (v.azione === 'elimina') {
         const esito = await eliminaTask({ id: t.id })
-        return esito.ok ? { fatto: true, link } : errore(esito.errore)
+        return esito.ok ? { fatto: true, link: `/progetti/${t.progetto_id}/attivita` } : errore(esito.errore)
       }
       const u = await unisci(v, t)
       if (isErrore(u)) return u

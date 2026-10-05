@@ -1,7 +1,7 @@
-import { Archive, CalendarClock, History, RefreshCw } from 'lucide-react'
+import { Archive, CalendarClock, History, RefreshCw, UserMinus } from 'lucide-react'
 import Link from 'next/link'
 
-import { RiapriCliente } from '@/app/(app)/clients/[id]/chiusura-cliente'
+import { BottoneArchivio, RiapriCliente, SezioneArchiviabile } from '@/app/(app)/clients/[id]/chiusura-cliente'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { BottoneWhatsApp } from '@/components/pagamento/whatsapp'
@@ -34,7 +34,8 @@ function giorniTra(da: string, a: string) {
  * rinnovo" and a WhatsApp message ready. The renewal rate of the month comes
  * from metriche_periodo (CLAUDE.md section 9). The clients the admin closed
  * ("Non rinnova", 04/10/2026) are never among them: they have their own
- * section, "Non rinnovano", with "Riapri".
+ * section, "Non rinnovano", with "Archivia" (05/10/2026: ex cliente, out of
+ * this page; the focus goes to the next row, SezioneArchiviabile) and "Riapri".
  */
 export default async function RinnoviPage({ searchParams }: { searchParams: Promise<{ entro?: string }> }) {
   await requireRuolo(['admin'])
@@ -51,8 +52,8 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
       // the dates say it: whoever ends in the window, started or not (attivo, in_scadenza, da_iniziare)
       .gte('data_fine_ultima', oggi)
       .lte('data_fine_ultima', aggiungiGiorni(oggi, giorni))
-      // a closed client does not renew: never among the ones to chase
-      .neq('stato', 'chiuso')
+      // a closed client does not renew, an archived one even less: never among the ones to chase
+      .not('stato', 'in', '(chiuso,ex_cliente)')
       .order('data_fine_ultima'),
     supabase
       .from('v_clienti')
@@ -65,8 +66,8 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
       .from('v_clienti')
       .select('client_id, nome, cognome, data_fine_ultima, valore_firmato')
       .eq('stato', 'chiuso'),
-    // the day and the reason of each closure in force
-    supabase.from('v_clienti_chiusi').select('client_id, chiuso_il, motivo'),
+    // the day and the reason of each closure in force, and who is archived (05/10/2026)
+    supabase.from('v_clienti_chiusi').select('client_id, chiuso_il, motivo, archiviato_il'),
     supabase.rpc('metriche_periodo', { p_da: primo, p_a: fineMese(primo) }).single(),
   ])
   if (inScadenza.error || scaduti.error || chiusi.error || chiusure.error || metriche.error) {
@@ -74,6 +75,8 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
   }
 
   const chiusura = new Map(chiusure.data.map((c) => [c.client_id, c]))
+  // archived as ex clienti: out of "Non rinnovano", in Clienti under "Ex cliente"
+  const archiviati = chiusure.data.filter((c) => c.archiviato_il).length
   // the most recent closure first
   const nonRinnovano = chiusi.data
     .map((c) => ({ ...c, chiuso_il: chiusura.get(c.client_id)?.chiuso_il ?? null, motivo: chiusura.get(c.client_id)?.motivo ?? null }))
@@ -161,6 +164,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
               )}
             />
           ) : null}
+          {c.client_id ? <BottoneArchivio clientId={c.client_id} cliente={nome} archiviato={false} breve /> : null}
           {c.client_id ? <RiapriCliente clientId={c.client_id} cliente={nome} /> : null}
           <LinkBottone href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} variant="outline">
             <RefreshCw className="size-4" aria-hidden="true" />
@@ -249,20 +253,43 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
         )}
       </section>
 
-      <section aria-labelledby="titolo-non-rinnovano" className="space-y-2">
-        <h2 id="titolo-non-rinnovano" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+      {/* an archived row leaves the list: the focus goes to the next one, not to the page */}
+      <SezioneArchiviabile aria-labelledby="titolo-non-rinnovano" className="space-y-2">
+        <h2
+          id="titolo-non-rinnovano"
+          tabIndex={-1}
+          data-focus-archivio="titolo"
+          className="rounded-sm px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
           Non rinnovano <span className="num">({nonRinnovano.length})</span>
         </h2>
         {nonRinnovano.length === 0 ? (
           <p className="rounded-xl bg-card px-3 py-4 text-sm text-muted-foreground">
-            Nessun cliente chiuso. Quando un cliente non rinnova, «Non rinnova» nella sua scheda lo mette qui.
+            {/* the archived ones are closed too: counted just below */}
+            {archiviati > 0 ? 'Nessun cliente chiuso da archiviare.' : 'Nessun cliente chiuso.'} Quando un cliente non
+            rinnova, «Non rinnova» nella sua scheda lo mette qui; se poi non ricompra, «Archivia» lo sposta tra gli ex
+            clienti.
           </p>
         ) : (
           <ul className="divide-y divide-border rounded-xl bg-card" data-testid="elenco-non-rinnovano">
             {nonRinnovano.map(rigaChiuso)}
           </ul>
         )}
-      </section>
+        {archiviati > 0 ? (
+          <Link
+            href="/clients?stato=ex_cliente"
+            data-testid="link-archiviati"
+            data-focus-archivio="archiviati"
+            className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <UserMinus className="size-4 shrink-0" aria-hidden="true" />
+            <span>
+              Archiviati come ex clienti: <span className="num">{archiviati}</span>. Li trovi in Clienti, «Ex cliente»,
+              insieme agli altri ex clienti.
+            </span>
+          </Link>
+        ) : null}
+      </SezioneArchiviabile>
     </div>
   )
 }

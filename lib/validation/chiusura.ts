@@ -26,3 +26,22 @@ export const chiusuraClienteSchema = z.object({
 
 export type ChiusuraClienteInput = z.input<typeof chiusuraClienteSchema>
 export type ChiusuraCliente = z.output<typeof chiusuraClienteSchema>
+
+/**
+ * "Archivia come ex cliente" and "Togli dall'archivio" (Dany, 05/10/2026):
+ * only the client; the day is today (Europe/Rome), the database checks it is
+ * not before the closing day.
+ */
+export const archivioClienteSchema = z.object({
+  client_id: z.string().uuid('Cliente non valido'),
+})
+
+/**
+ * "Togli dall'archivio": the client, and from the toast's "Annulla" the
+ * closure's version that tap wrote (`solo_se_versione`, its updated_at as
+ * archiviaCliente returned it), so it never undoes an archive written again
+ * elsewhere, even the same day.
+ */
+export const togliArchivioSchema = archivioClienteSchema.extend({
+  solo_se_versione: z.string().datetime({ offset: true, message: 'Versione non valida' }).optional(),
+})

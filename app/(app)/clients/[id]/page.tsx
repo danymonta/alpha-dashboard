@@ -62,8 +62,8 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .maybeSingle(),
     // the link to the client's Drive folder: its own table, admin only (04/10/2026)
     supabase.from('clienti_cartelle').select('url').eq('client_id', id).maybeSingle(),
-    // "Non rinnova" in force (04/10/2026): a later nuovo/rinnovo sale already reopened him
-    supabase.from('v_clienti_chiusi').select('chiuso_il, motivo').eq('client_id', id).maybeSingle(),
+    // "Non rinnova" in force (04/10/2026), archived or not (05/10/2026): a later nuovo/rinnovo sale already reopened him
+    supabase.from('v_clienti_chiusi').select('chiuso_il, motivo, archiviato_il').eq('client_id', id).maybeSingle(),
   ])
   if (vendite.error || importi.error || progetto.error || cartella.error || chiusura.error) {
     throw new Error('Impossibile caricare lo storico del cliente')
@@ -119,9 +119,10 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .map((p) => p.data_vendita)
       .sort()
       .at(-1) ?? null
+  // closed, or closed and archived as ex cliente (05/10/2026)
   const chiuso =
-    valore.stato === 'chiuso' && chiusura.data?.chiuso_il
-      ? { chiuso_il: chiusura.data.chiuso_il, motivo: chiusura.data.motivo }
+    (valore.stato === 'chiuso' || valore.stato === 'ex_cliente') && chiusura.data?.chiuso_il
+      ? { chiuso_il: chiusura.data.chiuso_il, motivo: chiusura.data.motivo, archiviato_il: chiusura.data.archiviato_il }
       : null
 
   const contatti: [string, string][] = [

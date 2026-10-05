@@ -45,6 +45,8 @@ vi.mock('@/app/(app)/tempo/actions', () => ({
 vi.mock('@/app/(app)/clients/actions', () => ({
   aggiornaCliente: vi.fn(),
   chiudiCliente: vi.fn(),
+  archiviaCliente: vi.fn(),
+  togliDallArchivio: vi.fn(),
   creaCliente: vi.fn(),
   eliminaCliente: vi.fn(),
   interrompiPercorso: vi.fn(),
@@ -542,6 +544,20 @@ describe('scheda di conferma: vendite e modifiche', () => {
     // reversible: "Conferma", never a red button
     expect(azioneDistruttiva('cliente', chiudi)).toBeNull()
     expect(azioneDistruttiva('cliente', { azione: 'riapri', cliente: 'Mario Rossi' })).toBeNull()
+  })
+
+  it('«archivia come ex cliente» e «togli dall’archivio»: col bottone di sempre, si torna indietro', () => {
+    const archivia = { azione: 'archivia', cliente: 'Mario Rossi' }
+    expect(riassuntoScrittura('cliente', archivia)).toEqual({
+      titolo: 'Archivio Mario Rossi come ex cliente',
+      dettagli: ['Archiviato da oggi'],
+    })
+    expect(riassuntoScrittura('cliente', { azione: 'togli_archivio', cliente: 'Mario Rossi' })).toEqual({
+      titolo: 'Tolgo Mario Rossi dall’archivio',
+      dettagli: ['Torna tra i clienti chiusi'],
+    })
+    expect(azioneDistruttiva('cliente', archivia)).toBeNull()
+    expect(azioneDistruttiva('cliente', { azione: 'togli_archivio', cliente: 'Mario Rossi' })).toBeNull()
   })
 })
 

@@ -9,7 +9,7 @@ import { SenzaCoach, StatoProgettoBadge } from '@/components/pm/stato-progetto'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { formatData, formatPercentuale } from '@/lib/format'
 import { organizzaGantt, type Forma, type ListaGantt, type RigaGantt, type TaskGantt } from '@/lib/gantt'
-import { ETICHETTA_STATO_PROGETTO, ETICHETTA_STATO_TASK, type StatoProgetto, type StatoTask } from '@/lib/progetti'
+import { ETICHETTA_STATO_PROGETTO, ETICHETTA_STATO_TASK, linkTask, type StatoProgetto, type StatoTask } from '@/lib/progetti'
 import {
   GIORNI_IN_SCADENZA,
   dividiPerFine,
@@ -713,7 +713,17 @@ function Grafico({
               )}
               data-testid="timeline-figlio"
             >
-              <NomeFiglio figlio={figlio} />
+              {figlio.tipo === 'task' ? (
+                // a task opens where it lives (05/10/2026): its project's Attività, its sheet open
+                <Link
+                  href={linkTask(riga.voce.progetto.id, figlio.task.id)}
+                  className="flex min-w-0 flex-1 items-center gap-1 self-stretch rounded-sm hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  <NomeFiglio figlio={figlio} />
+                </Link>
+              ) : (
+                <NomeFiglio figlio={figlio} />
+              )}
             </div>
           )
         })}

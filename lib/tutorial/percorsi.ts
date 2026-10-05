@@ -79,7 +79,7 @@ function soloProgetti(funzione: string, progetti: string): PassoTutorial[] {
       id: 'task',
       pagina: '/task',
       titolo: 'Un task',
-      testo: 'Qui c’è tutto quello che ti è stato assegnato, per scadenza. Spunta quando è fatto; la sveglia a destra avvia il timer, che resta in alto su ogni pagina.',
+      testo: 'Qui c’è tutto quello che ti è stato assegnato, per scadenza. Il titolo apre il task nel suo progetto; spunta quando è fatto; la sveglia a destra avvia il timer, che resta in alto su ogni pagina.',
       target: ['mio-task'],
     },
     tocca('/progetti', 'vai-progetti', 'Progetti', 'Tocca «Progetti».'),

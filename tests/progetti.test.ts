@@ -11,10 +11,12 @@ import {
   formatStima,
   iniziali,
   isUuid,
+  linkTask,
   nomiAssegnatari,
   parseFiltroStatoProgetto,
   parseFiltroStatoTask,
   parseStima,
+  posizioneNelAlbero,
   puoCreareProgetti,
   spostaInOrdine,
   type TaskMinimo,
@@ -153,6 +155,28 @@ describe('albero dei task', () => {
   it('un sotto-task con il principale fuori dai dati resta visibile come principale', () => {
     const albero = alberoTask([task(7, { parent_id: ID(70) })], { stato: 'tutti', soloMiei: false, io })
     expect(albero.get('L1')?.map((n) => n.task.id)).toEqual([ID(7)])
+  })
+
+  it('dove sta il task aperto da un link: la sua lista e la riga principale (05/10/2026)', () => {
+    const albero = alberoTask(tasks, { stato: 'tutti', soloMiei: false, io })
+    // a task in a list
+    expect(posizioneNelAlbero(albero, ID(1))).toEqual({ lista: 'L1', nodo: { task: tasks[0], figli: [] } })
+    // a sub-task: the list and the row of its parent (completed: its group opens)
+    const sotto = posizioneNelAlbero(albero, ID(4))
+    expect(sotto?.lista).toBe('L1')
+    expect(sotto?.nodo.task.id).toBe(ID(2))
+    // without a list
+    expect(posizioneNelAlbero(albero, ID(5))?.lista).toBe('')
+    // not in the project
+    expect(posizioneNelAlbero(albero, ID(80))).toBeNull()
+    // left out by the filters ("I miei task": task 5 is nobody's)
+    const filtrato = alberoTask(tasks, { stato: 'tutti', soloMiei: true, io })
+    expect(posizioneNelAlbero(filtrato, ID(5))).toBeNull()
+    expect(posizioneNelAlbero(filtrato, ID(3))?.nodo.task.id).toBe(ID(2))
+  })
+
+  it('il link di un task apre la scheda Attività del suo progetto con il task aperto', () => {
+    expect(linkTask(ID(1), ID(2))).toBe(`/progetti/${ID(1)}/attivita?task=${ID(2)}`)
   })
 })
 

@@ -49,6 +49,12 @@ type Attivita = {
   membri: Persona[]
   liste: { id: string; nome: string }[]
   tasks: TaskVista[]
+  /** The task the link asked for (?task, 05/10/2026): its sheet opens by itself. */
+  daAprire: string | null
+  /** The task the link brought me to: its row stays marked for the visit. */
+  evidenziato: string | null
+  /** Its sheet closed: ?task leaves the address, a reload does not open it again. */
+  scordaLink: () => void
 }
 
 const Contesto = createContext<Attivita | null>(null)

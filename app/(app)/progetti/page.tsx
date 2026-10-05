@@ -1,4 +1,5 @@
 import { FolderKanban, Settings2 } from 'lucide-react'
+import { cookies } from 'next/headers'
 import { Suspense } from 'react'
 
 import { LinkBottone } from '@/components/link-bottone'
@@ -20,7 +21,7 @@ import {
   parseFiltroStatoProgetto,
   puoCreareProgetti,
 } from '@/lib/progetti'
-import { parseVistaProgetti } from '@/lib/progetti-timeline'
+import { COOKIE_VISTA_PROGETTI, vistaDaUrl, vistaIniziale } from '@/lib/progetti-timeline'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -51,8 +52,10 @@ export default async function ProgettiPage({
   const adminApp = profilo.ruolo === 'admin'
   const parametri = await searchParams
   const filtroStato = parseFiltroStatoProgetto(parametri.stato)
-  // "Elenco | Timeline" (05/10/2026): the same projects, as cards or on the time axis
-  const vista = parseVistaProgetti(parametri.vista)
+  // "Elenco | Timeline" (05/10/2026): the same projects, as cards or on the time axis.
+  // ?vista always wins; without it, the view this browser chose last (a cookie)
+  const vistaNellUrl = vistaDaUrl(parametri.vista)
+  const vista = vistaIniziale(vistaNellUrl, (await cookies()).get(COOKIE_VISTA_PROGETTI)?.value)
   const repartoFiltro = isUuid(parametri.reparto) ? parametri.reparto : null
   // everybody else only sees the projects they are in: the filter would change nothing
   const soloMiei = livello === 'admin' && parametri.miei === '1'
@@ -149,8 +152,11 @@ export default async function ProgettiPage({
     stato: parametri.stato,
     reparto: repartoFiltro ?? undefined,
     miei: soloMiei ? '1' : undefined,
-    vista: vista === 'timeline' ? vista : undefined,
+    // the filters keep the view the address says; without one, the memory decides again
+    vista: vistaNellUrl ?? undefined,
   }
+  // "Mostra tutti i progetti" stays on the view shown
+  const mostraTutti = `/progetti?stato=tutti${vistaNellUrl !== null || vista === 'timeline' ? `&vista=${vista}` : ''}`
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -223,7 +229,7 @@ export default async function ProgettiPage({
           }
           azione={
             filtroStato !== 'tutti' || repartoFiltro ? (
-              <LinkBottone href={vista === 'timeline' ? '/progetti?stato=tutti&vista=timeline' : '/progetti?stato=tutti'} variant="outline">
+              <LinkBottone href={mostraTutti} variant="outline">
                 Mostra tutti i progetti
               </LinkBottone>
             ) : null
@@ -240,7 +246,7 @@ export default async function ProgettiPage({
           }
           azione={
             filtroStato !== 'tutti' || repartoFiltro ? (
-              <LinkBottone href={vista === 'timeline' ? '/progetti?stato=tutti&vista=timeline' : '/progetti?stato=tutti'} variant="outline">
+              <LinkBottone href={mostraTutti} variant="outline">
                 Mostra tutti i progetti
               </LinkBottone>
             ) : null

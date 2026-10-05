@@ -4,11 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
-import { isDataISO } from '@/lib/date'
+import { isDataISO, oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 import { clienteSchema } from '@/lib/validation/anagrafiche'
 import { cartellaDriveSchema } from '@/lib/validation/cartella'
-import { chiusuraClienteSchema } from '@/lib/validation/chiusura'
+import { archivioClienteSchema, chiusuraClienteSchema, togliArchivioSchema } from '@/lib/validation/chiusura'
 
 export type Esito = { ok: true } | { ok: false; errore: string }
 
@@ -184,6 +184,109 @@ export async function chiudiCliente(input: unknown): Promise<Esito> {
     .from('clienti_chiusure')
     .upsert({ client_id, chiuso_il, motivo }, { onConflict: 'client_id' })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non chiuso. Riprova.') }
+
+  rivalidaStatoCliente(client_id)
+  return { ok: true }
+}
+
+/**
+ * The archive: the day it holds, and whether this tap wrote it or found it
+ * already there. Written by this tap, `versione` is the closure's updated_at
+ * right after the write: the toast's "Annulla" undoes the archive only while
+ * the closure is still at that version.
+ */
+export type EsitoArchivio =
+  | { ok: true; archiviato_il: string; gia: false; versione: string }
+  | { ok: true; archiviato_il: string; gia: true }
+  | { ok: false; errore: string }
+
+/**
+ * "Archivia come ex cliente" (05/10/2026): a closed client who did not buy
+ * again goes into the archive, ex cliente, from today. Only a closure in
+ * force (v_clienti_chiusi): a client who is not closed has nothing to archive.
+ * One archived meanwhile (another tab, Alfire) keeps his day and says so
+ * (`gia`): the toast then offers no "Annulla" that would undo it. Archived by
+ * this tap, the answer carries the closure's version (`versione`) for that
+ * "Annulla": the day alone is not enough, it is always today.
+ */
+export async function archiviaCliente(input: unknown): Promise<EsitoArchivio> {
+  const parsed = archivioClienteSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Cliente non valido.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const { client_id } = parsed.data
+  const supabase = await createClient()
+  const { data: chiusura, error: errLettura } = await supabase
+    .from('v_clienti_chiusi')
+    .select('archiviato_il')
+    .eq('client_id', client_id)
+    .maybeSingle()
+  if (errLettura) return { ok: false, errore: messaggioErrore(errLettura, 'Cliente non archiviato. Riprova.') }
+  if (!chiusura) return { ok: false, errore: 'Il cliente non è chiuso: prima «Non rinnova», poi l’archivio.' }
+  if (chiusura.archiviato_il) {
+    rivalidaStatoCliente(client_id)
+    return { ok: true, archiviato_il: chiusura.archiviato_il, gia: true }
+  }
+
+  const giorno = oggiRoma()
+  const { data, error } = await supabase
+    .from('clienti_chiusure')
+    .update({ archiviato_il: giorno })
+    .eq('client_id', client_id)
+    .is('archiviato_il', null)
+    .select('updated_at')
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non archiviato. Riprova.') }
+  if (data.length === 0) {
+    // archived, or reopened, between the read and the write
+    const { data: ora } = await supabase
+      .from('v_clienti_chiusi')
+      .select('archiviato_il')
+      .eq('client_id', client_id)
+      .maybeSingle()
+    rivalidaStatoCliente(client_id)
+    if (ora?.archiviato_il) return { ok: true, archiviato_il: ora.archiviato_il, gia: true }
+    return { ok: false, errore: 'Il cliente non è più chiuso: ricarica la pagina.' }
+  }
+
+  rivalidaStatoCliente(client_id)
+  return { ok: true, archiviato_il: giorno, gia: false, versione: data[0].updated_at }
+}
+
+/**
+ * "Togli dall'archivio": back to "Chiuso", the closure stays as it was. Only
+ * on a closure in force. From the toast's "Annulla" (`solo_se_versione`): only
+ * the archive that tap wrote, i.e. the closure still at the updated_at
+ * archiviaCliente returned. Any write since (an archive undone and written
+ * again elsewhere, even the same day; the day or the reason corrected; a
+ * reopening and a new closure) moves updated_at, and the archive stays.
+ */
+export async function togliDallArchivio(input: unknown): Promise<Esito> {
+  const parsed = togliArchivioSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Cliente non valido.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const { client_id, solo_se_versione } = parsed.data
+  const supabase = await createClient()
+  const { data: chiusura, error: errLettura } = await supabase
+    .from('v_clienti_chiusi')
+    .select('archiviato_il')
+    .eq('client_id', client_id)
+    .maybeSingle()
+  if (errLettura) return { ok: false, errore: messaggioErrore(errLettura, 'Cliente non tolto dall’archivio. Riprova.') }
+  if (!chiusura) return { ok: false, errore: 'Il cliente non è chiuso: non c’è niente da togliere dall’archivio.' }
+
+  let modifica = supabase.from('clienti_chiusure').update({ archiviato_il: null }).eq('client_id', client_id)
+  if (solo_se_versione) modifica = modifica.eq('updated_at', solo_se_versione)
+  const { data, error } = await modifica.select('client_id')
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non tolto dall’archivio. Riprova.') }
+  if (data.length === 0) {
+    rivalidaStatoCliente(client_id)
+    return solo_se_versione
+      ? { ok: false, errore: 'Nel frattempo la chiusura è cambiata: l’archivio resta com’è. Ricarica la pagina.' }
+      : { ok: false, errore: 'Il cliente non è chiuso: non c’è niente da togliere dall’archivio.' }
+  }
 
   rivalidaStatoCliente(client_id)
   return { ok: true }

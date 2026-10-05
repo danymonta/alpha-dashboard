@@ -41,21 +41,42 @@ export function DettaglioTask({
   task,
   trigger,
   contenutoTrigger,
+  apriSubito = false,
+  onChiuso,
 }: {
   task: TaskVista
   trigger: ReactElement
   contenutoTrigger: ReactNode
+  /** Opened by a link (?task, 05/10/2026): the sheet opens by itself. */
+  apriSubito?: boolean
+  onChiuso?: () => void
 }) {
   const [aperto, setAperto] = useState(false)
+  // one frame later: the row scrolls into sight first, while the page can still scroll
+  useEffect(() => {
+    if (!apriSubito) return
+    const fotogramma = requestAnimationFrame(() => setAperto(true))
+    return () => cancelAnimationFrame(fotogramma)
+  }, [apriSubito])
   return (
     <FoglioModifica
       aperto={aperto}
-      onApertoChange={setAperto}
+      onApertoChange={(v) => {
+        setAperto(v)
+        if (!v) onChiuso?.()
+      }}
       trigger={trigger}
       contenutoTrigger={contenutoTrigger}
       titolo={task.parent_id ? 'Sotto-task' : 'Task'}
     >
-      <ModuloTask task={task} chiudi={() => setAperto(false)} />
+      {/* saved or deleted from the sheet: closed like the X, ?task leaves the address */}
+      <ModuloTask
+        task={task}
+        chiudi={() => {
+          setAperto(false)
+          onChiuso?.()
+        }}
+      />
     </FoglioModifica>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useOptimistic, useTransition } from 'react'
+import { useEffect, useOptimistic, useRef, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { completaTask } from '@/app/(app)/progetti/[id]/actions'
@@ -18,6 +18,13 @@ import { cn } from '@/lib/utils'
 export function RigaTask({ task, figli = [] }: { task: TaskVista; figli?: TaskVista[] }) {
   const a = useAttivita()
   const modificabile = puoModificare(a, task)
+  // the task a link asked for (05/10/2026): in sight, marked, its sheet open
+  const daAprire = a.daAprire === task.id
+  const evidenziato = a.evidenziato === task.id
+  const riga = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (daAprire) riga.current?.scrollIntoView({ block: 'center' })
+  }, [daAprire])
   const [completato, setCompletato] = useOptimistic(task.stato === 'completato')
   const [inCorso, avvia] = useTransition()
 
@@ -37,8 +44,16 @@ export function RigaTask({ task, figli = [] }: { task: TaskVista; figli?: TaskVi
   }
 
   return (
-    <li aria-label={task.titolo} data-testid="task">
-      <div className="flex items-start gap-1 pr-2">
+    <li aria-label={task.titolo} data-testid="task" data-task={task.id}>
+      <div
+        ref={riga}
+        data-evidenziato={evidenziato || undefined}
+        className={cn(
+          'flex scroll-mt-20 items-start gap-1 pr-2',
+          // the row the link brought me to: a tint and a bar on its edge (its open sheet names it)
+          evidenziato && 'bg-primary/15 shadow-[inset_3px_0_0_var(--color-primary-light)]',
+        )}
+      >
         <label
           className={cn(
             'flex size-11 shrink-0 items-center justify-center',
@@ -68,6 +83,8 @@ export function RigaTask({ task, figli = [] }: { task: TaskVista; figli?: TaskVi
               />
             }
             contenutoTrigger={task.titolo}
+            apriSubito={daAprire}
+            onChiuso={a.scordaLink}
           />
           <div className="-mt-1.5">
             <MetaTask task={task} membri={a.membri} />

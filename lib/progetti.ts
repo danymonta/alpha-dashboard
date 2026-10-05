@@ -234,6 +234,35 @@ export function alberoTask<T extends TaskMinimo>(tasks: readonly T[], f: FiltroT
   return perLista
 }
 
+/**
+ * Where a task sits in the tree alberoTask built: the key of its list and the
+ * top-level row it is in (itself, or its parent for a sub-task). Null when
+ * the filters leave it out, or it is not there at all.
+ */
+export function posizioneNelAlbero<T extends TaskMinimo>(
+  albero: ReadonlyMap<string, readonly NodoTask<T>[]>,
+  id: string,
+): { lista: string; nodo: NodoTask<T> } | null {
+  for (const [lista, nodi] of albero) {
+    const nodo = nodi.find((n) => n.task.id === id || n.figli.some((f) => f.id === id))
+    if (nodo) return { lista, nodo }
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// A task opened from anywhere (Dany, 05/10/2026)
+// ---------------------------------------------------------------------------
+
+/**
+ * "I miei task", the timeline and Alfire open a task where it lives: the
+ * project's Attività tab with that task's sheet open. A link that works on a
+ * reload too: the tab reads ?task.
+ */
+export function linkTask(progettoId: string, taskId: string): string {
+  return `/progetti/${progettoId}/attivita?task=${taskId}`
+}
+
 /** New order of ids after moving one up or down; null when it cannot move. */
 export function spostaInOrdine(ids: readonly string[], id: string, direzione: 'su' | 'giu'): string[] | null {
   const da = ids.indexOf(id)

@@ -80,6 +80,37 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.25.0',
+    data: '2026-10-05',
+    titolo: 'Il task si apre da I miei task, gli ex clienti in archivio e la vista dei progetti che resta',
+    riassunto:
+      'Da I miei task tocchi il titolo e sei dentro il task, nel suo progetto; un cliente chiuso che non ricompra lo archivi come ex cliente; Progetti si riapre sulla vista che hai scelto l’ultima volta.',
+    intestazionePer: ['progetti'],
+    intestazioneTeam: {
+      titolo: 'Il task si apre da I miei task, e Progetti ricorda la vista',
+      riassunto:
+        'Da I miei task tocchi il titolo e sei dentro il task, nel suo progetto; Progetti si riapre sulla vista che hai scelto l’ultima volta.',
+    },
+    novita: [
+      {
+        per: ['progetti'],
+        testo: 'In I miei task il titolo di ogni task, anche tra i Completati, apre il task nel suo progetto: la scheda Attività con il task già aperto, la sua riga evidenziata e la lista o i completati aperti se serve. Il nome del progetto sotto continua ad aprire il progetto, spunta e sveglia restano dove sono.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Lo stesso dalla timeline dei progetti (il nome di un’attività apre il task) e dai link di Alfire sui task. Il link funziona anche ricaricando la pagina o mandandolo a qualcuno del progetto; se il task è stato eliminato, o non è tra quelli che puoi vedere, si aprono le attività del progetto con un avviso.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'Progetti si ricorda la vista che hai scelto, Elenco o Timeline: aprendolo dal menu ritrovi quella dell’ultima volta, su quel computer o telefono.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Un cliente chiuso che non ricompra lo archivi con «Archivia come ex cliente», dalla sua scheda o da «Non rinnovano» in Rinnovi: diventa «Ex cliente», esce da «Non rinnovano» e lo trovi in Clienti col filtro «Ex cliente»; la scheda dice da quando è archiviato. «Togli dall’archivio» lo rimette tra i chiusi, «Riapri» toglie chiusura e archivio, e se compra di nuovo torna da solo tra i clienti. Niente promemoria del percorso; cash, revenue e tasso di rinnovo non cambiano. Anche Alfire lo fa, con la solita scheda da confermare.',
+      },
+    ],
+  },
+  {
     versione: '1.24.0',
     data: '2026-10-05',
     titolo: 'Chi non rinnova, la cartella da Drive, la timeline dei progetti e i task completati',

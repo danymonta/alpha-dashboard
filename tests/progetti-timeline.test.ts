@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import { oggiRoma } from '@/lib/date'
 import {
+  COOKIE_VISTA_PROGETTI,
   GIORNI_IN_SCADENZA,
   PX_GIORNO_MINIMO,
   aggiungiMesi,
+  cookieVista,
   dividiPerFine,
   fineProgetto,
   formaProgetto,
@@ -17,6 +19,8 @@ import {
   senzaCoachDaSegnalare,
   taccheTimeline,
   testoFine,
+  vistaDaUrl,
+  vistaIniziale,
   xData,
   xOggiTimeline,
 } from '@/lib/progetti-timeline'
@@ -32,6 +36,29 @@ describe('vista di /progetti', () => {
     expect(parseVistaProgetti(undefined)).toBe('elenco')
     expect(parseVistaProgetti('Timeline')).toBe('elenco')
     expect(parseVistaProgetti(['timeline'])).toBe('elenco')
+  })
+
+  it('la vista ricordata (05/10/2026): l’indirizzo vince sempre, poi il cookie, poi l’elenco', () => {
+    expect(vistaDaUrl('timeline')).toBe('timeline')
+    expect(vistaDaUrl('elenco')).toBe('elenco')
+    expect(vistaDaUrl(undefined)).toBeNull()
+    expect(vistaDaUrl(['timeline'])).toBeNull()
+    expect(vistaDaUrl('Timeline')).toBeNull()
+
+    expect(vistaIniziale(undefined, 'timeline')).toBe('timeline')
+    expect(vistaIniziale('elenco', 'timeline')).toBe('elenco')
+    expect(vistaIniziale('timeline', 'elenco')).toBe('timeline')
+    expect(vistaIniziale(undefined, undefined)).toBe('elenco')
+    // a cookie written by hand, or from another version: the cards
+    expect(vistaIniziale(undefined, 'gantt')).toBe('elenco')
+    expect(vistaIniziale('boh', 'timeline')).toBe('timeline')
+  })
+
+  it('il cookie della vista: un anno, l’area Progetti, Lax, Secure su https', () => {
+    expect(cookieVista('timeline', true)).toBe(
+      `${COOKIE_VISTA_PROGETTI}=timeline; Path=/progetti; Max-Age=31536000; SameSite=Lax; Secure`,
+    )
+    expect(cookieVista('elenco', false)).toBe(`${COOKIE_VISTA_PROGETTI}=elenco; Path=/progetti; Max-Age=31536000; SameSite=Lax`)
   })
 })
 
