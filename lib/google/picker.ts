@@ -30,7 +30,7 @@ export const SCOPE_DRIVE_FILE = 'https://www.googleapis.com/auth/drive.file'
 
 export const MIME_CARTELLA = 'application/vnd.google-apps.folder'
 
-/** The two Google scripts the button loads, only on the admin's client sheet. */
+/** The two Google scripts the button loads, only where the folder can be linked (client sheet, client's project). */
 export const SCRIPT_GOOGLE = {
   identita: 'https://accounts.google.com/gsi/client',
   api: 'https://apis.google.com/js/api.js',

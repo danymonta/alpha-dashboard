@@ -50,6 +50,7 @@ import {
 import { aggiungiGiorni, formatOra, giornoEsteso, isDataISO, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import { formatData } from '@/lib/format'
 import { hrefPeriodo } from '@/lib/periodo'
+import { chiVedeLaCartella } from '@/lib/validation/cartella'
 import {
   ETICHETTA_PRIORITA,
   ETICHETTA_STATO_PROGETTO,
@@ -1144,15 +1145,25 @@ function tempo(ctx: Contesto): Definizione {
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
+/** The folder's link could not be read: never "no folder". */
+export const CARTELLA_NON_LETTA = 'Link della cartella Drive non letto: riprova fra un momento.'
+
 function progettoDettaglio(ctx: Contesto): Definizione {
   const { supabase, profilo, r } = ctx
   return definizione({
-    description: 'Un progetto nel dettaglio: liste, task aperti (con task_id) con assegnatari e scadenze, membri, ultime note (con nota_id).',
+    description:
+      'Un progetto nel dettaglio: liste, task aperti (con task_id) con assegnatari e scadenze, membri, ultime note (con nota_id)' +
+      // the client's Drive folder (05/10/2026): only the admin and the coach of a client's project read it
+      (profilo.ruolo === 'admin'
+        ? '; nel progetto di un cliente anche il link della sua cartella Drive.'
+        : '; nel progetto di un cliente di cui sei il coach anche il link della sua cartella Drive.'),
     inputSchema: z.object({ progetto: z.string().describe('Nome del progetto') }),
     execute: async ({ progetto: nome }) => {
       const p = await r.trovaProgetto(nome)
       if (isErrore(p)) return p
-      const [liste, task, membri, note] = await Promise.all([
+      // read-only, never written from the chat: the card on the project page links it
+      const conCartella = chiVedeLaCartella(profilo, p) !== null && p.client_id !== null
+      const [liste, task, membri, note, cartella] = await Promise.all([
         supabase.from('v_pm_tasklist').select('id, nome, data_inizio, data_fine, task_totali, task_completati').eq('progetto_id', p.id).order('ordine'),
         supabase
           .from('v_pm_task')
@@ -1163,7 +1174,11 @@ function progettoDettaglio(ctx: Contesto): Definizione {
           .limit(40),
         r.membri(p.id),
         supabase.from('pm_note').select('id, data, testo, autore_id').eq('progetto_id', p.id).order('data', { ascending: false }).limit(10),
+        conCartella && p.client_id
+          ? supabase.from('clienti_cartelle').select('url').eq('client_id', p.client_id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ])
+      // the folder's link alone failing keeps the rest of the answer: it says so, never "no folder"
       if (liste.error || task.error || note.error) return errore('Progetto non disponibile.')
       const nomeLista = new Map((liste.data ?? []).map((l) => [l.id, l.nome]))
       const nomi = await r.nomi([...(task.data ?? []).flatMap((t) => t.assegnatari ?? []), ...(note.data ?? []).map((n) => n.autore_id)])
@@ -1189,6 +1204,15 @@ function progettoDettaglio(ctx: Contesto): Definizione {
         })),
         membri: membri.map((m) => (m.id === profilo.id ? 'io' : m.nome)),
         note: (note.data ?? []).map((n) => ({ nota_id: n.id, data: n.data, testo: breve(n.testo), autore: chi(n.autore_id) })),
+        ...(conCartella
+          ? {
+              cartella_drive: cartella.error
+                ? CARTELLA_NON_LETTA
+                : cartella.data?.url
+                  ? { link: cartella.data.url }
+                  : 'Nessuna cartella collegata: si collega dalla pagina del progetto, «Cartella Drive».',
+            }
+          : {}),
       }
     },
   })

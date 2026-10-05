@@ -7,6 +7,7 @@ import { CONSEGUENZE } from '@/lib/alfire/conseguenze'
 import { strumentiConsentiti } from '@/lib/alfire/permessi'
 import { azioneDistruttiva, riassuntoScrittura } from '@/lib/alfire/riassunto'
 import { nomiDistinti, type Errore } from '@/lib/alfire/risolvi'
+import { CARTELLA_NON_LETTA } from '@/lib/alfire/scritture/progetti'
 import { anteprimaScrittura, strumentiAlfire } from '@/lib/alfire/strumenti'
 import type { AppRole, LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
@@ -1788,6 +1789,74 @@ describe('«Scegli il coach» da Alfire, come nella pagina del progetto (03/10/2
   })
 })
 
+describe('la cartella Drive del cliente in progetto_dettaglio (05/10/2026)', () => {
+  // Sergio's coach is whoever chats (IO), Stefano's project has no coach; both clients have a folder
+  function conCartelle(): Record<string, Riga[]> {
+    const m = mondoCoach()
+    m.clienti_cartelle = [
+      { client_id: 'cl-a1', url: 'https://drive.google.com/drive/folders/sergio' },
+      { client_id: 'cl-a2', url: 'https://drive.google.com/drive/folders/stefano' },
+    ]
+    return m
+  }
+
+  it('il coach del cliente legge il link nel suo progetto, mai in quello di un cliente di cui non è il coach', async () => {
+    const s = strumenti('coach', 'employee', conCartelle())
+    expect(await esegui(s, 'progetto_dettaglio', { progetto: 'Sergio Bellini' })).toMatchObject({
+      cartella_drive: { link: 'https://drive.google.com/drive/folders/sergio' },
+    })
+    expect(await esegui(s, 'progetto_dettaglio', { progetto: 'Stefano Moretti' })).not.toHaveProperty('cartella_drive')
+  })
+
+  it('l’admin lo legge in ogni progetto di un cliente; senza link lo dice, senza cliente niente', async () => {
+    const m = conCartelle()
+    m.clienti_cartelle = m.clienti_cartelle.slice(0, 1)
+    const s = strumenti('admin', 'admin', m)
+    expect(await esegui(s, 'progetto_dettaglio', { progetto: 'Sergio Bellini' })).toMatchObject({
+      cartella_drive: { link: 'https://drive.google.com/drive/folders/sergio' },
+    })
+    expect(await esegui(s, 'progetto_dettaglio', { progetto: 'Stefano Moretti' })).toMatchObject({
+      cartella_drive: 'Nessuna cartella collegata: si collega dalla pagina del progetto, «Cartella Drive».',
+    })
+    expect(await esegui(s, 'progetto_dettaglio', { progetto: 'Reel settembre' })).not.toHaveProperty('cartella_drive')
+  })
+
+  it('chi non è il coach, anche nel team del progetto, non la chiede nemmeno al database', async () => {
+    for (const [ruolo, livello] of [
+      ['editor', 'employee'],
+      ['coach', 'manager'],
+      ['closer', 'employee'],
+      ['setter', 'employee'],
+    ] as const) {
+      const registro: string[] = []
+      const m = conCartelle()
+      // Sergio's coach is someone else: whoever chats is only a member
+      m.v_pm_progetti = m.v_pm_progetti.map((p) => (p.id === SERGIO ? { ...p, coach_id: MARCO } : p))
+      const esito = await esegui(strumenti(ruolo, livello, m, registro), 'progetto_dettaglio', { progetto: 'Sergio Bellini' })
+      expect(esito, ruolo).not.toHaveProperty('cartella_drive')
+      expect(registro.some((r) => r.startsWith('clienti_cartelle.')), ruolo).toBe(false)
+    }
+  })
+
+  it('una lettura del link che fallisce non vale «nessuna cartella», e il resto del progetto resta', async () => {
+    const s = strumenti('coach', 'employee', conCartelle(), [], ['clienti_cartelle'])
+    const esito = await esegui(s, 'progetto_dettaglio', { progetto: 'Sergio Bellini' })
+    expect(esito).toMatchObject({ progetto: { nome: 'Sergio Bellini' }, cartella_drive: CARTELLA_NON_LETTA })
+    expect(esito).not.toHaveProperty('errore')
+    expect(CARTELLA_NON_LETTA).not.toMatch(/nessuna/i)
+  })
+
+  it('nessuno scrive la cartella da Alfire', () => {
+    for (const [ruolo, livello] of [
+      ['admin', 'admin'],
+      ['coach', 'manager'],
+      ['coach', 'employee'],
+    ] as const) {
+      expect(Object.keys(strumenti(ruolo, livello)).filter((n) => /cartell|drive/i.test(n)), ruolo).toEqual([])
+    }
+  })
+})
+
 describe('elenchi lunghi: lo dicono (03/10/2026)', () => {
   it('miei_task e progetti oltre il limite: un elenco parziale lo dice', async () => {
     const m = mondoCoach()
@@ -1838,6 +1907,8 @@ describe('la guida: ogni ruolo legge la sua parte (03/10/2026)', () => {
       expect(permessi, ruolo).toContain('Il tempo è il tuo')
       // who manages a project sees the others' time there (section 18): never "nobody sees it"
       expect(permessi, ruolo).toContain('Quello degli altri lo vede chi gestisce un progetto, nella scheda Tempo del progetto; Alfire non lo legge.')
+      // the coach of a client's project sees and links its Drive folder (05/10/2026)
+      expect(permessi, ruolo).toContain('Nei progetti di cui sei il coach vedi anche la cartella Drive')
       for (const parola of ['provvigion', 'incass', 'vendit', 'cliente', 'setter', 'closer', 'margine', 'costi', 'soldi']) {
         expect(permessi, `${ruolo}: ${parola}`).not.toContain(parola)
       }

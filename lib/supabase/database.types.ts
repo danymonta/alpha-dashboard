@@ -1410,6 +1410,9 @@ isOneToOne: false
 "pm_avvia_timer":
 { Args: { "p_nota"?: string,"p_progetto_id": string,"p_task_id"?: string }; Returns: string
                            },
+"pm_coach_del_cliente":
+{ Args: { "p_client_id": string }; Returns: boolean
+                           },
 "pm_crea_progetti_clienti_attivi":
 { Args: Record<PropertyKey, never>; Returns: number
                            },

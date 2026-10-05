@@ -1,11 +1,11 @@
 import { ChevronRight, FolderKanban, History, Plus, RefreshCw, SearchX, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 
-import { CartellaDrive } from '@/app/(app)/clients/[id]/cartella-drive'
 import { ChiusuraCliente, NonRinnova } from '@/app/(app)/clients/[id]/chiusura-cliente'
 import { InterrompiPercorso } from '@/app/(app)/clients/[id]/interrompi-percorso'
 import { ModificaCliente } from '@/app/(app)/clients/[id]/modifica-cliente'
 import { StoricoPercorsi, type Percorso } from '@/app/(app)/clients/[id]/storico-percorsi'
+import { CartellaDrive } from '@/components/cliente/cartella-drive'
 import { StatoClienteBadge } from '@/components/cliente/stato-cliente'
 import { LinkBottone } from '@/components/link-bottone'
 import { SenzaCoach } from '@/components/pm/stato-progetto'
@@ -60,7 +60,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       .select('id, nome, coach:profiles!pm_progetti_coach_id_fkey(nome)')
       .eq('client_id', id)
       .maybeSingle(),
-    // the link to the client's Drive folder: its own table, admin only (04/10/2026)
+    // the link to the client's Drive folder: its own table, the admin and the coach of his project (04-05/10/2026)
     supabase.from('clienti_cartelle').select('url').eq('client_id', id).maybeSingle(),
     // "Non rinnova" in force (04/10/2026), archived or not (05/10/2026): a later nuovo/rinnovo sale already reopened him
     supabase.from('v_clienti_chiusi').select('chiuso_il, motivo, archiviato_il').eq('client_id', id).maybeSingle(),
@@ -219,7 +219,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         </Link>
       ) : null}
 
-      <CartellaDrive clientId={cliente.id} cliente={nome} url={cartella.data?.url ?? null} picker={picker} />
+      <CartellaDrive clientId={cliente.id} cliente={nome} url={cartella.data?.url ?? null} chi="admin" picker={picker} />
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2 px-1">

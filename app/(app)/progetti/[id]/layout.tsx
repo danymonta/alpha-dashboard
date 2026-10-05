@@ -2,6 +2,7 @@ import { ChevronLeft, SearchX } from 'lucide-react'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { CartellaDrive } from '@/components/cliente/cartella-drive'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { ModificaProgetto } from '@/components/pm/progetto/modifica-progetto'
@@ -12,8 +13,10 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { ETICHETTA_RUOLO, livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { formatData } from '@/lib/format'
+import { configPickerRichiesta } from '@/lib/google/picker-server'
 import { ETICHETTA_STATO_PROGETTO, compitiDiRuoloInParole, isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
+import { chiVedeLaCartella } from '@/lib/validation/cartella'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,7 +58,9 @@ export default async function LayoutProgetto({
 
   const adminApp = profilo.ruolo === 'admin'
   const adminPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === 'admin'
-  const [gestisce, avanzamento, membri, cliente, clienti, collegati, reparti] = await Promise.all([
+  // the client's Drive folder (05/10/2026): the admin and the project's coach only; RLS reads it
+  const chiCartella = chiVedeLaCartella(profilo, progetto)
+  const [gestisce, avanzamento, membri, cliente, clienti, collegati, reparti, cartella, picker] = await Promise.all([
     supabase.rpc('pm_puo_gestire', { p_progetto: progetto.id }),
     // progress and late tasks: computed by the view, only read here
     supabase
@@ -79,6 +84,11 @@ export default async function LayoutProgetto({
       ? supabase.from('pm_progetti').select('client_id').not('client_id', 'is', null).neq('id', progetto.id)
       : Promise.resolve({ data: [], error: null }),
     supabase.from('pm_reparti').select('id, nome, attivo, progetti_con_cliente').order('ordine').order('nome'),
+    chiCartella && progetto.client_id
+      ? supabase.from('clienti_cartelle').select('url').eq('client_id', progetto.client_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    // "Scegli da Drive": the Picker's public values reach only who may link the folder
+    chiCartella ? configPickerRichiesta() : Promise.resolve(null),
   ])
 
   const conProgetto = new Set((collegati.data ?? []).map((p) => p.client_id))
@@ -195,6 +205,18 @@ export default async function LayoutProgetto({
               </Link>
             ) : null}
           </div>
+        ) : null}
+        {chiCartella && progetto.client_id ? (
+          // part of the client's info (Dany, 05/10/2026): the same card as the client sheet; other members see nothing
+          <CartellaDrive
+            clientId={progetto.client_id}
+            cliente={nomeCliente ?? progetto.nome}
+            url={cartella.data?.url ?? null}
+            chi={chiCartella}
+            picker={picker}
+            nonCaricata={Boolean(cartella.error)}
+            className="sm:max-w-sm"
+          />
         ) : null}
         {numeri ? (
           <BarraAvanzamento

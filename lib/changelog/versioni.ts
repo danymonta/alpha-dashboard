@@ -80,6 +80,30 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.26.0',
+    data: '2026-10-05',
+    titolo: 'La cartella Drive del cliente anche nel suo progetto, per te e per il coach',
+    riassunto:
+      'Nel progetto di ogni cliente, sotto il coach, c’è la scheda «Cartella Drive»: la vedi tu e il coach del cliente, che la apre, la collega e la cambia; il resto del team no.',
+    intestazionePer: ['progetti'],
+    intestazioneTeam: {
+      titolo: 'La cartella Drive del cliente nel suo progetto',
+      riassunto: 'Se sei il coach di un cliente, nel suo progetto trovi la sua cartella Drive: la apri, la colleghi e la cambi da lì.',
+    },
+    novita: [
+      {
+        per: ['progetti'],
+        testo: 'Il coach di un cliente trova «Cartella Drive» nel progetto del cliente, sotto il suo nome, su ogni scheda del progetto: un tocco apre la cartella su Google Drive, in una nuova scheda. Se non c’è ancora la collega lui, incollando il link o con «Scegli da Drive» e il suo account Google; con la matita la cambia o la toglie (la cartella su Drive resta com’è). Gli altri membri del progetto non la vedono. Se non trova la cartella su Drive, il messaggio gli dice di chiederti di condividerla con lui. Anche Alfire, quando gli chiede del progetto di un suo cliente, gli dà il link.',
+        testoTeam:
+          'Se sei il coach di un cliente, nel suo progetto, sotto il tuo nome, trovi «Cartella Drive»: un tocco apre la cartella del cliente su Google Drive, in una nuova scheda, da ogni scheda del progetto. Se non c’è ancora la colleghi tu: incolli il link o, con «Scegli da Drive», ti colleghi con il tuo account Google e tocchi la cartella. Con la matita cambi il link o lo togli (la cartella su Drive resta com’è). La vedete solo tu e l’admin: gli altri del progetto no. Se una cartella non la trovi su Drive, chiedi all’admin di condividerla con te. Anche Alfire, quando gli chiedi del progetto di un tuo cliente, ti dà il link.',
+      },
+      {
+        per: ['admin'],
+        testo: 'La scheda «Cartella Drive» del cliente adesso c’è anche nel suo progetto, sotto il coach, la stessa della scheda del cliente: la vedi tu e il coach del progetto, che la apre, la collega (incollando il link o con «Scegli da Drive»), la cambia e la toglie. Il link è uno solo: se lo cambia il coach, cambia anche nella scheda del cliente. Gli altri membri del progetto, closer, setter e gli altri coach non la vedono. Chi sceglie il coach (tu, o un manager del progetto) sceglie anche chi la vede: cambiato il coach, la vede solo quello nuovo. Con il coach condividi su Drive solo una cartella senza fatture né contratti, perché lui vede tutto quello che c’è dentro; perché usi «Scegli da Drive», l’app Google deve essere pubblicata o lui tra gli utenti di test. Alfire, chiedendo di un progetto di un cliente, dà il link a te e al suo coach, e non la scrive.',
+      },
+    ],
+  },
+  {
     versione: '1.25.0',
     data: '2026-10-05',
     titolo: 'Il task si apre da I miei task, gli ex clienti in archivio e la vista dei progetti che resta',

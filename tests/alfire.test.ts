@@ -678,6 +678,8 @@ describe('prompt e guida', () => {
     // the setter does see his new clients' payments and his commission on each
     expect(GUIDA.permessi).not.toContain('mai quanto paga un cliente')
     expect(GUIDA.permessi).toContain('provvigione su ogni incasso')
+    // the client's Drive folder: the admin and the coach of his project, picked by who manages it (05/10/2026)
+    expect(GUIDA.permessi).toContain('La cartella Drive di un cliente la vedono e la cambiano solo l’admin e il coach del progetto di quel cliente')
     // what Alfire itself may write, per role
     expect(GUIDA.alfire).toContain('Conferma')
     expect(GUIDA.alfire).toContain('Mai: team')

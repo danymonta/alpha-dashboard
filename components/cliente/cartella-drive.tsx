@@ -1,12 +1,13 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ExternalLink, FolderOpen, FolderSearch, Info, LoaderCircle, Pencil, Plus, TriangleAlert } from 'lucide-react'
+import { ExternalLink, FolderOpen, FolderSearch, Info, LoaderCircle, Pencil, Plus, RotateCw, TriangleAlert } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
-import { salvaCartellaDrive, togliCartellaDrive } from '@/app/(app)/clients/actions'
+import { salvaCartellaDrive, togliCartellaDrive } from '@/app/actions/cartella-drive'
 import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button } from '@/components/ui/button'
@@ -29,11 +30,15 @@ import {
   type TokenDrive,
 } from '@/lib/google/drive-browser'
 import { ERRORI_DRIVE, cartellaScelta, type ConfigPicker } from '@/lib/google/picker'
-import { cartellaDriveSchema, type CartellaDriveInput } from '@/lib/validation/cartella'
+import { cn } from '@/lib/utils'
+import { cartellaDriveSchema, type CartellaDriveInput, type ChiCartella } from '@/lib/validation/cartella'
 
 /**
- * The client's Google Drive folder (Dany, 04/10/2026), admin only: open it,
- * add or change the link, take it away. The folder on Drive is never touched.
+ * The client's Google Drive folder (Dany, 04/10/2026): open it, add or change
+ * the link, take it away. The folder on Drive is never touched. On the client
+ * sheet for the admin and, since 05/10/2026, on the client's project for the
+ * admin and the project's coach (Dany: «la deve poter modificare ed editare il
+ * fitness coach»); the same card, actions and schema, RLS decides.
  * With the Google Picker configured, "Scegli da Drive" picks the folder from
  * Drive itself: Google's sign-in gives a token with the drive.file scope, kept
  * in this page's memory only, and the folder's URL, rebuilt from its id, is
@@ -43,14 +48,23 @@ export function CartellaDrive({
   clientId,
   cliente,
   url,
+  chi,
   picker = null,
+  nonCaricata = false,
+  className,
 }: {
   clientId: string
   cliente: string
   url: string | null
+  /** Who looks: the admin, or the coach of the client's project (the words of the sheet change). */
+  chi: ChiCartella
   /** The Picker's public configuration; null: no button, the typed link only. */
   picker?: ConfigPicker | null
+  /** The link could not be read: say so and offer to retry, never "no folder". */
+  nonCaricata?: boolean
+  className?: string
 }) {
+  const router = useRouter()
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [avviso, setAvviso] = useState<string | null>(null)
@@ -137,8 +151,30 @@ export function CartellaDrive({
     setAperto(false)
   })
 
+  if (nonCaricata) {
+    return (
+      <div
+        data-testid="cartella-drive"
+        className={cn('flex min-h-11 items-center gap-3 rounded-xl bg-card py-1.5 pr-1.5 pl-3', className)}
+      >
+        <TriangleAlert className="size-4 shrink-0 text-status-warning" aria-hidden="true" />
+        <div role="alert" className="min-w-0 flex-1 py-1">
+          <span className="block text-sm font-medium">Cartella Drive</span>
+          <span className="block text-xs text-muted-foreground">Link non caricato: riprova fra un momento.</span>
+        </div>
+        <Button type="button" variant="outline" className="h-11 shrink-0" onClick={() => router.refresh()}>
+          <RotateCw className="size-4" aria-hidden="true" />
+          Riprova
+        </Button>
+      </div>
+    )
+  }
+
   return (
-    <div data-testid="cartella-drive" className="flex min-h-11 items-center gap-3 rounded-xl bg-card py-1.5 pr-1.5 pl-3">
+    <div
+      data-testid="cartella-drive"
+      className={cn('flex min-h-11 items-center gap-3 rounded-xl bg-card py-1.5 pr-1.5 pl-3', className)}
+    >
       <FolderOpen className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       {url ? (
         <a
@@ -195,7 +231,9 @@ export function CartellaDrive({
           <SheetHeader>
             <SheetTitle>Cartella Drive</SheetTitle>
             <SheetDescription>
-              Il link alla cartella di {cliente} su Google Drive. Lo vedi solo tu: closer, setter e coach no.
+              {chi === 'admin'
+                ? `Il link alla cartella di ${cliente} su Google Drive. Lo vedete tu e il coach del suo progetto, se ne ha uno, che lo può anche cambiare: closer, setter e il resto del team no. Con il coach condividi su Drive solo una cartella senza fatture né contratti.`
+                : `Il link alla cartella di ${cliente} su Google Drive. Lo vedete tu e l’admin: il resto del team no.`}
             </SheetDescription>
           </SheetHeader>
           <form onSubmit={invia} noValidate className="space-y-4 px-4 pb-6">
@@ -218,6 +256,7 @@ export function CartellaDrive({
                 </Button>
                 <p className="text-xs text-muted-foreground">
                   Ti colleghi con Google e scegli la cartella: l’app vede solo le cartelle che scegli tu.
+                  {chi === 'coach' ? ' Non la trovi? Chiedi all’admin di condividerla con il tuo account Google.' : null}
                 </p>
               </div>
             ) : null}
@@ -239,6 +278,8 @@ export function CartellaDrive({
               <ErroreCampo id="cd-url-errore" messaggio={errors.url?.message} />
               <p id="cd-url-aiuto" className="text-xs text-muted-foreground">
                 {picker ? 'Oppure incolla il link. ' : null}Su Drive: tasto destro sulla cartella › Condividi › Copia link.
+                {/* without the Picker the coach still learns who shares the folder with him */}
+                {!picker && chi === 'coach' ? ' Non la trovi su Drive? Chiedi all’admin di condividerla con il tuo account Google.' : null}
               </p>
             </div>
             {avviso ? (
@@ -264,7 +305,7 @@ export function CartellaDrive({
                   etichetta="Togli il link"
                   cosa={`il link alla cartella Drive di ${cliente}`}
                   fatto="Link tolto"
-                  conseguenze={['La cartella su Google Drive resta com’è: si toglie solo il link dalla scheda.']}
+                  conseguenze={['La cartella su Google Drive resta com’è: si toglie solo il link dall’app.']}
                   azione={async () => {
                     const esito = await togliCartellaDrive({ client_id: clientId })
                     if (esito.ok) setAperto(false)
