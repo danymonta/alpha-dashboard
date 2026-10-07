@@ -1,6 +1,7 @@
-import { PackageX, SearchX } from 'lucide-react'
+import { CircleAlert, PackageX, SearchX } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { CollegaVendita } from '@/app/(app)/calls/collega-vendita'
 import type { RataAnteprima } from '@/app/(app)/sales/new/actions'
 import {
   NuovaVenditaForm,
@@ -12,11 +13,18 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { percorsoDiRitorno } from '@/lib/auth/origine'
 import { requireRuolo } from '@/lib/auth/session'
+import { GIORNI_VENDITA_VICINA, VENDITA_DA_REGISTRARE, dettaglioVendita } from '@/lib/call/follow-up'
 import { aggiungiGiorni, oggiRoma, stessoGiornoTraMesi } from '@/lib/date'
-import { formatData, formatImportoInput } from '@/lib/format'
+import { formatData, formatEuro, formatImportoInput } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
 import { leggiPianoPredefinito } from '@/lib/validation/anagrafiche'
-import { GIORNI_INIZIO_PRIMA, TIPI_VENDITA, inizioMassimo, type TipoVendita } from '@/lib/validation/vendita'
+import {
+  ETICHETTA_TIPO_VENDITA,
+  GIORNI_INIZIO_PRIMA,
+  TIPI_VENDITA,
+  inizioMassimo,
+  type TipoVendita,
+} from '@/lib/validation/vendita'
 
 export const dynamic = 'force-dynamic'
 
@@ -82,6 +90,79 @@ function ultimoPercorso(vendite: VenditaPassata[]): VenditaPassata | null {
   return [...(percorsi.length > 0 ? percorsi : vendite)].sort(piuTardi)[0] ?? null
 }
 
+type VenditaSimile = {
+  sale_id: string
+  cliente: string
+  tipo: TipoVendita
+  data_vendita: string
+  valore_contratto: number
+}
+
+/**
+ * The sale of the closed call may be there already, registered without the
+ * call (Vendite, Alfire): a client with the lead's name or handle, signed
+ * within a month of the call (public.vendite_da_collegare: the admin's
+ * candidates, the closer's among his own sales). Said before the form, so
+ * nobody makes a second client and a second sale for the same money; the
+ * admin ties it, the closer asks him. The form stays: it may be another sale.
+ */
+function VenditaGiaRegistrata({
+  vendite,
+  admin,
+  callId,
+  nomeLead,
+  hrefVendita,
+}: {
+  vendite: VenditaSimile[]
+  admin: boolean
+  callId: string
+  nomeLead: string
+  hrefVendita: string
+}) {
+  const idTitolo = 'vendita-gia-registrata'
+  return (
+    <section
+      aria-labelledby={idTitolo}
+      className="space-y-3 rounded-xl border border-status-warning/40 bg-card p-3"
+      data-testid="vendita-gia-registrata"
+    >
+      <h2 id={idTitolo} tabIndex={-1} className="flex items-center gap-1.5 text-sm font-medium text-status-warning">
+        <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+        {VENDITA_DA_REGISTRARE.giaRegistrataTitolo}
+      </h2>
+      <p className="text-sm text-muted-foreground">{VENDITA_DA_REGISTRARE.giaRegistrataTesto}</p>
+      <ul className="space-y-2">
+        {vendite.map((v) => {
+          const dettaglio = dettaglioVendita(ETICHETTA_TIPO_VENDITA[v.tipo], formatData(v.data_vendita), formatEuro(v.valore_contratto))
+          return (
+            <li key={v.sale_id} className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{v.cliente}</p>
+                <p className="text-sm text-muted-foreground">
+                  {ETICHETTA_TIPO_VENDITA[v.tipo]} · {formatData(v.data_vendita)} ·{' '}
+                  <span className="num">{formatEuro(v.valore_contratto)}</span>
+                </p>
+              </div>
+              <LinkBottone
+                href={`/sales/${v.sale_id}`}
+                variant="outline"
+                className="px-3"
+                aria-label={VENDITA_DA_REGISTRARE.nomeApriVendita(v.cliente, dettaglio)}
+              >
+                {VENDITA_DA_REGISTRARE.apriVendita}
+              </LinkBottone>
+            </li>
+          )
+        })}
+      </ul>
+      <p className="text-sm">{admin ? VENDITA_DA_REGISTRARE.giaRegistrataAdmin : VENDITA_DA_REGISTRARE.giaRegistrataCloser}</p>
+      {admin ? (
+        <CollegaVendita callId={callId} idTitolo={idTitolo} nomeLead={nomeLead} hrefVendita={hrefVendita} />
+      ) : null}
+    </section>
+  )
+}
+
 /** "Marco De Luca" -> nome "Marco", cognome "De Luca". Only a prefill, editable. */
 function dividiNome(completo: string) {
   const [nome = '', ...resto] = completo.trim().split(/\s+/)
@@ -125,6 +206,9 @@ export default async function NuovaVenditaPage({
   let anteprimaIniziale: RataAnteprima[] | null = null
   // the day the sale is signed: today, or the day of the closed call
   let dataVenditaIniziale = oggi
+  // a sale without the call that looks like this one (VenditaGiaRegistrata)
+  let simili: VenditaSimile[] = []
+  let nomeLead = ''
 
   if (callId) {
     const { data: call } = await supabase
@@ -174,13 +258,22 @@ export default async function NuovaVenditaPage({
       )
     }
 
-    const { data: cliente } = await supabase
-      .from('clients')
-      .select('id, nome, cognome')
-      .eq('lead_id', call.lead_id)
-      .order('created_at')
-      .limit(1)
-      .maybeSingle()
+    const giornoCall = oggiRoma(new Date(call.programmata_il))
+    const [{ data: cliente }, candidate] = await Promise.all([
+      supabase
+        .from('clients')
+        .select('id, nome, cognome')
+        .eq('lead_id', call.lead_id)
+        .order('created_at')
+        .limit(1)
+        .maybeSingle(),
+      // a reminder, never a reason for the form to fail: an error shows nothing
+      supabase.rpc('vendite_da_collegare', { p_call_id: call.id }),
+    ])
+    const dal = aggiungiGiorni(giornoCall, -GIORNI_VENDITA_VICINA)
+    const al = aggiungiGiorni(giornoCall, GIORNI_VENDITA_VICINA)
+    simili = (candidate.data ?? []).filter((v) => v.stesso_cliente && v.data_vendita >= dal && v.data_vendita <= al)
+    nomeLead = call.lead?.nome ?? 'Lead senza nome'
 
     if (cliente) {
       clienteEsistente = { id: cliente.id, nome: [cliente.nome, cliente.cognome].filter(Boolean).join(' ') }
@@ -193,7 +286,6 @@ export default async function NuovaVenditaPage({
 
     // A call closed on a past day (from the closer's day) is signed that day: the
     // closer's row then shows the close, the cash and the revenue together
-    const giornoCall = oggiRoma(new Date(call.programmata_il))
     dataVenditaIniziale = giornoCall < oggi ? giornoCall : oggi
 
     riepilogo = [
@@ -308,6 +400,16 @@ export default async function NuovaVenditaPage({
             </div>
           ))}
         </dl>
+      ) : null}
+
+      {callId && simili.length > 0 ? (
+        <VenditaGiaRegistrata
+          vendite={simili}
+          admin={profilo.ruolo === 'admin'}
+          callId={callId}
+          nomeLead={nomeLead}
+          hrefVendita={`/sales/new?${new URLSearchParams({ call: callId, ...(tornaA ? { da: tornaA } : {}) }).toString()}`}
+        />
       ) : null}
 
       <NuovaVenditaForm

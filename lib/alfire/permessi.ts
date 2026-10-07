@@ -13,8 +13,9 @@ import type { AppRole, LivelloPm } from '@/lib/auth/roles'
  * his own day only, the others' through his admin tools. The "mine" reads
  * (miei_numeri, miei_clienti, mie_vendite, mie_giornate, miei_task,
  * mio_tempo) always return the caller's data and say whose it is: another
- * person's data comes only from a tool made for it (tempo_team), never from
- * them.
+ * person's data comes only from a tool made for it (tempo_team, and for the
+ * setter giornate_closer: the closer's numbers of every setter, as the Closer
+ * page shows them to him since 07/10/2026), never from them.
  */
 type Chi = { ruoli?: readonly AppRole[]; livelliPm?: readonly LivelloPm[] }
 
@@ -44,10 +45,15 @@ export const STRUMENTI = {
   // each one's own money, as the app already shows it to him (03/10/2026): the setter
   // the clients he brought (I miei numeri › I tuoi clienti), the closer the sales he
   // closed (Le mie vendite), both their day by day; the admin his own day as the
-  // closer he is (Setting › Closer with himself chosen), never anyone else's
+  // closer he is (the Closer page with himself chosen), never anyone else's
   miei_clienti: { ruoli: ['setter'] },
   mie_vendite: { ruoli: ['closer'] },
   mie_giornate: { ruoli: ['admin', 'setter', 'closer'] },
+  // the closer's numbers of every setter, as the Closer page shows them to the setter
+  // (Dany, 07/10/2026: "massima trasparenza verso i setter", the money too): aggregate
+  // numbers by day of every closer or one, never a call, a lead or a note of the others.
+  // The closer reads only his own (mie_giornate), the admin as before
+  giornate_closer: { ruoli: ['setter'] },
   // who has calls
   call_periodo: { ruoli: ['admin', 'setter', 'closer'] },
   // projects: every level sees what RLS lets them see; one's own time for everyone
@@ -73,7 +79,7 @@ export const STRUMENTI = {
   fissa_call: { ruoli: ['admin', 'setter'] },
   call: { ruoli: ['admin', 'setter', 'closer'] },
   lead: { ruoli: ['admin', 'setter', 'closer'] },
-  // the setter his own days; the admin any setter's (Setting › Aggiungi giornata)
+  // the setter his own days; the admin any setter's (Setter › Aggiungi giornata)
   aggiorna_report: { ruoli: ['admin', 'setter'] },
   progetto: { livelliPm: CHI_GESTISCE },
   lista: { livelliPm: CHI_GESTISCE },
@@ -133,7 +139,13 @@ export const AZIONI = {
   prodotto: { admin: ['crea', 'modifica', 'fuori_vendita', 'in_vendita', 'elimina'] },
   // the outcome is the closer's (registraEsito refuses the setter); everyone with
   // calls moves them (sposta_call: the setter only those still to be held)
-  call: { admin: ['esito', 'sposta', 'modifica', 'elimina'], closer: ['esito', 'sposta', 'modifica'], setter: ['sposta', 'modifica'] },
+  // follow_up: «Fissa la call di follow-up» of a held call in follow-up without one (07/10/2026),
+  // the call's closer and the admin, as public.fissa_follow_up: never the setter
+  call: {
+    admin: ['esito', 'follow_up', 'sposta', 'modifica', 'elimina'],
+    closer: ['esito', 'follow_up', 'sposta', 'modifica'],
+    setter: ['sposta', 'modifica'],
+  },
   lead: { admin: ['stato', 'modifica', 'elimina'], setter: ['stato', 'modifica'], closer: ['stato'] },
   // modalita of the daily report
   aggiorna_report: { admin: ['aggiungi', 'imposta', 'elimina'], setter: ['aggiungi', 'imposta'] },

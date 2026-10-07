@@ -630,7 +630,12 @@ function registraVenditaStrumento(ctx: Contesto): Definizione {
       (admin
         ? 'setter e closer: nome o "io"; di default quelli della call, o il setter del cliente. '
         : 'Setter e closer vengono dalla call (call_id) o dal cliente. ') +
-      'Un rinnovo è una vendita nuova col suo periodo: quella vecchia resta. Rinnovi e upsell: senza setter, salvo che nascano da una call fissata dal setter.',
+      'Un rinnovo è una vendita nuova col suo periodo: quella vecchia resta. Rinnovi e upsell: senza setter, salvo che nascano da una call fissata dal setter. ' +
+      // collega_vendita_call is never Alfire's (CLAUDE.md section 20): a second sale with the call_id would count the money twice
+      'Con call_id solo se la vendita di quella call non è già registrata: se è stata registrata senza la call (da Vendite), non registrarne un’altra, ' +
+      (admin
+        ? 'perché soldi e provvigione conterebbero due volte: si collega dalla scheda della call, «La vendita c’è già: collegala» (Alfire non la collega).'
+        : 'perché soldi e provvigione conterebbero due volte: la collega l’admin dalla scheda della call (Alfire non la collega).'),
     inputSchema: schema,
     anteprima: async (input): Promise<Anteprima> => {
       const v = input as Input

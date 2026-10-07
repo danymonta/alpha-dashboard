@@ -110,6 +110,9 @@ async function principale() {
         link_registrazione: c.link,
         performance: c.performance as Database['public']['Enums']['call_performance'] | null,
         prodotto_proposto_id: c.prodotto ? (prodotto.get(c.prodotto) ?? null) : null,
+        // its sale came from the Excel, without the call: a closed one never asks for it
+        // («Vendita da registrare»), even if its lead or its author is deleted later
+        importata: true,
       })
       .select('id')
       .single()

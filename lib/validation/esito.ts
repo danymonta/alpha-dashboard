@@ -7,8 +7,9 @@ import {
   NOTE_CLOSER,
 } from '@/lib/setting/commento'
 import type { Database } from '@/lib/supabase/database.types'
+import { FOLLOW_UP } from '@/lib/call/follow-up'
 import { SPOSTA } from '@/lib/call/spostamento'
-import { campiSpostamento } from '@/lib/validation/call'
+import { campiFollowUp, campiSpostamento } from '@/lib/validation/call'
 
 type AggiornamentoCall = Pick<
   Database['public']['Tables']['calls']['Update'],
@@ -50,6 +51,11 @@ const noteCloser = z
  * without them it is "In attesa di conferma": it stays on its day with stato
  * riprogrammata until the lead confirms a date, then «Sposta». Day and time go
  * together: one without the other is refused.
+ * "follow_up" asks whether a follow-up call was booked (Dany, 07/10/2026):
+ * with follow_up_data and follow_up_ora a new call is booked on that day
+ * (public.fissa_follow_up, the window per role checked with schemaFollowUp);
+ * without them the follow-up goes on by chat. They go together, and never
+ * with "persa".
  */
 const scelte = z.discriminatedUnion('esito', [
   z.object({ call_id: callId, esito: z.literal('chiusa') }),
@@ -59,6 +65,8 @@ const scelte = z.discriminatedUnion('esito', [
     qualificata: z.boolean({ required_error: 'Indica se era qualificata' }),
     motivo: motivoNonChiusura,
     note_closer: noteCloser,
+    follow_up_data: campiFollowUp.data.optional(),
+    follow_up_ora: campiFollowUp.ora.optional(),
   }),
   z.object({
     call_id: callId,
@@ -74,6 +82,20 @@ const scelte = z.discriminatedUnion('esito', [
 ])
 
 export const esitoCallSchema = scelte.superRefine((v, ctx) => {
+  if (v.esito === 'follow_up' || v.esito === 'persa') {
+    const conData = v.follow_up_data !== undefined
+    const conOra = v.follow_up_ora !== undefined
+    // a lost call has no follow-up call
+    if (v.esito === 'persa' && (conData || conOra)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [conData ? 'follow_up_data' : 'follow_up_ora'], message: FOLLOW_UP.conPersa })
+      return
+    }
+    // a day without the time (or the reverse): the database's words
+    if (conData !== conOra) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [conData ? 'follow_up_ora' : 'follow_up_data'], message: FOLLOW_UP.manca })
+    }
+    return
+  }
   if (v.esito !== 'riprogrammata' || (v.data === undefined) === (v.ora === undefined)) return
   // a day without the time (or the reverse): the same words as the move
   const campo = v.data === undefined ? 'data' : 'ora'
@@ -90,6 +112,17 @@ export type EsitoSulPosto = EsitoCall
 /** The new day and time of a "riprogrammata" that moves the call; null for every other outcome. */
 export function nuovaDataEsito(v: EsitoCall): { data: string; ora: string } | null {
   return v.esito === 'riprogrammata' && v.data !== undefined && v.ora !== undefined ? { data: v.data, ora: v.ora } : null
+}
+
+/**
+ * The day and time of the follow-up call booked with a "follow_up" outcome
+ * ("Sì, call fissata"); null for a follow-up by chat and every other outcome.
+ * The window per role is schemaFollowUp's (lib/validation/call.ts).
+ */
+export function followUpEsito(v: EsitoCall): { data: string; ora: string } | null {
+  return v.esito === 'follow_up' && v.follow_up_data !== undefined && v.follow_up_ora !== undefined
+    ? { data: v.follow_up_data, ora: v.follow_up_ora }
+    : null
 }
 
 /** The outcomes that ask for the reason: a held call that did not close. */

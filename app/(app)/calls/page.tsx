@@ -5,6 +5,7 @@ import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
+import { VENDITA_DA_REGISTRARE } from '@/lib/call/follow-up'
 import { SPOSTA } from '@/lib/call/spostamento'
 import { oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
@@ -59,8 +60,25 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
           .order('programmata_il', { ascending: true })
           .limit(200)
 
-  const [{ data, error }, persone, catalogo] = await Promise.all([
+  const [{ data, error }, senzaVendita, persone, catalogo] = await Promise.all([
     query,
+    // the net under "Chiusa" → sale (07/10/2026): every closed call of his still
+    // without its sale, whenever it was held. Imported calls never ask
+    // (calls.importata, chiedeVendita): their sales came from the Excel, without
+    // the call; a mark, never the missing author, which elimina_persona empties
+    // too. The sale is looked for whatever closer it carries
+    // (public.call_ha_vendita): the closer reads only the sales he closed.
+    vista === 'closer'
+      ? supabase
+          .from('calls')
+          .select(CAMPI_CALL_CLOSER)
+          .eq('closer_id', profiloId)
+          .eq('esito', 'chiusa')
+          .eq('importata', false)
+          .eq('call_ha_vendita', false)
+          .order('programmata_il', { ascending: false })
+          .limit(50)
+      : Promise.resolve({ data: [], error: null }),
     // who a call can be handed to: the closer keeps their own calls
     puoRiassegnare
       ? supabase.from('profiles').select('id, nome, ruolo').eq('attivo', true).in('ruolo', ['admin', 'closer']).order('created_at')
@@ -69,10 +87,11 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
       ? supabase.from('products').select('id, nome').eq('attivo', true).order('nome')
       : Promise.resolve({ data: [], error: null }),
   ])
-  if (error || persone.error || catalogo.error) throw new Error('Impossibile caricare le call')
+  if (error || senzaVendita.error || persone.error || catalogo.error) throw new Error('Impossibile caricare le call')
 
   return {
     calls: data as unknown as CallVista[],
+    senzaVendita: (senzaVendita.data ?? []) as unknown as CallVista[],
     closers: (persone.data ?? []).map(({ id, nome }) => ({ id, nome })),
     prodotti: catalogo.data ?? [],
     adesso,
@@ -83,7 +102,11 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
 export default async function LeMieCallPage() {
   const profilo = await requireRuolo(['setter', 'closer', 'admin'])
   const vista = profilo.ruolo === 'setter' ? 'setter' : 'closer'
-  const { calls, closers, prodotti, adesso, oggi } = await caricaCall(vista, profilo.id, profilo.ruolo !== 'closer')
+  const { calls, senzaVendita, closers, prodotti, adesso, oggi } = await caricaCall(
+    vista,
+    profilo.id,
+    profilo.ruolo !== 'closer',
+  )
 
   const passata = (c: CallVista) => new Date(c.programmata_il).getTime() < adesso
   const giorno = (c: CallVista) => oggiRoma(new Date(c.programmata_il))
@@ -95,7 +118,11 @@ export default async function LeMieCallPage() {
   const prossime = future.filter((c) => giorno(c) !== oggi)
   // "In attesa di conferma" (stato riprogrammata, 04/10/2026): the lead still has to confirm a new day
   const inAttesa = calls.filter((c) => c.stato === 'riprogrammata')
-  const concluse = calls.filter((c) => c.stato !== 'programmata' && c.stato !== 'riprogrammata').reverse()
+  // a closed call without its sale stays on top until the sale is there; never twice
+  const daVendere = new Set(senzaVendita.map((c) => c.id))
+  const concluse = calls
+    .filter((c) => c.stato !== 'programmata' && c.stato !== 'riprogrammata' && !daVendere.has(c.id))
+    .reverse()
 
   // the admin books too (Dany, 29/09/2026): for himself, for a setter, or a call already done
   const admin = profilo.ruolo === 'admin'
@@ -116,12 +143,12 @@ export default async function LeMieCallPage() {
     ) : (
       <IntestazionePagina
         titolo="Le mie call"
-        descrizione="Le call che hai fissato, con stato ed esito."
+        descrizione="Le call che hai fissato e le loro call di follow-up, con stato ed esito."
         azione={bottoneNuova}
       />
     )
 
-  if (calls.length === 0) {
+  if (calls.length === 0 && senzaVendita.length === 0) {
     return (
       <div className="max-w-2xl">
         {intestazione}
@@ -193,6 +220,15 @@ export default async function LeMieCallPage() {
               descrizione="Call già passate senza esito: finché restano qui, i numeri del mese non tornano."
             >
               {[...daRegistrare].reverse().map((c) => scheda(c))}
+            </Sezione>
+          ) : null}
+
+          {senzaVendita.length > 0 ? (
+            <Sezione
+              titolo={`${VENDITA_DA_REGISTRARE.sezione} (${senzaVendita.length})`}
+              descrizione={VENDITA_DA_REGISTRARE.descrizioneSezione}
+            >
+              {senzaVendita.map((c) => scheda(c))}
             </Sezione>
           ) : null}
 

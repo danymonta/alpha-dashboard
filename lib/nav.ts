@@ -3,8 +3,10 @@ import {
   CalendarPlus,
   ClipboardList,
   FolderKanban,
+  Handshake,
   LayoutDashboard,
   ListChecks,
+  MessagesSquare,
   Percent,
   Phone,
   Receipt,
@@ -31,6 +33,12 @@ export type VoceNav = {
   esatto?: boolean
   /** Area of the app shell: the desktop sidebar groups by it. Default Economics. */
   sezione?: SezioneNav
+  /**
+   * The item carries the number of the person's own past calls still without
+   * an outcome (admin and closer, 07/10/2026): counted in the app layout, shown
+   * only to the person who has to record them (CLAUDE.md section 17).
+   */
+  esiti?: true
 }
 
 // The Projects area, the same for every role (CLAUDE.md section 3)
@@ -41,6 +49,12 @@ const TEMPO: VoceNav = { href: '/tempo', etichetta: 'Il mio tempo', Icona: Timer
 // (CLAUDE.md section 23). In "Altro", never in the bottom bar's four items.
 const NOVITA: VoceNav = { href: '/changelog', etichetta: 'Novità', Icona: Sparkles, sezione: 'Generale' }
 const SOLO_PROGETTI: NavRuolo = { principali: [MIEI_TASK, PROGETTI, TEMPO], altre: [NOVITA] }
+
+// Setter and Closer, two items instead of the old "Setting" with two tabs
+// (Dany, 07/10/2026): the URLs stay, many links and Alfire use them. "Setter"
+// lights only on itself, "Closer" also on its day (/setting/closer/giorno).
+const SETTER: VoceNav = { href: '/setting', etichetta: 'Setter', Icona: MessagesSquare, esatto: true }
+const CLOSER: VoceNav = { href: '/setting/closer', etichetta: 'Closer', Icona: Handshake }
 
 export type NavRuolo = {
   /** Up to 4 items: they are the mobile bottom bar. */
@@ -56,7 +70,7 @@ const NAV: Record<AppRole, NavRuolo> = {
     // is the button on that page, so /calls/new keeps this item lit.
     principali: [
       { href: '/', etichetta: 'Panoramica', Icona: LayoutDashboard, esatto: true },
-      { href: '/calls', etichetta: 'Le mie call', Icona: Phone },
+      { href: '/calls', etichetta: 'Le mie call', Icona: Phone, esiti: true },
       { href: '/payments', etichetta: 'Incassi', Icona: Wallet },
       { href: '/sales', etichetta: 'Vendite', Icona: Receipt },
     ],
@@ -64,7 +78,9 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/clients', etichetta: 'Clienti', Icona: Users },
       { href: '/rinnovi', etichetta: 'Rinnovi', Icona: RefreshCw },
-      { href: '/setting', etichetta: 'Setting', Icona: TrendingUp },
+      SETTER,
+      // his calls to record on top, then the closer's numbers (07/10/2026)
+      { ...CLOSER, esiti: true },
       { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
       { href: '/expenses', etichetta: 'Costi', Icona: Banknote },
       PROGETTI,
@@ -82,15 +98,23 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-numbers', etichetta: 'I miei numeri', Icona: TrendingUp },
     ],
-    altre: [{ href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true }, PROGETTI, MIEI_TASK, TEMPO, NOVITA],
+    altre: [
+      { href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true },
+      // the closer's numbers of every setter, read only (Dany, 07/10/2026: "il setter può accedere alla tab closer")
+      CLOSER,
+      PROGETTI,
+      MIEI_TASK,
+      TEMPO,
+      NOVITA,
+    ],
   },
   closer: {
     principali: [
-      { href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true },
+      { href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true, esiti: true },
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-sales', etichetta: 'Le mie vendite', Icona: Receipt },
       // the closer half of the Excel: his calls and sales, day by day
-      { href: '/setting/closer', etichetta: 'I miei numeri', Icona: TrendingUp },
+      { href: '/setting/closer', etichetta: 'I miei numeri', Icona: TrendingUp, esiti: true },
     ],
     altre: [PROGETTI, MIEI_TASK, TEMPO, NOVITA],
   },
@@ -102,6 +126,24 @@ const NAV: Record<AppRole, NavRuolo> = {
 
 export function vociNav(ruolo: AppRole): NavRuolo {
   return NAV[ruolo]
+}
+
+/** "1 esito da registrare", "3 esiti da registrare": the badge's words for screen readers. */
+export function testoEsiti(numero: number): string {
+  return `${numero} ${numero === 1 ? 'esito' : 'esiti'} da registrare`
+}
+
+/**
+ * The accessible name of an item with its badge, "Le mie call, 2 esiti da
+ * registrare"; undefined without one (the visible label is the name).
+ */
+export function nomeConEsiti(etichetta: string, numero: number): string | undefined {
+  return numero > 0 ? `${etichetta}, ${testoEsiti(numero)}` : undefined
+}
+
+/** The badge of an item: the count when the item carries it and there is something to record. */
+export function esitiDellaVoce(voce: VoceNav, esitiDaRegistrare: number): number {
+  return voce.esiti && esitiDaRegistrare > 0 ? esitiDaRegistrare : 0
 }
 
 export function isAttiva(pathname: string, voce: VoceNav): boolean {

@@ -84,6 +84,7 @@ const LETTURE: Record<string, string> = {
   miei_clienti: 'i tuoi clienti',
   mie_vendite: 'le tue vendite',
   mie_giornate: 'la tua giornata',
+  giornate_closer: 'i numeri del closer',
   call_periodo: 'le call',
   progetti: 'i progetti',
   progetto_dettaglio: 'il progetto',

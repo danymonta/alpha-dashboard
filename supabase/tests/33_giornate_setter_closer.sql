@@ -1,6 +1,7 @@
 -- Setter and closer day by day: everyone sees only their own half, the wrong
 -- roles are refused; cash and revenue are the new clients only (29/09/2026):
 -- the first instalment of the new sales on the day of the sale, their contracts.
+-- From 07/10/2026 the setter also reads the closer's whole day (20261007100000).
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
@@ -143,10 +144,12 @@ select is(
   (select row(dm_out_setter, call_setter, cash_setter)::text from atteso),
   'e non può chiedere quella di un altro'
 );
-select throws_ok(
-  $$ select * from public.giornate_closer('2026-01-01', '2026-12-31') $$,
-  '42501', null,
-  'il setter non vede la giornata intera del closer'
+-- from 07/10/2026 the setter reads the closer's day too, of every setter's
+-- calls, with the money (20261007100000; the details in 60_giornata_closer_setter)
+select is(
+  (select row(call, cash, revenue)::text from public.giornate_closer('2026-01-01', '2026-12-31') where data is null),
+  (select row(call_tutte, cash_nuovi, revenue_nuovi)::text from atteso),
+  'il setter vede la giornata intera del closer, come l''admin'
 );
 select is(
   (select row(cash, revenue)::text from public.giornate_setter('2025-03-01', '2025-04-30', '11111111-1111-4111-8111-111111111111') where data is null),

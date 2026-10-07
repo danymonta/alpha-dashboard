@@ -7,18 +7,20 @@ import { accedi } from './utenti'
 // the seed has calls and sales from April to September 2026
 const ANNO = 'da=2026-01-01&a=2026-12-31'
 
-test('closer: l’admin passa dalla scheda Setter alla scheda Closer e vede le giornate', async ({ page }) => {
+test('closer: l’admin apre Closer dalla barra laterale e vede le giornate', async ({ page }) => {
   await accedi(page, 'admin')
   await page.goto(`/setting?${ANNO}`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Setter' })).toBeVisible()
 
-  const schede = page.getByRole('navigation', { name: 'Setter e closer' })
-  await expect(schede.getByRole('link', { name: 'Setter', exact: true })).toHaveAttribute('aria-current', 'page')
-  // switching tab keeps the period
-  await schede.getByRole('link', { name: 'Closer', exact: true }).click()
-  await expect(page).toHaveURL(`/setting/closer?${ANNO}`)
+  // no tabs on top (07/10/2026): Setter and Closer are two items of the sidebar
+  await expect(page.getByRole('navigation', { name: 'Setter e closer' })).toHaveCount(0)
+  const nav = page.getByRole('navigation', { name: 'Navigazione principale' })
+  await nav.getByRole('link', { name: /^Closer(, \d+ esit[io] da registrare)?$/ }).click()
+  await expect(page).toHaveURL('/setting/closer')
+  await page.goto(`/setting/closer?${ANNO}`)
 
   await expect(page.getByRole('heading', { level: 1, name: 'Closer' })).toBeVisible()
-  await expect(schede.getByRole('link', { name: 'Closer', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(nav.getByRole('link', { name: /^Closer/ })).toHaveAttribute('aria-current', 'page')
 
   const kpi = page.getByTestId('kpi-closer')
   for (const etichetta of ['Cash', 'Revenue', 'Call svolte', 'Qualificate', 'No show', 'Show rate', 'Close rate', 'Chiuse']) {
@@ -141,8 +143,13 @@ test('closer: il closer vede i suoi numeri, senza la scheda Setter, e non apre i
   await expect(page).toHaveURL('/calls')
 })
 
-test('closer: il setter non apre la pagina del closer', async ({ page }) => {
+test('closer: il setter legge la pagina del closer, ma non apre la giornata', async ({ page }) => {
   await accedi(page, 'setter')
-  await page.goto('/setting/closer')
+  await page.goto(`/setting/closer?${ANNO}`)
+  // every setter's calls, read only (07/10/2026): no day to fill
+  await expect(page.getByRole('heading', { level: 1, name: 'Closer' })).toBeVisible()
+  await expect(page.getByTestId('kpi-closer')).toBeVisible()
+  await expect(page.getByTestId('compila-giornata')).toHaveCount(0)
+  await page.goto('/setting/closer/giorno')
   await expect(page).toHaveURL('/today')
 })

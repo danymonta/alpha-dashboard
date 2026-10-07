@@ -8,9 +8,10 @@ import { strumentiConsentiti } from '@/lib/alfire/permessi'
 import { azioneDistruttiva, riassuntoScrittura } from '@/lib/alfire/riassunto'
 import { nomiDistinti, type Errore } from '@/lib/alfire/risolvi'
 import { CARTELLA_NON_LETTA } from '@/lib/alfire/scritture/progetti'
-import { anteprimaScrittura, strumentiAlfire } from '@/lib/alfire/strumenti'
+import { FISSATA_DA_FOLLOW_UP, anteprimaScrittura, strumentiAlfire } from '@/lib/alfire/strumenti'
 import type { AppRole, LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
+import { FOLLOW_UP, quandoFollowUp } from '@/lib/call/follow-up'
 import { SPOSTA, quandoBreve, quandoBreveDa } from '@/lib/call/spostamento'
 import { aggiungiGiorni, giornoEsteso, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import { formatData } from '@/lib/format'
@@ -24,6 +25,7 @@ const a = vi.hoisted(() => {
     modificaCall: ok(),
     registraEsito: ok(),
     spostaCall: ok(),
+    fissaFollowUp: ok(),
     eliminaCall: ok(),
     fissaCall: ok(),
     aggiornaStatoLead: ok(),
@@ -100,6 +102,7 @@ vi.mock('@/app/(app)/calls/actions', () => ({
   registraEsito: a.registraEsito,
   eliminaCall: a.eliminaCall,
   spostaCall: a.spostaCall,
+  fissaFollowUp: a.fissaFollowUp,
 }))
 vi.mock('@/app/(app)/calls/new/actions', () => ({ fissaCall: a.fissaCall }))
 vi.mock('@/app/(app)/leads/actions', () => ({
@@ -547,13 +550,15 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
     ])
   })
 
-  it('setter: i suoi numeri, i suoi clienti, la sua giornata, report, call, lead e i progetti', () => {
+  it('setter: i suoi numeri, i suoi clienti, la sua giornata, i numeri del closer, report, call, lead e i progetti', () => {
     expect(strumentiConsentiti('setter', 'employee')).toEqual([
       'guida',
       'proponi_risposte',
       'miei_numeri',
       'miei_clienti',
       'mie_giornate',
+      // the Closer page he reads since 07/10/2026: the closer's numbers of every setter
+      'giornate_closer',
       'call_periodo',
       'progetti',
       'progetto_dettaglio',
@@ -635,15 +640,15 @@ describe('azioni per ruolo: il modello vede solo quelle che la persona può fare
     expect(await campiDi(closer, 'rata')).not.toContain('scadenza')
   })
 
-  it('call: l’esito è di chi fa la call, eliminare dell’admin; spostarla di tutti e tre', async () => {
-    expect(await azioniDi(strumenti(), 'call')).toEqual(['esito', 'sposta', 'modifica', 'elimina'])
-    expect(await azioniDi(strumenti('closer', 'employee'), 'call')).toEqual(['esito', 'sposta', 'modifica'])
+  it('call: l’esito e la call di follow-up sono di chi fa la call, eliminare dell’admin; spostarla di tutti e tre', async () => {
+    expect(await azioniDi(strumenti(), 'call')).toEqual(['esito', 'follow_up', 'sposta', 'modifica', 'elimina'])
+    expect(await azioniDi(strumenti('closer', 'employee'), 'call')).toEqual(['esito', 'follow_up', 'sposta', 'modifica'])
     expect(await azioniDi(strumenti('setter', 'employee'), 'call')).toEqual(['sposta', 'modifica'])
   })
 
   it('la call del setter non ha importi, link, performance né esito', async () => {
     const campi = await campiDi(strumenti('setter', 'employee'), 'call')
-    for (const c of ['importo_proposto', 'link_registrazione', 'performance', 'prodotto_proposto', 'esito', 'tipo']) {
+    for (const c of ['importo_proposto', 'link_registrazione', 'performance', 'prodotto_proposto', 'esito', 'tipo', 'follow_up_data', 'follow_up_ora']) {
       expect(campi, c).not.toContain(c)
     }
     expect(campi).toContain('closer')
@@ -1966,7 +1971,7 @@ describe('i dati di chi chatta dicono di chi sono', () => {
   it('mio_tempo, miei_task e miei_numeri: il nome di chi chatta per primo, e la frase che lo dice', async () => {
     const righe = mondo()
     righe.v_pm_task = [{ id: 'k1', titolo: 'Montaggio reel', stato: 'da_fare', scadenza: null, in_ritardo: false, priorita: null, progetto_id: PROGETTO, assegnatari: [IO] }]
-    righe.miei_numeri_periodo = [{ dm_totali: 40 }]
+    righe.miei_numeri_periodo = [{ dm_totali: 40, call_fissate: 8, call_prenotate: 5 }]
 
     const tempo = (await esegui(strumenti('admin', 'admin', righe), 'mio_tempo', { da: '2026-09-01', a: '2026-09-30' })) as Record<string, unknown>
     const task = (await esegui(strumenti('coach', 'employee', righe), 'miei_task', {})) as Record<string, unknown>
@@ -1983,7 +1988,9 @@ describe('i dati di chi chatta dicono di chi sono', () => {
     }
     expect(tempo).toMatchObject({ voci: [{ voce_id: 't-mio', minuti: 90 }] })
     expect(task).toMatchObject({ task: [{ id: 'k1' }] })
-    expect(numeri).toMatchObject({ numeri: { dm_totali: 40 } })
+    expect(numeri).toMatchObject({ numeri: { dm_totali: 40, call_prenotate: 5, in_agenda_nel_periodo: 8 } })
+    // never «call_fissate»: it reads as his bookings, and the follow-up calls the closer booked are in it
+    expect(numeri.numeri).not.toHaveProperty('call_fissate')
   })
 
   it('le loro descrizioni dicono che sono solo di chi chatta; all’admin mio_tempo indica tempo_team', () => {
@@ -2541,8 +2548,9 @@ describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta
     expect(setter).toMatchObject({
       persona: 'Dany Montagnolo',
       di_chi:
-        'Solo le call fissate da Dany Montagnolo, cioè da chi sta chattando: non tutte le call del team. ' +
-        'Di un’altra persona qui ci sono solo le call fissate da Dany Montagnolo, mai tutte le sue.',
+        'Solo le call col nome di Dany Montagnolo, cioè di chi sta chattando: quelle che ha fissato e le loro call di follow-up, ' +
+        'che fissa il closer (o l’admin) e non sono sue prenotate (hanno «fissata_da»). Non tutte le call del team. ' +
+        'Di un’altra persona qui ci sono solo le call col nome di Dany Montagnolo, mai tutte le sue.',
     })
     expect(await leggi('closer')).toMatchObject({
       di_chi:
@@ -2550,7 +2558,13 @@ describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta
         'Di un’altra persona qui ci sono solo le call assegnate a Dany Montagnolo, mai tutte le sue.',
     })
 
-    expect(strumenti('setter', 'employee').call_periodo.description).toContain('Solo le call fissate da chi chatta')
+    expect(strumenti('setter', 'employee').call_periodo.description).toContain(
+      'Solo le call col nome di chi chatta: quelle che ha fissato e le loro call di follow-up (fissate dal closer o dall’admin, non sono sue prenotate).',
+    )
+    // setter = who booked it, except a follow-up call: its setter is the first call's, the closer booked it
+    expect(strumenti('admin', 'admin').call_periodo.description).toContain(
+      'setter (chi l’ha fissata; per una call di follow-up il setter della prima call, ma la fissa il closer o l’admin: «fissata_da» lo dice)',
+    )
     expect(strumenti('closer', 'employee').call_periodo.description).toContain('Solo le call assegnate a chi chatta')
     expect(strumenti('admin', 'admin').call_periodo.description).toContain('Tutte le call del team.')
   })
@@ -3761,6 +3775,8 @@ describe('i soldi del setter in Alfire: i clienti che ha portato (03/10/2026)', 
       expect(suoi.includes('miei_clienti'), `${ruolo}/${livello} miei_clienti`).toBe(ruolo === 'setter')
       expect(suoi.includes('mie_vendite'), `${ruolo}/${livello} mie_vendite`).toBe(ruolo === 'closer')
       expect(suoi.includes('mie_giornate'), `${ruolo}/${livello} mie_giornate`).toBe(ruolo === 'setter' || ruolo === 'closer' || ruolo === 'admin')
+      // the closer's numbers of every setter: the setter's Closer page (07/10/2026); the closer reads his own, the admin as before
+      expect(suoi.includes('giornate_closer'), `${ruolo}/${livello} giornate_closer`).toBe(ruolo === 'setter')
     }
   })
 
@@ -3778,7 +3794,8 @@ describe('i soldi del setter in Alfire: i clienti che ha portato (03/10/2026)', 
       expect(s[nome].description, nome).toContain('Solo di chi chatta: mai per un’altra persona.')
       for (const c of ['persona', 'setter', 'closer', 'profile_id']) expect(await campiDi(s, nome), `${nome}: ${c}`).not.toContain(c)
     }
-    expect(setter.mie_giornate.description).toContain('gli esiti del closer sulle call che ha fissato')
+    expect(setter.mie_giornate.description).toContain('gli esiti del closer sulle call col suo nome (quelle che ha fissato e le loro call di follow-up')
+    expect(setter.mie_giornate.description).not.toContain('sulle call che ha fissato')
     expect(closer.mie_giornate.description).toContain('show rate e close rate')
     expect(admin.mie_giornate.description).toContain('La giornata da closer dell’admin che chatta')
     expect(admin.mie_giornate.description).toContain('Mai di un altro closer né del team: per quelli call_periodo e vendite_periodo.')
@@ -4230,5 +4247,368 @@ describe('la giornata del setter e del closer in Alfire (03/10/2026)', () => {
     ]
     const esito = await esegui(strumenti('closer', 'employee', m), 'mie_giornate', { da: '2021-01-01', a: '2021-01-31' })
     expect(esito).toMatchObject({ totale: null, giorni: [], nota: 'Nessun giorno con attività nel periodo.' })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The follow-up call and the closer's numbers for the setter (Dany, 07/10/2026)
+// ---------------------------------------------------------------------------
+describe('la call di follow-up in Alfire (07/10/2026)', () => {
+  const domani = aggiungiGiorni(oggiRoma(), 1)
+  const ieri = aggiungiGiorni(oggiRoma(), -1)
+  const FOLLOW = 'ca000000-0000-4000-8000-000000000002'
+  const ESITO_FOLLOW_UP = { azione: 'esito', lead: 'Luca Neri', esito: 'follow_up', qualificata: true, motivo: 'Ci deve pensare' }
+  const quando = (giorno: string, ora: string) => `${giornoEsteso(giorno)} alle ${ora}`
+
+  /** Luca Neri's held call in follow-up, with its follow-up call booked (or not) and that call too. */
+  function conFollowUp(statoSeguito = 'programmata') {
+    const righe = mondo()
+    const seguito = { id: FOLLOW, programmata_il: '2026-10-08T16:00:00Z', stato: statoSeguito }
+    righe.calls = [
+      { ...righe.calls[0], call_di_follow_up: [seguito] },
+      {
+        ...righe.calls[0],
+        id: FOLLOW,
+        programmata_il: seguito.programmata_il,
+        stato: statoSeguito,
+        esito: null,
+        qualificata: null,
+        obiezione_principale: null,
+        note_closer: null,
+        follow_up_di: CALL,
+        partenza: { id: CALL, programmata_il: '2026-09-28T13:00:00Z' },
+        call_di_follow_up: [],
+      },
+    ]
+    return righe
+  }
+
+  it('esito follow-up con la call già fissata: la scheda dice quando, con lo stesso lead e lo stesso setter', async () => {
+    const input = { ...ESITO_FOLLOW_UP, follow_up_data: domani, follow_up_ora: '18:00' }
+    for (const ruolo of ['closer', 'admin'] as const) {
+      expect(await anteprima('call', input, ruolo), ruolo).toEqual({
+        titolo: 'Registro l’esito della call con Luca Neri del 28/09/2026 alle 15:00: Follow-up',
+        righe: [
+          'Ora: Follow-up',
+          'Qualificata: sì',
+          'Motivo di non chiusura: Ci deve pensare',
+          `Call di follow-up: ${quando(domani, '18:00')}, stesso lead e stesso setter (Loris Setter)`,
+        ],
+        sostituisceDettagli: true,
+      })
+    }
+    // the same server action as the sheet: the outcome and the follow-up call's day together
+    a.registraEsito.mockResolvedValueOnce({ ok: true, vaiA: null, followUp: FOLLOW })
+    const esito = await esegui(strumenti('closer', 'employee'), 'call', input)
+    expect(a.registraEsito).toHaveBeenCalledWith({
+      call_id: CALL,
+      esito: 'follow_up',
+      qualificata: true,
+      motivo: 'Ci deve pensare',
+      follow_up_data: domani,
+      follow_up_ora: '18:00',
+    })
+    expect(esito).toEqual({ fatto: true, call_di_follow_up: quando(domani, '18:00'), link: '/calls' })
+    // the description tells the model where the day goes
+    expect(strumenti('closer', 'employee').call.description).toContain('follow_up_data e follow_up_ora')
+    expect(await campiDi(strumenti('closer', 'employee'), 'call')).toEqual(expect.arrayContaining(['follow_up_data', 'follow_up_ora']))
+  })
+
+  it('esito follow-up senza data: «Follow-up in chat»; con la call già fissata, quella', async () => {
+    expect(await anteprima('call', ESITO_FOLLOW_UP, 'closer')).toMatchObject({ righe: expect.arrayContaining([FOLLOW_UP.inChat]) })
+    expect(await anteprima('call', { ...ESITO_FOLLOW_UP, call_id: CALL }, 'closer', conFollowUp())).toMatchObject({
+      righe: expect.arrayContaining([FOLLOW_UP.giaFissata(quandoFollowUp('2026-10-08T16:00:00Z'))]),
+    })
+    await esegui(strumenti('closer', 'employee'), 'call', ESITO_FOLLOW_UP)
+    expect(a.registraEsito).toHaveBeenCalledWith({ call_id: CALL, esito: 'follow_up', qualificata: true, motivo: 'Ci deve pensare' })
+  })
+
+  it('il giorno della call di follow-up: come lo controlla il foglio, prima del tocco', async () => {
+    const prova = (extra: Record<string, unknown>, ruolo: 'closer' | 'admin' = 'closer', righe = mondo()) =>
+      anteprima('call', { ...ESITO_FOLLOW_UP, ...extra }, ruolo, righe)
+    // the day without the time
+    expect(await prova({ follow_up_data: domani })).toEqual({ errore: FOLLOW_UP.manca })
+    // the closer from today on; the admin also a follow-up already held, but after the first call
+    expect(await prova({ follow_up_data: ieri, follow_up_ora: '18:00' })).toEqual({ errore: FOLLOW_UP.soloAvanti })
+    expect(await prova({ follow_up_data: '2026-09-27', follow_up_ora: '18:00' }, 'admin')).toEqual({
+      errore: FOLLOW_UP.dopoLaCall('28/09/2026 alle 15:00'),
+    })
+    // a lost call has no follow-up call; another outcome neither
+    expect(await anteprima('call', { ...ESITO_FOLLOW_UP, esito: 'persa', follow_up_data: domani, follow_up_ora: '18:00' }, 'closer')).toEqual({
+      errore: FOLLOW_UP.conPersa,
+    })
+    expect(await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'no_show', follow_up_data: domani, follow_up_ora: '18:00' }, 'closer')).toEqual({
+      errore: 'Una call di follow-up si fissa solo con l’esito Follow-up.',
+    })
+    // its day in data and ora would read as a move: the model reads where it goes
+    expect(await prova({ data: domani, ora: '18:00' })).toEqual({
+      errore: 'Il giorno della call di follow-up va a parte: questa call resta nel suo giorno.',
+      per_alfire: 'Con esito follow_up il giorno e l’ora della call di follow-up vanno in follow_up_data e follow_up_ora, mai in data e ora.',
+    })
+    // one follow-up call per call, in the database's words
+    expect(await prova({ call_id: CALL, follow_up_data: domani, follow_up_ora: '18:00' }, 'closer', conFollowUp())).toEqual({
+      errore: 'Questa call ha già la sua call di follow-up, il 08/10/2026 alle 18:00: per cambiarla usa Sposta su quella.',
+    })
+    expect(await prova({ call_id: CALL, follow_up_data: domani, follow_up_ora: '18:00' }, 'closer', conFollowUp('svolta'))).toEqual({
+      errore: 'Questa call ha già la sua call di follow-up, del 08/10/2026 alle 18:00, e ha già il suo esito: ogni call ha una sola call di follow-up.',
+    })
+    expect(a.registraEsito).not.toHaveBeenCalled()
+  })
+
+  it('l’esito salvato senza la call di follow-up: lo dice, senza rifare l’esito', async () => {
+    const avviso = 'Esito salvato, ma la call di follow-up non è fissata: Al massimo 6 mesi da oggi'
+    a.registraEsito.mockResolvedValueOnce({ ok: true, vaiA: null, avviso })
+    expect(await esegui(strumenti('closer', 'employee'), 'call', { ...ESITO_FOLLOW_UP, follow_up_data: domani, follow_up_ora: '18:00' })).toEqual({
+      fatto: true,
+      avviso,
+      link: '/calls',
+    })
+  })
+
+  it('«Fissa la call di follow-up» su una call svolta in follow-up: il lead, il momento e chi tiene la vendita', async () => {
+    const input = { azione: 'follow_up', lead: 'Luca Neri', follow_up_data: domani, follow_up_ora: '18:00' }
+    for (const ruolo of ['closer', 'admin'] as const) {
+      expect(await anteprima('call', input, ruolo), ruolo).toEqual({
+        titolo: `Fisso la call di follow-up con Luca Neri: ${quando(domani, '18:00')}`,
+        righe: [
+          'Follow-up della call del 28/09/2026 alle 15:00',
+          'Stesso lead e stesso setter: se chiude, la vendita resta di Loris Setter',
+          'Una call nuova, da fare nel suo giorno: conta nei numeri del closer come ogni call.',
+        ],
+        sostituisceDettagli: true,
+      })
+    }
+    a.fissaFollowUp.mockResolvedValueOnce({ ok: true, id: FOLLOW })
+    expect(await esegui(strumenti('closer', 'employee'), 'call', input)).toEqual({
+      fatto: true,
+      call_di_follow_up: quando(domani, '18:00'),
+      link: '/calls',
+    })
+    expect(a.fissaFollowUp).toHaveBeenCalledWith({ call_id: CALL, data: domani, ora: '18:00' })
+    // said as data and ora: the same day (nothing else to mean there)
+    await esegui(strumenti(), 'call', { azione: 'follow_up', lead: 'Luca Neri', data: domani, ora: '09:30' })
+    expect(a.fissaFollowUp).toHaveBeenLastCalledWith({ call_id: CALL, data: domani, ora: '09:30' })
+    // without a setter on the call: the same lead and closer
+    const senzaSetter = mondo()
+    senzaSetter.calls = [{ ...senzaSetter.calls[0], setter_id: null }]
+    expect(await anteprima('call', input, 'closer', senzaSetter)).toMatchObject({ righe: expect.arrayContaining([FOLLOW_UP.senzaSetter]) })
+  })
+
+  it('«Fissa la call di follow-up»: mai al setter, mai su una call non in follow-up o che ce l’ha già', async () => {
+    const input = { azione: 'follow_up', lead: 'Luca Neri', follow_up_data: domani, follow_up_ora: '18:00' }
+    expect(await anteprima('call', input, 'setter')).toEqual({ errore: 'Dati non validi per questa operazione.' })
+    const daFare = mondo()
+    daFare.calls = [{ ...daFare.calls[0], stato: 'programmata', esito: null }]
+    expect(await anteprima('call', input, 'closer', daFare)).toEqual({ errore: FOLLOW_UP.soloSuFollowUp })
+    expect(await anteprima('call', { ...input, call_id: CALL }, 'closer', conFollowUp())).toEqual({
+      errore: 'Questa call ha già la sua call di follow-up, il 08/10/2026 alle 18:00: per cambiarla usa Sposta su quella.',
+    })
+    expect(await anteprima('call', { azione: 'follow_up', lead: 'Luca Neri' }, 'closer')).toEqual({
+      errore: 'Dimmi il giorno e l’ora della call di follow-up.',
+    })
+    // one handed to another closer: the database's words, never its day, never a booking that fails
+    const nascosta = mondo()
+    nascosta.calls = [{ ...nascosta.calls[0], call_di_follow_up: [], ha_follow_up: true }]
+    expect(await anteprima('call', input, 'closer', nascosta)).toEqual({ errore: FOLLOW_UP.altroCloser })
+    expect(await anteprima('call', { ...ESITO_FOLLOW_UP, follow_up_data: domani, follow_up_ora: '18:00' }, 'closer', nascosta)).toEqual({
+      errore: FOLLOW_UP.altroCloser,
+    })
+    await esegui(strumenti('closer', 'employee', daFare), 'call', input)
+    expect(a.fissaFollowUp).not.toHaveBeenCalled()
+  })
+
+  it('tra le call di un lead: la call di follow-up si fissa su quella svolta in follow-up che non ce l’ha', async () => {
+    const VECCHIA = 'ca000000-0000-4000-8000-000000000003'
+    const righe = conFollowUp()
+    // an older held call in follow-up, without its follow-up call
+    righe.calls.push({ ...righe.calls[0], id: VECCHIA, programmata_il: '2026-09-20T13:00:00Z', call_di_follow_up: [] })
+    a.fissaFollowUp.mockResolvedValueOnce({ ok: true, id: 'nuova' })
+    await esegui(strumenti('closer', 'employee', righe), 'call', { azione: 'follow_up', lead: 'Luca Neri', follow_up_data: domani, follow_up_ora: '18:00' })
+    expect(a.fissaFollowUp).toHaveBeenCalledWith({ call_id: VECCHIA, data: domani, ora: '18:00' })
+    // the outcome still goes to the lead's one open call: its follow-up call
+    await esegui(strumenti('closer', 'employee', conFollowUp()), 'call', { azione: 'esito', lead: 'Luca Neri', esito: 'chiusa' })
+    expect(a.registraEsito).toHaveBeenCalledWith({ call_id: FOLLOW, esito: 'chiusa' })
+    // two held calls: the candidates say which is the follow-up of which
+    const due = conFollowUp('svolta')
+    due.calls[1] = { ...due.calls[1], esito: 'persa' }
+    const p = (await anteprima('call', { azione: 'modifica', lead: 'Luca Neri', note_closer: 'X' }, 'closer', due)) as Errore
+    expect(p.errore).toContain('Più call con Luca Neri')
+    expect(p.errore).toContain(`(persa, follow-up della call del ${quandoBreve('2026-09-28T13:00:00Z')})`)
+    expect(p.errore).toContain(`(follow_up, call di follow-up: ${quandoFollowUp('2026-10-08T16:00:00Z')})`)
+  })
+
+  it('call_periodo: la call di follow-up dice di quale call è, quella in follow-up se ha la sua e quando', async () => {
+    const righe = conFollowUp()
+    const letto = (await esegui(strumenti('admin', 'admin', righe), 'call_periodo', { da: '2026-09-28', a: '2026-10-08' })) as {
+      call: Record<string, unknown>[]
+    }
+    expect(letto.call).toEqual([
+      expect.objectContaining({ call_id: CALL, call_di_follow_up: `call di follow-up: ${quandoFollowUp('2026-10-08T16:00:00Z')}` }),
+      expect.objectContaining({ call_id: FOLLOW, follow_up_della_call: `follow-up della call del ${quandoBreve('2026-09-28T13:00:00Z')}` }),
+    ])
+    expect(letto.call[0]).not.toHaveProperty('follow_up_della_call')
+    expect(letto.call[1]).not.toHaveProperty('call_di_follow_up')
+    // the follow-up call carries the first call's setter, but the closer booked it: never his booking
+    expect(letto.call[1]).toMatchObject({ fissata_da: FISSATA_DA_FOLLOW_UP })
+    expect(letto.call[0]).not.toHaveProperty('fissata_da')
+    // its first call deleted: still a follow-up call, still not booked by the setter
+    const senzaPartenza = conFollowUp()
+    senzaPartenza.calls = [{ ...senzaPartenza.calls[1], follow_up_di: null, di_follow_up: true, partenza: null }]
+    const orfana = (await esegui(strumenti('setter', 'employee', senzaPartenza), 'call_periodo', { da: '2026-10-08', a: '2026-10-08' })) as {
+      call: Record<string, unknown>[]
+    }
+    expect(orfana.call[0]).toMatchObject({ follow_up_della_call: 'follow-up di una call precedente', fissata_da: FISSATA_DA_FOLLOW_UP })
+    // handed to another closer: the first call's closer reads that it is there, never when
+    const nascosta = mondo()
+    nascosta.calls = [{ ...nascosta.calls[0], call_di_follow_up: [], ha_follow_up: true }]
+    const altro = (await esegui(strumenti('closer', 'employee', nascosta), 'call_periodo', { da: '2026-09-28', a: '2026-09-28' })) as {
+      call: Record<string, unknown>[]
+    }
+    expect(altro.call[0]).toMatchObject({ call_di_follow_up: 'call di follow-up fissata, assegnata a un altro closer' })
+    // a held call in follow-up without one goes on by chat; any other call says nothing
+    const solo = (await esegui(strumenti('setter', 'employee'), 'call_periodo', { da: '2026-09-28', a: '2026-09-28' })) as { call: Record<string, unknown>[] }
+    expect(solo.call[0]).toMatchObject({ call_di_follow_up: 'follow-up in chat' })
+    const daFare = mondo()
+    daFare.calls = [{ ...daFare.calls[0], stato: 'programmata', esito: null }]
+    const nessuno = (await esegui(strumenti('closer', 'employee', daFare), 'call_periodo', { da: '2026-09-28', a: '2026-09-28' })) as { call: Record<string, unknown>[] }
+    expect(nessuno.call[0]).not.toHaveProperty('call_di_follow_up')
+    expect(nessuno.call[0]).not.toHaveProperty('follow_up_della_call')
+  })
+
+  it('la scheda dall’input: la call di follow-up col suo giorno', () => {
+    expect(riassuntoScrittura('call', { azione: 'follow_up', lead: 'Luca Neri', follow_up_data: '2026-10-08', follow_up_ora: '18:00' })).toEqual({
+      titolo: 'Fisso la call di follow-up con Luca Neri',
+      dettagli: [quando('2026-10-08', '18:00')],
+    })
+    expect(riassuntoScrittura('call', { ...ESITO_FOLLOW_UP, follow_up_data: '2026-10-08', follow_up_ora: '18:00' }).dettagli).toContain(
+      `Call di follow-up: ${quando('2026-10-08', '18:00')}`,
+    )
+    expect(azioneDistruttiva('call', { azione: 'follow_up', lead: 'Luca Neri' })).toBeNull()
+  })
+})
+
+describe('i numeri del closer per il setter (07/10/2026)', () => {
+  const RIGHE = [
+    { data: null, call: 3, qualificate: 2, no_show: 1, follow_up: 1, cancellate: 0, chiuse: 1, cash: 617.28, revenue: 1234.56, show_rate: 0.75, close_rate: 0.3333 },
+    { data: '2026-10-06', call: 2, qualificate: 1, no_show: 1, follow_up: 1, cancellate: 0, chiuse: 0, cash: 0, revenue: 0, show_rate: 0.6667, close_rate: 0 },
+    { data: '2026-10-05', call: 1, qualificate: 1, no_show: 0, follow_up: 0, cancellate: 0, chiuse: 1, cash: 617.28, revenue: 1234.56, show_rate: 1, close_rate: 1 },
+  ]
+
+  it('di tutti i closer: la pagina Closer giorno per giorno, detto per primo che non sono i suoi', async () => {
+    const m = mondo()
+    m.giornate_closer = RIGHE
+    const esito = (await esegui(strumenti('setter', 'employee', m), 'giornate_closer', { da: '2026-10-05', a: '2026-10-07' })) as Record<string, unknown>
+    // every closer: no person passed, as the page's «Tutti i closer»
+    expect(rpcChiamate).toEqual([{ nome: 'giornate_closer', args: { p_da: '2026-10-05', p_a: '2026-10-07' } }])
+    expect(Object.keys(esito).slice(0, 2)).toEqual(['numeri_di', 'di_chi'])
+    expect(esito.numeri_di).toBe('tutti i closer')
+    expect(esito.di_chi).toBe(
+      'I numeri del closer (tutti i closer) sulle call fissate da tutti i setter, come la pagina Closer: non sono i numeri di Dany Montagnolo, che sta chattando (i suoi sono in mie_giornate).',
+    )
+    expect(esito.totale).toEqual({
+      'Call svolte': 3,
+      Qualificate: 2,
+      'No show': 1,
+      'Follow up (esito call)': 1,
+      Cancellate: 0,
+      Chiuse: 1,
+      'Cash (prima rata dei clienti nuovi)': 617.28,
+      'Revenue (contratti dei clienti nuovi)': 1234.56,
+      'Show rate': 0.75,
+      'Close rate': 0.3333,
+    })
+    expect(esito.giorni).toEqual([
+      { data: '2026-10-06', 'Call svolte': 2, Qualificate: 1, 'No show': 1, 'Follow up (esito call)': 1 },
+      {
+        data: '2026-10-05',
+        'Call svolte': 1,
+        Qualificate: 1,
+        Chiuse: 1,
+        'Cash (prima rata dei clienti nuovi)': 617.28,
+        'Revenue (contratti dei clienti nuovi)': 1234.56,
+      },
+    ])
+    expect(esito.link).toBe('/setting/closer?da=2026-10-05&a=2026-10-07')
+    // "tutti" said in words is the same
+    rpcChiamate.length = 0
+    await esegui(strumenti('setter', 'employee', m), 'giornate_closer', { closer: 'tutti i closer' })
+    expect(rpcChiamate[0].args).not.toHaveProperty('p_closer')
+  })
+
+  it('di un closer detto per nome, tra quelli della pagina (i closer e l’admin attivi)', async () => {
+    const m = mondo()
+    m.giornate_closer = RIGHE
+    const esito = (await esegui(strumenti('setter', 'employee', m), 'giornate_closer', { da: '2026-10-05', a: '2026-10-07', closer: 'Lorenzo' })) as Record<string, unknown>
+    expect(rpcChiamate).toEqual([{ nome: 'giornate_closer', args: { p_da: '2026-10-05', p_a: '2026-10-07', p_closer: LORENZO } }])
+    expect(esito.numeri_di).toBe('Lorenzo Closer')
+    expect(esito.link).toBe(`/setting/closer?closer=${LORENZO}&da=2026-10-05&a=2026-10-07`)
+    // a setter is no closer: the names to choose from
+    expect(await esegui(strumenti('setter', 'employee', m), 'giornate_closer', { closer: 'Loris' })).toEqual({
+      errore: 'Nessun closer «Loris». Closer: Dany Montagnolo, Lorenzo Closer.',
+    })
+  })
+
+  it('una lettura che non riesce non è mai «niente»; una data scritta male non legge il mese; nessun giorno lo dice', async () => {
+    const s = strumentiAlfire(supabaseFinto(mondo(), [], ['giornate_closer']) as never, profiloDi('setter'), 'employee')
+    expect(await esegui(s, 'giornate_closer', {})).toEqual({ errore: 'I numeri del closer non sono disponibili in questo momento.' })
+    expect(await esegui(strumenti('setter', 'employee'), 'giornate_closer', { da: '05/10/2026' })).toEqual(DATA_SBAGLIATA)
+    const m = mondo()
+    m.giornate_closer = [{ ...RIGHE[0], call: null, qualificate: null, no_show: null, chiuse: null, cash: null, revenue: null }]
+    expect(await esegui(strumenti('setter', 'employee', m), 'giornate_closer', { da: '2021-01-01', a: '2021-01-31' })).toMatchObject({
+      totale: null,
+      giorni: [],
+      nota: 'Nessun giorno con attività nel periodo.',
+    })
+  })
+
+  it('le descrizioni: i numeri del closer non sono i suoi, e mie_giornate manda lì', () => {
+    const setter = strumenti('setter', 'employee')
+    expect(setter.giornate_closer.description).toContain('sulle call fissate da tutti i setter')
+    expect(setter.giornate_closer.description).toContain('Non sono i numeri di chi chatta: i suoi sono in mie_giornate.')
+    expect(setter.mie_giornate.description).toContain('I numeri del closer sulle call di tutti i setter: giornate_closer.')
+    // the closer reads only his own; the admin as before
+    expect(Object.keys(strumenti('closer', 'employee'))).not.toContain('giornate_closer')
+    expect(Object.keys(strumenti('admin', 'admin'))).not.toContain('giornate_closer')
+  })
+})
+
+describe('la guida dopo il 07/10/2026: Setter e Closer, il follow-up, la vendita della call chiusa, il riepilogo del venerdì', () => {
+  const testo = async (ruolo: AppRole, argomento: string) =>
+    ((await esegui(strumenti(ruolo, ruolo === 'admin' ? 'admin' : 'employee'), 'guida', { argomento })) as { testo: string }).testo
+
+  it('il menu dal lato di chi legge: l’admin due voci, il setter la pagina Closer', async () => {
+    const admin = await testo('admin', 'setting')
+    expect(admin).toContain('«Setter» (/setting)')
+    expect(admin).toContain('«Closer» (/setting/closer), che si apre sulle call da registrare')
+    expect(admin).not.toContain('Scheda Closer')
+    const setter = await testo('setter', 'setting')
+    expect(setter).toContain('La pagina Closer (/setting/closer; sul telefono in «Altro»)')
+    expect(setter).toContain('Mai le call, i lead o le note degli altri setter.')
+    expect(setter).not.toContain('«Setter» (/setting)')
+    expect(await testo('setter', 'permessi')).toContain('Nella pagina Closer (/setting/closer), in sola lettura')
+    expect(await testo('setter', 'alfire')).toContain('i numeri del closer sulle call di tutti i setter')
+    expect(await testo('admin', 'permessi')).toContain('Nella pagina Closer (/setting/closer) legge i numeri del closer')
+  })
+
+  it('il follow-up e la vendita della call chiusa, per chi legge le call', async () => {
+    for (const ruolo of ['admin', 'setter', 'closer'] as const) {
+      const call = await testo(ruolo, 'call')
+      expect(call, ruolo).toContain('«Hai fissato una call di follow-up?»')
+      expect(call, ruolo).toContain('«Fissa la call di follow-up»')
+      expect(call, ruolo).toContain('la vendita resta del setter della prima call')
+      expect(call, ruolo).toContain('«Registra la vendita»')
+      expect(call, ruolo).toContain('mostra in cima le loro call passate ancora senza esito («Da registrare»)')
+    }
+    expect(await testo('closer', 'vendite')).toContain('«Vendita da registrare»')
+    expect(await testo('closer', 'alfire')).toContain('anche la call di follow-up')
+  })
+
+  it('il riepilogo del venerdì sera è dell’admin: mai nei testi del team', async () => {
+    expect(await testo('admin', 'panoramica')).toContain('solo il venerdì sera')
+    for (const ruolo of ['setter', 'closer', 'coach'] as const) {
+      for (const argomento of await azioniDi(strumenti(ruolo, 'employee'), 'guida', 'argomento')) {
+        expect(await testo(ruolo, argomento), `${ruolo}: ${argomento}`).not.toMatch(/riepilogo|venerdì sera/)
+      }
+    }
   })
 })

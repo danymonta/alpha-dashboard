@@ -2,6 +2,7 @@ import 'server-only'
 
 import { ETICHETTA_RUOLO, livelloPmEffettivo, type AppRole } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
+import { FOLLOW_UP, quandoFollowUp, rigaFollowUpDi } from '@/lib/call/follow-up'
 import { SPOSTA } from '@/lib/call/spostamento'
 import { aggiungiMesi, formatOra, giornoEsteso, oggiRoma } from '@/lib/date'
 import { formatData, formatEuro, formatMese } from '@/lib/format'
@@ -363,14 +364,68 @@ export type Call = {
   prodotto_proposto_id: string | null
   lead_id: string
   lead: { nome: string; stato: string; fonte: string } | null
+  /** The call this one is the follow-up of (calls.follow_up_di, 07/10/2026). */
+  follow_up_di?: string | null
+  /** A follow-up call, also once its first call is deleted (calls.di_follow_up). */
+  di_follow_up?: boolean
+  /** That first call, when the caller can read it. */
+  partenza?: { id: string; programmata_il: string } | null
+  /** The follow-up call of this one: one at most (calls_follow_up_di_unico), when the caller can read it. */
+  call_di_follow_up?: { id: string; programmata_il: string; stato: string }[] | null
+  /** Whether it has one, also handed to another closer (public.call_ha_follow_up): never its day. */
+  ha_follow_up?: boolean | null
 }
 
 const CAMPI_CALL =
-  'id, tipo, programmata_il, stato, esito, qualificata, closer_id, setter_id, note, note_closer, obiezione_principale, link_registrazione, performance, prodotto_proposto_id, lead_id, lead:leads(nome, stato, fonte)'
+  'id, tipo, programmata_il, stato, esito, qualificata, closer_id, setter_id, note, note_closer, obiezione_principale, link_registrazione, performance, prodotto_proposto_id, lead_id, lead:leads(nome, stato, fonte), follow_up_di, di_follow_up, ha_follow_up:call_ha_follow_up, partenza:follow_up_di(id, programmata_il), call_di_follow_up:calls!follow_up_di(id, programmata_il, stato)'
 
 /** "12/09/2026 alle 15:00" in Europe/Rome */
 export function quandoCall(c: Pick<Call, 'programmata_il'>): string {
   return `${formatData(oggiRoma(new Date(c.programmata_il)))} alle ${formatOra(c.programmata_il)}`
+}
+
+/** The follow-up call booked on a call, if any (07/10/2026), when the caller reads it. */
+export function seguitoDi(c: Pick<Call, 'call_di_follow_up'>): { id: string; programmata_il: string; stato: string } | null {
+  return c.call_di_follow_up?.[0] ?? null
+}
+
+/** The call has its follow-up call, but handed to another closer: the caller does not read it. */
+export function followUpDiAltroCloser(c: Pick<Call, 'call_di_follow_up' | 'ha_follow_up'>): boolean {
+  return !seguitoDi(c) && c.ha_follow_up === true
+}
+
+function minuscolaIniziale(testo: string): string {
+  return `${testo[0].toLowerCase()}${testo.slice(1)}`
+}
+
+/**
+ * What a call says about follow-ups, as its card does (Dany, 07/10/2026):
+ * a follow-up call names the call it follows up, «follow-up della call del
+ * 29/09 alle 19:00»; a held call that ended in follow-up says whether it has
+ * its follow-up call and when, «call di follow-up: giovedì 08/10 alle 18:00»,
+ * or that it goes on by chat. Null for every other call.
+ */
+export function followUpDellaCall(
+  c: Pick<Call, 'follow_up_di' | 'di_follow_up' | 'partenza' | 'call_di_follow_up' | 'ha_follow_up' | 'stato' | 'esito'>,
+): { della: string | null; seguito: string | null } | null {
+  // a follow-up call whose first call was deleted keeps its mark: «follow-up di una call precedente»
+  const della = c.follow_up_di || c.di_follow_up ? minuscolaIniziale(rigaFollowUpDi(c.partenza)) : null
+  const seguito = seguitoDi(c)
+  const inFollowUp = c.stato === 'svolta' && c.esito === 'follow_up'
+  const riga = seguito
+    ? minuscolaIniziale(FOLLOW_UP.diCall(quandoFollowUp(seguito.programmata_il)))
+    : followUpDiAltroCloser(c)
+      ? minuscolaIniziale(FOLLOW_UP.diAltroCloser)
+      : inFollowUp
+        ? minuscolaIniziale(FOLLOW_UP.inChat)
+        : null
+  return della || riga ? { della, seguito: riga } : null
+}
+
+/** The same in one line, for a list of candidates: «follow-up della call del …; follow-up in chat». */
+function followUpInBreve(c: Call): string {
+  const f = followUpDellaCall(c)
+  return f ? `, ${[f.della, f.seguito].filter(Boolean).join('; ')}` : ''
 }
 
 export type Lead = {
@@ -734,9 +789,16 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
 
   /**
    * A call by id, or by its lead's name. Among several calls of a lead, the one
-   * still to be done when there is exactly one.
+   * still to be done when there is exactly one. `preferisci` narrows first, one
+   * test after the other (a test that leaves none is skipped): the follow-up
+   * call is booked on the held call in follow-up without one (07/10/2026),
+   * while the lead's open call is its follow-up call. The candidates say which
+   * call is a follow-up and which one has its follow-up call.
    */
-  async function trovaCall({ call_id, lead }: { call_id?: string; lead?: string }): Promise<Call | Errore> {
+  async function trovaCall(
+    { call_id, lead }: { call_id?: string; lead?: string },
+    preferisci: readonly ((c: Call) => boolean)[] = [],
+  ): Promise<Call | Errore> {
     if (call_id) {
       const { data, error } = await supabase.from('calls').select(CAMPI_CALL).eq('id', call_id).maybeSingle()
       if (error) return errore(NON_LETTO)
@@ -751,12 +813,17 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
       .order('programmata_il', { ascending: false })
       .limit(10)
     if (error) return errore(NON_LETTO)
-    const call = (data ?? []) as unknown as Call[]
-    if (call.length > 1) {
+    let call = (data ?? []) as unknown as Call[]
+    for (const regola of preferisci) {
+      if (call.length <= 1) break
+      const scelte = call.filter(regola)
+      if (scelte.length > 0) call = scelte
+    }
+    if (call.length > 1 && preferisci.length === 0) {
       const aperte = call.filter((c) => c.stato === 'programmata' || c.stato === 'riprogrammata')
       if (aperte.length === 1) return aperte[0]
     }
-    return unico(call, (c) => `${quandoCall(c)} (${c.esito ?? (c.stato === 'riprogrammata' ? SPOSTA.attesa.etichetta : c.stato)})`, {
+    return unico(call, (c) => `${quandoCall(c)} (${c.esito ?? (c.stato === 'riprogrammata' ? SPOSTA.attesa.etichetta : c.stato)}${followUpInBreve(c)})`, {
       nessuno: `${l.nome} non ha call che vedi.`,
       piu: `Più call con ${l.nome}`,
       come: 'Chiedi quale, con data e ora (o passa il call_id).',

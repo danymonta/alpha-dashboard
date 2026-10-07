@@ -153,14 +153,16 @@ export const LEGENDA_CLOSER = {
 } satisfies Record<string, VoceLegenda>
 
 /**
- * "I miei numeri": the calls the setter booked as the closer saw them, and the
+ * "I miei numeri": the calls with the setter's name (the ones he booked and
+ * their follow-up calls, 07/10/2026) as the closer saw them, and the
  * money of the clients he brought. The closer's numbers that share a name with
  * a setting one say "(closer)": both halves sit in the same table.
  */
 export const LEGENDA_SETTER = {
   call_fissate: {
     etichetta: 'In agenda nel periodo',
-    spiegazione: 'Call che hai fissato con la data della call nel periodo, qualunque sia l’esito.',
+    spiegazione:
+      'Call col tuo nome con la data della call nel periodo, qualunque sia l’esito: quelle che hai fissato e le loro call di follow-up, che fissa il closer sui tuoi lead.',
   },
   closer_qualificate: {
     etichetta: 'Qualificate (closer)',

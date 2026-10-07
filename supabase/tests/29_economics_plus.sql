@@ -67,11 +67,11 @@ select is(
   'senza incassi nessuna quota (mai divisione per zero)'
 );
 
--- the evening summary: only the service role (the cron)
+-- the weekly summary: only the service role (the cron)
 select throws_ok(
-  $$ select public.riepilogo_serale(public.oggi()) $$,
+  $$ select public.riepilogo_settimana(public.oggi() - 6, public.oggi()) $$,
   '42501', null,
-  'un utente non legge il riepilogo serale'
+  'un utente non legge il riepilogo della settimana'
 );
 
 -- nobody else

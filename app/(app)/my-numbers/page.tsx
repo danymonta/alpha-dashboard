@@ -237,7 +237,7 @@ export default async function IMieiNumeriPage({
           id="miei-numeri-call"
           titolo="Le tue call"
           fonte="Dalle call in agenda"
-          spiegazione="quelle che hai fissato con «Nuova call», con l’esito registrato dal closer. Non si compilano a mano."
+          spiegazione="per giorno di prenotazione quelle che hai fissato con «Nuova call»; per giorno della call tutte quelle col tuo nome, anche le call di follow-up che fissa il closer, con l’esito registrato dal closer. Non si compilano a mano."
         >
           <Sottogruppo>Per giorno di prenotazione</Sottogruppo>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">

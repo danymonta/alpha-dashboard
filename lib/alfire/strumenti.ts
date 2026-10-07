@@ -12,6 +12,7 @@ import {
   candidati,
   errore,
   etichettaRegola,
+  followUpDellaCall,
   isErrore,
   nomeCompleto,
   risolutori,
@@ -65,15 +66,33 @@ const MIEI_TASK = 40
  */
 const PERIMETRO_CALL: Partial<Record<Profilo['ruolo'], { descrizione: string; risultato: (nome: string) => string }>> = {
   setter: {
-    descrizione: 'Solo le call fissate da chi chatta: di un’altra persona mai tutte le sue call.',
+    descrizione:
+      'Solo le call col nome di chi chatta: quelle che ha fissato e le loro call di follow-up (fissate dal closer o dall’admin, non sono sue prenotate). Di un’altra persona mai tutte le sue call.',
     risultato: (nome) =>
-      `Solo le call fissate da ${nome}, cioè da chi sta chattando: non tutte le call del team. Di un’altra persona qui ci sono solo le call fissate da ${nome}, mai tutte le sue.`,
+      `Solo le call col nome di ${nome}, cioè di chi sta chattando: quelle che ha fissato e le loro call di follow-up, che fissa il closer (o l’admin) e non sono sue prenotate (hanno «fissata_da»). Non tutte le call del team. Di un’altra persona qui ci sono solo le call col nome di ${nome}, mai tutte le sue.`,
   },
   closer: {
     descrizione: 'Solo le call assegnate a chi chatta: di un’altra persona mai tutte le sue call.',
     risultato: (nome) =>
       `Solo le call assegnate a ${nome}, cioè a chi sta chattando: non tutte le call del team. Di un’altra persona qui ci sono solo le call assegnate a ${nome}, mai tutte le sue.`,
   },
+}
+
+/** Who booked a follow-up call (07/10/2026): never the setter whose name it carries. */
+export const FISSATA_DA_FOLLOW_UP = 'il closer o l’admin (call di follow-up: non è una prenotata del setter)'
+
+/**
+ * A call's follow-up in call_periodo (07/10/2026): «follow-up della call del
+ * 29/09 alle 19:00» on a follow-up call; «call di follow-up: giovedì 08/10
+ * alle 18:00» or «follow-up in chat» on a held call in follow-up. Nothing on
+ * the other calls.
+ */
+function followUpInLettura(c: Parameters<typeof followUpDellaCall>[0]): Record<string, string> {
+  const f = followUpDellaCall(c)
+  return {
+    ...(f?.della ? { follow_up_della_call: f.della } : {}),
+    ...(f?.seguito ? { call_di_follow_up: f.seguito } : {}),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -198,16 +217,53 @@ function numeriDelGiorno<R extends Record<string, unknown>>(
   )
 }
 
+/**
+ * A period of days for Alfire, as the pages show it: the most recent days
+ * first (SQL's order) without their zeros, and the total with every column.
+ * A period without days keeps a total row of nulls in SQL: no total then, as
+ * the page's empty state. The closer's total adds show rate and close rate.
+ */
+function giornatePerAlfire(
+  righe: readonly Record<string, unknown>[],
+  colonne: readonly (readonly [string, string])[],
+  conTassi: boolean,
+) {
+  // the total row has data null (grouping sets): the generated type does not say so
+  const giorni = righe.filter((x) => x.data)
+  const totale = giorni.length > 0 ? righe.find((x) => !x.data) : undefined
+  return {
+    totale: totale
+      ? {
+          ...numeriDelGiorno(totale, colonne, false),
+          ...(conTassi ? { [C.show_rate.etichetta]: totale.show_rate ?? null, [C.close_rate.etichetta]: totale.close_rate ?? null } : {}),
+        }
+      : null,
+    giorni: giorni.slice(0, MIE_GIORNATE).map((g) => ({ data: g.data, ...numeriDelGiorno(g, colonne, true) })),
+    ...(giorni.length > MIE_GIORNATE
+      ? { nota: `Qui i ${MIE_GIORNATE} giorni più recenti su ${giorni.length}: il totale li conta tutti.` }
+      : giorni.length === 0
+        ? { nota: 'Nessun giorno con attività nel periodo.' }
+        : {}),
+  }
+}
+
+/** "tutti", "tutti i closer", "il team": every closer, as the page's «Tutti i closer». */
+function tuttiICloser(nome: string | undefined): boolean {
+  const n = (nome ?? '').trim().toLowerCase()
+  return n === '' || /^(tutti|tutto)( i closer| il team)?$|^(il )?team$/.test(n)
+}
+
 const DESCRIZIONE_GIORNATE: Partial<Record<Profilo['ruolo'], string>> = {
-  // Dany is admin and closer (CLAUDE.md section 6): his own day as the closer, as Setting › Closer with himself chosen
+  // Dany is admin and closer (CLAUDE.md section 6): his own day as the closer, as the Closer page with himself chosen
   admin:
-    'La giornata da closer dell’admin che chatta, giorno per giorno come Setting › Closer con lui scelto: le call assegnate a lui (svolte, qualificate, no show, follow up, cancellate, chiuse), ' +
+    'La giornata da closer dell’admin che chatta, giorno per giorno come la pagina Closer con lui scelto: le call assegnate a lui (svolte, qualificate, no show, follow up, cancellate, chiuse), ' +
     'cash e revenue dei soli clienti nuovi delle vendite chiuse da lui (prima rata incassata e contratto, nel giorno della vendita). Più il totale del periodo con show rate e close rate (decimali), dal SQL. ' +
     'Mai di un altro closer né del team: per quelli call_periodo e vendite_periodo. ',
   setter:
-    'La giornata del setter che chatta, giorno per giorno come in I miei numeri: il suo report, gli esiti del closer sulle call che ha fissato, ' +
+    'La giornata del setter che chatta, giorno per giorno come in I miei numeri: il suo report, gli esiti del closer sulle call col suo nome (quelle che ha fissato e le loro call di follow-up, che fissa il closer; le prenotate da inbound e da outbound solo quelle che ha fissato lui), ' +
     'cash e revenue dei soli clienti nuovi che ha portato (prima rata pagata e contratto, nel giorno della vendita). Più il totale del periodo, dal SQL. ' +
-    'Il cash non è quanto hanno pagato i suoi clienti nel periodo (rate successive, rinnovi): quello è miei_clienti con da/a. ',
+    'Il cash non è quanto hanno pagato i suoi clienti nel periodo (rate successive, rinnovi): quello è miei_clienti con da/a. ' +
+    'I numeri del closer sulle call di tutti i setter: giornate_closer. ',
   closer:
     'La giornata del closer che chatta, giorno per giorno come in I miei numeri: call svolte, qualificate, no show, follow up, cancellate, chiuse, ' +
     'cash e revenue dei soli clienti nuovi (prima rata incassata e contratto, nel giorno della vendita). Più il totale del periodo con show rate e close rate (decimali), dal SQL. ' +
@@ -465,7 +521,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
         'Cosa dicono i lead, per il marketing, nel periodo. Dal setting (report giornaliero): giorni per livello di lead in target e ' +
         'qualità delle conversazioni, e i giorni con cosa frenava i lead dal fissare la call, domande e contenuti, altre note. ' +
         'Dalle call: il motivo di non chiusura e le note aggiuntive scritti dal closer sulle call svolte finite in follow-up o persa (qui stanno le obiezioni sul prezzo). ' +
-        'Per riassumere cosa frena i lead o le obiezioni del mese. Con setter: i suoi report e le call che ha fissato.',
+        'Per riassumere cosa frena i lead o le obiezioni del mese. Con setter: i suoi report e le call col suo nome (quelle che ha fissato e le loro call di follow-up).',
       inputSchema: periodo.extend({ setter: z.string().optional().describe('Nome; vuoto: tutti') }),
       execute: async (input) => {
         const p = leggiPeriodo(input)
@@ -591,13 +647,24 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
     }),
 
     miei_numeri: definizione({
-      description: `I numeri del setter che chatta nel periodo, con provvigioni maturate e pagate (solo totali). ${SOLO_DI_CHI_CHATTA}`,
+      description:
+        'I numeri del setter che chatta nel periodo, con provvigioni maturate e pagate (solo totali). ' +
+        'call_prenotate, prenotate_inbound e prenotate_outbound sono le call che ha fissato lui; in_agenda_nel_periodo, call_svolte, no_show e chiuse ' +
+        'sono le call col suo nome per giorno della call: quelle che ha fissato e le loro call di follow-up, che fissa il closer. ' +
+        SOLO_DI_CHI_CHATTA,
       inputSchema: periodo,
       execute: async (input) => {
         const p = leggiPeriodo(input)
         if (isErrore(p)) return p
         const { data, error } = await supabase.rpc('miei_numeri_periodo', { p_da: p.da, p_a: p.a })
-        return error ? errore('Numeri non disponibili.') : { ...datiDi(profilo), periodo: p, numeri: data?.[0] ?? null }
+        if (error) return errore('Numeri non disponibili.')
+        // «call_fissate» would read as his bookings: it is every call with his name in the
+        // period, follow-up calls included (I miei numeri › «In agenda nel periodo»)
+        const riga = data?.[0]
+        const numeri = riga
+          ? (({ call_fissate, ...resto }) => ({ ...resto, in_agenda_nel_periodo: call_fissate }))(riga)
+          : null
+        return { ...datiDi(profilo), periodo: p, numeri }
       },
     }),
 
@@ -888,35 +955,17 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
         // a read that fails is never "nothing happened"
         if (error) return errore('La tua giornata non è disponibile in questo momento.')
         const righe = data as (RigaGiornataSetter | RigaGiornataCloser)[]
-        // the total row has data null (grouping sets): the generated type does not say so
-        const giorni = righe.filter((x) => x.data)
-        // a period without days keeps a total row of nulls: no total then, as the page's empty state
-        const totale = giorni.length > 0 ? righe.find((x) => !x.data) : undefined
+        const totale = righe.find((x) => !x.data) as RigaGiornataSetter | undefined
         // strategy calls are history: a column only when the period has some, as on the page
         const colonne = (
-          setter
-            ? GIORNATA_SETTER.filter(([campo]) => campo !== 'strategy_prenotate' || Number((totale as RigaGiornataSetter | undefined)?.strategy_prenotate ?? 0) > 0)
-            : GIORNATA_CLOSER
+          setter ? GIORNATA_SETTER.filter(([campo]) => campo !== 'strategy_prenotate' || Number(totale?.strategy_prenotate ?? 0) > 0) : GIORNATA_CLOSER
         ) as readonly (readonly [string, string])[]
-        const numeri = (riga: Record<string, unknown>, senzaZeri: boolean) => numeriDelGiorno(riga, colonne, senzaZeri)
-        const chiuso = totale as RigaGiornataCloser | undefined
         return {
           // whose day this is, first: never another person's
           ...datiDi(profilo),
           periodo: p,
-          totale: totale
-            ? {
-                ...numeri(totale, false),
-                ...(setter ? {} : { [C.show_rate.etichetta]: chiuso?.show_rate ?? null, [C.close_rate.etichetta]: chiuso?.close_rate ?? null }),
-              }
-            : null,
           // the most recent day first, as SQL ordered them
-          giorni: giorni.slice(0, MIE_GIORNATE).map((g) => ({ data: g.data, ...numeri(g, true) })),
-          ...(giorni.length > MIE_GIORNATE
-            ? { nota: `Qui i ${MIE_GIORNATE} giorni più recenti su ${giorni.length}: il totale li conta tutti.` }
-            : giorni.length === 0
-              ? { nota: 'Nessun giorno con attività nel periodo.' }
-              : {}),
+          ...giornatePerAlfire(righe, colonne, !setter),
           // the admin's page shows every closer unless one is chosen: himself
           link: setter
             ? hrefPeriodo('/my-numbers', p)
@@ -925,9 +974,60 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       },
     }),
 
+    // the closer's numbers for the setter (Dany, 07/10/2026: "il setter può accedere alla
+    // tab closer", every setter's calls and the money too): the Closer page, every closer
+    // or one, from giornate_closer. Aggregates by day only, never a call or a lead of the
+    // others; and never his own numbers, which are mie_giornate
+    giornate_closer: definizione({
+      description:
+        'I numeri del closer giorno per giorno, come la pagina Closer: di tutti i closer o di uno (closer, per nome), sulle call fissate da tutti i setter. ' +
+        'Call svolte, qualificate, no show, follow up, cancellate, chiuse, cash e revenue dei soli clienti nuovi (prima rata incassata e contratto, nel giorno della vendita), ' +
+        'più il totale del periodo con show rate e close rate (decimali), dal SQL. Non sono i numeri di chi chatta: i suoi sono in mie_giornate.',
+      inputSchema: periodo.extend({ closer: z.string().max(80).optional().describe('Nome del closer; vuoto: tutti i closer') }),
+      execute: async ({ closer: nome, ...input }) => {
+        const p = leggiPeriodo(input)
+        if (isErrore(p)) return p
+        // the closers the page offers: the active closers and the admin, who closes too
+        let closer: { id: string; nome: string } | null = null
+        if (!tuttiICloser(nome)) {
+          const { data: elenco, error } = await supabase
+            .from('profiles')
+            .select('id, nome')
+            .eq('attivo', true)
+            .in('ruolo', ['closer', 'admin'])
+            .order('nome')
+          if (error) return errore('I numeri del closer non sono disponibili in questo momento.')
+          const trovato = trova(elenco, nome ?? '')
+          if (trovato === 'ambiguo') {
+            return errore(`Più closer possibili: ${candidati(elenco, nome ?? '').map((c) => c.nome).join(', ')}.`, 'Chiedi quale, o tutti i closer.')
+          }
+          if (!trovato) return errore(`Nessun closer «${(nome ?? '').trim()}». Closer: ${elenco.map((c) => c.nome).join(', ')}.`)
+          closer = trovato
+        }
+        const { data, error } = await supabase.rpc('giornate_closer', {
+          p_da: p.da,
+          p_a: p.a,
+          ...(closer ? { p_closer: closer.id } : {}),
+        })
+        // a read that fails is never "nothing happened"
+        if (error) return errore('I numeri del closer non sono disponibili in questo momento.')
+        const quali = closer ? closer.nome : 'tutti i closer'
+        return {
+          // whose numbers these are, first: the closer's of every setter, never the setter's own
+          numeri_di: quali,
+          di_chi:
+            `I numeri del closer (${quali}) sulle call fissate da tutti i setter, come la pagina Closer: ` +
+            `non sono i numeri di ${profilo.nome}, che sta chattando (i suoi sono in mie_giornate).`,
+          periodo: p,
+          ...giornatePerAlfire(data as RigaGiornataCloser[], GIORNATA_CLOSER as readonly (readonly [string, string])[], true),
+          link: hrefPeriodo('/setting/closer', p, closer ? { closer: closer.id } : {}),
+        }
+      },
+    }),
+
     call_periodo: definizione({
       description:
-        'Call programmate nel periodo, con lead (e il suo stato), setter (chi l’ha fissata), closer, tipo, stato, esito, da dove è stata spostata, motivo di non chiusura, note del setter e note aggiuntive del closer. ' +
+        'Call programmate nel periodo, con lead (e il suo stato), setter (chi l’ha fissata; per una call di follow-up il setter della prima call, ma la fissa il closer o l’admin: «fissata_da» lo dice), closer, tipo, stato, esito, da dove è stata spostata, la call di follow-up, motivo di non chiusura, note del setter e note aggiuntive del closer. ' +
         (PERIMETRO_CALL[profilo.ruolo]?.descrizione ?? 'Tutte le call del team.'),
       inputSchema: periodo,
       execute: async (input) => {
@@ -936,7 +1036,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
         const { data, error } = await supabase
           .from('calls')
           .select(
-            'id, tipo, programmata_il, stato, esito, qualificata, obiezione_principale, note, note_closer, spostata_dal, volte_spostata, lead:leads(nome, stato), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)',
+            'id, tipo, programmata_il, stato, esito, qualificata, obiezione_principale, note, note_closer, spostata_dal, volte_spostata, lead:leads(nome, stato), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome), follow_up_di, di_follow_up, ha_follow_up:call_ha_follow_up, partenza:follow_up_di(id, programmata_il), call_di_follow_up:calls!follow_up_di(id, programmata_il, stato)',
           )
           // a day of margin on both sides, then the Rome calendar day decides
           .gte('programmata_il', `${aggiungiGiorni(p.da, -1)}T00:00:00Z`)
@@ -963,9 +1063,14 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
             stato: c.stato === 'riprogrammata' ? SPOSTA.attesa.etichetta : c.stato,
             esito: c.esito,
             setter: c.setter?.nome ?? null,
+            // a follow-up call carries the first call's setter, but the closer (or the admin) booked it
+            ...(c.follow_up_di || c.di_follow_up ? { fissata_da: FISSATA_DA_FOLLOW_UP } : {}),
             closer: c.closer?.nome ?? null,
             // a moved call, as its card says: "Spostata dal 30/09 alle 19:00"
             ...(tracciaSpostamento(c) ? { spostata: tracciaSpostamento(c) } : {}),
+            // the follow-up (07/10/2026), as the card says it: the call this one follows up,
+            // and for a held call in follow-up its follow-up call and when, or the chat
+            ...followUpInLettura(c),
             // what was written, each text with its author; the notes (up to 2000 characters) shortened:
             // up to 60 calls must fit in a free-plan answer
             ...(c.obiezione_principale?.trim() ? { [MOTIVO_NON_CHIUSURA.titolo]: c.obiezione_principale.trim() } : {}),

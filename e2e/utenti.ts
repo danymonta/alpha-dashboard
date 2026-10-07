@@ -76,6 +76,8 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'pipeline', url: '/leads' },
     { nome: 'le-mie-call', url: '/calls' },
     { nome: 'i-miei-numeri', url: '/my-numbers' },
+    // the closer's numbers, read only (07/10/2026)
+    { nome: 'closer', url: '/setting/closer' },
     // the seed setter is in no project: the empty state
     PROGETTI,
     TEMPO,

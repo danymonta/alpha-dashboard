@@ -471,7 +471,7 @@ export default async function PanoramicaPage({
           descrizione="Rapporti del periodo: i DM vengono dal report dei setter, le call da quelle registrate nell’app. Cash e revenue contano solo i nuovi clienti del periodo."
           azione={
             <Link href="/setting" className="inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-              Setting <ChevronRight className="size-4" aria-hidden="true" />
+              Setter <ChevronRight className="size-4" aria-hidden="true" />
             </Link>
           }
         >

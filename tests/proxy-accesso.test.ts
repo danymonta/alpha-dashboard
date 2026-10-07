@@ -54,6 +54,25 @@ describe('il pulsante «Accedi con Google» premuto da una pagina /login?code=�
   })
 })
 
+describe('l’informativa privacy si legge senza account', () => {
+  it('senza cookie /privacy si apre, senza passare dal login', async () => {
+    const risposta = await updateSession(new NextRequest('http://localhost:3000/privacy'))
+    expect(risposta.headers.get('location')).toBeNull()
+    expect(risposta.cookies.getAll()).toEqual([])
+  })
+
+  it('con una sessione scaduta nel browser non la tocca', async () => {
+    const risposta = await updateSession(richiesta('/privacy'))
+    expect(risposta.headers.get('location')).toBeNull()
+    expect(risposta.cookies.getAll()).toEqual([])
+  })
+
+  it('un percorso che inizia solo per «privacy» resta dietro il login', async () => {
+    const risposta = await updateSession(new NextRequest('http://localhost:3000/privacy-team'))
+    expect(new URL(risposta.headers.get('location') ?? '').pathname).toBe('/login')
+  })
+})
+
 describe('senza sessione, il login ricorda l’indirizzo intero', () => {
   it('«Registra rinnovo» da un’email torna sul rinnovo di quel cliente, query compresa', async () => {
     const risposta = await updateSession(new NextRequest('http://localhost:3000/sales/new?cliente=c1&tipo=rinnovo'))

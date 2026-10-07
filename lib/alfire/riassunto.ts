@@ -1,8 +1,9 @@
 import { formatData, formatEuro, formatMese } from '@/lib/format'
 import { elencoNomi } from '@/lib/progetti'
 import type { NomeScrittura } from '@/lib/alfire/permessi'
+import { FOLLOW_UP } from '@/lib/call/follow-up'
 import { SPOSTA, quandoBreveDa } from '@/lib/call/spostamento'
-import { isDataISO } from '@/lib/date'
+import { giornoEsteso, isDataISO } from '@/lib/date'
 import {
   MOTIVO_NON_CHIUSURA,
   NOTE_CLOSER,
@@ -88,6 +89,17 @@ function mese(v: unknown): string {
 function pianoAbituale(v: unknown): string | null {
   const rate = Array.isArray(v) ? (v as Input[]) : []
   return rate.length > 0 ? rate.map((r) => `${formatEuro(r.importo as number)} al mese ${String(r.mese)}`).join(' · ') : null
+}
+
+/**
+ * "giovedì 08/10/2026 alle 18:00": the follow-up call's day as said (follow_up_data
+ * and follow_up_ora; «Fissa la call di follow-up» also takes data and ora). Null
+ * when it is not a day.
+ */
+function quandoFollowUpDetto(input: Input): string | null {
+  const giorno = testo(input.follow_up_data) ?? (input.azione === 'follow_up' ? testo(input.data) : null)
+  const ora = testo(input.follow_up_ora) ?? (input.azione === 'follow_up' ? testo(input.ora) : null)
+  return giorno && ora && isDataISO(giorno) ? `${giornoEsteso(giorno)} alle ${ora}` : null
 }
 
 function persone(v: unknown): string[] {
@@ -358,12 +370,15 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
       const chi = testo(input.lead) ?? '?'
       if (azione === 'esito') {
         const esito = testo(input.esito) as SceltaEsito | null
+        const followUp = esito === 'follow_up' ? quandoFollowUpDetto(input) : null
         return {
           titolo: `Registro l’esito della call con ${chi}: ${esito ? (ETICHETTA_ESITO[esito] ?? esito) : '?'}`,
           dettagli: righe(
             typeof input.qualificata === 'boolean' && `Qualificata: ${input.qualificata ? 'sì' : 'no'}`,
             testo(input.motivo) && `${MOTIVO_NON_CHIUSURA.titolo}: ${input.motivo}`,
             testo(input.note_closer) && `${NOTE_CLOSER.titolo}: ${input.note_closer}`,
+            // "Sì, call fissata" (07/10/2026): the follow-up call with its day; the preview says the rest
+            followUp && FOLLOW_UP.diCall(followUp),
             esito === 'chiusa' && 'Poi registriamo la vendita',
             // "In attesa di conferma" (04/10/2026): no date, the call stays on its day
             esito === 'riprogrammata' && SPOSTA.attesa.descrizione,
@@ -371,6 +386,11 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
         }
       }
       if (azione === 'elimina') return { titolo: `Elimino la call con ${chi}`, dettagli: [] }
+      // «Fissa la call di follow-up» (07/10/2026): a new call, the preview reads the first one
+      if (azione === 'follow_up') {
+        const quando = quandoFollowUpDetto(input)
+        return { titolo: `Fisso la call di follow-up con ${chi}`, dettagli: righe(quando) }
+      }
       // the same call moves to its new day, still to be held (Dany, 02/10/2026)
       if (azione === 'sposta') {
         return {
@@ -384,7 +404,11 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
       // two notes on a call: the setter's and the closer's, each with its name
       return {
         titolo: `Correggo la call con ${chi}`,
-        dettagli: cambi(input, ['azione', 'lead', 'call_id'], { note: NOTE_SETTER.titolo, note_closer: NOTE_CLOSER.titolo }),
+        // the follow-up call's day is never an edit: modifica does not write it
+        dettagli: cambi(input, ['azione', 'lead', 'call_id', 'follow_up_data', 'follow_up_ora'], {
+          note: NOTE_SETTER.titolo,
+          note_closer: NOTE_CLOSER.titolo,
+        }),
       }
     }
     case 'lead': {

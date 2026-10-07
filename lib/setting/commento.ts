@@ -232,7 +232,7 @@ export const MARKETING = {
   descrizione:
     'Quello che setter e closer scrivono sui lead del periodo: il report giornaliero del setter, il motivo di non chiusura e le note aggiuntive del closer sulle call.',
   filtroSetter: 'Setter',
-  filtroSetterSpiegazione: 'Con un setter scelto: i suoi report e le call che ha fissato lui.',
+  filtroSetterSpiegazione: 'Con un setter scelto: i suoi report e le call col suo nome (quelle che ha fissato e le loro call di follow-up).',
   tutti: 'Tutti',
   setting: {
     titolo: 'Dal setting',

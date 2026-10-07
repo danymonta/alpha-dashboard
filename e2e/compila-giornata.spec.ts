@@ -127,6 +127,7 @@ test('giornata: l’admin aggiunge una call passata per il setter, ne registra l
   await scheda.getByRole('button', { name: 'Registra esito' }).click()
   const foglio = page.getByRole('dialog', { name: nome })
   await foglio.getByRole('button', { name: 'Follow-up' }).click()
+  await foglio.getByRole('button', { name: 'No, follow-up in chat' }).click()
   // the reason for not closing is required (Dany, 30/09/2026)
   await foglio.getByLabel(/Motivo di non chiusura/).fill('Vuole provare da solo')
   await foglio.getByRole('button', { name: 'Sì' }).click()
@@ -147,16 +148,17 @@ test('giornata: l’admin aggiunge una call passata per il setter, ne registra l
   const setter = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage()
   await accedi(setter, 'setter')
   await setter.goto(`/my-numbers?da=${giorno}&a=${giorno}`)
-  const tabella = setter.getByTestId('mie-giornate').getByRole('table', { name: 'Le call che hai fissato' })
+  const tabella = setter.getByTestId('mie-giornate').getByRole('table', { name: 'Le call col tuo nome' })
   await expect(tabella).toBeVisible()
   // Svolte, Qualif. closer, Follow up closer: the period is that one day, the total is its row
   await expect(await cella(tabella, 2)).toHaveText(formatNumero(attesi.svolte))
   await expect(await cella(tabella, 3)).toHaveText(formatNumero(attesi.qualificate))
   await expect(await cella(tabella, 5)).toHaveText(formatNumero(attesi.followUp))
 
-  // and he still cannot open the closer's pages
+  // he reads the closer's numbers (07/10/2026), never the day's page
   await setter.goto('/setting/closer')
-  await expect(setter).toHaveURL('/today')
+  await expect(setter.getByRole('heading', { level: 1, name: 'Closer' })).toBeVisible()
+  await expect(setter.getByTestId('compila-giornata')).toHaveCount(0)
   await setter.goto(`/setting/closer/giorno?data=${giorno}`)
   await expect(setter).toHaveURL('/today')
   await setter.context().close()
@@ -295,10 +297,11 @@ test('giornata: dopo l’esito la matita apre le note aggiuntive appena salvate,
   await scheda.getByRole('button', { name: 'Registra esito' }).click()
   const esito = page.getByRole('dialog')
   await esito.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await esito.getByRole('button', { name: 'No, follow-up in chat' }).click()
   await esito.getByLabel(/Motivo di non chiusura/).fill('Deve parlarne con la compagna')
   await esito.getByLabel(/Note aggiuntive/).fill('Richiamare lunedì')
   await esito.getByRole('button', { name: 'Sì', exact: true }).click()
-  await expect(scheda.getByText('Follow-up')).toBeVisible()
+  await expect(scheda.getByText('Follow-up').first()).toBeVisible()
 
   await scheda.getByRole('button', { name: `Modifica la call con ${nome}` }).click()
   const matita = page.getByRole('dialog')

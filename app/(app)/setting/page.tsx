@@ -8,7 +8,6 @@ import { EtichettaConNota } from '@/components/metriche/nota'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { CommentiMarketing, type RigaCommento, type RigaMotivo } from '@/components/setting/commenti-marketing'
-import { SchedeSetting } from '@/components/setting/schede-setting'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
@@ -332,11 +331,10 @@ export default async function SettingPage({
   return (
     <div className="space-y-5">
       <IntestazionePagina
-        titolo="Setting"
+        titolo="Setter"
         descrizione="Per ogni setter: i numeri del suo report giornaliero e quelli delle call registrate nell’app."
         azione={aggiungi}
       />
-      <SchedeSetting attiva="setter" />
       <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/setting" parametri={setter ? { setter } : undefined} />
 
       {perSetter.length === 0 ? (

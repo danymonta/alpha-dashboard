@@ -7,9 +7,11 @@ import { usePathname } from 'next/navigation'
 import { esci } from '@/app/auth/actions'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { FotoProfilo } from '@/components/profilo/foto-profilo'
+import { ConteggioEsiti } from '@/components/shell/conteggio-esiti'
+import { useEsitiDaRegistrare } from '@/components/shell/esiti-da-registrare'
 import { Button } from '@/components/ui/button'
 import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
-import { isAttiva, perSezione, vociNav } from '@/lib/nav'
+import { esitiDellaVoce, isAttiva, nomeConEsiti, perSezione, vociNav } from '@/lib/nav'
 
 type Props = {
   ruolo: AppRole
@@ -19,6 +21,8 @@ type Props = {
 
 export function Sidebar({ ruolo, nome, foto }: Props) {
   const pathname = usePathname()
+  // the person's own past calls without an outcome (admin and closer; 0 for the others)
+  const esitiDaRegistrare = useEsitiDaRegistrare()
   const { principali, altre } = vociNav(ruolo)
   const gruppi = perSezione([...principali, ...altre])
 
@@ -40,12 +44,14 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
             <ul className="space-y-0.5">
               {voci.map((voce) => {
                 const attiva = isAttiva(pathname, voce)
+                const esiti = esitiDellaVoce(voce, esitiDaRegistrare)
                 return (
                   <li key={voce.href}>
                     <Link
                       href={voce.href}
                       data-tour={`nav-${voce.href}`}
                       aria-current={attiva ? 'page' : undefined}
+                      aria-label={nomeConEsiti(voce.etichetta, esiti)}
                       className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${
                         attiva
                           ? 'bg-primary text-primary-foreground'
@@ -54,6 +60,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
                     >
                       <voce.Icona className="size-4 shrink-0" aria-hidden="true" />
                       {voce.etichetta}
+                      <ConteggioEsiti numero={esiti} attiva={attiva} className="ml-auto" />
                     </Link>
                   </li>
                 )

@@ -638,6 +638,11 @@ describe('prompt e guida', () => {
     expect(closer).not.toMatch(/Mai contatti|metodo o note/)
     expect(closer).not.toContain('miei_clienti')
     for (const p of [setter, closer]) expect(p).toContain('mie_giornate')
+    // the closer's numbers of every setter (07/10/2026): the setter's Closer page, never his own numbers
+    expect(setter).toContain('I numeri del closer sulle call di tutti i setter, non suoi: giornate_closer.')
+    for (const ruolo of ['admin', 'closer', 'coach'] as const) {
+      expect(promptAlfire({ nome: 'X', ruolo, oggi: '2026-10-07' }), ruolo).not.toContain('giornate_closer')
+    }
     // the admin reads everything with his own tools; his own day as the closer he is (mie_giornate) says so in
     // its description, not in the prompt (the free tier counts every word); the Projects area's roles no money at all
     for (const ruolo of ['admin', 'coach', 'editor', 'nutrizione', 'dev'] as const) {

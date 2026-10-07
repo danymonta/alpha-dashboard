@@ -122,6 +122,13 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
       target: ['previsione-cassa'],
     },
     {
+      // Setter and Closer instead of "Setting" (07/10/2026): his outcomes are recorded every day
+      id: 'closer',
+      titolo: 'Closer',
+      testo: 'In cima le tue call ancora senza esito, da registrare ogni giorno; sotto i numeri del closer giorno per giorno. Accanto, «Setter»: i report dei setter.',
+      target: nav('/setting/closer', 'nav-altro'),
+    },
+    {
       id: 'rinnovi',
       titolo: 'Rinnovi',
       testo: 'Chi finisce il percorso a breve e chi l’ha finito da poco, con il messaggio WhatsApp pronto e “Registra rinnovo”.',
@@ -178,6 +185,13 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
       titolo: 'I miei numeri',
       testo: 'Le tue metriche del mese e le provvigioni maturate e già pagate.',
       target: nav('/my-numbers'),
+    },
+    {
+      // the closer's numbers, read only (Dany, 07/10/2026: "il setter può accedere alla tab closer")
+      id: 'closer',
+      titolo: 'Closer',
+      testo: 'Come vanno le call di tutti i setter, giorno per giorno: svolte, chiuse, show rate, cash e revenue, dagli esiti che registra il closer.',
+      target: nav('/setting/closer', 'nav-altro'),
     },
     alfire('Chiedile come stai andando o dille “aggiungi 20 DM al report di oggi”, anche col vocale. Scrive solo dopo la tua conferma.'),
     PROFILO,

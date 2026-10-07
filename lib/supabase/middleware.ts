@@ -6,9 +6,11 @@ import { publicEnv } from '@/lib/env'
 
 /**
  * Routes reachable without a session. The web app manifest is fetched by the
- * browser without cookies: behind the login it would never install.
+ * browser without cookies: behind the login it would never install. The
+ * privacy policy is the Meta app's Privacy Policy and Data deletion URL: Meta's
+ * crawler and anyone on Instagram must read it without an account.
  */
-const PERCORSI_PUBBLICI = ['/login', '/auth', '/api/cron', '/manifest.webmanifest']
+const PERCORSI_PUBBLICI = ['/login', '/auth', '/api/cron', '/manifest.webmanifest', '/privacy']
 
 function isPubblico(pathname: string) {
   return PERCORSI_PUBBLICI.some(

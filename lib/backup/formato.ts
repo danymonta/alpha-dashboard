@@ -85,10 +85,69 @@ function sqlAssegnatariVecchi(task: Record<string, unknown>[]): string | null {
 }
 
 /**
+ * Backups taken before 07/10/2026 have no calls.importata: the calls imported
+ * from Dany's call sheet were then the ones without author, as the migration
+ * marked them (20261007120000: no author, and the import's lead or its
+ * strategy type). Here the same rule, so a restored imported call never asks
+ * for its sale; the column's default (false) would. Only the rows without the key.
+ */
+function chiamateVecchie(calls: Record<string, unknown>[], leadImportati: Set<unknown>): Record<string, unknown>[] {
+  return calls.map((c) =>
+    'importata' in c
+      ? c
+      : { ...c, importata: c.created_by == null && (c.tipo === 'strategy' || leadImportati.has(c.lead_id)) },
+  )
+}
+
+/** The leads the call sheet import created (scripts/import-prospect.ts). */
+const NOTA_IMPORT_CALL = 'Importato dal foglio delle call'
+
+/**
+ * Inserts the rows of one table, in the restore's transaction. Only the
+ * columns the backup has and the table has now (never a generated one): a
+ * column added since takes its default (a NOT NULL with a default included,
+ * such as calls.volte_spostata or calls.di_follow_up), a column dropped since
+ * is skipped, and so is a table dropped since. jsonb_populate_recordset alone
+ * would give the new columns an explicit NULL (refused by NOT NULL before any
+ * conflict is looked for), and the generated ones a value Postgres refuses
+ * (setter_daily_reports.dm_totali).
+ */
+const FUNZIONE_RIPRISTINA = `create function pg_temp.alpha_ripristina(p_tabella text, p_righe jsonb)
+returns void
+language plpgsql
+as $alpha_ripristina$
+declare
+  v_colonne text;
+begin
+  -- a table dropped since the backup: nothing to put back
+  if to_regclass(format('public.%I', p_tabella)) is null then
+    raise notice 'Tabella % non più presente: saltata', p_tabella;
+    return;
+  end if;
+  select string_agg(format('%I', a.attname), ', ' order by a.attnum)
+    into v_colonne
+  from pg_attribute a
+  where a.attrelid = format('public.%I', p_tabella)::regclass
+    and a.attnum > 0
+    and not a.attisdropped
+    and a.attgenerated = ''
+    and a.attname in (select k from jsonb_array_elements(p_righe) r, jsonb_object_keys(r) k);
+  if v_colonne is null then
+    return;
+  end if;
+  execute format(
+    'insert into public.%1$I (%2$s) select %2$s from jsonb_populate_recordset(null::public.%1$I, $1) on conflict do nothing',
+    p_tabella, v_colonne
+  ) using p_righe;
+end;
+$alpha_ripristina$;`
+
+/**
  * SQL that puts the backup back: only the missing rows (on conflict do
  * nothing), triggers off (session_replication_role = replica) so that no plan
  * is generated twice and no audit row is written, all in one transaction.
- * Run it in the Supabase SQL editor or with psql.
+ * Every table through pg_temp.alpha_ripristina, so a backup older than a
+ * column still goes back. Run it in the Supabase SQL editor or with psql.
  */
 export function sqlRipristino(backup: Backup): string {
   if (backup.formato !== 1) throw new Error(`Formato di backup sconosciuto: ${String(backup.formato)}`)
@@ -109,16 +168,18 @@ select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authentic
 from jsonb_to_recordset(${letterale(backup.utenti)}::jsonb)
   as u(id uuid, email text, user_metadata jsonb, created_at timestamptz)
 on conflict (id) do nothing;`,
+    '',
+    '-- every table: only the columns the backup has (a column added since takes its default)',
+    FUNZIONE_RIPRISTINA,
   ]
+  const leadImportati = new Set(
+    (backup.tabelle.leads ?? []).filter((l) => l.note === NOTA_IMPORT_CALL).map((l) => l.id),
+  )
   for (const tabella of ordinate) {
-    const dati = backup.tabelle[tabella]
-    if (!dati?.length) continue
-    righe.push(
-      '',
-      `insert into public.${tabella}`,
-      `select * from jsonb_populate_recordset(null::public.${tabella}, ${letterale(dati)}::jsonb)`,
-      'on conflict do nothing;',
-    )
+    const grezzi = backup.tabelle[tabella]
+    if (!grezzi?.length) continue
+    const dati = tabella === 'calls' ? chiamateVecchie(grezzi, leadImportati) : grezzi
+    righe.push('', `select pg_temp.alpha_ripristina('${tabella}', ${letterale(dati)}::jsonb);`)
     const vecchi = tabella === 'pm_task' ? sqlAssegnatariVecchi(dati) : null
     if (vecchi) righe.push('', vecchi)
   }

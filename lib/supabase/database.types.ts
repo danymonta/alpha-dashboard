@@ -51,13 +51,13 @@ isOneToOne: false
                   ]
                 },"calls": {
                   Row: {
-                    "closer_id": string | null,"created_at": string,"created_by": string | null,"esito": Database["public"]['Enums']["call_outcome"] | null,"id": string,"lead_id": string,"link_registrazione": string | null,"note": string | null,"note_closer": string | null,"obiezione_principale": string | null,"performance": Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id": string | null,"programmata_il": string,"qualificata": boolean | null,"setter_id": string | null,"spostata_dal": string | null,"stato": Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at": string,"volte_spostata": number
+                    "closer_id": string | null,"created_at": string,"created_by": string | null,"di_follow_up": boolean,"esito": Database["public"]['Enums']["call_outcome"] | null,"follow_up_di": string | null,"id": string,"importata": boolean,"lead_id": string,"link_registrazione": string | null,"note": string | null,"note_closer": string | null,"obiezione_principale": string | null,"performance": Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id": string | null,"programmata_il": string,"qualificata": boolean | null,"setter_id": string | null,"spostata_dal": string | null,"stato": Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at": string,"volte_spostata": number,"call_ha_follow_up": boolean | null,"call_ha_vendita": boolean | null
                   }
                   Insert: {
-                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id": string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il": string,"qualificata"?: boolean | null,"setter_id"?: string | null,"spostata_dal"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at"?: string,"volte_spostata"?: number
+                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"di_follow_up"?: boolean,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"follow_up_di"?: string | null,"id"?: string,"importata"?: boolean,"lead_id": string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il": string,"qualificata"?: boolean | null,"setter_id"?: string | null,"spostata_dal"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at"?: string,"volte_spostata"?: number
                   }
                   Update: {
-                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"id"?: string,"lead_id"?: string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il"?: string,"qualificata"?: boolean | null,"setter_id"?: string | null,"spostata_dal"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo"?: Database["public"]['Enums']["call_type"],"updated_at"?: string,"volte_spostata"?: number
+                    "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"di_follow_up"?: boolean,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"follow_up_di"?: string | null,"id"?: string,"importata"?: boolean,"lead_id"?: string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il"?: string,"qualificata"?: boolean | null,"setter_id"?: string | null,"spostata_dal"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo"?: Database["public"]['Enums']["call_type"],"updated_at"?: string,"volte_spostata"?: number
                   }
                   Relationships: [
                     {
@@ -71,6 +71,12 @@ isOneToOne: false
       columns: ["created_by"]
 isOneToOne: false
       referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "calls_follow_up_di_fkey"
+      columns: ["follow_up_di"]
+isOneToOne: false
+      referencedRelation: "calls"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "calls_lead_id_fkey"
@@ -1213,6 +1219,12 @@ isOneToOne: false
 "backup_completo":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"call_ha_follow_up":
+{ Args: { "c": Database["public"]['Tables']["calls"]['Row'] }; Returns: boolean
+                           },
+"call_ha_vendita":
+{ Args: { "c": Database["public"]['Tables']["calls"]['Row'] }; Returns: boolean
+                           },
 "cash_mensile":
 { Args: { "p_fino"?: string,"p_mesi"?: number }; Returns: {
               "mese": string,"nuovi_clienti": number,"rate_precedenti": number,"rinnovo": number,"totale": number,"upsell": number
@@ -1220,6 +1232,9 @@ isOneToOne: false
                            },
 "chiudi_regola_provvigione":
 { Args: { "p_rule_id": string,"p_valida_al": string }; Returns: undefined
+                           },
+"collega_vendita_call":
+{ Args: { "p_call_id": string,"p_sale_id": string }; Returns: undefined
                            },
 "commenti_setter_periodo":
 { Args: { "p_a": string,"p_da": string,"p_limite"?: number,"p_setter"?: string }; Returns: {
@@ -1270,6 +1285,9 @@ isOneToOne: false
 { Args: { "p_closer_id": string,"p_data": string,"p_fonte": Database["public"]['Enums']["lead_source"],"p_instagram_handle"?: string,"p_nome": string,"p_ora": string,"p_setter_id"?: string,"p_tipo": Database["public"]['Enums']["call_type"] }; Returns: {
               "id_call": string,"id_lead": string,"lead_esistente": boolean
             }[]
+                           },
+"fissa_follow_up":
+{ Args: { "p_call_id": string,"p_data": string,"p_ora": string }; Returns: string
                            },
 "foto_google":
 { Args: { "p_meta": Json }; Returns: string
@@ -1544,8 +1562,8 @@ isOneToOne: false
               "categoria": Database["public"]['Enums']["expense_category"],"numero": number,"totale": number
             }[]
                            },
-"riepilogo_serale":
-{ Args: { "p_giorno": string }; Returns: Json
+"riepilogo_settimana":
+{ Args: { "p_a": string,"p_da": string }; Returns: Json
                            },
 "rinumera_rate":
 { Args: { "p_sale_id": string }; Returns: undefined
@@ -1563,6 +1581,11 @@ isOneToOne: false
                            },
 "unisci_profili":
 { Args: { "p_a": string,"p_da": string }; Returns: undefined
+                           },
+"vendite_da_collegare":
+{ Args: { "p_call_id": string }; Returns: {
+              "cliente": string,"data_vendita": string,"sale_id": string,"setter": string,"stesso_cliente": boolean,"tipo": Database["public"]['Enums']["sale_type"],"valore_contratto": number
+            }[]
                            },
 "verifica_periodo":
 { Args: { "p_a": string,"p_da": string }; Returns: undefined

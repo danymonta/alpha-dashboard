@@ -81,6 +81,7 @@ const SOLO_ADMIN: RegExp[] = [
   /previsione di cassa/i,
   /obiettivi del mese/i,
   /riepilogo serale/i,
+  /riepilogo (della settimana|del venerd[iì]|settimanale)/i,
   /commercialista/i,
   /revenue firmata/i,
   /valore nel tempo/i,

@@ -2,13 +2,16 @@
 
 import {
   Ban,
+  CalendarCheck,
   CalendarClock,
-  Hourglass,
   ChevronLeft,
+  ChevronRight,
   CircleAlert,
   CircleCheck,
   CircleX,
+  Hourglass,
   LoaderCircle,
+  MessageCircle,
   RotateCcw,
   RotateCw,
   TriangleAlert,
@@ -16,10 +19,11 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useId, useRef, useState, useTransition } from 'react'
+import { useEffect, useId, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { registraEsito } from '@/app/(app)/calls/actions'
+import { CampiFollowUp } from '@/app/(app)/calls/follow-up'
 import { CampiSpostamento } from '@/app/(app)/calls/sposta-call'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button } from '@/components/ui/button'
@@ -33,11 +37,12 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
+import { FOLLOW_UP, quandoFollowUpDa } from '@/lib/call/follow-up'
 import { SPOSTA, spostamentoPredefinito } from '@/lib/call/spostamento'
 import { etichettaGiorno } from '@/lib/date'
 import { MASSIMO_MOTIVO, MASSIMO_NOTE_CLOSER, MOTIVO_NON_CHIUSURA, NOTE_CLOSER } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
-import { schemaSpostamento } from '@/lib/validation/call'
+import { erroreGiornoFollowUp, schemaSpostamento } from '@/lib/validation/call'
 import { ETICHETTA_ESITO, esitoCallSchema, type EsitoCallInput, type SceltaEsito } from '@/lib/validation/esito'
 
 type Props = {
@@ -69,7 +74,30 @@ type Props = {
   oggi: string
   /** The admin also records a move already happened, up to a year back. */
   admin?: boolean
+  /** The call's setter, by name: a close on its follow-up call is still his sale. */
+  setter?: string | null
+  /**
+   * The follow-up call this call already has ("giovedì 08/10 alle 18:00"): a
+   * tap on "Follow-up" then asks no question, one call has one follow-up.
+   */
+  followUp?: string | null
 }
+
+/**
+ * Where the sheet is. "followUp" asks whether a follow-up call was booked
+ * (Dany, 07/10/2026), "dataFollowUp" when; "motivo" is the step that saves a
+ * held call that did not close.
+ */
+type Passo =
+  | { nome: 'scelte' }
+  | { nome: 'nuovaData' }
+  | { nome: 'attesa' }
+  | { nome: 'followUp' }
+  | { nome: 'dataFollowUp' }
+  | { nome: 'motivo'; esito: 'follow_up' | 'persa' }
+
+/** The answer to «Hai fissato una call di follow-up?»; "gia": the call already has its follow-up call. */
+type SceltaFollowUp = { data: string; ora: string } | 'chat' | 'gia'
 
 /**
  * A future call: cancelled, or waiting for the lead to confirm a new date;
@@ -85,15 +113,22 @@ const SCELTE: { esito: SceltaEsito; Icona: LucideIcon }[] = [
   { esito: 'cancellata', Icona: Ban },
 ]
 
+// a choice that fills two lines at 390px: icon on top of the words' first line
+const SCELTA_LUNGA = 'h-14 justify-start gap-2 px-3 text-left text-sm leading-tight whitespace-normal'
+const INDIETRO = 'flex min-h-11 items-center gap-1 text-left text-sm text-muted-foreground'
+
 /**
  * Outcome in a few taps: open (1), pick (2). Closed jumps to the sale. For
  * follow-up or lost, the closer writes why it did not close (required, Dany
  * 30/09/2026), may add his notes (note_closer: the setter reads them, never
  * writes them), then says whether the lead was qualified: that tap saves (3).
- * Rescheduling is two choices (Dany, 04/10/2026): "Ha già una nuova data"
- * asks when, and the same call moves there, still to be held, like "Sposta";
- * "In attesa di conferma" asks no date: the call stays on its day until the
- * lead confirms one. The shared schema decides what is missing.
+ * Follow-up first asks whether a follow-up call was booked (Dany, 07/10/2026):
+ * "Sì, call fissata" asks its day and time, and saving books a new call there,
+ * with the same lead and setter (public.fissa_follow_up); "No, follow-up in
+ * chat" asks nothing. Rescheduling is two choices (Dany, 04/10/2026): "Ha già
+ * una nuova data" asks when, and the same call moves there, still to be held,
+ * like "Sposta"; "In attesa di conferma" asks no date: the call stays on its
+ * day until the lead confirms one. The shared schema decides what is missing.
  */
 export function RegistraEsito({
   callId,
@@ -109,37 +144,64 @@ export function RegistraEsito({
   ora,
   oggi,
   admin = false,
+  setter = null,
+  followUp = null,
 }: Props) {
   const router = useRouter()
   const id = useId()
-  const nuovaDataIniziale = spostamentoPredefinito(giorno, ora, oggi)
+  // the day after the call, at its time, never before tomorrow: the new date and the follow-up call
+  const giornoDopo = spostamentoPredefinito(giorno, ora, oggi)
   const [aperto, setAperto] = useState(false)
-  const [inAttesaQualifica, setInAttesaQualifica] = useState<'follow_up' | 'persa' | null>(null)
-  const [inAttesaData, setInAttesaData] = useState(false)
-  const [inAttesaConferma, setInAttesaConferma] = useState(false)
-  const [nuovaData, setNuovaData] = useState(nuovaDataIniziale.data)
-  const [nuovaOra, setNuovaOra] = useState(nuovaDataIniziale.ora)
+  const [passo, setPasso] = useState<Passo>({ nome: 'scelte' })
+  const [nuovaData, setNuovaData] = useState(giornoDopo.data)
+  const [nuovaOra, setNuovaOra] = useState(giornoDopo.ora)
   const [erroreData, setErroreData] = useState<string | null>(null)
+  const [sceltaFollowUp, setSceltaFollowUp] = useState<SceltaFollowUp | null>(null)
+  const [dataFollowUp, setDataFollowUp] = useState(giornoDopo.data)
+  const [oraFollowUp, setOraFollowUp] = useState(giornoDopo.ora)
+  const [erroreFollowUp, setErroreFollowUp] = useState<string | null>(null)
   const [motivo, setMotivo] = useState(motivoSalvato ?? '')
   const [note, setNote] = useState(noteSalvate ?? '')
   const [erroreMotivo, setErroreMotivo] = useState<string | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
+  const [annuncio, setAnnuncio] = useState('')
   const [inCorso, avvia] = useTransition()
   const campoMotivo = useRef<HTMLTextAreaElement>(null)
+  const contenitorePasso = useRef<HTMLDivElement>(null)
+  const passoCambiato = useRef(false)
+
+  // a new step replaces the button just tapped: focus goes to the step, never to the page behind
+  useEffect(() => {
+    if (!passoCambiato.current) return
+    passoCambiato.current = false
+    contenitorePasso.current?.focus()
+  }, [passo])
+
+  /** To another step, with the follow-up answer it is about (by default the one already given). */
+  function vai(prossimo: Passo, scelta: SceltaFollowUp | null = sceltaFollowUp) {
+    passoCambiato.current = true
+    setErrore(null)
+    setSceltaFollowUp(scelta)
+    setPasso(prossimo)
+    setAnnuncio(titoloPasso(prossimo, scelta))
+  }
 
   function apriChiudi(valore: boolean) {
     setAperto(valore)
     // every opening starts from what is saved
-    setInAttesaQualifica(null)
-    setInAttesaData(false)
-    setInAttesaConferma(false)
-    setNuovaData(nuovaDataIniziale.data)
-    setNuovaOra(nuovaDataIniziale.ora)
+    setPasso({ nome: 'scelte' })
+    setNuovaData(giornoDopo.data)
+    setNuovaOra(giornoDopo.ora)
     setErroreData(null)
+    setSceltaFollowUp(null)
+    setDataFollowUp(giornoDopo.data)
+    setOraFollowUp(giornoDopo.ora)
+    setErroreFollowUp(null)
     setMotivo(motivoSalvato ?? '')
     setNote(noteSalvate ?? '')
     setErroreMotivo(null)
     setErrore(null)
+    setAnnuncio('')
   }
 
   function salva(input: EsitoCallInput) {
@@ -158,13 +220,24 @@ export function RegistraEsito({
       }
       const spostata =
         input.esito === 'riprogrammata' && input.data && input.ora ? { data: input.data, ora: input.ora } : null
+      const conFollowUp =
+        input.esito === 'follow_up' && esito.followUp && input.follow_up_data && input.follow_up_ora
+          ? quandoFollowUpDa(input.follow_up_data, input.follow_up_ora, oggi)
+          : null
       toast.success(spostata ? SPOSTA.fatto(nomeLead) : `${nomeLead}: ${ETICHETTA_ESITO[input.esito].toLowerCase()}`, {
         description: esito.vaiA
           ? 'Ora registra la vendita.'
           : spostata
             ? `${etichettaGiorno(spostata.data, oggi)} alle ${spostata.ora}`
-            : undefined,
+            : conFollowUp
+              ? FOLLOW_UP.diCall(conFollowUp)
+              : undefined,
       })
+      // the outcome is saved, the follow-up call is not: say it, never ask to repeat the outcome;
+      // the card's button only when booking it again can work (the call has none yet)
+      if (esito.avviso) {
+        toast.warning(esito.avviso, esito.avvisoRiprova ? { description: FOLLOW_UP.riprova } : undefined)
+      }
       apriChiudi(false)
       if (esito.vaiA) {
         // the sale comes back to the page the call was closed from
@@ -174,11 +247,31 @@ export function RegistraEsito({
   }
 
   function scegli(esito: SceltaEsito) {
-    if (esito === 'follow_up' || esito === 'persa') {
-      setInAttesaQualifica(esito)
+    if (esito === 'follow_up') {
+      // one follow-up call per call: the one there is stays, the reason is asked
+      if (followUp) vai({ nome: 'motivo', esito }, 'gia')
+      else vai({ nome: 'followUp' }, null)
+      return
+    }
+    if (esito === 'persa') {
+      vai({ nome: 'motivo', esito }, null)
       return
     }
     salva({ call_id: callId, esito })
+  }
+
+  /** «Sì, call fissata»: its day and time are checked before the reason is asked. */
+  function confermaDataFollowUp() {
+    const problema = erroreGiornoFollowUp(
+      { call_id: callId, data: dataFollowUp, ora: oraFollowUp },
+      { giorno, ora },
+      admin,
+    )
+    if (problema) {
+      setErroreFollowUp(problema)
+      return
+    }
+    vai({ nome: 'motivo', esito: 'follow_up' }, { data: dataFollowUp, ora: oraFollowUp })
   }
 
   /** "In attesa di conferma": no date, the closer's notes if he wants (note_closer). */
@@ -205,7 +298,15 @@ export function RegistraEsito({
 
   /** Sì or No: the schema says what is missing before anything is sent. */
   function salvaNonChiusa(esito: 'follow_up' | 'persa', qualificata: boolean) {
-    const input: EsitoCallInput = { call_id: callId, esito, qualificata, motivo, note_closer: note }
+    const conCall = esito === 'follow_up' && typeof sceltaFollowUp === 'object' && sceltaFollowUp !== null
+    const input: EsitoCallInput = {
+      call_id: callId,
+      esito,
+      qualificata,
+      motivo,
+      note_closer: note,
+      ...(conCall ? { follow_up_data: sceltaFollowUp.data, follow_up_ora: sceltaFollowUp.ora } : {}),
+    }
     const verifica = esitoCallSchema.safeParse(input)
     if (!verifica.success) {
       const problema = verifica.error.issues[0]
@@ -221,6 +322,71 @@ export function RegistraEsito({
   }
 
   const senzaMotivo = motivo.trim() === ''
+
+  /** «Follow-up · call giovedì 08/10 alle 18:00» or «Follow-up in chat». */
+  function riassuntoFollowUp(scelta: Exclude<SceltaFollowUp, 'gia'>): string {
+    return scelta === 'chat' ? FOLLOW_UP.inChat : FOLLOW_UP.sceltaCall(quandoFollowUpDa(scelta.data, scelta.ora, oggi))
+  }
+
+  /** What a step is about: announced when it takes the place of the button just tapped. */
+  function titoloPasso(passo: Passo, scelta: SceltaFollowUp | null): string {
+    switch (passo.nome) {
+      case 'scelte':
+        return 'Esito della call'
+      case 'nuovaData':
+        return SPOSTA.riprogrammata.domanda
+      case 'attesa':
+        return SPOSTA.attesa.etichetta
+      case 'followUp':
+        return FOLLOW_UP.domanda
+      case 'dataFollowUp':
+        return FOLLOW_UP.quando
+      case 'motivo': {
+        const esito =
+          passo.esito === 'follow_up' && scelta !== null && scelta !== 'gia'
+            ? riassuntoFollowUp(scelta)
+            : ETICHETTA_ESITO[passo.esito]
+        return `${esito} · ${MOTIVO_NON_CHIUSURA.titolo}`
+      }
+    }
+  }
+
+  /** The top of the reason step: the outcome (and the follow-up answer), with the way back. */
+  function intestazioneMotivo(esito: 'follow_up' | 'persa') {
+    if (esito === 'follow_up' && sceltaFollowUp !== null && sceltaFollowUp !== 'gia') {
+      const call = sceltaFollowUp !== 'chat'
+      return (
+        <button
+          type="button"
+          className={INDIETRO}
+          data-testid="scelta-follow-up"
+          onClick={() => vai({ nome: call ? 'dataFollowUp' : 'followUp' })}
+        >
+          <ChevronLeft className="size-4 shrink-0" aria-hidden="true" />
+          {call ? (
+            <CalendarCheck className="size-4 shrink-0" aria-hidden="true" />
+          ) : (
+            <MessageCircle className="size-4 shrink-0" aria-hidden="true" />
+          )}
+          <span>{`${riassuntoFollowUp(sceltaFollowUp)}: ${FOLLOW_UP.cambia}`}</span>
+        </button>
+      )
+    }
+    return (
+      <>
+        <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
+          <ChevronLeft className="size-4 shrink-0" aria-hidden="true" />
+          {ETICHETTA_ESITO[esito]}: cambia esito
+        </button>
+        {esito === 'follow_up' && sceltaFollowUp === 'gia' && followUp ? (
+          <p className="flex items-start gap-1.5 text-sm" data-testid="follow-up-gia-fissata">
+            <CalendarCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            {FOLLOW_UP.giaFissata(followUp)}
+          </p>
+        ) : null}
+      </>
+    )
+  }
 
   return (
     <Sheet open={aperto} onOpenChange={apriChiudi}>
@@ -247,14 +413,14 @@ export function RegistraEsito({
           <SheetDescription>{descrizione}</SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-4 px-4">
-          {inAttesaData ? (
+        <div ref={contenitorePasso} tabIndex={-1} className="space-y-4 px-4 outline-none" data-testid="passo-esito">
+          {/* the step that took the tapped button's place, said to whoever does not see it */}
+          <p role="status" className="sr-only">
+            {annuncio}
+          </p>
+          {passo.nome === 'nuovaData' ? (
             <>
-              <button
-                type="button"
-                className="flex min-h-11 items-center gap-1 text-sm text-muted-foreground"
-                onClick={() => setInAttesaData(false)}
-              >
+              <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
                 <ChevronLeft className="size-4" aria-hidden="true" />
                 {SPOSTA.riprogrammata.scelta}: cambia esito
               </button>
@@ -281,13 +447,9 @@ export function RegistraEsito({
                 {SPOSTA.riprogrammata.salva}
               </Button>
             </>
-          ) : inAttesaConferma ? (
+          ) : passo.nome === 'attesa' ? (
             <>
-              <button
-                type="button"
-                className="flex min-h-11 items-center gap-1 text-sm text-muted-foreground"
-                onClick={() => setInAttesaConferma(false)}
-              >
+              <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
                 <ChevronLeft className="size-4" aria-hidden="true" />
                 {SPOSTA.attesa.etichetta}: cambia esito
               </button>
@@ -315,7 +477,70 @@ export function RegistraEsito({
                 {SPOSTA.attesa.salva}
               </Button>
             </>
-          ) : inAttesaQualifica === null ? (
+          ) : passo.nome === 'followUp' ? (
+            <>
+              <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
+                <ChevronLeft className="size-4" aria-hidden="true" />
+                {ETICHETTA_ESITO.follow_up}: cambia esito
+              </button>
+              <fieldset>
+                <legend className="mb-2 text-sm font-medium">{FOLLOW_UP.domanda}</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={SCELTA_LUNGA}
+                    disabled={inCorso}
+                    onClick={() => {
+                      setErroreFollowUp(null)
+                      vai({ nome: 'dataFollowUp' })
+                    }}
+                  >
+                    <CalendarCheck className="size-4 shrink-0" aria-hidden="true" />
+                    {FOLLOW_UP.si}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={SCELTA_LUNGA}
+                    disabled={inCorso}
+                    onClick={() => vai({ nome: 'motivo', esito: 'follow_up' }, 'chat')}
+                  >
+                    <MessageCircle className="size-4 shrink-0" aria-hidden="true" />
+                    {FOLLOW_UP.no}
+                  </Button>
+                </div>
+              </fieldset>
+            </>
+          ) : passo.nome === 'dataFollowUp' ? (
+            <>
+              <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'followUp' })}>
+                <ChevronLeft className="size-4 shrink-0" aria-hidden="true" />
+                {FOLLOW_UP.si}: {FOLLOW_UP.cambia}
+              </button>
+              <CampiFollowUp
+                id={`${id}-follow-up`}
+                data={dataFollowUp}
+                ora={oraFollowUp}
+                onData={(valore) => {
+                  setDataFollowUp(valore)
+                  setErroreFollowUp(null)
+                }}
+                onOra={(valore) => {
+                  setOraFollowUp(valore)
+                  setErroreFollowUp(null)
+                }}
+                oggi={oggi}
+                admin={admin}
+                setter={setter}
+                errore={erroreFollowUp}
+              />
+              <Button type="button" className="h-11 w-full" disabled={inCorso} onClick={confermaDataFollowUp}>
+                {FOLLOW_UP.avanti}
+                <ChevronRight className="size-4" aria-hidden="true" />
+              </Button>
+            </>
+          ) : passo.nome === 'scelte' ? (
             <>
               <div className="grid grid-cols-2 gap-2">
                 {SCELTE.filter(({ esito }) => !futura || SOLO_FUTURE.includes(esito)).map(({ esito, Icona }) => (
@@ -342,9 +567,9 @@ export function RegistraEsito({
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-14 justify-start gap-2 px-3 text-left text-sm leading-tight whitespace-normal"
+                        className={SCELTA_LUNGA}
                         disabled={inCorso}
-                        onClick={() => setInAttesaData(true)}
+                        onClick={() => vai({ nome: 'nuovaData' })}
                       >
                         <CalendarClock className="size-4 shrink-0" aria-hidden="true" />
                         {SPOSTA.riprogrammata.scelta}
@@ -353,9 +578,9 @@ export function RegistraEsito({
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-14 justify-start gap-2 px-3 text-left text-sm leading-tight whitespace-normal"
+                      className={SCELTA_LUNGA}
                       disabled={inCorso}
-                      onClick={() => setInAttesaConferma(true)}
+                      onClick={() => vai({ nome: 'attesa' })}
                     >
                       <Hourglass className="size-4 shrink-0" aria-hidden="true" />
                       {SPOSTA.attesa.etichetta}
@@ -383,14 +608,7 @@ export function RegistraEsito({
             </>
           ) : (
             <>
-              <button
-                type="button"
-                className="flex min-h-11 items-center gap-1 text-sm text-muted-foreground"
-                onClick={() => setInAttesaQualifica(null)}
-              >
-                <ChevronLeft className="size-4" aria-hidden="true" />
-                {ETICHETTA_ESITO[inAttesaQualifica]}: cambia esito
-              </button>
+              {intestazioneMotivo(passo.esito)}
 
               <div className="space-y-1.5">
                 <Label htmlFor={`${id}-motivo`}>
@@ -454,7 +672,7 @@ export function RegistraEsito({
                       className="h-14"
                       disabled={inCorso}
                       aria-describedby={`${id}-salva`}
-                      onClick={() => salvaNonChiusa(inAttesaQualifica, valore)}
+                      onClick={() => salvaNonChiusa(passo.esito, valore)}
                     >
                       {etichetta}
                     </Button>

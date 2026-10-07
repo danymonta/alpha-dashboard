@@ -102,6 +102,7 @@ test.describe('Le mie call, closer', () => {
     // changing the outcome opens on the saved reason
     const ancora = await apriEsito(page, nome)
     await ancora.getByRole('button', { name: 'Follow-up', exact: true }).click()
+    await ancora.getByRole('button', { name: 'No, follow-up in chat' }).click()
     await expect(ancora.getByLabel(/Motivo di non chiusura/)).toHaveValue('Fuori budget, ci risentiamo a gennaio')
   })
 
@@ -120,6 +121,7 @@ test.describe('Le mie call, closer', () => {
 
     const foglio = await apriEsito(page, nome)
     await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+    await foglio.getByRole('button', { name: 'No, follow-up in chat' }).click()
     // never taller than the screen: it scrolls, and the two texts stop growing
     const box = (await foglio.boundingBox())!
     expect(box.y).toBeGreaterThanOrEqual(0)
@@ -180,9 +182,10 @@ test('l’admin registra l’esito delle call assegnate a lui', async ({ page })
 
   const foglio = await apriEsito(page, nome)
   await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await foglio.getByRole('button', { name: 'No, follow-up in chat' }).click()
   await foglio.getByLabel(/Motivo di non chiusura/).fill('Deve parlarne con la compagna')
   await foglio.getByRole('button', { name: 'Sì', exact: true }).click()
-  await expect(scheda(page, nome).getByText('Follow-up')).toBeVisible()
+  await expect(scheda(page, nome).getByText('Follow-up').first()).toBeVisible()
 })
 
 test('il setter vede stato ed esito, ma non registra', async ({ page }) => {
@@ -225,10 +228,11 @@ test('le note aggiuntive sono del closer: il setter le legge, scrive solo le sue
   await expect(scheda(closer, nome).getByTestId('note-setter')).toContainText('Chiamarlo dopo le 18')
   const foglio = await apriEsito(closer, nome)
   await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await foglio.getByRole('button', { name: 'No, follow-up in chat' }).click()
   await foglio.getByLabel(/Motivo di non chiusura/).fill('Deve parlarne con la compagna')
   await foglio.getByLabel(/Note aggiuntive/).fill('Richiamare lunedì dopo le 18')
   await foglio.getByRole('button', { name: 'Sì', exact: true }).click()
-  await expect(scheda(closer, nome).getByText('Follow-up')).toBeVisible()
+  await expect(scheda(closer, nome).getByText('Follow-up').first()).toBeVisible()
 
   // his call sheet: the setter's note to read, his own to correct
   await closer.getByRole('button', { name: `Modifica la call con ${nome}` }).click()

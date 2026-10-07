@@ -84,9 +84,9 @@ export const VOCI_GIORNATE = {
 }
 
 const TITOLO_REPORT = 'Il tuo report'
-const TITOLO_CALL = 'Le call che hai fissato'
+const TITOLO_CALL = 'Le call col tuo nome'
 const DESCRIZIONE_CALL =
-  'Da inbound e da outbound per giorno di prenotazione, le altre per giorno della call; cash e revenue per giorno della vendita, solo dei clienti nuovi che hai portato tu (prima rata e contratto).'
+  'Quelle che hai fissato e le loro call di follow-up, che fissa il closer. Da inbound e da outbound per giorno di prenotazione (solo quelle che hai fissato tu), le altre per giorno della call; cash e revenue per giorno della vendita, solo dei clienti nuovi che hai portato tu (prima rata e contratto).'
 
 /** Amounts always with two decimals, on the phone too: a list is not a tile. */
 function valore(r: Riga, c: Colonna): string {
@@ -349,7 +349,7 @@ export function MieGiornate({ righe }: { righe: Riga[] }) {
           Giorno per giorno
         </h2>
         <p className="text-xs text-muted-foreground">
-          Il tuo report e le call che hai fissato, un giorno alla volta. Compaiono solo i giorni con almeno un numero.
+          Il tuo report e le call col tuo nome (quelle che hai fissato e le loro call di follow-up), un giorno alla volta. Compaiono solo i giorni con almeno un numero.
         </p>
       </div>
 
@@ -378,7 +378,7 @@ export function MieGiornate({ righe }: { righe: Riga[] }) {
               id="tabella-call"
               titolo={TITOLO_CALL}
               descrizione={DESCRIZIONE_CALL}
-              vuoto="Nessuna call fissata da te in questo periodo."
+              vuoto="Nessuna call col tuo nome in questo periodo."
               colonne={CALL}
               giorni={giorni}
               totale={totale}

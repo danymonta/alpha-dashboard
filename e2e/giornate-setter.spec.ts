@@ -160,7 +160,7 @@ test('setter a 1440px: giorno per giorno in due tabelle, una per fonte, senza sc
   const sezione = page.getByTestId('mie-giornate')
   await expect(sezione.getByRole('heading', { name: 'Giorno per giorno' })).toBeVisible()
   const report = sezione.getByRole('table', { name: 'Il tuo report' })
-  const call = sezione.getByRole('table', { name: 'Le call che hai fissato' })
+  const call = sezione.getByRole('table', { name: 'Le call col tuo nome' })
   await expect(report).toBeVisible()
   await expect(call).toBeVisible()
   // the two sources never share a table: each says where its numbers come from
@@ -282,7 +282,7 @@ test('setter a 390px: il totale aperto in cima, poi una riga chiusa per giorno, 
   await expect(totale).toHaveAttribute('open', '')
   await expect(totale.locator('summary')).toHaveText('Totale del periodo')
   await expect(totale).toContainText('Il tuo report')
-  await expect(totale).toContainText('Le call che hai fissato')
+  await expect(totale).toContainText('Le call col tuo nome')
   await expect(totale).toContainText('per giorno di prenotazione')
   for (const etichetta of [
     'DM outbound',
@@ -318,7 +318,7 @@ test('setter a 390px: il totale aperto in cima, poi una riga chiusa per giorno, 
   await riga.click()
   await expect(dettagli).toHaveAttribute('open', '')
   await expect(primo.getByText('Il tuo report')).toBeVisible()
-  await expect(primo.getByText('Le call che hai fissato')).toBeVisible()
+  await expect(primo.getByText('Le call col tuo nome')).toBeVisible()
   const valori = await primo.locator('dd').allInnerTexts()
   expect(valori.length).toBeGreaterThan(0)
   for (const v of valori) expect(leggiNumero(v)).not.toBe(0)

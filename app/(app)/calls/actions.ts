@@ -5,16 +5,40 @@ import { z } from 'zod'
 
 import { messaggioErrore } from '@/lib/auth/azioni'
 import { getProfilo } from '@/lib/auth/session'
+import { FOLLOW_UP, VENDITA_DA_REGISTRARE } from '@/lib/call/follow-up'
 import { motivoNonSpostabile } from '@/lib/call/spostamento'
+import { formatOra, oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
-import { modificaCallSchema, schemaSpostamento } from '@/lib/validation/call'
-import { aggiornamentoDaEsito, esitoCallSchema, nuovaDataEsito } from '@/lib/validation/esito'
+import {
+  collegaVenditaSchema,
+  erroreGiornoFollowUp,
+  modificaCallSchema,
+  schemaFollowUp,
+  schemaSpostamento,
+} from '@/lib/validation/call'
+import { aggiornamentoDaEsito, esitoCallSchema, followUpEsito, nuovaDataEsito } from '@/lib/validation/esito'
 
 /** Every page that lists calls or counts them by day. */
 const PAGINE_DELLE_CALL = ['/calls', '/', '/setting', '/setting/closer', '/setting/closer/giorno', '/leads', '/my-numbers']
 
 export type EsitoRegistrazione =
-  | { ok: true; vaiA: string | null }
+  | {
+      ok: true
+      vaiA: string | null
+      /** The follow-up call booked with the outcome ("Sì, call fissata"): its id. */
+      followUp?: string
+      /**
+       * The outcome is saved, the follow-up call is not (the database's reason
+       * in words): a warning, never an error that keeps the sheet open to repeat
+       * an outcome already saved.
+       */
+      avviso?: string
+      /**
+       * Whether «Fissa la call di follow-up» on the card can still book it: not
+       * when the call already has its follow-up call (handed to another closer).
+       */
+      avvisoRiprova?: boolean
+    }
   | { ok: false; errore: string }
 
 /**
@@ -40,11 +64,26 @@ export async function registraEsito(input: unknown): Promise<EsitoRegistrazione>
 
   const supabase = await createClient()
   const v = parsed.data
+  const admin = profilo.ruolo === 'admin'
+
+  // "Sì, call fissata" (Dany, 07/10/2026): the follow-up call's day is checked
+  // before the outcome is saved, so a wrong day never leaves half the work done
+  const followUp = followUpEsito(v)
+  if (followUp) {
+    const { data: partenza, error } = await supabase.from('calls').select('programmata_il').eq('id', v.call_id).maybeSingle()
+    if (error) return { ok: false, errore: 'Esito non salvato. Riprova.' }
+    const problema = erroreGiornoFollowUp(
+      { call_id: v.call_id, ...followUp },
+      partenza ? { giorno: oggiRoma(new Date(partenza.programmata_il)), ora: formatOra(partenza.programmata_il) } : null,
+      admin,
+    )
+    if (problema) return { ok: false, errore: problema }
+  }
 
   // "Ha già una nuova data" moves the same call to its new day (Dany, 02/10/2026)
   const nuova = nuovaDataEsito(v)
   if (nuova) {
-    const mossa = await sposta({ call_id: v.call_id, ...nuova }, profilo.ruolo === 'admin')
+    const mossa = await sposta({ call_id: v.call_id, ...nuova }, admin)
     if (!mossa.ok) return mossa
     if (v.esito === 'riprogrammata' && v.note_closer !== undefined) {
       let note = supabase.from('calls').update({ note_closer: v.note_closer }).eq('id', v.call_id)
@@ -71,13 +110,121 @@ export async function registraEsito(input: unknown): Promise<EsitoRegistrazione>
   if (error) return { ok: false, errore: 'Esito non salvato. Riprova.' }
   if (!data) return { ok: false, errore: 'Questa call non è assegnata a te.' }
 
+  // the outcome is saved: then the follow-up call, on its own day
+  let fissata: EsitoFollowUp | null = null
+  if (followUp) fissata = await fissa({ call_id: v.call_id, ...followUp }, admin)
+
   for (const pagina of PAGINE_DELLE_CALL) revalidatePath(pagina)
 
-  // A closed call goes straight to the prefilled sale
   return {
     ok: true,
+    // A closed call goes straight to the prefilled sale
     vaiA: v.esito === 'chiusa' ? `/sales/new?call=${data.id}` : null,
+    ...(fissata?.ok ? { followUp: fissata.id } : {}),
+    ...(fissata && !fissata.ok
+      ? { avviso: FOLLOW_UP.nonFissata(fissata.errore.replace(/\.$/, '')), avvisoRiprova: !fissata.giaPresente }
+      : {}),
   }
+}
+
+/** giaPresente: the call already has its follow-up call, so booking it again from the card never works. */
+export type EsitoFollowUp = { ok: true; id: string } | { ok: false; errore: string; giaPresente?: boolean }
+
+/**
+ * "Fissa la call di follow-up" (Dany, 07/10/2026): a held call that ended in
+ * follow-up gets its follow-up call on a day, as "Sì, call fissata" in the
+ * outcome sheet. A new call, linked to the first one (calls.follow_up_di):
+ * same lead, setter, closer and type, still to be held. The call's closer and
+ * the admin (also a follow-up already held, up to a year back); one per call.
+ * public.fissa_follow_up decides and says why in words. From the card and Alfire.
+ */
+export async function fissaFollowUp(input: unknown): Promise<EsitoFollowUp> {
+  const profilo = await getProfilo()
+  if (!profilo || !profilo.attivo) return { ok: false, errore: 'Sessione scaduta. Rientra e riprova.' }
+  if (profilo.ruolo !== 'admin' && profilo.ruolo !== 'closer') return { ok: false, errore: FOLLOW_UP.chiPuo }
+
+  const esito = await fissa(input, profilo.ruolo === 'admin')
+  if (esito.ok) for (const pagina of PAGINE_DELLE_CALL) revalidatePath(pagina)
+  return esito
+}
+
+async function fissa(input: unknown, admin: boolean): Promise<EsitoFollowUp> {
+  const parsed = schemaFollowUp(admin).safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? FOLLOW_UP.manca }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('fissa_follow_up', {
+    p_call_id: parsed.data.call_id,
+    p_data: parsed.data.data,
+    p_ora: parsed.data.ora,
+  })
+  if (error) {
+    // P0002: the call is gone (or not readable); 22023 and 42501 are already in words
+    const errore = error.code === 'P0002' ? error.message : messaggioErrore(error, 'Call di follow-up non fissata. Riprova.')
+    return { ok: false, errore, giaPresente: error.code === '22023' && error.message.startsWith(FOLLOW_UP.giaPresente) }
+  }
+  return { ok: true, id: data }
+}
+
+/** A sale the admin may tie to a closed call (public.vendite_da_collegare): amounts from SQL. */
+export type VenditaDaCollegare = {
+  sale_id: string
+  cliente: string
+  tipo: 'nuovo' | 'rinnovo' | 'upsell'
+  data_vendita: string
+  valore_contratto: number
+  setter: string | null
+  stesso_cliente: boolean
+}
+
+export type EsitoVenditeDaCollegare = { ok: true; vendite: VenditaDaCollegare[] } | { ok: false; errore: string }
+
+/**
+ * The sales registered without the call that the admin may tie to a closed
+ * call (07/10/2026): first a client with the lead's name or handle, then the
+ * sales signed within a month of the call. Admin only, as the database says.
+ */
+export async function venditeDaCollegare(input: unknown): Promise<EsitoVenditeDaCollegare> {
+  const parsed = z.object({ call_id: z.string().uuid() }).safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Call non valida.' }
+  const profilo = await getProfilo()
+  if (!profilo || !profilo.attivo) return { ok: false, errore: 'Sessione scaduta. Rientra e riprova.' }
+  if (profilo.ruolo !== 'admin') return { ok: false, errore: VENDITA_DA_REGISTRARE.soloAdmin }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('vendite_da_collegare', { p_call_id: parsed.data.call_id })
+  if (error) {
+    return { ok: false, errore: error.code === 'P0002' ? error.message : messaggioErrore(error, 'Vendite non disponibili. Riprova.') }
+  }
+  return { ok: true, vendite: data }
+}
+
+/**
+ * «La vendita c’è già: collegala» (07/10/2026): a sale registered without the
+ * call (Vendite, Alfire) is tied to the closed call (public.collega_vendita_call),
+ * so the call stops asking for its sale and «Registra la vendita» never makes a
+ * second one. Only sales.call_id changes. Admin only.
+ */
+export async function collegaVendita(input: unknown): Promise<EsitoModifica> {
+  const parsed = collegaVenditaSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Vendita o call non valida.' }
+  const profilo = await getProfilo()
+  if (!profilo || !profilo.attivo) return { ok: false, errore: 'Sessione scaduta. Rientra e riprova.' }
+  if (profilo.ruolo !== 'admin') return { ok: false, errore: VENDITA_DA_REGISTRARE.soloAdmin }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('collega_vendita_call', {
+    p_call_id: parsed.data.call_id,
+    p_sale_id: parsed.data.sale_id,
+  })
+  if (error) {
+    // P0002 and 23505 are already in words (call or sale gone, one sale per call)
+    const inParole = error.code === 'P0002' || error.code === '23505'
+    return { ok: false, errore: inParole ? error.message : messaggioErrore(error, 'Vendita non collegata. Riprova.') }
+  }
+
+  for (const pagina of [...PAGINE_DELLE_CALL, '/sales']) revalidatePath(pagina)
+  return { ok: true }
 }
 
 export type EsitoModifica = { ok: true } | { ok: false; errore: string }

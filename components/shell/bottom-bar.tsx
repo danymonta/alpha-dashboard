@@ -12,16 +12,25 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { ConteggioEsiti } from '@/components/shell/conteggio-esiti'
+import { useEsitiDaRegistrare } from '@/components/shell/esiti-da-registrare'
 import type { AppRole } from '@/lib/auth/roles'
-import { isAttiva, vociNav } from '@/lib/nav'
+import { esitiDellaVoce, isAttiva, nomeConEsiti, vociNav } from '@/lib/nav'
+
+// the badge sits on the icon's top right corner, inside the 44px target
+const SUL_ICONA = 'absolute top-0.5 left-1/2 ml-1 ring-2 ring-sidebar'
 
 /** Mobile navigation: at most four items plus "Altro". Touch targets >= 44px. */
 export function BottomBar({ ruolo }: { ruolo: AppRole }) {
   const pathname = usePathname()
+  // the person's own past calls without an outcome (admin and closer; 0 for the others)
+  const esitiDaRegistrare = useEsitiDaRegistrare()
   const [apertoAltro, setApertoAltro] = useState(false)
   const { principali, altre } = vociNav(ruolo)
   // on a page reached from "Altro" (e.g. Impostazioni) the bar still says where you are
   const altroAttivo = altre.some((v) => isAttiva(pathname, v))
+  // an item with the count inside the sheet: "Altro" carries the same number
+  const esitiInAltro = Math.max(0, ...altre.map((v) => esitiDellaVoce(v, esitiDaRegistrare)))
 
   if (principali.length === 0) return null
 
@@ -33,18 +42,21 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
       <ul className="flex items-stretch">
         {principali.map((voce) => {
           const attiva = isAttiva(pathname, voce)
+          const esiti = esitiDellaVoce(voce, esitiDaRegistrare)
           return (
             <li key={voce.href} className="flex-1">
               <Link
                 href={voce.href}
                 data-tour={`nav-${voce.href}`}
                 aria-current={attiva ? 'page' : undefined}
-                className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] leading-tight ${
+                aria-label={nomeConEsiti(voce.etichetta, esiti)}
+                className={`relative flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] leading-tight ${
                   attiva ? 'text-foreground' : 'text-muted-foreground'
                 }`}
               >
                 <voce.Icona className="size-5" aria-hidden="true" />
                 <span className="truncate">{voce.etichetta}</span>
+                <ConteggioEsiti numero={esiti} className={SUL_ICONA} />
                 <span
                   aria-hidden="true"
                   className={`h-0.5 w-6 rounded-full ${attiva ? 'bg-primary-light' : 'bg-transparent'}`}
@@ -62,7 +74,8 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                   <button
                     type="button"
                     data-tour="nav-altro"
-                    className={`flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] leading-tight ${
+                    aria-label={nomeConEsiti('Altro', esitiInAltro)}
+                    className={`relative flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] leading-tight ${
                       altroAttivo ? 'text-foreground' : 'text-muted-foreground'
                     }`}
                   />
@@ -70,6 +83,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
               >
                 <MoreHorizontal className="size-5" aria-hidden="true" />
                 <span>Altro</span>
+                <ConteggioEsiti numero={esitiInAltro} className={SUL_ICONA} />
                 <span
                   aria-hidden="true"
                   className={`h-0.5 w-6 rounded-full ${altroAttivo ? 'bg-primary-light' : 'bg-transparent'}`}
@@ -82,12 +96,14 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                 <ul className="px-4">
                   {altre.map((voce) => {
                     const attiva = isAttiva(pathname, voce)
+                    const esiti = esitiDellaVoce(voce, esitiDaRegistrare)
                     return (
                       <li key={voce.href}>
                         <Link
                           href={voce.href}
                           onClick={() => setApertoAltro(false)}
                           aria-current={attiva ? 'page' : undefined}
+                          aria-label={nomeConEsiti(voce.etichetta, esiti)}
                           // the sheet is already --accent (surface-2): the current page takes
                           // the sidebar's active style, so it reads the same on every viewport
                           className={`flex min-h-12 items-center gap-3 rounded-lg px-2 text-sm ${
@@ -99,6 +115,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                             aria-hidden="true"
                           />
                           {voce.etichetta}
+                          <ConteggioEsiti numero={esiti} attiva={attiva} className="ml-auto" />
                         </Link>
                       </li>
                     )

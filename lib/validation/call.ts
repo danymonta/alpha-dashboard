@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { FOLLOW_UP, erroreFollowUpPrimaDellaCall } from '@/lib/call/follow-up'
 import { aggiungiGiorni, isDataISO, oggiRoma } from '@/lib/date'
 import { parseImporto } from '@/lib/importi'
 import { MASSIMO_NOTE_CLOSER, MASSIMO_NOTE_SETTER, NOTE_CLOSER, NOTE_SETTER } from '@/lib/setting/commento'
@@ -151,8 +152,81 @@ export function schemaSpostamento(admin: boolean) {
 export type SpostaCallInput = z.input<typeof spostaCallSchema>
 
 // ---------------------------------------------------------------------------
+// The follow-up call (public.fissa_follow_up, Dany 07/10/2026)
+// ---------------------------------------------------------------------------
+/**
+ * The day and time of the follow-up call, Europe/Rome: the outcome "Follow-up"
+ * with "Sì, call fissata" (lib/validation/esito.ts), the "Fissa la call di
+ * follow-up" sheet and Alfire. The database's words when one is missing.
+ */
+export const campiFollowUp = {
+  data: z
+    .string({ required_error: FOLLOW_UP.manca, invalid_type_error: FOLLOW_UP.manca })
+    .refine(isDataISO, FOLLOW_UP.manca),
+  ora: z
+    .string({ required_error: FOLLOW_UP.manca, invalid_type_error: FOLLOW_UP.manca })
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, FOLLOW_UP.manca),
+}
+
+/**
+ * Where a follow-up call may be booked, as public.fissa_follow_up: the windows
+ * of a move, in the follow-up's words. From today on (an earlier hour of today
+ * too), six months ahead at most; the admin also a follow-up already held, up
+ * to a year back. That it comes after the first call is
+ * erroreFollowUpPrimaDellaCall (lib/call/follow-up.ts): the schema does not
+ * know the first call.
+ */
+export function erroreFinestraFollowUp(data: string, admin: boolean, oggi: string = oggiRoma()): string | null {
+  const errore = erroreFinestraSpostamento(data, admin, oggi)
+  return errore === SPOSTA_SOLO_AVANTI ? FOLLOW_UP.soloAvanti : errore
+}
+
+function followUp(admin: boolean) {
+  return z
+    .object({ call_id: z.string().uuid('Call non valida'), ...campiFollowUp })
+    .superRefine((valori, ctx) => {
+      const errore = erroreFinestraFollowUp(valori.data, admin)
+      if (errore) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['data'], message: errore })
+    })
+}
+
+/** The closer: from today on. */
+export const fissaFollowUpSchema = followUp(false)
+/** The admin: also a follow-up already held, up to a year back. */
+export const fissaFollowUpAdminSchema = followUp(true)
+
+export function schemaFollowUp(admin: boolean) {
+  return admin ? fissaFollowUpAdminSchema : fissaFollowUpSchema
+}
+
+export type FissaFollowUpInput = z.input<typeof fissaFollowUpSchema>
+
+/**
+ * The whole check of a follow-up call's day and time, as public.fissa_follow_up
+ * makes it: the window for this person (schemaFollowUp), then after the first
+ * call (its Europe/Rome day and time; null when it can't be read, and the
+ * database says it). Null when it can be booked, otherwise the words to show.
+ * The outcome sheet, "Fissa la call di follow-up" and the server action.
+ */
+export function erroreGiornoFollowUp(
+  valori: { call_id: string; data: string; ora: string },
+  partenza: { giorno: string; ora: string } | null,
+  admin: boolean,
+): string | null {
+  const verifica = schemaFollowUp(admin).safeParse(valori)
+  if (!verifica.success) return verifica.error.issues[0]?.message ?? FOLLOW_UP.manca
+  return partenza ? erroreFollowUpPrimaDellaCall(valori.data, valori.ora, partenza.giorno, partenza.ora) : null
+}
+
+// ---------------------------------------------------------------------------
 // Editing a call after it was booked
 // ---------------------------------------------------------------------------
+/** «La vendita c’è già: collegala» (public.collega_vendita_call): the call and the sale, by id. */
+export const collegaVenditaSchema = z.object({
+  call_id: z.string().uuid('Call non valida'),
+  sale_id: z.string().uuid('Vendita non valida'),
+})
+
 export const PERFORMANCE = Constants.public.Enums.call_performance
 export type Performance = (typeof PERFORMANCE)[number]
 

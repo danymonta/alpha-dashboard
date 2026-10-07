@@ -134,6 +134,18 @@ function ieriRoma() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(new Date(Date.now() - 86_400_000))
 }
 
+/** A day in Europe/Rome, `giorni` from today: AAAA-MM-GG. */
+function giornoRoma(giorni = 0) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(new Date(Date.now() + giorni * 86_400_000))
+}
+
+/** Monday of this week in Europe/Rome (Italian weeks start on Monday). */
+function lunediRoma() {
+  const oggi = giornoRoma()
+  const giorno = new Date(`${oggi}T12:00:00Z`).getUTCDay()
+  return giornoRoma(giorno === 0 ? -6 : 1 - giorno)
+}
+
 function contenuto(m) {
   return typeof m.content === 'string' ? m.content : (m.content ?? []).map((p) => p.text ?? '').join(' ')
 }
@@ -247,6 +259,11 @@ createServer(async (req, res) => {
       const dati = JSON.parse(esito)
       return testo(res, `Clienti di ${dati.persona}: ${dati.vendite.map((v) => `${v.cliente}: pagato ${v.pagato_in_tutto}`).join('; ')}.`)
     }
+    // e2e/alfire-agente.spec.ts: the closer's numbers the setter reads, whose they are first
+    if (strumento === 'giornate_closer') {
+      const dati = JSON.parse(esito)
+      return testo(res, `Numeri del closer (${dati.numeri_di}): ${dati.totale?.['Call svolte'] ?? 0} call svolte.`)
+    }
     if (strumento === 'mie_vendite') {
       const dati = JSON.parse(esito)
       return testo(res, `Vendite di ${dati.persona}: ${dati.vendite.map((v) => `${v.cliente}: da incassare ${v.da_incassare}`).join('; ')}.`)
@@ -284,6 +301,23 @@ createServer(async (req, res) => {
         ricorrente: false,
       })
     }
+  }
+  // e2e/alfire-agente.spec.ts: the closer marks a follow-up with the call already booked
+  // (07/10/2026), and the setter reads the closer's numbers of the week
+  const followUp = /^segna follow-up per (.+?) con una call domani alle (\d{1,2})$/i.exec(contenuto(ultimo).trim())
+  if (followUp) {
+    return chiamata(res, 'call', {
+      azione: 'esito',
+      lead: followUp[1],
+      esito: 'follow_up',
+      qualificata: true,
+      motivo: 'Ne parla con la compagna',
+      follow_up_data: giornoRoma(1),
+      follow_up_ora: `${followUp[2].padStart(2, '0')}:00`,
+    })
+  }
+  if (domanda.includes('numeri del closer questa settimana')) {
+    return chiamata(res, 'giornate_closer', { da: lunediRoma(), a: giornoRoma() })
   }
   // e2e/alfire-bottoni.spec.ts: closed questions with buttons, and follow-ups
   if (domanda.includes('rate di rossi')) {

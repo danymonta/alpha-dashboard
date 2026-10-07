@@ -2,13 +2,14 @@ import 'server-only'
 
 import { z } from 'zod'
 
-import { eliminaCall, modificaCall, registraEsito, spostaCall } from '@/app/(app)/calls/actions'
+import { eliminaCall, fissaFollowUp, modificaCall, registraEsito, spostaCall } from '@/app/(app)/calls/actions'
 import { fissaCall } from '@/app/(app)/calls/new/actions'
 import { aggiornaStatoLead, eliminaLead, modificaLead } from '@/app/(app)/leads/actions'
 import { aggiungiReport, correggiReport, eliminaReport } from '@/app/(app)/setting/actions'
 import { salvaReportGiornaliero } from '@/app/(app)/today/actions'
 import { breve, cambi, cambio } from '@/lib/alfire/cambi'
 import { CONSEGUENZE } from '@/lib/alfire/conseguenze'
+import { FOLLOW_UP, quandoFollowUp } from '@/lib/call/follow-up'
 import {
   SPOSTA,
   correzioneSenzaTraccia,
@@ -20,7 +21,7 @@ import {
   rifiutoSpostaAlfire,
 } from '@/lib/call/spostamento'
 import type { Anteprima } from '@/lib/alfire/riassunto'
-import { errore, isErrore, isIo, quandoCall, trova, type Call } from '@/lib/alfire/risolvi'
+import { errore, followUpDiAltroCloser, isErrore, isIo, quandoCall, seguitoDi, trova, type Call } from '@/lib/alfire/risolvi'
 import {
   anteprima,
   anteprimaConConseguenze,
@@ -31,7 +32,7 @@ import {
   type Contesto,
   type Definizione,
 } from '@/lib/alfire/scritture/comune'
-import { formatOra, isDataISO, oggiRoma } from '@/lib/date'
+import { formatOra, giornoEsteso, isDataISO, oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
 import {
   LIVELLI_IN_TARGET,
@@ -56,13 +57,14 @@ import {
   FONTI,
   PERFORMANCE,
   TIPI_CALL,
+  erroreGiornoFollowUp,
   normalizzaHandle,
   schemaSpostamento,
   type Fonte,
   type Performance,
   type TipoCall,
 } from '@/lib/validation/call'
-import { ETICHETTA_ESITO, chiedeMotivo, esitoCallSchema, type SceltaEsito } from '@/lib/validation/esito'
+import { ETICHETTA_ESITO, chiedeMotivo, esitoCallSchema, followUpEsito, type SceltaEsito } from '@/lib/validation/esito'
 import { ETICHETTA_STATO_LEAD, STATI_LEAD, type StatoLead } from '@/lib/validation/lead'
 import { CAMPI_NUMERICI_REPORT as CAMPI_REPORT, GRUPPI_REPORT } from '@/lib/validation/report'
 
@@ -186,6 +188,37 @@ function fissaCallStrumento(ctx: Contesto): Definizione {
 }
 
 // ---------------------------------------------------------------------------
+// The follow-up call (Dany, 07/10/2026): with the outcome "follow_up" when the
+// lead already has it booked, or later on a held call in follow-up without one
+// (azione follow_up). A new call, linked to the first one: the same lead,
+// setter and closer (public.fissa_follow_up, through the app's own actions).
+// ---------------------------------------------------------------------------
+
+/** "giovedì 08/10/2026 alle 18:00": the day in full, so a follow-up call is never misread. */
+function quandoEsteso(giorno: string, ora: string): string {
+  return `${giornoEsteso(giorno)} alle ${ora}`
+}
+
+/** The first call's day and time in Europe/Rome: the follow-up call comes after it. */
+function partenzaDi(c: Call): { giorno: string; ora: string } {
+  return { giorno: oggiRoma(new Date(c.programmata_il)), ora: formatOra(c.programmata_il) }
+}
+
+/** One follow-up call per call, in the database's words (public.fissa_follow_up). */
+function giaFissata(seguito: { programmata_il: string; stato: string }): string {
+  const quando = quandoCall(seguito)
+  return seguito.stato === 'svolta' || seguito.stato === 'no_show'
+    ? `Questa call ha già la sua call di follow-up, del ${quando}, e ha già il suo esito: ogni call ha una sola call di follow-up.`
+    : `Questa call ha già la sua call di follow-up, il ${quando}: per cambiarla usa Sposta su quella.`
+}
+
+/** Among a lead's calls, the follow-up call goes on the held call in follow-up, the one without it first. */
+const CALL_PER_IL_FOLLOW_UP: readonly ((c: Call) => boolean)[] = [
+  (c) => c.stato === 'svolta' && c.esito === 'follow_up',
+  (c) => !seguitoDi(c) && !followUpDiAltroCloser(c),
+]
+
+// ---------------------------------------------------------------------------
 // A call: outcome, edit, delete
 //
 // Two notes (Dany, 30/09/2026): "Note del setter" (calls.note), written by the
@@ -214,6 +247,8 @@ function call(ctx: Contesto): Definizione {
             .max(MASSIMO_MOTIVO)
             .optional()
             .describe('Motivo di non chiusura: obbligatorio con follow_up e persa, se manca chiedilo'),
+          follow_up_data: dataISO('Giorno della call di follow-up fissata col lead: con esito follow_up o azione follow_up').optional(),
+          follow_up_ora: z.string().optional().describe('HH:MM della call di follow-up, con follow_up_data'),
         }
       : {}),
     data: dataISO('sposta: il nuovo giorno; modifica: il giorno corretto').optional(),
@@ -254,6 +289,8 @@ function call(ctx: Contesto): Definizione {
     performance?: Performance
     prodotto_proposto?: string
     importo_proposto?: number
+    follow_up_data?: string
+    follow_up_ora?: string
   }
 
   const dettagliChiesti = (v: Input) =>
@@ -318,16 +355,83 @@ function call(ctx: Contesto): Definizione {
    */
   function inputEsito(v: Input, callId: string) {
     if (chiedeMotivo(v.esito)) {
-      return { call_id: callId, esito: v.esito, qualificata: v.qualificata, motivo: v.motivo, note_closer: v.note_closer }
+      return {
+        call_id: callId,
+        esito: v.esito,
+        qualificata: v.qualificata,
+        motivo: v.motivo,
+        note_closer: v.note_closer,
+        // "Sì, call fissata" (07/10/2026): the same fields as the outcome sheet, booked by registraEsito
+        ...(v.follow_up_data !== undefined ? { follow_up_data: v.follow_up_data } : {}),
+        ...(v.follow_up_ora !== undefined ? { follow_up_ora: v.follow_up_ora } : {}),
+      }
     }
     if (v.esito === 'riprogrammata') return { call_id: callId, esito: v.esito, note_closer: v.note_closer }
     return { call_id: callId, esito: v.esito }
   }
 
+  /**
+   * The follow-up call of a "follow_up" outcome, as the sheet checks it: one
+   * per call, in the window of who books it, after the first call.
+   */
+  function controllaGiornoFollowUp(c: Call, giorno: { data: string; ora: string }) {
+    const seguito = seguitoDi(c)
+    if (seguito) return errore(giaFissata(seguito))
+    // handed to another closer: the database's words, never its day
+    if (followUpDiAltroCloser(c)) return errore(FOLLOW_UP.altroCloser)
+    const problema = erroreGiornoFollowUp({ call_id: c.id, ...giorno }, partenzaDi(c), ruolo === 'admin')
+    return problema ? errore(problema) : null
+  }
+
+  /** azione follow_up: the day said as follow_up_data / follow_up_ora, or as data / ora (nothing else to mean there). */
+  function giornoFollowUp(v: Input): { data: string; ora: string } | null {
+    const giorno = v.follow_up_data ?? v.data
+    const ora = v.follow_up_ora ?? v.ora
+    return giorno && ora ? { data: giorno, ora } : null
+  }
+
+  /** The follow-up call booked later ("Fissa la call di follow-up"): the same checks as public.fissa_follow_up. */
+  function controllaFollowUp(v: Input, c: Call) {
+    if (c.stato !== 'svolta' || c.esito !== 'follow_up') return errore(FOLLOW_UP.soloSuFollowUp)
+    const seguito = seguitoDi(c)
+    if (seguito) return errore(giaFissata(seguito))
+    if (followUpDiAltroCloser(c)) return errore(FOLLOW_UP.altroCloser)
+    const giorno = giornoFollowUp(v)
+    if (!giorno) return errore('Dimmi il giorno e l’ora della call di follow-up.')
+    return controllaGiornoFollowUp(c, giorno)
+  }
+
+  /** Who the follow-up call keeps: the same lead and setter, so a close is still his sale (and commission). */
+  async function chiResta(c: Call): Promise<string> {
+    const setter = c.setter_id ? (await r.nomi([c.setter_id])).get(c.setter_id) : null
+    return setter ? `stesso lead e stesso setter (${setter})` : 'stesso lead e stesso closer'
+  }
+
+  /** The outcome card's line on the follow-up: the call booked, the one already there, or the chat. */
+  async function rigaFollowUp(v: Input, c: Call): Promise<string> {
+    if (v.follow_up_data && v.follow_up_ora) {
+      return `${FOLLOW_UP.diCall(quandoEsteso(v.follow_up_data, v.follow_up_ora))}, ${await chiResta(c)}`
+    }
+    const seguito = seguitoDi(c)
+    if (seguito) return FOLLOW_UP.giaFissata(quandoFollowUp(seguito.programmata_il))
+    return followUpDiAltroCloser(c) ? FOLLOW_UP.giaFissata(FOLLOW_UP.assegnataAltroCloser) : FOLLOW_UP.inChat
+  }
+
   function controllaEsito(v: Input, c: Call) {
     if (!v.esito) return errore('Dimmi l’esito della call.')
+    // a follow-up call goes only with the outcome "follow_up" (a lost call has none)
+    if ((v.follow_up_data !== undefined || v.follow_up_ora !== undefined) && v.esito !== 'follow_up') {
+      return errore(v.esito === 'persa' ? FOLLOW_UP.conPersa : 'Una call di follow-up si fissa solo con l’esito Follow-up.')
+    }
     // "sposta la call a domani", "è stata riprogrammata a venerdì": a move, never an outcome
     if (v.data || v.ora) {
+      // the follow-up call's day has its own fields: this call stays on its day
+      if (v.esito === 'follow_up') {
+        return errore(
+          'Il giorno della call di follow-up va a parte: questa call resta nel suo giorno.',
+          'Con esito follow_up il giorno e l’ora della call di follow-up vanno in follow_up_data e follow_up_ora, mai in data e ora.',
+        )
+      }
       return errore('L’esito non cambia il giorno né l’ora della call: per quello la call si sposta.', 'Per spostarla: call, azione sposta con data e ora.')
     }
     // "In attesa di conferma": a held call or a no-show never leaves its day (04/10/2026)
@@ -346,7 +450,8 @@ function call(ctx: Contesto): Definizione {
         ? errore(`${problema.message}.`, `Chiedi perché non ha chiuso (${MOTIVO_NON_CHIUSURA.placeholder.replace(/^Es\. /, 'es. ')}).`)
         : errore(problema?.message ?? 'Esito non valido.')
     }
-    return null
+    const followUp = followUpEsito(verifica.data)
+    return followUp ? controllaGiornoFollowUp(c, followUp) : null
   }
 
   /**
@@ -380,9 +485,12 @@ function call(ctx: Contesto): Definizione {
       ? `Una tua call (call_id da call_periodo, o il nome del lead). ${sposta}modifica = corregge data e ora sbagliate (senza traccia), closer, note del setter. Esito, motivo e note aggiuntive li scrive il closer.`
       : `Una call (call_id da call_periodo, o il nome del lead). ${sposta}modifica = corregge data e ora sbagliate (senza traccia; anche di una call svolta o di un no show, che restano tali: è una correzione, mai per spostarla), tipo${
           ruolo === 'admin' ? ', closer, note del setter' : ''
-        }, note aggiuntive del closer, link, performance, prodotto e importo proposti. esito = come è andata: chiusa, follow_up o persa (con qualificata e motivo di non chiusura, obbligatorio; note_closer facoltative), ` +
+        }, note aggiuntive del closer, link, performance, prodotto e importo proposti. esito = come è andata: chiusa, follow_up o persa (con qualificata e motivo di non chiusura, obbligatorio; note_closer facoltative; ` +
+        'con follow_up e una call di follow-up già fissata col lead, follow_up_data e follow_up_ora: una call nuova, stesso lead e setter; senza, follow-up in chat), ' +
         `no_show, cancellata, riprogrammata = «${SPOSTA.attesa.etichetta}»: il lead deve confermare una nuova data che ancora non c’è, la call resta sul suo giorno senza esito (note_closer facoltative; con la nuova data già decisa usa sposta), ` +
-        'programmata (annulla l’esito, solo se è sbagliato: mai per spostare un no show vero o una call svolta). Dopo chiusa registra la vendita con registra_vendita e il call_id. ' +
+        'programmata (annulla l’esito, solo se è sbagliato: mai per spostare un no show vero o una call svolta). ' +
+        'follow_up = fissa la call di follow-up (follow_up_data, follow_up_ora) su una call svolta finita in follow-up che non ce l’ha. ' +
+        'Dopo chiusa registra la vendita con registra_vendita e il call_id (anche di una call di follow-up: il setter resta quello della prima). ' +
         `Lo stato del lead in pipeline non cambia da solo: lead stato.${ruolo === 'admin' ? ' elimina.' : ''}`
 
   return definizione({
@@ -390,15 +498,28 @@ function call(ctx: Contesto): Definizione {
     inputSchema: schema,
     anteprima: async (input): Promise<Anteprima> => {
       const v = input as Input
-      const c = await r.trovaCall({ call_id: v.call_id, lead: v.lead })
+      const c = await r.trovaCall({ call_id: v.call_id, lead: v.lead }, v.azione === 'follow_up' ? CALL_PER_IL_FOLLOW_UP : [])
       if (isErrore(c)) return c
       const chi = `${c.lead?.nome ?? v.lead} del ${quandoCall(c)}`
+      if (v.azione === 'follow_up') {
+        const manca = controllaFollowUp(v, c)
+        if (manca) return manca
+        const giorno = giornoFollowUp(v) as { data: string; ora: string }
+        const setter = c.setter_id ? (await r.nomi([c.setter_id])).get(c.setter_id) : null
+        return anteprima(`Fisso la call di follow-up con ${c.lead?.nome ?? v.lead}: ${quandoEsteso(giorno.data, giorno.ora)}`, [
+          FOLLOW_UP.della(quandoCall(c)),
+          // the sale of a close is still the first call's setter's, and so is the commission
+          setter ? FOLLOW_UP.stessoSetter(setter) : FOLLOW_UP.senzaSetter,
+          'Una call nuova, da fare nel suo giorno: conta nei numeri del closer come ogni call.',
+        ])
+      }
       if (v.azione === 'esito') {
         const manca = controllaEsito(v, c)
         if (manca) return manca
         const esito = v.esito as SceltaEsito
         const nonChiusa = chiedeMotivo(esito)
         const inAttesa = esito === 'riprogrammata'
+        const followUp = esito === 'follow_up' ? await rigaFollowUp(v, c) : null
         return anteprima(`Registro l’esito della call con ${chi}: ${ETICHETTA_ESITO[esito]}`, [
           `Ora: ${c.esito ? ETICHETTA_ESITO[c.esito as SceltaEsito] : (ETICHETTA_ESITO[c.stato as SceltaEsito] ?? c.stato)}`,
           nonChiusa ? `Qualificata: ${v.qualificata ? 'sì' : 'no'}` : null,
@@ -414,6 +535,8 @@ function call(ctx: Contesto): Definizione {
           (nonChiusa || inAttesa) && v.note_closer !== undefined
             ? cambio(NOTE_CLOSER.titolo, c.note_closer, v.note_closer, 'lungo')
             : null,
+          // "Hai fissato una call di follow-up?" (07/10/2026): the call booked with its day, or the chat
+          followUp,
           inAttesa ? SPOSTA.attesa.descrizione : null,
           esito === 'chiusa' ? 'Poi registriamo la vendita.' : null,
         ])
@@ -480,15 +603,27 @@ function call(ctx: Contesto): Definizione {
     },
     execute: async (input) => {
       const v = input as Input
-      const c = await r.trovaCall({ call_id: v.call_id, lead: v.lead })
+      const c = await r.trovaCall({ call_id: v.call_id, lead: v.lead }, v.azione === 'follow_up' ? CALL_PER_IL_FOLLOW_UP : [])
       if (isErrore(c)) return c
+      if (v.azione === 'follow_up') {
+        const manca = controllaFollowUp(v, c)
+        if (manca) return manca
+        const giorno = giornoFollowUp(v) as { data: string; ora: string }
+        const esito = await fissaFollowUp({ call_id: c.id, ...giorno })
+        return esito.ok ? { fatto: true, call_di_follow_up: quandoEsteso(giorno.data, giorno.ora), link: '/calls' } : errore(esito.errore)
+      }
       if (v.azione === 'esito') {
         const manca = controllaEsito(v, c)
         if (manca) return manca
         const esito = await registraEsito(inputEsito(v, c.id))
         if (!esito.ok) return errore(esito.errore)
-        return v.esito === 'chiusa'
-          ? { fatto: true, call_id: c.id, poi: 'Registra la vendita con registra_vendita e questo call_id.', link: '/calls' }
+        if (v.esito === 'chiusa') {
+          return { fatto: true, call_id: c.id, poi: 'Registra la vendita con registra_vendita e questo call_id.', link: '/calls' }
+        }
+        // the outcome is saved, the follow-up call is not: the person reads why, and books it later
+        if (esito.avviso) return { fatto: true, avviso: esito.avviso, link: '/calls' }
+        return v.follow_up_data && v.follow_up_ora && esito.followUp
+          ? { fatto: true, call_di_follow_up: quandoEsteso(v.follow_up_data, v.follow_up_ora), link: '/calls' }
           : { fatto: true, link: '/calls' }
       }
       if (v.azione === 'elimina') {

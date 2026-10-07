@@ -1,13 +1,13 @@
 import { ChevronDown, ClipboardCheck, Phone } from 'lucide-react'
 import Link from 'next/link'
 
+import { DaRegistrare, caricaCallDaRegistrare } from '@/app/(app)/setting/closer/da-registrare'
 import { LinkBottone } from '@/components/link-bottone'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
 import { EtichettaConNota } from '@/components/metriche/nota'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { FiltroSelect } from '@/components/pm/filtri'
-import { SchedeSetting } from '@/components/setting/schede-setting'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
@@ -119,10 +119,13 @@ function GiornateTelefono({
   giorni,
   totale,
   closer,
+  apriGiorno,
 }: {
   giorni: (Giornata & { data: string })[]
   totale: Giornata
   closer: string | undefined
+  /** Admin and closer open a day's page; the setter only reads the numbers. */
+  apriGiorno: boolean
 }) {
   return (
     <div className="space-y-3 md:hidden" data-testid="giornate-closer-telefono">
@@ -164,9 +167,11 @@ function GiornateTelefono({
                   </summary>
                   <div className="space-y-2 px-4 pt-1 pb-4">
                     <Dettaglio riga={r} senzaZeri />
-                    <LinkBottone href={hrefGiorno(r.data, closer)} variant="outline" className="w-full">
-                      Apri la giornata
-                    </LinkBottone>
+                    {apriGiorno ? (
+                      <LinkBottone href={hrefGiorno(r.data, closer)} variant="outline" className="w-full">
+                        Apri la giornata
+                      </LinkBottone>
+                    ) : null}
                   </div>
                 </details>
               </li>
@@ -178,21 +183,39 @@ function GiornateTelefono({
   )
 }
 
+/** The page's description, from the side of who reads it. */
+const DESCRIZIONE = {
+  admin:
+    'Le tue call da registrare in cima, poi le call e le vendite del closer giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.',
+  // the admin on another closer: no calls to record on top (they are that closer's)
+  adminAltroCloser:
+    'Le call e le vendite del closer scelto, giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.',
+  closer:
+    'Le tue call da registrare in cima, poi le tue call e le tue vendite giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.',
+  setter:
+    'Le call e le vendite del closer, di tutti i setter, giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.',
+} as const
+
 export default async function CloserPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const profilo = await requireRuolo(['admin', 'closer'])
-  const admin = profilo.ruolo === 'admin'
+  // the setter too, read only (Dany, 07/10/2026: "il setter può accedere alla tab
+  // closer", every setter's calls and the money too, as aggregate numbers by day)
+  const profilo = await requireRuolo(['admin', 'closer', 'setter'])
+  const ruolo = profilo.ruolo === 'admin' ? 'admin' : profilo.ruolo === 'setter' ? 'setter' : 'closer'
+  const admin = ruolo === 'admin'
+  const setter = ruolo === 'setter'
   const oggi = oggiRoma()
   const parametri = await searchParams
   const periodo = leggiPeriodo(parametri, oggi)
   const supabase = await createClient()
 
-  // who closes: the closers, and the admin who closes too (Dany, 28/09/2026)
+  // who closes: the closers, and the admin who closes too (Dany, 28/09/2026);
+  // the setter picks among them like the admin (the team's directory is readable)
   let closers: { id: string; nome: string }[] = []
-  if (admin) {
+  if (admin || setter) {
     const { data, error } = await supabase
       .from('profiles')
       .select('id, nome')
@@ -205,36 +228,53 @@ export default async function CloserPage({
   const richiesto = Array.isArray(parametri.closer) ? parametri.closer[0] : parametri.closer
   const closer = isUuid(richiesto) && closers.some((c) => c.id === richiesto) ? richiesto : undefined
 
-  // a closer always gets his own days, whatever is passed (giornate_closer)
-  const { data, error } = await supabase.rpc('giornate_closer', {
-    p_da: periodo.da,
-    p_a: periodo.a,
-    ...(closer ? { p_closer: closer } : {}),
-  })
-  if (error) throw new Error('Impossibile caricare le giornate del closer')
+  // whoever records outcomes gets his own calls to record on top: the closer
+  // always, the admin on his own day or on every closer's, never on another's
+  const registraEsiti = ruolo === 'closer' || (admin && (closer === undefined || closer === profilo.id))
 
-  const righe = data ?? []
+  // a closer always gets his own days, whatever is passed (giornate_closer)
+  const [giornate, esiti] = await Promise.all([
+    supabase.rpc('giornate_closer', {
+      p_da: periodo.da,
+      p_a: periodo.a,
+      ...(closer ? { p_closer: closer } : {}),
+    }),
+    registraEsiti ? caricaCallDaRegistrare(profilo.id) : Promise.resolve(null),
+  ])
+  if (giornate.error) throw new Error('Impossibile caricare le giornate del closer')
+
+  const righe = giornate.data ?? []
   const totale = righe.find((r) => r.data === null)
   const giorni = righe.filter((r) => r.data !== null)
+  // a sale closed from the calls on top comes back here, on the same period and closer
+  const qui = `/setting/closer?${new URLSearchParams({ ...periodo.parametri, ...(closer ? { closer } : {}) }).toString()}`
 
   return (
     <div className="space-y-5">
       <IntestazionePagina
-        titolo={admin ? 'Closer' : 'I miei numeri'}
-        descrizione={
-          admin
-            ? 'Le call e le vendite del closer giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.'
-            : 'Le tue call e le tue vendite giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.'
-        }
+        titolo={ruolo === 'closer' ? 'I miei numeri' : 'Closer'}
+        descrizione={DESCRIZIONE[admin && !registraEsiti ? 'adminAltroCloser' : ruolo]}
         azione={
-          // the day is filled from its calls: one outcome per call, no counters
-          <LinkBottone href={hrefGiorno(null, closer)} data-testid="compila-giornata">
-            <ClipboardCheck className="size-4" aria-hidden="true" />
-            Compila la giornata
-          </LinkBottone>
+          // the day is filled from its calls: one outcome per call, no counters.
+          // The setter reads the numbers: the day's page stays the closer's and the admin's
+          setter ? undefined : (
+            <LinkBottone href={hrefGiorno(null, closer)} data-testid="compila-giornata">
+              <ClipboardCheck className="size-4" aria-hidden="true" />
+              Compila la giornata
+            </LinkBottone>
+          )
         }
       />
-      <SchedeSetting attiva="closer" ruolo={profilo.ruolo} />
+
+      {esiti ? (
+        <DaRegistrare
+          {...esiti}
+          admin={admin}
+          closers={admin ? closers : []}
+          hrefGiornata={hrefGiorno(null, undefined)}
+          tornaA={qui}
+        />
+      ) : null}
 
       {/* 390px: the closer filter gets its own full-width row, never a truncated name */}
       <div className="grid gap-2 sm:flex sm:items-end sm:justify-between sm:gap-4">
@@ -259,8 +299,20 @@ export default async function CloserPage({
         <StatoVuoto
           Icona={Phone}
           titolo="Nessuna call o vendita in questo periodo"
-          descrizione={`I numeri compaiono quando si registra l'esito di una call o una vendita ${periodo.frase}.`}
-          azione={<LinkBottone href={hrefGiorno(null, closer)}>Compila la giornata</LinkBottone>}
+          descrizione={
+            setter
+              ? `I numeri compaiono quando il closer registra l’esito di una call o una vendita ${periodo.frase}.`
+              : `I numeri compaiono quando si registra l’esito di una call o una vendita ${periodo.frase}.`
+          }
+          azione={
+            setter ? (
+              <LinkBottone href="/my-numbers" variant="outline">
+                Vai ai miei numeri
+              </LinkBottone>
+            ) : (
+              <LinkBottone href={hrefGiorno(null, closer)}>Compila la giornata</LinkBottone>
+            )
+          }
         />
       ) : (
         <>
@@ -319,7 +371,7 @@ export default async function CloserPage({
               Giorno per giorno ({giorni.length})
             </h2>
 
-            <GiornateTelefono giorni={giorni} totale={totale} closer={closer} />
+            <GiornateTelefono giorni={giorni} totale={totale} closer={closer} apriGiorno={!setter} />
 
             <div className="hidden overflow-x-auto rounded-xl bg-card md:block">
               <table className="w-full text-sm" data-testid="giornate-closer">
@@ -338,13 +390,17 @@ export default async function CloserPage({
                   {giorni.map((r) => (
                     <tr key={r.data}>
                       <th scope="row" className="px-3 py-2 text-left font-normal">
-                        <Link
-                          href={hrefGiorno(r.data, closer)}
-                          aria-label={`${formatData(r.data)}: apri la giornata`}
-                          className="num rounded-sm underline decoration-border underline-offset-4 hover:text-foreground hover:decoration-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                        >
-                          {formatData(r.data)}
-                        </Link>
+                        {setter ? (
+                          <span className="num">{formatData(r.data)}</span>
+                        ) : (
+                          <Link
+                            href={hrefGiorno(r.data, closer)}
+                            aria-label={`${formatData(r.data)}: apri la giornata`}
+                            className="num rounded-sm underline decoration-border underline-offset-4 hover:text-foreground hover:decoration-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                          >
+                            {formatData(r.data)}
+                          </Link>
+                        )}
                       </th>
                       {COLONNE.map((c) => (
                         <td key={c.campo} className={cn('num px-3 py-2 text-right', classeZero(r, c))}>
@@ -368,9 +424,19 @@ export default async function CloserPage({
             </div>
 
             <p className="px-1 text-xs text-muted-foreground">
-              Svolte, qualificate, no show, follow up, cancellate e chiuse vengono dall’esito registrato su ogni call, in
-              «Le mie call» o in «Compila la giornata» (tocca un giorno per aprirla); cash e revenue solo dai clienti
-              nuovi (prima rata e contratto), mai rate successive o rinnovi.
+              {setter ? (
+                <>
+                  Svolte, qualificate, no show, follow up, cancellate e chiuse vengono dall’esito che il closer registra su
+                  ogni call, di tutti i setter; cash e revenue solo dai clienti nuovi (prima rata e contratto), mai rate
+                  successive o rinnovi.
+                </>
+              ) : (
+                <>
+                  Svolte, qualificate, no show, follow up, cancellate e chiuse vengono dall’esito registrato su ogni call,
+                  in «Le mie call» o in «Compila la giornata» (tocca un giorno per aprirla); cash e revenue solo dai
+                  clienti nuovi (prima rata e contratto), mai rate successive o rinnovi.
+                </>
+              )}
             </p>
           </section>
 

@@ -239,33 +239,35 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- The evening email: what each cash-in is, and the day's sales by type
+-- The weekly email (riepilogo_settimana, 07/10/2026; it was the evening one):
+-- what each cash-in is, and the sales by type. One day as the interval: the
+-- new clients of the period are the ones who entered that day
 -- ---------------------------------------------------------------------------
 reset role;
 set local role service_role;
 
 select is(
-  (select (public.riepilogo_serale('2037-05-05') -> 'incassi' -> 0) - 'cliente' - 'importo' - 'metodo'),
+  (select (public.riepilogo_settimana('2037-05-05', '2037-05-05') -> 'incassi' -> 0) - 'giorno' - 'cliente' - 'importo' - 'metodo'),
   '{"tipo": "nuovo", "parte": "nuovi_clienti", "rimborso": false, "numero_rata": 1, "numero_rate": 3}'::jsonb,
   'la prima rata di A: vendita nuova, rata 1 di 3, un cliente entrato quel giorno'
 );
 
 select is(
-  (select public.riepilogo_serale('2037-05-12') -> 'incassi' -> 0 ->> 'parte'),
+  (select public.riepilogo_settimana('2037-05-12', '2037-05-12') -> 'incassi' -> 0 ->> 'parte'),
   'rate_precedenti',
   'la terza rata di B è di un cliente già entrato'
 );
 
 select is(
-  (select public.riepilogo_serale('2037-05-28') -> 'incassi' -> 0 -> 'rimborso'),
+  (select public.riepilogo_settimana('2037-05-28', '2037-05-28') -> 'incassi' -> 0 -> 'rimborso'),
   'true'::jsonb,
   'un rimborso si dice rimborso'
 );
 
 select is(
-  (select public.riepilogo_serale('2037-05-05') -> 'vendite_per_tipo'),
+  (select public.riepilogo_settimana('2037-05-05', '2037-05-05') -> 'vendite_per_tipo'),
   '{"nuovo": 1, "rinnovo": 0, "upsell": 0}'::jsonb,
-  'le vendite del giorno divise per tipo'
+  'le vendite del periodo divise per tipo'
 );
 
 -- ---------------------------------------------------------------------------

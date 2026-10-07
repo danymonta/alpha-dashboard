@@ -27,7 +27,7 @@ test.describe('tutorial al primo accesso, dal telefono', () => {
 
     const tour = page.getByTestId('tutorial')
     await expect(tour.getByRole('dialog', { name: 'Benvenuto in Alpha Management' })).toBeVisible()
-    await expect(tour).toContainText('1/10')
+    await expect(tour).toContainText('1/11')
     // nothing can be closed before the reading time
     await expect(tour.getByRole('button', { name: 'Chiudi il tutorial' })).toBeDisabled()
     await page.screenshot({ path: '.shots/tutorial-setter-1-390.png' })
@@ -42,7 +42,7 @@ test.describe('tutorial al primo accesso, dal telefono', () => {
     await page.getByRole('navigation', { name: 'Navigazione' }).getByRole('link', { name: 'Oggi' }).click()
     await expect(page).toHaveURL(/\/today/)
     await expect(tour.getByRole('dialog', { name: 'I contatori' })).toBeVisible()
-    await expect(tour).toContainText('3/10')
+    await expect(tour).toContainText('3/11')
 
     await expect(tour.getByRole('button', { name: 'Chiudi il tutorial' })).toBeEnabled({ timeout: 4000 })
     await tour.getByRole('button', { name: 'Chiudi il tutorial' }).click()
@@ -95,5 +95,5 @@ test('l’admin prova il tour di ogni ruolo da “Testa il tutorial”', async (
   // a preview marks nothing as seen
   await page.getByRole('button', { name: 'Testa il tutorial' }).click()
   await page.getByRole('menuitem', { name: 'Setter' }).click()
-  await expect(tour).toContainText('Setter · 1/10')
+  await expect(tour).toContainText('Setter · 1/11')
 })

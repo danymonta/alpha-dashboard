@@ -15,6 +15,7 @@ test('l’admin vede la navigazione completa', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Panoramica' })).toBeVisible()
 
   const nav = page.getByRole('navigation', { name: 'Navigazione principale' })
+  // Setter and Closer instead of Setting (07/10/2026)
   const voci = [
     'Panoramica',
     'Le mie call',
@@ -22,14 +23,17 @@ test('l’admin vede la navigazione completa', async ({ page }) => {
     'Pipeline',
     'Incassi',
     'Clienti',
-    'Setting',
+    'Setter',
+    'Closer',
     'Provvigioni',
     'Costi',
     'Impostazioni',
   ]
   for (const voce of voci) {
-    await expect(nav.getByRole('link', { name: voce, exact: true })).toBeVisible()
+    // "Le mie call" and "Closer" may carry the number of his outcomes to record
+    await expect(nav.getByRole('link', { name: new RegExp(`^${voce}(, \\d+ esit[io] da registrare)?$`) })).toBeVisible()
   }
+  await expect(nav.getByRole('link', { name: 'Setting', exact: true })).toHaveCount(0)
 })
 
 test('il setter atterra su Oggi e non vede le voci dell’admin', async ({ page }) => {

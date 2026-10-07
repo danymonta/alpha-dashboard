@@ -29,8 +29,11 @@
  * - 'tutti': everyone (Alfire in general, the installable app, the login).
  * A collaborator never reads about clients' payments, costs, margin, other
  * people's commissions or the admin's economics (CLAUDE.md section 6); the
- * setter may read about his own numbers, clients and commissions, the closer
- * about his calls, sales and day.
+ * setter may read about his own numbers, clients and commissions and, since
+ * 07/10/2026, about the Closer page: the closer's totals by day on every
+ * setter's calls, new clients' cash and revenue included (the second
+ * exception of section 6), never another setter's sale, client or payment;
+ * the closer about his calls, sales and day.
  *
  * Words: Italian, plain and concrete, never file or function names. `testo`,
  * `titolo` and `riassunto` are written for the owner ("tu" is Dany); when an
@@ -79,6 +82,91 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
+  {
+    versione: '1.27.0',
+    data: '2026-10-08',
+    titolo: 'Setter e Closer nel menu, la call di follow-up e il riepilogo del venerdì',
+    riassunto:
+      'Al posto di Setting due voci, Setter e Closer, che si apre sulle tue call da registrare; con «Follow-up» dici se hai fissato una call di follow-up e quando; il setter legge i numeri del closer; l’email con incassi e recap arriva solo il venerdì sera.',
+    intestazionePer: ['setter', 'closer'],
+    intestazioneTeam: {
+      titolo: 'La call di follow-up e i numeri del closer',
+      riassunto:
+        'Con «Follow-up» il closer dice se ha fissato una call di follow-up e quando: una call nuova, con lo stesso lead e lo stesso setter. Il closer trova in cima le call da registrare, il setter legge i numeri del closer di tutte le call.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'Nel menu, al posto di «Setting» con le sue due schede, ci sono due voci: «Setter», con i numeri e i report giornalieri di ogni setter, e «Closer», con i numeri del closer giorno per giorno. Gli indirizzi sono gli stessi: i link salvati e quelli di Alfire funzionano come prima.',
+      },
+      {
+        per: ['closer'],
+        testo: 'La pagina Closer si apre sulle tue call da registrare: in cima «Da registrare», le tue call passate ancora senza esito, dalla più vecchia, e «Oggi», le altre call di oggi, con gli stessi bottoni di Le mie call (Registra esito, Sposta). Con un altro closer scelto la sezione non c’è: le call da registrare sono sempre e solo le tue. Sotto, i numeri come prima.',
+        testoTeam:
+          '«I miei numeri» si apre sulle tue call da registrare: in cima «Da registrare», le tue call passate ancora senza esito, dalla più vecchia, e «Oggi», le altre call di oggi, con gli stessi bottoni di Le mie call (Registra esito, Sposta). Sotto, i tuoi numeri come prima.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Accanto a «Le mie call» e a «Closer» un numero dice quante delle tue call passate sono ancora senza esito, così ti ricordi di registrarle ogni giorno: sulla barra laterale, sulla barra in basso e su «Altro» quando la voce sta lì. Cala da solo a ogni esito registrato, si aggiorna a ogni cambio di pagina e quando torni sull’app (una call appena passata, un esito registrato dal telefono) e a zero sparisce. È solo tuo: il setter non lo vede, e nessuno vede quello di un altro.',
+        testoTeam:
+          'Accanto a «Le mie call» e a «I miei numeri» un numero dice quante delle tue call passate sono ancora senza esito, così ti ricordi di registrarle ogni giorno. Cala da solo a ogni esito registrato, si aggiorna a ogni cambio di pagina e quando torni sull’app, e a zero sparisce. Lo vedi solo tu.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Toccando «Follow-up» il foglio dell’esito chiede «Hai fissato una call di follow-up?». Con «Sì, call fissata» scegli giorno e ora: salvando, l’app crea una call nuova in quel giorno, da fare, con lo stesso lead, lo stesso setter e lo stesso closer, collegata alla prima («Follow-up della call del …»). Con «No, follow-up in chat» vai avanti senza data. Poi il motivo di non chiusura, come sempre; la scelta resta in cima con «cambia». Una call finita in follow-up senza la sua call di follow-up ha «Fissa la call di follow-up», per fissarla dopo (tu anche nel passato, fino a un anno indietro; il closer della call deve essere attivo). Se la call di follow-up è passata a un altro closer, la scheda della prima call lo dice senza giorno né bottone. La call di follow-up conta nei numeri del closer come ogni call, ma non tra le call prenotate del setter, nemmeno se elimini la call di partenza; se chiude, la vendita va al setter della prima call, con la sua provvigione.',
+        testoTeam:
+          'Toccando «Follow-up» il foglio dell’esito chiede «Hai fissato una call di follow-up?». Con «Sì, call fissata» scegli giorno e ora: salvando, l’app crea una call nuova in quel giorno, da fare, con lo stesso lead, lo stesso setter e lo stesso closer, collegata alla prima («Follow-up della call del …»). Con «No, follow-up in chat» vai avanti senza data. Poi il motivo di non chiusura, come sempre; la scelta resta in cima con «cambia». Una call finita in follow-up senza la sua call di follow-up ha «Fissa la call di follow-up», per fissarla dopo. Se la call di follow-up è passata a un altro closer, la scheda lo dice, senza giorno né bottone. La call di follow-up conta nei tuoi numeri come ogni call; se chiude, la vendita resta del setter della prima call.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Una call chiusa senza la sua vendita dice «Vendita da registrare», con «Registra la vendita» che apre la vendita già compilata col setter della call. In Le mie call queste call stanno sopra «Oggi», in «Vendita da registrare», qualunque sia il giorno, finché la vendita non c’è: così il valore di ogni call chiusa entra nei numeri e la provvigione va al suo setter. Le call importate dal foglio delle call non lo chiedono: le loro vendite vengono dall’Excel; quelle di una persona che elimini lo chiedono ancora. Una vendita già registrata da Vendite senza la call la colleghi con «La vendita c’è già: collegala», che propone le vendite senza call del cliente con lo stesso nome o handle e quelle firmate vicino alla call: niente seconda vendita. Anche la nuova vendita della call, prima del modulo, avvisa te e il closer quando trova una vendita senza call di quel cliente firmata entro un mese («Questa vendita sembra già registrata»), e da lì la colleghi; al closer la scheda dice di chiederti di collegarla. Una vendita della call con un altro closer conta come registrata anche per il closer della call.',
+        testoTeam:
+          'Una call chiusa senza la sua vendita dice «Vendita da registrare», con «Registra la vendita» che apre la vendita già compilata col setter della call. In Le mie call queste call stanno sopra «Oggi», in «Vendita da registrare», qualunque sia il giorno, finché la vendita non c’è: così cash e revenue di ogni call chiusa entrano nei tuoi numeri. Se la vendita è già stata registrata senza la call, chiedi all’admin di collegarla: «Registra la vendita» ne farebbe una seconda. La scheda te lo ricorda, e la nuova vendita della call ti avvisa prima del modulo quando trova una tua vendita senza call di quel cliente firmata entro un mese.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Il setter apre «Closer» (sul telefono in «Altro»): i numeri del closer sulle call di tutti i setter, giorno per giorno, di tutti i closer o di uno: call svolte, qualificate, no show, follow up, cancellate, chiuse, show rate e close rate, e cash e revenue dei clienti nuovi. Solo i totali di ogni giorno, in sola lettura: mai i nomi dei lead, le call, le note o le vendite degli altri setter, e niente «Compila la giornata».',
+        testoTeam:
+          'Nel menu (sul telefono in «Altro») c’è «Closer»: come vanno le call di tutti i setter, giorno per giorno, di tutti i closer o di uno: call svolte, qualificate, no show, follow up, cancellate, chiuse, show rate e close rate, e cash e revenue dei clienti nuovi. Sono i totali di ogni giorno, in sola lettura: i lead e le note degli altri setter restano loro. I tuoi numeri restano in I miei numeri.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Sulle call del setter finite in follow-up c’è «Follow-up in chat» o «Call di follow-up: giovedì 08/10 alle 18:00». La call di follow-up porta il suo nome e sta tra le sue call con «Follow-up»: se chiude, la vendita e la provvigione sono sue. Non conta tra le sue call prenotate, perché la fissa il closer; in I miei numeri sta in «In agenda nel periodo», come ogni call col suo nome, e la spiegazione ora lo dice.',
+        testoTeam:
+          'Sulle tue call finite in follow-up vedi se il closer ha fissato una call di follow-up e quando («Call di follow-up: giovedì 08/10 alle 18:00»), o «Follow-up in chat». La call di follow-up porta il tuo nome e sta tra le tue call con «Follow-up»: se chiude, la vendita è tua, con la tua provvigione. Non la conti tra le tue call prenotate: la fissa il closer. In I miei numeri sta in «In agenda nel periodo», come ogni call col tuo nome.',
+      },
+      {
+        per: ['admin'],
+        testo: 'L’email con incassi e numeri del team non arriva più ogni sera: arriva solo il venerdì sera, con la settimana da sabato a venerdì, così nessun giorno resta fuori. Dentro: il cash della settimana e di cui nuovi clienti, rate di clienti già entrati, rinnovi e upsell; le vendite firmate, le rate in ritardo e quelle in scadenza nei 7 giorni; DM, conversazioni, call prenotate, svolte, no show e chiuse; poi incassi e vendite giorno per giorno (oltre 40 incassi o 20 vendite, il link a Incassi o Vendite) e i clienti con rate in ritardo, da quelli in ritardo da più tempo (oltre 8, quanti altri e il link a Incassi). Il backup del lunedì e i promemoria dei percorsi arrivano come prima.',
+      },
+      {
+        per: ['closer'],
+        testo: 'Ad Alfire puoi dire «segna follow-up per Rossi con una call domani alle 18»: la scheda mostra l’esito e la call di follow-up, e dopo «Conferma» la crea come il foglio. Per una call già finita in follow-up, «fissa la call di follow-up con Rossi giovedì alle 18». Se il giorno non va (prima della call, o fuori dalla finestra: per il closer da oggi in avanti, per te fino a un anno indietro) o la call ne ha già una, la scheda si ferma e dice perché.',
+        testoTeam:
+          'Ad Alfire puoi dire «segna follow-up per Rossi con una call domani alle 18»: la scheda mostra l’esito e la call di follow-up, e dopo «Conferma» la crea come il foglio. Per una call già finita in follow-up, «fissa la call di follow-up con Rossi giovedì alle 18». Se il giorno non va (nel passato, prima della call) o la call ne ha già una, la scheda si ferma e dice perché.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Il setter chiede ad Alfire i numeri del closer, come la pagina Closer: «come sono andati i numeri del closer questa settimana?», anche di un closer solo. Alfire gli dice sempre che sono i numeri del closer sulle call di tutti i setter, non i suoi.',
+        testoTeam:
+          'Chiedi ad Alfire i numeri del closer, come la pagina Closer: «come sono andati i numeri del closer questa settimana?», anche di un closer solo. Alfire ti dice sempre che sono i numeri del closer sulle call di tutti i setter, non i tuoi: i tuoi te li dà come prima, quando chiedi della tua giornata.',
+      },
+      {
+        per: ['admin'],
+        testo: 'L’informativa privacy di Percorso Alpha è una pagina pubblica, su dashboard.percorsoalpha.com/privacy: si apre senza accesso, anche dal telefono, e spiega quali dati arrivano da Instagram e Facebook, a cosa servono, con chi si condividono, quanto si tengono e quali diritti ha chi ti scrive. La sezione «Come chiedere la cancellazione dei dati» ha il suo indirizzo, dashboard.percorsoalpha.com/privacy#cancellazione-dati. Nell’app di Meta usa il primo come Privacy Policy URL e il secondo come Data deletion instructions URL.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo: 'Il ripristino di un backup funziona di nuovo: si fermava sui report giornalieri (i DM totali sono calcolati e non si scrivono) e sui backup fatti prima di una colonna nuova delle call, compreso quello di lunedì 05/10. Ora ogni tabella torna con le colonne che il backup ha, e le colonne nuove prendono il loro valore di partenza.',
+      },
+      {
+        per: ['tutti'],
+        testo: 'Il bottone in alto a destra che chiude i fogli e le finestre si annuncia «Chiudi» a chi usa un lettore di schermo, e un titolo lungo va a capo prima del bottone invece di finirci sotto.',
+      },
+    ],
+  },
   {
     versione: '1.26.0',
     data: '2026-10-05',
