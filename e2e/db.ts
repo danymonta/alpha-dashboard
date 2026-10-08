@@ -230,3 +230,60 @@ export async function creaVenditaDiProva(
 
   return vendita.id as string
 }
+
+/** The six numbers of a proposal from the Instagram DMs, as the nightly job saves them. */
+export type NumeriPropostaDiProva = {
+  dm_outbound: number
+  dm_inbound: number
+  follow_up: number
+  conversazioni: number
+  call_proposte: number
+  discovery_prenotate: number
+}
+
+/**
+ * A proposal of the seed setter's report from the Instagram DMs, still to be
+ * decided, written as the nightly job writes it (service role: no session,
+ * so the database lets it in). Any earlier proposal of that day goes first.
+ */
+export async function creaPropostaInstagram(
+  data: string,
+  numeri: NumeriPropostaDiProva,
+  { chatLette = 40, chatIncerte = 0, setterId = ID_SETTER }: { chatLette?: number; chatIncerte?: number; setterId?: string } = {},
+) {
+  const db = dbLocale()
+  await pulisciProposteInstagram([data], setterId)
+  const { data: proposta, error } = await db
+    .from('report_proposte_instagram')
+    .insert({ setter_id: setterId, data, ...numeri, chat_lette: chatLette, chat_incerte: chatIncerte })
+    .select('id')
+    .single()
+  if (error) throw error
+  return proposta.id as string
+}
+
+/**
+ * A proposal still to be decided, recomputed as the nightly job or the
+ * admin's "Ricalcola ieri" recompute it: new numbers, a new calcolato_il.
+ */
+export async function ricalcolaPropostaInstagram(id: string, numeri: NumeriPropostaDiProva) {
+  const { error } = await dbLocale()
+    .from('report_proposte_instagram')
+    .update({ ...numeri, calcolato_il: new Date().toISOString() })
+    .eq('id', id)
+    .eq('stato', 'da_confermare')
+  if (error) throw error
+}
+
+/** Removes the proposals of those days, whatever their state. */
+export async function pulisciProposteInstagram(giorni: string[], setterId = ID_SETTER) {
+  const { error } = await dbLocale().from('report_proposte_instagram').delete().eq('setter_id', setterId).in('data', giorni)
+  if (error) throw error
+}
+
+/** State of a proposal, straight from the database. */
+export async function statoPropostaInstagram(id: string) {
+  const { data, error } = await dbLocale().from('report_proposte_instagram').select('stato').eq('id', id).maybeSingle()
+  if (error) throw error
+  return data?.stato ?? null
+}

@@ -278,6 +278,50 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"instagram_collegamento": {
+                  Row: {
+                    "account_id": string | null,"account_username": string | null,"created_at": string,"id": boolean,"setter_id": string | null,"token_aggiornato_il": string | null,"token_scade_il": string | null,"ultimo_calcolo_chat": number | null,"ultimo_calcolo_giorno": string | null,"ultimo_calcolo_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"updated_at": string,"updated_by": string | null
+                  }
+                  Insert: {
+                    "account_id"?: string | null,"account_username"?: string | null,"created_at"?: string,"id"?: boolean,"setter_id"?: string | null,"token_aggiornato_il"?: string | null,"token_scade_il"?: string | null,"ultimo_calcolo_chat"?: number | null,"ultimo_calcolo_giorno"?: string | null,"ultimo_calcolo_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "account_id"?: string | null,"account_username"?: string | null,"created_at"?: string,"id"?: boolean,"setter_id"?: string | null,"token_aggiornato_il"?: string | null,"token_scade_il"?: string | null,"ultimo_calcolo_chat"?: number | null,"ultimo_calcolo_giorno"?: string | null,"ultimo_calcolo_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "instagram_collegamento_setter_id_fkey"
+      columns: ["setter_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "instagram_collegamento_updated_by_fkey"
+      columns: ["updated_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"instagram_esclusi": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"motivo": string | null,"updated_at": string,"username": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"updated_at"?: string,"username": string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"updated_at"?: string,"username"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "instagram_esclusi_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"invites": {
                   Row: {
                     "created_at": string,"email": string,"invitato_da": string | null,"revocato": boolean,"ruolo": Database["public"]['Enums']["app_role"],"updated_at": string,"usato_at": string | null
@@ -817,6 +861,25 @@ isOneToOne: false
       referencedColumns: ["sale_id"]
     }
                   ]
+                },"report_proposte_instagram": {
+                  Row: {
+                    "calcolato_il": string,"call_proposte": number,"chat_incerte": number,"chat_lette": number,"conversazioni": number,"created_at": string,"data": string,"deciso_il": string | null,"discovery_prenotate": number,"dm_inbound": number,"dm_outbound": number,"follow_up": number,"id": string,"setter_id": string,"stato": Database["public"]['Enums']["proposta_stato"],"updated_at": string
+                  }
+                  Insert: {
+                    "calcolato_il"?: string,"call_proposte"?: number,"chat_incerte"?: number,"chat_lette"?: number,"conversazioni"?: number,"created_at"?: string,"data": string,"deciso_il"?: string | null,"discovery_prenotate"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"follow_up"?: number,"id"?: string,"setter_id": string,"stato"?: Database["public"]['Enums']["proposta_stato"],"updated_at"?: string
+                  }
+                  Update: {
+                    "calcolato_il"?: string,"call_proposte"?: number,"chat_incerte"?: number,"chat_lette"?: number,"conversazioni"?: number,"created_at"?: string,"data"?: string,"deciso_il"?: string | null,"discovery_prenotate"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"follow_up"?: number,"id"?: string,"setter_id"?: string,"stato"?: Database["public"]['Enums']["proposta_stato"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "report_proposte_instagram_setter_id_fkey"
+      columns: ["setter_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"sales": {
                   Row: {
                     "call_id": string | null,"client_id": string,"closer_id": string | null,"created_at": string,"created_by": string | null,"data_fine": string,"data_inizio": string,"data_vendita": string,"id": string,"note": string | null,"numero_rate": number,"prodotto_personalizzato": string | null,"product_id": string | null,"setter_id": string | null,"tipo": Database["public"]['Enums']["sale_type"],"updated_at": string,"valore_contratto": number
@@ -1241,6 +1304,37 @@ isOneToOne: false
               "cosa_frenava": string,"data": string,"domande_contenuti": string,"giorni": number,"lead_in_target": Database["public"]['Enums']["quota_in_target"],"livello": string,"note": string,"qualita_conversazioni": Database["public"]['Enums']["qualita_conversazioni"],"quota": number,"report_id": string,"scala": string,"setter": string,"setter_id": string,"su_giorni": number,"tipo": string
             }[]
                            },
+"conferma_proposta_instagram":
+{ Args: { "p_calcolato_il"?: string,"p_id": string,"p_valori"?: Json }; Returns: {
+              "call_proposte": number,
+"call_qualificate": number,
+"contenuto_pubblicato": boolean,
+"conversazioni": number,
+"cosa_frenava": string | null,
+"created_at": string,
+"created_by": string | null,
+"data": string,
+"discovery_prenotate": number,
+"discovery_svolte": number,
+"dm_inbound": number,
+"dm_outbound": number,
+"dm_totali": number | null,
+"domande_contenuti": string | null,
+"follow_up": number,
+"id": string,
+"lead_in_target": Database["public"]['Enums']["quota_in_target"] | null,
+"note": string | null,
+"qualita_conversazioni": Database["public"]['Enums']["qualita_conversazioni"] | null,
+"setter_id": string,
+"strategy_prenotate": number,
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "setter_daily_reports"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "copia_costi_ricorrenti":
 { Args: { "p_mese": string }; Returns: number
                            },
@@ -1259,6 +1353,9 @@ isOneToOne: false
                            },
 "dettagli_call":
 { Args: { "p_call_id": string,"p_importo_proposto"?: number,"p_link_registrazione"?: string,"p_note_closer"?: string,"p_performance"?: Database["public"]['Enums']["call_performance"],"p_prodotto_proposto_id"?: string }; Returns: undefined
+                           },
+"discovery_prenotate_del_giorno":
+{ Args: { "p_data": string,"p_setter": string }; Returns: number
                            },
 "elimina_call":
 { Args: { "p_call_id": string }; Returns: undefined
@@ -1319,6 +1416,27 @@ isOneToOne: false
                            },
 "inserisci_piano":
 { Args: { "p_rate": Json,"p_sale_id": string }; Returns: undefined
+                           },
+"instagram_errore":
+{ Args: { "p_messaggio": string }; Returns: undefined
+                           },
+"instagram_imposta_token":
+{ Args: { "p_token": string }; Returns: undefined
+                           },
+"instagram_salva_proposta":
+{ Args: { "p_call_proposte": number,"p_chat_incerte": number,"p_chat_lette": number,"p_conversazioni": number,"p_data": string,"p_discovery_prenotate"?: number,"p_dm_inbound": number,"p_dm_outbound": number,"p_follow_up": number,"p_setter": string }; Returns: string
+                           },
+"instagram_togli_token":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"instagram_token":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"instagram_token_presente":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"instagram_token_rinnovato":
+{ Args: { "p_scade_il": string,"p_token": string,"p_vecchio": string }; Returns: boolean
                            },
 "interrompi_percorso":
 { Args: { "p_esegui"?: boolean,"p_sale_id": string,"p_togli_rate": boolean,"p_ultimo_giorno": string }; Returns: {
@@ -1568,6 +1686,9 @@ isOneToOne: false
 "rinumera_rate":
 { Args: { "p_sale_id": string }; Returns: undefined
                            },
+"scarta_proposta_instagram":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
 "segna_rata_incassata":
 { Args: { "p_importo"?: number,"p_incassato_il"?: string,"p_metodo"?: Database["public"]['Enums']["payment_method"],"p_payment_id": string }; Returns: {
               "data_registrata": string,"importo_registrato": number,"rata": number
@@ -1595,7 +1716,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","expense_category": "team"|"software"|"ads"|"formazione"|"altro","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
+            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","expense_category": "team"|"software"|"ads"|"formazione"|"altro","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","proposta_stato": "da_confermare"|"confermata"|"scartata","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1711,7 +1832,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "app_role": ["admin", "setter", "closer", "coach", "editor", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
+            "app_role": ["admin", "setter", "closer", "coach", "editor", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"proposta_stato": ["da_confermare", "confermata", "scartata"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
           }
         }
 } as const

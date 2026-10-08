@@ -1,9 +1,18 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
+import {
+  CAMPI_PROPOSTA,
+  PROPOSTE_MAX,
+  haNumeri,
+  numeriDi,
+  type NumeriProposta,
+  type PropostaInstagram,
+} from '@/app/(app)/today/proposta-instagram'
 import { ReportForm } from '@/app/(app)/today/report-form'
 import { SceltaGiorno } from '@/app/(app)/today/scelta-giorno'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
+import { ProposteInstagram } from '@/components/setter/proposte-instagram'
 import { LinkInsight24h } from '@/components/setting/insight-24h'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, dataReportValida, etichettaGiorno, oggiRoma } from '@/lib/date'
@@ -31,6 +40,12 @@ const VOCI_LEGENDA = [
   LEGENDA_SETTING.prenotate_outbound,
 ]
 
+/** The page title: where the focus goes once the last proposal is decided. */
+const ID_TITOLO = 'titolo-giorno'
+
+// calcolato_il: the confirmation carries it back, so a proposal recomputed meanwhile is never confirmed unseen
+const COLONNE_PROPOSTA = ['id', 'data', ...CAMPI_PROPOSTA, 'chat_lette', 'chat_incerte', 'calcolato_il'].join(', ')
+
 function hrefGiorno(data: string, oggi: string) {
   return data === oggi ? '/today' : `/today?data=${data}`
 }
@@ -45,16 +60,44 @@ export default async function OggiPage({
   const data = dataReportValida((await searchParams).data, oggi)
 
   const supabase = await createClient()
-  const { data: report, error } = await supabase
-    .from('setter_daily_reports')
-    .select(
-      'dm_outbound, dm_inbound, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, follow_up, contenuto_pubblicato, note, lead_in_target, qualita_conversazioni, cosa_frenava, domande_contenuti, created_at, updated_at, dm_totali',
-    )
-    .eq('setter_id', profilo.id)
-    .eq('data', data)
-    .maybeSingle()
+  const [{ data: report, error }, proposte, decisaDelGiorno] = await Promise.all([
+    supabase
+      .from('setter_daily_reports')
+      .select(
+        'dm_outbound, dm_inbound, conversazioni, call_proposte, discovery_prenotate, discovery_svolte, call_qualificate, strategy_prenotate, follow_up, contenuto_pubblicato, note, lead_in_target, qualita_conversazioni, cosa_frenava, domande_contenuti, created_at, updated_at, dm_totali',
+      )
+      .eq('setter_id', profilo.id)
+      .eq('data', data)
+      .maybeSingle(),
+    // the proposals from the Instagram DMs still to decide (Dany, 08/10/2026): only his, by RLS too
+    supabase
+      .from('report_proposte_instagram')
+      .select(COLONNE_PROPOSTA)
+      .eq('setter_id', profilo.id)
+      .eq('stato', 'da_confermare')
+      .order('data', { ascending: false })
+      .limit(PROPOSTE_MAX + 1)
+      .overrideTypes<PropostaInstagram[], { merge: false }>(),
+    // a decision on the open day rewrites its numbers: the form below reloads them
+    supabase
+      .from('report_proposte_instagram')
+      .select('deciso_il')
+      .eq('setter_id', profilo.id)
+      .eq('data', data)
+      .neq('stato', 'da_confermare')
+      .maybeSingle(),
+  ])
 
   if (error) throw new Error('Impossibile caricare il report')
+
+  const daDecidere = (proposte.data ?? []).slice(0, PROPOSTE_MAX)
+  const { tuoi, errore: erroreTuoi } = await numeriDelSetter(
+    supabase,
+    profilo.id,
+    daDecidere.map((p) => p.data).filter((giorno) => giorno !== data),
+  )
+  // his numbers of the open day are already here
+  if (report && haNumeri(report) && daDecidere.some((p) => p.data === data)) tuoi[data] = numeriDi(report)
 
   const iniziale: ValoriReport = report
     ? {
@@ -91,7 +134,7 @@ export default async function OggiPage({
         </NavGiorno>
 
         <div className="min-w-0 text-center">
-          <h1 className="font-heading text-xl font-semibold">
+          <h1 id={ID_TITOLO} tabIndex={-1} className="font-heading text-xl font-semibold outline-none">
             {etichettaGiorno(data, oggi)}
           </h1>
           <SceltaGiorno data={data} oggi={oggi} />
@@ -105,13 +148,24 @@ export default async function OggiPage({
         </NavGiorno>
       </header>
 
+      {/* the day's numbers from the Instagram DMs, to confirm: only here, only his (08/10/2026) */}
+      <ProposteInstagram
+        proposte={daDecidere}
+        tuoi={tuoi}
+        oggi={oggi}
+        dataAperta={data}
+        altre={(proposte.data?.length ?? 0) > PROPOSTE_MAX}
+        errore={!!proposte.error || erroreTuoi || !!decisaDelGiorno.error}
+        idTitoloPagina={ID_TITOLO}
+      />
+
       {/* the DM insights of the last 24 hours, in Dany's Claude artifact (08/10/2026) */}
       <div className="mb-4 flex justify-center">
         <LinkInsight24h className="w-full sm:w-auto" />
       </div>
 
       <ReportForm
-        key={data}
+        key={`${data}:${decisaDelGiorno.data?.deciso_il ?? ''}`}
         data={data}
         oggi={oggi}
         iniziale={iniziale}
@@ -125,6 +179,31 @@ export default async function OggiPage({
       </div>
     </div>
   )
+}
+
+/**
+ * The setter's own numbers on the days of his proposals, where he wrote some:
+ * the card puts them next to Instagram's. A failed read is an error, never
+ * "no numbers" (a confirmation would then replace his numbers unseen).
+ */
+async function numeriDelSetter(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  setterId: string,
+  giorni: string[],
+): Promise<{ tuoi: Record<string, NumeriProposta>; errore: boolean }> {
+  const tuoi: Record<string, NumeriProposta> = {}
+  if (giorni.length === 0) return { tuoi, errore: false }
+  const { data, error } = await supabase
+    .from('setter_daily_reports')
+    .select(['data', ...CAMPI_PROPOSTA].join(', '))
+    .eq('setter_id', setterId)
+    .in('data', giorni)
+    .overrideTypes<(NumeriProposta & { data: string })[], { merge: false }>()
+  if (error) return { tuoi, errore: true }
+  for (const riga of data ?? []) {
+    if (haNumeri(riga)) tuoi[riga.data] = numeriDi(riga)
+  }
+  return { tuoi, errore: false }
 }
 
 function NavGiorno({

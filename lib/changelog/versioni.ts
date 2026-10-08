@@ -83,6 +83,41 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.29.0',
+    data: '2026-10-08',
+    titolo: 'Il report del setter precompilato dai DM di Instagram',
+    riassunto:
+      'Ogni notte l’app conta i DM dell’account del giorno prima e propone al setter i numeri del suo report: lui li conferma, li corregge o tiene i suoi. Instagram lo colleghi da Impostazioni.',
+    intestazionePer: ['setter'],
+    intestazioneTeam: {
+      titolo: 'Il report di ieri, già compilato dai DM',
+      riassunto:
+        'Ogni notte l’app conta i DM dell’account del giorno prima e in Oggi ti propone i numeri del report: li confermi, li correggi o tieni i tuoi.',
+    },
+    novita: [
+      {
+        per: ['setter'],
+        testo: 'In Oggi il setter trova la scheda «Da Instagram · ieri», con i numeri del giorno prima contati dai DM dell’account: DM outbound, DM inbound, follow up, conversazioni, call proposte (le chat in cui è partito il link di Calendly) e discovery prenotate (le call che ha fissato nell’app quel giorno). «Conferma» li scrive nel suo report; «Correggi» apre gli stessi contatori di Oggi già compilati, da sistemare prima di confermare. Se quel giorno aveva già scritto i suoi numeri, ogni riga dice «tu 52 · Instagram 53» e lui sceglie «Usa quelli di Instagram» o «Tieni i miei». Le domande di «Com’è andata la giornata» restano sue. La proposta la vede solo lui: tu vedi il report come lo conferma, come prima, e niente si conferma da solo.',
+        testoTeam:
+          'In Oggi trovi la scheda «Da Instagram · ieri», con i numeri del giorno prima contati dai DM dell’account: DM outbound, DM inbound, follow up, conversazioni, call proposte (le chat in cui è partito il link di Calendly) e discovery prenotate (le call che hai fissato nell’app quel giorno). «Conferma» li scrive nel tuo report; «Correggi» apre gli stessi contatori di Oggi già compilati, da sistemare prima di confermare. Se quel giorno avevi già scritto i tuoi numeri, ogni riga dice «tu 52 · Instagram 53» e scegli tu: «Usa quelli di Instagram» o «Tieni i miei». Le domande di «Com’è andata la giornata» restano tue. La proposta la vedi solo tu, niente si conferma da solo e la tua scelta vince sempre.',
+      },
+      {
+        per: ['setter'],
+        testo: 'La scheda dice quante chat ha letto e quante sono lunghe: Instagram dà solo gli ultimi 20 messaggi di ogni chat, e nelle chat lunghe qualcosa può sfuggire. Conta tutto quello che parte dall’account, anche i messaggi che scrivi tu, e mai le chat che escludi: quando un numero non torna, il setter lo corregge.',
+        testoTeam:
+          'La scheda dice quante chat ha letto e quante sono lunghe: Instagram dà solo gli ultimi 20 messaggi di ogni chat, e nelle chat lunghe qualcosa può sfuggire. Conta tutto quello che parte dall’account, anche i messaggi che scrive Dany, e mai le chat escluse (account del team, clienti, amici): quando un numero non torna, correggilo.',
+      },
+      {
+        per: ['admin'],
+        testo: 'In Impostazioni › Instagram colleghi i DM: incolli il token generato dal pannello Meta (si salva cifrato, non si mostra più e si rinnova da solo ogni settimana), scegli chi lavora i DM e tieni aggiornate le chat escluse, come clienti e amici, che non contano mai. In cima l’account, la scadenza del token, l’ultimo calcolo con le chat lette e l’ultimo errore; se il token scade, un avviso rosso ti dice di generarne uno nuovo. «Ricalcola ieri» rilegge i DM di ieri e rifà la proposta, per esempio dopo un token nuovo. I numeri della proposta non li vedi mai, nemmeno nel backup: tu vedi il report come il setter lo conferma.',
+      },
+      {
+        per: ['admin'],
+        testo: 'L’informativa privacy dice che ogni notte l’app conta i messaggi dell’account per il report del setter, senza salvarne il testo e senza passarli a un’intelligenza artificiale.',
+      },
+    ],
+  },
+  {
     versione: '1.28.0',
     data: '2026-10-08',
     titolo: 'Insight delle ultime 24h',

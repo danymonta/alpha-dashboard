@@ -196,6 +196,13 @@ const SEZIONI: Sezione[] = [
           Percorso Alpha, collegate a un assistente di intelligenza artificiale, Claude di Anthropic. L’assistente ci
           aiuta a leggere e organizzare i messaggi e le statistiche e a preparare le risposte.
         </p>
+        <p>
+          Ogni notte il nostro gestionale conta anche i messaggi diretti del giorno prima dell’account di Percorso Alpha,
+          per precompilare il report giornaliero di chi gestisce i messaggi: ne conserva solo i totali del giorno (per
+          esempio quante conversazioni e quante call proposte), mai il testo, e non passa i messaggi a nessuna
+          intelligenza artificiale. Per questo conteggio non conserviamo il tuo username, salvo quando escludiamo la tua
+          chat (per esempio perché sei già un cliente).
+        </p>
         <Elenco>
           <li>
             Nessuna risposta, nessun messaggio e nessuna pubblicazione parte senza l’intervento di una persona del team.

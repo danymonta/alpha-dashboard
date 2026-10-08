@@ -62,6 +62,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'export', url: '/settings/export' },
     { nome: 'registro', url: '/settings/audit' },
     { nome: 'impostazioni-progetti', url: '/settings/progetti' },
+    { nome: 'impostazioni-instagram', url: '/settings/instagram' },
     CHANGELOG,
     PROGETTI,
     ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE),
