@@ -392,8 +392,10 @@ export function ReportForm({
     }
 
     const suVisibilita = () => {
-      if (document.visibilityState === 'hidden') void salva()
-      else if (document.visibilityState === 'visible') void controlla()
+      // only what is waiting goes out: switching tab on an untouched day never creates an empty report
+      if (document.visibilityState === 'hidden') {
+        if (!nienteDaSalvare()) void salva()
+      } else if (document.visibilityState === 'visible') void controlla()
     }
     const primaDiUscire = (e: BeforeUnloadEvent) => {
       if (inSospeso) e.preventDefault()

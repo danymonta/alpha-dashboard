@@ -83,6 +83,22 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.30.1',
+    data: '2026-10-08',
+    titolo: 'Oggi non salva più a vuoto cambiando scheda',
+    riassunto: 'Cambiando scheda o app, Oggi salva solo quello che il setter ha appena toccato.',
+    intestazionePer: ['setter'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['setter'],
+        testo: 'Quando il setter passava a un’altra scheda o a Instagram, Oggi salvava sempre: su un giorno mai toccato creava un report tutto a zero, su uno già salvato lo riscriveva uguale. Ora salva solo quello che aspetta (un tocco appena fatto, un salvataggio non riuscito): un giorno che non ha compilato resta vuoto.',
+        testoTeam:
+          'Quando passavi a un’altra scheda o a Instagram, Oggi salvava sempre: su un giorno mai toccato creava un report tutto a zero, su uno già salvato lo riscriveva uguale. Ora salva solo quello che hai appena toccato o che non era riuscito a salvare: un giorno che non hai compilato resta vuoto.',
+      },
+    ],
+  },
+  {
     versione: '1.30.0',
     data: '2026-10-08',
     titolo: 'Approvi anche tu il tracciamento dei setter',

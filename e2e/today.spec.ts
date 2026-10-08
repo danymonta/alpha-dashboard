@@ -143,6 +143,42 @@ test.describe('Oggi, report giornaliero del setter', () => {
     await expect(campo(page, 'Call proposte')).toHaveValue('1')
   })
 
+  test('cambiare scheda salva solo quello che aspetta: mai un report vuoto, mai un salvataggio a vuoto', async ({
+    page,
+  }) => {
+    const vuoto = aggiungiGiorni(oggiRoma(), -46)
+    const pieno = aggiungiGiorni(oggiRoma(), -47)
+    const primaVuoto = await rigaDelGiorno(vuoto)
+    const primaPieno = await rigaDelGiorno(pieno)
+    try {
+      await ripristinaGiorno(vuoto, null)
+      await impostaGiorno(pieno, 9)
+      const versione = (await rigaDelGiorno(pieno))?.updated_at
+
+      // an untouched day without a report: switching tab creates nothing
+      await page.goto(`/today?data=${vuoto}`)
+      await expect(page.getByText('Non ancora compilato')).toBeVisible()
+      await tornaSullApp(page)
+      await page.waitForTimeout(1500)
+      expect(await rigaDelGiorno(vuoto)).toBeNull()
+
+      // a saved day, nothing changed: switching tab writes nothing
+      await page.goto(`/today?data=${pieno}`)
+      await expect(campo(page, 'DM outbound')).toHaveValue('9')
+      await tornaSullApp(page)
+      await page.waitForTimeout(1500)
+      expect((await rigaDelGiorno(pieno))?.updated_at).toBe(versione)
+
+      // a change still waiting goes out when the tab is left
+      await page.getByRole('button', { name: 'DM outbound: più 1' }).click()
+      await tornaSullApp(page)
+      await expect.poll(async () => (await rigaDelGiorno(pieno))?.dm_outbound).toBe(10)
+    } finally {
+      await ripristinaGiorno(vuoto, primaVuoto)
+      await ripristinaGiorno(pieno, primaPieno)
+    }
+  })
+
   test('ogni numero dice cosa conta e la strategy non si compila più', async ({ page }) => {
     await page.goto('/today')
 
