@@ -125,6 +125,10 @@ test('l’admin ha Setter e Closer nella barra laterale, ognuna accesa sulla sua
   await expect(closer).not.toHaveAttribute('aria-current', 'page')
   // no tabs on top any more: the two pages are two items
   await expect(page.getByRole('navigation', { name: 'Setter e closer' })).toHaveCount(0)
+  // the DM insights live in a Claude artifact: a link out, in a new tab (08/10/2026)
+  const insight = page.getByRole('link', { name: 'Insight delle ultime 24h (si apre in una nuova scheda)' })
+  await expect(insight).toHaveAttribute('href', 'https://claude.ai/artifact/PKRVEjLi5FMv9RL1rWYHyM')
+  await expect(insight).toHaveAttribute('target', '_blank')
 
   await closer.click()
   await expect(page).toHaveURL('/setting/closer')

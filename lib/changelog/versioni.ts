@@ -83,6 +83,19 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.28.0',
+    data: '2026-10-08',
+    titolo: 'Insight delle ultime 24h',
+    riassunto: 'Nella pagina Setter un pulsante apre il tuo recap dei DM Instagram delle ultime 24 ore.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'In cima alla pagina Setter, accanto ad «Aggiungi giornata», c’è «Insight delle ultime 24h», con le stelline: apre in una nuova scheda il tuo recap dei DM Instagram su Claude. L’app non legge né salva i DM: è solo il collegamento.',
+      },
+    ],
+  },
+  {
     versione: '1.27.0',
     data: '2026-10-08',
     titolo: 'Setter e Closer nel menu, la call di follow-up e il riepilogo del venerdì',
