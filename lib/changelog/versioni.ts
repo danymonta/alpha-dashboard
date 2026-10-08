@@ -86,12 +86,22 @@ export const VERSIONI: readonly Versione[] = [
     versione: '1.28.0',
     data: '2026-10-08',
     titolo: 'Insight delle ultime 24h',
-    riassunto: 'Nella pagina Setter un pulsante apre il tuo recap dei DM Instagram delle ultime 24 ore.',
-    intestazionePer: ['admin'],
+    riassunto: 'Nella pagina Setter, e per il setter in Oggi e I miei numeri, un pulsante apre il recap dei DM Instagram delle ultime 24 ore.',
+    intestazionePer: ['setter'],
+    intestazioneTeam: {
+      titolo: 'Insight delle ultime 24h',
+      riassunto: 'In Oggi e in I miei numeri un pulsante apre il recap dei DM Instagram delle ultime 24 ore.',
+    },
     novita: [
       {
         per: ['admin'],
         testo: 'In cima alla pagina Setter, accanto ad «Aggiungi giornata», c’è «Insight delle ultime 24h», con le stelline: apre in una nuova scheda il tuo recap dei DM Instagram su Claude. L’app non legge né salva i DM: è solo il collegamento.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Anche il setter ha «Insight delle ultime 24h», in Oggi e in I miei numeri: apre lo stesso recap su Claude, che lui vede quando glielo condividi da claude.ai.',
+        testoTeam:
+          'In Oggi e in I miei numeri c’è «Insight delle ultime 24h», con le stelline: apre in una nuova scheda il recap dei DM Instagram delle ultime 24 ore su Claude.',
       },
     ],
   },

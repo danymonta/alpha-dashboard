@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ReportForm } from '@/app/(app)/today/report-form'
 import { SceltaGiorno } from '@/app/(app)/today/scelta-giorno'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
+import { LinkInsight24h } from '@/components/setting/insight-24h'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, dataReportValida, etichettaGiorno, oggiRoma } from '@/lib/date'
 import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
@@ -103,6 +104,11 @@ export default async function OggiPage({
           <ChevronRight className="size-5" aria-hidden="true" />
         </NavGiorno>
       </header>
+
+      {/* the DM insights of the last 24 hours, in Dany's Claude artifact (08/10/2026) */}
+      <div className="mb-4 flex justify-center">
+        <LinkInsight24h className="w-full sm:w-auto" />
+      </div>
 
       <ReportForm
         key={data}

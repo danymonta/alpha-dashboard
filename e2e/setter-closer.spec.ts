@@ -216,6 +216,16 @@ test('il setter sul telefono: i giorni non aprono la giornata, niente scroll di 
   await page.screenshot({ path: '.shots/setter-closer-390.png', fullPage: true })
 })
 
+test('il setter apre gli insight delle ultime 24h da Oggi e da I miei numeri', async ({ page }) => {
+  await accedi(page, 'setter')
+  for (const pagina of ['/today', '/my-numbers']) {
+    await page.goto(pagina)
+    const insight = page.getByRole('link', { name: 'Insight delle ultime 24h (si apre in una nuova scheda)' })
+    await expect(insight).toHaveAttribute('href', 'https://claude.ai/artifact/PKRVEjLi5FMv9RL1rWYHyM')
+    await expect(insight).toHaveAttribute('target', '_blank')
+  }
+})
+
 test('il coach non apre la pagina del closer', async ({ page }) => {
   await accedi(page, 'coach')
   await page.goto('/setting/closer')
