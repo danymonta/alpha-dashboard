@@ -134,6 +134,52 @@ export const REPORT_VUOTO: ValoriReport = {
   domande_contenuti: null,
 }
 
+/** The fields of the form, in the order of ValoriReport. */
+const CAMPI_VALORI_REPORT = [
+  ...CAMPI_NUMERICI_REPORT,
+  'contenuto_pubblicato',
+  'note',
+  'lead_in_target',
+  'qualita_conversazioni',
+  'cosa_frenava',
+  'domande_contenuti',
+] as const satisfies readonly (keyof ValoriReport)[]
+
+/** The form's values of a saved report (the row carries more columns: only these). */
+export function valoriDaRiga(riga: ValoriReport): ValoriReport {
+  return {
+    dm_outbound: riga.dm_outbound,
+    dm_inbound: riga.dm_inbound,
+    conversazioni: riga.conversazioni,
+    call_proposte: riga.call_proposte,
+    discovery_prenotate: riga.discovery_prenotate,
+    discovery_svolte: riga.discovery_svolte,
+    call_qualificate: riga.call_qualificate,
+    strategy_prenotate: riga.strategy_prenotate,
+    follow_up: riga.follow_up,
+    contenuto_pubblicato: riga.contenuto_pubblicato,
+    note: riga.note,
+    lead_in_target: riga.lead_in_target,
+    qualita_conversazioni: riga.qualita_conversazioni,
+    cosa_frenava: riga.cosa_frenava,
+    domande_contenuti: riga.domande_contenuti,
+  }
+}
+
+const valoriReportSchema = reportGiornalieroSchema.omit({ data: true })
+
+/**
+ * The values as the database stores them (a blank text is null, an answer left
+ * out is null), in one string: the values the form sent and the row read back
+ * give the same string when that row is what the form sent. Null when the
+ * values are not valid (such a save is refused, it never lands).
+ */
+export function chiaveValoriSalvati(valori: ValoriReport): string | null {
+  const letti = valoriReportSchema.safeParse(valori)
+  if (!letti.success) return null
+  return JSON.stringify(CAMPI_VALORI_REPORT.map((campo) => letti.data[campo] ?? null))
+}
+
 /** The admin corrects an existing report: same fields, the day stays the same. */
 export const correzioneReportSchema = reportGiornalieroSchema
   .omit({ data: true })

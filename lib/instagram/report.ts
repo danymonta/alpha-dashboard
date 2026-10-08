@@ -28,13 +28,15 @@ import type { createAdminClient } from '@/lib/supabase/admin'
  * everything sent from it is the connected setter's setting), counts the day
  * with lib/setting/conteggio-dm and leaves a PROPOSAL for the setter
  * (public.instagram_salva_proposta). Never confirmed by itself: the setter
- * confirms it, as it is or corrected, or discards it, and a decided proposal
- * is never touched again.
+ * confirms it, as it is or corrected, or discards it, and so can the admin
+ * (08/10/2026): the first decision wins, and a decided proposal is never
+ * touched again.
  *
  * Nothing of the messages is kept: no text, no username of a lead, only the
  * day's numbers. What this returns, and what it logs, is the outcome and the
- * number of chats: never the proposal's numbers (only the setter sees them),
- * never a username, never the token.
+ * number of chats: never the proposal's numbers (they are on the cards: the
+ * setter's in Oggi, the admin's on the Setter page, read with each one's
+ * session), never a username, never the token.
  *
  * Any failure (no token, token expired, network, Meta's limits) is recorded
  * for the admin in Italian (public.instagram_errore, which blanks any token)

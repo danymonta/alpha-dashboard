@@ -1,10 +1,11 @@
 -- The setter's report precompiled from Instagram (Dany, 08/10/2026). The
 -- connection and the excluded accounts: admin only. The token: in Vault, set
 -- and removed by the admin, never readable from a session, read only by the
--- service role, never in an error or in the backup. The proposals: only their
--- setter reads them and decides (never their numbers), the admin does not see
--- them (not even in the backup), only the service role writes them and never
--- over a decision. The confirmation writes the 6 numbers (his correction or
+-- service role, never in an error or in the backup. The proposals: their
+-- setter reads them and decides (never their numbers), the admin too since
+-- 08/10/2026 (64_proposte_anche_admin.sql: only through the two functions),
+-- only the service role writes them and never over a decision; the backup
+-- takes them. The confirmation writes the 6 numbers (his correction or
 -- the proposal's) into his own report of that day, leaving the rest as it
 -- was, and only as he saw them (a proposal recomputed after he read it is
 -- refused); discarding keeps his numbers. discovery_prenotate counts his bookings of the day, follow-up calls
@@ -61,7 +62,7 @@ select ok(
   (select bool_and(not p.prosecdef and p.proconfig @> array['search_path=""'])
    from pg_proc p
    where p.oid in (
-     'public.conferma_proposta_instagram(uuid, jsonb, timestamptz)'::regprocedure,
+     'public.conferma_proposta_instagram(uuid, jsonb, timestamptz, jsonb)'::regprocedure,
      'public.scarta_proposta_instagram(uuid)'::regprocedure,
      'public.instagram_salva_proposta(uuid, date, integer, integer, integer, integer, integer, integer, integer, integer)'::regprocedure,
      'public.discovery_prenotate_del_giorno(uuid, date)'::regprocedure
@@ -90,7 +91,7 @@ select ok(
      'public.instagram_imposta_token(text)',
      'public.instagram_togli_token()',
      'public.instagram_token_presente()',
-     'public.conferma_proposta_instagram(uuid, jsonb, timestamptz)',
+     'public.conferma_proposta_instagram(uuid, jsonb, timestamptz, jsonb)',
      'public.scarta_proposta_instagram(uuid)'
    ]) as f),
   'collegare, scollegare, confermare e scartare: chi è entrato, mai anon'
@@ -187,7 +188,7 @@ select throws_ok(
 select throws_ok(
   $$ update public.instagram_collegamento set setter_id = '11111111-1111-4111-8111-111111111111' where id $$,
   '22023', 'I DM di Instagram li lavora un setter attivo: scegli un setter del team',
-  'l''admin nemmeno: la proposta la legge solo un setter'
+  'l''admin nemmeno: i DM li lavora un setter'
 );
 select throws_ok(
   $$ update public.instagram_collegamento set ultimo_errore = null, token_scade_il = now() where id $$,
@@ -400,7 +401,9 @@ insert into proposte (giorno, id) select 'F', id from n;
 -- ---------------------------------------------------------------------------
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
-select is((select count(*)::integer from public.report_proposte_instagram), 6, 'il setter legge le sue proposte');
+-- only this file's proposals: a run of the e2e tests, or "Ricalcola ieri", may leave others
+select is((select count(*)::integer from public.report_proposte_instagram where id in (select id from proposte)), 6,
+  'il setter legge le sue proposte');
 select throws_ok(
   $$ select public.discovery_prenotate_del_giorno('22222222-2222-4222-8222-222222222222', '2025-03-10') $$,
   '42501', null, 'il conteggio delle prenotate resta al lavoro notturno'
@@ -437,15 +440,17 @@ select throws_ok(
 );
 
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
-select is((select count(*)::integer from public.report_proposte_instagram), 0,
-  'l''admin non vede le proposte: vede il report come lo conferma il setter');
+select is((select count(*)::integer from public.report_proposte_instagram where id in (select id from proposte)), 6,
+  'l''admin vede le proposte del setter (08/10/2026)');
 select throws_ok(
-  format('select public.conferma_proposta_instagram(%L)', (select id from proposte where giorno = 'A')),
-  '42501', 'La proposta la decide il setter che lavora i DM', 'e non le conferma'
+  $$ update public.report_proposte_instagram set stato = 'confermata' where data = '2025-03-10' $$,
+  '42501', 'La proposta si conferma con Conferma, che scrive i numeri nel report',
+  'e non la segna confermata senza scrivere il report'
 );
 select throws_ok(
-  format('select public.scarta_proposta_instagram(%L)', (select id from proposte where giorno = 'A')),
-  '42501', 'La proposta la decide il setter che lavora i DM', 'né le scarta'
+  $$ update public.report_proposte_instagram set stato = 'scartata' where data = '2025-03-10' $$,
+  '42501', 'La proposta si scarta dalla sua scheda, che tiene i numeri del setter',
+  'né scartata senza la sua funzione'
 );
 set local request.jwt.claims to '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
 select is((select count(*)::integer from public.report_proposte_instagram), 0, 'il closer non le vede');
@@ -706,15 +711,15 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- The backup takes the connection and the excluded accounts, never the
--- token, never the proposals (the admin's file: section 6)
+-- The backup takes the connection, the excluded accounts and (since
+-- 08/10/2026) the proposals, never the token
 -- ---------------------------------------------------------------------------
 select ok(
-  (select b ? 'instagram_collegamento' and b ? 'instagram_esclusi' and not (b ? 'report_proposte_instagram')
+  (select b ? 'instagram_collegamento' and b ? 'instagram_esclusi' and b ? 'report_proposte_instagram'
           and not (b ? 'secrets') and not (b ? 'decrypted_secrets')
           and position('IGAArinnovato' in b::text) = 0
    from (select public.backup_completo() as b) x),
-  'il backup prende il collegamento e le chat escluse, mai il token né le proposte'
+  'il backup prende il collegamento, le chat escluse e le proposte, mai il token'
 );
 
 -- ---------------------------------------------------------------------------
@@ -782,7 +787,7 @@ set local request.jwt.claims to '{"sub":"22222222-2222-4222-8222-222222222222","
 select is((select count(*)::integer from public.report_proposte_instagram), 0, 'un setter disattivato non legge le sue proposte');
 select throws_ok(
   format('select public.conferma_proposta_instagram(%L)', (select id from proposte where giorno = 'F')),
-  '42501', 'La proposta la decide il setter che lavora i DM', 'né le conferma'
+  '42501', 'La proposta la decidono il setter che lavora i DM e l''admin', 'né le conferma'
 );
 reset role;
 set local role service_role;

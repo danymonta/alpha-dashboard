@@ -848,7 +848,9 @@ function aggiornaReport(ctx: Contesto): Definizione {
         return esito.ok ? { fatto: true, link: '/setting' } : errore(esito.errore)
       }
       if (!admin) {
-        const esito = await salvaReportGiornaliero(g.valori)
+        // over the report just read: one changed meanwhile (a decision of the admin) is never overwritten
+        const versione = typeof g.attuale?.updated_at === 'string' ? g.attuale.updated_at : null
+        const esito = await salvaReportGiornaliero({ ...g.valori, versione })
         return esito.ok ? { fatto: true, report: g.valori, link: '/today' } : errore(esito.errore)
       }
       // the admin: a new day is added, a day already there is corrected (never overwritten by an insert)

@@ -326,7 +326,8 @@ export function NuovaEsclusione() {
 
 /**
  * The same run as the nightly one, on yesterday. Shows the outcome and how
- * many chats were read, never the proposal's numbers: they are the setter's.
+ * many chats were read, never the proposal's numbers: they are on the card,
+ * in the setter's "Oggi" and on the "Setter" page.
  */
 export function RicalcolaIeri({
   ieri,
@@ -381,7 +382,7 @@ export function RicalcolaIeri({
           <p className="flex items-start gap-2" data-testid="instagram-ricalcolo-esito">
             <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
             {esito.gia_decisa
-              ? `${chi} aveva già confermato o scartato la proposta di ${giornoEsteso(esito.giorno)}: resta com’è. ${lette(esito.chat_lette)}${incerte(esito.chat_incerte)}.`
+              ? `La proposta di ${giornoEsteso(esito.giorno)} era già stata confermata o scartata: resta com’è. ${lette(esito.chat_lette)}${incerte(esito.chat_incerte)}.`
               : `Proposta di ${giornoEsteso(esito.giorno)} ricalcolata per ${chi}: ${lette(esito.chat_lette)}${incerte(esito.chat_incerte)}.`}
           </p>
         ) : (

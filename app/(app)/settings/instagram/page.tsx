@@ -103,7 +103,7 @@ export default async function InstagramPage() {
       <IntestazionePagina
         indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
         titolo="Instagram"
-        descrizione="Ogni notte, dopo mezzanotte, i DM dell’account precompilano il report del giorno prima. Il setter lo conferma o lo corregge: la sua parola vince sempre."
+        descrizione="Ogni notte, dopo mezzanotte, i DM dell’account precompilano il report del giorno prima. Il setter lo conferma o lo corregge in Oggi, e puoi farlo anche tu nella pagina Setter: vale la prima scelta."
       />
 
       {tokenScaduto ? (
@@ -250,8 +250,11 @@ export default async function InstagramPage() {
           </h2>
           <p className="text-sm text-muted-foreground">
             Rilegge i DM di ieri e rifà la proposta, per esempio dopo un token nuovo. I numeri qui non compaiono: la
-            proposta la vede solo {setterScelto?.attivo ? setterScelto.nome : 'il setter scelto'}, che la conferma o la
-            corregge.
+            proposta la trovi in{' '}
+            <Link href="/setting#da-approvare" className="underline underline-offset-4 hover:text-foreground">
+              Setter › Tracciamento da approvare
+            </Link>{' '}
+            e {setterScelto?.attivo ? setterScelto.nome : 'il setter scelto'} in Oggi: vale la prima scelta, tua o sua.
           </p>
         </div>
         <RicalcolaIeri

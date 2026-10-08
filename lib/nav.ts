@@ -39,6 +39,13 @@ export type VoceNav = {
    * only to the person who has to record them (CLAUDE.md section 17).
    */
   esiti?: true
+  /**
+   * The item carries the number of the setters' days proposed from the
+   * Instagram DMs and still to decide (08/10/2026): the setter's own on
+   * "Oggi", every setter's on the admin's "Setter" (Dany: "una tab con una
+   * notifica «tracciamento setter da approvare»").
+   */
+  daApprovare?: true
 }
 
 // The Projects area, the same for every role (CLAUDE.md section 3)
@@ -78,7 +85,8 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/clients', etichetta: 'Clienti', Icona: Users },
       { href: '/rinnovi', etichetta: 'Rinnovi', Icona: RefreshCw },
-      SETTER,
+      // the setters' days from Instagram still to decide, on top of the page (08/10/2026)
+      { ...SETTER, daApprovare: true },
       // his calls to record on top, then the closer's numbers (07/10/2026)
       { ...CLOSER, esiti: true },
       { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
@@ -93,7 +101,8 @@ const NAV: Record<AppRole, NavRuolo> = {
   },
   setter: {
     principali: [
-      { href: '/today', etichetta: 'Oggi', Icona: ClipboardList },
+      // his days from Instagram still to decide, as cards on top of the page (08/10/2026)
+      { href: '/today', etichetta: 'Oggi', Icona: ClipboardList, daApprovare: true },
       { href: '/calls/new', etichetta: 'Nuova call', Icona: CalendarPlus },
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-numbers', etichetta: 'I miei numeri', Icona: TrendingUp },
@@ -133,17 +142,68 @@ export function testoEsiti(numero: number): string {
   return `${numero} ${numero === 1 ? 'esito' : 'esiti'} da registrare`
 }
 
+/** "1 giornata da approvare", "3 giornate da approvare". */
+export function testoDaApprovare(numero: number): string {
+  return `${numero} ${numero === 1 ? 'giornata' : 'giornate'} da approvare`
+}
+
+/** What a navigation item reminds the person of: never someone else's (CLAUDE.md section 17). */
+export type Promemoria = {
+  /** Their own past calls still without an outcome (admin and closer). */
+  esiti: number
+  /** The setters' days from Instagram still to decide (the setter's own; every setter's for the admin). */
+  daApprovare: number
+}
+
+export const NESSUN_PROMEMORIA: Promemoria = { esiti: 0, daApprovare: 0 }
+
 /**
  * The accessible name of an item with its badge, "Le mie call, 2 esiti da
- * registrare"; undefined without one (the visible label is the name).
+ * registrare", "Setter, 1 giornata da approvare", "Altro, 2 esiti da
+ * registrare, 1 giornata da approvare"; undefined without one (the visible
+ * label is the name).
  */
+export function nomeConPromemoria(etichetta: string, promemoria: Promemoria): string | undefined {
+  const parti = [
+    promemoria.esiti > 0 ? testoEsiti(promemoria.esiti) : null,
+    promemoria.daApprovare > 0 ? testoDaApprovare(promemoria.daApprovare) : null,
+  ].filter((parte) => parte !== null)
+  return parti.length > 0 ? `${etichetta}, ${parti.join(', ')}` : undefined
+}
+
+/** The same with the outcomes only. */
 export function nomeConEsiti(etichetta: string, numero: number): string | undefined {
-  return numero > 0 ? `${etichetta}, ${testoEsiti(numero)}` : undefined
+  return nomeConPromemoria(etichetta, { esiti: numero, daApprovare: 0 })
 }
 
 /** The badge of an item: the count when the item carries it and there is something to record. */
 export function esitiDellaVoce(voce: VoceNav, esitiDaRegistrare: number): number {
   return voce.esiti && esitiDaRegistrare > 0 ? esitiDaRegistrare : 0
+}
+
+/** What an item carries of the person's reminders: zero where it carries nothing. */
+export function promemoriaDellaVoce(voce: VoceNav, promemoria: Promemoria): Promemoria {
+  return {
+    esiti: esitiDellaVoce(voce, promemoria.esiti),
+    daApprovare: voce.daApprovare && promemoria.daApprovare > 0 ? promemoria.daApprovare : 0,
+  }
+}
+
+/**
+ * "Altro" on the phone: what its items carry. The same count on two items (the
+ * outcomes on "Le mie call" and on "Closer") is one count, not two.
+ */
+export function promemoriaDiAltro(voci: VoceNav[], promemoria: Promemoria): Promemoria {
+  const delleVoci = voci.map((voce) => promemoriaDellaVoce(voce, promemoria))
+  return {
+    esiti: Math.max(0, ...delleVoci.map((p) => p.esiti)),
+    daApprovare: Math.max(0, ...delleVoci.map((p) => p.daApprovare)),
+  }
+}
+
+/** The digit on the badge: one item carries one count, "Altro" may carry both. */
+export function totalePromemoria(promemoria: Promemoria): number {
+  return promemoria.esiti + promemoria.daApprovare
 }
 
 export function isAttiva(pathname: string, voce: VoceNav): boolean {

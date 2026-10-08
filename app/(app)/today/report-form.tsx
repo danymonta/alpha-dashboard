@@ -1,10 +1,11 @@
 'use client'
 
 import { CircleCheck, CircleDashed, LoaderCircle, TriangleAlert } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
-import { salvaReportGiornaliero, type EsitoSalvataggio } from '@/app/(app)/today/actions'
+import { salvaReportGiornaliero, type EsitoSalvataggio, type RigaReport } from '@/app/(app)/today/actions'
 import {
   EVENTO_PROPOSTA,
   EVENTO_PROPOSTA_FINE,
@@ -12,6 +13,7 @@ import {
   type DettaglioEventoProposta,
   type DettaglioEventoPropostaFine,
 } from '@/app/(app)/today/proposta-instagram'
+import { leggiStatoGiorno } from '@/app/(app)/today/stato-giorno'
 import { Stepper } from '@/components/numeri/stepper'
 import { ANCORA_COMMENTO, CommentoReport, DaCompletare } from '@/components/setter/commento-report'
 import { Button } from '@/components/ui/button'
@@ -24,11 +26,25 @@ import { cn } from '@/lib/utils'
 import {
   GRUPPI_REPORT,
   MASSIMO_GIORNALIERO,
+  REPORT_VUOTO,
+  chiaveValoriSalvati,
   type ValoriReport,
 } from '@/lib/validation/report'
 
 const RITARDO_NUMERI_MS = 500
 const RITARDO_NOTE_MS = 1000
+
+/** Saves without an answer kept in mind: more than this, the oldest go. */
+const INCERTE_MAX = 10
+
+const CONNESSIONE_ASSENTE = 'Connessione assente. Riprova.'
+
+/** The day changed elsewhere (a decision of the admin, another device) and is read again. */
+export const RILETTURA = {
+  toast:
+    'Il report di questo giorno è cambiato da un’altra parte: ricarico i numeri salvati. Rifai l’ultima modifica, se serve.',
+  barra: 'Ricarico i numeri salvati…',
+} as const
 
 const GRUPPI = GRUPPI_REPORT
 
@@ -39,10 +55,28 @@ type Stato =
   | { tipo: 'salvato'; alle: string }
   | { tipo: 'errore'; messaggio: string }
 
+/** A save sent whose answer never came back: it may have landed all the same. */
+type Incerta = {
+  /** the screen's values as sent (JSON.stringify), the form's own key */
+  chiave: string
+  /** the same values as the database stores them (chiaveValoriSalvati) */
+  salvata: string | null
+  /** whether it was the save that creates the day's report */
+  creazione: boolean
+}
+
 type Props = {
   data: string
   oggi: string
+  /** the setter: whose report and proposals the browser reads again (under RLS, only his) */
+  setterId: string
+  /** firmaProposte of what the page shows: back to the front, the page is read again if it changed */
+  firmaProposte: string
   iniziale: ValoriReport
+  /**
+   * updated_at of the loaded row (null when there is none): when it was last
+   * saved, and the version the next save writes over (salvaReportGiornaliero)
+   */
   salvatoAlle: string | null
   /** DM totali of the loaded row, as the database computed it (0 when there is no row) */
   dmTotali: number | null
@@ -50,7 +84,16 @@ type Props = {
   creatoIl?: string | null
 }
 
-export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTotaliIniziale, creatoIl = null }: Props) {
+export function ReportForm({
+  data,
+  oggi,
+  setterId,
+  firmaProposte,
+  iniziale,
+  salvatoAlle,
+  dmTotali: dmTotaliIniziale,
+  creatoIl = null,
+}: Props) {
   const [valori, setValori] = useState<ValoriReport>(iniziale)
   // Only the database adds the DM up: the value of the last saved row
   const [dmTotali, setDmTotali] = useState(dmTotaliIniziale)
@@ -66,6 +109,18 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
   // the day as it opened: without a saved row, nothing to save until it changes
   const chiaveIniziale = useRef(JSON.stringify(iniziale))
   const ultimaOra = useRef(salvatoAlle)
+  // The version of the report this screen holds (updated_at as loaded or last
+  // saved): a save writes only over it. The admin decides the setter's days
+  // from Instagram too, from another device (08/10/2026): a report changed
+  // meanwhile is never overwritten with what is on this screen, the save is
+  // refused and the day reloads.
+  const versione = useRef(salvatoAlle)
+  // Saves that never got an answer (no connection on the way back, the phone
+  // switching app right after a tap): the database may have written them, and
+  // this screen's version is then behind. The next save is refused; if the day
+  // holds exactly one of these, it was this screen's own save: its version is
+  // taken and the save goes on, without "changed elsewhere".
+  const incerte = useRef<Incerta[]>([])
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inVolo = useRef(false)
   const daRisalvare = useRef(false)
@@ -76,6 +131,89 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
   // it with the decided numbers, so nothing of it lands after the decision.
   const sospesoRef = useRef(false)
   const [sospeso, setSospeso] = useState(false)
+  // The page is being read again, and the form stands still (no tap, no save)
+  // until it is back: 'cambiato' after a save refused because the report
+  // changed elsewhere (the saved day replaces the screen), 'controllo' when the
+  // app came back to the foreground and the day or its proposals changed on the
+  // server (the saved day replaces the screen only if the report changed).
+  // Never without a connection: a refresh that fails falls back to a full
+  // browser navigation, and the whole screen would give way to the browser's
+  // error page (leggiStatoGiorno answers first).
+  const router = useRouter()
+  const [rilettura, avviaRilettura] = useTransition()
+  const daRileggere = useRef<'cambiato' | 'controllo' | null>(null)
+  const ricaricaRef = useRef(false)
+  const [ricarica, setRicarica] = useState(false)
+  // a check of the foreground in flight: one at a time
+  const controlloInCorso = useRef(false)
+  // what the page shows of the proposals, for the check of the foreground
+  const firmaPagina = useRef(firmaProposte)
+  useEffect(() => {
+    firmaPagina.current = firmaProposte
+  }, [firmaProposte])
+
+  /** The day as saved on the server replaces the screen. */
+  const mostra = useCallback((nuovi: ValoriReport, alle: string | null, totali: number | null) => {
+    valoriRef.current = nuovi
+    setValori(nuovi)
+    ultimoSalvato.current = alle ? JSON.stringify(nuovi) : null
+    chiaveIniziale.current = JSON.stringify(nuovi)
+    ultimaOra.current = alle
+    versione.current = alle
+    incerte.current = []
+    setDmTotali(totali)
+    setStato(alle ? { tipo: 'salvato', alle } : { tipo: 'nuovo' })
+  }, [])
+
+  /** Reads the page again (called only once the server answered): the form stands still until it is back. */
+  const rileggi = useCallback(
+    (motivo: 'cambiato' | 'controllo') => {
+      if (timer.current) {
+        clearTimeout(timer.current)
+        timer.current = null
+      }
+      ricaricaRef.current = true
+      setRicarica(true)
+      // a refused save outweighs a check
+      if (daRileggere.current !== 'cambiato') daRileggere.current = motivo
+      avviaRilettura(() => router.refresh())
+    },
+    [router],
+  )
+
+  /**
+   * A save refused because the day changed elsewhere: the form stops and the
+   * page is read again, once the browser can reach the server. When it cannot
+   * (the connection dropped right after the answer), the day the server sent
+   * with the refusal replaces the screen and the form is the setter's again;
+   * the rest of the page (the proposals) follows when the app is back in front.
+   */
+  const ricaricaDopoRifiuto = useCallback(
+    (attuale: RigaReport | null | undefined) => {
+      if (timer.current) {
+        clearTimeout(timer.current)
+        timer.current = null
+      }
+      ricaricaRef.current = true
+      setRicarica(true)
+      toast.warning(RILETTURA.toast)
+      void leggiStatoGiorno(setterId, data).then((raggiunto) => {
+        if (raggiunto) {
+          rileggi('cambiato')
+          return
+        }
+        if (attuale !== undefined) {
+          mostra(attuale ? attuale.valori : REPORT_VUOTO, attuale?.salvatoAlle ?? null, attuale ? attuale.dmTotali : 0)
+        } else {
+          // nothing to show in its place: the next save is refused again, and reads it then
+          setStato({ tipo: 'errore', messaggio: CONNESSIONE_ASSENTE })
+        }
+        ricaricaRef.current = false
+        setRicarica(false)
+      })
+    },
+    [setterId, data, rileggi, mostra],
+  )
 
   /** Saves what is on screen now; a call during a save joins it. Never throws. */
   const salvaOra = useCallback((): Promise<boolean> => {
@@ -105,21 +243,53 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
 
           let esito: EsitoSalvataggio
           try {
-            esito = await salvaReportGiornaliero({ data, ...istantanea })
+            esito = await salvaReportGiornaliero({ data, ...istantanea, versione: versione.current })
           } catch {
-            setStato({ tipo: 'errore', messaggio: 'Connessione assente. Riprova.' })
-            toast.error('Report non salvato. Connessione assente. Riprova.')
+            // no answer: the database may have written it all the same
+            incerte.current = [
+              ...incerte.current,
+              { chiave, salvata: chiaveValoriSalvati(istantanea), creazione: versione.current === null },
+            ].slice(-INCERTE_MAX)
+            setStato({ tipo: 'errore', messaggio: CONNESSIONE_ASSENTE })
+            toast.error(`Report non salvato. ${CONNESSIONE_ASSENTE}`)
             return false
           }
 
           if (!esito.ok) {
+            if (esito.cambiato) {
+              // The day is not at this screen's version. Exactly what this
+              // screen sent in a save without an answer: that save landed, the
+              // answer was lost. Its version is taken and the loop goes on
+              // (what is on screen now goes out over it, or nothing is left)
+              const attuale = esito.attuale
+              const salvata = attuale ? chiaveValoriSalvati(attuale.valori) : null
+              const nostra =
+                salvata === null ? undefined : incerte.current.findLast((incerta) => incerta.salvata === salvata)
+              incerte.current = []
+              if (attuale && nostra) {
+                ultimoSalvato.current = nostra.chiave
+                ultimaOra.current = attuale.salvatoAlle
+                versione.current = attuale.salvatoAlle
+                setDmTotali(attuale.dmTotali)
+                if (nostra.creazione) {
+                  toast.success(`Report di ${etichettaGiorno(data, oggi).toLowerCase()} avviato`)
+                }
+                continue
+              }
+              // changed elsewhere: nothing written, the screen takes the saved day
+              ricaricaDopoRifiuto(attuale)
+              return false
+            }
             setStato({ tipo: 'errore', messaggio: esito.errore })
             toast.error(`Report non salvato. ${esito.errore}`)
             return false
           }
 
+          // written over this screen's version: no save without an answer landed meanwhile
+          incerte.current = []
           ultimoSalvato.current = chiave
           ultimaOra.current = esito.salvatoAlle
+          versione.current = esito.salvatoAlle
           setDmTotali(esito.dmTotali)
           if (esito.creato) {
             toast.success(`Report di ${etichettaGiorno(data, oggi).toLowerCase()} avviato`)
@@ -136,17 +306,20 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
     })()
     ciclo.current = giro
     return giro
-  }, [data, oggi])
+  }, [data, oggi, ricaricaDopoRifiuto])
 
-  /** The screen's save (a tap, a blur, leaving the page): never while a decision is on its way. */
+  /**
+   * The screen's save (a tap, a blur, leaving the page): never while a
+   * decision is on its way, nor while the page is read again.
+   */
   const salva = useCallback(
-    (): Promise<boolean> => (sospesoRef.current ? Promise.resolve(false) : salvaOra()),
+    (): Promise<boolean> => (sospesoRef.current || ricaricaRef.current ? Promise.resolve(false) : salvaOra()),
     [salvaOra],
   )
 
   const aggiorna = useCallback(
     (modifica: Partial<ValoriReport>, ritardo = RITARDO_NUMERI_MS) => {
-      if (sospesoRef.current) return
+      if (sospesoRef.current || ricaricaRef.current) return
       const prossimi = { ...valoriRef.current, ...modifica }
       valoriRef.current = prossimi
       setValori(prossimi)
@@ -160,25 +333,78 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
   const inSospeso =
     stato.tipo === 'modificato' || stato.tipo === 'salvataggio' || stato.tipo === 'errore'
 
+  /** Nothing typed is waiting: no change queued, no save in flight, the screen equal to what is saved. */
+  const nienteDaSalvare = useCallback(
+    () =>
+      timer.current === null &&
+      !inVolo.current &&
+      JSON.stringify(valoriRef.current) === (ultimoSalvato.current ?? chiaveIniziale.current),
+    [],
+  )
+
+  // The page came back from the server (rileggi). After a refused save, the
+  // saved day replaces the screen. After the app came back to the foreground,
+  // only if the report changed (the form stood still meanwhile, and the check
+  // started only with nothing to save); if only the proposals changed, the
+  // cards above are new and the screen stays. A decision on this day's
+  // proposal changes the page's key instead: the whole form starts again from
+  // the decided day.
+  useEffect(() => {
+    if (rilettura || !daRileggere.current) return
+    const motivo = daRileggere.current
+    daRileggere.current = null
+    ricaricaRef.current = false
+    setRicarica(false)
+    if (motivo === 'controllo' && (salvatoAlle === versione.current || sospesoRef.current)) return
+    mostra(iniziale, salvatoAlle, dmTotaliIniziale)
+  }, [rilettura, iniziale, salvatoAlle, dmTotaliIniziale, mostra])
+
   // A day with DM or conversations asks for the two scales: a reminder for the
   // setter on his own day, from what is on screen; the save never waits for it
   const daCompletare = commentoDaCompletare(valori, creatoIl)
 
   // Leaving the screen: flush now, and warn if something is still unsaved.
+  // Coming back: a decision taken meanwhile on another device (the admin's,
+  // 08/10/2026), or a proposal of the night, is on screen before the next
+  // tap. The browser asks the server first (leggiStatoGiorno): no answer (no
+  // connection), the screen stays as it is; nothing changed, nothing is read
+  // again; changed, the page is read again.
   useEffect(() => {
-    const suNascondi = () => {
+    const puoRileggere = () =>
+      document.visibilityState === 'visible' &&
+      navigator.onLine !== false &&
+      !sospesoRef.current &&
+      !ricaricaRef.current &&
+      nienteDaSalvare()
+
+    const controlla = async () => {
+      if (controlloInCorso.current || !puoRileggere()) return
+      controlloInCorso.current = true
+      try {
+        const sulServer = await leggiStatoGiorno(setterId, data)
+        if (!sulServer) return
+        if (sulServer.versione === versione.current && sulServer.proposte === firmaPagina.current) return
+        // a tap meanwhile goes out as always: over the old version, refused if the day changed
+        if (puoRileggere()) rileggi('controllo')
+      } finally {
+        controlloInCorso.current = false
+      }
+    }
+
+    const suVisibilita = () => {
       if (document.visibilityState === 'hidden') void salva()
+      else if (document.visibilityState === 'visible') void controlla()
     }
     const primaDiUscire = (e: BeforeUnloadEvent) => {
       if (inSospeso) e.preventDefault()
     }
-    document.addEventListener('visibilitychange', suNascondi)
+    document.addEventListener('visibilitychange', suVisibilita)
     window.addEventListener('beforeunload', primaDiUscire)
     return () => {
-      document.removeEventListener('visibilitychange', suNascondi)
+      document.removeEventListener('visibilitychange', suVisibilita)
       window.removeEventListener('beforeunload', primaDiUscire)
     }
-  }, [salva, inSospeso])
+  }, [salva, inSospeso, rileggi, nienteDaSalvare, setterId, data])
 
   // A proposal from Instagram is about to be decided for this day (the card
   // above). Whatever is not saved yet (a change still waiting, a save in
@@ -195,7 +421,15 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
         timer.current !== null ||
         inVolo.current ||
         JSON.stringify(valoriRef.current) !== (ultimoSalvato.current ?? chiaveIniziale.current)
-      if (daSalvare) dettaglio.attese.push(salvaOra())
+      // a save refused because the day changed elsewhere: the card says so, and decides nothing.
+      // While the day is read again after that refusal, the refused values are not sent again
+      if (daSalvare) {
+        dettaglio.attese.push(
+          ricaricaRef.current
+            ? Promise.resolve('cambiato' as const)
+            : salvaOra().then((ok) => (ok ? true : ricaricaRef.current ? 'cambiato' : false)),
+        )
+      }
       sospesoRef.current = true
       setSospeso(true)
     }
@@ -222,13 +456,20 @@ export function ReportForm({ data, oggi, iniziale, salvatoAlle, dmTotali: dmTota
 
   return (
     <div className="space-y-5">
-      <StatoSalvataggio stato={stato} sospeso={sospeso} riprova={() => void salva()} daCompletare={daCompletare} />
+      <StatoSalvataggio
+        stato={stato}
+        sospeso={sospeso || ricarica}
+        motivoSospeso={ricarica ? RILETTURA.barra : PROPOSTA.sospeso}
+        riprova={() => void salva()}
+        daCompletare={daCompletare}
+      />
 
-      {/* inert while a decision on this day's proposal is on its way: no tap can go after it */}
+      {/* inert while a decision on this day's proposal is on its way, or while the
+          day changed elsewhere is read again: no tap can go after it */}
       <div
-        inert={sospeso}
-        aria-busy={sospeso || undefined}
-        className={cn('space-y-5', sospeso && 'opacity-60')}
+        inert={sospeso || ricarica}
+        aria-busy={sospeso || ricarica || undefined}
+        className={cn('space-y-5', (sospeso || ricarica) && 'opacity-60')}
         data-testid="report-campi"
       >
         {GRUPPI.map((gruppo, i) => (
@@ -333,12 +574,18 @@ function DmTotali({ valore, inAggiornamento }: { valore: number | null; inAggior
 function StatoSalvataggio({
   stato,
   sospeso,
+  motivoSospeso,
   riprova,
   daCompletare,
 }: {
   stato: Stato
-  /** a decision on this day's proposal is on its way: the form waits for the page to reload it */
+  /**
+   * a decision on this day's proposal is on its way, or the day changed
+   * elsewhere is being read again: the form waits for the page to reload it
+   */
   sospeso: boolean
+  /** what the bar says meanwhile */
+  motivoSospeso: string
   riprova: () => void
   /** The day's own reminder, in view while scrolling: never while an error needs the space */
   daCompletare: boolean
@@ -357,7 +604,7 @@ function StatoSalvataggio({
       {sospeso ? (
         <p className="flex items-center gap-2 text-muted-foreground" data-testid="report-sospeso">
           <LoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden="true" />
-          {PROPOSTA.sospeso}
+          {motivoSospeso}
         </p>
       ) : null}
 

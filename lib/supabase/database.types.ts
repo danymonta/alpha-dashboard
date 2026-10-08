@@ -863,16 +863,22 @@ isOneToOne: false
                   ]
                 },"report_proposte_instagram": {
                   Row: {
-                    "calcolato_il": string,"call_proposte": number,"chat_incerte": number,"chat_lette": number,"conversazioni": number,"created_at": string,"data": string,"deciso_il": string | null,"discovery_prenotate": number,"dm_inbound": number,"dm_outbound": number,"follow_up": number,"id": string,"setter_id": string,"stato": Database["public"]['Enums']["proposta_stato"],"updated_at": string
+                    "calcolato_il": string,"call_proposte": number,"chat_incerte": number,"chat_lette": number,"conversazioni": number,"corretta": boolean,"created_at": string,"data": string,"deciso_da": string | null,"deciso_il": string | null,"discovery_prenotate": number,"dm_inbound": number,"dm_outbound": number,"follow_up": number,"id": string,"setter_id": string,"stato": Database["public"]['Enums']["proposta_stato"],"updated_at": string
                   }
                   Insert: {
-                    "calcolato_il"?: string,"call_proposte"?: number,"chat_incerte"?: number,"chat_lette"?: number,"conversazioni"?: number,"created_at"?: string,"data": string,"deciso_il"?: string | null,"discovery_prenotate"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"follow_up"?: number,"id"?: string,"setter_id": string,"stato"?: Database["public"]['Enums']["proposta_stato"],"updated_at"?: string
+                    "calcolato_il"?: string,"call_proposte"?: number,"chat_incerte"?: number,"chat_lette"?: number,"conversazioni"?: number,"corretta"?: boolean,"created_at"?: string,"data": string,"deciso_da"?: string | null,"deciso_il"?: string | null,"discovery_prenotate"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"follow_up"?: number,"id"?: string,"setter_id": string,"stato"?: Database["public"]['Enums']["proposta_stato"],"updated_at"?: string
                   }
                   Update: {
-                    "calcolato_il"?: string,"call_proposte"?: number,"chat_incerte"?: number,"chat_lette"?: number,"conversazioni"?: number,"created_at"?: string,"data"?: string,"deciso_il"?: string | null,"discovery_prenotate"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"follow_up"?: number,"id"?: string,"setter_id"?: string,"stato"?: Database["public"]['Enums']["proposta_stato"],"updated_at"?: string
+                    "calcolato_il"?: string,"call_proposte"?: number,"chat_incerte"?: number,"chat_lette"?: number,"conversazioni"?: number,"corretta"?: boolean,"created_at"?: string,"data"?: string,"deciso_da"?: string | null,"deciso_il"?: string | null,"discovery_prenotate"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"follow_up"?: number,"id"?: string,"setter_id"?: string,"stato"?: Database["public"]['Enums']["proposta_stato"],"updated_at"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "report_proposte_instagram_deciso_da_fkey"
+      columns: ["deciso_da"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "report_proposte_instagram_setter_id_fkey"
       columns: ["setter_id"]
 isOneToOne: false
@@ -1305,7 +1311,7 @@ isOneToOne: false
             }[]
                            },
 "conferma_proposta_instagram":
-{ Args: { "p_calcolato_il"?: string,"p_id": string,"p_valori"?: Json }; Returns: {
+{ Args: { "p_calcolato_il"?: string,"p_id": string,"p_valori"?: Json,"p_visti"?: Json }; Returns: {
               "call_proposte": number,
 "call_qualificate": number,
 "contenuto_pubblicato": boolean,

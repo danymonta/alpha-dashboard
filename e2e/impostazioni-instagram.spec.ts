@@ -208,9 +208,13 @@ test.describe('a 390 px', () => {
     const { data: collegamento } = await db.from('instagram_collegamento').select('setter_id').single()
     expect(collegamento?.setter_id).toBe(ID_SETTER)
 
-    // the recompute is ready now, and says the numbers are the setter's (not tapped: no Instagram here)
+    // the recompute is ready now, and says where the numbers are (not tapped: no Instagram here)
     const ricalcola = page.getByRole('region', { name: 'Ricalcola ieri' })
-    await expect(ricalcola).toContainText(`la proposta la vede solo ${UTENTI.setter.nome}`)
+    await expect(ricalcola).toContainText(`e ${UTENTI.setter.nome} in Oggi: vale la prima scelta, tua o sua.`)
+    await expect(ricalcola.getByRole('link', { name: 'Setter › Tracciamento da approvare' })).toHaveAttribute(
+      'href',
+      '/setting#da-approvare',
+    )
     await expect(ricalcola.getByRole('button', { name: 'Ricalcola ieri' })).toBeEnabled()
 
     // no sideways scroll on the phone

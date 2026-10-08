@@ -2,7 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 
-import { confermaPropostaSchema, scartaPropostaSchema } from '@/app/(app)/today/proposta-instagram'
+import {
+  confermaPropostaSchema,
+  messaggioProposta as messaggio,
+  propostaChiusa as chiusa,
+  scartaPropostaSchema,
+} from '@/app/(app)/today/proposta-instagram'
 import { getProfilo } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 
@@ -11,31 +16,12 @@ export type EsitoProposta =
   /** chiusa: the proposal is no longer to decide (decided elsewhere, or gone): its card leaves */
   | { ok: false; errore: string; chiusa?: boolean }
 
-/** Only the setter decides his proposal (the database checks it again). */
+/** Only the setter decides his proposal here; the admin from the "Setter" page (the database checks it again). */
 async function negaSeNonSetter(): Promise<string | null> {
   const profilo = await getProfilo()
   if (!profilo || !profilo.attivo) return 'Sessione scaduta. Rientra e riprova.'
   if (profilo.ruolo !== 'setter') return 'La proposta la decide il setter che lavora i DM.'
   return null
-}
-
-/**
- * Our functions raise 22023/42501 with words already for people ("Questa
- * proposta è già stata confermata", "Un giorno che non è ancora arrivato non
- * si compila."); a proposal that is not his, or not there any more, is P0002.
- * A policy refusal from PostgREST is not worded: the generic sentence.
- */
-function messaggio(error: { code?: string; message: string }, fallback: string) {
-  if (error.code === 'P0002') return 'Questa proposta non c’è più.'
-  if ((error.code === '22023' || error.code === '42501') && !/row-level security/i.test(error.message)) {
-    return error.message.endsWith('.') ? error.message : `${error.message}.`
-  }
-  return fallback
-}
-
-/** Decided in another tab or device, or not there any more. */
-function chiusa(error: { code?: string; message: string }) {
-  return error.code === 'P0002' || (error.code === '22023' && /^Questa proposta è già stata/.test(error.message))
 }
 
 /** The pages that read the setter's report (the setter's and the admin's). */

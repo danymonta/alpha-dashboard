@@ -33,7 +33,8 @@ const DOPO_MEZZANOTTE = 'È passata la mezzanotte: ricarica la pagina e ricalcol
  * before yesterday. Active admin only. The service role is used here, on the
  * server, because the token is read only by it (public.instagram_token); the
  * browser gets the outcome and how many chats were read, never the
- * proposal's numbers (only the setter sees them).
+ * proposal's numbers (they are on the cards: the setter's in Oggi, the
+ * admin's on the Setter page, read with each one's session).
  */
 export async function ricalcolaReportInstagram(giorno: unknown): Promise<EsitoRicalcolo> {
   const negato = await negaSeNon(['admin'])

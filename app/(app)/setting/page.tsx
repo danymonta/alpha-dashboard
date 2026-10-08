@@ -3,12 +3,22 @@ import type { ReactNode } from 'react'
 
 import { AggiungiReport } from '@/app/(app)/setting/aggiungi-report'
 import { ModificaReport } from '@/app/(app)/setting/modifica-report'
+import {
+  CAMPI_PROPOSTA,
+  COLONNE_PROPOSTA,
+  PROPOSTE_MAX,
+  haNumeri,
+  numeriDi,
+  type NumeriProposta,
+  type PropostaInstagram,
+} from '@/app/(app)/today/proposta-instagram'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
 import { EtichettaConNota } from '@/components/metriche/nota'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { CommentiMarketing, type RigaCommento, type RigaMotivo } from '@/components/setting/commenti-marketing'
 import { LinkInsight24h } from '@/components/setting/insight-24h'
+import { ProposteInstagram } from '@/components/setter/proposte-instagram'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
@@ -234,6 +244,61 @@ const LEGENDA_PAGINA: VoceLegenda[] = [
   LEGENDA_SETTING.qualita_conversazioni,
 ]
 
+/** The section's title: where the focus goes once the last day is decided. */
+const ID_DA_APPROVARE = 'titolo-da-approvare'
+
+type PropostaDelSetter = PropostaInstagram & { setter_id: string; setter: { nome: string } | null }
+
+/**
+ * The setters' days proposed from the Instagram DMs and still to decide
+ * (Dany, 08/10/2026: "Anche tu, con una scheda e la notifica"), with each
+ * setter's own numbers of that day where he wrote some (by proposal), for the
+ * section on top of the page. A failed read is an error, never "nothing to
+ * decide" or "no numbers" (a confirmation would then replace his numbers
+ * unseen).
+ */
+async function daApprovare(supabase: Awaited<ReturnType<typeof createClient>>): Promise<{
+  proposte: PropostaInstagram[]
+  suoi: Record<string, NumeriProposta>
+  totale: number
+  errore: boolean
+}> {
+  const vuoto = { proposte: [], suoi: {}, totale: 0 }
+  const { data, count, error } = await supabase
+    .from('report_proposte_instagram')
+    .select(`${COLONNE_PROPOSTA}, setter_id, setter:profiles!report_proposte_instagram_setter_id_fkey(nome)`, {
+      count: 'exact',
+    })
+    .eq('stato', 'da_confermare')
+    .order('data', { ascending: false })
+    .order('setter_id')
+    .limit(PROPOSTE_MAX)
+    .overrideTypes<PropostaDelSetter[], { merge: false }>()
+  if (error) return { ...vuoto, errore: true }
+
+  // the most recent day first; on the same day, the setters by name
+  const proposte: PropostaInstagram[] = (data ?? [])
+    .map(({ setter, ...p }) => ({ ...p, setter_nome: setter?.nome ?? 'Setter' }))
+    .sort((a, b) => b.data.localeCompare(a.data) || a.setter_nome.localeCompare(b.setter_nome, 'it'))
+  if (proposte.length === 0) return { ...vuoto, totale: count ?? 0, errore: false }
+
+  const righe = data ?? []
+  const { data: report, error: erroreReport } = await supabase
+    .from('setter_daily_reports')
+    .select(['setter_id', 'data', ...CAMPI_PROPOSTA].join(', '))
+    .in('setter_id', [...new Set(righe.map((p) => p.setter_id))])
+    .in('data', [...new Set(righe.map((p) => p.data))])
+    .overrideTypes<(NumeriProposta & { setter_id: string; data: string })[], { merge: false }>()
+  if (erroreReport) return { ...vuoto, errore: true }
+
+  const suoi: Record<string, NumeriProposta> = {}
+  for (const p of righe) {
+    const suo = (report ?? []).find((r) => r.setter_id === p.setter_id && r.data === p.data)
+    if (haNumeri(suo)) suoi[p.id] = numeriDi(suo)
+  }
+  return { proposte, suoi, totale: count ?? proposte.length, errore: false }
+}
+
 function primo(valore: string | string[] | undefined): string | undefined {
   return Array.isArray(valore) ? valore[0] : valore
 }
@@ -254,7 +319,7 @@ export default async function SettingPage({
 
   // the most recent LIMITE_MARKETING days and calls with something written: the section says when it cuts
   const filtroSetter = { p_limite: LIMITE_MARKETING, ...(setter ? { p_setter: setter } : {}) }
-  const [metriche, report, giornate, persone, commenti, motivi] = await Promise.all([
+  const [metriche, report, giornate, persone, commenti, motivi, approvare] = await Promise.all([
     supabase.rpc('metriche_setting', { p_da: periodo.da, p_a: periodo.a }),
     supabase
       .from('setter_daily_reports')
@@ -270,6 +335,8 @@ export default async function SettingPage({
     // setters' reports and from the closers' reasons for not closing and notes
     supabase.rpc('commenti_setter_periodo', { p_da: periodo.da, p_a: periodo.a, ...filtroSetter }),
     supabase.rpc('motivi_non_chiusura_periodo', { p_da: periodo.da, p_a: periodo.a, ...filtroSetter }),
+    // the setters' days from Instagram still to decide: the admin decides them too (08/10/2026)
+    daApprovare(supabase),
   ])
   if (metriche.error || report.error || giornate.error || persone.error || commenti.error || motivi.error) {
     throw new Error('Impossibile caricare il setting')
@@ -341,6 +408,19 @@ export default async function SettingPage({
           </div>
         }
       />
+
+      {/* the setters' days from Instagram still to decide, any period: nothing when there is none */}
+      <ProposteInstagram
+        per="admin"
+        proposte={approvare.proposte}
+        suoi={approvare.suoi}
+        oggi={oggi}
+        altre={approvare.totale > approvare.proposte.length}
+        errore={approvare.errore}
+        idTitoloPagina={ID_DA_APPROVARE}
+        totale={approvare.totale}
+      />
+
       <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/setting" parametri={setter ? { setter } : undefined} />
 
       {perSetter.length === 0 ? (

@@ -1,9 +1,12 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, UserCheck } from 'lucide-react'
 import Link from 'next/link'
 
 import {
   CAMPI_PROPOSTA,
+  COLONNE_PROPOSTA,
   PROPOSTE_MAX,
+  decisaDaUnAltro,
+  firmaProposte,
   haNumeri,
   numeriDi,
   type NumeriProposta,
@@ -18,7 +21,7 @@ import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, dataReportValida, etichettaGiorno, oggiRoma } from '@/lib/date'
 import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
 import { createClient } from '@/lib/supabase/server'
-import { REPORT_VUOTO, type ValoriReport } from '@/lib/validation/report'
+import { REPORT_VUOTO, valoriDaRiga, type ValoriReport } from '@/lib/validation/report'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,9 +45,6 @@ const VOCI_LEGENDA = [
 
 /** The page title: where the focus goes once the last proposal is decided. */
 const ID_TITOLO = 'titolo-giorno'
-
-// calcolato_il: the confirmation carries it back, so a proposal recomputed meanwhile is never confirmed unseen
-const COLONNE_PROPOSTA = ['id', 'data', ...CAMPI_PROPOSTA, 'chat_lette', 'chat_incerte', 'calcolato_il'].join(', ')
 
 function hrefGiorno(data: string, oggi: string) {
   return data === oggi ? '/today' : `/today?data=${data}`
@@ -78,10 +78,11 @@ export default async function OggiPage({
       .order('data', { ascending: false })
       .limit(PROPOSTE_MAX + 1)
       .overrideTypes<PropostaInstagram[], { merge: false }>(),
-    // a decision on the open day rewrites its numbers: the form below reloads them
+    // a decision on the open day rewrites its numbers: the form below reloads them.
+    // Who decided: the admin decides too (08/10/2026), and the setter sees it
     supabase
       .from('report_proposte_instagram')
-      .select('deciso_il')
+      .select('deciso_il, stato, corretta, deciso_da, decisore:profiles!report_proposte_instagram_deciso_da_fkey(nome)')
       .eq('setter_id', profilo.id)
       .eq('data', data)
       .neq('stato', 'da_confermare')
@@ -98,26 +99,21 @@ export default async function OggiPage({
   )
   // his numbers of the open day are already here
   if (report && haNumeri(report) && daDecidere.some((p) => p.data === data)) tuoi[data] = numeriDi(report)
+  // the cards take them by proposal
+  const suoi = Object.fromEntries(daDecidere.flatMap((p) => (tuoi[p.data] ? [[p.id, tuoi[p.data]]] : [])))
 
-  const iniziale: ValoriReport = report
-    ? {
-        dm_outbound: report.dm_outbound,
-        dm_inbound: report.dm_inbound,
-        conversazioni: report.conversazioni,
-        call_proposte: report.call_proposte,
-        discovery_prenotate: report.discovery_prenotate,
-        discovery_svolte: report.discovery_svolte,
-        call_qualificate: report.call_qualificate,
-        strategy_prenotate: report.strategy_prenotate,
-        follow_up: report.follow_up,
-        contenuto_pubblicato: report.contenuto_pubblicato,
-        note: report.note,
-        lead_in_target: report.lead_in_target,
-        qualita_conversazioni: report.qualita_conversazioni,
-        cosa_frenava: report.cosa_frenava,
-        domande_contenuti: report.domande_contenuti,
-      }
-    : REPORT_VUOTO
+  // the open day's proposal decided by someone else (the admin): one plain line, never its numbers
+  const decisaDa = decisaDelGiorno.data ? decisaDaUnAltro(decisaDelGiorno.data, profilo.id) : null
+
+  const iniziale: ValoriReport = report ? valoriDaRiga(report) : REPORT_VUOTO
+
+  // what the page shows of the proposals: the form reads it again when the app
+  // comes back to the front, and the page is read again only if it changed.
+  // A read that failed is never equal: back to the front, the page tries again
+  const firma =
+    proposte.error || decisaDelGiorno.error
+      ? 'errore'
+      : firmaProposte(proposte.data, decisaDelGiorno.data?.deciso_il ?? null)
 
   const precedente = aggiungiGiorni(data, -1)
   const successivo = aggiungiGiorni(data, 1)
@@ -148,10 +144,20 @@ export default async function OggiPage({
         </NavGiorno>
       </header>
 
-      {/* the day's numbers from the Instagram DMs, to confirm: only here, only his (08/10/2026) */}
+      {decisaDa ? (
+        <p
+          className="mb-4 flex items-start gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground"
+          data-testid="proposta-decisa-da"
+        >
+          <UserCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          {decisaDa}
+        </p>
+      ) : null}
+
+      {/* the day's numbers from the Instagram DMs, to confirm: his own days (08/10/2026) */}
       <ProposteInstagram
         proposte={daDecidere}
-        tuoi={tuoi}
+        suoi={suoi}
         oggi={oggi}
         dataAperta={data}
         altre={(proposte.data?.length ?? 0) > PROPOSTE_MAX}
@@ -168,6 +174,8 @@ export default async function OggiPage({
         key={`${data}:${decisaDelGiorno.data?.deciso_il ?? ''}`}
         data={data}
         oggi={oggi}
+        setterId={profilo.id}
+        firmaProposte={firma}
         iniziale={iniziale}
         salvatoAlle={report?.updated_at ?? null}
         dmTotali={report ? report.dm_totali : 0}

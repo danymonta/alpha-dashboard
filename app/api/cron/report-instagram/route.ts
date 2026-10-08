@@ -23,7 +23,9 @@ const DA_CONFIGURARE: readonly MotivoErroreReport[] = ['senza_setter', 'setter_n
  * within that hour, 23:00-23:59 UTC, that is 00:00-00:59 in winter and
  * 01:00-01:59 in summer), for the day that just ended. Protected by
  * CRON_SECRET like the daily job. The answer has only the outcome and the
- * number of chats: never the proposal's numbers (only the setter sees them).
+ * number of chats: never the proposal's numbers (they are on the cards: the
+ * setter's in Oggi, the admin's on the Setter page, read with each one's
+ * session).
  */
 export async function GET(request: NextRequest) {
   const avvio = Date.now()

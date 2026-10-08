@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest'
 
 import { TUTTI_I_RUOLI } from '@/lib/auth/roles'
-import { esitiDellaVoce, isAttiva, nomeConEsiti, testoEsiti, vociNav, type VoceNav } from '@/lib/nav'
+import {
+  esitiDellaVoce,
+  isAttiva,
+  nomeConEsiti,
+  nomeConPromemoria,
+  promemoriaDellaVoce,
+  promemoriaDiAltro,
+  testoDaApprovare,
+  testoEsiti,
+  totalePromemoria,
+  vociNav,
+  type VoceNav,
+} from '@/lib/nav'
 
 function tutte(ruolo: Parameters<typeof vociNav>[0]): VoceNav[] {
   const { principali, altre } = vociNav(ruolo)
@@ -95,3 +107,50 @@ describe('il numero degli esiti da registrare', () => {
     expect(nomeConEsiti('Le mie call', 0)).toBeUndefined()
   })
 })
+
+describe('il numero delle giornate da approvare (08/10/2026)', () => {
+  it('su «Setter» dell’admin e su «Oggi» del setter, e nessun altro', () => {
+    const conNumero = Object.fromEntries(
+      TUTTI_I_RUOLI.map((ruolo) => [ruolo, tutte(ruolo).filter((v) => v.daApprovare).map((v) => v.href)]),
+    )
+    expect(conNumero).toEqual({
+      admin: ['/setting'],
+      setter: ['/today'],
+      closer: [],
+      coach: [],
+      editor: [],
+      nutrizione: [],
+      dev: [],
+    })
+    // the admin's "Setter" sits in "Altro" on the phone, the setter's "Oggi" in the bar
+    expect(vociNav('admin').altre.some((v) => v.daApprovare)).toBe(true)
+    expect(vociNav('setter').principali.some((v) => v.daApprovare)).toBe(true)
+  })
+
+  it('ogni voce porta solo il suo numero, mai a zero', () => {
+    const promemoria = { esiti: 3, daApprovare: 2 }
+    expect(promemoriaDellaVoce(voce('admin', 'Setter'), promemoria)).toEqual({ esiti: 0, daApprovare: 2 })
+    expect(promemoriaDellaVoce(voce('admin', 'Closer'), promemoria)).toEqual({ esiti: 3, daApprovare: 0 })
+    expect(promemoriaDellaVoce(voce('admin', 'Vendite'), promemoria)).toEqual({ esiti: 0, daApprovare: 0 })
+    expect(promemoriaDellaVoce(voce('setter', 'Oggi'), promemoria)).toEqual({ esiti: 0, daApprovare: 2 })
+    expect(promemoriaDellaVoce(voce('setter', 'Oggi'), { esiti: 0, daApprovare: 0 })).toEqual({ esiti: 0, daApprovare: 0 })
+  })
+
+  it('«Altro» dell’admin porta i due numeri, contati una volta sola', () => {
+    const inAltro = promemoriaDiAltro(vociNav('admin').altre, { esiti: 3, daApprovare: 2 })
+    expect(inAltro).toEqual({ esiti: 3, daApprovare: 2 })
+    expect(totalePromemoria(inAltro)).toBe(5)
+    expect(nomeConPromemoria('Altro', inAltro)).toBe('Altro, 3 esiti da registrare, 2 giornate da approvare')
+    // the setter's "Altro" has none of them
+    expect(promemoriaDiAltro(vociNav('setter').altre, { esiti: 3, daApprovare: 2 })).toEqual({ esiti: 0, daApprovare: 0 })
+  })
+
+  it('le parole per chi usa un lettore di schermo', () => {
+    expect(testoDaApprovare(1)).toBe('1 giornata da approvare')
+    expect(testoDaApprovare(2)).toBe('2 giornate da approvare')
+    expect(nomeConPromemoria('Setter', { esiti: 0, daApprovare: 2 })).toBe('Setter, 2 giornate da approvare')
+    expect(nomeConPromemoria('Oggi', { esiti: 0, daApprovare: 1 })).toBe('Oggi, 1 giornata da approvare')
+    expect(nomeConPromemoria('Oggi', { esiti: 0, daApprovare: 0 })).toBeUndefined()
+  })
+})
+

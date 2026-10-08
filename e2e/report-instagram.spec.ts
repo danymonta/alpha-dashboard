@@ -11,10 +11,11 @@ import {
   statoPropostaInstagram,
   type NumeriPropostaDiProva,
 } from './db'
-import { PAGINE, accedi } from './utenti'
+import { PAGINE, UTENTI, accedi } from './utenti'
 
 // The setter's report proposed from the Instagram DMs (08/10/2026): a card in
-// "Oggi" for each day still to decide, seen by the setter only.
+// "Oggi" for each day still to decide. The admin decides them too, from the
+// "Setter" page (e2e/approva-admin.spec.ts).
 
 const CAMPI = ['dm_outbound', 'dm_inbound', 'follow_up', 'conversazioni', 'call_proposte', 'discovery_prenotate'] as const
 
@@ -561,7 +562,7 @@ test.describe('Il report da Instagram, nella giornata del setter', () => {
     }
   })
 
-  test('l’admin non vede nessuna proposta, in nessuna pagina', async ({ page }) => {
+  test('l’admin vede la proposta solo nella pagina Setter, in «Tracciamento da approvare»', async ({ page }) => {
     test.setTimeout(300_000)
     const giorno = giornoFa(1)
     try {
@@ -573,6 +574,13 @@ test.describe('Il report da Instagram, nella giornata del setter', () => {
 
       for (const { url } of [...PAGINE.admin, { nome: 'i-miei-numeri', url: '/my-numbers' }]) {
         await page.goto(url)
+        if (url === '/setting') {
+          // he decides it too (08/10/2026): one card, with the setter's name
+          const card = page.getByTestId('da-approvare').getByTestId('proposta-instagram')
+          await expect(card, url).toHaveCount(1)
+          await expect(card.getByRole('heading', { level: 3 }), url).toContainText(UTENTI.setter.nome)
+          continue
+        }
         await expect(page.getByTestId('proposta-instagram'), url).toHaveCount(0)
         // the card's title (the changelog may tell the admin about the card in its own words)
         await expect(page.getByRole('heading', { name: /^Da Instagram ·/ }), url).toHaveCount(0)

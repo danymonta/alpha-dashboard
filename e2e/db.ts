@@ -287,3 +287,26 @@ export async function statoPropostaInstagram(id: string) {
   if (error) throw error
   return data?.stato ?? null
 }
+
+/** State of a proposal and who decided it (the setter or the admin), straight from the database. */
+export async function decisionePropostaInstagram(id: string) {
+  const { data, error } = await dbLocale()
+    .from('report_proposte_instagram')
+    .select('stato, deciso_da')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+/** How many proposals are still to decide: every setter's (the admin's count), or one setter's. */
+export async function contaProposteDaDecidere(setterId?: string) {
+  let query = dbLocale()
+    .from('report_proposte_instagram')
+    .select('id', { count: 'exact', head: true })
+    .eq('stato', 'da_confermare')
+  if (setterId) query = query.eq('setter_id', setterId)
+  const { count, error } = await query
+  if (error) throw error
+  return count ?? 0
+}

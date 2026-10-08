@@ -1,12 +1,88 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type Route } from '@playwright/test'
 
 import { aggiungiGiorni, oggiRoma } from '../lib/date'
+import type { Database } from '../lib/supabase/database.types'
 import { ID_SETTER, dbLocale } from './db'
 import { accedi } from './utenti'
+
+type Riga = Database['public']['Tables']['setter_daily_reports']['Row']
 
 function campo(page: Page, etichetta: string) {
   return page.getByRole('group', { name: etichetta }).getByRole('textbox')
 }
+
+/** The seed setter's report of a day, every column. */
+async function rigaDelGiorno(giorno: string): Promise<Riga | null> {
+  const { data, error } = await dbLocale()
+    .from('setter_daily_reports')
+    .select('*')
+    .eq('setter_id', ID_SETTER)
+    .eq('data', giorno)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+/** The day with only these DM outbound (written as another device would). */
+async function impostaGiorno(giorno: string, dmOutbound: number) {
+  const db = dbLocale()
+  const { error } = await db.from('setter_daily_reports').delete().eq('setter_id', ID_SETTER).eq('data', giorno)
+  if (error) throw error
+  const { error: e2 } = await db
+    .from('setter_daily_reports')
+    .insert({ setter_id: ID_SETTER, data: giorno, created_by: ID_SETTER, dm_outbound: dmOutbound })
+  if (e2) throw e2
+}
+
+/** A change made elsewhere (the admin's sheet in "Setter", another device). */
+async function cambiaAltrove(giorno: string, dmOutbound: number) {
+  const { error } = await dbLocale()
+    .from('setter_daily_reports')
+    .update({ dm_outbound: dmOutbound })
+    .eq('setter_id', ID_SETTER)
+    .eq('data', giorno)
+  if (error) throw error
+}
+
+/** The day back as it was before the test: the same row, or none. */
+async function ripristinaGiorno(giorno: string, prima: Riga | null) {
+  const db = dbLocale()
+  const { error } = await db.from('setter_daily_reports').delete().eq('setter_id', ID_SETTER).eq('data', giorno)
+  if (error) throw error
+  if (prima) {
+    // dm_totali is computed by the database
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { dm_totali, ...riga } = prima
+    const { error: e2 } = await db.from('setter_daily_reports').insert(riga)
+    if (e2) throw e2
+  }
+}
+
+/** The phone switches to another app and back (Loris between Instagram and "Oggi"). */
+async function tornaSullApp(page: Page) {
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+}
+
+/** The save of "Oggi" (a server action posted to the page) reaches the server, its answer never comes back. */
+async function perdiLaRisposta(page: Page, volte = 1) {
+  let perse = 0
+  await page.route(
+    (url) => url.pathname === '/today',
+    async (route: Route) => {
+      if (route.request().method() !== 'POST' || perse >= volte) return route.fallback()
+      perse++
+      await route.fetch()
+      await route.abort('internetdisconnected')
+    },
+  )
+}
+
+const toastCambiato = (page: Page) => page.locator('[data-sonner-toast]').getByText(/cambiato da un’altra parte/)
 
 async function attendiSalvataggio(page: Page) {
   await expect(page.getByText('Salvataggio…')).toBeVisible()
@@ -164,6 +240,179 @@ test.describe('Oggi, report giornaliero del setter', () => {
       } else {
         await db.from('setter_daily_reports').delete().eq('setter_id', ID_SETTER).eq('data', giorno)
       }
+    }
+  })
+
+  test('una risposta persa dopo il salvataggio: il tocco dopo salva, senza «cambiato da un’altra parte»', async ({
+    page,
+  }) => {
+    test.setTimeout(90_000)
+    const giorno = aggiungiGiorni(oggiRoma(), -43)
+    const prima = await rigaDelGiorno(giorno)
+    try {
+      await impostaGiorno(giorno, 10)
+      await page.goto(`/today?data=${giorno}`)
+      const dm = campo(page, 'DM outbound')
+      await expect(dm).toHaveValue('10')
+
+      // the save lands, the phone never hears back
+      await perdiLaRisposta(page)
+      await page.getByRole('button', { name: 'DM outbound: più 1' }).click()
+      await expect(page.getByText('Non salvato. Connessione assente. Riprova.', { exact: true })).toBeVisible({ timeout: 20_000 })
+      await expect.poll(async () => (await rigaDelGiorno(giorno))?.dm_outbound).toBe(11)
+
+      // the next tap goes out over its own lost save: saved, never "changed elsewhere"
+      await page.getByRole('button', { name: 'DM outbound: più 1' }).click()
+      await expect(page.getByTestId('stato-salvato')).toBeVisible({ timeout: 20_000 })
+      await expect.poll(async () => (await rigaDelGiorno(giorno))?.dm_outbound).toBe(12)
+      await expect(dm).toHaveValue('12')
+
+      // the same with "Riprova": the very values that landed, saved
+      await page.unrouteAll({ behavior: 'wait' })
+      await perdiLaRisposta(page)
+      await page.getByRole('button', { name: 'DM outbound: più 1' }).click()
+      await expect(page.getByText('Non salvato. Connessione assente. Riprova.', { exact: true })).toBeVisible({ timeout: 20_000 })
+      await expect.poll(async () => (await rigaDelGiorno(giorno))?.dm_outbound).toBe(13)
+      await page.getByRole('button', { name: 'Riprova', exact: true }).click()
+      await expect(page.getByTestId('stato-salvato')).toBeVisible({ timeout: 20_000 })
+      await expect(dm).toHaveValue('13')
+      expect((await rigaDelGiorno(giorno))?.dm_outbound).toBe(13)
+      await expect(toastCambiato(page)).toHaveCount(0)
+
+      // a lost save and then a real change elsewhere: that one is still refused, and the day reloads
+      await page.unrouteAll({ behavior: 'wait' })
+      await perdiLaRisposta(page)
+      await page.getByRole('button', { name: 'DM outbound: più 1' }).click()
+      await expect(page.getByText('Non salvato. Connessione assente. Riprova.', { exact: true })).toBeVisible({ timeout: 20_000 })
+      await expect.poll(async () => (await rigaDelGiorno(giorno))?.dm_outbound).toBe(14)
+      await cambiaAltrove(giorno, 50)
+      await page.getByRole('button', { name: 'DM outbound: più 1' }).click()
+      await expect(toastCambiato(page)).toBeVisible({ timeout: 20_000 })
+      await expect(dm).toHaveValue('50')
+      expect((await rigaDelGiorno(giorno))?.dm_outbound).toBe(50)
+    } finally {
+      await page.unrouteAll({ behavior: 'ignoreErrors' })
+      await ripristinaGiorno(giorno, prima)
+    }
+  })
+
+  test('tornando sull’app senza rete Oggi resta lì; con la rete si rilegge solo se il giorno è cambiato', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(90_000)
+    const giorno = aggiungiGiorni(oggiRoma(), -44)
+    const prima = await rigaDelGiorno(giorno)
+    try {
+      await impostaGiorno(giorno, 7)
+      await page.goto(`/today?data=${giorno}`)
+      const dm = campo(page, 'DM outbound')
+      await expect(dm).toHaveValue('7')
+      await expect(page.getByTestId('stato-salvato')).toBeVisible()
+
+      // every read of the page again (router.refresh), and every page the browser loads
+      const riletture: string[] = []
+      page.on('request', (r) => {
+        if (r.method() === 'GET' && r.headers()['rsc'] === '1' && new URL(r.url()).pathname === '/today') {
+          riletture.push(r.url())
+        }
+      })
+      // a full browser navigation (a refresh that failed) loads a new document
+      const navigazioni: string[] = []
+      page.on('load', () => navigazioni.push(page.url()))
+
+      // changed elsewhere while the phone has no connection
+      await cambiaAltrove(giorno, 30)
+      await context.setOffline(true)
+      await tornaSullApp(page)
+      await page.waitForTimeout(3000)
+      expect(navigazioni).toEqual([])
+      expect(page.url()).toContain(`/today?data=${giorno}`)
+      await expect(page.getByTestId('report-campi')).toBeVisible()
+      await expect(dm).toHaveValue('7')
+      expect(riletture).toEqual([])
+
+      // "on line" but nothing gets through (a weak signal): the same
+      await context.setOffline(false)
+      await page.route('**/rest/v1/**', (route) => route.abort('internetdisconnected'))
+      await tornaSullApp(page)
+      await page.waitForTimeout(3000)
+      expect(navigazioni).toEqual([])
+      await expect(page.getByTestId('report-campi')).toBeVisible()
+      await expect(dm).toHaveValue('7')
+      expect(riletture).toEqual([])
+      await page.unroute('**/rest/v1/**')
+
+      // the connection back: the day changed, it is read again
+      await tornaSullApp(page)
+      await expect(dm).toHaveValue('30')
+      await expect(page.getByTestId('stato-salvato')).toBeVisible()
+      expect(riletture.length).toBeGreaterThan(0)
+
+      // nothing changed since: back to the app, nothing is read again
+      riletture.length = 0
+      await tornaSullApp(page)
+      await page.waitForTimeout(3000)
+      expect(riletture).toEqual([])
+      expect(navigazioni).toEqual([])
+
+      // and the taps save over the day read again
+      await page.getByRole('button', { name: 'DM outbound: più 1' }).click()
+      await expect(page.getByTestId('stato-salvato')).toBeVisible({ timeout: 20_000 })
+      await expect.poll(async () => (await rigaDelGiorno(giorno))?.dm_outbound).toBe(31)
+    } finally {
+      await context.setOffline(false)
+      await page.unrouteAll({ behavior: 'ignoreErrors' })
+      await ripristinaGiorno(giorno, prima)
+    }
+  })
+
+  test('un salvataggio rifiutato e subito niente rete: il giorno salvato prende lo schermo, mai la pagina d’errore', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(90_000)
+    const giorno = aggiungiGiorni(oggiRoma(), -45)
+    const prima = await rigaDelGiorno(giorno)
+    try {
+      await impostaGiorno(giorno, 10)
+      await page.goto(`/today?data=${giorno}`)
+      const dm = campo(page, 'DM outbound')
+      await expect(dm).toHaveValue('10')
+      // a full browser navigation (a refresh that failed) loads a new document
+      const navigazioni: string[] = []
+      page.on('load', () => navigazioni.push(page.url()))
+
+      // changed elsewhere; the refusal comes back, then the connection drops
+      await cambiaAltrove(giorno, 40)
+      let rifiuti = 0
+      await page.route(
+        (url) => url.pathname === '/today',
+        async (route: Route) => {
+          if (route.request().method() !== 'POST' || rifiuti > 0) return route.fallback()
+          rifiuti++
+          const risposta = await route.fetch()
+          await context.setOffline(true)
+          await route.fulfill({ response: risposta })
+        },
+      )
+      await page.getByRole('button', { name: 'DM outbound: più 1' }).click()
+      await expect(toastCambiato(page)).toBeVisible({ timeout: 20_000 })
+      await expect(dm).toHaveValue('40')
+      await expect(page.getByTestId('report-sospeso')).toHaveCount(0)
+      await expect(page.getByTestId('stato-salvato')).toBeVisible()
+      expect(navigazioni).toEqual([])
+      expect((await rigaDelGiorno(giorno))?.dm_outbound).toBe(40)
+
+      // the connection back: his next tap saves over the day it shows
+      await context.setOffline(false)
+      await page.getByRole('button', { name: 'DM outbound: più 1' }).click()
+      await expect(page.getByTestId('stato-salvato')).toBeVisible({ timeout: 20_000 })
+      await expect.poll(async () => (await rigaDelGiorno(giorno))?.dm_outbound).toBe(41)
+    } finally {
+      await context.setOffline(false)
+      await page.unrouteAll({ behavior: 'ignoreErrors' })
+      await ripristinaGiorno(giorno, prima)
     }
   })
 

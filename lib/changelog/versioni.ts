@@ -83,6 +83,55 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.30.0',
+    data: '2026-10-08',
+    titolo: 'Approvi anche tu il tracciamento dei setter',
+    riassunto:
+      'In cima alla pagina Setter trovi le giornate contate dai DM e non ancora decise, col numero accanto a «Setter»: le confermi, le correggi o tieni i numeri del setter. Vale la prima scelta, tua o sua.',
+    intestazionePer: ['setter'],
+    intestazioneTeam: {
+      titolo: 'Le giornate da approvare, col numero su Oggi',
+      riassunto:
+        'Su «Oggi» un numero ti dice quante giornate contate dai DM aspettano la tua scelta. Anche Dany può confermarle, e quando lo fa lo trovi scritto nel giorno.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'In cima alla pagina Setter c’è «Tracciamento da approvare»: una scheda per ogni giornata contata dai DM di Instagram e non ancora decisa, di ogni setter, dalla più recente, con il nome del setter, il giorno, le chat lette e quelle lunghe e i 6 numeri. Se il setter quel giorno ha già scritto i suoi numeri, ogni riga dice «Loris 52 · Instagram 53» e scegli tra «Usa quelli di Instagram», «Tieni quelli di Loris» e «Correggi»; altrimenti «Conferma» o «Correggi», che apre gli stessi contatori di Oggi partendo dai numeri di Instagram. I numeri vanno nel report del setter di quel giorno, mai nel tuo, e le sue risposte di «Com’è andata la giornata» restano come sono. Senza giornate da decidere la sezione non c’è.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Accanto a «Setter», nel menu, un numero dice quante giornate aspettano una scelta; sul telefono sta su «Altro», sommato agli esiti da registrare. Si aggiorna quando cambi pagina e a zero sparisce. Nessuna email, nessun avviso.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Vale la prima scelta, tua o del setter: se ha già deciso lui, al tocco la scheda te lo dice e sparisce. Se mentre la guardi il setter cambia i suoi numeri di quel giorno, anche un istante prima del tocco, la conferma si ferma e la scheda torna con i numeri nuovi: non sovrascrivi mai numeri che non hai visto. Se il setter ha Oggi aperto su quel giorno, il suo primo tocco non riscrive i numeri vecchi sopra quelli che hai deciso: Oggi gli dice che il report è cambiato e li ricarica. Chi decide resta scritto, e il setter vede nel suo giorno che l’hai deciso tu, o che hai corretto i numeri di Instagram. Cambia una regola: adesso vedi i numeri contati dai DM accanto a quelli dichiarati dal setter, e il setter lo sa.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Il backup del lunedì comprende di nuovo le proposte di Instagram, con chi le ha decise: dopo un ripristino tornano come erano. In Impostazioni › Instagram, «Ricalcola ieri» ti porta alle giornate da approvare.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Il setter ha un numero su «Oggi», nel menu: quante delle sue giornate contate dai DM aspettano ancora la sua scelta. A zero sparisce.',
+        testoTeam:
+          'Su «Oggi», nel menu, un numero ti dice quante delle tue giornate contate dai DM aspettano ancora la tua scelta. A zero sparisce.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Il setter sa che anche tu puoi decidere le sue giornate e che vedi i numeri di Instagram accanto ai suoi. Quando decidi tu, nel suo giorno trova scritto, col tuo nome, che hai confermato i numeri di Instagram, che li hai corretti o che hai tenuto i suoi, senza i numeri della proposta.',
+        testoTeam:
+          'Anche Dany può confermare i numeri di Instagram delle tue giornate, correggerli o tenere i tuoi, e li vede accanto ai tuoi. Vale la prima scelta, tua o sua: una giornata già decisa da lui sparisce da Oggi. Quando decide lui, nel giorno trovi scritto che Dany ha confermato i numeri di Instagram per quel giorno, che li ha corretti o che ha tenuto i tuoi. Le domande di «Com’è andata la giornata» restano sempre tue.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Se il setter ha Oggi aperto su un giorno che intanto hai deciso tu (o corretto da Setter), il suo primo tocco non riscrive i numeri vecchi: Oggi gli dice che il report è cambiato, ricarica i numeri salvati e gli chiede di rifare l’ultima modifica. Tornando nell’app, il giorno aperto si aggiorna da solo se è cambiato; senza rete resta com’è. Un salvataggio arrivato col telefono che non ha ricevuto la risposta (la rete che salta, il passaggio a Instagram subito dopo un tocco) non conta come un cambiamento: il tocco dopo salva come sempre.',
+        testoTeam:
+          'Se hai Oggi aperto su un giorno che intanto Dany ha deciso, il tuo primo tocco non riscrive i numeri vecchi: Oggi ti dice che il report di quel giorno è cambiato e ricarica i numeri salvati, poi rifai l’ultima modifica se serve. Tornando nell’app, il giorno aperto si aggiorna da solo se è cambiato; senza rete resta com’è. Se la rete salta proprio mentre salvi, o passi a Instagram subito dopo un tocco, il tocco dopo salva come sempre.',
+      },
+    ],
+  },
+  {
     versione: '1.29.0',
     data: '2026-10-08',
     titolo: 'Il report del setter precompilato dai DM di Instagram',

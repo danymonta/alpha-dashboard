@@ -9,6 +9,7 @@ import { EsitiDaRegistrareProvider } from '@/components/shell/esiti-da-registrar
 import { Sidebar } from '@/components/shell/sidebar'
 import { TopBar } from '@/components/shell/top-bar'
 import type { AppRole } from '@/lib/auth/roles'
+import type { Promemoria } from '@/lib/nav'
 
 type Props = {
   profiloId: string
@@ -19,10 +20,10 @@ type Props = {
   alfireConfigurata: boolean
   /** First sign-in after the invite: the guided tour starts by itself. */
   primoAccesso: boolean
-  /** The person's own past calls still without an outcome: a badge on their items (admin and closer). */
-  esitiDaRegistrare: number
+  /** The person's own calls to record and setters' days to decide: badges on their items. */
+  promemoria: Promemoria
   /** When the layout counted them: a new value means a fresh server count. */
-  esitiLetti: number
+  promemoriaLetti: number
   children: ReactNode
 }
 
@@ -37,8 +38,8 @@ export function AppShell({
   foto,
   alfireConfigurata,
   primoAccesso,
-  esitiDaRegistrare,
-  esitiLetti,
+  promemoria,
+  promemoriaLetti,
   children,
 }: Props) {
   return (
@@ -46,7 +47,7 @@ export function AppShell({
     <TimerProvider profiloId={profiloId}>
       <AlfireProvider configurata={alfireConfigurata} ruolo={ruolo} nome={nome}>
       <TutorialProvider ruolo={ruolo} primoAccesso={primoAccesso}>
-      <EsitiDaRegistrareProvider iniziale={esitiDaRegistrare} versione={esitiLetti} profiloId={profiloId} ruolo={ruolo}>
+      <EsitiDaRegistrareProvider iniziale={promemoria} versione={promemoriaLetti} profiloId={profiloId} ruolo={ruolo}>
       <div className="min-h-dvh md:pl-60">
         <Sidebar ruolo={ruolo} nome={nome} foto={foto} />
         <TopBar ruolo={ruolo} nome={nome} foto={foto} />

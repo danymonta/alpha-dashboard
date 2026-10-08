@@ -1,16 +1,18 @@
 import { z } from 'zod'
 
-import { etichettaGiorno } from '@/lib/date'
+import { aggiungiGiorni, etichettaGiorno, nomeGiorno } from '@/lib/date'
 import { GRUPPI_REPORT, MASSIMO_GIORNALIERO, type CampoNumericoReport } from '@/lib/validation/report'
 
 /**
  * The setter's report proposed from the Instagram DMs (Dany, 08/10/2026):
  * every night the numbers of the day just ended are worked out from the DMs
- * of the account, and only the setter sees them, in "Oggi", to confirm,
- * correct or leave (CLAUDE.md section 17 as changed that day: the report
- * stays his own statement, the system only proposes the totals he already
- * states, and his choice always wins). The answers of "Com’è andata la
- * giornata" stay his: the proposal never touches them.
+ * of the account, and the setter sees them in "Oggi", to confirm, correct or
+ * leave (CLAUDE.md section 17 as changed that day: the report stays his own
+ * statement, the system only proposes the totals he already states). The
+ * admin decides them too, from the "Setter" page (the same day, "Anche tu, con
+ * una scheda e la notifica"): the first decision wins, his or the setter's,
+ * and the setter sees on his day who decided. The answers of "Com’è andata
+ * la giornata" stay the setter's: the proposal never touches them.
  *
  * The six numbers carry the very words of the form (GRUPPI_REPORT, from the
  * legend), in its order, so a label means the same thing on the card and on
@@ -49,7 +51,17 @@ export type PropostaInstagram = NumeriProposta & {
    * refused, so the setter never confirms numbers he has not seen.
    */
   calcolato_il: string
+  /** The admin's section: whose day it is (the setter's full name). */
+  setter_nome?: string
 }
+
+/** Who decides from a card: the setter on his own day ("Oggi"), the admin on a setter's ("Setter"). */
+export type ChiDecide = 'setter' | 'admin'
+
+export type Decisione = 'conferma' | 'correzione' | 'scarto'
+
+// calcolato_il: the confirmation carries it back, so a proposal recomputed meanwhile is never confirmed unseen
+export const COLONNE_PROPOSTA = ['id', 'data', ...CAMPI_PROPOSTA, 'chat_lette', 'chat_incerte', 'calcolato_il'].join(', ')
 
 /** The numbers out of a row that has them (a proposal or a report). */
 export function numeriDi(riga: NumeriProposta): NumeriProposta {
@@ -93,23 +105,111 @@ export type ConfermaPropostaInput = z.input<typeof confermaPropostaSchema>
 /** "Tieni i miei": the proposal is left, the report stays as he wrote it. */
 export const scartaPropostaSchema = z.object({ id: idProposta })
 
+const numeriProposta = z
+  .object(Object.fromEntries(CAMPI_PROPOSTA.map((campo) => [campo, numero])) as Record<CampoProposta, typeof numero>)
+  .strict()
+
+/**
+ * The admin's "Conferma" and "Conferma questi numeri": as the setter's, plus
+ * the setter's own numbers of that day as the card showed them (null: none
+ * written). The report is the setter's: the database compares them with his
+ * report under a lock, in the transaction of the write (p_visti of
+ * conferma_proposta_instagram), so numbers he wrote after the admin looked are
+ * never replaced unseen.
+ */
+export const confermaPropostaAdminSchema = confermaPropostaSchema.extend({
+  visti: numeriProposta.nullable(),
+})
+
+export type ConfermaPropostaAdminInput = z.input<typeof confermaPropostaAdminSchema>
+
+/**
+ * Our functions raise 22023/42501 with words already for people ("Questa
+ * proposta è già stata confermata", "Un giorno che non è ancora arrivato non
+ * si compila."); a proposal that cannot be read, or is not there any more,
+ * is P0002. A policy refusal from PostgREST is not worded: the generic
+ * sentence.
+ */
+export function messaggioProposta(error: { code?: string; message: string }, fallback: string) {
+  if (error.code === 'P0002') return 'Questa proposta non c’è più.'
+  if ((error.code === '22023' || error.code === '42501') && !/row-level security/i.test(error.message)) {
+    return error.message.endsWith('.') ? error.message : `${error.message}.`
+  }
+  return fallback
+}
+
+/** Decided by someone else (the setter, the admin, another tab or device), or not there any more. */
+export function propostaChiusa(error: { code?: string; message: string }) {
+  return error.code === 'P0002' || (error.code === '22023' && /^Questa proposta è già stata/.test(error.message))
+}
+
 /** At most this many cards: the nightly job proposes one day, the rest piles up only if left. */
 export const PROPOSTE_MAX = 14
+
+/**
+ * The proposals of "Oggi" in one string: the ones still to decide, as the page
+ * reads them (at most PROPOSTE_MAX + 1, most recent first: id and when they
+ * were computed), and when the open day's proposal was decided. The page
+ * computes it from what it read, the browser from the same reads when the app
+ * comes back to the front: a different string, and the page is read again.
+ * Null (a read that failed) never equals a list.
+ */
+export function firmaProposte(
+  daDecidere: { id: string; calcolato_il: string }[] | null,
+  decisaIl: string | null,
+): string {
+  return JSON.stringify([daDecidere?.map((p) => [p.id, p.calcolato_il]) ?? null, decisaIl])
+}
 
 /**
  * Before a decision on a day, the card tells "Oggi"'s form of that same day
  * to send what it still holds (a counter tapped a moment ago, a note that did
  * not save) and to stop: the form pushes the promise of that save into
- * `attese` (true: everything saved, false: the save failed) and the card waits
- * for all of them before deciding, so no save of the form ever lands after
- * the confirmation. From then on the form takes no change until the page
+ * `attese` (true: everything saved, false: the save failed, 'cambiato': the
+ * report changed elsewhere meanwhile, the admin's decision or another device,
+ * and the form is reading it again) and the card waits for all of them before
+ * deciding, so no save of the form ever lands after the confirmation. From then on the form takes no change until the page
  * reloads it with the decided numbers; EVENTO_PROPOSTA_FINE, sent when the
  * decision did not happen, gives it back to the setter.
  */
 export const EVENTO_PROPOSTA = 'alpha:proposta-instagram'
-export type DettaglioEventoProposta = { data: string; attese: Promise<boolean>[] }
+export type DettaglioEventoProposta = { data: string; attese: Promise<boolean | 'cambiato'>[] }
 export const EVENTO_PROPOSTA_FINE = 'alpha:proposta-instagram-fine'
 export type DettaglioEventoPropostaFine = { data: string }
+
+/** "Loris", from "Loris Lo Presti": the setter on the admin's card, where space is short. */
+export function primoNome(nome: string): string {
+  return nome.trim().split(/\s+/)[0] || nome
+}
+
+/** "ieri, mercoledì 07/10", "lunedì 05/10": the day of a proposal on the admin's card. */
+export function giornoProposta(data: string, oggi: string): string {
+  const giorno = `${nomeGiorno(data)} ${data.slice(8, 10)}/${data.slice(5, 7)}`
+  return data === aggiungiGiorni(oggi, -1) ? `ieri, ${giorno}` : giorno
+}
+
+/**
+ * The line on the setter's open day when someone else decided its proposal
+ * (the admin, 08/10/2026): who, and what, never the proposal's numbers. A
+ * confirmation with a number changed in "Correggi" (corretta, written by the
+ * database) says "ha corretto": his day does not hold Instagram's numbers.
+ * Null when he decided it himself, or when the person who decided is no
+ * longer in the team (deciso_da emptied).
+ */
+export function decisaDaUnAltro(
+  decisa: { stato: string; corretta: boolean; deciso_da: string | null; decisore: { nome: string } | null },
+  setterId: string,
+): string | null {
+  if (!decisa.deciso_da || decisa.deciso_da === setterId || !decisa.decisore?.nome) return null
+  const chi = decisa.decisore.nome
+  if (decisa.stato === 'confermata') {
+    return decisa.corretta
+      ? `${chi} ha corretto i numeri di Instagram per questo giorno.`
+      : `${chi} ha confermato i numeri di Instagram per questo giorno.`
+  }
+  if (decisa.stato === 'scartata') return `${chi} ha tenuto i tuoi numeri per questo giorno.`
+  return null
+}
 
 /** Every word of the card and of its sheet. */
 export const PROPOSTA = {
@@ -150,8 +250,86 @@ export const PROPOSTA = {
    */
   salvaPrimaFoglio:
     'Il report di quel giorno non si è salvato: controlla la connessione e tocca di nuovo «Conferma questi numeri».',
+  /** the form's save was refused: the report of that day changed elsewhere, and is read again */
+  cambiatoPrima: 'Il report di quel giorno è cambiato da un’altra parte: ricontrolla i numeri e decidi di nuovo.',
   apriGiorno: 'Apri il giorno',
   altre: 'Ci sono altre proposte più vecchie: compaiono man mano che decidi queste.',
   errore: 'Le proposte da Instagram non si sono caricate.',
   riprova: 'Riprova',
 } as const
+
+/**
+ * The admin's section on the "Setter" page (08/10/2026): the setters' days
+ * still to decide, one card each, with the setter's name.
+ */
+export const DA_APPROVARE = {
+  /** The anchor of the section: the notification's place on the page. */
+  ancora: 'da-approvare',
+  titolo: 'Tracciamento da approvare',
+  descrizione:
+    'Le giornate dei setter contate ogni notte dai DM di Instagram e non ancora decise. Vale la prima scelta, tua o del setter, e lui vede nel suo giorno che l’hai decisa tu.',
+  finito: 'Niente più da approvare.',
+  altre: 'Ci sono altre giornate più vecchie: compaiono man mano che decidi queste.',
+  errore: 'Le giornate da approvare non si sono caricate.',
+} as const
+
+/** Every word of one card and of its sheet: the setter's own day, or a setter's day for the admin. */
+export type ParoleScheda = {
+  titolo: string
+  spiegazione: string
+  prenotate: string
+  /** Who wrote the other numbers: "tu", or the setter's first name. */
+  suoi: string
+  tieni: string
+  titoloFoglio: string
+  descrizioneFoglio: string
+  confrontoFoglio: (instagram: string, suo: string) => string
+  fatto: Record<Decisione, string>
+  /** Under the toast of a decision and in the sheet: what stays as it is. */
+  dopo: string
+  /** The toast of a discard says it too (the admin's: the setter sees who decided). */
+  dopoLoScarto: boolean
+}
+
+export function paroleScheda(proposta: Pick<PropostaInstagram, 'data' | 'setter_nome'>, oggi: string, per: ChiDecide): ParoleScheda {
+  const giorno = etichettaGiorno(proposta.data, oggi).toLowerCase()
+  if (per === 'setter') {
+    return {
+      titolo: PROPOSTA.titolo(proposta.data, oggi),
+      spiegazione: PROPOSTA.spiegazione,
+      prenotate: PROPOSTA.prenotate,
+      suoi: PROPOSTA.tu,
+      tieni: PROPOSTA.tieniMiei,
+      titoloFoglio: PROPOSTA.titoloFoglio(proposta.data, oggi),
+      descrizioneFoglio: PROPOSTA.descrizioneFoglio,
+      confrontoFoglio: PROPOSTA.confrontoFoglio,
+      fatto: {
+        conferma: PROPOSTA.fatto.conferma(proposta.data, oggi),
+        correzione: PROPOSTA.fatto.correzione(proposta.data, oggi),
+        scarto: PROPOSTA.fatto.scarto(proposta.data, oggi),
+      },
+      dopo: PROPOSTA.dopo,
+      dopoLoScarto: false,
+    }
+  }
+  const nome = proposta.setter_nome?.trim() || 'Setter'
+  const primo = primoNome(nome)
+  return {
+    titolo: `${nome} · ${giornoProposta(proposta.data, oggi)}`,
+    spiegazione: `Calcolati dai DM dell’account per il report di ${primo}: controlla e conferma. Vale la prima scelta, tua o sua.`,
+    prenotate: `Discovery prenotate: le call che ${primo} ha fissato nell’app quel giorno.`,
+    suoi: primo,
+    tieni: `Tieni quelli di ${primo}`,
+    titoloFoglio: `Correggi i numeri di ${primo} di ${giorno}`,
+    descrizioneFoglio: `Partono da quelli di Instagram: cambia quelli che non tornano. Vanno nel report di ${primo} di quel giorno.`,
+    confrontoFoglio: (instagram, suo) => `Instagram ${instagram} · ${primo} ${suo}`,
+    fatto: {
+      conferma: `Report di ${primo} di ${giorno} compilato con i numeri di Instagram`,
+      correzione: `Report di ${primo} di ${giorno} compilato con i numeri corretti`,
+      scarto: `Report di ${primo} di ${giorno}: tenuti i suoi numeri`,
+    },
+    dopo: `Le domande della giornata restano di ${primo}, che nel suo giorno vede che hai deciso tu.`,
+    dopoLoScarto: true,
+  }
+}
+
