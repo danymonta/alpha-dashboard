@@ -89,3 +89,28 @@ describe('senza sessione, il login ricorda l’indirizzo intero', () => {
     expect(verso.searchParams.get('da')).toBe('/setting?da=2026-07-01&a=2026-07-31')
   })
 })
+
+describe('il server MCP: Claude chiama senza cookie e deve ricevere il 401 della route, non il login', () => {
+  it.each([
+    ['POST /mcp', '/mcp', 'POST'],
+    ['GET /mcp', '/mcp', 'GET'],
+    ['i metadati della risorsa', '/.well-known/oauth-protected-resource/mcp', 'GET'],
+    ['la radice dei metadati', '/.well-known/oauth-protected-resource', 'GET'],
+  ])('%s passa senza redirect e senza toccare la sessione', async (_, percorso, metodo) => {
+    const risposta = await updateSession(new NextRequest(`http://localhost:3000${percorso}`, { method: metodo }))
+    expect(risposta.headers.get('location')).toBeNull()
+    expect(risposta.cookies.getAll()).toEqual([])
+  })
+
+  it('un percorso che inizia solo per «mcp» resta dietro il login', async () => {
+    const risposta = await updateSession(new NextRequest('http://localhost:3000/mcpqualcosa'))
+    expect(new URL(risposta.headers.get('location') ?? '').pathname).toBe('/login')
+  })
+
+  it('la pagina di consenso resta dietro il login, e ci si torna con la query', async () => {
+    const risposta = await updateSession(new NextRequest('http://localhost:3000/oauth/consent?authorization_id=abc'))
+    expect(risposta.headers.get('location')).toBe(
+      'http://localhost:3000/login?da=%2Foauth%2Fconsent%3Fauthorization_id%3Dabc',
+    )
+  })
+})
