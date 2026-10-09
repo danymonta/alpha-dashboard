@@ -11,7 +11,6 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { formatData, formatNumero } from '@/lib/format'
-import { COLONNE_ELENCO } from '@/lib/marketing/elenco'
 import {
   CAMPI,
   CAMPO_MODELLO,
@@ -22,8 +21,8 @@ import {
   sezioniVisibili,
 } from '@/lib/marketing/etichette'
 import { improntaTesto } from '@/lib/marketing/impronta'
+import { leggiContenuto } from '@/lib/marketing/letture'
 import { eliminaContenuti } from '@/lib/marketing/permessi'
-import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -67,16 +66,8 @@ function LinkFuori({ href }: { href: string }) {
 export default async function ContenutoPage({ params }: { params: Promise<{ id: string }> }) {
   const profilo = await requireRuolo(RUOLI_MARKETING)
   const { id } = await params
-  const supabase = await createClient()
-
-  const { data: contenuto, error } = isUuid(id)
-    ? await supabase
-        .from('marketing_contenuti')
-        .select(`${COLONNE_ELENCO}, messaggio, bozza, commenti, finale, notion_page_id`)
-        .eq('id', id)
-        .maybeSingle()
-    : { data: null, error: null }
-  if (error) throw new Error('Impossibile caricare il contenuto')
+  // the page and Claude read a content the same way (lib/marketing/letture.ts); a failed read throws to error.tsx
+  const contenuto = await leggiContenuto(await createClient(), id)
 
   // a bad id, a deleted content, or one RLS hides
   if (!contenuto) {

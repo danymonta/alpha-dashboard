@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { CalendarioContenuti } from '@/components/marketing/calendario-contenuti'
-import { FiltriContenuti, type ConteggiGruppi } from '@/components/marketing/filtri-contenuti'
+import { FiltriContenuti } from '@/components/marketing/filtri-contenuti'
 import { NuovoContenuto } from '@/components/marketing/nuovo-contenuto'
 import { SceltaVista } from '@/components/marketing/scelta-vista'
 import { SezioneContenuti } from '@/components/marketing/sezione-contenuti'
@@ -14,17 +14,9 @@ import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma, parseMese, primoDelMeseISO } from '@/lib/date'
 import { intervalloGriglia } from '@/lib/marketing/calendario'
-import { COLONNE_ELENCO, LIMITE_SENZA_DATA, LIMITE_TABELLA } from '@/lib/marketing/elenco'
-import { ORDINE_GRUPPI } from '@/lib/marketing/etichette'
-import {
-  filtriDaParametri,
-  filtriDelGruppo,
-  haFiltri,
-  parametriDaFiltri,
-  patternRicerca,
-  statiFiltrati,
-  type FiltriContenuti as Filtri,
-} from '@/lib/marketing/filtri'
+import { LIMITE_SENZA_DATA, LIMITE_TABELLA } from '@/lib/marketing/elenco'
+import { filtriDaParametri, haFiltri, parametriDaFiltri, statiFiltrati } from '@/lib/marketing/filtri'
+import { contaPerGruppo, leggiElenco } from '@/lib/marketing/letture'
 import { COOKIE_VISTA_CONTENUTI, vistaDaUrl, vistaIniziale } from '@/lib/marketing/vista'
 import { createClient } from '@/lib/supabase/server'
 
@@ -66,61 +58,18 @@ export default async function ContenutiPage({
   const mese = meseNellUrl ?? primoDelMeseISO(oggi)
   const supabase = await createClient()
 
-  /** The contents with these filters (RLS: the Marketing area only). The same columns for counts and rows. */
-  function filtrati(f: Filtri, { head = false }: { head?: boolean } = {}) {
-    let query = supabase.from('marketing_contenuti').select(COLONNE_ELENCO, { count: 'exact', head })
-    const stati = statiFiltrati(f)
-    if (stati) query = query.in('stato', stati)
-    if (f.reel_type) query = query.eq('reel_type', f.reel_type)
-    if (f.formato) query = query.eq('formato', f.formato)
-    if (f.tipo) query = query.eq('tipo', f.tipo)
-    if (f.q) query = query.regexIMatch('nome', patternRicerca(f.q))
-    return query
-  }
-
-  // each group chip counts with the filters its link opens (a Status of another group dropped)
-  const conteggiPromessa = Promise.all([
-    filtrati(filtriDelGruppo(filtri, null), { head: true }),
-    ...ORDINE_GRUPPI.map((g) => filtrati(filtriDelGruppo(filtri, g), { head: true })),
-  ])
-
+  // the page and Claude read the same way (lib/marketing/letture.ts); a failed read throws to error.tsx.
+  // Each group chip counts with the filters its link opens (a Status of another group dropped).
   const intervallo = intervalloGriglia(mese)
-  const [conteggiLetti, tabella, delMese, senzaData] = await Promise.all([
-    conteggiPromessa,
-    vista === 'tabella'
-      ? filtrati(filtri)
-          .order('post_date', { ascending: false, nullsFirst: false })
-          .order('created_at', { ascending: false })
-          .order('id')
-          .limit(LIMITE_TABELLA)
-      : null,
+  const [conteggi, tabella, delMese, senzaData] = await Promise.all([
+    contaPerGruppo(supabase, filtri),
+    vista === 'tabella' ? leggiElenco(supabase, filtri, LIMITE_TABELLA) : null,
     vista === 'calendario'
-      ? filtrati(filtri)
-          .gte('post_date', intervallo.da)
-          .lte('post_date', intervallo.a)
-          .order('post_date')
-          .order('created_at')
-          .order('id')
-          .limit(LIMITE_MESE)
+      ? leggiElenco(supabase, { ...filtri, da: intervallo.da, a: intervallo.a }, LIMITE_MESE, 'giorni')
       : null,
-    vista === 'calendario'
-      ? filtrati(filtri)
-          .is('post_date', null)
-          .order('created_at', { ascending: false })
-          .order('id')
-          .limit(LIMITE_SENZA_DATA)
-      : null,
+    vista === 'calendario' ? leggiElenco(supabase, { ...filtri, senzaData: true }, LIMITE_SENZA_DATA) : null,
   ])
-  if (conteggiLetti.some((c) => c.error) || tabella?.error || delMese?.error || senzaData?.error) {
-    throw new Error('Impossibile caricare i contenuti')
-  }
 
-  const conteggi: ConteggiGruppi = {
-    tutti: conteggiLetti[0].count ?? 0,
-    to_do: conteggiLetti[1].count ?? 0,
-    in_progress: conteggiLetti[2].count ?? 0,
-    complete: conteggiLetti[3].count ?? 0,
-  }
   const filtrato = haFiltri(filtri)
   // the filters keep the view the address says (without one, the memory decides again) and the month
   const resto = { vista: vistaNellUrl ?? undefined, mese: meseNellUrl ? meseNellUrl.slice(0, 7) : undefined }
@@ -152,7 +101,7 @@ export default async function ContenutiPage({
 
           <SezioneContenuti stati={statiFiltrati(filtri)}>
             {vista === 'tabella' ? (
-              (tabella?.data?.length ?? 0) === 0 ? (
+              (tabella?.righe.length ?? 0) === 0 ? (
                 <StatoVuoto
                   Icona={SearchX}
                   titolo="Nessun contenuto con questi filtri"
@@ -164,15 +113,15 @@ export default async function ContenutiPage({
                   }
                 />
               ) : (
-                <TabellaContenuti righe={tabella?.data ?? []} totale={tabella?.count ?? 0} limite={LIMITE_TABELLA} />
+                <TabellaContenuti righe={tabella?.righe ?? []} totale={tabella?.totale ?? 0} limite={LIMITE_TABELLA} />
               )
             ) : (
               <CalendarioContenuti
                 mese={mese}
                 oggi={oggi}
-                righe={delMese?.data ?? []}
-                senzaData={senzaData?.data ?? []}
-                totaleSenzaData={senzaData?.count ?? 0}
+                righe={delMese?.righe ?? []}
+                senzaData={senzaData?.righe ?? []}
+                totaleSenzaData={senzaData?.totale ?? 0}
                 limiteSenzaData={LIMITE_SENZA_DATA}
                 parametri={{ ...parametriFiltri, vista: vistaNellUrl ?? undefined }}
                 filtrato={filtrato}
