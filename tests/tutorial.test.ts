@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { TUTTI_I_RUOLI } from '@/lib/auth/roles'
+import { TUTTI_I_RUOLI, percorsoIniziale } from '@/lib/auth/roles'
 import { vociNav } from '@/lib/nav'
 import { ATTESA_LETTURA_MS, FUNZIONE, PERCORSI, TARGET_DI_PAGINA, suPagina } from '@/lib/tutorial/percorsi'
 
@@ -58,6 +58,39 @@ describe('percorsi del tutorial', () => {
       }
     }
     expect(ATTESA_LETTURA_MS).toBe(2000)
+  })
+
+  it('video editor e marketing passano da «Contenuti» subito dopo il benvenuto (1.32.0)', () => {
+    for (const ruolo of ['editor', 'marketing'] as const) {
+      const passi = PERCORSI[ruolo]
+      expect(passi.map((p) => p.id).slice(0, 4), ruolo).toEqual(['benvenuto', 'vai-contenuti', 'contenuti', 'vai-task'])
+      expect(passi[1].target?.[0]).toBe('nav-/marketing/contenuti')
+      expect(passi[2].target).toEqual(['elenco-contenuti'])
+      expect(passi, ruolo).toHaveLength(10)
+    }
+    expect(FUNZIONE.marketing).toBe('Marketing')
+    // the other roles never see the calendar in their tour
+    for (const ruolo of ['admin', 'setter', 'closer', 'coach', 'nutrizione', 'dev'] as const) {
+      expect(PERCORSI[ruolo].some((p) => p.id.includes('contenuti')), ruolo).toBe(false)
+    }
+    // coach, nutrizione and dev keep the Projects tour as it was
+    expect(PERCORSI.coach).toHaveLength(8)
+  })
+
+  it('«I miei task» è «la tua pagina di tutti i giorni» solo per chi ci atterra', () => {
+    let passi = 0
+    for (const ruolo of TUTTI_I_RUOLI) {
+      const passo = PERCORSI[ruolo].find((p) => p.id === 'vai-task')
+      if (!passo) continue
+      passi++
+      const ogniGiorno = passo.testo.includes('pagina di tutti i giorni')
+      expect(ogniGiorno, ruolo).toBe(percorsoIniziale(ruolo) === '/task')
+    }
+    expect(passi).toBeGreaterThanOrEqual(5)
+    // marketing lands on Contenuti: the step says what I miei task holds instead
+    expect(PERCORSI.marketing.find((p) => p.id === 'vai-task')?.testo).toBe(
+      'Tocca «I miei task»: i task dei progetti assegnati a te.',
+    )
   })
 
   it('la pagina del passo: "/" solo se stessa, le altre con le sotto-pagine', () => {

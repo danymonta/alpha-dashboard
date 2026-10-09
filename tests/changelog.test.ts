@@ -26,11 +26,13 @@ const COLLABORATORI = TUTTI_I_RUOLI.filter((r) => r !== 'admin')
  * code under test would pass whatever the code said.
  */
 const LEGGE: Record<AppRole, readonly Pubblico[]> = {
-  admin: ['admin', 'setter', 'closer', 'progetti', 'tutti'],
+  admin: ['admin', 'setter', 'closer', 'marketing', 'progetti', 'tutti'],
   setter: ['setter', 'progetti', 'tutti'],
   closer: ['closer', 'progetti', 'tutti'],
   coach: ['progetti', 'tutti'],
-  editor: ['progetti', 'tutti'],
+  // the Marketing area, the content calendar (1.32.0)
+  editor: ['marketing', 'progetti', 'tutti'],
+  marketing: ['marketing', 'progetti', 'tutti'],
   nutrizione: ['progetti', 'tutti'],
   dev: ['progetti', 'tutti'],
 }
@@ -219,7 +221,7 @@ describe('per chi è ogni voce', () => {
 })
 
 describe('cosa legge ogni ruolo', () => {
-  it('chi legge cosa è quello deciso, per ognuno dei 7 ruoli', () => {
+  it('chi legge cosa è quello deciso, per ognuno degli 8 ruoli', () => {
     expect(Object.keys(LEGGE).sort()).toEqual([...TUTTI_I_RUOLI].sort())
     expect(PUBBLICI_DEL_RUOLO).toEqual(LEGGE)
   })
@@ -286,9 +288,30 @@ describe('cosa legge ogni ruolo', () => {
     expect(soloAdmin).toBeGreaterThan(0)
   })
 
-  it('coach, editor, nutrizione e dev leggono la stessa pagina', () => {
+  it('coach, nutrizione e dev leggono la stessa pagina; video editor e marketing un’altra, uguale tra loro', () => {
     const coach = versioniPer('coach')
-    for (const ruolo of ['editor', 'nutrizione', 'dev'] as const) expect(versioniPer(ruolo), ruolo).toEqual(coach)
+    for (const ruolo of ['nutrizione', 'dev'] as const) expect(versioniPer(ruolo), ruolo).toEqual(coach)
+    expect(versioniPer('marketing')).toEqual(versioniPer('editor'))
+  })
+
+  it('la 1.32.0 (l’area Marketing) la leggono solo admin, video editor e marketing: per gli altri non c’è', () => {
+    for (const ruolo of ['setter', 'closer', 'coach', 'nutrizione', 'dev'] as const) {
+      expect(versioniPer(ruolo).some((v) => v.versione === '1.32.0'), ruolo).toBe(false)
+    }
+    for (const ruolo of ['admin', 'editor', 'marketing'] as const) {
+      expect(versioniPer(ruolo).some((v) => v.versione === '1.32.0'), ruolo).toBe(true)
+    }
+  })
+
+  it('video editor e marketing leggono tutto quello che legge il coach, più l’area Marketing', () => {
+    const delCoach = testiDi('coach').voci
+    const delMarketing = testiDi('marketing').voci
+    for (const testo of delCoach) expect(delMarketing.has(testo), testo).toBe(true)
+    const soloMarketing = VERSIONI.flatMap(voci).filter((voce) => voce.per.join() === 'marketing')
+    for (const voce of soloMarketing) {
+      expect(delMarketing.has(voce.testoTeam ?? voce.testo), voce.testo).toBe(true)
+      expect(delCoach.has(voce.testoTeam ?? voce.testo), voce.testo).toBe(false)
+    }
   })
 
   it('i ruoli dei progetti leggono solo le voci dei progetti e di tutto il team', () => {
@@ -323,6 +346,18 @@ describe('cosa legge ogni ruolo', () => {
 describe('il filtro, su dati costruiti a mano', () => {
   const FIXTURE: Versione[] = [
     {
+      versione: '9.3.0',
+      data: '2030-01-04',
+      titolo: 'Titolo del marketing, detto al titolare',
+      riassunto: 'Riassunto del marketing, detto al titolare.',
+      intestazionePer: ['marketing'],
+      intestazioneTeam: { titolo: 'Titolo del marketing, detto al team', riassunto: 'Riassunto del marketing, detto al team.' },
+      novita: [
+        { per: ['admin'], testo: 'Il ruolo nuovo, detto al titolare' },
+        { per: ['marketing'], testo: 'Per l’area Marketing' },
+      ],
+    },
+    {
       versione: '9.2.0',
       data: '2030-01-03',
       titolo: 'Titolo per il titolare',
@@ -352,6 +387,7 @@ describe('il filtro, su dati costruiti a mano', () => {
       novita: [
         { per: ['progetti'], testo: 'Per i progetti' },
         { per: ['closer'], testo: 'Per il closer' },
+        { per: ['marketing', 'closer'], testo: 'Per il marketing e il closer' },
       ],
     },
     {
@@ -366,9 +402,20 @@ describe('il filtro, su dati costruiti a mano', () => {
   const NEUTRA = null
   const PROGETTI_TEAM = { titolo: 'Titolo dei progetti, detto al team', riassunto: 'Riassunto detto al team.' }
   const SETTER_CLOSER = { titolo: 'Titolo di setter e closer', riassunto: 'Riassunto di setter e closer.' }
+  const MARKETING_TEAM = { titolo: 'Titolo del marketing, detto al team', riassunto: 'Riassunto del marketing, detto al team.' }
 
   it('l’admin legge tutto, con le parole del titolare e per chi è ogni voce', () => {
     expect(versioniPer('admin', FIXTURE)).toStrictEqual([
+      {
+        versione: '9.3.0',
+        data: '2030-01-04',
+        intestazione: { titolo: 'Titolo del marketing, detto al titolare', riassunto: 'Riassunto del marketing, detto al titolare.' },
+        novita: [
+          { testo: 'Il ruolo nuovo, detto al titolare', per: ['admin'] },
+          { testo: 'Per l’area Marketing', per: ['marketing'] },
+        ],
+        correzioni: [],
+      },
       {
         versione: '9.2.0',
         data: '2030-01-03',
@@ -393,6 +440,7 @@ describe('il filtro, su dati costruiti a mano', () => {
         novita: [
           { testo: 'Per i progetti', per: ['progetti'] },
           { testo: 'Per il closer', per: ['closer'] },
+          { testo: 'Per il marketing e il closer', per: ['marketing', 'closer'] },
         ],
         correzioni: [],
       },
@@ -427,17 +475,31 @@ describe('il filtro, su dati costruiti a mano', () => {
         versione: '9.0.0',
         data: '2030-01-01',
         intestazione: PROGETTI_TEAM,
-        novita: [{ testo: 'Per i progetti' }, { testo: 'Per il closer' }],
+        novita: [{ testo: 'Per i progetti' }, { testo: 'Per il closer' }, { testo: 'Per il marketing e il closer' }],
         correzioni: [],
       },
       { versione: '8.0.0', data: '2029-12-31', intestazione: SETTER_CLOSER, novita: [{ testo: 'Per setter e closer' }], correzioni: [] },
     ])
   })
 
-  it.each(['coach', 'editor', 'nutrizione', 'dev'] as const)('%s: solo progetti e tutto il team', (ruolo) => {
+  it.each(['coach', 'nutrizione', 'dev'] as const)('%s: solo progetti e tutto il team', (ruolo) => {
     expect(versioniPer(ruolo, FIXTURE)).toStrictEqual([
       { versione: '9.2.0', data: '2030-01-03', intestazione: NEUTRA, novita: [], correzioni: [{ testo: 'Correzione per tutti' }] },
       { versione: '9.0.0', data: '2030-01-01', intestazione: PROGETTI_TEAM, novita: [{ testo: 'Per i progetti' }], correzioni: [] },
+    ])
+  })
+
+  it.each(['editor', 'marketing'] as const)('%s: l’area Marketing, progetti e tutto il team', (ruolo) => {
+    expect(versioniPer(ruolo, FIXTURE)).toStrictEqual([
+      { versione: '9.3.0', data: '2030-01-04', intestazione: MARKETING_TEAM, novita: [{ testo: 'Per l’area Marketing' }], correzioni: [] },
+      { versione: '9.2.0', data: '2030-01-03', intestazione: NEUTRA, novita: [], correzioni: [{ testo: 'Correzione per tutti' }] },
+      {
+        versione: '9.0.0',
+        data: '2030-01-01',
+        intestazione: PROGETTI_TEAM,
+        novita: [{ testo: 'Per i progetti' }, { testo: 'Per il marketing e il closer' }],
+        correzioni: [],
+      },
     ])
   })
 })

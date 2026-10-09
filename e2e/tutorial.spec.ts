@@ -58,6 +58,45 @@ test.describe('tutorial al primo accesso, dal telefono', () => {
     await page.waitForTimeout(800)
     await expect(page.getByTestId('tutorial')).toHaveCount(0)
   })
+
+  test('il marketing parte dai contenuti: tocca «Contenuti» anche se è già lì, poi il calendario', async ({ page }) => {
+    await primoAccesso(UTENTI.marketing.email, false)
+    await accedi(page, 'marketing')
+    await expect(page).toHaveURL(/\/marketing\/contenuti$/)
+
+    const tour = page.getByTestId('tutorial')
+    await expect(tour.getByRole('dialog', { name: 'Benvenuto in Alpha Management' })).toBeVisible()
+    await expect(tour).toContainText('1/10')
+    await avanti(page, tour)
+    await expect(tour.getByRole('dialog', { name: 'Contenuti' })).toBeVisible()
+    await expect(page.getByTestId('tutorial-tocca')).toBeVisible()
+
+    // the first item of the bottom bar: the tap advances even on the page he is on
+    await page.getByRole('navigation', { name: 'Navigazione', exact: true }).getByRole('link', { name: 'Contenuti' }).click()
+    await expect(tour.getByRole('dialog', { name: 'Instagram Posts' })).toBeVisible()
+    await expect(tour).toContainText('3/10')
+    // the step has its target: the list of contents, not a card in the middle of the screen
+    await expect(tour.locator('div.ring-2')).toHaveCount(1)
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: '.shots/tutorial-marketing-3-390.png' })
+
+    // his daily page is Contenuti: «I miei task» says what it holds, never «la tua pagina di tutti i giorni»
+    await avanti(page, tour)
+    const task = tour.getByRole('dialog', { name: 'I miei task' })
+    await expect(task).toContainText('Tocca «I miei task»: i task dei progetti assegnati a te.')
+    await expect(task).not.toContainText('pagina di tutti i giorni')
+    await expect(tour).toContainText('4/10')
+
+    await expect(tour.getByRole('button', { name: 'Chiudi il tutorial' })).toBeEnabled({ timeout: 4000 })
+    await tour.getByRole('button', { name: 'Chiudi il tutorial' }).click()
+    await expect(tour).toHaveCount(0)
+    await expect
+      .poll(async () => {
+        const { data } = await dbLocale().from('profiles').select('tutorial_visto').eq('email', UTENTI.marketing.email).single()
+        return data?.tutorial_visto
+      })
+      .toBe(true)
+  })
 })
 
 test('chi l’ha già visto non lo rivede, ma può riaprirlo dal profilo', async ({ page }) => {
@@ -81,10 +120,11 @@ test('l’admin prova il tour di ogni ruolo da “Testa il tutorial”', async (
   await page.getByRole('button', { name: 'Testa il tutorial' }).click()
   await page.getByRole('menuitem', { name: 'Video editor' }).click()
   const tour = page.getByTestId('tutorial')
-  await expect(tour).toContainText('Video editor · 1/8')
+  // the video editor passes through the content calendar too (1.32.0)
+  await expect(tour).toContainText('Video editor · 1/10')
   await avanti(page, tour)
   // a preview never asks to tap: it walks with "Avanti"
-  await expect(tour.getByRole('dialog', { name: 'I miei task' })).toBeVisible()
+  await expect(tour.getByRole('dialog', { name: 'Contenuti' })).toBeVisible()
   await expect(page.getByTestId('tutorial-tocca')).toHaveCount(0)
   await page.waitForTimeout(400)
   await page.screenshot({ path: '.shots/tutorial-admin-anteprima-1440.png' })
@@ -96,4 +136,36 @@ test('l’admin prova il tour di ogni ruolo da “Testa il tutorial”', async (
   await page.getByRole('button', { name: 'Testa il tutorial' }).click()
   await page.getByRole('menuitem', { name: 'Setter' }).click()
   await expect(tour).toContainText('Setter · 1/11')
+})
+
+test('l’anteprima del tour del marketing passa da «Contenuti», evidenziato nella barra laterale', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await accedi(page, 'admin')
+  await page.getByRole('button', { name: 'Testa il tutorial' }).click()
+  await page.getByRole('menuitem', { name: 'Marketing', exact: true }).click()
+  const tour = page.getByTestId('tutorial')
+  await expect(tour).toContainText('Marketing · 1/10')
+  await expect(tour.getByRole('dialog', { name: 'Benvenuto in Alpha Management' })).toBeVisible()
+
+  await avanti(page, tour)
+  await expect(tour).toContainText('Marketing · 2/10')
+  await expect(tour.getByRole('dialog', { name: 'Contenuti' })).toBeVisible()
+  // the admin has "Contenuti" too: the step finds it, no "not on your account" note
+  await expect(tour.getByText(/Anteprima: sul tuo account questo elemento non c’è/)).toHaveCount(0)
+  const voce = page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'Contenuti' })
+  const alone = tour.locator('div.ring-2')
+  await expect(alone).toHaveCount(1)
+  // the highlight sits on the sidebar item, 6px around it
+  await expect
+    .poll(async () => {
+      const [a, v] = await Promise.all([alone.boundingBox(), voce.boundingBox()])
+      if (!a || !v) return null
+      return [Math.round(a.x - v.x), Math.round(a.y - v.y), Math.round(a.width - v.width), Math.round(a.height - v.height)]
+    })
+    .toEqual([-6, -6, 12, 12])
+
+  // then the calendar page itself
+  await avanti(page, tour)
+  await expect(tour.getByRole('dialog', { name: 'Instagram Posts' })).toBeVisible()
+  await expect(tour).toContainText('Marketing · 3/10')
 })

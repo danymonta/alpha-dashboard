@@ -22,6 +22,8 @@ export const ID_SETTER = '22222222-2222-4222-8222-222222222222'
 export const ID_CLOSER = '33333333-3333-4333-8333-333333333333'
 export const ID_COACH = '44444444-4444-4444-8444-444444444444'
 export const ID_EDITOR = '55555555-5555-4555-8555-555555555555'
+/** The marketing seed account (supabase/seeds/25_marketing.sql): 66666666-… is taken by a pgTAP test. */
+export const ID_MARKETING = '61616161-6161-4161-8161-616161616161'
 
 /** A lead with one call booked by the seed setter, `oreFa` hours ago. */
 export async function creaCallDiProva(nome: string, closerId: string, oreFa = 1) {
@@ -354,5 +356,36 @@ export async function completaCommentiDelSetter(dal: string, tranne: string[] = 
     .or('lead_in_target.is.null,qualita_conversazioni.is.null,cosa_frenava.is.null')
   if (tranne.length > 0) query = query.not('data', 'in', `(${tranne.join(',')})`)
   const { error } = await query
+  if (error) throw error
+}
+
+type ContenutoInsert = Database['public']['Tables']['marketing_contenuti']['Insert']
+type RigaContenuto = Database['public']['Tables']['marketing_contenuti']['Row']
+
+/**
+ * A content of the calendar written straight into the database (service role:
+ * no session, so the author trigger lets it in as it is). A reel, not started,
+ * without Post Date, unless the fields say otherwise.
+ */
+export async function creaContenutoDiProva(nome: string, campi: Omit<ContenutoInsert, 'nome'> = {}) {
+  const { data, error } = await dbLocale()
+    .from('marketing_contenuti')
+    .insert({ created_by: ID_ADMIN, ...campi, nome })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data.id as string
+}
+
+/** A content as the database has it now, or null when it is gone. */
+export async function leggiContenuto(id: string): Promise<RigaContenuto | null> {
+  const { data, error } = await dbLocale().from('marketing_contenuti').select('*').eq('id', id).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+/** The contents a test created, by the prefix of their Name. */
+export async function pulisciContenuti(prefisso: string) {
+  const { error } = await dbLocale().from('marketing_contenuti').delete().like('nome', `${prefisso}%`)
   if (error) throw error
 }

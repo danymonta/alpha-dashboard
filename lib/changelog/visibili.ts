@@ -4,14 +4,16 @@ import { VERSIONI, type Intestazione, type Pubblico, type Versione, type Voce } 
 /**
  * Who reads what in the changelog (CLAUDE.md section 23). The admin reads
  * everything; every other role reads the items tagged for its work, the
- * Projects area (every role has it) and the whole team.
+ * Projects area (every role has it) and the whole team. The Marketing area
+ * (1.32.0) is the video editor's and marketing's.
  */
 export const PUBBLICI_DEL_RUOLO: Record<AppRole, readonly Pubblico[]> = {
-  admin: ['admin', 'setter', 'closer', 'progetti', 'tutti'],
+  admin: ['admin', 'setter', 'closer', 'marketing', 'progetti', 'tutti'],
   setter: ['setter', 'progetti', 'tutti'],
   closer: ['closer', 'progetti', 'tutti'],
   coach: ['progetti', 'tutti'],
-  editor: ['progetti', 'tutti'],
+  editor: ['marketing', 'progetti', 'tutti'],
+  marketing: ['marketing', 'progetti', 'tutti'],
   nutrizione: ['progetti', 'tutti'],
   dev: ['progetti', 'tutti'],
 }

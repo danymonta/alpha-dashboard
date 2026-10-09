@@ -28,7 +28,8 @@ type Props = {
 }
 
 /**
- * One shell for every area: Economics (admin, setter, closer) and Projects
+ * One shell for every area: Economics (admin, setter, closer), Marketing
+ * (admin, video editor, marketing: the content calendar) and Projects
  * (everyone). The navigation is keyed by role and grouped by area.
  */
 export function AppShell({

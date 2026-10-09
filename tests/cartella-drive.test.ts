@@ -54,7 +54,7 @@ describe('chi vede la cartella Drive nel progetto del cliente (05/10/2026)', () 
   })
 
   it('nessun altro: membri, manager, closer, setter, un altro coach; nessuno in un progetto senza cliente', () => {
-    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev', 'closer', 'setter']) {
+    for (const ruolo of ['coach', 'editor', 'marketing', 'nutrizione', 'dev', 'closer', 'setter']) {
       expect(chiVedeLaCartella({ id: ALTRO, ruolo }, progetto), ruolo).toBeNull()
     }
     expect(chiVedeLaCartella({ id: COACH, ruolo: 'coach' }, { client_id: ID, coach_id: null })).toBeNull()

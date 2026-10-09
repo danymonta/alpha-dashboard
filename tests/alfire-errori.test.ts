@@ -88,7 +88,7 @@ describe('una chiamata a uno strumento rifiutata da Groq', () => {
     const setter = messaggioErroreAlfire(groq(400, STRUMENTO_ASSENTE), { admin: false, ruolo: 'setter' })
     expect(setter).toContain('«aggiungi 20 DM outbound al report di oggi»')
     expect(setter).not.toMatch(/€|incasso/)
-    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev'] as const) {
+    for (const ruolo of ['coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       const testo = messaggioErroreAlfire(groq(400, STRUMENTO_ASSENTE), { admin: false, ruolo })
       expect(testo, ruolo).toContain('«registra 30 minuti su Mario Rossi, Revisione video»')
       expect(testo, ruolo).not.toMatch(/€|incasso/)

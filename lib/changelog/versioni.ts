@@ -26,6 +26,8 @@
  * - 'admin' alone: only the admin. It is the default answer when in doubt.
  * - 'setter', 'closer': that role (the admin reads everything anyway).
  * - 'progetti': the Projects area, which every role has.
+ * - 'marketing': the Marketing area, the content calendar (1.32.0): the
+ *   admin, the video editor and marketing.
  * - 'tutti': everyone (Alfire in general, the installable app, the login).
  * A collaborator never reads about clients' payments, costs, margin, other
  * people's commissions or the admin's economics (CLAUDE.md section 6); the
@@ -41,7 +43,7 @@
  * `intestazioneTeam` hold the words the team reads instead.
  */
 
-export type Pubblico = 'admin' | 'setter' | 'closer' | 'progetti' | 'tutti'
+export type Pubblico = 'admin' | 'setter' | 'closer' | 'marketing' | 'progetti' | 'tutti'
 
 export type Voce = {
   /** Who reads it besides the admin; ['admin'] = only the admin. 'admin' and 'tutti' stand alone. */
@@ -76,12 +78,59 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
   admin: 'Solo admin',
   setter: 'Setter',
   closer: 'Closer',
+  marketing: 'Area Marketing',
   progetti: 'Area Progetti',
   tutti: 'Tutto il team',
 }
 
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
+  {
+    versione: '1.32.0',
+    data: '2026-10-09',
+    titolo: 'Il calendario dei contenuti nell’app, e il ruolo Marketing',
+    riassunto:
+      'I reel e i caroselli di Notion con le stesse proprietà, in tabella e in calendario, per te, il video editor e il nuovo ruolo Marketing; settembre e ottobre arrivano da Notion.',
+    intestazionePer: ['marketing'],
+    intestazioneTeam: {
+      titolo: 'Il calendario dei contenuti',
+      riassunto:
+        'Reel e caroselli con le stesse proprietà di Notion, in tabella e in calendario: Status con un tocco e script da scrivere anche dal telefono.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Nuovo ruolo Marketing: lo inviti da Impostazioni › Team. Chi lo ha entra in «Contenuti» e ha anche Progetti, I miei task e Il mio tempo, come il video editor; non vede mai vendite, incassi, provvigioni, lead, call, clienti né i DM.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il listino dei prodotti (prezzi e piano abituale) ora lo leggono solo admin, setter e closer: il video editor, il marketing e gli altri ruoli dei progetti non lo vedono più, nemmeno dal database.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Contenuti, nella nuova area Marketing: i reel e i caroselli con le proprietà di Notion (Name, Reel Type, Format, Inspiration, Status, Post Date, Audio, URL, View Count). In tabella, dalla Post Date più recente, o in calendario mese per mese; sul telefono l’agenda dei giorni con contenuti. Lo Status si cambia con un tocco.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Ogni contenuto ha la sua pagina con le sezioni del modello di Notion: Reel Topic (Topic / Main Message, Script (Rough Draft), Comments, Script (Final)) o Carousel Topic (Idea/Message, Carousel, Caption). Ogni sezione si scrive e si corregge sul posto, anche dal telefono, e non sovrascrive mai il testo che un altro ha salvato nel frattempo: se è cambiato, ricarica quello salvato e il tuo resta da copiare.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          '«Nuovo contenuto»: un Reel Topic nasce già con Hook, Line, Line e CTA nella bozza; dal calendario il «+» di un giorno lo crea con quella Post Date. Un contenuto lo eliminano l’admin e il marketing; il video editor lo segna «Canceled».',
+      },
+      // Ships only if the Notion import runs on the deploy day (spec 1.32.0, section 8).
+      {
+        per: ['marketing'],
+        testo:
+          'I contenuti di settembre e ottobre arrivano da Notion, con proprietà e testi; le immagini restano nella pagina di Notion, che si apre da «Apri in Notion».',
+      },
+    ],
+  },
   {
     versione: '1.31.0',
     data: '2026-10-09',

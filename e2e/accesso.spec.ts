@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { dbLocale } from './db'
-import { UTENTI, accedi } from './utenti'
+import { CONTENUTO_SEED, UTENTI, accedi } from './utenti'
 
 test('senza sessione ogni pagina porta al login', async ({ page }) => {
   await page.goto('/sales')
@@ -27,6 +27,8 @@ test('l’admin vede la navigazione completa', async ({ page }) => {
     'Closer',
     'Provvigioni',
     'Costi',
+    // the Marketing area, between Economics and Progetti (1.32.0)
+    'Contenuti',
     'Impostazioni',
   ]
   for (const voce of voci) {
@@ -61,7 +63,8 @@ test('il nome e il ruolo dell’utente sono visibili nella shell', async ({ page
   await expect(page.getByText(UTENTI.admin.nome).first()).toBeVisible()
 })
 
-test('coach ed editor hanno solo i Progetti: le pagine Economics li riportano ai loro task', async ({ page }) => {
+test('coach ed editor non hanno l’area Economics: le pagine Economics li riportano ai loro task', async ({ page }) => {
+  // the video editor has Progetti and, since 1.32.0, the Marketing area too; the coach only Progetti
   for (const ruolo of ['coach', 'editor'] as const) {
     await accedi(page, ruolo)
     await expect(page).toHaveURL('/task')
@@ -69,6 +72,49 @@ test('coach ed editor hanno solo i Progetti: le pagine Economics li riportano ai
       await page.goto(pagina)
       await expect(page).toHaveURL('/task')
     }
+    const nav = page.getByRole('navigation', { name: 'Navigazione principale' })
+    await expect(nav.getByRole('link', { name: 'Progetti' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Contenuti' })).toHaveCount(ruolo === 'editor' ? 1 : 0)
+    await page.context().clearCookies()
+  }
+})
+
+test('il marketing atterra sui contenuti: le pagine Economics e le impostazioni lo riportano lì', async ({ page }) => {
+  await accedi(page, 'marketing')
+  await expect(page).toHaveURL('/marketing/contenuti')
+  await expect(page.getByRole('heading', { level: 1, name: 'Instagram Posts' })).toBeVisible()
+
+  const nav = page.getByRole('navigation', { name: 'Navigazione principale' })
+  for (const voce of ['Contenuti', 'I miei task', 'Progetti', 'Il mio tempo', 'Novità']) {
+    await expect(nav.getByRole('link', { name: voce, exact: true })).toBeVisible()
+  }
+  for (const voce of ['Panoramica', 'Oggi', 'Le mie call', 'Vendite', 'Pipeline', 'Costi', 'Impostazioni']) {
+    await expect(nav.getByRole('link', { name: voce, exact: true })).toHaveCount(0)
+  }
+
+  // by direct URL too: the frontend hides, the page refuses and takes him home
+  for (const pagina of ['/', '/setting', '/calls', '/today', '/settings/team', '/expenses', '/settings/products']) {
+    await page.goto(pagina)
+    await expect(page, pagina).toHaveURL('/marketing/contenuti')
+  }
+  // /marketing goes to the calendar
+  await page.goto('/marketing')
+  await expect(page).toHaveURL('/marketing/contenuti')
+})
+
+test('il calendario dei contenuti è dell’area Marketing: il setter torna a Oggi, il coach ai suoi task', async ({ page }) => {
+  for (const [ruolo, casa] of [
+    ['setter', '/today'],
+    ['coach', '/task'],
+  ] as const) {
+    await accedi(page, ruolo)
+    for (const pagina of ['/marketing/contenuti', `/marketing/contenuti/${CONTENUTO_SEED}`]) {
+      await page.goto(pagina)
+      await expect(page, `${ruolo} ${pagina}`).toHaveURL(casa)
+    }
+    await expect(
+      page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'Contenuti' }),
+    ).toHaveCount(0)
     await page.context().clearCookies()
   }
 })

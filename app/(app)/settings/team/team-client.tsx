@@ -126,7 +126,8 @@ export function InvitaMembro({ urlLogin, emailAttiva }: { urlLogin: string; emai
               ))}
             </select>
             <p className="text-xs text-muted-foreground">
-              Admin, setter e closer vedono l’area Economics per il loro ruolo; tutti vedono i Progetti di cui fanno parte.
+              Admin, setter e closer vedono l’area Economics per il loro ruolo; admin, video editor e marketing vedono il
+              calendario dei contenuti (Marketing); tutti vedono i Progetti di cui fanno parte.
             </p>
           </div>
           {errore ? (

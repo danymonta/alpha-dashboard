@@ -1,4 +1,4 @@
-import { haEconomics, type AppRole } from '@/lib/auth/roles'
+import { haEconomics, haMarketing, type AppRole } from '@/lib/auth/roles'
 import { isDataISO, lunediDellaSettimana, nomeGiorno } from '@/lib/date'
 import { formatData } from '@/lib/format'
 
@@ -8,6 +8,7 @@ const RUOLO: Record<AppRole, string> = {
   closer: 'closer (call e vendite)',
   coach: 'coach',
   editor: 'video editor',
+  marketing: 'marketing (contenuti Instagram: il calendario dei reel e dei caroselli)',
   nutrizione: 'nutrizione',
   dev: 'sviluppo',
 }
@@ -98,6 +99,10 @@ export function promptAlfire({
         ]
       : [
           'Questo ruolo lavora su progetti, task, note e sul proprio tempo: soldi dei clienti, vendite e provvigioni non li vede; se li chiede, dillo in una riga.',
+          // the video editor and marketing (1.32.0): the calendar has no tool yet, the guide explains it
+          haMarketing(ruolo)
+            ? 'Nell’area Marketing c’è il calendario dei contenuti (reel e caroselli): per ora Alfire non lo legge e non lo scrive, ma con la guida spiega come funziona. I DM e i nomi dei lead non li vede.'
+            : null,
         ]),
     `${oggiPerIlModello(oggi)} Parli con ${nome}, ruolo ${RUOLO[ruolo]}.`,
     ...(allegati ? [PROMPT_ALLEGATI] : []),

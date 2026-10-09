@@ -2,7 +2,7 @@
  * How the dashboard works, in short sections Alfire reads only when asked
  * (the free tier counts every token: the guide stays out of the system prompt).
  */
-import { haEconomics, type AppRole } from '@/lib/auth/roles'
+import { haEconomics, haMarketing, type AppRole } from '@/lib/auth/roles'
 
 /**
  * What Alfire does in chat, for who asks: each role reads its own part, never
@@ -30,6 +30,7 @@ const DA_UN_ALLEGATO: Record<AppRole, string> = {
   closer: 'il piano di rate di una vendita che registri',
   coach: 'task e note di un progetto',
   editor: 'task e note di un progetto',
+  marketing: 'task e note di un progetto',
   nutrizione: 'task e note di un progetto',
   dev: 'task e note di un progetto',
 }
@@ -46,6 +47,10 @@ export function guidaAlfire(ruolo: AppRole): string {
       ? 'I propri numeri, clienti, vendite, giornate, task e tempo, e le call di setter e closer, sono sempre di chi chatta: Alfire non li dà mai per quelli di un altro, e se nessuno strumento legge un’altra persona lo dice.'
       : 'I propri task e il proprio tempo sono sempre di chi chatta: Alfire non li dà mai per quelli di un altro, e se nessuno strumento legge un’altra persona lo dice.',
     'Mai: team, inviti, ruoli, accessi, export, backup, impostazioni dei progetti, dati di altri che il ruolo non vede.',
+    // the content calendar (1.32.0): no Alfire tool yet, only the guide
+    haMarketing(ruolo)
+      ? 'Il calendario dei contenuti (area Marketing) per ora no: Alfire spiega come funziona, ma non lo legge e non lo scrive.'
+      : null,
     'Quando Alfire chiede quale (cliente, progetto, mese) le risposte compaiono come bottoni: un tocco risponde, oppure si scrive o si detta la risposta; un bottone non scrive mai niente da solo. Dopo una risposta può proporre qualche domanda successiva.',
     'Col microfono il testo compare nella casella mentre parli: a fine vocale si rilegge, si corregge e si manda con Invio.',
     `Con la graffetta si allegano fino a 3 file per messaggio (PDF, foto e screenshot, Word, Excel, CSV; 4 MB al massimo): Alfire li legge e risponde, e può registrare quello che contengono (${DA_UN_ALLEGATO[ruolo]}), sempre con la scheda di conferma. I file non si salvano da nessuna parte: restano solo nella chat aperta.`,
@@ -109,11 +114,15 @@ export const GUIDA = {
     'Provvigioni (/commissions): maturano sull’incasso, non sulla firma: importo incassato × percentuale della regola valida alla data d’incasso e applicabile al tipo di vendita (di solito solo nuovo, rate successive comprese). Le regole si gestiscono in Impostazioni › Regole provvigioni. Si registra il pagamento al setter; il saldo è maturato meno pagato.',
   costi: 'Costi (/expenses): data, categoria (team, software, ads, formazione, altro), importo, ricorrente. Entrano nel margine operativo del mese.',
   progetti: [PROGETTI.struttura, PROGETTI.tempo, PROGETTI.team, PROGETTI.note, PROGETTI.impostazioni, PROGETTI.clienti].join(' '),
+  // the Marketing area (1.32.0): the admin, the video editor and marketing read it
+  marketing:
+    'Contenuti (area Marketing, /marketing/contenuti): il calendario dei reel e dei caroselli di Instagram, con le stesse proprietà di Notion (Name, Reel Type, Format, Inspiration, Status, Post Date, Audio, URL, View Count). Due viste: Tabella, dalla Post Date più recente, e Calendario, mese per mese (sul telefono l’agenda dei giorni con contenuti). Lo Status si cambia con un tocco. Ogni contenuto nasce da un modello di Notion: Reel Topic (Topic / Main Message, Script (Rough Draft) con Hook, Line, Line e CTA, Comments, Script (Final)) o Carousel Topic (Idea/Message, Carousel, Caption); ogni sezione si scrive sul posto anche dal telefono, e se qualcuno l’ha cambiata nel frattempo la pagina ricarica il testo salvato e il tuo resta da copiare. Eliminano un contenuto l’admin e il marketing; il video editor lo segna Canceled. Alfire per ora non legge e non scrive i contenuti.',
   impostazioni:
     'Impostazioni (admin): Team (inviti via email, ruoli, livelli progetti, disattiva, elimina, unisci profili), Prodotti (prezzo, durata, piano rate abituale), Regole provvigioni, Progetti (reparti e modelli), Esporta CSV per la commercialista, Registro modifiche. Il profilo personale (nome, foto) si apre dalla foto in fondo alla sidebar.',
   alfire: guidaAlfire('admin'),
+  // «prodotti e prezzi compresi»: products_select_economics (20261009120200, confirmed by Dany on 09/10/2026)
   permessi:
-    'Permessi: l’admin vede tutto. Il setter vede i suoi report, i suoi lead e le call col suo nome (quelle che ha fissato e le loro call di follow-up) con il loro esito; in I miei numeri (/my-numbers), dei clienti che ha portato (le vendite col suo nome: i clienti nuovi, più i rinnovi e gli upsell registrati col suo nome), revenue, rate pagate e la sua provvigione su ogni incasso, e i suoi totali di provvigioni. Nella pagina Closer (/setting/closer) legge i numeri del closer sulle call di tutti i setter, giorno per giorno, cash e revenue compresi, mai le call, i lead o le note degli altri. Mai contatti dei clienti né clienti di altri. Il closer vede le call assegnate a lui, le vendite chiuse da lui e la sua giornata. Nessun collaboratore vede costi, margine o compensi altrui. Coach, video editor, nutrizione e sviluppo vedono i progetti di cui sono membri, i loro task e il loro tempo, mai i soldi dei clienti. Il tempo degli altri lo vede, oltre all’admin, chi gestisce un progetto, nella scheda Tempo del progetto; Alfire lo legge solo all’admin. La cartella Drive di un cliente la vedono e la cambiano solo l’admin e il coach del progetto di quel cliente: chi gestisce il progetto sceglie il coach, quindi anche chi la vede.',
+    'Permessi: l’admin vede tutto. Il setter vede i suoi report, i suoi lead e le call col suo nome (quelle che ha fissato e le loro call di follow-up) con il loro esito; in I miei numeri (/my-numbers), dei clienti che ha portato (le vendite col suo nome: i clienti nuovi, più i rinnovi e gli upsell registrati col suo nome), revenue, rate pagate e la sua provvigione su ogni incasso, e i suoi totali di provvigioni. Nella pagina Closer (/setting/closer) legge i numeri del closer sulle call di tutti i setter, giorno per giorno, cash e revenue compresi, mai le call, i lead o le note degli altri. Mai contatti dei clienti né clienti di altri. Il closer vede le call assegnate a lui, le vendite chiuse da lui e la sua giornata. Nessun collaboratore vede costi, margine o compensi altrui. Coach, video editor, nutrizione e sviluppo vedono i progetti di cui sono membri, i loro task e il loro tempo, mai i soldi dei clienti. Il ruolo Marketing (e il video editor) vede l’area Marketing, il calendario dei contenuti, e i Progetti di cui fa parte; mai soldi, prodotti e prezzi compresi, lead, call, clienti o DM. Il tempo degli altri lo vede, oltre all’admin, chi gestisce un progetto, nella scheda Tempo del progetto; Alfire lo legge solo all’admin. La cartella Drive di un cliente la vedono e la cambiano solo l’admin e il coach del progetto di quel cliente: chi gestisce il progetto sceglie il coach, quindi anche chi la vede.',
 } as const
 
 export type ArgomentoGuida = keyof typeof GUIDA
@@ -145,9 +154,16 @@ const PER_RUOLO: Partial<Record<AppRole, Partial<Record<ArgomentoGuida, string>>
   },
 }
 
-/** The Projects area's roles (coach, video editor, nutrition, development): no money, nothing that is not theirs. */
+/** The Projects area's roles (coach, nutrition, development): no money, nothing that is not theirs. */
 const PERMESSI_PROGETTI =
   'Permessi: vedi i progetti di cui sei membro, con liste, task e note; lavori i task assegnati a te o creati da te, e chi gestisce un progetto li lavora tutti. Il tempo è il tuo: lo registri, lo correggi e lo leggi. Quello degli altri lo vede chi gestisce un progetto, nella scheda Tempo del progetto; Alfire non lo legge. Nei progetti di cui sei il coach vedi anche la cartella Drive: la apri, la colleghi, la cambi o la togli; gli altri membri del progetto non la vedono. Le altre aree del gestionale non sono del tuo ruolo.'
+
+/**
+ * The video editor and marketing (1.32.0): the Marketing area, then the same
+ * Projects permissions as PERMESSI_PROGETTI. No money, nothing that is not theirs.
+ */
+const PERMESSI_MARKETING =
+  'Permessi: nell’area Marketing vedi, crei e modifichi il calendario dei contenuti di Instagram (reel e caroselli: proprietà, Status e testi); lo eliminano l’admin e il marketing. I messaggi diretti e i nomi di chi scrive all’account non li vedi. Nei Progetti vedi quelli di cui sei membro, con liste, task e note; lavori i task assegnati a te o creati da te, e chi gestisce un progetto li lavora tutti. Il tempo è il tuo: lo registri, lo correggi e lo leggi. Quello degli altri lo vede chi gestisce un progetto, nella scheda Tempo del progetto; Alfire non lo legge. Nei progetti di cui sei il coach vedi anche la cartella Drive: la apri, la colleghi, la cambi o la togli; gli altri membri del progetto non la vedono. L’area Economics non è del tuo ruolo.'
 
 /**
  * The topics each role reads (03/10/2026): the admin all of them; the team
@@ -161,6 +177,10 @@ export function argomentiGuida(ruolo: AppRole): ArgomentoGuida[] {
       return ['setting', 'call', 'provvigioni', 'progetti', 'alfire', 'permessi']
     case 'closer':
       return ['call', 'vendite', 'incassi', 'progetti', 'alfire', 'permessi']
+    // the content calendar first: the Marketing area (1.32.0)
+    case 'editor':
+    case 'marketing':
+      return ['marketing', 'progetti', 'alfire', 'permessi']
     default:
       return ['progetti', 'alfire', 'permessi']
   }
@@ -169,6 +189,7 @@ export function argomentiGuida(ruolo: AppRole): ArgomentoGuida[] {
 /** A topic's text for who asks: the Alfire topic says what this role does, the others what concerns that role. */
 export function testoGuida(argomento: ArgomentoGuida, ruolo: AppRole): string {
   if (argomento === 'alfire') return guidaAlfire(ruolo)
+  if (argomento === 'permessi' && haMarketing(ruolo) && ruolo !== 'admin') return PERMESSI_MARKETING
   if (argomento === 'permessi' && !haEconomics(ruolo)) return PERMESSI_PROGETTI
   if (argomento === 'progetti' && ruolo !== 'admin') return PROGETTI_TEAM
   return PER_RUOLO[ruolo]?.[argomento] ?? GUIDA[argomento]

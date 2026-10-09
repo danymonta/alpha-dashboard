@@ -17,9 +17,10 @@ export default async function NessunaAreaPage() {
             Nessuna area disponibile per il tuo ruolo
           </h1>
           <p className="text-sm text-muted-foreground">
+            {/* unreachable today: every role has the Projects area (since 28/09/2026) */}
             {profilo
-              ? `Il tuo ruolo è ${ETICHETTA_RUOLO[profilo.ruolo]}. Oggi Alpha Management è riservata ad admin, setter e closer.`
-              : 'Oggi Alpha Management è riservata ad admin, setter e closer.'}
+              ? `Il tuo ruolo è ${ETICHETTA_RUOLO[profilo.ruolo]} e non ha ancora un’area: chiedi all’amministratore.`
+              : 'Il tuo ruolo non ha ancora un’area: chiedi all’amministratore.'}
           </p>
         </div>
         <form action={esci}>

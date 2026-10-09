@@ -3,11 +3,18 @@ import 'server-only'
 import { getProfilo } from '@/lib/auth/session'
 import type { AppRole } from '@/lib/auth/roles'
 
-/** Server action guard: returns a human message when the caller is not allowed. */
-export async function negaSeNon(ruoli: readonly AppRole[]): Promise<string | null> {
+/**
+ * Server action guard: returns a human message when the caller is not allowed.
+ * The default message fits the admin-only actions; other areas pass their own
+ * (the Marketing area: 'Il calendario dei contenuti è dell’area Marketing.').
+ */
+export async function negaSeNon(
+  ruoli: readonly AppRole[],
+  messaggio = 'Operazione riservata all’admin.',
+): Promise<string | null> {
   const profilo = await getProfilo()
   if (!profilo || !profilo.attivo) return 'Sessione scaduta. Rientra e riprova.'
-  if (!ruoli.includes(profilo.ruolo)) return 'Operazione riservata all’admin.'
+  if (!ruoli.includes(profilo.ruolo)) return messaggio
   return null
 }
 

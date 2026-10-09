@@ -8,8 +8,10 @@ import { cn } from '@/lib/utils'
 type Props = {
   /** 'YYYY-MM-01' */
   mese: string
-  /** Current month: the future is never selectable. */
+  /** Current month: the future is never selectable (unless `futuro`). */
   meseCorrente: string
+  /** A calendar of what is planned (the content calendar): the months ahead are selectable too. */
+  futuro?: boolean
   percorso: string
   /** Other query params to keep while moving between months. */
   parametri?: Record<string, string | undefined>
@@ -23,7 +25,7 @@ function href(percorso: string, mese: string, parametri: Props['parametri']) {
   return `${percorso}?${qs.toString()}`
 }
 
-export function SelettoreMese({ mese, meseCorrente, percorso, parametri, className }: Props) {
+export function SelettoreMese({ mese, meseCorrente, futuro = false, percorso, parametri, className }: Props) {
   const precedente = aggiungiMesi(mese, -1)
   const successivo = aggiungiMesi(mese, 1)
   const classi =
@@ -38,7 +40,7 @@ export function SelettoreMese({ mese, meseCorrente, percorso, parametri, classNa
       <p className="min-w-36 text-center text-sm font-medium" aria-live="polite">
         {formatMese(mese)}
       </p>
-      {successivo <= meseCorrente ? (
+      {futuro || successivo <= meseCorrente ? (
         <Link href={href(percorso, successivo, parametri)} aria-label="Mese successivo" className={classi}>
           <ChevronRight className="size-5" aria-hidden="true" />
         </Link>

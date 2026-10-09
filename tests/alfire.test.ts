@@ -162,18 +162,18 @@ describe('strumenti di Alfire per ruolo', () => {
 
   it('il closer non fissa call: le fissano il setter e l’admin', () => {
     expect(strumentiConsentiti('closer', 'employee')).not.toContain('fissa_call')
-    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev'] as const) {
+    for (const ruolo of ['coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       expect(strumentiConsentiti(ruolo, 'admin'), ruolo).not.toContain('fissa_call')
     }
   })
 
   it('un collaboratore non riceve mai strumenti sui soldi dei clienti, i costi o i compensi altrui', () => {
-    for (const ruolo of ['setter', 'closer', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
+    for (const ruolo of ['setter', 'closer', 'coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       const suoi = strumentiConsentiti(ruolo, 'employee')
       for (const s of SOLDI) expect(suoi, `${ruolo} → ${s}`).not.toContain(s)
     }
     // the closer's only money: his own sales and their cash-ins (section 6)
-    for (const ruolo of ['setter', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
+    for (const ruolo of ['setter', 'coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       expect(strumentiConsentiti(ruolo, 'employee'), ruolo).not.toContain('rata')
       expect(strumentiConsentiti(ruolo, 'employee'), ruolo).not.toContain('registra_vendita')
     }
@@ -583,7 +583,7 @@ describe('prompt e guida', () => {
   })
 
   it('il tempo è per tutti; vendite, rate e margine solo per i ruoli di Economics', () => {
-    for (const ruolo of ['admin', 'setter', 'closer', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
+    for (const ruolo of ['admin', 'setter', 'closer', 'coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       const p = promptAlfire({ nome: 'X', ruolo, oggi: '2026-10-03' })
       // writing is always one's own; the admin reads the others' time with tempo_team, never refuses it (03/10/2026)
       if (ruolo === 'admin') {
@@ -612,6 +612,23 @@ describe('prompt e guida', () => {
       // a link that is everybody's page, never Incassi
       expect(p, ruolo).not.toContain('/payments')
     }
+  })
+
+  it('il prompt dell’area Marketing (1.32.0): video editor e marketing sanno del calendario, gli altri no', () => {
+    const riga =
+      'Nell’area Marketing c’è il calendario dei contenuti (reel e caroselli): per ora Alfire non lo legge e non lo scrive, ma con la guida spiega come funziona. I DM e i nomi dei lead non li vede.'
+    for (const ruolo of ['editor', 'marketing'] as const) {
+      const p = promptAlfire({ nome: 'X', ruolo, oggi: '2026-10-09' })
+      expect(p, ruolo).toContain(riga)
+      expect(p, ruolo).toContain('soldi dei clienti, vendite e provvigioni non li vede')
+    }
+    for (const ruolo of ['admin', 'setter', 'closer', 'coach', 'nutrizione', 'dev'] as const) {
+      expect(promptAlfire({ nome: 'X', ruolo, oggi: '2026-10-09' }), ruolo).not.toContain('area Marketing')
+    }
+    expect(promptAlfire({ nome: 'Giulia', ruolo: 'marketing', oggi: '2026-10-09' })).toContain(
+      'Parli con Giulia, ruolo marketing (contenuti Instagram: il calendario dei reel e dei caroselli).',
+    )
+    expect(promptAlfire({ nome: 'X', ruolo: 'marketing', oggi: '2026-10-09' }).split(/\s+/).length).toBeLessThan(360)
   })
 
   it('il prompt dice cosa è un nuovo cliente e cosa è una rata', () => {
@@ -645,7 +662,7 @@ describe('prompt e guida', () => {
     }
     // the admin reads everything with his own tools; his own day as the closer he is (mie_giornate) says so in
     // its description, not in the prompt (the free tier counts every word); the Projects area's roles no money at all
-    for (const ruolo of ['admin', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
+    for (const ruolo of ['admin', 'coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       const p = promptAlfire({ nome: 'X', ruolo, oggi: '2026-10-03' })
       for (const nome of ['miei_clienti', 'mie_vendite', 'mie_giornate']) expect(p, `${ruolo}: ${nome}`).not.toContain(nome)
     }

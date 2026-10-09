@@ -72,7 +72,7 @@ test('l’admin apre le novità da Impostazioni e le vede tutte, con per chi è 
 test.describe('dal telefono, ognuno apre le novità da «Altro»', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  for (const ruolo of ['admin', 'setter', 'closer', 'coach'] as RuoloSeed[]) {
+  for (const ruolo of ['admin', 'setter', 'closer', 'coach', 'marketing'] as RuoloSeed[]) {
     test(ruolo, async ({ page }) => {
       await accedi(page, ruolo)
       const barra = page.getByRole('navigation', { name: 'Navigazione', exact: true })
@@ -164,3 +164,24 @@ test('il coach legge solo le novità dei progetti e di tutto il team', async ({ 
   )
   await maiNellaPagina(page, [tempo.titolo, tempo.riassunto])
 })
+
+// the Marketing area (1.32.0): the video editor and marketing read the same page
+for (const ruolo of ['editor', 'marketing'] as const) {
+  test(`${ruolo === 'editor' ? 'il video editor' : 'il marketing'} legge le novità dell’area Marketing, dei progetti e di tutto il team`, async ({
+    page,
+  }) => {
+    await accedi(page, ruolo)
+    await page.goto('/changelog')
+    await expect(page.getByRole('heading', { level: 1, name: 'Novità' })).toBeVisible()
+
+    const letti = await testiLetti(page)
+    expect(letti).toEqual(versioniPer(ruolo).flatMap((v) => [...v.novita, ...v.correzioni].map((voce) => voce.testo)))
+    for (const voce of [...voci('marketing'), ...voci('progetti')]) expect(letti).toContain(voce.testoTeam ?? voce.testo)
+    await maiNellaPagina(page, [
+      ...voci('admin').map((voce) => voce.testo),
+      ...PAROLE_DELL_ADMIN,
+      ...[...voci('setter'), ...voci('closer'), ...voci('setter', 'closer')].map((voce) => voce.testoTeam ?? voce.testo),
+    ])
+    await expect(page.getByText('Solo admin')).toHaveCount(0)
+  })
+}

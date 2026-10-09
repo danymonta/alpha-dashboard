@@ -32,6 +32,7 @@ export const TARGET_DI_PAGINA = [
   'elenco-vendite',
   'mio-task',
   'card-progetto',
+  'elenco-contenuti',
 ] as const
 
 /** What each role does, as the tour and the admin's preview menu call it. */
@@ -41,6 +42,7 @@ export const FUNZIONE: Record<AppRole, string> = {
   closer: 'Closer',
   coach: 'Coach fitness',
   editor: 'Video editor',
+  marketing: 'Marketing',
   nutrizione: 'Nutrizione',
   dev: 'Sviluppo',
 }
@@ -71,10 +73,45 @@ function alfire(testo: string): PassoTutorial {
   return { id: 'alfire', titolo: 'Alfire, la nostra AI', testo, target: ['alfire'] }
 }
 
-function soloProgetti(funzione: string, progetti: string): PassoTutorial[] {
+/**
+ * The Marketing area, the content calendar (1.32.0): the video editor and
+ * marketing pass through it right after the welcome. The admin's tour stays
+ * as it is: it already has 12 steps, the most a tour has.
+ */
+const PASSI_CONTENUTI: PassoTutorial[] = [
+  tocca(
+    '/marketing/contenuti',
+    'vai-contenuti',
+    'Contenuti',
+    'Tocca «Contenuti»: il calendario dei reel e dei caroselli di Instagram.',
+  ),
+  {
+    id: 'contenuti',
+    pagina: '/marketing/contenuti',
+    titolo: 'Instagram Posts',
+    testo: 'Le stesse proprietà di Notion: Tabella dalla Post Date più recente o Calendario mese per mese. Lo Status si cambia con un tocco; il nome apre la pagina con gli script.',
+    target: ['elenco-contenuti'],
+  },
+]
+
+/** The "I miei task" step of whoever lands there: it is their daily page. */
+const TASK_OGNI_GIORNO = 'Tocca «I miei task»: è la tua pagina di tutti i giorni.'
+
+/**
+ * The Projects tour; `prima` are the steps of another area, right after the
+ * welcome. `task`: the words of the "I miei task" step, for a role that lands
+ * elsewhere (marketing lands on Contenuti, so I miei task is not his daily page).
+ */
+function soloProgetti(
+  funzione: string,
+  progetti: string,
+  prima: PassoTutorial[] = [],
+  task: string = TASK_OGNI_GIORNO,
+): PassoTutorial[] {
   return [
     benvenuto(funzione),
-    tocca('/task', 'vai-task', 'I miei task', 'Tocca «I miei task»: è la tua pagina di tutti i giorni.'),
+    ...prima,
+    tocca('/task', 'vai-task', 'I miei task', task),
     {
       id: 'task',
       pagina: '/task',
@@ -230,6 +267,14 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
   editor: soloProgetti(
     FUNZIONE.editor,
     'I progetti di Contenuti e Video: aprine uno per vedere panoramica, reel e montaggi come task, Gantt e note.',
+    PASSI_CONTENUTI,
+  ),
+  // marketing lands on Contenuti (percorsoIniziale): that is his daily page, not I miei task
+  marketing: soloProgetti(
+    FUNZIONE.marketing,
+    'I progetti di cui fai parte: aprine uno per vedere panoramica, task, Gantt e note.',
+    PASSI_CONTENUTI,
+    'Tocca «I miei task»: i task dei progetti assegnati a te.',
   ),
   nutrizione: soloProgetti(FUNZIONE.nutrizione, 'Apri un progetto per vedere panoramica, task con le scadenze, Gantt e note.'),
   dev: soloProgetti(FUNZIONE.dev, 'Apri un progetto per vedere panoramica, task con le scadenze, Gantt e note.'),

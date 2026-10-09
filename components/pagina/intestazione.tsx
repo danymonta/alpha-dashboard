@@ -25,8 +25,10 @@ export function IntestazionePagina({ titolo, descrizione, azione, indietro }: Pr
         </Link>
       ) : null}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="font-heading text-xl font-semibold md:text-2xl">{titolo}</h1>
+        {/* min-w-0 and break-words: a title written by someone (a content's Name, a pasted link)
+            wraps inside the screen, never widens the page */}
+        <div className="min-w-0 space-y-1">
+          <h1 className="font-heading text-xl font-semibold break-words md:text-2xl">{titolo}</h1>
           {descrizione ? <p className="text-sm text-muted-foreground">{descrizione}</p> : null}
         </div>
         {azione}

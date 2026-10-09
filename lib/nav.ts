@@ -1,6 +1,7 @@
 import {
   Banknote,
   CalendarPlus,
+  Clapperboard,
   ClipboardList,
   FolderKanban,
   Handshake,
@@ -23,7 +24,7 @@ import {
 
 import type { AppRole } from '@/lib/auth/roles'
 
-export type SezioneNav = 'Economics' | 'Progetti' | 'Generale'
+export type SezioneNav = 'Economics' | 'Marketing' | 'Progetti' | 'Generale'
 
 export type VoceNav = {
   href: string
@@ -63,6 +64,15 @@ const TEMPO: VoceNav = { href: '/tempo', etichetta: 'Il mio tempo', Icona: Timer
 // (CLAUDE.md section 23). In "Altro", never in the bottom bar's four items.
 const NOVITA: VoceNav = { href: '/changelog', etichetta: 'Novità', Icona: Sparkles, sezione: 'Generale' }
 const SOLO_PROGETTI: NavRuolo = { principali: [MIEI_TASK, PROGETTI, TEMPO], altre: [NOVITA] }
+// The Marketing area, the content calendar, Notion's "Instagram Posts" (Dany,
+// 08/10/2026): the admin, the video editor and marketing (RUOLI_MARKETING).
+// No badge (CLAUDE.md section 17).
+const CONTENUTI: VoceNav = {
+  href: '/marketing/contenuti',
+  etichetta: 'Contenuti',
+  Icona: Clapperboard,
+  sezione: 'Marketing',
+}
 
 // Setter and Closer, two items instead of the old "Setting" with two tabs
 // (Dany, 07/10/2026): the URLs stay, many links and Alfire use them. "Setter"
@@ -98,6 +108,8 @@ const NAV: Record<AppRole, NavRuolo> = {
       { ...CLOSER, esiti: true },
       { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
       { href: '/expenses', etichetta: 'Costi', Icona: Banknote },
+      // between Economics and Projects: items of one area stay together (perSezione)
+      CONTENUTI,
       PROGETTI,
       MIEI_TASK,
       // his own time and, in the "Team" tab, everyone's (29/09/2026)
@@ -136,7 +148,10 @@ const NAV: Record<AppRole, NavRuolo> = {
     altre: [PROGETTI, MIEI_TASK, TEMPO, NOVITA],
   },
   coach: SOLO_PROGETTI,
-  editor: SOLO_PROGETTI,
+  // the video editor still lands on his tasks; the calendar is his fourth item
+  editor: { principali: [MIEI_TASK, PROGETTI, TEMPO, CONTENUTI], altre: [NOVITA] },
+  // marketing lands on the calendar, and works in Projects like the video editor
+  marketing: { principali: [CONTENUTI, MIEI_TASK, PROGETTI, TEMPO], altre: [NOVITA] },
   nutrizione: SOLO_PROGETTI,
   dev: SOLO_PROGETTI,
 }

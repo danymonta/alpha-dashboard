@@ -1,6 +1,6 @@
 {
   "name": "alpha-economics",
-  "version": "1.31.0",
+  "version": "1.32.0",
   "private": true,
   "engines": {
     "node": ">=22 <25"
@@ -19,6 +19,7 @@
     "db:types": "supabase gen types typescript --local --schema public > lib/supabase/database.types.ts",
     "db:test": "supabase test db",
     "import:excel": "tsx --env-file=.env.local scripts/import-excel.ts",
+    "import:contenuti": "tsx scripts/import-contenuti-notion.ts",
     "backup:sql": "tsx scripts/backup-in-sql.ts"
   },
   "dependencies": {

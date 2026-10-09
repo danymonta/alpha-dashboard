@@ -93,7 +93,7 @@ describe('proponi_risposte: lo schema', () => {
 describe('proponi_risposte: chi lo riceve', () => {
   it('ogni ruolo e ogni livello, come la guida', () => {
     expect(STRUMENTI.proponi_risposte).toEqual({})
-    for (const ruolo of ['admin', 'setter', 'closer', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
+    for (const ruolo of ['admin', 'setter', 'closer', 'coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       for (const livello of ['admin', 'manager', 'employee'] as const) {
         expect(strumentiConsentiti(ruolo, livello), `${ruolo}/${livello}`).toContain(PROPONI_RISPOSTE)
       }

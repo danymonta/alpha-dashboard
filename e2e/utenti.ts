@@ -1,12 +1,16 @@
 import type { Page } from '@playwright/test'
 
-/** Seed accounts created by supabase/seed.sql and supabase/seeds/10_progetti.sql. Local only. */
+/**
+ * Seed accounts created by supabase/seed.sql, supabase/seeds/10_progetti.sql
+ * and supabase/seeds/25_marketing.sql (marketing, 1.32.0). Local only.
+ */
 export const UTENTI = {
   admin: { email: 'admin@alpha.test', nome: 'Dany Montagnolo' },
   setter: { email: 'setter@alpha.test', nome: 'Loris Setter' },
   closer: { email: 'closer@alpha.test', nome: 'Lorenzo Closer' },
   coach: { email: 'coach@alpha.test', nome: 'Marco Coach' },
   editor: { email: 'editor@alpha.test', nome: 'Sara Editor' },
+  marketing: { email: 'marketing@alpha.test', nome: 'Giulia Marketing' },
 } as const
 
 export type RuoloSeed = keyof typeof UTENTI
@@ -17,6 +21,9 @@ export const PASSWORD_SEED = process.env.SEED_PASSWORD ?? 'alpha1234'
 export const PROGETTO_PERCORSO_CLIENTE = 'bbbbbbb1-0000-4000-8000-000000000001'
 export const PROGETTO_REEL = 'bbbbbbb1-0000-4000-8000-000000000003'
 export const PROGETTO_FUNNEL = 'bbbbbbb1-0000-4000-8000-000000000004'
+
+/** A seed content of the calendar (supabase/seeds/25_marketing.sql): a posted reel with every section written. */
+export const CONTENUTO_SEED = 'ccccccc1-0000-4000-8000-000000000001'
 
 /** Every tab of one project, for the screenshots. */
 function schedeProgetto(id: string) {
@@ -38,6 +45,12 @@ const PROFILO = { nome: 'profilo', url: '/account' }
 const MIEI_TASK = { nome: 'miei-task', url: '/task' }
 // every role opens the changelog, from "Altro" (CLAUDE.md section 23)
 const CHANGELOG = { nome: 'changelog', url: '/changelog' }
+// the Marketing area (1.32.0): admin, video editor and marketing
+const CONTENUTI = [
+  { nome: 'contenuti', url: '/marketing/contenuti' },
+  { nome: 'contenuti-calendario', url: '/marketing/contenuti?vista=calendario' },
+  { nome: 'contenuto', url: `/marketing/contenuti/${CONTENUTO_SEED}` },
+]
 
 export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   admin: [
@@ -55,6 +68,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'compila-giornata', url: '/setting/closer/giorno' },
     { nome: 'provvigioni', url: '/commissions' },
     { nome: 'costi', url: '/expenses' },
+    ...CONTENUTI,
     { nome: 'impostazioni', url: '/settings' },
     { nome: 'team', url: '/settings/team' },
     { nome: 'prodotti', url: '/settings/products' },
@@ -101,7 +115,9 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     PROFILO,
   ],
   coach: [MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE), TEMPO, CHANGELOG, PROFILO],
-  editor: [MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO, CHANGELOG, PROFILO],
+  editor: [MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO, ...CONTENUTI, CHANGELOG, PROFILO],
+  // lands on the content calendar; Projects like the video editor (member of the reels project)
+  marketing: [...CONTENUTI, MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO, CHANGELOG, PROFILO],
 }
 
 const IN_ATTESA_DELLO_STREAMING = new WeakSet<Page>()

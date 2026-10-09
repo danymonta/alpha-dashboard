@@ -613,7 +613,7 @@ describe('chi riceve quali strumenti (elenchi fissati)', () => {
 
   it('il tempo del team lo legge solo l’admin dell’app, non chi gestisce i progetti', () => {
     expect(strumentiConsentiti('admin', 'admin')).toContain('tempo_team')
-    for (const ruolo of ['setter', 'closer', 'coach', 'editor', 'nutrizione', 'dev'] as const) {
+    for (const ruolo of ['setter', 'closer', 'coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       for (const livello of ['employee', 'manager', 'admin'] as const) {
         expect(strumentiConsentiti(ruolo, livello), `${ruolo}/${livello}`).not.toContain('tempo_team')
         expect(Object.keys(strumenti(ruolo, livello)), `${ruolo}/${livello}`).not.toContain('tempo_team')
@@ -1541,7 +1541,8 @@ describe('il tempo dei collaboratori con Alfire (03/10/2026)', () => {
 
   it('chi riceve cosa (elenchi fissati): ogni ruolo dei progetti ha il tempo, nessuno strumento sui soldi', () => {
     const lavora = ['guida', 'proponi_risposte', 'progetti', 'progetto_dettaglio', 'miei_task', 'mio_tempo', 'task', 'nota_progetto', 'tempo']
-    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev'] as const) {
+    // marketing gets the video editor's tools: nothing on the calendar yet (1.32.0)
+    for (const ruolo of ['coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       expect(strumentiConsentiti(ruolo, 'employee'), ruolo).toEqual(lavora)
       expect(strumentiConsentiti(ruolo, 'manager'), ruolo).toEqual([...lavora.slice(0, 6), 'progetto', 'lista', ...lavora.slice(6)])
     }
@@ -1884,6 +1885,14 @@ describe('la guida: ogni ruolo legge la sua parte (03/10/2026)', () => {
     expect(await azioniDi(strumenti('setter', 'employee'), 'guida', 'argomento')).toEqual(['setting', 'call', 'provvigioni', 'progetti', 'alfire', 'permessi'])
     expect(await azioniDi(strumenti('closer', 'employee'), 'guida', 'argomento')).toEqual(['call', 'vendite', 'incassi', 'progetti', 'alfire', 'permessi'])
     expect(await azioniDi(strumenti(), 'guida', 'argomento')).toContain('panoramica')
+    // the Marketing area (1.32.0): the video editor and marketing, and the admin with every topic
+    for (const ruolo of ['editor', 'marketing'] as const) {
+      expect(await azioniDi(strumenti(ruolo, 'employee'), 'guida', 'argomento'), ruolo).toEqual(['marketing', 'progetti', 'alfire', 'permessi'])
+    }
+    expect(await azioniDi(strumenti(), 'guida', 'argomento')).toContain('marketing')
+    for (const ruolo of ['setter', 'closer', 'coach', 'nutrizione', 'dev'] as const) {
+      expect(await azioniDi(strumenti(ruolo, 'employee'), 'guida', 'argomento'), ruolo).not.toContain('marketing')
+    }
   })
 
   it('cosa fa Alfire, per chi chiede: al coach mai la lista dei soldi dell’admin', async () => {
@@ -1907,7 +1916,7 @@ describe('la guida: ogni ruolo legge la sua parte (03/10/2026)', () => {
   it('ogni ruolo legge i testi che lo riguardano, dal suo lato: mai i soldi a chi lavora solo nei progetti', async () => {
     const testo = async (ruolo: AppRole, argomento: string) =>
       ((await esegui(strumenti(ruolo, ruolo === 'admin' ? 'admin' : 'employee'), 'guida', { argomento })) as { testo: string }).testo
-    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev'] as const) {
+    for (const ruolo of ['coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       const permessi = await testo(ruolo, 'permessi')
       expect(permessi, ruolo).toContain('Il tempo è il tuo')
       // who manages a project sees the others' time there (section 18): never "nobody sees it"
@@ -1943,10 +1952,44 @@ describe('la guida: ogni ruolo legge la sua parte (03/10/2026)', () => {
     expect(await testo('admin', 'incassi')).toContain('Incassi (/payments)')
   })
 
+  it('l’area Marketing (1.32.0): video editor e marketing leggono il calendario e i loro permessi, gli altri no', async () => {
+    const testo = async (ruolo: AppRole, argomento: string) =>
+      ((await esegui(strumenti(ruolo, ruolo === 'admin' ? 'admin' : 'employee'), 'guida', { argomento })) as { testo: string }).testo
+    for (const ruolo of ['editor', 'marketing'] as const) {
+      const permessi = await testo(ruolo, 'permessi')
+      expect(permessi, ruolo).toContain('nell’area Marketing vedi, crei e modifichi il calendario dei contenuti di Instagram')
+      expect(permessi, ruolo).toContain('lo eliminano l’admin e il marketing')
+      expect(permessi, ruolo).toContain('I messaggi diretti e i nomi di chi scrive all’account non li vedi.')
+      expect(permessi, ruolo).toContain('L’area Economics non è del tuo ruolo.')
+      const contenuti = await testo(ruolo, 'marketing')
+      expect(contenuti, ruolo).toContain('Contenuti (area Marketing, /marketing/contenuti)')
+      for (const parola of ['Name, Reel Type, Format, Inspiration, Status, Post Date, Audio, URL, View Count', 'Reel Topic', 'Carousel Topic']) {
+        expect(contenuti, `${ruolo}: ${parola}`).toContain(parola)
+      }
+      expect(contenuti, ruolo).toContain('Alfire per ora non legge e non scrive i contenuti.')
+      for (const parola of ['provvigion', 'incass', 'vendit', 'cliente', 'margine', 'costi', 'soldi', 'prezz']) {
+        expect(contenuti, `${ruolo}: ${parola}`).not.toContain(parola)
+      }
+      expect(await testo(ruolo, 'alfire'), ruolo).toContain('Il calendario dei contenuti (area Marketing) per ora no')
+    }
+    for (const ruolo of ['coach', 'nutrizione', 'dev'] as const) {
+      const permessi = await testo(ruolo, 'permessi')
+      expect(permessi, ruolo).toContain('Le altre aree del gestionale non sono del tuo ruolo.')
+      expect(permessi, ruolo).not.toContain('Marketing')
+      expect(await testo(ruolo, 'alfire'), ruolo).not.toContain('calendario dei contenuti')
+    }
+    // the admin reads the topic as it is, and who sees the area in his permissions
+    expect(await testo('admin', 'marketing')).toContain('Eliminano un contenuto l’admin e il marketing; il video editor lo segna Canceled.')
+    expect(await testo('admin', 'permessi')).toContain('Il ruolo Marketing (e il video editor) vede l’area Marketing, il calendario dei contenuti')
+    expect(await testo('admin', 'permessi')).toContain('Permessi: l’admin vede tutto.')
+    expect(await testo('admin', 'alfire')).toContain('Il calendario dei contenuti (area Marketing) per ora no')
+    expect(await testo('marketing', 'alfire')).toContain('(task e note di un progetto)')
+  })
+
   it('i progetti dal lato di chi legge: Tempo › Team e Impostazioni solo all’admin', async () => {
     const testo = async (ruolo: AppRole) =>
       ((await esegui(strumenti(ruolo, ruolo === 'admin' ? 'admin' : 'employee'), 'guida', { argomento: 'progetti' })) as { testo: string }).testo
-    for (const ruolo of ['coach', 'editor', 'nutrizione', 'dev', 'setter', 'closer'] as const) {
+    for (const ruolo of ['coach', 'editor', 'marketing', 'nutrizione', 'dev', 'setter', 'closer'] as const) {
       const progetti = await testo(ruolo)
       expect(progetti, ruolo).toContain('Il tuo tempo lo dichiari tu')
       expect(progetti, ruolo).toContain('Il tempo degli altri lo vede chi gestisce un progetto, nella scheda Tempo del progetto')
