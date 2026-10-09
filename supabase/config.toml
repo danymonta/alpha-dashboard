@@ -373,8 +373,10 @@ enabled = false
 
 # OAuth server configuration
 [auth.oauth_server]
-# Enable OAuth server functionality
-enabled = false
+# Enable OAuth server functionality. On locally for the MCP server (Claude, 1.34.0): its tests
+# register the clients by hand. On the cloud it is switched on in the dashboard (Authentication >
+# OAuth Server); this file only drives the local stack.
+enabled = true
 # Path for OAuth consent flow UI
 authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration

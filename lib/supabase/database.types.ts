@@ -1372,6 +1372,9 @@ isOneToOne: false
 "current_role":
 { Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["app_role"]
                            },
+"da_client_oauth":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "da_incassare":
 { Args: Record<PropertyKey, never>; Returns: {
               "fascia": string,"numero": number,"totale": number
@@ -1489,6 +1492,23 @@ isOneToOne: false
                            },
 "lead_appartiene_al_setter":
 { Args: { "p_lead_id": string,"p_setter_id": string }; Returns: boolean
+                           },
+"mcp_chi_sono":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"mcp_client":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "client_id": string,"nome": string,"tipo": string
+            }[]
+                           },
+"mcp_filtro_richiesta":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"mcp_ruolo":
+{ Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["app_role"]
+                           },
+"mcp_token_valido":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "metriche_mese":
 { Args: { "p_mese": string }; Returns: {
@@ -1689,6 +1709,9 @@ isOneToOne: false
 { Args: { "p_mesi"?: number }; Returns: {
               "maturato": number,"mese": string,"nome": string,"pagato": number,"profile_id": string,"saldo_mese": number,"saldo_progressivo": number
             }[]
+                           },
+"puo_usare_mcp":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "rapporto":
 { Args: { "p_denominatore": number,"p_numeratore": number }; Returns: number

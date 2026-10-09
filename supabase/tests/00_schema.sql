@@ -1,10 +1,11 @@
 -- Structural guarantees: no table without RLS, no view that bypasses it,
--- no security definer function with a mutable search_path.
+-- no security definer function with a mutable search_path, and Claude's OAuth
+-- tokens (20261010090000_mcp_oauth.sql) reach only the MCP allow-list.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(6);
+select plan(9);
 
 -- Every table of the data model exists
 select is(
@@ -30,7 +31,8 @@ select is(
   'ogni tabella in public ha RLS abilitata'
 );
 
--- Every table has at least one policy (RLS without policies = silent denial)
+-- Every table has at least one permissive policy (RLS without policies = silent
+-- denial). Restrictive ones do not count: <table>_mai_da_oauth alone grants nothing.
 select is(
   (select coalesce(string_agg(t.tablename, ', ' order by t.tablename), '')
    from pg_tables t
@@ -38,9 +40,84 @@ select is(
      and not exists (
        select 1 from pg_policies p
        where p.schemaname = 'public' and p.tablename = t.tablename
+         and p.permissive = 'PERMISSIVE'
      )),
   '',
   'ogni tabella ha almeno una policy'
+);
+
+-- Claude (20261010090000_mcp_oauth.sql): every table outside the MCP allow-list
+-- refuses OAuth tokens with its own restrictive <table>_mai_da_oauth, for every
+-- command; the allow-list tables have none. A new table fails here until it gets
+-- the policy in its migration, or joins the allow-list on purpose (and the
+-- pre-request mcp_filtro_richiesta, and test 75).
+select is(
+  (select coalesce(string_agg(t.tablename, ', ' order by t.tablename), '')
+   from pg_tables t
+   where t.schemaname = 'public'
+     and case
+       when t.tablename = any (array['marketing_contenuti']) then exists (
+         select 1 from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and (p.permissive = 'RESTRICTIVE' or p.policyname = t.tablename || '_mai_da_oauth')
+       )
+       else not exists (
+         select 1 from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and p.policyname = t.tablename || '_mai_da_oauth'
+           and p.permissive = 'RESTRICTIVE'
+           and p.cmd = 'ALL'
+           and p.roles = array['authenticated']::name[]
+           and p.qual = '(NOT ( SELECT da_client_oauth() AS da_client_oauth))'
+           and p.with_check = '(NOT ( SELECT da_client_oauth() AS da_client_oauth))'
+       )
+     end),
+  '',
+  'ogni tabella fuori dalla lista MCP rifiuta i token di Claude'
+);
+
+-- The security definer functions anyone signed in can call (PUBLIC grants
+-- included), trigger functions aside. Each one was read for an OAuth token
+-- (current_role() null): it refuses, answers nothing or only about the caller,
+-- or has an explicit guard on da_client_oauth(). A new one fails here until it
+-- is added to this list and to the RPC block of 75_mcp_oauth.sql with its
+-- outcome for Claude's token.
+select results_eq(
+  $$ select p.proname::text collate "C"
+     from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.prosecdef
+       and p.prorettype <> 'trigger'::regtype
+       and has_function_privilege('authenticated', p.oid, 'execute')
+     order by 1 $$,
+  $$ select x collate "C" from unnest(array[
+       'aggiorna_mio_profilo', 'aggiorna_stato_lead', 'aggiungi_rata', 'anteprima_eliminazione',
+       'call_ha_follow_up', 'call_ha_vendita', 'current_role', 'elimina_call', 'elimina_cliente',
+       'elimina_lead', 'elimina_persona', 'elimina_prodotto', 'elimina_rata', 'fissa_follow_up',
+       'giornate_closer', 'giornate_setter', 'incassi_clienti_setter', 'inserisci_piano',
+       'instagram_imposta_token', 'instagram_togli_token', 'instagram_token_presente', 'is_admin',
+       'lead_appartiene_al_setter', 'mcp_chi_sono', 'mcp_client', 'mcp_filtro_richiesta', 'mcp_ruolo',
+       'mia_foto_google', 'mie_vendite_setter', 'miei_clienti', 'miei_numeri_periodo', 'pm_assegnato',
+       'pm_coach_del_cliente', 'pm_crea_progetto', 'pm_ferma_timer', 'pm_livello_corrente',
+       'pm_membro', 'pm_puo_gestire', 'pm_puo_modificare_task', 'pm_puo_vedere',
+       'promemoria_percorso_interrotto', 'puo_usare_mcp', 'segna_tutorial_visto', 'unisci_profili',
+       'vede_marketing'
+     ]::text[]) as x order by 1 $$,
+  'ogni funzione security definer raggiungibile è nella lista (e nel test 75 per i token di Claude)'
+);
+
+-- The Data API filter is registered where PostgREST reads it
+select ok(
+  exists (
+    select 1
+    from pg_db_role_setting s
+    join pg_roles r on r.oid = s.setrole
+    where r.rolname = 'authenticator'
+      and s.setdatabase = 0
+      and 'pgrst.db_pre_request=public.mcp_filtro_richiesta' = any (s.setconfig)
+  ),
+  'il filtro delle Data API (pgrst.db_pre_request) è registrato sul ruolo authenticator'
 );
 
 -- The most likely security bug of this project: a view without security_invoker
