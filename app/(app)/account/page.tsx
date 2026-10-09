@@ -1,16 +1,19 @@
 import { LogOut } from 'lucide-react'
+import { Suspense } from 'react'
 
 import { PreferenzeAlfire } from '@/app/(app)/account/preferenze-alfire'
 import { ProfiloForm } from '@/app/(app)/account/profilo-form'
 import { SchedeAccount } from '@/app/(app)/account/schede'
 import { esci } from '@/app/auth/actions'
+import { AppCollegate, ScheletroAppCollegate } from '@/components/account/app-collegate'
+import { ScheletroCollegaClaude, SezioneCollegaClaude } from '@/components/account/sezione-collega-claude'
 import { VoceNovita } from '@/components/changelog/voce-novita'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { RivediTutorial } from '@/components/tutorial/rivedi-tutorial'
 import { TestaTutorial } from '@/components/tutorial/testa-tutorial'
 import { Button } from '@/components/ui/button'
 import { alfireConfigurata, nomeModelloAlfire, nomeModelloVisione } from '@/lib/alfire/config'
-import { ETICHETTA_LIVELLO_PM, ETICHETTA_RUOLO, livelloPmEffettivo } from '@/lib/auth/roles'
+import { ETICHETTA_LIVELLO_PM, ETICHETTA_RUOLO, RUOLI_MCP, livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 
 export const dynamic = 'force-dynamic'
@@ -47,6 +50,16 @@ export default async function AccountPage() {
               ))}
             </dl>
             <p className="text-sm text-muted-foreground">Ruolo e livello li cambia l’admin in Impostazioni › Team.</p>
+            {/* Claude connected to the content calendar (09/10/2026): the steps for who may
+                connect it, and every role's own connected apps, each streamed on its own */}
+            {RUOLI_MCP.includes(profilo.ruolo) ? (
+              <Suspense fallback={<ScheletroCollegaClaude />}>
+                <SezioneCollegaClaude admin={profilo.ruolo === 'admin'} />
+              </Suspense>
+            ) : null}
+            <Suspense fallback={<ScheletroAppCollegate />}>
+              <AppCollegate />
+            </Suspense>
             {/* the version in use and what changes in this person's work (CLAUDE.md section 23) */}
             <VoceNovita testId="voce-novita-profilo" descrizione="cosa cambia nel tuo lavoro a ogni aggiornamento." />
             <div className="flex flex-wrap gap-2">

@@ -10,9 +10,13 @@ import { Label } from '@/components/ui/label'
 
 const STATO_INIZIALE: StatoLogin = {}
 
-/** Rendered only when ENABLE_DEV_LOGIN=true outside production. */
-export function DevLoginForm() {
-  const [stato, azione, pending] = useActionState(accediConPassword, STATO_INIZIALE)
+/**
+ * Rendered only when ENABLE_DEV_LOGIN=true outside production. da: where to go
+ * afterwards, as the Google button (checked again on the server).
+ */
+export function DevLoginForm({ da = '/' }: { da?: string }) {
+  // da rides as a bound argument, not as a field: the page's only input[name="da"] stays the Google form's
+  const [stato, azione, pending] = useActionState(accediConPassword.bind(null, da), STATO_INIZIALE)
 
   return (
     <form action={azione} className="space-y-3" data-testid="dev-login">

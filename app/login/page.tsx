@@ -61,7 +61,7 @@ export default async function LoginPage({
               <p className="text-xs text-muted-foreground">
                 Ambiente locale: accesso rapido con gli utenti di prova.
               </p>
-              <DevLoginForm />
+              <DevLoginForm da={da} />
             </section>
           ) : null}
         </div>
