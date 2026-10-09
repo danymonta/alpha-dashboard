@@ -46,6 +46,13 @@ export type VoceNav = {
    * notifica «tracciamento setter da approvare»").
    */
   daApprovare?: true
+  /**
+   * The item carries the number of the setter's own days from 08/10/2026
+   * still without the required comment of the day (Dany, 08/10/2026: "deve
+   * lui sempre lasciare un commento della giornata"): only on his "Oggi",
+   * never to the admin (CLAUDE.md section 17).
+   */
+  commenti?: true
 }
 
 // The Projects area, the same for every role (CLAUDE.md section 3)
@@ -102,7 +109,8 @@ const NAV: Record<AppRole, NavRuolo> = {
   setter: {
     principali: [
       // his days from Instagram still to decide, as cards on top of the page (08/10/2026)
-      { href: '/today', etichetta: 'Oggi', Icona: ClipboardList, daApprovare: true },
+      // and his days still without the required comment (08/10/2026)
+      { href: '/today', etichetta: 'Oggi', Icona: ClipboardList, daApprovare: true, commenti: true },
       { href: '/calls/new', etichetta: 'Nuova call', Icona: CalendarPlus },
       { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
       { href: '/my-numbers', etichetta: 'I miei numeri', Icona: TrendingUp },
@@ -147,33 +155,41 @@ export function testoDaApprovare(numero: number): string {
   return `${numero} ${numero === 1 ? 'giornata' : 'giornate'} da approvare`
 }
 
+/** "1 commento da scrivere", "3 commenti da scrivere". */
+export function testoCommenti(numero: number): string {
+  return `${numero} ${numero === 1 ? 'commento' : 'commenti'} da scrivere`
+}
+
 /** What a navigation item reminds the person of: never someone else's (CLAUDE.md section 17). */
 export type Promemoria = {
   /** Their own past calls still without an outcome (admin and closer). */
   esiti: number
   /** The setters' days from Instagram still to decide (the setter's own; every setter's for the admin). */
   daApprovare: number
+  /** The setter's own days still without the required comment (the setter only). */
+  commenti: number
 }
 
-export const NESSUN_PROMEMORIA: Promemoria = { esiti: 0, daApprovare: 0 }
+export const NESSUN_PROMEMORIA: Promemoria = { esiti: 0, daApprovare: 0, commenti: 0 }
 
 /**
  * The accessible name of an item with its badge, "Le mie call, 2 esiti da
  * registrare", "Setter, 1 giornata da approvare", "Altro, 2 esiti da
- * registrare, 1 giornata da approvare"; undefined without one (the visible
- * label is the name).
+ * registrare, 1 giornata da approvare", "Oggi, 1 giornata da approvare, 2
+ * commenti da scrivere"; undefined without one (the visible label is the name).
  */
 export function nomeConPromemoria(etichetta: string, promemoria: Promemoria): string | undefined {
   const parti = [
     promemoria.esiti > 0 ? testoEsiti(promemoria.esiti) : null,
     promemoria.daApprovare > 0 ? testoDaApprovare(promemoria.daApprovare) : null,
+    promemoria.commenti > 0 ? testoCommenti(promemoria.commenti) : null,
   ].filter((parte) => parte !== null)
   return parti.length > 0 ? `${etichetta}, ${parti.join(', ')}` : undefined
 }
 
 /** The same with the outcomes only. */
 export function nomeConEsiti(etichetta: string, numero: number): string | undefined {
-  return nomeConPromemoria(etichetta, { esiti: numero, daApprovare: 0 })
+  return nomeConPromemoria(etichetta, { ...NESSUN_PROMEMORIA, esiti: numero })
 }
 
 /** The badge of an item: the count when the item carries it and there is something to record. */
@@ -186,6 +202,7 @@ export function promemoriaDellaVoce(voce: VoceNav, promemoria: Promemoria): Prom
   return {
     esiti: esitiDellaVoce(voce, promemoria.esiti),
     daApprovare: voce.daApprovare && promemoria.daApprovare > 0 ? promemoria.daApprovare : 0,
+    commenti: voce.commenti && promemoria.commenti > 0 ? promemoria.commenti : 0,
   }
 }
 
@@ -198,12 +215,13 @@ export function promemoriaDiAltro(voci: VoceNav[], promemoria: Promemoria): Prom
   return {
     esiti: Math.max(0, ...delleVoci.map((p) => p.esiti)),
     daApprovare: Math.max(0, ...delleVoci.map((p) => p.daApprovare)),
+    commenti: Math.max(0, ...delleVoci.map((p) => p.commenti)),
   }
 }
 
-/** The digit on the badge: one item carries one count, "Altro" may carry both. */
+/** The digit on the badge: the counts an item carries add up, its name says each. */
 export function totalePromemoria(promemoria: Promemoria): number {
-  return promemoria.esiti + promemoria.daApprovare
+  return promemoria.esiti + promemoria.daApprovare + promemoria.commenti
 }
 
 export function isAttiva(pathname: string, voce: VoceNav): boolean {

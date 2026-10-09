@@ -2,8 +2,10 @@ import { expect, test, type Browser, type Page } from '@playwright/test'
 
 import { aggiungiGiorni, etichettaGiorno, nomeGiorno, oggiRoma } from '../lib/date'
 import { formatNumero } from '../lib/format'
+import { COMMENTO_OBBLIGATORIO } from '../lib/setting/commento'
 import type { Database } from '../lib/supabase/database.types'
 import {
+  COMMENTO_DI_PROVA,
   ID_ADMIN,
   ID_SETTER,
   contaProposteDaDecidere,
@@ -80,7 +82,11 @@ function numeriDi(riga: Riga | null) {
   return riga ? Object.fromEntries(CAMPI.map((c) => [c, riga[c]])) : null
 }
 
-/** The day set as given: its six numbers (the row created if missing), or no report at all. */
+/**
+ * The day set as given: its six numbers (the row created if missing), with
+ * the comment of the day (from 08/10/2026 Loris decides a day with activity
+ * only with it, and these tests are about the numbers), or no report at all.
+ */
 async function preparaGiorno(giorno: string, numeri: NumeriPropostaDiProva | null) {
   const db = dbLocale()
   if (numeri === null) {
@@ -90,7 +96,10 @@ async function preparaGiorno(giorno: string, numeri: NumeriPropostaDiProva | nul
   }
   const { error } = await db
     .from('setter_daily_reports')
-    .upsert({ setter_id: ID_SETTER, data: giorno, created_by: ID_SETTER, ...numeri }, { onConflict: 'setter_id,data' })
+    .upsert(
+      { setter_id: ID_SETTER, data: giorno, created_by: ID_SETTER, ...numeri, ...COMMENTO_DI_PROVA },
+      { onConflict: 'setter_id,data' },
+    )
   if (error) throw error
 }
 
@@ -125,8 +134,13 @@ function sidebar(page: Page) {
   return page.getByRole('navigation', { name: 'Navigazione principale' })
 }
 
+/**
+ * The item's name with the days to approve; Loris's "Oggi" may also say his
+ * days without the comment of the day (08/10/2026), never the admin's items.
+ */
 function nomeDaApprovare(etichetta: string, numero: number): RegExp {
-  return new RegExp(`^${etichetta}, ${numero} ${numero === 1 ? 'giornata' : 'giornate'} da approvare$`)
+  const commenti = etichetta === 'Oggi' ? '(, \\d+ comment[oi] da scrivere)?' : ''
+  return new RegExp(`^${etichetta}, ${numero} ${numero === 1 ? 'giornata' : 'giornate'} da approvare${commenti}$`)
 }
 
 async function accediIn(browser: Browser, ruolo: 'setter' | 'admin') {
@@ -289,7 +303,7 @@ test.describe('Tracciamento da approvare, nella pagina Setter dell’admin', () 
       await scheda(loris, giorno).getByRole('button', { name: 'Tieni i miei' }).click()
       await expect(toast(loris, `Report di ${giornoMinuscolo(giorno)}: tenuti i tuoi numeri`)).toBeVisible()
       await expect(
-        navLoris.getByRole('link', { name: sue > 1 ? nomeDaApprovare('Oggi', sue - 1) : /^Oggi$/ }),
+        navLoris.getByRole('link', { name: sue > 1 ? nomeDaApprovare('Oggi', sue - 1) : /^Oggi(, \d+ comment[oi] da scrivere)?$/ }),
       ).toBeVisible()
       // he decided it himself: no line about who decided
       await expect(loris.getByTestId('proposta-decisa-da')).toHaveCount(0)
@@ -548,4 +562,58 @@ test.describe('Tracciamento da approvare, nella pagina Setter dell’admin', () 
       await ripristinaGiorno(giorno, prima)
     }
   })
+})
+
+// The comment of the day is the setter's (08/10/2026): the admin decides his
+// days without it and never writes it; the setter finds it still to write.
+// No number, no sign of it on the admin's pages (CLAUDE.md section 17).
+test('l’admin conferma senza commento, Loris lo ritrova da scrivere; all’admin nessun numero né segno', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(90_000)
+  const giorno = oggi()
+  const prima = await leggiRiga(giorno)
+  try {
+    // no report of Loris that day: the admin's confirmation creates it, without the comment
+    await preparaGiorno(giorno, null)
+    const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await accedi(page, 'admin')
+    await page.goto('/setting')
+    const card = scheda(page, giorno)
+    await expect(card).toBeVisible()
+    // the admin's card never says whether the comment is there
+    await expect(card).not.toContainText(COMMENTO_OBBLIGATORIO.manca)
+    await card.getByRole('button', { name: 'Conferma', exact: true }).click()
+    await expect(toast(page, `Report di ${LORIS} di oggi compilato con i numeri di Instagram`)).toBeVisible()
+    // never a step of the comment for him
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    const nata = await leggiRiga(giorno)
+    expect(numeriDi(nata)).toEqual(DA_INSTAGRAM)
+    expect(nata).toMatchObject({ lead_in_target: null, qualita_conversazioni: null, cosa_frenava: null })
+    expect(await decisionePropostaInstagram(id)).toEqual({ stato: 'confermata', deciso_da: ID_ADMIN })
+
+    // nothing on the admin's side: no number, no reminder, on any of his items
+    const nav = sidebar(page)
+    await expect(nav.getByTestId('conteggio-commenti')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: /comment[oi] da scrivere/ })).toHaveCount(0)
+    await expect(page.getByText(COMMENTO_OBBLIGATORIO.manca)).toHaveCount(0)
+    await expect(page.getByText(COMMENTO_OBBLIGATORIO.giorni)).toHaveCount(0)
+
+    // Loris, in "Oggi": his day has Instagram's numbers and still asks for the comment
+    const loris = await accediIn(browser, 'setter')
+    await loris.goto('/today')
+    await expect(loris.getByTestId('proposta-decisa-da')).toHaveText(
+      `${UTENTI.admin.nome} ha confermato i numeri di Instagram per questo giorno.`,
+    )
+    await expect(loris.getByRole('group', { name: 'DM outbound' }).getByRole('textbox')).toHaveValue('53')
+    await expect(loris.getByTestId('da-completare-giorno')).toContainText(COMMENTO_OBBLIGATORIO.manca)
+    await expect(sidebar(loris).getByRole('link', { name: /^Oggi, (\d+ giornat[ae] da approvare, )?\d+ comment[oi] da scrivere$/ })).toBeVisible()
+    await loris.context().close()
+  } finally {
+    await pulisciProposteInstagram([giorno])
+    await ripristinaGiorno(giorno, prima)
+  }
 })

@@ -62,8 +62,8 @@ select ok(
   (select bool_and(not p.prosecdef and p.proconfig @> array['search_path=""'])
    from pg_proc p
    where p.oid in (
-     'public.conferma_proposta_instagram(uuid, jsonb, timestamptz, jsonb)'::regprocedure,
-     'public.scarta_proposta_instagram(uuid)'::regprocedure,
+     'public.conferma_proposta_instagram(uuid, jsonb, timestamptz, jsonb, jsonb)'::regprocedure,
+     'public.scarta_proposta_instagram(uuid, jsonb)'::regprocedure,
      'public.instagram_salva_proposta(uuid, date, integer, integer, integer, integer, integer, integer, integer, integer)'::regprocedure,
      'public.discovery_prenotate_del_giorno(uuid, date)'::regprocedure
    )),
@@ -91,8 +91,8 @@ select ok(
      'public.instagram_imposta_token(text)',
      'public.instagram_togli_token()',
      'public.instagram_token_presente()',
-     'public.conferma_proposta_instagram(uuid, jsonb, timestamptz, jsonb)',
-     'public.scarta_proposta_instagram(uuid)'
+     'public.conferma_proposta_instagram(uuid, jsonb, timestamptz, jsonb, jsonb)',
+     'public.scarta_proposta_instagram(uuid, jsonb)'
    ]) as f),
   'collegare, scollegare, confermare e scartare: chi è entrato, mai anon'
 );

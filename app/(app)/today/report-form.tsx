@@ -7,21 +7,26 @@ import { toast } from 'sonner'
 
 import { salvaReportGiornaliero, type EsitoSalvataggio, type RigaReport } from '@/app/(app)/today/actions'
 import {
+  EVENTO_COMMENTO_GIORNO,
   EVENTO_PROPOSTA,
   EVENTO_PROPOSTA_FINE,
   PROPOSTA,
+  numeriDi,
+  risposteDi,
+  type DettaglioEventoCommento,
   type DettaglioEventoProposta,
   type DettaglioEventoPropostaFine,
 } from '@/app/(app)/today/proposta-instagram'
 import { leggiStatoGiorno } from '@/app/(app)/today/stato-giorno'
 import { Stepper } from '@/components/numeri/stepper'
-import { ANCORA_COMMENTO, CommentoReport, DaCompletare } from '@/components/setter/commento-report'
+import { ANCORA_COMMENTO, CommentoReport, DaCompletare, type StatoCommento } from '@/components/setter/commento-report'
+import { ricontaPromemoria } from '@/components/shell/esiti-da-registrare'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { etichettaGiorno, formatOra } from '@/lib/date'
 import { formatNumero } from '@/lib/format'
 import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
-import { commentoDaCompletare } from '@/lib/setting/commento'
+import { commentoMancante, commentoObbligatorio, statoCommento } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 import {
   GRUPPI_REPORT,
@@ -126,6 +131,10 @@ export function ReportForm({
   const daRisalvare = useRef(false)
   // the running loop: true once everything typed is saved, false when a save failed
   const ciclo = useRef<Promise<boolean>>(Promise.resolve(true))
+  // Whether the saved day misses its required comment (from 08/10/2026): the
+  // number on "Oggi" counts the saved reports, so when a save changes it the
+  // badge counts again at once (no server render of the layout after a save)
+  const mancaSalvato = useRef(salvatoAlle ? commentoMancante(iniziale, data) : false)
   // A decision on this day's proposal from Instagram is on its way (the card
   // above): the form takes no change and sends no save until the page reloads
   // it with the decided numbers, so nothing of it lands after the decision.
@@ -152,8 +161,20 @@ export function ReportForm({
     firmaPagina.current = firmaProposte
   }, [firmaProposte])
 
+  /** The saved day's comment changed (missing or complete): the badge counts again. */
+  const segnaSalvato = useCallback(
+    (salvati: ValoriReport | null) => {
+      const manca = salvati ? commentoMancante(salvati, data) : false
+      if (manca === mancaSalvato.current) return
+      mancaSalvato.current = manca
+      ricontaPromemoria()
+    },
+    [data],
+  )
+
   /** The day as saved on the server replaces the screen. */
   const mostra = useCallback((nuovi: ValoriReport, alle: string | null, totali: number | null) => {
+    segnaSalvato(alle ? nuovi : null)
     valoriRef.current = nuovi
     setValori(nuovi)
     ultimoSalvato.current = alle ? JSON.stringify(nuovi) : null
@@ -163,7 +184,7 @@ export function ReportForm({
     incerte.current = []
     setDmTotali(totali)
     setStato(alle ? { tipo: 'salvato', alle } : { tipo: 'nuovo' })
-  }, [])
+  }, [segnaSalvato])
 
   /** Reads the page again (called only once the server answered): the form stands still until it is back. */
   const rileggi = useCallback(
@@ -271,6 +292,7 @@ export function ReportForm({
                 ultimaOra.current = attuale.salvatoAlle
                 versione.current = attuale.salvatoAlle
                 setDmTotali(attuale.dmTotali)
+                segnaSalvato(attuale.valori)
                 if (nostra.creazione) {
                   toast.success(`Report di ${etichettaGiorno(data, oggi).toLowerCase()} avviato`)
                 }
@@ -291,6 +313,7 @@ export function ReportForm({
           ultimaOra.current = esito.salvatoAlle
           versione.current = esito.salvatoAlle
           setDmTotali(esito.dmTotali)
+          segnaSalvato(istantanea)
           if (esito.creato) {
             toast.success(`Report di ${etichettaGiorno(data, oggi).toLowerCase()} avviato`)
           }
@@ -306,7 +329,7 @@ export function ReportForm({
     })()
     ciclo.current = giro
     return giro
-  }, [data, oggi, ricaricaDopoRifiuto])
+  }, [data, oggi, ricaricaDopoRifiuto, segnaSalvato])
 
   /**
    * The screen's save (a tap, a blur, leaving the page): never while a
@@ -359,9 +382,12 @@ export function ReportForm({
     mostra(iniziale, salvatoAlle, dmTotaliIniziale)
   }, [rilettura, iniziale, salvatoAlle, dmTotaliIniziale, mostra])
 
-  // A day with DM or conversations asks for the two scales: a reminder for the
-  // setter on his own day, from what is on screen; the save never waits for it
-  const daCompletare = commentoDaCompletare(valori, creatoIl)
+  // A day with DM or conversations asks for the comment: from 08/10/2026 the
+  // three answers, required ("Manca il commento della giornata"); before, the
+  // two scales ("Da completare"). A reminder for the setter on his own day,
+  // from what is on screen; the save never waits for it
+  const daCompletare = statoCommento(valori, data, creatoIl)
+  const obbligatorio = commentoObbligatorio(data)
 
   // Leaving the screen: flush now, and warn if something is still unsaved.
   // Coming back: a decision taken meanwhile on another device (the admin's,
@@ -440,14 +466,27 @@ export function ReportForm({
       if (dettaglio?.data !== data) return
       sospesoRef.current = false
       setSospeso(false)
+      // decided elsewhere, his answers of the step saved into this day: the
+      // saved day replaces the screen (the page may keep this form's key, its
+      // decision already read when the app came back to the foreground)
+      if (dettaglio.rileggi) rileggi('cambiato')
+    }
+    // the card asks what this day holds now, before it decides: the answers
+    // and the numbers on screen, saved or not (they are saved before the decision)
+    const suCommento = (e: Event) => {
+      const dettaglio = (e as CustomEvent<DettaglioEventoCommento>).detail
+      if (dettaglio?.data !== data) return
+      dettaglio.attuale = { risposte: risposteDi(valoriRef.current), numeri: numeriDi(valoriRef.current) }
     }
     window.addEventListener(EVENTO_PROPOSTA, suProposta)
     window.addEventListener(EVENTO_PROPOSTA_FINE, suFine)
+    window.addEventListener(EVENTO_COMMENTO_GIORNO, suCommento)
     return () => {
       window.removeEventListener(EVENTO_PROPOSTA, suProposta)
       window.removeEventListener(EVENTO_PROPOSTA_FINE, suFine)
+      window.removeEventListener(EVENTO_COMMENTO_GIORNO, suCommento)
     }
-  }, [data, salvaOra])
+  }, [data, salvaOra, rileggi])
 
   useEffect(
     () => () => {
@@ -512,7 +551,8 @@ export function ReportForm({
               <div className="mt-5">
                 <CommentoReport
                   valori={valori}
-                  daCompletare={daCompletare}
+                  stato={daCompletare}
+                  obbligatorio={obbligatorio}
                   // one tap: saved at once, like the switch
                   onScala={(campo, valore) => aggiorna({ [campo]: valore }, 0)}
                   onTesto={(campo, testo) => aggiorna({ [campo]: testo }, RITARDO_NOTE_MS)}
@@ -590,7 +630,7 @@ function StatoSalvataggio({
   motivoSospeso: string
   riprova: () => void
   /** The day's own reminder, in view while scrolling: never while an error needs the space */
-  daCompletare: boolean
+  daCompletare: StatoCommento | null
 }) {
   // while a decision is on its way, only that: the form below takes nothing
   const mostra = sospeso ? null : stato.tipo
@@ -625,7 +665,7 @@ function StatoSalvataggio({
       ) : null}
 
       {!sospeso && stato.tipo === 'salvato' ? (
-        <p className="flex items-center gap-2 text-muted-foreground" data-testid="stato-salvato">
+        <p className="flex shrink-0 items-center gap-2 whitespace-nowrap text-muted-foreground" data-testid="stato-salvato">
           <CircleCheck className="size-4 shrink-0 text-status-ok" aria-hidden="true" />
           Salvato alle <span className="num text-foreground">{formatOra(stato.alle)}</span>
         </p>
@@ -645,7 +685,12 @@ function StatoSalvataggio({
 
       {daCompletare && !sospeso && stato.tipo !== 'errore' ? (
         // a link to the two questions: from the Call group, one tap brings them back
-        <DaCompletare className="ml-auto" testId="da-completare-giorno" href={`#${ANCORA_COMMENTO}`} />
+        <DaCompletare
+          className="ml-auto"
+          testId="da-completare-giorno"
+          href={`#${ANCORA_COMMENTO}`}
+          stato={daCompletare}
+        />
       ) : null}
     </div>
   )

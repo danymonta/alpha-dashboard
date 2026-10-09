@@ -8,6 +8,7 @@ import {
   nomeConPromemoria,
   promemoriaDellaVoce,
   promemoriaDiAltro,
+  testoCommenti,
   testoDaApprovare,
   testoEsiti,
   totalePromemoria,
@@ -128,29 +129,72 @@ describe('il numero delle giornate da approvare (08/10/2026)', () => {
   })
 
   it('ogni voce porta solo il suo numero, mai a zero', () => {
-    const promemoria = { esiti: 3, daApprovare: 2 }
-    expect(promemoriaDellaVoce(voce('admin', 'Setter'), promemoria)).toEqual({ esiti: 0, daApprovare: 2 })
-    expect(promemoriaDellaVoce(voce('admin', 'Closer'), promemoria)).toEqual({ esiti: 3, daApprovare: 0 })
-    expect(promemoriaDellaVoce(voce('admin', 'Vendite'), promemoria)).toEqual({ esiti: 0, daApprovare: 0 })
-    expect(promemoriaDellaVoce(voce('setter', 'Oggi'), promemoria)).toEqual({ esiti: 0, daApprovare: 2 })
-    expect(promemoriaDellaVoce(voce('setter', 'Oggi'), { esiti: 0, daApprovare: 0 })).toEqual({ esiti: 0, daApprovare: 0 })
+    const promemoria = { esiti: 3, daApprovare: 2, commenti: 0 }
+    expect(promemoriaDellaVoce(voce('admin', 'Setter'), promemoria)).toEqual({ esiti: 0, daApprovare: 2, commenti: 0 })
+    expect(promemoriaDellaVoce(voce('admin', 'Closer'), promemoria)).toEqual({ esiti: 3, daApprovare: 0, commenti: 0 })
+    expect(promemoriaDellaVoce(voce('admin', 'Vendite'), promemoria)).toEqual({ esiti: 0, daApprovare: 0, commenti: 0 })
+    expect(promemoriaDellaVoce(voce('setter', 'Oggi'), promemoria)).toEqual({ esiti: 0, daApprovare: 2, commenti: 0 })
+    expect(promemoriaDellaVoce(voce('setter', 'Oggi'), { esiti: 0, daApprovare: 0, commenti: 0 })).toEqual({
+      esiti: 0,
+      daApprovare: 0,
+      commenti: 0,
+    })
   })
 
   it('«Altro» dell’admin porta i due numeri, contati una volta sola', () => {
-    const inAltro = promemoriaDiAltro(vociNav('admin').altre, { esiti: 3, daApprovare: 2 })
-    expect(inAltro).toEqual({ esiti: 3, daApprovare: 2 })
+    const inAltro = promemoriaDiAltro(vociNav('admin').altre, { esiti: 3, daApprovare: 2, commenti: 0 })
+    expect(inAltro).toEqual({ esiti: 3, daApprovare: 2, commenti: 0 })
     expect(totalePromemoria(inAltro)).toBe(5)
     expect(nomeConPromemoria('Altro', inAltro)).toBe('Altro, 3 esiti da registrare, 2 giornate da approvare')
     // the setter's "Altro" has none of them
-    expect(promemoriaDiAltro(vociNav('setter').altre, { esiti: 3, daApprovare: 2 })).toEqual({ esiti: 0, daApprovare: 0 })
+    expect(promemoriaDiAltro(vociNav('setter').altre, { esiti: 3, daApprovare: 2, commenti: 4 })).toEqual({
+      esiti: 0,
+      daApprovare: 0,
+      commenti: 0,
+    })
   })
 
   it('le parole per chi usa un lettore di schermo', () => {
     expect(testoDaApprovare(1)).toBe('1 giornata da approvare')
     expect(testoDaApprovare(2)).toBe('2 giornate da approvare')
-    expect(nomeConPromemoria('Setter', { esiti: 0, daApprovare: 2 })).toBe('Setter, 2 giornate da approvare')
-    expect(nomeConPromemoria('Oggi', { esiti: 0, daApprovare: 1 })).toBe('Oggi, 1 giornata da approvare')
-    expect(nomeConPromemoria('Oggi', { esiti: 0, daApprovare: 0 })).toBeUndefined()
+    expect(nomeConPromemoria('Setter', { esiti: 0, daApprovare: 2, commenti: 0 })).toBe('Setter, 2 giornate da approvare')
+    expect(nomeConPromemoria('Oggi', { esiti: 0, daApprovare: 1, commenti: 0 })).toBe('Oggi, 1 giornata da approvare')
+    expect(nomeConPromemoria('Oggi', { esiti: 0, daApprovare: 0, commenti: 0 })).toBeUndefined()
   })
 })
 
+describe('il numero dei commenti da scrivere (08/10/2026)', () => {
+  it('solo su «Oggi» del setter: mai all’admin, mai a un altro ruolo', () => {
+    const conNumero = Object.fromEntries(
+      TUTTI_I_RUOLI.map((ruolo) => [ruolo, tutte(ruolo).filter((v) => v.commenti).map((v) => v.href)]),
+    )
+    expect(conNumero).toEqual({
+      admin: [],
+      setter: ['/today'],
+      closer: [],
+      coach: [],
+      editor: [],
+      nutrizione: [],
+      dev: [],
+    })
+    // in the bar, never behind "Altro"
+    expect(vociNav('setter').principali.some((v) => v.commenti)).toBe(true)
+    // the admin's items never carry it, whatever the number
+    for (const v of tutte('admin')) {
+      expect(promemoriaDellaVoce(v, { esiti: 0, daApprovare: 0, commenti: 5 }).commenti, v.href).toBe(0)
+    }
+  })
+
+  it('«Oggi» porta i due numeri, e il nome li dice separati', () => {
+    const oggi = promemoriaDellaVoce(voce('setter', 'Oggi'), { esiti: 0, daApprovare: 1, commenti: 2 })
+    expect(oggi).toEqual({ esiti: 0, daApprovare: 1, commenti: 2 })
+    expect(totalePromemoria(oggi)).toBe(3)
+    expect(nomeConPromemoria('Oggi', oggi)).toBe('Oggi, 1 giornata da approvare, 2 commenti da scrivere')
+    expect(nomeConPromemoria('Oggi', { esiti: 0, daApprovare: 0, commenti: 1 })).toBe('Oggi, 1 commento da scrivere')
+  })
+
+  it('le parole per chi usa un lettore di schermo', () => {
+    expect(testoCommenti(1)).toBe('1 commento da scrivere')
+    expect(testoCommenti(3)).toBe('3 commenti da scrivere')
+  })
+})

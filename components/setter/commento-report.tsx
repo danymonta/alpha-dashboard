@@ -6,9 +6,14 @@ import { useId } from 'react'
 import { ScalaCommento } from '@/components/setter/scala-commento'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  ANCORA_COMMENTO,
+  CAMPI_OBBLIGATORI,
   COMMENTO,
+  COMMENTO_OBBLIGATORIO,
   SCALE_COMMENTO,
   TESTI_COMMENTO,
+  risposteMancanti,
+  type CampoObbligatorio,
   type CampoScala,
   type CampoTesto,
 } from '@/lib/setting/commento'
@@ -22,28 +27,57 @@ export type ValoriCommento = {
   note?: string | null
 }
 
-/** Where "Da completare" leads: the section of the setter's own report. */
-export const ANCORA_COMMENTO = 'commento-giornata'
+// Where "Da completare" leads: the section of the setter's own report
+export { ANCORA_COMMENTO }
 
-const PILLOLA =
-  'inline-flex shrink-0 items-center gap-1 rounded-full border border-status-warning/40 px-2 py-0.5 text-xs font-medium text-status-warning'
+/** What the setter's own day says of its comment (statoCommento). */
+export type StatoCommento = 'manca' | 'da_completare'
+
+const PILLOLA = {
+  da_completare: 'border-status-warning/40 text-status-warning',
+  manca: 'border-status-critical/50 text-status-critical',
+} satisfies Record<StatoCommento, string>
+
+const HOVER = {
+  da_completare: 'group-hover:bg-status-warning/10',
+  manca: 'group-hover:bg-status-critical/10',
+} satisfies Record<StatoCommento, string>
+
+const PAROLE = {
+  da_completare: { testo: COMMENTO.daCompletare, spiegazione: COMMENTO.daCompletareSpiegazione },
+  manca: { testo: COMMENTO_OBBLIGATORIO.manca, spiegazione: COMMENTO_OBBLIGATORIO.mancaSpiegazione },
+} satisfies Record<StatoCommento, { testo: string; spiegazione: string }>
 
 /**
- * "Da completare": the setter's own reminder on his own day. Icon and words,
- * never color alone. Never shown to the admin, never counted anywhere. With
- * `href` it is a link (44px tall) to the questions, and says what is missing.
+ * "Da completare" (a day before 08/10/2026: the two scales, asked) or "Manca
+ * il commento della giornata" (from 08/10/2026: the three answers, required):
+ * the setter's own reminder on his own day. Icon and words, never color
+ * alone. Never shown to the admin. With `href` it is a link (44px tall) to
+ * the questions, and says what is missing.
  */
-export function DaCompletare({ className, testId, href }: { className?: string; testId?: string; href?: string }) {
+export function DaCompletare({
+  className,
+  testId,
+  href,
+  stato = 'da_completare',
+}: {
+  className?: string
+  testId?: string
+  href?: string
+  stato?: StatoCommento
+}) {
   const id = useId()
+  const { testo, spiegazione } = PAROLE[stato]
+  const classi = cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium', PILLOLA[stato])
   const contenuto = (
     <>
       <CircleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-      {COMMENTO.daCompletare}
+      {testo}
     </>
   )
   if (!href) {
     return (
-      <span title={COMMENTO.daCompletareSpiegazione} data-testid={testId} className={cn(PILLOLA, className)}>
+      <span title={spiegazione} data-testid={testId} data-stato={stato} className={cn(classi, 'shrink-0', className)}>
         {contenuto}
       </span>
     )
@@ -51,17 +85,19 @@ export function DaCompletare({ className, testId, href }: { className?: string; 
   return (
     <a
       href={href}
-      title={COMMENTO.daCompletareSpiegazione}
+      title={spiegazione}
       aria-describedby={`${id}-perche`}
       data-testid={testId}
+      data-stato={stato}
       className={cn(
-        'group inline-flex min-h-11 shrink-0 items-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        'group inline-flex min-h-11 min-w-0 shrink items-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
         className,
       )}
     >
-      <span className={cn(PILLOLA, 'group-hover:bg-status-warning/10')}>{contenuto}</span>
+      {/* on a phone, next to "Salvato alle": the words go on two lines, never out of the bar */}
+      <span className={cn(classi, 'min-w-0 text-balance', HOVER[stato])}>{contenuto}</span>
       <span id={`${id}-perche`} className="sr-only">
-        {COMMENTO.daCompletareSpiegazione}
+        {spiegazione}
       </span>
     </a>
   )
@@ -73,8 +109,17 @@ type Props = {
   onTesto: (campo: CampoTesto, testo: string) => void
   /** Leaving a text: the report form saves right away */
   onFineTesto?: () => void
-  /** The setter's own screen only: the day has activity and a scale is still empty */
-  daCompletare?: boolean
+  /**
+   * The setter's own screen only: what his day still misses (statoCommento).
+   * 'manca' also puts its error under each required answer still missing.
+   */
+  stato?: StatoCommento | null
+  /**
+   * The setter's own day from 08/10/2026 (commentoObbligatorio): lead in
+   * target, quality of the conversations and what held the leads back say
+   * they are required. Never on the admin's sheets: nothing is required there.
+   */
+  obbligatorio?: boolean
   /** report: the setter's "Oggi", with its cards; foglio: the admin's sheet in Setting */
   variante?: 'report' | 'foglio'
 }
@@ -85,9 +130,21 @@ type Props = {
  * each, then what held the leads back from booking and what they asked, and
  * "Altre note", the report's note.
  */
-export function CommentoReport({ valori, onScala, onTesto, onFineTesto, daCompletare = false, variante = 'report' }: Props) {
+export function CommentoReport({
+  valori,
+  onScala,
+  onTesto,
+  onFineTesto,
+  stato = null,
+  obbligatorio = false,
+  variante = 'report',
+}: Props) {
   const id = useId()
   const report = variante === 'report'
+  const richiesta = report && obbligatorio
+  // on a day to complete, each required answer still missing says so
+  const mancanti = new Set<CampoObbligatorio>(stato === 'manca' ? risposteMancanti(valori) : [])
+  const obbligatoria = (campo: string) => richiesta && (CAMPI_OBBLIGATORI as readonly string[]).includes(campo)
 
   return (
     <section
@@ -105,10 +162,10 @@ export function CommentoReport({ valori, onScala, onTesto, onFineTesto, daComple
         >
           {COMMENTO.titolo}
         </h3>
-        {daCompletare ? <DaCompletare testId="da-completare-sezione" /> : null}
+        {stato ? <DaCompletare testId="da-completare-sezione" stato={stato} /> : null}
       </div>
       <p className={cn('text-xs leading-snug text-muted-foreground', report && 'px-1')}>
-        {report ? COMMENTO.descrizione : COMMENTO.descrizioneAdmin}
+        {!report ? COMMENTO.descrizioneAdmin : richiesta ? COMMENTO_OBBLIGATORIO.descrizione : COMMENTO.descrizione}
       </p>
 
       <div className={cn('space-y-4', report && 'rounded-xl bg-card p-3')}>
@@ -118,27 +175,49 @@ export function CommentoReport({ valori, onScala, onTesto, onFineTesto, daComple
             scala={scala}
             valore={valori[scala.campo]}
             onCambia={(v) => onScala(scala.campo, v)}
+            obbligatoria={obbligatoria(scala.campo)}
+            errore={mancanti.has(scala.campo) ? COMMENTO_OBBLIGATORIO.errore[scala.campo] : null}
           />
         ))}
       </div>
 
       <div className={cn('space-y-3', report && 'rounded-xl bg-card p-3')}>
-        {TESTI_COMMENTO.map((t) => (
-          <div key={t.campo} className="space-y-1.5">
-            <label htmlFor={`${id}-${t.campo}`} className="block text-sm font-medium">
-              {t.domanda} <span className="font-normal text-muted-foreground">({COMMENTO.facoltativo})</span>
-            </label>
-            <Textarea
-              id={`${id}-${t.campo}`}
-              value={valori[t.campo] ?? ''}
-              onChange={(e) => onTesto(t.campo, e.currentTarget.value)}
-              onBlur={onFineTesto}
-              placeholder={t.placeholder}
-              maxLength={t.massimo}
-              rows={2}
-            />
-          </div>
-        ))}
+        {TESTI_COMMENTO.map((t) => {
+          const errore = t.campo === 'cosa_frenava' && mancanti.has(t.campo) ? COMMENTO_OBBLIGATORIO.errore.cosa_frenava : null
+          const richiesto = obbligatoria(t.campo)
+          return (
+            <div key={t.campo} className="space-y-1.5">
+              <label htmlFor={`${id}-${t.campo}`} className="block text-sm font-medium">
+                {t.domanda}{' '}
+                <span className="font-normal text-muted-foreground">
+                  ({richiesto ? COMMENTO_OBBLIGATORIO.obbligatoria : COMMENTO.facoltativo})
+                </span>
+              </label>
+              <Textarea
+                id={`${id}-${t.campo}`}
+                value={valori[t.campo] ?? ''}
+                onChange={(e) => onTesto(t.campo, e.currentTarget.value)}
+                onBlur={onFineTesto}
+                placeholder={t.placeholder}
+                maxLength={t.massimo}
+                rows={2}
+                aria-required={richiesto || undefined}
+                aria-invalid={errore ? true : undefined}
+                aria-describedby={errore ? `${id}-${t.campo}-errore` : undefined}
+              />
+              {errore ? (
+                <p
+                  id={`${id}-${t.campo}-errore`}
+                  className="flex items-start gap-1.5 text-xs text-status-critical"
+                  data-testid={`errore-${t.campo}`}
+                >
+                  <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+                  {errore}
+                </p>
+              ) : null}
+            </div>
+          )
+        })}
       </div>
     </section>
   )

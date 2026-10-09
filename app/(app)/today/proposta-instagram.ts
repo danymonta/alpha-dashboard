@@ -1,6 +1,14 @@
 import { z } from 'zod'
 
 import { aggiungiGiorni, etichettaGiorno, nomeGiorno } from '@/lib/date'
+import {
+  COMMENTO_OBBLIGATORIO,
+  LIVELLI_IN_TARGET,
+  LIVELLI_QUALITA,
+  MASSIMO_TESTO_COMMENTO,
+  commentoMancante,
+  testoScritto,
+} from '@/lib/setting/commento'
 import { GRUPPI_REPORT, MASSIMO_GIORNALIERO, type CampoNumericoReport } from '@/lib/validation/report'
 
 /**
@@ -105,6 +113,70 @@ export type ConfermaPropostaInput = z.input<typeof confermaPropostaSchema>
 /** "Tieni i miei": the proposal is left, the report stays as he wrote it. */
 export const scartaPropostaSchema = z.object({ id: idProposta })
 
+/**
+ * The required comment of the day given with the setter's decision (Dany,
+ * 08/10/2026: "che sia lui o Instagram poi a caricare deve lui sempre
+ * lasciare un commento della giornata"): the three answers, all given, as
+ * the card's step asks them. Written by the database in the same transaction
+ * as the decision (p_commento). The setter's only: never the admin's.
+ */
+export const commentoPropostaSchema = z
+  .object({
+    lead_in_target: z.enum(LIVELLI_IN_TARGET, { message: COMMENTO_OBBLIGATORIO.errore.lead_in_target }),
+    qualita_conversazioni: z.enum(LIVELLI_QUALITA, { message: COMMENTO_OBBLIGATORIO.errore.qualita_conversazioni }),
+    cosa_frenava: z
+      .string({ invalid_type_error: COMMENTO_OBBLIGATORIO.errore.cosa_frenava })
+      .max(MASSIMO_TESTO_COMMENTO, `Al massimo ${MASSIMO_TESTO_COMMENTO} caratteri`)
+      .refine(testoScritto, COMMENTO_OBBLIGATORIO.errore.cosa_frenava),
+  })
+  .strict()
+
+export type CommentoProposta = z.output<typeof commentoPropostaSchema>
+
+/** The setter's "Conferma", "Usa quelli di Instagram" and "Conferma questi numeri": with the comment when the step asked it. */
+export const confermaPropostaSetterSchema = confermaPropostaSchema.extend({ commento: commentoPropostaSchema.optional() })
+
+/** The setter's "Tieni i miei": with the comment when the step asked it. */
+export const scartaPropostaSetterSchema = scartaPropostaSchema.extend({ commento: commentoPropostaSchema.optional() })
+
+/** The answers of the day as they are now: the setter's report, or "Oggi"'s form of that day. */
+export type RisposteCommento = {
+  lead_in_target: string | null
+  qualita_conversazioni: string | null
+  cosa_frenava: string | null
+}
+
+export const NESSUNA_RISPOSTA: RisposteCommento = { lead_in_target: null, qualita_conversazioni: null, cosa_frenava: null }
+
+/** The three answers out of a row that has them (a report, the form's values). */
+export function risposteDi(riga: {
+  lead_in_target?: string | null
+  qualita_conversazioni?: string | null
+  cosa_frenava?: string | null
+}): RisposteCommento {
+  return {
+    lead_in_target: riga.lead_in_target ?? null,
+    qualita_conversazioni: riga.qualita_conversazioni ?? null,
+    cosa_frenava: riga.cosa_frenava ?? null,
+  }
+}
+
+/**
+ * A decision of the setter that needs the comment first: the day is one it is
+ * required on (from 08/10/2026), the report has activity after the decision
+ * (`numeri`: Instagram's for a confirmation, his correction, his own for
+ * "Tieni i miei") and misses one of the three answers. The database checks
+ * the same (commento_da_scrivere) and refuses the decision without it.
+ */
+export function decisioneChiedeCommento(data: string, numeri: NumeriProposta, risposte: RisposteCommento): boolean {
+  return commentoMancante({ ...numeri, ...risposte }, data)
+}
+
+/** The database refused a setter's decision for the missing comment of the day. */
+export function chiedeCommento(error: { code?: string; message: string }) {
+  return error.code === '22023' && /scrivi com.è andata la giornata/i.test(error.message)
+}
+
 const numeriProposta = z
   .object(Object.fromEntries(CAMPI_PROPOSTA.map((campo) => [campo, numero])) as Record<CampoProposta, typeof numero>)
   .strict()
@@ -136,6 +208,14 @@ export function messaggioProposta(error: { code?: string; message: string }, fal
     return error.message.endsWith('.') ? error.message : `${error.message}.`
   }
   return fallback
+}
+
+/**
+ * Recomputed after the page read it (the nightly job, "Ricalcola ieri"): the
+ * confirmation is refused, and the card shows the new numbers before a new tap.
+ */
+export function propostaCambiata(error: { code?: string; message: string }) {
+  return error.code === '22023' && /^I numeri della proposta sono cambiati/.test(error.message)
 }
 
 /** Decided by someone else (the setter, the admin, another tab or device), or not there any more. */
@@ -170,12 +250,30 @@ export function firmaProposte(
  * and the form is reading it again) and the card waits for all of them before
  * deciding, so no save of the form ever lands after the confirmation. From then on the form takes no change until the page
  * reloads it with the decided numbers; EVENTO_PROPOSTA_FINE, sent when the
- * decision did not happen, gives it back to the setter.
+ * decision did not happen, gives it back to the setter. With `rileggi` the
+ * day changed in the database all the same (the proposal decided elsewhere,
+ * his answers of the step saved into his report): the form reads it again,
+ * since the page may not give it a new key.
  */
 export const EVENTO_PROPOSTA = 'alpha:proposta-instagram'
 export type DettaglioEventoProposta = { data: string; attese: Promise<boolean | 'cambiato'>[] }
 export const EVENTO_PROPOSTA_FINE = 'alpha:proposta-instagram-fine'
-export type DettaglioEventoPropostaFine = { data: string }
+export type DettaglioEventoPropostaFine = { data: string; rileggi?: boolean }
+
+/**
+ * Before a decision on a day, the card asks "Oggi"'s form of that same day
+ * what it holds now (answers typed a moment ago, numbers not saved yet): the
+ * form fills `attuale` right away (listeners run synchronously inside
+ * dispatchEvent). No form of that day open: `attuale` stays empty and the card
+ * goes by the report as the page read it. The step of the comment starts from
+ * these answers, and the numbers say whether "Tieni i miei" leaves a day with
+ * activity.
+ */
+export const EVENTO_COMMENTO_GIORNO = 'alpha:commento-giorno'
+export type DettaglioEventoCommento = {
+  data: string
+  attuale?: { risposte: RisposteCommento; numeri: NumeriProposta }
+}
 
 /** "Loris", from "Loris Lo Presti": the setter on the admin's card, where space is short. */
 export function primoNome(nome: string): string {
@@ -245,11 +343,12 @@ export const PROPOSTA = {
   /** the form's own save failed: nothing is decided over numbers not saved */
   salvaPrima: 'Prima salva il report di quel giorno: tocca Riprova qui sotto.',
   /**
-   * The same in the "Correggi" sheet, where the form's Riprova is behind the
-   * sheet: the next tap on "Conferma questi numeri" saves the form first.
+   * The same in a sheet ("Correggi", the comment of the day), where the
+   * form's Riprova is behind it: the next tap on the sheet's button saves the
+   * form first.
    */
-  salvaPrimaFoglio:
-    'Il report di quel giorno non si è salvato: controlla la connessione e tocca di nuovo «Conferma questi numeri».',
+  salvaPrimaFoglio: (bottone: string) =>
+    `Il report di quel giorno non si è salvato: controlla la connessione e tocca di nuovo «${bottone}».`,
   /** the form's save was refused: the report of that day changed elsewhere, and is read again */
   cambiatoPrima: 'Il report di quel giorno è cambiato da un’altra parte: ricontrolla i numeri e decidi di nuovo.',
   apriGiorno: 'Apri il giorno',

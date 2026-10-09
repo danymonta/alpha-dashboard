@@ -1,7 +1,24 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { COMMENTO, SCALA_IN_TARGET, SCALA_QUALITA, SCALE_COMMENTO, TESTI_COMMENTO } from '../lib/setting/commento'
-import { ID_ADMIN, ID_CLOSER, ID_SETTER, dbLocale } from './db'
+import { aggiungiGiorni, oggiRoma } from '../lib/date'
+import {
+  COMMENTO,
+  COMMENTO_OBBLIGATORIO,
+  COMMENTO_OBBLIGATORIO_DAL,
+  SCALA_IN_TARGET,
+  SCALA_QUALITA,
+  SCALE_COMMENTO,
+  TESTI_COMMENTO,
+} from '../lib/setting/commento'
+import {
+  ID_ADMIN,
+  ID_CLOSER,
+  ID_SETTER,
+  completaCommentiDelSetter,
+  dbLocale,
+  reportDelSetterDal,
+  ripristinaReportDelSetterDal,
+} from './db'
 import { accedi } from './utenti'
 
 // Days far from every period the other tests look at
@@ -331,3 +348,173 @@ for (const ruolo of ['closer', 'coach'] as const) {
     await expect(page.getByText('Obiezione riservata')).toHaveCount(0)
   })
 }
+
+// The comment of the day required from 08/10/2026 (Dany: "il commento che
+// lascia il setter quando compila e carica i volumi di chat deve essere
+// obbligatorio"): his days from then on, with DM or conversations, need lead
+// in target, quality of the conversations and what held the leads back.
+test.describe('Il commento obbligatorio dall’08/10/2026', () => {
+  const PRIMA_DEL_DAL = aggiungiGiorni(COMMENTO_OBBLIGATORIO_DAL, -1)
+  const MANCA = COMMENTO_OBBLIGATORIO.manca
+  let fotografia: Awaited<ReturnType<typeof reportDelSetterDal>> = []
+
+  /** The seed setter's day with DM and conversations, and no answer at all. */
+  async function giornoSenzaCommento(giorno: string) {
+    const { error } = await dbLocale()
+      .from('setter_daily_reports')
+      .upsert(
+        {
+          setter_id: ID_SETTER,
+          data: giorno,
+          created_by: ID_SETTER,
+          dm_outbound: 12,
+          conversazioni: 3,
+          lead_in_target: null,
+          qualita_conversazioni: null,
+          cosa_frenava: null,
+        },
+        { onConflict: 'setter_id,data' },
+      )
+    if (error) throw error
+  }
+
+  test.beforeEach(async () => {
+    fotografia = await reportDelSetterDal(PRIMA_DEL_DAL)
+    // every other day of his from 08/10 with its comment: the number counts only the test's
+    await completaCommentiDelSetter(COMMENTO_OBBLIGATORIO_DAL, [oggiRoma()])
+    await giornoSenzaCommento(oggiRoma())
+  })
+  test.afterEach(async () => {
+    await ripristinaReportDelSetterDal(PRIMA_DEL_DAL, fotografia)
+  })
+
+  test('un giorno con i DM e senza commento: lo dice la barra, le tre domande e il numero su «Oggi»; le tre risposte lo tolgono', async ({
+    page,
+  }) => {
+    const oggi = oggiRoma()
+    await page.setViewportSize({ width: 390, height: 844 })
+    await accedi(page, 'setter')
+    await page.goto('/today')
+
+    // the save bar says it, in words and with its icon, and leads to the questions
+    const barra = page.getByTestId('da-completare-giorno')
+    await expect(barra).toContainText(MANCA)
+    await expect(barra).toHaveAttribute('data-stato', 'manca')
+    await expect(barra).toHaveAttribute('href', '#commento-giornata')
+    await expect(barra).toHaveAccessibleDescription(COMMENTO_OBBLIGATORIO.mancaSpiegazione)
+    expect((await barra.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    await expect(page.getByTestId('da-completare-sezione')).toHaveText(MANCA)
+
+    // the number on "Oggi", in the bar, with its words
+    const nav = page.getByRole('navigation', { name: 'Navigazione' })
+    const oggiConNumero = nav.getByRole('link', { name: /^Oggi, (\d+ giornat[ae] da approvare, )?1 commento da scrivere$/ })
+    await expect(oggiConNumero).toBeVisible()
+    await expect(oggiConNumero.locator('[data-testid^="conteggio-"]')).toBeVisible()
+
+    // the three questions are required, each says what is missing; the other two stay optional
+    const target = scala(page, SCALA_IN_TARGET.domanda)
+    const qualita = scala(page, SCALA_QUALITA.domanda)
+    await expect(target).toHaveAccessibleName(`${SCALA_IN_TARGET.domanda} (obbligatoria)`)
+    await expect(qualita).toHaveAccessibleName(`${SCALA_QUALITA.domanda} (obbligatoria)`)
+    await expect(target).toHaveAttribute('aria-invalid', 'true')
+    await expect(target).toHaveAccessibleDescription(new RegExp(COMMENTO_OBBLIGATORIO.errore.lead_in_target))
+    await expect(page.getByTestId('errore-lead_in_target')).toHaveText(COMMENTO_OBBLIGATORIO.errore.lead_in_target)
+    await expect(page.getByTestId('errore-qualita_conversazioni')).toHaveText(COMMENTO_OBBLIGATORIO.errore.qualita_conversazioni)
+    await expect(page.getByTestId('errore-cosa_frenava')).toHaveText(COMMENTO_OBBLIGATORIO.errore.cosa_frenava)
+    const frenava = page.getByLabel(COSA_FRENAVA)
+    await expect(frenava).toHaveAccessibleName(`${COSA_FRENAVA} (obbligatoria)`)
+    await expect(frenava).toHaveAccessibleDescription(COMMENTO_OBBLIGATORIO.errore.cosa_frenava)
+    await expect(page.getByLabel(/Cosa chiedevano i lead/)).toHaveAccessibleName(/\(facoltativo\)$/)
+    await expect(page.getByLabel('Altro da segnalare?')).toHaveAccessibleName(/\(facoltativo\)$/)
+    await expect(page.getByTestId('commento-giornata')).toContainText(COMMENTO_OBBLIGATORIO.descrizione)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+
+    // one answer at a time: the day stays to complete until the third
+    await target.getByRole('radio', { name: 'Pochi' }).click()
+    await expect(page.getByTestId('errore-lead_in_target')).toHaveCount(0)
+    await qualita.getByRole('radio', { name: 'Buone' }).click()
+    await expect(page.getByTestId('errore-qualita_conversazioni')).toHaveCount(0)
+    await expect(barra).toContainText(MANCA)
+    await frenava.fill('Non hanno tempo per una call')
+    await frenava.press('Tab')
+    await expect(barra).toHaveCount(0)
+    await expect(page.getByTestId('da-completare-sezione')).toHaveCount(0)
+    await expect(page.getByTestId(/^errore-/)).toHaveCount(0)
+    await expect
+      .poll(async () => riga(ID_SETTER, oggi))
+      .toMatchObject({ lead_in_target: 'pochi', qualita_conversazioni: 'buone', cosa_frenava: 'Non hanno tempo per una call' })
+    // saved: the number on "Oggi" goes away without a reload
+    await expect(nav.getByRole('link', { name: /^Oggi(, \d+ giornat[ae] da approvare)?$/ })).toBeVisible()
+    await expect(nav.getByTestId('conteggio-commenti')).toHaveCount(0)
+
+    // and stays so
+    await page.reload()
+    await expect(page.getByTestId('da-completare-giorno')).toHaveCount(0)
+    await expect(page.getByTestId('stato-salvato')).toBeVisible()
+    await expect(nav.getByTestId('conteggio-commenti')).toHaveCount(0)
+  })
+
+  test('in cima a «Oggi» gli altri giorni senza commento, coi link; un giorno prima dell’08/10 non chiede niente di obbligatorio', async ({
+    page,
+  }) => {
+    const oggi = oggiRoma()
+    // the day before 08/10, with DM and no answer: the rule it had
+    await giornoSenzaCommento(PRIMA_DEL_DAL)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await accedi(page, 'setter')
+    await page.goto(`/today?data=${PRIMA_DEL_DAL}`)
+    await expect(page.getByTestId('stato-salvato')).toBeVisible()
+
+    const linea = page.getByTestId('giorni-senza-commento')
+    await expect(linea).toContainText(COMMENTO_OBBLIGATORIO.giorni)
+    const link = linea.getByRole('link', { name: 'oggi', exact: true })
+    await expect(link).toHaveAttribute('href', '/today#commento-giornata')
+    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    await expect(linea.getByRole('link')).toHaveCount(1)
+    await expect(linea.getByTestId('giorni-senza-commento-altri')).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+
+    // the day before 08/10: never required, never "Manca il commento"
+    await expect(page.getByText(MANCA)).toHaveCount(0)
+    await expect(page.getByText('(obbligatoria)')).toHaveCount(0)
+    await expect(page.getByTestId(/^errore-/)).toHaveCount(0)
+    await expect(page.getByTestId('commento-giornata')).toContainText(COMMENTO.descrizione)
+
+    // the link opens that day on its questions; the open day is not in the line
+    await link.click()
+    await expect(page).toHaveURL(/\/today#commento-giornata$/)
+    await expect(page.getByTestId('da-completare-giorno')).toContainText(MANCA)
+    await expect(page.getByTestId('giorni-senza-commento')).toHaveCount(0)
+    await expect(scala(page, SCALA_IN_TARGET.domanda)).toBeInViewport()
+
+    // answered there, the line goes from the other days too
+    await scala(page, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Quasi tutti' }).click()
+    await scala(page, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Medie' }).click()
+    await page.getByLabel(COSA_FRENAVA).fill('Prima vogliono vedere altri contenuti')
+    await page.getByLabel(COSA_FRENAVA).press('Tab')
+    await expect(page.getByTestId('da-completare-giorno')).toHaveCount(0)
+    await expect.poll(async () => (await riga(ID_SETTER, oggi))?.cosa_frenava).toBe('Prima vogliono vedere altri contenuti')
+    await page.goto(`/today?data=${PRIMA_DEL_DAL}`)
+    await expect(page.getByTestId('stato-salvato')).toBeVisible()
+    await expect(page.getByTestId('giorni-senza-commento')).toHaveCount(0)
+  })
+
+  test('l’admin non vede mai il numero dei commenti né un segno: i suoi fogli restano facoltativi', async ({ page }) => {
+    await accedi(page, 'admin')
+    for (const url of ['/', '/setting', '/sales']) {
+      await page.goto(url)
+      await expect(page.getByTestId('conteggio-commenti'), url).toHaveCount(0)
+      await expect(page.getByRole('link', { name: /comment[oi] da scrivere/ }), url).toHaveCount(0)
+      await expect(page.getByText(MANCA), url).toHaveCount(0)
+      await expect(page.getByText(COMMENTO_OBBLIGATORIO.giorni), url).toHaveCount(0)
+    }
+    // the day of Loris without the comment, in his sheet: optional, as always
+    await page.goto('/setting')
+    await page.getByTestId('aggiungi-giornata').click()
+    const foglio = page.getByRole('dialog')
+    await expect(foglio.getByTestId('commento-giornata')).toBeVisible()
+    await expect(foglio.getByText('(obbligatoria)')).toHaveCount(0)
+    await expect(foglio.getByTestId(/^errore-/)).toHaveCount(0)
+    await expect(foglio.getByLabel(COSA_FRENAVA)).toHaveAccessibleName(/\(facoltativo\)$/)
+  })
+})

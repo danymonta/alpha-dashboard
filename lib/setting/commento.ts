@@ -99,7 +99,11 @@ export type TestoCommento = {
   massimo: number
 }
 
-/** The free texts, all optional. "Altre note" is the note the report always had. */
+/**
+ * The free texts. "Altre note" is the note the report always had. From
+ * COMMENTO_OBBLIGATORIO_DAL "Cosa frenava i lead" is required of the setter
+ * on a day with activity (CAMPI_OBBLIGATORI); the other two stay optional.
+ */
 export const TESTI_COMMENTO: readonly TestoCommento[] = [
   {
     campo: 'cosa_frenava',
@@ -139,6 +143,81 @@ export const COMMENTO = {
   daCompletareSpiegazione:
     'Nella giornata ci sono DM o conversazioni: rispondi alle prime due domande di «Com’è andata la giornata», un tocco ciascuna.',
 } as const
+
+/**
+ * The required comment (Dany, 08/10/2026: "il commento che lascia il setter
+ * quando compila e carica i volumi di chat deve essere obbligatorio, che sia
+ * lui o Instagram poi a caricare deve lui sempre lasciare un commento della
+ * giornata"). Every word of it: "Oggi", the Instagram card's step, Alfire.
+ * Shown to the setter only, on his own days: never to the admin, never a list
+ * or a count of his (CLAUDE.md section 17).
+ */
+export const COMMENTO_OBBLIGATORIO = {
+  /** "Oggi", from COMMENTO_OBBLIGATORIO_DAL */
+  descrizione:
+    'Serve al marketing per adattare i contenuti. Se nella giornata ci sono DM o conversazioni, le prime tre domande sono obbligatorie: i numeri si salvano lo stesso, ma la giornata resta da completare finché non rispondi.',
+  obbligatoria: 'obbligatoria',
+  /** The day's reminder, in the save bar and on the section */
+  manca: 'Manca il commento della giornata',
+  mancaSpiegazione:
+    'Nella giornata ci sono DM o conversazioni: rispondi a lead in target, qualità delle conversazioni e cosa frenava i lead.',
+  /** Under a question still to answer, on a day to complete */
+  errore: {
+    lead_in_target: 'Scegli quanti lead erano in target',
+    qualita_conversazioni: 'Scegli com’erano le conversazioni',
+    cosa_frenava: 'Scrivi cosa frenava i lead',
+  } satisfies Record<CampoObbligatorio, string>,
+  /** On top of "Oggi": his other days from COMMENTO_OBBLIGATORIO_DAL without it */
+  giorni: 'Ti manca il commento di:',
+  altri: (n: number) => (n === 1 ? 'e 1 altro giorno' : `e altri ${n} giorni`),
+  /** The Instagram card's step, before a decision */
+  passo: {
+    titolo: 'Com’è andata la giornata',
+    descrizione: (giorno: string) =>
+      `Prima di decidere, il commento di ${giorno}: lead in target, qualità delle conversazioni e cosa frenava i lead. Si salva nel tuo report con la tua scelta.`,
+    indietro: 'Torna ai numeri',
+    /**
+     * The proposal was decided elsewhere (the admin, another device) while
+     * he wrote the answers in the step: they go into his report all the same
+     */
+    salvato: 'Il tuo commento della giornata è salvato nel report di quel giorno.',
+    nonSalvato: 'Il commento della giornata non si è salvato: scrivilo nel report di quel giorno, in Oggi.',
+  },
+  /** Alfire's card, on a setter's day without it */
+  alfire: (mancanti: string[]) =>
+    `Manca il commento della giornata: ${mancanti.join(', ')}. Il report si salva lo stesso, ma la giornata resta da completare.`,
+} as const
+
+/**
+ * Where "Da completare" and "Manca il commento della giornata" lead: the
+ * section of the setter's own report in "Oggi" (an id, and a URL hash).
+ */
+export const ANCORA_COMMENTO = 'commento-giornata'
+
+/** The three answers required from COMMENTO_OBBLIGATORIO_DAL, in the form's order. */
+export const CAMPI_OBBLIGATORI = ['lead_in_target', 'qualita_conversazioni', 'cosa_frenava'] as const
+export type CampoObbligatorio = (typeof CAMPI_OBBLIGATORI)[number]
+
+/**
+ * The first day the comment is required (Dany, 08/10/2026: from that day on;
+ * a day before keeps the rule it had, "Da completare" on the two scales).
+ * By the day reported, not by when it was saved. The database has the same
+ * date in commento_da_scrivere (20261008110000_commento_obbligatorio.sql):
+ * they change together.
+ */
+export const COMMENTO_OBBLIGATORIO_DAL = '2026-10-08'
+
+/**
+ * PostgREST filters of a report missing its required comment, the same rule
+ * as commento_da_scrivere: from COMMENTO_OBBLIGATORIO_DAL (gte on data), with
+ * activity, without one of the three answers. A blank text is never saved:
+ * the forms send null, and the trigger setter_daily_reports_testi_vuoti turns
+ * the blanks of any other write into null, so null is "not written" here as
+ * in testo_scritto (a test of 65_commento_obbligatorio.sql checks that the
+ * two count the same days). Two `or` filters on one query are both applied (AND).
+ */
+export const FILTRO_ATTIVITA = 'dm_outbound.gt.0,dm_inbound.gt.0,follow_up.gt.0,conversazioni.gt.0'
+export const FILTRO_COMMENTO_MANCANTE = 'lead_in_target.is.null,qualita_conversazioni.is.null,cosa_frenava.is.null'
 
 /**
  * The first day the two answers are asked (Dany, 30/09/2026): a report
@@ -286,6 +365,7 @@ export type GiornataDaCommentare = {
   conversazioni: number
   lead_in_target?: string | null
   qualita_conversazioni?: string | null
+  cosa_frenava?: string | null
 }
 
 /**
@@ -307,4 +387,53 @@ export function giornataConAttivita(v: GiornataDaCommentare): boolean {
 export function commentoDaCompletare(v: GiornataDaCommentare, creatoIl: string | null = null): boolean {
   if (creatoIl && oggiRoma(new Date(creatoIl)) < COMMENTO_CHIESTO_DAL) return false
   return giornataConAttivita(v) && (!v.lead_in_target || !v.qualita_conversazioni)
+}
+
+/** Some text, blanks aside: a blank answer is no answer (the forms save it as null). */
+export function testoScritto(testo: string | null | undefined): boolean {
+  return typeof testo === 'string' && testo.trim() !== ''
+}
+
+type RisposteObbligatorie = Pick<GiornataDaCommentare, CampoObbligatorio>
+
+/** The required answers still missing, in the form's order. */
+export function risposteMancanti(v: RisposteObbligatorie): CampoObbligatorio[] {
+  return CAMPI_OBBLIGATORI.filter((campo) => (campo === 'cosa_frenava' ? !testoScritto(v[campo]) : !v[campo]))
+}
+
+/** The day is one the comment is required on: from COMMENTO_OBBLIGATORIO_DAL. */
+export function commentoObbligatorio(data: string): boolean {
+  return data >= COMMENTO_OBBLIGATORIO_DAL
+}
+
+/**
+ * The required comment is missing (the database's commento_da_scrivere): a
+ * day from COMMENTO_OBBLIGATORIO_DAL, with activity, without one of the
+ * three answers. Never blocks a save: the day stays to complete for the
+ * setter, and his decisions on an Instagram proposal ask for it first.
+ */
+export function commentoMancante(v: GiornataDaCommentare, data: string): boolean {
+  return commentoObbligatorio(data) && giornataConAttivita(v) && risposteMancanti(v).length > 0
+}
+
+/**
+ * What the setter's own day says of its comment: 'manca' from
+ * COMMENTO_OBBLIGATORIO_DAL (the three answers, required), 'da_completare'
+ * on a day before (the rule it had: the two scales, asked, never required),
+ * null when nothing is missing.
+ */
+export function statoCommento(
+  v: GiornataDaCommentare,
+  data: string,
+  creatoIl: string | null = null,
+): 'manca' | 'da_completare' | null {
+  if (commentoObbligatorio(data)) return commentoMancante(v, data) ? 'manca' : null
+  return commentoDaCompletare(v, creatoIl) ? 'da_completare' : null
+}
+
+/** "lead in target, cosa frenava i lead": the missing answers in words (Alfire's card). */
+export function paroleMancanti(mancanti: readonly CampoObbligatorio[]): string[] {
+  return mancanti.map((campo) =>
+    campo === 'cosa_frenava' ? TESTI_COMMENTO[0].titolo.toLowerCase() : PER_CAMPO[campo].titolo.toLowerCase(),
+  )
 }

@@ -5,7 +5,9 @@ import { AppShell } from '@/components/shell/app-shell'
 import { alfireConfigurata } from '@/lib/alfire/config'
 import { haAreaDisponibile } from '@/lib/auth/roles'
 import { requireProfilo, type Profilo } from '@/lib/auth/session'
+import { oggiRoma } from '@/lib/date'
 import { NESSUN_PROMEMORIA, type Promemoria } from '@/lib/nav'
+import { contaCommentiMancanti } from '@/lib/setting/commenti-mancanti'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -19,6 +21,9 @@ import { createClient } from '@/lib/supabase/server'
  *   (08/10/2026: "una tab con una notifica «tracciamento setter da
  *   approvare»"), on the setter's "Oggi" (his own) and on the admin's
  *   "Setter" (every setter's: he decides them too).
+ * - The setter's own days from 08/10/2026 still without the required comment
+ *   of the day (Dany: "deve lui sempre lasciare un commento della
+ *   giornata"), on his "Oggi": the setter only, never the admin.
  * Never another person's number, no alert, no email. The layout does not
  * render again on a client navigation: this is the start, the browser counts
  * again (EsitiDaRegistrareProvider), and `letto` tells it when these counts
@@ -28,6 +33,7 @@ async function contaPromemoria(profilo: Profilo): Promise<{ promemoria: Promemor
   const letto = Date.now()
   const contaEsiti = profilo.ruolo === 'admin' || profilo.ruolo === 'closer'
   const contaDaApprovare = profilo.ruolo === 'admin' || profilo.ruolo === 'setter'
+  const contaCommenti = profilo.ruolo === 'setter'
   if (!contaEsiti && !contaDaApprovare) return { promemoria: NESSUN_PROMEMORIA, letto }
 
   const supabase = await createClient()
@@ -52,8 +58,10 @@ async function contaPromemoria(profilo: Profilo): Promise<{ promemoria: Promemor
     const { count, error } = await query
     return error ? 0 : (count ?? 0)
   }
-  const [numeroEsiti, numeroDaApprovare] = await Promise.all([esiti(), daApprovare()])
-  return { promemoria: { esiti: numeroEsiti, daApprovare: numeroDaApprovare }, letto }
+  const commenti = async () =>
+    contaCommenti ? ((await contaCommentiMancanti(supabase, profilo.id, oggiRoma(new Date(letto)))) ?? 0) : 0
+  const [numeroEsiti, numeroDaApprovare, numeroCommenti] = await Promise.all([esiti(), daApprovare(), commenti()])
+  return { promemoria: { esiti: numeroEsiti, daApprovare: numeroDaApprovare, commenti: numeroCommenti }, letto }
 }
 
 export default async function AppLayout({ children }: { children: ReactNode }) {

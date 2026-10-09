@@ -310,3 +310,49 @@ export async function contaProposteDaDecidere(setterId?: string) {
   if (error) throw error
   return count ?? 0
 }
+
+type RigaReportSetter = Database['public']['Tables']['setter_daily_reports']['Row']
+
+/** A complete comment of the day (08/10/2026: required from that day), written as the setter writes it. */
+export const COMMENTO_DI_PROVA = {
+  lead_in_target: 'circa_meta',
+  qualita_conversazioni: 'medie',
+  cosa_frenava: 'Ci devono pensare',
+} as const
+
+/** The seed setter's reports from a day on, every column: to put them back after a test. */
+export async function reportDelSetterDal(dal: string, setterId = ID_SETTER): Promise<RigaReportSetter[]> {
+  const { data, error } = await dbLocale().from('setter_daily_reports').select('*').eq('setter_id', setterId).gte('data', dal)
+  if (error) throw error
+  return data
+}
+
+/** The seed setter's reports from a day on back as they were: the same rows, and no other. */
+export async function ripristinaReportDelSetterDal(dal: string, prima: RigaReportSetter[], setterId = ID_SETTER) {
+  const db = dbLocale()
+  const { error } = await db.from('setter_daily_reports').delete().eq('setter_id', setterId).gte('data', dal)
+  if (error) throw error
+  if (prima.length === 0) return
+  // dm_totali is computed by the database
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const righe = prima.map(({ dm_totali, ...riga }) => riga)
+  const { error: e2 } = await db.from('setter_daily_reports').insert(righe)
+  if (e2) throw e2
+}
+
+/**
+ * Every report of the seed setter from a day on gets the required comment of
+ * the day where it misses it, but the days given: the number on "Oggi" then
+ * counts only the days a test leaves without it.
+ */
+export async function completaCommentiDelSetter(dal: string, tranne: string[] = [], setterId = ID_SETTER) {
+  let query = dbLocale()
+    .from('setter_daily_reports')
+    .update(COMMENTO_DI_PROVA)
+    .eq('setter_id', setterId)
+    .gte('data', dal)
+    .or('lead_in_target.is.null,qualita_conversazioni.is.null,cosa_frenava.is.null')
+  if (tranne.length > 0) query = query.not('data', 'in', `(${tranne.join(',')})`)
+  const { error } = await query
+  if (error) throw error
+}

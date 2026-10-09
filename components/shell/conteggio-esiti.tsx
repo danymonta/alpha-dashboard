@@ -5,18 +5,24 @@ type Props = {
   numero: number
   /** On the active item (bordeaux background) the colours swap, so it stays readable. */
   attiva?: boolean
-  /** "conteggio-esiti" (outcomes to record), "conteggio-da-approvare" (days to decide), "conteggio-altro". */
+  /**
+   * "conteggio-esiti" (outcomes to record), "conteggio-da-approvare" (days to
+   * decide), "conteggio-commenti" (days without the comment), "conteggio-altro"
+   * (more than one of them).
+   */
   testId?: string
   className?: string
 }
 
 /**
  * A number next to a navigation item: the person's own past calls still
- * without an outcome (07/10/2026), or the setters' days from Instagram still
- * to decide (08/10/2026). The digits are for the eyes: the item says it in its
+ * without an outcome (07/10/2026), the setters' days from Instagram still to
+ * decide (08/10/2026), or the setter's own days still without the required
+ * comment (08/10/2026). The digits are for the eyes: the item says it in its
  * name, "Le mie call, 2 esiti da registrare", "Setter, 1 giornata da
- * approvare" (nomeConPromemoria). Nothing at zero. Only the person who has
- * something to do sees it, never an alert (CLAUDE.md section 17).
+ * approvare", "Oggi, 2 commenti da scrivere" (nomeConPromemoria). Nothing at
+ * zero. Only the person who has something to do sees it, never an alert
+ * (CLAUDE.md section 17).
  */
 export function ConteggioEsiti({ numero, attiva = false, testId = 'conteggio-esiti', className }: Props) {
   if (numero <= 0) return null
@@ -35,7 +41,7 @@ export function ConteggioEsiti({ numero, attiva = false, testId = 'conteggio-esi
   )
 }
 
-/** The badge of an item: one count, or both on "Altro" (the digits add up, the name says each). */
+/** The badge of an item: one count, or more ("Altro", the setter's "Oggi"): the digits add up, the name says each. */
 export function ConteggioPromemoria({
   promemoria,
   attiva,
@@ -45,11 +51,11 @@ export function ConteggioPromemoria({
   attiva?: boolean
   className?: string
 }) {
-  const testId =
-    promemoria.esiti > 0 && promemoria.daApprovare > 0
-      ? 'conteggio-altro'
-      : promemoria.daApprovare > 0
-        ? 'conteggio-da-approvare'
-        : 'conteggio-esiti'
+  const tipi = [
+    promemoria.esiti > 0 ? 'conteggio-esiti' : null,
+    promemoria.daApprovare > 0 ? 'conteggio-da-approvare' : null,
+    promemoria.commenti > 0 ? 'conteggio-commenti' : null,
+  ].filter((tipo) => tipo !== null)
+  const testId = tipi.length > 1 ? 'conteggio-altro' : (tipi[0] ?? 'conteggio-esiti')
   return <ConteggioEsiti numero={totalePromemoria(promemoria)} attiva={attiva} testId={testId} className={className} />
 }

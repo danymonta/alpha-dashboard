@@ -1,9 +1,9 @@
 'use client'
 
-import { Circle, CircleCheck } from 'lucide-react'
+import { Circle, CircleAlert, CircleCheck } from 'lucide-react'
 import { useId, useRef, type KeyboardEvent } from 'react'
 
-import type { Scala } from '@/lib/setting/commento'
+import { COMMENTO_OBBLIGATORIO, type Scala } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -11,6 +11,10 @@ type Props = {
   valore: string | null | undefined
   /** null: the selected option was tapped again, the answer is cleared */
   onCambia: (valore: string | null) => void
+  /** The setter's day from 08/10/2026: the question says it is required */
+  obbligatoria?: boolean
+  /** Still to answer on a day to complete: the words under the options */
+  errore?: string | null
   className?: string
 }
 
@@ -20,7 +24,7 @@ type Props = {
  * has to guess what "Medie" means. A tap on the selected option clears it.
  * A radio group for screen readers and the keyboard (arrows move and select).
  */
-export function ScalaCommento({ scala, valore, onCambia, className }: Props) {
+export function ScalaCommento({ scala, valore, onCambia, obbligatoria = false, errore = null, className }: Props) {
   const id = useId()
   const bottoni = useRef<(HTMLButtonElement | null)[]>([])
   const scelto = scala.opzioni.findIndex((o) => o.valore === valore)
@@ -42,6 +46,9 @@ export function ScalaCommento({ scala, valore, onCambia, className }: Props) {
       <div>
         <p id={`${id}-domanda`} className="text-sm font-medium">
           {scala.domanda}
+          {obbligatoria ? (
+            <span className="font-normal text-muted-foreground"> ({COMMENTO_OBBLIGATORIO.obbligatoria})</span>
+          ) : null}
         </p>
         {scala.spiegazione ? (
           <p id={`${id}-spiegazione`} className="mt-0.5 text-xs leading-snug text-muted-foreground">
@@ -52,7 +59,12 @@ export function ScalaCommento({ scala, valore, onCambia, className }: Props) {
       <div
         role="radiogroup"
         aria-labelledby={`${id}-domanda`}
-        aria-describedby={scala.spiegazione ? `${id}-spiegazione` : undefined}
+        aria-describedby={
+          [scala.spiegazione ? `${id}-spiegazione` : null, errore ? `${id}-errore` : null].filter(Boolean).join(' ') ||
+          undefined
+        }
+        aria-required={obbligatoria || undefined}
+        aria-invalid={errore ? true : undefined}
         className={cn('grid gap-2', scala.affiancate ? 'grid-cols-3' : 'grid-cols-1')}
       >
         {scala.opzioni.map((o, i) => {
@@ -99,6 +111,12 @@ export function ScalaCommento({ scala, valore, onCambia, className }: Props) {
           )
         })}
       </div>
+      {errore ? (
+        <p id={`${id}-errore`} className="flex items-start gap-1.5 text-xs text-status-critical" data-testid={`errore-${scala.campo}`}>
+          <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+          {errore}
+        </p>
+      ) : null}
     </div>
   )
 }

@@ -71,10 +71,14 @@ export function CommentiMarketing({
     <section aria-labelledby="per-il-marketing" className="scroll-mt-20 space-y-4" data-testid="commenti-marketing" id="marketing">
       <div className="flex flex-wrap items-start justify-between gap-3 px-1">
         <div className="min-w-0 sm:flex-1">
-          <h2 id="per-il-marketing" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          {/* Dany, 08/10/2026: «rendi più visibili le note per il marketing, in rosso, leggermente più grande» */}
+          <h2
+            id="per-il-marketing"
+            className="border-l-4 border-primary pl-3 text-base font-semibold text-rosso-testo md:text-lg"
+          >
             {M.titolo}
           </h2>
-          <p className="mt-1 text-xs text-muted-foreground">{M.descrizione}</p>
+          <p className="mt-1 pl-4 text-sm text-muted-foreground">{M.descrizione}</p>
         </div>
         <FiltroSetter
           valore={setter}
@@ -97,14 +101,9 @@ export function CommentiMarketing({
           />
         ) : (
           <>
-            <div className="grid gap-3 md:grid-cols-2">
-              {SCALE_COMMENTO.map((scala) => (
-                <Conteggi key={scala.campo} campo={scala.campo} righe={scale.filter((r) => r.scala === scala.campo)} />
-              ))}
-            </div>
-
+            {/* what the setter wrote comes first, above the counts (Dany, 08/10/2026) */}
             <div className="space-y-2">
-              <h4 className="px-1 text-sm font-medium">
+              <h4 className="px-1 text-base font-semibold">
                 {M.setting.giorni}{' '}
                 <span className="num font-normal text-muted-foreground">
                   ({giorniTroncati ? M.piuRecenti : formatNumero(giorni.length)})
@@ -125,8 +124,8 @@ export function CommentiMarketing({
                         {TESTI_COMMENTO.map((t) =>
                           g[t.campo] ? (
                             <div key={t.campo}>
-                              <dt className="text-xs text-muted-foreground">{t.titolo}</dt>
-                              <dd className="break-words whitespace-pre-line">{g[t.campo]}</dd>
+                              <dt className="text-sm font-medium text-rosso-testo">{t.titolo}</dt>
+                              <dd className="text-base break-words whitespace-pre-line">{g[t.campo]}</dd>
                             </div>
                           ) : null,
                         )}
@@ -135,6 +134,12 @@ export function CommentiMarketing({
                   ))}
                 </ul>
               )}
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {SCALE_COMMENTO.map((scala) => (
+                <Conteggi key={scala.campo} campo={scala.campo} righe={scale.filter((r) => r.scala === scala.campo)} />
+              ))}
             </div>
           </>
         )}
@@ -172,14 +177,14 @@ export function CommentiMarketing({
                   {/* what the closer wrote: a call may have only his notes */}
                   {c.motivo ? (
                     <div>
-                      <dt className="text-xs text-muted-foreground">{MOTIVO_NON_CHIUSURA.titolo}</dt>
-                      <dd className="break-words whitespace-pre-line">{c.motivo}</dd>
+                      <dt className="text-sm font-medium text-rosso-testo">{MOTIVO_NON_CHIUSURA.titolo}</dt>
+                      <dd className="text-base break-words whitespace-pre-line">{c.motivo}</dd>
                     </div>
                   ) : null}
                   {c.note_closer ? (
                     <div>
-                      <dt className="text-xs text-muted-foreground">{NOTE_CLOSER.titolo}</dt>
-                      <dd className="break-words whitespace-pre-line">{c.note_closer}</dd>
+                      <dt className="text-sm font-medium text-rosso-testo">{NOTE_CLOSER.titolo}</dt>
+                      <dd className="text-base break-words whitespace-pre-line">{c.note_closer}</dd>
                     </div>
                   ) : null}
                 </dl>

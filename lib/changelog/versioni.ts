@@ -83,6 +83,53 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.31.0',
+    data: '2026-10-09',
+    titolo: 'Il commento della giornata è obbligatorio per il setter',
+    riassunto:
+      'Dall’08/10, nei giorni con DM o conversazioni, il setter risponde sempre a lead in target, qualità delle conversazioni e cosa frenava i lead, anche quando i numeri li carica Instagram. Le risposte le leggi in Setter › Per il marketing.',
+    intestazionePer: ['setter'],
+    intestazioneTeam: {
+      titolo: 'Il commento della giornata è obbligatorio',
+      riassunto:
+        'Dall’08/10, nei giorni con DM o conversazioni, rispondi sempre a lead in target, qualità delle conversazioni e cosa frenava i lead, anche quando i numeri li carica Instagram. I numeri si salvano sempre, come prima.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'Il commento della giornata ora è obbligatorio per il setter, dall’08/10: nei giorni con DM o conversazioni deve rispondere a lead in target, qualità delle conversazioni e cosa frenava i lead dal fissare la call; domande e contenuti e altre note restano facoltative, e i giorni prima dell’08/10 restano come erano. I numeri si salvano sempre: finché manca una risposta, la giornata gli resta da completare. Anche quando i numeri li carica Instagram il commento lo scrive lui: prima di confermare la proposta o di tenere i suoi numeri, la scheda gli chiede le tre risposte. Le leggi nella pagina Setter, in «Per il marketing: cosa dicono i lead», ora più in vista: il titolo è rosso e più grande, e le risposte scritte vengono prima dei conteggi.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Il promemoria è solo del setter: tu non vedi chi non ha scritto il commento, né un elenco né un numero. Quando confermi tu una giornata da «Tracciamento da approvare» il commento non ti viene chiesto e la scheda non dice se c’è: resta da scrivere al setter, e il suo numero su «Oggi» glielo ricorda. Nei tuoi fogli in Setter (Aggiungi giornata, la correzione di un giorno) le domande restano facoltative.',
+      },
+      {
+        per: ['setter'],
+        testo: 'In Oggi, nei giorni dall’08/10 con DM o conversazioni, lead in target, qualità delle conversazioni e cosa frenava i lead dicono «(obbligatoria)». Finché ne manca una, sotto ogni domanda vuota c’è cosa manca e la barra del salvataggio dice «Manca il commento della giornata», con un tocco che porta alle domande. I numeri si salvano sempre, a ogni tocco.',
+        testoTeam:
+          'In Oggi, nei giorni dall’08/10 con DM o conversazioni, lead in target, qualità delle conversazioni e cosa frenava i lead dal fissare la call dicono «(obbligatoria)». Finché ne manca una, sotto ogni domanda vuota trovi cosa manca e la barra del salvataggio dice «Manca il commento della giornata»: un tocco ti porta alle domande. I numeri si salvano sempre, a ogni tocco, come prima. Domande e contenuti e altre note restano facoltative, e i giorni prima dell’08/10 restano come erano.',
+      },
+      {
+        per: ['setter'],
+        testo: 'In cima a Oggi il setter trova «Ti manca il commento di:» con i suoi altri giorni dall’08/10 ancora senza commento, ognuno un link alle sue domande (fino a 7, poi «e altri N giorni»). Il numero su «Oggi», nel menu, conta anche questi giorni, oggi compreso, accanto alle giornate da approvare («Oggi, 1 giornata da approvare, 2 commenti da scrivere»), e cala appena li scrive.',
+        testoTeam:
+          'In cima a Oggi «Ti manca il commento di:» elenca i tuoi altri giorni dall’08/10 ancora senza commento: tocchi un giorno e sei sulle sue domande (fino a 7, poi «e altri N giorni»). Anche il numero su «Oggi», nel menu, li conta, oggi compreso, insieme alle giornate da approvare, e cala appena li scrivi. Questo promemoria lo vedi solo tu.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Anche quando i numeri li carica Instagram, il commento lo scrive il setter: se a quel giorno manca, «Conferma», «Usa quelli di Instagram», «Correggi» e «Tieni i miei» gli chiedono prima «Com’è andata la giornata», con le tre domande già compilate con quello che ha scritto. Le risposte si salvano nel suo report insieme alla scelta; senza, la scelta non passa. Se intanto la giornata la decidi tu, le risposte che ha scritto si salvano lo stesso; se intanto Instagram ricalcola i numeri, la scelta non passa finché non ha visto quelli nuovi, e le sue risposte restano lì.',
+        testoTeam:
+          'Anche quando i numeri li carica Instagram, il commento della giornata lo scrivi tu: se a quel giorno manca, «Conferma», «Usa quelli di Instagram», «Correggi» e «Tieni i miei» ti chiedono prima le tre risposte di «Com’è andata la giornata», già compilate con quello che hai scritto. Le risposte si salvano nel tuo report insieme alla tua scelta; senza, la scelta non passa. Se una giornata la conferma Dany, il commento resta da scrivere a te: il numero su «Oggi» te lo ricorda; se la decide mentre stai scrivendo il commento, le tue risposte si salvano lo stesso, anche se intanto passi a Instagram e torni. Se intanto Instagram ricalcola i numeri, la scelta non passa finché non hai visto quelli nuovi, e le risposte che hai scritto restano lì.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Se il setter detta ad Alfire i numeri di un giorno dall’08/10 senza commento, la scheda di conferma ricorda «Manca il commento della giornata» e, salvati i numeri, Alfire gli chiede solo le risposte che mancano ancora, senza ripetere quelle già scritte. Il report si salva lo stesso.',
+        testoTeam:
+          'Se detti ad Alfire i numeri di un giorno dall’08/10 senza commento, la scheda di conferma ricorda «Manca il commento della giornata» e, salvati i numeri, Alfire ti chiede solo le risposte che mancano ancora (lead in target, qualità delle conversazioni o cosa frenava i lead), mai quelle che hai già scritto. Il report si salva lo stesso.',
+      },
+    ],
+  },
+  {
     versione: '1.30.1',
     data: '2026-10-08',
     titolo: 'Oggi non salva più a vuoto cambiando scheda',

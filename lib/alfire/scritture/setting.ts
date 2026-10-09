@@ -35,6 +35,8 @@ import {
 import { formatOra, giornoEsteso, isDataISO, oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
 import {
+  COMMENTO_OBBLIGATORIO,
+  COMMENTO_OBBLIGATORIO_DAL,
   LIVELLI_IN_TARGET,
   LIVELLI_QUALITA,
   MASSIMO_MOTIVO,
@@ -47,7 +49,11 @@ import {
   SCALA_IN_TARGET,
   SCALA_QUALITA,
   TESTI_COMMENTO,
+  commentoMancante,
   etichettaLivello,
+  paroleMancanti,
+  risposteMancanti,
+  type GiornataDaCommentare,
   type Scala,
 } from '@/lib/setting/commento'
 import {
@@ -795,10 +801,34 @@ function aggiornaReport(ctx: Contesto): Definizione {
 
   const di = (chi: { id: string; nome: string }) => (chi.id === profilo.id ? 'il tuo report' : `il report di ${chi.nome}`)
 
+  /**
+   * The setter's own day from 08/10/2026 that will still miss the required
+   * comment (Dany, 08/10/2026): the card says which answers. The report saves
+   * all the same, as in "Oggi". Never on the admin's card: no reminder of a
+   * person's days for the admin (CLAUDE.md section 17).
+   */
+  const promemoriaCommento = (giorno: string, valori: Record<string, unknown>) => {
+    const mancanti = commentoDaScrivere(giorno, valori)
+    return mancanti.length > 0 ? [COMMENTO_OBBLIGATORIO.alfire(mancanti)] : []
+  }
+
+  /**
+   * The required answers the setter's own day still misses once saved, in
+   * words (none: nothing missing, a day before 08/10/2026, a day without
+   * activity, the admin). The model reads them in the result of the write: it
+   * cannot see the comment of the report before it, no reading tool gives it.
+   */
+  function commentoDaScrivere(giorno: string, valori: Record<string, unknown>): string[] {
+    if (admin) return []
+    const giornata = valori as unknown as GiornataDaCommentare
+    return commentoMancante(giornata, giorno) ? paroleMancanti(risposteMancanti(giornata)) : []
+  }
+
   return definizione({
     description: admin
       ? 'Il report giornaliero di un setter (o tuo), numeri e com’è andata (lead in target, qualità delle conversazioni, cosa frenava i lead, domande e contenuti, altre note): aggiungi somma ai numeri già salvati, imposta li sostituisce, elimina toglie il giorno. Data di default: oggi.'
-      : 'Aggiorna il report giornaliero del setter, numeri e com’è andata (lead in target, qualità delle conversazioni, cosa frenava i lead, domande e contenuti, altre note). modalita "aggiungi" somma ai numeri già salvati, "imposta" li sostituisce. Data di default: oggi.',
+      : 'Aggiorna il report giornaliero del setter, numeri e com’è andata (lead in target, qualità delle conversazioni, cosa frenava i lead, domande e contenuti, altre note). modalita "aggiungi" somma ai numeri già salvati, "imposta" li sostituisce. Data di default: oggi. ' +
+        `Dal ${formatData(COMMENTO_OBBLIGATORIO_DAL)}, in un giorno con DM o conversazioni, lead in target, qualità delle conversazioni e cosa frenava i lead sono obbligatori: il report si salva lo stesso, ma la giornata resta da completare. Prima di scrivere non chiedere risposte che il setter non ha detto (quelle salvate non le vedi): il risultato dice in commento_mancante quelle che mancano ancora dopo il salvataggio; solo se non è vuoto chiedigliele, poi scrivile con modalita imposta (i numeri non detti restano come sono), mai con aggiungi, che accoda un testo a quello salvato. Domande e contenuti e altre note restano facoltative.`,
     inputSchema: schema,
     anteprima: async (input): Promise<Anteprima> => {
       const v = input as Record<string, unknown>
@@ -818,6 +848,7 @@ function aggiornaReport(ctx: Contesto): Definizione {
           'Giornata nuova.',
           ...CAMPI_SETTER.filter(({ campo }) => Number(g.valori[campo]) > 0).map(({ campo, etichetta }) => `${etichetta}: ${g.valori[campo]}`),
           ...righeCommento(g.valori),
+          ...promemoriaCommento(g.giorno, g.valori),
         ])
       }
       const riga = g.attuale
@@ -836,6 +867,7 @@ function aggiornaReport(ctx: Contesto): Definizione {
           ),
           ...TESTI_REPORT.map((t) => [t.titolo, riga[t.campo], g.valori[t.campo], 'lungo'] as const),
         ]),
+        ...promemoriaCommento(g.giorno, g.valori),
       ])
     },
     execute: async (input) => {
@@ -851,7 +883,10 @@ function aggiornaReport(ctx: Contesto): Definizione {
         // over the report just read: one changed meanwhile (a decision of the admin) is never overwritten
         const versione = typeof g.attuale?.updated_at === 'string' ? g.attuale.updated_at : null
         const esito = await salvaReportGiornaliero({ ...g.valori, versione })
-        return esito.ok ? { fatto: true, report: g.valori, link: '/today' } : errore(esito.errore)
+        // the required answers still missing, for the model to ask (never for the admin's writes)
+        return esito.ok
+          ? { fatto: true, report: g.valori, commento_mancante: commentoDaScrivere(g.giorno, g.valori), link: '/today' }
+          : errore(esito.errore)
       }
       // the admin: a new day is added, a day already there is corrected (never overwritten by an insert)
       const campi = { ...g.valori }

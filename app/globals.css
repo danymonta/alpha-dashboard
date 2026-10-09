@@ -14,6 +14,8 @@
   --alpha-bordeaux: #7a1f2b;
   --alpha-bordeaux-light: #9b3040;
   --alpha-gold: #c9a227;
+  /* Brand red for text on the dark surfaces (AA: 5.2 to 6.3); the bordeaux is for surfaces only (08/10/2026) */
+  --alpha-rosso-testo: #ef6b73;
   --alpha-bg: #121214;
   --alpha-surface: #1c1c1e;
   --alpha-surface-2: #242427;
@@ -130,6 +132,7 @@
   --color-status-warning: var(--status-warning);
   --color-status-critical: var(--status-critical);
   --color-gold: var(--alpha-gold);
+  --color-rosso-testo: var(--alpha-rosso-testo);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);

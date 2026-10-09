@@ -2,7 +2,11 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { aggiungiGiorni, etichettaGiorno, oggiRoma } from '../lib/date'
 import { formatNumero } from '../lib/format'
+import type { Database } from '../lib/supabase/database.types'
+import { COMMENTO_OBBLIGATORIO, COMMENTO_OBBLIGATORIO_DAL, SCALA_IN_TARGET, SCALA_QUALITA, TESTI_COMMENTO } from '../lib/setting/commento'
 import {
+  COMMENTO_DI_PROVA,
+  ID_ADMIN,
   ID_SETTER,
   creaPropostaInstagram,
   dbLocale,
@@ -47,8 +51,8 @@ type RigaReport = NumeriPropostaDiProva & {
   cosa_frenava: string | null
   domande_contenuti: string | null
   note: string | null
-  lead_in_target: string | null
-  qualita_conversazioni: string | null
+  lead_in_target: Database['public']['Enums']['quota_in_target'] | null
+  qualita_conversazioni: Database['public']['Enums']['qualita_conversazioni'] | null
 }
 
 async function leggiReport(giorno: string): Promise<RigaReport | null> {
@@ -65,11 +69,19 @@ async function leggiReport(giorno: string): Promise<RigaReport | null> {
   return data
 }
 
-/** The six numbers of the seed setter's day set as given (the row created if missing). */
-async function scriviNumeri(giorno: string, numeri: NumeriPropostaDiProva) {
+type Commento = Pick<RigaReport, 'lead_in_target' | 'qualita_conversazioni' | 'cosa_frenava'>
+
+const SENZA_COMMENTO: Commento = { lead_in_target: null, qualita_conversazioni: null, cosa_frenava: null }
+
+/**
+ * The six numbers of the seed setter's day set as given (the row created if
+ * missing), with the comment of the day: from 08/10/2026 he decides a day
+ * with activity only with it, and these tests are about the numbers.
+ */
+async function scriviNumeri(giorno: string, numeri: NumeriPropostaDiProva, commento: Commento = COMMENTO_DI_PROVA) {
   const { error } = await dbLocale()
     .from('setter_daily_reports')
-    .upsert({ setter_id: ID_SETTER, data: giorno, created_by: ID_SETTER, ...numeri }, { onConflict: 'setter_id,data' })
+    .upsert({ setter_id: ID_SETTER, data: giorno, created_by: ID_SETTER, ...numeri, ...commento }, { onConflict: 'setter_id,data' })
   if (error) throw error
 }
 
@@ -81,7 +93,15 @@ async function ripristina(giorno: string, prima: RigaReport | null) {
     const numeri = Object.fromEntries(CAMPI.map((c) => [c, prima[c]])) as NumeriPropostaDiProva
     const { error } = await db
       .from('setter_daily_reports')
-      .update({ ...numeri, note: prima.note, contenuto_pubblicato: prima.contenuto_pubblicato })
+      .update({
+        ...numeri,
+        note: prima.note,
+        contenuto_pubblicato: prima.contenuto_pubblicato,
+        // the comment written for the test, or by the step of the card
+        lead_in_target: prima.lead_in_target,
+        qualita_conversazioni: prima.qualita_conversazioni,
+        cosa_frenava: prima.cosa_frenava,
+      })
       .eq('id', prima.id)
     if (error) throw error
   } else {
@@ -152,6 +172,7 @@ test.describe('Il report da Instagram, nella giornata del setter', () => {
     try {
       // a day without his numbers: the plain card
       await scriviNumeri(giorno, ZERO)
+      const domandePrima = domandeDi(await leggiReport(giorno))
       const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM, { chatLette: 87, chatIncerte: 3 })
 
       await accedi(page, 'setter')
@@ -185,7 +206,7 @@ test.describe('Il report da Instagram, nella giornata del setter', () => {
       const dopo = await leggiReport(giorno)
       expect(numeriDi(dopo)).toEqual(DA_INSTAGRAM)
       // the questions of the day are his: untouched
-      expect(domandeDi(dopo)).toEqual(domandeDi(prima))
+      expect(domandeDi(dopo)).toEqual(domandePrima)
       expect(await statoPropostaInstagram(id)).toBe('confermata')
 
       // the day's report shows them, and the card does not come back
@@ -203,7 +224,7 @@ test.describe('Il report da Instagram, nella giornata del setter', () => {
     const giorno = giornoFa(5)
     const prima = await leggiReport(giorno)
     try {
-      if (prima) await scriviNumeri(giorno, ZERO)
+      await scriviNumeri(giorno, ZERO)
       const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
 
       await accedi(page, 'setter')
@@ -588,6 +609,584 @@ test.describe('Il report da Instagram, nella giornata del setter', () => {
       }
     } finally {
       await pulisciProposteInstagram([giorno])
+    }
+  })
+})
+
+// The comment of the day required from 08/10/2026 (Dany: "che sia lui o
+// Instagram poi a caricare deve lui sempre lasciare un commento della
+// giornata"): on a day from then on, with activity after the decision, the
+// card asks the three answers first and saves them with the decision.
+test.describe('Il commento della giornata prima della decisione sulla proposta', () => {
+  const PRIMA_DEL_DAL = aggiungiGiorni(COMMENTO_OBBLIGATORIO_DAL, -1)
+  const COSA_FRENAVA = TESTI_COMMENTO[0].domanda
+
+  function scalaNel(foglio: ReturnType<Page['getByRole']>, domanda: string) {
+    return foglio.getByRole('radiogroup', { name: domanda })
+  }
+
+  test('Conferma chiede prima il commento: senza risposte non decide, con le tre le salva insieme ai numeri', async ({
+    page,
+  }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    try {
+      await scriviNumeri(giorno, ZERO, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+      await page.setViewportSize({ width: 390, height: 844 })
+      await accedi(page, 'setter')
+      // another day open below: the card goes by the report as the page read it
+      await page.goto(`/today?data=${PRIMA_DEL_DAL}`)
+      const card = scheda(page, giorno)
+      const conferma = card.getByRole('button', { name: 'Conferma', exact: true })
+      await conferma.click()
+
+      const foglio = page.getByRole('dialog', { name: COMMENTO_OBBLIGATORIO.passo.titolo })
+      await expect(foglio).toBeVisible()
+      await expect(foglio).toContainText(COMMENTO_OBBLIGATORIO.passo.descrizione('oggi'))
+      // opened on its header: the title is in view, not scrolled away
+      await expect(foglio.getByRole('heading', { name: COMMENTO_OBBLIGATORIO.passo.titolo })).toBeInViewport()
+      expect(await statoPropostaInstagram(id)).toBe('da_confermare')
+
+      // a tap without the answers: each one says what is missing, nothing is decided
+      const invia = foglio.getByRole('button', { name: 'Conferma', exact: true })
+      await invia.click()
+      await expect(foglio.getByTestId('errore-lead_in_target')).toHaveText(COMMENTO_OBBLIGATORIO.errore.lead_in_target)
+      await expect(foglio.getByTestId('errore-qualita_conversazioni')).toHaveText(
+        COMMENTO_OBBLIGATORIO.errore.qualita_conversazioni,
+      )
+      await expect(foglio.getByTestId('errore-cosa_frenava')).toHaveText(COMMENTO_OBBLIGATORIO.errore.cosa_frenava)
+      // the first one missing takes the focus
+      await expect(scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Quasi tutti' })).toBeFocused()
+      expect(await statoPropostaInstagram(id)).toBe('da_confermare')
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+      expect(await foglio.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+
+      await scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Quasi tutti' }).click()
+      await scalaNel(foglio, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Medie' }).click()
+      await foglio.getByLabel(COSA_FRENAVA).fill('Prima vogliono vedere altri contenuti')
+      await expect(foglio.getByTestId(/^errore-/)).toHaveCount(0)
+      await invia.scrollIntoViewIfNeeded()
+      expect((await invia.boundingBox())?.height).toBeGreaterThanOrEqual(44)
+      await invia.click()
+
+      await expect(toast(page, 'Report di oggi compilato con i numeri di Instagram')).toBeVisible()
+      await expect(foglio).toHaveCount(0)
+      await expect(card).toHaveCount(0)
+      const dopo = await leggiReport(giorno)
+      expect(numeriDi(dopo)).toEqual(DA_INSTAGRAM)
+      expect(dopo).toMatchObject({
+        lead_in_target: 'quasi_tutti',
+        qualita_conversazioni: 'medie',
+        cosa_frenava: 'Prima vogliono vedere altri contenuti',
+      })
+      expect(await statoPropostaInstagram(id)).toBe('confermata')
+    } finally {
+      await pulisciProposteInstagram([giorno])
+      await ripristina(giorno, prima)
+    }
+  })
+
+  test('«Tieni i miei» sul giorno aperto: il passo parte dalle risposte già nel form, e le salva', async ({ page }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    try {
+      await scriviNumeri(giorno, MIEI, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+      await accedi(page, 'setter')
+      await page.goto('/today')
+      await expect(campoNumero(page, 'DM outbound')).toHaveValue('31')
+      // one answer in the form below, a moment before the decision
+      await page
+        .getByTestId('report-campi')
+        .getByRole('radiogroup', { name: SCALA_IN_TARGET.domanda })
+        .getByRole('radio', { name: 'Pochi' })
+        .click()
+      const tieni = scheda(page, giorno).getByRole('button', { name: 'Tieni i miei' })
+      await tieni.click()
+
+      const foglio = page.getByRole('dialog', { name: COMMENTO_OBBLIGATORIO.passo.titolo })
+      await expect(scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Pochi' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      )
+      // closed: nothing decided, the focus back on the button
+      await page.keyboard.press('Escape')
+      await expect(foglio).toHaveCount(0)
+      await expect(tieni).toBeFocused()
+      expect(await statoPropostaInstagram(id)).toBe('da_confermare')
+
+      await tieni.click()
+      await scalaNel(foglio, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Scarse' }).click()
+      await foglio.getByLabel(COSA_FRENAVA).fill('Sono solo curiosi')
+      await foglio.getByRole('button', { name: 'Tieni i miei' }).click()
+
+      await expect(toast(page, 'Report di oggi: tenuti i tuoi numeri')).toBeVisible()
+      const dopo = await leggiReport(giorno)
+      expect(numeriDi(dopo)).toEqual(MIEI)
+      expect(dopo).toMatchObject({ lead_in_target: 'pochi', qualita_conversazioni: 'scarse', cosa_frenava: 'Sono solo curiosi' })
+      expect(await statoPropostaInstagram(id)).toBe('scartata')
+      // the day reloads with the answers: nothing missing any more
+      await expect(page.getByLabel(COSA_FRENAVA)).toHaveValue('Sono solo curiosi')
+      await expect(page.getByTestId('da-completare-giorno')).toHaveCount(0)
+    } finally {
+      await pulisciProposteInstagram([giorno])
+      await ripristina(giorno, prima)
+    }
+  })
+
+  test('Correggi: dopo i numeri il passo del commento nello stesso foglio, con la strada per tornare ai numeri', async ({
+    page,
+  }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    try {
+      await scriviNumeri(giorno, ZERO, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+      await accedi(page, 'setter')
+      await page.goto(`/today?data=${PRIMA_DEL_DAL}`)
+      await scheda(page, giorno).getByRole('button', { name: 'Correggi' }).click()
+      const foglio = page.getByRole('dialog')
+      await foglio.getByRole('group', { name: 'Conversazioni' }).getByRole('textbox').fill('25')
+      await foglio.getByRole('button', { name: 'Conferma questi numeri' }).click()
+
+      // the step takes the numbers' place, and the focus
+      const passo = foglio.getByTestId('passo-commento')
+      await expect(passo).toBeFocused()
+      await expect(foglio.getByRole('heading', { name: COMMENTO_OBBLIGATORIO.passo.titolo })).toBeVisible()
+      expect(await statoPropostaInstagram(id)).toBe('da_confermare')
+
+      // back to the numbers: his correction and his answer are still there
+      await scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Circa metà' }).click()
+      await foglio.getByRole('button', { name: COMMENTO_OBBLIGATORIO.passo.indietro }).click()
+      await expect(foglio.getByRole('group', { name: 'Conversazioni' }).getByRole('textbox')).toHaveValue('25')
+      await foglio.getByRole('button', { name: 'Conferma questi numeri' }).click()
+      await expect(scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Circa metà' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      )
+      await scalaNel(foglio, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Buone' }).click()
+      await foglio.getByLabel(COSA_FRENAVA).fill('Ci devono pensare')
+      await foglio.getByRole('button', { name: 'Conferma questi numeri' }).click()
+
+      await expect(toast(page, 'Report di oggi compilato con i tuoi numeri')).toBeVisible()
+      await expect(foglio).toHaveCount(0)
+      const dopo = await leggiReport(giorno)
+      expect(numeriDi(dopo)).toEqual({ ...DA_INSTAGRAM, conversazioni: 25 })
+      expect(dopo).toMatchObject({ lead_in_target: 'circa_meta', qualita_conversazioni: 'buone', cosa_frenava: 'Ci devono pensare' })
+      expect(await statoPropostaInstagram(id)).toBe('confermata')
+    } finally {
+      await pulisciProposteInstagram([giorno])
+      await ripristina(giorno, prima)
+    }
+  })
+
+  test('con il commento già scritto non chiede niente; un giorno prima dell’08/10 nemmeno', async ({ page }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    const primaVecchio = await leggiReport(PRIMA_DEL_DAL)
+    try {
+      await scriviNumeri(giorno, ZERO)
+      await scriviNumeri(PRIMA_DEL_DAL, ZERO, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+      const idVecchio = await creaPropostaInstagram(PRIMA_DEL_DAL, DA_INSTAGRAM)
+
+      await accedi(page, 'setter')
+      await page.goto(`/today?data=${PRIMA_DEL_DAL}`)
+      await scheda(page, giorno).getByRole('button', { name: 'Conferma', exact: true }).click()
+      await expect(toast(page, 'Report di oggi compilato con i numeri di Instagram')).toBeVisible()
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+      expect(await statoPropostaInstagram(id)).toBe('confermata')
+      expect(await leggiReport(giorno)).toMatchObject(COMMENTO_DI_PROVA)
+
+      await scheda(page, PRIMA_DEL_DAL).getByRole('button', { name: 'Conferma', exact: true }).click()
+      await expect(
+        toast(page, `Report di ${etichettaGiorno(PRIMA_DEL_DAL, oggi()).toLowerCase()} compilato con i numeri di Instagram`),
+      ).toBeVisible()
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+      expect(await statoPropostaInstagram(idVecchio)).toBe('confermata')
+      expect(await leggiReport(PRIMA_DEL_DAL)).toMatchObject(SENZA_COMMENTO)
+    } finally {
+      await pulisciProposteInstagram([giorno, PRIMA_DEL_DAL])
+      await ripristina(giorno, prima)
+      await ripristina(PRIMA_DEL_DAL, primaVecchio)
+    }
+  })
+  // The step keeps the proposal as the card showed it at the tap: a proposal
+  // recomputed while the step is open, with the page read again behind it, is
+  // refused, never confirmed with numbers he has not seen
+  const RICALCOLATI: NumeriPropostaDiProva = {
+    dm_outbound: 70,
+    dm_inbound: 9,
+    follow_up: 30,
+    conversazioni: 40,
+    call_proposte: 6,
+    discovery_prenotate: 3,
+  }
+  const CAMBIATI = 'I numeri della proposta sono cambiati: ricontrollali e conferma di nuovo.'
+
+  /** The app back in front: "Oggi" reads the page again if the proposals changed. */
+  async function tornaInPrimoPiano(page: Page) {
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  }
+
+  test('Conferma: la proposta ricalcolata col passo aperto non si conferma, prima i numeri nuovi; le risposte restano', async ({
+    page,
+  }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    try {
+      await scriviNumeri(giorno, ZERO, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+      await accedi(page, 'setter')
+      await page.goto(`/today?data=${PRIMA_DEL_DAL}`)
+      const card = scheda(page, giorno)
+      await expect(card.locator('[data-campo="dm_outbound"] dd')).toHaveText('53')
+      await card.getByRole('button', { name: 'Conferma', exact: true }).click()
+      const foglio = page.getByRole('dialog', { name: COMMENTO_OBBLIGATORIO.passo.titolo })
+      await expect(foglio).toBeVisible()
+
+      // recomputed meanwhile, and the page read again behind the step
+      await ricalcolaPropostaInstagram(id, RICALCOLATI)
+      await tornaInPrimoPiano(page)
+      await expect(card.locator('[data-campo="dm_outbound"] dd')).toHaveText('70')
+
+      await scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Quasi tutti' }).click()
+      await scalaNel(foglio, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Medie' }).click()
+      await foglio.getByLabel(COSA_FRENAVA).fill('Prima vogliono vedere altri contenuti')
+      await foglio.getByRole('button', { name: 'Conferma', exact: true }).click()
+
+      // refused: the step closes on the card with the new numbers, nothing written
+      await expect(toast(page, CAMBIATI)).toBeVisible()
+      await expect(foglio).toHaveCount(0)
+      await expect(card.getByRole('alert')).toHaveText(CAMBIATI)
+      expect(await statoPropostaInstagram(id)).toBe('da_confermare')
+      const rifiutato = await leggiReport(giorno)
+      expect(numeriDi(rifiutato)).toEqual(ZERO)
+      expect(rifiutato).toMatchObject(SENZA_COMMENTO)
+
+      // seen, confirmed: the step opens with his answers, the report takes the new numbers
+      await card.getByRole('button', { name: 'Conferma', exact: true }).click()
+      await expect(scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Quasi tutti' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      )
+      await expect(foglio.getByLabel(COSA_FRENAVA)).toHaveValue('Prima vogliono vedere altri contenuti')
+      await foglio.getByRole('button', { name: 'Conferma', exact: true }).click()
+      await expect(toast(page, 'Report di oggi compilato con i numeri di Instagram')).toBeVisible()
+      const dopo = await leggiReport(giorno)
+      expect(numeriDi(dopo)).toEqual(RICALCOLATI)
+      expect(dopo).toMatchObject({
+        lead_in_target: 'quasi_tutti',
+        qualita_conversazioni: 'medie',
+        cosa_frenava: 'Prima vogliono vedere altri contenuti',
+      })
+      expect(await statoPropostaInstagram(id)).toBe('confermata')
+    } finally {
+      await pulisciProposteInstagram([giorno])
+      await ripristina(giorno, prima)
+    }
+  })
+
+  test('Correggi: ricalcolata col passo aperto, si torna ai numeri nuovi con la correzione; mai i numeri vecchi', async ({
+    page,
+  }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    try {
+      await scriviNumeri(giorno, ZERO, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+      await accedi(page, 'setter')
+      await page.goto(`/today?data=${PRIMA_DEL_DAL}`)
+      await scheda(page, giorno).getByRole('button', { name: 'Correggi' }).click()
+      const foglio = page.getByRole('dialog')
+      const contatore = (etichetta: string) => foglio.getByRole('group', { name: etichetta }).getByRole('textbox')
+      await contatore('Conversazioni').fill('25')
+      await foglio.getByRole('button', { name: 'Conferma questi numeri' }).click()
+      await expect(foglio.getByTestId('passo-commento')).toBeFocused()
+
+      await ricalcolaPropostaInstagram(id, RICALCOLATI)
+      await tornaInPrimoPiano(page)
+      await expect(scheda(page, giorno).locator('[data-campo="dm_outbound"] dd')).toHaveText('70')
+
+      await scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Circa metà' }).click()
+      await scalaNel(foglio, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Buone' }).click()
+      await foglio.getByLabel(COSA_FRENAVA).fill('Ci devono pensare')
+      await foglio.getByRole('button', { name: 'Conferma questi numeri' }).click()
+
+      // refused: back to the numbers, Instagram's new ones where he did not touch, his correction kept
+      await expect(foglio.getByRole('alert')).toHaveText(CAMBIATI)
+      await expect(foglio.getByTestId('passo-commento')).toHaveCount(0)
+      await expect(contatore('DM outbound')).toHaveValue('70')
+      await expect(contatore('Follow up')).toHaveValue('30')
+      await expect(contatore('Conversazioni')).toHaveValue('25')
+      expect(await statoPropostaInstagram(id)).toBe('da_confermare')
+      expect(numeriDi(await leggiReport(giorno))).toEqual(ZERO)
+
+      // seen: the step again, with his answers, then the new numbers and his correction
+      await foglio.getByRole('button', { name: 'Conferma questi numeri' }).click()
+      await expect(foglio.getByLabel(COSA_FRENAVA)).toHaveValue('Ci devono pensare')
+      await foglio.getByRole('button', { name: 'Conferma questi numeri' }).click()
+      await expect(toast(page, 'Report di oggi compilato con i tuoi numeri')).toBeVisible()
+      const dopo = await leggiReport(giorno)
+      expect(numeriDi(dopo)).toEqual({ ...RICALCOLATI, conversazioni: 25 })
+      expect(dopo).toMatchObject({ lead_in_target: 'circa_meta', qualita_conversazioni: 'buone', cosa_frenava: 'Ci devono pensare' })
+      expect(await statoPropostaInstagram(id)).toBe('confermata')
+    } finally {
+      await pulisciProposteInstagram([giorno])
+      await ripristina(giorno, prima)
+    }
+  })
+
+  test('il passo riaperto prende le risposte scritte dopo nel form, non quelle rimaste nel passo', async ({ page }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    try {
+      await scriviNumeri(giorno, MIEI, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+      await accedi(page, 'setter')
+      await page.goto('/today')
+      await expect(campoNumero(page, 'DM outbound')).toHaveValue('31')
+      const tieni = scheda(page, giorno).getByRole('button', { name: 'Tieni i miei' })
+      await tieni.click()
+      const foglio = page.getByRole('dialog', { name: COMMENTO_OBBLIGATORIO.passo.titolo })
+      await scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Quasi tutti' }).click()
+      await scalaNel(foglio, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Buone' }).click()
+      await foglio.getByLabel(COSA_FRENAVA).fill('Dal passo')
+      await page.keyboard.press('Escape')
+      await expect(foglio).toHaveCount(0)
+
+      // then, in the form below: another level and another text
+      const campi = page.getByTestId('report-campi')
+      await campi.getByRole('radiogroup', { name: SCALA_IN_TARGET.domanda }).getByRole('radio', { name: 'Pochi' }).click()
+      await campi.getByLabel(COSA_FRENAVA).fill('Dal form, scritto dopo')
+
+      // the step again: the form's answers where they changed, the step's where they did not
+      await tieni.click()
+      await expect(scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Pochi' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      )
+      await expect(scalaNel(foglio, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Buone' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      )
+      await expect(foglio.getByLabel(COSA_FRENAVA)).toHaveValue('Dal form, scritto dopo')
+      await foglio.getByRole('button', { name: 'Tieni i miei' }).click()
+
+      await expect(toast(page, 'Report di oggi: tenuti i tuoi numeri')).toBeVisible()
+      expect(await leggiReport(giorno)).toMatchObject({
+        ...MIEI,
+        lead_in_target: 'pochi',
+        qualita_conversazioni: 'buone',
+        cosa_frenava: 'Dal form, scritto dopo',
+      })
+      expect(await statoPropostaInstagram(id)).toBe('scartata')
+    } finally {
+      await pulisciProposteInstagram([giorno])
+      await ripristina(giorno, prima)
+    }
+  })
+
+  test('decisa altrove mentre scrive il commento: la scheda se ne va e le sue risposte restano nel report', async ({
+    page,
+  }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    try {
+      await scriviNumeri(giorno, MIEI, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+      await accedi(page, 'setter')
+      await page.goto('/today')
+      await expect(campoNumero(page, 'DM outbound')).toHaveValue('31')
+      await scheda(page, giorno).getByRole('button', { name: 'Tieni i miei' }).click()
+      const foglio = page.getByRole('dialog', { name: COMMENTO_OBBLIGATORIO.passo.titolo })
+      await scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Pochi' }).click()
+      await scalaNel(foglio, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Buone' }).click()
+      await foglio.getByLabel(COSA_FRENAVA).fill('Una frase lunga scritta con cura')
+
+      // meanwhile the admin keeps his numbers, from the "Setter" page
+      const { error } = await dbLocale()
+        .from('report_proposte_instagram')
+        .update({ stato: 'scartata', deciso_da: ID_ADMIN })
+        .eq('id', id)
+      if (error) throw error
+      await foglio.getByRole('button', { name: 'Tieni i miei' }).click()
+
+      await expect(toast(page, 'Questa proposta è già stata scartata.')).toBeVisible()
+      await expect(toast(page, COMMENTO_OBBLIGATORIO.passo.salvato)).toBeVisible()
+      await expect(foglio).toHaveCount(0)
+      await expect(scheda(page, giorno)).toHaveCount(0)
+      expect(await leggiReport(giorno)).toMatchObject({
+        ...MIEI,
+        lead_in_target: 'pochi',
+        qualita_conversazioni: 'buone',
+        cosa_frenava: 'Una frase lunga scritta con cura',
+      })
+      // the day starts again from the decided report: his answers there, nothing missing
+      await expect(page.getByTestId('report-campi').getByLabel(COSA_FRENAVA)).toHaveValue(
+        'Una frase lunga scritta con cura',
+      )
+      await expect(page.getByTestId('da-completare-giorno')).toHaveCount(0)
+    } finally {
+      await pulisciProposteInstagram([giorno])
+      await ripristina(giorno, prima)
+    }
+  })
+
+  /** The admin decides the proposal from his page meanwhile (another device). */
+  async function decideLAdmin(id: string, stato: 'confermata' | 'scartata') {
+    const { error } = await dbLocale().from('report_proposte_instagram').update({ stato, deciso_da: ID_ADMIN }).eq('id', id)
+    if (error) throw error
+  }
+
+  test('decisa altrove col passo aperto, poi l’app torna in primo piano: il passo resta, e le risposte si salvano', async ({
+    page,
+  }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    try {
+      await scriviNumeri(giorno, MIEI, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+      await accedi(page, 'setter')
+      await page.goto('/today')
+      await expect(campoNumero(page, 'DM outbound')).toHaveValue('31')
+      await scheda(page, giorno).getByRole('button', { name: 'Tieni i miei' }).click()
+      const foglio = page.getByRole('dialog', { name: COMMENTO_OBBLIGATORIO.passo.titolo })
+      await scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Pochi' }).click()
+      await scalaNel(foglio, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Buone' }).click()
+      await foglio.getByLabel(COSA_FRENAVA).fill('Una frase lunga scritta con cura')
+
+      // the admin keeps his numbers; he looks at a chat in Instagram and comes back:
+      // the page reads the decided day again behind the step
+      await decideLAdmin(id, 'scartata')
+      await tornaInPrimoPiano(page)
+      await expect(page.getByTestId('proposta-decisa-da')).toHaveText(
+        `${UTENTI.admin.nome} ha tenuto i tuoi numeri per questo giorno.`,
+      )
+
+      // the step is still there, with what he wrote
+      await expect(foglio).toBeVisible()
+      await expect(scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Pochi' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      )
+      await expect(foglio.getByLabel(COSA_FRENAVA)).toHaveValue('Una frase lunga scritta con cura')
+      await foglio.getByRole('button', { name: 'Tieni i miei' }).click()
+
+      await expect(toast(page, 'Questa proposta è già stata scartata.')).toBeVisible()
+      await expect(toast(page, COMMENTO_OBBLIGATORIO.passo.salvato)).toBeVisible()
+      await expect(foglio).toHaveCount(0)
+      await expect(scheda(page, giorno)).toHaveCount(0)
+      expect(await leggiReport(giorno)).toMatchObject({
+        ...MIEI,
+        lead_in_target: 'pochi',
+        qualita_conversazioni: 'buone',
+        cosa_frenava: 'Una frase lunga scritta con cura',
+      })
+      // the form of that day, already read again at the foreground, reads the answers saved into it
+      await expect(page.getByTestId('report-campi').getByLabel(COSA_FRENAVA)).toHaveValue(
+        'Una frase lunga scritta con cura',
+      )
+      await expect(page.getByTestId('da-completare-giorno')).toHaveCount(0)
+    } finally {
+      await pulisciProposteInstagram([giorno])
+      await ripristina(giorno, prima)
+    }
+  })
+
+  test('decisa altrove col passo di Correggi aperto, poi in primo piano: numeri e passo restano, le risposte si salvano', async ({
+    page,
+  }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    try {
+      await scriviNumeri(giorno, MIEI, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+      await accedi(page, 'setter')
+      await page.goto('/today')
+      await expect(campoNumero(page, 'DM outbound')).toHaveValue('31')
+      await scheda(page, giorno).getByRole('button', { name: 'Correggi' }).click()
+      const foglio = page.getByRole('dialog')
+      const contatore = (etichetta: string) => foglio.getByRole('group', { name: etichetta }).getByRole('textbox')
+      await contatore('Conversazioni').fill('25')
+      await foglio.getByRole('button', { name: 'Conferma questi numeri' }).click()
+      await expect(foglio.getByTestId('passo-commento')).toBeFocused()
+      await scalaNel(foglio, SCALA_IN_TARGET.domanda).getByRole('radio', { name: 'Circa metà' }).click()
+      await scalaNel(foglio, SCALA_QUALITA.domanda).getByRole('radio', { name: 'Medie' }).click()
+      await foglio.getByLabel(COSA_FRENAVA).fill('Il tempo per allenarsi')
+
+      await decideLAdmin(id, 'confermata')
+      await tornaInPrimoPiano(page)
+      await expect(page.getByTestId('proposta-decisa-da')).toHaveText(
+        `${UTENTI.admin.nome} ha confermato i numeri di Instagram per questo giorno.`,
+      )
+
+      // back to the numbers and on again: the sheet, his correction and his answers are all still there
+      await foglio.getByRole('button', { name: COMMENTO_OBBLIGATORIO.passo.indietro }).click()
+      await expect(contatore('Conversazioni')).toHaveValue('25')
+      await foglio.getByRole('button', { name: 'Conferma questi numeri' }).click()
+      await expect(foglio.getByLabel(COSA_FRENAVA)).toHaveValue('Il tempo per allenarsi')
+      await foglio.getByRole('button', { name: 'Conferma questi numeri' }).click()
+
+      await expect(toast(page, 'Questa proposta è già stata confermata.')).toBeVisible()
+      await expect(toast(page, COMMENTO_OBBLIGATORIO.passo.salvato)).toBeVisible()
+      await expect(foglio).toHaveCount(0)
+      await expect(scheda(page, giorno)).toHaveCount(0)
+      // the decision was the admin's: his numbers stay, his answers go in
+      expect(await leggiReport(giorno)).toMatchObject({
+        ...MIEI,
+        lead_in_target: 'circa_meta',
+        qualita_conversazioni: 'medie',
+        cosa_frenava: 'Il tempo per allenarsi',
+      })
+      await expect(page.getByTestId('report-campi').getByLabel(COSA_FRENAVA)).toHaveValue('Il tempo per allenarsi')
+    } finally {
+      await pulisciProposteInstagram([giorno])
+      await ripristina(giorno, prima)
+    }
+  })
+
+  test('decisa altrove col passo aperto, poi chiuso senza decidere: la scheda se ne va e il focus resta sulla pagina', async ({
+    page,
+  }) => {
+    const giorno = oggi()
+    const prima = await leggiReport(giorno)
+    try {
+      await scriviNumeri(giorno, MIEI, SENZA_COMMENTO)
+      const id = await creaPropostaInstagram(giorno, DA_INSTAGRAM)
+
+      await accedi(page, 'setter')
+      await page.goto('/today')
+      await expect(campoNumero(page, 'DM outbound')).toHaveValue('31')
+      await scheda(page, giorno).getByRole('button', { name: 'Tieni i miei' }).click()
+      const foglio = page.getByRole('dialog', { name: COMMENTO_OBBLIGATORIO.passo.titolo })
+      await expect(foglio).toBeVisible()
+
+      await decideLAdmin(id, 'scartata')
+      await tornaInPrimoPiano(page)
+      await expect(page.getByTestId('proposta-decisa-da')).toBeVisible()
+      await expect(foglio).toBeVisible()
+
+      await page.keyboard.press('Escape')
+      await expect(foglio).toHaveCount(0)
+      await expect(scheda(page, giorno)).toHaveCount(0)
+      // never lost on the body with the card: on the page title
+      await expect(page.getByRole('heading', { level: 1 })).toBeFocused()
+      // closing writes nothing
+      expect(await leggiReport(giorno)).toMatchObject({ ...MIEI, ...SENZA_COMMENTO })
+    } finally {
+      await pulisciProposteInstagram([giorno])
+      await ripristina(giorno, prima)
     }
   })
 })

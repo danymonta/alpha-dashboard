@@ -1310,8 +1310,14 @@ isOneToOne: false
               "cosa_frenava": string,"data": string,"domande_contenuti": string,"giorni": number,"lead_in_target": Database["public"]['Enums']["quota_in_target"],"livello": string,"note": string,"qualita_conversazioni": Database["public"]['Enums']["qualita_conversazioni"],"quota": number,"report_id": string,"scala": string,"setter": string,"setter_id": string,"su_giorni": number,"tipo": string
             }[]
                            },
+"commento_da_scrivere":
+{ Args: { "p_conversazioni": number,"p_cosa_frenava": string,"p_data": string,"p_dm_inbound": number,"p_dm_outbound": number,"p_follow_up": number,"p_lead_in_target": Database["public"]['Enums']["quota_in_target"],"p_qualita_conversazioni": Database["public"]['Enums']["qualita_conversazioni"] }; Returns: boolean
+                           },
+"commento_proposta_valido":
+{ Args: { "p_commento": Json }; Returns: Json
+                           },
 "conferma_proposta_instagram":
-{ Args: { "p_calcolato_il"?: string,"p_id": string,"p_valori"?: Json,"p_visti"?: Json }; Returns: {
+{ Args: { "p_calcolato_il"?: string,"p_commento"?: Json,"p_id": string,"p_valori"?: Json,"p_visti"?: Json }; Returns: {
               "call_proposte": number,
 "call_qualificate": number,
 "contenuto_pubblicato": boolean,
@@ -1693,7 +1699,7 @@ isOneToOne: false
 { Args: { "p_sale_id": string }; Returns: undefined
                            },
 "scarta_proposta_instagram":
-{ Args: { "p_id": string }; Returns: undefined
+{ Args: { "p_commento"?: Json,"p_id": string }; Returns: undefined
                            },
 "segna_rata_incassata":
 { Args: { "p_importo"?: number,"p_incassato_il"?: string,"p_metodo"?: Database["public"]['Enums']["payment_method"],"p_payment_id": string }; Returns: {
@@ -1705,6 +1711,9 @@ isOneToOne: false
                            },
 "sposta_call":
 { Args: { "p_call_id": string,"p_data": string,"p_ora": string }; Returns: undefined
+                           },
+"testo_scritto":
+{ Args: { "p_testo": string }; Returns: boolean
                            },
 "unisci_profili":
 { Args: { "p_a": string,"p_da": string }; Returns: undefined

@@ -2475,6 +2475,95 @@ describe('la scheda prima del tocco: la riga vera, prima → dopo, cosa si porta
     })
   })
 
+  it('il report del setter dall’08/10/2026: la scheda ricorda il commento obbligatorio che manca, mai all’admin', async () => {
+    const MANCA = 'Manca il commento della giornata'
+    const righe = mondo()
+    // his day of 08/10/2026: quality and what held them back are there, lead in target is not
+    righe.setter_daily_reports = righe.setter_daily_reports.map((r) => ({ ...r, setter_id: IO, data: '2026-10-08' }))
+    const p = await anteprima('aggiorna_report', { data: '2026-10-08', modalita: 'aggiungi', dm_outbound: 5 }, 'setter', righe)
+    expect(p).toMatchObject({
+      righe: [
+        'C’è già: lo correggo.',
+        'DM outbound: 10 → 15',
+        `${MANCA}: lead in target. Il report si salva lo stesso, ma la giornata resta da completare.`,
+      ],
+    })
+    // the three answers there: nothing to remind
+    const completo = await anteprima(
+      'aggiorna_report',
+      { data: '2026-10-08', modalita: 'aggiungi', dm_outbound: 5, lead_in_target: 'pochi' },
+      'setter',
+      righe,
+    )
+    expect(JSON.stringify(completo)).not.toContain(MANCA)
+    // a new day of his, numbers only: every answer missing, said in the form's words
+    const nuovo = await anteprima('aggiorna_report', { data: '2026-10-09', modalita: 'imposta', conversazioni: 3 }, 'setter', righe)
+    expect(JSON.stringify(nuovo)).toContain(
+      `${MANCA}: lead in target, qualità delle conversazioni, cosa frenava i lead.`,
+    )
+    // a day without DM or conversations: nothing is required
+    const senza = await anteprima('aggiorna_report', { data: '2026-10-09', modalita: 'imposta', call_proposte: 2 }, 'setter', righe)
+    expect(JSON.stringify(senza)).not.toContain(MANCA)
+    // a day before 08/10/2026 keeps the rule it had: never required
+    const prima = mondo()
+    prima.setter_daily_reports = prima.setter_daily_reports.map((r) => ({ ...r, setter_id: IO }))
+    const vecchio = await anteprima('aggiorna_report', { data: '2026-09-26', modalita: 'aggiungi', dm_outbound: 5 }, 'setter', prima)
+    expect(JSON.stringify(vecchio)).not.toContain(MANCA)
+    // the admin on Loris's day: never a reminder of a person's days for him
+    const diLoris = mondo()
+    diLoris.setter_daily_reports = diLoris.setter_daily_reports.map((r) => ({ ...r, data: '2026-10-08' }))
+    const admin = await anteprima('aggiorna_report', { setter: 'Loris', data: '2026-10-08', modalita: 'aggiungi', dm_outbound: 5 }, 'admin', diLoris)
+    expect(admin).toMatchObject({ righe: ['C’è già: lo correggo.', 'DM outbound: 10 → 15'] })
+  })
+
+  it('aggiorna_report del setter: la descrizione dice le tre risposte obbligatorie dall’08/10/2026, quella dell’admin no', async () => {
+    const descrizione = (s: ToolSet) => String(s.aggiorna_report?.description ?? '')
+    expect(descrizione(strumenti('setter', 'employee'))).toMatch(
+      /Dal 08\/10\/2026.*lead in target, qualità delle conversazioni e cosa frenava i lead sono obbligatori/,
+    )
+    expect(descrizione(strumenti('setter', 'employee'))).toContain('Domande e contenuti e altre note restano facoltative')
+    // the model cannot see the saved answers before the write: it asks only what the result says is missing
+    expect(descrizione(strumenti('setter', 'employee'))).toMatch(/commento_mancante.*modalita imposta.*mai con aggiungi/)
+    expect(descrizione(strumenti())).not.toContain('obbligatori')
+  })
+
+  it('aggiorna_report del setter: il risultato dice al modello le risposte obbligatorie che mancano ancora, mai all’admin', async () => {
+    const righe = mondo()
+    // his day of 08/10/2026: quality and what held them back are there, lead in target is not
+    righe.setter_daily_reports = righe.setter_daily_reports.map((r) => ({ ...r, setter_id: IO, data: '2026-10-08' }))
+    const setter = strumenti('setter', 'employee', righe)
+    expect(await esegui(setter, 'aggiorna_report', { data: '2026-10-08', modalita: 'aggiungi', dm_outbound: 10 })).toMatchObject({
+      fatto: true,
+      commento_mancante: ['lead in target'],
+    })
+    // the answer given: nothing missing, and what held them back is not repeated under the saved one
+    expect(
+      await esegui(setter, 'aggiorna_report', { data: '2026-10-08', modalita: 'imposta', lead_in_target: 'pochi' }),
+    ).toMatchObject({ fatto: true, commento_mancante: [] })
+    expect(a.salvaReportGiornaliero).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lead_in_target: 'pochi', cosa_frenava: 'Non ho tempo per una call', dm_outbound: 10 }),
+    )
+    // a new day, numbers only: all three, in the form's words
+    expect(await esegui(setter, 'aggiorna_report', { data: '2026-10-09', modalita: 'imposta', conversazioni: 3 })).toMatchObject({
+      commento_mancante: ['lead in target', 'qualità delle conversazioni', 'cosa frenava i lead'],
+    })
+    // a day before 08/10/2026: never required
+    expect(await esegui(setter, 'aggiorna_report', { data: '2026-10-07', modalita: 'imposta', conversazioni: 3 })).toMatchObject({
+      commento_mancante: [],
+    })
+    // the admin on Loris's day: no reminder of a person's days for him
+    const diLoris = mondo()
+    diLoris.setter_daily_reports = diLoris.setter_daily_reports.map((r) => ({ ...r, data: '2026-10-08', lead_in_target: null }))
+    const admin = await esegui(strumenti('admin', 'admin', diLoris), 'aggiorna_report', {
+      setter: 'Loris',
+      data: '2026-10-08',
+      modalita: 'aggiungi',
+      dm_outbound: 5,
+    })
+    expect(admin).toMatchObject({ fatto: true })
+    expect(admin).not.toHaveProperty('commento_mancante')
+  })
+
   it('l’esito di una call non chiusa: motivo di non chiusura prima → dopo, per intero, e note prima → dopo', async () => {
     expect(
       await anteprima(

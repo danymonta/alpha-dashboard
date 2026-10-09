@@ -2,8 +2,22 @@ import { describe, expect, it } from 'vitest'
 
 import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
 import {
+  chiedeCommento,
+  commentoPropostaSchema,
+  confermaPropostaAdminSchema,
+  confermaPropostaSetterSchema,
+  decisioneChiedeCommento,
+  scartaPropostaSchema,
+  scartaPropostaSetterSchema,
+} from '@/app/(app)/today/proposta-instagram'
+import {
+  CAMPI_OBBLIGATORI,
   COMMENTO,
   COMMENTO_CHIESTO_DAL,
+  COMMENTO_OBBLIGATORIO,
+  COMMENTO_OBBLIGATORIO_DAL,
+  FILTRO_ATTIVITA,
+  FILTRO_COMMENTO_MANCANTE,
   LIVELLI_IN_TARGET,
   LIVELLI_QUALITA,
   SCALA_IN_TARGET,
@@ -16,8 +30,14 @@ import {
   NOTE_SETTER,
   ESITO_DEL_CLOSER,
   commentoDaCompletare,
+  commentoMancante,
+  commentoObbligatorio,
   etichettaLivello,
   giornataConAttivita,
+  paroleMancanti,
+  risposteMancanti,
+  statoCommento,
+  testoScritto,
 } from '@/lib/setting/commento'
 import { Constants } from '@/lib/supabase/database.types'
 import {
@@ -198,5 +218,128 @@ describe('le parole del commento stanno in un solo posto', () => {
     expect(GRUPPI_REPORT[conCommento].campi.map(([campo]) => campo)).toContain('conversazioni')
     expect(conCommento).toBeLessThan(titoli.indexOf('Call'))
     expect(GRUPPI_REPORT.filter((g) => g.commento)).toHaveLength(1)
+  })
+})
+
+describe('il commento obbligatorio dall’08/10/2026 (Dany: «deve lui sempre lasciare un commento della giornata»)', () => {
+  const vuota = { dm_outbound: 0, dm_inbound: 0, follow_up: 0, conversazioni: 0 }
+  const completo = { lead_in_target: 'pochi', qualita_conversazioni: 'medie', cosa_frenava: 'Ci devono pensare' }
+
+  it('da quel giorno in poi, per il giorno del report e non per quando è salvato', () => {
+    expect(COMMENTO_OBBLIGATORIO_DAL).toBe('2026-10-08')
+    expect(commentoObbligatorio('2026-10-07')).toBe(false)
+    expect(commentoObbligatorio('2026-10-08')).toBe(true)
+    expect(commentoObbligatorio('2027-01-01')).toBe(true)
+  })
+
+  it('le tre risposte: lead in target, qualità delle conversazioni e cosa frenava i lead', () => {
+    expect(CAMPI_OBBLIGATORI).toEqual(['lead_in_target', 'qualita_conversazioni', 'cosa_frenava'])
+    expect(risposteMancanti({})).toEqual(['lead_in_target', 'qualita_conversazioni', 'cosa_frenava'])
+    expect(risposteMancanti({ ...completo, cosa_frenava: '  \n ' })).toEqual(['cosa_frenava'])
+    expect(risposteMancanti(completo)).toEqual([])
+    expect(paroleMancanti(['lead_in_target', 'qualita_conversazioni', 'cosa_frenava'])).toEqual([
+      'lead in target',
+      'qualità delle conversazioni',
+      'cosa frenava i lead',
+    ])
+    expect(testoScritto(' x ')).toBe(true)
+    expect(testoScritto('   ')).toBe(false)
+    expect(testoScritto(null)).toBe(false)
+    // control characters that trim() keeps: an answer, as for testo_scritto in the database
+    expect(testoScritto('\u0085')).toBe(true)
+    expect(testoScritto('\u001f')).toBe(true)
+    expect(testoScritto(' 　﻿')).toBe(false)
+  })
+
+  it("gli spazi di trim() sono quelli di testo_scritto nel database (65_commento_obbligatorio.sql)", () => {
+    const vuoti: number[] = []
+    for (let i = 1; i <= 0xffff; i++) {
+      if (i >= 0xd800 && i <= 0xdfff) continue
+      if (!testoScritto(String.fromCharCode(i))) vuoti.push(i)
+    }
+    expect(vuoti).toEqual([
+      9, 10, 11, 12, 13, 32, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233,
+      8239, 8287, 12288, 65279,
+    ])
+  })
+
+  it('manca solo nei giorni con DM o conversazioni, senza una delle tre risposte', () => {
+    expect(commentoMancante({ ...vuota, dm_outbound: 5 }, '2026-10-08')).toBe(true)
+    expect(commentoMancante({ ...vuota, conversazioni: 2, lead_in_target: 'pochi', qualita_conversazioni: 'buone' }, '2026-10-08')).toBe(true)
+    expect(commentoMancante({ ...vuota, follow_up: 1, ...completo }, '2026-10-08')).toBe(false)
+    // no activity: nothing required
+    expect(commentoMancante(vuota, '2026-10-08')).toBe(false)
+    // a day before: never required
+    expect(commentoMancante({ ...vuota, dm_outbound: 5 }, '2026-10-07')).toBe(false)
+  })
+
+  it('lo stato del giorno: «manca» dall’08/10, «da completare» prima, con la regola di prima', () => {
+    expect(statoCommento({ ...vuota, dm_inbound: 3 }, '2026-10-08')).toBe('manca')
+    // the two scales alone are not enough any more
+    expect(statoCommento({ ...vuota, dm_inbound: 3, lead_in_target: 'pochi', qualita_conversazioni: 'buone' }, '2026-10-08')).toBe('manca')
+    expect(statoCommento({ ...vuota, dm_inbound: 3, ...completo }, '2026-10-09')).toBeNull()
+    // before: the two scales, asked only on a report created from 30/09
+    expect(statoCommento({ ...vuota, dm_inbound: 3 }, '2026-10-07')).toBe('da_completare')
+    expect(statoCommento({ ...vuota, dm_inbound: 3, lead_in_target: 'pochi', qualita_conversazioni: 'buone' }, '2026-10-07')).toBeNull()
+    expect(statoCommento({ ...vuota, dm_inbound: 3 }, '2026-09-20', '2026-09-20T10:00:00Z')).toBeNull()
+    // from 08/10 the created_at does not matter: the day does
+    expect(statoCommento({ ...vuota, dm_inbound: 3 }, '2026-10-08', '2026-09-20T10:00:00Z')).toBe('manca')
+  })
+
+  it('i filtri del conteggio sono la stessa regola: attività, poi una delle tre risposte che manca', () => {
+    expect(FILTRO_ATTIVITA.split(',')).toEqual(['dm_outbound.gt.0', 'dm_inbound.gt.0', 'follow_up.gt.0', 'conversazioni.gt.0'])
+    expect(FILTRO_COMMENTO_MANCANTE.split(',').map((f) => f.split('.')[0])).toEqual([...CAMPI_OBBLIGATORI])
+  })
+
+  it('la decisione sulla proposta di Instagram chiede il commento con i numeri dopo la decisione', () => {
+    const instagram = { dm_outbound: 53, dm_inbound: 4, follow_up: 16, conversazioni: 21, call_proposte: 4, discovery_prenotate: 2 }
+    const zero = { dm_outbound: 0, dm_inbound: 0, follow_up: 0, conversazioni: 0, call_proposte: 3, discovery_prenotate: 1 }
+    const nessuna = { lead_in_target: null, qualita_conversazioni: null, cosa_frenava: null }
+    expect(decisioneChiedeCommento('2026-10-08', instagram, nessuna)).toBe(true)
+    expect(decisioneChiedeCommento('2026-10-08', instagram, completo)).toBe(false)
+    // only calls: no DM activity, nothing required
+    expect(decisioneChiedeCommento('2026-10-08', zero, nessuna)).toBe(false)
+    expect(decisioneChiedeCommento('2026-10-07', instagram, nessuna)).toBe(false)
+  })
+
+  it('lo schema del passo: le tre risposte date, il testo non vuoto, solo per il setter', () => {
+    expect(commentoPropostaSchema.safeParse(completo).success).toBe(true)
+    expect(commentoPropostaSchema.safeParse({ ...completo, cosa_frenava: '   ' }).success).toBe(false)
+    expect(commentoPropostaSchema.safeParse({ ...completo, lead_in_target: null }).success).toBe(false)
+    expect(commentoPropostaSchema.safeParse({ ...completo, cosa_frenava: 'x'.repeat(1001) }).success).toBe(false)
+    // the other answers never go with a decision
+    expect(commentoPropostaSchema.safeParse({ ...completo, note: 'Altro' }).success).toBe(false)
+    const id = '22222222-2222-4222-8222-222222222222'
+    expect(confermaPropostaSetterSchema.safeParse({ id, calcolato_il: '2026-10-08T00:30:00Z', commento: completo }).success).toBe(true)
+    expect(scartaPropostaSetterSchema.safeParse({ id, commento: completo }).success).toBe(true)
+    expect(scartaPropostaSetterSchema.safeParse({ id }).success).toBe(true)
+    // the admin's schemas know nothing of it: the comment is the setter's
+    expect(confermaPropostaAdminSchema.shape).not.toHaveProperty('commento')
+    expect(scartaPropostaSchema.shape).not.toHaveProperty('commento')
+  })
+
+  it('il rifiuto del database per il commento si riconosce', () => {
+    expect(
+      chiedeCommento({
+        code: '22023',
+        message: "Prima di confermare scrivi com'è andata la giornata: lead in target, qualità delle conversazioni e cosa frenava i lead.",
+      }),
+    ).toBe(true)
+    expect(
+      chiedeCommento({
+        code: '22023',
+        message: "Prima di tenere i tuoi numeri scrivi com'è andata la giornata: lead in target, qualità delle conversazioni e cosa frenava i lead.",
+      }),
+    ).toBe(true)
+    expect(chiedeCommento({ code: '22023', message: 'Questa proposta è già stata confermata' })).toBe(false)
+  })
+
+  it('le parole: solo per il setter, nessun nome interno', () => {
+    expect(COMMENTO_OBBLIGATORIO.manca).toBe('Manca il commento della giornata')
+    expect(COMMENTO_OBBLIGATORIO.altri(1)).toBe('e 1 altro giorno')
+    expect(COMMENTO_OBBLIGATORIO.altri(3)).toBe('e altri 3 giorni')
+    for (const t of [COMMENTO_OBBLIGATORIO.descrizione, COMMENTO_OBBLIGATORIO.mancaSpiegazione, ...Object.values(COMMENTO_OBBLIGATORIO.errore)]) {
+      expect(t, t).not.toMatch(/\bscal[ae]\b|lead_in_target|cosa_frenava/i)
+    }
   })
 })

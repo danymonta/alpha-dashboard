@@ -4,7 +4,9 @@ import { usePathname } from 'next/navigation'
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 
 import type { AppRole } from '@/lib/auth/roles'
+import { oggiRoma } from '@/lib/date'
 import { NESSUN_PROMEMORIA, type Promemoria } from '@/lib/nav'
+import { contaCommentiMancanti } from '@/lib/setting/commenti-mancanti'
 import { createClient } from '@/lib/supabase/client'
 
 /**
@@ -15,7 +17,9 @@ import { createClient } from '@/lib/supabase/client'
  *   their own calls (closer_id);
  * - the setters' days proposed from the Instagram DMs and still to decide
  *   (08/10/2026), on the setter's "Oggi" (his own) and on the admin's
- *   "Setter" (every setter's: Dany decides them too).
+ *   "Setter" (every setter's: Dany decides them too);
+ * - the setter's own days from 08/10/2026 still without the required comment
+ *   of the day (08/10/2026), on his "Oggi": the setter only, never the admin.
  *
  * The layout counts them on the server, but a shared layout does not render
  * again on a client navigation: a call that passes while the app is open, or
@@ -26,7 +30,9 @@ import { createClient } from '@/lib/supabase/client'
  * (a server action that revalidates, a refresh, the Panoramica's Realtime)
  * brings its own counts and starts over, without a second one from the
  * browser; so does the first render. Coming back to the front fires both
- * visibilitychange and focus: one count, never two within two seconds. On an
+ * visibilitychange and focus: one count, never two within two seconds. A
+ * screen that changed what is counted without a server render ("Oggi" saving
+ * the comment of the day) asks for a count at once (ricontaPromemoria). On an
  * error the last number stays: the badge is a reminder, never a reason for
  * anything to fail. Never an alert, never an email.
  */
@@ -45,18 +51,34 @@ type Props = {
 /** Coming back to the front fires visibilitychange and focus together: one count. */
 const INTERVALLO_MINIMO_MS = 2000
 
-/** Who counts what: the outcomes are the admin's and the closer's, the days to decide the admin's and the setter's. */
+/** A screen changed what the badges count (ricontaPromemoria): the provider counts again. */
+const EVENTO_PROMEMORIA = 'alpha:promemoria'
+
+/**
+ * The badges count again now: a screen saved what they count without a
+ * server render of the layout ("Oggi" saving the comment of the day).
+ */
+export function ricontaPromemoria() {
+  window.dispatchEvent(new Event(EVENTO_PROMEMORIA))
+}
+
+/**
+ * Who counts what: the outcomes are the admin's and the closer's, the days to
+ * decide the admin's and the setter's, the days without the comment the
+ * setter's only.
+ */
 function cosaConta(ruolo: AppRole) {
   return {
     esiti: ruolo === 'admin' || ruolo === 'closer',
     daApprovare: ruolo === 'admin' || ruolo === 'setter',
+    commenti: ruolo === 'setter',
   }
 }
 
 export function EsitiDaRegistrareProvider({ iniziale, versione, profiloId, ruolo, children }: Props) {
   const pathname = usePathname()
   const conta = cosaConta(ruolo)
-  const contaQualcosa = conta.esiti || conta.daApprovare
+  const contaQualcosa = conta.esiti || conta.daApprovare || conta.commenti
   const [stato, setStato] = useState({ versione, promemoria: iniziale })
   // a new server render: its counts win over whatever the browser read before
   if (stato.versione !== versione) setStato({ versione, promemoria: iniziale })
@@ -65,7 +87,7 @@ export function EsitiDaRegistrareProvider({ iniziale, versione, profiloId, ruolo
 
   useEffect(() => {
     if (!contaQualcosa) return
-    const { esiti: contaEsiti, daApprovare: contaDaApprovare } = cosaConta(ruolo)
+    const { esiti: contaEsiti, daApprovare: contaDaApprovare, commenti: contaCommenti } = cosaConta(ruolo)
     const supabase = createClient()
     let attivo = true
     let ultima = 0
@@ -94,21 +116,34 @@ export function EsitiDaRegistrareProvider({ iniziale, versione, profiloId, ruolo
       return error ? null : count
     }
 
+    async function contaICommenti(): Promise<number | null> {
+      if (!contaCommenti) return 0
+      return contaCommentiMancanti(supabase, profiloId, oggiRoma())
+    }
+
     async function aggiorna() {
       avviataAlle = Date.now()
       const questa = ++ultima
-      const [esiti, daApprovare] = await Promise.all([contaGliEsiti(), contaDaDecidere()])
+      const [esiti, daApprovare, commenti] = await Promise.all([contaGliEsiti(), contaDaDecidere(), contaICommenti()])
       // only the latest answer of this page counts; a failed one keeps the last number
       if (!attivo || questa !== ultima) return
       setStato((attuale) => {
         const promemoria = {
           esiti: esiti ?? attuale.promemoria.esiti,
           daApprovare: daApprovare ?? attuale.promemoria.daApprovare,
+          commenti: commenti ?? attuale.promemoria.commenti,
         }
-        return promemoria.esiti === attuale.promemoria.esiti && promemoria.daApprovare === attuale.promemoria.daApprovare
+        return promemoria.esiti === attuale.promemoria.esiti &&
+          promemoria.daApprovare === attuale.promemoria.daApprovare &&
+          promemoria.commenti === attuale.promemoria.commenti
           ? attuale
           : { ...attuale, promemoria }
       })
+    }
+
+    // asked by a screen: at once, whatever the last count
+    function suRichiesta() {
+      void aggiorna()
     }
 
     function inPrimoPiano() {
@@ -123,10 +158,12 @@ export function EsitiDaRegistrareProvider({ iniziale, versione, profiloId, ruolo
     else void aggiorna()
     document.addEventListener('visibilitychange', inPrimoPiano)
     window.addEventListener('focus', inPrimoPiano)
+    window.addEventListener(EVENTO_PROMEMORIA, suRichiesta)
     return () => {
       attivo = false
       document.removeEventListener('visibilitychange', inPrimoPiano)
       window.removeEventListener('focus', inPrimoPiano)
+      window.removeEventListener(EVENTO_PROMEMORIA, suRichiesta)
     }
     // never on `versione`: a new server render brings its own counts
   }, [contaQualcosa, ruolo, profiloId, pathname])
@@ -137,6 +174,7 @@ export function EsitiDaRegistrareProvider({ iniziale, versione, profiloId, ruolo
       value={{
         esiti: conta.esiti ? promemoria.esiti : 0,
         daApprovare: conta.daApprovare ? promemoria.daApprovare : 0,
+        commenti: conta.commenti ? promemoria.commenti : 0,
       }}
     >
       {children}
