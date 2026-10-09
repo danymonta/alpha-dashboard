@@ -112,7 +112,7 @@ export const VERSIONI: readonly Versione[] = [
       {
         per: ['admin'],
         testo:
-          'Nessuno vede chi ha collegato Claude, nemmeno tu: ognuno vede e scollega i suoi collegamenti in App collegate. Disattivare una persona in Team, o darle un ruolo che non può collegare Claude (non admin, video editor o marketing), chiude subito anche il suo Claude; per chiuderlo e basta, lo scollega lei in App collegate.',
+          'Nessuno vede chi ha collegato Claude, nemmeno tu: ognuno vede e scollega i suoi collegamenti in App collegate. Disattivare una persona in Team, o darle un ruolo che non può collegare Claude (non admin, video editor o marketing), blocca subito il suo Claude finché non ha di nuovo il ruolo o non viene riattivata: allora il collegamento di prima torna, senza un nuovo consenso. Per chiuderlo davvero lo scollega lei in App collegate, prima del cambio: tu non puoi scollegare quello di un altro.',
       },
       {
         per: ['marketing'],
