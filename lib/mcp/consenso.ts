@@ -152,11 +152,12 @@ export const CONSENSO = {
   loopback:
     'Qualsiasi programma sul tuo computer può rispondere a quell’indirizzo: consenti solo se hai appena collegato Claude Code tu.',
   potra: 'Claude potrà, a tuo nome:',
+  // without the final punctuation: azioniConsenso puts «;» after each item and «.» after the last
   azioni: [
-    'leggere il calendario dei contenuti (reel e caroselli) con i testi delle sezioni;',
-    'creare contenuti, cambiare proprietà e Status, scrivere script, didascalie e commenti;',
+    'leggere il calendario dei contenuti (reel e caroselli) con i testi delle sezioni',
+    'creare contenuti, cambiare proprietà e Status, scrivere script, didascalie e commenti',
   ],
-  azioneAdmin: 'eliminare un contenuto, quando glielo chiedi tu.',
+  azioneAdmin: 'eliminare un contenuto, quando glielo chiedi tu',
   maiVistoInizio: 'Non vedrà mai',
   maiVisto: 'soldi, clienti, lead, call, report del setter, messaggi diretti né il resto del gestionale.',
   team: 'Ogni modifica di Claude la vede tutto il team nel calendario, come se l’avessi fatta tu.',
@@ -165,6 +166,11 @@ export const CONSENSO = {
   phishing: 'Hai appena premuto «Connetti» in Claude? Se questo link ti è arrivato da qualcun altro, premi Rifiuta.',
   phishingRicollega:
     'Hai appena premuto «Connetti» in Claude? Se questo link ti è arrivato da qualcun altro, premi Annulla.',
+  // Claude Code has no «Connetti»: the person started the sign-in with /mcp › alpha › Authenticate
+  phishingClaudeCode:
+    'Hai appena avviato l’accesso da Claude Code (/mcp › Authenticate)? Se questo link ti è arrivato da qualcun altro, premi Rifiuta.',
+  phishingRicollegaClaudeCode:
+    'Hai appena avviato l’accesso da Claude Code (/mcp › Authenticate)? Se questo link ti è arrivato da qualcun altro, premi Annulla.',
   scollega: 'Puoi scollegarlo quando vuoi da Profilo › Account › App collegate.',
   ricollega: 'Hai già collegato Claude ad Alpha Management con questo account. Continua per finire il collegamento.',
   consenti: 'Consenti',
@@ -175,6 +181,21 @@ export const CONSENSO = {
   vaiAllApp: 'Vai ad Alpha Management',
   inCorso: 'Torno a Claude…',
 } as const
+
+/** «Claude potrà, a tuo nome:» as a sentence: «;» after each item, «.» after the last (the admin's one or not). */
+export function azioniConsenso(admin: boolean): string[] {
+  const voci: string[] = admin ? [...CONSENSO.azioni, CONSENSO.azioneAdmin] : [...CONSENSO.azioni]
+  return voci.map((voce, i) => `${voce}${i === voci.length - 1 ? '.' : ';'}`)
+}
+
+/**
+ * The warning against a link sent by someone else, in the words of what the
+ * person has just done: «Connetti» in Claude, or the sign-in from Claude Code.
+ */
+export function avvisoPhishing(tipo: DestinazioneClaude['tipo'], ricollega = false): string {
+  if (tipo === 'claude_code') return ricollega ? CONSENSO.phishingRicollegaClaudeCode : CONSENSO.phishingClaudeCode
+  return ricollega ? CONSENSO.phishingRicollega : CONSENSO.phishing
+}
 
 /** «claude.ai», or the computer for Claude Code, in the words of the card. */
 export function doveTorni(destinazione: Pick<DestinazioneClaude, 'tipo' | 'host'>): string {
@@ -223,7 +244,7 @@ export const COLLEGA_CLAUDE = {
   claudeCode: 'Claude Code',
   claudeCodeDopo: 'poi in una sessione di Claude Code',
   nonAttivoAdmin:
-    'Il collegamento a Claude non è ancora attivo: attivalo in Supabase (Authentication › OAuth Server) e registra i due client.',
+    'Il collegamento a Claude non è ancora attivo: attiva il server OAuth in Supabase (Authentication › OAuth Server) e registra i due client con Client type Public, senza segreto (un client Confidential non vale).',
   nonAttivo: 'Il collegamento a Claude non è ancora attivo: chiedi all’admin.',
   mancaClaude: 'Il collegamento dal sito e dalle app di Claude non è ancora attivo: chiedi all’admin.',
   errore: 'Non riesco a leggere i dati per collegare Claude.',
@@ -232,8 +253,8 @@ export const COLLEGA_CLAUDE = {
 /** To the admin only, when one of the two clients is missing: what to register in Supabase. */
 export function clientMancante(tipo: 'claude' | 'claude_code'): string {
   return tipo === 'claude'
-    ? `Manca il client «Claude» (sito, app per computer e telefono): in Supabase › Authentication › OAuth Apps registra un client pubblico con Redirect URIs ${CALLBACK_CLAUDE.join(' e ')}.`
-    : `Manca il client «Claude Code»: in Supabase › Authentication › OAuth Apps registra un client pubblico con Redirect URIs ${CALLBACK_CLAUDE_CODE.join(' e ')}.`
+    ? `Manca il client «Claude» (sito, app per computer e telefono): in Supabase › Authentication › OAuth Apps registra un client con Client type Public, senza segreto (un client Confidential non vale), e Redirect URIs ${CALLBACK_CLAUDE.join(' e ')}.`
+    : `Manca il client «Claude Code»: in Supabase › Authentication › OAuth Apps registra un client con Client type Public, senza segreto (un client Confidential non vale), e Redirect URIs ${CALLBACK_CLAUDE_CODE.join(' e ')}.`
 }
 
 /** «App collegate» in Profilo › Account, word for word. */

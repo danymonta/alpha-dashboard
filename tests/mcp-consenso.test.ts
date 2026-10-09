@@ -102,6 +102,9 @@ import {
   COLLEGA_CLAUDE,
   CONSENSO,
   MESSAGGI_AUTORIZZAZIONE,
+  avvisoPhishing,
+  azioniConsenso,
+  clientMancante,
   comandoClaudeCode,
   destinazioneClaude,
   erroreVersoClaude,
@@ -479,27 +482,54 @@ describe('le parole della scheda di consenso', () => {
 
   it('dice cosa farà Claude, cosa non vedrà mai e avvisa del link mandato da altri', () => {
     const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, admin: false }))
-    for (const frase of [CONSENSO.titolo, ...CONSENSO.azioni, CONSENSO.maiVisto, CONSENSO.team, CONSENSO.phishing]) {
+    for (const frase of [CONSENSO.titolo, ...azioniConsenso(false), CONSENSO.maiVisto, CONSENSO.team, CONSENSO.phishing]) {
       expect(html).toContain(frase)
     }
     expect(html).toContain('claude.ai')
     expect(html).toContain('Giulia Marketing')
     expect(html).not.toContain(CONSENSO.azioneAdmin)
+    expect(html).not.toContain(CONSENSO.phishingClaudeCode)
     expect(html).toContain('value="consenti"')
     expect(html).toContain('value="rifiuta"')
   })
 
-  it('l’eliminazione solo per l’admin', () => {
-    const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, admin: true }))
-    expect(html).toContain(CONSENSO.azioneAdmin)
+  it('l’elenco di «Claude potrà» è una frase: «;» tra le voci e «.» in fondo, con o senza l’eliminazione', () => {
+    expect(azioniConsenso(false)).toEqual([`${CONSENSO.azioni[0]};`, `${CONSENSO.azioni[1]}.`])
+    expect(azioniConsenso(true)).toEqual([`${CONSENSO.azioni[0]};`, `${CONSENSO.azioni[1]};`, `${CONSENSO.azioneAdmin}.`])
+    for (const voce of [...CONSENSO.azioni, CONSENSO.azioneAdmin]) expect(voce).not.toMatch(/[;.,:]$/)
+    for (const admin of [false, true]) {
+      const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, admin }))
+      const voci = [...html.matchAll(/<li[^>]*>(?:<svg.*?<\/svg>)?(.*?)<\/li>/g)].map((m) => m[1])
+      expect(voci, admin ? 'admin' : 'marketing').toEqual(azioniConsenso(admin))
+    }
   })
 
-  it('per Claude Code: il computer e l’avviso che ogni programma può rispondere', () => {
+  it('l’eliminazione solo per l’admin', () => {
+    const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, admin: true }))
+    expect(html).toContain(`${CONSENSO.azioneAdmin}.`)
+  })
+
+  it('per Claude Code: il computer, l’avviso che ogni programma può rispondere, e niente «Connetti»', () => {
     const html = renderToStaticMarkup(
       createElement(SchedaConsenso, { ...props, admin: false, destinazione: { tipo: 'claude_code', host: '127.0.0.1' } }),
     )
     expect(html).toContain('un programma sul tuo computer (Claude Code), indirizzo 127.0.0.1')
     expect(html).toContain(CONSENSO.loopback)
+    expect(html).toContain(CONSENSO.phishingClaudeCode)
+    expect(html).not.toContain('Connetti')
+  })
+
+  it('l’avviso del link mandato da altri dice quello che la persona ha appena fatto', () => {
+    expect(avvisoPhishing('claude')).toBe(CONSENSO.phishing)
+    expect(avvisoPhishing('claude', true)).toBe(CONSENSO.phishingRicollega)
+    expect(avvisoPhishing('claude_code')).toBe(CONSENSO.phishingClaudeCode)
+    expect(avvisoPhishing('claude_code', true)).toBe(CONSENSO.phishingRicollegaClaudeCode)
+    expect(CONSENSO.phishingClaudeCode).toContain('/mcp › Authenticate')
+    expect(CONSENSO.phishingClaudeCode).toMatch(/premi Rifiuta\.$/)
+    expect(CONSENSO.phishingRicollegaClaudeCode).toMatch(/premi Annulla\.$/)
+    for (const frase of [CONSENSO.phishingClaudeCode, CONSENSO.phishingRicollegaClaudeCode]) {
+      expect(frase).not.toContain('Connetti')
+    }
   })
 
   it('«Ricollega Claude» porta l’indirizzo nel modulo e offre Continua e Annulla', () => {
@@ -507,9 +537,19 @@ describe('le parole della scheda di consenso', () => {
       createElement(SchedaRicollega, { ...props, redirectUrl: CON_CODICE }),
     )
     expect(html).toContain(CONSENSO.titoloRicollega)
+    expect(html).toContain(CONSENSO.phishingRicollega)
     expect(html).toContain('value="continua"')
     expect(html).toContain('value="annulla"')
     expect(html).toContain('name="redirect_url"')
+    const code = renderToStaticMarkup(
+      createElement(SchedaRicollega, {
+        ...props,
+        redirectUrl: CON_CODICE,
+        destinazione: { tipo: 'claude_code', host: 'localhost' },
+      }),
+    )
+    expect(code).toContain(CONSENSO.phishingRicollegaClaudeCode)
+    expect(code).not.toContain('Connetti')
   })
 
   it('chi non può: il perché e «Torna a Claude», che rifiuta', () => {
@@ -545,7 +585,8 @@ describe('Collega Claude in Profilo › Account', () => {
 
   it('senza client: all’admin dove attivarlo, agli altri di chiederlo', () => {
     const admin = renderToStaticMarkup(createElement(CollegaClaude, { urlMcp: URL_MCP, claude: null, claudeCode: null, admin: true }))
-    expect(admin).toContain('attivalo in Supabase (Authentication › OAuth Server)')
+    expect(admin).toContain('attiva il server OAuth in Supabase (Authentication › OAuth Server)')
+    expect(admin).toContain('Client type Public')
     expect(admin).not.toContain(URL_MCP)
     const altri = renderToStaticMarkup(createElement(CollegaClaude, { urlMcp: URL_MCP, claude: null, claudeCode: null, admin: false }))
     expect(altri).toContain('chiedi all’admin')
@@ -686,6 +727,13 @@ describe('la sezione Collega Claude legge i client registrati', () => {
   it('nessun client: la card dice che non è ancora attivo', async () => {
     const el = (await SezioneCollegaClaude({ admin: true })) as ReactElement
     expect(renderToStaticMarkup(el)).toContain(COLLEGA_CLAUDE.nonAttivoAdmin)
+  })
+
+  it('all’admin dice che i client vanno registrati Public: uno Confidential non vale (mcp_client lo salta)', () => {
+    for (const frase of [COLLEGA_CLAUDE.nonAttivoAdmin, clientMancante('claude'), clientMancante('claude_code')]) {
+      expect(frase).toContain('Client type Public, senza segreto (un client Confidential non vale)')
+    }
+    expect(COLLEGA_CLAUDE.nonAttivoAdmin).toContain('Authentication › OAuth Server')
   })
 
   it('una lettura che non riesce: l’errore con «Riprova», mai «non attivo»', async () => {

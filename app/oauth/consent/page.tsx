@@ -27,7 +27,8 @@ import { NON_VALIDA, idAutorizzazioneSchema } from '@/lib/validation/mcp'
  * no shell, no intro, no tour. Behind the Google sign-in: the proxy sends who
  * has no session to /login?da= and brings them back, query included. It always
  * needs a tap, also when Supabase has already approved a repeat consent.
- * next.config.ts adds frame-ancestors 'none', no-referrer and no-store on /oauth.
+ * next.config.ts adds frame-ancestors 'none', a same-origin referrer policy (no Referer
+ * to Claude or anywhere else) and no-store on /oauth.
  */
 
 export const dynamic = 'force-dynamic'

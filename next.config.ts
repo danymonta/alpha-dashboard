@@ -24,7 +24,11 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['192.168.*.*', '10.*.*.*'],
   // The consent page of Claude's connection (/oauth/consent, 09/10/2026) may carry an
   // authorization code in a hidden field: never framed (clickjacking), never cached,
-  // never sent as a referrer, never indexed.
+  // never indexed, and never sent as a referrer to another site. same-origin, not
+  // no-referrer: with no-referrer browsers send `Origin: null` on a native form POST,
+  // and Next's Origin check on server actions refuses it (the tap of a page whose
+  // JavaScript bundles did not arrive). Going to claude.ai, claude.com or the
+  // loopback, no Referer leaves either way.
   async headers() {
     return [
       {
@@ -32,7 +36,7 @@ const nextConfig: NextConfig = {
         headers: [
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
           { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Referrer-Policy', value: 'same-origin' },
           { key: 'Cache-Control', value: 'no-store' },
           { key: 'X-Robots-Tag', value: 'noindex' },
         ],

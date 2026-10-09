@@ -5,7 +5,7 @@ import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { LinkBottone } from '@/components/link-bottone'
 import { DecisioneConsenso } from '@/components/oauth/decisione-consenso'
 import { NOME_APP } from '@/lib/brand/nome'
-import { CONSENSO, doveTorni, type DestinazioneClaude } from '@/lib/mcp/consenso'
+import { CONSENSO, avvisoPhishing, azioniConsenso, doveTorni, type DestinazioneClaude } from '@/lib/mcp/consenso'
 
 /*
  * The consent page's cards (Claude connected to Alpha Management, 09/10/2026).
@@ -100,7 +100,7 @@ export function SchedaConsenso({
   ruolo: string
   admin: boolean
 }) {
-  const azioni = admin ? [...CONSENSO.azioni, CONSENSO.azioneAdmin] : CONSENSO.azioni
+  const azioni = azioniConsenso(admin)
   return (
     <Scheda titolo={CONSENSO.titolo}>
       <ChiSiCollega client={client} nome={nome} ruolo={ruolo} />
@@ -126,7 +126,7 @@ export function SchedaConsenso({
         <p>{CONSENSO.team}</p>
         <p>{CONSENSO.privacy}</p>
       </div>
-      <AvvisoLink testo={CONSENSO.phishing} />
+      <AvvisoLink testo={avvisoPhishing(destinazione.tipo)} />
       <p className="text-sm text-muted-foreground">{CONSENSO.scollega}</p>
       <DecisioneConsenso
         authorizationId={authorizationId}
@@ -163,7 +163,7 @@ export function SchedaRicollega({
         {CONSENSO.ricollega} {CONSENSO.account} <strong className="font-semibold">{nome}</strong> ({ruolo}).
       </p>
       <DoveTorni destinazione={destinazione} etichetta={CONSENSO.dopoRicollega} />
-      <AvvisoLink testo={CONSENSO.phishingRicollega} />
+      <AvvisoLink testo={avvisoPhishing(destinazione.tipo, true)} />
       <p className="text-sm text-muted-foreground">{CONSENSO.scollega}</p>
       <DecisioneConsenso
         authorizationId={authorizationId}

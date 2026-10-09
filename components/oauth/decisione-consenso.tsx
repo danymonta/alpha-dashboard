@@ -25,8 +25,11 @@ type Props = {
 /**
  * The taps of the consent page: always a POST to a server action (Next checks
  * the Origin), which decides and sends the browser back to Claude. A plain
- * form: without JavaScript the action answers 303. While it runs every button
- * is off, so a double tap never approves twice.
+ * form: if the JavaScript bundles never arrive (the inline scripts still show
+ * the page), the tap is a native post and the action answers 303; a tap before
+ * hydration React replays as a fetch. The same-origin referrer policy of
+ * next.config.ts keeps the Origin on that native post. While it runs every
+ * button is off, so a double tap never approves twice.
  */
 export function DecisioneConsenso({ authorizationId, redirectUrl, bottoni }: Props) {
   const [esito, azione, inCorso] = useActionState<EsitoConsenso, FormData>(decidiCollegamento, null)

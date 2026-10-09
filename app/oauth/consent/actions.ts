@@ -100,7 +100,9 @@ export async function decidiCollegamento(_prima: EsitoConsenso, formData: FormDa
     console.warn(`[mcp] consenso destinazione rifiutata host=${hostDi(passo.url)}`)
     return { errore: passo.rifiuto ? CONSENSO.rifiutataNonDaClaude : CONSENSO.nonDaClaude, finale: true }
   }
-  // outside any try/catch: Next implements redirect by throwing. With JavaScript it is a
-  // navigation to Claude, without it a 303; replace, so Back does not land on a used page.
+  // outside any try/catch: Next implements redirect by throwing. Once the page is hydrated it
+  // is a navigation to Claude; a native form post (the JavaScript bundles never arrived: a
+  // content blocker, a network that drops halfway) gets a 303 instead. Replace, so Back does
+  // not land on a used page.
   redirect(destinazione.href, RedirectType.replace)
 }
