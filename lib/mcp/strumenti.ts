@@ -163,7 +163,7 @@ export const STRUMENTI: readonly Strumento[] = [
   strumento({
     nome: 'scrivi_sezione',
     titolo: 'Scrivi una sezione',
-    descrizione: `Scrive il testo, in Markdown, di una sezione di un contenuto al posto di quello che c’è: ${CHIAVI_SEZIONI}. Passa l’impronta di quella sezione letta con leggi_contenuto: se nel frattempo il testo è cambiato non salva niente e restituisce il testo attuale con la sua impronta. Salvata, restituisce la nuova impronta e le proprietà con la versione nuova. Un testo vuoto svuota la sezione. Al massimo 30.000 caratteri; righe vuote in cima e spazi in fondo si tolgono.`,
+    descrizione: `Scrive il testo, in Markdown, di una sezione di un contenuto al posto di quello che c’è: ${CHIAVI_SEZIONI}. Serve l’impronta più recente che hai di quella sezione, da leggi_contenuto o dalla risposta dell’ultimo scrivi_sezione su quella sezione («salvata» o «cambiata»): ogni scrittura la cambia. Se nel frattempo qualcun altro ha cambiato il testo non salva niente e restituisce il testo attuale con la sua impronta. Salvata, restituisce la nuova impronta e le proprietà con la versione nuova. Un testo vuoto svuota la sezione. Al massimo 30.000 caratteri; righe vuote in cima e spazi in fondo si tolgono.`,
     input: scriviSezioneSchema,
     lettura: false,
     idempotente: true,

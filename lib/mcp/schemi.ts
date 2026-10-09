@@ -50,15 +50,28 @@ const idContenuto = z
   .uuid('Id del contenuto non valido: usa quello letto con elenco_contenuti o leggi_contenuto.')
   .describe('L’id del contenuto, come lo danno elenco_contenuti e leggi_contenuto.')
 
+// Claude fills these two from their JSON Schema descriptions: they say what the tool
+// descriptions and the server instructions say, the most recent one it has, including the
+// answer of its own last write (every write changes them). A test reads them there.
 const versione = z
   .string({ required_error: 'Manca la versione.', invalid_type_error: 'Versione non valida.' })
-  .regex(/^[0-9a-f]{16}$/, 'Versione non valida: ricopiala così com’è da leggi_contenuto o elenco_contenuti.')
-  .describe('La versione letta con leggi_contenuto o elenco_contenuti, ricopiata così com’è.')
+  .regex(
+    /^[0-9a-f]{16}$/,
+    'Versione non valida: ricopia così com’è la più recente che hai di questo contenuto, da leggi_contenuto, elenco_contenuti o dalla risposta dell’ultima scrittura su quel contenuto.',
+  )
+  .describe(
+    'La versione più recente che hai di questo contenuto: da leggi_contenuto, elenco_contenuti o dalla risposta dell’ultima scrittura su quel contenuto, ricopiata così com’è.',
+  )
 
 const impronta = z
   .string({ required_error: 'Manca l’impronta.', invalid_type_error: 'Impronta non valida.' })
-  .regex(/^[0-9a-f]{32}$/, 'Impronta non valida: ricopiala così com’è da leggi_contenuto.')
-  .describe('L’impronta di questa sezione letta con leggi_contenuto, ricopiata così com’è.')
+  .regex(
+    /^[0-9a-f]{32}$/,
+    'Impronta non valida: ricopia così com’è la più recente che hai di questa sezione, da leggi_contenuto o dalla risposta dell’ultimo scrivi_sezione su quella sezione.',
+  )
+  .describe(
+    'L’impronta più recente di questa sezione: da leggi_contenuto o dalla risposta dell’ultimo scrivi_sezione su quella sezione («salvata» o «cambiata»), ricopiata così com’è.',
+  )
 
 const data = z
   .string({ invalid_type_error: 'Data non valida: scrivila AAAA-MM-GG.' })

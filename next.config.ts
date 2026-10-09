@@ -26,9 +26,10 @@ const nextConfig: NextConfig = {
   // authorization code in a hidden field: never framed (clickjacking), never cached,
   // never indexed, and never sent as a referrer to another site. same-origin, not
   // no-referrer: with no-referrer browsers send `Origin: null` on a native form POST,
-  // and Next's Origin check on server actions refuses it (the tap of a page whose
-  // JavaScript bundles did not arrive). Going to claude.ai, claude.com or the
-  // loopback, no Referer leaves either way.
+  // and Next's Origin check on server actions refuses it. Every tap before the page is
+  // hydrated (slow bundles on a phone's network, the usual case in the first seconds)
+  // and every tap of a page whose bundles never arrive is that native POST. Going to
+  // claude.ai, claude.com or the loopback, no Referer leaves either way.
   async headers() {
     return [
       {

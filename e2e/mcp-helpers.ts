@@ -55,9 +55,14 @@ export function nuovaAutorizzazione(clientId: string, baseURL: string, state: st
  * browser would) and opens the consent page it points to in `page`. Supabase
  * builds that address from its Site URL; the test server may run on another
  * port, so the page opens the same path and query on the test's own origin.
- * Returns the authorization_id.
+ * Returns the authorization_id. `attesa` is page.goto's waitUntil: 'commit'
+ * returns before the page's scripts, to tap a page not hydrated yet.
  */
-export async function apriConsenso(page: Page, a: Autorizzazione): Promise<string> {
+export async function apriConsenso(
+  page: Page,
+  a: Autorizzazione,
+  attesa: 'commit' | 'domcontentloaded' | 'load' = 'load',
+): Promise<string> {
   const { url } = supabaseLocale()
   const indirizzo = new URL(`${url}/auth/v1/oauth/authorize`)
   indirizzo.search = new URLSearchParams({
@@ -78,7 +83,7 @@ export async function apriConsenso(page: Page, a: Autorizzazione): Promise<strin
   if (consenso.pathname !== '/oauth/consent') throw new Error(`authorize: verso ${consenso.pathname}`)
   const id = consenso.searchParams.get('authorization_id')
   if (!id) throw new Error('authorize: senza authorization_id')
-  await page.goto(`${consenso.pathname}${consenso.search}`)
+  await page.goto(`${consenso.pathname}${consenso.search}`, { waitUntil: attesa })
   return id
 }
 

@@ -461,6 +461,8 @@ test('chi non può collegare Claude torna a Claude con un rifiuto, mai con un co
   } finally {
     await impostaProfilo(ID_MARKETING, { ruolo: 'marketing' })
   }
+  // a pause, not a disconnection: the role given back, the same token works again, no new consent
+  expect((await chiamataGrezza(baseDi(page), marketing.token.access_token)).status).toBe(200)
 })
 
 test('se i bundle non arrivano il tocco funziona lo stesso: un POST nativo, 303 verso Claude', async ({ browser }) => {
@@ -497,22 +499,81 @@ test('se i bundle non arrivano il tocco funziona lo stesso: un POST nativo, 303 
   }
 })
 
-test('un account disattivato non entra più con il suo token: 403, e torna con la riattivazione', async ({ baseURL }) => {
-  // 14. deactivation closes at once; the token itself is still valid
+test('con i bundle lenti il tocco è già un POST nativo: «Consenti» risponde 303 col codice', async ({ browser }) => {
+  test.setTimeout(90_000)
+  // 13c. the usual case on a phone's network: the bundles arrive, but after the tap. The form's
+  // action is "" (useActionState's progressive enhancement) and React's inline scripts do not
+  // catch the submit, so a tap before hydration is a native form post too, never replayed as a
+  // fetch: same-origin keeps its Origin and the action answers 303 to Claude with the code.
+  const editor = await persona(browser, 'editor')
+  let rilascia = () => {}
+  const cancello = new Promise<void>((risolvi) => {
+    rilascia = risolvi
+  })
+  try {
+    await editor.route('**/_next/static/**', async (route) => {
+      if (route.request().resourceType() !== 'script') return route.continue()
+      // slow, never aborted: held until the tap has its answer, then let through
+      await cancello
+      await route.continue().catch(() => {})
+    })
+    const a = nuovaAutorizzazione(clientId, baseDi(editor), 'bundle-lenti')
+    await apriConsenso(editor, a, 'commit')
+    const consenti = editor.getByRole('button', { name: CONSENSO.consenti, exact: true })
+    await expect(consenti).toBeVisible()
+    const idratato = await consenti.evaluate((el) => Object.keys(el).some((k) => k.startsWith('__reactFiber')))
+    expect(idratato, 'la pagina non è ancora idratata').toBe(false)
+    expect(await consenti.evaluate((el) => el.closest('form')?.getAttribute('action'))).toBe('')
+
+    const post = editor.waitForResponse(
+      (r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/oauth/consent',
+    )
+    await consenti.click()
+    const risposta = await post
+    rilascia()
+    expect(risposta.request().headers()['next-action'], 'un POST nativo, non il fetch di React').toBeUndefined()
+    expect(risposta.status()).toBe(303)
+    const verso = new URL(risposta.headers()['location'] ?? '')
+    expect(verso.origin + verso.pathname).toBe(CALLBACK_E2E)
+    expect(verso.searchParams.get('state')).toBe('bundle-lenti')
+    // the Location is where the browser goes (Playwright's routes never see a redirect's next hop)
+    const codice = verso.searchParams.get('code')
+    expect(codice, 'codice nel Location').toBeTruthy()
+    // and the code is good: the exchange Claude makes
+    expect((await scambiaCodice(a, codice as string)).access_token).toBeTruthy()
+  } finally {
+    rilascia()
+    await editor.context().close()
+  }
+})
+
+test('un account disattivato è fermo con il suo token, non scollegato: torna con la riattivazione', async ({ baseURL }) => {
+  // 14. deactivation blocks at once (403), but it is a pause: Team changes only profiles, the
+  // OAuth session stays and Supabase keeps renewing the token, so reactivation lets the same
+  // connection in again without a new consent. Only «Scollega» closes it (CLAUDE.md, section 28).
   expect(marketing, 'il test prima ha ricollegato Claude').not.toBeNull()
   const base = (baseURL ?? '').replace(/\/+$/, '')
   expect((await chiamataGrezza(base, marketing!.token.access_token)).status).toBe(200)
   await impostaProfilo(ID_MARKETING, { attivo: false })
+  let rinnovato = ''
   try {
     const chiamata = await chiamataGrezza(base, marketing!.token.access_token)
     expect(chiamata.status).toBe(403)
     expect(chiamata.headers.get('www-authenticate') ?? '').toContain('error="insufficient_scope"')
     const corpo = (await chiamata.json()) as { messaggio?: string }
     expect(corpo.messaggio).toContain('Il tuo account non può usare Alpha Management da Claude')
+
+    // the session is not closed: the refresh token still gives a new token, which waits at the door too
+    const refresh = await rinnova(clientId, marketing!.token.refresh_token as string)
+    expect(refresh.status, JSON.stringify(refresh.corpo)).toBe(200)
+    rinnovato = String(refresh.corpo?.access_token ?? '')
+    expect(rinnovato).toBeTruthy()
+    expect((await chiamataGrezza(base, rinnovato)).status).toBe(403)
   } finally {
     await impostaProfilo(ID_MARKETING, { attivo: true })
   }
   expect((await chiamataGrezza(base, marketing!.token.access_token)).status).toBe(200)
+  expect((await chiamataGrezza(base, rinnovato)).status).toBe(200)
 })
 
 test('i metadati della risorsa dicono l’indirizzo di /mcp e il server di Supabase', async ({ request, baseURL }) => {
