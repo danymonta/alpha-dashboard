@@ -107,6 +107,28 @@ describe('come Claude vede gli strumenti', () => {
     }
   })
 
+  it('la versione: ogni scrittura la cambia e la dà, e modifica_contenuto vuole l’ultima', () => {
+    const per = Object.fromEntries(STRUMENTI.map((s) => [s.nome, s.descrizione]))
+    expect(per.modifica_contenuto).toContain(
+      'Serve l’ultima versione che hai: da leggi_contenuto, elenco_contenuti o dalla risposta dell’ultima scrittura su quel contenuto (crea_contenuti, cambia_status, scrivi_sezione, modifica_contenuto)',
+    )
+    expect(per.modifica_contenuto).toContain('ogni scrittura la cambia')
+    for (const nome of ['crea_contenuti', 'cambia_status', 'scrivi_sezione', 'modifica_contenuto']) {
+      expect(per[nome], nome).toMatch(/versione/)
+    }
+    for (const ruolo of ['admin', 'editor', 'marketing'] as const) {
+      const istruzioni = istruzioniMcp(ruolo)
+      expect(istruzioni).toContain('Ogni scrittura cambia la versione e restituisce quella nuova insieme ai valori attuali')
+      expect(istruzioni).toContain('Se modifica_contenuto risponde «cambiato» con l’ultima versione che hai ricevuto')
+    }
+  })
+
+  it('cerca è un pezzo del Name così com’è, non parole sparse', () => {
+    const elenco = STRUMENTI.find((s) => s.nome === 'elenco_contenuti')
+    expect(elenco?.descrizione).not.toMatch(/parole nel Name/i)
+    expect(elenco?.descrizione).toContain('più parole valgono solo se nel Name sono di seguito')
+  })
+
   it('solo all’admin le istruzioni parlano di eliminare un contenuto', () => {
     expect(istruzioniMcp('admin')).toContain('Elimina un contenuto solo quando la persona te lo chiede per quel contenuto.')
     expect(istruzioniMcp('marketing')).toContain('Da qui non elimini contenuti')

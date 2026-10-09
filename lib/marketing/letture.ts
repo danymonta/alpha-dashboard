@@ -108,3 +108,15 @@ export async function leggiContenuto(db: Db, id: string): Promise<RigaCompleta |
   if (error) throw new LetturaNonRiuscita('Impossibile caricare il contenuto', error.code)
   return data
 }
+
+/**
+ * One content's properties only, without the sections: what Claude's tools
+ * read back after a write, so the version they hand over always comes with the
+ * values it covers. Null as leggiContenuto.
+ */
+export async function leggiProprietaContenuto(db: Db, id: string): Promise<ContenutoElenco | null> {
+  if (!isUuid(id)) return null
+  const { data, error } = await db.from('marketing_contenuti').select(COLONNE_ELENCO).eq('id', id).maybeSingle()
+  if (error) throw new LetturaNonRiuscita('Impossibile caricare il contenuto', error.code)
+  return data
+}

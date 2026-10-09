@@ -13,6 +13,7 @@ import {
   contaPerGruppo,
   leggiContenuto,
   leggiElenco,
+  leggiProprietaContenuto,
 } from '@/lib/marketing/letture'
 import type { Db } from '@/lib/marketing/operazioni'
 
@@ -148,5 +149,22 @@ describe('leggiContenuto', () => {
       codice: '57014',
       message: 'Impossibile caricare il contenuto',
     })
+  })
+})
+
+describe('leggiProprietaContenuto', () => {
+  it('le sole proprietà, come un elenco: mai le sezioni né chi l’ha creato', async () => {
+    const riga = { id: ID, nome: 'Trazioni', updated_at: '2026-10-09T08:15:42.123456+00:00' }
+    finto.risponde({ data: riga })
+    expect(await leggiProprietaContenuto(db, ID)).toEqual(riga)
+    expect(finto.query[0].passi).toEqual([['select', COLONNE_ELENCO], ['eq', 'id', ID], ['maybeSingle']])
+    expect(COLONNE_ELENCO).not.toMatch(/messaggio|bozza|commenti|finale|created_by/)
+  })
+
+  it('un id che non è un id non arriva al database; una lettura che non riesce lancia', async () => {
+    expect(await leggiProprietaContenuto(db, 'non-un-id')).toBeNull()
+    expect(finto.intatto()).toBe(true)
+    finto.risponde({ error: { code: '57014', message: 'canceling statement due to statement timeout' } })
+    await expect(leggiProprietaContenuto(db, ID)).rejects.toMatchObject({ name: 'LetturaNonRiuscita', codice: '57014' })
   })
 })

@@ -135,10 +135,12 @@ export const elencoContenutiSchema = z
     format: FORMAT.nullish().describe(`Format: ${elencoEtichette(ETICHETTE.format)}.`),
     modello: MODELLO.nullish().describe('Modello: Reel Topic o Carousel Topic.'),
     cerca: z
-      .string({ invalid_type_error: 'Cerca: scrivi le parole del Name.' })
+      .string({ invalid_type_error: 'Cerca: scrivi un pezzo del Name.' })
       .nullish()
       .refine((v) => v == null || lunghezza(v.trim()) <= RICERCA_MAX, `Cerca: al massimo ${RICERCA_MAX} caratteri.`)
-      .describe(`Parole nel Name, al massimo ${RICERCA_MAX} caratteri.`),
+      .describe(
+        `Un pezzo del Name, cercato così com’è (maiuscole e minuscole non contano): con una parola sola trovi di più; più parole devono essere di seguito nel Name. Al massimo ${RICERCA_MAX} caratteri.`,
+      ),
     limite: z
       .number({ invalid_type_error: 'Limite: un numero da 1 a 100.' })
       .int('Limite: un numero da 1 a 100.')

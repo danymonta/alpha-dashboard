@@ -19,7 +19,13 @@ import {
   type TipoContenuto,
 } from '@/lib/marketing/etichette'
 import { improntaTesto } from '@/lib/marketing/impronta'
-import { contaPerGruppo, leggiContenuto, leggiElenco, type FiltriElenco } from '@/lib/marketing/letture'
+import {
+  contaPerGruppo,
+  leggiContenuto,
+  leggiElenco,
+  leggiProprietaContenuto,
+  type FiltriElenco,
+} from '@/lib/marketing/letture'
 import {
   cambiaStatusContenuto,
   creaContenuto,
@@ -71,6 +77,8 @@ const CAMBIATO = 'Il contenuto è cambiato da un’altra parte: ricontrolla i va
 const SEZIONE_CAMBIATA = 'Questa parte è cambiata da un’altra parte: ecco il testo attuale.'
 const NAME_DIVERSO = 'Il Name non coincide con quello del contenuto: non elimino niente.'
 const SOLO_ADMIN_ELIMINA = 'Da Claude elimina un contenuto solo l’admin: per toglierlo dal lavoro c’è lo Status Canceled.'
+const RILEGGI =
+  'Per cambiare poi le proprietà rileggi il contenuto con leggi_contenuto o elenco_contenuti: questa scrittura ha cambiato la sua versione.'
 
 function ok(dati: Record<string, unknown>, esito?: string): EsitoStrumento {
   return { ok: true, dati, esito }
@@ -298,7 +306,8 @@ export async function modificaContenutoPerClaude(
   input: ModificaContenutoInput,
   ctx: ContestoMcp,
 ): Promise<EsitoStrumento> {
-  const riga = await leggiContenuto(ctx.db, input.id)
+  // the properties only: the sections are not needed to compare a version
+  const riga = await leggiProprietaContenuto(ctx.db, input.id)
   if (!riga) return no(NON_C_E_PIU)
   if (versioneOpaca(riga.updated_at) !== input.versione) {
     return ok({ esito: 'cambiato', messaggio: CAMBIATO, contenuto: rigaPerClaude(riga) }, 'cambiato')
@@ -328,11 +337,30 @@ export async function modificaContenutoPerClaude(
     })
   }
   if ('cambiato' in esito && esito.cambiato) {
-    const attuale = await leggiContenuto(ctx.db, riga.id)
+    const attuale = await leggiProprietaContenuto(ctx.db, riga.id)
     if (!attuale) return no(NON_C_E_PIU)
     return ok({ esito: 'cambiato', messaggio: CAMBIATO, contenuto: rigaPerClaude(attuale) }, 'cambiato')
   }
   return no(esito.errore)
+}
+
+// ── after a write ───────────────────────────────────────────────────────────
+
+/**
+ * The properties as they are right after a write, with their version: a
+ * version never leaves without the values it covers. The version a write
+ * returns also covers what others changed since Claude's last read, so on its
+ * own it would let modifica_contenuto overwrite a value Claude never saw. Null
+ * when the read fails: the write is saved anyway, and the result asks Claude
+ * to read again instead of giving a version.
+ */
+async function proprietaDopo(ctx: ContestoMcp, id: string): Promise<ReturnType<typeof rigaPerClaude> | null> {
+  try {
+    const riga = await leggiProprietaContenuto(ctx.db, id)
+    return riga ? rigaPerClaude(riga) : null
+  } catch {
+    return null
+  }
 }
 
 // ── cambia_status ───────────────────────────────────────────────────────────
@@ -340,19 +368,12 @@ export async function modificaContenutoPerClaude(
 export async function cambiaStatus(input: CambiaStatusInput, ctx: ContestoMcp): Promise<EsitoStrumento> {
   const esito = await cambiaStatusContenuto(ctx.db, { id: input.id, stato: valoreDa(ETICHETTA_STATUS, input.status) })
   if (!esito.ok) return no(esito.errore)
-  // the row as it is now; the Status is saved even if this read fails
-  let riga: Awaited<ReturnType<typeof leggiContenuto>> = null
-  try {
-    riga = await leggiContenuto(ctx.db, input.id)
-  } catch {
-    riga = null
-  }
-  return ok({
-    esito: 'salvato',
-    contenuto: riga
-      ? rigaPerClaude(riga)
-      : { id: input.id, [CAMPI.stato]: input.status, versione: versioneOpaca(esito.versione) },
-  })
+  const contenuto = await proprietaDopo(ctx, input.id)
+  return ok(
+    contenuto
+      ? { esito: 'salvato', contenuto }
+      : { esito: 'salvato', contenuto: { id: input.id, [CAMPI.stato]: input.status }, avviso: RILEGGI },
+  )
 }
 
 // ── scrivi_sezione ──────────────────────────────────────────────────────────
@@ -365,17 +386,22 @@ export async function scriviSezione(input: ScriviSezioneInput, ctx: ContestoMcp)
     impronta: input.impronta,
   })
   if (esito.ok) {
-    return ok({ esito: 'salvata', impronta: esito.impronta, versione: versioneOpaca(esito.versione) }, 'salvata')
+    // the new version only with the properties it covers (proprietaDopo), never the one of the RPC alone
+    const contenuto = await proprietaDopo(ctx, input.id)
+    return ok(
+      { esito: 'salvata', impronta: esito.impronta, ...(contenuto ? { contenuto } : { avviso: RILEGGI }) },
+      'salvata',
+    )
   }
   if (esito.cambiata) {
-    // not an error: Claude merges the two texts with the person and writes again over the new fingerprint
+    // not an error: Claude merges the two texts with the person and writes again over the new
+    // fingerprint. Nothing was written, so no version: the one Claude holds is still its last.
     return ok(
       {
         esito: 'cambiata',
         messaggio: SEZIONE_CAMBIATA,
         attuale: esito.cambiata.attuale ?? '',
         impronta: esito.cambiata.impronta,
-        versione: versioneOpaca(esito.cambiata.versione),
       },
       'cambiata',
     )
@@ -397,7 +423,7 @@ export async function eliminaContenutoPerClaude(
 ): Promise<EsitoStrumento> {
   // the tool exists only for the admin; the policy says so again for an OAuth token
   if (ctx.ruolo !== 'admin') return no(SOLO_ADMIN_ELIMINA)
-  const riga = await leggiContenuto(ctx.db, input.id)
+  const riga = await leggiProprietaContenuto(ctx.db, input.id)
   if (!riga) return no(NON_C_E_PIU)
   if (!stessoNome(riga.nome, input.name)) return no(NAME_DIVERSO)
   const esito = await eliminaContenuto(ctx.db, { id: riga.id })

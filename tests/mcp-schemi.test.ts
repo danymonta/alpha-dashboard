@@ -184,6 +184,9 @@ describe('i limiti degli ingressi', () => {
     expect(elencoContenutiSchema.safeParse({ limite: 101 }).success).toBe(false)
     expect(elencoContenutiSchema.safeParse({ cerca: 'x'.repeat(100) }).success).toBe(true)
     expect(elencoContenutiSchema.safeParse({ cerca: 'x'.repeat(101) }).success).toBe(false)
+    expect(elencoContenutiSchema.safeParse({ cerca: 3 }).error?.issues[0].message).toBe('Cerca: scrivi un pezzo del Name.')
+    // what Claude reads: a piece of the Name as it is, not words anywhere in it (the app's search)
+    expect(elencoContenutiSchema.innerType().shape.cerca.description).toContain('più parole devono essere di seguito nel Name')
     // the database value is not a label
     expect(elencoContenutiSchema.safeParse({ status: 'to_be_edited' }).success).toBe(false)
     expect(elencoContenutiSchema.safeParse({ mostra_tutto: true }).success).toBe(false)

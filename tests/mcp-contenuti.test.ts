@@ -9,6 +9,7 @@ vi.mock('@/lib/env', () => ({
 import { BOZZA_REEL, GRUPPI_STATUS } from '@/lib/marketing/etichette'
 import { improntaTesto } from '@/lib/marketing/impronta'
 import {
+  cambiaStatus,
   creaContenuti,
   elencoContenuti,
   eliminaContenutoPerClaude,
@@ -21,6 +22,7 @@ import type { ContestoMcp, RuoloMcp } from '@/lib/mcp/contesto'
 import { versioneOpaca } from '@/lib/mcp/etichette'
 import { azzeraLimiti } from '@/lib/mcp/limiti'
 import {
+  cambiaStatusSchema,
   creaContenutiSchema,
   elencoContenutiSchema,
   eliminaContenutoSchema,
@@ -426,17 +428,63 @@ describe('modifica_contenuto', () => {
 
 describe('scrivi_sezione', () => {
   const input = scriviSezioneSchema.parse({ id: ID, sezione: 'bozza', testo: 'Hook: nuovo', impronta: improntaTesto(BOZZA_REEL) })
+  const DOPO = '2026-10-09T09:30:00.000003+00:00'
 
-  it('salvata: la nuova impronta e la versione opaca', async () => {
-    rispondi = () => ({ data: { esito: 'salvata', impronta: improntaTesto('Hook: nuovo'), versione: AGGIORNATO } })
-    expect(dati(await scriviSezione(input, contesto()))).toEqual({
+  it('salvata: la nuova impronta e le proprietà rilette, con la loro versione', async () => {
+    rispondi = (c) =>
+      c.tipo === 'rpc'
+        ? { data: { esito: 'salvata', impronta: improntaTesto('Hook: nuovo'), versione: DOPO } }
+        : { data: riga({ updated_at: DOPO }) }
+    const risultato = dati(await scriviSezione(input, contesto()))
+    expect(risultato).toMatchObject({
       esito: 'salvata',
       impronta: improntaTesto('Hook: nuovo'),
-      versione: versioneOpaca(AGGIORNATO),
+      contenuto: { id: ID, Name: 'Trazioni da zero', 'Post Date': '2026-10-15', versione: versioneOpaca(DOPO) },
     })
+    expect(risultato.versione).toBeUndefined()
+    // the properties only: the sections are not read again
+    const [rilettura] = fake.chiamate.filter((c) => c.tipo === 'from')
+    expect(String(argomenti(rilettura, 'select')?.[0])).not.toMatch(/messaggio|bozza|commenti|finale/)
   })
 
-  it('cambiata da un altro: non è un errore, dà il testo attuale con la sua impronta', async () => {
+  it('una proprietà cambiata da altri prima della scrittura: la versione nuova arriva solo con quel valore', async () => {
+    // Claude read v1 (Post Date 15/10); the video editor moved it to 12/10; Claude then wrote the rough draft
+    const V1 = versioneOpaca(AGGIORNATO)
+    rispondi = (c) =>
+      c.tipo === 'rpc'
+        ? { data: { esito: 'salvata', impronta: improntaTesto('Hook: nuovo'), versione: DOPO } }
+        : { data: riga({ post_date: '2026-10-12', updated_at: DOPO }) }
+    const scritta = dati(await scriviSezione(input, contesto()))
+    expect(scritta.contenuto).toMatchObject({ 'Post Date': '2026-10-12', versione: versioneOpaca(DOPO) })
+
+    // with the version of the first read, the editor's change is never overwritten
+    fake.chiamate.length = 0
+    const corsa = dati(
+      await modificaContenutoPerClaude(
+        modificaContenutoSchema.parse({ id: ID, versione: V1, campi: { post_date: '2026-10-11' } }),
+        contesto(),
+      ),
+    )
+    expect(corsa).toMatchObject({ esito: 'cambiato', contenuto: { 'Post Date': '2026-10-12', versione: versioneOpaca(DOPO) } })
+    expect(scritture()).toEqual([])
+  })
+
+  it('salvata ma la rilettura non riesce: nessuna versione, e il risultato dice di rileggere', async () => {
+    rispondi = (c) =>
+      c.tipo === 'rpc'
+        ? { data: { esito: 'salvata', impronta: improntaTesto('Hook: nuovo'), versione: DOPO } }
+        : { error: { code: '57014', message: 'canceling statement due to statement timeout' } }
+    const risultato = dati(await scriviSezione(input, contesto()))
+    expect(risultato).toEqual({
+      esito: 'salvata',
+      impronta: improntaTesto('Hook: nuovo'),
+      avviso:
+        'Per cambiare poi le proprietà rileggi il contenuto con leggi_contenuto o elenco_contenuti: questa scrittura ha cambiato la sua versione.',
+    })
+    expect(JSON.stringify(risultato)).not.toContain(versioneOpaca(DOPO))
+  })
+
+  it('cambiata da un altro: non è un errore, dà il testo attuale con la sua impronta e nessuna versione', async () => {
     rispondi = () => ({ data: { esito: 'cambiata', impronta: improntaTesto('Di Giulia'), versione: AGGIORNATO, attuale: 'Di Giulia' } })
     const esito = await scriviSezione(input, contesto())
     expect(esito.ok).toBe(true)
@@ -445,13 +493,45 @@ describe('scrivi_sezione', () => {
       messaggio: 'Questa parte è cambiata da un’altra parte: ecco il testo attuale.',
       attuale: 'Di Giulia',
       impronta: improntaTesto('Di Giulia'),
-      versione: versioneOpaca(AGGIORNATO),
     })
+    // nothing was written: nothing read back either
+    expect(fake.chiamate.map((c) => c.tipo)).toEqual(['rpc'])
   })
 
   it('sparito: errore', async () => {
     rispondi = () => ({ data: { esito: 'sparito' } })
     expect(await scriviSezione(input, contesto())).toEqual({ ok: false, messaggio: 'Questo contenuto non c’è più.' })
+  })
+})
+
+describe('cambia_status', () => {
+  const input = cambiaStatusSchema.parse({ id: ID, status: 'Posted' })
+  const DOPO = '2026-10-09T09:45:00.000004+00:00'
+
+  it('salvato: le proprietà rilette con la versione nuova, anche quello che altri hanno cambiato', async () => {
+    rispondi = (c) =>
+      ha(c, 'update')
+        ? { data: { updated_at: DOPO } }
+        : { data: riga({ stato: 'posted', post_date: '2026-10-12', updated_at: DOPO }) }
+    const risultato = dati(await cambiaStatus(input, contesto()))
+    expect(risultato).toMatchObject({
+      esito: 'salvato',
+      contenuto: { Status: 'Posted', 'Post Date': '2026-10-12', versione: versioneOpaca(DOPO) },
+    })
+    const [modifica] = fake.chiamate.filter((c) => ha(c, 'update'))
+    expect(argomenti(modifica, 'update')?.[0]).toEqual({ stato: 'posted' })
+  })
+
+  it('la rilettura non riesce: lo Status è salvato, ma senza versione e con l’invito a rileggere', async () => {
+    rispondi = (c) =>
+      ha(c, 'update') ? { data: { updated_at: DOPO } } : { error: { code: '57014', message: 'statement timeout' } }
+    const risultato = dati(await cambiaStatus(input, contesto()))
+    expect(risultato).toEqual({
+      esito: 'salvato',
+      contenuto: { id: ID, Status: 'Posted' },
+      avviso:
+        'Per cambiare poi le proprietà rileggi il contenuto con leggi_contenuto o elenco_contenuti: questa scrittura ha cambiato la sua versione.',
+    })
   })
 })
 

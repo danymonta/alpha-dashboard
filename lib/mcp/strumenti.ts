@@ -115,7 +115,7 @@ export const STRUMENTI: readonly Strumento[] = [
     nome: 'elenco_contenuti',
     titolo: 'Elenco dei contenuti',
     descrizione:
-      'Cerca i contenuti del calendario, dalla Post Date più recente; quelli senza Post Date vengono per ultimi. Filtri facoltativi: mese (AAAA-MM) o da/a (AAAA-MM-GG, sulla Post Date), senza_data, Status, gruppo di Status, Reel Type, Format, modello, parole nel Name. Restituisce solo le proprietà, mai i testi delle sezioni: per quelli usa leggi_contenuto. Al massimo 100 contenuti (50 se non dici altro), con il totale e i numeri per gruppo di Status.',
+      'Cerca i contenuti del calendario, dalla Post Date più recente; quelli senza Post Date vengono per ultimi. Filtri facoltativi: mese (AAAA-MM) o da/a (AAAA-MM-GG, sulla Post Date), senza_data, Status, gruppo di Status, Reel Type, Format, modello, cerca (un pezzo del Name così com’è, maiuscole e minuscole a parte: più parole valgono solo se nel Name sono di seguito). Restituisce solo le proprietà, mai i testi delle sezioni: per quelli usa leggi_contenuto. Al massimo 100 contenuti (50 se non dici altro), con il totale e i numeri per gruppo di Status.',
     input: elencoContenutiSchema,
     lettura: true,
     idempotente: true,
@@ -133,7 +133,7 @@ export const STRUMENTI: readonly Strumento[] = [
   strumento({
     nome: 'crea_contenuti',
     titolo: 'Crea contenuti',
-    descrizione: `Crea da 1 a 20 contenuti nel calendario, ognuno con le proprietà di Notion e, se vuoi, i testi delle sezioni. Modello: ${REEL} (predefinito) o ${CAROUSEL}; un ${REEL} senza bozza nasce con lo scheletro Hook / Line / Line / … / CTA. Status predefinito Not started. Name obbligatorio, al massimo 300 caratteri; Post Date facoltativa (AAAA-MM-GG, anche nel futuro); Reel Type tra ${REEL_TYPE}; Format tra ${FORMAT}; Inspiration e URL sono link interi (https://…), URL è il link del post pubblicato (instagram.com/reel/… o /p/…) e mai un link di condivisione (instagram.com/share/…); Audio al massimo 200 caratteri; View Count un intero. Ogni sezione al massimo 30.000 caratteri, in Markdown (${CHIAVI_SEZIONI}). Restituisce l’esito di ogni contenuto: uno che non va non ferma gli altri.`,
+    descrizione: `Crea da 1 a 20 contenuti nel calendario, ognuno con le proprietà di Notion e, se vuoi, i testi delle sezioni. Modello: ${REEL} (predefinito) o ${CAROUSEL}; un ${REEL} senza bozza nasce con lo scheletro Hook / Line / Line / … / CTA. Status predefinito Not started. Name obbligatorio, al massimo 300 caratteri; Post Date facoltativa (AAAA-MM-GG, anche nel futuro); Reel Type tra ${REEL_TYPE}; Format tra ${FORMAT}; Inspiration e URL sono link interi (https://…), URL è il link del post pubblicato (instagram.com/reel/… o /p/…) e mai un link di condivisione (instagram.com/share/…); Audio al massimo 200 caratteri; View Count un intero. Ogni sezione al massimo 30.000 caratteri, in Markdown (${CHIAVI_SEZIONI}). Restituisce l’esito di ogni contenuto, con le sue proprietà e la versione: uno che non va non ferma gli altri.`,
     input: creaContenutiSchema,
     lettura: false,
     // it only adds contents: the person can allow it once for all
@@ -145,7 +145,7 @@ export const STRUMENTI: readonly Strumento[] = [
     nome: 'modifica_contenuto',
     titolo: 'Modifica le proprietà',
     descrizione:
-      'Cambia una o più proprietà di un contenuto: Name, Modello, Reel Type, Format, Status, Post Date, Inspiration, Audio, URL, View Count. Passa solo quelle da cambiare; null svuota un campo (Name, Modello e Status non si svuotano). Serve la versione letta con leggi_contenuto o elenco_contenuti: se nel frattempo qualcuno l’ha cambiato non salva niente e restituisce i valori attuali. Per i testi usa scrivi_sezione; per lo Status da solo basta cambia_status.',
+      'Cambia una o più proprietà di un contenuto: Name, Modello, Reel Type, Format, Status, Post Date, Inspiration, Audio, URL, View Count. Passa solo quelle da cambiare; null svuota un campo (Name, Modello e Status non si svuotano). Serve l’ultima versione che hai: da leggi_contenuto, elenco_contenuti o dalla risposta dell’ultima scrittura su quel contenuto (crea_contenuti, cambia_status, scrivi_sezione, modifica_contenuto), che la dà insieme ai valori attuali: ogni scrittura la cambia. Se nel frattempo qualcun altro l’ha cambiato non salva niente e restituisce i valori attuali con la loro versione. Salvato, restituisce le proprietà con la versione nuova. Per i testi usa scrivi_sezione; per lo Status da solo basta cambia_status.',
     input: modificaContenutoSchema,
     lettura: false,
     idempotente: true,
@@ -154,7 +154,7 @@ export const STRUMENTI: readonly Strumento[] = [
   strumento({
     nome: 'cambia_status',
     titolo: 'Cambia lo Status',
-    descrizione: `Mette lo Status di un contenuto: ${STATUS}, nei gruppi ${TESTO_GRUPPI}. Come il tocco sullo Status nell’app: vale l’ultimo, senza versione.`,
+    descrizione: `Mette lo Status di un contenuto: ${STATUS}, nei gruppi ${TESTO_GRUPPI}. Come il tocco sullo Status nell’app: vale l’ultimo, senza versione. Restituisce le proprietà con la versione nuova.`,
     input: cambiaStatusSchema,
     lettura: false,
     idempotente: true,
@@ -163,7 +163,7 @@ export const STRUMENTI: readonly Strumento[] = [
   strumento({
     nome: 'scrivi_sezione',
     titolo: 'Scrivi una sezione',
-    descrizione: `Scrive il testo, in Markdown, di una sezione di un contenuto al posto di quello che c’è: ${CHIAVI_SEZIONI}. Passa l’impronta di quella sezione letta con leggi_contenuto: se nel frattempo il testo è cambiato non salva niente e restituisce il testo attuale con la sua impronta. Un testo vuoto svuota la sezione. Al massimo 30.000 caratteri; righe vuote in cima e spazi in fondo si tolgono.`,
+    descrizione: `Scrive il testo, in Markdown, di una sezione di un contenuto al posto di quello che c’è: ${CHIAVI_SEZIONI}. Passa l’impronta di quella sezione letta con leggi_contenuto: se nel frattempo il testo è cambiato non salva niente e restituisce il testo attuale con la sua impronta. Salvata, restituisce la nuova impronta e le proprietà con la versione nuova. Un testo vuoto svuota la sezione. Al massimo 30.000 caratteri; righe vuote in cima e spazi in fondo si tolgono.`,
     input: scriviSezioneSchema,
     lettura: false,
     idempotente: true,
