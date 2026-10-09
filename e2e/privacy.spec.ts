@@ -27,7 +27,9 @@ test('l’informativa si apre senza sessione, con le istruzioni per la cancellaz
   await expect(page).toHaveURL(/\/privacy$/)
   await expect(page).toHaveTitle('Informativa privacy · Percorso Alpha')
   await expect(page.getByRole('heading', { level: 1, name: 'Informativa privacy' })).toBeVisible()
-  await expect(page.getByText('Ultimo aggiornamento: 8 ottobre 2026')).toBeVisible()
+  await expect(page.getByText('Ultimo aggiornamento: 9 ottobre 2026')).toBeVisible()
+  // Claude connected to the content calendar (1.34.0): the team's own Claude accounts, the calendar only
+  await expect(page.getByText(/collegare il proprio account Claude \(Anthropic\) al calendario dei contenuti/)).toBeVisible()
   // indexable, unlike the rest of the app
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /^index, follow/)
 

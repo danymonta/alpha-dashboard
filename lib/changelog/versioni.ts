@@ -86,6 +86,51 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.34.0',
+    // the deploy day: move it when the release ships (never before the 1.33.0 entry's day)
+    data: '2026-10-09',
+    titolo: 'Claude collegato al calendario dei contenuti',
+    riassunto:
+      'Dal tuo account Claude, anche dal telefono, leggi e riempi il calendario dei contenuti a parole; il collegamento apre solo i contenuti, mai il resto del gestionale.',
+    intestazionePer: ['marketing'],
+    intestazioneTeam: {
+      titolo: 'Claude collegato ai contenuti',
+      riassunto:
+        'Colleghi il tuo account Claude al calendario dei contenuti e gli chiedi di leggerlo, crearne di nuovi e scrivere script e didascalie.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Claude collegato ad Alpha Management: dal tuo account Claude (sito, app per computer e poi anche telefono, o Claude Code) gli chiedi di leggere il calendario dei contenuti, crearne di nuovi con le proprietà di Notion, cambiare lo Status e scrivere script e didascalie. Lo attivi una volta in Supabase e lo colleghi da Profilo › Account › Collega Claude.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il collegamento apre solo il calendario dei contenuti, mai vendite, incassi, clienti, lead, call, report o DM, nemmeno con il tuo account. Lo collegano solo tu, il video editor e il marketing; da Claude elimini un contenuto solo tu, dicendo il suo Name.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Nessuno vede chi ha collegato Claude, nemmeno tu: ognuno vede e scollega i suoi collegamenti in App collegate. Disattivare una persona o cambiarle ruolo in Team chiude subito anche il suo Claude.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Collega Claude: dal tuo account Claude gli chiedi di leggere il calendario dei contenuti, crearne di nuovi (anche una settimana intera, con script e didascalie già scritti), cambiare lo Status e riscrivere una sezione. Lo colleghi da Profilo › Account › Collega Claude e confermi con «Consenti»; ogni modifica di Claude è a tuo nome e la vede tutto il team.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Claude non sovrascrive mai un testo cambiato da un altro nel frattempo: se una sezione è cambiata, rilegge quella salvata e ti propone l’unione.',
+      },
+      {
+        per: ['marketing'],
+        testo: 'App collegate, in Profilo › Account: vedi se hai collegato Claude e lo scolleghi con un tocco.',
+      },
+    ],
+  },
+  {
     versione: '1.32.0',
     data: '2026-10-09',
     titolo: 'Il calendario dei contenuti nell’app, e il ruolo Marketing',
