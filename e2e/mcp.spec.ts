@@ -46,6 +46,7 @@ const PREFISSO = 'E2E MCP '
 const NOME_CLIENT = 'Claude Code (E2E)'
 const FILTRO = 'Da Claude si usa solo il calendario dei contenuti.'
 const FINALE = 'Didascalia scritta da Claude: tre trazioni al giorno, ogni giorno.'
+const MESSAGGIO = 'Trazioni ogni giorno: il messaggio scritto da Claude.'
 const STRUMENTI_TEAM = [
   'cambia_status',
   'crea_contenuti',
@@ -125,7 +126,9 @@ test('il marketing collega Claude: consenso, token e strumenti sul calendario', 
   await expect(carta).toContainText(`${UTENTI.marketing.nome} (Marketing)`)
   await expect(carta).toContainText(CONSENSO.loopback)
   await expect(carta).toContainText(`${CONSENSO.maiVistoInizio} ${CONSENSO.maiVisto}`)
-  await expect(carta).toContainText(CONSENSO.phishing)
+  // Claude Code has no «Connetti»: the warning names its own sign-in
+  await expect(carta).toContainText(CONSENSO.phishingClaudeCode)
+  await expect(carta).not.toContainText('Connetti')
   await expect(carta).not.toContainText(CONSENSO.azioneAdmin)
   const [larghezza, finestra] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth])
   expect(larghezza, 'scroll orizzontale a 390 px').toBeLessThanOrEqual(finestra)
@@ -208,6 +211,23 @@ test('il marketing collega Claude: consenso, token e strumenti sul calendario', 
     expect(status.isError, testoRisultato(status)).toBeFalsy()
     expect((await leggiContenuto(idReel))?.stato).toBe('to_be_edited')
 
+    // every write changes the version and gives the new one with the values it covers: Claude's own
+    // write a moment before never comes back as «cambiato»
+    const messaggio = await mcp.callTool({
+      name: 'scrivi_sezione',
+      arguments: { id: idReel, sezione: 'messaggio', testo: MESSAGGIO, impronta: sezione('messaggio')?.impronta },
+    })
+    expect(messaggio.isError, testoRisultato(messaggio)).toBeFalsy()
+    const scritta = datiRisultato<{ esito: string; contenuto: { versione: string; Status: string } }>(messaggio)
+    expect(scritta.esito).toBe('salvata')
+    expect(scritta.contenuto.Status).toBe('To be edited')
+    const dopoLaSezione = await mcp.callTool({
+      name: 'modifica_contenuto',
+      arguments: { id: idReel, versione: scritta.contenuto.versione, campi: { audio: 'Audio dopo lo script' } },
+    })
+    expect(datiRisultato(dopoLaSezione)).toMatchObject({ esito: 'salvato', contenuto: { Audio: 'Audio dopo lo script' } })
+    expect(await leggiContenuto(idReel)).toMatchObject({ messaggio: MESSAGGIO, audio: 'Audio dopo lo script' })
+
     // 8. the properties over the version read: an edit in the app in between wins, nothing written
     const prima = datiRisultato<{ contenuto: { versione: string } }>(
       await mcp.callTool({ name: 'leggi_contenuto', arguments: { id: idReel, sezioni: ['finale'] } }),
@@ -257,7 +277,7 @@ test('ricollegare chiede sempre un tocco: Continua dà il codice, Annulla lo neg
   const seconda = nuovaAutorizzazione(clientId, base, 'seconda')
   await apriConsenso(page, seconda)
   await expect(page.getByRole('heading', { level: 1, name: CONSENSO.titoloRicollega })).toBeVisible()
-  await expect(page.getByText(CONSENSO.phishingRicollega)).toBeVisible()
+  await expect(page.getByText(CONSENSO.phishingRicollegaClaudeCode)).toBeVisible()
   await page.waitForTimeout(500)
   expect(callback.chiamate, 'nessun ritorno a Claude senza tocco').toHaveLength(0)
   const arrivo = callback.prossima()
@@ -440,6 +460,40 @@ test('chi non può collegare Claude torna a Claude con un rifiuto, mai con un co
     expect(chiamata.headers.get('www-authenticate') ?? '').toContain('error="insufficient_scope"')
   } finally {
     await impostaProfilo(ID_MARKETING, { ruolo: 'marketing' })
+  }
+})
+
+test('se i bundle non arrivano il tocco funziona lo stesso: un POST nativo, 303 verso Claude', async ({ browser }) => {
+  test.setTimeout(90_000)
+  // 13b. a content blocker, or a network that drops halfway: the page's own scripts never
+  // arrive, React's inline ones still show the card, and the tap is a native form post. With
+  // Referrer-Policy no-referrer browsers sent `Origin: null` on it and Next refused the action
+  // (500): same-origin keeps the Origin, and no Referer still leaves the site.
+  const setter = await persona(browser, 'setter')
+  try {
+    await catturaCallback(setter)
+    await setter.route('**/_next/static/**', (route) =>
+      route.request().resourceType() === 'script' ? route.abort() : route.continue(),
+    )
+    const consenso = setter.waitForResponse((r) => new URL(r.url()).pathname === '/oauth/consent')
+    await apriConsenso(setter, nuovaAutorizzazione(clientId, baseDi(setter), 'senza-bundle'))
+    expect((await consenso).headers()['referrer-policy']).toBe('same-origin')
+    await expect(setter.getByRole('heading', { level: 1, name: CONSENSO.titoloNonAmmesso })).toBeVisible()
+
+    const post = setter.waitForResponse(
+      (r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/oauth/consent',
+    )
+    await setter.getByRole('button', { name: CONSENSO.tornaAClaude, exact: true }).click()
+    const risposta = await post
+    expect(risposta.request().headers()['next-action'], 'un POST nativo, non il fetch di React').toBeUndefined()
+    expect(risposta.status()).toBe(303)
+    const verso = new URL(risposta.headers()['location'] ?? '')
+    expect(verso.origin + verso.pathname).toBe(CALLBACK_E2E)
+    expect(verso.searchParams.get('error')).toBe('access_denied')
+    expect(verso.searchParams.get('state')).toBe('senza-bundle')
+    expect(verso.searchParams.has('code')).toBe(false)
+  } finally {
+    await setter.context().close()
   }
 })
 
