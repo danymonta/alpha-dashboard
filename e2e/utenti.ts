@@ -45,11 +45,14 @@ const PROFILO = { nome: 'profilo', url: '/account' }
 const MIEI_TASK = { nome: 'miei-task', url: '/task' }
 // every role opens the changelog, from "Altro" (CLAUDE.md section 23)
 const CHANGELOG = { nome: 'changelog', url: '/changelog' }
-// the Marketing area (1.32.0): admin, video editor and marketing
+// the Marketing area (1.32.0): admin, video editor and marketing; the content
+// in its panel and the posts of Instagram from 1.33.0
 const CONTENUTI = [
   { nome: 'contenuti', url: '/marketing/contenuti' },
   { nome: 'contenuti-calendario', url: '/marketing/contenuti?vista=calendario' },
   { nome: 'contenuto', url: `/marketing/contenuti/${CONTENUTO_SEED}` },
+  { nome: 'contenuto-pannello', url: `/marketing/contenuti?contenuto=${CONTENUTO_SEED}` },
+  { nome: 'post-instagram', url: '/marketing/instagram' },
 ]
 
 export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {

@@ -1,7 +1,6 @@
 'use client'
 
 import { CircleCheck, LoaderCircle, RotateCcw } from 'lucide-react'
-import Link from 'next/link'
 import { useState } from 'react'
 
 import {
@@ -10,6 +9,7 @@ import {
   CLASSE_RIGA_PROGETTO,
   CLASSE_TITOLO,
 } from '@/components/pm/miei-task/riga-mio-task'
+import { LinkRiga } from '@/components/shell/link-riga'
 import { Button } from '@/components/ui/button'
 import { etichettaCompletato, type MioTaskCompletato } from '@/lib/miei-task'
 import { linkTask } from '@/lib/progetti'
@@ -51,16 +51,16 @@ export function RigaCompletato({ task, oggi, onRiapri }: Props) {
         <CircleCheck className="size-5 text-status-ok" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1 pb-3">
-        <Link
+        <LinkRiga
           href={linkTask(task.progetto_id, task.id)}
           className={cn(CLASSE_TITOLO, 'text-muted-foreground hover:text-foreground')}
         >
           {task.titolo}
-        </Link>
+        </LinkRiga>
         <div className={CLASSE_RIGA_PROGETTO}>
-          <Link href={`/progetti/${task.progetto_id}/attivita`} className={CLASSE_PROGETTO}>
+          <LinkRiga href={`/progetti/${task.progetto_id}/attivita`} className={CLASSE_PROGETTO}>
             {task.progetto}
-          </Link>
+          </LinkRiga>
           <p className={CLASSE_DETTAGLI}>
             <span className="num">{etichettaCompletato(task.completato_il, oggi)}</span>
           </p>

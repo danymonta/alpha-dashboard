@@ -1,14 +1,13 @@
 'use client'
 
 import { ChevronDown, LoaderCircle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { Fragment, useState, useTransition } from 'react'
+import { Fragment, useEffect, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { cambiaStatusContenuto } from '@/app/(app)/marketing/contenuti/actions'
 import { BadgeStatus, ICONA_STATUS, classeStatus } from '@/components/marketing/badge-status'
+import { useOpzioniToast, usePannello } from '@/components/marketing/contesto-pannello'
 import { useUscitaDallaLista } from '@/components/marketing/sezione-contenuti'
-import { useVersioneContenuto } from '@/components/marketing/versione-contenuto'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,11 +34,12 @@ function isStatus(valore: unknown): valore is StatusContenuto {
 /**
  * The Status of a content with one tap, as in Notion: a menu with Notion's
  * groups (To-do, In progress, Complete) in Notion's order. No version check
- * (last write wins); the new updated_at goes to the content's page, so the
- * person's properties sheet stays in step. Its own 44px button: on a card it
- * never opens the card. In the list, a Status outside the filters takes the
- * row out: before the tap goes, the list remembers where the focus goes
- * (SezioneContenuti), never <body>.
+ * (last write wins); the new updated_at goes to the content panel's copy.
+ * Its own 44px button: on a card it never opens the card. In the list, a
+ * Status outside the filters takes the row out: before the tap goes, the
+ * list remembers where the focus goes (UscitaDallaLista), never <body>. No
+ * router.refresh() after the action: its revalidatePath already brought the
+ * page redrawn (1.33.0).
  */
 export function MenuStatus({
   id,
@@ -56,12 +56,15 @@ export function MenuStatus({
   grande?: boolean
   className?: string
 }) {
-  const router = useRouter()
-  const versione = useVersioneContenuto()
+  const pannello = usePannello()
+  const opzioniToast = useOpzioniToast()
   const lista = useUscitaDallaLista()
   const [mostrato, setMostrato] = useState(stato)
   const [daServer, setDaServer] = useState(stato)
   const [inCorso, avvia] = useTransition()
+  // while the save (and the redraw it brings) is in flight, the panel knows
+  const inizioSalvataggio = pannello?.inizioSalvataggio
+  useEffect(() => (inCorso && inizioSalvataggio ? inizioSalvataggio() : undefined), [inCorso, inizioSalvataggio])
   // a new render from the server (refresh, another person's tap) is the truth
   if (daServer !== stato) {
     setDaServer(stato)
@@ -73,7 +76,7 @@ export function MenuStatus({
     const prima = mostrato
     setMostrato(nuovo)
     // the new Status is outside the list's filters: the refresh will take the row out
-    const esce = Boolean(lista?.stati && !lista.stati.includes(nuovo))
+    const esce = Boolean(lista?.esce('stato', nuovo))
     if (esce) lista?.ricorda(id, nome)
     avvia(async () => {
       let esito: Awaited<ReturnType<typeof cambiaStatusContenuto>>
@@ -82,19 +85,17 @@ export function MenuStatus({
       } catch {
         if (esce) lista?.dimentica()
         setMostrato(prima)
-        toast.error('Connessione assente. Riprova.')
+        toast.error('Connessione assente. Riprova.', opzioniToast)
         return
       }
       if (!esito.ok) {
-        // the refresh decides: a row that stays keeps the focus, one gone meanwhile hands it on
+        // a content gone meanwhile: the action redrew the page, the list hands the focus on
         setMostrato(prima)
-        toast.error(esito.errore)
-        router.refresh()
+        toast.error(esito.errore, opzioniToast)
         return
       }
-      versione?.aggiorna(esito.versione)
-      toast.success(`Status: ${ETICHETTA_STATUS[nuovo]}`)
-      router.refresh()
+      pannello?.aggiornaCampo(id, 'stato', nuovo, esito.versione)
+      toast.success(`Status: ${ETICHETTA_STATUS[nuovo]}`, opzioniToast)
     })
   }
 

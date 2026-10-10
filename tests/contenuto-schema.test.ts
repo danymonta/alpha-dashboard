@@ -5,9 +5,10 @@ import {
   ERRORE_LINK_CONDIVISIONE,
   ERRORE_SEZIONE_LUNGA,
   ERRORE_VIEW_COUNT,
+  CAMPI_IN_CELLA,
+  campoContenutoSchema,
   contenutoSchema,
   linkFacoltativo,
-  modificaContenutoSchema,
   normalizzaSezione,
   parseViewCount,
   sezioneContenutoSchema,
@@ -137,17 +138,63 @@ describe('contenutoSchema', () => {
     expect(contenutoSchema.safeParse({ ...base, audio: 'a'.repeat(201) }).success).toBe(false)
   })
 
-  it('le modifiche portano l’id e la versione letta', () => {
-    const versione = '2026-10-09T08:15:42.123456+00:00'
-    expect(modificaContenutoSchema.parse({ ...base, id: ID, versione })).toMatchObject({ id: ID, versione })
-    expect(modificaContenutoSchema.safeParse({ ...base, id: ID, versione: '' }).success).toBe(false)
-    expect(modificaContenutoSchema.safeParse({ ...base, id: ID, versione: 'ieri' }).success).toBe(false)
-    expect(modificaContenutoSchema.safeParse({ ...base, id: 'x', versione }).success).toBe(false)
-  })
-
   it('lo Status con un tocco: id e uno Status valido', () => {
     expect(statusContenutoSchema.parse({ id: ID, stato: 'to_be_edited' })).toEqual({ id: ID, stato: 'to_be_edited' })
     expect(statusContenutoSchema.safeParse({ id: ID, stato: 'To be edited' }).success).toBe(false)
+  })
+})
+
+describe('campoContenutoSchema (un campo alla volta, 1.33.0)', () => {
+  const campo = (c: Record<string, unknown>) => campoContenutoSchema.safeParse({ id: ID, ...c })
+
+  it('ogni proprietà della tabella, lo Status no (resta un tocco)', () => {
+    expect(CAMPI_IN_CELLA).toEqual(['tipo', 'nome', 'reel_type', 'formato', 'post_date', 'inspiration', 'url', 'audio', 'view_count'])
+  })
+
+  it('il valore passa dagli stessi controlli del modulo, normalizzato', () => {
+    expect(campo({ campo: 'nome', valore: '  Trazioni  ', prima: 'Vecchio' })).toMatchObject({
+      success: true,
+      data: { campo: 'nome', valore: 'Trazioni', prima: 'Vecchio' },
+    })
+    expect(campo({ campo: 'url', valore: 'www.instagram.com/reel/ABCdef12345/', prima: null })).toMatchObject({
+      data: { valore: 'https://www.instagram.com/reel/ABCdef12345/' },
+    })
+    expect(campo({ campo: 'view_count', valore: '12.480', prima: 100 })).toMatchObject({ data: { valore: 12480, prima: 100 } })
+    expect(campo({ campo: 'post_date', valore: '', prima: '2026-10-12' })).toMatchObject({ data: { valore: null } })
+    expect(campo({ campo: 'reel_type', valore: '', prima: 'education' })).toMatchObject({ data: { valore: null } })
+    expect(campo({ campo: 'formato', valore: 'split', prima: null })).toMatchObject({ data: { valore: 'split' } })
+    expect(campo({ campo: 'tipo', valore: 'carousel', prima: 'reel' })).toMatchObject({ data: { valore: 'carousel' } })
+    expect(campo({ campo: 'audio', valore: '  ', prima: 'Brano' })).toMatchObject({ data: { valore: null } })
+    expect(campo({ campo: 'inspiration', valore: null, prima: 'https://esempio.it/x' })).toMatchObject({ data: { valore: null } })
+  })
+
+  it('i valori non validi hanno le parole del modulo', () => {
+    expect(errore(campo({ campo: 'nome', valore: '   ', prima: 'Vecchio' }))).toBe('Scrivi il nome.')
+    expect(errore(campo({ campo: 'url', valore: 'https://www.instagram.com/share/reel/X1y2Z3/', prima: null }))).toBe(
+      ERRORE_LINK_CONDIVISIONE,
+    )
+    expect(errore(campo({ campo: 'inspiration', valore: 'javascript:alert(1)', prima: null }))).toBe(ERRORE_LINK)
+    expect(errore(campo({ campo: 'view_count', valore: '1,5', prima: null }))).toBe(ERRORE_VIEW_COUNT)
+    expect(errore(campo({ campo: 'post_date', valore: '2026-02-30', prima: null }))).toBe('Data non valida.')
+    expect(campo({ campo: 'reel_type', valore: 'RADIO', prima: null }).success).toBe(false)
+    expect(errore(campo({ campo: 'audio', valore: 'a'.repeat(201), prima: null }))).toBe('Audio: al massimo 200 caratteri.')
+  })
+
+  it('prima è il valore com’è salvato: del tipo del campo, o niente si manda', () => {
+    expect(campo({ campo: 'view_count', valore: '10', prima: '100' }).success).toBe(false)
+    expect(campo({ campo: 'post_date', valore: '2026-10-12', prima: '12/10/2026' }).success).toBe(false)
+    expect(campo({ campo: 'reel_type', valore: 'radio', prima: 'RADIO' }).success).toBe(false)
+    expect(campo({ campo: 'nome', valore: 'X', prima: null }).success).toBe(false)
+    expect(campo({ campo: 'tipo', valore: 'reel', prima: null }).success).toBe(false)
+    expect(campo({ campo: 'audio', valore: 'X' }).success).toBe(false)
+    expect(campo({ campo: 'url', valore: null, prima: null }).success).toBe(true)
+  })
+
+  it('un campo fuori elenco (lo Status, una sezione, l’id) e un id non valido non passano', () => {
+    expect(errore(campo({ campo: 'stato', valore: 'posted', prima: 'not_started' }))).toBe('Campo non valido.')
+    expect(errore(campo({ campo: 'messaggio', valore: 'x', prima: null }))).toBe('Campo non valido.')
+    expect(campo({ campo: 'id', valore: ID, prima: ID }).success).toBe(false)
+    expect(campoContenutoSchema.safeParse({ id: 'x', campo: 'nome', valore: 'Y', prima: 'Z' }).success).toBe(false)
   })
 })
 

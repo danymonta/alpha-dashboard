@@ -31,8 +31,13 @@ type Props = {
   anteprima?: { tipo: TipoEliminazione; id: string }
   /** Fixed consequences, when there is nothing to count. */
   conseguenze?: string[]
-  /** Where to go afterwards (the record's own page is gone); otherwise the page refreshes. */
+  /**
+   * Where to go afterwards (the record's own page is gone). Otherwise the page
+   * stays: the action's revalidatePath already brought it back redrawn.
+   */
   dopo?: string
+  /** Instead of `dopo`: called after the toast (the content panel closes itself). */
+  onFatto?: () => void
   /** "foglio": a full-width button at the bottom of an edit sheet; "icona": a 44px trash icon in a row. */
   variante?: 'foglio' | 'icona'
   etichetta?: string
@@ -52,6 +57,7 @@ export function Elimina({
   anteprima,
   conseguenze = [],
   dopo,
+  onFatto,
   variante = 'foglio',
   etichetta = 'Elimina',
   disabilitato = false,
@@ -67,7 +73,12 @@ export function Elimina({
   function apri() {
     setAperto(true)
     setErrore(null)
-    if (!anteprima) return
+    // the consequences as they are now: the same button may stay mounted while
+    // they change (the content panel: a post linked or unlinked, the next content)
+    if (!anteprima) {
+      setFrasi(conseguenze)
+      return
+    }
     setFrasi(null)
     void anteprimaEliminazione(anteprima.tipo, anteprima.id).then((esito) => {
       if (!esito.ok) {
@@ -96,8 +107,10 @@ export function Elimina({
       }
       toast.success(fatto)
       setAperto(false)
-      if (dopo) router.push(dopo)
-      else router.refresh()
+      // every delete action calls revalidatePath: its answer already carries the
+      // redrawn page, a router.refresh() would render it a second time (spec 1.33.0 A4)
+      if (onFatto) onFatto()
+      else if (dopo) router.push(dopo)
     })
   }
 

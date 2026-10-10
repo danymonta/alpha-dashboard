@@ -189,12 +189,40 @@ export default async function NuovaVenditaPage({
           ? { href: '/sales', etichetta: 'Vendite' }
           : { href: '/my-sales', etichetta: 'Le mie vendite' }
   const supabase = await createClient()
+  const nessuno = Promise.resolve({ data: null })
 
-  const { data: prodotti, error: erroreProdotti } = await supabase
-    .from('products')
-    .select('id, nome, durata_mesi, prezzo_listino, piano_predefinito')
-    .eq('attivo', true)
-    .order('durata_mesi')
+  // Everything that does not depend on another read, in one round (spec 1.33.0 A10):
+  // the products, and the call with its sale, or the client with its past sales
+  const [
+    { data: prodotti, error: erroreProdotti },
+    { data: call },
+    { data: venditaEsistente },
+    { data: clienteScelto },
+    { data: passate },
+  ] = await Promise.all([
+    supabase
+      .from('products')
+      .select('id, nome, durata_mesi, prezzo_listino, piano_predefinito')
+      .eq('attivo', true)
+      .order('durata_mesi'),
+    callId
+      ? supabase
+          .from('calls')
+          .select(
+            'id, esito, lead_id, programmata_il, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)',
+          )
+          .eq('id', callId)
+          .maybeSingle()
+      : nessuno,
+    callId ? supabase.from('sales').select('id').eq('call_id', callId).maybeSingle() : nessuno,
+    !callId && clienteId ? supabase.from('clients').select('id, nome, cognome').eq('id', clienteId).maybeSingle() : nessuno,
+    !callId && clienteId && tipo === 'rinnovo'
+      ? supabase
+          .from('sales')
+          .select('tipo, product_id, prodotto_personalizzato, data_inizio, data_fine, valore_contratto, created_at, prodotto:products(nome)')
+          .eq('client_id', clienteId)
+      : nessuno,
+  ])
   if (erroreProdotti) throw new Error('Impossibile caricare i prodotti')
 
   const oggi = oggiRoma()
@@ -211,14 +239,6 @@ export default async function NuovaVenditaPage({
   let nomeLead = ''
 
   if (callId) {
-    const { data: call } = await supabase
-      .from('calls')
-      .select(
-        'id, esito, lead_id, programmata_il, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome)',
-      )
-      .eq('id', callId)
-      .maybeSingle()
-
     if (!call) {
       return (
         <Impossibile
@@ -240,11 +260,6 @@ export default async function NuovaVenditaPage({
       )
     }
 
-    const { data: venditaEsistente } = await supabase
-      .from('sales')
-      .select('id')
-      .eq('call_id', call.id)
-      .maybeSingle()
     if (venditaEsistente) {
       return (
         <Impossibile
@@ -294,11 +309,7 @@ export default async function NuovaVenditaPage({
       ['Call del', formatData(giornoCall)],
     ]
   } else if (clienteId) {
-    const { data: cliente } = await supabase
-      .from('clients')
-      .select('id, nome, cognome')
-      .eq('id', clienteId)
-      .maybeSingle()
+    const cliente = clienteScelto
     if (!cliente) {
       return (
         <Impossibile
@@ -313,10 +324,6 @@ export default async function NuovaVenditaPage({
 
     // "Ha rinnovato": the new period starts the day after the last one, with the same product
     if (tipo === 'rinnovo') {
-      const { data: passate } = await supabase
-        .from('sales')
-        .select('tipo, product_id, prodotto_personalizzato, data_inizio, data_fine, valore_contratto, created_at, prodotto:products(nome)')
-        .eq('client_id', cliente.id)
       const ultimo = ultimoPercorso(passate ?? [])
       if (ultimo) {
         const giornoDopo = aggiungiGiorni(ultimo.data_fine, 1)

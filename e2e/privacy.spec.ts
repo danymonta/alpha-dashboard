@@ -27,7 +27,9 @@ test('l’informativa si apre senza sessione, con le istruzioni per la cancellaz
   await expect(page).toHaveURL(/\/privacy$/)
   await expect(page).toHaveTitle('Informativa privacy · Percorso Alpha')
   await expect(page.getByRole('heading', { level: 1, name: 'Informativa privacy' })).toBeVisible()
-  await expect(page.getByText('Ultimo aggiornamento: 8 ottobre 2026')).toBeVisible()
+  await expect(page.getByText('Ultimo aggiornamento: 10 ottobre 2026')).toBeVisible()
+  // the posts and reels of the account, read for the content calendar (1.33.0): never the comments or who liked
+  await expect(page.getByText(/legge anche l’elenco dei post e dei reel pubblicati dall’account/)).toBeVisible()
   // indexable, unlike the rest of the app
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /^index, follow/)
 

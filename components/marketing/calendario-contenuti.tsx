@@ -6,8 +6,9 @@ import { useState } from 'react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { BadgeStatus, classeNome } from '@/components/marketing/badge-status'
+import { LinkContenuto } from '@/components/marketing/link-contenuto'
 import { NuovoContenuto } from '@/components/marketing/nuovo-contenuto'
-import { ListaCard, linkContenuto, type RigaContenuto } from '@/components/marketing/tabella-contenuti'
+import { ListaCard, type RigaContenuto } from '@/components/marketing/tabella-contenuti'
 import { SelettoreMese } from '@/components/pagina/selettore-mese'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { Button } from '@/components/ui/button'
@@ -71,6 +72,7 @@ export function CalendarioContenuti({
 }) {
   // one "Nuovo contenuto" sheet for every day of the grid
   const [nuovoPer, setNuovoPer] = useState<string | null>(null)
+  const [nuovoDa, setNuovoDa] = useState<HTMLElement | null>(null)
   const [aperto, setAperto] = useState(false)
   const [espansi, setEspansi] = useState<ReadonlySet<string>>(new Set())
 
@@ -80,8 +82,9 @@ export function CalendarioContenuti({
   const delMese = [...perData.keys()].filter((d) => d >= mese && d <= fine).sort()
   const meseVuoto = delMese.length === 0
 
-  function nuovo(data: string) {
+  function nuovo(data: string, da: HTMLElement) {
     setNuovoPer(data)
+    setNuovoDa(da)
     setAperto(true)
   }
 
@@ -116,7 +119,7 @@ export function CalendarioContenuti({
                 Togli i filtri
               </LinkBottone>
             ) : (
-              <Button type="button" className="h-11" onClick={() => nuovo(giornoProposto)}>
+              <Button type="button" className="h-11" onClick={(e) => nuovo(giornoProposto, e.currentTarget)}>
                 <Plus className="size-4" aria-hidden="true" />
                 Nuovo contenuto
               </Button>
@@ -174,7 +177,7 @@ export function CalendarioContenuti({
                               type="button"
                               aria-label={`Nuovo contenuto per ${giornoLungo(g.data)}`}
                               title={`Nuovo contenuto per ${giornoLungo(g.data)}`}
-                              onClick={() => nuovo(g.data)}
+                              onClick={(e) => nuovo(g.data, e.currentTarget)}
                               className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none pointer-coarse:opacity-100"
                             >
                               <Plus className="size-4" aria-hidden="true" />
@@ -183,16 +186,17 @@ export function CalendarioContenuti({
                           {visibili.length > 0 ? (
                             <ul className={cn('-mt-2 space-y-0.5', !g.delMese && 'opacity-70')}>
                               {visibili.map((r) => (
-                                <li key={r.id}>
-                                  <Link
-                                    href={linkContenuto(r.id)}
+                                <li key={r.id} data-riga-contenuto={r.id} data-nome-contenuto={r.nome}>
+                                  <LinkContenuto
+                                    id={r.id}
+                                    riga={r}
                                     aria-label={`${r.nome}, ${ETICHETTA_STATUS[r.stato]}`}
                                     title={r.nome}
                                     className="flex min-h-7 items-start gap-1 rounded-md bg-card px-1.5 py-1 leading-tight hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none pointer-coarse:min-h-11"
                                   >
                                     <BadgeStatus stato={r.stato} soloIcona className="mt-px" />
                                     <span className={cn('line-clamp-2 min-w-0 break-words', classeNome(r.stato))}>{r.nome}</span>
-                                  </Link>
+                                  </LinkContenuto>
                                 </li>
                               ))}
                             </ul>
@@ -285,7 +289,7 @@ export function CalendarioContenuti({
                   <h3 id={`giorno-${data}`} className="scroll-mt-20 text-sm font-medium">
                     {data === oggi ? `Oggi, ${giornoLungo(data)}` : giornoLungo(data).replace(/^./, (c) => c.toUpperCase())}
                   </h3>
-                  <ListaCard righe={perData.get(data) ?? []} conData={false} />
+                  <ListaCard righe={perData.get(data) ?? []} />
                 </section>
               ))}
             </div>
@@ -316,6 +320,7 @@ export function CalendarioContenuti({
         aperto={aperto}
         onApertoChange={setAperto}
         postDate={nuovoPer}
+        da={nuovoDa}
       />
     </div>
   )

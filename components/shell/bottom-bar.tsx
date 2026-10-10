@@ -1,7 +1,6 @@
 'use client'
 
 import { MoreHorizontal } from 'lucide-react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui/sheet'
 import { ConteggioPromemoria as Conteggio } from '@/components/shell/conteggio-esiti'
 import { usePromemoria } from '@/components/shell/esiti-da-registrare'
+import { LinkNav } from '@/components/shell/link-nav'
 import type { AppRole } from '@/lib/auth/roles'
 import { isAttiva, nomeConPromemoria, promemoriaDellaVoce, promemoriaDiAltro, vociNav } from '@/lib/nav'
 
@@ -45,7 +45,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
           const suoi = promemoriaDellaVoce(voce, promemoria)
           return (
             <li key={voce.href} className="flex-1">
-              <Link
+              <LinkNav
                 href={voce.href}
                 data-tour={`nav-${voce.href}`}
                 aria-current={attiva ? 'page' : undefined}
@@ -61,7 +61,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                   aria-hidden="true"
                   className={`h-0.5 w-6 rounded-full ${attiva ? 'bg-primary-light' : 'bg-transparent'}`}
                 />
-              </Link>
+              </LinkNav>
             </li>
           )
         })}
@@ -99,7 +99,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                     const suoi = promemoriaDellaVoce(voce, promemoria)
                     return (
                       <li key={voce.href}>
-                        <Link
+                        <LinkNav
                           href={voce.href}
                           onClick={() => setApertoAltro(false)}
                           aria-current={attiva ? 'page' : undefined}
@@ -116,7 +116,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                           />
                           {voce.etichetta}
                           <Conteggio promemoria={suoi} attiva={attiva} className="ml-auto" />
-                        </Link>
+                        </LinkNav>
                       </li>
                     )
                   })}

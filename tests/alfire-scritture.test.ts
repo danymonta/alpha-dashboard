@@ -1966,11 +1966,15 @@ describe('la guida: ogni ruolo legge la sua parte (03/10/2026)', () => {
       for (const parola of ['Name, Reel Type, Format, Inspiration, Status, Post Date, Audio, URL, View Count', 'Reel Topic', 'Carousel Topic']) {
         expect(contenuti, `${ruolo}: ${parola}`).toContain(parola)
       }
-      expect(contenuti, ruolo).toContain('Alfire per ora non legge e non scrive i contenuti.')
+      expect(contenuti, ruolo).toContain('Alfire per ora non legge e non scrive i contenuti né i post di Instagram.')
+      // the panel, the cells and the posts of Instagram (1.33.0)
+      for (const parola of ['apre il contenuto in un pannello a lato', 'dalla sua cella', 'Post di Instagram (/marketing/instagram)', '«Da collegare»', '«Scollega»', '«Aggiorna da Instagram» rilegge subito i post (admin e marketing)']) {
+        expect(contenuti, `${ruolo}: ${parola}`).toContain(parola)
+      }
       for (const parola of ['provvigion', 'incass', 'vendit', 'cliente', 'margine', 'costi', 'soldi', 'prezz']) {
         expect(contenuti, `${ruolo}: ${parola}`).not.toContain(parola)
       }
-      expect(await testo(ruolo, 'alfire'), ruolo).toContain('Il calendario dei contenuti (area Marketing) per ora no')
+      expect(await testo(ruolo, 'alfire'), ruolo).toContain('Il calendario dei contenuti e i post di Instagram (area Marketing) per ora no')
     }
     for (const ruolo of ['coach', 'nutrizione', 'dev'] as const) {
       const permessi = await testo(ruolo, 'permessi')
@@ -1982,7 +1986,7 @@ describe('la guida: ogni ruolo legge la sua parte (03/10/2026)', () => {
     expect(await testo('admin', 'marketing')).toContain('Eliminano un contenuto l’admin e il marketing; il video editor lo segna Canceled.')
     expect(await testo('admin', 'permessi')).toContain('Il ruolo Marketing (e il video editor) vede l’area Marketing, il calendario dei contenuti')
     expect(await testo('admin', 'permessi')).toContain('Permessi: l’admin vede tutto.')
-    expect(await testo('admin', 'alfire')).toContain('Il calendario dei contenuti (area Marketing) per ora no')
+    expect(await testo('admin', 'alfire')).toContain('Il calendario dei contenuti e i post di Instagram (area Marketing) per ora no')
     expect(await testo('marketing', 'alfire')).toContain('(task e note di un progetto)')
   })
 

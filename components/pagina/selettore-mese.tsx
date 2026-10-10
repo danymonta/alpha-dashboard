@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
+import { IndicatoreLink } from '@/components/shell/link-riga'
 import { aggiungiMesi } from '@/lib/date'
 import { formatMese } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -35,14 +36,14 @@ export function SelettoreMese({ mese, meseCorrente, futuro = false, percorso, pa
     // -ml-3: the chevron glyph (not its 44px hit area) lines up with the content edge
     <nav aria-label="Scegli il mese" className={cn('-ml-3 flex items-center gap-1', className)}>
       <Link href={href(percorso, precedente, parametri)} aria-label="Mese precedente" className={classi}>
-        <ChevronLeft className="size-5" aria-hidden="true" />
+        <IndicatoreLink className="size-5" riposo={<ChevronLeft className="size-5" />} />
       </Link>
       <p className="min-w-36 text-center text-sm font-medium" aria-live="polite">
         {formatMese(mese)}
       </p>
       {futuro || successivo <= meseCorrente ? (
         <Link href={href(percorso, successivo, parametri)} aria-label="Mese successivo" className={classi}>
-          <ChevronRight className="size-5" aria-hidden="true" />
+          <IndicatoreLink className="size-5" riposo={<ChevronRight className="size-5" />} />
         </Link>
       ) : (
         <span aria-hidden="true" className={`${classi} opacity-30 hover:bg-transparent`}>

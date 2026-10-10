@@ -86,6 +86,73 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.33.0',
+    data: '2026-10-10',
+    titolo: 'Più fluida, i contenuti in un pannello e i post di Instagram collegati',
+    riassunto:
+      'Le pagine si aprono prima e i salvataggi fanno meno lavoro; un contenuto si apre e si modifica in un pannello a lato, ogni proprietà si cambia dalla tabella, e i post di Instagram si collegano da soli al calendario.',
+    intestazionePer: ['marketing'],
+    intestazioneTeam: {
+      titolo: 'Più fluida, e i contenuti in un pannello',
+      riassunto:
+        'Un contenuto si apre e si modifica in un pannello a lato, ogni proprietà si cambia dalla tabella, e i post di Instagram si collegano da soli al calendario.',
+    },
+    novita: [
+      {
+        per: ['tutti'],
+        testo:
+          'L’app è più veloce a ogni tocco: una pagina si prepara mentre ti fermi col mouse su una voce del menu o la tocchi, una pagina vista nell’ultimo mezzo minuto si riapre all’istante, e diversi salvataggi non ricaricano più la pagina due volte. Quello che scrivi tu, anche con Alfire, lo vedi subito su ogni pagina; quello che cambia un collega arriva al massimo dopo mezzo minuto.',
+      },
+      {
+        per: ['tutti'],
+        testo:
+          'Cambiando periodo, mese o vista, una piccola rotella al posto della freccia dice che i dati stanno arrivando, e le pagine si caricano già con la loro forma, senza salti.',
+      },
+      {
+        per: ['tutti'],
+        testo:
+          'Il passaggio tra le pagine è una dissolvenza breve. Se sul telefono o sul computer hai attivo «Riduci movimento», niente animazioni in tutta l’app.',
+      },
+      {
+        per: ['tutti'],
+        testo:
+          'Il primo caricamento è più leggero: Alfire si scarica quando lo apri, o quando il telefono è libero, e la conversazione resta come prima.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Un contenuto si apre in un pannello a lato, senza lasciare la tabella o il calendario: proprietà, Status e testi si modificano lì e si salvano da soli, con il contenuto precedente e il successivo a un tocco. Indietro lo chiude e il link si può condividere; Cmd o Ctrl e clic apre la pagina intera.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'In tabella ogni proprietà si cambia direttamente dalla sua cella; sul telefono Status, Post Date, Reel Type e Format dalla card. Name, date, link e le altre proprietà non scrivono mai sopra un valore che un altro ha cambiato nel frattempo: se è cambiato, vedi quello salvato. Lo Status resta un tocco, come in Notion.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Nuova scheda «Post di Instagram»: i post e i reel dell’account si collegano da soli ai contenuti del calendario quando data e didascalia corrispondono, e l’URL si scrive da solo. Quelli incerti li trovi in «Da collegare», da collegare con un tocco, da trasformare in un contenuto o da lasciare fuori dal calendario; un post scollegato non viene più riproposto per quel contenuto. «Aggiorna da Instagram» li rilegge subito (admin e marketing).',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Nel pannello di un contenuto il riquadro «Post su Instagram» mostra il post collegato, con «Usa la data di Instagram» quando la Post Date è diversa, o «Forse è questo post» con «Collega».',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'I post si leggono ogni mattina presto e con «Aggiorna da Instagram», col token di Impostazioni › Instagram, che qui si legge e basta. Se il token scade si fermano anche loro, e Impostazioni › Instagram lo dice nella nuova riga «Post e reel». Tornando sulla Panoramica da un’altra pagina i numeri si rinfrescano da soli, anche quelli arrivati mentre eri altrove.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['tutti'],
+        testo:
+          'La X dei fogli che si aprono dal basso o di lato è grande abbastanza per il dito e non copre più il titolo; lo sfondo dietro non si sfoca più, così i fogli si aprono più leggeri sul telefono.',
+      },
+    ],
+  },
+  {
     versione: '1.32.0',
     data: '2026-10-09',
     titolo: 'Il calendario dei contenuti nell’app, e il ruolo Marketing',

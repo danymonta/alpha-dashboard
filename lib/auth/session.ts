@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { redirect } from 'next/navigation'
+import { cache } from 'react'
 
 import { percorsoIniziale } from '@/lib/auth/roles'
 import { createClient } from '@/lib/supabase/server'
@@ -28,11 +29,19 @@ export async function getProfilo(): Promise<Profilo | null> {
 }
 
 /**
+ * The same, read once per render (React `cache`): the layout and the page of one
+ * request share one getUser() and one read of `profiles` (spec 1.33.0 A5). Only the
+ * render path uses it: server actions and route handlers call getProfilo, so an
+ * action that changes the profile never reads a memoized one (spec R9).
+ */
+const profiloDellaRichiesta = cache(getProfilo)
+
+/**
  * Guard for every page inside the app shell: no session -> /login,
  * deactivated -> /account-disattivato.
  */
 export async function requireProfilo(): Promise<Profilo> {
-  const profilo = await getProfilo()
+  const profilo = await profiloDellaRichiesta()
 
   if (!profilo) redirect('/login')
   if (!profilo.attivo) redirect('/account-disattivato')

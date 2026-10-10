@@ -1,14 +1,15 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarRange, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarRange, Check, ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useId, useState, useTransition } from 'react'
+import { useEffect, useId, useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, FoglioModifica } from '@/components/form/foglio-modifica'
+import { IndicatoreLink } from '@/components/shell/link-riga'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,6 +40,9 @@ type Props = {
 const CLASSI_FRECCIA =
   'flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground'
 
+/** How long a quick choice of period may show its spinner without arriving. */
+const ATTESA_MASSIMA_MS = 15_000
+
 /**
  * Month arrows plus a "Periodo" sheet with quick choices and a custom range.
  * With a range active the arrows move it by its own length (lib/periodo.ts).
@@ -56,7 +60,7 @@ export function SelettorePeriodo({ periodo, oggi, percorso, parametri, confronto
         aria-label={unMese ? 'Mese precedente' : 'Periodo precedente'}
         className={CLASSI_FRECCIA}
       >
-        <ChevronLeft className="size-5" aria-hidden="true" />
+        <IndicatoreLink className="size-5" riposo={<ChevronLeft className="size-5" />} />
       </Link>
 
       <FoglioPeriodo periodo={periodo} oggi={oggi} percorso={percorso} parametri={parametri} confronto={confronto} />
@@ -67,7 +71,7 @@ export function SelettorePeriodo({ periodo, oggi, percorso, parametri, confronto
           aria-label={unMese ? 'Mese successivo' : 'Periodo successivo'}
           className={CLASSI_FRECCIA}
         >
-          <ChevronRight className="size-5" aria-hidden="true" />
+          <IndicatoreLink className="size-5" riposo={<ChevronRight className="size-5" />} />
         </Link>
       ) : (
         <span aria-hidden="true" className={`${CLASSI_FRECCIA} opacity-30 hover:bg-transparent`}>
@@ -83,6 +87,19 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
   const router = useRouter()
   const [aperto, setAperto] = useState(false)
   const [inCorso, avvia] = useTransition()
+  // A quick choice closes the sheet at once and the page stays as it is until the
+  // new period arrives: the trigger says it is on its way (the period it left from,
+  // so the new one ends it by itself)
+  const daQui = `${periodo.da}/${periodo.a}`
+  const [partitoDa, setPartitoDa] = useState<string | null>(null)
+  const inViaggio = inCorso || partitoDa === daQui
+  // a navigation that never arrives (cancelled by another tap) does not keep the
+  // spinner: after a while the trigger is itself again
+  useEffect(() => {
+    if (partitoDa === null) return
+    const t = setTimeout(() => setPartitoDa(null), ATTESA_MASSIMA_MS)
+    return () => clearTimeout(t)
+  }, [partitoDa])
   const preset = presetPeriodi(oggi)
   const attivo = preset.find((p) => p.da === periodo.da && p.a === periodo.a)
 
@@ -119,13 +136,18 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
           type="button"
           variant="outline"
           aria-label={`Periodo: ${periodo.etichetta}`}
+          aria-busy={inViaggio || undefined}
           data-testid="etichetta-periodo"
           className="h-11 min-w-36 shrink gap-2 px-3"
         />
       }
       contenutoTrigger={
         <>
-          <CalendarRange className="size-4 text-muted-foreground" aria-hidden="true" />
+          {inViaggio ? (
+            <LoaderCircle className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
+          ) : (
+            <CalendarRange className="size-4 text-muted-foreground" aria-hidden="true" />
+          )}
           <span className="num min-w-0 truncate">{periodo.etichetta}</span>
         </>
       }
@@ -160,7 +182,10 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
                   <Link
                     href={hrefPeriodo(percorso, p, parametri)}
                     aria-current={selezionato ? 'true' : undefined}
-                    onClick={() => setAperto(false)}
+                    onClick={() => {
+                      setAperto(false)
+                      if (!selezionato) setPartitoDa(daQui)
+                    }}
                     className={cn(
                       'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-center text-sm leading-tight transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                       selezionato

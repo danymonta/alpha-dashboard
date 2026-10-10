@@ -137,21 +137,92 @@ export const contenutoSchema = z.object({
 export type ContenutoInput = z.input<typeof contenutoSchema>
 export type ContenutoDati = z.output<typeof contenutoSchema>
 
-/**
- * The version a properties sheet saves over: the row's updated_at as the page
- * last read it or as the person's own last save returned it, passed back
- * untouched (a Date would drop the microseconds).
- */
-const versioneSchema = z
-  .string()
-  .min(1, 'Contenuto non valido.')
-  .max(64, 'Contenuto non valido.')
-  .refine((v) => Number.isFinite(Date.parse(v)), 'Contenuto non valido.')
-
 const idContenuto = z.string().uuid('Contenuto non valido.')
 
-export const modificaContenutoSchema = contenutoSchema.extend({ id: idContenuto, versione: versioneSchema })
-export type ModificaContenutoInput = z.input<typeof modificaContenutoSchema>
+/**
+ * The properties a cell, a card chip or the panel change one at a time
+ * (1.33.0, Dany: "ogni campo deve essere modificabile direttamente dalla
+ * tabella"). The Status is not here: one tap, the last one wins
+ * (statusContenutoSchema).
+ */
+export const CAMPI_IN_CELLA = [
+  'tipo',
+  'nome',
+  'reel_type',
+  'formato',
+  'post_date',
+  'inspiration',
+  'url',
+  'audio',
+  'view_count',
+] as const
+export type CampoInCella = (typeof CAMPI_IN_CELLA)[number]
+
+/**
+ * `prima` is the saved value the field showed, exactly as the database has
+ * it (never normalized again): the action writes only where the column is
+ * still that value. Lenient on purpose: the table's checks already hold it.
+ */
+const PRIMA_NON_VALIDA = 'Ricarica la pagina e riprova.'
+function primaTesto(max: number) {
+  return z
+    .string({ invalid_type_error: PRIMA_NON_VALIDA })
+    .refine((v) => lunghezza(v) <= max, PRIMA_NON_VALIDA)
+}
+function primaScelta<T extends Readonly<[string, ...string[]]>>(valori: T) {
+  return z.enum(valori, { errorMap: () => ({ message: PRIMA_NON_VALIDA }) })
+}
+
+const forma = contenutoSchema.shape
+
+export const campoContenutoSchema = z.discriminatedUnion(
+  'campo',
+  [
+    z.object({
+      id: idContenuto,
+      campo: z.literal('tipo'),
+      valore: forma.tipo,
+      prima: primaScelta(Constants.public.Enums.contenuto_tipo),
+    }),
+    z.object({ id: idContenuto, campo: z.literal('nome'), valore: forma.nome, prima: primaTesto(NOME_MAX) }),
+    z.object({
+      id: idContenuto,
+      campo: z.literal('reel_type'),
+      valore: forma.reel_type,
+      prima: primaScelta(Constants.public.Enums.contenuto_reel_type).nullable(),
+    }),
+    z.object({
+      id: idContenuto,
+      campo: z.literal('formato'),
+      valore: forma.formato,
+      prima: primaScelta(Constants.public.Enums.contenuto_format).nullable(),
+    }),
+    z.object({
+      id: idContenuto,
+      campo: z.literal('post_date'),
+      valore: forma.post_date,
+      prima: z.string().refine(isDataISO, PRIMA_NON_VALIDA).nullable(),
+    }),
+    z.object({
+      id: idContenuto,
+      campo: z.literal('inspiration'),
+      valore: forma.inspiration,
+      prima: primaTesto(LINK_MAX).nullable(),
+    }),
+    z.object({ id: idContenuto, campo: z.literal('url'), valore: forma.url, prima: primaTesto(LINK_MAX).nullable() }),
+    z.object({ id: idContenuto, campo: z.literal('audio'), valore: forma.audio, prima: primaTesto(AUDIO_MAX).nullable() }),
+    z.object({
+      id: idContenuto,
+      campo: z.literal('view_count'),
+      valore: forma.view_count,
+      prima: z.number().int().min(0).max(VIEW_COUNT_MAX).nullable(),
+    }),
+  ],
+  { errorMap: (issue, ctx) => (issue.code === 'invalid_union_discriminator' ? { message: 'Campo non valido.' } : { message: ctx.defaultError }) },
+)
+
+export type CampoContenutoInput = z.input<typeof campoContenutoSchema>
+export type CampoContenutoDati = z.output<typeof campoContenutoSchema>
 
 /**
  * The text of a section as public.salva_sezione_contenuto stores it: the

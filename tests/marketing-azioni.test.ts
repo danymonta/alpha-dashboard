@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+const rivalida = vi.hoisted(() => vi.fn())
+vi.mock('next/cache', () => ({ revalidatePath: rivalida }))
 
 // The session: who taps. negaSeNon (lib/auth/azioni.ts) reads it.
 const sessione = vi.hoisted(() => ({ ruolo: 'marketing', attivo: true }))
@@ -19,7 +20,7 @@ const db = vi.hoisted(() => {
   const prossima = () => Promise.resolve(stato.risposte.shift() ?? { data: null, error: null })
   function query(): Record<string, unknown> {
     const q: Record<string, unknown> = {}
-    for (const metodo of ['insert', 'update', 'delete', 'select', 'eq']) {
+    for (const metodo of ['insert', 'update', 'delete', 'select', 'eq', 'is']) {
       q[metodo] = (...args: unknown[]) => {
         stato.chiamate.push([metodo, ...args])
         return q
@@ -49,13 +50,12 @@ import {
   cambiaStatusContenuto,
   creaContenuto,
   eliminaContenuto,
-  modificaContenuto,
+  modificaCampoContenuto,
   salvaSezioneContenuto,
 } from '@/app/(app)/marketing/contenuti/actions'
 import { BOZZA_REEL } from '@/lib/marketing/etichette'
 
 const ID = '7e1f3a2b-0000-4000-8000-000000000001'
-const VERSIONE = '2026-10-09T08:15:42.123456+00:00'
 const NUOVA = '2026-10-09T08:16:00.000001+00:00'
 const IMPRONTA = 'd41d8cd98f00b204e9800998ecf8427e'
 
@@ -72,6 +72,7 @@ beforeEach(() => {
   db.stato.chiamate.length = 0
   sessione.ruolo = 'marketing'
   sessione.attivo = true
+  rivalida.mockClear()
 })
 
 describe('chi usa il calendario dei contenuti', () => {
@@ -136,32 +137,99 @@ describe('creaContenuto', () => {
   })
 })
 
-describe('modificaContenuto', () => {
-  const proprieta = { id: ID, versione: VERSIONE, tipo: 'reel', nome: 'Trazioni', audio: 'Brano', stato: 'to_be_edited' }
+describe('modificaCampoContenuto (un campo alla volta, 1.33.0)', () => {
+  const riga = (campi: Record<string, unknown>) => ({ id: ID, updated_at: NUOVA, ...campi })
 
-  it('salva sopra la versione letta e restituisce la nuova', async () => {
-    risponde({ data: { updated_at: NUOVA }, error: null })
-    expect(await modificaContenuto(proprieta)).toEqual({ ok: true, versione: NUOVA })
+  it('scrive solo il suo campo, solo sopra il valore mostrato, e restituisce il valore salvato con la versione', async () => {
+    risponde({ data: riga({ post_date: '2026-10-12' }), error: null })
+    expect(await modificaCampoContenuto({ id: ID, campo: 'post_date', valore: '2026-10-12', prima: '2026-10-10' })).toEqual({
+      ok: true,
+      valore: '2026-10-12',
+      versione: NUOVA,
+    })
+    expect(chiamate('update')).toEqual([[{ post_date: '2026-10-12' }]])
     expect(chiamate('eq')).toEqual([
       ['id', ID],
-      ['updated_at', VERSIONE],
+      ['post_date', '2026-10-10'],
     ])
-    expect(chiamate('update')[0][0]).not.toHaveProperty('id')
-    expect(chiamate('update')[0][0]).not.toHaveProperty('versione')
+    expect(rivalida).toHaveBeenCalledWith('/marketing', 'layout')
   })
 
-  it('una versione cambiata da un’altra parte non sovrascrive niente: cambiato', async () => {
-    risponde({ data: null, error: null }, { data: { id: ID }, error: null })
-    expect(await modificaContenuto(proprieta)).toEqual({
+  it('un campo vuoto si confronta con is null; il valore va normalizzato dallo schema', async () => {
+    risponde({ data: riga({ view_count: 12480 }), error: null })
+    expect(await modificaCampoContenuto({ id: ID, campo: 'view_count', valore: '12.480', prima: null })).toMatchObject({
+      ok: true,
+      valore: 12480,
+    })
+    expect(chiamate('update')).toEqual([[{ view_count: 12480 }]])
+    expect(chiamate('is')).toEqual([['view_count', null]])
+  })
+
+  it('cambiato da un altro nel frattempo: niente scritto, il valore salvato adesso e la frase del campo', async () => {
+    risponde({ data: null, error: null }, { data: riga({ post_date: '2026-10-20' }), error: null })
+    expect(await modificaCampoContenuto({ id: ID, campo: 'post_date', valore: '2026-10-12', prima: '2026-10-10' })).toEqual({
       ok: false,
-      errore: 'Il contenuto è cambiato da un’altra parte: ricarico i dati salvati.',
-      cambiato: true,
+      errore: 'Il campo «Post Date» è cambiato da un’altra parte: ora vedi quello salvato. Rifai la modifica, se serve.',
+      cambiato: { valore: '2026-10-20', versione: NUOVA },
+    })
+    // the page is redrawn with the saved value, also on a conflict
+    expect(rivalida).toHaveBeenCalled()
+  })
+
+  it('il Modello ha il suo nome nella frase', async () => {
+    risponde({ data: null, error: null }, { data: riga({ tipo: 'carousel' }), error: null })
+    expect(await modificaCampoContenuto({ id: ID, campo: 'tipo', valore: 'reel', prima: 'reel' })).toMatchObject({
+      errore: 'Il campo «Modello» è cambiato da un’altra parte: ora vedi quello salvato. Rifai la modifica, se serve.',
+    })
+  })
+
+  it('un collega ha già scritto lo stesso valore: va bene così', async () => {
+    risponde({ data: null, error: null }, { data: riga({ audio: 'Brano' }), error: null })
+    expect(await modificaCampoContenuto({ id: ID, campo: 'audio', valore: ' Brano ', prima: null })).toEqual({
+      ok: true,
+      valore: 'Brano',
+      versione: NUOVA,
     })
   })
 
   it('un contenuto eliminato nel frattempo lo dice', async () => {
     risponde({ data: null, error: null }, { data: null, error: null })
-    expect(await modificaContenuto(proprieta)).toEqual({ ok: false, errore: 'Questo contenuto non c’è più.' })
+    expect(await modificaCampoContenuto({ id: ID, campo: 'nome', valore: 'Nuovo', prima: 'Vecchio' })).toEqual({
+      ok: false,
+      errore: 'Questo contenuto non c’è più.',
+      sparito: true,
+    })
+  })
+
+  it('lo stesso post su un altro contenuto (23505) e il rifiuto di RLS hanno le loro parole', async () => {
+    risponde({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } })
+    expect(
+      await modificaCampoContenuto({ id: ID, campo: 'url', valore: 'https://www.instagram.com/reel/ABCdef12345/', prima: null }),
+    ).toEqual({ ok: false, errore: 'Questo post è già collegato a un altro contenuto.' })
+    risponde({ data: null, error: { code: '42501', message: 'new row violates row-level security policy' } })
+    expect(await modificaCampoContenuto({ id: ID, campo: 'audio', valore: 'X', prima: null })).toEqual({
+      ok: false,
+      errore: 'Il calendario dei contenuti è dell’area Marketing.',
+    })
+  })
+
+  it('i dati non validi e i ruoli fuori dall’area si fermano prima del database', async () => {
+    expect(await modificaCampoContenuto({ id: ID, campo: 'url', valore: 'https://www.instagram.com/share/p/X/', prima: null })).toEqual({
+      ok: false,
+      errore: 'Questo è un link di condivisione: apri il post e copia l’indirizzo dal browser.',
+    })
+    // the Status is not a field here: one tap, cambiaStatusContenuto
+    expect(
+      await modificaCampoContenuto({ id: ID, campo: 'stato', valore: 'posted', prima: 'not_started' } as never),
+    ).toEqual({ ok: false, errore: 'Campo non valido.' })
+    for (const ruolo of ['setter', 'closer', 'coach']) {
+      sessione.ruolo = ruolo
+      expect(await modificaCampoContenuto({ id: ID, campo: 'audio', valore: 'X', prima: null })).toEqual({
+        ok: false,
+        errore: 'Il calendario dei contenuti è dell’area Marketing.',
+      })
+    }
+    expect(db.stato.chiamate.filter(([m]) => m === 'from')).toEqual([])
   })
 })
 

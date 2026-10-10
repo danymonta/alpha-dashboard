@@ -1,7 +1,7 @@
 import { TriangleAlert } from 'lucide-react'
-import Link from 'next/link'
 import { Fragment } from 'react'
 
+import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import { formatData, formatEuro } from '@/lib/format'
 import { ETICHETTA_TIPO_VENDITA, type TipoVendita } from '@/lib/validation/vendita'
 
@@ -49,10 +49,13 @@ export function ElencoVendite({
       <ul className="space-y-2 md:hidden" data-testid="elenco-vendite" data-tour="elenco-vendite">
         {righe.map((r) => (
           <li key={r.id}>
-            <Link href={`/sales/${r.id}`} className="block rounded-xl bg-card p-3 hover:bg-accent">
+            <LinkRiga href={`/sales/${r.id}`} className="block rounded-xl bg-card p-3 hover:bg-accent">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{mostraCliente ? r.cliente : r.prodotto}</p>
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    <span className="truncate">{mostraCliente ? r.cliente : r.prodotto}</span>
+                    <IndicatoreLink />
+                  </p>
                   <p className="truncate text-xs text-muted-foreground">
                     {mostraCliente ? `${ETICHETTA_TIPO_VENDITA[r.tipo]} · ${r.prodotto}` : ETICHETTA_TIPO_VENDITA[r.tipo]}
                   </p>
@@ -68,7 +71,7 @@ export function ElencoVendite({
                 </span>
                 <Ritardo n={r.rate_in_ritardo} />
               </div>
-            </Link>
+            </LinkRiga>
           </li>
         ))}
       </ul>
@@ -111,18 +114,20 @@ export function ElencoVendite({
                 {mostraCliente ? (
                   <>
                     <td className="px-3 py-2.5">
-                      <Link href={`/sales/${r.id}`} className="font-medium hover:underline">
+                      <LinkRiga href={`/sales/${r.id}`} className="inline-flex items-center gap-1.5 font-medium hover:underline">
                         {r.cliente}
-                      </Link>
+                        <IndicatoreLink />
+                      </LinkRiga>
                       <p className="text-xs text-muted-foreground">{r.prodotto}</p>
                     </td>
                     <td className="px-3 py-2.5">{ETICHETTA_TIPO_VENDITA[r.tipo]}</td>
                   </>
                 ) : (
                   <td className="px-3 py-2.5">
-                    <Link href={`/sales/${r.id}`} className="font-medium hover:underline">
+                    <LinkRiga href={`/sales/${r.id}`} className="inline-flex items-center gap-1.5 font-medium hover:underline">
                       {ETICHETTA_TIPO_VENDITA[r.tipo]}
-                    </Link>
+                      <IndicatoreLink />
+                    </LinkRiga>
                     <p className="text-xs text-muted-foreground">{r.prodotto}</p>
                   </td>
                 )}

@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 
 import { BottoneAlfire } from '@/components/alfire/alfire'
@@ -9,6 +8,7 @@ import { TimerInCima } from '@/components/pm/tempo/timer-attivo'
 import { useTimer } from '@/components/pm/tempo/timer-provider'
 import { TestaTutorial } from '@/components/tutorial/testa-tutorial'
 import { FotoProfilo } from '@/components/profilo/foto-profilo'
+import { LinkNav } from '@/components/shell/link-nav'
 import type { AppRole } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
@@ -49,14 +49,14 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
         <div className="flex shrink-0 items-center gap-1">
           <TimerInCima compatto />
           <BottoneAlfire />
-          <Link
+          <LinkNav
             href="/account"
             data-tour="profilo"
             aria-label={`Il tuo profilo: ${nome}`}
             className="flex size-11 items-center justify-center rounded-lg focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             <FotoProfilo nome={nome} foto={foto} className="size-8" />
-          </Link>
+          </LinkNav>
         </div>
       </div>
       <div className="hidden h-14 items-center justify-end gap-1 px-6 md:flex">

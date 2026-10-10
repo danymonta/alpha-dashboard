@@ -3,6 +3,7 @@
 import { CalendarDays, Table2, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 
+import { IndicatoreLink } from '@/components/shell/link-riga'
 import { cookieVista, type VistaContenuti } from '@/lib/marketing/vista'
 import { cn } from '@/lib/utils'
 
@@ -68,7 +69,8 @@ export function SceltaVista({
                 : 'border-input bg-input/30 text-muted-foreground hover:text-foreground',
             )}
           >
-            <Icona className="size-4" aria-hidden="true" />
+            {/* the other view is on its way: the icon becomes a spinner after 120 ms */}
+            <IndicatoreLink riposo={<Icona className="size-4" />} />
             {etichetta}
           </Link>
         )

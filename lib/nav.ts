@@ -32,6 +32,12 @@ export type VoceNav = {
   Icona: LucideIcon
   /** Only match the exact path (used by "/"). */
   esatto?: boolean
+  /**
+   * The item lights on every page under this prefix, not only under href
+   * (1.33.0: "Contenuti" stays lit on every tab of the Marketing area,
+   * /marketing/contenuti and /marketing/instagram).
+   */
+  attivaSu?: string
   /** Area of the app shell: the desktop sidebar groups by it. Default Economics. */
   sezione?: SezioneNav
   /**
@@ -66,12 +72,14 @@ const NOVITA: VoceNav = { href: '/changelog', etichetta: 'Novità', Icona: Spark
 const SOLO_PROGETTI: NavRuolo = { principali: [MIEI_TASK, PROGETTI, TEMPO], altre: [NOVITA] }
 // The Marketing area, the content calendar, Notion's "Instagram Posts" (Dany,
 // 08/10/2026): the admin, the video editor and marketing (RUOLI_MARKETING).
-// No badge (CLAUDE.md section 17).
+// No badge (CLAUDE.md section 17). Lit on every tab of the area: Contenuti and
+// Post di Instagram (1.33.0), Analisi from 1.35.0.
 const CONTENUTI: VoceNav = {
   href: '/marketing/contenuti',
   etichetta: 'Contenuti',
   Icona: Clapperboard,
   sezione: 'Marketing',
+  attivaSu: '/marketing',
 }
 
 // Setter and Closer, two items instead of the old "Setting" with two tabs
@@ -241,7 +249,8 @@ export function totalePromemoria(promemoria: Promemoria): number {
 
 export function isAttiva(pathname: string, voce: VoceNav): boolean {
   if (voce.esatto) return pathname === voce.href
-  return pathname === voce.href || pathname.startsWith(`${voce.href}/`)
+  const prefisso = voce.attivaSu ?? voce.href
+  return pathname === prefisso || pathname.startsWith(`${prefisso}/`)
 }
 
 /** Items grouped by area, in order, for the sidebar headings. */

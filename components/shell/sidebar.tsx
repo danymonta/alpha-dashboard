@@ -1,7 +1,6 @@
 'use client'
 
 import { LogOut } from 'lucide-react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 import { esci } from '@/app/auth/actions'
@@ -9,6 +8,7 @@ import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { FotoProfilo } from '@/components/profilo/foto-profilo'
 import { ConteggioPromemoria } from '@/components/shell/conteggio-esiti'
 import { usePromemoria } from '@/components/shell/esiti-da-registrare'
+import { LinkNav } from '@/components/shell/link-nav'
 import { Button } from '@/components/ui/button'
 import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
 import { isAttiva, nomeConPromemoria, perSezione, promemoriaDellaVoce, vociNav } from '@/lib/nav'
@@ -47,7 +47,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
                 const suoi = promemoriaDellaVoce(voce, promemoria)
                 return (
                   <li key={voce.href}>
-                    <Link
+                    <LinkNav
                       href={voce.href}
                       data-tour={`nav-${voce.href}`}
                       aria-current={attiva ? 'page' : undefined}
@@ -61,7 +61,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
                       <voce.Icona className="size-4 shrink-0" aria-hidden="true" />
                       {voce.etichetta}
                       <ConteggioPromemoria promemoria={suoi} attiva={attiva} className="ml-auto" />
-                    </Link>
+                    </LinkNav>
                   </li>
                 )
               })}
@@ -72,7 +72,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
 
       <div className="border-t border-border p-2">
         <div className="flex items-center gap-1">
-          <Link
+          <LinkNav
             href="/account"
             data-tour="profilo"
             aria-current={pathname.startsWith('/account') ? 'page' : undefined}
@@ -84,7 +84,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
               <span className="block truncate text-sm font-medium">{nome}</span>
               <span className="block text-xs text-muted-foreground">{ETICHETTA_RUOLO[ruolo]}</span>
             </span>
-          </Link>
+          </LinkNav>
           <form action={esci}>
             <Button
               type="submit"

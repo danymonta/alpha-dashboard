@@ -4,15 +4,20 @@ import { revalidatePath } from 'next/cache'
 
 import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
 import { RUOLI_MARKETING } from '@/lib/auth/roles'
-import { BOZZA_REEL } from '@/lib/marketing/etichette'
+import { COLONNE_ELENCO } from '@/lib/marketing/elenco'
+import { CAMPI, CAMPO_MODELLO, BOZZA_REEL } from '@/lib/marketing/etichette'
 import { RUOLI_ELIMINA_CONTENUTI } from '@/lib/marketing/permessi'
 import { createClient } from '@/lib/supabase/server'
+import type { TablesUpdate } from '@/lib/supabase/database.types'
 import {
+  campoContenutoSchema,
   contenutoSchema,
   eliminaContenutoSchema,
-  modificaContenutoSchema,
   sezioneContenutoSchema,
   statusContenutoSchema,
+  type CampoContenutoDati,
+  type CampoContenutoInput,
+  type CampoInCella,
 } from '@/lib/validation/contenuto'
 
 /**
@@ -22,16 +27,21 @@ import {
  * marketing_contenuti decides (vede_marketing(); delete only admin and
  * marketing), and the role checks here only turn a refusal into words.
  *
- * Every success returns the row's new updated_at (versione): the properties
- * sheet saves over it, so a person's own Status tap or section save never
- * makes their own sheet look changed elsewhere.
+ * Every success returns the row's new updated_at (versione): the panel and
+ * the page keep the most recent detail they know with it (1.33.0).
  */
 
 export type Esito = { ok: true; versione: string } | { ok: false; errore: string }
 
 export type EsitoCreazione = { ok: true; id: string; versione: string } | { ok: false; errore: string }
 
-export type EsitoModifica = Esito | { ok: false; errore: string; cambiato: true }
+/**
+ * One property (1.33.0). `valore` is the field as the database saved it;
+ * `cambiato` the value somebody else saved meanwhile (the field shows it).
+ */
+export type EsitoCampo =
+  | { ok: true; valore: unknown; versione: string }
+  | { ok: false; errore: string; cambiato?: { valore: unknown; versione: string }; sparito?: true }
 
 export type EsitoSezione =
   | { ok: true; impronta: string; versione: string }
@@ -47,7 +57,6 @@ const SOLO_MARKETING = 'Il calendario dei contenuti è dell’area Marketing.'
 const SOLO_CHI_ELIMINA = 'Solo l’admin e il marketing eliminano un contenuto: puoi segnarlo «Canceled».'
 const NON_SALVATO = 'Contenuto non salvato. Riprova.'
 const SPARITO = 'Questo contenuto non c’è più.'
-const CAMBIATO = 'Il contenuto è cambiato da un’altra parte: ricarico i dati salvati.'
 const SEZIONE_CAMBIATA =
   'Questa parte è cambiata da un’altra parte: ricarico il testo salvato. Il tuo testo resta qui sotto: copialo se ti serve.'
 const POST_GIA_COLLEGATO = 'Questo post è già collegato a un altro contenuto.'
@@ -64,9 +73,14 @@ function errore(error: { code?: string; message: string }): string {
   return messaggioErrore(error, NON_SALVATO)
 }
 
-function aggiorna(id?: string) {
-  revalidatePath('/marketing/contenuti')
-  if (id) revalidatePath(`/marketing/contenuti/${id}`)
+/**
+ * The whole Marketing area: the list, a content's page, the Instagram posts
+ * (1.33.0, a URL changes what is linked) and the layout's count. The
+ * action's answer already carries the page redrawn: no router.refresh()
+ * after it (1.33.0).
+ */
+function aggiorna() {
+  revalidatePath('/marketing', 'layout')
 }
 
 /** A Reel Topic starts with Hook, Line, Line, CTA in its rough draft, as in Notion; a Carousel Topic empty. */
@@ -88,42 +102,76 @@ export async function creaContenuto(input: unknown): Promise<EsitoCreazione> {
   return { ok: true, id: data.id, versione: data.updated_at }
 }
 
+/** "Post Date", "Modello": the field as the panel and the table name it. */
+function nomeCampo(campo: CampoInCella): string {
+  return campo === 'tipo' ? CAMPO_MODELLO : CAMPI[campo]
+}
+
+function campoCambiato(campo: CampoInCella): string {
+  return `Il campo «${nomeCampo(campo)}» è cambiato da un’altra parte: ora vedi quello salvato. Rifai la modifica, se serve.`
+}
+
+/** The one column this field writes, typed (never a key from the browser). */
+function cambio(dati: CampoContenutoDati): TablesUpdate<'marketing_contenuti'> {
+  switch (dati.campo) {
+    case 'tipo':
+      return { tipo: dati.valore }
+    case 'nome':
+      return { nome: dati.valore }
+    case 'reel_type':
+      return { reel_type: dati.valore }
+    case 'formato':
+      return { formato: dati.valore }
+    case 'post_date':
+      return { post_date: dati.valore }
+    case 'inspiration':
+      return { inspiration: dati.valore }
+    case 'url':
+      return { url: dati.valore }
+    case 'audio':
+      return { audio: dati.valore }
+    case 'view_count':
+      return { view_count: dati.valore }
+  }
+}
+
 /**
- * The properties, saved only over the version the sheet read. A row changed
- * meanwhile (by someone else) is never overwritten: cambiato, and the page
- * reloads it.
+ * One property, saved only over the value the field showed (1.33.0, Dany:
+ * "ogni campo deve essere modificabile direttamente dalla tabella"): one SQL
+ * update with the condition `<campo> is not distinct from <prima>`, atomic,
+ * no window between the check and the write. Two people on two fields of the
+ * same row never block each other; two on the same field never overwrite a
+ * value one of them has not seen: cambiato, with the value saved now.
  */
-export async function modificaContenuto(input: unknown): Promise<EsitoModifica> {
-  const parsed = modificaContenutoSchema.safeParse(input)
+export async function modificaCampoContenuto(input: CampoContenutoInput): Promise<EsitoCampo> {
+  const parsed = campoContenutoSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error.issues) }
   const negato = await negaSeNon(RUOLI_MARKETING, SOLO_MARKETING)
   if (negato) return { ok: false, errore: negato }
 
-  const { id, versione, ...campi } = parsed.data
+  const { id, campo, valore, prima } = parsed.data
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('marketing_contenuti')
-    .update(campi)
-    .eq('id', id)
-    .eq('updated_at', versione)
-    .select('updated_at')
-    .maybeSingle()
+  const base = supabase.from('marketing_contenuti').update(cambio(parsed.data)).eq('id', id)
+  const condizionata = prima === null ? base.is(campo, null) : base.eq(campo, prima)
+  const { data, error } = await condizionata.select(COLONNE_ELENCO).maybeSingle()
   if (error) return { ok: false, errore: errore(error) }
 
-  if (!data) {
-    // no row at that version: gone, or changed since the sheet read it
-    const { data: ancora, error: lettura } = await supabase
-      .from('marketing_contenuti')
-      .select('id')
-      .eq('id', id)
-      .maybeSingle()
-    if (lettura) return { ok: false, errore: NON_SALVATO }
-    aggiorna(id)
-    return ancora ? { ok: false, errore: CAMBIATO, cambiato: true } : { ok: false, errore: SPARITO }
+  if (data) {
+    aggiorna()
+    return { ok: true, valore: data[campo], versione: data.updated_at }
   }
 
-  aggiorna(id)
-  return { ok: true, versione: data.updated_at }
+  // no row with that value: gone, written the same by somebody else, or changed
+  const { data: ora, error: lettura } = await supabase
+    .from('marketing_contenuti')
+    .select(COLONNE_ELENCO)
+    .eq('id', id)
+    .maybeSingle()
+  if (lettura) return { ok: false, errore: NON_SALVATO }
+  aggiorna()
+  if (!ora) return { ok: false, errore: SPARITO, sparito: true }
+  if (ora[campo] === valore) return { ok: true, valore: ora[campo], versione: ora.updated_at }
+  return { ok: false, errore: campoCambiato(campo), cambiato: { valore: ora[campo], versione: ora.updated_at } }
 }
 
 /** One tap, no version: the last Status wins, as in Notion. */
@@ -142,7 +190,7 @@ export async function cambiaStatusContenuto(input: unknown): Promise<Esito> {
     .maybeSingle()
   if (error) return { ok: false, errore: errore(error) }
 
-  aggiorna(parsed.data.id)
+  aggiorna()
   return data ? { ok: true, versione: data.updated_at } : { ok: false, errore: SPARITO }
 }
 
@@ -176,11 +224,11 @@ export async function salvaSezioneContenuto(input: unknown): Promise<EsitoSezion
 
   const risposta = (data ?? {}) as RispostaSezione
   if (risposta.esito === 'sparito') {
-    aggiorna(id)
+    aggiorna()
     return { ok: false, errore: SPARITO, sparito: true }
   }
   if (risposta.esito === 'cambiata' && risposta.impronta && risposta.versione) {
-    aggiorna(id)
+    aggiorna()
     return {
       ok: false,
       errore: SEZIONE_CAMBIATA,
@@ -191,7 +239,7 @@ export async function salvaSezioneContenuto(input: unknown): Promise<EsitoSezion
     return { ok: false, errore: NON_SALVATO }
   }
 
-  aggiorna(id)
+  aggiorna()
   return { ok: true, impronta: risposta.impronta, versione: risposta.versione }
 }
 
@@ -211,6 +259,6 @@ export async function eliminaContenuto(input: unknown): Promise<{ ok: true } | {
     .select('id')
   if (error) return { ok: false, errore: messaggioErrore(error, 'Contenuto non eliminato. Riprova.') }
 
-  aggiorna(parsed.data.id)
+  aggiorna()
   return data.length > 0 ? { ok: true } : { ok: false, errore: SPARITO }
 }

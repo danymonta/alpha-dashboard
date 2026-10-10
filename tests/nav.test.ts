@@ -216,11 +216,23 @@ describe('l’area Marketing: Contenuti (1.32.0)', () => {
     }
   })
 
-  it('si accende sulla lista e sulla pagina di un contenuto', () => {
-    const contenuti = voce('marketing', 'Contenuti')
-    expect(isAttiva('/marketing/contenuti', contenuti)).toBe(true)
-    expect(isAttiva('/marketing/contenuti/c0ffee00-0000-4000-8000-000000000001', contenuti)).toBe(true)
-    expect(isAttiva('/marketing', contenuti)).toBe(false)
+  it('si accende sulla lista, sulla pagina di un contenuto e su ogni scheda dell’area (1.33.0)', () => {
+    for (const ruolo of ['admin', 'editor', 'marketing'] as const) {
+      const contenuti = voce(ruolo, 'Contenuti')
+      expect(contenuti.attivaSu).toBe('/marketing')
+      expect(isAttiva('/marketing/contenuti', contenuti)).toBe(true)
+      expect(isAttiva('/marketing/contenuti/c0ffee00-0000-4000-8000-000000000001', contenuti)).toBe(true)
+      expect(isAttiva('/marketing/instagram', contenuti)).toBe(true)
+      expect(isAttiva('/marketingx', contenuti)).toBe(false)
+      expect(isAttiva('/progetti', contenuti)).toBe(false)
+      expect(isAttiva('/', contenuti)).toBe(false)
+    }
+  })
+
+  it('attivaSu non cambia le altre voci: Progetti resta su /progetti, Panoramica solo su /', () => {
+    expect(isAttiva('/progetti/x', voce('admin', 'Progetti'))).toBe(true)
+    expect(isAttiva('/marketing/instagram', voce('admin', 'Progetti'))).toBe(false)
+    expect(isAttiva('/marketing/instagram', voce('admin', 'Panoramica'))).toBe(false)
   })
 
   it('per l’admin in «Altro», subito dopo Costi e prima di Progetti', () => {

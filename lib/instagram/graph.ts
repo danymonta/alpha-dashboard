@@ -22,122 +22,47 @@ import 'server-only'
  * cursor is. Nothing here logs.
  */
 
-export const API_BASE = 'https://graph.instagram.com'
-export const API_VERSIONE = 'v26.0'
+import {
+  API_BASE,
+  API_VERSIONE,
+  campoNonSupportato,
+  codice,
+  CONCORRENZA,
+  creaRichiedente,
+  ErroreInstagram,
+  nonEsiste,
+  numero,
+  oscuraToken,
+  pool,
+  pulisciToken,
+  semaforo,
+  type Json,
+  type OpzioniGraph,
+  type TipoErroreInstagram,
+} from '@/lib/instagram/richieste'
+
+// The request machinery lives in richieste.ts (09/10/2026: the posts of the
+// content calendar read with it too); the same names are exported from here.
+export {
+  API_BASE,
+  API_VERSIONE,
+  CONCORRENZA,
+  ErroreInstagram,
+  oscuraToken,
+  pool,
+  pulisciToken,
+  semaforo,
+  type OpzioniGraph,
+  type TipoErroreInstagram,
+}
+
 /** Meta returns at most the last 20 messages of a chat. */
 export const MESSAGGI_MAX = 20
 /** Conversations per page (Meta's maximum for the inbox). */
 const PAGINA_CONVERSAZIONI = 50
-/** Requests running at once: Meta's rate limits are per account. */
-export const CONCORRENZA = 3
-/** Retries after the first attempt, on the network and on Meta's transient errors. */
-const RIPROVE = 2
-/** One request waits at most this long: a hung call never outlives the function. */
-const TIMEOUT_RICHIESTA_MS = 20_000
-/** Meta's rate limits (application, user, page, custom): transient, retried. */
-const CODICI_LIMITE = new Set([4, 17, 32, 613])
-/** Meta's words, or subcode 33, for an object that is not there (deleted, gone, not readable). */
-const NON_ESISTE = /deleted|does not exist|cannot be loaded/i
-const SUBCODE_NON_ESISTE = 33
 
 const CAMPI_RICCHI = 'id,created_time,from,to,message,shares'
 const CAMPI_BASE = 'id,created_time,from,to,message'
-
-export type TipoErroreInstagram =
-  /** code 190: the token is expired or no longer valid */
-  | 'token'
-  /** a rate limit still there after the retries */
-  | 'limite'
-  /** Instagram not reachable */
-  | 'rete'
-  /** the time given to the run is over */
-  | 'tempo'
-  /** any other refusal of Meta's */
-  | 'meta'
-
-/** An error of the Graph API. Its message is safe to save: never the token. */
-export class ErroreInstagram extends Error {
-  readonly tipo: TipoErroreInstagram
-  readonly code: number | null
-  readonly subcode: number | null
-  readonly status: number | null
-
-  constructor(
-    tipo: TipoErroreInstagram,
-    messaggio: string,
-    dettagli: { code?: number | null; subcode?: number | null; status?: number | null } = {},
-  ) {
-    super(messaggio)
-    this.name = 'ErroreInstagram'
-    this.tipo = tipo
-    this.code = dettagli.code ?? null
-    this.subcode = dettagli.subcode ?? null
-    this.status = dettagli.status ?? null
-  }
-}
-
-/**
- * The token as pasted: accepts "IG_TOKEN=…", quotes, spaces, line breaks or
- * the whole test URL, and keeps the token only.
- */
-export function pulisciToken(grezzo: unknown): string {
-  const s = String(grezzo ?? '')
-    .replace(/\s+/g, '')
-    .replace(/^["']|["']$/g, '')
-  const trovato = s.match(/IG[A-Za-z0-9_-]{20,}/)
-  if (trovato) return trovato[0]
-  return s
-    .replace(/^IG_TOKEN=/, '')
-    .replace(/^.*access_token=/, '')
-    .replace(/[&"'].*$/, '')
-}
-
-/**
- * A text with every trace of a token blanked: the token itself, any
- * access_token=…, anything shaped like an Instagram token and any long run of
- * token-like characters (the same rule as public.instagram_errore).
- */
-export function oscuraToken(testo: string, token?: string | null): string {
-  let pulito = testo
-  if (token) pulito = pulito.split(token).join('[token]')
-  return pulito
-    .replace(/access_token=[^&\s"']*/gi, 'access_token=[token]')
-    .replace(/IG[A-Za-z0-9_-]{20,}/g, '[token]')
-    .replace(/[A-Za-z0-9_-]{40,}/g, '[token]')
-}
-
-/** At most `quanti` calls of fn running at once; the others wait their turn, in order. */
-export function semaforo(quanti: number) {
-  let liberi = quanti
-  const coda: (() => void)[] = []
-  return async function <T>(fn: () => Promise<T>): Promise<T> {
-    if (liberi > 0) liberi--
-    else await new Promise<void>((avanti) => coda.push(avanti))
-    try {
-      return await fn()
-    } finally {
-      const prossimo = coda.shift()
-      if (prossimo) prossimo()
-      else liberi++
-    }
-  }
-}
-
-/** Runs fn over the items, at most `quanti` at once; the results in the items' order. */
-export async function pool<T, R>(items: readonly T[], quanti: number, fn: (item: T, indice: number) => Promise<R>): Promise<R[]> {
-  const risultati = new Array<R>(items.length)
-  let prossimo = 0
-  const lavoratori = Array.from({ length: Math.min(quanti, items.length) }, async () => {
-    while (prossimo < items.length) {
-      const indice = prossimo++
-      risultati[indice] = await fn(items[indice], indice)
-    }
-  })
-  await Promise.all(lavoratori)
-  return risultati
-}
-
-type Json = Record<string, unknown>
 
 export type Utente = { username?: string; id?: string }
 
@@ -156,143 +81,6 @@ export type MessaggioGraph = {
   shares?: { data?: { link?: string }[] }
 }
 
-export type OpzioniGraph = {
-  token: string
-  /** default https://graph.instagram.com (the tests point it at a fake) */
-  base?: string
-  versione?: string
-  fetch?: typeof fetch
-  /** the pause between retries (the tests make it instant) */
-  attendi?: (ms: number) => Promise<void>
-  /**
-   * epoch ms: past it, no new request starts (ErroreInstagram 'tempo'), not
-   * even one already waiting for its place among the 3 on the wire
-   */
-  entro?: number
-  timeoutMs?: number
-}
-
-const pausa = (ms: number) => new Promise<void>((risolvi) => setTimeout(risolvi, ms))
-
-function numero(valore: unknown): number | null {
-  return typeof valore === 'number' && Number.isFinite(valore) ? valore : null
-}
-
-/** A JSON object, or null for anything else (an empty or cut body, an array, a number). */
-function oggettoJson(testo: string): Json | null {
-  try {
-    const valore: unknown = JSON.parse(testo)
-    return valore !== null && typeof valore === 'object' && !Array.isArray(valore) ? (valore as Json) : null
-  } catch {
-    return null
-  }
-}
-
-/** The request machinery shared by the client and the token refresh. */
-function richiedente(op: OpzioniGraph) {
-  const token = op.token
-  const fetchFn = op.fetch ?? fetch
-  const attendi = op.attendi ?? pausa
-  const timeoutMs = op.timeoutMs ?? TIMEOUT_RICHIESTA_MS
-  // the requests on the wire at once, whoever asks (the waits between retries hold no place)
-  const inFila = semaforo(CONCORRENZA)
-
-  const controllaTempo = () => {
-    if (op.entro !== undefined && Date.now() > op.entro) {
-      throw new ErroreInstagram('tempo', 'Tempo finito prima di leggere tutte le chat')
-    }
-  }
-
-  async function richiesta(url: URL, tentativo = 0): Promise<Json> {
-    controllaTempo()
-    let lettura: { risposta: Response; testo: string }
-    try {
-      // the body is read here too: a connection cut halfway through it, or the
-      // timeout running out while it arrives, is the network's failure
-      lettura = await inFila(async () => {
-        // the time again once its turn has come: a request that waited behind
-        // three slow ones never starts past `entro`
-        controllaTempo()
-        const r = await fetchFn(url, { cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) })
-        return { risposta: r, testo: await r.text() }
-      })
-    } catch (e) {
-      // the time over is not the network: never retried
-      if (e instanceof ErroreInstagram) throw e
-      // never the fetch error itself: undici may put the URL in it
-      if (tentativo < RIPROVE) {
-        await attendi(800 * (tentativo + 1))
-        return richiesta(url, tentativo + 1)
-      }
-      throw new ErroreInstagram('rete', 'Instagram non raggiungibile (rete)')
-    }
-
-    const { risposta, testo } = lettura
-    const letto = oggettoJson(testo)
-    if (risposta.ok && letto === null) {
-      // a 200 without a whole answer is never "nothing": retried, then the network's failure
-      if (tentativo < RIPROVE) {
-        await attendi(800 * (tentativo + 1))
-        return richiesta(url, tentativo + 1)
-      }
-      throw new ErroreInstagram('rete', 'Instagram ha dato una risposta incompleta (rete)', { status: risposta.status })
-    }
-    // a refusal without a readable body still has its status
-    const corpo = letto ?? {}
-
-    const errore = (corpo.error ?? null) as Json | null
-    if (!risposta.ok || errore) {
-      const e = errore ?? {}
-      const code = numero(e.code)
-      const subcode = numero(e.error_subcode)
-      const transitorio = risposta.status >= 500 || (code !== null && CODICI_LIMITE.has(code)) || e.is_transient === true
-      if (transitorio && tentativo < RIPROVE) {
-        await attendi(1500 * (tentativo + 1))
-        return richiesta(url, tentativo + 1)
-      }
-      const testoMeta = typeof e.message === 'string' && e.message ? e.message : `HTTP ${risposta.status}`
-      let messaggio = `Meta API: ${testoMeta} (code ${code ?? '-'}${subcode !== null ? `, subcode ${subcode}` : ''})`
-      if (code === 190) {
-        messaggio += '. Il token è scaduto o non valido: generane uno nuovo dal pannello Meta.'
-      }
-      const tipo: TipoErroreInstagram =
-        code === 190 ? 'token' : code !== null && CODICI_LIMITE.has(code) ? 'limite' : 'meta'
-      throw new ErroreInstagram(tipo, oscuraToken(messaggio, token).slice(0, 500), {
-        code,
-        subcode,
-        status: risposta.status,
-      })
-    }
-    return corpo
-  }
-
-  function url(percorso: string, parametri: Record<string, string | number | undefined | null>, versionato = true) {
-    const base = (op.base ?? API_BASE).replace(/\/$/, '')
-    const u = new URL(versionato ? `${base}/${op.versione ?? API_VERSIONE}${percorso}` : `${base}${percorso}`)
-    for (const [chiave, valore] of Object.entries(parametri)) {
-      if (valore !== undefined && valore !== null && valore !== '') u.searchParams.set(chiave, String(valore))
-    }
-    u.searchParams.set('access_token', token)
-    return u
-  }
-
-  return { richiesta, url, controllaTempo }
-}
-
-function codice(e: unknown): number | null {
-  return e instanceof ErroreInstagram ? e.code : null
-}
-
-/** Meta says the object is not there (deleted, gone, not readable): about that object only. */
-function nonEsiste(e: unknown): boolean {
-  return e instanceof ErroreInstagram && (e.subcode === SUBCODE_NON_ESISTE || NON_ESISTE.test(e.message))
-}
-
-/** Code 100 on fields we asked for: the way of reading is not supported, not this one object. */
-function campoNonSupportato(e: unknown): boolean {
-  return codice(e) === 100 && !nonEsiste(e)
-}
-
 type ModoAnnidato = 'ricco' | 'base' | 'nessuno'
 const PIU_IN_BASSO: Record<Exclude<ModoAnnidato, 'nessuno'>, ModoAnnidato> = { ricco: 'base', base: 'nessuno' }
 const LIVELLO: Record<ModoAnnidato, number> = { ricco: 0, base: 1, nessuno: 2 }
@@ -302,7 +90,7 @@ const LIVELLO: Record<ModoAnnidato, number> = { ricco: 0, base: 1, nessuno: 2 }
  * fields, nested messages) are remembered per client: one run, one discovery.
  */
 export function creaGraph(op: OpzioniGraph) {
-  const { richiesta, url, controllaTempo } = richiedente(op)
+  const { richiesta, url, controllaTempo } = creaRichiedente(op)
   const get = (percorso: string, parametri: Record<string, string | number | undefined | null> = {}) =>
     richiesta(url(percorso, parametri))
 
@@ -443,7 +231,7 @@ export type Graph = ReturnType<typeof creaGraph>
  * else.
  */
 export async function rinnovaToken(op: OpzioniGraph): Promise<{ token: string; scadeIl: Date | null }> {
-  const { richiesta, url } = richiedente(op)
+  const { richiesta, url } = creaRichiedente(op)
   const j = await richiesta(url('/refresh_access_token', { grant_type: 'ig_refresh_token' }, false))
   const nuovo = typeof j.access_token === 'string' ? pulisciToken(j.access_token) : ''
   if (!/^[A-Za-z0-9_.|-]{20,2048}$/.test(nuovo)) {

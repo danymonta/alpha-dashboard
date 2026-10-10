@@ -1,8 +1,8 @@
 import { Search, Users } from 'lucide-react'
-import Link from 'next/link'
 
 import { ETICHETTA_STATO_CLIENTE, StatoClienteBadge, type StatoCliente } from '@/components/cliente/stato-cliente'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
+import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { formatData, formatEuro } from '@/lib/format'
@@ -53,8 +53,9 @@ export default async function ClientiPage({
     if (valore) qs.set('stato', valore)
     if (ricerca) qs.set('q', ricerca)
     const attivo = valore === filtro
+    // one per state: prefetched only on intent, like the rows
     return (
-      <Link
+      <LinkRiga
         key={valore ?? 'tutti'}
         href={`/clients${qs.size ? `?${qs}` : ''}`}
         aria-current={attivo ? 'page' : undefined}
@@ -67,7 +68,7 @@ export default async function ClientiPage({
       >
         {etichetta}
         <span className="num text-xs opacity-80">{n ?? 0}</span>
-      </Link>
+      </LinkRiga>
     )
   }
 
@@ -108,10 +109,13 @@ export default async function ClientiPage({
           <ul className="space-y-2 md:hidden">
             {clienti.map((c) => (
               <li key={c.client_id}>
-                <Link href={`/clients/${c.client_id}`} className="block rounded-xl bg-card p-3 hover:bg-accent">
+                <LinkRiga href={`/clients/${c.client_id}`} className="block rounded-xl bg-card p-3 hover:bg-accent">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{[c.nome, c.cognome].filter(Boolean).join(' ')}</p>
+                      <p className="flex items-center gap-1.5 text-sm font-medium">
+                        <span className="truncate">{[c.nome, c.cognome].filter(Boolean).join(' ')}</span>
+                        <IndicatoreLink />
+                      </p>
                       <StatoClienteBadge stato={c.stato!} className="text-xs" />
                     </div>
                     <div className="shrink-0 text-right">
@@ -122,7 +126,7 @@ export default async function ClientiPage({
                   {c.data_fine_ultima ? (
                     <p className="mt-2 text-xs text-muted-foreground">Percorso fino al {formatData(c.data_fine_ultima)}</p>
                   ) : null}
-                </Link>
+                </LinkRiga>
               </li>
             ))}
           </ul>
@@ -144,9 +148,10 @@ export default async function ClientiPage({
                 {clienti.map((c) => (
                   <tr key={c.client_id} className="hover:bg-accent/50">
                     <td className="px-3 py-2.5">
-                      <Link href={`/clients/${c.client_id}`} className="font-medium hover:underline">
+                      <LinkRiga href={`/clients/${c.client_id}`} className="inline-flex items-center gap-1.5 font-medium hover:underline">
                         {[c.nome, c.cognome].filter(Boolean).join(' ')}
-                      </Link>
+                        <IndicatoreLink />
+                      </LinkRiga>
                       {c.instagram_handle ? <p className="text-xs text-muted-foreground">{c.instagram_handle}</p> : null}
                     </td>
                     <td className="px-3 py-2.5"><StatoClienteBadge stato={c.stato!} /></td>

@@ -98,6 +98,9 @@ test.describe('a 390 px', () => {
 
     const stato = page.getByTestId('instagram-stato')
     await expect(stato).toContainText('Non collegato')
+    // the posts of the content calendar read with the same token (1.33.0)
+    await expect(stato).toContainText('Post e reel')
+    await expect(stato.getByRole('link', { name: 'Post di Instagram' })).toHaveAttribute('href', '/marketing/instagram')
     // nothing to recompute without a token
     await expect(page.getByRole('button', { name: 'Ricalcola ieri' })).toBeDisabled()
     await expect(page.getByText('Prima salva il token.')).toBeVisible()
@@ -224,6 +227,7 @@ test.describe('a 390 px', () => {
     await page.getByRole('button', { name: 'Togli il token' }).click()
     const togli = page.getByRole('dialog', { name: 'Eliminare il token di Instagram?' })
     await expect(togli).toContainText('La proposta di ogni notte si ferma')
+    await expect(togli).toContainText('la lettura dei post per il calendario dei contenuti')
     await togli.getByRole('button', { name: 'Elimina' }).click()
     await expect(togli).toBeHidden()
     await expect(stato).toContainText('Non collegato')

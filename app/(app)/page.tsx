@@ -158,6 +158,11 @@ function Voce({ etichetta, valore, nota }: { etichetta: string | VoceLegenda; va
   )
 }
 
+/** When the numbers are read (outside the render: the clock is not read while rendering). */
+async function istante(): Promise<number> {
+  return Date.now()
+}
+
 export default async function PanoramicaPage({
   searchParams,
 }: {
@@ -175,6 +180,8 @@ export default async function PanoramicaPage({
   const inCorso = contieneData(periodo, oggi)
   const unMese = periodo.mese !== null
   const supabase = await createClient()
+  // which render this is: the live status reads it again when it comes back from the cache
+  const lettaIl = await istante()
 
   // Every number below is computed by SQL functions (CLAUDE.md section 9).
   const [kpi, metriche, cash, funnel, incassare, ritardi, scadenze, team, obiettivi, fonti] = await Promise.all([
@@ -231,7 +238,7 @@ export default async function PanoramicaPage({
         <div className="contents md:flex md:flex-wrap md:items-center md:gap-3">
           {inCorso ? (
             <div className="min-w-0 justify-self-end text-right">
-              <AggiornamentoLive />
+              <AggiornamentoLive lettaIl={lettaIl} />
             </div>
           ) : null}
           <SelettorePeriodo

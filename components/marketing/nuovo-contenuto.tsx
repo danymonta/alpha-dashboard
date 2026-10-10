@@ -3,13 +3,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 
 import { creaContenuto } from '@/app/(app)/marketing/contenuti/actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { TOAST_NEL_PANNELLO, usePannello } from '@/components/marketing/contesto-pannello'
 import { BottoneSalva, CLASSE_SELECT, ErroreModulo } from '@/components/form/foglio-modifica'
 import { SceltaRapida } from '@/components/form/scelta-rapida'
 import { Button } from '@/components/ui/button'
@@ -56,10 +57,11 @@ function valoriIniziali(postDate: string | null | undefined): ContenutoForm {
 
 /**
  * "Nuovo contenuto": the Notion template (Reel Topic or Carousel Topic), the
- * Name and the first properties; the rest is on the content's page, where it
- * opens after saving. A Reel Topic starts with Hook, Line, Line, CTA in its
- * draft (the server writes it). From the calendar the day's "+" opens it with
- * that Post Date: then the calendar owns the sheet (`aperto`, no trigger).
+ * Name and the first properties; the rest is in the content panel, which
+ * opens on it after saving (1.33.0), with the list still there behind. A
+ * Reel Topic starts with Hook, Line, Line, CTA in its draft (the server
+ * writes it). From the calendar the day's "+" opens it with that Post Date:
+ * then the calendar owns the sheet (`aperto`, no trigger).
  */
 export function NuovoContenuto({
   postDate = null,
@@ -67,6 +69,7 @@ export function NuovoContenuto({
   onApertoChange,
   senzaTrigger = false,
   variante = 'primario',
+  da = null,
 }: {
   postDate?: string | null
   aperto?: boolean
@@ -74,8 +77,14 @@ export function NuovoContenuto({
   /** The calendar opens it from a day's "+": no button of its own. */
   senzaTrigger?: boolean
   variante?: 'primario' | 'outline'
+  /** Without a trigger: the element that opened it (the day's "+"), where the panel gives the focus back. */
+  da?: HTMLElement | null
 }) {
   const router = useRouter()
+  const pannello = usePannello()
+  const trigger = useRef<HTMLButtonElement>(null)
+  /** Created: the sheet closes without taking the focus back, the panel takes it. */
+  const creato = useRef(false)
   const [apertoInterno, setApertoInterno] = useState(false)
   const aperto = apertoControllato ?? apertoInterno
   const [errore, setErrore] = useState<string | null>(null)
@@ -91,7 +100,9 @@ export function NuovoContenuto({
 
   // every opening starts clean, with the day it was opened for
   useEffect(() => {
-    if (aperto) reset(valoriIniziali(postDate))
+    if (!aperto) return
+    creato.current = false
+    reset(valoriIniziali(postDate))
   }, [aperto, postDate, reset])
 
   function cambiaAperto(v: boolean) {
@@ -100,7 +111,7 @@ export function NuovoContenuto({
     if (apertoControllato === undefined) setApertoInterno(v)
   }
 
-  const invia = handleSubmit(async (valori) => {
+  async function salvaNuovo(valori: Contenuto) {
     setErrore(null)
     let esito: Awaited<ReturnType<typeof creaContenuto>>
     try {
@@ -113,27 +124,58 @@ export function NuovoContenuto({
       setErrore(esito.errore)
       return
     }
-    toast.success('Contenuto creato')
+    // the panel opens next: its toaster, never over the panel's X nor over the bottom bar
+    toast.success('Contenuto creato', pannello ? TOAST_NEL_PANNELLO : undefined)
+    creato.current = true
     cambiaAperto(false)
-    router.push(`/marketing/contenuti/${esito.id}`)
-  })
+    // outside the list (no panel): the content's own page
+    if (!pannello) {
+      router.push(`/marketing/contenuti/${esito.id}`)
+      return
+    }
+    // the new content in the panel, at once with what the form wrote; the sections come with the GET
+    const adesso = new Date().toISOString()
+    pannello.apri(esito.id, {
+      da: senzaTrigger ? da : trigger.current,
+      riga: {
+        id: esito.id,
+        tipo: valori.tipo,
+        nome: valori.nome,
+        reel_type: valori.reel_type,
+        formato: valori.formato,
+        inspiration: valori.inspiration,
+        stato: valori.stato,
+        post_date: valori.post_date,
+        audio: valori.audio,
+        url: valori.url,
+        view_count: valori.view_count,
+        created_at: adesso,
+        updated_at: esito.versione,
+      },
+    })
+  }
 
   return (
     <Sheet open={aperto} onOpenChange={cambiaAperto}>
       {senzaTrigger ? null : (
-        <SheetTrigger render={<Button type="button" variant={variante === 'outline' ? 'outline' : 'default'} className="h-11" />}>
+        <SheetTrigger
+          render={<Button ref={trigger} type="button" variant={variante === 'outline' ? 'outline' : 'default'} className="h-11" />}
+        >
           <Plus className="size-4" aria-hidden="true" />
           Nuovo contenuto
         </SheetTrigger>
       )}
-      <SheetContent side="right" className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md">
+      <SheetContent
+        side="right"
+        // created: the content panel takes the focus, this sheet never takes it back
+        finalFocus={() => !creato.current}
+        className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md"
+      >
         <SheetHeader>
           <SheetTitle>Nuovo contenuto</SheetTitle>
-          <SheetDescription>
-            Come in Notion: scegli il modello, poi il resto lo scrivi nella pagina del contenuto.
-          </SheetDescription>
+          <SheetDescription>Come in Notion: scegli il modello, poi il resto lo scrivi nel contenuto, che si apre qui accanto.</SheetDescription>
         </SheetHeader>
-        <form onSubmit={invia} noValidate className="space-y-4 px-4 pb-6">
+        <form onSubmit={(e) => void handleSubmit(salvaNuovo)(e)} noValidate className="space-y-4 px-4 pb-6">
           <SceltaRapida
             legenda={CAMPO_MODELLO}
             colonne={2}

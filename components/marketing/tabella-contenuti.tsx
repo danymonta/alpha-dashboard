@@ -1,65 +1,47 @@
-import { ExternalLink } from 'lucide-react'
-import Link from 'next/link'
+'use client'
+
+import type { MouseEvent } from 'react'
 
 import { classeNome } from '@/components/marketing/badge-status'
+import { CellaContenuto, EditorCella, MenuScelta } from '@/components/marketing/cella-contenuto'
+import { usePannello } from '@/components/marketing/contesto-pannello'
+import { LinkContenuto } from '@/components/marketing/link-contenuto'
 import { MenuStatus } from '@/components/marketing/menu-status'
-import { formatData, formatNumero } from '@/lib/format'
-import {
-  CAMPI,
-  ETICHETTA_FORMAT,
-  ETICHETTA_REEL_TYPE,
-  ORDINE_COLONNE,
-} from '@/lib/marketing/etichette'
+import { formatNumero } from '@/lib/format'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
+import { CAMPI, ORDINE_COLONNE } from '@/lib/marketing/etichette'
+import { hrefContenuto } from '@/lib/marketing/pannello'
 import { cn } from '@/lib/utils'
 
 /** What a list reads (COLONNE_ELENCO): the properties, never the four sections. */
 export type RigaContenuto = ContenutoElenco
 
+/** A content's own page (direct links, Cmd/Ctrl-click). */
 export function linkContenuto(id: string): string {
-  return `/marketing/contenuti/${id}`
+  return hrefContenuto(id)
 }
 
-/** "Reel Type · Format", the two Notion selects side by side; empty ones are left out. */
-export function tipoEFormato(r: Pick<RigaContenuto, 'reel_type' | 'formato'>): string {
-  return [r.reel_type ? ETICHETTA_REEL_TYPE[r.reel_type] : null, r.formato ? ETICHETTA_FORMAT[r.formato] : null]
-    .filter(Boolean)
-    .join(' · ')
-}
-
-/** A 44px icon link that opens outside the app (Inspiration, the published post). */
-function LinkEsterno({ href, etichetta }: { href: string; etichetta: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={etichetta}
-      title={etichetta}
-      className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-    >
-      <ExternalLink className="size-4" aria-hidden="true" />
-    </a>
-  )
-}
+/** A tap on a row outside its controls opens the panel (a mouse comfort; the Name link is the way for keyboards). */
+const CONTROLLI = 'a, button, input, select, textarea, label, [role="menu"], [data-cella]'
 
 /**
  * One content as a card: the narrow lists (the table below 960px of section,
- * the calendar's agenda). The Name opens the content (the whole card is its
- * target); the Status is its own 44px button and never opens the card.
+ * the calendar's agenda, "Senza data"). The Name opens the panel (the whole
+ * card is its target); Status, Post Date, Reel Type and Format are chips of
+ * 44 px each that change the property and never open the card (1.33.0). The
+ * other properties change in the panel; View Count is only read here.
  */
-export function CardContenuto({ riga, conData = true }: { riga: RigaContenuto; conData?: boolean }) {
-  const dettagli = tipoEFormato(riga)
+export function CardContenuto({ riga }: { riga: RigaContenuto }) {
   return (
     <li
       data-riga-contenuto={riga.id}
       data-nome-contenuto={riga.nome}
-      className="relative rounded-xl bg-card p-3 transition-colors hover:bg-accent/40 has-[a[data-nome]:focus-visible]:ring-3 has-[a[data-nome]:focus-visible]:ring-ring/50"
+      className="group/riga relative rounded-xl bg-card p-3 transition-colors hover:bg-accent/40 has-[a[data-apri-contenuto]:focus-visible]:ring-3 has-[a[data-apri-contenuto]:focus-visible]:ring-ring/50"
     >
       <div className="flex items-start justify-between gap-3">
-        <Link
-          href={linkContenuto(riga.id)}
-          data-nome=""
+        <LinkContenuto
+          id={riga.id}
+          riga={riga}
           className={cn(
             // wrap-anywhere: a word longer than the card (a pasted link) wraps, never cut
             'line-clamp-2 min-w-0 text-sm font-medium wrap-anywhere outline-none after:absolute after:inset-0 after:rounded-xl',
@@ -67,7 +49,7 @@ export function CardContenuto({ riga, conData = true }: { riga: RigaContenuto; c
           )}
         >
           {riga.nome}
-        </Link>
+        </LinkContenuto>
         {riga.view_count !== null ? (
           <p className="shrink-0 text-right">
             <span className="num block text-sm font-medium">{formatNumero(riga.view_count)}</span>
@@ -75,22 +57,21 @@ export function CardContenuto({ riga, conData = true }: { riga: RigaContenuto; c
           </p>
         ) : null}
       </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2">
-        <MenuStatus id={riga.id} nome={riga.nome} stato={riga.stato} className="-ml-2" />
-        {conData && riga.post_date ? (
-          <span className="num text-sm text-muted-foreground">{formatData(riga.post_date)}</span>
-        ) : null}
+      <div className="mt-1 -ml-2 flex flex-wrap items-center gap-x-1">
+        <MenuStatus id={riga.id} nome={riga.nome} stato={riga.stato} />
+        <EditorCella id={riga.id} nome={riga.nome} campo="post_date" valore={riga.post_date} aspetto="chip" />
+        <MenuScelta id={riga.id} nome={riga.nome} campo="reel_type" valore={riga.reel_type} aspetto="chip" />
+        <MenuScelta id={riga.id} nome={riga.nome} campo="formato" valore={riga.formato} aspetto="chip" />
       </div>
-      {dettagli ? <p className="mt-0.5 text-xs text-muted-foreground">{dettagli}</p> : null}
     </li>
   )
 }
 
-export function ListaCard({ righe, conData = true }: { righe: readonly RigaContenuto[]; conData?: boolean }) {
+export function ListaCard({ righe }: { righe: readonly RigaContenuto[] }) {
   return (
     <ul className="space-y-2">
       {righe.map((r) => (
-        <CardContenuto key={r.id} riga={r} conData={conData} />
+        <CardContenuto key={r.id} riga={r} />
       ))}
     </ul>
   )
@@ -98,44 +79,41 @@ export function ListaCard({ righe, conData = true }: { righe: readonly RigaConte
 
 const ALLINEA_DESTRA = new Set<string>(['view_count'])
 
-function Cella({ riga, colonna }: { riga: RigaContenuto; colonna: (typeof ORDINE_COLONNE)[number] }) {
-  switch (colonna) {
-    case 'nome':
-      return (
-        <Link
-          href={linkContenuto(riga.id)}
+function RigaTabella({ riga }: { riga: RigaContenuto }) {
+  const pannello = usePannello()
+
+  function clic(e: MouseEvent<HTMLTableRowElement>) {
+    const bersaglio = e.target as Element
+    // a click inside a popover bubbles here through React's tree: only clicks in the row's own box count
+    if (!pannello || !e.currentTarget.contains(bersaglio) || bersaglio.closest(CONTROLLI)) return
+    if ((window.getSelection()?.toString() ?? '') !== '') return
+    const link = e.currentTarget.querySelector<HTMLElement>('[data-apri-contenuto]')
+    pannello.apri(riga.id, { da: link, riga })
+  }
+
+  return (
+    <tr
+      data-riga-contenuto={riga.id}
+      data-nome-contenuto={riga.nome}
+      onClick={clic}
+      className="group/riga cursor-pointer border-b border-border last:border-0 hover:bg-accent/30"
+    >
+      {ORDINE_COLONNE.map((c) => (
+        <td
+          key={c}
           className={cn(
-            // wrap-anywhere: a long word (a pasted link) never sets the column's minimum width, so the table keeps its 960px
-            'line-clamp-2 font-medium wrap-anywhere underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-            classeNome(riga.stato),
+            'px-1.5 py-0.5 align-middle first:pl-3 last:pr-3',
+            ALLINEA_DESTRA.has(c) ? 'text-right' : 'text-left',
+            // the short values never shrink: the Name takes what is left
+            (c === 'reel_type' || c === 'stato' || c === 'post_date' || c === 'view_count') && 'whitespace-nowrap',
+            c === 'formato' && 'min-w-24',
           )}
         >
-          {riga.nome}
-        </Link>
-      )
-    case 'reel_type':
-      return riga.reel_type ? ETICHETTA_REEL_TYPE[riga.reel_type] : null
-    case 'formato':
-      return riga.formato ? ETICHETTA_FORMAT[riga.formato] : null
-    case 'inspiration':
-      return riga.inspiration ? (
-        <LinkEsterno href={riga.inspiration} etichetta={`Apri l’ispirazione di ${riga.nome}`} />
-      ) : null
-    case 'stato':
-      return <MenuStatus id={riga.id} nome={riga.nome} stato={riga.stato} className="-ml-2" />
-    case 'post_date':
-      return riga.post_date ? <span className="num whitespace-nowrap">{formatData(riga.post_date)}</span> : null
-    case 'audio':
-      return riga.audio ? (
-        <span className="block max-w-24 truncate" title={riga.audio}>
-          {riga.audio}
-        </span>
-      ) : null
-    case 'url':
-      return riga.url ? <LinkEsterno href={riga.url} etichetta={`Apri il post di ${riga.nome}`} /> : null
-    case 'view_count':
-      return riga.view_count !== null ? <span className="num">{formatNumero(riga.view_count)}</span> : null
-  }
+          <CellaContenuto riga={riga} colonna={c} />
+        </td>
+      ))}
+    </tr>
+  )
 }
 
 /**
@@ -145,7 +123,8 @@ function Cella({ riga, colonna }: { riga: RigaContenuto; colonna: (typeof ORDINE
  * its widest (main's max-w-5xl less its padding), from a 1264px window: the
  * nine columns need about 915px with Notion's longest values (the Name at
  * least 160px, "To be recorded", the 44px links), so at 896px (@4xl) the last
- * column was cut.
+ * column was cut. Every property changes from its own cell (1.33.0): admin,
+ * video editor and marketing, the three who see the page.
  */
 export function TabellaContenuti({
   righe,
@@ -182,27 +161,7 @@ export function TabellaContenuti({
           </thead>
           <tbody>
             {righe.map((r) => (
-              <tr
-                key={r.id}
-                data-riga-contenuto={r.id}
-                data-nome-contenuto={r.nome}
-                className="border-b border-border last:border-0 hover:bg-accent/30"
-              >
-                {ORDINE_COLONNE.map((c) => (
-                  <td
-                    key={c}
-                    className={cn(
-                      'px-1.5 py-1 align-middle first:pl-3 last:pr-3',
-                      ALLINEA_DESTRA.has(c) ? 'text-right' : 'text-left',
-                      // the short values never shrink: the Name takes what is left
-                      (c === 'reel_type' || c === 'stato' || c === 'post_date' || c === 'view_count') && 'whitespace-nowrap',
-                      c === 'formato' && 'min-w-24',
-                    )}
-                  >
-                    <Cella riga={r} colonna={c} />
-                  </td>
-                ))}
-              </tr>
+              <RigaTabella key={r.id} riga={r} />
             ))}
           </tbody>
         </table>

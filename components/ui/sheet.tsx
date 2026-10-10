@@ -28,7 +28,7 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/10 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs",
+        "fixed inset-0 z-50 bg-background/40 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0",
         className
       )}
       {...props}
@@ -60,18 +60,18 @@ function SheetContent({
       >
         {children}
         {showCloseButton && (
+          // a 44px target for the finger (1.33.0), the icon stays 16px
           <SheetPrimitive.Close
             data-slot="sheet-close"
             render={
               <Button
                 variant="ghost"
-                className="absolute top-3 right-3"
-                size="icon-sm"
+                className="absolute top-1.5 right-1.5 size-11"
+                size="icon"
               />
             }
           >
-            <XIcon
-            />
+            <XIcon className="size-4" aria-hidden="true" />
             <span className="sr-only">Chiudi</span>
           </SheetPrimitive.Close>
         )}
@@ -80,12 +80,13 @@ function SheetContent({
   )
 }
 
-// pr-12: the close button sits top right (absolute), a long title wraps before it
+// pr-14: the 44px close button sits top right (absolute, 6 to 50px from the edge),
+// a long title wraps before it
 function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-header"
-      className={cn("flex flex-col gap-0.5 p-4 pr-12", className)}
+      className={cn("flex flex-col gap-0.5 p-4 pr-14", className)}
       {...props}
     />
   )

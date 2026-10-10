@@ -6,6 +6,8 @@ import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { BottoneWhatsApp } from '@/components/pagamento/whatsapp'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
+import { buttonVariants } from '@/components/ui/button'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, fineMese, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import { formatData, formatEuro, formatMese, formatPercentuale } from '@/lib/format'
@@ -97,9 +99,10 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
     return (
       <li key={c.client_id} aria-label={nome} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
         <div className="min-w-0 flex-1 basis-48">
-          <Link href={`/clients/${c.client_id}`} className="block truncate text-sm font-medium hover:underline">
-            {nome}
-          </Link>
+          <LinkRiga href={`/clients/${c.client_id}`} className="flex items-center gap-1.5 text-sm font-medium hover:underline">
+            <span className="truncate">{nome}</span>
+            <IndicatoreLink />
+          </LinkRiga>
           <p className={cn('flex items-center gap-1 text-xs', scaduto ? 'text-status-warning' : 'text-muted-foreground')}>
             {scaduto ? <History className="size-3.5" aria-hidden="true" /> : <CalendarClock className="size-3.5" aria-hidden="true" />}
             <span className="num">
@@ -123,10 +126,11 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
               messaggioRinnovo({ nome, data_fine: c.data_fine_ultima!, oggi }),
             )}
           />
-          <LinkBottone href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} variant="outline">
-            <RefreshCw className="size-4" aria-hidden="true" />
+          {/* one per row: prefetched only on intent (LinkRiga), styled as LinkBottone */}
+          <LinkRiga href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} className={cn(buttonVariants({ variant: 'outline' }), 'h-11')}>
+            <IndicatoreLink riposo={<RefreshCw className="size-4" />} />
             Registra rinnovo
-          </LinkBottone>
+          </LinkRiga>
         </div>
       </li>
     )
@@ -137,9 +141,10 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
     return (
       <li key={c.client_id} aria-label={nome} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
         <div className="min-w-0 flex-1 basis-48">
-          <Link href={`/clients/${c.client_id}`} className="block truncate text-sm font-medium hover:underline">
-            {nome}
-          </Link>
+          <LinkRiga href={`/clients/${c.client_id}`} className="flex items-center gap-1.5 text-sm font-medium hover:underline">
+            <span className="truncate">{nome}</span>
+            <IndicatoreLink />
+          </LinkRiga>
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <Archive className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="num">
@@ -166,10 +171,11 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
           ) : null}
           {c.client_id ? <BottoneArchivio clientId={c.client_id} cliente={nome} archiviato={false} breve /> : null}
           {c.client_id ? <RiapriCliente clientId={c.client_id} cliente={nome} /> : null}
-          <LinkBottone href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} variant="outline">
-            <RefreshCw className="size-4" aria-hidden="true" />
+          {/* one per row: prefetched only on intent (LinkRiga), styled as LinkBottone */}
+          <LinkRiga href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} className={cn(buttonVariants({ variant: 'outline' }), 'h-11')}>
+            <IndicatoreLink riposo={<RefreshCw className="size-4" />} />
             Registra rinnovo
-          </LinkBottone>
+          </LinkRiga>
         </div>
       </li>
     )

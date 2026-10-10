@@ -1,7 +1,7 @@
 import { CalendarDays } from 'lucide-react'
-import Link from 'next/link'
 
 import { BarraAvanzamento, InRitardo, InizialiMembri, SenzaCoach, StatoProgettoBadge } from '@/components/pm/stato-progetto'
+import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import { formatData } from '@/lib/format'
 import type { StatoProgetto } from '@/lib/progetti'
 
@@ -33,14 +33,17 @@ export function CardProgetto({
 }) {
   const p = progetto
   return (
-    <Link
+    <LinkRiga
       href={`/progetti/${p.id}`}
       data-tour="card-progetto"
       className="group/card flex h-full flex-col gap-3 rounded-xl bg-card p-4 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-sm font-medium break-words">{p.nome}</h3>
+          <h3 className="text-sm font-medium break-words">
+            {p.nome}
+            <IndicatoreLink className="ml-1.5 align-[-0.1875rem]" />
+          </h3>
           {/* a client's own project is named after the client: the name is said once */}
           {cliente && cliente !== p.nome ? (
             <p className="truncate text-xs text-muted-foreground">Cliente: {cliente}</p>
@@ -81,6 +84,6 @@ export function CardProgetto({
         </span>
         <InizialiMembri nomi={membri} />
       </div>
-    </Link>
+    </LinkRiga>
   )
 }

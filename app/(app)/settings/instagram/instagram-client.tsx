@@ -132,7 +132,7 @@ export function TokenInstagram({
                 etichetta="Togli il token"
                 azione={togliTokenInstagram}
                 conseguenze={[
-                  'La proposta di ogni notte si ferma finché non incolli un token nuovo.',
+                  'La proposta di ogni notte si ferma finché non incolli un token nuovo, e con lei la lettura dei post per il calendario dei contenuti.',
                   'Chi lavora i DM e le chat escluse restano come sono.',
                 ]}
                 disabilitato={inCorso}

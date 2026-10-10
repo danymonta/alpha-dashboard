@@ -1,11 +1,11 @@
 'use client'
 
 import { Archive, CalendarClock, CalendarOff, CheckCircle2, ChevronRight, CirclePause, TriangleAlert, UserRoundX } from 'lucide-react'
-import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { SenzaCoach, StatoProgettoBadge } from '@/components/pm/stato-progetto'
+import { LinkRiga } from '@/components/shell/link-riga'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { formatData, formatPercentuale } from '@/lib/format'
 import { organizzaGantt, type Forma, type ListaGantt, type RigaGantt, type TaskGantt } from '@/lib/gantt'
@@ -671,7 +671,7 @@ function Grafico({
                 data-testid="timeline-progetto"
                 data-progetto={p.id}
               >
-                <Link
+                <LinkRiga
                   href={`/progetti/${p.id}`}
                   className="flex min-w-0 flex-1 flex-col justify-center self-stretch rounded-sm pr-1 leading-tight focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
@@ -684,7 +684,7 @@ function Grafico({
                     {p.nome}
                   </span>
                   <FineInParole voce={riga.voce} />
-                </Link>
+                </LinkRiga>
                 {figli.length > 0 ? (
                   <button
                     type="button"
@@ -715,12 +715,12 @@ function Grafico({
             >
               {figlio.tipo === 'task' ? (
                 // a task opens where it lives (05/10/2026): its project's Attività, its sheet open
-                <Link
+                <LinkRiga
                   href={linkTask(riga.voce.progetto.id, figlio.task.id)}
                   className="flex min-w-0 flex-1 items-center gap-1 self-stretch rounded-sm hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
                   <NomeFiglio figlio={figlio} />
-                </Link>
+                </LinkRiga>
               ) : (
                 <NomeFiglio figlio={figlio} />
               )}
@@ -849,9 +849,9 @@ function Tabella({ voci }: { voci: Pick<ProgettoSulGrafico, 'progetto' | 'repart
           {voci.map((v) => (
             <tr key={v.progetto.id}>
               <th scope="row" className="py-2 pr-3 text-left font-normal">
-                <Link href={`/progetti/${v.progetto.id}`} className="font-medium hover:underline">
+                <LinkRiga href={`/progetti/${v.progetto.id}`} className="font-medium hover:underline">
                   {v.progetto.nome}
-                </Link>
+                </LinkRiga>
                 <StatoSeNonAttivo stato={v.progetto.stato} />
               </th>
               <td className="py-2 pr-3 text-muted-foreground">{v.reparto}</td>
@@ -877,7 +877,7 @@ function Tabella({ voci }: { voci: Pick<ProgettoSulGrafico, 'progetto' | 'repart
       <ul className="space-y-2 md:hidden">
         {voci.map((v) => (
           <li key={v.progetto.id}>
-            <Link
+            <LinkRiga
               href={`/progetti/${v.progetto.id}`}
               className="block rounded-xl bg-card px-3 py-2.5 hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
@@ -900,7 +900,7 @@ function Tabella({ voci }: { voci: Pick<ProgettoSulGrafico, 'progetto' | 'repart
                     : `${v.progetto.task_completati} di ${v.progetto.task_totali} task`}
                 </span>
               </span>
-            </Link>
+            </LinkRiga>
           </li>
         ))}
       </ul>
@@ -1034,7 +1034,7 @@ export function TimelineProgetti({ reparti, oggi }: { reparti: RepartoTimeline[]
               <ul className="divide-y divide-border rounded-xl bg-card">
                 {senzaFine.map(({ progetto: p, reparto }) => (
                   <li key={p.id}>
-                    <Link
+                    <LinkRiga
                       href={`/progetti/${p.id}`}
                       className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-xl px-3 py-2 text-sm hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                     >
@@ -1043,7 +1043,7 @@ export function TimelineProgetti({ reparti, oggi }: { reparti: RepartoTimeline[]
                         <span className="text-muted-foreground"> · {reparto}</span>
                       </span>
                       <StatoProgettoBadge stato={p.stato} />
-                    </Link>
+                    </LinkRiga>
                   </li>
                 ))}
               </ul>

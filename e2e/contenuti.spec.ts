@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
 
 import { aggiungiGiorni, aggiungiMesi, nomeGiorno, oggiRoma, primoDelMeseISO } from '../lib/date'
-import { formatData, formatMese } from '../lib/format'
+import { formatMese } from '../lib/format'
 import { creaContenutoDiProva, dbLocale, leggiContenuto, pulisciContenuti } from './db'
 import { accedi, type RuoloSeed } from './utenti'
 
@@ -12,7 +12,8 @@ import { accedi, type RuoloSeed } from './utenti'
  */
 const PREFISSO = 'E2E Contenuti '
 
-const CAMBIATO = 'Il contenuto è cambiato da un’altra parte: ricarico i dati salvati.'
+const CAMPO_CAMBIATO = (campo: string) =>
+  `Il campo «${campo}» è cambiato da un’altra parte: ora vedi quello salvato. Rifai la modifica, se serve.`
 const SEZIONE_CAMBIATA =
   'Questa parte è cambiata da un’altra parte: ricarico il testo salvato. Il tuo testo resta qui sotto: copialo se ti serve.'
 const LINK_CONDIVISIONE = 'Questo è un link di condivisione: apri il post e copia l’indirizzo dal browser.'
@@ -51,6 +52,11 @@ function vista(page: Page) {
 /** "lunedì 06/10", as the calendar names a day. */
 function giornoLungo(iso: string) {
   return `${nomeGiorno(iso)} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+}
+
+/** An address without its #fragment. */
+function senzaFrammento(url: string) {
+  return url.split('#')[0]
 }
 
 /** Nothing scrolls sideways: the page is never wider than the window. */
@@ -138,9 +144,21 @@ test('il marketing atterra sui contenuti: in cima quello con la Post Date più r
   for (const voce of ['Panoramica', 'Oggi', 'Le mie call', 'Pipeline', 'Setter', 'Closer']) {
     await expect(nav.getByRole('link', { name: voce, exact: true })).toHaveCount(0)
   }
+
+  // the tabs of the area (1.33.0): «Contenuti» here, «Post di Instagram» next to it; the sidebar item stays lit
+  const schede = page.getByRole('navigation', { name: 'Sezioni del Marketing' })
+  await expect(schede.getByRole('link', { name: 'Contenuti', exact: true })).toHaveAttribute('aria-current', 'page')
+  await schede.getByRole('link', { name: /^Post di Instagram/ }).click()
+  await expect(page).toHaveURL(/\/marketing\/instagram$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Post di Instagram' })).toBeVisible()
+  await expect(schede.getByRole('link', { name: /^Post di Instagram/ })).toHaveAttribute('aria-current', 'page')
+  await expect(nav.getByRole('link', { name: 'Contenuti' })).toHaveAttribute('aria-current', 'page')
+  await schede.getByRole('link', { name: 'Contenuti', exact: true }).click()
+  await expect(page).toHaveURL(/\/marketing\/contenuti$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Instagram Posts' })).toBeVisible()
 })
 
-test('nuovo Reel Topic: Hook, Line e CTA a capo; Status, sezione e proprietà dalla stessa pagina senza conflitti', async ({
+test('nuovo Reel Topic: si apre nel pannello; Hook, Line e CTA a capo; Status, sezione e proprietà senza conflitti', async ({
   page,
 }) => {
   test.setTimeout(90_000)
@@ -158,16 +176,17 @@ test('nuovo Reel Topic: Hook, Line e CTA a capo; Status, sezione e proprietà da
   await foglio.getByLabel('Post Date').fill(oggi)
   await foglio.getByRole('button', { name: 'Crea il contenuto' }).click()
 
-  // the content's page opens
-  await expect(page).toHaveURL(/\/marketing\/contenuti\/[0-9a-f-]{36}$/)
+  // the content opens in the panel, the list stays behind (1.33.0)
+  await expect(page).toHaveURL(/\/marketing\/contenuti\?contenuto=[0-9a-f-]{36}$/)
   await expect(toast(page, 'Contenuto creato')).toBeVisible()
-  await expect(page.getByRole('heading', { level: 1, name: nome })).toBeVisible()
-  const id = page.url().split('/').at(-1)!
-  await expect(page.getByText('Modello: Reel Topic', { exact: true })).toBeVisible()
-  await expect(page.getByText(formatData(oggi), { exact: true })).toBeVisible()
+  const pannello = page.getByRole('dialog', { name: nome })
+  await expect(pannello).toBeVisible()
+  const id = new URL(page.url()).searchParams.get('contenuto')!
+  await expect(pannello.getByLabel('Modello')).toHaveValue('reel')
+  await expect(pannello.getByLabel('Post Date')).toHaveValue(oggi)
 
   // the rough draft of the template, one line each, as in Notion
-  const bozza = page.getByRole('region', { name: 'Script (Rough Draft)', exact: true })
+  const bozza = pannello.getByRole('region', { name: 'Script (Rough Draft)', exact: true })
   await expect(bozza.getByText(/Hook:/)).toBeVisible()
   const [hook, line, cta] = await altezzeDelleParole(bozza, ['Hook:', 'Line:', 'CTA:'])
   expect(hook).not.toBeNull()
@@ -175,32 +194,31 @@ test('nuovo Reel Topic: Hook, Line e CTA a capo; Status, sezione e proprietà da
   expect(cta!).toBeGreaterThan(line!)
 
   // Status with one tap
-  await bottoneStatus(page, nome).click()
+  await bottoneStatus(pannello, nome).click()
   await page.getByRole('menuitemradio', { name: 'To be edited' }).click()
   await expect(toast(page, 'Status: To be edited')).toBeVisible()
-  await expect(page.getByRole('button', { name: `To be edited: cambia lo Status di ${nome}` })).toBeVisible()
+  await expect(pannello.getByRole('button', { name: `To be edited: cambia lo Status di ${nome}` })).toBeVisible()
 
   // a section written in place
-  const finale = page.getByRole('region', { name: 'Script (Final)', exact: true })
+  const finale = pannello.getByRole('region', { name: 'Script (Final)', exact: true })
   await scriviSezione(finale, 'Script (Final)', 'Hook: Allenati a casa.\nCTA: Scrivimi ALPHA.', '')
   await expect(toast(page, 'Salvato')).toBeVisible()
   await expect(finale.getByText(/Allenati a casa\./)).toBeVisible()
   await expect(finale.getByRole('textbox')).toHaveCount(0)
 
-  // the properties, right after the person's own Status tap and section save: no conflict
-  await page.getByRole('button', { name: 'Modifica', exact: true }).click()
-  const proprieta = page.getByRole('dialog', { name: 'Proprietà del contenuto' })
-  await proprieta.getByLabel('Audio').fill('Audio originale di prova')
-  await proprieta.getByRole('button', { name: 'Salva', exact: true }).click()
-  await expect(proprieta).toBeHidden()
-  await expect(toast(page, CAMBIATO)).toHaveCount(0)
+  // a property, right after the person's own Status tap and section save: never a conflict
+  await pannello.getByLabel('Audio').fill('Audio originale di prova')
+  await pannello.getByLabel('Audio').press('Tab')
+  await expect(toast(page, 'Audio salvato')).toBeVisible()
+  await expect(toast(page, CAMPO_CAMBIATO('Audio'))).toHaveCount(0)
   await expect.poll(async () => (await leggiContenuto(id))?.audio).toBe('Audio originale di prova')
 
-  // everything is there after a reload
+  // everything is there after a reload: the panel opens again from the address
   await page.reload()
-  await expect(page.getByRole('button', { name: `To be edited: cambia lo Status di ${nome}` })).toBeVisible()
-  await expect(page.getByRole('region', { name: 'Script (Final)', exact: true }).getByText(/Allenati a casa\./)).toBeVisible()
-  await expect(page.getByText('Audio originale di prova', { exact: true })).toBeVisible()
+  const dopo = page.getByRole('dialog', { name: nome })
+  await expect(dopo.getByRole('button', { name: `To be edited: cambia lo Status di ${nome}` })).toBeVisible()
+  await expect(dopo.getByRole('region', { name: 'Script (Final)', exact: true }).getByText(/Allenati a casa\./)).toBeVisible()
+  await expect(dopo.getByLabel('Audio')).toHaveValue('Audio originale di prova')
   const salvato = await leggiContenuto(id)
   expect(salvato).toMatchObject({
     tipo: 'reel',
@@ -279,7 +297,7 @@ test('due persone sulla stessa sezione: il secondo salvataggio non sovrascrive, 
   await editor.context().close()
 })
 
-test('due persone sulle proprietà: chi salva per secondo non scrive sopra, il foglio ricarica i dati salvati', async ({
+test('due persone sulle proprietà: per campo, chi salva per secondo vede quello salvato; un altro campo passa', async ({
   page,
   browser,
 }) => {
@@ -294,71 +312,62 @@ test('due persone sulle proprietà: chi salva per secondo non scrive sopra, il f
   const admin = await altraPersona(browser, 'admin')
   await admin.goto(`/marketing/contenuti/${id}`)
 
-  // A moves the Post Date
-  await page.getByRole('button', { name: 'Modifica', exact: true }).click()
-  const foglioA = page.getByRole('dialog', { name: 'Proprietà del contenuto' })
-  await foglioA.getByLabel('Post Date').fill(dopo)
-  await foglioA.getByRole('button', { name: 'Salva', exact: true }).click()
-  await expect(foglioA).toBeHidden()
+  // A moves the Post Date on the content's page, saved by itself
+  await page.getByLabel('Post Date').fill(dopo)
+  await page.getByLabel('Post Date').press('Enter')
   await expect.poll(async () => (await leggiContenuto(id))?.post_date).toBe(dopo)
 
-  // B saves from the version he read: nothing written, the sheet shows the saved values
-  await admin.getByRole('button', { name: 'Modifica', exact: true }).click()
-  const foglioB = admin.getByRole('dialog', { name: 'Proprietà del contenuto' })
-  await expect(foglioB.getByLabel('Post Date')).toHaveValue(prima)
-  await foglioB.getByLabel('Audio').fill('Audio di Dany')
-  await foglioB.getByRole('button', { name: 'Salva', exact: true }).click()
-  await expect(toast(admin, CAMBIATO)).toBeVisible()
-  await expect(foglioB).toBeVisible()
-  await expect(foglioB.getByLabel('Post Date')).toHaveValue(dopo)
-  await expect(foglioB.getByLabel('Audio')).toHaveValue('Audio iniziale')
-  expect(await leggiContenuto(id)).toMatchObject({ post_date: dopo, audio: 'Audio iniziale' })
-
-  // now he has seen it: his save goes through, over the new date
-  await foglioB.getByLabel('Audio').fill('Audio di Dany')
-  await foglioB.getByRole('button', { name: 'Salva', exact: true }).click()
-  await expect(foglioB).toBeHidden()
-  await expect.poll(async () => (await leggiContenuto(id))?.audio).toBe('Audio di Dany')
+  // B moves it from the date he saw: nothing written, his field shows A's date
+  await expect(admin.getByLabel('Post Date')).toHaveValue(prima)
+  await admin.getByLabel('Post Date').fill(aggiungiGiorni(oggi, 25))
+  await admin.getByLabel('Post Date').press('Enter')
+  await expect(toast(admin, CAMPO_CAMBIATO('Post Date'))).toBeVisible()
+  await expect(admin.getByLabel('Post Date')).toHaveValue(dopo)
   expect((await leggiContenuto(id))?.post_date).toBe(dopo)
+
+  // his Audio goes through: another field is never blocked by a change elsewhere
+  await admin.getByLabel('Audio').fill('Audio di Dany')
+  await admin.getByLabel('Audio').press('Enter')
+  await expect(toast(admin, 'Audio salvato')).toBeVisible()
+  expect(await leggiContenuto(id)).toMatchObject({ post_date: dopo, audio: 'Audio di Dany' })
 
   await admin.context().close()
 })
 
-test('un link di condivisione di Instagram nell’URL: il foglio lo spiega e non salva niente', async ({ page }) => {
+test('un link di condivisione di Instagram nell’URL: il campo lo spiega e non salva niente', async ({ page }) => {
   const id = await creaContenutoDiProva(`${PREFISSO}link del post`, { stato: 'posted' })
   await accedi(page, 'marketing')
   await page.goto(`/marketing/contenuti/${id}`)
 
-  await page.getByRole('button', { name: 'Modifica', exact: true }).click()
-  const foglio = page.getByRole('dialog', { name: 'Proprietà del contenuto' })
-  const url = foglio.getByLabel('URL', { exact: true })
+  const url = page.getByLabel('URL', { exact: true })
   await url.fill('https://www.instagram.com/share/reel/BAbCdEf123/')
-  await foglio.getByRole('button', { name: 'Salva', exact: true }).click()
-  await expect(foglio.getByText(LINK_CONDIVISIONE)).toBeVisible()
+  await url.press('Enter')
+  await expect(page.getByText(LINK_CONDIVISIONE)).toBeVisible()
   await expect(url).toHaveAttribute('aria-invalid', 'true')
-  await expect(foglio).toBeVisible()
   expect((await leggiContenuto(id))?.url).toBeNull()
 
   // a View Count with a decimal is refused too
-  await url.fill('www.instagram.com/reel/E2eProva01/')
-  const visualizzazioni = foglio.getByLabel('View Count')
+  const visualizzazioni = page.getByLabel('View Count')
   await visualizzazioni.fill('1,5')
-  await foglio.getByRole('button', { name: 'Salva', exact: true }).click()
-  await expect(foglio.getByText('View Count: scrivi un numero intero, senza decimali.')).toBeVisible()
+  await visualizzazioni.press('Enter')
+  await expect(page.getByText('View Count: scrivi un numero intero, senza decimali.')).toBeVisible()
   expect(await leggiContenuto(id)).toMatchObject({ url: null, view_count: null })
 
   // the post's own address, pasted without https://, and the views as Notion shows them: saved
+  await url.fill('www.instagram.com/reel/E2eProva01/')
+  await url.press('Enter')
+  await expect(toast(page, 'URL salvato')).toBeVisible()
   await visualizzazioni.fill('12.480')
-  await foglio.getByRole('button', { name: 'Salva', exact: true }).click()
-  await expect(foglio).toBeHidden()
+  await visualizzazioni.press('Enter')
+  await expect(toast(page, 'View Count: 12.480')).toBeVisible()
   await expect
     .poll(async () => {
       const c = await leggiContenuto(id)
       return [c?.url, c?.instagram_shortcode, c?.view_count]
     })
     .toEqual(['https://www.instagram.com/reel/E2eProva01/', 'E2eProva01', 12480])
-  await expect(page.getByRole('link', { name: /instagram\.com\/reel\/E2eProva01/ })).toBeVisible()
-  await expect(page.getByText('12.480', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Apri il post' })).toHaveAttribute('href', 'https://www.instagram.com/reel/E2eProva01/')
+  await expect(visualizzazioni).toHaveValue('12.480')
 })
 
 test('il calendario va anche nei mesi avanti: «Mese successivo», e il «+» di un giorno crea il contenuto lì', async ({
@@ -389,15 +398,18 @@ test('il calendario va anche nei mesi avanti: «Mese successivo», e il «+» di
   await foglio.getByText('Carousel Topic', { exact: true }).click()
   await foglio.getByLabel('Name', { exact: true }).fill(`${PREFISSO}carosello dal calendario`)
   await foglio.getByRole('button', { name: 'Crea il contenuto' }).click()
-  await expect(page).toHaveURL(/\/marketing\/contenuti\/[0-9a-f-]{36}$/)
-  await expect(page.getByText(formatData(giorno), { exact: true })).toBeVisible()
-  await expect(page.getByText('Modello: Carousel Topic', { exact: true })).toBeVisible()
+  // the panel opens on it, the calendar stays behind with its month
+  const pannello = page.getByRole('dialog', { name: `${PREFISSO}carosello dal calendario` })
+  await expect(pannello).toBeVisible()
+  await expect(page).toHaveURL(new RegExp(`mese=${prossimo.slice(0, 7)}.*contenuto=[0-9a-f-]{36}$`))
+  await expect(pannello.getByLabel('Post Date')).toHaveValue(giorno)
+  await expect(pannello.getByLabel('Modello')).toHaveValue('carousel')
   // a Carousel Topic: Idea/Message, Carousel, Caption, empty (no rough draft, no Comments)
   for (const titolo of ['Idea/Message', 'Carousel', 'Caption']) {
-    await expect(page.getByRole('region', { name: titolo, exact: true })).toBeVisible()
+    await expect(pannello.getByRole('region', { name: titolo, exact: true })).toBeVisible()
   }
-  await expect(page.getByRole('region', { name: 'Comments', exact: true })).toHaveCount(0)
-  const id = page.url().split('/').at(-1)!
+  await expect(pannello.getByRole('region', { name: 'Comments', exact: true })).toHaveCount(0)
+  const id = new URL(page.url()).searchParams.get('contenuto')!
   expect(await leggiContenuto(id)).toMatchObject({ tipo: 'carousel', post_date: giorno, bozza: null })
 })
 
@@ -651,7 +663,9 @@ test.describe('dal telefono', () => {
     await expect(page).toHaveURL(new RegExp(`#giorno-${oggi}$`))
     const agenda = sezione.getByRole('region', { name: `Oggi, ${giornoLungo(oggi)}` })
     await expect(agenda.getByRole('link', { name: nome })).toBeVisible()
-    await expect(agenda.getByText('Education · Split', { exact: true })).toBeVisible()
+    // Reel Type and Format are chips of the card, changed with one tap (1.33.0)
+    await expect(agenda.getByRole('button', { name: `Education: cambia Reel Type di «${nome}»` })).toBeVisible()
+    await expect(agenda.getByRole('button', { name: `Split: cambia Format di «${nome}»` })).toBeVisible()
     await senzaScrollLaterale(page)
 
     // the Status of a card is its own button: the tap changes it and never opens the card
@@ -659,7 +673,11 @@ test.describe('dal telefono', () => {
     await bottoneStatus(agenda, nome).click()
     await page.getByRole('menuitemradio', { name: 'To be recorded' }).click()
     await expect(toast(page, 'Status: To be recorded')).toBeVisible()
-    expect(page.url()).toBe(lista)
+    // the same list, no panel: path and query unchanged. The #giorno- fragment
+    // may go: the mini month's day is a plain anchor Next's router never saw,
+    // and the redraw the action brings replaces the address with its own
+    expect(senzaFrammento(page.url())).toBe(senzaFrammento(lista))
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(bottoneStatus(agenda, nome)).toHaveAccessibleName(`To be recorded: cambia lo Status di ${nome}`)
 
     // from the menu, the calendar again (a cookie of this browser)
@@ -704,19 +722,16 @@ test.describe('dal telefono', () => {
     await expect(toast(page, 'Status: Canceled')).toBeVisible()
     await expect.poll(async () => (await leggiContenuto(id))?.stato).toBe('canceled')
 
-    await page.getByRole('button', { name: 'Modifica', exact: true }).click()
-    const foglio = page.getByRole('dialog', { name: 'Proprietà del contenuto' })
-    await expect(foglio.getByText(/Un contenuto lo eliminano l’admin e il marketing/)).toBeVisible()
-    await expect(foglio.getByRole('button', { name: /Elimina/ })).toHaveCount(0)
-    await page.keyboard.press('Escape')
-    await expect(foglio).toBeHidden()
+    // no "Modifica" any more: the properties are on the page, and at the bottom the sentence, never "Elimina"
+    await expect(page.getByRole('button', { name: 'Modifica', exact: true })).toHaveCount(0)
+    await expect(page.getByText(/Un contenuto lo eliminano l’admin e il marketing/)).toBeVisible()
+    await expect(page.getByRole('button', { name: /Elimina/ })).toHaveCount(0)
 
-    // marketing deletes it
+    // marketing deletes it, from the bottom of the page
     await page.context().clearCookies()
     await accedi(page, 'marketing')
     await page.goto(`/marketing/contenuti/${id}`)
-    await page.getByRole('button', { name: 'Modifica', exact: true }).click()
-    await page.getByRole('dialog', { name: 'Proprietà del contenuto' }).getByRole('button', { name: 'Elimina il contenuto' }).click()
+    await page.getByRole('button', { name: 'Elimina il contenuto' }).click()
     const domanda = page.getByRole('dialog', { name: `Eliminare il contenuto «${nome}»?` })
     await expect(domanda).toContainText('Si perdono anche il messaggio, gli script e i commenti.')
     await expect(domanda).toContainText('Su Instagram e su Notion non cambia niente.')

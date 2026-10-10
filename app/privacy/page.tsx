@@ -32,7 +32,7 @@ const TITOLARE: {
 }
 
 /** Change both together when the text changes. */
-const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-08', testo: '8 ottobre 2026' }
+const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-10', testo: '10 ottobre 2026' }
 
 const TITOLO = 'Informativa privacy · Percorso Alpha'
 const DESCRIZIONE =
@@ -202,6 +202,11 @@ const SEZIONI: Sezione[] = [
           esempio quante conversazioni e quante call proposte), mai il testo, e non passa i messaggi a nessuna
           intelligenza artificiale. Per questo conteggio non conserviamo il tuo username, salvo quando escludiamo la tua
           chat (per esempio perché sei già un cliente).
+        </p>
+        <p>
+          Ogni notte il gestionale legge anche l’elenco dei post e dei reel pubblicati dall’account (didascalia, data,
+          link e copertina, con il numero di mi piace e di commenti) per collegarli al calendario dei contenuti; non legge
+          i commenti né chi ha messo mi piace, e non manda niente di questo a un’intelligenza artificiale.
         </p>
         <Elenco>
           <li>

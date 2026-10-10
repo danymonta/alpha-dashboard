@@ -1,6 +1,7 @@
 -- The marketing role (Dany, 08/10/2026): the Marketing area plus Progetti, like
 -- the video editor, and never money, leads, calls, clients, setter reports,
--- Instagram proposals or DMs. Every Economics policy is an allow-list: this test
+-- Instagram proposals or DMs (Dany's own Instagram posts and their links with the
+-- calendar, 1.33.0, yes). Every Economics policy is an allow-list: this test
 -- reads every table and view of public as marketing and as the video editor and
 -- accepts rows only from the allow-list, so a table added later is covered
 -- without editing it.
@@ -8,7 +9,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(39);
+select plan(41);
 
 -- ---------------------------------------------------------------------------
 -- 1. The role, and an invite that uses it
@@ -102,6 +103,23 @@ select c.id, 'rinnovo_1_mese', '2024-02-29', 'inviato' from public.clients c lim
 on conflict (client_id, tipo, data_fine) do nothing;
 insert into public.obiettivi_mese (mese, cash, nuovi_clienti) values ('2024-01-01', 10000, 5)
 on conflict (mese) do nothing;
+-- The Instagram posts and their links with the calendar (1.33.0): allowed below,
+-- one row each so the check that marketing and the editor read them means something
+insert into public.marketing_contenuti (id, tipo, nome, stato, post_date) values
+  ('66660000-0000-4000-8000-000000000066', 'reel', 'Contenuto del test 66', 'posted', public.oggi() - 1)
+on conflict (id) do nothing;
+insert into public.instagram_contenuti (media_id, shortcode, permalink, media_type, reel, pubblicato_il) values
+  ('6600000000000001', 'Test66Post1', 'https://www.instagram.com/reel/Test66Post1/', 'VIDEO', true, now() - interval '1 day'),
+  ('6600000000000002', 'Test66Post2', 'https://www.instagram.com/p/Test66Post2/', 'IMAGE', false, now() - interval '1 day')
+on conflict (media_id) do nothing;
+insert into public.marketing_abbinamenti (shortcode, contenuto_id, esito, punteggio, somiglianza, giorni, motivi)
+values ('Test66Post1', '66660000-0000-4000-8000-000000000066', 'proposto', 50, 0.4, 0, array['stessa_data'])
+on conflict (shortcode, contenuto_id) do nothing;
+insert into public.marketing_abbinamenti_rifiutati (shortcode, contenuto_id)
+values ('Test66Rifiutato', '66660000-0000-4000-8000-000000000066')
+on conflict (shortcode, contenuto_id) do nothing;
+insert into public.marketing_post_esclusi (shortcode) values ('Test66Post2')
+on conflict (shortcode) do nothing;
 
 create temp table righe_viste (persona text, relazione text, righe bigint, errore text) on commit drop;
 grant select, insert on righe_viste to authenticated;
@@ -148,12 +166,19 @@ select ok(
   and (select righe from righe_viste where persona = 'marketing' and relazione = 'pm_progetti') > 0,
   'il marketing legge il calendario dei contenuti e i progetti di cui fa parte'
 );
--- Allowed: the team directory, the content calendar, the Projects area.
+-- Allowed: the team directory, the content calendar, the Instagram posts and
+-- their links with the calendar (1.33.0, 69_post_instagram.sql), the Projects area.
 -- products: its own rule and test (20261009120200, 68_prodotti_solo_economics.sql).
+create temp table ammesse (relazione text primary key) on commit drop;
+insert into ammesse values
+  ('profiles'), ('marketing_contenuti'), ('products'),
+  ('instagram_contenuti'), ('instagram_contenuti_stato'), ('marketing_abbinamenti'),
+  ('marketing_abbinamenti_rifiutati'), ('marketing_post_esclusi'),
+  ('v_instagram_post'), ('v_marketing_proposte');
 select is(
   (select coalesce(array_agg(relazione order by relazione), '{}') from righe_viste
    where persona = 'marketing' and righe > 0
-     and relazione not in ('profiles', 'marketing_contenuti', 'products')
+     and relazione not in (select relazione from ammesse)
      and relazione not like 'pm\_%' and relazione not like 'v\_pm\_%'),
   '{}'::text[],
   'il marketing non legge nient''altro: né soldi, né lead, call, clienti, report, proposte o DM'
@@ -161,10 +186,26 @@ select is(
 select is(
   (select coalesce(array_agg(relazione order by relazione), '{}') from righe_viste
    where persona = 'editor' and righe > 0
-     and relazione not in ('profiles', 'marketing_contenuti', 'products')
+     and relazione not in (select relazione from ammesse)
      and relazione not like 'pm\_%' and relazione not like 'v\_pm\_%'),
   '{}'::text[],
   'nemmeno il video editor'
+);
+select is(
+  (select coalesce(array_agg(a.relazione order by a.relazione), '{}') from ammesse a
+   where a.relazione not in ('profiles', 'marketing_contenuti', 'products')
+     and not exists (select 1 from righe_viste r
+                     where r.persona = 'marketing' and r.relazione = a.relazione and r.righe > 0)),
+  '{}'::text[],
+  'il marketing legge i post di Instagram e i loro legami col calendario'
+);
+select is(
+  (select coalesce(array_agg(a.relazione order by a.relazione), '{}') from ammesse a
+   where a.relazione not in ('profiles', 'marketing_contenuti', 'products')
+     and not exists (select 1 from righe_viste r
+                     where r.persona = 'editor' and r.relazione = a.relazione and r.righe > 0)),
+  '{}'::text[],
+  'anche il video editor'
 );
 
 -- ---------------------------------------------------------------------------

@@ -5,8 +5,9 @@ import { LinkBottone } from '@/components/link-bottone'
 import { CalendarioContenuti } from '@/components/marketing/calendario-contenuti'
 import { FiltriContenuti, type ConteggiGruppi } from '@/components/marketing/filtri-contenuti'
 import { NuovoContenuto } from '@/components/marketing/nuovo-contenuto'
+import { PannelloContenuti, type DettaglioIniziale } from '@/components/marketing/pannello-contenuto'
 import { SceltaVista } from '@/components/marketing/scelta-vista'
-import { SezioneContenuti } from '@/components/marketing/sezione-contenuti'
+import { SezioneContenuti, UscitaDallaLista } from '@/components/marketing/sezione-contenuti'
 import { TabellaContenuti } from '@/components/marketing/tabella-contenuti'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -14,6 +15,7 @@ import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma, parseMese, primoDelMeseISO } from '@/lib/date'
 import { intervalloGriglia } from '@/lib/marketing/calendario'
+import { leggiDettaglioContenuto } from '@/lib/marketing/dettaglio'
 import { COLONNE_ELENCO, LIMITE_SENZA_DATA, LIMITE_TABELLA } from '@/lib/marketing/elenco'
 import { ORDINE_GRUPPI } from '@/lib/marketing/etichette'
 import {
@@ -25,7 +27,10 @@ import {
   statiFiltrati,
   type FiltriContenuti as Filtri,
 } from '@/lib/marketing/filtri'
+import { PARAMETRO_CONTENUTO } from '@/lib/marketing/pannello'
+import { eliminaContenuti } from '@/lib/marketing/permessi'
 import { COOKIE_VISTA_CONTENUTI, vistaDaUrl, vistaIniziale } from '@/lib/marketing/vista'
+import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -55,8 +60,10 @@ export default async function ContenutiPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  await requireRuolo(RUOLI_MARKETING)
+  const profilo = await requireRuolo(RUOLI_MARKETING)
   const sp = await searchParams
+  const richiesto = primo(sp[PARAMETRO_CONTENUTO])
+  const contenutoId = isUuid(richiesto) ? richiesto : null
   const filtri = filtriDaParametri(sp)
   // ?vista always wins; without it, the view this browser chose last (a cookie)
   const vistaNellUrl = vistaDaUrl(primo(sp.vista))
@@ -85,7 +92,14 @@ export default async function ContenutiPage({
   ])
 
   const intervallo = intervalloGriglia(mese)
-  const [conteggiLetti, tabella, delMese, senzaData] = await Promise.all([
+  // the panel's content, in parallel with the list; a failed read is the panel's own error, never the page's
+  const dettaglioPromessa: Promise<DettaglioIniziale> = contenutoId
+    ? leggiDettaglioContenuto(supabase, contenutoId).then(
+        (dettaglio) => ({ id: contenutoId, dettaglio }),
+        () => ({ id: contenutoId, errore: true as const }),
+      )
+    : Promise.resolve(null)
+  const [conteggiLetti, tabella, delMese, senzaData, dettaglio] = await Promise.all([
     conteggiPromessa,
     vista === 'tabella'
       ? filtrati(filtri)
@@ -110,6 +124,7 @@ export default async function ContenutiPage({
           .order('id')
           .limit(LIMITE_SENZA_DATA)
       : null,
+    dettaglioPromessa,
   ])
   if (conteggiLetti.some((c) => c.error) || tabella?.error || delMese?.error || senzaData?.error) {
     throw new Error('Impossibile caricare i contenuti')
@@ -127,62 +142,75 @@ export default async function ContenutiPage({
   const parametriFiltri = parametriDaFiltri(filtri)
   const hrefTogliFiltri = indirizzo(resto)
   const nessunContenuto = !filtrato && conteggi.tutti === 0
+  // the rows on the page, in the order they show: «precedente» and «successivo» in the panel
+  const righe =
+    vista === 'tabella' ? (tabella?.data ?? []) : [...(delMese?.data ?? []), ...(senzaData?.data ?? [])]
+  const ordine = righe.map((r) => r.id)
 
   return (
-    <div className="space-y-5">
-      <IntestazionePagina
-        titolo="Instagram Posts"
-        descrizione="Reel e caroselli dall’idea al post pubblicato, con le stesse proprietà di Notion."
-        azione={<NuovoContenuto />}
-      />
-
-      {nessunContenuto ? (
-        <div data-tour="elenco-contenuti">
-          <StatoVuoto
-            Icona={Clapperboard}
-            titolo="Nessun contenuto"
-            descrizione="Crea il primo reel o carosello: le proprietà sono quelle di Notion."
-            azione={<NuovoContenuto variante="outline" />}
+    <UscitaDallaLista filtri={filtri} intervallo={vista === 'calendario' ? intervallo : null}>
+      <PannelloContenuti
+        righe={righe}
+        ordine={ordine}
+        iniziale={dettaglio}
+        puoEliminare={eliminaContenuti(profilo.ruolo)}
+      >
+        <div className="space-y-5">
+          <IntestazionePagina
+            titolo="Instagram Posts"
+            descrizione="Reel e caroselli dall’idea al post pubblicato, con le stesse proprietà di Notion."
+            azione={<NuovoContenuto />}
           />
-        </div>
-      ) : (
-        <>
-          <SceltaVista vista={vista} parametri={{ ...parametriFiltri, ...resto }} />
-          <FiltriContenuti filtri={filtri} conteggi={conteggi} resto={resto} />
 
-          <SezioneContenuti stati={statiFiltrati(filtri)}>
-            {vista === 'tabella' ? (
-              (tabella?.data?.length ?? 0) === 0 ? (
-                <StatoVuoto
-                  Icona={SearchX}
-                  titolo="Nessun contenuto con questi filtri"
-                  descrizione="Cambia i filtri o la ricerca, o toglili per vedere tutti i contenuti."
-                  azione={
-                    <LinkBottone href={hrefTogliFiltri} variant="outline" scroll={false}>
-                      Togli i filtri
-                    </LinkBottone>
-                  }
-                />
-              ) : (
-                <TabellaContenuti righe={tabella?.data ?? []} totale={tabella?.count ?? 0} limite={LIMITE_TABELLA} />
-              )
-            ) : (
-              <CalendarioContenuti
-                mese={mese}
-                oggi={oggi}
-                righe={delMese?.data ?? []}
-                senzaData={senzaData?.data ?? []}
-                totaleSenzaData={senzaData?.count ?? 0}
-                limiteSenzaData={LIMITE_SENZA_DATA}
-                parametri={{ ...parametriFiltri, vista: vistaNellUrl ?? undefined }}
-                filtrato={filtrato}
-                hrefTogliFiltri={hrefTogliFiltri}
-                hrefTabella={indirizzo({ ...parametriFiltri, vista: 'tabella' })}
+          {nessunContenuto ? (
+            <div data-tour="elenco-contenuti">
+              <StatoVuoto
+                Icona={Clapperboard}
+                titolo="Nessun contenuto"
+                descrizione="Crea il primo reel o carosello: le proprietà sono quelle di Notion."
+                azione={<NuovoContenuto variante="outline" />}
               />
-            )}
-          </SezioneContenuti>
-        </>
-      )}
-    </div>
+            </div>
+          ) : (
+            <>
+              <SceltaVista vista={vista} parametri={{ ...parametriFiltri, ...resto }} />
+              <FiltriContenuti filtri={filtri} conteggi={conteggi} resto={resto} />
+
+              <SezioneContenuti>
+                {vista === 'tabella' ? (
+                  (tabella?.data?.length ?? 0) === 0 ? (
+                    <StatoVuoto
+                      Icona={SearchX}
+                      titolo="Nessun contenuto con questi filtri"
+                      descrizione="Cambia i filtri o la ricerca, o toglili per vedere tutti i contenuti."
+                      azione={
+                        <LinkBottone href={hrefTogliFiltri} variant="outline" scroll={false}>
+                          Togli i filtri
+                        </LinkBottone>
+                      }
+                    />
+                  ) : (
+                    <TabellaContenuti righe={tabella?.data ?? []} totale={tabella?.count ?? 0} limite={LIMITE_TABELLA} />
+                  )
+                ) : (
+                  <CalendarioContenuti
+                    mese={mese}
+                    oggi={oggi}
+                    righe={delMese?.data ?? []}
+                    senzaData={senzaData?.data ?? []}
+                    totaleSenzaData={senzaData?.count ?? 0}
+                    limiteSenzaData={LIMITE_SENZA_DATA}
+                    parametri={{ ...parametriFiltri, vista: vistaNellUrl ?? undefined }}
+                    filtrato={filtrato}
+                    hrefTogliFiltri={hrefTogliFiltri}
+                    hrefTabella={indirizzo({ ...parametriFiltri, vista: 'tabella' })}
+                  />
+                )}
+              </SezioneContenuti>
+            </>
+          )}
+        </div>
+      </PannelloContenuti>
+    </UscitaDallaLista>
   )
 }

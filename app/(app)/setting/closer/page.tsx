@@ -1,5 +1,4 @@
 import { ChevronDown, ClipboardCheck, Phone } from 'lucide-react'
-import Link from 'next/link'
 
 import { DaRegistrare, caricaCallDaRegistrare } from '@/app/(app)/setting/closer/da-registrare'
 import { LinkBottone } from '@/components/link-bottone'
@@ -8,6 +7,7 @@ import { EtichettaConNota } from '@/components/metriche/nota'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { FiltroSelect } from '@/components/pm/filtri'
+import { LinkRiga } from '@/components/shell/link-riga'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
@@ -393,13 +393,14 @@ export default async function CloserPage({
                         {setter ? (
                           <span className="num">{formatData(r.data)}</span>
                         ) : (
-                          <Link
+                          // one per day: prefetched only on intent
+                          <LinkRiga
                             href={hrefGiorno(r.data, closer)}
                             aria-label={`${formatData(r.data)}: apri la giornata`}
                             className="num rounded-sm underline decoration-border underline-offset-4 hover:text-foreground hover:decoration-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                           >
                             {formatData(r.data)}
-                          </Link>
+                          </LinkRiga>
                         )}
                       </th>
                       {COLONNE.map((c) => (

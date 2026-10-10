@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
+import { LinkNav } from '@/components/shell/link-nav'
 import { cn } from '@/lib/utils'
 
 const SCHEDE = [
@@ -25,7 +25,7 @@ export function SchedeTempo() {
           const attiva = href === '/tempo' ? pathname === '/tempo' : pathname === href || pathname.startsWith(`${href}/`)
           return (
             <li key={href} className="shrink-0">
-              <Link
+              <LinkNav
                 href={href}
                 aria-current={attiva ? 'page' : undefined}
                 className={cn(
@@ -36,7 +36,7 @@ export function SchedeTempo() {
                 )}
               >
                 {etichetta}
-              </Link>
+              </LinkNav>
             </li>
           )
         })}

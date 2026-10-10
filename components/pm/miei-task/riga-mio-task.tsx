@@ -1,10 +1,10 @@
 'use client'
 
 import { CircleCheck } from 'lucide-react'
-import Link from 'next/link'
 
 import { InRitardo } from '@/components/pm/stato-progetto'
 import { AvviaTimer } from '@/components/pm/tempo/avvia-timer'
+import { LinkRiga } from '@/components/shell/link-riga'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatData } from '@/lib/format'
 import type { MioTask } from '@/lib/miei-task'
@@ -73,16 +73,16 @@ export function RigaMioTask({ task, completatoAdesso, onCompleta, onRiapri }: Pr
         />
       </label>
       <div className="min-w-0 flex-1 pb-3">
-        <Link
+        <LinkRiga
           href={linkTask(task.progetto_id, task.id)}
           className={cn(CLASSE_TITOLO, completatoAdesso && 'text-muted-foreground line-through')}
         >
           {task.titolo}
-        </Link>
+        </LinkRiga>
         <div className={CLASSE_RIGA_PROGETTO}>
-          <Link href={`/progetti/${task.progetto_id}/attivita`} className={CLASSE_PROGETTO}>
+          <LinkRiga href={`/progetti/${task.progetto_id}/attivita`} className={CLASSE_PROGETTO}>
             {task.progetto}
-          </Link>
+          </LinkRiga>
           <p className={CLASSE_DETTAGLI} data-testid="dettagli-mio-task">
             {completatoAdesso ? (
               <span className="inline-flex items-center gap-1 font-medium text-status-ok">

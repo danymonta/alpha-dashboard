@@ -8,6 +8,7 @@ import { BottomBar } from '@/components/shell/bottom-bar'
 import { EsitiDaRegistrareProvider } from '@/components/shell/esiti-da-registrare'
 import { Sidebar } from '@/components/shell/sidebar'
 import { TopBar } from '@/components/shell/top-bar'
+import { TransizionePagina } from '@/components/shell/transizione-pagina'
 import type { AppRole } from '@/lib/auth/roles'
 import type { Promemoria } from '@/lib/nav'
 
@@ -53,7 +54,7 @@ export function AppShell({
         <Sidebar ruolo={ruolo} nome={nome} foto={foto} />
         <TopBar ruolo={ruolo} nome={nome} foto={foto} />
         <main className="mx-auto w-full max-w-5xl px-4 pt-4 pb-24 md:px-8 md:pt-8 md:pb-10">
-          {children}
+          <TransizionePagina>{children}</TransizionePagina>
         </main>
         <BottomBar ruolo={ruolo} />
         {/* Brand moment: once per session, removed from the DOM when done */}

@@ -41,7 +41,7 @@ const AVVISO_SCADENZA_GIORNI = 7
 
 async function caricaInstagram() {
   const supabase = await createClient()
-  const [collegamento, token, esclusi, setter] = await Promise.all([
+  const [collegamento, token, esclusi, setter, post] = await Promise.all([
     supabase
       .from('instagram_collegamento')
       .select(
@@ -52,8 +52,13 @@ async function caricaInstagram() {
     supabase.rpc('instagram_token_presente'),
     supabase.from('instagram_esclusi').select('username, motivo').order('username'),
     supabase.from('profiles').select('id, nome').eq('ruolo', 'setter').eq('attivo', true).order('nome'),
+    // the posts of the content calendar read with the same token (1.33.0)
+    supabase
+      .from('instagram_contenuti_stato')
+      .select('ultimo_giro_il, ultimo_giro_esito, ultimo_giro_letti, ultimo_errore, ultimo_errore_il')
+      .maybeSingle(),
   ])
-  if (collegamento.error || token.error || esclusi.error || setter.error) {
+  if (collegamento.error || token.error || esclusi.error || setter.error || post.error) {
     throw new Error('Impossibile caricare il collegamento di Instagram')
   }
 
@@ -66,7 +71,14 @@ async function caricaInstagram() {
     persone = [...persone, { id: scelto, nome: data?.nome ?? 'Persona eliminata', attivo: false }]
   }
 
-  return { collegamento: collegamento.data, tokenPresente: token.data === true, esclusi: esclusi.data, persone, scelto }
+  return {
+    collegamento: collegamento.data,
+    tokenPresente: token.data === true,
+    esclusi: esclusi.data,
+    persone,
+    scelto,
+    post: post.data,
+  }
 }
 
 function Voce({ etichetta, children }: { etichetta: string; children: ReactNode }) {
@@ -80,7 +92,7 @@ function Voce({ etichetta, children }: { etichetta: string; children: ReactNode 
 
 export default async function InstagramPage() {
   await requireRuolo(['admin'])
-  const { collegamento, tokenPresente, esclusi, persone, scelto } = await caricaInstagram()
+  const { collegamento, tokenPresente, esclusi, persone, scelto, post } = await caricaInstagram()
   const adesso = adessoMs()
   const oggi = oggiRoma(new Date(adesso))
   const ieri = aggiungiGiorni(oggi, -1)
@@ -162,6 +174,42 @@ export default async function InstagramPage() {
               </span>
             ) : (
               <span className="text-muted-foreground">Ancora nessuno</span>
+            )}
+          </Voce>
+          <Voce etichetta="Post e reel">
+            {post?.ultimo_errore && post.ultimo_giro_esito !== 'ok' ? (
+              <span className="flex items-start gap-1.5 text-status-critical" data-testid="instagram-post-errore">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span>
+                  {post.ultimo_errore_il ? (
+                    <span className="num inline-flex items-center gap-1 text-muted-foreground">
+                      <Clock className="size-3.5" aria-hidden="true" />
+                      {quando(post.ultimo_errore_il, oggi)}:
+                    </span>
+                  ) : null}{' '}
+                  {post.ultimo_errore}{' '}
+                  <Link href="/marketing/instagram" className="text-foreground underline underline-offset-4">
+                    Post di Instagram
+                  </Link>
+                </span>
+              </span>
+            ) : (
+              <span>
+                Letti ogni notte per il calendario dei contenuti
+                {post?.ultimo_giro_il ? (
+                  <span className="num">
+                    {' '}
+                    (ultimo: {quando(post.ultimo_giro_il, oggi)}
+                    {post.ultimo_giro_letti !== null ? `, ${post.ultimo_giro_letti} post` : ''})
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground"> (ancora nessuna lettura)</span>
+                )}
+                .{' '}
+                <Link href="/marketing/instagram" className="underline underline-offset-4 hover:text-foreground">
+                  Post di Instagram
+                </Link>
+              </span>
             )}
           </Voce>
           <Voce etichetta="Ultimo errore">

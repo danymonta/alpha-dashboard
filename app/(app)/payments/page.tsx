@@ -8,6 +8,7 @@ import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { StatoRata } from '@/components/pagamento/stato-rata'
 import { BottoneWhatsApp } from '@/components/pagamento/whatsapp'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formatData, formatEuro, formatMese } from '@/lib/format'
@@ -174,7 +175,7 @@ export default async function IncassiPage({
       <nav aria-label="Viste" className="max-md:-mx-4">
         <StrisciaScorrevole attivo={vista} className="flex gap-2 max-md:px-4 md:flex-wrap md:overflow-visible">
         {(Object.keys(VISTE) as Vista[]).map((v) => (
-          <Link
+          <LinkRiga
             key={v}
             href={
               v === 'ritardo'
@@ -193,7 +194,7 @@ export default async function IncassiPage({
           >
             {etichettaVista(v)}
             <span className="num text-xs opacity-80">{nVista[v]}</span>
-          </Link>
+          </LinkRiga>
         ))}
         </StrisciaScorrevole>
       </nav>
@@ -224,9 +225,10 @@ export default async function IncassiPage({
             >
               <div className="flex min-h-11 items-center gap-3 md:flex-1">
                 <div className="min-w-0 flex-1">
-                  <Link href={`/sales/${r.sale_id}`} className="block truncate text-sm font-medium hover:underline">
-                    {r.cliente}
-                  </Link>
+                  <LinkRiga href={`/sales/${r.sale_id}`} className="flex items-center gap-1.5 text-sm font-medium hover:underline">
+                    <span className="truncate">{r.cliente}</span>
+                    <IndicatoreLink />
+                  </LinkRiga>
                   {/* each part carries its dot; the row starts one dot to the left and the
                       wrapper clips it, so no line ever starts or ends with a lone "·" */}
                   <div className="overflow-hidden">

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 
+import { TOASTER_PANNELLO } from '@/components/marketing/toaster-pannello'
 import { Toaster } from '@/components/ui/sonner'
 import { DESCRIZIONE_BREVE, NOME_APP } from '@/lib/brand/nome'
 import { origineCorrente } from '@/lib/auth/origine-server'
@@ -56,6 +57,16 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       <body className="flex min-h-full flex-col bg-background text-foreground">
         {children}
         <Toaster theme="dark" position="top-center" richColors />
+        {/* the content panel's toasts (TOAST_NEL_PANNELLO): never over its header, never over the bottom bar */}
+        <Toaster
+          id={TOASTER_PANNELLO}
+          theme="dark"
+          position="bottom-right"
+          richColors
+          offset={{ bottom: 'var(--toast-pannello-basso)' }}
+          mobileOffset={{ bottom: 'var(--toast-pannello-basso)' }}
+          containerAriaLabel="Notifiche del contenuto"
+        />
       </body>
     </html>
   )

@@ -108,10 +108,26 @@ test('il calendario dei contenuti è dell’area Marketing: il setter torna a Og
     ['coach', '/task'],
   ] as const) {
     await accedi(page, ruolo)
-    for (const pagina of ['/marketing/contenuti', `/marketing/contenuti/${CONTENUTO_SEED}`]) {
+    for (const pagina of [
+      '/marketing',
+      '/marketing/contenuti',
+      `/marketing/contenuti/${CONTENUTO_SEED}`,
+      // the panel's address and the posts of Instagram (1.33.0)
+      `/marketing/contenuti?contenuto=${CONTENUTO_SEED}`,
+      '/marketing/instagram',
+    ]) {
       await page.goto(pagina)
       await expect(page, `${ruolo} ${pagina}`).toHaveURL(casa)
     }
+    // nor through the routes the pages of the area call from the browser
+    const dettaglio = await page.request.get(`/api/marketing/contenuti/${CONTENUTO_SEED}`)
+    expect(dettaglio.status(), `${ruolo} dettaglio`).toBe(403)
+    expect(await dettaglio.json()).toEqual({ errore: 'Il calendario dei contenuti è dell’area Marketing.' })
+    const aggiorna = await page.request.post('/api/marketing/instagram/aggiorna', {
+      headers: { origin: new URL(page.url()).origin },
+    })
+    expect(aggiorna.status(), `${ruolo} aggiorna`).toBe(403)
+    expect(await aggiorna.json()).toEqual({ errore: 'Aggiorna da Instagram lo usano l’admin e il marketing.' })
     await expect(
       page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'Contenuti' }),
     ).toHaveCount(0)

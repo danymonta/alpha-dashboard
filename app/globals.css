@@ -95,6 +95,17 @@
 
   /* 6px controls, 8.4px cards (rounded-xl = radius * 1.4) */
   --radius: 0.375rem;
+
+  /* The toasts of the content panel (their own toaster, app/layout.tsx): bottom
+     right, on a computer 24 px from the edge; below 768 px above the bottom bar
+     (56 px and the home bar), so once the panel closes they never sit on its items. */
+  --toast-pannello-basso: 24px;
+}
+
+@media (width < 48rem) {
+  :root {
+    --toast-pannello-basso: calc(env(safe-area-inset-bottom) + 4.5rem);
+  }
 }
 
 /* v1 ships dark only: the .dark class inherits the same values. */
@@ -356,4 +367,83 @@ input::-webkit-datetime-edit-hour-field:focus,
 input::-webkit-datetime-edit-minute-field:focus {
   background-color: var(--alpha-bordeaux);
   color: var(--alpha-text);
+}
+
+/* Fluidity (1.33.0) -----------------------------------------------------------
+   IndicatoreLink (components/shell/link-riga.tsx): the spinner of a link whose
+   page is on its way shows only after 120 ms, so a quick opening never flashes.
+   animation-delay is left alone by the reduced-motion rule below. */
+@keyframes indicatore-comparsa {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes indicatore-scomparsa {
+  to {
+    opacity: 0;
+  }
+}
+
+.indicatore-link {
+  opacity: 0;
+  animation: indicatore-comparsa 1ms linear 120ms forwards;
+}
+
+.indicatore-link-riposo {
+  animation: indicatore-scomparsa 1ms linear 120ms forwards;
+}
+
+/* The fade between pages (components/shell/transizione-pagina.tsx): opacity only,
+   out in 80 ms, in in 120 ms after 30 ms, 150 ms in all. The page itself (root,
+   with the sidebar and the bars) never animates, nor does the content's box: no
+   movement, no size change. Clicks pass through when it ends. */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-group(root),
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-group(.pagina) {
+  animation: none;
+}
+
+::view-transition-old(.pagina) {
+  animation: 80ms ease-out both pagina-esce;
+}
+
+::view-transition-new(.pagina) {
+  animation: 120ms ease-in 30ms both pagina-entra;
+}
+
+@keyframes pagina-esce {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pagina-entra {
+  from {
+    opacity: 0;
+  }
+}
+
+/* "Riduci movimento" on the phone or the computer: no animation in the whole app
+   (sheets, menus, the page fade). 0.01ms and not none: base-ui waits for the end
+   of a transition before unmounting a sheet, and the events still arrive. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

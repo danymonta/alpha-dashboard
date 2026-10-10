@@ -1,13 +1,12 @@
 'use client'
 
 import { ChevronRight, Copy, LoaderCircle, Pencil, TriangleAlert } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent } from 'react'
 import { toast } from 'sonner'
 
 import { salvaSezioneContenuto } from '@/app/(app)/marketing/contenuti/actions'
+import { useOpzioniToast, usePannello } from '@/components/marketing/contesto-pannello'
 import { MarkdownContenuto } from '@/components/marketing/markdown-contenuto'
-import { useVersioneContenuto } from '@/components/marketing/versione-contenuto'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import type { SezioneContenuto as Campo } from '@/lib/marketing/etichette'
@@ -26,7 +25,9 @@ function righe(testo: string): number {
  * (interactive content inside it is invalid and swallows the tap). A save
  * goes only over the text the page showed (its md5 fingerprint): when
  * somebody else changed this section meanwhile, the saved text comes back and
- * what the person wrote stays below, read-only, to copy.
+ * what the person wrote stays below, read-only, to copy. In the content panel
+ * (1.33.0) Esc cancels the edit and the panel stays, and a text not saved
+ * makes the panel ask before closing.
  */
 export function SezioneContenuto({
   id,
@@ -45,13 +46,32 @@ export function SezioneContenuto({
   impronta: string
   apertaDiBase: boolean
 }) {
-  const router = useRouter()
-  const versione = useVersioneContenuto()
+  const pannello = usePannello()
+  const opzioniToast = useOpzioniToast()
   const idTitolo = useId()
   const idAiuto = useId()
   const area = useRef<HTMLTextAreaElement>(null)
   const copia = useRef<HTMLTextAreaElement>(null)
   const bottoneModifica = useRef<HTMLButtonElement>(null)
+  /**
+   * Where the focus goes once the field (or the button) is on screen: moved in
+   * the same commit that swaps them, so the content panel's focus trap never
+   * sees it fall to <body> (it would take it back to the panel's title).
+   */
+  const fuocoRichiesto = useRef<'testo' | 'modifica' | null>(null)
+  useLayoutEffect(() => {
+    const dove = fuocoRichiesto.current
+    if (!dove) return
+    if (dove === 'testo' && area.current) {
+      fuocoRichiesto.current = null
+      const el = area.current
+      el.focus()
+      el.setSelectionRange(el.value.length, el.value.length)
+    } else if (dove === 'modifica' && bottoneModifica.current) {
+      fuocoRichiesto.current = null
+      bottoneModifica.current.focus()
+    }
+  })
 
   // what this page knows of the section: the server's render, or the person's own save after it
   const [dalServer, setDalServer] = useState({ testo, impronta })
@@ -64,7 +84,8 @@ export function SezioneContenuto({
   const [aperta, setAperta] = useState(apertaDiBase)
   const [inModifica, setInModifica] = useState(false)
   const [bozza, setBozza] = useState('')
-  const [inCorso, setInCorso] = useState(false)
+  // a transition: the save is in flight until the redraw it brings is committed
+  const [inCorso, avviaSalvataggio] = useTransition()
   const [errore, setErrore] = useState<string | null>(null)
   /** After a conflict: what the person had written, to copy. */
   const [ilMio, setIlMio] = useState<string | null>(null)
@@ -75,6 +96,18 @@ export function SezioneContenuto({
    * over a text he has not read.
    */
   const [partenza, setPartenza] = useState(impronta)
+  // while the save (and the redraw it brings) is in flight, the panel knows
+  const inizioSalvataggio = pannello?.inizioSalvataggio
+  useEffect(() => (inCorso && inizioSalvataggio ? inizioSalvataggio() : undefined), [inCorso, inizioSalvataggio])
+
+  // a text different from the saved one: the panel asks before closing
+  const sporca = inModifica && bozza !== (salvato.testo ?? '')
+  const segnaBozza = pannello?.segnaBozza
+  useEffect(() => {
+    if (!segnaBozza) return
+    segnaBozza(titolo, sporca)
+    return () => segnaBozza(titolo, false)
+  }, [segnaBozza, titolo, sporca])
 
   function modifica() {
     setBozza(salvato.testo ?? '')
@@ -82,74 +115,68 @@ export function SezioneContenuto({
     setErrore(null)
     setAperta(true)
     setInModifica(true)
-    // after the render that shows the field
-    requestAnimationFrame(() => {
-      const el = area.current
-      if (!el) return
-      el.focus()
-      el.setSelectionRange(el.value.length, el.value.length)
-    })
+    // in the commit that shows the field
+    fuocoRichiesto.current = 'testo'
   }
 
   function annulla() {
     setInModifica(false)
     setErrore(null)
-    requestAnimationFrame(() => bottoneModifica.current?.focus())
+    fuocoRichiesto.current = 'modifica'
   }
 
-  async function salva() {
+  function salva() {
     if (lunghezza(normalizzaSezione(bozza) ?? '') > SEZIONE_MAX) {
       setErrore(ERRORE_SEZIONE_LUNGA)
       return
     }
     setErrore(null)
-    setInCorso(true)
-    let esito: Awaited<ReturnType<typeof salvaSezioneContenuto>>
-    try {
-      esito = await salvaSezioneContenuto({ id, campo, testo: bozza, impronta: partenza })
-    } catch {
-      setInCorso(false)
-      setErrore('Connessione assente. Riprova.')
-      return
-    }
-    setInCorso(false)
-    if (esito.ok) {
-      // the text as the database stored it (the refresh brings the same)
-      setSalvato({ testo: normalizzaSezione(bozza), impronta: esito.impronta })
-      versione?.aggiorna(esito.versione)
-      setInModifica(false)
-      setIlMio(null)
-      toast.success('Salvato')
-      router.refresh()
-      requestAnimationFrame(() => bottoneModifica.current?.focus())
-      return
-    }
-    if (esito.cambiata) {
-      // somebody else saved this section: their text comes back, the person's stays below to copy
-      setIlMio(bozza)
-      setSalvato({ testo: esito.cambiata.attuale, impronta: esito.cambiata.impronta })
-      versione?.aggiorna(esito.cambiata.versione)
-      setInModifica(false)
-      toast.error(esito.errore)
-      router.refresh()
-      requestAnimationFrame(() => bottoneModifica.current?.focus())
-      return
-    }
-    if (esito.sparito) {
-      toast.error(esito.errore)
-      router.refresh()
-      return
-    }
-    setErrore(esito.errore)
+    avviaSalvataggio(async () => {
+      let esito: Awaited<ReturnType<typeof salvaSezioneContenuto>>
+      try {
+        esito = await salvaSezioneContenuto({ id, campo, testo: bozza, impronta: partenza })
+      } catch {
+        setErrore('Connessione assente. Riprova.')
+        return
+      }
+      if (esito.ok) {
+        // the text as the database stored it; no router.refresh(): the action's revalidatePath redrew the page (1.33.0)
+        setSalvato({ testo: normalizzaSezione(bozza), impronta: esito.impronta })
+        pannello?.aggiornaSezione(id, campo, normalizzaSezione(bozza), esito.impronta, esito.versione)
+        setInModifica(false)
+        setIlMio(null)
+        toast.success('Salvato', opzioniToast)
+        fuocoRichiesto.current = 'modifica'
+        return
+      }
+      if (esito.cambiata) {
+        // somebody else saved this section: their text comes back, the person's stays below to copy
+        setIlMio(bozza)
+        setSalvato({ testo: esito.cambiata.attuale, impronta: esito.cambiata.impronta })
+        pannello?.aggiornaSezione(id, campo, esito.cambiata.attuale, esito.cambiata.impronta, esito.cambiata.versione)
+        setInModifica(false)
+        toast.error(esito.errore, opzioniToast)
+        fuocoRichiesto.current = 'modifica'
+        return
+      }
+      if (esito.sparito) {
+        pannello?.segnaSparito(id)
+        toast.error(esito.errore, opzioniToast)
+        return
+      }
+      setErrore(esito.errore)
+    })
   }
 
   function tasti(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Escape') {
       e.preventDefault()
+      // React and Base UI both listen on the document: the panel recognises this event and stays (spec R1)
+      pannello?.escGestito(e.nativeEvent)
       annulla()
     } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
-      void salva()
+      salva()
     }
   }
 
@@ -157,7 +184,7 @@ export function SezioneContenuto({
     if (ilMio === null) return
     try {
       await navigator.clipboard.writeText(ilMio)
-      toast.success('Testo copiato')
+      toast.success('Testo copiato', opzioniToast)
     } catch {
       // no clipboard (permissions, an old browser): the text selected, ready for the system copy
       const el = copia.current
@@ -165,12 +192,12 @@ export function SezioneContenuto({
         el.focus()
         el.select()
       }
-      toast('Testo selezionato: copialo dal menu del telefono o con Ctrl+C.')
+      toast('Testo selezionato: copialo dal menu del telefono o con Ctrl+C.', opzioniToast)
     }
   }
 
   return (
-    <section aria-labelledby={idTitolo} className="relative rounded-xl bg-card">
+    <section aria-labelledby={idTitolo} data-bozza-sporca={sporca || undefined} className="relative rounded-xl bg-card">
       <details
         open={aperta}
         onToggle={(e) => {
@@ -215,7 +242,7 @@ export function SezioneContenuto({
                 </p>
               ) : null}
               <div className="flex gap-2">
-                <Button type="button" className="h-11 flex-1 sm:flex-none" disabled={inCorso} onClick={() => void salva()}>
+                <Button type="button" className="h-11 flex-1 sm:flex-none" disabled={inCorso} onClick={salva}>
                   {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
                   {inCorso ? 'Salvo…' : 'Salva'}
                 </Button>
