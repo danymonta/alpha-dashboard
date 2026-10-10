@@ -389,3 +389,30 @@ export async function pulisciContenuti(prefisso: string) {
   const { error } = await dbLocale().from('marketing_contenuti').delete().like('nome', `${prefisso}%`)
   if (error) throw error
 }
+
+/**
+ * A public OAuth client registered by hand, as Dany does in Supabase › Authentication ›
+ * OAuth Apps (Claude connected, 09/10/2026): no secret, one redirect URI. Local only.
+ */
+export async function registraClientMcp({ nome, redirect }: { nome: string; redirect: string }) {
+  const { data, error } = await dbLocale().auth.admin.oauth.createClient({
+    client_name: nome,
+    redirect_uris: [redirect],
+    token_endpoint_auth_method: 'none',
+  })
+  if (error) throw error
+  if (!data) throw new Error('Client OAuth non registrato')
+  return data.client_id
+}
+
+/** The client goes: its tokens stop working for everyone (mcp_token_valido). */
+export async function eliminaClientMcp(clientId: string) {
+  const { error } = await dbLocale().auth.admin.oauth.deleteClient(clientId)
+  if (error && error.status !== 404) throw error
+}
+
+/** Role and state of a seed profile, as the admin changes them in Team. */
+export async function impostaProfilo(id: string, campi: { ruolo?: RuoloSeed; attivo?: boolean }) {
+  const { error } = await dbLocale().from('profiles').update(campi).eq('id', id)
+  if (error) throw error
+}

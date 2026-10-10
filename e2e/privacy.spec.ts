@@ -30,6 +30,8 @@ test('l’informativa si apre senza sessione, con le istruzioni per la cancellaz
   await expect(page.getByText('Ultimo aggiornamento: 10 ottobre 2026')).toBeVisible()
   // the posts and reels of the account, read for the content calendar (1.33.0): never the comments or who liked
   await expect(page.getByText(/legge anche l’elenco dei post e dei reel pubblicati dall’account/)).toBeVisible()
+  // Claude connected to the content calendar (1.34.0): the team's own Claude accounts, the calendar only
+  await expect(page.getByText(/collegare il proprio account Claude \(Anthropic\) al calendario dei contenuti/)).toBeVisible()
   // indexable, unlike the rest of the app
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /^index, follow/)
 

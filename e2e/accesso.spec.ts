@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { dbLocale } from './db'
-import { CONTENUTO_SEED, UTENTI, accedi } from './utenti'
+import { CONTENUTO_SEED, PASSWORD_SEED, UTENTI, accedi } from './utenti'
 
 test('senza sessione ogni pagina porta al login', async ({ page }) => {
   await page.goto('/sales')
@@ -165,6 +165,24 @@ test('senza sessione «Registra rinnovo» da un’email apre, dopo l’accesso, 
   await page.goto(`/login?da=${encodeURIComponent(destinazione)}`)
   await expect(page).toHaveURL(destinazione)
   await expect(page.getByRole('radio', { name: 'Rinnovo' })).toBeChecked()
+})
+
+test('senza sessione la pagina di consenso di Claude porta al login e, dopo l’accesso, torna con la sua richiesta', async ({
+  page,
+}) => {
+  // Claude connected (09/10/2026): Supabase sends the browser to /oauth/consent?authorization_id=…
+  const destinazione = '/oauth/consent?authorization_id=richiestaDiProva0123456789abcdef'
+  await page.goto(destinazione)
+  await expect(page).toHaveURL(/\/login\?da=/)
+  expect(new URL(page.url()).searchParams.get('da')).toBe(destinazione)
+
+  // the dev login on that same page goes back there, query included, as Google does
+  await page.getByLabel('Email').fill(UTENTI.marketing.email)
+  await page.getByLabel('Password').fill(PASSWORD_SEED)
+  await page.getByRole('button', { name: 'Entra' }).click()
+  await expect(page).toHaveURL(destinazione)
+  // a request Supabase does not know: the page says so, never a loop back to the login
+  await expect(page.getByRole('heading', { level: 1, name: 'Collegamento non riuscito' })).toBeVisible()
 })
 
 // the PKCE verifier the server exchange reads: present while a Google sign-in is pending

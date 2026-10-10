@@ -8,7 +8,6 @@ import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { leggiDettaglioContenuto } from '@/lib/marketing/dettaglio'
 import { eliminaContenuti } from '@/lib/marketing/permessi'
-import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +24,8 @@ const INDIETRO = { href: '/marketing/contenuti', etichetta: 'Contenuti' }
 export default async function ContenutoPage({ params }: { params: Promise<{ id: string }> }) {
   const profilo = await requireRuolo(RUOLI_MARKETING)
   const { id } = await params
-  const dettaglio = isUuid(id) ? await leggiDettaglioContenuto(await createClient(), id) : null
+  // the page, the panel and Claude read a content the same way (lib/marketing/letture.ts); a failed read throws to error.tsx
+  const dettaglio = await leggiDettaglioContenuto(await createClient(), id)
 
   // a bad id, a deleted content, or one RLS hides
   if (!dettaglio) {

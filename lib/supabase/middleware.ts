@@ -9,8 +9,19 @@ import { publicEnv } from '@/lib/env'
  * browser without cookies: behind the login it would never install. The
  * privacy policy is the Meta app's Privacy Policy and Data deletion URL: Meta's
  * crawler and anyone on Instagram must read it without an account.
+ * The MCP endpoint and its OAuth metadata: Claude calls them without cookies
+ * and must get 401, not a redirect to /login (the route checks the bearer
+ * token itself). /oauth/consent stays behind the session.
  */
-const PERCORSI_PUBBLICI = ['/login', '/auth', '/api/cron', '/manifest.webmanifest', '/privacy']
+const PERCORSI_PUBBLICI = [
+  '/login',
+  '/auth',
+  '/api/cron',
+  '/manifest.webmanifest',
+  '/privacy',
+  '/mcp',
+  '/.well-known',
+]
 
 function isPubblico(pathname: string) {
   return PERCORSI_PUBBLICI.some(

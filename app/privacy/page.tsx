@@ -208,6 +208,12 @@ const SEZIONI: Sezione[] = [
           link e copertina, con il numero di mi piace e di commenti) per collegarli al calendario dei contenuti; non legge
           i commenti né chi ha messo mi piace, e non manda niente di questo a un’intelligenza artificiale.
         </p>
+        <p>
+          Il team può collegare il proprio account Claude (Anthropic) al calendario dei contenuti del gestionale: Claude
+          legge e scrive soltanto le idee, gli script e le didascalie dei post, a nome della persona che lo ha collegato,
+          e non raggiunge i messaggi diretti, i dati dei clienti o dei pagamenti. Chi lo collega tiene spento in Claude
+          l’uso delle chat per migliorare i modelli.
+        </p>
         <Elenco>
           <li>
             Nessuna risposta, nessun messaggio e nessuna pubblicazione parte senza l’intervento di una persona del team.

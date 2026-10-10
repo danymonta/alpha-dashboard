@@ -224,6 +224,47 @@ export const campoContenutoSchema = z.discriminatedUnion(
 export type CampoContenutoInput = z.input<typeof campoContenutoSchema>
 export type CampoContenutoDati = z.output<typeof campoContenutoSchema>
 
+const statoSchema = z.enum(Constants.public.Enums.contenuto_status, {
+  errorMap: () => ({ message: 'Scegli lo Status.' }),
+})
+
+/**
+ * Several properties of one content at once (1.34.0, Claude's
+ * modifica_contenuto): each one exactly as a cell sends it
+ * (campoContenutoSchema, with its own `prima`), never the same field twice,
+ * and the Status, if given, as one tap (no `prima`: the last one wins).
+ * The same rules and the same words as the cells.
+ */
+export const campiContenutoSchema = z
+  .object({
+    id: idContenuto,
+    campi: z.array(z.record(z.unknown()), { invalid_type_error: 'Dati non validi.' }).max(CAMPI_IN_CELLA.length),
+    stato: statoSchema.optional(),
+  })
+  .transform((v, ctx) => {
+    const campi: CampoContenutoDati[] = []
+    for (const c of v.campi) {
+      const letto = campoContenutoSchema.safeParse({ ...c, id: v.id })
+      if (!letto.success) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: letto.error.issues[0]?.message ?? 'Dati non validi.' })
+        return z.NEVER
+      }
+      if (campi.some((g) => g.campo === letto.data.campo)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Campo non valido.' })
+        return z.NEVER
+      }
+      campi.push(letto.data)
+    }
+    if (campi.length === 0 && v.stato === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Dimmi almeno una proprietà da cambiare.' })
+      return z.NEVER
+    }
+    return { id: v.id, campi, stato: v.stato }
+  })
+
+export type CampiContenutoInput = z.input<typeof campiContenutoSchema>
+export type CampiContenutoDati = z.output<typeof campiContenutoSchema>
+
 /**
  * The text of a section as public.salva_sezione_contenuto stores it: the
  * leading blank lines and the trailing whitespace go, the first line keeps
@@ -247,9 +288,6 @@ export const sezioneContenutoSchema = z.object({
 })
 export type SezioneContenutoInput = z.input<typeof sezioneContenutoSchema>
 
-export const statusContenutoSchema = z.object({
-  id: idContenuto,
-  stato: z.enum(Constants.public.Enums.contenuto_status, { errorMap: () => ({ message: 'Scegli lo Status.' }) }),
-})
+export const statusContenutoSchema = z.object({ id: idContenuto, stato: statoSchema })
 
 export const eliminaContenutoSchema = z.object({ id: idContenuto })
