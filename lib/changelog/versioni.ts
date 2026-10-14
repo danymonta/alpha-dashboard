@@ -87,8 +87,7 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 export const VERSIONI: readonly Versione[] = [
   {
     versione: '1.34.0',
-    // the deploy day: move it when the release ships (never before the 1.33.0 entry's day)
-    data: '2026-10-10',
+    data: '2026-10-14',
     titolo: 'Claude collegato al calendario dei contenuti',
     riassunto:
       'Dal tuo account Claude, anche dal telefono, leggi e riempi il calendario dei contenuti a parole; il collegamento apre solo i contenuti, mai il resto del gestionale.',

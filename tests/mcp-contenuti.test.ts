@@ -369,29 +369,38 @@ describe('crea_contenuti', () => {
 describe('modifica_contenuto', () => {
   const VERSIONE = versioneOpaca(AGGIORNATO)
 
-  it('cambia solo quello che dice; null svuota; sopra l’updated_at vero appena letto', async () => {
-    rispondi = (c) => (ha(c, 'update') ? { data: { updated_at: '2026-10-09T10:00:00.5+00:00' } } : { data: riga() })
+  it('cambia solo quello che dice, ognuno sopra il valore letto (come una cella); null svuota', async () => {
+    const DOPO = '2026-10-09T10:00:00.5+00:00'
+    rispondi = (c) =>
+      ha(c, 'update') ? { data: riga({ stato: 'posted', audio: null, updated_at: DOPO }) } : { data: riga() }
     const input = modificaContenutoSchema.parse({ id: ID, versione: VERSIONE, campi: { status: 'Posted', audio: null } })
     const risultato = dati(await modificaContenutoPerClaude(input, contesto()))
     const [modifica] = fake.chiamate.filter((c) => ha(c, 'update'))
-    expect(argomenti(modifica, 'update')?.[0]).toEqual({
-      tipo: 'reel',
-      nome: 'Trazioni da zero',
-      reel_type: 'education',
-      formato: null,
-      stato: 'posted',
-      post_date: '2026-10-15',
-      inspiration: null,
-      url: null,
-      audio: null,
-      view_count: null,
-    })
+    // only the fields Claude named: a field it did not name is never written, so never a value it has not seen
+    expect(argomenti(modifica, 'update')?.[0]).toEqual({ audio: null, stato: 'posted' })
     expect(ha(modifica, 'eq', 'id', ID)).toBe(true)
-    // the core's own version check runs on the real timestamp, never on the opaque token
-    expect(ha(modifica, 'eq', 'updated_at', AGGIORNATO)).toBe(true)
+    // the write of the cells (1.33.0): each field over the value read at the version Claude holds,
+    // the Status as one tap (no condition); never the opaque token, never a row version
+    expect(ha(modifica, 'eq', 'audio', 'Song')).toBe(true)
+    expect(modifica.passi.some(([m, campo]) => (m === 'eq' || m === 'is') && campo === 'stato')).toBe(false)
+    expect(modifica.passi.some(([m, campo]) => m === 'eq' && campo === 'updated_at')).toBe(false)
     expect(JSON.stringify(modifica.passi)).not.toContain(VERSIONE)
     expect(risultato).toMatchObject({ esito: 'salvato', contenuto: { Status: 'Posted', Audio: null, 'Reel Type': 'Education' } })
-    expect((risultato.contenuto as Record<string, unknown>).versione).toBe(versioneOpaca('2026-10-09T10:00:00.5+00:00'))
+    expect((risultato.contenuto as Record<string, unknown>).versione).toBe(versioneOpaca(DOPO))
+  })
+
+  it('un campo vuoto si scrive sopra il vuoto letto (is null), il Modello col suo valore', async () => {
+    rispondi = (c) => (ha(c, 'update') ? { data: riga({ formato: 'b_roll', tipo: 'carousel' }) } : { data: riga() })
+    const input = modificaContenutoSchema.parse({
+      id: ID,
+      versione: VERSIONE,
+      campi: { format: 'B roll', modello: 'Carousel Topic' },
+    })
+    dati(await modificaContenutoPerClaude(input, contesto()))
+    const [modifica] = fake.chiamate.filter((c) => ha(c, 'update'))
+    expect(argomenti(modifica, 'update')?.[0]).toEqual({ formato: 'b_roll', tipo: 'carousel' })
+    expect(ha(modifica, 'is', 'formato', null)).toBe(true)
+    expect(ha(modifica, 'eq', 'tipo', 'reel')).toBe(true)
   })
 
   it('una versione vecchia: «cambiato» coi valori attuali, e nessuna scrittura', async () => {

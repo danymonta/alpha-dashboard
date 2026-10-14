@@ -11,7 +11,7 @@
 // complete fields answer code 100, as Meta may do with caption and
 // media_product_type on the Instagram Login; GET /__modo resets it.
 // GET /__richieste says how many requests arrived and on which paths (never a
-// token); GET /__azzera empties the count. 1.34.0 adds conversations,
+// token); GET /__azzera empties the count. 1.35.0 adds conversations,
 // profiles, Messenger and insights.
 //
 // Every post, caption and shortcode is invented; no cover (the page shows

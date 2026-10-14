@@ -5,7 +5,7 @@
  * (tests/marketing-shortcode.test.ts) and pgTAP (67_contenuti_marketing.sql).
  *
  * It is the one join key between a calendar row, an Insight "Contenuto
- * pubblicato" (its permalink, 1.33.0) and an Instagram media (1.34.0): they
+ * pubblicato" (its permalink, 1.35.0) and an Instagram media (1.33.0): they
  * import this, never a regex of their own. Case-sensitive like Postgres.
  *
  * Not a shortcode: /share/ links (a redirect token, not the post) and the

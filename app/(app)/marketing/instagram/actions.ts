@@ -2,14 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 
-import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
+import { negaSeNon } from '@/lib/auth/azioni'
 import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { ricalcolaAbbinamenti } from '@/lib/instagram/sincronizza-contenuti'
 import * as operazioni from '@/lib/marketing/operazioni'
 import type { EsitoCollega, EsitoCreaDaPost, EsitoPost, EsitoScollega } from '@/lib/marketing/operazioni'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { postSchema } from '@/lib/validation/post-instagram'
 
 /**
  * The posts of Instagram and the content calendar (1.33.0, Dany: «volendo si
@@ -19,10 +18,11 @@ import { postSchema } from '@/lib/validation/post-instagram'
  * runs with the session of whoever taps, never the service role: RLS decides
  * (vede_marketing()), and the role check here only turns a refusal into words.
  *
- * What a tap writes in the calendar (Collega, Annulla, Scollega, Crea il
- * contenuto) is the shared core's (lib/marketing/operazioni.ts, 1.34.0), the
- * one write path of marketing_contenuti: the permalink is read there from
- * instagram_contenuti with the session, never taken from the browser.
+ * What every tap writes (Collega, Annulla, Scollega, Crea il contenuto, Non
+ * va nel calendario, Rimetti) is the shared core's
+ * (lib/marketing/operazioni.ts, 1.34.0), the one write path of the calendar
+ * and of its posts: the permalink is read there from instagram_contenuti with
+ * the session, never taken from the browser.
  * Unlinking a post (the URL emptied) leaves a "no" for that pair (trigger
  * marketing_contenuti_post_scollegato): the run never proposes or links it
  * again; linking it by hand takes it away. The sign «Collegato da solo» is
@@ -40,26 +40,6 @@ import { postSchema } from '@/lib/validation/post-instagram'
 export type { EsitoCollega, EsitoCreaDaPost, EsitoPost, EsitoScollega }
 
 const SOLO_MARKETING = operazioni.SOLO_MARKETING
-const NON_SALVATO = 'Non salvato. Riprova.'
-const POST_GIA_COLLEGATO = 'Questo post è già collegato a un altro contenuto.'
-const POST_SPARITO = 'Questo post non c’è più: aggiorna da Instagram.'
-const COLLEGATO_PRIMA = 'Questo post è collegato: scollegalo prima.'
-
-function primoErrore(issues: { message: string }[]): string {
-  return issues[0]?.message ?? 'Dati non validi.'
-}
-
-function errore(error: { code?: string; message: string }): string {
-  if (error.code === '23505') return POST_GIA_COLLEGATO
-  // a write RLS refused: Postgres's own words are not for people
-  if (error.code === '42501' && error.message.includes('row-level security')) return SOLO_MARKETING
-  return messaggioErrore(error, NON_SALVATO)
-}
-
-/** The posts' page and the calendar: the server redraws, the browser's cache empties. */
-function aggiorna() {
-  revalidatePath('/marketing', 'layout')
-}
 
 /**
  * The proposals again after a person's tap, with the service role created
@@ -115,48 +95,16 @@ export async function creaContenutoDaPost(input: unknown): Promise<EsitoCreaDaPo
 
 /** «Non va nel calendario»: a repost, a personal post. Never on a post already linked. */
 export async function escludiPost(input: unknown): Promise<EsitoPost> {
-  const parsed = postSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error.issues) }
   const negato = await negaSeNon(RUOLI_MARKETING, SOLO_MARKETING)
   if (negato) return { ok: false, errore: negato }
-
-  const { shortcode } = parsed.data
-  const supabase = await createClient()
-  const { data: collegato, error: lettura } = await supabase
-    .from('marketing_contenuti')
-    .select('id')
-    .eq('instagram_shortcode', shortcode)
-    .maybeSingle()
-  if (lettura) return { ok: false, errore: NON_SALVATO }
-  if (collegato) {
-    aggiorna()
-    return { ok: false, errore: COLLEGATO_PRIMA }
-  }
-
-  const { error } = await supabase.from('marketing_post_esclusi').insert({ shortcode })
-  // already left out (two taps, another person): what the person wanted
-  if (error && error.code !== '23505') {
-    aggiorna()
-    return { ok: false, errore: error.code === '23503' ? POST_SPARITO : errore(error) }
-  }
-  aggiorna()
-  return { ok: true }
+  return operazioni.escludiPost(await createClient(), input)
 }
 
 /** «Rimetti» (or «Annulla» after «Non va nel calendario»): the post is work again, its proposals redone. */
 export async function rimettiPost(input: unknown): Promise<EsitoPost> {
-  const parsed = postSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error.issues) }
   const negato = await negaSeNon(RUOLI_MARKETING, SOLO_MARKETING)
   if (negato) return { ok: false, errore: negato }
-
-  const supabase = await createClient()
-  const { error } = await supabase.from('marketing_post_esclusi').delete().eq('shortcode', parsed.data.shortcode)
-  if (error) return { ok: false, errore: errore(error) }
-
-  await ripropone()
-  aggiorna()
-  return { ok: true }
+  return operazioni.rimettiPost(await createClient(), input, { riproponi: ripropone })
 }
 
 /**

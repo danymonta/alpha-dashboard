@@ -39,7 +39,7 @@ import type { createAdminClient } from '@/lib/supabase/admin'
 /** The run works with the service role (it writes what no session can). */
 export type AdminClient = Pick<ReturnType<typeof createAdminClient>, 'rpc' | 'from'>
 
-/** How far back the run reads: covers the calendar and what 1.35.0 wants. */
+/** How far back the run reads: covers the calendar and what 1.36.0 wants. */
 export const GIORNI_LETTI = 180
 /** At most this many media a run (8 pages of 50). */
 export const MEDIA_PER_GIRO = 400
@@ -120,7 +120,7 @@ function riga(m: MediaLetto, lettoIl: string) {
  * The listing upsert (only the columns read, letto_il = now, eliminato_il =
  * null: a media that came back is no longer deleted), in blocks of 100 rows
  * with the same columns (a step down halfway leaves some rows without the
- * caption, and PostgREST would write null where a key is missing). 1.34.0's
+ * caption, and PostgREST would write null where a key is missing). 1.35.0's
  * Insight calls it for the media it reads; it never marks deletions.
  * Throws on a database error. Returns how many rows it saved.
  */

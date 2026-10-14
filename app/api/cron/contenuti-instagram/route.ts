@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export const dynamic = 'force-dynamic'
 /**
  * Vercel Hobby with Fluid compute: 300 seconds at most. The run stops asking
- * Instagram after TEMPO_LETTURA_MS; 1.35.0 lengthens it with the statistics.
+ * Instagram after TEMPO_LETTURA_MS; 1.36.0 lengthens it with the statistics.
  */
 export const maxDuration = 300
 /** No new request to Instagram after this much of the 300 seconds. */

@@ -27,7 +27,7 @@ import { shortcodeInstagram } from '@/lib/marketing/shortcode'
  * Paging on the `after` cursor only when Meta says there is a next page
  * (paging.next carries the token: never followed nor kept). The pinned posts
  * (up to 3) sit on top whatever their date: the reading stops after 4 media
- * older than `dal` in a row. 1.34.0 (Insight) and 1.35.0 (reel statistics)
+ * older than `dal` in a row. 1.35.0 (Insight) and 1.36.0 (reel statistics)
  * add their readings to this client.
  */
 

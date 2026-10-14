@@ -73,7 +73,7 @@ const SOLO_PROGETTI: NavRuolo = { principali: [MIEI_TASK, PROGETTI, TEMPO], altr
 // The Marketing area, the content calendar, Notion's "Instagram Posts" (Dany,
 // 08/10/2026): the admin, the video editor and marketing (RUOLI_MARKETING).
 // No badge (CLAUDE.md section 17). Lit on every tab of the area: Contenuti and
-// Post di Instagram (1.33.0), Analisi from 1.35.0.
+// Post di Instagram (1.33.0), Analisi from 1.36.0.
 const CONTENUTI: VoceNav = {
   href: '/marketing/contenuti',
   etichetta: 'Contenuti',

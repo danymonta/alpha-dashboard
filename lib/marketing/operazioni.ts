@@ -393,7 +393,9 @@ export async function eliminaContenuto(db: Db, input: unknown): Promise<EsitoEli
 // ── the posts of Instagram (1.33.0) ─────────────────────────────────────────
 //
 // The taps of the admin, the video editor and marketing on "Da collegare",
-// "Collegati" and the panel's «Post su Instagram». The permalink never comes
+// "Collegati", "Fuori dal calendario" and the panel's «Post su Instagram»
+// (Collega, Annulla, Scollega, Crea il contenuto, Non va nel calendario,
+// Rimetti), all of them here: one write path. The permalink never comes
 // from the input: it is read from instagram_contenuti with the caller's
 // client and checked like a URL typed by hand. Unlinking a post (the URL
 // emptied) leaves a "no" for that pair (trigger
@@ -431,6 +433,7 @@ const HA_GIA_UN_POST = 'Questo contenuto ha già un post: aprilo e cambia l’UR
 const ALTRO_POST = 'Questo contenuto ha già un altro post.'
 const POST_SPARITO = 'Questo post non c’è più: aggiorna da Instagram.'
 const POST_ELIMINATO = 'Questo post non è più su Instagram.'
+const COLLEGATO_PRIMA = 'Questo post è collegato: scollegalo prima.'
 
 function errorePost(error: { code?: string; message: string }): string {
   return errore(error, NON_SALVATO_POST)
@@ -671,4 +674,47 @@ export async function creaContenutoDaPost(db: Db, input: unknown, opzioni: Opzio
   await opzioni.riproponi?.()
   aggiorna()
   return { ok: true, id: data.id, versione: data.updated_at }
+}
+
+/**
+ * «Non va nel calendario»: a repost, a personal post. Never on a post already
+ * linked to a content; two taps (or two people) are one.
+ */
+export async function escludiPost(db: Db, input: unknown): Promise<EsitoPost> {
+  const parsed = postSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error.issues) }
+
+  const { shortcode } = parsed.data
+  const { data: collegato, error: lettura } = await db
+    .from('marketing_contenuti')
+    .select('id')
+    .eq('instagram_shortcode', shortcode)
+    .maybeSingle()
+  if (lettura) return { ok: false, errore: NON_SALVATO_POST }
+  if (collegato) {
+    aggiorna()
+    return { ok: false, errore: COLLEGATO_PRIMA }
+  }
+
+  const { error } = await db.from('marketing_post_esclusi').insert({ shortcode })
+  // already left out (two taps, another person): what the person wanted
+  if (error && error.code !== '23505') {
+    aggiorna()
+    return { ok: false, errore: error.code === '23503' ? POST_SPARITO : errorePost(error) }
+  }
+  aggiorna()
+  return { ok: true }
+}
+
+/** «Rimetti» (or «Annulla» after «Non va nel calendario»): the post is work again, its proposals redone. */
+export async function rimettiPost(db: Db, input: unknown, opzioni: OpzioniPost = {}): Promise<EsitoPost> {
+  const parsed = postSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error.issues) }
+
+  const { error } = await db.from('marketing_post_esclusi').delete().eq('shortcode', parsed.data.shortcode)
+  if (error) return { ok: false, errore: errorePost(error) }
+
+  await opzioni.riproponi?.()
+  aggiorna()
+  return { ok: true }
 }

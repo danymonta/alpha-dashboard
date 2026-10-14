@@ -103,7 +103,7 @@ select has_view('public', 'v_instagram_post', 'la view dei post c''è');
 select has_column('public', 'instagram_contenuti_stato', 'ultimo_giro_motivo', 'lo stato dice se l''ultimo giro era di notte o a mano');
 select has_column('public', 'instagram_contenuti_stato', 'ultimo_giro_causa', 'e perché l''ultimo giro non è riuscito');
 select has_index('public', 'instagram_contenuti', 'instagram_contenuti_pubblicato_idx', 'pubblicato_il',
-  'l''indice sul giorno di pubblicazione, quello che 1.35.0 si aspetta');
+  'l''indice sul giorno di pubblicazione, quello che 1.36.0 si aspetta');
 select is((select count(*)::integer from public.instagram_contenuti_stato), 1, 'lo stato del giro ha la sua riga, già pronta');
 select ok(
   (select bool_and(c.relrowsecurity) from pg_class c

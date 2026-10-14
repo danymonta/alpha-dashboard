@@ -20,7 +20,10 @@ import {
   cambiaStatusContenuto,
   creaContenuto,
   eliminaContenuto,
-  modificaContenuto,
+  escludiPost,
+  modificaCampiContenuto,
+  modificaCampoContenuto,
+  rimettiPost,
   salvaSezioneContenuto,
   type Db,
 } from '@/lib/marketing/operazioni'
@@ -31,6 +34,27 @@ const NUOVA = '2026-10-09T08:16:00.000001+00:00'
 const ULTIMA = '2026-10-09T08:16:01.000002+00:00'
 const VUOTA = 'd41d8cd98f00b204e9800998ecf8427e'
 const md5 = (t: string) => createHash('md5').update(t, 'utf8').digest('hex')
+const AREA = [['/marketing', 'layout']]
+
+/** A content as COLONNE_ELENCO reads it. */
+function riga(altro: Record<string, unknown> = {}) {
+  return {
+    id: ID,
+    tipo: 'reel',
+    nome: 'Trazioni',
+    reel_type: null,
+    formato: null,
+    inspiration: null,
+    stato: 'to_be_edited',
+    post_date: '2026-10-12',
+    audio: 'Brano',
+    url: null,
+    view_count: null,
+    created_at: '2026-10-01T10:00:00+00:00',
+    updated_at: VERSIONE,
+    ...altro,
+  }
+}
 
 let finto: ReturnType<typeof supabaseFinto>
 let db: Db
@@ -52,17 +76,26 @@ describe('il nucleo di scrittura del calendario', () => {
     expect(sessione.getProfilo).not.toHaveBeenCalled()
   })
 
-  it('rinfresca l’elenco e la pagina del contenuto, così una modifica di Claude si vede nell’app', async () => {
+  it('rinfresca tutta l’area Marketing, così una modifica di Claude si vede nell’app', async () => {
     finto.risponde({ data: { updated_at: NUOVA } })
     await cambiaStatusContenuto(db, { id: ID, stato: 'posted' })
-    expect(cache.revalidatePath.mock.calls).toEqual([['/marketing/contenuti'], [`/marketing/contenuti/${ID}`]])
+    // the list, a content's page, the posts of Instagram and the layout's count (1.33.0)
+    expect(cache.revalidatePath.mock.calls).toEqual(AREA)
   })
 
   it('i dati non validi si fermano prima del database, con le parole dei moduli', async () => {
     expect(await creaContenuto(db, { tipo: 'reel', nome: '  ' })).toEqual({ ok: false, errore: 'Scrivi il nome.' })
-    expect(await modificaContenuto(db, { id: ID, tipo: 'reel', nome: 'X', versione: 'ieri' })).toEqual({
+    expect(await modificaCampoContenuto(db, { id: ID, campo: 'colore', valore: 'x', prima: null })).toEqual({
       ok: false,
-      errore: 'Contenuto non valido.',
+      errore: 'Campo non valido.',
+    })
+    expect(await modificaCampoContenuto(db, { id: ID, campo: 'nome', valore: '  ', prima: 'X' })).toEqual({
+      ok: false,
+      errore: 'Scrivi il nome.',
+    })
+    expect(await modificaCampiContenuto(db, { id: ID, campi: [] })).toEqual({
+      ok: false,
+      errore: 'Dimmi almeno una proprietà da cambiare.',
     })
     expect(await cambiaStatusContenuto(db, { id: ID, stato: 'Posted' })).toEqual({ ok: false, errore: 'Scegli lo Status.' })
     expect(await salvaSezioneContenuto(db, { id: ID, campo: 'finale', testo: 'x', impronta: 'abc' })).toEqual({
@@ -70,6 +103,8 @@ describe('il nucleo di scrittura del calendario', () => {
       errore: 'Ricarica la pagina e riprova.',
     })
     expect(await eliminaContenuto(db, { id: 'non-un-id' })).toEqual({ ok: false, errore: 'Contenuto non valido.' })
+    expect(await escludiPost(db, { shortcode: 'a b' })).toEqual({ ok: false, errore: 'Post non valido.' })
+    expect(await rimettiPost(db, {})).toEqual({ ok: false, errore: 'Post non valido.' })
     expect(finto.intatto()).toBe(true)
     expect(cache.revalidatePath).not.toHaveBeenCalled()
   })
@@ -145,7 +180,7 @@ describe('creaContenuto con i testi delle sezioni', () => {
         args: { p_id: ID, p_campo: 'finale', p_testo: 'Script finale', p_impronta: VUOTA },
       },
     ])
-    expect(cache.revalidatePath.mock.calls).toEqual([['/marketing/contenuti'], [`/marketing/contenuti/${ID}`]])
+    expect(cache.revalidatePath.mock.calls).toEqual(AREA)
   })
 
   it('un carosello prende anche i Comments; le sezioni uguali a quelle del modello non si riscrivono', async () => {
@@ -241,36 +276,101 @@ describe('creaContenuto con i testi delle sezioni', () => {
   })
 })
 
-describe('modificaContenuto', () => {
-  const proprieta = { id: ID, versione: VERSIONE, tipo: 'reel', nome: 'Trazioni', audio: 'Brano', stato: 'to_be_edited' }
+describe('modificaCampoContenuto', () => {
+  const campo = { id: ID, campo: 'audio', valore: 'Altro brano', prima: 'Brano' }
 
-  it('salva sopra la versione letta e restituisce la nuova', async () => {
-    finto.risponde({ data: { updated_at: NUOVA } })
-    expect(await modificaContenuto(db, proprieta)).toEqual({ ok: true, versione: NUOVA })
+  it('un campo solo, sopra il valore che il campo mostrava: nuovo valore e nuova versione', async () => {
+    finto.risponde({ data: riga({ audio: 'Altro brano', updated_at: NUOVA }) })
+    expect(await modificaCampoContenuto(db, campo)).toEqual({ ok: true, valore: 'Altro brano', versione: NUOVA })
+    expect(finto.passi('update')).toEqual([[{ audio: 'Altro brano' }]])
     expect(finto.passi('eq')).toEqual([
       ['id', ID],
-      ['updated_at', VERSIONE],
+      ['audio', 'Brano'],
     ])
-    const scritto = finto.passi('update')[0][0]
-    expect(scritto).toMatchObject({ nome: 'Trazioni', audio: 'Brano', stato: 'to_be_edited', reel_type: null })
-    expect(scritto).not.toHaveProperty('id')
-    expect(scritto).not.toHaveProperty('versione')
+    expect(cache.revalidatePath.mock.calls).toEqual(AREA)
   })
 
-  it('una versione cambiata da un’altra parte non sovrascrive niente: cambiato', async () => {
-    finto.risponde({ data: null }, { data: { id: ID } })
-    expect(await modificaContenuto(db, proprieta)).toEqual({
+  it('un campo vuoto si scrive sopra il vuoto (is null)', async () => {
+    finto.risponde({ data: riga({ reel_type: 'education', updated_at: NUOVA }) })
+    await modificaCampoContenuto(db, { id: ID, campo: 'reel_type', valore: 'education', prima: null })
+    expect(finto.passi('is')).toEqual([['reel_type', null]])
+  })
+
+  it('cambiato da un altro: non sovrascrive e dà il valore salvato; lo stesso valore è un successo', async () => {
+    finto.risponde({ data: null }, { data: riga({ audio: 'Di Giulia', updated_at: ULTIMA }) })
+    expect(await modificaCampoContenuto(db, campo)).toEqual({
       ok: false,
-      errore: 'Il contenuto è cambiato da un’altra parte: ricarico i dati salvati.',
-      cambiato: true,
+      errore: 'Il campo «Audio» è cambiato da un’altra parte: ora vedi quello salvato. Rifai la modifica, se serve.',
+      cambiato: { valore: 'Di Giulia', versione: ULTIMA },
     })
+    expect(finto.passi('update')).toHaveLength(1)
+
+    finto.risponde({ data: null }, { data: riga({ audio: 'Altro brano', updated_at: ULTIMA }) })
+    expect(await modificaCampoContenuto(db, campo)).toEqual({ ok: true, valore: 'Altro brano', versione: ULTIMA })
   })
 
   it('un contenuto eliminato nel frattempo lo dice; una rilettura che non riesce no', async () => {
     finto.risponde({ data: null }, { data: null })
-    expect(await modificaContenuto(db, proprieta)).toEqual({ ok: false, errore: 'Questo contenuto non c’è più.' })
+    expect(await modificaCampoContenuto(db, campo)).toEqual({
+      ok: false,
+      errore: 'Questo contenuto non c’è più.',
+      sparito: true,
+    })
     finto.risponde({ data: null }, { error: { code: '08006', message: 'connection failure' } })
-    expect(await modificaContenuto(db, proprieta)).toEqual({ ok: false, errore: 'Contenuto non salvato. Riprova.' })
+    expect(await modificaCampoContenuto(db, campo)).toEqual({ ok: false, errore: 'Contenuto non salvato. Riprova.' })
+  })
+})
+
+describe('modificaCampiContenuto (Claude)', () => {
+  it('più campi in una scrittura, ognuno sopra il suo valore letto; lo Status come un tocco', async () => {
+    finto.risponde({ data: riga({ nome: 'Nuovo', post_date: null, stato: 'posted', updated_at: NUOVA }) })
+    const esito = await modificaCampiContenuto(db, {
+      id: ID,
+      campi: [
+        { campo: 'nome', valore: 'Nuovo', prima: 'Trazioni' },
+        { campo: 'post_date', valore: null, prima: '2026-10-12' },
+      ],
+      stato: 'posted',
+    })
+    expect(esito).toEqual({ ok: true, riga: riga({ nome: 'Nuovo', post_date: null, stato: 'posted', updated_at: NUOVA }) })
+    expect(finto.passi('update')).toEqual([[{ nome: 'Nuovo', post_date: null, stato: 'posted' }]])
+    expect(finto.passi('eq')).toEqual([
+      ['id', ID],
+      ['nome', 'Trazioni'],
+      ['post_date', '2026-10-12'],
+    ])
+    expect(cache.revalidatePath.mock.calls).toEqual(AREA)
+  })
+
+  it('le regole delle celle: lo stesso campo due volte no, un valore non valido con le sue parole', async () => {
+    expect(
+      await modificaCampiContenuto(db, {
+        id: ID,
+        campi: [
+          { campo: 'audio', valore: 'a', prima: null },
+          { campo: 'audio', valore: 'b', prima: null },
+        ],
+      }),
+    ).toEqual({ ok: false, errore: 'Campo non valido.' })
+    expect(
+      await modificaCampiContenuto(db, { id: ID, campi: [{ campo: 'nome', valore: '', prima: 'Trazioni' }] }),
+    ).toEqual({ ok: false, errore: 'Scrivi il nome.' })
+    expect(finto.intatto()).toBe(true)
+  })
+
+  it('un campo cambiato nel frattempo ferma tutto: il contenuto com’è adesso', async () => {
+    finto.risponde({ data: null }, { data: riga({ audio: 'Di Giulia', updated_at: ULTIMA }) })
+    expect(
+      await modificaCampiContenuto(db, { id: ID, campi: [{ campo: 'audio', valore: 'Mio', prima: 'Brano' }] }),
+    ).toEqual({
+      ok: false,
+      errore: 'Il contenuto è cambiato da un’altra parte: ricarico i dati salvati.',
+      cambiato: riga({ audio: 'Di Giulia', updated_at: ULTIMA }),
+    })
+    finto.risponde({ data: null }, { data: null })
+    expect(
+      await modificaCampiContenuto(db, { id: ID, campi: [{ campo: 'audio', valore: 'Mio', prima: 'Brano' }] }),
+    ).toEqual({ ok: false, errore: 'Questo contenuto non c’è più.', sparito: true })
   })
 })
 
@@ -351,5 +451,47 @@ describe('eliminaContenuto', () => {
     })
     finto.risponde({ error: { code: 'PGRST301', message: 'JWT expired' } })
     expect(await eliminaContenuto(db, { id: ID })).toEqual({ ok: false, errore: 'Contenuto non eliminato. Riprova.' })
+  })
+})
+
+describe('i post fuori dal calendario', () => {
+  const SHORTCODE = 'ProvaReel01'
+
+  it('escludi: col client ricevuto, mai un post collegato; due tocchi sono uno', async () => {
+    finto.risponde({ data: { id: ID } })
+    expect(await escludiPost(db, { shortcode: SHORTCODE })).toEqual({
+      ok: false,
+      errore: 'Questo post è collegato: scollegalo prima.',
+    })
+    expect(finto.passi('insert')).toEqual([])
+
+    finto.risponde({ data: null }, { error: { code: '23505', message: 'duplicate key' } })
+    expect(await escludiPost(db, { shortcode: SHORTCODE })).toEqual({ ok: true })
+    expect(finto.query.map((q) => q.tabella)).toEqual(['marketing_contenuti', 'marketing_contenuti', 'marketing_post_esclusi'])
+    expect(finto.passi('insert')).toEqual([[{ shortcode: SHORTCODE }]])
+
+    finto.risponde({ data: null }, { error: { code: '23503', message: 'foreign key' } })
+    expect(await escludiPost(db, { shortcode: SHORTCODE })).toEqual({
+      ok: false,
+      errore: 'Questo post non c’è più: aggiorna da Instagram.',
+    })
+  })
+
+  it('rimetti: toglie l’esclusione, poi il lavoro del chiamante (le proposte), poi rinfresca', async () => {
+    const riproponi = vi.fn(async () => {})
+    finto.risponde({ data: null })
+    expect(await rimettiPost(db, { shortcode: SHORTCODE }, { riproponi })).toEqual({ ok: true })
+    expect(finto.query).toEqual([
+      { tabella: 'marketing_post_esclusi', passi: [['delete'], ['eq', 'shortcode', SHORTCODE]] },
+    ])
+    expect(riproponi).toHaveBeenCalledTimes(1)
+    expect(cache.revalidatePath.mock.calls).toEqual(AREA)
+
+    finto.risponde({ error: { code: '42501', message: 'new row violates row-level security policy' } })
+    expect(await rimettiPost(db, { shortcode: SHORTCODE }, { riproponi })).toEqual({
+      ok: false,
+      errore: 'Il calendario dei contenuti è dell’area Marketing.',
+    })
+    expect(riproponi).toHaveBeenCalledTimes(1)
   })
 })
