@@ -32,7 +32,7 @@ const TITOLARE: {
 }
 
 /** Change both together when the text changes. */
-const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-10', testo: '10 ottobre 2026' }
+const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-14', testo: '14 ottobre 2026' }
 
 const TITOLO = 'Informativa privacy · Percorso Alpha'
 const DESCRIZIONE =
