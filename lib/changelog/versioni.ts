@@ -121,6 +121,11 @@ export const VERSIONI: readonly Versione[] = [
       {
         per: ['marketing'],
         testo:
+          'Claude collegato conosce il cliente ideale di Percorso Alpha: prima di proporre o scrivere contenuti legge chi è, cosa lo blocca, cosa vuole e come ne parla, così idee, hook e script parlano a lui, con le sue parole. Fit, non grosso, e sempre con tempi onesti.',
+      },
+      {
+        per: ['marketing'],
+        testo:
           'Claude non sovrascrive mai un testo cambiato da un altro nel frattempo: se una sezione è cambiata, rilegge quella salvata e ti propone l’unione.',
       },
       {

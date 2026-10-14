@@ -19,6 +19,7 @@ import {
   type SezioneContenuto,
   type TipoContenuto,
 } from '@/lib/marketing/etichette'
+import { ICP, ICP_AGGIORNATO_IL } from '@/lib/marketing/icp'
 import { improntaTesto } from '@/lib/marketing/impronta'
 import {
   contaPerGruppo,
@@ -123,6 +124,13 @@ export async function etichetteContenuti(): Promise<EsitoStrumento> {
     date: 'AAAA-MM-GG, giorni di Roma',
     oggi: oggiRoma(),
   })
+}
+
+// ── icp ─────────────────────────────────────────────────────────────────────
+
+/** The ideal client profile, word for word: a constant of the code, no database read. */
+export async function profiloClienteIdeale(): Promise<EsitoStrumento> {
+  return ok({ aggiornato_il: ICP_AGGIORNATO_IL, profilo: ICP })
 }
 
 // ── elenco_contenuti ────────────────────────────────────────────────────────

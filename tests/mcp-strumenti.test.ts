@@ -7,15 +7,16 @@ vi.mock('@/lib/env', () => ({
 }))
 
 import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE, ETICHETTA_STATUS } from '@/lib/marketing/etichette'
-import { FUORI_PORTATA, istruzioniMcp } from '@/lib/mcp/istruzioni'
+import { ICP, ICP_AGGIORNATO_IL } from '@/lib/marketing/icp'
+import { FUORI_PORTATA, REGOLA_ICP, istruzioniMcp } from '@/lib/mcp/istruzioni'
 import { schemaMcp } from '@/lib/mcp/schema'
 import { STRUMENTI, strumentiPer } from '@/lib/mcp/strumenti'
 
-const LETTURE = ['etichette_contenuti', 'elenco_contenuti', 'leggi_contenuto']
+const LETTURE = ['etichette_contenuti', 'elenco_contenuti', 'leggi_contenuto', 'icp']
 const SCRITTURE = ['crea_contenuti', 'modifica_contenuto', 'cambia_status', 'scrivi_sezione']
 
 describe('gli strumenti per ruolo', () => {
-  it('video editor e marketing: 7 strumenti, senza eliminare', () => {
+  it('video editor e marketing: 8 strumenti, senza eliminare', () => {
     for (const ruolo of ['editor', 'marketing']) {
       expect(strumentiPer(ruolo).map((s) => s.nome)).toEqual([...LETTURE, ...SCRITTURE])
     }
@@ -176,6 +177,31 @@ describe('come Claude vede gli strumenti', () => {
     const elenco = STRUMENTI.find((s) => s.nome === 'elenco_contenuti')
     expect(elenco?.descrizione).not.toMatch(/parole nel Name/i)
     expect(elenco?.descrizione).toContain('più parole valgono solo se nel Name sono di seguito')
+  })
+
+  it('icp: il profilo del cliente ideale, in sola lettura, per admin, video editor e marketing', async () => {
+    const icp = STRUMENTI.find((s) => s.nome === 'icp')
+    if (!icp) throw new Error('icp')
+    expect(icp.titolo).toBe('Profilo del cliente ideale')
+    expect(icp.annotazioni).toEqual({ title: 'Profilo del cliente ideale', readOnlyHint: true, idempotentHint: true, openWorldHint: false })
+    expect(icp.scrive).toBe(false)
+    for (const ruolo of ['admin', 'editor', 'marketing']) expect(strumentiPer(ruolo).map((s) => s.nome)).toContain('icp')
+    // the text word for word, with its day: no database read, no arguments
+    expect(await icp.esegui({}, {} as never)).toEqual({ ok: true, dati: { aggiornato_il: ICP_AGGIORNATO_IL, profilo: ICP } })
+    expect(schemaMcp(icp.input)['~standard'].validate({ extra: 1 })).toMatchObject({ issues: [expect.anything()] })
+  })
+
+  it('le istruzioni: prima di proporre o creare contenuti si legge l’ICP e si scrive per quell’uomo', () => {
+    for (const ruolo of ['admin', 'editor', 'marketing'] as const) {
+      const istruzioni = istruzioniMcp(ruolo)
+      expect(istruzioni).toContain(REGOLA_ICP)
+      // it comes before the rules on reading and writing a content
+      expect(istruzioni.indexOf(REGOLA_ICP)).toBeLessThan(istruzioni.indexOf('Prima di cambiare qualcosa leggi'))
+    }
+    expect(REGOLA_ICP).toContain('icp')
+    expect(REGOLA_ICP).toContain('prima di proporre o creare contenuti, e prima di ogni suggerimento di marketing, leggilo')
+    expect(REGOLA_ICP).toContain('scrivi idee, hook e script per quell’uomo, con le sue parole')
+    expect(REGOLA_ICP).toContain('mai il fisico da bodybuilder (fit, non grosso), sempre tempi onesti')
   })
 
   it('solo all’admin le istruzioni parlano di eliminare un contenuto', () => {

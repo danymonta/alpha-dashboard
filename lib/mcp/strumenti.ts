@@ -13,6 +13,7 @@ import {
   etichetteContenuti,
   leggiContenutoPerClaude,
   modificaContenutoPerClaude,
+  profiloClienteIdeale,
   scriviSezione,
   type EsitoStrumento,
 } from './contenuti'
@@ -24,6 +25,7 @@ import {
   elencoContenutiSchema,
   eliminaContenutoSchema,
   etichetteContenutiSchema,
+  icpSchema,
   leggiContenutoSchema,
   modificaContenutoSchema,
   scriviSezioneSchema,
@@ -129,6 +131,16 @@ export const STRUMENTI: readonly Strumento[] = [
     lettura: true,
     idempotente: true,
     esegui: leggiContenutoPerClaude,
+  }),
+  strumento({
+    nome: 'icp',
+    titolo: 'Profilo del cliente ideale',
+    descrizione:
+      'Il profilo del cliente ideale di Percorso Alpha (ICP), in Markdown, con il giorno in cui è stato scritto: chi è, da dove parte, cosa lo blocca e cosa vuole, cosa ha già provato e perché ha mollato, perché sceglie Dany, le obiezioni, le frasi con cui parla di sé, i segnali che è in target e le indicazioni per i contenuti di attrazione (TOF), consapevolezza (MOF) e conversione (BOF). Anonimo: solo pattern e frasi, mai nomi.',
+    input: icpSchema,
+    lettura: true,
+    idempotente: true,
+    esegui: () => profiloClienteIdeale(),
   }),
   strumento({
     nome: 'crea_contenuti',

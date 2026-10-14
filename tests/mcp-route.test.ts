@@ -47,6 +47,8 @@ vi.mock('@/lib/mcp/auth', () => ({
 }))
 
 import { DELETE, GET, POST } from '@/app/mcp/route'
+import { ICP, ICP_AGGIORNATO_IL } from '@/lib/marketing/icp'
+import { REGOLA_ICP } from '@/lib/mcp/istruzioni'
 import { azzeraLimiti } from '@/lib/mcp/limiti'
 
 const URL_MCP = 'http://localhost:3000/mcp'
@@ -99,13 +101,14 @@ afterEach(async () => {
 })
 
 describe('il client MCP dell’SDK contro /mcp', () => {
-  it('protocollo del 2025 (Claude oggi): il marketing vede 7 strumenti, con titoli e suggerimenti', async () => {
+  it('protocollo del 2025 (Claude oggi): il marketing vede 8 strumenti, con titoli e suggerimenti', async () => {
     const client = await collega()
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name)).toEqual([
       'etichette_contenuti',
       'elenco_contenuti',
       'leggi_contenuto',
+      'icp',
       'crea_contenuti',
       'modifica_contenuto',
       'cambia_status',
@@ -126,13 +129,13 @@ describe('il client MCP dell’SDK contro /mcp', () => {
     const { tools } = await client.listTools()
     const elimina = tools.find((t) => t.name === 'elimina_contenuto')
     expect(elimina?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true })
-    expect(tools).toHaveLength(8)
+    expect(tools).toHaveLength(9)
   })
 
   it('protocollo 2026-07-28: le stesse cose, senza sessione', async () => {
     const client = await collega({ versionNegotiation: { mode: { pin: '2026-07-28' } } })
     const { tools } = await client.listTools()
-    expect(tools).toHaveLength(7)
+    expect(tools).toHaveLength(8)
     const elenco = await client.callTool({ name: 'elenco_contenuti', arguments: {} })
     expect(elenco.isError).toBeFalsy()
     expect(JSON.parse(testoDi(elenco))).toMatchObject({ totale: 0, mostrati: 0, contenuti: [] })
@@ -169,6 +172,22 @@ describe('il client MCP dell’SDK contro /mcp', () => {
     const etichetta = await client.callTool({ name: 'cambia_status', arguments: { id: NUOVO, status: 'to_be_edited' } })
     expect(etichetta.isError).toBe(true)
     expect(testoDi(etichetta)).toContain('Status: uno tra Not started, To be recorded')
+    expect(fake.chiamate).toEqual([])
+  })
+
+  it('icp passa dall’SDK senza toccare il database, e le istruzioni dicono di leggerlo prima dei contenuti', async () => {
+    for (const ruolo of ['marketing', 'editor', 'admin'] as const) {
+      stato.ruolo = ruolo
+      const client = await collega()
+      const icp = (await client.listTools()).tools.find((t) => t.name === 'icp')
+      expect(icp?.title, ruolo).toBe('Profilo del cliente ideale')
+      expect(icp?.annotations, ruolo).toMatchObject({ readOnlyHint: true, openWorldHint: false })
+      expect(icp?.inputSchema, ruolo).toMatchObject({ type: 'object', additionalProperties: false })
+      const risposta = await client.callTool({ name: 'icp', arguments: {} })
+      expect(risposta.isError, ruolo).toBeFalsy()
+      expect(JSON.parse(testoDi(risposta)), ruolo).toEqual({ aggiornato_il: ICP_AGGIORNATO_IL, profilo: ICP })
+      expect(client.getInstructions(), ruolo).toContain(REGOLA_ICP)
+    }
     expect(fake.chiamate).toEqual([])
   })
 
@@ -223,7 +242,7 @@ describe('/mcp come lo chiama Claude, a mano (2025-11-25, senza stato)', () => {
     const elenco = await evento(
       await post({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, { 'MCP-Protocol-Version': '2025-11-25' }),
     )
-    expect((elenco.result?.tools as unknown[]).length).toBe(7)
+    expect((elenco.result?.tools as unknown[]).length).toBe(8)
 
     const chiamata = await evento(
       await post(

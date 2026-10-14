@@ -5,6 +5,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test'
 import { oggiRoma } from '../lib/date'
 import { formatData } from '../lib/format'
 import { BOZZA_REEL } from '../lib/marketing/etichette'
+import { ICP } from '../lib/marketing/icp'
 import { CONSENSO, MESSAGGI_AUTORIZZAZIONE } from '../lib/mcp/consenso'
 import {
   ID_MARKETING,
@@ -52,6 +53,7 @@ const STRUMENTI_TEAM = [
   'crea_contenuti',
   'elenco_contenuti',
   'etichette_contenuti',
+  'icp',
   'leggi_contenuto',
   'modifica_contenuto',
   'scrivi_sezione',
@@ -163,6 +165,11 @@ test('il marketing collega Claude: consenso, token e strumenti sul calendario', 
   try {
     const { tools } = await mcp.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual(STRUMENTI_TEAM)
+
+    // the ideal client profile, before any content: read-only, the same text as the code
+    const icp = await mcp.callTool({ name: 'icp', arguments: {} })
+    expect(icp.isError, testoRisultato(icp)).toBeFalsy()
+    expect(datiRisultato<{ profilo: string }>(icp).profilo).toBe(ICP)
 
     const oggi = oggiRoma()
     const creato = await mcp.callTool({

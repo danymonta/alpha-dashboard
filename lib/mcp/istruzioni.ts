@@ -15,6 +15,14 @@ const REEL = `${ETICHETTA_MODELLO.reel} (${[SEZIONI.reel.messaggio, SEZIONI.reel
 // a Carousel Topic has no "Comments" in Notion's template (the column is shared, shown only with text)
 const CAROUSEL = `${ETICHETTA_MODELLO.carousel} (${[SEZIONI.carousel.messaggio, SEZIONI.carousel.bozza, SEZIONI.carousel.finale].join(', ')})`
 
+/**
+ * Who the contents are for (Dany, 10/10/2026: «qualsiasi contenuto suggerito
+ * abbia un senso e qualsiasi suggerimento marketing sulla base di questo»):
+ * the ideal client profile of lib/marketing/icp.ts, read with the icp tool.
+ */
+export const REGOLA_ICP =
+  'Il cliente ideale di Percorso Alpha lo descrive icp: prima di proporre o creare contenuti, e prima di ogni suggerimento di marketing, leggilo e scrivi idee, hook e script per quell’uomo, con le sue parole; mai il fisico da bodybuilder (fit, non grosso), sempre tempi onesti.'
+
 /** The sentence that names the rest of the app: the only one (a test checks it). */
 export const FUORI_PORTATA = 'lead, call, clienti, soldi e messaggi diretti non sono raggiungibili da qui'
 
@@ -27,6 +35,7 @@ export function istruzioniMcp(ruolo: RuoloMcp): string {
     'Alpha Management è il gestionale di Percorso Alpha.',
     `Qui lavori solo sul calendario dei contenuti Instagram (area Marketing), la copia nell’app del database Notion «📸 Instagram Posts DANYMONTA», con le stesse proprietà e le stesse etichette in inglese: ${PROPRIETA}.`,
     `Ogni contenuto nasce da un modello: ${REEL} o ${CAROUSEL}.`,
+    REGOLA_ICP,
     'Prima di cambiare qualcosa leggi: elenco_contenuti per trovarlo, leggi_contenuto per i testi, la loro impronta e la versione; impronta e versione sono codici da ricopiare così come sono.',
     'Ogni scrittura cambia la versione e restituisce quella nuova insieme ai valori attuali, che possono contenere modifiche di altri (scrivi_sezione anche la nuova impronta della sezione): usale per la scrittura dopo su quel contenuto, partendo da quei valori.',
     'Se modifica_contenuto risponde «cambiato» con l’ultima versione che hai ricevuto, o scrivi_sezione «cambiata» con l’ultima impronta che hai ricevuto, qualcuno ha cambiato il contenuto nel frattempo: rileggi, unisci le modifiche, mostrale alla persona e riprova.',

@@ -132,6 +132,8 @@ const contenutoNuovo = z
 
 export const etichetteContenutiSchema = z.object({}).strict()
 
+export const icpSchema = z.object({}).strict()
+
 export const elencoContenutiSchema = z
   .object({
     mese: z
