@@ -8,6 +8,10 @@
 -- No created_by, created_at or updated_at, on purpose (like the link tables of
 -- 1.33.0): rows are rewritten, never edited, and they say nothing about a
 -- person (CLAUDE.md section 17).
+--
+-- instagram_contenuti_dm_giorni (asked by the reel analysis, 1.36.0, its R2 and
+-- R21) says which days are counted: a day there with no row for a post means
+-- zero leads from it, a day missing means «not counted», never zero.
 create table public.instagram_contenuti_dm (
   shortcode text not null references public.instagram_contenuti (shortcode) on delete cascade,
   giorno date not null,                     -- the Rome day the lead's chat started
@@ -35,10 +39,32 @@ create policy instagram_contenuti_dm_lettura on public.instagram_contenuti_dm
   for select to authenticated
   using (public.vede_marketing());
 
+-- The days the Insight has counted the leads of the posts after the day was
+-- over: a day here with no row in instagram_contenuti_dm means zero leads, a
+-- day missing means «not counted». Written only by instagram_contenuti_dm_salva.
+-- Numbers of days only: nothing about a person. No updated_at nor created_by,
+-- on purpose: rows are only added, like the link tables of 1.33.0.
+create table public.instagram_contenuti_dm_giorni (
+  giorno date primary key,
+  created_at timestamptz not null default now()
+);
+
+comment on table public.instagram_contenuti_dm_giorni is
+  'The Rome days whose leads per post (instagram_contenuti_dm) the Insight counted after the day was over: a day here with no row for a post means zero leads from it, a day missing means not counted (never zero). Only days from greatest(insight_impostazioni.storico_dal, today - 13) to yesterday are ever marked (after a pause the Insight re-reads 14 days; today is always half-read). Written only by instagram_contenuti_dm_salva (service role); rows are only added. Read by admin, video editor and marketing, and by the reel analysis (1.36.0). Days only, nothing about a person. In the backup.';
+
+alter table public.instagram_contenuti_dm_giorni enable row level security;
+revoke all on public.instagram_contenuti_dm_giorni from anon;
+revoke insert, update, delete, truncate on public.instagram_contenuti_dm_giorni from authenticated;
+
+create policy instagram_contenuti_dm_giorni_lettura on public.instagram_contenuti_dm_giorni
+  for select to authenticated
+  using (public.vede_marketing());
+
 -- Rewrites the counts of the days from greatest(today - 29, storico_dal) on, in
 -- one transaction: the rows of p_righe within those days whose post is one of
--- Dany's; the others are skipped. Older days are final. Returns how many rows
--- it wrote.
+-- Dany's; the others are skipped. Older days are final. Then marks as counted
+-- the finished days this run re-read (instagram_contenuti_dm_giorni). Returns
+-- how many rows of counts it wrote.
 create function public.instagram_contenuti_dm_salva(p_righe jsonb)
 returns integer
 language plpgsql
@@ -74,12 +100,24 @@ begin
     and exists (select 1 from public.instagram_contenuti i where i.shortcode = r.shortcode)
   order by r.shortcode, r.giorno, e.n;
   get diagnostics n = row_count;
+
+  -- The days finished and re-read by this run are counted (1.36.0, its R2 and
+  -- R21). Today is always half-read (the Insight runs once a day); after a
+  -- pause the Insight re-reads only 14 days from Meta, so older days of the
+  -- window may be zeros that were never read: they are never marked here. With
+  -- storico_dal today nothing is marked. After get diagnostics: n stays the
+  -- number of rows of counts.
+  insert into public.instagram_contenuti_dm_giorni (giorno)
+  select d::date
+  from generate_series(greatest(v_dal, v_oggi - 13), v_oggi - 1, interval '1 day') d
+  on conflict (giorno) do nothing;
+
   return n;
 end;
 $$;
 
 comment on function public.instagram_contenuti_dm_salva(jsonb) is
-  'service_role only (the Insight): rewrites the counts per post of the days from greatest(today - 29, insight_impostazioni.storico_dal) to today with p_righe ([{shortcode, giorno, dm, lead_in_target, call_prenotate, dm_certi}]), skipping other days and posts not in instagram_contenuti. Older days are never touched. Returns the rows written.';
+  'service_role only (the Insight): rewrites the counts per post of the days from greatest(today - 29, insight_impostazioni.storico_dal) to today with p_righe ([{shortcode, giorno, dm, lead_in_target, call_prenotate, dm_certi}]), skipping other days and posts not in instagram_contenuti. Older days are never touched. Marks as counted (instagram_contenuti_dm_giorni) the days from greatest(storico_dal, today - 13) to yesterday, never today. Returns the rows of counts written.';
 
 revoke all on function public.instagram_contenuti_dm_salva(jsonb) from public, anon, authenticated;
 grant execute on function public.instagram_contenuti_dm_salva(jsonb) to service_role;

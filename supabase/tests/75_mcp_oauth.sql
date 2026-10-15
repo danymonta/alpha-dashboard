@@ -394,6 +394,32 @@ values ('Test66Rifiutato', '66660000-0000-4000-8000-000000000066')
 on conflict (shortcode, contenuto_id) do nothing;
 insert into public.marketing_post_esclusi (shortcode) values ('Test66Post2')
 on conflict (shortcode) do nothing;
+-- The Insight (1.35.0, 20261014090300_insight_mai_da_oauth.sql): chats, profiles,
+-- AI work, Messenger exclusions and the counted days of the leads per post,
+-- which the seed leaves empty (the recaps, the runs, Fatto and the counts have
+-- the seed's rows, the automation and the Messenger Page their row)
+insert into public.insight_esecuzioni (id, giorno, motivo, stato, passo) values
+  ('75750000-0000-4000-8000-000000000175', public.oggi() - 2, 'manuale', 'pronta', 'unione')
+on conflict (id) do nothing;
+insert into public.insight_chat (canale, conversazione_id, username, nome, messaggi, messaggi_letti, completa)
+values ('instagram', 'test75-chat', 'lead.test75', 'Lead Test 75',
+        '[{"da":"lead","il":"2026-10-10T10:00:00Z","testo":"Ciao","codici":[],"storia":false}]', 1, true)
+on conflict (canale, conversazione_id) do nothing;
+insert into public.insight_profili (username, nome) values ('lead.test75', 'Lead Test 75')
+on conflict (username) do nothing;
+insert into public.insight_blocchi (esecuzione_id, canale, tipo, indice)
+values ('75750000-0000-4000-8000-000000000175', 'instagram', 'sintesi', 0)
+on conflict (esecuzione_id, canale, tipo, indice) do nothing;
+insert into public.insight_schede (esecuzione_id, giorno, canale, tipo, chiave, impronta, dati)
+values ('75750000-0000-4000-8000-000000000175', public.oggi() - 2, 'instagram', 'lead', 'test75-chat', repeat('e', 64), '{}')
+on conflict (esecuzione_id, canale, tipo, chiave) do nothing;
+insert into public.messenger_esclusi (utente_id, nome) values ('7500000000000075', 'Escluso Test 75')
+on conflict (utente_id) do nothing;
+insert into public.instagram_contenuti_dm (shortcode, giorno, dm, lead_in_target, call_prenotate, dm_certi)
+values ('Test66Post1', public.oggi() - 1, 2, 1, 1, 1)
+on conflict (shortcode, giorno) do nothing;
+insert into public.instagram_contenuti_dm_giorni (giorno) values (public.oggi() - 1)
+on conflict (giorno) do nothing;
 
 create or replace function pg_temp.tabelle_vuote()
 returns text
@@ -592,6 +618,14 @@ begin
   perform pg_temp.prova('incassi_clienti_setter', $q$ select count(*)::text from public.incassi_clienti_setter('2026-10-01', '2026-10-31') $q$);
   perform pg_temp.prova('inserisci_piano', $q$ select public.inserisci_piano('7f000000-0000-4000-8000-000000000001',
     '[{"scadenza":"2026-11-01","importo":300}]'::jsonb)::text $q$);
+  -- the Insight (1.35.0): the admin's, or insight_puo_leggere() for insight_stato, checked first
+  perform pg_temp.prova('insight_chat_messenger', $q$ select count(*)::text from public.insight_chat_messenger() $q$);
+  perform pg_temp.prova('insight_dimentica', $q$ select public.insight_dimentica('instagram', 'lead.test75')::text $q$);
+  perform pg_temp.prova('insight_imposta_automazione', $q$ select public.insight_imposta_automazione(true, '19:00',
+    'https://dashboard.percorsoalpha.com/api/cron/insight')::text $q$);
+  perform pg_temp.prova('insight_richiedi', $q$ select public.insight_richiedi('https://dashboard.percorsoalpha.com/api/cron/insight')::text $q$);
+  perform pg_temp.prova('insight_ruota_chiave', $q$ select public.insight_ruota_chiave()::text $q$);
+  perform pg_temp.prova('insight_stato', $q$ select public.insight_stato()::text $q$);
   perform pg_temp.prova('instagram_imposta_token', $q$ select public.instagram_imposta_token('IGAAprovaDaClaude0123456789abcdefghij')::text $q$);
   perform pg_temp.prova('instagram_togli_token', $q$ select public.instagram_togli_token()::text $q$);
   perform pg_temp.prova('instagram_token_presente', $q$ select public.instagram_token_presente()::text $q$);
@@ -601,6 +635,10 @@ begin
   perform pg_temp.prova('mcp_client', $q$ select count(*)::text from public.mcp_client() $q$);
   perform pg_temp.prova('mcp_filtro_richiesta', $q$ select public.mcp_filtro_richiesta()::text $q$);
   perform pg_temp.prova('mcp_ruolo', $q$ select public.mcp_ruolo()::text $q$);
+  perform pg_temp.prova('messenger_imposta_token', $q$ select public.messenger_imposta_token('EAAprovaDaClaude0123456789abcdefghij',
+    '7500000000000001', 'Pagina Da Claude')::text $q$);
+  perform pg_temp.prova('messenger_togli_token', $q$ select public.messenger_togli_token()::text $q$);
+  perform pg_temp.prova('messenger_token_presente', $q$ select public.messenger_token_presente()::text $q$);
   perform pg_temp.prova('mia_foto_google', $q$ select public.mia_foto_google() $q$);
   perform pg_temp.prova('mie_vendite_setter', $q$ select count(*)::text from public.mie_vendite_setter() $q$);
   perform pg_temp.prova('miei_clienti', $q$ select count(*)::text from public.miei_clienti() $q$);
@@ -666,6 +704,12 @@ select is(
     'giornate_setter 42501',
     'incassi_clienti_setter 42501',
     'inserisci_piano 42501',
+    'insight_chat_messenger 42501',
+    'insight_dimentica 42501',
+    'insight_imposta_automazione 42501',
+    'insight_richiedi 42501',
+    'insight_ruota_chiave 42501',
+    'insight_stato 42501',
     'instagram_imposta_token 42501',
     'instagram_togli_token 42501',
     'instagram_token_presente 42501',
@@ -675,6 +719,9 @@ select is(
     'mcp_client ok:0',
     'mcp_filtro_richiesta 42501',
     'mcp_ruolo ok:admin',
+    'messenger_imposta_token 42501',
+    'messenger_togli_token 42501',
+    'messenger_token_presente 42501',
     'metriche_per_fonte 42501',
     'metriche_periodo 42501',
     'metriche_setting 42501',

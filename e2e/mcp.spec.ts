@@ -328,6 +328,15 @@ test('con il token di Claude le Data API aprono solo il calendario', async () =>
   const metriche = await db.rpc('metriche_periodo', { p_da: '2026-10-01', p_a: '2026-10-31' })
   expect(metriche.error?.code).toBe('42501')
 
+  // the Insight (1.35.0): the leads per post and their counted days (vede_marketing() is true for
+  // this token: only the filter and <table>_mai_da_oauth stop it), the recaps, and its RPC
+  for (const tabella of ['instagram_contenuti_dm', 'instagram_contenuti_dm_giorni', 'insight_recap'] as const) {
+    const righe = await db.from(tabella).select('*')
+    expect(righe.error?.code, tabella).toBe('42501')
+  }
+  const insight = await db.rpc('insight_stato')
+  expect(insight.error?.code).toBe('42501')
+
   const nomeProgetto = `${PREFISSO}progetto`
   const progetto = await db.rpc('pm_crea_progetto', { p_nome: nomeProgetto, p_reparto_id: randomUUID() })
   expect(progetto.error?.code).toBe('42501')

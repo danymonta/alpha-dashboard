@@ -5,6 +5,7 @@ import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 
 import { ICP_PERCORSO_ALPHA } from '@/lib/insight/icp'
+import { ICP } from '@/lib/marketing/icp'
 import {
   chiaveLead,
   formattaOraRecap,
@@ -306,5 +307,12 @@ describe('ICP', () => {
     }
     // no handle of anybody
     expect(ICP_PERCORSO_ALPHA).not.toMatch(/@[a-z0-9._]{2,}/i)
+  })
+
+  it('is the one text of lib/marketing/icp.ts, re-exported, without prices', () => {
+    expect(ICP_PERCORSO_ALPHA).toBe(ICP)
+    expect(sorgente).toContain("export { ICP as ICP_PERCORSO_ALPHA } from '@/lib/marketing/icp'")
+    expect(sorgente).not.toContain('export const')
+    expect(ICP_PERCORSO_ALPHA).not.toMatch(/€|\beuro\b/i)
   })
 })

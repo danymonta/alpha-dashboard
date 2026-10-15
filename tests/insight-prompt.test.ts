@@ -77,7 +77,7 @@ describe('the system prompt', () => {
     expect(COMPITO).toContain('target "si": nella chat ci sono segnali "In target" dell\'ICP')
     expect(COMPITO).toContain('ha detto di avere meno di 25 anni')
     expect(COMPITO).not.toContain('uomo 25+ impegnato con poco tempo')
-    expect(COMPITO).toContain('I prezzi dell\'ICP non vanno mai in un messaggio')
+    expect(COMPITO).toContain('Prezzi e condizioni di pagamento non vanno mai in un messaggio')
   })
 
   it('never asks to write out the reasoning (reasoning_extraction)', () => {

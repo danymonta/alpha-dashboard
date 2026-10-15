@@ -96,8 +96,13 @@ select results_eq(
        'call_ha_follow_up', 'call_ha_vendita', 'current_role', 'elimina_call', 'elimina_cliente',
        'elimina_lead', 'elimina_persona', 'elimina_prodotto', 'elimina_rata', 'fissa_follow_up',
        'giornate_closer', 'giornate_setter', 'incassi_clienti_setter', 'inserisci_piano',
+       -- the Insight (1.35.0): admin, or insight_puo_leggere() for insight_stato, checked first
+       'insight_chat_messenger', 'insight_dimentica', 'insight_imposta_automazione', 'insight_richiedi',
+       'insight_ruota_chiave', 'insight_stato',
        'instagram_imposta_token', 'instagram_togli_token', 'instagram_token_presente', 'is_admin',
        'lead_appartiene_al_setter', 'mcp_chi_sono', 'mcp_client', 'mcp_filtro_richiesta', 'mcp_ruolo',
+       -- Messenger for the Insight (1.35.0): the admin only
+       'messenger_imposta_token', 'messenger_togli_token', 'messenger_token_presente',
        'mia_foto_google', 'mie_vendite_setter', 'miei_clienti', 'miei_numeri_periodo', 'pm_assegnato',
        'pm_coach_del_cliente', 'pm_crea_progetto', 'pm_ferma_timer', 'pm_livello_corrente',
        'pm_membro', 'pm_puo_gestire', 'pm_puo_modificare_task', 'pm_puo_vedere',

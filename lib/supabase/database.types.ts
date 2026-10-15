@@ -487,6 +487,19 @@ isOneToOne: false
       referencedColumns: ["shortcode"]
     }
                   ]
+                },"instagram_contenuti_dm_giorni": {
+                  Row: {
+                    "created_at": string,"giorno": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"giorno": string
+                  }
+                  Update: {
+                    "created_at"?: string,"giorno"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"instagram_contenuti_stato": {
                   Row: {
                     "account_username": string | null,"campi": string | null,"created_at": string,"giro_dal": string | null,"giro_id": string | null,"giro_motivo": string | null,"id": boolean,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"ultimo_giro_causa": string | null,"ultimo_giro_collegati": number | null,"ultimo_giro_esito": string | null,"ultimo_giro_il": string | null,"ultimo_giro_letti": number | null,"ultimo_giro_motivo": string | null,"ultimo_giro_proposti": number | null,"updated_at": string

@@ -134,6 +134,11 @@ export const VERSIONI: readonly Versione[] = [
           'Messenger: incolla il token della Pagina in Impostazioni › Instagram e Messenger; l’app lo prova prima di salvarlo. Per views, salvataggi e condivisioni dei post aggiungi all’app Meta il permesso delle statistiche e incolla di nuovo il token di Instagram.',
       },
       {
+        per: ['admin'],
+        testo:
+          'Claude collegato al calendario dei contenuti non raggiunge mai l’Insight: né recap, né chat, né lead per post, nemmeno col tuo account. Il profilo del cliente ideale è uno solo, quello senza prezzi che legge Claude, e lo usa anche l’Insight.',
+      },
+      {
         per: ['setter'],
         testo:
           'L’Insight delle ultime 24h ora è una pagina dell’app per i setter: nel menu, «Insight ultime 24h», e dal link in Oggi e in I miei numeri.',

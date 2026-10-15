@@ -91,6 +91,7 @@ export type StatoInsight = {
   chat: Database['public']['Tables']['insight_chat']['Row'][]
   profili: Database['public']['Tables']['insight_profili']['Row'][]
   conteggi: Database['public']['Tables']['instagram_contenuti_dm']['Row'][]
+  giorniContati: Database['public']['Tables']['instagram_contenuti_dm_giorni']['Row'][]
   esclusi: string[]
   collegamentoInstagram: Database['public']['Tables']['instagram_collegamento']['Row'] | null
   collegamentoMessenger: Database['public']['Tables']['messenger_collegamento']['Row'] | null
@@ -100,17 +101,18 @@ export type StatoInsight = {
 export async function statoInsight(): Promise<StatoInsight> {
   const db = dbLocale()
   const dal = new Date().toISOString()
-  const [impostazioni, recap, chat, profili, conteggi, esclusi, ig, fb] = await Promise.all([
+  const [impostazioni, recap, chat, profili, conteggi, giorniContati, esclusi, ig, fb] = await Promise.all([
     db.from('insight_impostazioni').select('*').maybeSingle(),
     db.from('insight_recap').select('*').eq('giorno', oggiRoma()),
     db.from('insight_chat').select('*'),
     db.from('insight_profili').select('*'),
     db.from('instagram_contenuti_dm').select('*'),
+    db.from('instagram_contenuti_dm_giorni').select('*'),
     db.from('instagram_esclusi').select('username'),
     db.from('instagram_collegamento').select('*').maybeSingle(),
     db.from('messenger_collegamento').select('*').maybeSingle(),
   ])
-  for (const r of [impostazioni, recap, chat, profili, conteggi, esclusi, ig, fb]) if (r.error) throw r.error
+  for (const r of [impostazioni, recap, chat, profili, conteggi, giorniContati, esclusi, ig, fb]) if (r.error) throw r.error
   return {
     dal,
     impostazioni: impostazioni.data,
@@ -118,6 +120,7 @@ export async function statoInsight(): Promise<StatoInsight> {
     chat: chat.data ?? [],
     profili: profili.data ?? [],
     conteggi: conteggi.data ?? [],
+    giorniContati: giorniContati.data ?? [],
     esclusi: (esclusi.data ?? []).map((r) => r.username),
     collegamentoInstagram: ig.data,
     collegamentoMessenger: fb.data,
@@ -152,6 +155,9 @@ export async function rimettiInsight(prima: StatoInsight) {
   verifica(await db.from('instagram_contenuti').delete().like('shortcode', 'GraphFinto%'))
   verifica(await db.from('instagram_contenuti_dm').delete().gte('giorno', '1970-01-01'))
   if (prima.conteggi.length) verifica(await db.from('instagram_contenuti_dm').insert(prima.conteggi))
+  // the counted days (1.36.0's R2): the ones the run marked go
+  verifica(await db.from('instagram_contenuti_dm_giorni').delete().gte('giorno', '1970-01-01'))
+  if (prima.giorniContati.length) verifica(await db.from('instagram_contenuti_dm_giorni').insert(prima.giorniContati))
   // exclusions, settings, connections
   verifica(
     prima.esclusi.length

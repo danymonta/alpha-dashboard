@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(112);
+select plan(122);
 
 -- ---------------------------------------------------------------------------
 -- People: a second active setter, a deactivated setter, nutrizione and dev
@@ -127,28 +127,38 @@ select is((select count(*)::integer from vault.secrets where name = 'insight_chi
   'la chiave dei passi è nel Vault, una sola');
 
 -- ---------------------------------------------------------------------------
--- 2. Policies, exactly
+-- 2. Policies, exactly (each with <table>_mai_da_oauth: Claude connected
+--    through the MCP server, 1.34.0, never reaches them; section 12 below)
 -- ---------------------------------------------------------------------------
-select policies_are('public', 'insight_impostazioni', array['insight_impostazioni_admin_lettura'],
+select policies_are('public', 'insight_impostazioni',
+  array['insight_impostazioni_admin_lettura', 'insight_impostazioni_mai_da_oauth'],
   'l''automazione: solo la lettura dell''admin');
-select policies_are('public', 'insight_esecuzioni', array['insight_esecuzioni_admin_lettura'],
+select policies_are('public', 'insight_esecuzioni',
+  array['insight_esecuzioni_admin_lettura', 'insight_esecuzioni_mai_da_oauth'],
   'le esecuzioni: solo la lettura dell''admin');
-select policies_are('public', 'insight_chat', array['insight_chat_nessuna_sessione'],
+select policies_are('public', 'insight_chat',
+  array['insight_chat_nessuna_sessione', 'insight_chat_mai_da_oauth'],
   'le chat: nessuna sessione');
-select policies_are('public', 'insight_profili', array['insight_profili_nessuna_sessione'],
+select policies_are('public', 'insight_profili',
+  array['insight_profili_nessuna_sessione', 'insight_profili_mai_da_oauth'],
   'i profili: nessuna sessione');
-select policies_are('public', 'insight_blocchi', array['insight_blocchi_nessuna_sessione'],
+select policies_are('public', 'insight_blocchi',
+  array['insight_blocchi_nessuna_sessione', 'insight_blocchi_mai_da_oauth'],
   'i blocchi: nessuna sessione');
-select policies_are('public', 'insight_schede', array['insight_schede_nessuna_sessione'],
+select policies_are('public', 'insight_schede',
+  array['insight_schede_nessuna_sessione', 'insight_schede_mai_da_oauth'],
   'le schede: nessuna sessione');
-select policies_are('public', 'insight_recap', array['insight_recap_lettura'],
+select policies_are('public', 'insight_recap',
+  array['insight_recap_lettura', 'insight_recap_mai_da_oauth'],
   'il recap: solo la lettura');
 select policies_are('public', 'insight_fatto',
-  array['insight_fatto_lettura', 'insight_fatto_inserimento', 'insight_fatto_modifica'],
+  array['insight_fatto_lettura', 'insight_fatto_inserimento', 'insight_fatto_modifica', 'insight_fatto_mai_da_oauth'],
   'Fatto: lettura, inserimento e modifica, nessuna eliminazione');
-select policies_are('public', 'messenger_collegamento', array['messenger_collegamento_admin_lettura'],
+select policies_are('public', 'messenger_collegamento',
+  array['messenger_collegamento_admin_lettura', 'messenger_collegamento_mai_da_oauth'],
   'il collegamento di Messenger: solo la lettura dell''admin');
-select policies_are('public', 'messenger_esclusi', array['messenger_esclusi_admin'],
+select policies_are('public', 'messenger_esclusi',
+  array['messenger_esclusi_admin', 'messenger_esclusi_mai_da_oauth'],
   'le chat escluse di Messenger: l''admin');
 
 -- ---------------------------------------------------------------------------
@@ -659,6 +669,115 @@ select ok(
   obj_description('public.instagram_contenuti'::regclass, 'pg_class') like '%instagram_contenuti_dm%',
   'il commento dei post dice dove sono i lead per post'
 );
+
+-- ---------------------------------------------------------------------------
+-- 12. Claude connected (1.34.0, CLAUDE.md section 28): an OAuth token (its
+--     JWT has a client_id) reaches no Insight table, whatever its owner reads
+--     in the app (20261014090300_insight_mai_da_oauth.sql). The leads per post
+--     and their counted days too: vede_marketing() is true for an admin,
+--     editor or marketing token, and only the restrictive policy stops it.
+-- ---------------------------------------------------------------------------
+insert into public.instagram_contenuti_dm (shortcode, giorno, dm, lead_in_target, call_prenotate, dm_certi)
+values ('SeedDemo01', public.oggi() - 50, 1, 1, 0, 1)
+on conflict (shortcode, giorno) do nothing;
+insert into public.instagram_contenuti_dm_giorni (giorno) values (public.oggi() - 50)
+on conflict (giorno) do nothing;
+
+create temp table viste_oauth (persona text, tabella text, righe bigint, errore text) on commit drop;
+grant select, insert on viste_oauth to authenticated;
+
+create or replace function pg_temp.conta_oauth(p_persona text)
+returns void
+language plpgsql
+as $$
+declare
+  t text;
+  n bigint;
+begin
+  foreach t in array array['insight_impostazioni', 'insight_esecuzioni', 'insight_chat', 'insight_profili',
+                           'insight_blocchi', 'insight_schede', 'insight_recap', 'insight_fatto',
+                           'messenger_collegamento', 'messenger_esclusi', 'instagram_contenuti_dm',
+                           'instagram_contenuti_dm_giorni'] loop
+    begin
+      execute format('select count(*) from public.%I', t) into n;
+      insert into pg_temp.viste_oauth values (p_persona, t, n, null);
+    exception when others then
+      insert into pg_temp.viste_oauth values (p_persona, t, null, sqlstate);
+    end;
+  end loop;
+end;
+$$;
+
+set local role authenticated;
+-- the admin in the app, to be sure the rows are there
+set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$ begin perform pg_temp.conta_oauth('admin_web'); end $$;
+-- the same people with Claude's token (client and session as Supabase Auth writes them)
+set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","client_id":"7c000000-0000-4000-8000-000000000076","session_id":"7e000000-0000-4000-8000-000000000076"}';
+do $$ begin perform pg_temp.conta_oauth('admin_oauth'); end $$;
+set local request.jwt.claims to '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated","client_id":"7c000000-0000-4000-8000-000000000076","session_id":"7e000000-0000-4000-8000-000000000176"}';
+do $$ begin perform pg_temp.conta_oauth('setter_oauth'); end $$;
+set local request.jwt.claims to '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated","client_id":"7c000000-0000-4000-8000-000000000076","session_id":"7e000000-0000-4000-8000-000000000276"}';
+do $$ begin perform pg_temp.conta_oauth('editor_oauth'); end $$;
+set local request.jwt.claims to '{"sub":"61616161-6161-4161-8161-616161616161","role":"authenticated","client_id":"7c000000-0000-4000-8000-000000000076","session_id":"7e000000-0000-4000-8000-000000000376"}';
+do $$ begin perform pg_temp.conta_oauth('marketing_oauth'); end $$;
+reset role;
+set local request.jwt.claims to '{}';
+
+select is(
+  (select array_agg(tabella order by tabella) from viste_oauth where persona = 'admin_web' and righe > 0),
+  array['insight_esecuzioni', 'insight_fatto', 'insight_impostazioni', 'insight_recap', 'instagram_contenuti_dm',
+        'instagram_contenuti_dm_giorni', 'messenger_collegamento', 'messenger_esclusi'],
+  'nell''app l''admin legge le sue otto tabelle: le righe ci sono'
+);
+select is((select count(*)::integer from viste_oauth where persona like '%\_oauth'), 48,
+  'quattro token di Claude hanno contato le dodici tabelle');
+select is(
+  (select coalesce(array_agg(persona || ' ' || tabella order by persona, tabella), '{}') from viste_oauth
+   where persona like '%\_oauth' and righe > 0),
+  '{}'::text[],
+  'col token di Claude nessuno legge una riga dell''Insight, nemmeno l''admin, e nemmeno i lead per post'
+);
+select is(
+  (select count(*)::integer from viste_oauth
+   where persona like '%\_oauth' and not (righe = 0 or errore = '42501')),
+  0,
+  'ogni tabella risponde 0 righe o 42501'
+);
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","client_id":"7c000000-0000-4000-8000-000000000076","session_id":"7e000000-0000-4000-8000-000000000076"}';
+select throws_ok(
+  $$ insert into public.insight_fatto (giorno, canale, chiave, fatto)
+     values (public.oggi() - 3, 'instagram', 'claude.lead', true) $$,
+  '42501', null,
+  'Claude dell''admin non segna Fatto'
+);
+select is(
+  pg_temp.righe($$ update public.insight_fatto set fatto = true where giorno = public.oggi() - 3 $$),
+  0,
+  'né ne cambia uno'
+);
+select throws_ok(
+  $$ insert into public.messenger_esclusi (utente_id, nome) values ('7600000000000099', 'Da Claude') $$,
+  '42501', null,
+  'non esclude una chat di Messenger'
+);
+select is(
+  pg_temp.righe($$ delete from public.messenger_esclusi $$),
+  0,
+  'né ne toglie una'
+);
+select throws_ok($$ select public.insight_stato() $$, '42501', null, 'e insight_stato gli risponde 42501');
+set local request.jwt.claims to '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated","client_id":"7c000000-0000-4000-8000-000000000076","session_id":"7e000000-0000-4000-8000-000000000176"}';
+select throws_ok(
+  $$ insert into public.insight_fatto (giorno, canale, chiave, fatto)
+     values (public.oggi() - 3, 'instagram', 'claude.lead', true) $$,
+  '42501', null,
+  'Claude del setter nemmeno'
+);
+reset role;
+set local request.jwt.claims to '{}';
 
 select * from finish();
 rollback;

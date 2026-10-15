@@ -127,6 +127,8 @@ on conflict (shortcode) do nothing;
 insert into public.instagram_contenuti_dm (shortcode, giorno, dm, lead_in_target, call_prenotate, dm_certi)
 values ('Test66Post1', public.oggi() - 1, 2, 1, 1, 1)
 on conflict (shortcode, giorno) do nothing;
+insert into public.instagram_contenuti_dm_giorni (giorno) values (public.oggi() - 1)
+on conflict (giorno) do nothing;
 insert into public.insight_esecuzioni (id, giorno, motivo, stato, passo) values
   ('66660000-0000-4000-8000-000000000166', public.oggi() - 2, 'manuale', 'pronta', 'unione')
 on conflict (id) do nothing;
@@ -154,7 +156,7 @@ select is(
   (select coalesce(array_agg(t order by t), '{}') from unnest(array[
      'insight_impostazioni', 'insight_esecuzioni', 'insight_chat', 'insight_profili', 'insight_blocchi',
      'insight_schede', 'insight_recap', 'insight_fatto', 'messenger_collegamento', 'messenger_esclusi',
-     'instagram_contenuti_dm']) as t
+     'instagram_contenuti_dm', 'instagram_contenuti_dm_giorni']) as t
    where (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from public.%I', t), false, true, '')))[1]::text::integer = 0),
   '{}'::text[],
   'ogni tabella dell''Insight ha righe: 0 righe qui sotto vuol dire RLS'
@@ -207,14 +209,14 @@ select ok(
 );
 -- Allowed: the team directory, the content calendar, the Instagram posts and
 -- their links with the calendar (1.33.0, 69_post_instagram.sql), the leads per
--- post of the Insight (1.35.0, 78_contenuti_dm.sql), the Projects area.
+-- post of the Insight and their counted days (1.35.0, 78_contenuti_dm.sql), the Projects area.
 -- products: its own rule and test (20261009120200, 68_prodotti_solo_economics.sql).
 create temp table ammesse (relazione text primary key) on commit drop;
 insert into ammesse values
   ('profiles'), ('marketing_contenuti'), ('products'),
   ('instagram_contenuti'), ('instagram_contenuti_stato'), ('marketing_abbinamenti'),
   ('marketing_abbinamenti_rifiutati'), ('marketing_post_esclusi'),
-  ('v_instagram_post'), ('v_marketing_proposte'), ('instagram_contenuti_dm');
+  ('v_instagram_post'), ('v_marketing_proposte'), ('instagram_contenuti_dm'), ('instagram_contenuti_dm_giorni');
 select is(
   (select coalesce(array_agg(relazione order by relazione), '{}') from righe_viste
    where persona = 'marketing' and righe > 0

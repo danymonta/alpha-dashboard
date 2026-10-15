@@ -4,12 +4,14 @@
 -- how many attributed by code. Numbers only. Admin, video editor and marketing
 -- read them; no session writes them; the Insight (service role) rewrites only
 -- the last 30 days, never a day before the chats it has (storico_dal); older
--- days are final and stay in the backup.
+-- days are final and stay in the backup. The days counted after they were
+-- over (instagram_contenuti_dm_giorni, asked by the reel analysis, 1.36.0):
+-- from greatest(storico_dal, today - 13) to yesterday, never today.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(38);
+select plan(56);
 
 -- helper: rows touched by an update or a delete, under the current role
 create or replace function pg_temp.righe(p_sql text)
@@ -52,8 +54,10 @@ insert into public.instagram_contenuti_dm (shortcode, giorno, dm, lead_in_target
   ('T78Post01', public.oggi() - 2, 2, 1, 1, 1),
   ('SeedDemo01', public.oggi() - 40, 7, 3, 1, 2);
 update public.insight_impostazioni set storico_dal = null where id;
+-- a counted day long ago, so "0 rows" below means RLS
+insert into public.instagram_contenuti_dm_giorni (giorno, created_at) values (public.oggi() - 60, now() - interval '60 days');
 
-create temp table viste (persona text, righe bigint, errore text) on commit drop;
+create temp table viste (persona text, righe bigint, errore text, giorni bigint) on commit drop;
 grant select, insert on viste to authenticated, anon;
 create or replace function pg_temp.conta(p_persona text)
 returns void
@@ -61,11 +65,13 @@ language plpgsql
 as $$
 declare
   n bigint;
+  g bigint;
 begin
   select count(*) into n from public.instagram_contenuti_dm;
-  insert into pg_temp.viste values (p_persona, n, null);
+  select count(*) into g from public.instagram_contenuti_dm_giorni;
+  insert into pg_temp.viste values (p_persona, n, null, g);
 exception when others then
-  insert into pg_temp.viste values (p_persona, null, sqlstate);
+  insert into pg_temp.viste values (p_persona, null, sqlstate, null);
 end;
 $$;
 
@@ -81,7 +87,10 @@ select fk_ok('public', 'instagram_contenuti_dm', 'shortcode', 'public', 'instagr
   'ogni riga è di un post di Instagram');
 select has_index('public', 'instagram_contenuti_dm', 'instagram_contenuti_dm_giorno_idx', 'giorno', 'l''indice sul giorno');
 select ok((select relrowsecurity from pg_class where oid = 'public.instagram_contenuti_dm'::regclass), 'RLS attiva');
-select policies_are('public', 'instagram_contenuti_dm', array['instagram_contenuti_dm_lettura'], 'solo la lettura');
+-- instagram_contenuti_dm_mai_da_oauth: Claude connected through the MCP server (1.34.0) never reads
+-- them, though vede_marketing() is true for an admin, editor or marketing token (76_insight_dati.sql)
+select policies_are('public', 'instagram_contenuti_dm',
+  array['instagram_contenuti_dm_lettura', 'instagram_contenuti_dm_mai_da_oauth'], 'solo la lettura');
 select is(
   (select count(*)::integer from information_schema.role_table_grants
    where grantee = 'anon' and table_schema = 'public' and table_name = 'instagram_contenuti_dm'),
@@ -103,6 +112,28 @@ select ok(
   and not has_function_privilege('authenticated', 'public.instagram_contenuti_dm_salva(jsonb)', 'execute')
   and has_function_privilege('service_role', 'public.instagram_contenuti_dm_salva(jsonb)', 'execute'),
   'e la chiama solo il service role'
+);
+
+-- the counted days: a day and when it was marked, nothing else
+select has_table('public', 'instagram_contenuti_dm_giorni', 'i giorni contati hanno la loro tabella');
+select columns_are('public', 'instagram_contenuti_dm_giorni', array['giorno', 'created_at'],
+  'solo il giorno e quando è stato segnato: niente di una persona');
+select col_is_pk('public', 'instagram_contenuti_dm_giorni', 'giorno', 'una riga per giorno');
+select ok((select relrowsecurity from pg_class where oid = 'public.instagram_contenuti_dm_giorni'::regclass),
+  'RLS attiva sui giorni contati');
+select policies_are('public', 'instagram_contenuti_dm_giorni',
+  array['instagram_contenuti_dm_giorni_lettura', 'instagram_contenuti_dm_giorni_mai_da_oauth'],
+  'i giorni contati: solo la lettura');
+select is(
+  (select count(*)::integer from information_schema.role_table_grants
+   where grantee = 'anon' and table_schema = 'public' and table_name = 'instagram_contenuti_dm_giorni'),
+  0,
+  'anon non ha nessun permesso sui giorni contati'
+);
+select ok(
+  (select bool_and(not has_table_privilege('authenticated', 'public.instagram_contenuti_dm_giorni', p))
+   from unnest(array['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) as p),
+  'nessuna sessione li scrive'
 );
 
 -- ---------------------------------------------------------------------------
@@ -145,6 +176,16 @@ select is(
 );
 select is((select errore from viste where persona = 'anon'), '42501', 'anon nemmeno');
 select is(
+  (select array_agg(persona order by persona) from viste where giorni > 0),
+  array['admin', 'editor', 'marketing'],
+  'i giorni contati li leggono gli stessi'
+);
+select is(
+  (select array_agg(persona order by persona) from viste where giorni = 0),
+  array['closer', 'coach', 'dev', 'marketing_spento', 'nutrizione', 'setter'],
+  'e gli altri no'
+);
+select is(
   (select righe from viste where persona = 'marketing'),
   (select count(*) from public.instagram_contenuti_dm),
   'chi li legge li legge tutti'
@@ -160,6 +201,11 @@ select throws_ok(
 );
 select throws_ok($$ update public.instagram_contenuti_dm set dm = 9 $$, '42501', null, 'né lo cambia');
 select throws_ok($$ delete from public.instagram_contenuti_dm $$, '42501', null, 'né lo cancella');
+select throws_ok(
+  $$ insert into public.instagram_contenuti_dm_giorni (giorno) values (public.oggi() - 1) $$,
+  '42501', null,
+  'né segna contato un giorno'
+);
 select throws_ok(
   $$ select public.instagram_contenuti_dm_salva('[]') $$,
   '42501', null,
@@ -242,6 +288,19 @@ select is((select count(*)::integer from public.instagram_contenuti_dm where gio
   'nessun giorno nel futuro');
 select is((select count(*)::integer from public.instagram_contenuti_dm where shortcode = 'NonEsiste78'), 0,
   'nessun post sconosciuto');
+-- without storico_dal the window starts 29 days ago, but only the 14 days the
+-- Insight re-reads after a pause are counted, and never today (half-read)
+select is(
+  (select array_agg(public.oggi() - giorno order by giorno) from public.instagram_contenuti_dm_giorni
+   where giorno > public.oggi() - 60),
+  array[13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
+  'segna contati i giorni finiti da 13 giorni fa a ieri'
+);
+select is((select count(*)::integer from public.instagram_contenuti_dm_giorni where giorno >= public.oggi()), 0,
+  'mai oggi, che è sempre a metà');
+-- marked an hour ago: a run again must leave them as they are (on conflict do nothing)
+update public.instagram_contenuti_dm_giorni set created_at = created_at - interval '1 hour';
+create temp table giorni78 on commit drop as select giorno, created_at from public.instagram_contenuti_dm_giorni;
 
 -- the same rows again: the same table
 create temp table prima78 on commit drop as
@@ -265,9 +324,18 @@ select is(
   0,
   'la tabella è la stessa'
 );
+select is(
+  (select count(*)::integer from (
+     (select giorno, created_at from public.instagram_contenuti_dm_giorni except select * from giorni78)
+     union all
+     (select * from giorni78 except select giorno, created_at from public.instagram_contenuti_dm_giorni)) d),
+  0,
+  'e i giorni contati pure, con il loro momento'
+);
 
--- the chats start later: the days before are final
+-- the chats start later: the days before are final, and never counted
 update public.insight_impostazioni set storico_dal = public.oggi() - 5 where id;
+delete from public.instagram_contenuti_dm_giorni where giorno > public.oggi() - 60;
 set local role service_role;
 select is(
   public.instagram_contenuti_dm_salva(jsonb_build_array(
@@ -285,6 +353,13 @@ select is(
         row('T78Post01', 0, 1)::text],
   'i giorni prima dello storico non si cancellano né si scrivono'
 );
+select is(
+  (select array_agg(public.oggi() - giorno order by giorno) from public.instagram_contenuti_dm_giorni
+   where giorno > public.oggi() - 60),
+  array[5, 4, 3, 2, 1],
+  'e si contano solo i giorni da storico_dal a ieri'
+);
+delete from public.instagram_contenuti_dm_giorni where giorno > public.oggi() - 60;
 set local role service_role;
 select throws_ok(
   $$ select public.instagram_contenuti_dm_salva(jsonb_build_array(
@@ -294,6 +369,21 @@ select throws_ok(
   'una riga senza DM la rifiuta il controllo (chi chiama non la manda mai)'
 );
 reset role;
+select is((select count(*)::integer from public.instagram_contenuti_dm_giorni where giorno > public.oggi() - 60), 0,
+  'e un salvataggio rifiutato non segna nessun giorno');
+-- the chats start today: nothing is finished yet
+update public.insight_impostazioni set storico_dal = public.oggi() where id;
+set local role service_role;
+select is(
+  public.instagram_contenuti_dm_salva(jsonb_build_array(
+    jsonb_build_object('shortcode', 'SeedDemo01', 'giorno', public.oggi() - 1, 'dm', 1, 'lead_in_target', 0, 'call_prenotate', 0, 'dm_certi', 0),
+    jsonb_build_object('shortcode', 'T78Post01', 'giorno', public.oggi(), 'dm', 1, 'lead_in_target', 1, 'call_prenotate', 1, 'dm_certi', 0))),
+  1,
+  'con lo storico da oggi scrive solo oggi'
+);
+reset role;
+select is((select count(*)::integer from public.instagram_contenuti_dm_giorni where giorno > public.oggi() - 60), 0,
+  'e non segna contato nessun giorno');
 
 -- ---------------------------------------------------------------------------
 -- 5. A post that goes takes its counts; the backup keeps them
@@ -311,6 +401,11 @@ select is(
   (select jsonb_array_length(dati->'instagram_contenuti_dm') from backup78),
   (select count(*)::integer from public.instagram_contenuti_dm),
   'il backup tiene i lead per post, tutti'
+);
+select is(
+  (select jsonb_array_length(dati->'instagram_contenuti_dm_giorni') from backup78),
+  (select count(*)::integer from public.instagram_contenuti_dm_giorni),
+  'e i giorni contati'
 );
 select ok(
   (select obj_description('public.instagram_contenuti_dm'::regclass, 'pg_class') like '%Numbers only%'),

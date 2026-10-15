@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { expect, test, type Page } from '@playwright/test'
 import { parse } from 'dotenv'
 
-import { oggiRoma } from '../lib/date'
+import { aggiungiGiorni, oggiRoma } from '../lib/date'
 import type { Database } from '../lib/supabase/database.types'
 import { dbLocale } from './db'
 import { eseguiInsightFinoAllaFine, esecuzione, rimettiInsight, statoInsight, ultimaEsecuzione, type StatoInsight } from './insight-db'
@@ -172,6 +172,12 @@ test.describe('l’esecuzione dell’Insight contro i server finti', () => {
         expect.objectContaining({ shortcode: 'GraphFinto04', giorno: per['luca.finto'].origine_giorno, dm: 1, dm_certi: 1 }),
       ]),
     )
+    // the finished days the run re-read are counted, today never (1.36.0's R2)
+    const { data: giorni, error: erroreGiorni } = await db.from('instagram_contenuti_dm_giorni').select('giorno')
+    if (erroreGiorni) throw erroreGiorni
+    const contati = (giorni ?? []).map((g) => g.giorno)
+    expect(contati).toContain(aggiungiGiorni(oggiRoma(), -1))
+    expect(contati).not.toContain(oggiRoma())
     // the statistics of the posts of the last 14 days, read (D28)
     const { data: post } = await db.from('instagram_contenuti').select('shortcode, metriche_il, metriche_stato').like('shortcode', 'GraphFinto%')
     const statistiche = Object.fromEntries((post ?? []).map((p) => [p.shortcode, p]))

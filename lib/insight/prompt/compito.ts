@@ -35,7 +35,7 @@ CHI È IN TARGET (dall'ICP)
 target "si": nella chat ci sono segnali "In target" dell'ICP (sezione "Segnali in DM e in call") e nessun segnale "Non in target".
 target "no": c'è almeno un segnale "Non in target" dell'ICP, oppure è una donna, oppure ha detto di avere meno di 25 anni.
 target "da verificare": mancano l'età o i segnali per decidere.
-Pain, situazione e parole dei messaggi suggeriti seguono l'ICP e le parole del lead; il flow, la fase e ogni regola sui messaggi restano delle istruzioni setter. I prezzi dell'ICP non vanno mai in un messaggio.
+Pain, situazione e parole dei messaggi suggeriti seguono l'ICP e le parole del lead; il flow, la fase e ogni regola sui messaggi restano delle istruzioni setter. Prezzi e condizioni di pagamento non vanno mai in un messaggio: l'ICP non li ha, restano della call.
 
 ANALISI DI OGNI CHAT (vale per Instagram e Messenger)
 Applica il controllo PRIMA DI SCRIVERE delle istruzioni setter, poi classifica:
