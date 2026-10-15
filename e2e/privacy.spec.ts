@@ -27,7 +27,7 @@ test('l’informativa si apre senza sessione, con le istruzioni per la cancellaz
   await expect(page).toHaveURL(/\/privacy$/)
   await expect(page).toHaveTitle('Informativa privacy · Percorso Alpha')
   await expect(page.getByRole('heading', { level: 1, name: 'Informativa privacy' })).toBeVisible()
-  await expect(page.getByText('Ultimo aggiornamento: 14 ottobre 2026')).toBeVisible()
+  await expect(page.getByText('Ultimo aggiornamento: 15 ottobre 2026')).toBeVisible()
   // the posts and reels of the account, read for the content calendar (1.33.0): never the comments or who liked;
   // from 1.35.0 their captions and numbers go into the DM recap, so the old «nothing to an AI» is gone
   const posts = page.getByText(/legge anche l’elenco dei post e dei reel pubblicati dall’account/)
@@ -47,6 +47,8 @@ test('l’informativa si apre senza sessione, con le istruzioni per la cancellaz
   await expect(page.getByRole('region', { name: /Come chiedere la cancellazione dei dati/ })).toContainText(
     'Puoi chiederci di cancellare i tuoi messaggi dal riepilogo dei messaggi diretti',
   )
+  // Claude connected to the content calendar (1.34.0): the team's own Claude accounts, the calendar only
+  await expect(page.getByText(/collegare il proprio account Claude \(Anthropic\) al calendario dei contenuti/)).toBeVisible()
   // minors (Dany, 10/10/2026): under 14 nothing kept, 14 to 17 the rules of everyone
   const minori = page.getByRole('region', { name: /Minori/ })
   await expect(minori).toContainText('Sotto i 14 anni chiudiamo la conversazione con gentilezza e non conserviamo i suoi messaggi')

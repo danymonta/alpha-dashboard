@@ -32,7 +32,7 @@ const TITOLARE: {
 }
 
 /** Change both together when the text changes. */
-const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-14', testo: '14 ottobre 2026' }
+const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-15', testo: '15 ottobre 2026' }
 
 const TITOLO = 'Informativa privacy · Percorso Alpha'
 const DESCRIZIONE =
@@ -223,6 +223,12 @@ const SEZIONI: Sezione[] = [
           né testi, quanti contatti arrivano da ciascun nostro post o reel, per capire quali contenuti funzionano. Non
           manda mai messaggi a nome tuo. Le chat che escludiamo (per esempio quelle con i nostri clienti) non vengono
           conservate né analizzate.
+        </p>
+        <p>
+          Il team può collegare il proprio account Claude (Anthropic) al calendario dei contenuti del gestionale: Claude
+          legge e scrive soltanto le idee, gli script e le didascalie dei post, a nome della persona che lo ha collegato,
+          e non raggiunge i messaggi diretti, i dati dei clienti o dei pagamenti. Chi lo collega tiene spento in Claude
+          l’uso delle chat per migliorare i modelli.
         </p>
         <Elenco>
           <li>

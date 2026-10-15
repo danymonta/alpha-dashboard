@@ -42,8 +42,12 @@ export async function accediConGoogle(formData: FormData): Promise<void> {
   redirect(data.url)
 }
 
-/** Local development only: signs in a seed user with email and password. */
+/**
+ * Local development only: signs in a seed user with email and password. da:
+ * where to go afterwards, bound by the form (the page's ?da=), checked here.
+ */
 export async function accediConPassword(
+  da: string,
   _statoPrecedente: StatoLogin,
   formData: FormData,
 ): Promise<StatoLogin> {
@@ -66,5 +70,7 @@ export async function accediConPassword(
   }
 
   revalidatePath('/', 'layout')
-  redirect('/')
+  // back where the person was going, as after Google (the consent page of Claude's
+  // connection comes back with its authorization_id): only a path of this app
+  redirect(destinazioneSicura(typeof da === 'string' ? da : '/'))
 }

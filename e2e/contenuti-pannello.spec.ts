@@ -71,9 +71,14 @@ async function altezza(el: Locator) {
   return (await el.boundingBox())?.height ?? 0
 }
 
-/** The box of an element once it stops moving (the panel slides in for 200 ms): where a person taps. */
+/**
+ * The box of an element once it stops moving (the panel slides in for 200 ms): where a person taps.
+ * The first probe of `expect.poll` runs at once, so it only records the box: two boxes read a few
+ * milliseconds apart can match in the middle of the slide when no frame was painted in between
+ * (a busy full run tapped at x = 391 on a 390 px screen).
+ */
 async function fermo(el: Locator) {
-  let prima = await el.boundingBox()
+  let prima: Awaited<ReturnType<Locator['boundingBox']>> = null
   await expect
     .poll(
       async () => {

@@ -14,6 +14,13 @@ export const RUOLI_ECONOMICS: readonly AppRole[] = ['admin', 'setter', 'closer']
  */
 export const RUOLI_MARKETING: readonly AppRole[] = ['admin', 'editor', 'marketing']
 
+/**
+ * Who connects Claude to Alpha Management (Dany, 09/10/2026: the MCP server on the
+ * content calendar): the Marketing area's roles, with an active account. The SQL
+ * puo_usare_mcp(), mcp_ruolo() and mcp_chi_sono() use the same three.
+ */
+export const RUOLI_MCP: readonly AppRole[] = RUOLI_MARKETING
+
 /** Every role has at least the Projects area (since 28/09/2026). */
 export function haAreaDisponibile(ruolo: AppRole): boolean {
   return TUTTI_I_RUOLI.includes(ruolo)

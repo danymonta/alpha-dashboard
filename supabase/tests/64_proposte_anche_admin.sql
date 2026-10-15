@@ -36,7 +36,9 @@ select policies_are('public', 'report_proposte_instagram', array[
   'report_proposte_instagram_setter_lettura',
   'report_proposte_instagram_setter_decide',
   'report_proposte_instagram_admin_lettura',
-  'report_proposte_instagram_admin_decide'
+  'report_proposte_instagram_admin_decide',
+  -- Claude's OAuth tokens never reach it (20261010090000_mcp_oauth.sql, 75_mcp_oauth.sql)
+  'report_proposte_instagram_mai_da_oauth'
 ], 'le proposte le leggono e le decidono il loro setter e l''admin');
 select ok(
   not has_column_privilege('authenticated', 'public.report_proposte_instagram', 'deciso_da', 'update')
