@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 /**
  * The tabs of the Marketing area (1.33.0): «Contenuti», the calendar, and
- * «Post di Instagram», the posts of the account and their links to it; 1.35.0
+ * «Post di Instagram», the posts of the account and their links to it; 1.36.0
  * adds «Analisi». In the area's layout, so they stay still between its pages.
  * «Post di Instagram» carries the number of posts to link, said in its name
  * («Post di Instagram, 5 da collegare»), the digit hidden from screen readers.

@@ -32,7 +32,7 @@ const TITOLARE: {
 }
 
 /** Change both together when the text changes. */
-const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-10', testo: '10 ottobre 2026' }
+const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-14', testo: '14 ottobre 2026' }
 
 const TITOLO = 'Informativa privacy · Percorso Alpha'
 const DESCRIZIONE =
@@ -118,8 +118,9 @@ const SEZIONI: Sezione[] = [
         <Elenco>
           <li>
             <strong className="font-semibold">Dati di profilo e di contatto</strong> di chi ci scrive o interagisce con
-            Percorso Alpha su Instagram e Facebook: nome, username, foto profilo pubblica e l’identificativo che la
-            piattaforma assegna al tuo account.
+            Percorso Alpha su Instagram e Facebook: nome, username, foto profilo pubblica, l’identificativo che la
+            piattaforma assegna al tuo account e, per chi ci scrive in privato, il numero di follower e se ci seguiamo a
+            vicenda.
           </li>
           <li>
             <strong className="font-semibold">Messaggi e interazioni</strong>: il contenuto dei messaggi diretti che ci
@@ -201,12 +202,27 @@ const SEZIONI: Sezione[] = [
           per precompilare il report giornaliero di chi gestisce i messaggi: ne conserva solo i totali del giorno (per
           esempio quante conversazioni e quante call proposte), mai il testo, e non passa i messaggi a nessuna
           intelligenza artificiale. Per questo conteggio non conserviamo il tuo username, salvo quando escludiamo la tua
-          chat (per esempio perché sei già un cliente).
+          chat (per esempio perché sei già un cliente). Il riepilogo descritto qui sotto, invece, usa il testo.
         </p>
         <p>
           Ogni notte il gestionale legge anche l’elenco dei post e dei reel pubblicati dall’account (didascalia, data,
           link e copertina, con il numero di mi piace e di commenti) per collegarli al calendario dei contenuti; non legge
-          i commenti né chi ha messo mi piace, e non manda niente di questo a un’intelligenza artificiale.
+          i commenti né chi ha messo mi piace. Le didascalie e i numeri dei post più recenti entrano anche nel riepilogo
+          dei messaggi diretti descritto qui sotto.
+        </p>
+        <p>
+          <strong className="font-semibold">Riepilogo dei messaggi diretti.</strong> Ogni giorno il gestionale legge
+          anche i messaggi diretti delle ultime 24 ore dell’account Instagram di Percorso Alpha e della sua Pagina
+          Facebook (Messenger), con il nome, lo username e il numero di follower di chi scrive, per preparare un
+          riepilogo per il nostro team: chi aspetta una risposta, cosa chiede, quale messaggio scrivere, da quale nostro
+          post o reel è arrivato. Per l’analisi il testo dei messaggi viene inviato ad Anthropic PBC (Stati Uniti),
+          fornitore del modello di intelligenza artificiale Claude, che lo tratta per nostro conto secondo i suoi termini
+          commerciali: non lo usa per addestrare i suoi modelli e lo conserva per un periodo limitato. Il gestionale
+          conserva il riepilogo e i messaggi letti per al massimo 30 giorni e non tiene mai messaggi più vecchi di 30
+          giorni; delle chat che non riguardano il nostro servizio non conserva i messaggi. Conserva inoltre, senza nomi
+          né testi, quanti contatti arrivano da ciascun nostro post o reel, per capire quali contenuti funzionano. Non
+          manda mai messaggi a nome tuo. Le chat che escludiamo (per esempio quelle con i nostri clienti) non vengono
+          conservate né analizzate.
         </p>
         <Elenco>
           <li>
@@ -317,6 +333,14 @@ const SEZIONI: Sezione[] = [
           conversazione e al massimo 24 mesi dall’ultimo contatto. Poi li cancelliamo o li rendiamo anonimi.
         </li>
         <li>
+          <strong className="font-semibold">Riepilogo dei messaggi diretti</strong>: il riepilogo e i messaggi letti per
+          prepararlo, al massimo 30 giorni; poi si cancellano da soli.
+        </li>
+        <li>
+          <strong className="font-semibold">Contatti per contenuto</strong>: solo numeri (quanti contatti al giorno
+          arrivano da un nostro post o reel), senza nomi né testi: li conserviamo per l’analisi dei contenuti.
+        </li>
+        <li>
           <strong className="font-semibold">Dati dei clienti</strong>: per tutta la durata del rapporto. Dopo,
           conserviamo solo quelli necessari agli obblighi fiscali e contabili, per 10 anni come prevede la legge.
         </li>
@@ -377,6 +401,11 @@ const SEZIONI: Sezione[] = [
             cancellato.
           </li>
         </ol>
+        <p>
+          Puoi chiederci di cancellare i tuoi messaggi dal riepilogo dei messaggi diretti scrivendoci come descritto qui
+          sopra: escludiamo la tua chat e cancelliamo subito quello che è salvato; in ogni caso i messaggi si cancellano
+          da soli dopo 30 giorni.
+        </p>
         <a
           href={MAILTO_CANCELLAZIONE}
           className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
@@ -405,8 +434,12 @@ const SEZIONI: Sezione[] = [
     titolo: 'Minori',
     contenuto: (
       <p>
-        Percorso Alpha si rivolge a persone maggiorenni. Non raccogliamo consapevolmente dati di minori di 18 anni: se
-        pensi che un minore ci abbia dato i suoi dati, scrivici e li cancelliamo.
+        Percorso Alpha si rivolge a persone maggiorenni. Se ci scrive un minore gli rispondiamo con attenzione. Sotto i 14
+        anni chiudiamo la conversazione con gentilezza e non conserviamo i suoi messaggi: il gestionale li legge e li fa
+        analizzare una sola volta, anche da Anthropic, per riconoscere l’età, poi li cancella. Tra i 14 e i 17 anni non
+        proponiamo niente senza il coinvolgimento dei genitori, e i suoi messaggi seguono le regole di tutti: restano al
+        massimo 30 giorni nel riepilogo e passano da Anthropic per l’analisi. Se pensi che un minore ci abbia dato i suoi
+        dati, scrivici e li cancelliamo.
       </p>
     ),
   },

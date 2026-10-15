@@ -86,6 +86,69 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.35.0',
+    data: '2026-10-14',
+    titolo: 'L’Insight delle ultime 24h è dentro l’app',
+    riassunto:
+      'Il recap dei DM che prima era l’artefatto di Claude ora è una pagina del gestionale: Instagram, Messenger e agenda, preparato ogni sera dal server con Claude Sonnet 5.5 e il tuo ICP, con le chat salvate al massimo 30 giorni e, per ogni lead, il post da cui arriva.',
+    intestazionePer: ['setter'],
+    intestazioneTeam: {
+      titolo: 'Insight ultime 24h è una pagina dell’app',
+      riassunto:
+        'Il recap dei DM delle ultime 24 ore lo trovi nel menu, «Insight ultime 24h» (sul telefono in «Altro»): chi aspetta una risposta, il messaggio da copiare, la chat da aprire e da quale post arriva il lead, con le spunte Fatto.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Insight ultime 24h è una voce del menu, sotto Setter: la stessa pagina dell’artefatto «Recap DM Alpha», con Instagram, Messenger e Agenda, verdetto, numeri che filtrano, lead per priorità con «aspetta da», messaggi da copiare, chat, lead da riattivare, obiezioni, content e chat escluse. Il giorno si sceglie in alto, fino a 30 giorni indietro. La vedono anche i setter, con l’agenda completa delle call di ieri, oggi e domani (orario, nome, handle ed esito di ieri, mai note, importi o il closer), senza Aggiorna dati né Automazione. «Novità» nel menu ora ha il megafono: le stelline sono dell’Insight.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'I tre conteggi sbagliati dell’artefatto sono corretti: «aspetta da» e «Attendono risposta» solo quando l’ultimo messaggio è del lead, e «Chiusi / persi» conta anche chi è in uscita.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Ogni lead dice da quale post o reel arriva, quando si capisce dai DM: reel condiviso, parola chiave della didascalia, risposta a una storia o il video che cita. Se il post è collegato al calendario, vedi anche il contenuto. Il gestionale conta, senza nomi, quanti lead arrivano da ogni post ogni giorno, quanti in target e quanti con una call: serviranno all’analisi dei reel.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il recap lo prepara il server, non più il Mac: in «Automazione» scegli l’ora in cui deve essere pronto (a passi di 5 minuti) e lo accendi; «Aggiorna dati» lo rifà quando vuoi, fino a 8 volte al giorno. Spegni la routine sul Mac dopo il primo recap automatico riuscito.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Le chat le analizza Claude Sonnet 5.5 con le tue istruzioni setter, l’ICP, il Setting Training e M14; numeri, orari, «aspetta da» e il post di partenza li calcola il gestionale. Un messaggio suggerito con un link che non è il tuo Calendly o con un prezzo non si mostra. Costa circa 1 $ a recap: lo leggi in Impostazioni › Instagram e Messenger.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Le chat restano nel gestionale al massimo 30 giorni e poi si cancellano da sole; il backup non le prende. Sotto i 14 anni nessun messaggio resta salvato. Il testo dei DM ora va ad Anthropic: l’informativa privacy lo dice. Escludendo una chat in Impostazioni puoi cancellarne subito i messaggi salvati.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Messenger: incolla il token della Pagina in Impostazioni › Instagram e Messenger; l’app lo prova prima di salvarlo. Per views, salvataggi e condivisioni dei post aggiungi all’app Meta il permesso delle statistiche e incolla di nuovo il token di Instagram.',
+      },
+      {
+        per: ['setter'],
+        testo:
+          'L’Insight delle ultime 24h ora è una pagina dell’app per i setter: nel menu, «Insight ultime 24h», e dal link in Oggi e in I miei numeri.',
+        testoTeam:
+          'L’Insight delle ultime 24h ora è una pagina dell’app: lo apri dal menu, «Insight ultime 24h» (sul telefono in «Altro»), o dal link in Oggi e in I miei numeri, senza più aprire l’artefatto. Ogni sera trovi i lead per priorità, chi aspetta una risposta e da quanto, il messaggio suggerito da copiare, la chat da leggere e il tasto per aprirla su Instagram, da quale post arriva il lead, i lead da riattivare, le obiezioni, l’agenda delle call di ieri, oggi e domani e le indicazioni sui contenuti.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Le spunte Fatto sono condivise con l’admin, in tempo reale; non dicono chi le ha messe né quando.',
+        testoTeam:
+          'Le spunte Fatto sono condivise con Dany, in tempo reale: non dicono chi le ha messe né quando. Il giorno dopo si riparte da zero, come nell’artefatto.',
+      },
+    ],
+  },
+  {
     versione: '1.33.0',
     data: '2026-10-10',
     titolo: 'Più fluida, i contenuti in un pannello e i post di Instagram collegati',
