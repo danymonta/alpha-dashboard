@@ -32,7 +32,7 @@ const TITOLARE: {
 }
 
 /** Change both together when the text changes. */
-const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-15', testo: '15 ottobre 2026' }
+const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-16', testo: '16 ottobre 2026' }
 
 const TITOLO = 'Informativa privacy · Percorso Alpha'
 const DESCRIZIONE =
@@ -211,6 +211,17 @@ const SEZIONI: Sezione[] = [
           dei messaggi diretti descritto qui sotto.
         </p>
         <p>
+          <strong className="font-semibold">Analisi dei reel.</strong> Per i reel pubblicati dall’account il gestionale
+          legge anche i numeri del reel (visualizzazioni, salvataggi, condivisioni, tempo di visione) e, per i reel più
+          recenti, ne scarica il video per il tempo della lettura e lo cancella subito: non lo conserva. Dal video ricava
+          alcuni fotogrammi e la traccia audio. I fotogrammi, la didascalia e la trascrizione del parlato vengono inviati ad
+          Anthropic PBC (Stati Uniti) per un’analisi che dice come è fatto il reel e cosa pubblicare dopo; la traccia audio
+          viene inviata a Groq (Stati Uniti) per essere trascritta e non viene conservata. Il gestionale conserva il testo
+          della trascrizione, la scheda scritta da Claude e i numeri del reel. In queste analisi non entrano messaggi né
+          nomi: dei contatti arrivati dai messaggi diretti Claude riceve solo conteggi e, se il nostro team lo consente,
+          temi riassunti dalle note interne, senza nomi e senza i testi dei messaggi.
+        </p>
+        <p>
           <strong className="font-semibold">Riepilogo dei messaggi diretti.</strong> Ogni giorno il gestionale legge
           anche i messaggi diretti dell’account Instagram di Percorso Alpha e della sua Pagina Facebook (Messenger):
           le conversazioni delle ultime 24 ore e quelle ferme da qualche giorno (fino a 14) per cui può servire un
@@ -274,7 +285,8 @@ const SEZIONI: Sezione[] = [
             artificiale Claude;
           </li>
           <li>
-            <strong className="font-semibold">Groq</strong> (Stati Uniti): l’assistente interno del nostro gestionale;
+            <strong className="font-semibold">Groq</strong> (Stati Uniti): l’assistente interno del nostro gestionale e la
+            trascrizione dell’audio dei nostri reel;
           </li>
           <li>
             <strong className="font-semibold">Vercel</strong>: l’hosting del gestionale;
@@ -347,6 +359,10 @@ const SEZIONI: Sezione[] = [
         <li>
           <strong className="font-semibold">Contatti per contenuto</strong>: solo numeri (quanti contatti al giorno
           arrivano da un nostro post o reel), senza nomi né testi: li conserviamo per l’analisi dei contenuti.
+        </li>
+        <li>
+          <strong className="font-semibold">Analisi dei reel</strong>: il testo del parlato, la scheda di Claude e i
+          numeri di ogni reel, finché il reel è nel nostro archivio dei contenuti; il video e l’audio non si conservano.
         </li>
         <li>
           <strong className="font-semibold">Dati dei clienti</strong>: per tutta la durata del rapporto. Dopo,

@@ -303,6 +303,18 @@ describe('cosa legge ogni ruolo', () => {
     }
   })
 
+  it('la 1.36.0 (l’analisi dei reel) la leggono solo admin, video editor e marketing; spesa, limite e interruttori restano dell’admin', () => {
+    for (const ruolo of ['setter', 'closer', 'coach', 'nutrizione', 'dev'] as const) {
+      expect(versioniPer(ruolo).some((v) => v.versione === '1.36.0'), ruolo).toBe(false)
+    }
+    for (const ruolo of ['admin', 'editor', 'marketing'] as const) {
+      expect(versioniPer(ruolo).some((v) => v.versione === '1.36.0'), ruolo).toBe(true)
+    }
+    const delMarketing = versioniPer('marketing').find((v) => v.versione === '1.36.0')!
+    const letti = delMarketing.novita.map((voce) => voce.testo).join(' ')
+    expect(letti).not.toMatch(/\$|spesa|limite|interruttor|Note di setter|Impostazioni|Groq|Anthropic/i)
+  })
+
   it('la 1.35.0 (l’Insight delle ultime 24h) la leggono solo admin e setter: costo, Automazione e Aggiorna dati restano dell’admin', () => {
     for (const ruolo of ['closer', 'coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
       expect(versioniPer(ruolo).some((v) => v.versione === '1.35.0'), ruolo).toBe(false)

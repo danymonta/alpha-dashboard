@@ -86,6 +86,61 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.36.0',
+    data: '2026-10-15',
+    titolo: 'Analisi dei reel: numeri, verdetto e idee per il calendario',
+    riassunto:
+      'Nel Marketing c’è la scheda «Analisi»: ogni reel con i suoi numeri contro la mediana dei tuoi, il verdetto Spingere, Mantenere o Cambiare, cosa ha visto e sentito Claude e le idee da aggiungere al calendario con un tocco.',
+    intestazionePer: ['marketing'],
+    intestazioneTeam: {
+      titolo: 'Analisi dei reel nel Marketing',
+      riassunto:
+        'La scheda «Analisi» mostra ogni reel con i numeri contro la mediana dell’account, il verdetto Spingere, Mantenere o Cambiare, cosa ha visto e sentito Claude e le idee da aggiungere al calendario con un tocco.',
+    },
+    novita: [
+      {
+        per: ['marketing'],
+        testo:
+          'Nuova scheda «Analisi» nel Marketing, accanto a Contenuti e Post di Instagram: i reel del periodo (30, 90 o 180 giorni) con views, salvataggi, tempo di visione e lead dai DM, ognuno contro la mediana dei reel che l’account aveva pubblicato nei 90 giorni prima, alla stessa età. Ogni reel ha il suo verdetto: Spingere, Mantenere o Cambiare. I numeri e il verdetto li calcola il gestionale, Claude spiega il perché.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Toccando un reel si apre il pannello: i numeri, il verdetto, l’analisi di Claude (cosa ha funzionato, cosa migliorare, cosa dicono i lead), la scheda di quello che ha visto nei fotogrammi (gancio, ritmo, testo a schermo, CTA, aderenza al cliente ideale) e il parlato trascritto con i tempi. Si apre anche dal link «Apri l’analisi» di un contenuto o di un post.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Ogni analisi propone due o tre idee per il prossimo reel, con Name, Reel Type, Format, gancio, messaggio e script. «Aggiungi al calendario» le crea come Reel Topic da girare, con lo script già scritto, e il contenuto dice da quale analisi nasce. Se il reel non è ancora collegato al calendario, Claude suggerisce anche quale contenuto potrebbe essere e lo colleghi con un tocco.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Il parlato dei reel si legge anche in Post di Instagram, aperto solo al tocco: la trascrizione con i tempi, o il motivo per cui non c’è (musica protetta, nessun parlato). Il parlato aiuta anche a collegare un reel al contenuto giusto, ma non collega mai da solo.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          '«Analizza» (e «Analizza di nuovo») la chiedono l’admin e il marketing; il video editor legge tutto. Ogni notte il server analizza da solo i reel nuovi quando compiono 3, 7 e 14 giorni, uno alla volta.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'In Impostazioni › Instagram e Messenger c’è il blocco «Analisi dei reel»: spesa del mese e limite (di base 25 $), interruttore delle analisi automatiche e interruttore «Note di setter e closer nelle analisi». Il costo lo calcola il database da token e minuti di audio; superato il limite le analisi si fermano da sole, comprese quelle chieste a mano.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Con «Note di setter e closer nelle analisi» acceso (lo è di base) Claude legge cosa frenava i lead nelle risposte del setter e i motivi di non chiusura del closer, senza nomi, per dire cosa dicono i lead; al video editor e al marketing mostra solo i temi, mai nomi, cifre o frasi copiate. Spento, non le vede mai. Le statistiche dei post le legge il giro della mattina: serve il permesso «instagram_business_manage_insights» nel token.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il video di un reel lo scarica il server per il tempo della lettura e lo cancella subito; l’audio va a Groq per la trascrizione, i fotogrammi, la didascalia e il parlato ad Anthropic. L’informativa privacy lo dice. Restano fuori, per ora, le call chiuse e le vendite per reel: i dati non collegano ancora un lead a un contenuto.',
+      },
+    ],
+  },
+  {
     versione: '1.35.0',
     data: '2026-10-15',
     titolo: 'L’Insight delle ultime 24h è dentro l’app',

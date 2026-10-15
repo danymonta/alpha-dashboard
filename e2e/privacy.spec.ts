@@ -27,7 +27,7 @@ test('l’informativa si apre senza sessione, con le istruzioni per la cancellaz
   await expect(page).toHaveURL(/\/privacy$/)
   await expect(page).toHaveTitle('Informativa privacy · Percorso Alpha')
   await expect(page.getByRole('heading', { level: 1, name: 'Informativa privacy' })).toBeVisible()
-  await expect(page.getByText('Ultimo aggiornamento: 15 ottobre 2026')).toBeVisible()
+  await expect(page.getByText('Ultimo aggiornamento: 16 ottobre 2026')).toBeVisible()
   // the posts and reels of the account, read for the content calendar (1.33.0): never the comments or who liked;
   // from 1.35.0 their captions and numbers go into the DM recap, so the old «nothing to an AI» is gone
   const posts = page.getByText(/legge anche l’elenco dei post e dei reel pubblicati dall’account/)
@@ -41,7 +41,14 @@ test('l’informativa si apre senza sessione, con le istruzioni per la cancellaz
   await expect(metaEAi).toContainText('per al massimo 30 giorni')
   await expect(metaEAi).toContainText('quanti contatti arrivano da ciascun nostro post o reel')
   await expect(metaEAi).toContainText('Il riepilogo descritto qui sotto, invece, usa il testo.')
+  // the reel analysis (1.36.0): frames, caption and transcript to Anthropic, the audio to Groq, the video never kept
+  await expect(metaEAi.getByText('Analisi dei reel.', { exact: true })).toBeVisible()
+  await expect(metaEAi).toContainText('I fotogrammi, la didascalia e la trascrizione del parlato vengono inviati ad Anthropic PBC')
+  await expect(metaEAi).toContainText('la traccia audio viene inviata a Groq (Stati Uniti) per essere trascritta e non viene conservata')
+  await expect(metaEAi).toContainText('lo cancella subito: non lo conserva')
+  await expect(page.getByRole('region', { name: /Con chi condividiamo i dati/ })).toContainText('la trascrizione dell’audio dei nostri reel')
   const conservazione = page.getByRole('region', { name: /Per quanto tempo li conserviamo/ })
+  await expect(conservazione).toContainText('il video e l’audio non si conservano')
   await expect(conservazione).toContainText('il riepilogo e i messaggi letti per prepararlo, al massimo 30 giorni')
   await expect(conservazione).toContainText('Contatti per contenuto')
   await expect(page.getByRole('region', { name: /Come chiedere la cancellazione dei dati/ })).toContainText(
