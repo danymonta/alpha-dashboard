@@ -118,9 +118,10 @@ select ok(
 );
 select is((select count(*)::integer from public.insight_impostazioni), 1, 'l''automazione ha la sua riga, già pronta');
 select is(
-  (select row(attivo, ora, anticipo_minuti, url_passo, storico_dal)::text from public.insight_impostazioni),
-  row(false, time '19:00', 15, null::text, null::date)::text,
-  'spenta, pronta alle 19:00, parte 15 minuti prima, senza indirizzo né storico'
+  -- storico_dal is null in the migration; the seed of the reel analysis (45_analisi_reel.sql) sets it
+  (select row(attivo, ora, anticipo_minuti, url_passo)::text from public.insight_impostazioni),
+  row(false, time '19:00', 15, null::text)::text,
+  'spenta, pronta alle 19:00, parte 15 minuti prima, senza indirizzo'
 );
 select is((select count(*)::integer from public.messenger_collegamento), 1, 'il collegamento di Messenger ha la sua riga');
 select is((select count(*)::integer from vault.secrets where name = 'insight_chiave'), 1,

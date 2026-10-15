@@ -129,6 +129,20 @@ values ('Test66Post1', public.oggi() - 1, 2, 1, 1, 1)
 on conflict (shortcode, giorno) do nothing;
 insert into public.instagram_contenuti_dm_giorni (giorno) values (public.oggi() - 1)
 on conflict (giorno) do nothing;
+-- The reel analysis (1.36.0, 79_statistiche_post.sql, 80_analisi_dati.sql): the numbers of the posts,
+-- the readings and Claude's analyses are allowed below; the state of the work (cost, switches) is the admin's
+insert into public.instagram_contenuti_misure (media_id, giorno, letto_il, eta_ore, views)
+values ('6600000000000001', public.oggi() - 1, now(), 24, 100)
+on conflict (media_id, giorno) do nothing;
+insert into public.instagram_account_misure (giorno, follower, media, letto_il)
+values (public.oggi() - 30, 12000, 200, now())
+on conflict (giorno) do nothing;
+insert into public.instagram_letture (media_id, richiesta, motivo)
+values ('6600000000000001', 'completa', 'richiesta')
+on conflict (media_id) do nothing;
+insert into public.marketing_analisi (id, media_id, motivo, periodo_da, periodo_a)
+values ('66660000-0000-4000-8000-000000000266', '6600000000000001', 'richiesta', public.oggi() - 28, public.oggi() - 1)
+on conflict (id) do nothing;
 insert into public.insight_esecuzioni (id, giorno, motivo, stato, passo) values
   ('66660000-0000-4000-8000-000000000166', public.oggi() - 2, 'manuale', 'pronta', 'unione')
 on conflict (id) do nothing;
@@ -209,14 +223,19 @@ select ok(
 );
 -- Allowed: the team directory, the content calendar, the Instagram posts and
 -- their links with the calendar (1.33.0, 69_post_instagram.sql), the leads per
--- post of the Insight and their counted days (1.35.0, 78_contenuti_dm.sql), the Projects area.
+-- post of the Insight and their counted days (1.35.0, 78_contenuti_dm.sql), the numbers and the analysis
+-- of the reels (1.36.0, 79 to 81), the Projects area.
 -- products: its own rule and test (20261009120200, 68_prodotti_solo_economics.sql).
 create temp table ammesse (relazione text primary key) on commit drop;
 insert into ammesse values
   ('profiles'), ('marketing_contenuti'), ('products'),
   ('instagram_contenuti'), ('instagram_contenuti_stato'), ('marketing_abbinamenti'),
   ('marketing_abbinamenti_rifiutati'), ('marketing_post_esclusi'),
-  ('v_instagram_post'), ('v_marketing_proposte'), ('instagram_contenuti_dm'), ('instagram_contenuti_dm_giorni');
+  ('v_instagram_post'), ('v_marketing_proposte'), ('instagram_contenuti_dm'), ('instagram_contenuti_dm_giorni'),
+  -- the reel analysis (1.36.0): numbers, readings, Claude's analyses and the views that join them.
+  -- marketing_lavori_stato (cost, limit, switches) stays out: 0 rows for the marketing and the editor
+  ('instagram_contenuti_misure'), ('instagram_account_misure'), ('instagram_letture'), ('marketing_analisi'),
+  ('v_instagram_numeri'), ('v_instagram_mediane'), ('v_analisi_reel');
 select is(
   (select coalesce(array_agg(relazione order by relazione), '{}') from righe_viste
    where persona = 'marketing' and righe > 0

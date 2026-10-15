@@ -420,6 +420,20 @@ values ('Test66Post1', public.oggi() - 1, 2, 1, 1, 1)
 on conflict (shortcode, giorno) do nothing;
 insert into public.instagram_contenuti_dm_giorni (giorno) values (public.oggi() - 1)
 on conflict (giorno) do nothing;
+-- The reel analysis (1.36.0, 20261016090100_analisi_dati.sql): the numbers of the posts, the readings
+-- and the analyses, which the seed may leave empty (marketing_lavori_stato has its row)
+insert into public.instagram_contenuti_misure (media_id, giorno, letto_il, eta_ore, views)
+values ('6600000000000001', public.oggi() - 1, now(), 24, 100)
+on conflict (media_id, giorno) do nothing;
+insert into public.instagram_account_misure (giorno, follower, media, letto_il)
+values (public.oggi() - 30, 12000, 200, now())
+on conflict (giorno) do nothing;
+insert into public.instagram_letture (media_id, richiesta, motivo)
+values ('6600000000000001', 'completa', 'richiesta')
+on conflict (media_id) do nothing;
+insert into public.marketing_analisi (id, media_id, motivo, periodo_da, periodo_a)
+values ('75750000-0000-4000-8000-000000000275', '6600000000000001', 'richiesta', public.oggi() - 28, public.oggi() - 1)
+on conflict (id) do nothing;
 
 create or replace function pg_temp.tabelle_vuote()
 returns text
@@ -630,6 +644,11 @@ begin
   perform pg_temp.prova('instagram_token_presente', $q$ select public.instagram_token_presente()::text $q$);
   perform pg_temp.prova('is_admin', $q$ select public.is_admin()::text $q$);
   perform pg_temp.prova('lead_appartiene_al_setter', format($q$ select public.lead_appartiene_al_setter(%L, '11111111-1111-4111-8111-111111111111')::text $q$, a.lead_id));
+  -- the reel analysis (1.36.0): the roles are checked first; an OAuth token has none
+  perform pg_temp.prova('marketing_analisi_richiedi', $q$ select public.marketing_analisi_richiedi('6600000000000001')::text $q$);
+  perform pg_temp.prova('marketing_imposta_costo_max', $q$ select public.marketing_imposta_costo_max(30)::text $q$);
+  perform pg_temp.prova('marketing_imposta_interruttori', $q$ select public.marketing_imposta_interruttori(false, false)::text $q$);
+  perform pg_temp.prova('marketing_lavori_situazione', $q$ select public.marketing_lavori_situazione()::text $q$);
   perform pg_temp.prova('mcp_chi_sono', $q$ select (public.mcp_chi_sono() ->> 'esito') $q$);
   perform pg_temp.prova('mcp_client', $q$ select count(*)::text from public.mcp_client() $q$);
   perform pg_temp.prova('mcp_filtro_richiesta', $q$ select public.mcp_filtro_richiesta()::text $q$);
@@ -714,6 +733,10 @@ select is(
     'instagram_token_presente 42501',
     'is_admin ok:false',
     'lead_appartiene_al_setter ok:false',
+    'marketing_analisi_richiedi 42501',
+    'marketing_imposta_costo_max 42501',
+    'marketing_imposta_interruttori 42501',
+    'marketing_lavori_situazione 42501',
     'mcp_chi_sono ok:ok',
     'mcp_client ok:0',
     'mcp_filtro_richiesta 42501',

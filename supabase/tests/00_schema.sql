@@ -100,7 +100,12 @@ select results_eq(
        'insight_chat_messenger', 'insight_dimentica', 'insight_imposta_automazione', 'insight_richiedi',
        'insight_ruota_chiave', 'insight_stato',
        'instagram_imposta_token', 'instagram_togli_token', 'instagram_token_presente', 'is_admin',
-       'lead_appartiene_al_setter', 'mcp_chi_sono', 'mcp_client', 'mcp_filtro_richiesta', 'mcp_ruolo',
+       'lead_appartiene_al_setter',
+       -- the reel analysis (1.36.0): marketing_analisi_richiedi (admin and marketing), the limit and the
+       -- switches (admin), the situation (admin, editor, marketing): each checks current_role() first
+       'marketing_analisi_richiedi', 'marketing_imposta_costo_max', 'marketing_imposta_interruttori',
+       'marketing_lavori_situazione',
+       'mcp_chi_sono', 'mcp_client', 'mcp_filtro_richiesta', 'mcp_ruolo',
        -- Messenger for the Insight (1.35.0): the admin only
        'messenger_imposta_token', 'messenger_togli_token', 'messenger_token_presente',
        'mia_foto_google', 'mie_vendite_setter', 'miei_clienti', 'miei_numeri_periodo', 'pm_assegnato',

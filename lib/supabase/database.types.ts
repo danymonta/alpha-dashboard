@@ -424,6 +424,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"instagram_account_misure": {
+                  Row: {
+                    "created_at": string,"follower": number | null,"giorno": string,"letto_il": string,"media": number | null,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"follower"?: number | null,"giorno": string,"letto_il": string,"media"?: number | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"follower"?: number | null,"giorno"?: string,"letto_il"?: string,"media"?: number | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"instagram_collegamento": {
                   Row: {
                     "account_id": string | null,"account_username": string | null,"created_at": string,"id": boolean,"setter_id": string | null,"token_aggiornato_il": string | null,"token_scade_il": string | null,"ultimo_calcolo_chat": number | null,"ultimo_calcolo_giorno": string | null,"ultimo_calcolo_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"updated_at": string,"updated_by": string | null
@@ -451,13 +464,13 @@ isOneToOne: false
                   ]
                 },"instagram_contenuti": {
                   Row: {
-                    "audio_tipo": string | null,"avg_watch_ms": number | null,"comments": number | null,"comments_count": number | null,"copertina_url": string | null,"created_at": string,"didascalia": string | null,"eliminato_il": string | null,"follows": number | null,"letto_il": string,"like_count": number | null,"likes": number | null,"media_id": string,"media_product_type": string | null,"media_type": string,"metriche_il": string | null,"metriche_stato": string,"permalink": string,"profile_visits": number | null,"pubblicato_il": string,"reach": number | null,"reel": boolean,"reposts": number | null,"saved": number | null,"shares": number | null,"shortcode": string,"skip_rate": number | null,"total_interactions": number | null,"updated_at": string,"view_total_ms": number | null,"views": number | null
+                    "audio_tipo": string | null,"avg_watch_ms": number | null,"comments": number | null,"comments_count": number | null,"copertina_url": string | null,"created_at": string,"didascalia": string | null,"durata_ms": number | null,"eliminato_il": string | null,"follows": number | null,"letto_il": string,"like_count": number | null,"likes": number | null,"media_id": string,"media_product_type": string | null,"media_type": string,"metriche_il": string | null,"metriche_stato": string,"permalink": string,"profile_visits": number | null,"pubblicato_il": string,"reach": number | null,"reel": boolean,"reposts": number | null,"saved": number | null,"shares": number | null,"shortcode": string,"skip_rate": number | null,"total_interactions": number | null,"updated_at": string,"video_disponibile": boolean | null,"view_total_ms": number | null,"views": number | null
                   }
                   Insert: {
-                    "audio_tipo"?: string | null,"avg_watch_ms"?: number | null,"comments"?: number | null,"comments_count"?: number | null,"copertina_url"?: string | null,"created_at"?: string,"didascalia"?: string | null,"eliminato_il"?: string | null,"follows"?: number | null,"letto_il"?: string,"like_count"?: number | null,"likes"?: number | null,"media_id": string,"media_product_type"?: string | null,"media_type": string,"metriche_il"?: string | null,"metriche_stato"?: string,"permalink": string,"profile_visits"?: number | null,"pubblicato_il": string,"reach"?: number | null,"reel": boolean,"reposts"?: number | null,"saved"?: number | null,"shares"?: number | null,"shortcode": string,"skip_rate"?: number | null,"total_interactions"?: number | null,"updated_at"?: string,"view_total_ms"?: number | null,"views"?: number | null
+                    "audio_tipo"?: string | null,"avg_watch_ms"?: number | null,"comments"?: number | null,"comments_count"?: number | null,"copertina_url"?: string | null,"created_at"?: string,"didascalia"?: string | null,"durata_ms"?: number | null,"eliminato_il"?: string | null,"follows"?: number | null,"letto_il"?: string,"like_count"?: number | null,"likes"?: number | null,"media_id": string,"media_product_type"?: string | null,"media_type": string,"metriche_il"?: string | null,"metriche_stato"?: string,"permalink": string,"profile_visits"?: number | null,"pubblicato_il": string,"reach"?: number | null,"reel": boolean,"reposts"?: number | null,"saved"?: number | null,"shares"?: number | null,"shortcode": string,"skip_rate"?: number | null,"total_interactions"?: number | null,"updated_at"?: string,"video_disponibile"?: boolean | null,"view_total_ms"?: number | null,"views"?: number | null
                   }
                   Update: {
-                    "audio_tipo"?: string | null,"avg_watch_ms"?: number | null,"comments"?: number | null,"comments_count"?: number | null,"copertina_url"?: string | null,"created_at"?: string,"didascalia"?: string | null,"eliminato_il"?: string | null,"follows"?: number | null,"letto_il"?: string,"like_count"?: number | null,"likes"?: number | null,"media_id"?: string,"media_product_type"?: string | null,"media_type"?: string,"metriche_il"?: string | null,"metriche_stato"?: string,"permalink"?: string,"profile_visits"?: number | null,"pubblicato_il"?: string,"reach"?: number | null,"reel"?: boolean,"reposts"?: number | null,"saved"?: number | null,"shares"?: number | null,"shortcode"?: string,"skip_rate"?: number | null,"total_interactions"?: number | null,"updated_at"?: string,"view_total_ms"?: number | null,"views"?: number | null
+                    "audio_tipo"?: string | null,"avg_watch_ms"?: number | null,"comments"?: number | null,"comments_count"?: number | null,"copertina_url"?: string | null,"created_at"?: string,"didascalia"?: string | null,"durata_ms"?: number | null,"eliminato_il"?: string | null,"follows"?: number | null,"letto_il"?: string,"like_count"?: number | null,"likes"?: number | null,"media_id"?: string,"media_product_type"?: string | null,"media_type"?: string,"metriche_il"?: string | null,"metriche_stato"?: string,"permalink"?: string,"profile_visits"?: number | null,"pubblicato_il"?: string,"reach"?: number | null,"reel"?: boolean,"reposts"?: number | null,"saved"?: number | null,"shares"?: number | null,"shortcode"?: string,"skip_rate"?: number | null,"total_interactions"?: number | null,"updated_at"?: string,"video_disponibile"?: boolean | null,"view_total_ms"?: number | null,"views"?: number | null
                   }
                   Relationships: [
                     
@@ -483,6 +496,18 @@ isOneToOne: false
       foreignKeyName: "instagram_contenuti_dm_shortcode_fkey"
       columns: ["shortcode"]
 isOneToOne: false
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "instagram_contenuti_dm_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_instagram_numeri"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "instagram_contenuti_dm_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
       referencedRelation: "v_instagram_post"
       referencedColumns: ["shortcode"]
     }
@@ -500,15 +525,52 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
-                },"instagram_contenuti_stato": {
+                },"instagram_contenuti_misure": {
                   Row: {
-                    "account_username": string | null,"campi": string | null,"created_at": string,"giro_dal": string | null,"giro_id": string | null,"giro_motivo": string | null,"id": boolean,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"ultimo_giro_causa": string | null,"ultimo_giro_collegati": number | null,"ultimo_giro_esito": string | null,"ultimo_giro_il": string | null,"ultimo_giro_letti": number | null,"ultimo_giro_motivo": string | null,"ultimo_giro_proposti": number | null,"updated_at": string
+                    "avg_watch_ms": number | null,"comments": number | null,"comments_count": number | null,"created_at": string,"eta_ore": number,"follows": number | null,"giorno": string,"letto_il": string,"like_count": number | null,"likes": number | null,"media_id": string,"profile_visits": number | null,"reach": number | null,"reposts": number | null,"saved": number | null,"shares": number | null,"skip_rate": number | null,"total_interactions": number | null,"updated_at": string,"views": number | null
                   }
                   Insert: {
-                    "account_username"?: string | null,"campi"?: string | null,"created_at"?: string,"giro_dal"?: string | null,"giro_id"?: string | null,"giro_motivo"?: string | null,"id"?: boolean,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"ultimo_giro_causa"?: string | null,"ultimo_giro_collegati"?: number | null,"ultimo_giro_esito"?: string | null,"ultimo_giro_il"?: string | null,"ultimo_giro_letti"?: number | null,"ultimo_giro_motivo"?: string | null,"ultimo_giro_proposti"?: number | null,"updated_at"?: string
+                    "avg_watch_ms"?: number | null,"comments"?: number | null,"comments_count"?: number | null,"created_at"?: string,"eta_ore": number,"follows"?: number | null,"giorno": string,"letto_il": string,"like_count"?: number | null,"likes"?: number | null,"media_id": string,"profile_visits"?: number | null,"reach"?: number | null,"reposts"?: number | null,"saved"?: number | null,"shares"?: number | null,"skip_rate"?: number | null,"total_interactions"?: number | null,"updated_at"?: string,"views"?: number | null
                   }
                   Update: {
-                    "account_username"?: string | null,"campi"?: string | null,"created_at"?: string,"giro_dal"?: string | null,"giro_id"?: string | null,"giro_motivo"?: string | null,"id"?: boolean,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"ultimo_giro_causa"?: string | null,"ultimo_giro_collegati"?: number | null,"ultimo_giro_esito"?: string | null,"ultimo_giro_il"?: string | null,"ultimo_giro_letti"?: number | null,"ultimo_giro_motivo"?: string | null,"ultimo_giro_proposti"?: number | null,"updated_at"?: string
+                    "avg_watch_ms"?: number | null,"comments"?: number | null,"comments_count"?: number | null,"created_at"?: string,"eta_ore"?: number,"follows"?: number | null,"giorno"?: string,"letto_il"?: string,"like_count"?: number | null,"likes"?: number | null,"media_id"?: string,"profile_visits"?: number | null,"reach"?: number | null,"reposts"?: number | null,"saved"?: number | null,"shares"?: number | null,"skip_rate"?: number | null,"total_interactions"?: number | null,"updated_at"?: string,"views"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "instagram_contenuti_misure_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: false
+      referencedRelation: "instagram_contenuti"
+      referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "instagram_contenuti_misure_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: false
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "instagram_contenuti_misure_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: false
+      referencedRelation: "v_instagram_numeri"
+      referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "instagram_contenuti_misure_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: false
+      referencedRelation: "v_instagram_post"
+      referencedColumns: ["media_id"]
+    }
+                  ]
+                },"instagram_contenuti_stato": {
+                  Row: {
+                    "account_username": string | null,"campi": string | null,"created_at": string,"giro_dal": string | null,"giro_id": string | null,"giro_motivo": string | null,"id": boolean,"metriche_errore": string | null,"metriche_esito": string | null,"metriche_fine_il": string | null,"metriche_gradini": Json | null,"metriche_letti": number | null,"permesso_insights": boolean | null,"permesso_insights_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"ultimo_giro_causa": string | null,"ultimo_giro_collegati": number | null,"ultimo_giro_esito": string | null,"ultimo_giro_il": string | null,"ultimo_giro_letti": number | null,"ultimo_giro_motivo": string | null,"ultimo_giro_proposti": number | null,"updated_at": string
+                  }
+                  Insert: {
+                    "account_username"?: string | null,"campi"?: string | null,"created_at"?: string,"giro_dal"?: string | null,"giro_id"?: string | null,"giro_motivo"?: string | null,"id"?: boolean,"metriche_errore"?: string | null,"metriche_esito"?: string | null,"metriche_fine_il"?: string | null,"metriche_gradini"?: Json | null,"metriche_letti"?: number | null,"permesso_insights"?: boolean | null,"permesso_insights_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"ultimo_giro_causa"?: string | null,"ultimo_giro_collegati"?: number | null,"ultimo_giro_esito"?: string | null,"ultimo_giro_il"?: string | null,"ultimo_giro_letti"?: number | null,"ultimo_giro_motivo"?: string | null,"ultimo_giro_proposti"?: number | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "account_username"?: string | null,"campi"?: string | null,"created_at"?: string,"giro_dal"?: string | null,"giro_id"?: string | null,"giro_motivo"?: string | null,"id"?: boolean,"metriche_errore"?: string | null,"metriche_esito"?: string | null,"metriche_fine_il"?: string | null,"metriche_gradini"?: Json | null,"metriche_letti"?: number | null,"permesso_insights"?: boolean | null,"permesso_insights_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"ultimo_giro_causa"?: string | null,"ultimo_giro_collegati"?: number | null,"ultimo_giro_esito"?: string | null,"ultimo_giro_il"?: string | null,"ultimo_giro_letti"?: number | null,"ultimo_giro_motivo"?: string | null,"ultimo_giro_proposti"?: number | null,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -530,6 +592,43 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
+    }
+                  ]
+                },"instagram_letture": {
+                  Row: {
+                    "created_at": string,"errore": string | null,"fonte_visione": string | null,"fotogrammi": number | null,"gancio_parlato": string | null,"ha_audio": boolean | null,"iniziata_il": string | null,"lato_px": number | null,"letta_il": string | null,"media_id": string,"modello_trascrizione": string | null,"modello_visione": string | null,"motivo": string,"priorita": number,"prossimo_il": string | null,"richiesta": string,"ripresa_usata": boolean,"scheda": Json | null,"segmenti": Json | null,"stato": string,"tentativi": number,"trascrizione": string | null,"trascrizione_esito": string | null,"updated_at": string,"versione_prompt_visione": string | null,"video": string | null,"visione_esito": string | null
+                  }
+                  Insert: {
+                    "created_at"?: string,"errore"?: string | null,"fonte_visione"?: string | null,"fotogrammi"?: number | null,"gancio_parlato"?: string | null,"ha_audio"?: boolean | null,"iniziata_il"?: string | null,"lato_px"?: number | null,"letta_il"?: string | null,"media_id": string,"modello_trascrizione"?: string | null,"modello_visione"?: string | null,"motivo": string,"priorita"?: number,"prossimo_il"?: string | null,"richiesta": string,"ripresa_usata"?: boolean,"scheda"?: Json | null,"segmenti"?: Json | null,"stato"?: string,"tentativi"?: number,"trascrizione"?: string | null,"trascrizione_esito"?: string | null,"updated_at"?: string,"versione_prompt_visione"?: string | null,"video"?: string | null,"visione_esito"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"errore"?: string | null,"fonte_visione"?: string | null,"fotogrammi"?: number | null,"gancio_parlato"?: string | null,"ha_audio"?: boolean | null,"iniziata_il"?: string | null,"lato_px"?: number | null,"letta_il"?: string | null,"media_id"?: string,"modello_trascrizione"?: string | null,"modello_visione"?: string | null,"motivo"?: string,"priorita"?: number,"prossimo_il"?: string | null,"richiesta"?: string,"ripresa_usata"?: boolean,"scheda"?: Json | null,"segmenti"?: Json | null,"stato"?: string,"tentativi"?: number,"trascrizione"?: string | null,"trascrizione_esito"?: string | null,"updated_at"?: string,"versione_prompt_visione"?: string | null,"video"?: string | null,"visione_esito"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "instagram_letture_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: true
+      referencedRelation: "instagram_contenuti"
+      referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "instagram_letture_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: true
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "instagram_letture_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: true
+      referencedRelation: "v_instagram_numeri"
+      referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "instagram_letture_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: true
+      referencedRelation: "v_instagram_post"
+      referencedColumns: ["media_id"]
     }
                   ]
                 },"invites": {
@@ -597,6 +696,12 @@ isOneToOne: false
       foreignKeyName: "marketing_abbinamenti_contenuto_id_fkey"
       columns: ["contenuto_id"]
 isOneToOne: false
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["contenuto_id"]
+    },{
+      foreignKeyName: "marketing_abbinamenti_contenuto_id_fkey"
+      columns: ["contenuto_id"]
+isOneToOne: false
       referencedRelation: "v_instagram_post"
       referencedColumns: ["contenuto_id"]
     },{
@@ -604,6 +709,18 @@ isOneToOne: false
       columns: ["shortcode"]
 isOneToOne: false
       referencedRelation: "instagram_contenuti"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "marketing_abbinamenti_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "marketing_abbinamenti_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_instagram_numeri"
       referencedColumns: ["shortcode"]
     },{
       foreignKeyName: "marketing_abbinamenti_shortcode_fkey"
@@ -634,19 +751,62 @@ isOneToOne: false
       foreignKeyName: "marketing_abbinamenti_rifiutati_contenuto_id_fkey"
       columns: ["contenuto_id"]
 isOneToOne: false
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["contenuto_id"]
+    },{
+      foreignKeyName: "marketing_abbinamenti_rifiutati_contenuto_id_fkey"
+      columns: ["contenuto_id"]
+isOneToOne: false
       referencedRelation: "v_instagram_post"
       referencedColumns: ["contenuto_id"]
     }
                   ]
-                },"marketing_contenuti": {
+                },"marketing_analisi": {
                   Row: {
-                    "audio": string | null,"bozza": string | null,"commenti": string | null,"created_at": string,"created_by": string | null,"finale": string | null,"formato": Database["public"]['Enums']["contenuto_format"] | null,"id": string,"inspiration": string | null,"instagram_shortcode": string | null,"messaggio": string | null,"nome": string,"notion_page_id": string | null,"post_date": string | null,"reel_type": Database["public"]['Enums']["contenuto_reel_type"] | null,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"],"updated_at": string,"url": string | null,"view_count": number | null
+                    "contenuto": Json | null,"created_at": string,"errore": string | null,"eta_confronto": number | null,"eta_ore": number | null,"finita_il": string | null,"fonti": Json | null,"id": string,"iniziata_il": string | null,"media_id": string,"modello": string | null,"motivo": string,"numeri": Json | null,"periodo_a": string,"periodo_da": string,"prossimo_il": string | null,"stato": Database["public"]['Enums']["analisi_stato"],"tentativi": number,"updated_at": string,"verdetto": string | null,"versione_prompt": string | null
                   }
                   Insert: {
-                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"finale"?: string | null,"formato"?: Database["public"]['Enums']["contenuto_format"] | null,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome": string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: Database["public"]['Enums']["contenuto_reel_type"] | null,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
+                    "contenuto"?: Json | null,"created_at"?: string,"errore"?: string | null,"eta_confronto"?: number | null,"eta_ore"?: number | null,"finita_il"?: string | null,"fonti"?: Json | null,"id"?: string,"iniziata_il"?: string | null,"media_id": string,"modello"?: string | null,"motivo": string,"numeri"?: Json | null,"periodo_a": string,"periodo_da": string,"prossimo_il"?: string | null,"stato"?: Database["public"]['Enums']["analisi_stato"],"tentativi"?: number,"updated_at"?: string,"verdetto"?: string | null,"versione_prompt"?: string | null
                   }
                   Update: {
-                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"finale"?: string | null,"formato"?: Database["public"]['Enums']["contenuto_format"] | null,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome"?: string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: Database["public"]['Enums']["contenuto_reel_type"] | null,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
+                    "contenuto"?: Json | null,"created_at"?: string,"errore"?: string | null,"eta_confronto"?: number | null,"eta_ore"?: number | null,"finita_il"?: string | null,"fonti"?: Json | null,"id"?: string,"iniziata_il"?: string | null,"media_id"?: string,"modello"?: string | null,"motivo"?: string,"numeri"?: Json | null,"periodo_a"?: string,"periodo_da"?: string,"prossimo_il"?: string | null,"stato"?: Database["public"]['Enums']["analisi_stato"],"tentativi"?: number,"updated_at"?: string,"verdetto"?: string | null,"versione_prompt"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "marketing_analisi_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: false
+      referencedRelation: "instagram_contenuti"
+      referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "marketing_analisi_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: false
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "marketing_analisi_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: false
+      referencedRelation: "v_instagram_numeri"
+      referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "marketing_analisi_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: false
+      referencedRelation: "v_instagram_post"
+      referencedColumns: ["media_id"]
+    }
+                  ]
+                },"marketing_contenuti": {
+                  Row: {
+                    "audio": string | null,"bozza": string | null,"commenti": string | null,"created_at": string,"created_by": string | null,"da_analisi": string | null,"da_idea": number | null,"finale": string | null,"formato": Database["public"]['Enums']["contenuto_format"] | null,"id": string,"inspiration": string | null,"instagram_shortcode": string | null,"messaggio": string | null,"nome": string,"notion_page_id": string | null,"post_date": string | null,"reel_type": Database["public"]['Enums']["contenuto_reel_type"] | null,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"],"updated_at": string,"url": string | null,"view_count": number | null
+                  }
+                  Insert: {
+                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"finale"?: string | null,"formato"?: Database["public"]['Enums']["contenuto_format"] | null,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome": string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: Database["public"]['Enums']["contenuto_reel_type"] | null,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
+                  }
+                  Update: {
+                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"finale"?: string | null,"formato"?: Database["public"]['Enums']["contenuto_format"] | null,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome"?: string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: Database["public"]['Enums']["contenuto_reel_type"] | null,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
                   }
                   Relationships: [
                     {
@@ -655,7 +815,32 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "marketing_contenuti_da_analisi_fkey"
+      columns: ["da_analisi"]
+isOneToOne: false
+      referencedRelation: "marketing_analisi"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "marketing_contenuti_da_analisi_fkey"
+      columns: ["da_analisi"]
+isOneToOne: false
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["analisi_id"]
     }
+                  ]
+                },"marketing_lavori_stato": {
+                  Row: {
+                    "automatiche": boolean,"costo_max_mese": number,"costo_mese_usd": number,"created_at": string,"id": boolean,"inviata_il": string | null,"lease_fino_al": string | null,"mese": string,"note_team": boolean,"passo_cosa": string | null,"passo_id": string | null,"passo_rif": string | null,"secondi_audio": number,"token_cache_letti": number,"token_cache_scritti": number,"token_input": number,"token_output": number,"ultimo_errore": string | null,"ultimo_esito": string | null,"ultimo_passo_il": string | null,"ultimo_tick_il": string | null,"updated_at": string,"url_passo": string | null
+                  }
+                  Insert: {
+                    "automatiche"?: boolean,"costo_max_mese"?: number,"costo_mese_usd"?: number,"created_at"?: string,"id"?: boolean,"inviata_il"?: string | null,"lease_fino_al"?: string | null,"mese"?: string,"note_team"?: boolean,"passo_cosa"?: string | null,"passo_id"?: string | null,"passo_rif"?: string | null,"secondi_audio"?: number,"token_cache_letti"?: number,"token_cache_scritti"?: number,"token_input"?: number,"token_output"?: number,"ultimo_errore"?: string | null,"ultimo_esito"?: string | null,"ultimo_passo_il"?: string | null,"ultimo_tick_il"?: string | null,"updated_at"?: string,"url_passo"?: string | null
+                  }
+                  Update: {
+                    "automatiche"?: boolean,"costo_max_mese"?: number,"costo_mese_usd"?: number,"created_at"?: string,"id"?: boolean,"inviata_il"?: string | null,"lease_fino_al"?: string | null,"mese"?: string,"note_team"?: boolean,"passo_cosa"?: string | null,"passo_id"?: string | null,"passo_rif"?: string | null,"secondi_audio"?: number,"token_cache_letti"?: number,"token_cache_scritti"?: number,"token_input"?: number,"token_output"?: number,"ultimo_errore"?: string | null,"ultimo_esito"?: string | null,"ultimo_passo_il"?: string | null,"ultimo_tick_il"?: string | null,"updated_at"?: string,"url_passo"?: string | null
+                  }
+                  Relationships: [
+                    
                   ]
                 },"marketing_post_esclusi": {
                   Row: {
@@ -673,6 +858,18 @@ isOneToOne: false
       columns: ["shortcode"]
 isOneToOne: true
       referencedRelation: "instagram_contenuti"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "marketing_post_esclusi_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: true
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "marketing_post_esclusi_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: true
+      referencedRelation: "v_instagram_numeri"
       referencedColumns: ["shortcode"]
     },{
       foreignKeyName: "marketing_post_esclusi_shortcode_fkey"
@@ -1329,7 +1526,14 @@ isOneToOne: false
                 }
           }
           Views: {
-            "v_client_status": {
+            "v_analisi_reel": {
+                  Row: {
+                    "analisi_errore": string | null,"analisi_eta_confronto": number | null,"analisi_eta_ore": number | null,"analisi_finita_il": string | null,"analisi_id": string | null,"analisi_motivo": string | null,"analisi_stato": Database["public"]['Enums']["analisi_stato"] | null,"analisi_verdetto": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"classificazione_formato": string | null,"classificazione_reel_type": string | null,"comments": number | null,"comments_count": number | null,"confronto": string | null,"contenuto_id": string | null,"copertina_url": string | null,"dm": number | null,"dm_14g": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_confronto": number | null,"eta_ore": number | null,"fascia_lead": string | null,"fascia_pubblico": string | null,"fonte_visione": string | null,"formato": Database["public"]['Enums']["contenuto_format"] | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_in_target": number | null,"lettura_errore": string | null,"lettura_richiesta": string | null,"lettura_stato": string | null,"lettura_video": string | null,"like_count": number | null,"likes": number | null,"media_id": string | null,"media_type": string | null,"metriche_il": string | null,"metriche_stato": string | null,"nome": string | null,"numeri_parziali": boolean | null,"permalink": string | null,"pubblicato_il": string | null,"quota_vista": number | null,"reach": number | null,"reel_type": Database["public"]['Enums']["contenuto_reel_type"] | null,"salvataggi_rapporto": number | null,"saved": number | null,"shares": number | null,"shortcode": string | null,"skip_rate": number | null,"stato_collegamento": string | null,"status": Database["public"]['Enums']["contenuto_status"] | null,"tasso_condivisioni": number | null,"tasso_salvataggi": number | null,"trascrizione_esito": string | null,"verdetto_oggi": string | null,"video_disponibile": boolean | null,"views": number | null,"views_3g": number | null,"views_7g": number | null,"views_all_eta": number | null,"views_confronto": number | null,"views_rapporto": number | null,"visione_esito": string | null,"visione_media_s": number | null,"visione_su_durata": number | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"v_client_status": {
                   Row: {
                     "client_id": string | null,"cognome": string | null,"data_fine_ultima": string | null,"nome": string | null,"numero_vendite": number | null,"stato": Database["public"]['Enums']["client_status"] | null
                   }
@@ -1386,6 +1590,20 @@ isOneToOne: true
       referencedColumns: ["client_id"]
     }
                   ]
+                },"v_instagram_mediane": {
+                  Row: {
+                    "quanti": number | null,"tasso_condivisioni_mediana": number | null,"tasso_condivisioni_quanti": number | null,"tasso_salvataggi_mediana": number | null,"tasso_salvataggi_quanti": number | null,"tipo": string | null,"views_3g_mediana": number | null,"views_3g_quanti": number | null,"views_mediana": number | null,"views_quanti": number | null,"visione_su_durata_mediana": number | null,"visione_su_durata_quanti": number | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"v_instagram_numeri": {
+                  Row: {
+                    "audio_tipo": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"comments": number | null,"comments_count": number | null,"copertina_url": string | null,"dm": number | null,"dm_14g": number | null,"dm_7g": number | null,"dm_ogni_mille_views": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_ore": number | null,"follows": number | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_giorni": number | null,"lead_giorni_contati": number | null,"lead_in_target": number | null,"like_count": number | null,"likes": number | null,"media_id": string | null,"media_product_type": string | null,"media_type": string | null,"metriche_il": string | null,"metriche_stato": string | null,"numeri_parziali": boolean | null,"permalink": string | null,"profile_visits": number | null,"pubblicato_il": string | null,"reach": number | null,"reach_3g": number | null,"reel": boolean | null,"reposts": number | null,"saved": number | null,"saved_3g": number | null,"shares": number | null,"shares_3g": number | null,"shortcode": string | null,"skip_rate": number | null,"tasso_condivisioni": number | null,"tasso_interazioni": number | null,"tasso_salvataggi": number | null,"total_interactions": number | null,"video_disponibile": boolean | null,"views": number | null,"views_30g": number | null,"views_3g": number | null,"views_7g": number | null,"views_per_account": number | null,"visione_su_durata": number | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"v_instagram_post": {
                   Row: {
                     "collegato_da_solo": boolean | null,"contenuto_id": string | null,"contenuto_nome": string | null,"contenuto_post_date": string | null,"contenuto_stato": Database["public"]['Enums']["contenuto_status"] | null,"copertina_url": string | null,"didascalia": string | null,"eliminato_il": string | null,"giorno": string | null,"media_id": string | null,"media_type": string | null,"motivi_collegamento": (string)[] | null,"permalink": string | null,"pubblicato_il": string | null,"reel": boolean | null,"shortcode": string | null,"stato_collegamento": string | null
@@ -1408,6 +1626,12 @@ isOneToOne: false
       foreignKeyName: "marketing_abbinamenti_contenuto_id_fkey"
       columns: ["contenuto_id"]
 isOneToOne: false
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["contenuto_id"]
+    },{
+      foreignKeyName: "marketing_abbinamenti_contenuto_id_fkey"
+      columns: ["contenuto_id"]
+isOneToOne: false
       referencedRelation: "v_instagram_post"
       referencedColumns: ["contenuto_id"]
     },{
@@ -1415,6 +1639,18 @@ isOneToOne: false
       columns: ["shortcode"]
 isOneToOne: false
       referencedRelation: "instagram_contenuti"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "marketing_abbinamenti_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "marketing_abbinamenti_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_instagram_numeri"
       referencedColumns: ["shortcode"]
     },{
       foreignKeyName: "marketing_abbinamenti_shortcode_fkey"
@@ -1664,6 +1900,21 @@ isOneToOne: false
 "aggiungi_rata":
 { Args: { "p_importo": number,"p_sale_id": string,"p_scadenza": string }; Returns: string
                            },
+"analisi_fascia_lead":
+{ Args: { "p_dm": number,"p_in_target": number,"p_p75": number,"p_reel_type": Database["public"]['Enums']["contenuto_reel_type"] }; Returns: string
+                           },
+"analisi_fascia_pubblico":
+{ Args: { "p_condivisioni": number,"p_salvataggi": number,"p_views": number }; Returns: string
+                           },
+"analisi_numeri_reel":
+{ Args: { "p_eta"?: number,"p_media_id": string }; Returns: Json
+                           },
+"analisi_riepilogo":
+{ Args: { "p_a": string,"p_da": string }; Returns: Json
+                           },
+"analisi_verdetto":
+{ Args: { "p_lead": string,"p_pubblico": string }; Returns: string
+                           },
 "anteprima_eliminazione":
 { Args: { "p_id": string,"p_tipo": string }; Returns: Json
                            },
@@ -1898,6 +2149,15 @@ isOneToOne: false
 "insight_tick":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"insight_valore_grande":
+{ Args: { "p_valore": Json }; Returns: number
+                           },
+"insight_valore_intero":
+{ Args: { "p_valore": Json }; Returns: number
+                           },
+"insight_valore_rapporto":
+{ Args: { "p_valore": Json }; Returns: number
+                           },
 "instagram_collega_da_solo":
 { Args: { "p_contenuto": string,"p_giorni": number,"p_motivi": (string)[],"p_punteggio": number,"p_shortcode": string,"p_somiglianza": number }; Returns: boolean
                            },
@@ -1910,6 +2170,9 @@ isOneToOne: false
 "instagram_contenuti_inizia_giro":
 { Args: { "p_motivo": string }; Returns: Json
                            },
+"instagram_contenuti_metriche_fine":
+{ Args: { "p_errore": string,"p_esito": string,"p_giro": string,"p_gradini": Json,"p_letti": number,"p_permesso": boolean }; Returns: boolean
+                           },
 "instagram_contenuti_segna_eliminati":
 { Args: { "p_dal": string,"p_presenti": (string)[] }; Returns: number
                            },
@@ -1918,6 +2181,9 @@ isOneToOne: false
                            },
 "instagram_imposta_token":
 { Args: { "p_token": string }; Returns: undefined
+                           },
+"instagram_salva_metriche":
+{ Args: { "p_righe": Json }; Returns: number
                            },
 "instagram_salva_proposta":
 { Args: { "p_call_proposte": number,"p_chat_incerte": number,"p_chat_lette": number,"p_conversazioni": number,"p_data": string,"p_discovery_prenotate"?: number,"p_dm_inbound": number,"p_dm_outbound": number,"p_follow_up": number,"p_setter": string }; Returns: string
@@ -1958,10 +2224,68 @@ isOneToOne: false
 "lead_appartiene_al_setter":
 { Args: { "p_lead_id": string,"p_setter_id": string }; Returns: boolean
                            },
+"marketing_analisi_fine":
+{ Args: { "p_contenuto": Json,"p_errore": string,"p_fonti": Json,"p_id": string,"p_modello": string,"p_numeri": Json,"p_riprova_il"?: string,"p_stato": string,"p_versione": string }; Returns: boolean
+                           },
+"marketing_analisi_richiedi":
+{ Args: { "p_media_id": string,"p_rileggi"?: boolean }; Returns: string
+                           },
+"marketing_c_e_lavoro":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "marketing_contenuti_per_abbinamento":
 { Args: Record<PropertyKey, never>; Returns: {
               "bozza": string,"finale": string,"id": string,"messaggio": string,"nome": string,"post_date": string,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"]
             }[]
+                           },
+"marketing_costo_mese":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"marketing_dispatch":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"marketing_fonti_analisi":
+{ Args: { "p_a": string,"p_da": string }; Returns: Json
+                           },
+"marketing_imposta_costo_max":
+{ Args: { "p_usd": number }; Returns: undefined
+                           },
+"marketing_imposta_interruttori":
+{ Args: { "p_automatiche"?: boolean,"p_note_team"?: boolean }; Returns: undefined
+                           },
+"marketing_imposta_url":
+{ Args: { "p_url": string }; Returns: undefined
+                           },
+"marketing_lavori_situazione":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"marketing_lettura_fine":
+{ Args: { "p_esito": Json,"p_media_id": string }; Returns: boolean
+                           },
+"marketing_passo_finito":
+{ Args: { "p_contatori": Json,"p_esito": string,"p_passo": string }; Returns: boolean
+                           },
+"marketing_pianifica":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"marketing_prendi_passo":
+{ Args: { "p_secondi"?: number }; Returns: {
+              "cosa": string,"passo": string,"rif": string
+            }[]
+                           },
+"marketing_scegli_lavoro":
+{ Args: { "p_adesso"?: string }; Returns: {
+              "cosa": string,"rif": string
+            }[]
+                           },
+"marketing_segna_esito":
+{ Args: { "p_errore": string,"p_esito": string }; Returns: undefined
+                           },
+"marketing_sveglia":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"marketing_tick":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "mcp_chi_sono":
 { Args: Record<PropertyKey, never>; Returns: Json
@@ -2264,7 +2588,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"marketing"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","contenuto_format": "text_opinion"|"check_caption"|"split"|"reaction"|"b_roll"|"green_screen"|"raw_talking_head"|"storytelling"|"transformation"|"show_and_tell","contenuto_reel_type": "attraction"|"education"|"converting"|"radio"|"workshop","contenuto_status": "not_started"|"to_be_recorded"|"to_be_edited"|"to_be_posted"|"posted"|"canceled","contenuto_tipo": "reel"|"carousel","expense_category": "team"|"software"|"ads"|"formazione"|"altro","insight_canale": "instagram"|"messenger","insight_passo": "lettura"|"analisi"|"unione","insight_stato_esecuzione": "in_coda"|"in_corso"|"pronta"|"fallita","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","proposta_stato": "da_confermare"|"confermata"|"scartata","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
+            "analisi_stato": "in_coda"|"in_corso"|"pronta"|"fallita","app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"marketing"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","contenuto_format": "text_opinion"|"check_caption"|"split"|"reaction"|"b_roll"|"green_screen"|"raw_talking_head"|"storytelling"|"transformation"|"show_and_tell","contenuto_reel_type": "attraction"|"education"|"converting"|"radio"|"workshop","contenuto_status": "not_started"|"to_be_recorded"|"to_be_edited"|"to_be_posted"|"posted"|"canceled","contenuto_tipo": "reel"|"carousel","expense_category": "team"|"software"|"ads"|"formazione"|"altro","insight_canale": "instagram"|"messenger","insight_passo": "lettura"|"analisi"|"unione","insight_stato_esecuzione": "in_coda"|"in_corso"|"pronta"|"fallita","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","proposta_stato": "da_confermare"|"confermata"|"scartata","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -2380,7 +2704,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "app_role": ["admin", "setter", "closer", "coach", "editor", "marketing", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"contenuto_format": ["text_opinion", "check_caption", "split", "reaction", "b_roll", "green_screen", "raw_talking_head", "storytelling", "transformation", "show_and_tell"],"contenuto_reel_type": ["attraction", "education", "converting", "radio", "workshop"],"contenuto_status": ["not_started", "to_be_recorded", "to_be_edited", "to_be_posted", "posted", "canceled"],"contenuto_tipo": ["reel", "carousel"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"insight_canale": ["instagram", "messenger"],"insight_passo": ["lettura", "analisi", "unione"],"insight_stato_esecuzione": ["in_coda", "in_corso", "pronta", "fallita"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"proposta_stato": ["da_confermare", "confermata", "scartata"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
+            "analisi_stato": ["in_coda", "in_corso", "pronta", "fallita"],"app_role": ["admin", "setter", "closer", "coach", "editor", "marketing", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"contenuto_format": ["text_opinion", "check_caption", "split", "reaction", "b_roll", "green_screen", "raw_talking_head", "storytelling", "transformation", "show_and_tell"],"contenuto_reel_type": ["attraction", "education", "converting", "radio", "workshop"],"contenuto_status": ["not_started", "to_be_recorded", "to_be_edited", "to_be_posted", "posted", "canceled"],"contenuto_tipo": ["reel", "carousel"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"insight_canale": ["instagram", "messenger"],"insight_passo": ["lettura", "analisi", "unione"],"insight_stato_esecuzione": ["in_coda", "in_corso", "pronta", "fallita"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"proposta_stato": ["da_confermare", "confermata", "scartata"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
           }
         }
 } as const

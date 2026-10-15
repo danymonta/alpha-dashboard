@@ -54,6 +54,8 @@ insert into public.instagram_contenuti_dm (shortcode, giorno, dm, lead_in_target
   ('T78Post01', public.oggi() - 2, 2, 1, 1, 1),
   ('SeedDemo01', public.oggi() - 40, 7, 3, 1, 2);
 update public.insight_impostazioni set storico_dal = null where id;
+-- the seed of the reel analysis (45_analisi_reel.sql) counts the last 20 days: start from none
+delete from public.instagram_contenuti_dm_giorni;
 -- a counted day long ago, so "0 rows" below means RLS
 insert into public.instagram_contenuti_dm_giorni (giorno, created_at) values (public.oggi() - 60, now() - interval '60 days');
 
