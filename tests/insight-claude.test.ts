@@ -36,6 +36,23 @@ describe('clienteInsight', () => {
     expect(client.timeout).toBe(TIMEOUT_CLIENTE_MS)
   })
 
+  it('a test key never goes to a base that is not this machine, outside production', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    vi.stubEnv('VERCEL_ENV', '')
+    vi.stubEnv('ANTHROPIC_API_KEY', 'finta')
+    for (const base of ['https://api.anthropic.com', 'https://altrove.example']) {
+      vi.stubEnv('ANTHROPIC_BASE_URL', base)
+      expect(() => clienteInsight()).toThrow(InsightNonConfigurato)
+    }
+    // no ANTHROPIC_BASE_URL at all: api.anthropic.com, refused too
+    vi.stubEnv('ANTHROPIC_BASE_URL', '')
+    expect(() => clienteInsight()).toThrow(InsightNonConfigurato)
+    // a real key may (a developer trying the real model on purpose)
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-api03-prova')
+    vi.stubEnv('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')
+    expect(clienteInsight().baseURL).toBe('https://api.anthropic.com')
+  })
+
   it('in production always api.anthropic.com, whatever ANTHROPIC_BASE_URL says', () => {
     vi.stubEnv('VERCEL_ENV', 'production')
     vi.stubEnv('ANTHROPIC_API_KEY', 'finta')

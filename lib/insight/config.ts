@@ -124,6 +124,15 @@ export function baseAnthropic(): string {
   return ANTHROPIC_API_BASE
 }
 
+/** Whether a base of baseAnthropic() is this machine (the fake model of the tests). */
+export function baseSuQuestaMacchina(base: string): boolean {
+  try {
+    return HOST_LOOPBACK.has(new URL(base).hostname.toLowerCase())
+  } catch {
+    return false
+  }
+}
+
 /** The step URL cannot be built: the actions refuse with a sentence and save nothing (D18). */
 export class UrlPassoNonValido extends Error {
   constructor() {
