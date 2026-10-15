@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 
 import { NelCalendario, type ContenutoCalendario } from '@/components/insight/arriva-da'
 import { Pillola } from '@/components/insight/pillola'
+import { formatNumero } from '@/lib/format'
 import { linkPost } from '@/lib/insight/link'
 import { CONTENT, periodoContent, rigaStorie } from '@/lib/insight/parole'
 import type { ContentRecap, PostRecap, TemaRecap } from '@/lib/insight/recap'
@@ -22,12 +23,15 @@ const ICONA_VERDETTO: Record<Tono, LucideIcon | undefined> = {
   neutro: undefined,
 }
 
-const numero = (v: number | null | undefined) => (v === null || v === undefined ? CONTENT.nd : String(v))
+const numero = (v: number | null | undefined) => (v === null || v === undefined ? CONTENT.nd : formatNumero(v))
 
 const TH = 'px-3 py-2 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase'
 const TH_NUM = `${TH} text-right`
 const TD = 'px-3 py-2.5 align-top'
 const TD_NUM = `${TD} num text-right`
+// the post's title is a 44 px link with its text in the middle: the numbers and the verdict on its line
+const TD_NUM_POST = 'px-3 pb-2.5 pt-[1.375rem] align-top num text-right'
+const TD_VERDETTO_POST = 'px-3 pb-2.5 pt-5 align-top'
 
 /**
  * «Content», as the artifact: the themes of the DMs, the published posts with
@@ -211,7 +215,7 @@ function TitoloPost({ post, contenuto }: { post: PostRecap; contenuto: Contenuto
           <span className="sr-only"> (si apre Instagram in una nuova scheda)</span>
         </a>
       ) : (
-        <span className="font-semibold [overflow-wrap:anywhere]">{hook}</span>
+        <span className="inline-flex min-h-11 items-center font-semibold [overflow-wrap:anywhere]">{hook}</span>
       )}
       <span className="num text-xs text-muted-foreground">{[post.type, post.date].filter(Boolean).join(' · ')}</span>
       {post.why ? <span className="text-[13px] [overflow-wrap:anywhere]">{post.why}</span> : null}
@@ -261,13 +265,13 @@ function Post({ post, contenutoDi }: { post: readonly PostRecap[]; contenutoDi: 
                 <td className={cn(TD, 'max-w-[22rem]')}>
                   <TitoloPost post={p} contenuto={contenutoDi(p)} />
                 </td>
-                <td className={TD_NUM}>{numero(p.views)}</td>
-                <td className={TD_NUM}>{numero(p.saved)}</td>
-                <td className={TD_NUM}>{numero(p.shares)}</td>
-                <td className={TD_NUM}>{numero(p.dm)}</td>
-                <td className={TD_NUM}>{numero(p.target)}</td>
-                <td className={TD_NUM}>{numero(p.call)}</td>
-                <td className={TD}>
+                <td className={TD_NUM_POST}>{numero(p.views)}</td>
+                <td className={TD_NUM_POST}>{numero(p.saved)}</td>
+                <td className={TD_NUM_POST}>{numero(p.shares)}</td>
+                <td className={TD_NUM_POST}>{numero(p.dm)}</td>
+                <td className={TD_NUM_POST}>{numero(p.target)}</td>
+                <td className={TD_NUM_POST}>{numero(p.call)}</td>
+                <td className={TD_VERDETTO_POST}>
                   <Verdetto verdetto={p.verdict} />
                 </td>
               </tr>
