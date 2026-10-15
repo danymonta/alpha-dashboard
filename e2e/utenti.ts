@@ -59,6 +59,9 @@ const CONTENUTI = [
   { nome: 'contenuto', url: `/marketing/contenuti/${CONTENUTO_SEED}` },
   { nome: 'contenuto-pannello', url: `/marketing/contenuti?contenuto=${CONTENUTO_SEED}` },
   { nome: 'post-instagram', url: '/marketing/instagram' },
+  // 1.36.0: the analysis of the reels and its panel, on supabase/seeds/45_analisi_reel.sql
+  { nome: 'analisi', url: '/marketing/analisi' },
+  { nome: 'analisi-reel', url: '/marketing/analisi?reel=17900000000000001' },
 ]
 
 export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {

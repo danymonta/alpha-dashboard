@@ -14,6 +14,7 @@ import {
   CopertinaPost,
   Didascalia,
 } from '@/components/marketing/instagram/copertina-post'
+import { ParlatoDelPost } from '@/components/marketing/instagram/parlato-post'
 import { Button } from '@/components/ui/button'
 import type { StatusContenuto } from '@/lib/marketing/etichette'
 import { etichettaCollega, giornoPost, motiviInParole, quandoPubblicato, rigaPost } from '@/lib/marketing/parole-post'
@@ -243,6 +244,7 @@ export function PostDelContenuto({
               </p>
             ) : null}
             <DidascaliaEspandibile testo={post.didascalia} />
+            {post.tipo === 'reel' ? <ParlatoDelPost mediaId={post.media_id} className="-ml-2" /> : null}
             {vista.daSolo ? (
               <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
                 <Link2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

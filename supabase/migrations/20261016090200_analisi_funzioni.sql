@@ -1374,6 +1374,7 @@ create view public.v_analisi_reel with (security_invoker = true) as
 select
   n.media_id, n.shortcode, n.permalink, n.copertina_url, n.pubblicato_il, n.giorno, n.durata_ms,
   n.video_disponibile, n.eliminato, n.media_type,
+  left(p.didascalia, 140) as didascalia_inizio,
   p.stato_collegamento,
   p.contenuto_id, p.contenuto_nome as nome, m.reel_type, m.formato, p.contenuto_stato as status,
   n.metriche_stato, n.metriche_il, n.numeri_parziali, n.eta_ore,

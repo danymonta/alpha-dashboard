@@ -46,7 +46,7 @@ export default async function ContenutoPage({ params }: { params: Promise<{ id: 
     )
   }
 
-  const { contenuto, testi, impronte, instagram } = dettaglio
+  const { contenuto, testi, impronte, instagram, idea } = dettaglio
   return (
     <div className="max-w-3xl space-y-5">
       <IntestazionePagina titolo={contenuto.nome} indietro={INDIETRO} azione={<AzioniContenuto contenuto={contenuto} />} />
@@ -55,6 +55,7 @@ export default async function ContenutoPage({ params }: { params: Promise<{ id: 
         contenuto={contenuto}
         sezioni={{ stato: 'pronto', testi, impronte }}
         instagram={instagram}
+        idea={idea}
         puoEliminare={eliminaContenuti(profilo.ruolo)}
       />
     </div>

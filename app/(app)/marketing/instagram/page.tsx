@@ -42,6 +42,7 @@ function adessoMs() {
 }
 
 type RigaVista = {
+  media_id: string | null
   shortcode: string | null
   permalink: string | null
   media_type: string | null
@@ -54,8 +55,9 @@ type RigaVista = {
 }
 
 function versoPost(r: RigaVista): PostInstagram | null {
-  if (!r.shortcode || !r.permalink || !r.pubblicato_il || !r.giorno || !r.media_type) return null
+  if (!r.media_id || !r.shortcode || !r.permalink || !r.pubblicato_il || !r.giorno || !r.media_type) return null
   return {
+    media_id: r.media_id,
     shortcode: r.shortcode,
     permalink: r.permalink,
     tipo: tipoDelPost({ media_type: r.media_type, reel: r.reel ?? false }),
@@ -119,7 +121,7 @@ export default async function PostInstagramPage({
     supabase
       .from('v_instagram_post')
       .select(
-        'shortcode, permalink, media_type, reel, pubblicato_il, giorno, didascalia, copertina_url, eliminato_il, contenuto_id, contenuto_nome, collegato_da_solo, stato_collegamento',
+        'media_id, shortcode, permalink, media_type, reel, pubblicato_il, giorno, didascalia, copertina_url, eliminato_il, contenuto_id, contenuto_nome, collegato_da_solo, stato_collegamento',
       )
       .neq('stato_collegamento', 'prima_del_calendario')
       .order('pubblicato_il', { ascending: false })

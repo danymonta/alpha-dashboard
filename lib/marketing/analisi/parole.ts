@@ -31,6 +31,12 @@ export function formatQuota(q: number | null | undefined): string | null {
   return `${Math.round(q * 100)}%`
 }
 
+/** «1,2%» from 0.0123: a rate with its decimal, for the small shares of saves and shares */
+export function formatTasso(q: number | null | undefined): string | null {
+  if (q === null || q === undefined || !Number.isFinite(q)) return null
+  return `${(q * 100).toLocaleString('it-IT', { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%`
+}
+
 /** «9,8 s» from milliseconds */
 export function formatSecondi(ms: number | null | undefined): string | null {
   if (ms === null || ms === undefined || !Number.isFinite(ms)) return null
@@ -72,7 +78,7 @@ export function parolaAnalisi(stato: StatoAnalisiRiga, etaOre: number | null, gi
   return 'Da chiedere'
 }
 
-/** The lead column: «6 · 3 in target · 1 call», «alcuni giorni non contati» after the 14th, or «non contati». */
+/** The lead column: «6 DM · 3 in target · 1 call», «alcuni giorni non contati» after the 14th, or «non contati». */
 export function parolaLead(r: {
   lead_contati: boolean | null
   lead_completi: boolean | null
@@ -81,7 +87,7 @@ export function parolaLead(r: {
   call_14g: number | null
 }): string {
   if (!r.lead_contati || r.dm_14g === null) return 'non contati'
-  const base = `${r.dm_14g} · ${r.in_target_14g ?? 0} in target · ${r.call_14g ?? 0} call`
+  const base = `${r.dm_14g} DM · ${r.in_target_14g ?? 0} in target · ${r.call_14g ?? 0} call`
   return r.lead_completi === false ? `${base} · alcuni giorni non contati` : base
 }
 

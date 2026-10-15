@@ -15,6 +15,8 @@ export type DettaglioContenuto = {
   impronte: Record<SezioneContenuto, string>
   /** The block «Post su Instagram» (1.33.0): read with the detail, in the same request (spec D17); never throws. */
   instagram: PostDelContenuto
+  /** Born from an idea of Claude (1.36.0, «Aggiungi al calendario»): the reel it came from, for «Nato da un'idea di Claude». */
+  idea: { media_id: string; analisi_id: string } | null
 }
 
 /**
@@ -36,5 +38,17 @@ export async function leggiDettaglioContenuto(supabase: Db, id: string): Promise
     string
   >
   const instagram = await leggiPostDelContenuto(supabase, { id: contenuto.id, url: contenuto.url })
-  return { contenuto, testi, impronte, instagram }
+  return { contenuto, testi, impronte, instagram, idea: await leggiOrigineIdea(supabase, contenuto.id) }
+}
+
+/** The analysis a content was born from, when it was: two small reads, a failure is «none» (the card still shows). */
+async function leggiOrigineIdea(supabase: Db, id: string): Promise<DettaglioContenuto['idea']> {
+  try {
+    const { data } = await supabase.from('marketing_contenuti').select('da_analisi').eq('id', id).maybeSingle()
+    if (!data?.da_analisi) return null
+    const { data: analisi } = await supabase.from('marketing_analisi').select('id, media_id').eq('id', data.da_analisi).maybeSingle()
+    return analisi ? { media_id: analisi.media_id, analisi_id: analisi.id } : null
+  } catch {
+    return null
+  }
 }

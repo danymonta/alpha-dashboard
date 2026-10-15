@@ -2,6 +2,7 @@ import { CircleCheck, Clock, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { BloccoAnalisi } from '@/app/(app)/settings/instagram/blocco-analisi'
 import { BloccoInsight } from '@/app/(app)/settings/instagram/blocco-insight'
 import {
   NuovaEsclusione,
@@ -22,6 +23,8 @@ import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
 import { insightConfigurato } from '@/lib/insight/config'
+import { leggiPermesso, leggiSituazione } from '@/lib/marketing/analisi/elenco'
+import { trascrizioneAttiva } from '@/lib/marketing/trascrizione'
 import { leggiStatoInsightAdmin } from '@/lib/insight/stato'
 import { FRASI_ERRORE } from '@/lib/instagram/report'
 import { createClient } from '@/lib/supabase/server'
@@ -114,7 +117,11 @@ async function caricaMessengerEInsight() {
     throw new Error('Impossibile caricare Messenger e l’Insight')
   }
   const righeChat: unknown[] = Array.isArray(chat.data) ? chat.data : []
+  // the reel analysis (1.36.0): never stops the page, a read that fails is «non si legge adesso»
+  const [situazione, permesso] = await Promise.all([leggiSituazione(supabase), leggiPermesso(supabase).catch(() => null)])
   return {
+    situazione,
+    permesso,
     messenger: (collegamento.data ?? null) as CollegamentoMessenger | null,
     tokenMessenger: token.data === true,
     esclusiMessenger: (esclusi.data ?? []) as EsclusoMessenger[],
@@ -144,7 +151,7 @@ export default async function InstagramPage() {
     caricaInstagram(),
     caricaMessengerEInsight(),
   ])
-  const { messenger, tokenMessenger, esclusiMessenger, chatMessenger, stato } = insight
+  const { messenger, tokenMessenger, esclusiMessenger, chatMessenger, stato, situazione, permesso } = insight
   const adesso = adessoMs()
   const oggi = oggiRoma(new Date(adesso))
   const ieri = aggiungiGiorni(oggi, -1)
@@ -454,6 +461,15 @@ export default async function InstagramPage() {
       </section>
 
       <BloccoInsight stato={stato} configurato={insightConfigurato()} adesso={adesso} oggi={oggi} />
+
+      <BloccoAnalisi
+        situazione={situazione}
+        claudeConfigurato={insightConfigurato()}
+        voceConfigurata={trascrizioneAttiva()}
+        statisticheAttive={permesso === null ? null : permesso}
+        adesso={adesso}
+        oggi={oggi}
+      />
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { annullaCollega, collegaPost, creaContenutoDaPost, escludiPost, rimettiPost } from '@/app/(app)/marketing/instagram/actions'
 import { TOAST_NEL_PANNELLO, usePannello } from '@/components/marketing/contesto-pannello'
 import { ApriSuInstagram, AZIONE_TOAST, CopertinaPost, Didascalia } from '@/components/marketing/instagram/copertina-post'
+import { ParlatoDelPost } from '@/components/marketing/instagram/parlato-post'
 import { ScegliContenuto } from '@/components/marketing/instagram/scegli-contenuto'
 import type { ContenutoScelta, PostDaCollegare, PropostaPost } from '@/components/marketing/instagram/tipi'
 import { useElencoPost } from '@/components/marketing/instagram/uso-elenco'
@@ -173,6 +174,7 @@ function SchedaPost({
           </h3>
           <Didascalia testo={post.didascalia} />
           <ApriSuInstagram href={post.permalink} className="-ml-2" />
+          {post.tipo === 'reel' ? <ParlatoDelPost mediaId={post.media_id} className="-ml-2" /> : null}
         </div>
       </div>
 

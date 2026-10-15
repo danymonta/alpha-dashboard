@@ -16,7 +16,7 @@ export const REEL_MAX = 200
 /** The columns of the list (never the speech or the card: the panel reads them). */
 export const COLONNE_REEL = [
   'media_id', 'shortcode', 'permalink', 'copertina_url', 'pubblicato_il', 'giorno', 'durata_ms', 'video_disponibile',
-  'eliminato', 'media_type', 'stato_collegamento', 'contenuto_id', 'nome', 'reel_type', 'formato', 'status',
+  'eliminato', 'media_type', 'didascalia_inizio', 'stato_collegamento', 'contenuto_id', 'nome', 'reel_type', 'formato', 'status',
   'metriche_stato', 'metriche_il', 'numeri_parziali', 'eta_ore',
   'views', 'reach', 'saved', 'shares', 'likes', 'comments', 'like_count', 'comments_count', 'avg_watch_ms', 'skip_rate',
   'views_3g', 'views_7g', 'tasso_salvataggi', 'tasso_condivisioni', 'visione_su_durata',

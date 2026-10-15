@@ -504,6 +504,7 @@ export function PannelloContenuti({
                   contenuto={{ ...contenuto, notion_page_id: notion }}
                   sezioni={sezioni}
                   instagram={voce?.dettaglio?.instagram ?? null}
+                  idea={voce?.dettaglio?.idea ?? null}
                   onRileggi={rileggi}
                   puoEliminare={puoEliminare}
                   titoloRef={titolo}

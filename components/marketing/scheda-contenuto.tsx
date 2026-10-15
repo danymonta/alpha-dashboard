@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown, ChevronUp, Ellipsis, ExternalLink, Link2, Maximize2, RotateCw, TriangleAlert, XIcon } from 'lucide-react'
+import { ChevronDown, ChevronUp, Ellipsis, ExternalLink, Link2, Maximize2, RotateCw, Sparkles, TriangleAlert, XIcon } from 'lucide-react'
 import Link from 'next/link'
 import type { Ref } from 'react'
 import { toast, type ExternalToast } from 'sonner'
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { hrefAnalisiReel } from '@/lib/marketing/analisi/pannello'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { SEZIONI, sezioniVisibili, type SezioneContenuto as Sezione } from '@/lib/marketing/etichette'
 import { hrefContenuto, linkCondivisibile, type Vicini } from '@/lib/marketing/pannello'
@@ -132,6 +133,7 @@ export function SchedaContenuto({
   contenuto,
   sezioni,
   instagram,
+  idea = null,
   puoEliminare,
   titoloRef,
   navigazione,
@@ -144,6 +146,8 @@ export function SchedaContenuto({
   sezioni: StatoSezioni
   /** The block «Post su Instagram», read with the detail; null while the panel reads it. */
   instagram: DatiPost | null
+  /** Born from an idea of Claude (1.36.0): where it came from. */
+  idea?: { media_id: string } | null
   puoEliminare: boolean
   /** The panel: the title takes the focus when it opens. */
   titoloRef?: Ref<HTMLHeadingElement>
@@ -231,6 +235,18 @@ export function SchedaContenuto({
         )}
       >
         <ProprietaContenuto riga={contenuto} />
+
+        {idea ? (
+          <p className="flex items-start gap-1.5 text-sm text-muted-foreground" data-testid="nato-da-idea">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-[var(--brand-fire-flame)]" aria-hidden="true" />
+            <span>
+              Nato da un’idea di Claude, dall’analisi di un reel.{' '}
+              <Link href={hrefAnalisiReel(idea.media_id)} className="underline underline-offset-4 hover:text-foreground">
+                Apri l’analisi
+              </Link>
+            </span>
+          </p>
+        ) : null}
 
         {instagram ? (
           <PostDelContenuto

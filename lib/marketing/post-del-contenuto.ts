@@ -16,6 +16,8 @@ import type { createClient } from '@/lib/supabase/server'
 type ClientServer = Awaited<ReturnType<typeof createClient>>
 
 export type PostInstagram = {
+  /** the Instagram id: the reel's analysis and its speech are read by it (1.36.0) */
+  media_id: string
   shortcode: string
   permalink: string
   tipo: TipoPost
@@ -38,9 +40,10 @@ export type PostDelContenuto =
 /** At most this many proposals in the block. */
 const PROPOSTE_MAX = 3
 
-const COLONNE_POST = 'shortcode, permalink, media_type, reel, pubblicato_il, giorno, didascalia, copertina_url, eliminato_il'
+const COLONNE_POST = 'media_id, shortcode, permalink, media_type, reel, pubblicato_il, giorno, didascalia, copertina_url, eliminato_il'
 
 type RigaPost = {
+  media_id: string | null
   shortcode: string | null
   permalink: string | null
   media_type: string | null
@@ -53,8 +56,9 @@ type RigaPost = {
 }
 
 function versoPost(r: RigaPost): PostInstagram | null {
-  if (!r.shortcode || !r.permalink || !r.pubblicato_il || !r.giorno || !r.media_type) return null
+  if (!r.media_id || !r.shortcode || !r.permalink || !r.pubblicato_il || !r.giorno || !r.media_type) return null
   return {
+    media_id: r.media_id,
     shortcode: r.shortcode,
     permalink: r.permalink,
     tipo: tipoDelPost({ media_type: r.media_type, reel: r.reel ?? false }),

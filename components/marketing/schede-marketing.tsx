@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils'
 
 /**
  * The tabs of the Marketing area (1.33.0): «Contenuti», the calendar, and
- * «Post di Instagram», the posts of the account and their links to it; 1.36.0
- * adds «Analisi». In the area's layout, so they stay still between its pages.
+ * «Post di Instagram», the posts of the account and their links to it, and
+ * (1.36.0) «Analisi», the numbers and Claude's reading of the reels. In the area's layout, so they stay still between its pages.
  * «Post di Instagram» carries the number of posts to link, said in its name
  * («Post di Instagram, 5 da collegare»), the digit hidden from screen readers.
  */
@@ -24,6 +24,7 @@ export function SchedeMarketing({ daCollegare }: { daCollegare: number }) {
       numero: daCollegare,
       nome: daCollegare > 0 ? nomeSchedaPost(daCollegare) : undefined,
     },
+    { href: '/marketing/analisi', etichetta: 'Analisi', numero: 0, nome: undefined },
   ]
 
   return (
@@ -38,7 +39,7 @@ export function SchedeMarketing({ daCollegare }: { daCollegare: number }) {
                 aria-current={attiva ? 'page' : undefined}
                 aria-label={nome}
                 className={cn(
-                  '-mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-3 text-sm transition-colors',
+                  '-mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-2.5 text-sm transition-colors sm:px-3',
                   attiva
                     ? 'border-primary font-medium text-foreground'
                     : 'border-transparent text-muted-foreground hover:text-foreground',

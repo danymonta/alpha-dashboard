@@ -287,3 +287,45 @@ export async function togliEsclusioneMessenger(input: unknown): Promise<Esito> {
   revalidatePath(PAGINA)
   return { ok: true }
 }
+
+// ---------------------------------------------------------------------------
+// The reel analysis (1.36.0, CLAUDE.md section 30): the monthly limit and the two switches.
+// ---------------------------------------------------------------------------
+
+const limiteSpesaSchema = z.object({ usd: z.number().min(0).max(200) })
+const interruttoriAnalisiSchema = z
+  .object({ automatiche: z.boolean().optional(), note_team: z.boolean().optional() })
+  .refine((v) => v.automatiche !== undefined || v.note_team !== undefined)
+
+/** «Limite di spesa al mese ($)»: the admin only (the function says so too). */
+export async function impostaLimiteSpesaAnalisi(input: unknown): Promise<Esito> {
+  const parsed = limiteSpesaSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Scegli un limite tra 0 e 200 $.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('marketing_imposta_costo_max', { p_usd: parsed.data.usd })
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Limite non salvato. Riprova.') }
+  revalidatePath(PAGINA)
+  revalidatePath('/marketing', 'layout')
+  return { ok: true }
+}
+
+/** «Analisi automatiche» and «Note di setter e closer nelle analisi»: one at a time or together. */
+export async function impostaInterruttoriAnalisi(input: unknown): Promise<Esito> {
+  const parsed = interruttoriAnalisiSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Scelta non valida.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('marketing_imposta_interruttori', {
+    p_automatiche: parsed.data.automatiche ?? undefined,
+    p_note_team: parsed.data.note_team ?? undefined,
+  })
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Scelta non salvata. Riprova.') }
+  revalidatePath(PAGINA)
+  revalidatePath('/marketing', 'layout')
+  return { ok: true }
+}
