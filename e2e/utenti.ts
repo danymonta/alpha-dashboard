@@ -45,6 +45,12 @@ const PROFILO = { nome: 'profilo', url: '/account' }
 const MIEI_TASK = { nome: 'miei-task', url: '/task' }
 // every role opens the changelog, from "Altro" (CLAUDE.md section 23)
 const CHANGELOG = { nome: 'changelog', url: '/changelog' }
+// the recap of the DMs of the last 24 hours (1.35.0): the admin and the setter,
+// on the recaps of supabase/seeds/40_insight.sql
+const INSIGHT = [
+  { nome: 'insight', url: '/insight' },
+  { nome: 'insight-agenda', url: '/insight?canale=agenda' },
+]
 // the Marketing area (1.32.0): admin, video editor and marketing; the content
 // in its panel and the posts of Instagram from 1.33.0
 const CONTENUTI = [
@@ -67,6 +73,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'clienti', url: '/clients' },
     { nome: 'rinnovi', url: '/rinnovi' },
     { nome: 'setting', url: '/setting' },
+    ...INSIGHT,
     { nome: 'closer', url: '/setting/closer' },
     { nome: 'compila-giornata', url: '/setting/closer/giorno' },
     { nome: 'provvigioni', url: '/commissions' },
@@ -94,6 +101,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'pipeline', url: '/leads' },
     { nome: 'le-mie-call', url: '/calls' },
     { nome: 'i-miei-numeri', url: '/my-numbers' },
+    ...INSIGHT,
     // the closer's numbers, read only (07/10/2026)
     { nome: 'closer', url: '/setting/closer' },
     // the seed setter is in no project: the empty state

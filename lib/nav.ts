@@ -7,6 +7,7 @@ import {
   Handshake,
   LayoutDashboard,
   ListChecks,
+  Megaphone,
   MessagesSquare,
   Percent,
   Phone,
@@ -60,6 +61,12 @@ export type VoceNav = {
    * never to the admin (CLAUDE.md section 17).
    */
   commenti?: true
+  /**
+   * The icon's tone when the item is not lit: 'fuoco' is the brand's flame
+   * (--brand-fire-flame), only for the sparkles of "Insight ultime 24h"
+   * (1.35.0), the one exception to the sober menu (CLAUDE.md section 11).
+   */
+  tonoIcona?: 'fuoco'
 }
 
 // The Projects area, the same for every role (CLAUDE.md section 3)
@@ -67,13 +74,14 @@ const PROGETTI: VoceNav = { href: '/progetti', etichetta: 'Progetti', Icona: Fol
 const MIEI_TASK: VoceNav = { href: '/task', etichetta: 'I miei task', Icona: ListChecks, sezione: 'Progetti' }
 const TEMPO: VoceNav = { href: '/tempo', etichetta: 'Il mio tempo', Icona: Timer, sezione: 'Progetti' }
 // The changelog, for every role: each person reads the items of their own work
-// (CLAUDE.md section 23). In "Altro", never in the bottom bar's four items.
-const NOVITA: VoceNav = { href: '/changelog', etichetta: 'Novità', Icona: Sparkles, sezione: 'Generale' }
+// (CLAUDE.md section 23). In "Altro", never in the bottom bar's four items. The
+// megaphone from 1.35.0: the sparkles are the Insight's.
+const NOVITA: VoceNav = { href: '/changelog', etichetta: 'Novità', Icona: Megaphone, sezione: 'Generale' }
 const SOLO_PROGETTI: NavRuolo = { principali: [MIEI_TASK, PROGETTI, TEMPO], altre: [NOVITA] }
 // The Marketing area, the content calendar, Notion's "Instagram Posts" (Dany,
 // 08/10/2026): the admin, the video editor and marketing (RUOLI_MARKETING).
 // No badge (CLAUDE.md section 17). Lit on every tab of the area: Contenuti and
-// Post di Instagram (1.33.0), Analisi from 1.35.0.
+// Post di Instagram (1.33.0), Analisi from 1.36.0.
 const CONTENUTI: VoceNav = {
   href: '/marketing/contenuti',
   etichetta: 'Contenuti',
@@ -87,6 +95,11 @@ const CONTENUTI: VoceNav = {
 // lights only on itself, "Closer" also on its day (/setting/closer/giorno).
 const SETTER: VoceNav = { href: '/setting', etichetta: 'Setter', Icona: MessagesSquare, esatto: true }
 const CLOSER: VoceNav = { href: '/setting/closer', etichetta: 'Closer', Icona: Handshake }
+// The recap of the DMs of the last 24 hours, the Claude artifact "Recap DM
+// Alpha" brought into the app (1.35.0, CLAUDE.md section 29): the admin and
+// every active setter. No badge: nothing on it is a reminder of a person's own
+// (CLAUDE.md section 17). The sparkles in the brand's flame.
+const INSIGHT: VoceNav = { href: '/insight', etichetta: 'Insight ultime 24h', Icona: Sparkles, tonoIcona: 'fuoco' }
 
 export type NavRuolo = {
   /** Up to 4 items: they are the mobile bottom bar. */
@@ -112,6 +125,8 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/rinnovi', etichetta: 'Rinnovi', Icona: RefreshCw },
       // the setters' days from Instagram still to decide, on top of the page (08/10/2026)
       { ...SETTER, daApprovare: true },
+      // the DMs of the last 24 hours read by Claude, right after the setters' reports (1.35.0)
+      INSIGHT,
       // his calls to record on top, then the closer's numbers (07/10/2026)
       { ...CLOSER, esiti: true },
       { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
@@ -136,6 +151,8 @@ const NAV: Record<AppRole, NavRuolo> = {
       { href: '/my-numbers', etichetta: 'I miei numeri', Icona: TrendingUp },
     ],
     altre: [
+      // the recap of the DMs he works, the first item of "Altro" (1.35.0); the bar keeps its four
+      INSIGHT,
       { href: '/calls', etichetta: 'Le mie call', Icona: Phone, esatto: true },
       // the closer's numbers of every setter, read only (Dany, 07/10/2026: "il setter può accedere alla tab closer")
       CLOSER,
@@ -245,6 +262,15 @@ export function promemoriaDiAltro(voci: VoceNav[], promemoria: Promemoria): Prom
 /** The digit on the badge: the counts an item carries add up, its name says each. */
 export function totalePromemoria(promemoria: Promemoria): number {
   return promemoria.esiti + promemoria.daApprovare + promemoria.commenti
+}
+
+/**
+ * The class of an item's icon for its tone: the brand's flame only while the
+ * item is not lit (lit, the icon takes the item's own colour, as every other).
+ * Empty for every item without a tone.
+ */
+export function classeTonoIcona(voce: VoceNav, attiva: boolean): string {
+  return voce.tonoIcona === 'fuoco' && !attiva ? 'text-[var(--brand-fire-flame)]' : ''
 }
 
 export function isAttiva(pathname: string, voce: VoceNav): boolean {

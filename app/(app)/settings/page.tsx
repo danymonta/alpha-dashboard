@@ -14,7 +14,7 @@ const SEZIONI = [
   { href: '/settings/export', titolo: 'Esporta CSV', descrizione: 'Vendite, incassi e costi del mese per la commercialista.', Icona: Download, pronta: true },
   { href: '/settings/audit', titolo: 'Registro modifiche', descrizione: 'Chi ha cambiato un importo, un ruolo o una regola, e quando.', Icona: History, pronta: true },
   { href: '/settings/progetti', titolo: 'Progetti', descrizione: 'Reparti e modelli con cui nascono i progetti.', Icona: FolderKanban, pronta: true },
-  { href: '/settings/instagram', titolo: 'Instagram', descrizione: 'I DM che precompilano il report del setter: token, chi li lavora, chat escluse.', Icona: MessagesSquare, pronta: true },
+  { href: '/settings/instagram', titolo: 'Instagram e Messenger', descrizione: 'I DM che precompilano il report del setter e preparano l’Insight: token, chi li lavora, chat escluse, Messenger.', Icona: MessagesSquare, pronta: true },
 ]
 
 export default async function ImpostazioniPage() {

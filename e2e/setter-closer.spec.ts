@@ -125,10 +125,17 @@ test('l’admin ha Setter e Closer nella barra laterale, ognuna accesa sulla sua
   await expect(closer).not.toHaveAttribute('aria-current', 'page')
   // no tabs on top any more: the two pages are two items
   await expect(page.getByRole('navigation', { name: 'Setter e closer' })).toHaveCount(0)
-  // the DM insights live in a Claude artifact: a link out, in a new tab (08/10/2026)
-  const insight = page.getByRole('link', { name: 'Insight delle ultime 24h (si apre in una nuova scheda)' })
-  await expect(insight).toHaveAttribute('href', 'https://claude.ai/artifact/PKRVEjLi5FMv9RL1rWYHyM')
-  await expect(insight).toHaveAttribute('target', '_blank')
+  // the DM insights: the app's own page from 1.35.0, in the same tab, no longer the artifact
+  const insight = page.getByRole('main').getByRole('link', { name: 'Insight delle ultime 24h', exact: true })
+  await expect(insight).toHaveAttribute('href', '/insight')
+  expect(await insight.getAttribute('target')).toBeNull()
+  await expect(page.locator('a[href*="claude.ai/artifact"]')).toHaveCount(0)
+  // and an item of the menu, right after Setter, with the sparkles
+  const voceInsight = nav.getByRole('link', { name: 'Insight ultime 24h', exact: true })
+  await expect(voceInsight).toHaveAttribute('href', '/insight')
+  await expect(voceInsight).not.toHaveAttribute('aria-current', 'page')
+  const vociDelMenu = await nav.getByRole('link').evaluateAll((link) => link.map((a) => a.getAttribute('href')))
+  expect(vociDelMenu.indexOf('/insight')).toBe(vociDelMenu.indexOf('/setting') + 1)
 
   await closer.click()
   await expect(page).toHaveURL('/setting/closer')
@@ -216,14 +223,30 @@ test('il setter sul telefono: i giorni non aprono la giornata, niente scroll di 
   await page.screenshot({ path: '.shots/setter-closer-390.png', fullPage: true })
 })
 
-test('il setter apre gli insight delle ultime 24h da Oggi e da I miei numeri', async ({ page }) => {
+test('il setter apre gli insight delle ultime 24h da Oggi, da I miei numeri e dal menu', async ({ page }) => {
   await accedi(page, 'setter')
   for (const pagina of ['/today', '/my-numbers']) {
     await page.goto(pagina)
-    const insight = page.getByRole('link', { name: 'Insight delle ultime 24h (si apre in una nuova scheda)' })
-    await expect(insight).toHaveAttribute('href', 'https://claude.ai/artifact/PKRVEjLi5FMv9RL1rWYHyM')
-    await expect(insight).toHaveAttribute('target', '_blank')
+    // the app's own page from 1.35.0, in the same tab
+    const insight = page.getByRole('main').getByRole('link', { name: 'Insight delle ultime 24h', exact: true })
+    await expect(insight).toHaveAttribute('href', '/insight')
+    expect(await insight.getAttribute('target')).toBeNull()
   }
+  // the first item of his "Altro", in the sidebar on the computer
+  const nav = sidebar(page)
+  await expect(nav.getByRole('link', { name: 'Insight ultime 24h', exact: true })).toHaveAttribute('href', '/insight')
+  const vociDelMenu = await nav.getByRole('link').evaluateAll((link) => link.map((a) => a.getAttribute('href')))
+  expect(vociDelMenu.indexOf('/insight')).toBe(vociDelMenu.indexOf('/my-numbers') + 1)
+
+  // on the phone: the bar keeps its four items, the Insight is the first of "Altro"
+  await page.setViewportSize({ width: 390, height: 844 })
+  const barra = page.getByRole('navigation', { name: 'Navigazione' })
+  await expect(barra.getByRole('link', { name: 'Insight ultime 24h' })).toHaveCount(0)
+  await barra.getByRole('button', { name: /^Altro/ }).click()
+  const altro = page.getByRole('dialog', { name: 'Altro' })
+  await expect(altro.getByRole('link').first()).toHaveAccessibleName('Insight ultime 24h')
+  await expect(altro.getByRole('link', { name: 'Insight ultime 24h' })).toHaveAttribute('href', '/insight')
+  await page.keyboard.press('Escape')
 })
 
 test('il coach non apre la pagina del closer', async ({ page }) => {

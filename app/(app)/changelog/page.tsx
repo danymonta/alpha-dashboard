@@ -1,4 +1,4 @@
-import { ChevronDown, Sparkles } from 'lucide-react'
+import { ChevronDown, Megaphone } from 'lucide-react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
@@ -52,7 +52,7 @@ export default async function NovitaPage() {
 
       {versioni.length === 0 ? (
         <StatoVuoto
-          Icona={Sparkles}
+          Icona={Megaphone}
           titolo="Ancora nessuna novità per te"
           descrizione="Le novità del tuo lavoro compaiono qui a ogni aggiornamento dell’app."
           azione={<LinkBottone href={percorsoIniziale(ruolo)}>Torna al lavoro</LinkBottone>}

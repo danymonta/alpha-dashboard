@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CircleCheck, KeyRound, LoaderCircle, Plus, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useId, useRef, useState, useTransition, type FormEvent } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import {
@@ -25,10 +25,12 @@ import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { CLASSE_SELECT, ErroreModulo } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { giornoEsteso } from '@/lib/date'
 import { formatData } from '@/lib/format'
+import { ETICHETTA_CANCELLA_MESSAGGI } from '@/lib/validation/insight'
 
 const CONNESSIONE = 'Connessione assente. Riprova.'
 
@@ -229,24 +231,52 @@ export function RigaEsclusione({ username, motivo }: { username: string; motivo:
         cosa={`l’esclusione di @${username}`}
         fatto={`@${username} non è più esclusa`}
         azione={() => eliminaEsclusioneInstagram({ username })}
-        conseguenze={['Le sue chat tornano a contare nella proposta, dalla notte dopo.']}
+        conseguenze={['Le sue chat tornano a contare nella proposta, dalla notte dopo, e nell’Insight dal recap dopo.']}
       />
     </li>
   )
 }
 
-/** A new account whose chats never count. */
+/**
+ * «Cancella anche i suoi messaggi già salvati nell’Insight» (1.35.0, D16):
+ * checked by default in both exclusion forms. The whole row is the 44px target.
+ */
+export function CasellaCancellaMessaggi({
+  checked,
+  onCheckedChange,
+  disabled,
+}: {
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+  disabled?: boolean
+}) {
+  return (
+    <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={(v) => onCheckedChange(v === true)}
+        aria-label={ETICHETTA_CANCELLA_MESSAGGI}
+        className="size-5"
+        disabled={disabled}
+      />
+      <span aria-hidden="true">{ETICHETTA_CANCELLA_MESSAGGI}</span>
+    </label>
+  )
+}
+
+/** A new account whose chats never count, and never reach the Insight. */
 export function NuovaEsclusione() {
   const [errore, setErrore] = useState<string | null>(null)
   const id = useId()
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<EsclusioneInput, unknown, Esclusione>({
     resolver: zodResolver(esclusioneSchema),
-    defaultValues: { username: '', motivo: '' },
+    defaultValues: { username: '', motivo: '', cancella_messaggi: true },
   })
 
   const invia = handleSubmit(async (valori) => {
@@ -262,9 +292,12 @@ export function NuovaEsclusione() {
       setErrore(esito.errore)
       return
     }
-    toast.success(`@${valori.username} esclusa: le sue chat non contano`)
+    toast.success(
+      esito.cancellati ? 'Chat esclusa e messaggi cancellati.' : `@${valori.username} esclusa: le sue chat non contano`,
+    )
+    if (esito.avviso) toast.warning(esito.avviso)
     // explicit: after a submit through the resolver the form may hold its output (motivo null)
-    reset({ username: '', motivo: '' })
+    reset({ username: '', motivo: '', cancella_messaggi: true })
   })
 
   const erroreUsername = errors.username?.message
@@ -311,6 +344,17 @@ export function NuovaEsclusione() {
           <ErroreCampo id={`${id}-errore-motivo`} messaggio={erroreMotivo} />
         </div>
       </div>
+      <Controller
+        control={control}
+        name="cancella_messaggi"
+        render={({ field }) => (
+          <CasellaCancellaMessaggi
+            checked={field.value !== false}
+            onCheckedChange={field.onChange}
+            disabled={isSubmitting}
+          />
+        )}
+      />
       <ErroreModulo testo={errore} />
       <Button type="submit" variant="outline" className="h-11 w-full sm:w-auto" disabled={isSubmitting}>
         {isSubmitting ? (

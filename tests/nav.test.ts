@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { TUTTI_I_RUOLI, percorsoIniziale } from '@/lib/auth/roles'
+import { Megaphone, Sparkles } from 'lucide-react'
+
 import {
+  classeTonoIcona,
   esitiDellaVoce,
   isAttiva,
   nomeConEsiti,
@@ -39,9 +42,10 @@ describe('Setter e Closer al posto di Setting (07/10/2026)', () => {
         ['Closer', '/setting/closer'],
       ]),
     )
-    // Closer right after Setter, where Setting was
+    // Closer where Setting was, right after Setter and its Insight (1.35.0)
     const etichette = altre.map((v) => v.etichetta)
-    expect(etichette.indexOf('Closer')).toBe(etichette.indexOf('Setter') + 1)
+    expect(etichette.indexOf('Insight ultime 24h')).toBe(etichette.indexOf('Setter') + 1)
+    expect(etichette.indexOf('Closer')).toBe(etichette.indexOf('Insight ultime 24h') + 1)
     expect(voce('admin', 'Setter').Icona).not.toBe(voce('admin', 'Closer').Icona)
   })
 
@@ -292,5 +296,78 @@ describe('l’area Marketing: Contenuti (1.32.0)', () => {
       const href = tutte(ruolo).map((v) => v.href)
       expect(new Set(href).size, ruolo).toBe(href.length)
     }
+  })
+})
+
+describe('Insight ultime 24h (1.35.0)', () => {
+  it('solo l’admin e il setter: nessun altro ruolo ha la pagina', () => {
+    const conInsight = TUTTI_I_RUOLI.filter((ruolo) => tutte(ruolo).some((v) => v.href === '/insight'))
+    expect(conInsight).toEqual(['admin', 'setter'])
+    for (const ruolo of ['admin', 'setter'] as const) {
+      const insight = voce(ruolo, 'Insight ultime 24h')
+      expect(insight.href).toBe('/insight')
+      expect(insight.Icona).toBe(Sparkles)
+      expect(insight.tonoIcona).toBe('fuoco')
+      // Economics, next to the setters' work: no new area in the sidebar
+      expect(insight.sezione ?? 'Economics').toBe('Economics')
+      // no badge: nothing on it is a reminder of the person's own (CLAUDE.md section 17)
+      expect(insight.esiti || insight.daApprovare || insight.commenti).toBeFalsy()
+    }
+  })
+
+  it('per l’admin in «Altro», subito dopo Setter', () => {
+    const { principali, altre } = vociNav('admin')
+    expect(principali.map((v) => v.href)).not.toContain('/insight')
+    const href = altre.map((v) => v.href)
+    expect(href.indexOf('/insight')).toBe(href.indexOf('/setting') + 1)
+  })
+
+  it('per il setter la prima voce di «Altro»: la barra in basso non cambia', () => {
+    const { principali, altre } = vociNav('setter')
+    expect(principali.map((v) => v.href)).toEqual(['/today', '/calls/new', '/leads', '/my-numbers'])
+    expect(altre[0].href).toBe('/insight')
+    expect(altre.map((v) => v.href)).toEqual(['/insight', '/calls', '/setting/closer', '/progetti', '/task', '/tempo', '/changelog'])
+  })
+
+  it('si accende sulla sua pagina e basta', () => {
+    const insight = voce('admin', 'Insight ultime 24h')
+    expect(isAttiva('/insight', insight)).toBe(true)
+    expect(isAttiva('/insightx', insight)).toBe(false)
+    expect(isAttiva('/setting', insight)).toBe(false)
+    expect(isAttiva('/insight', voce('admin', 'Setter'))).toBe(false)
+  })
+
+  it('le stelline nel colore del fuoco solo quando la voce non è accesa, e solo per l’Insight', () => {
+    const insight = voce('setter', 'Insight ultime 24h')
+    expect(classeTonoIcona(insight, false)).toBe('text-[var(--brand-fire-flame)]')
+    expect(classeTonoIcona(insight, true)).toBe('')
+    for (const ruolo of TUTTI_I_RUOLI) {
+      for (const v of tutte(ruolo).filter((v) => v.href !== '/insight')) {
+        expect(v.tonoIcona, `${ruolo} → ${v.href}`).toBeUndefined()
+        expect(classeTonoIcona(v, false), `${ruolo} → ${v.href}`).toBe('')
+      }
+    }
+  })
+
+  it('«Novità» ha il megafono: le stelline sono dell’Insight', () => {
+    for (const ruolo of TUTTI_I_RUOLI) {
+      expect(voce(ruolo, 'Novità').Icona, ruolo).toBe(Megaphone)
+      // the sparkles mean one thing only
+      expect(tutte(ruolo).filter((v) => v.Icona === Sparkles).map((v) => v.href), ruolo).toEqual(
+        ruolo === 'admin' || ruolo === 'setter' ? ['/insight'] : [],
+      )
+    }
+  })
+
+  it('nessuna icona ripetuta nel menu di un ruolo', () => {
+    for (const ruolo of TUTTI_I_RUOLI) {
+      const icone = tutte(ruolo).map((v) => v.Icona)
+      expect(new Set(icone).size, ruolo).toBe(icone.length)
+    }
+  })
+
+  it('l’area dell’admin resta una: Insight sta con Economics', () => {
+    expect(perSezione(tutte('admin')).map((g) => g.sezione)).toEqual(['Economics', 'Marketing', 'Progetti', 'Generale'])
+    expect(perSezione(tutte('setter')).map((g) => g.sezione)).toEqual(['Economics', 'Progetti', 'Generale'])
   })
 })

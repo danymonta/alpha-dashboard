@@ -11,7 +11,7 @@ import { usePromemoria } from '@/components/shell/esiti-da-registrare'
 import { LinkNav } from '@/components/shell/link-nav'
 import { Button } from '@/components/ui/button'
 import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
-import { isAttiva, nomeConPromemoria, perSezione, promemoriaDellaVoce, vociNav } from '@/lib/nav'
+import { classeTonoIcona, isAttiva, nomeConPromemoria, perSezione, promemoriaDellaVoce, vociNav } from '@/lib/nav'
 
 type Props = {
   ruolo: AppRole
@@ -58,7 +58,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
                           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                       }`}
                     >
-                      <voce.Icona className="size-4 shrink-0" aria-hidden="true" />
+                      <voce.Icona className={`size-4 shrink-0 ${classeTonoIcona(voce, attiva)}`} aria-hidden="true" />
                       {voce.etichetta}
                       <ConteggioPromemoria promemoria={suoi} attiva={attiva} className="ml-auto" />
                     </LinkNav>

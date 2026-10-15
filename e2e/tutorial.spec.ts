@@ -27,7 +27,7 @@ test.describe('tutorial al primo accesso, dal telefono', () => {
 
     const tour = page.getByTestId('tutorial')
     await expect(tour.getByRole('dialog', { name: 'Benvenuto in Alpha Management' })).toBeVisible()
-    await expect(tour).toContainText('1/11')
+    await expect(tour).toContainText('1/12')
     // nothing can be closed before the reading time
     await expect(tour.getByRole('button', { name: 'Chiudi il tutorial' })).toBeDisabled()
     await page.screenshot({ path: '.shots/tutorial-setter-1-390.png' })
@@ -42,7 +42,7 @@ test.describe('tutorial al primo accesso, dal telefono', () => {
     await page.getByRole('navigation', { name: 'Navigazione' }).getByRole('link', { name: 'Oggi' }).click()
     await expect(page).toHaveURL(/\/today/)
     await expect(tour.getByRole('dialog', { name: 'I contatori' })).toBeVisible()
-    await expect(tour).toContainText('3/11')
+    await expect(tour).toContainText('3/12')
 
     await expect(tour.getByRole('button', { name: 'Chiudi il tutorial' })).toBeEnabled({ timeout: 4000 })
     await tour.getByRole('button', { name: 'Chiudi il tutorial' }).click()
@@ -135,7 +135,7 @@ test('l’admin prova il tour di ogni ruolo da “Testa il tutorial”', async (
   // a preview marks nothing as seen
   await page.getByRole('button', { name: 'Testa il tutorial' }).click()
   await page.getByRole('menuitem', { name: 'Setter' }).click()
-  await expect(tour).toContainText('Setter · 1/11')
+  await expect(tour).toContainText('Setter · 1/12')
 })
 
 test('l’anteprima del tour del marketing passa da «Contenuti», evidenziato nella barra laterale', async ({ page }) => {
@@ -168,4 +168,40 @@ test('l’anteprima del tour del marketing passa da «Contenuti», evidenziato n
   await avanti(page, tour)
   await expect(tour.getByRole('dialog', { name: 'Instagram Posts' })).toBeVisible()
   await expect(tour).toContainText('Marketing · 3/10')
+})
+
+test('il tour del setter passa da «Insight ultime 24h» dopo Closer, evidenziato nella barra laterale (1.35.0)', async ({
+  page,
+}) => {
+  // nine steps of 2 seconds of reading each
+  test.setTimeout(90_000)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await accedi(page, 'admin')
+  await page.getByRole('button', { name: 'Testa il tutorial' }).click()
+  await page.getByRole('menuitem', { name: 'Setter' }).click()
+  const tour = page.getByTestId('tutorial')
+  await expect(tour).toContainText('Setter · 1/12')
+  // a preview walks with "Avanti" up to the Closer step, then the Insight
+  for (let passo = 2; passo <= 10; passo++) {
+    await avanti(page, tour)
+    await expect(tour).toContainText(`Setter · ${passo}/12`)
+  }
+  const insight = tour.getByRole('dialog', { name: 'Insight ultime 24h' })
+  await expect(insight).toContainText('i DM del giorno letti da Claude')
+  // the admin has the item too: the highlight sits on it, no "not on your account" note
+  await expect(tour.getByText(/Anteprima: sul tuo account questo elemento non c’è/)).toHaveCount(0)
+  const voce = page
+    .getByRole('navigation', { name: 'Navigazione principale' })
+    .getByRole('link', { name: 'Insight ultime 24h', exact: true })
+  const alone = tour.locator('div.ring-2')
+  await expect(alone).toHaveCount(1)
+  await expect
+    .poll(async () => {
+      const [a, v] = await Promise.all([alone.boundingBox(), voce.boundingBox()])
+      if (!a || !v) return null
+      return [Math.round(a.x - v.x), Math.round(a.y - v.y)]
+    })
+    .toEqual([-6, -6])
+  await avanti(page, tour)
+  await expect(tour.getByRole('dialog', { name: 'Alfire, la nostra AI' })).toBeVisible()
 })

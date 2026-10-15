@@ -2,6 +2,7 @@ import { CircleCheck, Clock, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { BloccoInsight } from '@/app/(app)/settings/instagram/blocco-insight'
 import {
   NuovaEsclusione,
   RicalcolaIeri,
@@ -9,10 +10,19 @@ import {
   SceltaSetterInstagram,
   TokenInstagram,
 } from '@/app/(app)/settings/instagram/instagram-client'
+import {
+  NuovaEsclusioneMessenger,
+  RigaEsclusioneMessenger,
+  TokenMessenger,
+  type ChatMessenger,
+} from '@/app/(app)/settings/instagram/messenger-client'
+import { quando } from '@/app/(app)/settings/instagram/quando'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { requireRuolo } from '@/lib/auth/session'
-import { aggiungiGiorni, formatOra, oggiRoma } from '@/lib/date'
+import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
+import { insightConfigurato } from '@/lib/insight/config'
+import { leggiStatoInsightAdmin } from '@/lib/insight/stato'
 import { FRASI_ERRORE } from '@/lib/instagram/report'
 import { createClient } from '@/lib/supabase/server'
 
@@ -24,15 +34,6 @@ export const maxDuration = 300
 /** Dynamic Server Component: rendered once per request, so reading the clock is stable. */
 function adessoMs() {
   return Date.now()
-}
-
-/** "oggi alle 00:41", "ieri alle 00:41", "il 05/10/2026 alle 00:41" (Europe/Rome). */
-function quando(istante: string, oggi: string): string {
-  const giorno = oggiRoma(new Date(istante))
-  const ora = formatOra(istante)
-  if (giorno === oggi) return `oggi alle ${ora}`
-  if (giorno === aggiungiGiorni(oggi, -1)) return `ieri alle ${ora}`
-  return `il ${formatData(giorno)} alle ${ora}`
 }
 
 const GIORNO_MS = 86_400_000
@@ -81,6 +82,53 @@ async function caricaInstagram() {
   }
 }
 
+type CollegamentoMessenger = {
+  pagina_nome: string | null
+  token_aggiornato_il: string | null
+  ultimo_errore: string | null
+  ultimo_errore_il: string | null
+}
+type EsclusoMessenger = { utente_id: string; nome: string; motivo: string | null }
+
+/**
+ * Messenger and the Insight (1.35.0, CLAUDE.md section 29), with the admin's
+ * session: the Page (whether its token is in Vault, never the token), the
+ * excluded Messenger chats, the latest chats with a name to pick from
+ * (insight_chat_messenger, C14: insight_chat itself is read by no session),
+ * and insight_stato() as the admin sees it.
+ */
+async function caricaMessengerEInsight() {
+  const supabase = await createClient()
+  const [collegamento, token, esclusi, chat, stato] = await Promise.all([
+    supabase
+      .from('messenger_collegamento')
+      .select('pagina_nome, token_aggiornato_il, ultimo_errore, ultimo_errore_il')
+      .maybeSingle(),
+    // whether the Page token is there, never its value; never pagina_nome alone (C40)
+    supabase.rpc('messenger_token_presente'),
+    supabase.from('messenger_esclusi').select('utente_id, nome, motivo').order('nome'),
+    supabase.rpc('insight_chat_messenger'),
+    supabase.rpc('insight_stato'),
+  ])
+  if (collegamento.error || token.error || esclusi.error || chat.error || stato.error) {
+    throw new Error('Impossibile caricare Messenger e l’Insight')
+  }
+  const righeChat: unknown[] = Array.isArray(chat.data) ? chat.data : []
+  return {
+    messenger: (collegamento.data ?? null) as CollegamentoMessenger | null,
+    tokenMessenger: token.data === true,
+    esclusiMessenger: (esclusi.data ?? []) as EsclusoMessenger[],
+    chatMessenger: righeChat.filter(
+      (c): c is ChatMessenger =>
+        typeof c === 'object' &&
+        c !== null &&
+        typeof (c as ChatMessenger).utente_id === 'string' &&
+        typeof (c as ChatMessenger).nome === 'string',
+    ),
+    stato: leggiStatoInsightAdmin(stato.data),
+  }
+}
+
 function Voce({ etichetta, children }: { etichetta: string; children: ReactNode }) {
   return (
     <div className="grid gap-0.5 py-2 sm:grid-cols-[10rem_1fr] sm:gap-3">
@@ -92,7 +140,11 @@ function Voce({ etichetta, children }: { etichetta: string; children: ReactNode 
 
 export default async function InstagramPage() {
   await requireRuolo(['admin'])
-  const { collegamento, tokenPresente, esclusi, persone, scelto, post } = await caricaInstagram()
+  const [{ collegamento, tokenPresente, esclusi, persone, scelto, post }, insight] = await Promise.all([
+    caricaInstagram(),
+    caricaMessengerEInsight(),
+  ])
+  const { messenger, tokenMessenger, esclusiMessenger, chatMessenger, stato } = insight
   const adesso = adessoMs()
   const oggi = oggiRoma(new Date(adesso))
   const ieri = aggiungiGiorni(oggi, -1)
@@ -114,8 +166,8 @@ export default async function InstagramPage() {
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
-        titolo="Instagram"
-        descrizione="Ogni notte, dopo mezzanotte, i DM dell’account precompilano il report del giorno prima. Il setter lo conferma o lo corregge in Oggi, e puoi farlo anche tu nella pagina Setter: vale la prima scelta."
+        titolo="Instagram e Messenger"
+        descrizione="Ogni notte, dopo mezzanotte, i DM dell’account precompilano il report del giorno prima. Il setter lo conferma o lo corregge in Oggi, e puoi farlo anche tu nella pagina Setter: vale la prima scelta. I DM delle ultime 24 ore di Instagram e Messenger finiscono anche nell’Insight: Claude li analizza e il gestionale li tiene al massimo 30 giorni."
       />
 
       {tokenScaduto ? (
@@ -268,13 +320,15 @@ export default async function InstagramPage() {
         )}
       </section>
 
-      <section aria-labelledby="titolo-esclusi" className="space-y-3 rounded-xl bg-card p-4">
+      {/* #chat-escluse: the Insight links here, «Gestisci le chat escluse» (C42) */}
+      <section id="chat-escluse" aria-labelledby="titolo-esclusi" className="scroll-mt-4 space-y-3 rounded-xl bg-card p-4">
         <div className="space-y-1">
           <h2 id="titolo-esclusi" className="text-sm font-medium">
             Chat escluse
           </h2>
           <p className="text-sm text-muted-foreground">
-            Le chat con questi account (personale, team, clienti, amici) non contano mai nella proposta.
+            Le chat Instagram con questi account (personale, team, clienti, amici) non contano mai nella proposta e non
+            entrano mai nell’Insight.
           </p>
         </div>
         {esclusi.length === 0 ? (
@@ -319,6 +373,87 @@ export default async function InstagramPage() {
           }
         />
       </section>
+
+      <section id="messenger" aria-labelledby="titolo-messenger" className="scroll-mt-4 space-y-3 rounded-xl bg-card p-4">
+        <div className="space-y-1">
+          <h2 id="titolo-messenger" className="text-sm font-medium">
+            Messenger
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Il token della Pagina Facebook di Percorso Alpha. Serve solo per leggere le chat Messenger nell’Insight. Non
+            manda mai messaggi.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Generalo da Meta › Messenger › Impostazioni dell’API (genera il token della Pagina) e incollalo qui: l’app lo
+            prova prima di salvarlo.
+          </p>
+        </div>
+        <dl className="divide-y divide-border" data-testid="messenger-stato">
+          <Voce etichetta="Pagina">
+            {tokenMessenger ? (
+              <span className="inline-flex items-start gap-1.5">
+                <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
+                <span>
+                  {messenger?.pagina_nome ? `Collegata: Pagina «${messenger.pagina_nome}»` : 'Collegata'}
+                  {messenger?.token_aggiornato_il ? (
+                    <span className="num block text-muted-foreground">
+                      Token salvato il {formatData(oggiRoma(new Date(messenger.token_aggiornato_il)))}
+                    </span>
+                  ) : null}
+                </span>
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Non collegata</span>
+            )}
+          </Voce>
+          {messenger?.ultimo_errore ? (
+            <Voce etichetta="Ultimo errore">
+              <span className="flex items-start gap-1.5 text-status-critical" data-testid="messenger-ultimo-errore">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span>
+                  {messenger.ultimo_errore_il ? (
+                    <span className="num inline-flex items-center gap-1 text-muted-foreground">
+                      <Clock className="size-3.5" aria-hidden="true" />
+                      {quando(messenger.ultimo_errore_il, oggi)}:
+                    </span>
+                  ) : null}{' '}
+                  {messenger.ultimo_errore}
+                </span>
+              </span>
+            </Voce>
+          ) : null}
+        </dl>
+        <TokenMessenger presente={tokenMessenger} />
+      </section>
+
+      <section
+        id="chat-messenger-escluse"
+        aria-labelledby="titolo-esclusi-messenger"
+        className="scroll-mt-4 space-y-3 rounded-xl bg-card p-4"
+      >
+        <div className="space-y-1">
+          <h2 id="titolo-esclusi-messenger" className="text-sm font-medium">
+            Chat Messenger escluse
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Le chat Messenger con queste persone (clienti, amici, il team) non entrano mai nell’Insight.
+          </p>
+        </div>
+        {esclusiMessenger.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
+            Nessuna chat Messenger esclusa.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border" data-testid="messenger-esclusi">
+            {esclusiMessenger.map((e) => (
+              <RigaEsclusioneMessenger key={e.utente_id} utenteId={e.utente_id} nome={e.nome} motivo={e.motivo} />
+            ))}
+          </ul>
+        )}
+        <NuovaEsclusioneMessenger chat={chatMessenger} />
+      </section>
+
+      <BloccoInsight stato={stato} configurato={insightConfigurato()} adesso={adesso} oggi={oggi} />
     </div>
   )
 }

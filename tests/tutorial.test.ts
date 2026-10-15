@@ -93,6 +93,30 @@ describe('percorsi del tutorial', () => {
     )
   })
 
+  it('il setter passa da «Insight ultime 24h» dopo Closer e prima di Alfire; l’admin no (1.35.0)', () => {
+    const setter = PERCORSI.setter
+    const ids = setter.map((p) => p.id)
+    expect(setter).toHaveLength(12)
+    expect(ids.indexOf('insight')).toBe(ids.indexOf('closer') + 1)
+    expect(ids.indexOf('alfire')).toBe(ids.indexOf('insight') + 1)
+    // never right after "Oggi": that step continues on /today
+    expect(ids[ids.indexOf('vai-oggi') + 1]).not.toBe('insight')
+    const passo = setter[ids.indexOf('insight')]
+    expect(passo.clic).toBeFalsy()
+    expect(passo.pagina).toBeUndefined()
+    expect(passo.target).toEqual(['nav-/insight', 'nav-altro'])
+    expect(passo.titolo).toBe('Insight ultime 24h')
+
+    // the admin's tour stays at 12, the most: his Closer step names the item instead
+    expect(PERCORSI.admin).toHaveLength(12)
+    expect(PERCORSI.admin.some((p) => p.id === 'insight')).toBe(false)
+    expect(PERCORSI.admin.find((p) => p.id === 'closer')?.testo).toContain('«Insight ultime 24h» con il recap dei DM')
+    // nobody else has it
+    for (const ruolo of ['closer', 'coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
+      expect(PERCORSI[ruolo].some((p) => p.id === 'insight' || (p.target ?? []).includes('nav-/insight')), ruolo).toBe(false)
+    }
+  })
+
   it('la pagina del passo: "/" solo se stessa, le altre con le sotto-pagine', () => {
     expect(suPagina('/', '/')).toBe(true)
     expect(suPagina('/sales', '/')).toBe(false)

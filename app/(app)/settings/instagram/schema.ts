@@ -1,10 +1,13 @@
 import { z } from 'zod'
 
+import { cancellaMessaggiSchema } from '@/lib/validation/insight'
+
 /**
- * Impostazioni › Instagram (Dany, 08/10/2026): the forms of the admin, the
- * same schemas on the client and in the server actions. The username rule is
- * the check of public.instagram_esclusi (lowercase, without @, as Instagram
- * writes it).
+ * Impostazioni › Instagram e Messenger (Dany, 08/10/2026; Messenger and the
+ * Insight from 1.35.0): the forms of the admin, the same schemas on the client
+ * and in the server actions. The username rule is the check of
+ * public.instagram_esclusi (lowercase, without @, as Instagram writes it).
+ * The Messenger forms use lib/validation/insight.ts.
  */
 const USERNAME = /^[a-z0-9._]{1,30}$/
 export const MOTIVO_ESCLUSIONE_MAX = 120
@@ -29,6 +32,8 @@ export const esclusioneSchema = z.object({
     .max(MOTIVO_ESCLUSIONE_MAX, `Il motivo: al massimo ${MOTIVO_ESCLUSIONE_MAX} caratteri`)
     .nullish()
     .transform((v) => (v ? v : null)),
+  // «Cancella anche i suoi messaggi già salvati nell’Insight», checked by default (1.35.0, D16)
+  ...cancellaMessaggiSchema.shape,
 })
 
 export type EsclusioneInput = z.input<typeof esclusioneSchema>

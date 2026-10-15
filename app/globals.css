@@ -50,7 +50,9 @@
   --status-critical: #e5484d;
 
   /* Brand moment only (login, intro, shell logo): the fire around the logo.
-     Never used on data screens, never as a surface or a chart series. */
+     Never used on data screens, never as a surface or a chart series.
+     One exception: the sparkles of «Insight ultime 24h», in the menu and in
+     the page's title (1.35.0). */
   --brand-fire-core: #ffe2a3;
   --brand-fire-flame: #ff9a2c;
   --brand-fire-ember: #f0521d;

@@ -1,4 +1,4 @@
-import { ChevronRight, Sparkles } from 'lucide-react'
+import { ChevronRight, Megaphone } from 'lucide-react'
 import Link from 'next/link'
 
 import { VERSIONE_CORRENTE } from '@/lib/changelog/versioni'
@@ -14,7 +14,7 @@ export function VoceNovita({ descrizione, testId }: { descrizione: string; testI
       className="flex min-h-16 items-center gap-3 rounded-xl bg-card p-4 hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       data-testid={testId}
     >
-      <Sparkles className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <Megaphone className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium">Novità</span>
         <span className="block text-sm text-muted-foreground">

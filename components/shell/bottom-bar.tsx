@@ -15,7 +15,14 @@ import { ConteggioPromemoria as Conteggio } from '@/components/shell/conteggio-e
 import { usePromemoria } from '@/components/shell/esiti-da-registrare'
 import { LinkNav } from '@/components/shell/link-nav'
 import type { AppRole } from '@/lib/auth/roles'
-import { isAttiva, nomeConPromemoria, promemoriaDellaVoce, promemoriaDiAltro, vociNav } from '@/lib/nav'
+import {
+  classeTonoIcona,
+  isAttiva,
+  nomeConPromemoria,
+  promemoriaDellaVoce,
+  promemoriaDiAltro,
+  vociNav,
+} from '@/lib/nav'
 
 // the badge sits on the icon's top right corner, inside the 44px target
 const SUL_ICONA = 'absolute top-0.5 left-1/2 ml-1 ring-2 ring-sidebar'
@@ -54,7 +61,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                   attiva ? 'text-foreground' : 'text-muted-foreground'
                 }`}
               >
-                <voce.Icona className="size-5" aria-hidden="true" />
+                <voce.Icona className={`size-5 ${classeTonoIcona(voce, attiva)}`} aria-hidden="true" />
                 <span className="truncate">{voce.etichetta}</span>
                 <Conteggio promemoria={suoi} className={SUL_ICONA} />
                 <span
@@ -111,7 +118,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                           }`}
                         >
                           <voce.Icona
-                            className={`size-4 ${attiva ? '' : 'text-muted-foreground'}`}
+                            className={`size-4 ${attiva ? '' : classeTonoIcona(voce, attiva) || 'text-muted-foreground'}`}
                             aria-hidden="true"
                           />
                           {voce.etichetta}
