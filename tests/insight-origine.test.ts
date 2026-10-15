@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { giornoDiArrivo, haParolaChiave, normalizzaParola, origineCerta, origineDaCodice, origineDalModello, paroleChiave } from '@/lib/insight/origine'
+import { giornoDiArrivo, haParolaChiave, normalizzaParola, origineCerta, origineDaCodice, origineDaShortcode, origineDalModello, paroleChiave } from '@/lib/insight/origine'
 import { chatFinta, msg, postFinto } from './fixture-insight'
 
 // Where a lead comes from (1.35.0, D26). Invented chats and captions only.
@@ -115,6 +115,25 @@ describe('origineDalModello', () => {
     expect(origineCerta({ tipo: 'storia', shortcode: 'X1234' })).toBe(true)
     expect(origineCerta({ tipo: 'storia', shortcode: null })).toBe(false)
     expect(origineCerta({ tipo: 'testo', shortcode: 'X1234' })).toBe(false)
+  })
+})
+
+describe('origineDaShortcode', () => {
+  const chat = chatFinta({ messaggi: [msg('lead', '2026-10-11T20:00:00.000Z', 'Ho visto il tuo reel'), msg('alpha', '2026-10-11T21:00:00.000Z', 'Ciao!')] })
+
+  it('a post published before the lead\'s first message', () => {
+    expect(origineDaShortcode(chat, 'ReelDany01', post)).toMatchObject({ tipo: 'testo', shortcode: 'ReelDany01' })
+  })
+
+  it('never a post published after it: the lead cannot come from what did not exist yet', () => {
+    // ReelDany02 is from 12/10, the lead wrote on 11/10
+    expect(origineDaShortcode(chat, 'ReelDany02', post)).toBeNull()
+  })
+
+  it('without the posts, or for a post they do not list, the shortcode is taken as it is; an incomplete chat never', () => {
+    expect(origineDaShortcode(chat, 'ReelDany02')).toMatchObject({ shortcode: 'ReelDany02' })
+    expect(origineDaShortcode(chat, 'PostPiuVecchio', post)).toMatchObject({ shortcode: 'PostPiuVecchio' })
+    expect(origineDaShortcode({ ...chat, completa: false }, 'ReelDany01', post)).toBeNull()
   })
 })
 

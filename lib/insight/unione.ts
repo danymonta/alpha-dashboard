@@ -318,7 +318,7 @@ export const uniscRecap = ((op: OpUnione): RecapCanale => {
   const agendaApp = op.contesto?.agenda ?? []
   const media = new Map(op.contenuti.map((p) => [p.shortcode, p]))
   const tutteLeSchede = [...(op.schedeStoriche ?? []), ...op.schede]
-  const effettive = chatEffettive(op.chat, tutteLeSchede)
+  const effettive = chatEffettive(op.chat, tutteLeSchede, op.contenuti)
   const perId = new Map(effettive.filter((c) => c.canale === op.canale).map((c) => [c.conversazione_id, c]))
   const originali = new Map(op.chat.filter((c) => c.canale === op.canale).map((c) => [c.conversazione_id, c]))
 
@@ -595,6 +595,8 @@ export const uniscRecap = ((op: OpUnione): RecapCanale => {
         status,
         note: messaggio.sicurezza ? messaggioNonMostrato(messaggio.sicurezza) : str(carta.note),
         suggested_message: messaggio.sicurezza ? '' : messaggio.testo,
+        // the page does not show the agenda's notes: the reason a reminder is missing has its own field
+        ...(messaggio.sicurezza ? { da_ricontrollare: messaggioNonMostrato(messaggio.sicurezza) } : {}),
         ...(carta.user_id ? { channel: 'Messenger' as const, user_id: carta.user_id } : {}),
       }
     })

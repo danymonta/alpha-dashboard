@@ -51,7 +51,7 @@ export class ArchivioFinto implements Archivio {
   mediaIds = new Map<string, string>()
   schede: (SchedaArchiviata & { id: string; ordine: number })[] = []
   blocchiSalvati: (BloccoArchiviato & { usage?: unknown })[] = []
-  recap = new Map<string, { esecuzione: string; generatoIl: string; documento: RecapCanale }>()
+  recap = new Map<string, { esecuzione: string; generatoIl: string; documento: Omit<RecapCanale, 'avvisi' | 'generato_con'>; dettagli: Pick<RecapCanale, 'avvisi' | 'generato_con'> }>()
   conteggi: RigaContenutiDm[] = []
   agendaApp: VoceAgendaApp[] = []
   statiLead: StatoLeadApp[] = []
@@ -162,11 +162,17 @@ export class ArchivioFinto implements Archivio {
     return true
   }
 
-  async fallita(id: string, errore: string) {
+  async fallita(id: string, errore: string, contatori?: ContatoriPasso) {
     this.controlla('fallita')
     const e = this.esecuzioni.get(id)
     this.registro.fallite.push(errore)
     if (!e || (e.stato !== 'in_coda' && e.stato !== 'in_corso')) return false
+    // insight_fallita: the tokens the failed step had spent
+    for (const k of TOKEN_CONTATORI) {
+      const v = contatori?.[k]
+      if (v !== undefined) e[k] = (e[k] ?? 0) + Number(v)
+    }
+    if (contatori?.servito_da_fallback) e.servito_da_fallback += Number(contatori.servito_da_fallback)
     e.stato = 'fallita'
     e.errore = errore
     // insight_scarta_letture
@@ -431,12 +437,70 @@ export class ArchivioFinto implements Archivio {
   async salvaRecap({ giorno, canale, esecuzione, generatoIl, documento }: { giorno: string; canale: CanaleInsight; esecuzione: string; generatoIl: string; documento: RecapCanale }) {
     this.controlla('salvaRecap')
     if (new TextEncoder().encode(JSON.stringify(documento)).length > 400_000) throw new Error('recap oltre 400 KB')
-    this.recap.set(`${giorno}|${canale}`, { esecuzione, generatoIl, documento: structuredClone(documento) })
+    // as the real archive: what the setter must not read goes apart (insight_esecuzioni.dettagli_recap, the admin's)
+    const { avvisi, generato_con: generatoCon, ...pubblico } = structuredClone(documento)
+    this.recap.set(`${giorno}|${canale}`, { esecuzione, generatoIl, documento: pubblico, dettagli: { avvisi, generato_con: generatoCon } })
   }
 
-  async salvaConteggi(righe: readonly RigaContenutiDm[]) {
+  /** what the tests check: every call of salvaConteggi, with whether it marked the days */
+  chiamateConteggi: { righe: number; segnaGiorni: boolean }[] = []
+  /** insight_scarta_minore, as the tests see it */
+  minoriScartati: { canale: CanaleInsight; conversazioneId: string; esecuzione: string }[] = []
+
+  /** insight_scarta_minore: the earlier recaps and cards lose what they kept of the chat */
+  async scartaMinore(canale: CanaleInsight, conversazioneId: string, esecuzione: string) {
+    this.controlla('scartaMinore')
+    this.minoriScartati.push({ canale, conversazioneId, esecuzione })
+    const chat = this.chatDi(canale, conversazioneId)
+    for (const [chiave, r] of this.recap) {
+      if (!chiave.endsWith(`|${canale}`)) continue
+      r.documento.leads = r.documento.leads.map((l) =>
+        l.conversation_id === conversazioneId && l.minore_14 !== true
+          ? {
+              ...l,
+              age: '',
+              priority: 'alta' as const,
+              target: 'no' as const,
+              stage: 'uscita',
+              status: 'minore sotto i 14 anni',
+              situation: 'Minore sotto i 14 anni.',
+              pain: '',
+              next_action: 'Chiusura calorosa verso i contenuti gratuiti, nessun altro contatto.',
+              suggested_message: '',
+              suggested_message_alt: '',
+              alt_condition: '',
+              source: '',
+              topics: [],
+              messages: [],
+              minore_14: true as const,
+              origine: undefined,
+              da_ricontrollare: undefined,
+            }
+          : l,
+      )
+      r.documento.reactivate = r.documento.reactivate.filter((l) => l.conversation_id !== conversazioneId)
+      r.documento.objections = r.documento.objections.filter(
+        (o) => !((chat?.username && o.username === chat.username) || (chat?.utente_id && o.user_id === chat.utente_id)),
+      )
+    }
+    for (const s of this.schede) {
+      if (s.canale !== canale || s.chiave !== conversazioneId || (s.tipo !== 'lead' && s.tipo !== 'riattivazione')) continue
+      const d = (s.dati ?? {}) as { minore_14?: unknown; ultima_chiusura?: unknown; suggested_message?: unknown }
+      if (d.minore_14 === true) continue
+      const chiusura =
+        typeof d.ultima_chiusura === 'string' && d.ultima_chiusura !== ''
+          ? d.ultima_chiusura
+          : s.esecuzione_id === esecuzione && s.tipo === 'lead' && typeof d.suggested_message === 'string'
+            ? d.suggested_message
+            : ''
+      s.dati = { tipo: 'lead', minore_14: true, ultima_chiusura: chiusura }
+    }
+  }
+
+  async salvaConteggi(righe: readonly RigaContenutiDm[], opzioni?: { segnaGiorni?: boolean }) {
     this.controlla('salvaConteggi')
     for (const r of righe) if (r.dm <= 0) throw new Error('dm a zero')
+    this.chiamateConteggi.push({ righe: righe.length, segnaGiorni: opzioni?.segnaGiorni !== false })
     this.conteggi = structuredClone([...righe])
     return righe.length
   }

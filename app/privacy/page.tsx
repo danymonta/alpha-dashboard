@@ -212,10 +212,12 @@ const SEZIONI: Sezione[] = [
         </p>
         <p>
           <strong className="font-semibold">Riepilogo dei messaggi diretti.</strong> Ogni giorno il gestionale legge
-          anche i messaggi diretti delle ultime 24 ore dell’account Instagram di Percorso Alpha e della sua Pagina
-          Facebook (Messenger), con il nome, lo username e il numero di follower di chi scrive, per preparare un
-          riepilogo per il nostro team: chi aspetta una risposta, cosa chiede, quale messaggio scrivere, da quale nostro
-          post o reel è arrivato. Per l’analisi il testo dei messaggi viene inviato ad Anthropic PBC (Stati Uniti),
+          anche i messaggi diretti dell’account Instagram di Percorso Alpha e della sua Pagina Facebook (Messenger):
+          le conversazioni delle ultime 24 ore e quelle ferme da qualche giorno (fino a 14) per cui può servire un
+          messaggio di riattivazione, con gli ultimi messaggi di ciascuna (al massimo 25, degli ultimi 30 giorni); al
+          primo avvio, o dopo giorni in cui non ha girato, rilegge anche le conversazioni dei 14 giorni precedenti. Legge
+          il nome, lo username e il numero di follower di chi scrive, per preparare un riepilogo per il nostro team: chi
+          aspetta una risposta, cosa chiede, quale messaggio scrivere, da quale nostro post o reel è arrivato. Per l’analisi il testo dei messaggi viene inviato ad Anthropic PBC (Stati Uniti),
           fornitore del modello di intelligenza artificiale Claude, che lo tratta per nostro conto secondo i suoi termini
           commerciali: non lo usa per addestrare i suoi modelli e lo conserva per un periodo limitato. Il gestionale
           conserva il riepilogo e i messaggi letti per al massimo 30 giorni e non tiene mai messaggi più vecchi di 30
@@ -442,7 +444,9 @@ const SEZIONI: Sezione[] = [
       <p>
         Percorso Alpha si rivolge a persone maggiorenni. Se ci scrive un minore gli rispondiamo con attenzione. Sotto i 14
         anni chiudiamo la conversazione con gentilezza e non conserviamo i suoi messaggi: il gestionale li legge e li fa
-        analizzare una sola volta, anche da Anthropic, per riconoscere l’età, poi li cancella. Tra i 14 e i 17 anni non
+        analizzare una sola volta, anche da Anthropic, per riconoscere l’età, poi li cancella, anche dai riepiloghi dei
+        giorni prima. Di quella chat teniamo solo l’indicazione che è di un minore, senza alcun messaggio, perché non
+        venga analizzata di nuovo. Tra i 14 e i 17 anni non
         proponiamo niente senza il coinvolgimento dei genitori, e i suoi messaggi seguono le regole di tutti: restano al
         massimo 30 giorni nel riepilogo e passano da Anthropic per l’analisi. Se pensi che un minore ci abbia dato i suoi
         dati, scrivici e li cancelliamo.

@@ -107,6 +107,8 @@ export type AgendaRecap = {
   suggested_message: string
   channel?: 'Messenger'
   user_id?: string
+  /** additive: why the reminder is not shown and is to be written by hand (the final check removed it) */
+  da_ricontrollare?: string
 }
 
 export type ShowUpRecap = {
@@ -335,6 +337,7 @@ const agendaSchema = z.object({
   suggested_message: testo,
   channel: z.literal('Messenger').optional().catch(undefined),
   user_id: testoFacoltativo,
+  da_ricontrollare: testoFacoltativo,
 })
 
 const showUpSchema = z.object({
@@ -439,6 +442,32 @@ export const recapSchema = z.object({
     })
     .catch(GENERATO_CON_VUOTO),
 })
+
+const dettagliSchema = z.object({
+  avvisi: elenco(z.string()),
+  generato_con: z
+    .object({
+      modello: testo,
+      effort: testo,
+      versione_prompt: testo,
+      servito_da_fallback: z.boolean().catch(false),
+    })
+    .catch(GENERATO_CON_VUOTO),
+})
+
+/**
+ * The admin's part of a recap (the warnings and how it was made), kept on the
+ * run (insight_esecuzioni.dettagli_recap, by channel) and not in the document
+ * every setter reads. Tolerant: anything unreadable is «no warnings, no details».
+ */
+export function leggiDettagliRecap(
+  dettagli: unknown,
+  canale: 'instagram' | 'messenger',
+): Pick<RecapCanale, 'avvisi' | 'generato_con'> {
+  const voce = dettagli !== null && typeof dettagli === 'object' && !Array.isArray(dettagli) ? (dettagli as Record<string, unknown>)[canale] : undefined
+  const letto = dettagliSchema.safeParse(voce ?? {})
+  return letto.success ? letto.data : { avvisi: [], generato_con: GENERATO_CON_VUOTO }
+}
 
 /** A recap as the page reads it: a RecapCanale, with agenda and show_up always there ([] when absent). */
 export type RecapLetto = z.output<typeof recapSchema>

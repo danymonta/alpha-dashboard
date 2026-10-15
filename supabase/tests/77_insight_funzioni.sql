@@ -13,7 +13,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(163);
+select plan(187);
 
 -- helper: rows touched by an update or a delete, under the current role
 create or replace function pg_temp.righe(p_sql text)
@@ -98,41 +98,73 @@ select throws_ok($$ select public.insight_stato() $$, '42501', 'L’Insight lo v
   'né il video editor');
 
 -- ---------------------------------------------------------------------------
--- 3. insight_imposta_automazione(): the admin's
+-- 3. insight_imposta_url(): only the server; insight_imposta_automazione(): the admin's
 -- ---------------------------------------------------------------------------
+select ok(
+  not has_function_privilege('authenticated', 'public.insight_imposta_url(text)', 'execute')
+  and not has_function_privilege('anon', 'public.insight_imposta_url(text)', 'execute')
+  and has_function_privilege('service_role', 'public.insight_imposta_url(text)', 'execute'),
+  'l''indirizzo dei passi lo scrive solo il server: nessuna sessione lo sceglie'
+);
+set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select throws_ok(
+  $$ select public.insight_imposta_url('https://esempio-esterno.net/api/cron/insight') $$,
+  '42501', null,
+  'nemmeno l''admin, con la sua sessione, punta la chiave dei passi altrove'
+);
+select throws_ok(
+  $$ select public.insight_imposta_automazione(true, '19:00', 'https://esempio-esterno.net/api/cron/insight') $$,
+  '42883', null,
+  'e l''automazione non prende più un indirizzo'
+);
 set local request.jwt.claims to '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
 select throws_ok(
-  $$ select public.insight_imposta_automazione(true, '19:00', 'http://host.docker.internal:3200/api/cron/insight') $$,
+  $$ select public.insight_imposta_automazione(true, '19:00') $$,
   '42501', 'Solo l’admin imposta l’automazione.',
   'il setter non imposta l''automazione'
 );
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 select throws_ok(
-  $$ select public.insight_imposta_automazione(true, '19:00', null) $$,
+  $$ select public.insight_imposta_automazione(true, '19:00') $$,
   '22023', 'Indirizzo dell’app non valido.',
   'accenderla senza l''indirizzo dei passi no'
 );
+reset role;
+set local role service_role;
+set local request.jwt.claims to '{"role":"service_role"}';
 select throws_ok(
-  $$ select public.insight_imposta_automazione(true, '19:00', 'http://esempio.it/api/cron/insight') $$,
+  $$ select public.insight_imposta_url('http://esempio.it/api/cron/insight') $$,
   '22023', 'Indirizzo dell’app non valido.',
-  'né con un indirizzo http che non è locale'
+  'il server non scrive un indirizzo http che non è locale'
 );
 select throws_ok(
-  $$ select public.insight_imposta_automazione(true, '19:03', 'http://host.docker.internal:3200/api/cron/insight') $$,
-  '22023', null,
-  'né a un minuto che non è un passo di 5'
+  $$ select public.insight_imposta_url('https://dashboard.percorsoalpha.com/altro/percorso') $$,
+  '22023', 'Indirizzo dell’app non valido.',
+  'né un percorso che non è quello dei passi'
 );
 select lives_ok(
-  $$ select public.insight_imposta_automazione(true, '19:05', 'http://host.docker.internal:3200/api/cron/insight') $$,
+  $$ select public.insight_imposta_url('http://host.docker.internal:3200/api/cron/insight') $$,
+  'scrive quello dell''app (qui il dev server in locale)'
+);
+reset role;
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select throws_ok(
+  $$ select public.insight_imposta_automazione(true, '19:03') $$,
+  '22023', null,
+  'l''automazione non parte a un minuto che non è un passo di 5'
+);
+select lives_ok(
+  $$ select public.insight_imposta_automazione(true, '19:05') $$,
   'l''admin accende il recap automatico alle 19:05'
 );
 select is(
   (select row(attivo, ora, url_passo, updated_by)::text from public.insight_impostazioni),
   row(true, time '19:05', 'http://host.docker.internal:3200/api/cron/insight',
       '11111111-1111-4111-8111-111111111111'::uuid)::text,
-  'e la riga lo dice, col suo nome'
+  'e la riga lo dice, col suo nome e con l''indirizzo scritto dal server'
 );
-select lives_ok($$ select public.insight_imposta_automazione(false, '20:00', null) $$, 'e lo spegne');
+select lives_ok($$ select public.insight_imposta_automazione(false, '20:00') $$, 'e lo spegne');
 select is(
   (select row(attivo, ora, url_passo)::text from public.insight_impostazioni),
   row(false, time '20:00', 'http://host.docker.internal:3200/api/cron/insight')::text,
@@ -191,14 +223,14 @@ update public.insight_impostazioni set attivo = false, url_passo = null where id
 -- ---------------------------------------------------------------------------
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
-select throws_ok($$ select public.insight_richiedi(null) $$, '42501', null, 'il setter non aggiorna i dati');
+select throws_ok($$ select public.insight_richiedi() $$, '42501', null, 'il setter non aggiorna i dati');
 set local request.jwt.claims to '{"sub":"61616161-6161-4161-8161-616161616161","role":"authenticated"}';
-select throws_ok($$ select public.insight_richiedi(null) $$, '42501', null, 'né il marketing');
+select throws_ok($$ select public.insight_richiedi() $$, '42501', null, 'né il marketing');
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 reset role;
 insert into valori (nome, numero) values ('coda_prima', pg_temp.in_coda_net());
 set local role authenticated;
-insert into valori (nome, id) values ('manuale_senza_url', public.insight_richiedi(null));
+insert into valori (nome, id) values ('manuale_senza_url', public.insight_richiedi());
 select is(
   (select row(e.giorno = public.oggi(), e.motivo, e.stato, e.passo, e.richiesta_da, e.inviata_il)::text
    from public.insight_esecuzioni e join valori v on v.id = e.id and v.nome = 'manuale_senza_url'),
@@ -210,17 +242,27 @@ reset role;
 select is(pg_temp.in_coda_net(), (select numero from valori where nome = 'coda_prima'),
   'senza indirizzo dei passi non parte niente: aspetta chi la guida (in locale)');
 set local role authenticated;
-select throws_ok($$ select public.insight_richiedi(null) $$, '22023', 'Un aggiornamento è già in corso.',
+select throws_ok($$ select public.insight_richiedi() $$, '22023', 'Un aggiornamento è già in corso.',
   'un secondo tocco mentre la prima è in corso no');
 reset role;
 update public.insight_esecuzioni set stato = 'pronta' where id = (select id from valori where nome = 'manuale_senza_url');
 set local role authenticated;
-select throws_ok($$ select public.insight_richiedi('http://esempio.it/api/cron/insight') $$, '22023',
-  'Indirizzo dell’app non valido.', 'un indirizzo dei passi non valido no');
-insert into valori (nome, id) values ('manuale_con_url', public.insight_richiedi('http://host.docker.internal:3200/api/cron/insight'));
+select throws_ok($$ select public.insight_richiedi('http://esempio.it/api/cron/insight') $$, '42883', null,
+  'chiedere un aggiornamento non prende un indirizzo: la sessione non lo sceglie');
+reset role;
+-- the server writes the address, the session asks for the run
+update public.insight_impostazioni set url_passo = null where id;
+set local role service_role;
+set local request.jwt.claims to '{"role":"service_role"}';
+select lives_ok($$ select public.insight_imposta_url('http://host.docker.internal:3200/api/cron/insight') $$,
+  'il server scrive l''indirizzo dei passi');
+reset role;
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+insert into valori (nome, id) values ('manuale_con_url', public.insight_richiedi());
 reset role;
 select is((select url_passo from public.insight_impostazioni), 'http://host.docker.internal:3200/api/cron/insight',
-  'l''indirizzo dei passi si aggiorna con la richiesta');
+  'l''indirizzo dei passi è quello scritto dal server');
 select is(pg_temp.in_coda_net(), (select numero from valori where nome = 'coda_prima') + 1,
   'e pg_net ha in coda il primo passo');
 select ok(
@@ -238,7 +280,7 @@ select public.oggi(), 'manuale', 'pronta'
 from generate_series(1, 8 - (select count(*)::integer from public.insight_esecuzioni
                              where motivo = 'manuale' and giorno = public.oggi()));
 set local role authenticated;
-select throws_ok($$ select public.insight_richiedi(null) $$, '22023', 'Hai già aggiornato 8 volte oggi: riprova domani.',
+select throws_ok($$ select public.insight_richiedi() $$, '22023', 'Hai già aggiornato 8 volte oggi: riprova domani.',
   'la nona manuale di oggi no');
 reset role;
 set local request.jwt.claims to '{}';
@@ -515,6 +557,32 @@ set local role service_role;
 select is(public.insight_fallita('77770000-0000-4000-8000-000000000030', 'x'), false, 'una fallita non fallisce due volte');
 reset role;
 
+-- the tokens a failing step had spent are added to the run, the cost recomputed
+insert into public.insight_esecuzioni (id, giorno, motivo, stato, passo, token_input, token_output)
+values ('77770000-0000-4000-8000-000000000031', public.oggi(), 'manuale', 'in_corso', 'analisi', 500, 100);
+set local role service_role;
+select is(
+  public.insight_fallita('77770000-0000-4000-8000-000000000031', 'Claude ha rifiutato la richiesta',
+    '{"token_input": 1000, "token_cache_letti": 4000, "token_output": 200, "servito_da_fallback": 1}'::jsonb),
+  true,
+  'una fallita porta i token già spesi'
+);
+reset role;
+select is(
+  (select row(token_input, token_cache_letti, token_output, servito_da_fallback, costo_usd is not null,
+              costo_usd = public.insight_costo_usd(1500, null, 4000, 300))::text
+   from public.insight_esecuzioni where id = '77770000-0000-4000-8000-000000000031'),
+  row(1500, 4000, 300, 1, true, true)::text,
+  'sommati a quelli che aveva, col costo ricalcolato nel database'
+);
+set local role service_role;
+select throws_ok(
+  $$ select public.insight_fallita('77770000-0000-4000-8000-000000000031', 'x', '[1]'::jsonb) $$,
+  '22023', 'Contatori non validi',
+  'i contatori sono un oggetto'
+);
+reset role;
+
 -- ---------------------------------------------------------------------------
 -- 12. insight_pulizia(): nothing older than 30 days
 -- ---------------------------------------------------------------------------
@@ -550,10 +618,30 @@ insert into public.insight_recap (giorno, canale, generato_il, stato, dati) valu
 insert into public.insight_fatto (giorno, canale, chiave, fatto) values (public.oggi() - 31, 'instagram', 'vecchio.fatto', true);
 insert into public.instagram_contenuti_dm (shortcode, giorno, dm, lead_in_target, call_prenotate, dm_certi)
 values ('SeedDemo01', public.oggi() - 60, 2, 1, 0, 1);
+-- an under-14 chat outlives the 30 days with its sign only; a recap lives through its 29th day after
+insert into public.insight_chat (id, canale, conversazione_id, username, nome, ultimo_il, letta_il, messaggi, messaggi_letti, completa,
+  minore_14, ultimo_target, origine_tipo, origine_shortcode, origine_il, origine_giorno) values
+  ('77773333-0000-4000-8000-000000000003', 'instagram', 'c77-minore', 'minore.uno', 'Nome Minore', now() - interval '40 days',
+   now() - interval '40 days', '[]', 0, true, true, 'no', 'condivisione', 'SeedDemo01', now() - interval '41 days', public.oggi() - 41);
+insert into public.insight_recap (giorno, canale, generato_il, stato, dati) values
+  (public.oggi() - 30, 'messenger', now() - interval '30 days', 'completo', '{"leads":[]}'),
+  (public.oggi() - 29, 'messenger', now() - interval '29 days', 'completo', '{"leads":[]}');
 insert into valori (nome, numero) values
   ('recap_seed', (select count(*)::integer from public.insight_recap where giorno >= public.oggi() - 1));
 
 select lives_ok($$ select public.insight_pulizia() $$, 'la pulizia della notte gira');
+select is(
+  (select row(c.minore_14, c.nome, c.ultimo_target, c.origine_tipo, c.origine_shortcode, c.origine_giorno, c.messaggi)::text
+   from public.insight_chat c where c.id = '77773333-0000-4000-8000-000000000003'),
+  row(true, null, null, null, null, null, '[]'::jsonb)::text,
+  'una chat di un minore resta oltre i 30 giorni, col solo segno: il nome e l''origine se ne vanno'
+);
+select is(
+  (select array_agg(r.giorno order by r.giorno) from public.insight_recap r
+   where r.canale = 'messenger' and r.giorno in (public.oggi() - 30, public.oggi() - 29)),
+  array[public.oggi() - 29],
+  'un recap sparisce nella pulizia del suo trentesimo giorno dopo, non una notte più tardi'
+);
 select is((select count(*)::integer from public.insight_chat where id = '77773333-0000-4000-8000-000000000001'), 0,
   'una chat ferma da 31 giorni se ne va');
 select is(
@@ -971,6 +1059,128 @@ set local request.jwt.claims to '{}';
 select is((select count(*)::integer from vault.secrets where name = 'insight_chiave'), 1, 'sempre una sola');
 
 -- ---------------------------------------------------------------------------
+-- 18b. insight_scarta_minore(): a chat found to be under 14 loses what the earlier recaps and cards kept
+-- ---------------------------------------------------------------------------
+insert into public.insight_esecuzioni (id, giorno, motivo, stato) values
+  ('77770000-0000-4000-8000-0000000000f0', public.oggi() - 9, 'manuale', 'pronta'),
+  ('77770000-0000-4000-8000-0000000000f1', public.oggi() - 8, 'manuale', 'pronta');
+insert into public.insight_chat (id, canale, conversazione_id, username, ultimo_il, letta_il, messaggi, messaggi_letti, completa) values
+  ('77773333-0000-4000-8000-000000000004', 'instagram', 'c77-min2', 'minore.due', now(), now(), '[]', 0, true);
+insert into public.insight_recap (giorno, canale, esecuzione_id, generato_il, stato, dati) values
+  (public.oggi() - 9, 'instagram', '77770000-0000-4000-8000-0000000000f0', now() - interval '9 days', 'completo',
+   jsonb_build_object(
+     'headline', 'resta',
+     'leads', jsonb_build_array(
+       jsonb_build_object('conversation_id', 'c77-min2', 'username', 'minore.due', 'name', 'Marco', 'age', '', 'priority', 'media',
+         'target', 'si', 'stage', 'qualifica', 'status', 'in conversazione', 'situation', 'vuole mettere massa', 'pain', 'si sente piccolo',
+         'next_action', 'proporre la call', 'suggested_message', 'Ti va una call? Costa 100 euro', 'suggested_message_alt', '',
+         'alt_condition', '', 'needs_dany', '', 'flow', 'inbound', 'source', 'reel condiviso', 'topics', jsonb_build_array('massa'),
+         'last_from', 'alpha', 'last_message_at', '2026-10-06T09:00:00Z',
+         'messages', jsonb_build_array(jsonb_build_object('from', 'lead', 'time', '06/10 10:00', 'text', 'ho 13 anni', 'at', '2026-10-06T08:00:00Z')),
+         'origine', jsonb_build_object('tipo', 'condivisione', 'shortcode', 'SeedDemo01')),
+       jsonb_build_object('conversation_id', 'c77-adulto', 'username', 'adulto.uno', 'name', 'Luca', 'situation', 'resta',
+         'messages', jsonb_build_array(jsonb_build_object('from', 'lead', 'time', '06/10 10:00', 'text', 'ciao', 'at', '2026-10-06T08:00:00Z')))),
+     'reactivate', jsonb_build_array(
+       jsonb_build_object('conversation_id', 'c77-min2', 'username', 'minore.due', 'days_silent', 6, 'messages', '[]'::jsonb),
+       jsonb_build_object('conversation_id', 'c77-altro', 'username', 'altro.uno', 'days_silent', 7, 'messages', '[]'::jsonb)),
+     'objections', jsonb_build_array(
+       jsonb_build_object('username', 'minore.due', 'text', 'costa troppo', 'suggested_reply', 'una risposta'),
+       jsonb_build_object('username', 'adulto.uno', 'text', 'ci penso', 'suggested_reply', 'altra risposta')),
+     'non_leads', '[]'::jsonb));
+insert into public.insight_schede (esecuzione_id, giorno, canale, tipo, chiave, impronta, dati) values
+  ('77770000-0000-4000-8000-0000000000f0', public.oggi() - 9, 'instagram', 'lead', 'c77-min2', repeat('d', 64),
+   '{"tipo":"lead","situation":"vuole massa","pain":"si sente piccolo","suggested_message":"Ti va una call? Costa 100 euro"}'),
+  ('77770000-0000-4000-8000-0000000000f0', public.oggi() - 9, 'instagram', 'lead', 'c77-adulto', repeat('e', 64),
+   '{"tipo":"lead","situation":"resta"}'),
+  ('77770000-0000-4000-8000-0000000000f1', public.oggi() - 8, 'instagram', 'lead', 'c77-min2', repeat('f', 64),
+   '{"tipo":"lead","situation":"sotto i 14","fascia_eta":"sotto_14","suggested_message":"Ciao, ti lascio i contenuti gratuiti"}');
+
+set local role service_role;
+set local request.jwt.claims to '{"role":"service_role"}';
+select is(
+  public.insight_scarta_minore('instagram', 'c77-min2', '77770000-0000-4000-8000-0000000000f1'),
+  '{"voci_recap": 3, "schede": 2}'::jsonb,
+  'toglie il minore dai recap (la scheda, le riattivazioni, le obiezioni) e dalle schede'
+);
+reset role;
+select is(
+  (select row(l->>'minore_14', jsonb_array_length(l->'messages'), l->>'situation', l->>'pain', l->>'suggested_message',
+              l->'topics', l ? 'origine', l->>'username')::text
+   from public.insight_recap r, jsonb_array_elements(r.dati->'leads') l
+   where r.giorno = public.oggi() - 9 and r.canale = 'instagram' and l->>'conversation_id' = 'c77-min2'),
+  row('true', 0, 'Minore sotto i 14 anni.', '', '', '[]'::jsonb, false, 'minore.due')::text,
+  'nel recap dei giorni prima il minore non ha più messaggi, situazione, pain, risposte suggerite né origine'
+);
+select is(
+  (select row(l->>'situation', jsonb_array_length(l->'messages'))::text
+   from public.insight_recap r, jsonb_array_elements(r.dati->'leads') l
+   where r.giorno = public.oggi() - 9 and r.canale = 'instagram' and l->>'conversation_id' = 'c77-adulto'),
+  row('resta', 1)::text,
+  'un altro lead di quel giorno non si tocca'
+);
+select is(
+  (select array_agg(x->>'username' order by x->>'username')
+   from public.insight_recap r, jsonb_array_elements(r.dati->'reactivate') x
+   where r.giorno = public.oggi() - 9 and r.canale = 'instagram'),
+  array['altro.uno'],
+  'esce dalle chat da riattivare'
+);
+select is(
+  (select array_agg(x->>'username') from public.insight_recap r, jsonb_array_elements(r.dati->'objections') x
+   where r.giorno = public.oggi() - 9 and r.canale = 'instagram'),
+  array['adulto.uno'],
+  'e dalle obiezioni, che citano le sue parole'
+);
+select is(
+  (select r.dati->>'headline' from public.insight_recap r where r.giorno = public.oggi() - 9 and r.canale = 'instagram'),
+  'resta',
+  'il resto del recap resta com''è'
+);
+select is(
+  (select s.dati::text from public.insight_schede s
+   where s.esecuzione_id = '77770000-0000-4000-8000-0000000000f0' and s.chiave = 'c77-min2'),
+  '{"tipo": "lead", "minore_14": true, "ultima_chiusura": ""}',
+  'le schede dei giorni prima perdono tutto, anche la risposta ordinaria che aveva dato (un prezzo)'
+);
+select is(
+  (select s.dati::text from public.insight_schede s
+   where s.esecuzione_id = '77770000-0000-4000-8000-0000000000f1' and s.chiave = 'c77-min2'),
+  '{"tipo": "lead", "minore_14": true, "ultima_chiusura": "Ciao, ti lascio i contenuti gratuiti"}',
+  'quella dell''esecuzione che l''ha riconosciuto tiene la chiusura calorosa'
+);
+select is(
+  (select s.dati->>'situation' from public.insight_schede s
+   where s.esecuzione_id = '77770000-0000-4000-8000-0000000000f0' and s.chiave = 'c77-adulto'),
+  'resta',
+  'la scheda di un altro lead non si tocca'
+);
+set local role service_role;
+select is(
+  public.insight_scarta_minore('instagram', 'c77-min2', '77770000-0000-4000-8000-0000000000f1'),
+  '{"voci_recap": 0, "schede": 0}'::jsonb,
+  'rifarlo non cambia niente'
+);
+reset role;
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select throws_ok(
+  $$ select public.insight_scarta_minore('instagram', 'c77-min2', '77770000-0000-4000-8000-0000000000f1') $$,
+  '42501', null,
+  'nessuna sessione, nemmeno l''admin, la chiama'
+);
+reset role;
+set local request.jwt.claims to '{}';
+
+-- the recaps the setter reads carry no warnings and no model details (they are on the run, the admin's)
+select is(
+  (select count(*)::integer from public.insight_recap r where r.dati ? 'avvisi' or r.dati ? 'generato_con'),
+  0,
+  'nei recap di seed, quelli che legge il setter, non ci sono gli avvisi né i dettagli del modello'
+);
+select col_type_is('public', 'insight_esecuzioni', 'dettagli_recap', 'jsonb',
+  'stanno sull''esecuzione (dettagli_recap), che legge solo l''admin');
+
+-- ---------------------------------------------------------------------------
 -- 19. Grants: the internal functions belong to no session
 -- ---------------------------------------------------------------------------
 select ok(
@@ -980,7 +1190,8 @@ select ok(
      'public.insight_tick()', 'public.insight_dispatch(uuid)', 'public.insight_pulizia()', 'public.insight_chiave()',
      'public.insight_prendi_passo(uuid, integer)',
      'public.insight_passo_finito(uuid, public.insight_passo, jsonb, text[], jsonb)',
-     'public.insight_fallita(uuid, text)', 'public.insight_scarta_letture(uuid)',
+     'public.insight_fallita(uuid, text, jsonb)', 'public.insight_scarta_letture(uuid)',
+     'public.insight_scarta_minore(public.insight_canale, text, uuid)', 'public.insight_imposta_url(text)',
      'public.insight_agenda(timestamptz)', 'public.insight_stato_lead(text[], text[])',
      'public.insight_costo_usd(bigint, bigint, bigint, bigint)', 'public.insight_da_avviare(timestamptz)',
      'public.insight_istante(text)', 'public.messenger_token()', 'public.messenger_errore(text)'
@@ -992,7 +1203,8 @@ select ok(
    from unnest(array[
      'public.insight_prendi_passo(uuid, integer)',
      'public.insight_passo_finito(uuid, public.insight_passo, jsonb, text[], jsonb)',
-     'public.insight_fallita(uuid, text)', 'public.insight_chiave()', 'public.insight_agenda(timestamptz)',
+     'public.insight_fallita(uuid, text, jsonb)', 'public.insight_chiave()', 'public.insight_agenda(timestamptz)',
+     'public.insight_scarta_minore(public.insight_canale, text, uuid)', 'public.insight_imposta_url(text)',
      'public.insight_stato_lead(text[], text[])', 'public.messenger_token()', 'public.messenger_errore(text)'
    ]) as f),
   'il service role chiama quelle della route'

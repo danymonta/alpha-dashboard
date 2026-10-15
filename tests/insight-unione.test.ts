@@ -336,6 +336,21 @@ describe('reactivation and agenda', () => {
   })
 })
 
+describe('agenda: a reminder the final check removes says why', () => {
+  it('the reason is in da_ricontrollare, the page shows it where the reminder would be', () => {
+    const call = voceAgendaFinta({ giorno: 'domani', programmata_il: '2026-10-15T16:00:00.000Z' })
+    const c = chatFinta({ username: call.username })
+    const dati = { status: 'confermata', note: '', suggested_message: 'Ci vediamo domani! Guarda https://esempio.test/offerta', user_id: null }
+    const doc = uniscRecap(op({ chat: [c], contesto: { agenda: [call], stato_lead: [] }, schede: [{ tipo: 'agenda', chiave: call.call_id, impronta: 'a'.repeat(64), dati }] }))
+    expect(doc.agenda?.[0].suggested_message).toBe('')
+    expect(doc.agenda?.[0].da_ricontrollare).toBe('Messaggio non mostrato: link diverso dal Calendly. Scrivilo a mano.')
+    // a clean reminder has none
+    const pulita = { ...dati, suggested_message: 'Ci vediamo domani alle 18:00 💪' }
+    const ok = uniscRecap(op({ chat: [c], contesto: { agenda: [call], stato_lead: [] }, schede: [{ tipo: 'agenda', chiave: call.call_id, impronta: 'b'.repeat(64), dati: pulita }] }))
+    expect(ok.agenda?.[0].da_ricontrollare).toBeUndefined()
+  })
+})
+
 describe('agenda without the lead\'s chat', () => {
   it('the model\'s status is not trusted: «da verificare»; with the chat it is', () => {
     const senza = voceAgendaFinta({ username: 'nessuna_chat' })

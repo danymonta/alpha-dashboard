@@ -90,6 +90,8 @@ const schemaCanale = z.object({
   fallite: z.number().int().nonnegative().default(0),
   escluse: z.number().int().nonnegative().default(0),
   finito: z.boolean().default(false),
+  /** some chats of this channel were left out by a cap (Meta's, or STORICO_MAX for the history): not every day is fully read */
+  storico_incompleto: z.boolean().default(false),
   /** Messenger: read, without a token, or failed (a warning) */
   stato: z.enum(['letto', 'senza_token', 'errore']).optional(),
 })
@@ -116,6 +118,25 @@ export type ProgressoLettura = z.infer<typeof schemaLettura>
 export function progressoLettura(progresso: Record<string, unknown> | null | undefined): ProgressoLettura {
   const letto = schemaLettura.safeParse(progresso?.lettura ?? {})
   return letto.success ? letto.data : schemaLettura.parse({})
+}
+
+/** The warnings that say some chats may be missing from what was read. */
+const AVVISI_LETTURA_PARZIALE: readonly CodiceAvviso[] = [
+  'chat_non_lette',
+  'instagram_limitato',
+  'chat_troppe',
+  'messenger_token',
+  'messenger_non_letto',
+  'messenger_chat_non_lette',
+]
+
+/**
+ * Whether the reading covered every chat it should: only then are the days it
+ * re-read marked as counted (instagram_contenuti_dm_giorni), where «no leads
+ * from a post» means zero and not «not read».
+ */
+export function letturaCompleta(p: ProgressoLettura): boolean {
+  return !p.instagram.storico_incompleto && !p.messenger.storico_incompleto && !p.avvisi.some((a) => (AVVISI_LETTURA_PARZIALE as readonly string[]).includes(a))
 }
 
 function avvisa(p: ProgressoLettura, codice: CodiceAvviso) {
@@ -224,7 +245,13 @@ async function elenca<C extends { id: string; updated_time?: string }>(
   const recenti = await l.recenti()
   const ultime = await l.dal(new Date(op.adesso.getTime() - ORE_DEL_GIORNO * ORA_MS))
   if (ultime.troncato && l.canale === 'instagram') avvisa(lettura, 'chat_troppe')
-  const storico = op.storico ? (await l.dal(op.storico)).conversazioni.slice(0, STORICO_MAX) : []
+  if (ultime.troncato) p.storico_incompleto = true
+  let storico: C[] = []
+  if (op.storico) {
+    const letto = await l.dal(op.storico)
+    storico = letto.conversazioni.slice(0, STORICO_MAX)
+    if (letto.troncato || letto.conversazioni.length > STORICO_MAX) p.storico_incompleto = true
+  }
 
   const delGiorno = unici(recenti, ultime.conversazioni)
   const idsDelGiorno = new Set(delGiorno.map((c) => c.id))

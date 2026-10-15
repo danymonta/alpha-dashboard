@@ -23,6 +23,16 @@ const db = vi.hoisted(() => {
   return { stato, client }
 })
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(async () => db.client) }))
+// the service role writes the step address (salvaUrlPasso): recorded apart from the session's calls
+const servizio = vi.hoisted(() => ({ chiamate: [] as [string, unknown][], errore: null as { code: string } | null }))
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: () => ({
+    rpc: (nome: string, args: unknown) => {
+      servizio.chiamate.push([nome, args])
+      return Promise.resolve({ data: null, error: servizio.errore })
+    },
+  }),
+}))
 
 import { revalidatePath } from 'next/cache'
 
@@ -44,6 +54,8 @@ beforeEach(() => {
   sessione.attivo = true
   db.stato.risposte = []
   db.stato.chiamate = []
+  servizio.chiamate = []
+  servizio.errore = null
   vi.mocked(revalidatePath).mockClear()
 })
 
@@ -77,9 +89,9 @@ describe('salvaAutomazione', () => {
     vi.stubEnv('INSIGHT_URL_PASSO', URL_LOCALE)
     const esito = await salvaAutomazione({ attiva: true, ora: '19:05' })
     expect(esito).toEqual({ ok: true, avviso: null })
-    expect(db.stato.chiamate).toEqual([
-      ['insight_imposta_automazione', { p_attivo: true, p_ora: '19:05', p_url: URL_LOCALE }],
-    ])
+    // the session sets the switch and the time, never the address: the server writes it with the service role
+    expect(db.stato.chiamate).toEqual([['insight_imposta_automazione', { p_attivo: true, p_ora: '19:05' }]])
+    expect(servizio.chiamate).toEqual([['insight_imposta_url', { p_url: URL_LOCALE }]])
     expect(vi.mocked(revalidatePath).mock.calls.map((c) => c[0])).toEqual(['/insight', '/settings/instagram'])
   })
 
@@ -88,11 +100,15 @@ describe('salvaAutomazione', () => {
     vi.stubEnv('INSIGHT_URL_PASSO', URL_LOCALE)
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://dashboard.percorsoalpha.com')
     expect(await salvaAutomazione({ attiva: true, ora: '19:00' })).toEqual({ ok: true, avviso: null })
-    expect(db.stato.chiamate[0]?.[1]).toEqual({
-      p_attivo: true,
-      p_ora: '19:00',
-      p_url: 'https://dashboard.percorsoalpha.com/api/cron/insight',
-    })
+    expect(db.stato.chiamate[0]?.[1]).toEqual({ p_attivo: true, p_ora: '19:00' })
+    expect(servizio.chiamate).toEqual([['insight_imposta_url', { p_url: 'https://dashboard.percorsoalpha.com/api/cron/insight' }]])
+  })
+
+  it('se l’indirizzo non si salva non la accende e lo dice', async () => {
+    vi.stubEnv('INSIGHT_URL_PASSO', URL_LOCALE)
+    servizio.errore = { code: 'XX000' }
+    expect(await salvaAutomazione({ attiva: true, ora: '19:00' })).toEqual({ ok: false, errore: 'Indirizzo dell’app non salvato. Riprova.' })
+    expect(db.stato.chiamate).toEqual([])
   })
 
   it('senza un indirizzo valido non la accende e non chiama niente', async () => {
@@ -100,6 +116,7 @@ describe('salvaAutomazione', () => {
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://dashboard.percorsoalpha.com')
     expect(await salvaAutomazione({ attiva: true, ora: '19:00' })).toEqual({ ok: false, errore: URL_PASSO_MANCANTE })
     expect(db.stato.chiamate).toEqual([])
+    expect(servizio.chiamate).toEqual([])
     expect(revalidatePath).not.toHaveBeenCalled()
   })
 
@@ -107,7 +124,8 @@ describe('salvaAutomazione', () => {
     vi.stubEnv('VERCEL_ENV', 'production')
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://dashboard.percorsoalpha.com')
     expect(await salvaAutomazione({ attiva: false, ora: '19:00' })).toEqual({ ok: true, avviso: null })
-    expect(db.stato.chiamate).toEqual([['insight_imposta_automazione', { p_attivo: false, p_ora: '19:00', p_url: null }]])
+    expect(db.stato.chiamate).toEqual([['insight_imposta_automazione', { p_attivo: false, p_ora: '19:00' }]])
+    expect(servizio.chiamate).toEqual([])
   })
 
   it('in locale coi passi manuali non la accende, e dice perché', async () => {

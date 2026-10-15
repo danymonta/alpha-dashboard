@@ -143,10 +143,18 @@ export const origineDalModello: OrigineDalModello = (chat, postRef, postDelGiorn
 }
 
 /** An origin found by code or by the model, from a shortcode already resolved (a stored card). */
-export function origineDaShortcode(chat: Pick<ChatSalvata, 'messaggi' | 'completa'>, shortcode: string | null): OrigineChat | null {
+export function origineDaShortcode(
+  chat: Pick<ChatSalvata, 'messaggi' | 'completa'>,
+  shortcode: string | null,
+  /** the posts the shortcode can be one of: a post published after the lead's first message cannot be where he came from */
+  post?: readonly Pick<PostInsight, 'shortcode' | 'pubblicato_il'>[],
+): OrigineChat | null {
   if (!chat.completa || !shortcode) return null
   const quando = arrivo(chat)
-  return quando ? { tipo: 'testo', shortcode, ...quando } : null
+  if (!quando) return null
+  const pubblicato = post?.find((p) => p.shortcode === shortcode)?.pubblicato_il
+  if (pubblicato && Date.parse(pubblicato) > Date.parse(quando.il)) return null
+  return { tipo: 'testo', shortcode, ...quando }
 }
 
 /** The type of an origin that the counts call «certa»: found by code, never by the model (D27). */

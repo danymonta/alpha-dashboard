@@ -27,7 +27,7 @@ import {
   RECAP_ILLEGGIBILE,
   titoloNessunRecap,
 } from '@/lib/insight/parole'
-import { leggiRecap, type RecapLetto } from '@/lib/insight/recap'
+import { leggiDettagliRecap, leggiRecap, type RecapLetto } from '@/lib/insight/recap'
 import { leggiStatoInsight, leggiStatoInsightAdmin, type StatoInsight, type StatoInsightAdmin } from '@/lib/insight/stato'
 import { FRASI_ERRORE } from '@/lib/instagram/report'
 import { createClient } from '@/lib/supabase/server'
@@ -43,7 +43,7 @@ function primo(valore: string | string[] | undefined): string | undefined {
   return Array.isArray(valore) ? valore[0] : valore
 }
 
-type RigaRecap = { giorno: string; generato_il: string; dati: unknown }
+type RigaRecap = { giorno: string; generato_il: string; esecuzione_id: string | null; dati: unknown }
 
 /** The posts a recap names (the leads' origins and the posts table): the admin's calendar lookup. */
 function shortcodeDelRecap(recap: RecapLetto): string[] {
@@ -90,7 +90,7 @@ export default async function InsightPage({
   const supabase = await createClient()
 
   function recapDi(giorno: string | null) {
-    const query = supabase.from('insight_recap').select('giorno, generato_il, dati').eq('canale', fonte)
+    const query = supabase.from('insight_recap').select('giorno, generato_il, esecuzione_id, dati').eq('canale', fonte)
     return (giorno ? query.eq('giorno', giorno) : query.order('giorno', { ascending: false }).limit(1)).maybeSingle()
   }
 
@@ -125,11 +125,13 @@ export default async function InsightPage({
   }
   const giorno = riga?.giorno ?? null
   const letto = riga ? leggiRecap(riga.dati) : null
-  // the run's warnings and how it was made are the admin's (C47, D23): they never reach the setter's browser
-  const recap: RecapLetto | null =
-    letto && !admin
-      ? { ...letto, avvisi: [], generato_con: { modello: '', effort: '', versione_prompt: '', servito_da_fallback: false } }
-      : letto
+  // the run's warnings and how it was made are the admin's (C47, D23): they are not in the document the
+  // setter reads (insight_recap.dati), they are on the run, which only the admin can read
+  let recap: RecapLetto | null = letto
+  if (letto && admin && riga?.esecuzione_id) {
+    const { data: run } = await supabase.from('insight_esecuzioni').select('dettagli_recap').eq('id', riga.esecuzione_id).maybeSingle()
+    recap = { ...letto, ...leggiDettagliRecap(run?.dettagli_recap, fonte) }
+  }
   const giorni = ((giorniR.data ?? []) as { giorno: string }[]).map((r) => r.giorno)
   const agendaUltimo = (agendaR.data as { agenda?: unknown } | null)?.agenda
   const callOggi = Array.isArray(agendaUltimo)

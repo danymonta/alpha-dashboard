@@ -9,6 +9,7 @@ import { pianificaBlocchi } from '@/lib/insight/blocchi'
 import { applicaCorrezioni, daCorreggere } from '@/lib/insight/controllo-finale'
 import {
   BETA_FALLBACK,
+  classificaErrore,
   eseguiBlocco,
   eseguiInPool,
   MINIMO_PER_INIZIARE_MS,
@@ -218,6 +219,98 @@ describe('what goes wrong', () => {
     const esito = await esegui<RisultatoBloccoAgenda>(payload)
     expect(esito).toMatchObject({ ok: false, errore: 'json', esito: 'fallito' })
     expect(JSON.stringify(esito)).not.toContain('call')
+  })
+})
+
+describe('what an interruption keeps', () => {
+  /** A client whose n-th request is the stub's, the others the fake server's. */
+  function clienteConStub(stub: Record<number, () => unknown>): { client: Anthropic; chiamate: () => number } {
+    let n = 0
+    const proxy = {
+      beta: {
+        messages: {
+          stream: (corpo: unknown, opz: unknown) => {
+            n++
+            const sostituto = stub[n]
+            return sostituto ? sostituto() : (client.beta.messages.stream as (c: unknown, o: unknown) => unknown)(corpo, opz)
+          },
+        },
+      },
+    }
+    return { client: proxy as unknown as Anthropic, chiamate: () => n }
+  }
+  const limite = (retryAfter?: string) =>
+    new Anthropic.RateLimitError(429, { type: 'error', error: { type: 'rate_limit_error', message: 'Troppe richieste' } }, 'x', new Headers(retryAfter === undefined ? {} : { 'retry-after': retryAfter }))
+  const flusso = (errore: Error, usage?: Record<string, number>) => ({
+    on: () => undefined,
+    finalMessage: () => Promise.reject(errore),
+    currentMessage: usage ? { usage } : undefined,
+    request_id: null,
+  })
+
+  it('a block split in halves keeps the cards of the first half when the second is interrupted', async () => {
+    const chats = [chatCon('uno'), chatCon('due'), chatCon('tre'), chatCon('quattro [[tronca]]')]
+    // 1: all four, cut (max_tokens) → split; 2: the first half, answered; 3: the second half, a long rate limit
+    const { client: c } = clienteConStub({ 3: () => flusso(limite('30')) })
+    const esito = await esegui<RisultatoBloccoSchede>(payloadDi(chats), { client: c })
+    if (esito.ok) throw new Error('doveva essere interrotto')
+    expect(esito).toMatchObject({ errore: 'rate_limit', esito: 'da_rifare' })
+    const parziale = esito.parziale as RisultatoBloccoSchede
+    expect(parziale.schede.map((v) => v.chiave).sort()).toEqual([chats[0], chats[1]].map((x) => x.conversazione_id).sort())
+    expect(parziale.mancanti).toEqual([])
+  })
+
+  it('a forgotten ref that runs again keeps the first answer when the second is interrupted', async () => {
+    const chats = [chatCon('uno'), chatCon('due [[salta]]')]
+    const { client: c } = clienteConStub({ 2: () => flusso(limite('30')) })
+    const esito = await esegui<RisultatoBloccoSchede>(payloadDi(chats), { client: c })
+    if (esito.ok) throw new Error('doveva essere interrotto')
+    expect((esito.parziale as RisultatoBloccoSchede).schede.map((v) => v.chiave)).toEqual([chats[0].conversazione_id])
+  })
+
+  it('a stream that breaks is still billed for what it had produced', async () => {
+    const chat = chatCon('uno')
+    const { client: c } = clienteConStub({
+      1: () => flusso(limite('30'), { input_tokens: 1200, cache_read_input_tokens: 9000, output_tokens: 310 }),
+    })
+    const esito = await esegui<RisultatoBloccoSchede>(payloadDi([chat]), { client: c })
+    if (esito.ok) throw new Error('doveva essere interrotto')
+    expect(esito.usage).toEqual({ input_tokens: 1200, cache_creation_input_tokens: 0, cache_read_input_tokens: 9000, output_tokens: 310 })
+  })
+
+  it('a 429 without retry-after is an unknown wait: no immediate second attempt', async () => {
+    expect(classificaErrore(limite())).toMatchObject({ codice: 'rate_limit', ritentabile: false, attesaMs: Number.POSITIVE_INFINITY })
+    expect(classificaErrore(limite(''))).toMatchObject({ ritentabile: false })
+    expect(classificaErrore(limite('0'))).toMatchObject({ ritentabile: true, attesaMs: 0 })
+    expect(classificaErrore(limite('4'))).toMatchObject({ ritentabile: true, attesaMs: 4000 })
+    const { client: c, chiamate } = clienteConStub({ 1: () => flusso(limite()), 2: () => flusso(limite()) })
+    const esito = await esegui<RisultatoBloccoSchede>(payloadDi([chatCon('uno')]), { client: c })
+    expect(esito.ok).toBe(false)
+    expect(chiamate()).toBe(1)
+  })
+
+  it('the pool hands over what a rate-limited block spent and validated before it goes back to the queue', async () => {
+    const uso = { input_tokens: 7, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 3 }
+    let prima = true
+    const rimessi: EsitoBlocco<unknown>[] = []
+    await eseguiInPool({
+      blocchi: ['a'],
+      concorrenza: 1,
+      entro: Date.now() + 240_000,
+      primoDaSolo: false,
+      esegui: async () => {
+        if (prima) {
+          prima = false
+          return { ok: false, errore: 'rate_limit', esito: 'da_rifare', usage: uso, parziale: { schede: [], mancanti: [] } }
+        }
+        return { ok: true, risultato: {}, usage: uso, servito_da_fallback: false, modello: 'claude-sonnet-5-5', request_id: null }
+      },
+      alRimesso: (_blocco, esito) => {
+        rimessi.push(esito)
+      },
+    })
+    expect(rimessi).toHaveLength(1)
+    expect(rimessi[0]).toMatchObject({ ok: false, usage: uso })
   })
 })
 

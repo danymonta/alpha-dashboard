@@ -203,7 +203,9 @@ export function classificaErrore(e: unknown): ErroreRichiesta {
   }
   if (e instanceof Anthropic.BadRequestError) return { codice: 'richiesta', esito: 'fatale', ritentabile: false, attesaMs: 0 }
   if (e instanceof Anthropic.RateLimitError) {
-    const secondi = Number(e.headers?.get('retry-after'))
+    // no header (or an empty one) is an unknown wait, not zero: Number(null) is 0
+    const header = e.headers?.get('retry-after')
+    const secondi = header === null || header === undefined || header.trim() === '' ? Number.NaN : Number(header)
     const attesaMs = Number.isFinite(secondi) && secondi >= 0 ? secondi * 1000 : Number.POSITIVE_INFINITY
     return { codice: 'rate_limit', esito: 'da_rifare', ritentabile: attesaMs <= ATTESA_LIMITE_MAX_MS, attesaMs }
   }
@@ -296,6 +298,10 @@ class Lavoro {
     let msg: BetaMessage
     try {
       msg = await stream.finalMessage()
+    } catch (e) {
+      // an aborted or broken stream was billed for what it had produced
+      this.usage = somma(this.usage, usageDelMessaggio(stream.currentMessage?.usage))
+      throw e
     } finally {
       // a block that fails before its first event must not hold the pool
       this.liberaPrimo()
@@ -317,18 +323,29 @@ class Lavoro {
     return { ok: true, risultato, usage: this.usage, servito_da_fallback: this.fallback, modello: this.modello, request_id: this.requestId }
   }
 
-  ko<T>(errore: CodiceErroreBlocco, esito: 'da_rifare' | 'fallito' | 'fatale'): EsitoBlocco<T> {
-    return { ok: false, errore, esito, usage: this.usage }
+  ko<T>(errore: CodiceErroreBlocco, esito: 'da_rifare' | 'fallito' | 'fatale', parziale?: RisultatoBloccoSchede): EsitoBlocco<T> {
+    return { ok: false, errore, esito, usage: this.usage, ...(parziale ? { parziale } : {}) }
   }
 }
 
-type Interruzione = { codice: CodiceErroreBlocco; esito: 'da_rifare' | 'fatale' }
+/** An interruption (time, rate limit, network, fatal), with the cards the block had already validated. */
+type Interruzione = { codice: CodiceErroreBlocco; esito: 'da_rifare' | 'fatale'; parziale?: RisultatoBloccoSchede }
 const eInterruzione = (x: unknown): x is Interruzione =>
   typeof x === 'object' && x !== null && 'esito' in x && (x as Interruzione).esito !== undefined && 'codice' in x
 
 // ---------------------------------------------------------------------------
 // Steps with a list (schede, riattivazione)
 // ---------------------------------------------------------------------------
+
+function unisci(a: RisultatoBloccoSchede, b: RisultatoBloccoSchede | undefined): RisultatoBloccoSchede {
+  return { schede: [...a.schede, ...(b?.schede ?? [])], mancanti: [...a.mancanti, ...(b?.mancanti ?? [])] }
+}
+
+/** An interruption that keeps what was already validated; nothing paid for is thrown away. */
+function interrotto(i: Interruzione, fatto: RisultatoBloccoSchede): Interruzione {
+  const parziale = unisci(fatto, i.parziale)
+  return parziale.schede.length > 0 || parziale.mancanti.length > 0 ? { ...i, parziale } : i
+}
 
 async function analizzaChat(
   lavoro: Lavoro,
@@ -345,8 +362,8 @@ async function analizzaChat(
     const primo = await analizzaChat(lavoro, a, sotto)
     if (eInterruzione(primo)) return primo
     const secondo = await analizzaChat(lavoro, b, sotto)
-    if (eInterruzione(secondo)) return secondo
-    return { schede: [...primo.schede, ...secondo.schede], mancanti: [...primo.mancanti, ...secondo.mancanti] }
+    if (eInterruzione(secondo)) return interrotto(secondo, primo)
+    return unisci(primo, secondo)
   }
 
   const r = await lavoro.chiama(voci)
@@ -375,7 +392,7 @@ async function analizzaChat(
       risultato.mancanti.push(...dimenticate.map((v) => ({ chiave: v.chiave, motivo: 'schema' as const })))
     } else {
       const ripresa = await analizzaChat(lavoro, dimenticate, { ...stato, ripresa: true })
-      if (eInterruzione(ripresa)) return ripresa
+      if (eInterruzione(ripresa)) return interrotto(ripresa, risultato)
       risultato.schede.push(...ripresa.schede)
       risultato.mancanti.push(...ripresa.mancanti)
     }
@@ -485,7 +502,7 @@ export const eseguiBlocco = (async <T = unknown>(op: OpEsegui): Promise<EsitoBlo
     }
     if (passo === 'schede' || passo === 'riattivazione') {
       const r = await analizzaChat(lavoro, dati.voci, { divisioni: 0, ritentato: false, ripresa: false })
-      return eInterruzione(r) ? lavoro.ko<T>(r.codice, r.esito) : (lavoro.ok(r) as EsitoBlocco<T>)
+      return eInterruzione(r) ? lavoro.ko<T>(r.codice, r.esito, r.parziale) : (lavoro.ok(r) as EsitoBlocco<T>)
     }
     if (passo === 'agenda') return (await eseguiAgenda(lavoro)) as EsitoBlocco<T>
     if (passo === 'sintesi') return (await eseguiSintesi(lavoro)) as EsitoBlocco<T>
@@ -589,6 +606,11 @@ export async function eseguiInPool<B>(op: {
   entro: number
   esegui: (blocco: B, alPrimoEvento: () => void) => Promise<EsitoBlocco<unknown>>
   alTermine?: (blocco: B, esito: EsitoBlocco<unknown>) => void | Promise<void>
+  /**
+   * A rate-limited block goes back to the queue: what it spent and the cards
+   * it had validated are the caller's to keep (the second run starts from them)
+   */
+  alRimesso?: (blocco: B, esito: EsitoBlocco<unknown>) => void | Promise<void>
   /** false: no gating (the cache is already warm in this invocation) */
   primoDaSolo?: boolean
   adesso?: () => number
@@ -624,6 +646,11 @@ export async function eseguiInPool<B>(op: {
         limite = Math.max(1, Math.floor(limite / 2))
         if (!rimessi.has(blocco)) {
           rimessi.add(blocco)
+          try {
+            await op.alRimesso?.(blocco, esito)
+          } catch {
+            // storing is the caller's: its failure never stops the other blocks
+          }
           coda.push(blocco)
           return
         }

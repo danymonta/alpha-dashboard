@@ -621,9 +621,8 @@ begin
   -- the Insight (1.35.0): the admin's, or insight_puo_leggere() for insight_stato, checked first
   perform pg_temp.prova('insight_chat_messenger', $q$ select count(*)::text from public.insight_chat_messenger() $q$);
   perform pg_temp.prova('insight_dimentica', $q$ select public.insight_dimentica('instagram', 'lead.test75')::text $q$);
-  perform pg_temp.prova('insight_imposta_automazione', $q$ select public.insight_imposta_automazione(true, '19:00',
-    'https://dashboard.percorsoalpha.com/api/cron/insight')::text $q$);
-  perform pg_temp.prova('insight_richiedi', $q$ select public.insight_richiedi('https://dashboard.percorsoalpha.com/api/cron/insight')::text $q$);
+  perform pg_temp.prova('insight_imposta_automazione', $q$ select public.insight_imposta_automazione(true, '19:00')::text $q$);
+  perform pg_temp.prova('insight_richiedi', $q$ select public.insight_richiedi()::text $q$);
   perform pg_temp.prova('insight_ruota_chiave', $q$ select public.insight_ruota_chiave()::text $q$);
   perform pg_temp.prova('insight_stato', $q$ select public.insight_stato()::text $q$);
   perform pg_temp.prova('instagram_imposta_token', $q$ select public.instagram_imposta_token('IGAAprovaDaClaude0123456789abcdefghij')::text $q$);

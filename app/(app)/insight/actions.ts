@@ -5,14 +5,16 @@ import { revalidatePath } from 'next/cache'
 import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
 import { insightConfigurato, UrlPassoNonValido, urlPasso } from '@/lib/insight/config'
 import { AGGIORNA } from '@/lib/insight/parole'
+import { salvaUrlPasso, URL_PASSO_NON_SALVATO } from '@/lib/insight/url-passo'
 import { createClient } from '@/lib/supabase/server'
 import { segnaFattoSchema, URL_PASSO_MANCANTE, type SegnaFattoInput } from '@/lib/validation/insight'
 
 /**
  * The two taps of the Insight page (1.35.0, CLAUDE.md section 29), with the
- * session of whoever taps, never the service role: RLS decides
- * (insight_puo_leggere(), the admin in insight_richiedi), the role check here
- * only turns a refusal into words.
+ * session of whoever taps: RLS decides (insight_puo_leggere(), the admin in
+ * insight_richiedi), the role check here only turns a refusal into words. The
+ * one thing the service role does is writing the address of the steps, built
+ * here from APP_URL (lib/insight/url-passo.ts), after the admin was checked.
  */
 
 export type EsitoFatto = { ok: true } | { ok: false; errore: string; solaLettura?: true }
@@ -75,10 +77,12 @@ export async function aggiornaDati(): Promise<EsitoAggiorna> {
     throw e
   }
 
+  // null: no address to send the step to (INSIGHT_URL_PASSO=manuale), the run waits.
+  // The address is written by the server, never chosen by the session that asks for the run
+  if (url !== null && !(await salvaUrlPasso(url))) return { ok: false, errore: URL_PASSO_NON_SALVATO }
+
   const supabase = await createClient()
-  // null: no address to send the step to (INSIGHT_URL_PASSO=manuale), the run waits;
-  // the generated types never mark a function argument nullable
-  const { data, error } = await supabase.rpc('insight_richiedi', { p_url: url as string })
+  const { data, error } = await supabase.rpc('insight_richiedi')
   if (error) return { ok: false, errore: messaggioErrore(error, AGGIORNA.nonAvviato) }
 
   revalidatePath('/insight')

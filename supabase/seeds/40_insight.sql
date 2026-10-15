@@ -70,6 +70,13 @@ declare
   v_post02 jsonb;
   v_generato_con jsonb := jsonb_build_object(
     'modello', 'claude-sonnet-5-5', 'effort', 'medium', 'versione_prompt', '2026-10-14', 'servito_da_fallback', false);
+  -- the warnings and how a recap was made are the admin's: they live on the run, not in the recap the setter reads
+  v_dettagli_oggi jsonb := jsonb_build_object(
+    'instagram', jsonb_build_object('avvisi', jsonb_build_array(v_avviso), 'generato_con', v_generato_con),
+    'messenger', jsonb_build_object('avvisi', '[]'::jsonb, 'generato_con', v_generato_con));
+  v_dettagli_ieri jsonb := jsonb_build_object(
+    'instagram', jsonb_build_object('avvisi', '[]'::jsonb, 'generato_con', v_generato_con),
+    'messenger', jsonb_build_object('avvisi', '[]'::jsonb, 'generato_con', v_generato_con));
   v_ig_oggi jsonb;
   v_ig_ieri jsonb;
   v_fb_oggi jsonb;
@@ -99,19 +106,19 @@ begin
   -- -------------------------------------------------------------------------
   insert into public.insight_esecuzioni (
     id, giorno, motivo, richiesta_da, stato, passo, progresso, inviata_il, tentativi, invocazioni,
-    avvisi, chat_instagram, chat_messenger, chat_escluse, contenuti, blocchi_totali, blocchi_fatti,
+    avvisi, dettagli_recap, chat_instagram, chat_messenger, chat_escluse, contenuti, blocchi_totali, blocchi_fatti,
     chat_attribuite, token_input, token_cache_scritti, token_cache_letti, token_output, costo_usd,
     modello, creata_il, iniziata_il, finita_il)
   values
     (v_esecuzione_oggi, v_oggi, 'manuale', '11111111-1111-4111-8111-111111111111', 'pronta', 'unione',
      '{}'::jsonb, v_adesso - interval '25 minutes', 0, 3,
-     array[v_avviso], 9, 3, 2, 4, 6, 6, 3, 180000, 21000, 600000, 52000,
+     array[v_avviso], v_dettagli_oggi, 9, 3, 2, 4, 6, 6, 3, 180000, 21000, 600000, 52000,
      public.insight_costo_usd(180000, 21000, 600000, 52000),
      'claude-sonnet-5-5', v_adesso - interval '25 minutes', v_adesso - interval '25 minutes',
      v_adesso - interval '20 minutes'),
     (v_esecuzione_ieri, v_oggi - 1, 'pianificata', null, 'pronta', 'unione',
      '{}'::jsonb, v_ieri_alle - interval '15 minutes', 0, 2,
-     '{}', 4, 1, 1, 3, 3, 3, 1, 90000, 21000, 300000, 26000,
+     '{}', v_dettagli_ieri, 4, 1, 1, 3, 3, 3, 1, 90000, 21000, 300000, 26000,
      public.insight_costo_usd(90000, 21000, 300000, 26000),
      'claude-sonnet-5-5', v_ieri_alle - interval '15 minutes', v_ieri_alle - interval '15 minutes',
      v_ieri_alle - interval '10 minutes')
@@ -227,7 +234,7 @@ begin
       jsonb_build_object(
         'username', 'stefano.segnaposto', 'conversation_id', 'seed_ig_stefano', 'name', 'Stefano Segnaposto', 'age', '',
         'priority', 'media', 'target', 'da verificare', 'stage', '',
-        'status', 'analisi non disponibile', 'situation', '', 'pain', '',
+        'status', 'attende risposta · analisi non disponibile', 'situation', '', 'pain', '',
         'next_action', 'Apri la chat: questa conversazione non è stata analizzata.',
         'suggested_message', '', 'suggested_message_alt', '', 'alt_condition', '', 'needs_dany', '', 'flow', '',
         'source', '', 'topics', '[]'::jsonb,
@@ -334,7 +341,9 @@ begin
         'suggested_message', 'Ciao Matteo, ci vediamo alle 12:00: qualche minuto prima ti mando il link.'),
       jsonb_build_object('call_id', '40400000-0000-4000-8000-0000000000a2', 'day', 'oggi', 'time', '21:00',
         'name', 'Riccardo Prova', 'username', 'riccardo.prova', 'meet_link', '', 'status', 'a rischio', 'note', '',
-        'suggested_message', 'Ciao Riccardo, confermi la call di stasera alle 21:00?'),
+        -- the final check removed the reminder: the reason is shown where it would be
+        'suggested_message', '',
+        'da_ricontrollare', 'Messaggio non mostrato: link diverso dal Calendly. Scrivilo a mano.'),
       jsonb_build_object('call_id', '40400000-0000-4000-8000-0000000000a3', 'day', 'domani', 'time', '18:30',
         'name', 'Luca Prova', 'username', 'luca_prova', 'meet_link', '', 'status', 'promemoria da inviare', 'note', '',
         'suggested_message', 'Ciao Luca, ci sentiamo domani alle 18:30 come d''accordo.')),
@@ -346,9 +355,7 @@ begin
         'name', 'Enrico Presente', 'username', 'enrico.presente', 'outcome', 'presentato', 'note', '',
         'suggested_message', '')),
     'escluse', 2,
-    'stato', 'parziale',
-    'avvisi', jsonb_build_array(v_avviso),
-    'generato_con', v_generato_con);
+    'stato', 'parziale');
 
   -- -------------------------------------------------------------------------
   -- Yesterday, Instagram (complete)
@@ -430,9 +437,7 @@ begin
         'suggested_message', 'Ciao Nicola, ci vediamo stasera alle 19:00!')),
     'show_up', '[]'::jsonb,
     'escluse', 1,
-    'stato', 'completo',
-    'avvisi', '[]'::jsonb,
-    'generato_con', v_generato_con);
+    'stato', 'completo');
 
   -- -------------------------------------------------------------------------
   -- Today and yesterday, Messenger (complete, without posts)
@@ -483,9 +488,7 @@ begin
       jsonb_build_object('user_id', '7100000000000003', 'name', 'Servizio Inventato',
         'reason', 'Messaggio automatico di un servizio.')),
     'escluse', 0,
-    'stato', 'completo',
-    'avvisi', '[]'::jsonb,
-    'generato_con', v_generato_con);
+    'stato', 'completo');
 
   v_fb_ieri := jsonb_build_object(
     'date', to_char(v_oggi - 1, 'YYYY-MM-DD'),
@@ -512,9 +515,7 @@ begin
       'keep', '[]'::jsonb, 'change', '[]'::jsonb, 'boost', '[]'::jsonb, 'setting_tips', '[]'::jsonb, 'ideas', '[]'::jsonb),
     'non_leads', '[]'::jsonb,
     'escluse', 0,
-    'stato', 'completo',
-    'avvisi', '[]'::jsonb,
-    'generato_con', v_generato_con);
+    'stato', 'completo');
 
   insert into public.insight_recap (giorno, canale, esecuzione_id, generato_il, stato, dati) values
     (v_oggi, 'instagram', v_esecuzione_oggi, v_adesso - interval '25 minutes', 'parziale', v_ig_oggi),

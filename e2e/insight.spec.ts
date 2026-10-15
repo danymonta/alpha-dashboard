@@ -277,6 +277,8 @@ test.describe('exclusions and partial recaps', () => {
     const admin = await (await browser.newContext()).newPage()
     await apriInsight(admin, 'admin')
     await expect(scheda(admin, 'stefano.segnaposto').getByText('analisi non disponibile', { exact: true })).toBeVisible()
+    // the lead has the last word, so the code writes «attende risposta · analisi non disponibile»: said once, not twice
+    await expect(scheda(admin, 'stefano.segnaposto').getByText(/analisi non disponibile/)).toHaveCount(1)
     await expect(scheda(admin, 'stefano.segnaposto')).toContainText('Apri la chat: questa conversazione non è stata analizzata.')
     await expect(admin.getByTestId('recap-parziale')).toContainText('Recap parziale')
     await expect(admin.getByTestId('recap-parziale')).toContainText('Claude non ha risposto in tempo')
@@ -297,6 +299,24 @@ test.describe('exclusions and partial recaps', () => {
     expect(html).not.toContain('costo_usd')
     expect(html).not.toContain('ANTHROPIC_API_KEY')
     await setter.context().close()
+  })
+
+  test('the warnings and how the recap was made are not in the document the setter reads', async () => {
+    const { data, error } = await db().from('insight_recap').select('dati').eq('giorno', oggi()).eq('canale', 'instagram').single()
+    if (error) throw error
+    expect(Object.keys(data.dati as object)).not.toEqual(expect.arrayContaining(['avvisi']))
+    expect(Object.keys(data.dati as object)).not.toEqual(expect.arrayContaining(['generato_con']))
+    // they are on the run, which the admin reads
+    const { data: run, error: e2 } = await db().from('insight_esecuzioni').select('dettagli_recap').eq('id', '40400000-0000-4000-8000-000000000001').single()
+    if (e2) throw e2
+    expect(JSON.stringify(run.dettagli_recap)).toContain('Claude non ha risposto in tempo')
+  })
+
+  test('a reminder the final check removed says why, in the agenda', async ({ page }) => {
+    await apriInsight(page, 'setter', '/insight?canale=agenda')
+    const call = page.getByTestId('call-agenda').filter({ hasText: 'riccardo.prova' })
+    await expect(call).toContainText('Messaggio non mostrato: link diverso dal Calendly. Scrivilo a mano.')
+    await expect(call.getByText('Promemoria', { exact: false })).toHaveCount(0)
   })
 })
 
@@ -368,6 +388,18 @@ test.describe('the phone', () => {
         }
         const [larga, finestra] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth])
         expect(larga, url).toBeLessThanOrEqual(finestra)
+        if (url.endsWith('agenda')) {
+          // the time of a call stays in its own column, never touching the name
+          const toccano = await page.evaluate(
+            () =>
+              [...document.querySelectorAll('[data-testid="call-agenda"], [data-testid="call-ieri"]')].filter((riga) => {
+                const ora = riga.querySelector('.num')
+                const chi = riga.children[1]
+                return !ora || !chi || ora.getBoundingClientRect().right > chi.getBoundingClientRect().left - 8
+              }).length,
+          )
+          expect(toccano, 'l’ora di una call tocca il suo nome').toBe(0)
+        }
       }
     })
   }

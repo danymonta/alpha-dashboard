@@ -132,7 +132,8 @@ export type Archivio = {
     avvisi: readonly string[],
     contatori: ContatoriPasso,
   ): Promise<boolean>
-  fallita(id: string, errore: string): Promise<boolean>
+  /** `contatori`: the tokens a failed step had spent (added to the run, the cost recomputed) */
+  fallita(id: string, errore: string, contatori?: ContatoriPasso): Promise<boolean>
   /** when the latest ready run (another one) started: the last successful reading */
   ultimaLetturaRiuscita(escludi: string): Promise<string | null>
   storicoDal(): Promise<string | null>
@@ -152,6 +153,12 @@ export type Archivio = {
   chatDellEsecuzione(op: { ids: Record<CanaleInsight, readonly string[]>; dal: string }): Promise<ChatSalvata[]>
   chatPerConteggi(dalGiorno: string): Promise<ChatSalvata[]>
   aggiornaChat(canale: CanaleInsight, conversazioneId: string, campi: CampiChat): Promise<void>
+  /**
+   * A chat found to be under 14 (D25): the words it left in the earlier recaps
+   * and cards go (insight_scarta_minore); `esecuzione` is the run that found it,
+   * whose own cards keep the warm closure.
+   */
+  scartaMinore(canale: CanaleInsight, conversazioneId: string, esecuzione: string): Promise<void>
   salvaOrigine(canale: CanaleInsight, conversazioneId: string, origine: OrigineChat): Promise<void>
   // profiles
   profili(usernames: readonly string[]): Promise<ProfiloSalvato[]>
@@ -180,7 +187,11 @@ export type Archivio = {
   aggiornaBlocco(id: string, campi: CampiBlocco): Promise<void>
   // the recap and the counts
   salvaRecap(op: { giorno: string; canale: CanaleInsight; esecuzione: string; generatoIl: string; documento: RecapCanale }): Promise<void>
-  salvaConteggi(righe: readonly RigaContenutiDm[]): Promise<number>
+  /**
+   * `segnaGiorni` false: the reading was partial, the days it re-read are not
+   * marked as counted (zero leads would mean «not read»)
+   */
+  salvaConteggi(righe: readonly RigaContenutiDm[], opzioni?: { segnaGiorni?: boolean }): Promise<number>
 }
 
 // ---------------------------------------------------------------------------
@@ -335,8 +346,12 @@ export function creaArchivio(db: AdminClient): Archivio {
       return data === true
     },
 
-    async fallita(id, errore) {
-      const { data, error } = await db.rpc('insight_fallita', { p_esecuzione: id, p_errore: errore })
+    async fallita(id, errore, contatori) {
+      const { data, error } = await db.rpc('insight_fallita', {
+        p_esecuzione: id,
+        p_errore: errore,
+        ...(contatori ? { p_contatori: json(contatori) } : {}),
+      })
       if (error) throw guasto('esecuzione non chiusa', error)
       return data === true
     },
@@ -523,6 +538,15 @@ export function creaArchivio(db: AdminClient): Archivio {
       if (error) throw guasto('chat non aggiornata', error)
     },
 
+    async scartaMinore(canale, conversazioneId, esecuzione) {
+      const { error } = await db.rpc('insight_scarta_minore', {
+        p_canale: canale,
+        p_conversazione_id: conversazioneId,
+        p_esecuzione: esecuzione,
+      })
+      if (error) throw guasto('minore non scartato', error)
+    },
+
     async salvaOrigine(canale, conversazioneId, origine) {
       const { error } = await db
         .from('insight_chat')
@@ -612,14 +636,21 @@ export function creaArchivio(db: AdminClient): Archivio {
     async schedePrecedenti({ esecuzione, dalGiorno, chiavi }) {
       const out: (SchedaArchiviata & { _il: string; _id: string })[] = []
       for (const blocco of aBlocchi(chiavi)) {
-        const { data, error } = await db
-          .from('insight_schede')
-          .select('id, esecuzione_id, giorno, canale, tipo, chiave, impronta, dati, created_at')
-          .gte('giorno', dalGiorno)
-          .neq('esecuzione_id', esecuzione)
-          .in('chiave', blocco)
-        if (error) throw guasto('schede precedenti non lette', error)
-        for (const r of data ?? []) out.push({ ...schedaDaRiga(r), _il: r.created_at, _id: r.id })
+        // page by page: PostgREST cuts a long answer at max_rows without an error, and the
+        // cut would take the newest cards, the ones ultimaSchedaPerChat lets win
+        const righe = await aPagine('schede precedenti non lette', (da, a) =>
+          db
+            .from('insight_schede')
+            .select('id, esecuzione_id, giorno, canale, tipo, chiave, impronta, dati, created_at')
+            .gte('giorno', dalGiorno)
+            .neq('esecuzione_id', esecuzione)
+            .in('chiave', blocco)
+            // newest first: if the cap of aPagine ever cuts, it cuts the oldest cards
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
+            .range(da, a),
+        )
+        for (const r of righe) out.push({ ...schedaDaRiga(r), _il: String(r.created_at), _id: String(r.id) })
       }
       return out
         .sort((a, b) => a._il.localeCompare(b._il) || a._id.localeCompare(b._id))
@@ -717,16 +748,30 @@ export function creaArchivio(db: AdminClient): Archivio {
     },
 
     async salvaRecap({ giorno, canale, esecuzione, generatoIl, documento }) {
+      // the setter reads the whole row of insight_recap: the warnings and how the recap was made
+      // are the admin's (D23), so they go on the run (insight_esecuzioni, admin only)
+      const { avvisi, generato_con: generatoCon, ...pubblico } = documento
+      const { data: run, error: erroreRun } = await db.from('insight_esecuzioni').select('dettagli_recap').eq('id', esecuzione).maybeSingle()
+      if (erroreRun) throw guasto('dettagli del recap non letti', erroreRun)
+      const prima = run?.dettagli_recap && typeof run.dettagli_recap === 'object' && !Array.isArray(run.dettagli_recap) ? run.dettagli_recap : {}
+      const { error: erroreDettagli } = await db
+        .from('insight_esecuzioni')
+        .update({ dettagli_recap: json({ ...prima, [canale]: { avvisi, generato_con: generatoCon } }) })
+        .eq('id', esecuzione)
+      if (erroreDettagli) throw guasto('dettagli del recap non salvati', erroreDettagli)
       // never delete-and-insert: a delete would take that day's Fatto with it (C16)
       const { error } = await db.from('insight_recap').upsert(
-        { giorno, canale, esecuzione_id: esecuzione, generato_il: generatoIl, stato: documento.stato, dati: json(documento) },
+        { giorno, canale, esecuzione_id: esecuzione, generato_il: generatoIl, stato: documento.stato, dati: json(pubblico) },
         { onConflict: 'giorno,canale' },
       )
       if (error) throw guasto('recap non salvato', error)
     },
 
-    async salvaConteggi(righe) {
-      const { data, error } = await db.rpc('instagram_contenuti_dm_salva', { p_righe: json(righe) })
+    async salvaConteggi(righe, opzioni) {
+      const { data, error } = await db.rpc('instagram_contenuti_dm_salva', {
+        p_righe: json(righe),
+        p_segna_giorni: opzioni?.segnaGiorni !== false,
+      })
       if (error) throw guasto('conteggi non salvati', error)
       return typeof data === 'number' ? data : 0
     },

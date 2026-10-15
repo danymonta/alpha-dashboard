@@ -11,7 +11,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(56);
+select plan(60);
 
 -- helper: rows touched by an update or a delete, under the current role
 create or replace function pg_temp.righe(p_sql text)
@@ -104,13 +104,13 @@ select ok(
 );
 select ok(
   (select p.prosecdef and p.proconfig @> array['search_path=""'] from pg_proc p
-   where p.oid = 'public.instagram_contenuti_dm_salva(jsonb)'::regprocedure),
+   where p.oid = 'public.instagram_contenuti_dm_salva(jsonb, boolean)'::regprocedure),
   'la funzione che la scrive è security definer con search_path vuoto'
 );
 select ok(
-  not has_function_privilege('anon', 'public.instagram_contenuti_dm_salva(jsonb)', 'execute')
-  and not has_function_privilege('authenticated', 'public.instagram_contenuti_dm_salva(jsonb)', 'execute')
-  and has_function_privilege('service_role', 'public.instagram_contenuti_dm_salva(jsonb)', 'execute'),
+  not has_function_privilege('anon', 'public.instagram_contenuti_dm_salva(jsonb, boolean)', 'execute')
+  and not has_function_privilege('authenticated', 'public.instagram_contenuti_dm_salva(jsonb, boolean)', 'execute')
+  and has_function_privilege('service_role', 'public.instagram_contenuti_dm_salva(jsonb, boolean)', 'execute'),
   'e la chiama solo il service role'
 );
 
@@ -384,6 +384,29 @@ select is(
 reset role;
 select is((select count(*)::integer from public.instagram_contenuti_dm_giorni where giorno > public.oggi() - 60), 0,
   'e non segna contato nessun giorno');
+-- a partial reading (chats not read, the history cut): its zeros are not known to be zeros
+update public.insight_impostazioni set storico_dal = public.oggi() - 5 where id;
+set local role service_role;
+select is(
+  public.instagram_contenuti_dm_salva(jsonb_build_array(
+    jsonb_build_object('shortcode', 'SeedDemo01', 'giorno', public.oggi() - 2, 'dm', 1, 'lead_in_target', 0, 'call_prenotate', 0, 'dm_certi', 0)),
+    false),
+  1,
+  'una lettura parziale scrive comunque i conteggi che ha'
+);
+reset role;
+select is((select count(*)::integer from public.instagram_contenuti_dm_giorni where giorno > public.oggi() - 60), 0,
+  'ma non segna contato nessun giorno: senza righe non vorrebbe dire zero lead');
+set local role service_role;
+select is(
+  public.instagram_contenuti_dm_salva(jsonb_build_array(
+    jsonb_build_object('shortcode', 'SeedDemo01', 'giorno', public.oggi() - 2, 'dm', 1, 'lead_in_target', 0, 'call_prenotate', 0, 'dm_certi', 0))),
+  1,
+  'una lettura completa (il valore di base) li segna'
+);
+reset role;
+select is((select count(*)::integer from public.instagram_contenuti_dm_giorni where giorno > public.oggi() - 60), 5,
+  'i giorni da storico_dal a ieri');
 
 -- ---------------------------------------------------------------------------
 -- 5. A post that goes takes its counts; the backup keeps them

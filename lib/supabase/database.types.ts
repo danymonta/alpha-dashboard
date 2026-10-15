@@ -318,13 +318,13 @@ isOneToOne: false
                   ]
                 },"insight_esecuzioni": {
                   Row: {
-                    "avvisi": (string)[],"blocchi_fatti": number | null,"blocchi_totali": number | null,"chat_attribuite": number | null,"chat_escluse": number | null,"chat_instagram": number | null,"chat_messenger": number | null,"contenuti": number | null,"contesto_app": Json | null,"costo_usd": number | null,"creata_il": string,"errore": string | null,"finita_il": string | null,"giorno": string,"id": string,"iniziata_il": string | null,"inviata_il": string | null,"invocazioni": number,"lease_fino_al": string | null,"modello": string | null,"motivo": string,"passo": Database["public"]['Enums']["insight_passo"],"progresso": NonNullable<Json>,"richiesta_da": string | null,"servito_da_fallback": number,"stato": Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi": number,"token_cache_letti": number | null,"token_cache_scritti": number | null,"token_input": number | null,"token_output": number | null,"updated_at": string
+                    "avvisi": (string)[],"blocchi_fatti": number | null,"blocchi_totali": number | null,"chat_attribuite": number | null,"chat_escluse": number | null,"chat_instagram": number | null,"chat_messenger": number | null,"contenuti": number | null,"contesto_app": Json | null,"costo_usd": number | null,"creata_il": string,"dettagli_recap": NonNullable<Json>,"errore": string | null,"finita_il": string | null,"giorno": string,"id": string,"iniziata_il": string | null,"inviata_il": string | null,"invocazioni": number,"lease_fino_al": string | null,"modello": string | null,"motivo": string,"passo": Database["public"]['Enums']["insight_passo"],"progresso": NonNullable<Json>,"richiesta_da": string | null,"servito_da_fallback": number,"stato": Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi": number,"token_cache_letti": number | null,"token_cache_scritti": number | null,"token_input": number | null,"token_output": number | null,"updated_at": string
                   }
                   Insert: {
-                    "avvisi"?: (string)[],"blocchi_fatti"?: number | null,"blocchi_totali"?: number | null,"chat_attribuite"?: number | null,"chat_escluse"?: number | null,"chat_instagram"?: number | null,"chat_messenger"?: number | null,"contenuti"?: number | null,"contesto_app"?: Json | null,"costo_usd"?: number | null,"creata_il"?: string,"errore"?: string | null,"finita_il"?: string | null,"giorno": string,"id"?: string,"iniziata_il"?: string | null,"inviata_il"?: string | null,"invocazioni"?: number,"lease_fino_al"?: string | null,"modello"?: string | null,"motivo": string,"passo"?: Database["public"]['Enums']["insight_passo"],"progresso"?: NonNullable<Json>,"richiesta_da"?: string | null,"servito_da_fallback"?: number,"stato"?: Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi"?: number,"token_cache_letti"?: number | null,"token_cache_scritti"?: number | null,"token_input"?: number | null,"token_output"?: number | null,"updated_at"?: string
+                    "avvisi"?: (string)[],"blocchi_fatti"?: number | null,"blocchi_totali"?: number | null,"chat_attribuite"?: number | null,"chat_escluse"?: number | null,"chat_instagram"?: number | null,"chat_messenger"?: number | null,"contenuti"?: number | null,"contesto_app"?: Json | null,"costo_usd"?: number | null,"creata_il"?: string,"dettagli_recap"?: NonNullable<Json>,"errore"?: string | null,"finita_il"?: string | null,"giorno": string,"id"?: string,"iniziata_il"?: string | null,"inviata_il"?: string | null,"invocazioni"?: number,"lease_fino_al"?: string | null,"modello"?: string | null,"motivo": string,"passo"?: Database["public"]['Enums']["insight_passo"],"progresso"?: NonNullable<Json>,"richiesta_da"?: string | null,"servito_da_fallback"?: number,"stato"?: Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi"?: number,"token_cache_letti"?: number | null,"token_cache_scritti"?: number | null,"token_input"?: number | null,"token_output"?: number | null,"updated_at"?: string
                   }
                   Update: {
-                    "avvisi"?: (string)[],"blocchi_fatti"?: number | null,"blocchi_totali"?: number | null,"chat_attribuite"?: number | null,"chat_escluse"?: number | null,"chat_instagram"?: number | null,"chat_messenger"?: number | null,"contenuti"?: number | null,"contesto_app"?: Json | null,"costo_usd"?: number | null,"creata_il"?: string,"errore"?: string | null,"finita_il"?: string | null,"giorno"?: string,"id"?: string,"iniziata_il"?: string | null,"inviata_il"?: string | null,"invocazioni"?: number,"lease_fino_al"?: string | null,"modello"?: string | null,"motivo"?: string,"passo"?: Database["public"]['Enums']["insight_passo"],"progresso"?: NonNullable<Json>,"richiesta_da"?: string | null,"servito_da_fallback"?: number,"stato"?: Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi"?: number,"token_cache_letti"?: number | null,"token_cache_scritti"?: number | null,"token_input"?: number | null,"token_output"?: number | null,"updated_at"?: string
+                    "avvisi"?: (string)[],"blocchi_fatti"?: number | null,"blocchi_totali"?: number | null,"chat_attribuite"?: number | null,"chat_escluse"?: number | null,"chat_instagram"?: number | null,"chat_messenger"?: number | null,"contenuti"?: number | null,"contesto_app"?: Json | null,"costo_usd"?: number | null,"creata_il"?: string,"dettagli_recap"?: NonNullable<Json>,"errore"?: string | null,"finita_il"?: string | null,"giorno"?: string,"id"?: string,"iniziata_il"?: string | null,"inviata_il"?: string | null,"invocazioni"?: number,"lease_fino_al"?: string | null,"modello"?: string | null,"motivo"?: string,"passo"?: Database["public"]['Enums']["insight_passo"],"progresso"?: NonNullable<Json>,"richiesta_da"?: string | null,"servito_da_fallback"?: number,"stato"?: Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi"?: number,"token_cache_letti"?: number | null,"token_cache_scritti"?: number | null,"token_input"?: number | null,"token_output"?: number | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1850,10 +1850,13 @@ isOneToOne: false
 { Args: { "p_esecuzione": string }; Returns: boolean
                            },
 "insight_fallita":
-{ Args: { "p_errore": string,"p_esecuzione": string }; Returns: boolean
+{ Args: { "p_contatori"?: Json,"p_errore": string,"p_esecuzione": string }; Returns: boolean
                            },
 "insight_imposta_automazione":
-{ Args: { "p_attivo": boolean,"p_ora": string,"p_url": string }; Returns: undefined
+{ Args: { "p_attivo": boolean,"p_ora": string }; Returns: undefined
+                           },
+"insight_imposta_url":
+{ Args: { "p_url": string }; Returns: undefined
                            },
 "insight_istante":
 { Args: { "p_valore": string }; Returns: string
@@ -1873,13 +1876,16 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "insight_richiedi":
-{ Args: { "p_url": string }; Returns: string
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "insight_ruota_chiave":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "insight_scarta_letture":
 { Args: { "p_esecuzione": string }; Returns: number
+                           },
+"insight_scarta_minore":
+{ Args: { "p_canale": Database["public"]['Enums']["insight_canale"],"p_conversazione_id": string,"p_esecuzione": string }; Returns: Json
                            },
 "insight_stato":
 { Args: Record<PropertyKey, never>; Returns: Json
@@ -1896,7 +1902,7 @@ isOneToOne: false
 { Args: { "p_contenuto": string,"p_giorni": number,"p_motivi": (string)[],"p_punteggio": number,"p_shortcode": string,"p_somiglianza": number }; Returns: boolean
                            },
 "instagram_contenuti_dm_salva":
-{ Args: { "p_righe": Json }; Returns: number
+{ Args: { "p_righe": Json,"p_segna_giorni"?: boolean }; Returns: number
                            },
 "instagram_contenuti_fine_giro":
 { Args: { "p_account": string,"p_campi": string,"p_causa"?: string,"p_collegati": number,"p_errore": string,"p_esito": string,"p_giro": string,"p_letti": number,"p_proposti": number }; Returns: boolean

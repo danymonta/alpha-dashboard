@@ -65,7 +65,7 @@ create policy instagram_contenuti_dm_giorni_lettura on public.instagram_contenut
 -- Dany's; the others are skipped. Older days are final. Then marks as counted
 -- the finished days this run re-read (instagram_contenuti_dm_giorni). Returns
 -- how many rows of counts it wrote.
-create function public.instagram_contenuti_dm_salva(p_righe jsonb)
+create function public.instagram_contenuti_dm_salva(p_righe jsonb, p_segna_giorni boolean default true)
 returns integer
 language plpgsql
 volatile
@@ -107,17 +107,21 @@ begin
   -- window may be zeros that were never read: they are never marked here. With
   -- storico_dal today nothing is marked. After get diagnostics: n stays the
   -- number of rows of counts.
-  insert into public.instagram_contenuti_dm_giorni (giorno)
-  select d::date
-  from generate_series(greatest(v_dal, v_oggi - 13), v_oggi - 1, interval '1 day') d
-  on conflict (giorno) do nothing;
+  -- p_segna_giorni false: the reading was partial (chats not read, the history
+  -- cut by a cap), so a day with no row would not mean zero leads: none is marked.
+  if coalesce(p_segna_giorni, true) then
+    insert into public.instagram_contenuti_dm_giorni (giorno)
+    select d::date
+    from generate_series(greatest(v_dal, v_oggi - 13), v_oggi - 1, interval '1 day') d
+    on conflict (giorno) do nothing;
+  end if;
 
   return n;
 end;
 $$;
 
-comment on function public.instagram_contenuti_dm_salva(jsonb) is
-  'service_role only (the Insight): rewrites the counts per post of the days from greatest(today - 29, insight_impostazioni.storico_dal) to today with p_righe ([{shortcode, giorno, dm, lead_in_target, call_prenotate, dm_certi}]), skipping other days and posts not in instagram_contenuti. Older days are never touched. Marks as counted (instagram_contenuti_dm_giorni) the days from greatest(storico_dal, today - 13) to yesterday, never today. Returns the rows of counts written.';
+comment on function public.instagram_contenuti_dm_salva(jsonb, boolean) is
+  'service_role only (the Insight): rewrites the counts per post of the days from greatest(today - 29, insight_impostazioni.storico_dal) to today with p_righe ([{shortcode, giorno, dm, lead_in_target, call_prenotate, dm_certi}]), skipping other days and posts not in instagram_contenuti. Older days are never touched. Marks as counted (instagram_contenuti_dm_giorni) the days from greatest(storico_dal, today - 13) to yesterday, never today, unless p_segna_giorni is false (a partial reading: its zeros are not known to be zeros). Returns the rows of counts written.';
 
-revoke all on function public.instagram_contenuti_dm_salva(jsonb) from public, anon, authenticated;
-grant execute on function public.instagram_contenuti_dm_salva(jsonb) to service_role;
+revoke all on function public.instagram_contenuti_dm_salva(jsonb, boolean) from public, anon, authenticated;
+grant execute on function public.instagram_contenuti_dm_salva(jsonb, boolean) to service_role;

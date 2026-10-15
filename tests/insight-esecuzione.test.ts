@@ -11,8 +11,8 @@ import { creaClaudeFinto } from '../e2e/claude-finto.mjs'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { FRASI_ERRORE } from '@/lib/instagram/report'
 import { SEGNO_TOKEN_FINTO } from '@/lib/instagram/richieste'
-import type { ChatSalvata, EsitoLettura, StatoLeadApp, VoceAgendaApp } from '@/lib/insight/contratti'
-import { BETA_FALLBACK, eseguiBlocco, TIMEOUT_TENTATIVO_MS } from '@/lib/insight/esegui'
+import type { ChatSalvata, EsitoBlocco, EsitoLettura, StatoLeadApp, VoceAgendaApp } from '@/lib/insight/contratti'
+import { BETA_FALLBACK, eseguiBlocco, TIMEOUT_TENTATIVO_MS, type RisultatoBloccoSchede } from '@/lib/insight/esegui'
 import { eseguiPasso, pianoDi, type DipendenzePasso } from '@/lib/insight/esecuzione'
 import { AVVISI_INSIGHT, FRASI_INSIGHT } from '@/lib/insight/frasi'
 import { ICP_PERCORSO_ALPHA } from '@/lib/insight/icp'
@@ -272,8 +272,12 @@ describe('un giro intero contro Meta e Claude finti', () => {
     expect(fine.avvisi.filter((a) => a === AVVISO_STATISTICHE)).toHaveLength(1)
     expect(archivio.registro.statistiche.length).toBeGreaterThan(0)
     expect(archivio.registro.statistiche.every((s) => s.statistiche.stato === 'senza_permesso' && Object.keys(s.statistiche.valori).length === 0)).toBe(true)
-    const ig = leggiRecap(archivio.recap.get(`${oggiRoma()}|instagram`)?.documento)
-    expect(ig!.avvisi).toContain(AVVISO_STATISTICHE)
+    // the warnings are the admin's: on the run's details, never in the document every setter reads
+    const salvato = archivio.recap.get(`${oggiRoma()}|instagram`)
+    expect(salvato?.dettagli.avvisi).toContain(AVVISO_STATISTICHE)
+    expect(salvato?.dettagli.generato_con.modello).not.toBe('')
+    expect(Object.keys(salvato?.documento ?? {})).not.toContain('avvisi')
+    expect(Object.keys(salvato?.documento ?? {})).not.toContain('generato_con')
   })
 
   it('un token di Instagram scaduto ferma il giro, con la sua frase e l’errore per Impostazioni', async () => {
@@ -304,7 +308,7 @@ describe('un giro intero contro Meta e Claude finti', () => {
     expect(fine.avvisi).toContain(AVVISI_INSIGHT.messenger_token)
     expect(archivio.registro.erroriMessenger).toEqual([AVVISI_INSIGHT.messenger_token])
     const fb = leggiRecap(archivio.recap.get(`${oggi}|messenger`)?.documento)
-    expect(fb?.avvisi).toContain(AVVISI_INSIGHT.messenger_token)
+    expect(archivio.recap.get(`${oggi}|messenger`)?.dettagli.avvisi).toContain(AVVISI_INSIGHT.messenger_token)
     expect(fb?.leads).toEqual([])
   })
 
@@ -362,7 +366,10 @@ describe('con chat preparate', () => {
   const ora = (oreFa: number) => new Date(ADESSO.getTime() - oreFa * 3_600_000).toISOString()
 
   /** A reading that stores these chats as the run's and gives the app's state. */
-  function leggiCon(chats: ChatSalvata[], contesto: { agenda?: VoceAgendaApp[]; stato_lead?: StatoLeadApp[] } = {}): DipendenzePasso['leggi'] {
+  function leggiCon(
+    chats: ChatSalvata[],
+    contesto: { agenda?: VoceAgendaApp[]; stato_lead?: StatoLeadApp[]; avvisi?: string[]; storicoIncompleto?: boolean } = {},
+  ): DipendenzePasso['leggi'] {
     return async (op) => {
       const archivio = op.archivio as ArchivioFinto
       for (const c of chats) archivio.metti({ ...c, letta_da: op.esecuzione })
@@ -371,11 +378,12 @@ describe('con chat preparate', () => {
         lettura: {
           vuota: false,
           storico_da: null,
-          instagram: { elencato: true, finito: true, oggi: ids('instagram') },
+          instagram: { elencato: true, finito: true, oggi: ids('instagram'), storico_incompleto: contesto.storicoIncompleto ?? false },
           messenger: { elencato: true, finito: true, oggi: ids('messenger'), stato: ids('messenger').length ? 'letto' : 'senza_token' },
           profili: true,
           contenuti: true,
           origini: true,
+          avvisi: contesto.avvisi ?? [],
         },
       })
       return {
@@ -547,6 +555,166 @@ describe('con chat preparate', () => {
     expect(archivio.chatDi('instagram', minore.conversazione_id)).toMatchObject({ minore_14: true, messaggi: [] })
     const lead = leggiRecap(archivio.recap.get(`${oggi}|instagram`)?.documento)!.leads[0]
     expect(lead).toMatchObject({ minore_14: true, messages: [], suggested_message: 'Grazie davvero per avermi scritto!\nTi lascio i miei contenuti gratuiti.' })
+  })
+
+  it('una chat riconosciuta sotto i 14 anni solo il secondo giorno perde anche quello che il recap del primo conservava (D25)', async () => {
+    const archivio = new ArchivioFinto()
+    const oggi = oggiRoma()
+    const domani = aggiungiGiorni(oggi, 1)
+    // day 1: nothing says his age, the recap keeps his words and a reply built on them
+    const giorno1 = chat('Come faccio a mettere massa? Mi alleno da poco')
+    await giro(archivio, archivio.creaEsecuzione(oggi), { leggi: leggiCon([giorno1]) })
+    const primo = leggiRecap(archivio.recap.get(`${oggi}|instagram`)?.documento)!.leads[0]
+    expect(primo.messages.length).toBeGreaterThan(0)
+    expect(primo.situation).not.toBe('')
+    // day 2: he says his age, and the earlier recap and cards lose what they kept
+    const giorno2 = { ...giorno1, messaggi: [...giorno1.messaggi, msg('lead', ora(1), 'Ho 13 anni [[eta:13]]')] }
+    const id2 = archivio.creaEsecuzione(domani)
+    const fine = await giro(archivio, id2, { leggi: leggiCon([giorno2]) })
+    expect(fine.stato).toBe('pronta')
+    expect(archivio.minoriScartati).toEqual([{ canale: 'instagram', conversazioneId: giorno1.conversazione_id, esecuzione: id2 }])
+    const vecchio = leggiRecap(archivio.recap.get(`${oggi}|instagram`)?.documento)!.leads[0]
+    expect(vecchio).toMatchObject({ minore_14: true, messages: [], pain: '', suggested_message: '', topics: [], situation: 'Minore sotto i 14 anni.' })
+    expect(JSON.stringify(archivio.recap.get(`${oggi}|instagram`))).not.toContain('mettere massa')
+    // the first run's card keeps nothing but the sign; the run that found him keeps the closure it wrote
+    const schede = archivio.schede.filter((x) => x.chiave === giorno1.conversazione_id && x.tipo === 'lead')
+    expect(schede.length).toBeGreaterThanOrEqual(2)
+    for (const x of schede) expect(x.dati).toMatchObject({ tipo: 'lead', minore_14: true })
+    expect(schede.find((x) => x.esecuzione_id === id2)?.dati).toMatchObject({ ultima_chiusura: expect.stringContaining('contenuti gratuiti') })
+    expect(schede.find((x) => x.esecuzione_id !== id2)?.dati).toMatchObject({ ultima_chiusura: '' })
+    expect(archivio.chatDi('instagram', giorno1.conversazione_id)).toMatchObject({ minore_14: true, messaggi: [] })
+  })
+
+  it('un minore riconosciuto con la chiusura già mandata resta fuori da Claude anche quando riscrive (D25)', async () => {
+    const archivio = new ArchivioFinto()
+    const oggi = oggiRoma()
+    // he says he is 13, and the last word is ours: the model calls him a lead under 14, the recap a closed minor
+    const chiuso = chatFinta({ messaggi: [msg('lead', ora(6), 'Ho 13 anni [[eta:13]]'), msg('alpha', ora(5), 'Grazie davvero per avermi scritto! Ti lascio i miei contenuti gratuiti.')] })
+    const id1 = archivio.creaEsecuzione(oggi)
+    await giro(archivio, id1, { leggi: leggiCon([chiuso]) })
+    expect(archivio.chatDi('instagram', chiuso.conversazione_id)).toMatchObject({ minore_14: true, non_lead: false, messaggi: [] })
+    expect(leggiRecap(archivio.recap.get(`${oggi}|instagram`)?.documento)!.non_leads.map((n) => n.username)).toContain(chiuso.username)
+    // the next day he writes again: the reading (rigaDaSalvare) keeps no word, and Claude never gets the chat
+    claude.azzera()
+    const riscrive: NonNullable<DipendenzePasso['leggi']> = async (op) => {
+      const archivioOp = op.archivio as ArchivioFinto
+      const salvata = archivioOp.chatDi('instagram', chiuso.conversazione_id)!
+      const riga = rigaDaSalvare({
+        canale: 'instagram',
+        chat: { ...chiuso, messaggi: [...chiuso.messaggi, msg('lead', ora(1), 'grazie, ma quindi? posso allenarmi lo stesso?')], ultimo_da: 'lead', ultimo_il: ora(1), aggiornata_il: ora(1) },
+        salvata: { aggiornata_il: salvata.aggiornata_il, non_lead: salvata.non_lead, minore_14: salvata.minore_14 },
+        esecuzione: op.esecuzione,
+        adesso: ADESSO,
+      })
+      archivioOp.metti({ ...salvata, ...riga })
+      const lettura = progressoLettura({
+        lettura: { vuota: false, instagram: { elencato: true, finito: true, oggi: [chiuso.conversazione_id] }, messenger: { elencato: true, finito: true, stato: 'senza_token' }, profili: true, contenuti: true, origini: true },
+      })
+      return { ok: true, completa: true, progresso: { lettura }, avvisi: [], contatori: {}, contesto: { agenda: [], stato_lead: [] } } satisfies EsitoLettura
+    }
+    const fine = await giro(archivio, archivio.creaEsecuzione(aggiungiGiorni(oggi, 1)), { leggi: riscrive })
+    expect(fine.stato).toBe('pronta')
+    expect(archivio.chatDi('instagram', chiuso.conversazione_id)).toMatchObject({ minore_14: true, messaggi: [] })
+    expect(corpi().join('\n')).not.toContain('posso allenarmi lo stesso')
+  })
+
+  it('un\'origine che il modello trova in un post pubblicato dopo l\'arrivo del lead non vale (D26)', async () => {
+    const archivio = new ArchivioFinto()
+    archivio.posts = [
+      postFinto('PostNuovoFinto', ora(1), { didascalia: 'Un reel di un\'ora fa.' }),
+      postFinto('PostVecchioFinto', ora(80), { didascalia: 'Un reel più vecchio.' }),
+    ]
+    // post 1 of the context is the newest one: published after the lead's first message
+    const c = chat('Ho visto il tuo ultimo reel, ho 30 anni [[post-ref:1]]')
+    const oggi = oggiRoma()
+    const fine = await giro(archivio, archivio.creaEsecuzione(oggi), { leggi: leggiCon([c]) })
+    expect(fine.stato).toBe('pronta')
+    expect(archivio.chatDi('instagram', c.conversazione_id)).toMatchObject({ origine_tipo: null, origine_shortcode: null })
+    expect(archivio.conteggi).toEqual([])
+  })
+
+  it('una lettura parziale non segna contati i giorni senza lead; una completa sì', async () => {
+    const completa = new ArchivioFinto()
+    await giro(completa, completa.creaEsecuzione(oggiRoma()), { leggi: leggiCon([chat('Ciao, ho 30 anni')]) })
+    expect(completa.chiamateConteggi.at(-1)).toMatchObject({ segnaGiorni: true })
+    // chats not read, Meta's limit, the history cut: the zeros of the days it re-read are not known to be zeros
+    for (const contesto of [{ avvisi: ['chat_non_lette'] }, { avvisi: ['instagram_limitato'] }, { avvisi: ['chat_troppe'] }, { avvisi: ['messenger_non_letto'] }, { storicoIncompleto: true }]) {
+      const archivio = new ArchivioFinto()
+      await giro(archivio, archivio.creaEsecuzione(oggiRoma()), { leggi: leggiCon([chat('Ciao, ho 30 anni')], contesto) })
+      expect(archivio.chiamateConteggi.at(-1), JSON.stringify(contesto)).toMatchObject({ segnaGiorni: false })
+    }
+  })
+
+  it('un blocco interrotto dopo aver pagato alcune schede le tiene: ripartono solo le chat senza scheda', async () => {
+    const archivio = new ArchivioFinto()
+    const a = chat('Uno: ho 30 anni')
+    const b = chat('Due: ho 32 anni')
+    let chiamate = 0
+    const esegui = (async (op: Parameters<typeof eseguiBlocco>[0]) => {
+      if (op.payload.passo === 'schede') {
+        chiamate++
+        if (chiamate === 1) {
+          op.alPrimoEvento?.()
+          // Claude answered both and the first card was validated; then the block was interrupted (a rate limit that
+          // asks for more than 10 s on the second half): only the card of the first chat is kept
+          const reale = await eseguiBlocco(op)
+          if (!reale.ok) return reale
+          const schede = (reale.risultato as RisultatoBloccoSchede).schede.filter((v) => v.chiave === a.conversazione_id)
+          return { ok: false, errore: 'rate_limit', esito: 'da_rifare', usage: reale.usage, parziale: { schede, mancanti: [] } } satisfies EsitoBlocco<unknown>
+        }
+      }
+      return eseguiBlocco(op)
+    }) as typeof eseguiBlocco
+    const oggi = oggiRoma()
+    const fine = await giro(archivio, archivio.creaEsecuzione(oggi), { leggi: leggiCon([a, b]), esegui })
+    expect(fine.stato).toBe('pronta')
+    // each chat has one card, none was a placeholder, and the block ran for both
+    const doc = leggiRecap(archivio.recap.get(`${oggi}|instagram`)?.documento)!
+    expect(doc.leads.map((l) => l.analisi_mancante)).toEqual([undefined, undefined])
+    expect(archivio.schede.filter((x) => x.tipo === 'lead' && x.dati && (x.dati as { analisi_mancante?: boolean }).analisi_mancante)).toHaveLength(0)
+    // the second request carries only the chat that had no card
+    const richiesteSchede = claude.ultime().filter((u) => JSON.stringify(u.corpo).includes('<passo>schede</passo>'))
+    expect(richiesteSchede).toHaveLength(2)
+    const ultima = JSON.stringify(richiesteSchede[1].corpo)
+    expect(ultima).toContain('Due: ho 32 anni')
+    expect(ultima).not.toContain('Uno: ho 30 anni')
+  })
+
+  it('il timeout dovuto al tempo del passo non consuma un tentativo del blocco', async () => {
+    const archivio = new ArchivioFinto()
+    const esegui = (async (op: Parameters<typeof eseguiBlocco>[0]) => {
+      if (op.payload.passo === 'schede') {
+        op.alPrimoEvento?.()
+        // the step's time runs out while the request is in flight: less than a request needs is left
+        await new Promise((r) => setTimeout(r, 1300))
+        return { ok: false, errore: 'timeout', esito: 'da_rifare', usage: null }
+      }
+      return eseguiBlocco(op)
+    }) as typeof eseguiBlocco
+    const id = archivio.creaEsecuzione(oggiRoma())
+    await giro(archivio, id, { leggi: leggiCon([chat('Ciao, ho 31 anni')]), esegui }, { entroMs: 61_000, passiMax: 4 })
+    const blocco = archivio.blocchiSalvati.find((b) => b.esecuzione_id === id && b.tipo === 'schede')
+    expect(blocco).toMatchObject({ stato: 'da_fare', tentativi: 0, errore: 'timeout' })
+  }, 20_000)
+
+  it('i token di un blocco già pagato non vanno persi se poi un errore fatale ferma il giro', async () => {
+    vi.stubEnv('INSIGHT_CONCORRENZA', '1')
+    const archivio = new ArchivioFinto()
+    const chats = Array.from({ length: 12 }, (_, i) => chat(`${'Mi alleno poco. '.repeat(250)} ${i}`))
+    const uso = (input: number, output: number) => ({ input_tokens: input, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: output })
+    let n = 0
+    const esegui = (async (op: Parameters<typeof eseguiBlocco>[0]) => {
+      if (op.payload.passo !== 'schede') return eseguiBlocco(op)
+      op.alPrimoEvento?.()
+      n++
+      if (n === 1) return { ok: true, risultato: { schede: [], mancanti: [] }, usage: uso(100, 40), servito_da_fallback: false, modello: 'claude-sonnet-5-5', request_id: null }
+      return { ok: false, errore: 'autenticazione', esito: 'fatale', usage: uso(50, 0) }
+    }) as typeof eseguiBlocco
+    const id = archivio.creaEsecuzione(oggiRoma())
+    const fine = await giro(archivio, id, { leggi: leggiCon(chats), esegui })
+    expect(fine.stato).toBe('fallita')
+    expect(fine.token_input).toBe(150)
+    expect(fine.token_output).toBe(40)
   })
 
   it('un blocco lasciato a metà tre volte da invocazioni morte: le sue chat hanno la scheda segnaposto (C39)', async () => {

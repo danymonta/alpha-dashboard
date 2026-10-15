@@ -39,7 +39,7 @@ Pain, situazione e parole dei messaggi suggeriti seguono l'ICP e le parole del l
 
 ANALISI DI OGNI CHAT (vale per Instagram e Messenger)
 Applica il controllo PRIMA DI SCRIVERE delle istruzioni setter, poi classifica:
-- non lead (account personali o del team, amici, troll, spam, marketer, messaggi automatici, collaborazioni, minori sotto i 14 anni già chiusi): tipo "non_lead" con il motivo in poche parole.
+- non lead (account personali o del team, amici, troll, spam, marketer, messaggi automatici, collaborazioni; mai un minore, vedi sotto): tipo "non_lead" con il motivo in poche parole.
 - lead: tipo "lead" con
   nome_dal_lead: il nome solo se il lead lo scrive in un suo messaggio, altrimenti vuoto;
   age: l'età solo se il lead la scrive, altrimenti vuota;
@@ -57,7 +57,7 @@ Applica il controllo PRIMA DI SCRIVERE delle istruzioni setter, poi classifica:
   post_ref: il numero del post o reel di <contesto_giorno> che il lead cita (per esempio "ho visto il tuo video su..."), solo se lo dice e solo quando nei fatti "origine_nota" è false; altrimenti null;
   no_contatto: true solo se il lead ha chiesto di non essere ricontattato;
   objection: l'obiezione aperta (text) e la risposta secondo OBIEZIONI FREQUENTI (suggested_reply), altrimenti text e suggested_reply vuoti.
-Minori: segui alla lettera CASI SPECIALI delle istruzioni setter (verifica dell'età, qualifica con i genitori tra 14 e 17 anni, chiusura calorosa sotto i 14 anni verso i contenuti gratuiti, "MINORE" in needs_dany). Con un minore sotto i 14 anni mai una proposta, un link o un prezzo: solo la chiusura calorosa.`
+Minori: segui alla lettera CASI SPECIALI delle istruzioni setter (verifica dell'età, qualifica con i genitori tra 14 e 17 anni, chiusura calorosa sotto i 14 anni verso i contenuti gratuiti, "MINORE" in needs_dany). Con un minore sotto i 14 anni mai una proposta, un link o un prezzo: solo la chiusura calorosa. Un minore sotto i 14 anni è sempre tipo "lead" con fascia_eta "sotto_14", mai "non_lead", nemmeno se la chiusura è già stata mandata: il gestionale lo toglie dai lead e non lo rimanda a te.`
 
 export const PASSI = `PASSI (il passo lo dice <passo> nel messaggio)
 schede: una scheda per ogni chat di <chat_da_analizzare>.

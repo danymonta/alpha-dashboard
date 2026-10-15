@@ -189,8 +189,15 @@ test.describe('l’esecuzione dell’Insight contro i server finti', () => {
     const { percorsi } = await json<{ percorsi: string[] }>(`${GRAFO}/__richieste`)
     expect(percorsi.some((p) => p.includes('refresh_access_token'))).toBe(false)
     // the recap of today, both channels
-    const { data: recap } = await db.from('insight_recap').select('canale, stato').eq('giorno', oggiRoma()).eq('esecuzione_id', run.id)
+    const { data: recap } = await db.from('insight_recap').select('canale, stato, dati').eq('giorno', oggiRoma()).eq('esecuzione_id', run.id)
     expect((recap ?? []).map((r) => r.canale).sort()).toEqual(['instagram', 'messenger'])
+    // the warnings and how it was made are the admin's: on the run, not in the document every setter reads
+    for (const r of recap ?? []) {
+      expect(Object.keys(r.dati as object)).not.toContain('avvisi')
+      expect(Object.keys(r.dati as object)).not.toContain('generato_con')
+    }
+    const { data: dettagli } = await db.from('insight_esecuzioni').select('dettagli_recap').eq('id', run.id).single()
+    expect(Object.keys(dettagli?.dettagli_recap as object).sort()).toEqual(['instagram', 'messenger'])
   })
 
   test('un secondo aggiornamento: niente del tredicenne arriva a Claude, e senza il permesso delle statistiche lo dice', async ({ page }) => {
@@ -219,7 +226,7 @@ test.describe('l’esecuzione dell’Insight contro i server finti', () => {
     const { error: e0 } = await db.from('insight_chat').update({ aggiornata_il: null }).like('conversazione_id', 'igc_finto_%')
     if (e0) throw e0
     const admin = await sessioneAdmin()
-    const { data: id, error } = await admin.rpc('insight_richiedi', { p_url: null as unknown as string })
+    const { data: id, error } = await admin.rpc('insight_richiedi')
     if (error) throw error
     const dopoLettura = await eseguiInsightFinoAllaFine(id as string, { fino: 'analisi' })
     expect(dopoLettura.passo).toBe('analisi')

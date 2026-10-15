@@ -354,6 +354,12 @@ export type EsitoBlocco<T = unknown> =
        */
       esito: 'da_rifare' | 'fallito' | 'fatale'
       usage: UsageBlocco | null
+      /**
+       * schede and riattivazione only: the cards the block had already
+       * validated (and paid for) when it was interrupted, saved before the
+       * block goes back, so only the chats without a card run again
+       */
+      parziale?: unknown
     }
 
 /** The data of a block (bloccoDati of the prompt): what Claude reads after <passo>. */

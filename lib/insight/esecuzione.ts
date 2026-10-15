@@ -31,6 +31,7 @@ import type {
   ProgressoEsecuzione,
   SchedaSalvata,
   TipoBlocco,
+  TipoScheda,
   UsageBlocco,
 } from '@/lib/insight/contratti'
 import { applicaCorrezioni, daCorreggere } from '@/lib/insight/controllo-finale'
@@ -38,6 +39,7 @@ import {
   chiusuraDellaScheda,
   eseguiBlocco,
   eseguiInPool,
+  MINIMO_PER_INIZIARE_MS,
   schedaMancante,
   schedaMinore,
   schedeDelBlocco,
@@ -49,7 +51,7 @@ import {
 } from '@/lib/insight/esegui'
 import { AVVISI_INSIGHT, CANALE_AVVISO, FRASI_INSIGHT, fraseDelMotivo, frasiAvvisi, motivoDelBlocco, motivoInItaliano } from '@/lib/insight/frasi'
 import { improntaCall, improntaChat, improntaSegnaposto } from '@/lib/insight/impronta'
-import { leggiConArchivio, progressoLettura, type OpLettura, type ProgressoLettura } from '@/lib/insight/lettura'
+import { leggiConArchivio, letturaCompleta, progressoLettura, type OpLettura, type ProgressoLettura } from '@/lib/insight/lettura'
 import { VERSIONE_PROMPT } from '@/lib/insight/prompt'
 import {
   chatPerAnalisi,
@@ -177,10 +179,10 @@ export async function eseguiPasso(op: OpPasso, dip: DipendenzePasso = {}): Promi
   }
 }
 
-async function fallisci(archivio: Archivio | null, esecuzione: string, errore: string): Promise<void> {
+async function fallisci(archivio: Archivio | null, esecuzione: string, errore: string, contatori?: ContatoriPasso): Promise<void> {
   if (!archivio) return
   try {
-    await archivio.fallita(esecuzione, errore)
+    await archivio.fallita(esecuzione, errore, contatori)
   } catch {
     // the watchdog of insight_tick ends it within 45 minutes, and empties its messages
     console.error('[insight] esecuzione non chiusa:', esecuzione.slice(0, 8))
@@ -199,8 +201,8 @@ async function finisci(
   return { ok: true, prossimo, progresso, avvisi: [...avvisi], contatori }
 }
 
-async function fallita(archivio: Archivio, op: OpPasso, errore: string): Promise<EsitoPasso> {
-  await fallisci(archivio, op.esecuzione, errore)
+async function fallita(archivio: Archivio, op: OpPasso, errore: string, contatori?: ContatoriPasso): Promise<EsitoPasso> {
+  await fallisci(archivio, op.esecuzione, errore, contatori)
   return { ok: false, errore }
 }
 
@@ -551,6 +553,12 @@ async function passoAnalisi(archivio: Archivio, op: OpPasso, riga: RigaEsecuzion
           effort: piano.effort,
         })
       },
+      alRimesso: async (blocco, esito) => {
+        const preparato = preparati.get(blocco.id)
+        const impronte = preparato && !('vuoto' in preparato) ? preparato.impronte : new Map<string, string>()
+        if (esito.usage) lavoro.usage = somma(lavoro.usage, esito.usage)
+        await salvaParziale(archivio, op, blocco, esito, impronte)
+      },
       alTermine: async (blocco, esito) => {
         const preparato = preparati.get(blocco.id)
         const impronte = preparato && !('vuoto' in preparato) ? preparato.impronte : new Map<string, string>()
@@ -563,19 +571,23 @@ async function passoAnalisi(archivio: Archivio, op: OpPasso, riga: RigaEsecuzion
   }
 
   const chiudi = async (come: 'fatto' | 'tempo' | 'fatale'): Promise<EsitoPasso> => {
-    if (come === 'fatale') {
-      console.error('[insight] Claude ha rifiutato la richiesta:', lavoro.fatale)
-      return fallita(archivio, op, fraseDelMotivo(motivoDelBlocco(lavoro.fatale ?? 'richiesta')))
-    }
-    const tutti = await archivio.blocchi(op.esecuzione)
-    const contatori: ContatoriPasso = {
-      blocchi_totali: tutti.length,
-      blocchi_fatti: tutti.filter((b) => b.stato === 'fatto' || b.stato === 'fallito').length,
+    const token: ContatoriPasso = {
       token_input: lavoro.usage.input_tokens,
       token_cache_scritti: lavoro.usage.cache_creation_input_tokens,
       token_cache_letti: lavoro.usage.cache_read_input_tokens,
       token_output: lavoro.usage.output_tokens,
       servito_da_fallback: lavoro.fallback,
+    }
+    if (come === 'fatale') {
+      console.error('[insight] Claude ha rifiutato la richiesta:', lavoro.fatale)
+      // the blocks done in this invocation were billed all the same
+      return fallita(archivio, op, fraseDelMotivo(motivoDelBlocco(lavoro.fatale ?? 'richiesta')), token)
+    }
+    const tutti = await archivio.blocchi(op.esecuzione)
+    const contatori: ContatoriPasso = {
+      blocchi_totali: tutti.length,
+      blocchi_fatti: tutti.filter((b) => b.stato === 'fatto' || b.stato === 'fallito').length,
+      ...token,
     }
     return finisci(archivio, op, come === 'fatto' ? 'unione' : 'analisi', { piano: { ...piano, concorrenza: lavoro.concorrenza } }, [], contatori)
   }
@@ -633,7 +645,15 @@ async function prepara(
     const perId = new Map(ctx.chat.filter((c) => c.canale === blocco.canale).map((c) => [c.conversazione_id, c]))
     const chat: ChatPerAnalisi[] = []
     const impronte = new Map<string, string>()
+    // a block that went back (time, rate limit) keeps the cards it had validated: only the others run again
+    const tipiDelBlocco: readonly TipoScheda[] = blocco.tipo === 'schede' ? ['lead', 'non_lead'] : ['riattivazione']
+    const conScheda = new Set(
+      (await archivio.schedeDellEsecuzione(op.esecuzione))
+        .filter((s) => s.canale === blocco.canale && tipiDelBlocco.includes(s.tipo))
+        .map((s) => s.chiave),
+    )
     for (const chiave of blocco.chiavi) {
+      if (conScheda.has(chiave)) continue
       const c = perId.get(chiave)
       // gone meanwhile (an exclusion, a deletion) or under 14 now: never sent
       if (!c || c.minore_14 || c.non_lead || c.messaggi.length === 0) continue
@@ -672,7 +692,7 @@ async function prepara(
   }
 
   // sintesi: the chats as this run leaves them (the origins Claude found count in the posts)
-  const effettive = chatEffettive(ctx.chat, [...ctx.precedenti, ...schede])
+  const effettive = chatEffettive(ctx.chat, [...ctx.precedenti, ...schede], ctx.post)
   return {
     payload: payloadSintesi({
       canale: blocco.canale,
@@ -686,6 +706,26 @@ async function prepara(
     }),
     impronte: new Map(),
   }
+}
+
+/** The cards an interrupted block had already validated, saved before it goes back (or is given up). */
+async function salvaParziale(
+  archivio: Archivio,
+  op: OpPasso,
+  blocco: BloccoArchiviato,
+  esito: EsitoBlocco<unknown>,
+  impronte: ReadonlyMap<string, string>,
+): Promise<void> {
+  if (esito.ok || !esito.parziale) return
+  if (blocco.tipo !== 'schede' && blocco.tipo !== 'riattivazione') return
+  const righe = schedeDelBlocco(blocco.tipo, esito.parziale as RisultatoBloccoSchede, impronte)
+  if (righe.length > 0) await archivio.salvaSchede(op.esecuzione, op.giorno, blocco.canale, righe)
+}
+
+/** The chats of an interruption's partial result: they have their card, a placeholder must not replace it. */
+function chiaviDelParziale(esito: EsitoBlocco<unknown>): Set<string> {
+  const p = !esito.ok ? (esito.parziale as RisultatoBloccoSchede | undefined) : undefined
+  return new Set([...(p?.schede ?? []).map((v) => v.chiave), ...(p?.mancanti ?? []).map((m) => m.chiave)])
 }
 
 /**
@@ -724,12 +764,17 @@ async function salvaEsito(
     return 'fatto'
   }
 
+  // an interrupted block keeps the cards it had validated (and paid for)
+  await salvaParziale(archivio, op, blocco, esito, impronte)
+
   if (esito.esito === 'fatale') {
     lavoro.fatale ??= esito.errore
     await archivio.aggiornaBlocco(blocco.id, { stato: 'da_fare', errore: esito.errore })
     return 'da_fare'
   }
-  if (esito.esito === 'da_rifare' && fermato && esito.errore === 'timeout') {
+  // the step's time is over (its signal, or less than a request needs): not the block's fault, no attempt used
+  const tempoFinito = fermato || op.entro - Date.now() < MINIMO_PER_INIZIARE_MS
+  if (esito.esito === 'da_rifare' && tempoFinito && esito.errore === 'timeout') {
     await archivio.aggiornaBlocco(blocco.id, { stato: 'da_fare', errore: esito.errore })
     return 'da_fare'
   }
@@ -738,10 +783,11 @@ async function salvaEsito(
     await archivio.aggiornaBlocco(blocco.id, { stato: 'da_fare', tentativi, errore: esito.errore })
     return 'da_fare'
   }
-  // given up: its chats get placeholder cards (never invented content)
+  // given up: its chats without a card get placeholder cards (never invented content)
   if (blocco.tipo === 'schede' || blocco.tipo === 'riattivazione') {
     const tipo = blocco.tipo === 'schede' ? 'lead' : 'riattivazione'
-    const righe = blocco.chiavi.filter((k) => impronte.has(k)).map((k) => schedaMancante(tipo, k, esito.errore))
+    const conScheda = chiaviDelParziale(esito)
+    const righe = blocco.chiavi.filter((k) => impronte.has(k) && !conScheda.has(k)).map((k) => schedaMancante(tipo, k, esito.errore))
     if (righe.length > 0) await archivio.salvaSchede(op.esecuzione, op.giorno, blocco.canale, righe)
   }
   await archivio.aggiornaBlocco(blocco.id, { stato: 'fallito', tentativi, errore: esito.errore, ...(esito.usage ? { usage: esito.usage } : {}) })
@@ -834,11 +880,14 @@ async function passoUnione(archivio: Archivio, op: OpPasso, riga: RigaEsecuzione
   }
 
   // 2. the chats as the run leaves them (D25, C14, D26)
-  const effettive = chatEffettive(ctx.chat, [...ctx.precedenti, ...schede])
+  const effettive = chatEffettive(ctx.chat, [...ctx.precedenti, ...schede], ctx.post)
   for (let i = 0; i < ctx.chat.length; i++) {
     const prima = ctx.chat[i]
     const dopo = effettive[i]
     const { campi, origine } = differenzeChat(prima, dopo)
+    // found to be under 14 only now: what he left in the earlier recaps and cards goes too (D25).
+    // Before the flag is written: if this fails, the next run finds the chat unflagged and does it again
+    if (dopo.minore_14 && !prima.minore_14) await archivio.scartaMinore(prima.canale, prima.conversazione_id, op.esecuzione)
     if (campi) await archivio.aggiornaChat(prima.canale, prima.conversazione_id, campi)
     if (origine && dopo.origine_tipo && dopo.origine_il && dopo.origine_giorno) {
       await archivio.salvaOrigine(prima.canale, prima.conversazione_id, {
@@ -859,7 +908,8 @@ async function passoUnione(archivio: Archivio, op: OpPasso, riga: RigaEsecuzione
     const { username, nomi } = chiaviStatoLead(chats)
     const statoLead = await archivio.statoLead(username, nomi)
     const righe = contaPerPost({ chats, statoLead, esclusi: ctx.esclusi, dal, oggi: op.giorno })
-    await archivio.salvaConteggi(righe)
+    // a partial reading (chats not read, the history cut) must not turn its zeros into «counted»
+    await archivio.salvaConteggi(righe, { segnaGiorni: letturaCompleta(ctx.lettura) })
   } catch {
     console.error('[insight] conteggi per contenuto non aggiornati:', op.esecuzione.slice(0, 8))
     avvisi.push(AVVISI_INSIGHT.conteggi)

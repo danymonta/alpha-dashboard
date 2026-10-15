@@ -62,7 +62,7 @@ function Call({ voce }: { voce: VoceAgenda }) {
   return (
     <li
       data-testid="call-agenda"
-      className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-start gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] md:p-4"
+      className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] md:p-4"
     >
       <Ora ora={voce.time} giorno={voce.day} />
       <div className="grid min-w-0 gap-1.5">
@@ -73,6 +73,12 @@ function Call({ voce }: { voce: VoceAgenda }) {
               {voce.status}
             </Pillola>
           </div>
+        ) : null}
+        {voce.da_ricontrollare ? (
+          <p className="flex items-start gap-1.5 rounded-lg border border-status-warning/40 bg-status-warning/10 p-3 text-sm">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
+            <span className="[overflow-wrap:anywhere]">{voce.da_ricontrollare}</span>
+          </p>
         ) : null}
         {voce.suggested_message ? (
           <MessaggioCopiabile
@@ -104,7 +110,7 @@ function CallDiIeri({ voce }: { voce: ShowUpRecap }) {
   return (
     <li
       data-testid="call-ieri"
-      className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-start gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[4.5rem_minmax(0,1fr)] md:p-4"
+      className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[4.5rem_minmax(0,1fr)] md:p-4"
     >
       <Ora ora={voce.time} giorno={voce.day || 'ieri'} />
       <div className="grid min-w-0 gap-1.5">

@@ -151,6 +151,33 @@ export const VERSIONI: readonly Versione[] = [
         testoTeam:
           'Le spunte Fatto sono condivise con Dany, in tempo reale: non dicono chi le ha messe né quando. Il giorno dopo si riparte da zero, come nell’artefatto.',
       },
+      {
+        per: ['admin'],
+        testo:
+          'Se una chat risulta di un minore sotto i 14 anni solo dopo che ha scritto per giorni, il gestionale toglie i suoi messaggi anche dai recap dei giorni prima (situazione, pain, risposte suggerite, origine) e dalle schede; della chat resta solo il segno che è un minore, anche oltre i 30 giorni, così non torna a Claude se riscrive. L’informativa privacy lo dice.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Gli avvisi di un recap e come è stato fatto (il modello e la versione delle istruzioni) li leggi solo tu: non sono più nel documento che leggono i setter. L’indirizzo a cui l’app manda i passi del recap lo scrive solo il server, da APP_URL: nemmeno la tua sessione può puntare la chiave dei passi altrove.',
+      },
+      {
+        per: ['setter'],
+        testo: 'Nell’Agenda, se il promemoria di una call non si può mostrare, ora dice il perché e che va scritto a mano.',
+        testoTeam: 'Nell’Agenda, se il promemoria di una call non si può mostrare, ora c’è la riga che dice il perché e che va scritto a mano. L’ora della call, sul telefono, non tocca più il nome.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo:
+          'I giorni senza lead di un post non si segnano più come contati quando la lettura delle chat è stata parziale (chat non lette, limiti di Meta, storico tagliato): «nessun lead» ora vuol dire davvero zero. Un post uscito dopo l’arrivo di un lead non può più essere il suo punto di partenza.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il costo di un recap conta anche i token che prima si perdevano (una richiesta interrotta, un blocco rimesso in coda, i blocchi già finiti quando un errore ferma tutto), e un blocco interrotto dopo aver pagato alcune schede le tiene invece di rifarle.',
+      },
     ],
   },
   {

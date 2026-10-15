@@ -153,6 +153,11 @@ create table public.insight_esecuzioni (
     constraint insight_esecuzioni_invocazioni check (invocazioni between 0 and 40),
   -- fixed Italian sentences only, never message text or model output
   avvisi text[] not null default '{}',
+  -- the admin's part of each recap of this run, by channel: {"instagram": {"avvisi": [...], "generato_con":
+  -- {modello, effort, versione_prompt, servito_da_fallback}}, "messenger": ...}. Fixed sentences and the model's
+  -- name, never a person: kept off insight_recap.dati, which every active setter reads
+  dettagli_recap jsonb not null default '{}'::jsonb
+    constraint insight_esecuzioni_dettagli_recap check (jsonb_typeof(dettagli_recap) = 'object'),
   errore text
     constraint insight_esecuzioni_errore check (char_length(errore) <= 500),
   -- counters (numbers only)
@@ -436,7 +441,7 @@ create table public.insight_recap (
 );
 
 comment on table public.insight_recap is
-  'The Insight''s documents, one per Rome day and channel (lib/insight/recap.ts): leads with their chats (messages of the last 30 days, each with its instant), reactivations, objections, agenda, contents. Read by the admin and every active setter (insight_puo_leggere). Written only by the service role, always with an upsert on (giorno, canale), never delete-and-insert: a delete takes that day''s Fatto rows with it. Deleted 30 days after its day. Never in the backup.';
+  'The Insight''s documents, one per Rome day and channel (lib/insight/recap.ts): leads with their chats (messages of the last 30 days, each with its instant), reactivations, objections, agenda, contents; not the warnings nor how it was made (insight_esecuzioni.dettagli_recap, the admin''s). Read by the admin and every active setter (insight_puo_leggere). Written only by the service role, always with an upsert on (giorno, canale), never delete-and-insert: a delete takes that day''s Fatto rows with it. Deleted 30 days after its day. Never in the backup.';
 
 create trigger insight_recap_set_updated_at
   before update on public.insight_recap

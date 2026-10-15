@@ -62,9 +62,10 @@ export type Automazione = z.output<typeof automazioneSchema>
 export const URL_PASSO_MANCANTE = 'Indirizzo dell’app non configurato: imposta APP_URL su Vercel e rifai il deploy.'
 
 /**
- * The arguments of public.insight_imposta_automazione, as the action builds
- * them: p_url comes from urlPasso() on the server, never from the form, and is
- * required to turn the automation on (the function refuses it otherwise).
+ * What the automation action builds: p_url comes from urlPasso() on the server,
+ * never from the form, and is required to turn the automation on. Only
+ * p_attivo and p_ora go to public.insight_imposta_automazione; p_url is written
+ * apart, with the service role (insight_imposta_url, lib/insight/url-passo.ts).
  */
 export const argomentiAutomazioneSchema = z
   .object({

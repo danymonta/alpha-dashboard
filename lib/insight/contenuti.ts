@@ -333,7 +333,12 @@ export function sottoI14(fascia: unknown, etaLetta: string): boolean {
  * and the origin the model found (post_shortcode, D26) on a complete chat
  * still without one. A chat without a card stays as it is.
  */
-export function chatEffettive(chat: readonly ChatSalvata[], schede: readonly SchedaSalvata[]): ChatSalvata[] {
+export function chatEffettive(
+  chat: readonly ChatSalvata[],
+  schede: readonly SchedaSalvata[],
+  /** Dany's posts: the origin the model found cannot be a post published after the lead's first message */
+  post?: readonly Pick<PostInsight, 'shortcode' | 'pubblicato_il'>[],
+): ChatSalvata[] {
   const ultime = ultimaSchedaPerChat(schede)
   return chat.map((c) => {
     const scheda = ultime.get(c.conversazione_id)
@@ -351,7 +356,7 @@ export function chatEffettive(chat: readonly ChatSalvata[], schede: readonly Sch
       origine_giorno: c.origine_giorno,
     }
     if (c.origine_tipo === null && typeof dati.post_shortcode === 'string') {
-      const trovata = origineDaShortcode(c, dati.post_shortcode)
+      const trovata = origineDaShortcode(c, dati.post_shortcode, post)
       if (trovata) {
         origine = {
           origine_tipo: trovata.tipo,

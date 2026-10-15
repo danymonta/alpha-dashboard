@@ -107,10 +107,12 @@ export function SchedaLead({
   const IconaPriorita = ICONA_PRIORITA[lead.priority]
   // the status the code writes on an under-14 card and on a placeholder is the pill of its own (with its icon): once
   const stato = lead.status.trim().toLowerCase()
+  // the code may put «attende risposta · » in front of it (the lead has the last word): the waiting is the other pill's
+  const statoNudo = stato.replace(/^attende risposta(?: · )?/u, '')
   const mostraStato =
     Boolean(lead.status) &&
-    !(lead.minore_14 && stato === LEADS.minore) &&
-    !(lead.analisi_mancante && stato === LEADS.analisiMancante)
+    !(lead.minore_14 && statoNudo === LEADS.minore) &&
+    !(lead.analisi_mancante && statoNudo === LEADS.analisiMancante)
   const tonoDelloStato = tonoStato(lead.status, attendeRisposta(lead))
 
   return (

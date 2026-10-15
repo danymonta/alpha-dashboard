@@ -80,6 +80,12 @@ describe('the system prompt', () => {
     expect(COMPITO).toContain('Prezzi e condizioni di pagamento non vanno mai in un messaggio')
   })
 
+  it('an under-14 chat is always a lead with the band, never a non-lead (D25: it would be read again)', () => {
+    // a non_lead card has no band, so a minor the model called a non-lead would never get minor_14
+    expect(COMPITO).not.toContain('minori sotto i 14 anni già chiusi')
+    expect(COMPITO).toContain('Un minore sotto i 14 anni è sempre tipo "lead" con fascia_eta "sotto_14", mai "non_lead"')
+  })
+
   it('never asks to write out the reasoning (reasoning_extraction)', () => {
     expect(COMPITO).toContain('Non scrivere il tuo ragionamento')
     expect(`${COMPITO}${PASSI}`).not.toMatch(/ragiona passo passo|mostra il ragionamento/iu)

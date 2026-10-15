@@ -39,7 +39,8 @@ describe('l’indirizzo dei passi: lo stesso controllo nel database e nel server
   const comeSql = (re: RegExp) => re.source.replaceAll('\\/', '/')
 
   it('ogni regex del database è una delle due del server', () => {
-    expect(nelSql.length).toBeGreaterThanOrEqual(6)
+    // the table's check and insight_imposta_url (the only function that writes the address)
+    expect(nelSql.length).toBeGreaterThanOrEqual(4)
     for (const re of nelSql) {
       expect([comeSql(RE_URL_PASSO_HTTPS), comeSql(RE_URL_PASSO_LOCALE)]).toContain(re)
     }

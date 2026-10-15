@@ -160,9 +160,39 @@ grant execute on function public.insight_stato() to authenticated;
 -- The admin's actions
 -- ---------------------------------------------------------------------------
 
--- «Automazione»: on or off, and when the recap is ready (Rome). The step URL
--- comes from the server (urlPasso), required to turn it on.
-create function public.insight_imposta_automazione(p_attivo boolean, p_ora time, p_url text)
+-- The step URL: where pg_net posts every step with the Vault key. Only the
+-- server writes it (service_role), from APP_URL (urlPasso, D18): an admin's
+-- session, even a stolen one calling the Data API, can switch the automation
+-- and ask for a run but can never point the key at another host.
+create function public.insight_imposta_url(p_url text)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+begin
+  if p_url is null
+     or (p_url !~ '^https://[a-z0-9.-]+/api/cron/insight$'
+         and p_url !~ '^http://(host\.docker\.internal|localhost|127\.0\.0\.1)(:[0-9]{2,5})?/api/cron/insight$') then
+    raise exception 'Indirizzo dell’app non valido.' using errcode = '22023';
+  end if;
+
+  update public.insight_impostazioni i
+  set url_passo = p_url
+  where i.id and i.url_passo is distinct from p_url;
+end;
+$$;
+
+comment on function public.insight_imposta_url(text) is
+  'service_role only (the server, from APP_URL): sets the address pg_net posts the Insight steps to. 22023 for anything but an https address of the app''s step route (the local hosts too, for the local dev server). No session can call it.';
+
+revoke all on function public.insight_imposta_url(text) from public, anon, authenticated;
+grant execute on function public.insight_imposta_url(text) to service_role;
+
+-- «Automazione»: on or off, and when the recap is ready (Rome). To turn it on
+-- the step URL must already be there (insight_imposta_url, written by the server).
+create function public.insight_imposta_automazione(p_attivo boolean, p_ora time)
 returns void
 language plpgsql
 volatile
@@ -179,27 +209,23 @@ begin
   if extract(second from p_ora) <> 0 or extract(minute from p_ora)::integer % 5 <> 0 then
     raise exception 'Scegli un orario a passi di 5 minuti, per esempio 19:00 o 19:05.' using errcode = '22023';
   end if;
-  if (p_url is null and p_attivo)
-     or (p_url is not null
-         and p_url !~ '^https://[a-z0-9.-]+/api/cron/insight$'
-         and p_url !~ '^http://(host\.docker\.internal|localhost|127\.0\.0\.1)(:[0-9]{2,5})?/api/cron/insight$') then
+  if p_attivo and not exists (select 1 from public.insight_impostazioni i where i.id and i.url_passo is not null) then
     raise exception 'Indirizzo dell’app non valido.' using errcode = '22023';
   end if;
 
   update public.insight_impostazioni i
   set attivo = p_attivo,
       ora = p_ora,
-      url_passo = coalesce(p_url, i.url_passo),
       updated_by = (select auth.uid())
   where i.id;
 end;
 $$;
 
-comment on function public.insight_imposta_automazione(boolean, time, text) is
-  'Admin only: turns the automatic recap on or off and sets when it is ready (Rome, 5-minute steps). p_url (the step URL, from the server) is required to turn it on.';
+comment on function public.insight_imposta_automazione(boolean, time) is
+  'Admin only: turns the automatic recap on or off and sets when it is ready (Rome, 5-minute steps). Turning it on needs the step URL, written before by the server (insight_imposta_url): the session never chooses it.';
 
-revoke all on function public.insight_imposta_automazione(boolean, time, text) from public, anon, authenticated;
-grant execute on function public.insight_imposta_automazione(boolean, time, text) to authenticated;
+revoke all on function public.insight_imposta_automazione(boolean, time) from public, anon, authenticated;
+grant execute on function public.insight_imposta_automazione(boolean, time) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Dispatching a step
@@ -246,8 +272,9 @@ comment on function public.insight_dispatch(uuid) is
 revoke all on function public.insight_dispatch(uuid) from public, anon, authenticated, service_role;
 
 -- «Aggiorna dati»: a manual run for today (Rome), dispatched at once when the
--- step URL is known. At most 8 a day, one run at a time.
-create function public.insight_richiedi(p_url text)
+-- step URL is known (the server wrote it: insight_imposta_url). At most 8 a
+-- day, one run at a time.
+create function public.insight_richiedi()
 returns uuid
 language plpgsql
 volatile
@@ -261,11 +288,6 @@ begin
   if not public.is_admin() then
     raise exception 'Solo l’admin aggiorna i dati dell’Insight.' using errcode = '42501';
   end if;
-  if p_url is not null
-     and p_url !~ '^https://[a-z0-9.-]+/api/cron/insight$'
-     and p_url !~ '^http://(host\.docker\.internal|localhost|127\.0\.0\.1)(:[0-9]{2,5})?/api/cron/insight$' then
-    raise exception 'Indirizzo dell’app non valido.' using errcode = '22023';
-  end if;
 
   perform pg_advisory_xact_lock(hashtextextended('alpha.insight', 0));
 
@@ -275,13 +297,6 @@ begin
   if (select count(*) from public.insight_esecuzioni e
       where e.motivo = 'manuale' and e.giorno = public.oggi()) >= 8 then
     raise exception 'Hai già aggiornato 8 volte oggi: riprova domani.' using errcode = '22023';
-  end if;
-
-  if p_url is not null then
-    update public.insight_impostazioni i
-    set url_passo = p_url,
-        updated_by = (select auth.uid())
-    where i.id and i.url_passo is distinct from p_url;
   end if;
 
   insert into public.insight_esecuzioni (giorno, motivo, richiesta_da)
@@ -296,11 +311,11 @@ begin
 end;
 $$;
 
-comment on function public.insight_richiedi(text) is
-  'Admin only («Aggiorna dati»): a manual Insight run for today (Rome), dispatched when the step URL is known (p_url updates it). 22023 when a run is active or after 8 manual runs today.';
+comment on function public.insight_richiedi() is
+  'Admin only («Aggiorna dati»): a manual Insight run for today (Rome), dispatched when the step URL is known (written by the server, insight_imposta_url). 22023 when a run is active or after 8 manual runs today.';
 
-revoke all on function public.insight_richiedi(text) from public, anon, authenticated;
-grant execute on function public.insight_richiedi(text) to authenticated;
+revoke all on function public.insight_richiedi() from public, anon, authenticated;
+grant execute on function public.insight_richiedi() to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- The scheduler
@@ -617,9 +632,11 @@ grant execute on function public.insight_passo_finito(uuid, public.insight_passo
 
 -- The run failed: a fixed sentence for the admin (FRASI_INSIGHT, never an
 -- exception's message; anything token-shaped is blanked anyway), and no
--- message it read survives (insight_scarta_letture). False when the run was
--- not active.
-create function public.insight_fallita(p_esecuzione uuid, p_errore text)
+-- message it read survives (insight_scarta_letture). p_contatori: the tokens
+-- the failing step had already spent (Anthropic billed them), added to the
+-- run's like insight_passo_finito does, and the cost recomputed. False when
+-- the run was not active.
+create function public.insight_fallita(p_esecuzione uuid, p_errore text, p_contatori jsonb default null)
 returns boolean
 language plpgsql
 volatile
@@ -628,7 +645,11 @@ set search_path = ''
 as $$
 declare
   v_errore text := btrim(coalesce(p_errore, ''));
+  c jsonb := coalesce(p_contatori, '{}'::jsonb);
 begin
+  if jsonb_typeof(c) <> 'object' then
+    raise exception 'Contatori non validi' using errcode = '22023';
+  end if;
   v_errore := regexp_replace(v_errore, '[A-Za-z0-9_-]{40,}', '[token]', 'g');
   v_errore := left(v_errore, 500);
   if v_errore = '' then
@@ -639,22 +660,39 @@ begin
   set stato = 'fallita',
       errore = v_errore,
       finita_il = now(),
-      lease_fino_al = null
+      lease_fino_al = null,
+      token_input = case when c->>'token_input' is null then e.token_input
+                         else coalesce(e.token_input, 0) + (c->>'token_input')::bigint end,
+      token_cache_scritti = case when c->>'token_cache_scritti' is null then e.token_cache_scritti
+                                 else coalesce(e.token_cache_scritti, 0) + (c->>'token_cache_scritti')::bigint end,
+      token_cache_letti = case when c->>'token_cache_letti' is null then e.token_cache_letti
+                               else coalesce(e.token_cache_letti, 0) + (c->>'token_cache_letti')::bigint end,
+      token_output = case when c->>'token_output' is null then e.token_output
+                          else coalesce(e.token_output, 0) + (c->>'token_output')::bigint end,
+      servito_da_fallback = e.servito_da_fallback + coalesce((c->>'servito_da_fallback')::integer, 0)
   where e.id = p_esecuzione and e.stato in ('in_coda', 'in_corso');
   if not found then
     return false;
   end if;
+
+  update public.insight_esecuzioni x
+  set costo_usd = case
+        when x.token_input is null and x.token_cache_scritti is null
+             and x.token_cache_letti is null and x.token_output is null then null
+        else public.insight_costo_usd(x.token_input, x.token_cache_scritti, x.token_cache_letti, x.token_output)
+      end
+  where x.id = p_esecuzione;
 
   perform public.insight_scarta_letture(p_esecuzione);
   return true;
 end;
 $$;
 
-comment on function public.insight_fallita(uuid, text) is
-  'service_role only: marks an active Insight run failed with a fixed sentence (at most 500 characters, token-shaped strings blanked) and empties the messages of the chats it read.';
+comment on function public.insight_fallita(uuid, text, jsonb) is
+  'service_role only: marks an active Insight run failed with a fixed sentence (at most 500 characters, token-shaped strings blanked) and empties the messages of the chats it read. p_contatori (token_*, servito_da_fallback) adds what the failing step had spent and recomputes the cost.';
 
-revoke all on function public.insight_fallita(uuid, text) from public, anon, authenticated;
-grant execute on function public.insight_fallita(uuid, text) to service_role;
+revoke all on function public.insight_fallita(uuid, text, jsonb) from public, anon, authenticated;
+grant execute on function public.insight_fallita(uuid, text, jsonb) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- The key of the steps
@@ -1100,6 +1138,125 @@ comment on function public.insight_dimentica(public.insight_canale, text) is
 revoke all on function public.insight_dimentica(public.insight_canale, text) from public, anon, authenticated;
 grant execute on function public.insight_dimentica(public.insight_canale, text) to authenticated;
 
+-- A chat found to be under 14 only now (D25): what the earlier recaps and
+-- cards kept of it goes, so no word of a minor outlives the run that read it.
+-- In every recap of the channel its lead entry loses the messages and the
+-- fields written from them (situation, pain, topics, the suggested messages,
+-- the origin) and becomes the under-14 entry the run writes today; it leaves
+-- the reactivations and the objections. Its cards lose everything but the
+-- sign and the warm closure the run that found it wrote (p_esecuzione keeps
+-- that closure; older cards lose theirs, which was an ordinary reply).
+create function public.insight_scarta_minore(
+  p_canale public.insight_canale,
+  p_conversazione_id text,
+  p_esecuzione uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_conv text := btrim(coalesce(p_conversazione_id, ''));
+  v_user text;
+  v_psid text;
+  v_array text;
+  n integer;
+  v_voci integer := 0;
+  v_schede integer := 0;
+begin
+  if v_conv = '' or char_length(v_conv) > 200 then
+    raise exception 'Chat non valida.' using errcode = '22023';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('alpha.insight_dimentica', 0));
+
+  select c.username, c.utente_id into v_user, v_psid
+  from public.insight_chat c
+  where c.canale = p_canale and c.conversazione_id = v_conv;
+
+  -- the lead entries of every recap of the channel
+  foreach v_array in array array['leads'] loop
+    with cambiati as (
+      update public.insight_recap r
+      set dati = jsonb_set(r.dati, array[v_array], coalesce((
+        select jsonb_agg(
+                 case when m.voce->>'conversation_id' = v_conv and coalesce(m.voce->>'minore_14', '') <> 'true'
+                      then (m.voce || jsonb_build_object(
+                              'age', '', 'priority', 'alta', 'target', 'no', 'stage', 'uscita',
+                              'status', 'minore sotto i 14 anni', 'situation', 'Minore sotto i 14 anni.', 'pain', '',
+                              'next_action', 'Chiusura calorosa verso i contenuti gratuiti, nessun altro contatto.',
+                              'suggested_message', '', 'suggested_message_alt', '', 'alt_condition', '',
+                              'source', '', 'topics', '[]'::jsonb, 'messages', '[]'::jsonb, 'minore_14', true))
+                           - 'origine' - 'da_ricontrollare' - 'analisi_mancante'
+                      else m.voce end
+                 order by m.n)
+        from jsonb_array_elements(
+          case when jsonb_typeof(r.dati->v_array) = 'array' then r.dati->v_array else '[]'::jsonb end)
+          with ordinality as m(voce, n)), '[]'::jsonb))
+      where r.canale = p_canale
+        and jsonb_typeof(r.dati->v_array) = 'array'
+        and exists (
+          select 1
+          from jsonb_array_elements(
+            case when jsonb_typeof(r.dati->v_array) = 'array' then r.dati->v_array else '[]'::jsonb end) as x(voce)
+          where x.voce->>'conversation_id' = v_conv and coalesce(x.voce->>'minore_14', '') <> 'true')
+      returning 1
+    )
+    select count(*)::integer into n from cambiati;
+    v_voci := v_voci + n;
+  end loop;
+
+  -- out of the reactivations and the objections
+  foreach v_array in array array['reactivate', 'objections'] loop
+    with cambiati as (
+      update public.insight_recap r
+      set dati = jsonb_set(r.dati, array[v_array], coalesce((
+        select jsonb_agg(m.voce order by m.n)
+        from jsonb_array_elements(
+          case when jsonb_typeof(r.dati->v_array) = 'array' then r.dati->v_array else '[]'::jsonb end)
+          with ordinality as m(voce, n)
+        where not coalesce(m.voce->>'conversation_id' = v_conv
+                           or (v_user is not null and m.voce->>'username' = v_user)
+                           or (v_psid is not null and m.voce->>'user_id' = v_psid), false)), '[]'::jsonb))
+      where r.canale = p_canale
+        and jsonb_typeof(r.dati->v_array) = 'array'
+        and exists (
+          select 1
+          from jsonb_array_elements(
+            case when jsonb_typeof(r.dati->v_array) = 'array' then r.dati->v_array else '[]'::jsonb end) as x(voce)
+          where coalesce(x.voce->>'conversation_id' = v_conv
+                         or (v_user is not null and x.voce->>'username' = v_user)
+                         or (v_psid is not null and x.voce->>'user_id' = v_psid), false))
+      returning 1
+    )
+    select count(*)::integer into n from cambiati;
+    v_voci := v_voci + n;
+  end loop;
+
+  -- the cards: only the sign and, for the run that found it, the closure
+  update public.insight_schede s
+  set dati = jsonb_build_object(
+        'tipo', 'lead',
+        'minore_14', true,
+        'ultima_chiusura', coalesce(
+          nullif(s.dati->>'ultima_chiusura', ''),
+          case when s.esecuzione_id = p_esecuzione and s.tipo = 'lead' then s.dati->>'suggested_message' end,
+          ''))
+  where s.canale = p_canale and s.chiave = v_conv and s.tipo in ('lead', 'riattivazione')
+    and coalesce(s.dati->>'minore_14', '') <> 'true';
+  get diagnostics v_schede = row_count;
+
+  return jsonb_build_object('voci_recap', v_voci, 'schede', v_schede);
+end;
+$$;
+
+comment on function public.insight_scarta_minore(public.insight_canale, text, uuid) is
+  'service_role only (the Insight, D25): a chat found to be under 14 loses what the earlier recaps and cards kept of it: its lead entries become the under-14 entry (no messages, no situation, pain, topics or suggested messages), it leaves the reactivations and the objections, its cards keep only the sign and the warm closure of the run p_esecuzione. Returns the counts.';
+
+revoke all on function public.insight_scarta_minore(public.insight_canale, text, uuid) from public, anon, authenticated;
+grant execute on function public.insight_scarta_minore(public.insight_canale, text, uuid) to service_role;
+
 -- ---------------------------------------------------------------------------
 -- Retention (D13): no stored message is older than 30 days, wherever it is
 -- ---------------------------------------------------------------------------
@@ -1116,11 +1273,21 @@ declare
   n integer;
   v_conti jsonb := '{}'::jsonb;
 begin
-  -- chats whose last message is older than 30 days
+  -- chats whose last message is older than 30 days. An under-14 chat is the
+  -- exception (D25): its row has no message and no code, and keeps only the
+  -- sign that the Insight must never send it to Claude again; the name and the
+  -- origin go, and insight_dimentica still erases it on request
   begin
-    delete from public.insight_chat c where coalesce(c.ultimo_il, c.letta_il) < v_limite;
+    delete from public.insight_chat c
+    where coalesce(c.ultimo_il, c.letta_il) < v_limite and not c.minore_14;
     get diagnostics n = row_count;
     v_conti := v_conti || jsonb_build_object('chat', n);
+    update public.insight_chat c
+    set nome = null, calendly_inviato_il = null, ultimo_target = null,
+        origine_tipo = null, origine_shortcode = null, origine_il = null, origine_giorno = null
+    where c.minore_14 and coalesce(c.ultimo_il, c.letta_il) < v_limite
+      and (c.nome is not null or c.calendly_inviato_il is not null or c.ultimo_target is not null
+           or c.origine_tipo is not null);
   exception when others then
     raise warning 'insight_pulizia: chat (%)', sqlstate;
   end;
@@ -1186,10 +1353,10 @@ begin
     raise warning 'insight_pulizia: profili (%)', sqlstate;
   end;
 
-  -- recaps 30 days after their day (their Fatto rows by cascade: the DELETE
-  -- events carry no username, D12)
+  -- recaps 30 days after their day, not a night later (their Fatto rows by
+  -- cascade: the DELETE events carry no username, D12)
   begin
-    delete from public.insight_recap r where r.giorno < public.oggi() - 30;
+    delete from public.insight_recap r where r.giorno <= public.oggi() - 30;
     get diagnostics n = row_count;
     v_conti := v_conti || jsonb_build_object('recap', n);
   exception when others then
@@ -1221,7 +1388,7 @@ end;
 $$;
 
 comment on function public.insight_pulizia() is
-  'pg_cron every night: deletes chats, profiles, recaps and runs of the Insight older than 30 days and every stored message older than 30 days, inside the chats and inside the recaps; trims pg_cron''s log to 3 days. Never touches instagram_contenuti or instagram_contenuti_dm. Returns the counts.';
+  'pg_cron every night: deletes chats, profiles, recaps (the day exactly 30 days ago included) and runs of the Insight older than 30 days and every stored message older than 30 days, inside the chats and inside the recaps; trims pg_cron''s log to 3 days. An under-14 chat keeps its row (no message, no code: only the sign that it is a minor, with its ids), stripped of name, origin and target. Never touches instagram_contenuti or instagram_contenuti_dm. Returns the counts.';
 
 revoke all on function public.insight_pulizia() from public, anon, authenticated, service_role;
 
