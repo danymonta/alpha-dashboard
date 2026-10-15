@@ -278,6 +278,152 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"insight_blocchi": {
+                  Row: {
+                    "canale": Database["public"]['Enums']["insight_canale"],"chiavi": (string)[],"created_at": string,"errore": string | null,"esecuzione_id": string,"id": string,"indice": number,"risultato": Json | null,"servito_da_fallback": boolean,"stato": string,"tentativi": number,"tipo": string,"updated_at": string,"usage": Json | null
+                  }
+                  Insert: {
+                    "canale": Database["public"]['Enums']["insight_canale"],"chiavi"?: (string)[],"created_at"?: string,"errore"?: string | null,"esecuzione_id": string,"id"?: string,"indice": number,"risultato"?: Json | null,"servito_da_fallback"?: boolean,"stato"?: string,"tentativi"?: number,"tipo": string,"updated_at"?: string,"usage"?: Json | null
+                  }
+                  Update: {
+                    "canale"?: Database["public"]['Enums']["insight_canale"],"chiavi"?: (string)[],"created_at"?: string,"errore"?: string | null,"esecuzione_id"?: string,"id"?: string,"indice"?: number,"risultato"?: Json | null,"servito_da_fallback"?: boolean,"stato"?: string,"tentativi"?: number,"tipo"?: string,"updated_at"?: string,"usage"?: Json | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "insight_blocchi_esecuzione_id_fkey"
+      columns: ["esecuzione_id"]
+isOneToOne: false
+      referencedRelation: "insight_esecuzioni"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"insight_chat": {
+                  Row: {
+                    "aggiornata_il": string | null,"calendly_inviato_il": string | null,"canale": Database["public"]['Enums']["insight_canale"],"codici_condivisi": (string)[],"completa": boolean,"conversazione_id": string,"created_at": string,"id": string,"letta_da": string | null,"letta_il": string,"messaggi": NonNullable<Json>,"messaggi_letti": number,"minore_14": boolean,"nome": string | null,"non_lead": boolean,"origine_giorno": string | null,"origine_il": string | null,"origine_shortcode": string | null,"origine_tipo": string | null,"ultimo_da": string | null,"ultimo_il": string | null,"ultimo_target": string | null,"updated_at": string,"username": string | null,"utente_id": string | null
+                  }
+                  Insert: {
+                    "aggiornata_il"?: string | null,"calendly_inviato_il"?: string | null,"canale": Database["public"]['Enums']["insight_canale"],"codici_condivisi"?: (string)[],"completa"?: boolean,"conversazione_id": string,"created_at"?: string,"id"?: string,"letta_da"?: string | null,"letta_il"?: string,"messaggi"?: NonNullable<Json>,"messaggi_letti"?: number,"minore_14"?: boolean,"nome"?: string | null,"non_lead"?: boolean,"origine_giorno"?: string | null,"origine_il"?: string | null,"origine_shortcode"?: string | null,"origine_tipo"?: string | null,"ultimo_da"?: string | null,"ultimo_il"?: string | null,"ultimo_target"?: string | null,"updated_at"?: string,"username"?: string | null,"utente_id"?: string | null
+                  }
+                  Update: {
+                    "aggiornata_il"?: string | null,"calendly_inviato_il"?: string | null,"canale"?: Database["public"]['Enums']["insight_canale"],"codici_condivisi"?: (string)[],"completa"?: boolean,"conversazione_id"?: string,"created_at"?: string,"id"?: string,"letta_da"?: string | null,"letta_il"?: string,"messaggi"?: NonNullable<Json>,"messaggi_letti"?: number,"minore_14"?: boolean,"nome"?: string | null,"non_lead"?: boolean,"origine_giorno"?: string | null,"origine_il"?: string | null,"origine_shortcode"?: string | null,"origine_tipo"?: string | null,"ultimo_da"?: string | null,"ultimo_il"?: string | null,"ultimo_target"?: string | null,"updated_at"?: string,"username"?: string | null,"utente_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "insight_chat_letta_da_fkey"
+      columns: ["letta_da"]
+isOneToOne: false
+      referencedRelation: "insight_esecuzioni"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"insight_esecuzioni": {
+                  Row: {
+                    "avvisi": (string)[],"blocchi_fatti": number | null,"blocchi_totali": number | null,"chat_attribuite": number | null,"chat_escluse": number | null,"chat_instagram": number | null,"chat_messenger": number | null,"contenuti": number | null,"contesto_app": Json | null,"costo_usd": number | null,"creata_il": string,"errore": string | null,"finita_il": string | null,"giorno": string,"id": string,"iniziata_il": string | null,"inviata_il": string | null,"invocazioni": number,"lease_fino_al": string | null,"modello": string | null,"motivo": string,"passo": Database["public"]['Enums']["insight_passo"],"progresso": NonNullable<Json>,"richiesta_da": string | null,"servito_da_fallback": number,"stato": Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi": number,"token_cache_letti": number | null,"token_cache_scritti": number | null,"token_input": number | null,"token_output": number | null,"updated_at": string
+                  }
+                  Insert: {
+                    "avvisi"?: (string)[],"blocchi_fatti"?: number | null,"blocchi_totali"?: number | null,"chat_attribuite"?: number | null,"chat_escluse"?: number | null,"chat_instagram"?: number | null,"chat_messenger"?: number | null,"contenuti"?: number | null,"contesto_app"?: Json | null,"costo_usd"?: number | null,"creata_il"?: string,"errore"?: string | null,"finita_il"?: string | null,"giorno": string,"id"?: string,"iniziata_il"?: string | null,"inviata_il"?: string | null,"invocazioni"?: number,"lease_fino_al"?: string | null,"modello"?: string | null,"motivo": string,"passo"?: Database["public"]['Enums']["insight_passo"],"progresso"?: NonNullable<Json>,"richiesta_da"?: string | null,"servito_da_fallback"?: number,"stato"?: Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi"?: number,"token_cache_letti"?: number | null,"token_cache_scritti"?: number | null,"token_input"?: number | null,"token_output"?: number | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "avvisi"?: (string)[],"blocchi_fatti"?: number | null,"blocchi_totali"?: number | null,"chat_attribuite"?: number | null,"chat_escluse"?: number | null,"chat_instagram"?: number | null,"chat_messenger"?: number | null,"contenuti"?: number | null,"contesto_app"?: Json | null,"costo_usd"?: number | null,"creata_il"?: string,"errore"?: string | null,"finita_il"?: string | null,"giorno"?: string,"id"?: string,"iniziata_il"?: string | null,"inviata_il"?: string | null,"invocazioni"?: number,"lease_fino_al"?: string | null,"modello"?: string | null,"motivo"?: string,"passo"?: Database["public"]['Enums']["insight_passo"],"progresso"?: NonNullable<Json>,"richiesta_da"?: string | null,"servito_da_fallback"?: number,"stato"?: Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi"?: number,"token_cache_letti"?: number | null,"token_cache_scritti"?: number | null,"token_input"?: number | null,"token_output"?: number | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "insight_esecuzioni_richiesta_da_fkey"
+      columns: ["richiesta_da"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"insight_fatto": {
+                  Row: {
+                    "canale": Database["public"]['Enums']["insight_canale"],"chiave": string,"fatto": boolean,"giorno": string,"id": string
+                  }
+                  Insert: {
+                    "canale": Database["public"]['Enums']["insight_canale"],"chiave": string,"fatto": boolean,"giorno": string,"id"?: string
+                  }
+                  Update: {
+                    "canale"?: Database["public"]['Enums']["insight_canale"],"chiave"?: string,"fatto"?: boolean,"giorno"?: string,"id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "insight_fatto_recap"
+      columns: ["giorno","canale"]
+isOneToOne: false
+      referencedRelation: "insight_recap"
+      referencedColumns: ["giorno","canale"]
+    }
+                  ]
+                },"insight_impostazioni": {
+                  Row: {
+                    "anticipo_minuti": number,"attivo": boolean,"created_at": string,"id": boolean,"ora": string,"storico_dal": string | null,"ultimo_tick_il": string | null,"updated_at": string,"updated_by": string | null,"url_passo": string | null
+                  }
+                  Insert: {
+                    "anticipo_minuti"?: number,"attivo"?: boolean,"created_at"?: string,"id"?: boolean,"ora"?: string,"storico_dal"?: string | null,"ultimo_tick_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null,"url_passo"?: string | null
+                  }
+                  Update: {
+                    "anticipo_minuti"?: number,"attivo"?: boolean,"created_at"?: string,"id"?: boolean,"ora"?: string,"storico_dal"?: string | null,"ultimo_tick_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null,"url_passo"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "insight_impostazioni_updated_by_fkey"
+      columns: ["updated_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"insight_profili": {
+                  Row: {
+                    "created_at": string,"follower": number | null,"letto_il": string,"lo_segui": boolean | null,"nome": string | null,"ti_segue": boolean | null,"updated_at": string,"username": string,"utente_id": string | null,"verificato": boolean | null
+                  }
+                  Insert: {
+                    "created_at"?: string,"follower"?: number | null,"letto_il"?: string,"lo_segui"?: boolean | null,"nome"?: string | null,"ti_segue"?: boolean | null,"updated_at"?: string,"username": string,"utente_id"?: string | null,"verificato"?: boolean | null
+                  }
+                  Update: {
+                    "created_at"?: string,"follower"?: number | null,"letto_il"?: string,"lo_segui"?: boolean | null,"nome"?: string | null,"ti_segue"?: boolean | null,"updated_at"?: string,"username"?: string,"utente_id"?: string | null,"verificato"?: boolean | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"insight_recap": {
+                  Row: {
+                    "canale": Database["public"]['Enums']["insight_canale"],"created_at": string,"dati": NonNullable<Json>,"esecuzione_id": string | null,"generato_il": string,"giorno": string,"stato": string,"updated_at": string
+                  }
+                  Insert: {
+                    "canale": Database["public"]['Enums']["insight_canale"],"created_at"?: string,"dati": NonNullable<Json>,"esecuzione_id"?: string | null,"generato_il": string,"giorno": string,"stato": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "canale"?: Database["public"]['Enums']["insight_canale"],"created_at"?: string,"dati"?: NonNullable<Json>,"esecuzione_id"?: string | null,"generato_il"?: string,"giorno"?: string,"stato"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "insight_recap_esecuzione_id_fkey"
+      columns: ["esecuzione_id"]
+isOneToOne: false
+      referencedRelation: "insight_esecuzioni"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"insight_schede": {
+                  Row: {
+                    "canale": Database["public"]['Enums']["insight_canale"],"chiave": string,"created_at": string,"dati": NonNullable<Json>,"esecuzione_id": string,"giorno": string,"id": string,"impronta": string,"tipo": string,"updated_at": string
+                  }
+                  Insert: {
+                    "canale": Database["public"]['Enums']["insight_canale"],"chiave": string,"created_at"?: string,"dati": NonNullable<Json>,"esecuzione_id": string,"giorno": string,"id"?: string,"impronta": string,"tipo": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "canale"?: Database["public"]['Enums']["insight_canale"],"chiave"?: string,"created_at"?: string,"dati"?: NonNullable<Json>,"esecuzione_id"?: string,"giorno"?: string,"id"?: string,"impronta"?: string,"tipo"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "insight_schede_esecuzione_id_fkey"
+      columns: ["esecuzione_id"]
+isOneToOne: false
+      referencedRelation: "insight_esecuzioni"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"instagram_collegamento": {
                   Row: {
                     "account_id": string | null,"account_username": string | null,"created_at": string,"id": boolean,"setter_id": string | null,"token_aggiornato_il": string | null,"token_scade_il": string | null,"ultimo_calcolo_chat": number | null,"ultimo_calcolo_giorno": string | null,"ultimo_calcolo_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"updated_at": string,"updated_by": string | null
@@ -315,6 +461,31 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"instagram_contenuti_dm": {
+                  Row: {
+                    "calcolato_il": string,"call_prenotate": number,"dm": number,"dm_certi": number,"giorno": string,"lead_in_target": number,"shortcode": string
+                  }
+                  Insert: {
+                    "calcolato_il"?: string,"call_prenotate": number,"dm": number,"dm_certi": number,"giorno": string,"lead_in_target": number,"shortcode": string
+                  }
+                  Update: {
+                    "calcolato_il"?: string,"call_prenotate"?: number,"dm"?: number,"dm_certi"?: number,"giorno"?: string,"lead_in_target"?: number,"shortcode"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "instagram_contenuti_dm_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "instagram_contenuti"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "instagram_contenuti_dm_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_instagram_post"
+      referencedColumns: ["shortcode"]
+    }
                   ]
                 },"instagram_contenuti_stato": {
                   Row: {
@@ -496,6 +667,44 @@ isOneToOne: true
 isOneToOne: true
       referencedRelation: "v_instagram_post"
       referencedColumns: ["shortcode"]
+    }
+                  ]
+                },"messenger_collegamento": {
+                  Row: {
+                    "created_at": string,"id": boolean,"pagina_id": string | null,"pagina_nome": string | null,"token_aggiornato_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"updated_at": string,"updated_by": string | null
+                  }
+                  Insert: {
+                    "created_at"?: string,"id"?: boolean,"pagina_id"?: string | null,"pagina_nome"?: string | null,"token_aggiornato_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: boolean,"pagina_id"?: string | null,"pagina_nome"?: string | null,"token_aggiornato_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "messenger_collegamento_updated_by_fkey"
+      columns: ["updated_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"messenger_esclusi": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"motivo": string | null,"nome": string,"updated_at": string,"utente_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"nome": string,"updated_at"?: string,"utente_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"nome"?: string,"updated_at"?: string,"utente_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "messenger_esclusi_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
     }
                   ]
                 },"obiettivi_mese": {
@@ -1599,8 +1808,79 @@ isOneToOne: false
 "inserisci_piano":
 { Args: { "p_rate": Json,"p_sale_id": string }; Returns: undefined
                            },
+"insight_agenda":
+{ Args: { "p_adesso"?: string }; Returns: {
+              "call_id": string,"di_follow_up": boolean,"esito": Database["public"]['Enums']["call_outcome"],"fonte": Database["public"]['Enums']["lead_source"],"giorno": string,"lead_id": string,"no_show_precedenti": number,"nome": string,"programmata_il": string,"stato": Database["public"]['Enums']["call_status"],"username": string,"volte_spostata": number
+            }[]
+                           },
+"insight_chat_messenger":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "nome": string,"utente_id": string
+            }[]
+                           },
+"insight_chiave":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"insight_costo_usd":
+{ Args: { "p_cache_letti": number,"p_cache_scritti": number,"p_input": number,"p_output": number }; Returns: number
+                           },
+"insight_da_avviare":
+{ Args: { "p_adesso": string }; Returns: string
+                           },
+"insight_dimentica":
+{ Args: { "p_canale": Database["public"]['Enums']["insight_canale"],"p_chiave": string }; Returns: Json
+                           },
+"insight_dispatch":
+{ Args: { "p_esecuzione": string }; Returns: boolean
+                           },
+"insight_fallita":
+{ Args: { "p_errore": string,"p_esecuzione": string }; Returns: boolean
+                           },
+"insight_imposta_automazione":
+{ Args: { "p_attivo": boolean,"p_ora": string,"p_url": string }; Returns: undefined
+                           },
+"insight_istante":
+{ Args: { "p_valore": string }; Returns: string
+                           },
+"insight_passo_finito":
+{ Args: { "p_avvisi": (string)[],"p_contatori": Json,"p_esecuzione": string,"p_progresso": Json,"p_prossimo": Database["public"]['Enums']["insight_passo"] }; Returns: boolean
+                           },
+"insight_prendi_passo":
+{ Args: { "p_esecuzione": string,"p_secondi"?: number }; Returns: {
+              "giorno": string,"motivo": string,"passo": Database["public"]['Enums']["insight_passo"],"progresso": Json
+            }[]
+                           },
+"insight_pulizia":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"insight_puo_leggere":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"insight_richiedi":
+{ Args: { "p_url": string }; Returns: string
+                           },
+"insight_ruota_chiave":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"insight_scarta_letture":
+{ Args: { "p_esecuzione": string }; Returns: number
+                           },
+"insight_stato":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"insight_stato_lead":
+{ Args: { "p_nomi"?: (string)[],"p_username": (string)[] }; Returns: {
+              "chiave": string,"cliente": boolean,"fonte": Database["public"]['Enums']["lead_source"],"ha_call": boolean,"no_show_precedenti": number,"per": string,"prossima_call_il": string,"prossima_call_stato": Database["public"]['Enums']["call_status"],"stato_lead": Database["public"]['Enums']["lead_status"],"ultimo_esito": Database["public"]['Enums']["call_outcome"]
+            }[]
+                           },
+"insight_tick":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "instagram_collega_da_solo":
 { Args: { "p_contenuto": string,"p_giorni": number,"p_motivi": (string)[],"p_punteggio": number,"p_shortcode": string,"p_somiglianza": number }; Returns: boolean
+                           },
+"instagram_contenuti_dm_salva":
+{ Args: { "p_righe": Json }; Returns: number
                            },
 "instagram_contenuti_fine_giro":
 { Args: { "p_account": string,"p_campi": string,"p_causa"?: string,"p_collegati": number,"p_errore": string,"p_esito": string,"p_giro": string,"p_letti": number,"p_proposti": number }; Returns: boolean
@@ -1660,6 +1940,21 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: {
               "bozza": string,"finale": string,"id": string,"messaggio": string,"nome": string,"post_date": string,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"]
             }[]
+                           },
+"messenger_errore":
+{ Args: { "p_messaggio": string }; Returns: undefined
+                           },
+"messenger_imposta_token":
+{ Args: { "p_pagina_id": string,"p_pagina_nome": string,"p_token": string }; Returns: undefined
+                           },
+"messenger_togli_token":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"messenger_token":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"messenger_token_presente":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "metriche_mese":
 { Args: { "p_mese": string }; Returns: {
@@ -1927,7 +2222,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"marketing"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","contenuto_format": "text_opinion"|"check_caption"|"split"|"reaction"|"b_roll"|"green_screen"|"raw_talking_head"|"storytelling"|"transformation"|"show_and_tell","contenuto_reel_type": "attraction"|"education"|"converting"|"radio"|"workshop","contenuto_status": "not_started"|"to_be_recorded"|"to_be_edited"|"to_be_posted"|"posted"|"canceled","contenuto_tipo": "reel"|"carousel","expense_category": "team"|"software"|"ads"|"formazione"|"altro","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","proposta_stato": "da_confermare"|"confermata"|"scartata","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
+            "app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"marketing"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","contenuto_format": "text_opinion"|"check_caption"|"split"|"reaction"|"b_roll"|"green_screen"|"raw_talking_head"|"storytelling"|"transformation"|"show_and_tell","contenuto_reel_type": "attraction"|"education"|"converting"|"radio"|"workshop","contenuto_status": "not_started"|"to_be_recorded"|"to_be_edited"|"to_be_posted"|"posted"|"canceled","contenuto_tipo": "reel"|"carousel","expense_category": "team"|"software"|"ads"|"formazione"|"altro","insight_canale": "instagram"|"messenger","insight_passo": "lettura"|"analisi"|"unione","insight_stato_esecuzione": "in_coda"|"in_corso"|"pronta"|"fallita","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","proposta_stato": "da_confermare"|"confermata"|"scartata","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -2043,7 +2338,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "app_role": ["admin", "setter", "closer", "coach", "editor", "marketing", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"contenuto_format": ["text_opinion", "check_caption", "split", "reaction", "b_roll", "green_screen", "raw_talking_head", "storytelling", "transformation", "show_and_tell"],"contenuto_reel_type": ["attraction", "education", "converting", "radio", "workshop"],"contenuto_status": ["not_started", "to_be_recorded", "to_be_edited", "to_be_posted", "posted", "canceled"],"contenuto_tipo": ["reel", "carousel"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"proposta_stato": ["da_confermare", "confermata", "scartata"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
+            "app_role": ["admin", "setter", "closer", "coach", "editor", "marketing", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"contenuto_format": ["text_opinion", "check_caption", "split", "reaction", "b_roll", "green_screen", "raw_talking_head", "storytelling", "transformation", "show_and_tell"],"contenuto_reel_type": ["attraction", "education", "converting", "radio", "workshop"],"contenuto_status": ["not_started", "to_be_recorded", "to_be_edited", "to_be_posted", "posted", "canceled"],"contenuto_tipo": ["reel", "carousel"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"insight_canale": ["instagram", "messenger"],"insight_passo": ["lettura", "analisi", "unione"],"insight_stato_esecuzione": ["in_coda", "in_corso", "pronta", "fallita"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"proposta_stato": ["da_confermare", "confermata", "scartata"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
           }
         }
 } as const

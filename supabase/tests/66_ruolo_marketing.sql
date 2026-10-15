@@ -1,7 +1,8 @@
 -- The marketing role (Dany, 08/10/2026): the Marketing area plus Progetti, like
 -- the video editor, and never money, leads, calls, clients, setter reports,
 -- Instagram proposals or DMs (Dany's own Instagram posts and their links with the
--- calendar, 1.33.0, yes). Every Economics policy is an allow-list: this test
+-- calendar, 1.33.0, yes; of the Insight, 1.35.0, only the leads per post, never a
+-- chat or a name). Every Economics policy is an allow-list: this test
 -- reads every table and view of public as marketing and as the video editor and
 -- accepts rows only from the allow-list, so a table added later is covered
 -- without editing it.
@@ -9,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(41);
+select plan(42);
 
 -- ---------------------------------------------------------------------------
 -- 1. The role, and an invite that uses it
@@ -120,6 +121,44 @@ values ('Test66Rifiutato', '66660000-0000-4000-8000-000000000066')
 on conflict (shortcode, contenuto_id) do nothing;
 insert into public.marketing_post_esclusi (shortcode) values ('Test66Post2')
 on conflict (shortcode) do nothing;
+-- The Insight (1.35.0): the leads per post are allowed below; the chats, the
+-- profiles, the runs, the AI work and the Messenger exclusions never (the
+-- recaps have the seed's rows, the automation and the Messenger Page their row)
+insert into public.instagram_contenuti_dm (shortcode, giorno, dm, lead_in_target, call_prenotate, dm_certi)
+values ('Test66Post1', public.oggi() - 1, 2, 1, 1, 1)
+on conflict (shortcode, giorno) do nothing;
+insert into public.insight_esecuzioni (id, giorno, motivo, stato, passo) values
+  ('66660000-0000-4000-8000-000000000166', public.oggi() - 2, 'manuale', 'pronta', 'unione')
+on conflict (id) do nothing;
+insert into public.insight_chat (canale, conversazione_id, username, nome, messaggi, messaggi_letti, completa)
+values ('instagram', 'test66-chat', 'lead.test66', 'Lead Test 66',
+        '[{"da":"lead","il":"2026-10-10T10:00:00Z","testo":"Ciao","codici":[],"storia":false}]', 1, true)
+on conflict (canale, conversazione_id) do nothing;
+insert into public.insight_profili (username, nome) values ('lead.test66', 'Lead Test 66')
+on conflict (username) do nothing;
+insert into public.insight_blocchi (esecuzione_id, canale, tipo, indice)
+values ('66660000-0000-4000-8000-000000000166', 'instagram', 'sintesi', 0)
+on conflict (esecuzione_id, canale, tipo, indice) do nothing;
+insert into public.insight_schede (esecuzione_id, giorno, canale, tipo, chiave, impronta, dati)
+values ('66660000-0000-4000-8000-000000000166', public.oggi() - 2, 'instagram', 'lead', 'test66-chat', repeat('f', 64), '{}')
+on conflict (esecuzione_id, canale, tipo, chiave) do nothing;
+insert into public.insight_recap (giorno, canale, esecuzione_id, generato_il, stato, dati)
+values (public.oggi() - 2, 'instagram', '66660000-0000-4000-8000-000000000166', now(), 'completo',
+        '{"leads":[{"username":"lead.test66","name":"Lead Test 66"}]}')
+on conflict (giorno, canale) do nothing;
+insert into public.insight_fatto (giorno, canale, chiave, fatto) values (public.oggi() - 2, 'instagram', 'lead.test66', true)
+on conflict (giorno, canale, chiave) do nothing;
+insert into public.messenger_esclusi (utente_id, nome) values ('6600000000000066', 'Escluso Test 66')
+on conflict (utente_id) do nothing;
+select is(
+  (select coalesce(array_agg(t order by t), '{}') from unnest(array[
+     'insight_impostazioni', 'insight_esecuzioni', 'insight_chat', 'insight_profili', 'insight_blocchi',
+     'insight_schede', 'insight_recap', 'insight_fatto', 'messenger_collegamento', 'messenger_esclusi',
+     'instagram_contenuti_dm']) as t
+   where (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from public.%I', t), false, true, '')))[1]::text::integer = 0),
+  '{}'::text[],
+  'ogni tabella dell''Insight ha righe: 0 righe qui sotto vuol dire RLS'
+);
 
 create temp table righe_viste (persona text, relazione text, righe bigint, errore text) on commit drop;
 grant select, insert on righe_viste to authenticated;
@@ -167,14 +206,15 @@ select ok(
   'il marketing legge il calendario dei contenuti e i progetti di cui fa parte'
 );
 -- Allowed: the team directory, the content calendar, the Instagram posts and
--- their links with the calendar (1.33.0, 69_post_instagram.sql), the Projects area.
+-- their links with the calendar (1.33.0, 69_post_instagram.sql), the leads per
+-- post of the Insight (1.35.0, 78_contenuti_dm.sql), the Projects area.
 -- products: its own rule and test (20261009120200, 68_prodotti_solo_economics.sql).
 create temp table ammesse (relazione text primary key) on commit drop;
 insert into ammesse values
   ('profiles'), ('marketing_contenuti'), ('products'),
   ('instagram_contenuti'), ('instagram_contenuti_stato'), ('marketing_abbinamenti'),
   ('marketing_abbinamenti_rifiutati'), ('marketing_post_esclusi'),
-  ('v_instagram_post'), ('v_marketing_proposte');
+  ('v_instagram_post'), ('v_marketing_proposte'), ('instagram_contenuti_dm');
 select is(
   (select coalesce(array_agg(relazione order by relazione), '{}') from righe_viste
    where persona = 'marketing' and righe > 0
@@ -197,7 +237,7 @@ select is(
      and not exists (select 1 from righe_viste r
                      where r.persona = 'marketing' and r.relazione = a.relazione and r.righe > 0)),
   '{}'::text[],
-  'il marketing legge i post di Instagram e i loro legami col calendario'
+  'il marketing legge i post di Instagram, i loro legami col calendario e i lead per post'
 );
 select is(
   (select coalesce(array_agg(a.relazione order by a.relazione), '{}') from ammesse a
