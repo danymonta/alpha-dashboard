@@ -153,6 +153,22 @@ describe('analizzaReel', () => {
     expect(richiesta()).not.toContain('Reel con gancio sulla sbarra')
   })
 
+  it('anche i Name del calendario, i ganci dei reel migliori e i temi dei DM arrivano senza i nomi', async () => {
+    const fonti = {
+      ...FONTI_ACCESE,
+      in_calendario: [{ name: 'Testimonianza di Gustavo', reel_type: 'education', format: 'storytelling', status: 'to_be_recorded' }],
+      account: { migliori: [{ gancio: 'Gustavo ha perso 8 kg', views_rapporto: 2 }], peggiori: [{ gancio: 'scrivi a gustavo@esempio.it', views_rapporto: 0.4 }] },
+      temi_dm: [{ tema: 'dubbi di Gustavo sul tempo', quanti: 3 }],
+    }
+    const { db } = dbFinto(BASE, { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: fonti })
+    await analizzaReel({ db, id: 'a1', entro: entro(), cliente: client })
+    const testo = richiesta()
+    expect(testo).not.toMatch(/gustavo/i)
+    expect(testo).not.toContain('esempio.it')
+    expect(testo).toContain('Testimonianza di [lead]')
+    expect(testo).toContain('dubbi di [lead] sul tempo')
+  })
+
   it('senza il tempo per Claude il lavoro torna in coda senza tentativo e senza chiamare Claude', async () => {
     const { db, chiamate } = dbFinto(BASE, { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_SPENTE })
     const r = await analizzaReel({ db, id: 'a1', entro: Date.now() + 30_000, cliente: client })

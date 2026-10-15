@@ -120,6 +120,37 @@ describe('chiediAClaude', () => {
     expect(finto.ultime().length).toBeLessThanOrEqual(1)
   })
 
+  it('una richiesta partita che scade per il suo timeout è un tentativo fallito (rete), non «tempo»: altrimenti tornerebbe in coda senza contare', async () => {
+    let chiamate = 0
+    const sempreScaduto = {
+      beta: {
+        messages: {
+          stream: () => {
+            chiamate++
+            return { finalMessage: () => Promise.reject(new Anthropic.APIConnectionTimeoutError()), currentMessage: undefined, request_id: null }
+          },
+        },
+      },
+    } as unknown as Anthropic
+    const r = await chiediAClaude({ ...opzioniAnalisi(contenutoAnalisi({}, {})), cliente: sempreScaduto })
+    expect(r).toMatchObject({ ok: false, codice: 'rete' })
+    // one more try in the same step, as for the network
+    expect(chiamate).toBe(2)
+  })
+
+  it('un segnale interrotto da chi chiama resta «tempo»: nessun tentativo da contare', async () => {
+    const abort = new AbortController()
+    const interrotto = {
+      beta: {
+        messages: {
+          stream: () => ({ finalMessage: () => Promise.reject(new Anthropic.APIUserAbortError()), currentMessage: undefined, request_id: null }),
+        },
+      },
+    } as unknown as Anthropic
+    const r = await chiediAClaude({ ...opzioniAnalisi(contenutoAnalisi({}, {})), cliente: interrotto, segnale: abort.signal })
+    expect(r).toMatchObject({ ok: false, codice: 'tempo' })
+  })
+
   it('i log dicono i conti, mai un testo né un dollaro', async () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
     await chiediAClaude(opzioniAnalisi(contenutoAnalisi({}, { didascalia: 'testo segreto della didascalia' })))

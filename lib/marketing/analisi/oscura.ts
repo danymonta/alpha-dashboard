@@ -46,6 +46,9 @@ const RE_HANDLE = /(^|[^\p{L}\p{N}._])@[\p{L}\p{N}._]+/gu
 const RE_IMPORTO =
   /(?:€\s*\d[\d.,]*|\d[\d.,]*\s*(?:€|euro\b|eur\b))/giu
 const RE_URL = /\b(?:https?:\/\/|www\.)\S+/giu
+// an email address, and a phone number (nine digits or more, with spaces, dots or dashes between them)
+const RE_EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu
+const RE_TELEFONO = /(?<![\p{L}\p{N}])\+?\d(?:[ .-]?\d){8,}(?![\p{N}])/gu
 const RE_TRATTINO = /\s*[–—]\s*/gu
 
 /**
@@ -67,14 +70,16 @@ export function sostituisciNomi(testo: string, parole: ReadonlySet<string>, sost
 
 /**
  * A text that goes to Claude: the names blanked («[lead]»), `@handles`
- * («@[account]»), amounts («[importo]») and links (out). A text that is not
+ * («@[account]»), emails and phone numbers («[contatto]»), amounts («[importo]») and links (out). A text that is not
  * there stays empty.
  */
 export function oscura(testo: string | null | undefined, parole: ReadonlySet<string>): string {
   if (!testo) return ''
   let t = testo.replace(RE_URL, ' ')
+  t = t.replace(RE_EMAIL, '[contatto]')
   t = t.replace(RE_HANDLE, (_m, prima: string) => `${prima}@[account]`)
   t = t.replace(RE_IMPORTO, '[importo]')
+  t = t.replace(RE_TELEFONO, '[contatto]')
   t = sostituisciNomi(t, parole, '[lead]').testo
   return t.replace(/[ \t]{2,}/g, ' ').trim()
 }
@@ -92,6 +97,11 @@ export function ripulisciUscita(testo: string, parole: ReadonlySet<string>): { t
     conteggi.link++
     return ''
   })
+  // an email or a phone number is counted with the handles: it is a way to reach a person
+  t = t.replace(RE_EMAIL, () => {
+    conteggi.handle++
+    return 'un contatto'
+  })
   t = t.replace(RE_HANDLE, (_m, prima: string) => {
     conteggi.handle++
     return `${prima}un account`
@@ -99,6 +109,10 @@ export function ripulisciUscita(testo: string, parole: ReadonlySet<string>): { t
   t = t.replace(RE_IMPORTO, () => {
     conteggi.importi++
     return 'il prezzo'
+  })
+  t = t.replace(RE_TELEFONO, () => {
+    conteggi.handle++
+    return 'un contatto'
   })
   const nomi = sostituisciNomi(t, parole, 'un lead')
   conteggi.nomi = nomi.sostituzioni

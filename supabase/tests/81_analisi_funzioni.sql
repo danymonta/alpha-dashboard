@@ -5,7 +5,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(221);
+select plan(224);
 
 -- the seed's posts and counts do not enter these comparisons
 update public.instagram_contenuti set eliminato_il = now();
@@ -299,6 +299,32 @@ select is((select count(*)::integer from public.marketing_analisi where motivo =
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"61616161-6161-4161-8161-616161616161","role":"authenticated"}';
 select is(pg_temp.codice($$ select public.marketing_analisi_richiedi('8100000000000003') $$), '22023', 'l''undicesima del giorno no');
+reset role;
+set local request.jwt.claims to '{}';
+delete from public.marketing_analisi where motivo = 'richiesta';
+
+-- «Analizza di nuovo»: a speech that failed or was off is asked again, one that came out (or a reel without speech) is kept
+update public.instagram_letture set stato = 'fatta', trascrizione_esito = 'fallita', visione_esito = 'rifiutata' where media_id = '8100000000000003';
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select public.marketing_analisi_richiedi('8100000000000003', true);
+reset role;
+set local request.jwt.claims to '{}';
+select is((select trascrizione_esito from public.instagram_letture where media_id = '8100000000000003'), null,
+  'Whisper fallito: «Analizza di nuovo» chiede di nuovo il parlato');
+update public.marketing_analisi set stato = 'fallita', errore = 'x', finita_il = now() where media_id = '8100000000000003' and stato = 'in_coda';
+update public.instagram_letture set stato = 'fatta', trascrizione_esito = 'senza_parlato', visione_esito = 'rifiutata' where media_id = '8100000000000003';
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select public.marketing_analisi_richiedi('8100000000000003', true);
+reset role;
+set local request.jwt.claims to '{}';
+select is((select trascrizione_esito from public.instagram_letture where media_id = '8100000000000003'), 'senza_parlato',
+  'un reel senza parlato resta senza parlato: l''audio non cambia');
+-- the tiles are not for a Claude token, even the admin's (vede_marketing() is true for a live token)
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","client_id":"7c000000-0000-4000-8000-0000000000aa"}';
+select throws_ok($$ select public.analisi_riepilogo(public.oggi() - 30, public.oggi()) $$, '42501', null, 'analisi_riepilogo: un token di Claude no');
 reset role;
 set local request.jwt.claims to '{}';
 delete from public.marketing_analisi where motivo = 'richiesta';

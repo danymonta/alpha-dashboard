@@ -219,7 +219,8 @@ const SEZIONI: Sezione[] = [
           viene inviata a Groq (Stati Uniti) per essere trascritta e non viene conservata. Il gestionale conserva il testo
           della trascrizione, la scheda scritta da Claude e i numeri del reel. In queste analisi non entrano messaggi né
           nomi: dei contatti arrivati dai messaggi diretti Claude riceve solo conteggi e, se il nostro team lo consente,
-          temi riassunti dalle note interne, senza nomi e senza i testi dei messaggi.
+          il testo delle note interne del team sui contatti (cosa frenava i contatti, i motivi per cui una call non si è
+          chiusa), ripulito dei nomi, dei recapiti e delle cifre, e mai i testi dei messaggi.
         </p>
         <p>
           <strong className="font-semibold">Riepilogo dei messaggi diretti.</strong> Ogni giorno il gestionale legge

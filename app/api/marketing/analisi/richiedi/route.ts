@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { getProfilo } from '@/lib/auth/session'
 import { urlPassoMarketing } from '@/lib/marketing/analisi/config'
 import { VERSIONE_PROMPT_VISIONE } from '@/lib/marketing/analisi/prompt'
+import { dovrebbeRileggere } from '@/lib/marketing/analisi/rileggere'
+import { trascrizioneAttiva } from '@/lib/marketing/trascrizione'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
@@ -53,17 +55,13 @@ export async function POST(request: NextRequest) {
   const { media_id } = letto.data
 
   const supabase = await createClient()
-  // the reading is redone when it is missing, only the speech, not ready, or made with an older prompt
+  // the reading is redone when it is missing, only the speech, not ready, made with an older prompt, or lost to a cause that can pass
   const { data: lettura } = await supabase
     .from('instagram_letture')
-    .select('richiesta, stato, visione_esito, versione_prompt_visione')
+    .select('richiesta, stato, visione_esito, versione_prompt_visione, video, trascrizione_esito')
     .eq('media_id', media_id)
     .maybeSingle()
-  const rileggi =
-    !lettura ||
-    lettura.richiesta === 'trascrizione' ||
-    lettura.visione_esito !== 'pronta' ||
-    lettura.versione_prompt_visione !== VERSIONE_PROMPT_VISIONE
+  const rileggi = dovrebbeRileggere(lettura, { versionePrompt: VERSIONE_PROMPT_VISIONE, trascrizioneAttiva: trascrizioneAttiva() })
 
   const { data: id, error } = await supabase.rpc('marketing_analisi_richiedi', { p_media_id: media_id, p_rileggi: rileggi })
   if (error || !id) {

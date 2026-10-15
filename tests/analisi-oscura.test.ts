@@ -105,3 +105,25 @@ describe('sostituisciNomi', () => {
     expect(sostituisciNomi('Gustavo e Ale e Gustavo', paroleDaOscurare(NOMI), 'X')).toEqual({ testo: 'X e X e X', sostituzioni: 3 })
   })
 })
+
+describe('email e telefoni', () => {
+  const parole = paroleDaOscurare(NOMI)
+
+  it('in ingresso: un’email e un numero di telefono diventano «[contatto]», una data e un numero breve no', () => {
+    const t = oscura('Scrivi a gustavo@esempio.it o chiama il 333 123 4567, +39 333-1234567. Il 2026-10-16 o il 16/10/2026, 3 giorni, 1.500 euro.', parole)
+    expect(t).not.toContain('esempio.it')
+    expect(t).not.toContain('4567')
+    expect(t).not.toContain('1234567')
+    expect(t).toContain('[contatto]')
+    expect(t).toContain('2026-10-16')
+    expect(t).toContain('16/10/2026')
+    expect(t).toContain('3 giorni')
+    expect(t).toContain('[importo]')
+  })
+
+  it('in uscita: «un contatto», e il conteggio va con gli handle', () => {
+    const { testo, conteggi } = ripulisciUscita('Scrivi a mario@esempio.it o al 3331234567.', parole)
+    expect(testo).toBe('Scrivi a un contatto o al un contatto.')
+    expect(conteggi.handle).toBe(2)
+  })
+})

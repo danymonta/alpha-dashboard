@@ -1,6 +1,7 @@
 import type { IdeaContenuto } from '@/lib/marketing/analisi/tipi'
 import { BOZZA_REEL } from '@/lib/marketing/etichette'
 import { formatData } from '@/lib/format'
+import { giornoRoma } from '@/lib/setting/conteggio-dm'
 import type { ContenutoInput } from '@/lib/validation/contenuto'
 
 /**
@@ -23,10 +24,11 @@ const bozzaDa = (idea: IdeaContenuto): string => {
 
 export function contenutoDaIdea(
   idea: IdeaContenuto,
-  origine: { permalink: string; giorno: string | null },
+  origine: { permalink: string; /** the instant the post was published (UTC, as the database gives it): the day is Rome's */ pubblicato_il: string | null },
 ): { input: ContenutoInput; sezioni: { messaggio: string; bozza: string; commenti: string } } {
   const messaggio = idea.perche ? `${idea.messaggio}\n\nPerché: ${idea.perche}` : idea.messaggio
-  const quando = origine.giorno ? ` del ${formatData(origine.giorno)}` : ''
+  const giorno = origine.pubblicato_il ? giornoRoma(origine.pubblicato_il) : null
+  const quando = giorno ? ` del ${formatData(giorno)}` : ''
   return {
     input: {
       tipo: 'reel',

@@ -313,7 +313,8 @@ declare
   v_cambiare integer := 0;
   r record;
 begin
-  if not public.vede_marketing() then
+  -- vede_marketing() is true for a live Claude token (MCP): the page's tiles are not for it
+  if public.da_client_oauth() or not public.vede_marketing() then
     raise exception 'Le analisi dei reel sono dell’area Marketing.' using errcode = '42501';
   end if;
   if p_da is null or p_a is null or p_a < p_da or p_a - p_da > 366 then
@@ -466,7 +467,10 @@ begin
                                    or coalesce(p_rileggi, false)) then
     update public.instagram_letture x
     set richiesta = 'completa', stato = 'in_coda', motivo = 'richiesta', priorita = 2,
-        tentativi = 0, ripresa_usata = false, prossimo_il = null, errore = null
+        tentativi = 0, ripresa_usata = false, prossimo_il = null, errore = null,
+        -- a speech that did not come out for a reason that can pass (Whisper failed or was off, the video was not
+        -- there) is asked again: a transcript that came out, or a reel with no speech, is kept
+        trascrizione_esito = case when x.trascrizione_esito in ('fallita', 'spenta', 'senza_video') then null else x.trascrizione_esito end
     where x.media_id = p_media_id;
   end if;
 

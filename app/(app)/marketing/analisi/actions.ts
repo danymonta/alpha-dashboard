@@ -50,7 +50,7 @@ export async function aggiungiIdeaAlCalendario(input: unknown): Promise<EsitoIde
 
   const { input: contenuto, sezioni } = contenutoDaIdea(idea, {
     permalink: post.permalink,
-    giorno: post.pubblicato_il.slice(0, 10),
+    pubblicato_il: post.pubblicato_il,
   })
   const esito = await operazioni.creaContenuto(db, contenuto, sezioni, { analisi_id: analisi.id, idea: letto.data.indice })
   if (!esito.ok) return { ok: false, errore: esito.errore }

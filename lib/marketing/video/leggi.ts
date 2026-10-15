@@ -298,7 +298,11 @@ export async function leggiReel(op: {
       }
     }
     if (copertina) immagini.push({ etichetta: 'Copertina (griglia del profilo):', jpeg: copertina })
-    const parlati = parlatoPerFotogramma(fotogrammi, tEsito === 'pronta' && segmenti ? segmenti : [])
+    // the names of leads, clients and team out of what is said, as in the analysis pass: what reaches Claude is always cleaned
+    const { data: nomiDb } = await db.rpc('marketing_da_oscurare')
+    const parole = paroleDaOscurare(Array.isArray(nomiDb) ? (nomiDb as string[]) : [])
+    const segmentiPuliti = tEsito === 'pronta' && segmenti ? segmenti.map((s) => ({ ...s, testo: oscura(s.testo, parole) })) : []
+    const parlati = parlatoPerFotogramma(fotogrammi, segmentiPuliti)
     for (const [i, f] of fotogrammi.entries()) {
       const jpeg = await readFile(f.file).catch(() => null)
       if (jpeg) immagini.push({ etichetta: etichettaFotogramma(i + 1, f), jpeg, parlato: parlati[i] })
@@ -312,8 +316,6 @@ export async function leggiReel(op: {
     }
 
     // 6. Claude looks
-    const { data: nomiDb } = await db.rpc('marketing_da_oscurare')
-    const parole = paroleDaOscurare(Array.isArray(nomiDb) ? (nomiDb as string[]) : [])
     const cal = await datiCalendario(db, { shortcode: p.shortcode, pubblicato_il: p.pubblicato_il }, parole)
     const collegato = cal.calendario !== null
     const reel = {

@@ -185,10 +185,27 @@ export async function analizzaReel(op: {
         if (m.note) note.push(paroleNormalizzate(m.note))
       }
     }
+    // every text of the period's context reaches Claude cleaned of the names: the contents already in the calendar
+    // (a Name may name the client of a testimonial), the hooks of the best and worst reels, the themes of the DMs
+    const puliscoElenco = (valore: unknown, chiavi: readonly string[]) =>
+      Array.isArray(valore)
+        ? valore.map((v) =>
+            v && typeof v === 'object'
+              ? Object.fromEntries(Object.entries(v as Riga).map(([k, x]) => [k, chiavi.includes(k) && typeof x === 'string' ? oscura(x, parole) : x]))
+              : v,
+          )
+        : valore
+    const account = contesto.account as { migliori?: unknown; peggiori?: unknown } | undefined
+    const contestoBase: Riga = {
+      ...contesto,
+      in_calendario: puliscoElenco(contesto.in_calendario, ['name']),
+      ...(account ? { account: { ...account, migliori: puliscoElenco(account.migliori, ['gancio']), peggiori: puliscoElenco(account.peggiori, ['gancio']) } } : {}),
+    }
     // the texts of the notes reach Claude cleaned of the names
     const contestoPulito = conNote
       ? {
-          ...contesto,
+          ...contestoBase,
+          temi_dm: puliscoElenco(contesto.temi_dm, ['tema']),
           commenti_setter: {
             scale: (contesto.commenti_setter as { scale?: unknown } | undefined)?.scale,
             testi: ((contesto.commenti_setter as { testi?: Riga[] } | undefined)?.testi ?? []).map((t) => ({
@@ -202,7 +219,7 @@ export async function analizzaReel(op: {
             note: oscura(String(m.note ?? ''), parole),
           })),
         }
-      : contesto
+      : contestoBase
 
     const cal = await datiCalendario(db, p, parole)
     const collegato = cal.calendario !== null

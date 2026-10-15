@@ -87,7 +87,7 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 export const VERSIONI: readonly Versione[] = [
   {
     versione: '1.36.0',
-    data: '2026-10-15',
+    data: '2026-10-16',
     titolo: 'Analisi dei reel: numeri, verdetto e idee per il calendario',
     riassunto:
       'Nel Marketing c’è la scheda «Analisi»: ogni reel con i suoi numeri contro la mediana dei tuoi, il verdetto Spingere, Mantenere o Cambiare, cosa ha visto e sentito Claude e le idee da aggiungere al calendario con un tocco.',
@@ -121,7 +121,7 @@ export const VERSIONI: readonly Versione[] = [
       {
         per: ['marketing'],
         testo:
-          '«Analizza» (e «Analizza di nuovo») la chiedono l’admin e il marketing; il video editor legge tutto. Ogni notte il server analizza da solo i reel nuovi quando compiono 3, 7 e 14 giorni, uno alla volta.',
+          '«Analizza» (e «Analizza di nuovo») la chiedono l’admin e il marketing; il video editor legge tutto. Ogni notte il server legge i reel nuovi e ne analizza da solo uno alla volta quando compiono 3 giorni (o 14, se a 3 non c’è ancora il confronto con gli altri reel).',
       },
       {
         per: ['admin'],

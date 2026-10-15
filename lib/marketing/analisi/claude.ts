@@ -54,7 +54,12 @@ function codiceDi(e: unknown): { codice: CodiceErroreClaude; ritentabile: boolea
   const c = classificaErrore(e)
   switch (c.codice) {
     case 'timeout':
-      return { codice: 'tempo', ritentabile: c.ritentabile, attesaMs: c.attesaMs }
+      // `tempo` is only «the step's time is over» (the caller's signal): the job goes back without an attempt.
+      // A request that was sent and timed out was asked, and perhaps billed: it counts as a failed attempt
+      // (`rete`), or the same slow request would repeat for ever, one step after the other.
+      return e instanceof Anthropic.APIUserAbortError
+        ? { codice: 'tempo', ritentabile: c.ritentabile, attesaMs: c.attesaMs }
+        : { codice: 'rete', ritentabile: c.ritentabile, attesaMs: c.attesaMs }
     case 'autenticazione':
       return { codice: 'autenticazione', ritentabile: false, attesaMs: 0 }
     case 'richiesta':
