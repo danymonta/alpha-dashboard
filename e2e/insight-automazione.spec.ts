@@ -62,7 +62,8 @@ test('l’admin salva «Pronto alle» 19:05: lo dicono la riga di stato, il sett
   test.setTimeout(150_000)
   const db = dbLocale()
   const passi = process.env.INSIGHT_URL_PASSO?.trim() ?? ''
-  const conIndirizzo = URL_LOCALE.test(passi)
+  // without INSIGHT_URL_PASSO the app falls back to its own address (urlPasso), as in production
+  const conIndirizzo = passi === '' || URL_LOCALE.test(passi)
   // from a known state: off at 19:00
   const { error: erroreInizio } = await db.from('insight_impostazioni').update({ attivo: false, ora: '19:00' }).eq('id', true)
   if (erroreInizio) throw erroreInizio
@@ -100,7 +101,9 @@ test('l’admin salva «Pronto alle» 19:05: lo dicono la riga di stato, il sett
     await expect(toast(page, 'Automazione salvata')).toBeVisible()
     await expect(stato()).toContainText('Attiva: recap pronto ogni giorno alle 19:05.')
     const salvate = await impostazioni()
-    expect(salvate).toMatchObject({ attivo: true, ora: '19:05:00', url_passo: passi, updated_by: ID_ADMIN })
+    expect(salvate).toMatchObject({ attivo: true, ora: '19:05:00', updated_by: ID_ADMIN })
+    if (passi) expect(salvate.url_passo).toBe(passi)
+    else expect(salvate.url_passo).toMatch(URL_LOCALE)
   } else {
     // the steps are manual here: never on without an address, and the form says why
     await expect(automazione.getByRole('alert')).toContainText('INSIGHT_URL_PASSO=manuale')
