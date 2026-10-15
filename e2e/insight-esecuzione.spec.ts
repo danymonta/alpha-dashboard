@@ -204,6 +204,9 @@ test.describe('l’esecuzione dell’Insight contro i server finti', () => {
     test.setTimeout(240_000)
     await fetch(`${CLAUDE}/__azzera`)
     await fetch(`${GRAFO}/__modo?scenario=insight&insights=senza_permesso`)
+    // 1.36.0: a refusal never wipes the numbers of a post already read (instagram_salva_metriche), so
+    // the post this test watches starts as one never read
+    await dbLocale().from('instagram_contenuti').update({ metriche_stato: 'da_leggere', metriche_il: null }).eq('shortcode', 'GraphFinto03')
     await accedi(page, 'admin')
     await page.goto('/insight?canale=instagram')
     await expect(page.getByRole('heading', { level: 1, name: 'Insight delle ultime 24h' })).toBeVisible({ timeout: 60_000 })
