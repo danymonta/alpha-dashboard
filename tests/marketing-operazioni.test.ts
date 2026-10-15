@@ -160,6 +160,33 @@ describe('creaContenuto', () => {
   })
 })
 
+describe('creaContenuto con l’origine di un’idea di Claude (1.36.0)', () => {
+  const ANALISI = '3b2f6c1e-0000-4000-8000-0000000000aa'
+
+  it('scrive da_analisi e da_idea nello stesso insert; senza origine non li scrive', async () => {
+    finto.risponde({ data: { id: ID, updated_at: NUOVA } })
+    await creaContenuto(db, { tipo: 'reel', nome: 'Idea' }, undefined, { analisi_id: ANALISI, idea: 1 })
+    expect(finto.passi('insert')[0][0]).toMatchObject({ da_analisi: ANALISI, da_idea: 1 })
+    finto.risponde({ data: { id: ID, updated_at: NUOVA } })
+    await creaContenuto(db, { tipo: 'reel', nome: 'Altro' })
+    expect(finto.passi('insert')[1][0]).not.toHaveProperty('da_analisi')
+    expect(finto.passi('insert')[1][0]).not.toHaveProperty('da_idea')
+  })
+
+  it('la stessa idea due volte e il rifiuto del trigger hanno le loro parole, senza dire che il post è già collegato', async () => {
+    finto.risponde({ error: { code: '23505', message: 'duplicate key value violates unique constraint "marketing_contenuti_idea_idx"' } })
+    expect(await creaContenuto(db, { tipo: 'reel', nome: 'Idea' }, undefined, { analisi_id: ANALISI, idea: 1 })).toEqual({
+      ok: false,
+      errore: 'Questa idea è già nel calendario.',
+    })
+    finto.risponde({ error: { code: '22023', message: 'Idea di Claude non valida: l’analisi non è pronta.' } })
+    expect(await creaContenuto(db, { tipo: 'reel', nome: 'Idea' }, undefined, { analisi_id: ANALISI, idea: 9 })).toEqual({
+      ok: false,
+      errore: 'Idea di Claude non valida: l’analisi non è pronta.',
+    })
+  })
+})
+
 describe('creaContenuto con i testi delle sezioni', () => {
   it('ogni sezione si salva, nell’ordine del modello, sopra il testo che l’inserimento ha scritto', async () => {
     finto.risponde(

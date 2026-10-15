@@ -181,7 +181,7 @@ export function conEnumRipristinati(originale: unknown, trasformato: unknown): u
 }
 
 /** { type, schema } only: no `parse`, so stop_reason is read before the JSON. */
-function formato(schema: z.ZodType) {
+export function formato(schema: z.ZodType) {
   const { type, schema: trasformato } = betaZodOutputFormat(schema)
   const jsonSchema = conEnumRipristinati(z.toJSONSchema(schema, { reused: 'ref' }), trasformato) as typeof trasformato
   return Object.freeze({ type, schema: jsonSchema })

@@ -13,6 +13,7 @@
 import { tipoDelPost } from '@/lib/marketing/abbinamento'
 import { formatData } from '@/lib/format'
 import { giornoRoma } from '@/lib/setting/conteggio-dm'
+import type { FormatContenuto, ReelType } from '@/lib/marketing/etichette'
 import type { ContenutoInput } from '@/lib/validation/contenuto'
 
 /** The longest Name made from a caption, the ellipsis included. */
@@ -48,8 +49,15 @@ export function nomeDaDidascalia(didascalia: string | null | undefined): string 
   return null
 }
 
-/** The content a post becomes, as contenutoSchema reads it. */
-export function contenutoDaPost(post: PostPerContenuto): ContenutoInput {
+/**
+ * The content a post becomes, as contenutoSchema reads it. `classificazione`
+ * (the reel analysis, 1.36.0): the Reel Type and the Format Claude gave the
+ * reel, written in the same insert; without it both stay empty.
+ */
+export function contenutoDaPost(
+  post: PostPerContenuto,
+  classificazione?: { reel_type: ReelType | null; formato: FormatContenuto | null },
+): ContenutoInput {
   const tipo = tipoDelPost(post) === 'reel' ? 'reel' : 'carousel'
   const giorno = giornoRoma(post.pubblicato_il)
   const nome =
@@ -61,8 +69,8 @@ export function contenutoDaPost(post: PostPerContenuto): ContenutoInput {
     stato: 'posted',
     post_date: giorno,
     url: post.permalink,
-    reel_type: null,
-    formato: null,
+    reel_type: tipo === 'reel' ? (classificazione?.reel_type ?? null) : null,
+    formato: tipo === 'reel' ? (classificazione?.formato ?? null) : null,
     inspiration: null,
     audio: null,
     view_count: null,

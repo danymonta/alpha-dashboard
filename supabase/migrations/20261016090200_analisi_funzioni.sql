@@ -1172,7 +1172,8 @@ begin
       lease_fino_al = null, passo_id = null, passo_cosa = null, passo_rif = null
   where x.id;
 
-  if public.marketing_c_e_lavoro() then
+  -- a rate limit of the provider stops the chain: the tick starts it again in 5 minutes
+  if p_esito <> 'limite_fornitore' and public.marketing_c_e_lavoro() then
     perform public.marketing_dispatch();
   end if;
   return true;
@@ -1200,6 +1201,44 @@ revoke all on function public.marketing_dispatch() from public, anon, authentica
 -- ---------------------------------------------------------------------------
 -- 8. What reaches Claude
 -- ---------------------------------------------------------------------------
+-- The names to blank in every text that reaches Claude and in every text that
+-- comes back: leads, clients and the team who is not an active admin (Dany is
+-- the brand), their handles, and the people of the DM chats of the Insight of the
+-- last 30 days. At most 5000, lower case, 3 characters or more. Server only.
+create function public.marketing_da_oscurare()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_oscurare jsonb;
+begin
+  -- names to blank in every text: leads, clients and the team who is not an active admin (Dany is the brand)
+  select coalesce(jsonb_agg(distinct n.nome), '[]'::jsonb) into v_oscurare
+  from (
+    select lower(btrim(x)) as nome from (
+      select l.nome as x from public.leads l where l.created_at >= now() - interval '180 days'
+      union all select ltrim(l.instagram_handle, '@') from public.leads l where l.created_at >= now() - interval '180 days'
+      union all select c.nome from public.clients c
+      union all select c.cognome from public.clients c
+      union all select btrim(coalesce(c.nome, '') || ' ' || coalesce(c.cognome, '')) from public.clients c
+      union all select ltrim(c.instagram_handle, '@') from public.clients c
+      union all select p.nome from public.profiles p where not (p.ruolo = 'admin' and p.attivo)
+      union all select h.nome from public.insight_chat h where h.letta_il >= now() - interval '30 days'
+      union all select h.username from public.insight_chat h where h.letta_il >= now() - interval '30 days'
+    ) q
+    where x is not null and char_length(btrim(x)) >= 3
+    limit 5000
+  ) n;
+  return v_oscurare;
+end;
+$$;
+
+revoke all on function public.marketing_da_oscurare() from public, anon, authenticated;
+grant execute on function public.marketing_da_oscurare() to service_role;
+
 -- The only place that decides what leaves for Claude (service role only): the
 -- medians of the account, the best and the worst reels of the period, the
 -- contents already in the calendar and, with `note_team` on, the answers of the
@@ -1316,23 +1355,7 @@ begin
         where jsonb_typeof(t.tema) = 'object' and t.tema ->> 'theme' is not null));
   end if;
 
-  -- names to blank in every text: leads, clients and the team who is not an active admin (Dany is the brand)
-  select coalesce(jsonb_agg(distinct n.nome), '[]'::jsonb) into v_oscurare
-  from (
-    select lower(btrim(x)) as nome from (
-      select l.nome as x from public.leads l where l.created_at >= now() - interval '180 days'
-      union all select ltrim(l.instagram_handle, '@') from public.leads l where l.created_at >= now() - interval '180 days'
-      union all select c.nome from public.clients c
-      union all select c.cognome from public.clients c
-      union all select btrim(coalesce(c.nome, '') || ' ' || coalesce(c.cognome, '')) from public.clients c
-      union all select ltrim(c.instagram_handle, '@') from public.clients c
-      union all select p.nome from public.profiles p where not (p.ruolo = 'admin' and p.attivo)
-      union all select h.nome from public.insight_chat h where h.letta_il >= now() - interval '30 days'
-      union all select h.username from public.insight_chat h where h.letta_il >= now() - interval '30 days'
-    ) q
-    where x is not null and char_length(btrim(x)) >= 3
-    limit 5000
-  ) n;
+  v_oscurare := public.marketing_da_oscurare();
   return v_risposta || jsonb_build_object('da_oscurare', v_oscurare);
 end;
 $$;

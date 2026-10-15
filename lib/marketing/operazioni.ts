@@ -12,6 +12,8 @@ import {
   CAMPO_MODELLO,
   ORDINE_SEZIONI,
   SEZIONI,
+  type FormatContenuto,
+  type ReelType,
   type SezioneContenuto,
   type StatusContenuto,
 } from '@/lib/marketing/etichette'
@@ -113,8 +115,12 @@ function primoErrore(issues: { message: string }[]): string {
 }
 
 function errore(error: { code?: string; message: string }, nonSalvato = NON_SALVATO): string {
+  // the unique index of the ideas: the same idea twice
+  if (error.code === '23505' && error.message.includes('marketing_contenuti_idea_idx')) return IDEA_GIA_NEL_CALENDARIO
   // the unique index on instagram_shortcode: the same post on two contents
   if (error.code === '23505') return POST_GIA_COLLEGATO
+  // the trigger of the ideas, in its own words
+  if (error.code === '22023' && error.message.startsWith('Idea di Claude')) return error.message
   // a write RLS refused: Postgres's own words are not for people
   if (error.code === '42501' && error.message.includes('row-level security')) return SOLO_MARKETING
   return messaggioErrore(error, nonSalvato)
@@ -128,9 +134,23 @@ function aggiorna() {
 // ── a new content ───────────────────────────────────────────────────────────
 
 /** The insert every new content goes through: the form, Claude and «Crea il contenuto» from a post. */
-async function inserisci(db: Db, dati: ContenutoDati, bozza: string | null) {
-  return db.from('marketing_contenuti').insert({ ...dati, bozza }).select('id, updated_at').single()
+async function inserisci(db: Db, dati: ContenutoDati, bozza: string | null, origine?: OrigineIdea) {
+  return db
+    .from('marketing_contenuti')
+    .insert({ ...dati, bozza, ...(origine ? { da_analisi: origine.analisi_id, da_idea: origine.idea } : {}) })
+    .select('id, updated_at')
+    .single()
 }
+
+/**
+ * The idea of Claude a content is born from («Aggiungi al calendario», the reel
+ * analysis, 1.36.0): the analysis and the index of the idea. Only the action of
+ * the Analisi page passes it; the MCP server and the «Nuovo contenuto» form
+ * never do (the database refuses it to a Claude token and to a made-up one).
+ */
+export type OrigineIdea = { analisi_id: string; idea: number }
+
+const IDEA_GIA_NEL_CALENDARIO = 'Questa idea è già nel calendario.'
 
 /**
  * A new content. A Reel Topic starts with Hook, Line, Line, CTA in its rough
@@ -148,6 +168,7 @@ export async function creaContenuto(
   db: Db,
   input: unknown,
   sezioni?: Partial<Record<SezioneContenuto, string>>,
+  origine?: OrigineIdea,
 ): Promise<EsitoCreazioneConSezioni> {
   const parsed = contenutoSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error.issues) }
@@ -164,7 +185,7 @@ export async function creaContenuto(
   }
 
   const bozza = parsed.data.tipo === 'reel' ? BOZZA_REEL : null
-  const { data, error } = await inserisci(db, parsed.data, bozza)
+  const { data, error } = await inserisci(db, parsed.data, bozza, origine)
   if (error) return { ok: false, errore: errore(error) }
 
   // what the insert left in each section: the fingerprint the first save starts from
@@ -426,7 +447,15 @@ export type EsitoScollega = { ok: true; versione: string | null } | { ok: false;
 export type EsitoCreaDaPost = { ok: true; id: string; versione: string } | { ok: false; errore: string }
 
 /** After a tap that changes what can be proposed: the action's own work (it never fails the tap). */
-export type OpzioniPost = { riproponi?: () => Promise<void> }
+export type OpzioniPost = {
+  riproponi?: () => Promise<void>
+  /**
+   * Reel Type and Format Claude gave the reel (the reel analysis, 1.36.0):
+   * written in the same insert of «Crea il contenuto». Only the server passes
+   * it, from the visual card: never in the input, which comes from the browser.
+   */
+  classificazione?: { reel_type: ReelType | null; formato: FormatContenuto | null }
+}
 
 const NON_SALVATO_POST = 'Non salvato. Riprova.'
 const HA_GIA_UN_POST = 'Questo contenuto ha già un post: aprilo e cambia l’URL se è un altro.'
@@ -662,7 +691,7 @@ export async function creaContenutoDaPost(db: Db, input: unknown, opzioni: Opzio
   if ('errore' in letto) return { ok: false, errore: letto.errore }
   if (letto.post.eliminato_il) return { ok: false, errore: POST_ELIMINATO }
 
-  const dati = contenutoSchema.safeParse(contenutoDaPost(letto.post))
+  const dati = contenutoSchema.safeParse(contenutoDaPost(letto.post, opzioni.classificazione))
   if (!dati.success) return { ok: false, errore: primoErrore(dati.error.issues) }
 
   const { data, error } = await inserisci(db, dati.data, null)

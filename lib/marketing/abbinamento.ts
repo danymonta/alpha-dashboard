@@ -31,7 +31,7 @@ import type { StatusContenuto, TipoContenuto } from '@/lib/marketing/etichette'
 
 export type TipoPost = 'reel' | 'carousel' | 'foto'
 
-export type Motivo = 'stessa_data' | 'giorno_vicino' | 'didascalia_simile' | 'unico_del_giorno'
+export type Motivo = 'stessa_data' | 'giorno_vicino' | 'didascalia_simile' | 'unico_del_giorno' | 'parlato_simile'
 
 export type PostDaAbbinare = {
   shortcode: string
@@ -39,6 +39,13 @@ export type PostDaAbbinare = {
   giorno: string
   tipo: TipoPost
   didascalia: string | null
+  /**
+   * What is said in the reel (the transcript of the reel analysis, 1.36.0), when
+   * it was read. It can make a pair a proposal («parlato simile») and can
+   * take a link away (a competing pair that the speech says is closer); it
+   * never makes one: the sure rules ask the caption.
+   */
+  parlato?: string | null
 }
 
 export type ContenutoDaAbbinare = {
@@ -81,6 +88,8 @@ export const SOGLIE = {
   PROPOSTE_PER_POST: 3,
   /** the caption's first characters: the hook is at the top */
   DIDASCALIA_CONFRONTO: 600,
+  /** the speech's first characters (a script is longer than a caption) */
+  PARLATO_CONFRONTO: 1500,
   /** the hook of the script is looked for in this much of the message */
   MESSAGGIO_GANCIO: 3000,
   /** the first quote of the message, in this much */
@@ -294,9 +303,14 @@ export function pesiParole(didascalie: readonly (string | null)[]): (parola: str
  * times min(1, k / 3) (one or two words alone are not enough); the best
  * phrase, at 3 decimals.
  */
-export function somiglianza(didascalia: string | null, fonti: readonly string[], peso: (parola: string) => number): number {
+export function somiglianza(
+  didascalia: string | null,
+  fonti: readonly string[],
+  peso: (parola: string) => number,
+  caratteri: number = SOGLIE.DIDASCALIA_CONFRONTO,
+): number {
   if (!didascalia || fonti.length === 0) return 0
-  const nella = new Set(parole([...didascalia].slice(0, SOGLIE.DIDASCALIA_CONFRONTO).join('')))
+  const nella = new Set(parole([...didascalia].slice(0, caratteri).join('')))
   let migliore = 0
   for (const frase of fonti) {
     const distinte = [...new Set(parole(frase))]
@@ -326,16 +340,25 @@ export function tipoDelPost(p: { media_type: string; reel: boolean }): TipoPost 
 }
 
 /** A stored post, as abbina() wants it: the Rome day of its publication (01:30 in Rome is that day). */
-export function postDaAbbinare(riga: {
-  shortcode: string
-  media_type: string
-  reel: boolean
-  pubblicato_il: string
-  didascalia: string | null
-}): PostDaAbbinare | null {
+export function postDaAbbinare(
+  riga: {
+    shortcode: string
+    media_type: string
+    reel: boolean
+    pubblicato_il: string
+    didascalia: string | null
+  },
+  parlato: string | null = null,
+): PostDaAbbinare | null {
   const giorno = giornoRoma(riga.pubblicato_il)
   if (!giorno) return null
-  return { shortcode: riga.shortcode, giorno, tipo: tipoDelPost(riga), didascalia: riga.didascalia }
+  return {
+    shortcode: riga.shortcode,
+    giorno,
+    tipo: tipoDelPost(riga),
+    didascalia: riga.didascalia,
+    ...(parlato ? { parlato } : {}),
+  }
 }
 
 /** A Reel Topic with a reel; a Carousel Topic with a carousel or a single photo. */
@@ -361,8 +384,14 @@ export function chiaveCoppia(shortcode: string, contenutoId: string): string {
 type Coppia = {
   post: PostDaAbbinare
   contenuto: ContenutoDaAbbinare
+  /** from the caption (what is saved, and what the sure rules ask) */
   punteggio: number
   somiglianza: number
+  /** how much the speech of the reel says the content, 0 without a transcript */
+  simParlato: number
+  /** the best of caption and speech: how a competing pair is measured (and a proposal ranked) */
+  simMax: number
+  punteggioMax: number
   giorni: number | null
   rifiutata: boolean
 }
@@ -370,6 +399,16 @@ type Coppia = {
 /** Score, then fewer days, then the most recent Post Date, then the ids: the same order every run. */
 function ordine(a: Coppia, b: Coppia): number {
   if (a.punteggio !== b.punteggio) return b.punteggio - a.punteggio
+  return ordineParita(a, b)
+}
+
+/** The proposals: the best of caption and speech first, so a pair the speech says is not lost behind three the caption likes. */
+function ordineProposte(a: Coppia, b: Coppia): number {
+  if (a.punteggioMax !== b.punteggioMax) return b.punteggioMax - a.punteggioMax
+  return ordine(a, b)
+}
+
+function ordineParita(a: Coppia, b: Coppia): number {
   const ga = a.giorni ?? Number.POSITIVE_INFINITY
   const gb = b.giorni ?? Number.POSITIVE_INFINITY
   if (ga !== gb) return ga - gb
@@ -412,17 +451,25 @@ export function abbina(input: {
       const giorni = contenuto.post_date ? giorniTra(post.giorno, contenuto.post_date) : null
       if (giorni !== null && giorni > SOGLIE.GIORNI_SALVABILI) continue
       const sim = somiglianza(post.didascalia, fonti.get(contenuto.id) ?? [], peso)
+      // the speech weighs words as the captions do (the weights are of the captions only)
+      const simParlato = post.parlato
+        ? somiglianza(post.parlato, fonti.get(contenuto.id) ?? [], peso, SOGLIE.PARLATO_CONFRONTO)
+        : 0
+      const simMax = Math.max(sim, simParlato)
       const vicinanza = giorni !== null && giorni <= SOGLIE.GIORNI_MAX ? VICINANZA[giorni] : 0
       const coppia: Coppia = {
         post,
         contenuto,
         giorni,
         somiglianza: sim,
+        simParlato,
+        simMax,
         punteggio: Math.round(100 * (0.6 * sim + 0.4 * vicinanza)),
+        punteggioMax: Math.round(100 * (0.6 * simMax + 0.4 * vicinanza)),
         rifiutata: input.rifiutati.has(chiaveCoppia(post.shortcode, contenuto.id)),
       }
       confronti.push(coppia)
-      if ((giorni === null || giorni > SOGLIE.GIORNI_MAX) && sim < SOGLIE.SIM_SENZA_DATA) continue
+      if ((giorni === null || giorni > SOGLIE.GIORNI_MAX) && simMax < SOGLIE.SIM_SENZA_DATA) continue
       coppie.push(coppia)
     }
   }
@@ -444,15 +491,29 @@ export function abbina(input: {
       if (k) k.push(c)
       else delContenuto.set(c.contenuto.id, [c])
     }
-    // the highest similarity of each post and of each content, over every free compatible pair
-    const simPost = new Map<string, number>()
-    const simContenuto = new Map<string, number>()
-    for (const c of confrontiLiberi) {
-      simPost.set(c.post.shortcode, Math.max(simPost.get(c.post.shortcode) ?? 0, c.somiglianza))
-      simContenuto.set(c.contenuto.id, Math.max(simContenuto.get(c.contenuto.id) ?? 0, c.somiglianza))
+    // the highest similarity (caption or speech) of each post and of each content, over every free
+    // compatible pair, with the second highest: the best of the OTHER pairs is asked
+    type Migliori = { primo: number; secondo: number; di: Coppia | null }
+    const aggiungi = (mappa: Map<string, Migliori>, chiave: string, c: Coppia) => {
+      const m = mappa.get(chiave) ?? { primo: 0, secondo: 0, di: null }
+      if (c.simMax > m.primo) {
+        m.secondo = m.primo
+        m.primo = c.simMax
+        m.di = c
+      } else if (c.simMax > m.secondo) {
+        m.secondo = c.simMax
+      }
+      mappa.set(chiave, m)
     }
+    const simPost = new Map<string, Migliori>()
+    const simContenuto = new Map<string, Migliori>()
+    for (const c of confrontiLiberi) {
+      aggiungi(simPost, c.post.shortcode, c)
+      aggiungi(simContenuto, c.contenuto.id, c)
+    }
+    const altraSim = (m: Migliori | undefined, c: Coppia) => (!m ? 0 : m.di === c ? m.secondo : m.primo)
     const migliorAltra = (altre: Coppia[] | undefined, questa: Coppia) =>
-      Math.max(Number.NEGATIVE_INFINITY, ...(altre ?? []).filter((x) => x !== questa).map((x) => x.punteggio))
+      Math.max(Number.NEGATIVE_INFINITY, ...(altre ?? []).filter((x) => x !== questa).map((x) => x.punteggioMax))
     const vicinaAltra = (altre: Coppia[] | undefined, questa: Coppia) =>
       (altre ?? []).some((x) => x !== questa && x.giorni !== null && x.giorni <= 1)
     /**
@@ -463,8 +524,8 @@ export function abbina(input: {
      * similarity at least equal to the highest means no other is closer.
      */
     const laPiuSimile = (c: Coppia) =>
-      c.somiglianza >= (simPost.get(c.post.shortcode) ?? 0) &&
-      c.somiglianza >= (simContenuto.get(c.contenuto.id) ?? 0)
+      c.somiglianza >= altraSim(simPost.get(c.post.shortcode), c) &&
+      c.somiglianza >= altraSim(simContenuto.get(c.contenuto.id), c)
 
     const unico = (c: Coppia) =>
       c.giorni === 0 && !vicinaAltra(delPost.get(c.post.shortcode), c) && !vicinaAltra(delContenuto.get(c.contenuto.id), c)
@@ -484,6 +545,7 @@ export function abbina(input: {
       if (c.giorni === 0) m.push('stessa_data')
       if (c.giorni === 1) m.push('giorno_vicino')
       if (c.somiglianza >= SOGLIE.SIM_ESCLUSIVA) m.push('didascalia_simile')
+      if (c.simParlato >= SOGLIE.SIM_ESCLUSIVA) m.push('parlato_simile')
       if (unico(c)) m.push('unico_del_giorno')
       return m
     }
@@ -531,9 +593,10 @@ export function abbina(input: {
 
   // the proposals: neither a post nor a content already taken, at most 3 per post
   const perPost = new Map<string, number>()
-  for (const c of libere) {
+  const proposte = input.post.some((p) => p.parlato) ? [...libere].sort(ordineProposte) : libere
+  for (const c of proposte) {
     if (c.rifiutata) continue
-    if (c.punteggio < SOGLIE.PROPOSTA && c.somiglianza < SOGLIE.SIM_PROPOSTA) continue
+    if (c.punteggio < SOGLIE.PROPOSTA && c.somiglianza < SOGLIE.SIM_PROPOSTA && c.simParlato < SOGLIE.SIM_PROPOSTA) continue
     const gia = perPost.get(c.post.shortcode) ?? 0
     if (gia >= SOGLIE.PROPOSTE_PER_POST) continue
     perPost.set(c.post.shortcode, gia + 1)

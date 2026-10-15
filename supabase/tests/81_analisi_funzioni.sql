@@ -794,7 +794,7 @@ select is(
      'marketing_scegli_lavoro(timestamptz)', 'marketing_sveglia()', 'marketing_prendi_passo(integer)',
      'marketing_lettura_fine(text, jsonb)',
      'marketing_analisi_fine(uuid, text, jsonb, jsonb, jsonb, text, text, text, timestamptz)',
-     'marketing_passo_finito(uuid, text, jsonb)', 'marketing_fonti_analisi(date, date)',
+     'marketing_passo_finito(uuid, text, jsonb)', 'marketing_fonti_analisi(date, date)', 'marketing_da_oscurare()',
      'marketing_imposta_url(text)', 'marketing_segna_esito(text, text)']) f
    where has_function_privilege('anon', 'public.' || f, 'execute') or has_function_privilege('authenticated', 'public.' || f, 'execute')),
   '', 'nessuna funzione dei lavori è eseguibile da anon o da una sessione');

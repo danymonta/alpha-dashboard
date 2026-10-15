@@ -21,6 +21,16 @@
 //   [[eta:13]] [[eta:16]]  the card's age and age band
 //   [[obiezione]]      an open objection with its reply
 //   [[fallback]]       a declined partial, then Claude Sonnet 5's answer (server-side fallback)
+// The reel analysis (1.36.0) adds two steps, read from the same blocks: visione_reel
+// (the visual card: it counts the image blocks and cites the first label) and
+// analisi_reel (the analysis: the verdict it was given, the ideas asked for, the
+// first candidate as the link). Markers inside the reel's caption, a transcript
+// or a note:
+//   [[nome]]           the answer names a person of the seed, which the final check takes out
+//   [[prezzo]]         the answer quotes a price, which the final check takes out
+//   [[copia-setter]]   a bullet copies the first answer of the setter from <contesto_periodo>
+//   [[ref-falso]]      the link names a candidate that was never sent
+//   [[etichetta-falsa]] the first idea has a Format that is not Notion's
 // The key «sbagliata» answers 401.
 // GET /__ultime: the last request bodies with their anthropic-beta header
 // (never x-api-key). GET /__azzera empties it and the scenario state.
@@ -32,6 +42,40 @@ import { pathToFileURL } from 'node:url'
 const ULTIME_MAX = 50
 
 const token = (testo) => Math.max(1, Math.ceil(String(testo).length / 4))
+
+/** The size of a JPEG from its header (SOF), or null. */
+function misureJpeg(buffer) {
+  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return null
+  let i = 2
+  while (i + 9 < buffer.length) {
+    if (buffer[i] !== 0xff) {
+      i++
+      continue
+    }
+    const m = buffer[i + 1]
+    if (m >= 0xc0 && m <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(m)) return { altezza: buffer.readUInt16BE(i + 5), larghezza: buffer.readUInt16BE(i + 7) }
+    if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) {
+      i += 2
+      continue
+    }
+    i += 2 + buffer.readUInt16BE(i + 2)
+  }
+  return null
+}
+
+/** A request body as /__ultime keeps it: an image block becomes its size and weight, never its bytes. */
+function senzaImmagini(corpo) {
+  const copia = structuredClone(corpo)
+  for (const m of copia.messages ?? []) {
+    if (!Array.isArray(m.content)) continue
+    m.content = m.content.map((b) => {
+      if (b?.type !== 'image') return b
+      const dati = Buffer.from(String(b.source?.data ?? ''), 'base64')
+      return { type: 'image', media_type: b.source?.media_type ?? null, byte: dati.length, ...(misureJpeg(dati) ?? {}) }
+    })
+  }
+  return copia
+}
 const hash = (testo) => createHash('sha256').update(String(testo)).digest('hex').slice(0, 16)
 
 /** The step and its data from the request: <passo>, then the JSON inside the step's tag. */
@@ -53,7 +97,15 @@ function leggiRichiesta(corpo) {
   } catch {
     datiContesto = {}
   }
-  return { passo: passo?.[1] ?? '', dati, contesto: datiContesto, testoContesto: contesto, testoDati }
+  // the reel analysis's own context (1.36.0)
+  const periodo = blocchi.find((t) => t.startsWith('<contesto_periodo>')) ?? ''
+  let datiPeriodo = {}
+  try {
+    datiPeriodo = JSON.parse(/^<contesto_periodo>\n([\s\S]*)\n<\/contesto_periodo>$/.exec(periodo)?.[1] ?? '{}')
+  } catch {
+    datiPeriodo = {}
+  }
+  return { passo: passo?.[1] ?? '', dati, contesto: datiContesto, contestoPeriodo: datiPeriodo, testoContesto: contesto || periodo, testoDati }
 }
 
 const testiDi = (voce) => (voce?.messaggi ?? voce?.chat?.messaggi ?? []).map((m) => String(m.testo ?? ''))
@@ -170,6 +222,84 @@ function rispostaSintesi(dati) {
   }
 }
 
+
+// ---------- the reel analysis (1.36.0) ----------
+
+const ETICHETTE_REEL_TYPE = ['Attraction', 'Education', 'Converting', 'RADIO', 'Workshop']
+const ETICHETTE_FORMAT = ['Text opinion', 'Check Caption', 'Split', 'Reaction', 'B roll', 'Green Screen', 'Raw Talking Head', 'Storytelling', 'Transformation', 'Show&Tell']
+
+function rispostaVisione(corpo, dati) {
+  const blocchi = corpo.messages?.[0]?.content ?? []
+  const immagini = blocchi.filter((b) => b?.type === 'image').length
+  const prima = blocchi.find((b) => b?.type === 'text' && /^(Copertina|F\d+ ·)/.test(b.text))?.text ?? ''
+  const calendario = dati.calendario
+  return {
+    sintesi_visiva: `Il modello finto ha visto ${immagini} immagini, la prima: ${prima.replace(/:$/, '')}.`,
+    gancio: {
+      livello: 'medio',
+      cosa_si_vede: 'Una persona a mezzo busto in casa.',
+      parole: 'Niente sbarra? Nessun problema.',
+      testo_a_schermo: null,
+      perche: 'Promette una cosa concreta nei primi secondi.',
+      alternativa: 'Ti basta un tavolo per allenare la schiena.',
+    },
+    sequenza: [
+      { da: 0, a: 3, cosa_si_vede: 'Il gancio.', testo_a_schermo: null },
+      { da: 3, a: Math.max(4, Math.min(5, dati.durata_secondi ?? 5)), cosa_si_vede: 'Il corpo.', testo_a_schermo: null },
+      { da: 90, a: 95, cosa_si_vede: 'Un tratto fuori dal reel: il controllo lo scarta.', testo_a_schermo: null },
+    ],
+    ritmo: { livello: 'medio', osservazione: 'Scorre bene.', calo: null },
+    testo_a_schermo: { leggibile: 'si', sopra_il_volto: false, osservazione: 'Si legge sul telefono.' },
+    cta: { presente: true, testo: 'Salva il video.', secondo: 4, osservazione: 'Arriva presto.', proposta: 'Salvalo: stasera lo provi.' },
+    produzione: { luce: 'buona', audio: 'chiaro', inquadratura: 'Fissa, mezzo busto.', osservazione: 'Pulita.' },
+    ambiente: ['casa'],
+    icp: { aderenza: 'media', leve_usate: ['poco tempo'], leve_mancanti: ['la schiena da scrivania'], frase_del_cliente: null, rischio: null },
+    script: calendario ? { segue: 'in_parte', differenze: 'Il finale cambia.' } : null,
+    classificazione: { reel_type: 'Education', format: 'Raw Talking Head' },
+  }
+}
+
+function rispostaAnalisiReel(dati, testoDati, contesto) {
+  const quante = dati.idee_da_proporre?.quante ?? 2
+  const tipo = dati.idee_da_proporre?.tipo === 'rifacimento_o_nuovo' ? 'nuovo' : (dati.idee_da_proporre?.tipo ?? 'nuovo')
+  const idee = Array.from({ length: quante }, (_, i) => ({
+    tipo,
+    name: `Idea finta ${i + 1} · ${hash(testoDati).slice(0, 6)}`,
+    reel_type: ETICHETTE_REEL_TYPE[(i + 1) % ETICHETTE_REEL_TYPE.length],
+    format: ETICHETTE_FORMAT[(i + 6) % ETICHETTE_FORMAT.length],
+    gancio: `Gancio ${i + 1}: due ore a settimana bastano`,
+    messaggio: `Messaggio dell'idea ${i + 1}.`,
+    script: { hook: `Hook ${i + 1}: due ore a settimana bastano`, righe: ['Prima riga.', 'Seconda riga.'], cta: 'Salvalo e provalo.' },
+    perche: 'Perché i numeri e i lead lo chiedono.',
+  }))
+  if (testoDati.includes('[[etichetta-falsa]]') && idee[0]) idee[0].format = 'Formato Inventato'
+  let sintesi = `Il modello finto spiega il verdetto: ${dati.verdetto ?? 'senza verdetto'}.`
+  if (testoDati.includes('[[nome]]')) sintesi += ' Come ha detto Loris Setter, funziona.'
+  if (testoDati.includes('[[prezzo]]')) sintesi += ' Il percorso costa 1.500 € al mese.'
+  const funzionato = ['Il gancio dice subito cosa si ottiene.']
+  if (testoDati.includes('[[copia-setter]]')) {
+    const testo = contesto?.commenti_setter?.testi?.[0]?.testo
+    if (testo) funzionato.push(testo)
+  }
+  const candidato = dati.candidati?.[0]
+  return {
+    perche_verdetto: `Views ×${dati.numeri?.views_rapporto ?? 'n/d'} della mediana, verdetto ${dati.verdetto ?? 'assente'}.`,
+    sintesi,
+    cosa_ha_funzionato: funzionato,
+    da_migliorare: [
+      { cosa: 'La CTA arriva tardi.', come: 'Portarla prima.', priorita: 'media' },
+      { cosa: 'Il testo a schermo è piccolo.', come: 'Ingrandirlo.', priorita: 'alta' },
+    ],
+    dai_lead: dati.lead?.contati === 'si' ? `Dai DM arrivano ${dati.lead.dm} contatti, ${dati.lead.in_target} in target.` : null,
+    collegamento: testoDati.includes('[[ref-falso]]')
+      ? { ref: 'C9', sicurezza: 'alta', perche: 'Un ref che non è stato mandato.' }
+      : candidato
+        ? { ref: candidato.ref, sicurezza: 'media', perche: 'Lo script corrisponde a quello che si vede e si dice.' }
+        : null,
+    idee,
+  }
+}
+
 function rispostaCorrezione(dati) {
   return {
     correzioni: (dati.testi ?? []).map((t) => {
@@ -283,7 +413,7 @@ export function creaClaudeFinto(opzioni = {}) {
       res.writeHead(400, { 'content-type': 'application/json' })
       return res.end(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'JSON non valido' } }))
     }
-    ultime.push({ corpo, beta: req.headers['anthropic-beta'] ?? null, versione: req.headers['anthropic-version'] ?? null })
+    ultime.push({ corpo: senzaImmagini(corpo), beta: req.headers['anthropic-beta'] ?? null, versione: req.headers['anthropic-version'] ?? null })
     if (ultime.length > ULTIME_MAX) ultime.shift()
 
     if (!req.headers['x-api-key'] || req.headers['x-api-key'] === 'sbagliata') {
@@ -291,7 +421,7 @@ export function creaClaudeFinto(opzioni = {}) {
       return res.end(JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: 'Chiave mancante' } }))
     }
 
-    const { passo, dati, testoDati } = leggiRichiesta(corpo)
+    const { passo, dati, testoDati, contestoPeriodo } = leggiRichiesta(corpo)
     if (testoDati.includes('[[429]]')) {
       const chiave = hash(testoDati)
       if (!giaLimitati.has(chiave)) {
@@ -326,6 +456,8 @@ export function creaClaudeFinto(opzioni = {}) {
     else if (passo === 'agenda') risposta = rispostaAgenda(dati)
     else if (passo === 'sintesi') risposta = rispostaSintesi(dati)
     else if (passo === 'correzione') risposta = rispostaCorrezione(dati)
+    else if (passo === 'visione_reel') risposta = rispostaVisione(corpo, dati)
+    else if (passo === 'analisi_reel') risposta = rispostaAnalisiReel(dati, testoDati, contestoPeriodo)
     else risposta = {}
     const json = JSON.stringify(risposta)
     if (testoDati.includes('[[tronca]]')) return rispondi(res, corpo, { testo: json.slice(0, Math.floor(json.length / 2)), stop: 'max_tokens' })

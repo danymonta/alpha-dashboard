@@ -4,6 +4,7 @@ import {
   campoNonSupportato,
   creaRichiedente,
   ErroreInstagram,
+  hostDiLoopback,
   nonEsiste,
   numero,
   type Json,
@@ -28,9 +29,11 @@ import { shortcodeInstagram } from '@/lib/marketing/shortcode'
  * Paging on the `after` cursor only when Meta says there is a next page
  * (paging.next carries the token: never followed nor kept). The pinned posts
  * (up to 3) sit on top whatever their date: the reading stops after 4 media
- * older than `dal` in a row. The Insight (1.35.0) reads the statistics of
- * the last 14 days (insights(), with the permission
- * instagram_business_manage_insights); the reel analysis (1.36.0) the rest.
+ * older than `dal` in a row. The statistics (insights(), with the permission
+ * instagram_business_manage_insights) are read by the Insight (1.35.0) for the
+ * last 14 days and by the morning run (1.36.0) for the 180: one reader, one
+ * writer (instagram_salva_metriche). The reel analysis (1.36.0) asks for the
+ * video of a reel (video()), only to read it on the server.
  */
 
 export type LivelloCampi = 'completi' | 'senza_tipo' | 'senza_didascalia' | 'minimi'
@@ -70,41 +73,89 @@ const RE_PERMALINK = /^https:\/\/(www\.)?instagram\.com\/\S+$/
 const RE_REEL_NEL_LINK = /\/reels?\//
 
 /**
- * The statistics of a post as the Insight asks for them (1.35.0, D28): one
- * request per post, from the richest set down (a single metric Meta does not
- * give for that post fails the whole request with code 100). The names are
- * the columns of instagram_contenuti.
+ * The statistics of a post (1.35.0 D28, extended in 1.36.0): one request per
+ * post, from the richest set down (a single metric Meta does not give for that
+ * post fails the whole request with code 100). The steps per kind (a reel, or
+ * the feed: photos and carousels): `completo` adds the watch time, the total
+ * view time, the skip rate and the reposts for a reel, the follows and the
+ * profile visits for the feed; the lower steps are the Insight's own.
+ * Meta: follows and profile_visits only for FEED and STORY; reels_skip_rate,
+ * ig_reels_avg_watch_time, ig_reels_video_view_total_time, views and
+ * total_interactions are «in development» (they may change definition: the
+ * date of the reading and the history are the guard).
  */
-export const METRICHE_INSIGHTS = {
-  REELS: ['views,reach,saved,shares,likes,comments,total_interactions', 'views,reach,saved,shares', 'reach,saved,shares'],
-  FEED: ['views,reach,saved,shares', 'reach,saved,shares'],
-} as const satisfies Record<'REELS' | 'FEED', readonly string[]>
+export type TipoMetriche = 'reel' | 'feed'
+export type GradinoMetriche = 'completo' | 'base' | 'minimo' | 'solo_reach'
 
-export type MetricaInsights = 'views' | 'reach' | 'saved' | 'shares' | 'likes' | 'comments' | 'total_interactions'
-const METRICHE: ReadonlySet<string> = new Set<MetricaInsights>([
-  'views',
-  'reach',
-  'saved',
-  'shares',
-  'likes',
-  'comments',
-  'total_interactions',
-])
+export const METRICHE: Record<TipoMetriche, readonly { gradino: GradinoMetriche; metriche: string }[]> = {
+  reel: [
+    {
+      gradino: 'completo',
+      metriche:
+        'views,reach,saved,shares,likes,comments,total_interactions,reposts,ig_reels_avg_watch_time,ig_reels_video_view_total_time,reels_skip_rate',
+    },
+    { gradino: 'base', metriche: 'views,reach,saved,shares,likes,comments,total_interactions' },
+    { gradino: 'minimo', metriche: 'views,reach,saved,shares' },
+    { gradino: 'solo_reach', metriche: 'reach,saved,shares' },
+  ],
+  feed: [
+    { gradino: 'completo', metriche: 'views,reach,saved,shares,follows,profile_visits' },
+    { gradino: 'base', metriche: 'views,reach,saved,shares' },
+    { gradino: 'solo_reach', metriche: 'reach,saved,shares' },
+  ],
+}
+
+/** Meta's name of a metric → the column of instagram_contenuti. */
+const COLONNA_METRICA: Record<string, ColonnaMetrica> = {
+  views: 'views',
+  reach: 'reach',
+  saved: 'saved',
+  shares: 'shares',
+  likes: 'likes',
+  comments: 'comments',
+  total_interactions: 'total_interactions',
+  reposts: 'reposts',
+  follows: 'follows',
+  profile_visits: 'profile_visits',
+  ig_reels_avg_watch_time: 'avg_watch_ms',
+  ig_reels_video_view_total_time: 'view_total_ms',
+  reels_skip_rate: 'skip_rate',
+}
+
+export type ColonnaMetrica =
+  | 'views'
+  | 'reach'
+  | 'saved'
+  | 'shares'
+  | 'likes'
+  | 'comments'
+  | 'total_interactions'
+  | 'reposts'
+  | 'follows'
+  | 'profile_visits'
+  | 'avg_watch_ms'
+  | 'view_total_ms'
+  | 'skip_rate'
 
 /** instagram_contenuti.metriche_stato, as a reading leaves it (never 'da_leggere'). */
 export type StatoMetriche = 'lette' | 'senza_permesso' | 'prima_della_conversione' | 'non_disponibili'
 
 /**
  * The statistics read for one post: only the metrics Meta gave as a
- * non-negative integer (the columns' checks); a missing key was not read and
- * its column is never written.
+ * non-negative number; a missing key was not read and its column is never
+ * written (instagram_salva_metriche). `gradino` is the step that worked.
  */
-export type InsightsMedia = { stato: StatoMetriche; valori: Partial<Record<MetricaInsights, number>> }
+export type MetricheLette = Partial<Record<ColonnaMetrica, number>>
+export type InsightsMedia =
+  | { stato: 'lette'; valori: MetricheLette; gradino: GradinoMetriche }
+  | { stato: Exclude<StatoMetriche, 'lette'>; valori: Record<string, never> }
 
 /** Meta's subcode for a media posted before the account became professional: never any statistics. */
 const SUBCODE_PRIMA_DELLA_CONVERSIONE = 2108006
 /** Meta's permission errors: code 10 and the range 200-299. */
 const permesso = (code: number | null) => code === 10 || (code !== null && code >= 200 && code <= 299)
+/** Code 10 also means «not enough viewers» (a story): about that post, not a missing permission. */
+const POCHI_SPETTATORI = /not enough viewers/i
 
 /** One media as the run saves it. A key Meta was not asked for is absent, never null. */
 export type MediaLetto = {
@@ -122,6 +173,8 @@ export type MediaLetto = {
   copertina_url: string | null
   like_count?: number | null
   comments_count?: number | null
+  /** only a VIDEO, only when media_url was asked for: false = Meta does not give it (licensed music) */
+  video_disponibile?: boolean
 }
 
 export type ElencoContenuti = {
@@ -162,6 +215,31 @@ export function copertinaValida(valore: unknown): string | null {
   }
 }
 
+/**
+ * The origin of the fake Graph API of the end-to-end tests, when the client's
+ * base is on http on a loopback host (baseGraph() only gives it so outside
+ * production, with the dev login): the video and the cover of a reel come from
+ * there in those tests. null for Meta's own base.
+ */
+export function origineLocale(base: string | undefined): string | null {
+  if (!base) return null
+  try {
+    const u = new URL(base)
+    return u.protocol === 'http:' && hostDiLoopback(u.hostname) ? u.origin : null
+  } catch {
+    return null
+  }
+}
+
+/** A video or cover URL to read: Instagram's CDN over https, or (end-to-end tests only) the fake Graph API's own origin. */
+export function urlDaLeggere(valore: unknown, locale: string | null = null): string | null {
+  const cdn = copertinaValida(valore)
+  if (cdn) return cdn
+  const url = testo(valore)
+  if (!locale || !url || url.length > COPERTINA_MAX || /\s/.test(url)) return null
+  return url.startsWith(`${locale}/`) ? url : null
+}
+
 /** A caption at most 2200 code points; an empty one is none. */
 function didascaliaDa(valore: unknown): string | null {
   if (typeof valore !== 'string' || valore.trim() === '') return null
@@ -170,7 +248,7 @@ function didascaliaDa(valore: unknown): string | null {
 }
 
 /** A media of Meta's answer, as the run saves it; null when it is not valid. */
-export function leggiMedia(grezzo: unknown, livello: LivelloCampi): MediaLetto | null {
+export function leggiMedia(grezzo: unknown, livello: LivelloCampi, locale: string | null = null): MediaLetto | null {
   if (!grezzo || typeof grezzo !== 'object') return null
   const j = grezzo as Json
   const id = typeof j.id === 'number' ? String(j.id) : testo(j.id)
@@ -220,23 +298,31 @@ export function leggiMedia(grezzo: unknown, livello: LivelloCampi): MediaLetto |
   if (conCopertina) {
     media.like_count = intero(j.like_count)
     media.comments_count = intero(j.comments_count)
+    // media_url is asked for at these steps; the video itself is never read here
+    if (mediaType === 'VIDEO') media.video_disponibile = urlDaLeggere(j.media_url, locale) !== null
   }
   return media
 }
 
-/** The metrics of an answer of /{media}/insights that were asked for, each a non-negative integer. */
-function valoriInsights(j: Json, chieste: string): InsightsMedia['valori'] {
-  const valori: InsightsMedia['valori'] = {}
+/** The metrics of an answer of /{media}/insights that were asked for, each a non-negative finite number. */
+function valoriInsights(j: Json, chieste: string): MetricheLette {
+  const valori: MetricheLette = {}
   const nomi = new Set(chieste.split(','))
   const data = Array.isArray(j.data) ? (j.data as unknown[]) : []
   for (const voce of data) {
     if (!voce || typeof voce !== 'object') continue
     const v = voce as { name?: unknown; values?: unknown; total_value?: unknown }
-    if (typeof v.name !== 'string' || !nomi.has(v.name) || !METRICHE.has(v.name)) continue
+    if (typeof v.name !== 'string' || !nomi.has(v.name)) continue
+    const colonna = COLONNA_METRICA[v.name]
+    if (!colonna) continue
     const primo = Array.isArray(v.values) && v.values[0] && typeof v.values[0] === 'object' ? (v.values[0] as Json).value : undefined
     const totale = v.total_value && typeof v.total_value === 'object' ? (v.total_value as Json).value : undefined
-    const n = intero(primo !== undefined ? primo : totale)
-    if (n !== null) valori[v.name as MetricaInsights] = n
+    const n = numero(primo !== undefined ? primo : totale)
+    if (n === null || n < 0) continue
+    // the watch times are milliseconds (to be checked against the app, step 5 of Dany); a skip rate may be a ratio or a percentage
+    // (instagram_salva_metriche reads both); the others are counts
+    if (colonna === 'skip_rate') valori[colonna] = n
+    else if (n <= 2_147_483_647 || colonna === 'view_total_ms') valori[colonna] = Math.round(n)
   }
   return valori
 }
@@ -251,15 +337,27 @@ export function creaGraphContenuti(op: OpzioniGraph) {
     richiesta(url(percorso, parametri))
 
   let livello: LivelloCampi = 'completi'
+  const locale = origineLocale(op.base)
   // false at the first refusal for the permission: no more statistics asked in the run
   let permessoInsights = true
+  // the step each kind of post has settled on, and which kinds were seen
+  const gradiniDelTipo: Record<TipoMetriche, number> = { reel: 0, feed: 0 }
+  const visti: Record<TipoMetriche, boolean> = { reel: false, feed: false }
 
-  /** The account the token belongs to. */
-  async function me(): Promise<{ username: string | null; id: string | null }> {
-    const j = await get('/me', { fields: 'user_id,username' })
+  /** The account the token belongs to, with its followers and media when Meta gives them (code 100: without). */
+  async function me(): Promise<{ username: string | null; id: string | null; follower: number | null; media: number | null }> {
+    let j: Json
+    try {
+      j = await get('/me', { fields: 'user_id,username,followers_count,media_count' })
+    } catch (e) {
+      if (!campoNonSupportato(e)) throw e
+      j = await get('/me', { fields: 'user_id,username' })
+    }
     return {
       username: typeof j.username === 'string' ? j.username : null,
       id: typeof j.user_id === 'string' || typeof j.user_id === 'number' ? String(j.user_id) : null,
+      follower: intero(j.followers_count),
+      media: intero(j.media_count),
     }
   }
 
@@ -302,7 +400,7 @@ export function creaGraphContenuti(op: OpzioniGraph) {
 
         const data = Array.isArray(j.data) ? (j.data as unknown[]) : []
         for (const grezzo of data) {
-          const m = leggiMedia(grezzo, livello)
+          const m = leggiMedia(grezzo, livello, locale)
           if (!m) {
             scartati++
             continue
@@ -334,23 +432,32 @@ export function creaGraphContenuti(op: OpzioniGraph) {
   }
 
   /**
-   * The statistics of one post (D28): the sets of METRICHE_INSIGHTS for a
-   * reel or for the feed, from the richest down on code 100. A permission
-   * refusal (code 10 or 200-299, or Meta saying so) ends the statistics for
-   * the whole client: every later call answers 'senza_permesso' without a
-   * request. Subcode 2108006: 'prima_della_conversione'. A post Meta refuses
-   * in any other way: 'non_disponibili'. An empty `data` is no number read
-   * (Meta's answer for data not there yet). The token (190), Meta's limits,
-   * the network and the time throw, as in every reading.
+   * The statistics of one post: the steps of METRICHE for a reel or for the
+   * feed, from the richest down on code 100. The step that worked stays for
+   * the rest of the run only after the lowest one has worked on the same
+   * post (a metric one post lacks must not take the others' numbers away);
+   * `gradino` says the step. A permission refusal (code 10 or 200-299, or
+   * Meta saying so) ends the statistics for the whole client: every later
+   * call answers 'senza_permesso' without a request, except code 10 with «not
+   * enough viewers» (a story): that is about the post, 'non_disponibili'.
+   * Subcode 2108006: 'prima_della_conversione'. A post Meta refuses in any
+   * other way: 'non_disponibili'. An empty `data`, or one with no number, is
+   * no reading (Meta's answer for data not there yet, up to 48 hours: never
+   * zeros). The token (190), Meta's limits, the network and the time throw,
+   * as in every reading.
    */
   async function insights(media: Pick<MediaLetto, 'media_id' | 'reel' | 'media_type'>): Promise<InsightsMedia> {
-    const nessuno = (stato: StatoMetriche): InsightsMedia => ({ stato, valori: {} })
+    const nessuno = (stato: Exclude<StatoMetriche, 'lette'>): InsightsMedia => ({ stato, valori: {} })
     if (!permessoInsights) return nessuno('senza_permesso')
     // the id goes into the path: digits only
     if (!RE_MEDIA_ID.test(media.media_id)) return nessuno('non_disponibili')
-    for (const metriche of METRICHE_INSIGHTS[media.reel ? 'REELS' : 'FEED']) {
+    const tipo: TipoMetriche = media.reel ? 'reel' : 'feed'
+    visti[tipo] = true
+    const gradini = METRICHE[tipo]
+    for (let i = gradiniDelTipo[tipo]; i < gradini.length; i++) {
       // another post of the run may have found the permission missing meanwhile
       if (!permessoInsights) return nessuno('senza_permesso')
+      const { gradino, metriche } = gradini[i]
       let j: Json
       try {
         j = await get(`/${media.media_id}/insights`, { metric: metriche })
@@ -359,6 +466,8 @@ export function creaGraphContenuti(op: OpzioniGraph) {
         if (e.subcode === SUBCODE_PRIMA_DELLA_CONVERSIONE) return nessuno('prima_della_conversione')
         // before the permission words: "cannot be loaded due to missing permissions" is a post not there
         if (nonEsiste(e)) return nessuno('non_disponibili')
+        // few viewers: code 10, but about this post
+        if (e.code === 10 && POCHI_SPETTATORI.test(e.message)) return nessuno('non_disponibili')
         if (permesso(e.code) || (e.code !== 100 && /permission/i.test(e.message))) {
           permessoInsights = false
           return nessuno('senza_permesso')
@@ -366,12 +475,45 @@ export function creaGraphContenuti(op: OpzioniGraph) {
         if (e.code === 100) continue
         return nessuno('non_disponibili')
       }
-      return { stato: 'lette', valori: valoriInsights(j, metriche) }
+      const valori = valoriInsights(j, metriche)
+      if (Object.keys(valori).length === 0) return nessuno('non_disponibili')
+      // the kind goes down for the rest of the run only once a lower step worked on this post
+      if (i > gradiniDelTipo[tipo]) gradiniDelTipo[tipo] = i
+      return { stato: 'lette', valori, gradino }
     }
     return nessuno('non_disponibili')
   }
 
-  return { me, contenutiDal, insights }
+  /** The steps the run has settled on, per kind: for instagram_contenuti_stato.metriche_gradini. */
+  function gradiniUsati(): Partial<Record<TipoMetriche, GradinoMetriche>> {
+    return {
+      ...(visti.reel ? { reel: METRICHE.reel[gradiniDelTipo.reel].gradino } : {}),
+      ...(visti.feed ? { feed: METRICHE.feed[gradiniDelTipo.feed].gradino } : {}),
+    }
+  }
+
+  /**
+   * What the reel analysis needs to read a video on the server: the video's
+   * URL, its cover and the kind of audio. `media_audio_type` is asked first and
+   * left out on code 100. URLs only from Instagram's CDN, never logged or
+   * saved; a video without media_url (licensed music) answers url null.
+   */
+  async function video(
+    mediaId: string,
+  ): Promise<{ url: string | null; copertina: string | null; audio: 'MUSIC' | 'ORIGINAL_SOUND' | null }> {
+    if (!RE_MEDIA_ID.test(mediaId)) return { url: null, copertina: null, audio: null }
+    let j: Json
+    try {
+      j = await get(`/${mediaId}`, { fields: 'media_type,media_url,thumbnail_url,media_audio_type' })
+    } catch (e) {
+      if (!campoNonSupportato(e)) throw e
+      j = await get(`/${mediaId}`, { fields: 'media_type,media_url,thumbnail_url' })
+    }
+    const audio = j.media_audio_type === 'MUSIC' || j.media_audio_type === 'ORIGINAL_SOUND' ? j.media_audio_type : null
+    return { url: urlDaLeggere(j.media_url, locale), copertina: urlDaLeggere(j.thumbnail_url, locale), audio }
+  }
+
+  return { me, contenutiDal, insights, gradiniUsati, video }
 }
 
 export type GraphContenuti = ReturnType<typeof creaGraphContenuti>

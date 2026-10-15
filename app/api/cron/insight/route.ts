@@ -1,8 +1,7 @@
-import { createHash, timingSafeEqual } from 'node:crypto'
-
 import { after, NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
 
+import { autorizzato } from '@/lib/cron/chiave-passo'
 import { insightConfigurato } from '@/lib/insight/config'
 import { eseguiPasso, TEMPO_PASSO_MS } from '@/lib/insight/esecuzione'
 import { FRASI_INSIGHT } from '@/lib/insight/frasi'
@@ -20,45 +19,7 @@ export const maxDuration = 300
 
 /** The step's lease, in seconds (insight_prendi_passo). */
 const LEASE_SECONDI = 330
-/** The key of the steps is read again from Vault after this long (a rotated key works at once anyway). */
-const CHIAVE_IN_CACHE_MS = 5 * 60_000
-
 const corpoSchema = z.object({ esecuzione: z.string().uuid() })
-
-let chiaveInCache: { valore: string; letta: number } | null = null
-
-/** Compares two secrets in constant time (their digests have the same length). */
-function uguali(a: string, b: string): boolean {
-  const x = createHash('sha256').update(a, 'utf8').digest()
-  const y = createHash('sha256').update(b, 'utf8').digest()
-  return timingSafeEqual(x, y)
-}
-
-async function leggiChiave(db: ReturnType<typeof createAdminClient>): Promise<string | null> {
-  const { data, error } = await db.rpc('insight_chiave')
-  if (error) {
-    console.error('[insight] chiave non letta:', error.code ?? 'errore')
-    return null
-  }
-  const valore = typeof data === 'string' ? data.trim() : ''
-  if (!valore) return null
-  chiaveInCache = { valore, letta: Date.now() }
-  return valore
-}
-
-/** The Bearer of the request: the key of the steps (pg_net), or CRON_SECRET (a manual call, the e2e test). */
-async function autorizzato(request: NextRequest, db: ReturnType<typeof createAdminClient>): Promise<boolean> {
-  const intestazione = request.headers.get('authorization') ?? ''
-  const fornita = intestazione.startsWith('Bearer ') ? intestazione.slice('Bearer '.length).trim() : ''
-  if (!fornita) return false
-  const cron = process.env.CRON_SECRET?.trim()
-  if (cron && uguali(fornita, cron)) return true
-  const fresca = chiaveInCache && Date.now() - chiaveInCache.letta < CHIAVE_IN_CACHE_MS ? chiaveInCache.valore : null
-  if (fresca && uguali(fornita, fresca)) return true
-  // a mismatch, or no key in cache: read once more before refusing (a rotated key works at once)
-  const chiave = await leggiChiave(db)
-  return chiave !== null && uguali(fornita, chiave)
-}
 
 /**
  * One step of a run of the Insight (1.35.0, CLAUDE.md section 29), sent by

@@ -15,6 +15,9 @@ type Risposta = {
   letti?: number
   collegati?: number
   proposti?: number
+  /** the statistics phase (1.36.0): posts with numbers, and whether the permission is there */
+  metriche?: number
+  permesso?: boolean | null
   errore?: string | null
   rifiutato?: 'in_corso' | 'appena_fatto'
 }
@@ -60,7 +63,13 @@ export function AggiornaDaInstagram({ variante = 'outline' }: { variante?: 'outl
       setLeggo(false)
     })
 
-    const conteggi = { letti: risposta.letti ?? 0, collegati: risposta.collegati ?? 0, proposti: risposta.proposti ?? 0 }
+    const conteggi = {
+      letti: risposta.letti ?? 0,
+      collegati: risposta.collegati ?? 0,
+      proposti: risposta.proposti ?? 0,
+      metriche: risposta.metriche,
+      permesso: risposta.permesso,
+    }
     if (risposta.rifiutato) toast.info(risposta.errore ?? 'Riprova tra qualche minuto.')
     else if (risposta.esito === 'ok') toast.success(fraseAggiornato(conteggi))
     else if (risposta.esito === 'parziale')

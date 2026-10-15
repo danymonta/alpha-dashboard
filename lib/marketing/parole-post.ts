@@ -18,6 +18,7 @@ export const ETICHETTA_MOTIVO: Record<Motivo, string> = {
   giorno_vicino: 'giorno vicino',
   didascalia_simile: 'didascalia simile',
   unico_del_giorno: 'unico del giorno',
+  parlato_simile: 'parlato simile',
 }
 
 /** "stessa data, didascalia simile"; with `ultima`: "stessa data e didascalia simile". Unknown reasons are left out. */
@@ -58,11 +59,18 @@ export function nomeSchedaPost(daCollegare: number): string {
 
 /**
  * The toast after "Aggiorna da Instagram": «Aggiornato: 52 post letti, 3
- * collegati da soli, 5 proposte da controllare.»
+ * collegati da soli, 5 proposte da controllare, numeri di 41 post.» It always
+ * begins with «Aggiornato: N post letti»; when Meta says the permission for
+ * the statistics is missing, it ends «; statistiche non attive.»
  */
-export function fraseAggiornato(esito: { letti: number; collegati: number; proposti: number }): string {
+export function fraseAggiornato(esito: { letti: number; collegati: number; proposti: number; metriche?: number | null; permesso?: boolean | null }): string {
   const letti = esito.letti === 1 ? '1 post letto' : `${esito.letti} post letti`
   const collegati = esito.collegati === 1 ? '1 collegato da solo' : `${esito.collegati} collegati da soli`
   const proposte = esito.proposti === 1 ? '1 proposta da controllare' : `${esito.proposti} proposte da controllare`
-  return `Aggiornato: ${letti}, ${collegati}, ${proposte}.`
+  const base = `Aggiornato: ${letti}, ${collegati}, ${proposte}`
+  if (esito.permesso === false) return `${base}; statistiche non attive.`
+  if (typeof esito.metriche === 'number' && esito.metriche > 0) {
+    return `${base}, numeri di ${esito.metriche === 1 ? '1 post' : `${esito.metriche} post`}.`
+  }
+  return `${base}.`
 }

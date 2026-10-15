@@ -32,9 +32,27 @@
 // GraphFinto04; GET /__modo?insights=senza_permesso makes every insights call
 // answer code 10; the parameters combine, and GET /__modo resets everything.
 //
-// Every post, caption, chat, name and shortcode is invented; no cover (the
-// page shows the icon), so the browser never asks Instagram's CDN for one.
+// 1.36.0 (statistics and reel analysis) adds, without changing any answer the
+// others use:
+// - /{media}/insights also knows the metrics of the complete step (reels:
+//   ig_reels_avg_watch_time, ig_reels_video_view_total_time, reels_skip_rate,
+//   reposts; feed: follows, profile_visits), and answers code 100 for one
+//   asked of the wrong kind of post, as Meta does;
+// - GET /__modo?insights=vuoti (data: []), insights=metrica_100 (the complete
+//   step answers code 100), insights=pochi_spettatori (code 10, «Not enough
+//   viewers»), together with the existing insights=senza_permesso;
+// - /{media}?fields=media_type,media_url,thumbnail_url,media_audio_type, with
+//   the video and the cover served from this same server (/__video/<id>.mp4,
+//   /__copertina/<id>.jpg, made by e2e/genera-reel-finto.mjs with ffmpeg);
+//   GET /__modo?video=assente leaves media_url out, as Meta does for licensed music;
+// - followers_count and media_count on /me when asked.
+//
+// Every post, caption, chat, name and shortcode is invented; no cover in the
+// listing (the page shows the icon), so the browser never asks Instagram's CDN for one.
 import { createServer } from 'node:http'
+import { createReadStream, existsSync } from 'node:fs'
+
+import { generaReelFinti } from './genera-reel-finto.mjs'
 
 const PORTA = Number(process.env.PORTA_GRAPH_FINTO ?? 4012)
 const SEGNO_TOKEN_FINTO = 'e2eFinto'
@@ -65,6 +83,8 @@ function media() {
       caption,
       like_count: 10 * n,
       comments_count: n,
+      ...(reel && modo.video !== 'assente' ? { media_url: `http://127.0.0.1:${PORTA}/__video/${`1799000000000${String(n).padStart(4, '0')}`}.mp4` } : {}),
+      ...(reel ? { thumbnail_url: `http://127.0.0.1:${PORTA}/__copertina/${`1799000000000${String(n).padStart(4, '0')}`}.jpg` } : {}),
     }
   }
   const tutti = [
@@ -192,6 +212,10 @@ function soloCampi(oggetto, campi) {
 }
 
 const INSIGHTS = new Set(['views', 'reach', 'saved', 'shares', 'likes', 'comments', 'total_interactions'])
+/** Only for a reel (Meta: the watch metrics are of reels) */
+const INSIGHTS_REEL = new Set(['reposts', 'ig_reels_avg_watch_time', 'ig_reels_video_view_total_time', 'reels_skip_rate'])
+/** Only for the feed (Meta: follows and profile_visits are of FEED and STORY) */
+const INSIGHTS_FEED = new Set(['follows', 'profile_visits'])
 
 // ---------- Messenger: the Page and its chats ----------
 
@@ -287,16 +311,53 @@ function instagram(res, u, percorso, token) {
 
   const insights = /^\/(\d+)\/insights$/.exec(percorso)
   if (insights) {
-    if (!media().some((m) => m.id === insights[1])) return errore(res, 100, 'Unsupported get request. Object does not exist', 404)
+    const post = media().find((m) => m.id === insights[1])
+    if (!post) return errore(res, 100, 'Unsupported get request. Object does not exist', 404)
     if (modo.insights === 'senza_permesso') return errore(res, 10, '(#10) Application does not have permission for this action', 403)
+    if (modo.insights === 'pochi_spettatori') return errore(res, 10, '(#10) Not enough viewers for the media to show insights', 400)
     const metriche = (u.searchParams.get('metric') ?? '').split(',')
-    const sconosciuta = metriche.find((m) => !INSIGHTS.has(m))
-    if (sconosciuta) return errore(res, 100, `(#100) metric[0] must be one of the following values: ${[...INSIGHTS].join(', ')}`)
+    const reel = post.media_type === 'VIDEO'
+    const completo = metriche.some((m) => INSIGHTS_REEL.has(m) && m !== 'reposts') || metriche.some((m) => INSIGHTS_FEED.has(m))
+    if (modo.insights === 'metrica_100' && completo) {
+      return errore(res, 100, '(#100) The Media Insights API does not support one of the metrics for this media')
+    }
+    const conosciute = new Set([...INSIGHTS, ...(reel ? INSIGHTS_REEL : INSIGHTS_FEED)])
+    const sconosciuta = metriche.find((m) => !conosciute.has(m))
+    if (sconosciuta) return errore(res, 100, `(#100) metric[0] must be one of the following values: ${[...conosciute].join(', ')}`)
+    if (modo.insights === 'vuoti') return manda(res, { data: [] })
     const n = Number(insights[1].slice(-2))
-    const valore = { views: 1000 * n, reach: 800 * n, saved: 10 * n, shares: 5 * n, likes: 10 * n, comments: n, total_interactions: 16 * n }
+    const valore = {
+      views: 1000 * n,
+      reach: 800 * n,
+      saved: 10 * n,
+      shares: 5 * n,
+      likes: 10 * n,
+      comments: n,
+      total_interactions: 16 * n,
+      reposts: 2 * n,
+      ig_reels_avg_watch_time: 9000 + 100 * n,
+      ig_reels_video_view_total_time: 3_000_000 * n,
+      reels_skip_rate: 0.35,
+      follows: n,
+      profile_visits: 4 * n,
+    }
     return manda(res, {
       data: metriche.map((nome) => ({ name: nome, period: 'lifetime', values: [{ value: valore[nome] }], title: nome, id: `${insights[1]}/insights/${nome}/lifetime` })),
     })
+  }
+
+  // one media: the video and the cover of a reel (1.36.0)
+  const unMedia = /^\/(\d+)$/.exec(percorso)
+  if (unMedia) {
+    const post = media().find((m) => m.id === unMedia[1])
+    if (post) {
+      const chiesti = campi.split(',')
+      return manda(res, {
+        id: post.id,
+        ...soloCampi(post, chiesti),
+        ...(chiesti.includes('media_audio_type') && post.media_type === 'VIDEO' ? { media_audio_type: 'ORIGINAL_SOUND' } : {}),
+      })
+    }
   }
 
   const id = percorso.slice(1)
@@ -342,8 +403,29 @@ createServer((req, res) => {
   if (u.pathname === '/__modo') {
     modo = { campi: u.searchParams.get('campi') === 'senza_didascalia' ? 'senza_didascalia' : 'completi' }
     if (u.searchParams.get('scenario') === 'insight') modo.scenario = 'insight'
-    if (u.searchParams.get('insights') === 'senza_permesso') modo.insights = 'senza_permesso'
+    const insightsModo = u.searchParams.get('insights')
+    if (['senza_permesso', 'vuoti', 'metrica_100', 'pochi_spettatori'].includes(insightsModo ?? '')) modo.insights = insightsModo
+    const videoModo = u.searchParams.get('video')
+    if (videoModo === 'assente' || videoModo === 'non_scaricabile') modo.video = videoModo
     return manda(res, modo)
+  }
+
+  // the video and the cover of the reels (1.36.0): no token, as a CDN's signed URL has none of ours
+  const file = /^\/__(video|copertina)\/(\d+)\.(mp4|jpg)$/.exec(u.pathname)
+  if (file) {
+    richieste.push(u.pathname)
+    if (modo.video === 'non_scaricabile') {
+      res.writeHead(403)
+      return res.end()
+    }
+    const files = generaReelFinti()
+    const nome = file[1] === 'copertina' ? files.copertina : Number(file[2].slice(-2)) === 4 ? files.senzaAudio : files.reel
+    if (!existsSync(nome)) {
+      res.writeHead(404)
+      return res.end()
+    }
+    res.writeHead(200, { 'content-type': file[1] === 'copertina' ? 'image/jpeg' : 'video/mp4' })
+    return createReadStream(nome).pipe(res)
   }
 
   // the path only: never the token in what this server remembers
@@ -355,7 +437,15 @@ createServer((req, res) => {
   if (u.pathname.startsWith('/v23.0/')) return messenger(res, u, u.pathname.slice('/v23.0'.length), token)
 
   const percorso = u.pathname.replace(/^\/v[\d.]+/, '')
-  if (percorso === '/me') return manda(res, { user_id: '17841400000000042', username: 'alpha_finto', id: 'app1' })
+  if (percorso === '/me') {
+    const chiesti = (u.searchParams.get('fields') ?? '').split(',')
+    return manda(res, {
+      user_id: '17841400000000042',
+      username: 'alpha_finto',
+      id: 'app1',
+      ...(chiesti.includes('followers_count') ? { followers_count: 12345, media_count: 214 } : {}),
+    })
+  }
 
   if (percorso === '/me/media') {
     const campi = (u.searchParams.get('fields') ?? '').split(',')

@@ -42,3 +42,6 @@ yarn-error.log*
 
 # machine-specific (absolute node path)
 .claude/launch.json
+
+# file finti dei reel per i test (e2e/genera-reel-finto.mjs): mai un video nel repository
+e2e/.cache/

@@ -562,7 +562,12 @@ describe('il Graph finto degli e2e', () => {
     await comando('/__modo')
     const c = creaGraphContenuti({ token: TOKEN_IG, base: finto, attendi: subito })
     const reel = { media_id: '17990000000000002', reel: true, media_type: 'VIDEO' as const }
-    expect(await c.insights(reel)).toEqual({ stato: 'lette', valori: { views: 2000, reach: 1600, saved: 20, shares: 10, likes: 20, comments: 2, total_interactions: 32 } })
+    // the reel's numbers of the 1.36.0 steps: reposts, the watch time and the skip rate come with the first step of the ladder
+    expect(await c.insights(reel)).toEqual({
+      stato: 'lette',
+      gradino: 'completo',
+      valori: { views: 2000, reach: 1600, saved: 20, shares: 10, likes: 20, comments: 2, total_interactions: 32, reposts: 4, avg_watch_ms: 9200, view_total_ms: 6000000, skip_rate: 0.35 },
+    })
     expect(await c.insights({ media_id: '17990000000000005', reel: false, media_type: 'IMAGE' })).toMatchObject({ stato: 'lette', valori: { views: 5000 } })
 
     expect(await comando('/__modo?scenario=insight&insights=senza_permesso')).toEqual({ campi: 'completi', scenario: 'insight', insights: 'senza_permesso' })

@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 vi.mock('server-only', () => ({}))
 
-import { CAMPI_MEDIA, copertinaValida, creaGraphContenuti, leggiMedia, METRICHE_INSIGHTS } from '@/lib/instagram/contenuti'
+import { CAMPI_MEDIA, copertinaValida, creaGraphContenuti, leggiMedia, METRICHE } from '@/lib/instagram/contenuti'
 import { API_BASE, baseGraph, CODICI_LIMITE, ErroreInstagram, SEGNO_TOKEN_FINTO } from '@/lib/instagram/richieste'
 
 // A fake Graph API for /me and /me/media. Every account, post and caption is invented.
@@ -100,7 +100,29 @@ function rispondi(u: URL, res: ServerResponse) {
 
   const percorso = u.pathname.replace(/^\/v[\d.]+/, '')
   const campi = (u.searchParams.get('fields') ?? '').split(',')
-  if (percorso === '/me') return manda({ ...ACCOUNT, id: 'app1' })
+  if (percorso === '/me') {
+    const risposta: Record<string, unknown> = { ...ACCOUNT, id: 'app1' }
+    if (campi.includes('followers_count')) {
+      if (stato.campiRifiutati.includes('followers_count')) return errore(100, 'Tried accessing nonexisting field (followers_count) on node type (IGUser)')
+      Object.assign(risposta, { followers_count: 12345, media_count: 230 })
+    }
+    return manda(risposta)
+  }
+  const unico = /^\/(\d+)$/.exec(percorso)
+  if (unico) {
+    const m = stato.media.find((x) => x.id === unico[1])
+    if (!m) return errore(100, 'Unsupported get request. Object with ID does not exist, cannot be loaded due to missing permissions')
+    if (campi.includes('media_audio_type') && stato.campiRifiutati.includes('media_audio_type')) {
+      return errore(100, 'Tried accessing nonexisting field (media_audio_type) on node type (Media)')
+    }
+    return manda({
+      id: m.id,
+      media_type: m.media_type,
+      media_url: m.media_url,
+      thumbnail_url: m.thumbnail_url,
+      ...(campi.includes('media_audio_type') ? { media_audio_type: 'ORIGINAL_SOUND' } : {}),
+    })
+  }
   const insights = /^\/(\d+)\/insights$/.exec(percorso)
   if (insights && stato.media.some((m) => m.id === insights[1])) {
     const e = stato.erroreInsights
@@ -117,6 +139,12 @@ function rispondi(u: URL, res: ServerResponse) {
       likes: 20 * n,
       comments: n,
       total_interactions: 36 * n,
+      reposts: 2 * n,
+      ig_reels_avg_watch_time: 9800 + n,
+      ig_reels_video_view_total_time: 4_000_000 * n,
+      reels_skip_rate: 38.5,
+      follows: n,
+      profile_visits: 3 * n,
     }
     // the values set by a test come all, asked or not (a metric Meta adds on its own)
     const nomi = stato.valoriInsights ? Object.keys(stato.valoriInsights) : metriche.filter((nome) => nome in valori)
@@ -193,7 +221,7 @@ const richiesteMedia = () => stato.richieste.filter((r) => r.pathname.endsWith('
 
 describe('l’account e l’elenco dei post', () => {
   it('me: username e id', async () => {
-    expect(await graph().me()).toEqual({ username: ACCOUNT.username, id: ACCOUNT.user_id })
+    expect(await graph().me()).toEqual({ username: ACCOUNT.username, id: ACCOUNT.user_id, follower: 12345, media: 230 })
   })
 
   it('tutte le pagine col solo cursore: next mai seguito, una pagina corta non è la fine', async () => {
@@ -223,6 +251,8 @@ describe('l’account e l’elenco dei post', () => {
       copertina_url: CDN,
       like_count: 11,
       comments_count: 1,
+      // media_url is asked for to know whether Instagram gives the video (1.36.0); it is never kept
+      video_disponibile: true,
     })
     expect(JSON.stringify(primo)).not.toContain('video.mp4')
   })
@@ -423,51 +453,108 @@ describe('errori di Meta', () => {
   })
 })
 
-describe('le statistiche dei post (Insight, D28)', () => {
+describe('le statistiche dei post (Insight D28, esteso dalla 1.36.0)', () => {
   const REEL = { media_id: '17900000000000002', reel: true, media_type: 'VIDEO' as const }
   const FOTO = { media_id: '17900000000000003', reel: false, media_type: 'IMAGE' as const }
   const richiesteInsights = () => stato.richieste.filter((r) => r.pathname.endsWith('/insights'))
   const metricheChieste = () => richiesteInsights().map((r) => r.searchParams.get('metric'))
+  const reelMetriche = METRICHE.reel.map((g) => g.metriche)
+  const feedMetriche = METRICHE.feed.map((g) => g.metriche)
 
-  it('un reel: tutte e sette le metriche in una richiesta, da values o da total_value', async () => {
+  it('un reel: il gradino completo in una richiesta, da values o da total_value, col tempo di visione e lo skip rate', async () => {
     expect(await graph().insights(REEL)).toEqual({
       stato: 'lette',
-      valori: { views: 2000, reach: 1600, saved: 20, shares: 10, likes: 40, comments: 2, total_interactions: 72 },
+      gradino: 'completo',
+      valori: {
+        views: 2000,
+        reach: 1600,
+        saved: 20,
+        shares: 10,
+        likes: 40,
+        comments: 2,
+        total_interactions: 72,
+        reposts: 4,
+        avg_watch_ms: 9802,
+        view_total_ms: 8_000_000,
+        skip_rate: 38.5,
+      },
     })
-    expect(metricheChieste()).toEqual(['views,reach,saved,shares,likes,comments,total_interactions'])
+    expect(metricheChieste()).toEqual([reelMetriche[0]])
     const [r] = richiesteInsights()
     expect(r.pathname).toBe('/v26.0/17900000000000002/insights')
     expect(r.searchParams.get('fields')).toBeNull()
   })
 
-  it('i gruppi di ripiego del reel: codice 100 passa al gruppo dopo; dopo l’ultimo non_disponibili', async () => {
-    expect(METRICHE_INSIGHTS.REELS).toEqual(['views,reach,saved,shares,likes,comments,total_interactions', 'views,reach,saved,shares', 'reach,saved,shares'])
+  it('i gradini del reel: i tre più bassi sono quelli dell’Insight; il codice 100 passa a quello dopo, dopo l’ultimo non_disponibili', async () => {
+    expect(reelMetriche).toEqual([
+      'views,reach,saved,shares,likes,comments,total_interactions,reposts,ig_reels_avg_watch_time,ig_reels_video_view_total_time,reels_skip_rate',
+      'views,reach,saved,shares,likes,comments,total_interactions',
+      'views,reach,saved,shares',
+      'reach,saved,shares',
+    ])
+    stato.metricheNonDate = ['reels_skip_rate']
+    const base = await graph().insights(REEL)
+    expect(base).toMatchObject({ stato: 'lette', gradino: 'base' })
+    expect(base.valori).toEqual({ views: 2000, reach: 1600, saved: 20, shares: 10, likes: 40, comments: 2, total_interactions: 72 })
+    expect(metricheChieste()).toEqual(reelMetriche.slice(0, 2))
+
+    stato.richieste = []
     stato.metricheNonDate = ['likes']
-    expect(await graph().insights(REEL)).toEqual({ stato: 'lette', valori: { views: 2000, reach: 1600, saved: 20, shares: 10 } })
-    expect(metricheChieste()).toEqual(METRICHE_INSIGHTS.REELS.slice(0, 2))
+    expect(await graph().insights(REEL)).toEqual({ stato: 'lette', gradino: 'minimo', valori: { views: 2000, reach: 1600, saved: 20, shares: 10 } })
+    expect(metricheChieste()).toEqual(reelMetriche.slice(0, 3))
 
     stato.richieste = []
     stato.metricheNonDate = ['views']
-    expect(await graph().insights(REEL)).toEqual({ stato: 'lette', valori: { reach: 1600, saved: 20, shares: 10 } })
-    expect(metricheChieste()).toEqual([...METRICHE_INSIGHTS.REELS])
+    expect(await graph().insights(REEL)).toEqual({ stato: 'lette', gradino: 'solo_reach', valori: { reach: 1600, saved: 20, shares: 10 } })
+    expect(metricheChieste()).toEqual(reelMetriche)
 
     stato.richieste = []
     stato.metricheNonDate = ['reach']
     expect(await graph().insights(REEL)).toEqual({ stato: 'non_disponibili', valori: {} })
-    expect(metricheChieste()).toEqual([...METRICHE_INSIGHTS.REELS])
+    expect(metricheChieste()).toEqual(reelMetriche)
   })
 
-  it('un post del feed: i suoi due gruppi', async () => {
-    expect(METRICHE_INSIGHTS.FEED).toEqual(['views,reach,saved,shares', 'reach,saved,shares'])
-    expect(await graph().insights(FOTO)).toEqual({ stato: 'lette', valori: { views: 3000, reach: 2400, saved: 30, shares: 15 } })
+  it('un post del feed: i suoi gradini, con i follow e le visite al profilo', async () => {
+    expect(feedMetriche).toEqual(['views,reach,saved,shares,follows,profile_visits', 'views,reach,saved,shares', 'reach,saved,shares'])
+    expect(await graph().insights(FOTO)).toEqual({
+      stato: 'lette',
+      gradino: 'completo',
+      valori: { views: 3000, reach: 2400, saved: 30, shares: 15, follows: 3, profile_visits: 9 },
+    })
+    stato.richieste = []
+    stato.metricheNonDate = ['follows']
+    expect(await graph().insights(FOTO)).toEqual({ stato: 'lette', gradino: 'base', valori: { views: 3000, reach: 2400, saved: 30, shares: 15 } })
     stato.richieste = []
     stato.metricheNonDate = ['views']
-    expect(await graph().insights(FOTO)).toEqual({ stato: 'lette', valori: { reach: 2400, saved: 30, shares: 15 } })
-    expect(metricheChieste()).toEqual([...METRICHE_INSIGHTS.FEED])
+    expect(await graph().insights(FOTO)).toEqual({ stato: 'lette', gradino: 'solo_reach', valori: { reach: 2400, saved: 30, shares: 15 } })
+    expect(metricheChieste()).toEqual(feedMetriche)
     stato.richieste = []
     stato.metricheNonDate = ['saved']
     expect(await graph().insights(FOTO)).toEqual({ stato: 'non_disponibili', valori: {} })
-    expect(metricheChieste()).toHaveLength(2)
+    expect(metricheChieste()).toHaveLength(3)
+  })
+
+  it('il gradino scende per tutta la corsa solo dopo che uno più basso è riuscito sullo stesso post', async () => {
+    const g = graph()
+    // a post that gives nothing at any step: the next one starts from the richest again
+    stato.metricheNonDate = ['reach']
+    expect((await g.insights(REEL)).stato).toBe('non_disponibili')
+    stato.richieste = []
+    stato.metricheNonDate = []
+    expect((await g.insights(REEL)).stato).toBe('lette')
+    expect(metricheChieste()).toEqual([reelMetriche[0]])
+    // a post that works at the base step: the next ones start there
+    stato.richieste = []
+    stato.metricheNonDate = ['reposts']
+    expect(await g.insights(REEL)).toMatchObject({ gradino: 'base' })
+    stato.richieste = []
+    stato.metricheNonDate = []
+    expect(await g.insights(REEL)).toMatchObject({ gradino: 'base' })
+    expect(metricheChieste()).toEqual([reelMetriche[1]])
+    expect(g.gradiniUsati()).toEqual({ reel: 'base' })
+    // the feed keeps its own
+    expect(await g.insights(FOTO)).toMatchObject({ gradino: 'completo' })
+    expect(g.gradiniUsati()).toEqual({ reel: 'base', feed: 'completo' })
   })
 
   it('codice 10 o 200: senza_permesso, e nessuna altra richiesta di statistiche per tutta la corsa', async () => {
@@ -490,6 +577,14 @@ describe('le statistiche dei post (Insight, D28)', () => {
     expect(richiesteInsights()).toHaveLength(1)
   })
 
+  it('codice 10 con «Not enough viewers»: non_disponibili, il permesso c’è e le altre richieste partono', async () => {
+    stato.erroreInsights = { status: 400, code: 10, message: '(#10) Not enough viewers for the media to show insights' }
+    const g = graph()
+    expect(await g.insights(REEL)).toEqual({ stato: 'non_disponibili', valori: {} })
+    stato.erroreInsights = null
+    expect((await g.insights(FOTO)).stato).toBe('lette')
+  })
+
   it('subcode 2108006: prima_della_conversione, solo per quel post', async () => {
     stato.erroreInsights = { status: 400, code: 100, subcode: 2108006, message: 'Media posted before business account conversion' }
     const g = graph()
@@ -499,7 +594,7 @@ describe('le statistiche dei post (Insight, D28)', () => {
     expect((await g.insights(FOTO)).stato).toBe('lette')
   })
 
-  it('un post che non c’è più o un id fuori forma: non_disponibili, senza scendere di gruppo', async () => {
+  it('un post che non c’è più o un id fuori forma: non_disponibili, senza scendere di gradino', async () => {
     const g = graph()
     expect(await g.insights({ ...REEL, media_id: '17900000000000099' })).toEqual({ stato: 'non_disponibili', valori: {} })
     expect(richiesteInsights()).toHaveLength(1)
@@ -524,20 +619,66 @@ describe('le statistiche dei post (Insight, D28)', () => {
     await expect(graph().insights(REEL)).rejects.toMatchObject({ tipo: 'limite' })
   })
 
-  it('data vuoto: nessun numero letto', async () => {
+  it('data vuoto o senza nessun numero: non_disponibili, mai zeri', async () => {
     stato.valoriInsights = {}
-    expect(await graph().insights(REEL)).toEqual({ stato: 'lette', valori: {} })
+    expect(await graph().insights(REEL)).toEqual({ stato: 'non_disponibili', valori: {} })
+    stato.valoriInsights = { views: null, reach: 'tanti' }
+    expect(await graph().insights(REEL)).toEqual({ stato: 'non_disponibili', valori: {} })
   })
 
-  it('solo interi non negativi, solo le metriche chieste', async () => {
-    stato.valoriInsights = { views: -5, reach: 12.5, saved: '30', shares: 7, likes: null, comments: 0, total_interactions: Number.MAX_SAFE_INTEGER * 2 }
+  it('solo numeri non negativi, solo le metriche chieste e che conosciamo', async () => {
+    stato.valoriInsights = { views: -5, reach: 12.4, saved: '30', shares: 7, likes: null, comments: 0, total_interactions: Number.MAX_SAFE_INTEGER * 2 }
     const letti = await graph().insights(REEL)
     expect(letti.stato).toBe('lette')
-    expect(letti.valori).toEqual({ shares: 7, comments: 0 })
-    // a metric Meta adds without being asked never becomes a column
-    stato.valoriInsights = { views: 1, reach: 2, saved: 3, shares: 4, follows: 9 }
+    expect(letti.valori).toEqual({ reach: 12, shares: 7, comments: 0 })
+    // a metric Meta adds without being asked, or one we do not know, never becomes a column
+    stato.valoriInsights = { views: 1, reach: 2, saved: 3, shares: 4, impressions: 9, plays: 4 }
     stato.metricheNonDate = ['likes']
     expect((await graph().insights(REEL)).valori).toEqual({ views: 1, reach: 2, saved: 3, shares: 4 })
+  })
+
+  it('il tempo totale di visione passa i 2 miliardi di millisecondi: resta un numero', async () => {
+    stato.valoriInsights = { views: 5, reach: 4, ig_reels_video_view_total_time: 9_000_000_000 }
+    expect((await graph().insights(REEL)).valori).toEqual({ views: 5, reach: 4, view_total_ms: 9_000_000_000 })
+  })
+})
+
+describe('me(), video() e video_disponibile (1.36.0)', () => {
+  it('me() chiede anche follower e post, e senza i campi (codice 100) riprova con i due soli', async () => {
+    expect(await graph().me()).toMatchObject({ username: ACCOUNT.username, follower: 12345, media: 230 })
+    expect(stato.richieste.at(-1)?.searchParams.get('fields')).toBe('user_id,username,followers_count,media_count')
+    stato.richieste = []
+    stato.campiRifiutati = ['followers_count']
+    expect(await graph().me()).toEqual({ username: ACCOUNT.username, id: ACCOUNT.user_id, follower: null, media: null })
+    expect(stato.richieste.map((r) => r.searchParams.get('fields'))).toEqual(['user_id,username,followers_count,media_count', 'user_id,username'])
+  })
+
+  it('leggiMedia: un VIDEO ha video_disponibile quando media_url è della CDN, false quando manca; una foto no', () => {
+    const base = {
+      id: '17900000000000002',
+      permalink: 'https://www.instagram.com/reel/AbCdEf123/',
+      timestamp: '2026-10-08T16:00:00+0000',
+      media_type: 'VIDEO',
+      media_product_type: 'REELS',
+    }
+    expect(leggiMedia({ ...base, media_url: 'https://scontent.cdninstagram.com/v/a.mp4' }, 'completi')?.video_disponibile).toBe(true)
+    expect(leggiMedia({ ...base }, 'completi')?.video_disponibile).toBe(false)
+    expect(leggiMedia({ ...base, media_url: 'https://esempio.test/a.mp4' }, 'completi')?.video_disponibile).toBe(false)
+    // the fake Graph API of the tests: its own origin counts
+    expect(leggiMedia({ ...base, media_url: 'http://127.0.0.1:6012/__video/1.mp4' }, 'completi', 'http://127.0.0.1:6012')?.video_disponibile).toBe(true)
+    // at the minimal step media_url is not asked for: the key is absent, so the column is not touched
+    expect(leggiMedia({ ...base }, 'minimi')).not.toHaveProperty('video_disponibile')
+    expect(leggiMedia({ ...base, id: '17900000000000003', media_type: 'IMAGE', media_url: 'https://scontent.cdninstagram.com/v/a.jpg' }, 'completi')).not.toHaveProperty('video_disponibile')
+  })
+
+  it('video(): url e copertina solo della CDN, l’audio, e senza media_audio_type se Meta lo rifiuta', async () => {
+    const v = await graph().video('17900000000000002')
+    expect(v).toEqual({ url: 'https://scontent.cdninstagram.com/video.mp4', copertina: CDN, audio: 'ORIGINAL_SOUND' })
+    expect(stato.richieste.at(-1)?.pathname).toBe('/v26.0/17900000000000002')
+    expect(stato.richieste.at(-1)?.searchParams.get('fields')).toBe('media_type,media_url,thumbnail_url,media_audio_type')
+    stato.campiRifiutati = ['media_audio_type']
+    expect(await graph().video('17900000000000002')).toEqual({ url: 'https://scontent.cdninstagram.com/video.mp4', copertina: CDN, audio: null })
+    expect(await graph().video('../me')).toEqual({ url: null, copertina: null, audio: null })
   })
 })
 

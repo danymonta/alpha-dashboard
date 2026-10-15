@@ -25,6 +25,11 @@ const pubbliche = {
 const CACHE_NAVIGAZIONE_SECONDI = 30
 
 const nextConfig: NextConfig = {
+  // The binary of ffmpeg-static is run by the reel steps, never imported: the file tracing
+  // would not see it, so it is listed for the routes that run it (1.36.0, CLAUDE.md section 30).
+  outputFileTracingIncludes: {
+    '/api/cron/marketing': ['./node_modules/ffmpeg-static/ffmpeg'],
+  },
   experimental: {
     staleTimes: {
       dynamic: CACHE_NAVIGAZIONE_SECONDI,

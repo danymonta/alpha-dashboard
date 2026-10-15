@@ -2241,6 +2241,9 @@ isOneToOne: false
 "marketing_costo_mese":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
+"marketing_da_oscurare":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "marketing_dispatch":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },

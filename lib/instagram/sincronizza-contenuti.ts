@@ -1,13 +1,24 @@
 import 'server-only'
 
-import { aggiungiGiorni, formatOra } from '@/lib/date'
+import { aggiungiGiorni, formatOra, oggiRoma } from '@/lib/date'
 import {
   creaGraphContenuti,
+  type GradinoMetriche,
   type LivelloCampi,
   type MediaLetto,
+  type TipoMetriche,
 } from '@/lib/instagram/contenuti'
+import {
+  daLeggere,
+  ordinaDaLeggere,
+  rigaMetriche,
+  salvaMetriche,
+  GIORNI_NUMERI,
+  type PostPerNumeri,
+  type RigaMetriche,
+} from '@/lib/instagram/metriche'
 import { FRASI_ERRORE } from '@/lib/instagram/report'
-import { baseGraph, ErroreInstagram, type OpzioniGraph } from '@/lib/instagram/richieste'
+import { baseGraph, ErroreInstagram, pool, type OpzioniGraph } from '@/lib/instagram/richieste'
 import {
   abbina,
   chiaveCoppia,
@@ -102,6 +113,19 @@ export type EsitoContenuti = {
   rifiutato?: 'in_corso' | 'appena_fatto'
   /** when that run started (in_corso) or ended (appena_fatto) */
   dal?: string
+  /** the statistics phase (1.36.0), only when the run was given time for it (entroNumeri) */
+  metriche?: EsitoMetriche
+}
+
+export type EsitoMetriche = {
+  esito: 'ok' | 'parziale' | 'senza_permesso' | 'fallito'
+  /** posts with numbers saved */
+  letti: number
+  /** true: the permission is there; false: Meta said it is missing; null: not known (nothing could be read) */
+  permesso: boolean | null
+  gradini: Partial<Record<TipoMetriche, GradinoMetriche>>
+  errore: string | null
+  secondi: number
 }
 
 class ErroreDatabase extends Error {
@@ -168,7 +192,7 @@ export async function ricalcolaAbbinamenti(op: {
   adesso?: Date
 }): Promise<{ collegati: number; proposti: number }> {
   const { db } = op
-  const [inizio, contenuti, collegati, rifiuti, esclusi, post] = await Promise.all([
+  const [inizio, contenuti, collegati, rifiuti, esclusi, post, letture] = await Promise.all([
     db
       .from('marketing_contenuti')
       .select('post_date')
@@ -183,9 +207,11 @@ export async function ricalcolaAbbinamenti(op: {
     db.from('marketing_post_esclusi').select('shortcode'),
     db
       .from('instagram_contenuti')
-      .select('shortcode, media_type, reel, pubblicato_il, didascalia, eliminato_il')
+      .select('media_id, shortcode, media_type, reel, pubblicato_il, didascalia, eliminato_il')
       .order('pubblicato_il', { ascending: false })
       .limit(POST_LETTI_MAX),
+    // what is said in the reels already read (1.36.0): it can make a proposal, never a link
+    db.from('instagram_letture').select('media_id, trascrizione').not('trascrizione', 'is', null).limit(POST_LETTI_MAX),
   ])
   for (const [nome, letto] of [
     ['inizio', inizio],
@@ -194,6 +220,7 @@ export async function ricalcolaAbbinamenti(op: {
     ['rifiuti', rifiuti],
     ['esclusi', esclusi],
     ['post', post],
+    ['letture', letture],
   ] as const) {
     if (letto.error) throw new ErroreDatabase(`abbinamenti: ${nome} non letti`, letto.error.code)
   }
@@ -203,11 +230,12 @@ export async function ricalcolaAbbinamenti(op: {
   const primoGiorno = inizio.data?.post_date ?? null
   // the posts from the calendar's first Post Date minus 3 days: the older ones are not work
   const dal = primoGiorno ? inizioGiornoRoma(aggiungiGiorni(primoGiorno, -3)).getTime() : null
+  const parlato = new Map((letture.data ?? []).map((l) => [l.media_id, l.trascrizione]))
   const daAbbinare: PostDaAbbinare[] = []
   for (const p of post.data ?? []) {
     if (dal === null || p.eliminato_il || giaCollegati.has(p.shortcode) || fuori.has(p.shortcode)) continue
     if (Date.parse(p.pubblicato_il) < dal) continue
-    const pronto = postDaAbbinare(p)
+    const pronto = postDaAbbinare(p, parlato.get(p.media_id) ?? null)
     if (pronto) daAbbinare.push(pronto)
   }
 
@@ -255,11 +283,127 @@ export async function ricalcolaAbbinamenti(op: {
   return { collegati: fatti, proposti: typeof scritte === 'number' ? scritte : 0 }
 }
 
+/**
+ * The followers of the account for the day (Rome): one row a day, the last
+ * reading wins (also the one of «Aggiorna da Instagram»). Never stops the run.
+ */
+async function salvaFollower(db: AdminClient, me: { follower: number | null; media: number | null }, adesso: Date): Promise<void> {
+  if (me.follower === null) return
+  const { error } = await db
+    .from('instagram_account_misure')
+    .upsert({ giorno: oggiRoma(adesso), follower: me.follower, media: me.media, letto_il: adesso.toISOString() }, { onConflict: 'giorno' })
+  if (error) console.error('[contenuti-instagram] follower non salvati:', error.code ?? 'errore')
+}
+
+/**
+ * The statistics phase (1.36.0): after the listing and the links, the numbers
+ * of the posts to read (daLeggere), the newest never read first, three at a
+ * time, saved in blocks of 25 while they arrive (a time run out loses 25 at
+ * most). The first request is the probe of the permission: a refusal ends the
+ * phase there; «few viewers» or «no data» tries the next post, three at most,
+ * before deciding. Never throws and never makes the run fail: its outcome is
+ * its own (instagram_contenuti_stato.metriche_esito).
+ */
+async function leggiNumeri(op: {
+  db: AdminClient
+  graph: ReturnType<typeof creaGraphContenuti>
+  adesso: Date
+  motivo: 'notte' | 'manuale'
+  /** the lease, to close the phase while it holds it */
+  giro: string
+}): Promise<EsitoMetriche> {
+  const { db, graph, adesso } = op
+  const avvio = Date.now()
+  const esito: EsitoMetriche = { esito: 'ok', letti: 0, permesso: null, gradini: {}, errore: null, secondi: 0 }
+  const buffer: RigaMetriche[] = []
+  let fermo = false
+  let primoErrore: unknown = null
+
+  const scarica = async () => {
+    while (buffer.length > 0) {
+      await salvaMetriche(db, buffer.splice(0, 25))
+    }
+  }
+
+  try {
+    const { data, error } = await db
+      .from('instagram_contenuti')
+      .select('media_id, media_type, reel, pubblicato_il, metriche_il, metriche_stato, eliminato_il')
+      .gte('pubblicato_il', new Date(adesso.getTime() - GIORNI_NUMERI * 86_400_000).toISOString())
+      .order('pubblicato_il', { ascending: false })
+      .limit(POST_LETTI_MAX)
+    if (error) throw new ErroreDatabase('post dei numeri non letti', error.code)
+    const daFare = ordinaDaLeggere(daLeggere((data ?? []) as PostPerNumeri[], adesso, op.motivo), adesso)
+
+    const leggi = async (m: PostPerNumeri) => {
+      const letto = await graph.insights({ media_id: m.media_id, reel: m.reel, media_type: m.media_type as MediaLetto['media_type'] })
+      if (letto.stato === 'senza_permesso') {
+        esito.permesso = false
+        fermo = true
+        return
+      }
+      if (letto.stato === 'lette') {
+        esito.permesso = true
+        esito.letti++
+      }
+      buffer.push(rigaMetriche(m.media_id, letto))
+      if (buffer.length >= 25) await scarica()
+    }
+
+    // the probe: the newest post first; a post without data does not decide, the next one is tried (three at most)
+    let i = 0
+    while (i < daFare.length && i < 3 && esito.permesso === null && !fermo) {
+      await leggi(daFare[i])
+      i++
+    }
+    if (!fermo) {
+      await pool(daFare.slice(i), 3, async (m) => {
+        if (fermo) return
+        try {
+          await leggi(m)
+        } catch (e) {
+          // the others finish what they started; the first error ends the phase after them
+          fermo = true
+          primoErrore ??= e
+        }
+      })
+      if (primoErrore) throw primoErrore
+    }
+    if (esito.permesso === false) esito.esito = 'senza_permesso'
+  } catch (e) {
+    if (e instanceof ErroreInstagram) {
+      const { causa, errore } = daErrore(e)
+      // the time over or Meta's limits after some numbers: partial; a token or a refusal: failed
+      esito.esito = causa === 'tempo' || ((causa === 'limite' || causa === 'rete') && esito.letti > 0) ? 'parziale' : 'fallito'
+      esito.errore = errore
+    } else {
+      esito.esito = 'fallito'
+      esito.errore = FRASI_CONTENUTI.database
+      console.error('[contenuti-instagram] numeri interrotti:', e instanceof Error ? e.name : 'errore')
+    }
+  }
+  try {
+    await scarica()
+  } catch (e) {
+    esito.esito = 'fallito'
+    esito.errore = FRASI_CONTENUTI.database
+    console.error('[contenuti-instagram] numeri non salvati:', e instanceof Error ? e.name : 'errore')
+  }
+  esito.gradini = graph.gradiniUsati()
+  esito.secondi = Math.round((Date.now() - avvio) / 100) / 10
+  return esito
+}
+
 type OpzioniGiro = {
   db: AdminClient
   motivo: 'notte' | 'manuale'
-  /** epoch ms: past it no new request to Instagram starts */
+  /** epoch ms: past it no new request to Instagram starts (the listing) */
   entro: number
+  /**
+   * epoch ms: past it the statistics phase asks nothing new (1.36.0). Without it
+   * the run reads the listing only: the phase does not start.
+   */
+  entroNumeri?: number
   adesso?: Date
   /** where and how to reach the Graph API (the tests point it at a fake); the base defaults to baseGraph() */
   graph?: Pick<OpzioniGraph, 'base' | 'versione' | 'fetch' | 'attendi' | 'timeoutMs'>
@@ -343,10 +487,12 @@ export async function aggiornaContenutiInstagram(op: OpzioniGiro): Promise<Esito
       entro: op.entro,
     })
 
-    // 3. the account
+    // 3. the account, and its followers of the day
     let errore: ErroreInstagram | null = null
     try {
-      account = normalizzaUsername((await graph.me()).username)
+      const io = await graph.me()
+      account = normalizzaUsername(io.username)
+      await salvaFollower(db, io, adesso)
     } catch (e) {
       if (!(e instanceof ErroreInstagram)) throw e
       errore = e
@@ -383,6 +529,33 @@ export async function aggiornaContenutiInstagram(op: OpzioniGiro): Promise<Esito
     const abbinamenti = await ricalcolaAbbinamenti({ db, automatico: true, adesso })
     esito.collegati = abbinamenti.collegati
     esito.proposti = abbinamenti.proposti
+
+    // 5b. the statistics of the posts (1.36.0), with the time of their own; never ends the run in failure
+    if (op.entroNumeri !== undefined) {
+      let metriche: EsitoMetriche
+      if (errore && (errore.tipo === 'token' || errore.tipo === 'limite' || errore.tipo === 'rete')) {
+        // the same token and account: the phase does not start
+        metriche = { esito: 'fallito', letti: 0, permesso: null, gradini: {}, errore: daErrore(errore).errore, secondi: 0 }
+      } else {
+        metriche = await leggiNumeri({
+          db,
+          graph: creaGraphContenuti({ ...op.graph, base: op.graph?.base ?? baseGraph(), token, entro: op.entroNumeri }),
+          adesso,
+          motivo,
+          giro,
+        })
+      }
+      esito.metriche = metriche
+      const { error } = await db.rpc('instagram_contenuti_metriche_fine', {
+        p_giro: giro,
+        p_esito: metriche.esito,
+        p_letti: metriche.letti,
+        p_permesso: metriche.permesso as boolean,
+        p_gradini: metriche.gradini,
+        p_errore: metriche.errore as string,
+      })
+      if (error) console.error('[contenuti-instagram] esito dei numeri non registrato:', error.code ?? 'errore')
+    }
 
     // 6. the outcome
     if (!errore) {
@@ -432,6 +605,15 @@ export async function aggiornaContenutiInstagram(op: OpzioniGiro): Promise<Esito
       collegati: esito.collegati,
       proposti: esito.proposti,
       campi: esito.campi,
+      ...(esito.metriche
+        ? {
+            metriche: esito.metriche.letti,
+            metriche_esito: esito.metriche.esito,
+            permesso: esito.metriche.permesso,
+            gradini: esito.metriche.gradini,
+            secondi_numeri: esito.metriche.secondi,
+          }
+        : {}),
       secondi: Math.round((Date.now() - avvio) / 100) / 10,
     })
   }

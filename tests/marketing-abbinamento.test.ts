@@ -463,3 +463,49 @@ describe('abbina', () => {
     expect(corre({ post: [post({ didascalia: CAPTION })], contenuti: [lontanissimo] })).toEqual([])
   })
 })
+
+describe('il parlato del reel (1.36.0)', () => {
+  const GANCIO = 'Il petto scavato non è genetica'
+  const PARLATO = `${GANCIO}. Ti spiego tre esercizi per il petto che puoi fare a casa senza attrezzi.`
+
+  it('postDaAbbinare porta il parlato solo quando c’è', () => {
+    const riga = { shortcode: 'SeedPost02', media_type: 'VIDEO', reel: true, pubblicato_il: '2026-10-03T08:00:00Z', didascalia: 'x' }
+    expect(postDaAbbinare(riga)).not.toHaveProperty('parlato')
+    expect(postDaAbbinare(riga, null)).not.toHaveProperty('parlato')
+    expect(postDaAbbinare(riga, 'ciao')).toMatchObject({ parlato: 'ciao' })
+  })
+
+  it('il parlato che dice il gancio rende una proposta una coppia senza didascalia, col motivo «parlato simile»', () => {
+    const c = contenuto({ nome: `#6 "${GANCIO}"`, stato: 'to_be_posted', post_date: '2026-10-03' })
+    const p = post({ didascalia: 'Nuovo reel, salvalo.', parlato: PARLATO })
+    const esiti = corre({ post: [p], contenuti: [c] })
+    expect(esiti).toHaveLength(1)
+    expect(esiti[0]).toMatchObject({ shortcode: p.shortcode, contenuto_id: c.id, esito: 'proposto' })
+    expect(esiti[0].motivi).toContain('parlato_simile')
+  })
+
+  it('il parlato non fa mai un collegamento da solo: le regole sicure chiedono la didascalia', () => {
+    const c = contenuto({ nome: `#6 "${GANCIO}"`, post_date: '2026-10-03' })
+    const p = post({ didascalia: 'Nuovo reel, salvalo.', parlato: PARLATO })
+    expect(corre({ post: [p], contenuti: [c] }).filter((a) => a.esito === 'automatico')).toEqual([])
+  })
+
+  it('senza il parlato il risultato è quello di prima', () => {
+    const c = contenuto({ nome: `#6 "${GANCIO}"`, post_date: '2026-10-03' })
+    const con = post({ didascalia: `${GANCIO}: ecco cosa cambia davvero.`, parlato: null })
+    const senza = { ...con }
+    delete (senza as { parlato?: unknown }).parlato
+    expect(corre({ post: [con], contenuti: [c] })).toEqual(corre({ post: [senza], contenuti: [c] }))
+  })
+
+  it('un parlato che dice un altro contenuto toglie il collegamento al contenuto vicino', () => {
+    const giusto = contenuto({ nome: '#7 "Tre errori negli addominali bassi"', post_date: '2026-10-03' })
+    const vicino = contenuto({ nome: `#6 "${GANCIO}"`, post_date: '2026-10-03' })
+    const p = post({
+      didascalia: `${GANCIO}: ecco cosa cambia davvero.`,
+      parlato: 'Tre errori negli addominali bassi che fanno quasi tutti, e come correggerli.',
+    })
+    const esiti = corre({ post: [p], contenuti: [giusto, vicino] })
+    expect(esiti.filter((a) => a.esito === 'automatico')).toEqual([])
+  })
+})

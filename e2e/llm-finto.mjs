@@ -97,10 +97,50 @@ const DETTATO = (
 ).split(' ')
 const BYTE_PER_PAROLA = 800
 
+// The transcription of a reel's audio (1.36.0): verbose_json with deterministic segments, whatever the
+// audio. The mode is set with GET /__voce?modo=normale|silenzio|fantasma|429 (the specs), or by a
+// marker in the file name: [[429-voce]], [[silenzio]], [[fantasma]].
+let modoVoce = 'normale'
+const SEGMENTI_REEL = [
+  [0.0, 2.4, 'Niente sbarra? Nessun problema.'],
+  [2.4, 4.8, 'Tre alternative con quello che hai in casa.'],
+  [4.8, 6.0, 'Salva il video e provalo stasera.'],
+]
+
+function verboseReel(modo) {
+  const fantasma = modo === 'fantasma'
+  const silenzio = modo === 'silenzio'
+  const lista = fantasma ? [[0.0, 6.0, 'Sottotitoli a cura di QTSS']] : SEGMENTI_REEL
+  return {
+    task: 'transcribe',
+    language: 'italian',
+    duration: 6.0,
+    text: lista.map((s) => s[2]).join(' '),
+    segments: lista.map(([start, end, text], id) => ({
+      id,
+      seek: 0,
+      start,
+      end,
+      text: ` ${text}`,
+      tokens: [],
+      temperature: 0,
+      avg_logprob: silenzio ? -1.4 : -0.2,
+      compression_ratio: silenzio ? 3.0 : 1.4,
+      no_speech_prob: silenzio ? 0.9 : 0.01,
+    })),
+  }
+}
+
 async function trascrizione(req, corpo) {
   const dati = await new Response(corpo, { headers: { 'content-type': req.headers['content-type'] ?? '' } }).formData()
   const audio = dati.get('file')
   const byte = typeof audio === 'object' && audio ? audio.size : 0
+  if (dati.get('response_format') === 'verbose_json') {
+    const nome = typeof audio === 'object' && audio ? String(audio.name ?? '') : ''
+    const modo = nome.includes('[[429-voce]]') ? '429' : nome.includes('[[silenzio]]') ? 'silenzio' : nome.includes('[[fantasma]]') ? 'fantasma' : modoVoce
+    if (modo === '429') return { stato: 429 }
+    return { verbose: verboseReel(modo), model: dati.get('model'), byte }
+  }
   return DETTATO.slice(0, Math.min(DETTATO.length, Math.max(1, Math.ceil(byte / BYTE_PER_PAROLA)))).join(' ')
 }
 
@@ -154,7 +194,7 @@ function contenuto(m) {
 const TRASCRIZIONE_FINTA = 'Ricevuta Canva E2EVISIONE: 12,99 € del 30/09/2026'
 
 // the last requests, for the specs to check what reached the model
-const ultime = { chat: null, visione: null }
+const ultime = { chat: null, visione: null, voce: null }
 
 function conImmagine(messages) {
   return messages.some((m) => Array.isArray(m.content) && m.content.some((p) => p.type === 'image_url'))
@@ -193,10 +233,29 @@ createServer(async (req, res) => {
     res.end(JSON.stringify(ultime))
     return
   }
-  if (req.url?.endsWith('/audio/transcriptions')) {
-    const text = await trascrizione(req, grezzo)
+  if (req.method === 'GET' && req.url?.startsWith('/__voce')) {
+    const modo = new URL(req.url, 'http://127.0.0.1').searchParams.get('modo') ?? 'normale'
+    modoVoce = ['normale', 'silenzio', 'fantasma', '429'].includes(modo) ? modo : 'normale'
     res.writeHead(200, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({ text }))
+    res.end(JSON.stringify({ modo: modoVoce }))
+    return
+  }
+  if (req.url?.endsWith('/audio/transcriptions')) {
+    const esito = await trascrizione(req, grezzo)
+    if (typeof esito === 'object' && esito.stato === 429) {
+      res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '1', 'x-ratelimit-limit-requests': '2000' })
+      res.end(JSON.stringify({ error: { message: 'rate limit', type: 'rate_limit_error' } }))
+      return
+    }
+    if (typeof esito === 'object') {
+      // like Groq: the daily limit of requests on every answer; the audio file is recorded
+      ultime.voce = { modello: esito.model, byte: esito.byte }
+      res.writeHead(200, { 'content-type': 'application/json', 'x-ratelimit-limit-requests': '2000' })
+      res.end(JSON.stringify(esito.verbose))
+      return
+    }
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ text: esito }))
     return
   }
   if (!req.url?.endsWith('/chat/completions')) {

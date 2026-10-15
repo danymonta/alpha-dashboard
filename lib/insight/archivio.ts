@@ -1,6 +1,7 @@
 import 'server-only'
 
 import type { InsightsMedia, MediaLetto } from '@/lib/instagram/contenuti'
+import { rigaMetriche, salvaMetriche } from '@/lib/instagram/metriche'
 import { salvaElencoContenuti, type AdminClient } from '@/lib/instagram/sincronizza-contenuti'
 import { contestoApp, statiLead, vociAgenda } from '@/lib/insight/agenda'
 import type {
@@ -592,18 +593,12 @@ export function creaArchivio(db: AdminClient): Archivio {
     },
 
     async salvaStatistiche(mediaId, statistiche) {
-      const valori = statistiche.valori
-      const letto = Object.values(valori).some((v) => typeof v === 'number')
-      const { error } = await db
-        .from('instagram_contenuti')
-        .update({
-          ...valori,
-          metriche_stato: statistiche.stato,
-          // 1.36.0's snapshot follows metriche_il: only when a number was read (D28)
-          ...(letto ? { metriche_il: new Date().toISOString() } : {}),
-        })
-        .eq('media_id', mediaId)
-      if (error) throw guasto('statistiche non salvate', error)
+      // the one way the numbers of the posts are written (1.36.0): instagram_salva_metriche
+      try {
+        await salvaMetriche(db, [rigaMetriche(mediaId, statistiche)])
+      } catch (e) {
+        throw guasto('statistiche non salvate', e instanceof Error ? {} : null)
+      }
     },
 
     async post(dal) {
