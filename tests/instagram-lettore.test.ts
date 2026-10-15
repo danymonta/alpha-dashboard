@@ -5,7 +5,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 vi.mock('server-only', () => ({}))
 
+import { creaGraphContenuti } from '@/lib/instagram/contenuti'
 import {
+  CAMPI_COMPLETI,
   CONCORRENZA,
   creaGraph,
   ErroreInstagram,
@@ -16,6 +18,8 @@ import {
   semaforo,
 } from '@/lib/instagram/graph'
 import { calcolaReportInstagram, FRASI_ERRORE } from '@/lib/instagram/report'
+import { API_BASE, baseGraph, creaRichiedente, SEGNO_TOKEN_FINTO } from '@/lib/instagram/richieste'
+import { versoChatTesto } from '@/lib/instagram/testo'
 
 // A fake Graph API on the model of the DM Reader's mock-test.js. Every account,
 // chat and message is invented.
@@ -106,6 +110,16 @@ type Stato = {
   guasti: { status: number; code?: number }[]
   /** conversations whose messages Meta refuses (code 10) */
   chatRifiutate: Set<string>
+  /** the complete fields of the Insight (attachments, story, is_unsupported) answer code 100, nested and alone */
+  completiRifiutati: boolean
+  /** single messages Meta refuses to give (code 10) */
+  messaggiRifiutati: Set<string>
+  /** the leads' profiles by Instagram-scoped id */
+  profili: Record<string, Record<string, unknown>>
+  /** asking for any of these profile fields answers code 100 */
+  profiloCampiRifiutati: string[]
+  /** profiles Meta refuses without saying they are gone (code 230: the user's consent) */
+  profiliSenzaConsenso: Set<string>
   richieste: URL[]
 }
 
@@ -201,6 +215,7 @@ function rispondi(u: URL, res: ServerResponse) {
     }
     if (campi.startsWith('messages.limit')) {
       if (stato.annidatoRifiutato) return errore(100, 'nested not supported')
+      if (stato.completiRifiutati && campi.includes('attachments')) return errore(100, 'Tried accessing nonexisting field (attachments)')
       if (stato.annidatoRiccoRifiutato && campi.includes('shares')) return errore(100, 'Tried accessing nonexisting field (shares)')
       const n = Number(/limit\((\d+)\)/.exec(campi)?.[1] ?? 20)
       return manda({ id, messages: { data: stato.msgs[id].slice(0, n) } })
@@ -209,8 +224,18 @@ function rispondi(u: URL, res: ServerResponse) {
   }
   const messaggio = Object.values(stato.msgs).flat().find((m) => m.id === id)
   if (messaggio) {
+    if (stato.messaggiRifiutati.has(id)) return errore(10, 'Application does not have permission for this action')
+    if (stato.completiRifiutati && campi.includes('attachments')) return errore(100, 'Tried accessing nonexisting field (attachments)')
     if (campi.includes('shares') && stato.ricchiRifiutati) return errore(100, 'Tried accessing nonexisting field (shares)')
     return manda(messaggio)
+  }
+  const profilo = stato.profili[id]
+  if (profilo) {
+    if (stato.profiliSenzaConsenso.has(id)) return errore(230, 'User consent is required to access user profile')
+    const chiesti = campi.split(',')
+    const rifiutato = chiesti.find((c) => stato.profiloCampiRifiutati.includes(c))
+    if (rifiutato) return errore(100, `Tried accessing nonexisting field (${rifiutato}) on node type (User)`)
+    return manda({ id, ...Object.fromEntries(Object.entries(profilo).filter(([chiave]) => chiesti.includes(chiave))) })
   }
   errore(100, 'Unsupported get request. Object does not exist', 404)
 }
@@ -233,6 +258,11 @@ beforeEach(() => {
     massimoInVolo: 0,
     guasti: [],
     chatRifiutate: new Set(),
+    completiRifiutati: false,
+    messaggiRifiutati: new Set(),
+    profili: {},
+    profiloCampiRifiutati: [],
+    profiliSenzaConsenso: new Set(),
     richieste: [],
   }
 })
@@ -487,6 +517,259 @@ describe('Graph API', () => {
     expect(r.token).toBe(NUOVO)
     expect(r.scadeIl!.getTime()).toBeGreaterThanOrEqual(prima + 5_184_000_000)
     expect(stato.richieste[0].pathname).toBe('/refresh_access_token')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The Insight's reading (1.35.0): the text, the profiles, the shared limiter
+// ---------------------------------------------------------------------------
+const RICCHI = 'id,created_time,from,to,message,shares'
+const BASE_CAMPI = 'id,created_time,from,to,message'
+const annidati = (campi: string) => `messages.limit(20){${campi}}`
+const campiChiesti = () => stato.richieste.map((r) => r.searchParams.get('fields') ?? '')
+
+describe("lettura col testo (Insight)", () => {
+  it('parte dai campi completi; la conta della notte resta dai campi ricchi', async () => {
+    const testo = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    expect((await testo.messaggi('c1')).letti).toBe(3)
+    expect(campiChiesti()).toEqual([annidati(CAMPI_COMPLETI)])
+    expect(CAMPI_COMPLETI).toBe('id,created_time,from,to,message,attachments,story,shares,is_unsupported')
+
+    stato.richieste = []
+    const conta = creaGraph({ token: TOKEN, base, attendi: subito })
+    await conta.messaggi('c1')
+    expect(campiChiesti()).toEqual([annidati(RICCHI)])
+    stato.richieste = []
+    await creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'conteggio' }).messaggi('c1')
+    expect(campiChiesti()).toEqual([annidati(RICCHI)])
+  })
+
+  it('campi completi rifiutati: un gradino sotto, e la corsa scende solo dopo che i ricchi hanno funzionato', async () => {
+    stato.completiRifiutati = true
+    const graph = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    expect((await graph.messaggi('c1')).letti).toBe(3)
+    expect(campiChiesti()).toEqual([annidati(CAMPI_COMPLETI), annidati(RICCHI)])
+    stato.richieste = []
+    await graph.messaggi('c2')
+    expect(campiChiesti()).toEqual([annidati(RICCHI)])
+  })
+
+  it('i quattro gradini: completi, ricchi, base, nessuno; poi un messaggio alla volta dai completi in giù', async () => {
+    stato.annidatoRifiutato = true
+    stato.completiRifiutati = true
+    stato.ricchiRifiutati = true
+    const graph = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    const r = await graph.messaggi('c1')
+    expect(r.letti).toBe(3)
+    expect(r.messaggi.map((m) => m.created_time)).toEqual(stato.msgs.c1.map((m) => m.created_time))
+    expect(r.messaggi.some((m) => m.non_leggibile)).toBe(false)
+    const campi = campiChiesti()
+    expect(campi.slice(0, 4)).toEqual([annidati(CAMPI_COMPLETI), annidati(RICCHI), annidati(BASE_CAMPI), 'messages'])
+    expect(campi).toContain(CAMPI_COMPLETI)
+    expect(campi).toContain(RICCHI)
+    expect(campi).toContain(BASE_CAMPI)
+    // the second chat: straight to the ids and the basic fields
+    stato.richieste = []
+    await graph.messaggi('c2')
+    expect(campiChiesti()).toEqual(['messages', BASE_CAMPI, BASE_CAMPI])
+  })
+
+  it("un messaggio che Meta rifiuta: «[non leggibile]» con l'ora dell'elenco leggendo il testo, errore nella conta", async () => {
+    stato.annidatoRifiutato = true
+    const rifiutato = stato.msgs.c1[1]
+    stato.messaggiRifiutati.add(rifiutato.id)
+    const graph = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    const r = await graph.messaggi('c1')
+    expect(r.letti).toBe(3)
+    expect(r.messaggi[1]).toEqual({ id: rifiutato.id, created_time: rifiutato.created_time, non_leggibile: true })
+    const chat = versoChatTesto({ id: 'c1', updated_time: stato.conv[0].updated_time }, r, { username: ACCOUNT.username, id: ACCOUNT.user_id })
+    expect(chat.messaggi.map((m) => m.testo)).toEqual(['messaggio di prova', '[non leggibile]', LINK])
+    // never Meta's error in what is kept
+    expect(JSON.stringify(chat)).not.toContain('permission')
+
+    const conta = creaGraph({ token: TOKEN, base, attendi: subito })
+    await expect(conta.messaggi('c1')).rejects.toMatchObject({ tipo: 'meta', code: 10 })
+  })
+
+  it('un messaggio rifiutato per il token o per i limiti di Meta ferma la lettura anche col testo', async () => {
+    stato.annidatoRifiutato = true
+    // the single messages answer this error; everything else goes to the fake Graph
+    const conErrore = (code: number): typeof fetch => async (input, init) => {
+      const u = new URL(String(input))
+      if (/^\/v26\.0\/m\d+$/.test(u.pathname)) return new Response(JSON.stringify({ error: { message: 'rifiutato', code } }), { status: 400 })
+      return fetch(input, init)
+    }
+    const token = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo', fetch: conErrore(190) })
+    await expect(token.messaggi('c1')).rejects.toMatchObject({ tipo: 'token', code: 190 })
+    const limite = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo', fetch: conErrore(17) })
+    await expect(limite.messaggi('c1')).rejects.toMatchObject({ tipo: 'limite', code: 17 })
+  })
+
+  it('conversazioniRecenti: le più recenti, quante ne servono, solo col cursore', async () => {
+    const graph = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    expect((await graph.conversazioniRecenti(3)).map((c) => c.id)).toEqual(['c1', 'c2', 'c3'])
+    const pagine = stato.richieste.filter((r) => r.pathname.endsWith('/me/conversations'))
+    expect(pagine.map((r) => [r.searchParams.get('limit'), r.searchParams.get('after')])).toEqual([
+      ['3', null],
+      ['1', '2'],
+    ])
+    stato.richieste = []
+    expect((await graph.conversazioniRecenti(100)).map((c) => c.id)).toEqual(['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8'])
+    expect(stato.richieste.some((r) => r.pathname.includes('SEGUITO-NEXT'))).toBe(false)
+    stato.richieste = []
+    // a nonsense number asks one
+    expect(await graph.conversazioniRecenti(Number.NaN)).toHaveLength(1)
+  })
+})
+
+describe('profili dei lead (Insight)', () => {
+  const ID = '17841499000000011'
+  const COMPLETO = {
+    name: '  Marco Prova  ',
+    username: 'Marco.Prova',
+    follower_count: 312,
+    is_verified_user: false,
+    is_user_follow_business: true,
+    is_business_follow_user: false,
+    profile_pic: 'https://scontent.cdninstagram.com/foto.jpg',
+  }
+
+  it('dal gruppo di campi più ricco, mai la foto del profilo', async () => {
+    stato.profili[ID] = COMPLETO
+    const graph = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    expect(await graph.profilo(ID)).toEqual({ nome: 'Marco Prova', username: 'marco.prova', follower: 312, verificato: false, ti_segue: true, lo_segui: false })
+    expect(campiChiesti()).toEqual(['name,username,follower_count,is_verified_user,is_user_follow_business,is_business_follow_user'])
+    expect(campiChiesti().join(',')).not.toContain('profile_pic')
+  })
+
+  it('codice 100: il gruppo dopo, ricordato per il client; poi solo nome e username', async () => {
+    stato.profili[ID] = COMPLETO
+    stato.profili['17841499000000012'] = { ...COMPLETO, name: 'Luca Prova', username: 'luca.prova' }
+    stato.profiloCampiRifiutati = ['is_verified_user']
+    const graph = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    expect(await graph.profilo(ID)).toEqual({ nome: 'Marco Prova', username: 'marco.prova', follower: 312, verificato: null, ti_segue: null, lo_segui: null })
+    stato.richieste = []
+    expect((await graph.profilo('17841499000000012'))?.username).toBe('luca.prova')
+    expect(campiChiesti()).toEqual(['name,username,follower_count'])
+
+    stato.profiloCampiRifiutati = ['is_verified_user', 'follower_count']
+    const terzo = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    expect(await terzo.profilo(ID)).toEqual({ nome: 'Marco Prova', username: 'marco.prova', follower: null, verificato: null, ti_segue: null, lo_segui: null })
+
+    stato.profiloCampiRifiutati = ['name']
+    expect(await creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' }).profilo(ID)).toBeNull()
+  })
+
+  it('un lead che non c’è più, o che Meta non dà: null; il token e i limiti fermano', async () => {
+    stato.profili[ID] = COMPLETO
+    stato.profili['17841499000000013'] = COMPLETO
+    stato.profiliSenzaConsenso.add('17841499000000013')
+    const graph = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    expect(await graph.profilo('17841499000000099')).toBeNull()
+    expect(await graph.profilo('17841499000000013')).toBeNull()
+    // a refusal about one lead never lowers the fields of the others
+    stato.richieste = []
+    expect((await graph.profilo(ID))?.verificato).toBe(false)
+    expect(campiChiesti()).toHaveLength(1)
+
+    stato.guasti = [{ status: 400, code: 17 }, { status: 400, code: 17 }, { status: 400, code: 17 }]
+    await expect(graph.profilo(ID)).rejects.toMatchObject({ tipo: 'limite' })
+    stato.tokenValido = 'un-altro-token'
+    const errore = await graph.profilo(ID).catch((e: unknown) => e)
+    expect(errore).toMatchObject({ tipo: 'token', code: 190 })
+    expect((errore as Error).message).not.toContain(TOKEN)
+  })
+
+  it('un id che non è fatto di cifre non arriva mai in un URL; i valori fuori forma diventano null', async () => {
+    const graph = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    expect(await graph.profilo('../me')).toBeNull()
+    expect(await graph.profilo('id_lead.uno')).toBeNull()
+    expect(stato.richieste).toHaveLength(0)
+    stato.profili[ID] = { name: 'N'.repeat(200), username: 'non valido!', follower_count: -3, is_verified_user: 'no', is_user_follow_business: 1, is_business_follow_user: true }
+    const p = await graph.profilo(ID)
+    expect(p).toEqual({ nome: 'N'.repeat(120), username: null, follower: null, verificato: null, ti_segue: null, lo_segui: true })
+  })
+})
+
+describe('una fila sola per la corsa, il servizio nelle frasi, la base di Messenger', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('inFila condivisa: al massimo 3 richieste insieme tra messaggi, profili e contenuti', async () => {
+    stato.annidatoRifiutato = true
+    stato.ritardoMs = 5
+    const ids = ['17841499000000021', '17841499000000022', '17841499000000023', '17841499000000024']
+    for (const id of ids) stato.profili[id] = { name: 'Prova', username: `prova_${id.slice(-2)}` }
+    const lavoro = async (fila?: ReturnType<typeof semaforo>) => {
+      const graph = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo', inFila: fila })
+      const profili = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo', inFila: fila })
+      const contenuti = creaGraphContenuti({ token: TOKEN, base, attendi: subito, inFila: fila })
+      return Promise.all([
+        pool(['c1', 'c2', 'c3', 'c5'], CONCORRENZA, (id) => graph.messaggi(id)),
+        pool(ids, CONCORRENZA, (id) => profili.profilo(id)),
+        Promise.all([contenuti.me(), contenuti.me(), contenuti.me(), contenuti.me()]),
+      ])
+    }
+    const [messaggi, profili, account] = await lavoro(semaforo(CONCORRENZA))
+    expect(messaggi.map((m) => m.letti)).toEqual([3, 2, 2, 20])
+    expect(profili.map((p) => p?.username)).toEqual(['prova_21', 'prova_22', 'prova_23', 'prova_24'])
+    expect(account.every((a) => a.username === ACCOUNT.username)).toBe(true)
+    expect(stato.massimoInVolo).toBeLessThanOrEqual(CONCORRENZA)
+
+    // without the shared limiter each client has its own 3
+    stato.massimoInVolo = 0
+    await lavoro()
+    expect(stato.massimoInVolo).toBeGreaterThan(CONCORRENZA)
+  })
+
+  it("servizio: «Messenger» nelle frasi della rete, del corpo interrotto e del token di prova; di base «Instagram»", async () => {
+    const giu = creaRichiedente({ token: TOKEN, base: 'http://127.0.0.1:9', attendi: subito, servizio: 'Messenger' })
+    const rete = await giu.richiesta(giu.url('/me', {})).catch((e: unknown) => e)
+    expect(rete).toBeInstanceOf(ErroreInstagram)
+    expect(rete).toMatchObject({ tipo: 'rete', message: 'Messenger non raggiungibile (rete)' })
+    const ig = creaRichiedente({ token: TOKEN, base: 'http://127.0.0.1:9', attendi: subito })
+    await expect(ig.richiesta(ig.url('/me', {}))).rejects.toMatchObject({ tipo: 'rete', message: 'Instagram non raggiungibile (rete)' })
+
+    // a 200 whose body is not a whole JSON object
+    const tagliata: typeof fetch = async () => new Response('{"data":[{"id":"c', { status: 200 })
+    const tronca = creaRichiedente({ token: TOKEN, base, fetch: tagliata, attendi: subito, servizio: 'Messenger' })
+    await expect(tronca.richiesta(tronca.url('/me', {}))).rejects.toMatchObject({ tipo: 'rete', message: 'Messenger ha dato una risposta incompleta (rete)' })
+
+    const spia = vi.fn<typeof fetch>()
+    const prova = creaRichiedente({ token: `EAA${SEGNO_TOKEN_FINTO}${'p'.repeat(40)}`, base: 'https://graph.facebook.com', fetch: spia, attendi: subito, servizio: 'Messenger' })
+    const errore = await prova.richiesta(prova.url('/me', {})).catch((e: unknown) => e)
+    expect((errore as Error).message).toContain('Token di prova: Messenger non si chiama')
+    expect(spia).not.toHaveBeenCalled()
+  })
+
+  it('80002 (Business Use Case) anche nei DM: si riprova, poi è un limite', async () => {
+    stato.guasti = [{ status: 400, code: 80002 }]
+    const graph = creaGraph({ token: TOKEN, base, attendi: subito, lettura: 'testo' })
+    expect((await graph.me()).username).toBe(ACCOUNT.username)
+    stato.guasti = [{ status: 400, code: 80002 }, { status: 400, code: 80002 }, { status: 400, code: 80002 }]
+    await expect(graph.me()).rejects.toMatchObject({ tipo: 'limite', code: 80002 })
+  })
+
+  it('baseGraph(predefinita): la base di Messenger, o il Graph finto solo in locale', () => {
+    const FB = 'https://graph.facebook.com'
+    vi.stubEnv('E2E_GRAPH_FINTO', '')
+    expect(baseGraph(FB)).toBe(FB)
+    expect(baseGraph()).toBe(API_BASE)
+
+    vi.stubEnv('NODE_ENV', 'test')
+    vi.stubEnv('ENABLE_DEV_LOGIN', 'true')
+    vi.stubEnv('E2E_GRAPH_FINTO', 'http://127.0.0.1:6012/')
+    expect(baseGraph(FB)).toBe('http://127.0.0.1:6012')
+    expect(baseGraph()).toBe('http://127.0.0.1:6012')
+    for (const altro of ['http://10.0.0.2:6012', 'https://127.0.0.1:6012', 'non un url']) {
+      vi.stubEnv('E2E_GRAPH_FINTO', altro)
+      expect(baseGraph(FB)).toBe(FB)
+    }
+    vi.stubEnv('E2E_GRAPH_FINTO', 'http://127.0.0.1:6012')
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(baseGraph(FB)).toBe(FB)
+    vi.stubEnv('NODE_ENV', 'test')
+    vi.stubEnv('ENABLE_DEV_LOGIN', 'false')
+    expect(baseGraph(FB)).toBe(FB)
   })
 })
 

@@ -11,6 +11,7 @@ import {
   type MessaggioGraph,
   type OpzioniGraph,
 } from '@/lib/instagram/graph'
+import { scrittoDa, usernameDelLead } from '@/lib/instagram/testo'
 import {
   contaGiornoDm,
   contieneLinkCall,
@@ -124,34 +125,6 @@ function fraseDi(e: unknown): string {
   if (!(e instanceof ErroreInstagram)) return 'Lettura dei DM non riuscita per un errore inatteso: riprova con il ricalcolo.'
   if (e.tipo === 'meta') return `Instagram ha rifiutato la lettura dei DM. ${e.message}`
   return FRASI_ERRORE[e.tipo]
-}
-
-/** Who wrote a message: the account, by username (by id only when Meta gives no username). */
-function scrittoDa(account: { username: string; id: string | null }) {
-  return (m: MessaggioGraph): boolean => {
-    const username = normalizzaUsername(m.from?.username)
-    if (username) return username === account.username
-    return Boolean(account.id && m.from?.id && String(m.from.id) === account.id)
-  }
-}
-
-/** The lead's username, only to leave out the excluded accounts; never kept. */
-function usernameDelLead(
-  conversazione: ConversazioneGraph,
-  messaggi: readonly MessaggioGraph[],
-  account: string,
-  nostro: (m: MessaggioGraph) => boolean,
-): string | null {
-  const candidati = [
-    ...(conversazione.participants?.data ?? []).map((p) => p?.username),
-    ...messaggi.filter((m) => !nostro(m)).map((m) => m.from?.username),
-    ...messaggi.filter(nostro).flatMap((m) => (m.to?.data ?? []).map((p) => p?.username)),
-  ]
-  for (const c of candidati) {
-    const u = normalizzaUsername(c)
-    if (u && u !== account) return u
-  }
-  return null
 }
 
 /** From Meta's messages to what the count needs: when, whether ours, whether the call link. */

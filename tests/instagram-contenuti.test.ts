@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 vi.mock('server-only', () => ({}))
 
-import { CAMPI_MEDIA, copertinaValida, creaGraphContenuti, leggiMedia } from '@/lib/instagram/contenuti'
+import { CAMPI_MEDIA, copertinaValida, creaGraphContenuti, leggiMedia, METRICHE_INSIGHTS } from '@/lib/instagram/contenuti'
 import { API_BASE, baseGraph, CODICI_LIMITE, ErroreInstagram, SEGNO_TOKEN_FINTO } from '@/lib/instagram/richieste'
 
 // A fake Graph API for /me and /me/media. Every account, post and caption is invented.
@@ -39,6 +39,12 @@ type Stato = {
   senzaShortcode: boolean
   /** the page after this cursor always answers 80002 */
   limiteDopo: string | null
+  /** asking /{media}/insights for any of these metrics answers code 100, as Meta does for a metric a post has not */
+  metricheNonDate: string[]
+  /** every /{media}/insights answers this error */
+  erroreInsights: { status: number; code: number; subcode?: number; message: string } | null
+  /** the values of /{media}/insights by metric, when not the default ones */
+  valoriInsights: Record<string, unknown> | null
   richieste: URL[]
 }
 
@@ -95,6 +101,35 @@ function rispondi(u: URL, res: ServerResponse) {
   const percorso = u.pathname.replace(/^\/v[\d.]+/, '')
   const campi = (u.searchParams.get('fields') ?? '').split(',')
   if (percorso === '/me') return manda({ ...ACCOUNT, id: 'app1' })
+  const insights = /^\/(\d+)\/insights$/.exec(percorso)
+  if (insights && stato.media.some((m) => m.id === insights[1])) {
+    const e = stato.erroreInsights
+    if (e) return manda({ error: { message: e.message, code: e.code, ...(e.subcode ? { error_subcode: e.subcode } : {}) } }, e.status)
+    const metriche = (u.searchParams.get('metric') ?? '').split(',')
+    const nonData = metriche.find((m) => stato.metricheNonDate.includes(m))
+    if (nonData) return errore(100, `(#100) The Media Insights API does not support the ${nonData} metric for this media`)
+    const n = Number(insights[1].slice(-2))
+    const valori: Record<string, unknown> = stato.valoriInsights ?? {
+      views: 1000 * n,
+      reach: 800 * n,
+      saved: 10 * n,
+      shares: 5 * n,
+      likes: 20 * n,
+      comments: n,
+      total_interactions: 36 * n,
+    }
+    // the values set by a test come all, asked or not (a metric Meta adds on its own)
+    const nomi = stato.valoriInsights ? Object.keys(stato.valoriInsights) : metriche.filter((nome) => nome in valori)
+    return manda({
+      data: nomi
+        // Meta gives some metrics as values[0] and others as total_value
+        .map((nome, i) =>
+          i % 2 === 0
+            ? { name: nome, period: 'lifetime', values: [{ value: valori[nome] }], id: `${insights[1]}/insights/${nome}/lifetime` }
+            : { name: nome, period: 'lifetime', total_value: { value: valori[nome] }, id: `${insights[1]}/insights/${nome}/lifetime` },
+        ),
+    })
+  }
   if (percorso === '/me/media') {
     if (stato.limiteDopo !== null && u.searchParams.get('after') === stato.limiteDopo) {
       return errore(80002, 'There have been too many calls to this Instagram account')
@@ -134,6 +169,9 @@ beforeEach(() => {
     guasti: [],
     senzaShortcode: false,
     limiteDopo: null,
+    metricheNonDate: [],
+    erroreInsights: null,
+    valoriInsights: null,
     richieste: [],
   }
   log = []
@@ -382,6 +420,124 @@ describe('errori di Meta', () => {
     const elenco = await graph({ entro: Date.now() - 1 }).contenutiDal(DAL, 400)
     expect(elenco.errore?.tipo).toBe('tempo')
     expect(richiesteMedia()).toHaveLength(0)
+  })
+})
+
+describe('le statistiche dei post (Insight, D28)', () => {
+  const REEL = { media_id: '17900000000000002', reel: true, media_type: 'VIDEO' as const }
+  const FOTO = { media_id: '17900000000000003', reel: false, media_type: 'IMAGE' as const }
+  const richiesteInsights = () => stato.richieste.filter((r) => r.pathname.endsWith('/insights'))
+  const metricheChieste = () => richiesteInsights().map((r) => r.searchParams.get('metric'))
+
+  it('un reel: tutte e sette le metriche in una richiesta, da values o da total_value', async () => {
+    expect(await graph().insights(REEL)).toEqual({
+      stato: 'lette',
+      valori: { views: 2000, reach: 1600, saved: 20, shares: 10, likes: 40, comments: 2, total_interactions: 72 },
+    })
+    expect(metricheChieste()).toEqual(['views,reach,saved,shares,likes,comments,total_interactions'])
+    const [r] = richiesteInsights()
+    expect(r.pathname).toBe('/v26.0/17900000000000002/insights')
+    expect(r.searchParams.get('fields')).toBeNull()
+  })
+
+  it('i gruppi di ripiego del reel: codice 100 passa al gruppo dopo; dopo l’ultimo non_disponibili', async () => {
+    expect(METRICHE_INSIGHTS.REELS).toEqual(['views,reach,saved,shares,likes,comments,total_interactions', 'views,reach,saved,shares', 'reach,saved,shares'])
+    stato.metricheNonDate = ['likes']
+    expect(await graph().insights(REEL)).toEqual({ stato: 'lette', valori: { views: 2000, reach: 1600, saved: 20, shares: 10 } })
+    expect(metricheChieste()).toEqual(METRICHE_INSIGHTS.REELS.slice(0, 2))
+
+    stato.richieste = []
+    stato.metricheNonDate = ['views']
+    expect(await graph().insights(REEL)).toEqual({ stato: 'lette', valori: { reach: 1600, saved: 20, shares: 10 } })
+    expect(metricheChieste()).toEqual([...METRICHE_INSIGHTS.REELS])
+
+    stato.richieste = []
+    stato.metricheNonDate = ['reach']
+    expect(await graph().insights(REEL)).toEqual({ stato: 'non_disponibili', valori: {} })
+    expect(metricheChieste()).toEqual([...METRICHE_INSIGHTS.REELS])
+  })
+
+  it('un post del feed: i suoi due gruppi', async () => {
+    expect(METRICHE_INSIGHTS.FEED).toEqual(['views,reach,saved,shares', 'reach,saved,shares'])
+    expect(await graph().insights(FOTO)).toEqual({ stato: 'lette', valori: { views: 3000, reach: 2400, saved: 30, shares: 15 } })
+    stato.richieste = []
+    stato.metricheNonDate = ['views']
+    expect(await graph().insights(FOTO)).toEqual({ stato: 'lette', valori: { reach: 2400, saved: 30, shares: 15 } })
+    expect(metricheChieste()).toEqual([...METRICHE_INSIGHTS.FEED])
+    stato.richieste = []
+    stato.metricheNonDate = ['saved']
+    expect(await graph().insights(FOTO)).toEqual({ stato: 'non_disponibili', valori: {} })
+    expect(metricheChieste()).toHaveLength(2)
+  })
+
+  it('codice 10 o 200: senza_permesso, e nessuna altra richiesta di statistiche per tutta la corsa', async () => {
+    for (const code of [10, 200]) {
+      stato.richieste = []
+      stato.erroreInsights = { status: 403, code, message: `(#${code}) Application does not have permission for this action` }
+      const g = graph()
+      expect(await g.insights(REEL)).toEqual({ stato: 'senza_permesso', valori: {} })
+      expect(await g.insights(FOTO)).toEqual({ stato: 'senza_permesso', valori: {} })
+      expect(richiesteInsights()).toHaveLength(1)
+      // the listing still reads
+      expect((await g.contenutiDal(DAL, 400)).media).toHaveLength(5)
+    }
+    // Meta saying it in words, with another code
+    stato.richieste = []
+    stato.erroreInsights = { status: 400, code: 3, message: 'Application does not have the permission to read insights' }
+    const g = graph()
+    expect((await g.insights(REEL)).stato).toBe('senza_permesso')
+    expect((await g.insights(FOTO)).stato).toBe('senza_permesso')
+    expect(richiesteInsights()).toHaveLength(1)
+  })
+
+  it('subcode 2108006: prima_della_conversione, solo per quel post', async () => {
+    stato.erroreInsights = { status: 400, code: 100, subcode: 2108006, message: 'Media posted before business account conversion' }
+    const g = graph()
+    expect(await g.insights(REEL)).toEqual({ stato: 'prima_della_conversione', valori: {} })
+    expect(richiesteInsights()).toHaveLength(1)
+    stato.erroreInsights = null
+    expect((await g.insights(FOTO)).stato).toBe('lette')
+  })
+
+  it('un post che non c’è più o un id fuori forma: non_disponibili, senza scendere di gruppo', async () => {
+    const g = graph()
+    expect(await g.insights({ ...REEL, media_id: '17900000000000099' })).toEqual({ stato: 'non_disponibili', valori: {} })
+    expect(richiesteInsights()).toHaveLength(1)
+    stato.richieste = []
+    expect(await g.insights({ ...REEL, media_id: '../me' })).toEqual({ stato: 'non_disponibili', valori: {} })
+    expect(stato.richieste).toHaveLength(0)
+    // and the next post reads as always
+    expect((await g.insights(REEL)).stato).toBe('lette')
+  })
+
+  it('190 lancia token; i limiti si riprovano e poi lanciano limite', async () => {
+    stato.tokenValido = 'un-altro-token'
+    const errore = await graph().insights(REEL).catch((e: unknown) => e)
+    expect(errore).toBeInstanceOf(ErroreInstagram)
+    expect(errore).toMatchObject({ tipo: 'token', code: 190 })
+    expect((errore as Error).message).not.toContain(TOKEN)
+
+    stato.tokenValido = TOKEN
+    stato.guasti = [{ status: 400, code: 4 }]
+    expect((await graph().insights(REEL)).stato).toBe('lette')
+    stato.guasti = [{ status: 400, code: 80002 }, { status: 400, code: 80002 }, { status: 400, code: 80002 }]
+    await expect(graph().insights(REEL)).rejects.toMatchObject({ tipo: 'limite' })
+  })
+
+  it('data vuoto: nessun numero letto', async () => {
+    stato.valoriInsights = {}
+    expect(await graph().insights(REEL)).toEqual({ stato: 'lette', valori: {} })
+  })
+
+  it('solo interi non negativi, solo le metriche chieste', async () => {
+    stato.valoriInsights = { views: -5, reach: 12.5, saved: '30', shares: 7, likes: null, comments: 0, total_interactions: Number.MAX_SAFE_INTEGER * 2 }
+    const letti = await graph().insights(REEL)
+    expect(letti.stato).toBe('lette')
+    expect(letti.valori).toEqual({ shares: 7, comments: 0 })
+    // a metric Meta adds without being asked never becomes a column
+    stato.valoriInsights = { views: 1, reach: 2, saved: 3, shares: 4, follows: 9 }
+    stato.metricheNonDate = ['likes']
+    expect((await graph().insights(REEL)).valori).toEqual({ views: 1, reach: 2, saved: 3, shares: 4 })
   })
 })
 

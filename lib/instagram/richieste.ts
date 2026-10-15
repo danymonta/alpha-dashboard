@@ -19,6 +19,14 @@ import 'server-only'
  * production, with the dev login, on a loopback host; and a test token (with
  * SEGNO_TOKEN_FINTO in it) never leaves for a host that is not loopback,
  * whatever base a caller passes.
+ *
+ * The Insight (1.35.0) reads with the same machinery: the Instagram DMs with
+ * their text, the leads' profiles and the statistics of the posts share one
+ * limiter for the whole run (`inFila`: at most 3 requests on the wire for the
+ * account, whoever asks), and the Messenger chats of the Page read through it
+ * with their own limiter, their own base (baseGraph(MESSENGER_BASE)) and
+ * their own name in the messages (`servizio`). The error class stays
+ * ErroreInstagram for both.
  */
 
 export const API_BASE = 'https://graph.instagram.com'
@@ -53,18 +61,20 @@ export function hostDiLoopback(hostname: string): boolean {
 }
 
 /**
- * Where the Graph API is: Meta, or the fake one of the end-to-end tests
- * (e2e/graph-finto.mjs) when E2E_GRAPH_FINTO is set, only outside production,
- * only with the dev login on (ENABLE_DEV_LOGIN=true, as the e2e dev server
- * runs) and only on http on a loopback host. Anything else is ignored, with a
- * warning that never says the value.
+ * Where the Graph API is: Meta (`predefinita`: graph.instagram.com, or
+ * graph.facebook.com for Messenger), or the fake one of the end-to-end tests
+ * (e2e/graph-finto.mjs, which answers both by version) when E2E_GRAPH_FINTO is
+ * set, only outside production, only with the dev login on
+ * (ENABLE_DEV_LOGIN=true, as the e2e dev server runs) and only on http on a
+ * loopback host. Anything else is ignored, with a warning that never says the
+ * value.
  */
-export function baseGraph(): string {
+export function baseGraph(predefinita: string = API_BASE): string {
   const finto = process.env.E2E_GRAPH_FINTO?.trim()
-  if (!finto) return API_BASE
+  if (!finto) return predefinita
   if (process.env.NODE_ENV === 'production' || process.env.ENABLE_DEV_LOGIN !== 'true') {
     console.warn('[instagram] E2E_GRAPH_FINTO ignorata: vale solo in locale, col login di sviluppo')
-    return API_BASE
+    return predefinita
   }
   try {
     const url = new URL(finto)
@@ -73,7 +83,7 @@ export function baseGraph(): string {
     // not a URL: ignored below
   }
   console.warn('[instagram] E2E_GRAPH_FINTO ignorata: solo http su 127.0.0.1, localhost o [::1]')
-  return API_BASE
+  return predefinita
 }
 
 export type TipoErroreInstagram =
@@ -139,8 +149,11 @@ export function oscuraToken(testo: string, token?: string | null): string {
     .replace(/[A-Za-z0-9_-]{40,}/g, '[token]')
 }
 
+/** What semaforo() returns: runs fn when one of its places is free. */
+export type Limitatore = <T>(fn: () => Promise<T>) => Promise<T>
+
 /** At most `quanti` calls of fn running at once; the others wait their turn, in order. */
-export function semaforo(quanti: number) {
+export function semaforo(quanti: number): Limitatore {
   let liberi = quanti
   const coda: (() => void)[] = []
   return async function <T>(fn: () => Promise<T>): Promise<T> {
@@ -172,6 +185,9 @@ export async function pool<T, R>(items: readonly T[], quanti: number, fn: (item:
 
 export type Json = Record<string, unknown>
 
+/** The service named in the messages built here (the error class is ErroreInstagram for both). */
+export type ServizioGraph = 'Instagram' | 'Messenger'
+
 export type OpzioniGraph = {
   token: string
   /** default https://graph.instagram.com (the tests point it at a fake) */
@@ -186,6 +202,14 @@ export type OpzioniGraph = {
    */
   entro?: number
   timeoutMs?: number
+  /**
+   * the limiter of the requests on the wire, shared by every client of one
+   * run on the same account (the Insight: DMs, profiles and statistics, at
+   * most 3 together); without it, each client has its own semaforo(CONCORRENZA)
+   */
+  inFila?: Limitatore
+  /** the service named in the messages of the errors (default Instagram) */
+  servizio?: ServizioGraph
 }
 
 const pausa = (ms: number) => new Promise<void>((risolvi) => setTimeout(risolvi, ms))
@@ -211,8 +235,10 @@ export function creaRichiedente(op: OpzioniGraph) {
   const fetchFn = op.fetch ?? fetch
   const attendi = op.attendi ?? pausa
   const timeoutMs = op.timeoutMs ?? TIMEOUT_RICHIESTA_MS
-  // the requests on the wire at once, whoever asks (the waits between retries hold no place)
-  const inFila = semaforo(CONCORRENZA)
+  const servizio: ServizioGraph = op.servizio ?? 'Instagram'
+  // the requests on the wire at once, whoever asks (the waits between retries
+  // hold no place): the run's limiter when given, otherwise the client's own
+  const inFila = op.inFila ?? semaforo(CONCORRENZA)
 
   const controllaTempo = () => {
     if (op.entro !== undefined && Date.now() > op.entro) {
@@ -224,7 +250,7 @@ export function creaRichiedente(op: OpzioniGraph) {
     // a test token never reaches Meta, whatever base the caller passed (in
     // production too: a real token never carries the mark)
     if (token.includes(SEGNO_TOKEN_FINTO) && !hostDiLoopback(url.hostname)) {
-      throw new ErroreInstagram('meta', 'Token di prova: Instagram non si chiama (avvia il dev server con E2E_GRAPH_FINTO).')
+      throw new ErroreInstagram('meta', `Token di prova: ${servizio} non si chiama (avvia il dev server con E2E_GRAPH_FINTO).`)
     }
     controllaTempo()
     let lettura: { risposta: Response; testo: string }
@@ -246,7 +272,7 @@ export function creaRichiedente(op: OpzioniGraph) {
         await attendi(800 * (tentativo + 1))
         return richiesta(url, tentativo + 1)
       }
-      throw new ErroreInstagram('rete', 'Instagram non raggiungibile (rete)')
+      throw new ErroreInstagram('rete', `${servizio} non raggiungibile (rete)`)
     }
 
     const { risposta, testo } = lettura
@@ -257,7 +283,7 @@ export function creaRichiedente(op: OpzioniGraph) {
         await attendi(800 * (tentativo + 1))
         return richiesta(url, tentativo + 1)
       }
-      throw new ErroreInstagram('rete', 'Instagram ha dato una risposta incompleta (rete)', { status: risposta.status })
+      throw new ErroreInstagram('rete', `${servizio} ha dato una risposta incompleta (rete)`, { status: risposta.status })
     }
     // a refusal without a readable body still has its status
     const corpo = letto ?? {}

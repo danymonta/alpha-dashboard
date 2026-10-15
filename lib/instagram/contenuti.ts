@@ -4,6 +4,7 @@ import {
   campoNonSupportato,
   creaRichiedente,
   ErroreInstagram,
+  nonEsiste,
   numero,
   type Json,
   type OpzioniGraph,
@@ -27,8 +28,9 @@ import { shortcodeInstagram } from '@/lib/marketing/shortcode'
  * Paging on the `after` cursor only when Meta says there is a next page
  * (paging.next carries the token: never followed nor kept). The pinned posts
  * (up to 3) sit on top whatever their date: the reading stops after 4 media
- * older than `dal` in a row. 1.34.0 (Insight) and 1.35.0 (reel statistics)
- * add their readings to this client.
+ * older than `dal` in a row. The Insight (1.35.0) reads the statistics of
+ * the last 14 days (insights(), with the permission
+ * instagram_business_manage_insights); the reel analysis (1.36.0) the rest.
  */
 
 export type LivelloCampi = 'completi' | 'senza_tipo' | 'senza_didascalia' | 'minimi'
@@ -66,6 +68,43 @@ const RE_SHORTCODE = /^[A-Za-z0-9_-]{5,40}$/
 /** The same rule as the table's check (instagram_contenuti_permalink). */
 const RE_PERMALINK = /^https:\/\/(www\.)?instagram\.com\/\S+$/
 const RE_REEL_NEL_LINK = /\/reels?\//
+
+/**
+ * The statistics of a post as the Insight asks for them (1.35.0, D28): one
+ * request per post, from the richest set down (a single metric Meta does not
+ * give for that post fails the whole request with code 100). The names are
+ * the columns of instagram_contenuti.
+ */
+export const METRICHE_INSIGHTS = {
+  REELS: ['views,reach,saved,shares,likes,comments,total_interactions', 'views,reach,saved,shares', 'reach,saved,shares'],
+  FEED: ['views,reach,saved,shares', 'reach,saved,shares'],
+} as const satisfies Record<'REELS' | 'FEED', readonly string[]>
+
+export type MetricaInsights = 'views' | 'reach' | 'saved' | 'shares' | 'likes' | 'comments' | 'total_interactions'
+const METRICHE: ReadonlySet<string> = new Set<MetricaInsights>([
+  'views',
+  'reach',
+  'saved',
+  'shares',
+  'likes',
+  'comments',
+  'total_interactions',
+])
+
+/** instagram_contenuti.metriche_stato, as a reading leaves it (never 'da_leggere'). */
+export type StatoMetriche = 'lette' | 'senza_permesso' | 'prima_della_conversione' | 'non_disponibili'
+
+/**
+ * The statistics read for one post: only the metrics Meta gave as a
+ * non-negative integer (the columns' checks); a missing key was not read and
+ * its column is never written.
+ */
+export type InsightsMedia = { stato: StatoMetriche; valori: Partial<Record<MetricaInsights, number>> }
+
+/** Meta's subcode for a media posted before the account became professional: never any statistics. */
+const SUBCODE_PRIMA_DELLA_CONVERSIONE = 2108006
+/** Meta's permission errors: code 10 and the range 200-299. */
+const permesso = (code: number | null) => code === 10 || (code !== null && code >= 200 && code <= 299)
 
 /** One media as the run saves it. A key Meta was not asked for is absent, never null. */
 export type MediaLetto = {
@@ -185,13 +224,35 @@ export function leggiMedia(grezzo: unknown, livello: LivelloCampi): MediaLetto |
   return media
 }
 
-/** A read-only client of the account's media. The step of the fields is remembered per client. */
+/** The metrics of an answer of /{media}/insights that were asked for, each a non-negative integer. */
+function valoriInsights(j: Json, chieste: string): InsightsMedia['valori'] {
+  const valori: InsightsMedia['valori'] = {}
+  const nomi = new Set(chieste.split(','))
+  const data = Array.isArray(j.data) ? (j.data as unknown[]) : []
+  for (const voce of data) {
+    if (!voce || typeof voce !== 'object') continue
+    const v = voce as { name?: unknown; values?: unknown; total_value?: unknown }
+    if (typeof v.name !== 'string' || !nomi.has(v.name) || !METRICHE.has(v.name)) continue
+    const primo = Array.isArray(v.values) && v.values[0] && typeof v.values[0] === 'object' ? (v.values[0] as Json).value : undefined
+    const totale = v.total_value && typeof v.total_value === 'object' ? (v.total_value as Json).value : undefined
+    const n = intero(primo !== undefined ? primo : totale)
+    if (n !== null) valori[v.name as MetricaInsights] = n
+  }
+  return valori
+}
+
+/**
+ * A read-only client of the account's media. The step of the fields, and
+ * whether the token may read the statistics, are remembered per client.
+ */
 export function creaGraphContenuti(op: OpzioniGraph) {
   const { richiesta, url } = creaRichiedente(op)
   const get = (percorso: string, parametri: Record<string, string | number | undefined | null> = {}) =>
     richiesta(url(percorso, parametri))
 
   let livello: LivelloCampi = 'completi'
+  // false at the first refusal for the permission: no more statistics asked in the run
+  let permessoInsights = true
 
   /** The account the token belongs to. */
   async function me(): Promise<{ username: string | null; id: string | null }> {
@@ -272,7 +333,45 @@ export function creaGraphContenuti(op: OpzioniGraph) {
     }
   }
 
-  return { me, contenutiDal }
+  /**
+   * The statistics of one post (D28): the sets of METRICHE_INSIGHTS for a
+   * reel or for the feed, from the richest down on code 100. A permission
+   * refusal (code 10 or 200-299, or Meta saying so) ends the statistics for
+   * the whole client: every later call answers 'senza_permesso' without a
+   * request. Subcode 2108006: 'prima_della_conversione'. A post Meta refuses
+   * in any other way: 'non_disponibili'. An empty `data` is no number read
+   * (Meta's answer for data not there yet). The token (190), Meta's limits,
+   * the network and the time throw, as in every reading.
+   */
+  async function insights(media: Pick<MediaLetto, 'media_id' | 'reel' | 'media_type'>): Promise<InsightsMedia> {
+    const nessuno = (stato: StatoMetriche): InsightsMedia => ({ stato, valori: {} })
+    if (!permessoInsights) return nessuno('senza_permesso')
+    // the id goes into the path: digits only
+    if (!RE_MEDIA_ID.test(media.media_id)) return nessuno('non_disponibili')
+    for (const metriche of METRICHE_INSIGHTS[media.reel ? 'REELS' : 'FEED']) {
+      // another post of the run may have found the permission missing meanwhile
+      if (!permessoInsights) return nessuno('senza_permesso')
+      let j: Json
+      try {
+        j = await get(`/${media.media_id}/insights`, { metric: metriche })
+      } catch (e) {
+        if (!(e instanceof ErroreInstagram) || e.tipo !== 'meta') throw e
+        if (e.subcode === SUBCODE_PRIMA_DELLA_CONVERSIONE) return nessuno('prima_della_conversione')
+        // before the permission words: "cannot be loaded due to missing permissions" is a post not there
+        if (nonEsiste(e)) return nessuno('non_disponibili')
+        if (permesso(e.code) || (e.code !== 100 && /permission/i.test(e.message))) {
+          permessoInsights = false
+          return nessuno('senza_permesso')
+        }
+        if (e.code === 100) continue
+        return nessuno('non_disponibili')
+      }
+      return { stato: 'lette', valori: valoriInsights(j, metriche) }
+    }
+    return nessuno('non_disponibili')
+  }
+
+  return { me, contenutiDal, insights }
 }
 
 export type GraphContenuti = ReturnType<typeof creaGraphContenuti>
