@@ -87,7 +87,7 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 export const VERSIONI: readonly Versione[] = [
   {
     versione: '1.34.0',
-    data: '2026-10-14',
+    data: '2026-10-15',
     titolo: 'Claude collegato al calendario dei contenuti',
     riassunto:
       'Dal tuo account Claude, anche dal telefono, leggi e riempi il calendario dei contenuti a parole; il collegamento apre solo i contenuti, mai il resto del gestionale.',
