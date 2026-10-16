@@ -47,3 +47,14 @@ describe('i filtri dell’analisi', () => {
     expect(hrefAnalisi({ ...FILTRI_PREDEFINITI, punteggio: 'scartare', ordine: 'punteggio' })).toBe('/marketing/analisi?punteggio=scartare&ordine=punteggio')
   })
 })
+
+describe('la scheda del pannello', () => {
+  it('?scheda si scrive accanto al reel e se ne va con lui', async () => {
+    const { eSchedaReel, urlConScheda } = await import('@/lib/marketing/analisi/pannello')
+    expect(urlConScheda('/marketing/analisi', 'reel=2&periodo=90', 'numeri')).toBe('/marketing/analisi?reel=2&periodo=90&scheda=numeri')
+    expect(urlConScheda('/marketing/analisi', 'reel=2&scheda=rifare', 'perche')).toBe('/marketing/analisi?reel=2&scheda=perche')
+    expect(urlSenzaReel('/marketing/analisi', 'periodo=90&reel=2&scheda=perche')).toBe('/marketing/analisi?periodo=90')
+    expect(['rifare', 'perche', 'numeri'].every(eSchedaReel)).toBe(true)
+    for (const x of ['', 'altro', null, undefined]) expect(eSchedaReel(x as never)).toBe(false)
+  })
+})

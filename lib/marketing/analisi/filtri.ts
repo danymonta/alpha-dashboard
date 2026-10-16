@@ -1,4 +1,5 @@
-import { FASCE, type CodiceFascia } from '@/lib/marketing/punteggio/tabelle'
+import { etichettaFiltroFascia } from '@/lib/marketing/analisi/cosa-fare'
+import { FASCE, intervalloFascia, type CodiceFascia } from '@/lib/marketing/punteggio/tabelle'
 
 /**
  * The filters of /marketing/analisi, in the address so they survive a reload
@@ -35,11 +36,16 @@ export const ETICHETTA_VERDETTO_FILTRO: Record<VerdettoFiltro, string> = {
   mantenere: 'Mantenere',
   cambiare: 'Cambiare',
 }
-/** The band filter, in words: the guide's own names (section 24) and «Non valutati». */
+/** The band filter, in words: what to do with the reel and the range of the score (the same words as the lists, 1.39.1), and «Non valutati». */
 export const ETICHETTA_FASCIA_FILTRO: Record<FasciaFiltro, string> = {
   tutte: 'Tutti',
   non_valutato: 'Non valutati',
-  ...(Object.fromEntries(FASCE.map((f) => [f.codice, f.etichetta])) as Record<CodiceFascia, string>),
+  ...(Object.fromEntries(
+    FASCE.map((f) => {
+      const { da, a } = intervalloFascia(f.codice)
+      return [f.codice, etichettaFiltroFascia(f.codice, da, a)]
+    }),
+  ) as Record<CodiceFascia, string>),
 }
 export const ETICHETTA_ORDINE: Record<OrdineAnalisi, string> = {
   recenti: 'Più recenti',

@@ -23,10 +23,27 @@ export function urlConReel(pathname: string, search: string, id: string): string
   return conParametri(pathname, parametri)
 }
 
-/** The same address without ?reel. */
+/** The same address without ?reel (and without the tab of the panel, which goes with it). */
 export function urlSenzaReel(pathname: string, search: string): string {
   const parametri = new URLSearchParams(search)
   parametri.delete(PARAMETRO_REEL)
+  parametri.delete(PARAMETRO_SCHEDA)
+  return conParametri(pathname, parametri)
+}
+
+/** The tab open in the reel panel (1.39.1): «Come rifarlo», «Perché», «Numeri». */
+export const PARAMETRO_SCHEDA = 'scheda'
+export const SCHEDE_REEL = ['rifare', 'perche', 'numeri'] as const
+export type SchedaReel = (typeof SCHEDE_REEL)[number]
+
+export function eSchedaReel(valore: string | null | undefined): valore is SchedaReel {
+  return typeof valore === 'string' && (SCHEDE_REEL as readonly string[]).includes(valore)
+}
+
+/** The address with ?scheda=<tab>, the reel and the filters left as they are. */
+export function urlConScheda(pathname: string, search: string, scheda: SchedaReel): string {
+  const parametri = new URLSearchParams(search)
+  parametri.set(PARAMETRO_SCHEDA, scheda)
   return conParametri(pathname, parametri)
 }
 
