@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
+import { RICHIESTE_AL_GIORNO } from '@/lib/marketing/analisi/costi'
 import type { FiltriAnalisi } from '@/lib/marketing/analisi/filtri'
 import type { Database } from '@/lib/supabase/database.types'
 import type { createClient } from '@/lib/supabase/server'
@@ -25,7 +26,7 @@ export const COLONNE_REEL = [
   'lead_contati', 'lead_completi', 'dm_14g', 'in_target_14g', 'call_14g', 'dm', 'lead_in_target', 'call_prenotate',
   'lettura_stato', 'lettura_richiesta', 'lettura_video', 'trascrizione_esito', 'visione_esito', 'fonte_visione', 'lettura_errore',
   'analisi_id', 'analisi_stato', 'analisi_verdetto', 'analisi_eta_ore', 'analisi_eta_confronto', 'analisi_finita_il',
-  'analisi_errore', 'analisi_motivo',
+  'analisi_errore', 'analisi_motivo', 'punteggio_totale', 'punteggio_fascia', 'punteggio_tipo',
 ].join(', ')
 
 /** The reels of the page, and whether the verdicts could not be read (the list is then without them). */
@@ -46,9 +47,11 @@ export async function leggiReel(db: Db, f: FiltriAnalisi, adesso: Date = new Dat
   const dal = aggiungiGiorni(oggiRoma(adesso), -f.periodo)
   let q = db.from('v_analisi_reel').select(COLONNE_REEL).gte('giorno', dal)
   if (f.senzaContenuto) q = q.is('contenuto_id', null)
-  if (f.verdetto === 'da_analizzare') q = q.eq('eliminato', false).or('analisi_stato.is.null,analisi_stato.neq.pronta')
-  else if (f.verdetto !== 'tutti') q = q.eq('verdetto_oggi', f.verdetto)
-  if (f.ordine === 'views') q = q.order('views', { ascending: false, nullsFirst: false })
+  if (f.verdetto !== 'tutti') q = q.eq('verdetto_oggi', f.verdetto)
+  if (f.punteggio === 'non_valutato') q = q.eq('eliminato', false).is('punteggio_totale', null)
+  else if (f.punteggio !== 'tutte') q = q.eq('punteggio_fascia', f.punteggio)
+  if (f.ordine === 'punteggio') q = q.order('punteggio_totale', { ascending: false, nullsFirst: false })
+  else if (f.ordine === 'views') q = q.order('views', { ascending: false, nullsFirst: false })
   else if (f.ordine === 'lead') q = q.order('in_target_14g', { ascending: false, nullsFirst: false }).order('dm_14g', { ascending: false, nullsFirst: false })
   q = q.order('pubblicato_il', { ascending: false }).limit(REEL_MAX)
   const { data, error } = await q
@@ -102,20 +105,21 @@ export async function leggiReelSenzaVerdetti(db: Db, f: FiltriAnalisi, adesso: D
       trascrizione_esito: null, visione_esito: null, fonte_visione: null, lettura_errore: null, analisi_id: null,
       analisi_stato: null, analisi_verdetto: null, analisi_eta_ore: null, analisi_eta_confronto: null,
       analisi_finita_il: null, analisi_errore: null, analisi_motivo: null,
+      punteggio_totale: null, punteggio_fascia: null, punteggio_tipo: null,
     }
   }) as unknown as RigaReel[]
   return f.senzaContenuto ? righe.filter((r) => r.contenuto_id === null) : righe
 }
 
 /**
- * The reels of the page: the full list, or (only with the default verdict filter, the one the page opens
+ * The reels of the page: the full list, or (only with the default verdict and score filters, the ones the page opens
  * with) the list without verdicts when the full one cannot be read. Throws when neither can.
  */
 export async function leggiReelConRipiego(db: Db, f: FiltriAnalisi, adesso: Date = new Date()): Promise<LetturaReel> {
   try {
     return { righe: await leggiReel(db, f, adesso), senzaVerdetti: false }
   } catch (errore) {
-    if (f.verdetto !== 'tutti') throw errore
+    if (f.verdetto !== 'tutti' || f.punteggio !== 'tutte') throw errore
     try {
       const righe = await leggiReelSenzaVerdetti(db, f, adesso)
       console.error('[analisi] elenco dei reel senza verdetti:', errore instanceof Error ? errore.message : 'errore')
@@ -174,4 +178,21 @@ export type StatoStatistiche = {
 export async function leggiPermesso(db: Db): Promise<boolean | null> {
   const { data } = await db.from('instagram_contenuti_stato').select('permesso_insights').maybeSingle()
   return data?.permesso_insights ?? null
+}
+
+/**
+ * How many requests of «Analizza» the team can still make today (10 a day for everybody; a failed one does not
+ * count, as the database counts them). A read that fails says 0: the button then asks nothing it could not do.
+ */
+export async function leggiRichiesteRimaste(db: Db, adesso: Date = new Date()): Promise<number> {
+  const { data, error } = await db
+    .from('marketing_analisi')
+    .select('created_at')
+    .eq('motivo', 'richiesta')
+    .neq('stato', 'fallita')
+    .gte('created_at', new Date(adesso.getTime() - 36 * 3_600_000).toISOString())
+  if (error) return 0
+  const oggi = oggiRoma(adesso)
+  const fatte = (data ?? []).filter((x) => oggiRoma(new Date(x.created_at)) === oggi).length
+  return Math.max(0, RICHIESTE_AL_GIORNO - fatte)
 }

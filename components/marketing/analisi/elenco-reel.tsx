@@ -3,13 +3,13 @@
 import { CircleCheck, LoaderCircle, TriangleAlert } from 'lucide-react'
 import type { MouseEvent, ReactNode } from 'react'
 
+import { BadgePunteggio } from '@/components/marketing/analisi/badge-punteggio'
 import { BadgeVerdetto } from '@/components/marketing/analisi/badge-verdetto'
 import { usePannelloReel } from '@/components/marketing/analisi/contesto-reel'
 import { LinkReel } from '@/components/marketing/analisi/link-reel'
 import { titoloReel } from '@/components/marketing/analisi/scheda-reel'
 import { CopertinaPost } from '@/components/marketing/instagram/copertina-post'
 import { formatNumero } from '@/lib/format'
-import { aggiungiGiorni } from '@/lib/date'
 import type { RigaReel } from '@/lib/marketing/analisi/elenco'
 import {
   formatDurata,
@@ -22,20 +22,14 @@ import {
   type StatoAnalisiRiga,
 } from '@/lib/marketing/analisi/parole'
 import { giornoPost } from '@/lib/marketing/parole-post'
+import { fasciaDaCodice } from '@/lib/marketing/punteggio/tabelle'
 import { cn } from '@/lib/utils'
 
 const CONTROLLI = 'a, button, input, select, textarea, label'
 
-/** The day an analysis can start: three days after the publication. */
-function giornoDisponibile(giorno: string | null): string | null {
-  if (!giorno) return null
-  const d = aggiungiGiorni(giorno, 3)
-  return `${d.slice(8, 10)}/${d.slice(5, 7)}`
-}
-
 function ColonnaAnalisi({ r }: { r: RigaReel }) {
   const stato = (r.analisi_stato ?? null) as StatoAnalisiRiga
-  const parola = parolaAnalisi(stato, r.eta_ore, giornoDisponibile(r.giorno))
+  const parola = parolaAnalisi(stato)
   const Icona =
     stato === 'pronta' ? CircleCheck : stato === 'fallita' ? TriangleAlert : stato === 'in_coda' || stato === 'in_corso' ? LoaderCircle : null
   return (
@@ -50,6 +44,12 @@ function ColonnaAnalisi({ r }: { r: RigaReel }) {
       {parola}
     </span>
   )
+}
+
+/** The score of the last ready analysis that has one; a reel never scored says «Non valutato». */
+function PunteggioDelReel({ r }: { r: RigaReel }) {
+  const f = fasciaDaCodice(r.punteggio_fascia)
+  return <BadgePunteggio totale={r.punteggio_totale} fascia={f?.codice ?? null} />
 }
 
 function Views({ r }: { r: RigaReel }) {
@@ -123,6 +123,9 @@ function CardReel({ r }: { r: RigaReel }) {
         <Cella etichetta="Verdetto">
           <BadgeVerdetto verdetto={r.verdetto_oggi} />
         </Cella>
+        <Cella etichetta="Punteggio">
+          <PunteggioDelReel r={r} />
+        </Cella>
         <Cella etichetta="Analisi">
           <ColonnaAnalisi r={r} />
         </Cella>
@@ -165,6 +168,9 @@ function RigaTabella({ r }: { r: RigaReel }) {
       <td className="px-2 py-2">
         <BadgeVerdetto verdetto={r.verdetto_oggi} />
       </td>
+      <td className="px-2 py-2" data-testid="colonna-punteggio">
+        <PunteggioDelReel r={r} />
+      </td>
       <td className="py-2 pr-3 pl-2">
         <ColonnaAnalisi r={r} />
       </td>
@@ -192,6 +198,7 @@ export function ElencoReel({ righe, limite }: { righe: readonly RigaReel[]; limi
               <th scope="col" className="px-2 py-2.5 text-right font-normal">Visione media</th>
               <th scope="col" className="px-2 py-2.5 text-left font-normal">Lead dai DM</th>
               <th scope="col" className="px-2 py-2.5 text-left font-normal">Verdetto</th>
+              <th scope="col" className="px-2 py-2.5 text-left font-normal">Punteggio</th>
               <th scope="col" className="py-2.5 pr-3 pl-2 text-left font-normal">Analisi</th>
             </tr>
           </thead>

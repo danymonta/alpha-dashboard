@@ -144,8 +144,8 @@ export function InterruttoriAnalisi({ automatiche, noteTeam }: { automatiche: bo
       <Interruttore
         chiave="automatiche"
         acceso={automatiche}
-        titolo="Analisi automatiche"
-        descrizione="Ogni notte Claude legge e analizza i reel nuovi e quelli che hanno compiuto 3, 7 o 14 giorni. Spente, partono solo quando qualcuno tocca «Analizza»."
+        titolo="Trascrizioni automatiche (senza Claude)"
+        descrizione="Ogni notte si trascrive il parlato dei reel nuovi, con Whisper: nessuna chiamata a Claude. Claude lavora solo quando l’admin o il marketing toccano «Analizza» su un reel (analisi e punteggio insieme). Spente, la trascrizione parte con quel tocco."
         testId="analisi-automatiche"
       />
       <Interruttore

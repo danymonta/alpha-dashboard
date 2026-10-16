@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { annullaScollega, scollegaPost } from '@/app/(app)/marketing/instagram/actions'
 import { ApriSuInstagram, AZIONE_TOAST, CopertinaPost } from '@/components/marketing/instagram/copertina-post'
 import { ParlatoDelPost } from '@/components/marketing/instagram/parlato-post'
+import { PunteggioDelPost } from '@/components/marketing/instagram/punteggio-del-post'
 import type { PostCollegato } from '@/components/marketing/instagram/tipi'
 import { useElencoPost } from '@/components/marketing/instagram/uso-elenco'
 import { LinkContenuto } from '@/components/marketing/link-contenuto'
@@ -98,6 +99,7 @@ export function PostCollegati({ post }: { post: readonly PostCollegato[] }) {
                       Non più su Instagram
                     </p>
                   ) : null}
+                  <PunteggioDelPost tipo={p.tipo} mediaId={p.media_id} punteggio={p.punteggio} />
                   {p.tipo === 'reel' ? <ParlatoDelPost mediaId={p.media_id} className="-ml-2" /> : null}
                 </div>
               </div>

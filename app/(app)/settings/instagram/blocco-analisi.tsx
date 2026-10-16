@@ -20,10 +20,10 @@ function Voce({ etichetta, children }: { etichetta: string; children: ReactNode 
 }
 
 const MODO = {
-  attive: 'Attive: partono da sole, un reel alla volta.',
+  attive: 'Accese: di notte si trascrive il parlato dei reel nuovi, un reel alla volta, senza Claude.',
   in_pausa_spesa: 'In pausa: il limite di spesa del mese è raggiunto. Le richieste a mano si fermano allo stesso modo.',
   ferme_chiave: 'Ferme: manca la chiave di Claude su Vercel.',
-  spente: 'Spente: partono solo con «Analizza».',
+  spente: 'Spente: il parlato si trascrive solo quando qualcuno tocca «Analizza».',
 } as const
 
 /**
@@ -62,9 +62,10 @@ export function BloccoAnalisi({
           Analisi dei reel
         </h2>
         <p className="text-sm text-muted-foreground">
-          Claude guarda i reel pubblicati (fotogrammi e parlato), li confronta con la mediana dei tuoi e dice cosa
-          spingere, mantenere o cambiare, con qualche idea per il calendario. Le statistiche dei post si leggono ogni
-          mattina.
+          Quando tocchi «Analizza» su un reel, Claude lo guarda (fotogrammi e parlato), lo confronta con la mediana dei
+          tuoi e dice cosa spingere, mantenere o cambiare, con qualche idea per il calendario, e gli dà un punteggio
+          con la guida di Dany. Claude non parte mai da solo, su nessun reel. Le statistiche dei post si leggono ogni
+          mattina e il parlato dei reel nuovi si trascrive di notte (senza Claude).
         </p>
       </div>
 
@@ -89,7 +90,7 @@ export function BloccoAnalisi({
       ) : null}
 
       <dl className="divide-y divide-border">
-        <Voce etichetta="Analisi automatiche">
+        <Voce etichetta="Trascrizioni automatiche">
           {s ? (
             <span className="inline-flex items-start gap-1.5">
               {s.automatiche === 'attive' ? (

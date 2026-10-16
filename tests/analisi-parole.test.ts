@@ -37,13 +37,12 @@ describe('le parole dell’analisi', () => {
     expect(viewsConConfronto(null, null, null, null).numero).toBeNull()
   })
 
-  it('la colonna Analisi: pronta, in coda, in corso, non riuscita, «Dal …» per un reel giovane, «Da chiedere»', () => {
-    expect(parolaAnalisi('pronta', 400, null)).toBe('Pronta')
-    expect(parolaAnalisi('in_coda', 400, null)).toBe('In coda')
-    expect(parolaAnalisi('in_corso', 400, null)).toBe('Claude la sta facendo…')
-    expect(parolaAnalisi('fallita', 400, null)).toBe('Non riuscita')
-    expect(parolaAnalisi(null, 20, '18/10')).toBe('Dal 18/10')
-    expect(parolaAnalisi(null, 200, '18/10')).toBe('Da chiedere')
+  it('la colonna Analisi: pronta, in coda, in corso, non riuscita, «Da chiedere» (Claude non parte da solo)', () => {
+    expect(parolaAnalisi('pronta')).toBe('Pronta')
+    expect(parolaAnalisi('in_coda')).toBe('In coda')
+    expect(parolaAnalisi('in_corso')).toBe('Claude la sta facendo…')
+    expect(parolaAnalisi('fallita')).toBe('Non riuscita')
+    expect(parolaAnalisi(null)).toBe('Da chiedere')
   })
 
   it('i lead: mai zero quando non sono contati, «alcuni giorni non contati» dopo i 14 giorni', () => {

@@ -10,6 +10,7 @@ import { collegaPost, creaContenutoDaPost } from '@/app/(app)/marketing/instagra
 import { ChiudiPannello } from '@/components/marketing/analisi/chiudi-pannello'
 import { AnalizzaReel } from '@/components/marketing/analisi/analizza-reel'
 import { BadgeVerdetto } from '@/components/marketing/analisi/badge-verdetto'
+import { SezionePunteggio } from '@/components/marketing/analisi/sezione-punteggio'
 import { useOpzioniToast } from '@/components/marketing/contesto-pannello'
 import { ApriSuInstagram, CopertinaPost } from '@/components/marketing/instagram/copertina-post'
 import { Button } from '@/components/ui/button'
@@ -548,7 +549,12 @@ export function SchedaReel({
         <div className="flex flex-wrap items-start gap-2">
           {r.permalink ? <ApriSuInstagram href={r.permalink} /> : null}
           {r.media_id && puoAnalizzare && !r.eliminato && !inCorso && !leggendo ? (
-            <AnalizzaReel mediaId={r.media_id} rifa={analisi !== null || ultima?.stato === 'fallita'} onFatto={onRileggi} variante={analisi ? 'outline' : 'default'} />
+            <AnalizzaReel
+              mediaId={r.media_id}
+              etichetta={dettaglio?.punteggio || ultima?.stato === 'fallita' ? 'Analizza di nuovo' : analisi ? 'Dai il punteggio' : 'Analizza'}
+              onFatto={onRileggi}
+              variante={dettaglio?.punteggio ? 'outline' : 'default'}
+            />
           ) : null}
         </div>
         {!puoAnalizzare ? (
@@ -565,6 +571,18 @@ export function SchedaReel({
             </Button>
           </div>
         ) : null}
+
+        <Sezione id="punteggio" titolo="Punteggio">
+          <SezionePunteggio
+            punteggio={dettaglio?.punteggio ?? null}
+            analisi={analisi}
+            caricato={dettaglio !== null}
+            inLavoro={inCorso || leggendo}
+            puoAnalizzare={puoAnalizzare}
+            puoScrivere={puoScrivere}
+            onFatto={onRileggi}
+          />
+        </Sezione>
 
         <Sezione id="numeri" titolo="Come è andato">
           <NumeriReel r={r} />
@@ -616,8 +634,8 @@ export function SchedaReel({
           ) : dettaglio && !inCorso && !leggendo && ultima?.stato !== 'fallita' ? (
             <p className="text-sm text-muted-foreground" data-testid="reel-senza-analisi">
               {r.eta_ore !== null && r.eta_ore < 72
-                ? 'Questo reel ha meno di 3 giorni: l’analisi automatica parte quando li compie. Puoi chiederla subito.'
-                : 'Ancora nessuna analisi di Claude per questo reel.'}
+                ? 'Questo reel ha meno di 3 giorni: i numeri sono ancora pochi per un verdetto, ma puoi chiedere subito l’analisi e il punteggio.'
+                : 'Ancora nessuna analisi di Claude per questo reel: parte solo da «Analizza».'}
             </p>
           ) : null}
         </Sezione>

@@ -4,10 +4,10 @@ import { quando } from '@/app/(app)/settings/instagram/quando'
 import type { Situazione } from '@/lib/marketing/analisi/elenco'
 
 const FRASE = {
-  attive: 'Le analisi partono da sole, un reel alla volta.',
+  attive: 'Claude lavora solo quando premi «Analizza»: l’analisi e il punteggio partono da lì. Di notte si trascrive solo il parlato dei reel nuovi.',
   in_pausa_spesa: 'Le analisi sono in pausa: il limite di spesa del mese è raggiunto.',
   ferme_chiave: 'Le analisi sono ferme: manca la chiave di Claude.',
-  spente: 'Le analisi automatiche sono spente: partono solo con «Analizza».',
+  spente: 'Claude lavora solo quando premi «Analizza»: l’analisi e il punteggio partono da lì. Le trascrizioni di notte sono spente.',
 } as const
 
 /**

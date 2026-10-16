@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { tipoDelPost, type TipoPost } from '@/lib/marketing/abbinamento'
+import { leggiPunteggi, type PunteggioBreve } from '@/lib/marketing/punteggio/leggi'
 import { shortcodeInstagram } from '@/lib/marketing/shortcode'
 import type { createClient } from '@/lib/supabase/server'
 
@@ -32,7 +33,7 @@ export type PostInstagram = {
 }
 
 export type PostDelContenuto =
-  | { stato: 'collegato'; post: PostInstagram; daSolo: boolean; motivi: string[] }
+  | { stato: 'collegato'; post: PostInstagram; daSolo: boolean; motivi: string[]; punteggio: PunteggioBreve | null }
   | { stato: 'proposte'; proposte: (PostInstagram & { motivi: string[] })[] }
   | { stato: 'nessuno' }
   | { stato: 'errore' }
@@ -86,7 +87,8 @@ export async function leggiPostDelContenuto(
       // a URL typed by hand of a post the run has not read: the URL field says it all
       const post = data && data.contenuto_id === c.id ? versoPost(data) : null
       if (!post || !data) return { stato: 'nessuno' }
-      return { stato: 'collegato', post, daSolo: data.collegato_da_solo === true, motivi: data.motivi_collegamento ?? [] }
+      const punteggio = post.tipo === 'reel' ? ((await leggiPunteggi(supabase, [post.media_id])).get(post.media_id) ?? null) : null
+      return { stato: 'collegato', post, daSolo: data.collegato_da_solo === true, motivi: data.motivi_collegamento ?? [], punteggio }
     }
 
     const { data: proposte, error } = await supabase

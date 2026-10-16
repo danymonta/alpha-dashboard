@@ -68,13 +68,12 @@ export function viewsConConfronto(views: number | null | undefined, rapporto: nu
 
 export type StatoAnalisiRiga = 'pronta' | 'in_coda' | 'in_corso' | 'fallita' | null
 
-/** The Analisi column: «Pronta», «In coda», «Claude la sta facendo…», «Non riuscita», «Dal 06/10» for a young reel, «Da chiedere». */
-export function parolaAnalisi(stato: StatoAnalisiRiga, etaOre: number | null, giornoDisponibile: string | null): string {
+/** The Analisi column: «Pronta», «In coda», «Claude la sta facendo…», «Non riuscita», «Da chiedere» (Claude never starts by itself, 1.39.0). */
+export function parolaAnalisi(stato: StatoAnalisiRiga): string {
   if (stato === 'pronta') return 'Pronta'
   if (stato === 'in_coda') return 'In coda'
   if (stato === 'in_corso') return 'Claude la sta facendo…'
   if (stato === 'fallita') return 'Non riuscita'
-  if (etaOre !== null && etaOre < 72 && giornoDisponibile) return `Dal ${giornoDisponibile}`
   return 'Da chiedere'
 }
 
@@ -106,4 +105,14 @@ export function fraseStatoPost(stato: string | null | undefined, giornoLettura: 
     default:
       return null
   }
+}
+
+// ---------------------------------------------------------------------------
+// The score (1.39.0)
+// ---------------------------------------------------------------------------
+
+/** «78 · Rifare le parti deboli», or «Non valutato» (the reel has no score yet). */
+export function parolaPunteggio(totale: number | null | undefined, etichettaFascia: string | null | undefined): string {
+  if (totale === null || totale === undefined || !etichettaFascia) return 'Non valutato'
+  return `${totale} · ${etichettaFascia}`
 }

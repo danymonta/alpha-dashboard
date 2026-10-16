@@ -2,6 +2,8 @@ import 'server-only'
 
 import { COLONNE_REEL, type RigaReel } from '@/lib/marketing/analisi/elenco'
 import type { AnalisiContenuto, FontiAnalisi, SchedaVisiva } from '@/lib/marketing/analisi/tipi'
+import { INDICE_RIFACIMENTO } from '@/lib/marketing/punteggio/rifacimento'
+import type { PunteggioContenuto } from '@/lib/marketing/punteggio/tipi'
 import type { createClient } from '@/lib/supabase/server'
 
 type Db = Awaited<ReturnType<typeof createClient>>
@@ -42,6 +44,17 @@ export type LetturaLetta = {
   errore: string | null
 }
 
+/** The score of the last ready analysis that has one (1.39.0). */
+export type PunteggioLetto = {
+  analisi_id: string
+  finita_il: string | null
+  eta_ore: number | null
+  versione_guida: string | null
+  punteggio: PunteggioContenuto
+  /** the content born from its rewrite, when «Aggiungi al calendario» was tapped */
+  rifacimento_nel_calendario: { contenuto_id: string; nome: string } | null
+}
+
 export type ContenutoCalendario = { id: string; nome: string; reel_type: string | null; formato: string | null; stato: string }
 
 export type DettaglioReel = {
@@ -50,6 +63,8 @@ export type DettaglioReel = {
   analisi: AnalisiLetta | null
   /** the latest one if it is open or failed after the ready one (the panel says «in corso» / «non riuscita») */
   ultima: AnalisiLetta | null
+  /** the score of the last ready analysis that has one; null: not scored (the page says «Non valutato») */
+  punteggio: PunteggioLetto | null
   lettura: LetturaLetta | null
   /** the calendar content linked to the reel */
   contenuto: ContenutoCalendario | null
@@ -74,7 +89,7 @@ export async function leggiDettaglioReel(db: Db, mediaId: string): Promise<Detta
   if (!riga) return null
   const reel = riga as unknown as RigaReel
 
-  const [pronta, ultime, lettura, contenuto, proposte] = await Promise.all([
+  const [pronta, ultime, lettura, contenuto, proposte, scorePronta] = await Promise.all([
     db.from('marketing_analisi').select(COLONNE_ANALISI).eq('media_id', mediaId).eq('stato', 'pronta').order('finita_il', { ascending: false }).limit(1).maybeSingle(),
     db.from('marketing_analisi').select(COLONNE_ANALISI).eq('media_id', mediaId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     db
@@ -88,8 +103,17 @@ export async function leggiDettaglioReel(db: Db, mediaId: string): Promise<Detta
     reel.shortcode
       ? db.from('v_marketing_proposte').select('contenuto_id, nome, motivi, punteggio').eq('shortcode', reel.shortcode).order('punteggio', { ascending: false }).limit(3)
       : Promise.resolve({ data: [], error: null }),
+    db
+      .from('marketing_analisi')
+      .select('id, finita_il, eta_ore, punteggio, versione_guida')
+      .eq('media_id', mediaId)
+      .eq('stato', 'pronta')
+      .not('punteggio', 'is', null)
+      .order('finita_il', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
-  for (const r of [pronta, ultime, lettura, contenuto, proposte]) if (r.error) throw new Error(`dettaglio non letto (${r.error.code ?? 'errore'})`)
+  for (const r of [pronta, ultime, lettura, contenuto, proposte, scorePronta]) if (r.error) throw new Error(`dettaglio non letto (${r.error.code ?? 'errore'})`)
 
   const analisi = comeAnalisi(pronta.data as Record<string, unknown> | null)
   const ultima = ultime.data && ultime.data.id !== analisi?.id ? comeAnalisi(ultime.data as Record<string, unknown>) : null
@@ -103,6 +127,27 @@ export async function leggiDettaglioReel(db: Db, mediaId: string): Promise<Detta
       .not('da_idea', 'is', null)
     if (erroreIdee) throw new Error(`idee non lette (${erroreIdee.code ?? 'errore'})`)
     idee = (data ?? []).map((c) => ({ indice: c.da_idea as number, contenuto_id: c.id, nome: c.nome }))
+  }
+
+  // the score, and the content its rewrite became
+  let punteggio: DettaglioReel['punteggio'] = null
+  const sp = scorePronta.data
+  if (sp?.punteggio) {
+    const { data: nato, error: erroreNato } = await db
+      .from('marketing_contenuti')
+      .select('id, nome')
+      .eq('da_analisi', sp.id)
+      .eq('da_idea', INDICE_RIFACIMENTO)
+      .maybeSingle()
+    if (erroreNato) throw new Error(`rifacimento non letto (${erroreNato.code ?? 'errore'})`)
+    punteggio = {
+      analisi_id: sp.id,
+      finita_il: sp.finita_il,
+      eta_ore: sp.eta_ore,
+      versione_guida: sp.versione_guida,
+      punteggio: sp.punteggio as unknown as PunteggioContenuto,
+      rifacimento_nel_calendario: nato ? { contenuto_id: nato.id, nome: nato.nome } : null,
+    }
   }
 
   // Claude's proposal counts only while it is still valid (D28): a content without URL, not Canceled,
@@ -127,6 +172,7 @@ export async function leggiDettaglioReel(db: Db, mediaId: string): Promise<Detta
   return {
     reel,
     analisi,
+    punteggio,
     ultima: ultima && (ultima.stato === 'in_coda' || ultima.stato === 'in_corso' || ultima.stato === 'fallita') ? ultima : null,
     lettura: (lettura.data as unknown as LetturaLetta | null) ?? null,
     contenuto: contenuto.data

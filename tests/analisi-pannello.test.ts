@@ -23,13 +23,17 @@ describe('indirizzo del pannello dei reel', () => {
 describe('i filtri dell’analisi', () => {
   it('un valore sconosciuto torna al predefinito, mai un errore', () => {
     expect(filtriDaParametri({})).toEqual(FILTRI_PREDEFINITI)
-    expect(filtriDaParametri({ periodo: '7', verdetto: 'boh', ordine: 'x', senza_contenuto: 'si' })).toEqual(FILTRI_PREDEFINITI)
-    expect(filtriDaParametri({ periodo: ['90'], verdetto: 'cambiare', ordine: 'lead', senza_contenuto: '1' })).toEqual({
+    expect(filtriDaParametri({ periodo: '7', verdetto: 'boh', punteggio: 'ottimo', ordine: 'x', senza_contenuto: 'si' })).toEqual(FILTRI_PREDEFINITI)
+    // «Da analizzare» of the verdicts is gone (1.39.0): the score filter says «Non valutati»
+    expect(filtriDaParametri({ verdetto: 'da_analizzare' })).toEqual(FILTRI_PREDEFINITI)
+    expect(filtriDaParametri({ periodo: ['90'], verdetto: 'cambiare', punteggio: 'riscrivere', ordine: 'lead', senza_contenuto: '1' })).toEqual({
       periodo: 90,
       verdetto: 'cambiare',
+      punteggio: 'riscrivere',
       ordine: 'lead',
       senzaContenuto: true,
     })
+    expect(filtriDaParametri({ punteggio: 'non_valutato', ordine: 'punteggio' })).toMatchObject({ punteggio: 'non_valutato', ordine: 'punteggio' })
   })
 
   it('l’indirizzo lascia fuori i predefiniti e porta il pannello', () => {
@@ -39,5 +43,7 @@ describe('i filtri dell’analisi', () => {
     )
     expect(sonoFiltriPredefiniti(FILTRI_PREDEFINITI)).toBe(true)
     expect(sonoFiltriPredefiniti({ ...FILTRI_PREDEFINITI, ordine: 'views' })).toBe(false)
+    expect(sonoFiltriPredefiniti({ ...FILTRI_PREDEFINITI, punteggio: 'non_valutato' })).toBe(false)
+    expect(hrefAnalisi({ ...FILTRI_PREDEFINITI, punteggio: 'scartare', ordine: 'punteggio' })).toBe('/marketing/analisi?punteggio=scartare&ordine=punteggio')
   })
 })

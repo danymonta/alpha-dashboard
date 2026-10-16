@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button'
 const CONNESSIONE = 'Connessione assente. Riprova.'
 
 /**
- * «Analizza» and «Analizza di nuovo»: admin and marketing. A POST to a route
+ * «Analizza», «Dai il punteggio» and «Analizza di nuovo»: admin and marketing. The three are the same
+ * request: one click asks for the reading of the reel, Claude's analysis and its score (1.39.0), and it
+ * is the only thing that ever makes Claude work on a reel. A POST to a route
  * (never a server action: Next sends the actions of a tab one at a time). The
  * tap puts the analysis in the queue and wakes the work; the panel then polls
  * its own detail and shows «In coda» / «Claude la sta facendo…» until it is
@@ -19,13 +21,13 @@ const CONNESSIONE = 'Connessione assente. Riprova.'
  */
 export function AnalizzaReel({
   mediaId,
-  rifa,
+  etichetta = 'Analizza',
   onFatto,
   variante = 'default',
 }: {
   mediaId: string
-  /** «Analizza di nuovo» */
-  rifa?: boolean
+  /** the visible words: «Analizza», «Dai il punteggio» (analysed before the score existed), «Analizza di nuovo» */
+  etichetta?: 'Analizza' | 'Dai il punteggio' | 'Analizza di nuovo'
   onFatto: () => void
   variante?: 'default' | 'outline'
 }) {
@@ -45,7 +47,7 @@ export function AnalizzaReel({
         cache: 'no-store',
       })
       if (risposta.status === 202) {
-        toast.success('Analisi in coda: Claude la prepara, di solito servono pochi minuti.', opzioniToast)
+        toast.success('Analisi e punteggio in coda: Claude li prepara insieme, di solito servono pochi minuti.', opzioniToast)
         onFatto()
         return
       }
@@ -76,7 +78,7 @@ export function AnalizzaReel({
         ) : (
           <Sparkles className="size-4 text-[var(--brand-fire-flame)]" aria-hidden="true" />
         )}
-        {inCorso ? 'Chiedo a Claude…' : rifa ? 'Analizza di nuovo' : 'Analizza'}
+        {inCorso ? 'Chiedo a Claude…' : etichetta}
       </Button>
       {errore ? (
         <p role="alert" className="text-sm text-status-critical" data-testid="analizza-errore">

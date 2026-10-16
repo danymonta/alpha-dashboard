@@ -1,9 +1,11 @@
 import Link from 'next/link'
 
 import {
+  ETICHETTA_FASCIA_FILTRO,
   ETICHETTA_ORDINE,
   ETICHETTA_PERIODO,
   ETICHETTA_VERDETTO_FILTRO,
+  FASCE_FILTRO,
   hrefAnalisi,
   ORDINI,
   PERIODI,
@@ -41,8 +43,8 @@ function Voce({ href, attiva, children }: { href: string; attiva: boolean; child
 /**
  * The filters of the Analisi page, as links: they live in the address (a
  * reload, a shared link, Back keep them) and need no script. Period, verdict
- * of today («Da analizzare» = no analysis ready yet), reels without a
- * content of the calendar, and the order.
+ * of today, the band of the score (or «Non valutati»: no score yet), reels
+ * without a content of the calendar, and the order.
  */
 export function FiltriAnalisiVista({ filtri }: { filtri: FiltriAnalisi }) {
   return (
@@ -58,6 +60,13 @@ export function FiltriAnalisiVista({ filtri }: { filtri: FiltriAnalisi }) {
         {VERDETTI_FILTRO.map((v) => (
           <Voce key={v} href={hrefAnalisi({ ...filtri, verdetto: v })} attiva={filtri.verdetto === v}>
             {ETICHETTA_VERDETTO_FILTRO[v]}
+          </Voce>
+        ))}
+      </Gruppo>
+      <Gruppo etichetta="Punteggio">
+        {FASCE_FILTRO.map((f) => (
+          <Voce key={f} href={hrefAnalisi({ ...filtri, punteggio: f })} attiva={filtri.punteggio === f}>
+            {ETICHETTA_FASCIA_FILTRO[f]}
           </Voce>
         ))}
       </Gruppo>

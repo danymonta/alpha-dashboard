@@ -19,6 +19,7 @@ import { COLONNE_ELENCO } from '@/lib/marketing/elenco'
 import { PARAMETRO_CONTENUTO } from '@/lib/marketing/pannello'
 import { eliminaContenuti } from '@/lib/marketing/permessi'
 import type { PostInstagram } from '@/lib/marketing/post-del-contenuto'
+import { leggiPunteggi } from '@/lib/marketing/punteggio/leggi'
 import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
@@ -171,6 +172,11 @@ export default async function PostInstagramPage({
     perPost.set(p.shortcode, elenco)
   }
 
+  // the scores of the linked reels (1.39.0): two small columns, read only, no Claude
+  const punteggi = await leggiPunteggi(
+    supabase,
+    (post.data ?? []).filter((p) => p.stato_collegamento === 'collegato' && p.media_id && (p.reel || p.media_type === 'VIDEO')).map((p) => p.media_id as string),
+  )
   const daCollegare: PostDaCollegare[] = []
   const collegati: PostCollegato[] = []
   const esclusi: PostInstagram[] = []
@@ -183,6 +189,7 @@ export default async function PostInstagramPage({
         contenuto_id: riga.contenuto_id,
         contenuto_nome: riga.contenuto_nome ?? 'Contenuto',
         daSolo: riga.collegato_da_solo === true,
+        punteggio: punteggi.get(p.media_id) ?? null,
       })
     } else if (riga.stato_collegamento === 'escluso') {
       esclusi.push(p)

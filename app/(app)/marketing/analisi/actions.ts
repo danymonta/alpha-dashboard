@@ -8,6 +8,9 @@ import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { ricalcolaAbbinamenti } from '@/lib/instagram/sincronizza-contenuti'
 import { contenutoDaIdea } from '@/lib/marketing/analisi/idea'
 import type { AnalisiContenuto, SchedaVisiva } from '@/lib/marketing/analisi/tipi'
+import { nomeDaDidascalia } from '@/lib/marketing/da-post'
+import { contenutoDaRifacimento, haRifacimento, INDICE_RIFACIMENTO } from '@/lib/marketing/punteggio/rifacimento'
+import type { PunteggioContenuto } from '@/lib/marketing/punteggio/tipi'
 import * as operazioni from '@/lib/marketing/operazioni'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -56,6 +59,44 @@ export async function aggiungiIdeaAlCalendario(input: unknown): Promise<EsitoIde
   if (!esito.ok) return { ok: false, errore: esito.errore }
   revalidatePath('/marketing', 'layout')
   return { ok: true, id: esito.id, nome: idea.name }
+}
+
+/**
+ * «Aggiungi al calendario» from «Come rifarlo» (1.39.0): the rewrite of a scored
+ * reel becomes a Reel Topic with the rewritten script, once per analysis (the
+ * idea number 9; the database refuses it twice and refuses it to an analysis
+ * whose score has no rewrite).
+ */
+export async function aggiungiRifacimentoAlCalendario(input: unknown): Promise<EsitoIdea> {
+  const negato = await negaSeNon(RUOLI_MARKETING, operazioni.SOLO_MARKETING)
+  if (negato) return { ok: false, errore: negato }
+  const letto = analisiSchema.safeParse(input)
+  if (!letto.success) return { ok: false, errore: 'Analisi non valida.' }
+
+  const db = await createClient()
+  const { data: analisi } = await db.from('marketing_analisi').select('id, stato, media_id, punteggio').eq('id', letto.data.analisi_id).maybeSingle()
+  const punteggio = analisi?.stato === 'pronta' ? (analisi.punteggio as unknown as PunteggioContenuto | null) : null
+  if (!analisi || !punteggio) return { ok: false, errore: NON_TROVATA }
+  if (!haRifacimento(punteggio)) return { ok: false, errore: 'Questo punteggio non ha un rifacimento.' }
+  const { data: post } = await db.from('instagram_contenuti').select('shortcode, permalink, pubblicato_il, didascalia').eq('media_id', analisi.media_id).maybeSingle()
+  if (!post) return { ok: false, errore: NON_TROVATA }
+  const [collegato, lettura] = await Promise.all([
+    db.from('marketing_contenuti').select('nome').eq('instagram_shortcode', post.shortcode).maybeSingle(),
+    db.from('instagram_letture').select('scheda').eq('media_id', analisi.media_id).maybeSingle(),
+  ])
+  const nome = collegato.data?.nome || nomeDaDidascalia(post.didascalia) || 'reel'
+  const formato = (lettura.data?.scheda as SchedaVisiva | null)?.classificazione?.format ?? null
+
+  const { input: contenuto, sezioni } = contenutoDaRifacimento(punteggio, {
+    nome,
+    permalink: post.permalink,
+    pubblicato_il: post.pubblicato_il,
+    formato,
+  })
+  const esito = await operazioni.creaContenuto(db, contenuto, sezioni, { analisi_id: analisi.id, idea: INDICE_RIFACIMENTO })
+  if (!esito.ok) return { ok: false, errore: esito.errore }
+  revalidatePath('/marketing', 'layout')
+  return { ok: true, id: esito.id, nome: contenuto.nome }
 }
 
 /**

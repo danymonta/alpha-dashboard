@@ -15,6 +15,7 @@ import {
   Didascalia,
 } from '@/components/marketing/instagram/copertina-post'
 import { ParlatoDelPost } from '@/components/marketing/instagram/parlato-post'
+import { PunteggioDelPost } from '@/components/marketing/instagram/punteggio-del-post'
 import { Button } from '@/components/ui/button'
 import type { StatusContenuto } from '@/lib/marketing/etichette'
 import { etichettaCollega, giornoPost, motiviInParole, quandoPubblicato, rigaPost } from '@/lib/marketing/parole-post'
@@ -121,7 +122,7 @@ export function PostDelContenuto({
     const prima = vista
     setInVolo(post.shortcode)
     avvia(async () => {
-      mostra({ stato: 'collegato', post, daSolo: false, motivi: [] })
+      mostra({ stato: 'collegato', post, daSolo: false, motivi: [], punteggio: null })
       let esito: Awaited<ReturnType<typeof collegaPost>>
       try {
         esito = await collegaPost({ shortcode: post.shortcode, contenuto_id: contenutoId })
@@ -244,6 +245,7 @@ export function PostDelContenuto({
               </p>
             ) : null}
             <DidascaliaEspandibile testo={post.didascalia} />
+            <PunteggioDelPost tipo={post.tipo} mediaId={post.media_id} punteggio={vista.punteggio} />
             {post.tipo === 'reel' ? <ParlatoDelPost mediaId={post.media_id} className="-ml-2" /> : null}
             {vista.daSolo ? (
               <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
