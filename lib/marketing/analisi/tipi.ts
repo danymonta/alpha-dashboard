@@ -76,6 +76,8 @@ export type FontiAnalisi = {
   trascrizione: 'si' | 'no' | 'senza_parlato'
   lead: 'si' | 'no'
   note_team: boolean
+  /** the score of the same click (1.39.0): 'no' (absent) for an analysis made before it */
+  punteggio?: 'si' | 'no' | 'non_riuscito'
 }
 
 /** The tokens of one request (Anthropic's usage, every attempt of a fallback included). */

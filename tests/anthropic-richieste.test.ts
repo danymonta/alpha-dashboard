@@ -12,6 +12,8 @@ import { FORMATO_AGENDA, FORMATO_CORREZIONI, FORMATO_SCHEDE, FORMATO_SINTESI } f
 import { benFormato, chiediAClaude } from '@/lib/marketing/analisi/claude'
 import { contenutoAnalisi, sistemaAnalisi } from '@/lib/marketing/analisi/prompt'
 import { FORMATO_ANALISI_REEL, FORMATO_SCHEDA_VISIVA, LettoAnalisiReel } from '@/lib/marketing/analisi/schema'
+import { contenutoPunteggio, sistemaPunteggio } from '@/lib/marketing/punteggio/prompt'
+import { FORMATO_PUNTEGGIO, LettoPunteggio } from '@/lib/marketing/punteggio/schema'
 import { contenutoSpunti, sistemaSpunti } from '@/lib/marketing/spunti/prompt'
 import { FORMATO_SPUNTI, LettoSpunti } from '@/lib/marketing/spunti/schema'
 
@@ -26,6 +28,7 @@ import { FORMATO_SPUNTI, LettoSpunti } from '@/lib/marketing/spunti/schema'
 const FORMATI = {
   'scheda visiva del reel': FORMATO_SCHEDA_VISIVA,
   'analisi del reel': FORMATO_ANALISI_REEL,
+  'punteggio del reel': FORMATO_PUNTEGGIO,
   'analisi della call': FORMATO_ANALISI_CALL,
   'spunti della settimana': FORMATO_SPUNTI,
   'insight, schede': FORMATO_SCHEDE,
@@ -144,6 +147,11 @@ describe('le richieste vere contro il Claude finto che rifiuta come l’API', ()
     const r = await chiediAClaude({ ...base, passo: 'analisi', sistema: sistemaAnalisi(), contenuto: contenutoAnalisi({ periodo_giorni: 90 }, {}), formato: FORMATO_ANALISI_REEL, schema: LettoAnalisiReel, cliente: client })
     expect(finto.ultime()[0].rifiutata).toBeUndefined()
     expect(r.ok === false && r.codice === 'richiesta').toBe(false)
+  })
+  it('punteggio del reel: accettata, con la guida nel sistema', async () => {
+    const r = await chiediAClaude({ ...base, passo: 'punteggio', sistema: sistemaPunteggio(), contenuto: contenutoPunteggio({ trascrizione: 'Niente sbarra? Nessun problema.' }), formato: FORMATO_PUNTEGGIO, schema: LettoPunteggio, cliente: client })
+    expect(finto.ultime()[0].rifiutata).toBeUndefined()
+    expect(r.ok).toBe(true)
   })
   it('uno schema fuori regola: 400, codice «richiesta» e una riga di log col messaggio dell’API, mai la richiesta', async () => {
     const storto = { type: 'json_schema' as const, schema: { type: 'object', properties: { a: { type: 'string', minLength: 1 } }, required: ['a'], additionalProperties: false } }

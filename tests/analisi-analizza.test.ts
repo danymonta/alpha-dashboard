@@ -84,8 +84,12 @@ const FONTI_SPENTE = { note_del_team: 'spente', da_oscurare: ['Gustavo Rossiniel
 const FONTI_ACCESE = { note_del_team: 'accese', da_oscurare: ['Gustavo Rossiniello'], commenti_setter: { scale: {}, testi: [{ testo: 'Gustavo non aveva tempo la sera' }] }, motivi_closer: [] }
 
 /** The user's turn of the first request as plain text (the system holds the ICP and the rules, not the data). */
-const richiesta = () =>
-  ((finto.ultime()[0].corpo as { messages: { content: { text?: string }[] }[] }).messages[0].content.map((b) => b.text ?? '').join('\n'))
+const testoDi = (u: { corpo: Record<string, unknown> }) =>
+  (u.corpo as { messages: { content: { text?: string }[] }[] }).messages[0].content.map((b) => b.text ?? '').join('\n')
+/** The analysis request and the score request go out together (1.39.0): each is found by its step. */
+const richiestaDi = (passo: string) => finto.ultime().map(testoDi).find((t) => t.includes(`<passo>${passo}</passo>`)) ?? ''
+const richiesta = () => richiestaDi('analisi_reel')
+const richiestaPunteggio = () => richiestaDi('punteggio_reel')
 
 const entro = () => Date.now() + 200_000
 
@@ -98,7 +102,7 @@ describe('analizzaReel', () => {
     expect(fine.p_stato).toBe('pronta')
     expect(fine.p_versione).toBeTruthy()
     expect((fine.p_contenuto as { idee: unknown[] }).idee).toHaveLength(2)
-    expect(fine.p_fonti).toEqual({ fotogrammi: 31, video: 'si', trascrizione: 'si', lead: 'si', note_team: false })
+    expect(fine.p_fonti).toEqual({ fotogrammi: 31, video: 'si', trascrizione: 'si', lead: 'si', note_team: false, punteggio: 'si' })
     expect((fine.p_numeri as { verdetto: string }).verdetto).toBe('spingere')
   })
 
@@ -201,5 +205,112 @@ describe('analizzaReel', () => {
     const fine = chiamate.find((c) => c.nome === 'marketing_analisi_fine')!.args as { p_stato: string; p_riprova_il: string | null }
     expect(fine.p_stato).toBe('in_coda')
     expect(fine.p_riprova_il).toBeTruthy()
+  })
+
+  // ---------------------------------------------------------------------------
+  // The score of the same click (1.39.0)
+  // ---------------------------------------------------------------------------
+  const fineDi = (chiamate: { nome: string; args: Record<string, unknown> }[]) =>
+    chiamate.find((c) => c.nome === 'marketing_analisi_fine')!.args as {
+      p_stato: string
+      p_fonti: { punteggio?: string }
+      p_punteggio: { totale: number; fascia: string; tipo: string; tipo_origine: string; criteri: { id: string; citazione_trovata: boolean }[]; rifacimento: { hook_alternativi: unknown[] } } | null
+      p_versione_guida: string | null
+    }
+
+  it('lo stesso click chiede anche il punteggio: due richieste, e il punteggio arriva con l’analisi', async () => {
+    const { db, chiamate } = dbFinto(BASE, { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_SPENTE })
+    const r = await analizzaReel({ db, id: 'a1', entro: entro(), cliente: client })
+    expect(r.esito).toBe('ok')
+    expect(finto.ultime()).toHaveLength(2)
+    const fine = fineDi(chiamate)
+    expect(fine.p_stato).toBe('pronta')
+    expect(fine.p_fonti.punteggio).toBe('si')
+    expect(fine.p_punteggio?.tipo).toBe('mof')
+    expect(fine.p_punteggio?.tipo_origine).toBe('dedotto')
+    expect(fine.p_punteggio!.totale).toBeGreaterThan(0)
+    expect(fine.p_punteggio!.criteri.every((c) => c.citazione_trovata)).toBe(true)
+    expect(fine.p_versione_guida).toMatch(/^2026-10-16\./)
+  })
+
+  it('la guida e l’ICP stanno nel sistema del punteggio, senza prezzi; il reel nel turno dell’utente, senza i nomi', async () => {
+    const { db } = dbFinto(BASE, { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_SPENTE })
+    await analizzaReel({ db, id: 'a1', entro: entro(), cliente: client })
+    const p = finto.ultime().find((u) => testoDi(u).includes('<passo>punteggio_reel</passo>'))!
+    const sistema = ((p.corpo as { system: { text: string }[] }).system.map((s) => s.text)).join('\n')
+    expect(sistema).toContain('<guida>')
+    expect(sistema).toContain('## 21. Tabelle pesi')
+    expect(sistema).toContain('<icp>')
+    expect(sistema).not.toMatch(/\d\s*(euro|€)/i)
+    const testo = richiestaPunteggio()
+    expect(testo).toContain('"trascrizione":')
+    expect(testo).not.toContain('Gustavo')
+    // the calendar content and its script are context, the numbers are the ratios against the medians
+    expect(testo).toContain('"views_rapporto":1.4')
+  })
+
+  it('con le note accese nulla delle note è nella richiesta del punteggio: serve solo l’analisi', async () => {
+    const { db } = dbFinto(BASE, { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_ACCESE })
+    await analizzaReel({ db, id: 'a1', entro: entro(), cliente: client })
+    expect(richiestaPunteggio()).not.toContain('non aveva tempo la sera')
+  })
+
+  it('il Reel Type del contenuto collegato dichiara il tipo (Education è MOF); Radio lo lascia a Claude', async () => {
+    const collegato: Tabelle = {
+      ...BASE,
+      marketing_contenuti: [{ id: 'c1', nome: 'Il contenuto', tipo: 'reel', url: null, stato: 'posted', reel_type: 'converting', formato: null, instagram_shortcode: 'SeedPost02', messaggio: 'm', bozza: 'b', finale: 'f' }],
+    }
+    const { db, chiamate } = dbFinto(collegato, { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_SPENTE })
+    await analizzaReel({ db, id: 'a1', entro: entro(), cliente: client })
+    expect(richiestaPunteggio()).toContain('"tipo_dichiarato":"REEL_BOF"')
+    const fine = fineDi(chiamate)
+    expect(fine.p_punteggio).toMatchObject({ tipo: 'bof', tipo_origine: 'dichiarato' })
+    finto.azzera()
+    const radio: Tabelle = { ...collegato, marketing_contenuti: [{ ...collegato.marketing_contenuti[0], reel_type: 'radio' }] }
+    const altro = dbFinto(radio, { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_SPENTE })
+    await analizzaReel({ db: altro.db, id: 'a1', entro: entro(), cliente: client })
+    expect(richiestaPunteggio()).toContain('"tipo_dichiarato":null')
+  })
+
+  it('se il punteggio non diventa un punteggio l’analisi si salva lo stesso, e lo dice', async () => {
+    const tabelle: Tabelle = { ...BASE, instagram_contenuti: [{ ...BASE.instagram_contenuti[0], didascalia: '[[manca-criterio]]' }] }
+    const { db, chiamate } = dbFinto(tabelle, { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_SPENTE })
+    const r = await analizzaReel({ db, id: 'a1', entro: entro(), cliente: client })
+    expect(r.esito).toBe('ok')
+    const fine = fineDi(chiamate)
+    expect(fine.p_stato).toBe('pronta')
+    expect(fine.p_punteggio).toBeNull()
+    expect(fine.p_versione_guida).toBeNull()
+    expect(fine.p_fonti.punteggio).toBe('non_riuscito')
+  })
+
+  it('una citazione inventata, il trattino, l’emoji, il prezzo, l’elenco e l’hook lungo si sistemano o cadono', async () => {
+    const tabelle: Tabelle = {
+      ...BASE,
+      instagram_contenuti: [{ ...BASE.instagram_contenuti[0], didascalia: '[[citazione-falsa]] [[trattino]] [[emoji]] [[prezzo]] [[elenco]] [[hook-lungo]] [[atteso-alto]]' }],
+    }
+    const { db, chiamate } = dbFinto(tabelle, { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_SPENTE })
+    await analizzaReel({ db, id: 'a1', entro: entro(), cliente: client })
+    const p = JSON.stringify(fineDi(chiamate).p_punteggio)
+    expect(fineDi(chiamate).p_punteggio!.criteri.find((c) => c.id === 'H')!.citazione_trovata).toBe(false)
+    expect(p).not.toMatch(/[–—]/)
+    expect(p).not.toContain('\u{1F525}')
+    expect(p).not.toMatch(/1\.500|€/)
+    expect(p).toContain('il prezzo')
+    expect(p).not.toContain('- Primo punto')
+    expect(fineDi(chiamate).p_punteggio!.rifacimento.hook_alternativi).toHaveLength(2)
+    // the expected score never goes past 100
+    expect((fineDi(chiamate).p_punteggio as unknown as { rifacimento: { punteggio_atteso: number } }).rifacimento.punteggio_atteso).toBeLessThanOrEqual(100)
+  })
+
+  it('se l’analisi fallisce non si salva niente del punteggio; i token di tutte e due si contano', async () => {
+    const tabelle: Tabelle = { ...BASE, instagram_contenuti: [{ ...BASE.instagram_contenuti[0], didascalia: '[[tronca]]' }] }
+    const { db, chiamate } = dbFinto(tabelle, { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_SPENTE })
+    const r = await analizzaReel({ db, id: 'a1', entro: entro(), cliente: client })
+    expect(r.esito).toBe('fallito')
+    const fine = chiamate.find((c) => c.nome === 'marketing_analisi_fine')!.args as { p_stato: string; p_punteggio: unknown }
+    expect(fine.p_stato).toBe('fallita')
+    expect(fine.p_punteggio).toBeNull()
+    expect(r.uso.output_tokens).toBeGreaterThan(0)
   })
 })

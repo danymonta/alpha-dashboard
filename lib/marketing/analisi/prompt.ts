@@ -84,7 +84,7 @@ export const sistemaVisione = () => sistema(SISTEMA_VISIONE)
 export const sistemaAnalisi = () => sistema(SISTEMA_ANALISI)
 
 /** <passo>nome</passo> then the data in its tag: how the fake model of the tests reads a request. */
-export function bloccoDati(passo: 'visione_reel' | 'analisi_reel', tag: string, dati: unknown): BetaTextBlockParam {
+export function bloccoDati(passo: 'visione_reel' | 'analisi_reel' | 'punteggio_reel', tag: string, dati: unknown): BetaTextBlockParam {
   return { type: 'text', text: `<passo>${passo}</passo>\n<${tag}>\n${serializza(dati)}\n</${tag}>` }
 }
 

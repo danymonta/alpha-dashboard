@@ -35,6 +35,18 @@
 //   [[copia-setter]]   a bullet copies the first answer of the setter from <contesto_periodo>
 //   [[ref-falso]]      the link names a candidate that was never sent
 //   [[etichetta-falsa]] the first idea has a Format that is not Notion's
+// The content scoring (1.39.0) is a third step, punteggio_reel: a valid answer for the type the request
+// declares (REEL_TOF, REEL_MOF, REEL_BOF, else REEL_MOF), whose citations are literal pieces of the
+// transcript or the caption it was given. Markers anywhere in the reel's data:
+//   [[citazione-falsa]]  the Hook criterion quotes a sentence that is not in the content
+//   [[trattino]]         the reasons and the rewritten script carry a long dash, which the final check takes out
+//   [[elenco]]           the rewritten script has bullets, which the final check takes off
+//   [[emoji]]            the rewritten script has an emoji, which the final check takes out
+//   [[hook-lungo]]       one alternative hook has twelve words, which the final check drops
+//   [[atteso-alto]]      the expected score is 500, which the app brings back to what the rewrite can gain
+//   [[manca-criterio]]   the Hook criterion is left out: the answer cannot become a score
+//   [[senza-cta]]        a NO_CTA_BOF flag (BOF only) and the line of a PROMESSA_IRREALISTICA that is not in the content
+//   [[nome]], [[prezzo]] the answer names a person of the seed / quotes a price in the rewrite
 // 1.37.0 (calls and weekly brief), markers read anywhere in the request, transcript included:
 //   <passo>analisi_call</passo>: a valid analysis made from the call's context, with on purpose a health
 //     sentence (an ernia), a price (1.500 €), 8 words copied from the closer's note, «pectus» and «petto
@@ -415,6 +427,68 @@ function rispostaAnalisiReel(dati, testoDati, contesto) {
   }
 }
 
+// ---------- the content scoring (1.39.0) ----------
+
+const CRITERI_PER_TIPO = {
+  REEL_TOF: ['H', 'ST', 'ID', 'TV', 'SP', 'RL', 'CT', 'CA', 'CF'],
+  REEL_MOF: ['H', 'EV', 'CH', 'ID', 'TV', 'AP', 'RL', 'CT', 'CA', 'CF'],
+  REEL_BOF: ['H', 'PR', 'OB', 'ID', 'TV', 'CT', 'RL', 'CA', 'CF'],
+}
+
+function rispostaPunteggio(dati, testoDati) {
+  const tipo = dati.tipo_dichiarato ?? 'REEL_MOF'
+  const parlato = typeof dati.trascrizione === 'string' ? dati.trascrizione : ''
+  const prima = (parlato.split('\n')[0] || dati.didascalia || '').trim()
+  const frase = prima.split(/\s+/).slice(0, 6).join(' ') || 'Nessun parlato'
+  const trattino = testoDati.includes('[[trattino]]') ? ' — ' : ' '
+  const criteri = CRITERI_PER_TIPO[tipo].map((id, i) => ({
+    id,
+    voto: id === 'H' ? 8 : id === 'CF' ? 10 : 6 + (i % 3),
+    citazione: id === 'H' && testoDati.includes('[[citazione-falsa]]') ? 'Una frase che nel reel non esiste' : id === 'CA' || id === 'CF' ? '' : frase,
+    motivazione: `Il modello finto valuta ${id}${trattino}con la frase iniziale.${testoDati.includes('[[nome]]') ? ' Come ha detto Loris Setter, funziona.' : ''}`,
+    correzione: `Rivedere ${id} partendo dalla frase iniziale.`,
+  }))
+  const filtrati = testoDati.includes('[[manca-criterio]]') ? criteri.filter((c) => c.id !== 'H') : criteri
+  const penalita = []
+  if (testoDati.includes('[[senza-cta]]')) {
+    if (tipo === 'REEL_BOF') penalita.push({ flag: 'NO_CTA_BOF', riga: '' })
+    penalita.push({ flag: 'PROMESSA_IRREALISTICA', riga: 'Risultati garantiti in sette giorni' })
+  }
+  const alt = [
+    { testo: 'Niente sbarra, niente scuse: ecco come.', categoria: 'Errore', perche_funziona: 'Nomina l’errore tipico.' },
+    { testo: 'Allenarsi a casa funziona, se fai questo.', categoria: 'Educational', perche_funziona: 'Promette un metodo.' },
+    { testo: 'Quanto tempo ti serve davvero ogni settimana?', categoria: 'Domanda', perche_funziona: 'Posta in gioco concreta.' },
+  ]
+  if (testoDati.includes('[[hook-lungo]]')) alt[1].testo = 'Uno due tre quattro cinque sei sette otto nove dieci undici dodici'
+  let script = `Hook: ${alt[0].testo} (Dany al tavolo)\nBody: Tre cose, una per volta. (Mostra il tavolo)\nCTA: Salvalo e provalo stasera.`
+  if (testoDati.includes('[[elenco]]')) script = `Hook: ${alt[0].testo}\n- Primo punto\n- Secondo punto\nCTA: Provalo.`
+  if (testoDati.includes('[[trattino]]')) script = script.replace('Tre cose', 'Tre cose — una per volta').replace('Body:', 'Body –')
+  if (testoDati.includes('[[emoji]]')) script += ' 🔥'
+  if (testoDati.includes('[[prezzo]]')) script += ' Il percorso costa 1.500 €.'
+  return {
+    tipo,
+    motivo_classificazione: `Il modello finto ha usato il tipo ${tipo}.`,
+    hook: { testo: frase, cita_icp: true, categoria: 'Educational' },
+    criteri: filtrati,
+    penalita,
+    violazioni_formali: [],
+    segnalazioni: [],
+    punti_di_forza: [`Parte subito: «${frase}»`],
+    problemi_prioritari: [
+      { criterio: 'CT', problema: 'La CTA arriva tardi.' },
+      { criterio: 'RL', problema: 'Il ritmo cala a metà.' },
+    ],
+    confronto_benchmark: dati.numeri?.views ? `Le views sono ${dati.numeri.views}, sopra i riferimenti del dataset.` : null,
+    rifacimento: {
+      istruzioni: ['Aprire con il risultato.', 'Portare la CTA prima.'],
+      hook_alternativi: alt,
+      script_riscritto: script,
+      caption_riscritta: 'Scrivimi METODO.',
+      punteggio_atteso: testoDati.includes('[[atteso-alto]]') ? 500 : 88,
+    },
+  }
+}
+
 function rispostaCorrezione(dati) {
   return {
     correzioni: (dati.testi ?? []).map((t) => {
@@ -581,6 +655,7 @@ export function creaClaudeFinto(opzioni = {}) {
     else if (passo === 'correzione') risposta = rispostaCorrezione(dati)
     else if (passo === 'visione_reel') risposta = rispostaVisione(corpo, dati)
     else if (passo === 'analisi_reel') risposta = rispostaAnalisiReel(dati, testoDati, contestoPeriodo)
+    else if (passo === 'punteggio_reel') risposta = rispostaPunteggio(dati, testoDati)
     else if (passo === 'analisi_call') risposta = rispostaAnalisiCall(dati, testoDati)
     else if (passo === 'spunti_settimana') risposta = rispostaSpunti(dati, testoDati)
     else risposta = {}

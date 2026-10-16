@@ -82,7 +82,7 @@ function codiceDi(e: unknown): { codice: CodiceErroreClaude; ritentabile: boolea
 }
 
 export type OpzioniChiedi<T> = {
-  passo: 'visione' | 'analisi' | 'call' | 'spunti'
+  passo: 'visione' | 'analisi' | 'punteggio' | 'call' | 'spunti'
   sistema: BetaTextBlockParam[]
   contenuto: ContenutoUtente
   formato: { type: 'json_schema'; schema: Record<string, unknown> }

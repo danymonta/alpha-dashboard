@@ -2,6 +2,7 @@ import 'server-only'
 
 import type Anthropic from '@anthropic-ai/sdk'
 
+import { somma } from '@/lib/insight/esegui'
 import { quandoPubblicato } from '@/lib/marketing/parole-post'
 import type { AdminClient } from '@/lib/instagram/sincronizza-contenuti'
 import { chiediAClaude } from '@/lib/marketing/analisi/claude'
@@ -13,6 +14,10 @@ import { FORMATO_ANALISI_REEL, LettoAnalisiReel } from '@/lib/marketing/analisi/
 import { USO_ZERO, type FontiAnalisi, type SchedaVisiva, type UsoToken } from '@/lib/marketing/analisi/tipi'
 import { chiaveNome, verificaAnalisi, type Candidato } from '@/lib/marketing/analisi/verifica'
 import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE, ETICHETTA_STATUS } from '@/lib/marketing/etichette'
+import { GUIDA_AGGIORNATA_IL } from '@/lib/marketing/punteggio/guida'
+import { VERSIONE_PROMPT_PUNTEGGIO } from '@/lib/marketing/punteggio/prompt'
+import { NOME_TIPO, tipoDaReelType, type TipoPunteggio } from '@/lib/marketing/punteggio/tabelle'
+import { durataDelReel, testiASchermo, valutaContenuto } from '@/lib/marketing/punteggio/valuta'
 
 /**
  * The second pass of the reel analysis (1.36.0, CLAUDE.md section 30): text
@@ -27,6 +32,12 @@ import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE, ETICHETTA_STATUS } from '@/lib/m
  * exists in the request. Every text passes through oscura() before and through
  * the strict layer and the final check after. Never writes outside
  * marketing_analisi_fine; never throws.
+ *
+ * The same click also asks for the score of the reel (1.39.0, Dany's guide,
+ * lib/marketing/punteggio): a second request to Claude, in parallel with the
+ * analysis, with the same material. If the analysis works and the score does
+ * not, the analysis is kept without it (fonti.punteggio = 'non_riuscito') and
+ * the page says so; if the analysis fails, the job goes on as it always did.
  */
 
 export type EsitoPassoClaude = { esito: 'ok' | 'parziale' | 'fallito' | 'limite_fornitore'; uso: UsoToken }
@@ -54,6 +65,8 @@ export async function datiCalendario(
   const c = collegato.data
   if (c) {
     return {
+      // the type the Reel Type declares (Attraction, Education, Converting); Radio and Workshop are deduced by Claude
+      tipoDichiarato: tipoDaReelType(c.reel_type),
       calendario: {
         name: oscura(c.nome, parole),
         reel_type: c.reel_type ? ETICHETTA_REEL_TYPE[c.reel_type] : null,
@@ -89,6 +102,7 @@ export async function datiCalendario(
     .sort((a, b) => (a.distanza ?? 99) - (b.distanza ?? 99))
     .slice(0, CANDIDATI_MAX)
   return {
+    tipoDichiarato: null as TipoPunteggio | null,
     calendario: null,
     candidati: vicini.map(({ x }, i) => ({
       ref: `C${i + 1}`,
@@ -117,7 +131,16 @@ export async function analizzaReel(op: {
   let uso: UsoToken = { ...USO_ZERO }
   const chiudi = async (
     stato: 'pronta' | 'fallita' | 'in_coda',
-    campi: { numeri?: unknown; contenuto?: unknown; fonti?: unknown; modello?: string; errore?: string; riprovaIl?: string },
+    campi: {
+      numeri?: unknown
+      contenuto?: unknown
+      fonti?: unknown
+      modello?: string
+      errore?: string
+      riprovaIl?: string
+      punteggio?: unknown
+      versioneGuida?: string
+    },
   ) => {
     const { error } = await db.rpc('marketing_analisi_fine', {
       p_id: id,
@@ -129,6 +152,8 @@ export async function analizzaReel(op: {
       p_versione: (stato === 'pronta' ? VERSIONE_PROMPT_ANALISI : null) as never,
       p_errore: (campi.errore ?? null) as never,
       p_riprova_il: (campi.riprovaIl ?? null) as never,
+      p_punteggio: (campi.punteggio ?? null) as never,
+      p_versione_guida: (campi.versioneGuida ?? null) as never,
     })
     if (error) console.error('[analisi] analisi non chiusa:', error.code ?? 'errore')
   }
@@ -281,7 +306,41 @@ export async function analizzaReel(op: {
       idee_da_proporre: proposta,
     }
 
-    const risposta = await chiediAClaude({
+    // the score of the same reel (Dany's guide), asked at the same time: the speech, the caption, the card and the
+    // numbers as the analysis has them, never anything else
+    const testoParlato = segmenti.map((s) => s.testo).join('\n') || oscura(l?.trascrizione, parole)
+    const didascaliaPulita = blocco.didascalia
+    const testoSchermo = testiASchermo(scheda).map((x) => oscura(x, parole))
+    const durataSecondi = durataDelReel(p.durata_ms, testoParlato)
+    const punteggioPromessa = valutaContenuto({
+      reel: {
+        pubblicato: blocco.pubblicato,
+        durata_secondi: durataSecondi,
+        tipo_dichiarato: cal.tipoDichiarato ? NOME_TIPO[cal.tipoDichiarato] : null,
+        classificazione_della_visione: scheda?.classificazione ?? null,
+        didascalia: didascaliaPulita,
+        trascrizione: testoParlato !== '' ? testoParlato : (l?.trascrizione_esito ?? 'non disponibile'),
+        testo_a_schermo: testoSchermo,
+        scheda: schedaPerClaude,
+        calendario: cal.calendario,
+        numeri: {
+          views: numeri.views,
+          views_mediana: numeri.views_mediana,
+          views_rapporto: numeri.views_rapporto,
+          salvataggi_rapporto: numeri.salvataggi_rapporto,
+          condivisioni_rapporto: numeri.condivisioni_rapporto,
+          eta_ore: numeri.eta_ore,
+        },
+      },
+      fonti: { parlato: testoParlato, didascalia: didascaliaPulita, testoSchermo },
+      contesto: { tipoDichiarato: cal.tipoDichiarato, durataSecondi },
+      opzioni: { parole, note },
+      entro: op.entro,
+      segnale: op.segnale,
+      cliente: op.cliente,
+    })
+
+    const analisiPromessa = chiediAClaude({
       passo: 'analisi',
       sistema: sistemaAnalisi(),
       contenuto: contenutoAnalisi({ periodo_giorni: CONTESTO_GIORNI, ...contestoPulito }, blocco),
@@ -293,7 +352,9 @@ export async function analizzaReel(op: {
       segnale: op.segnale,
       cliente: op.cliente,
     })
-    uso = risposta.uso
+    const [risposta, punteggio] = await Promise.all([analisiPromessa, punteggioPromessa])
+    // both were billed whatever their outcome
+    uso = somma(risposta.uso, punteggio.uso)
     if (!risposta.ok) {
       const e = esitoDelCodice(risposta.codice)
       if (e.azione === 'tempo') {
@@ -323,7 +384,19 @@ export async function analizzaReel(op: {
       lead: contati ? 'si' : 'no',
       note_team: conNote,
     }
-    await chiudi('pronta', { numeri, contenuto: verificata.dati, fonti, modello: risposta.modello })
+    if (punteggio.ok) {
+      console.info('[analisi] punteggio', { tipo: punteggio.dati.tipo, totale: punteggio.dati.totale, ...punteggio.conteggi, scartate: punteggio.scartate })
+    } else {
+      console.info('[analisi] punteggio non riuscito', { codice: punteggio.codice })
+    }
+    fonti.punteggio = punteggio.ok ? 'si' : 'non_riuscito'
+    await chiudi('pronta', {
+      numeri,
+      contenuto: verificata.dati,
+      fonti,
+      modello: risposta.modello,
+      ...(punteggio.ok ? { punteggio: punteggio.dati, versioneGuida: `${GUIDA_AGGIORNATA_IL}.${VERSIONE_PROMPT_PUNTEGGIO}` } : {}),
+    })
     return { esito: 'ok', uso }
   } catch (e) {
     console.error('[analisi] analisi interrotta:', e instanceof Error ? e.name : 'errore')
