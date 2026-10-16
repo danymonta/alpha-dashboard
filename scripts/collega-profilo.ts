@@ -122,11 +122,12 @@ async function principale() {
   }
 
   for (const [tabella, colonna] of COLONNE) {
-    const { count, error } = await db.from(tabella).select('*', { count: 'exact', head: true }).eq(colonna, da.id)
+    // the table is only known at run time: a union of every table makes the compiler's types too deep
+    const { count, error } = await db.from(tabella as 'profiles').select('*', { count: 'exact', head: true }).eq(colonna as 'id', da.id)
     if (error) fallita(`${tabella}.${colonna}`, error.message)
     console.log(`  ${tabella}.${colonna}: ${count ?? 0}`)
     if (!o.prova && (count ?? 0) > 0) {
-      await scrivi(`${tabella}.${colonna}`, db.from(tabella).update({ [colonna]: a.id } as never).eq(colonna, da.id))
+      await scrivi(`${tabella}.${colonna}`, db.from(tabella as 'profiles').update({ [colonna]: a.id } as never).eq(colonna as 'id', da.id))
     }
   }
 
