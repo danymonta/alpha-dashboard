@@ -28,6 +28,9 @@ export const COLONNE_REEL = [
   'analisi_errore', 'analisi_motivo',
 ].join(', ')
 
+/** The reels of the page, and whether the verdicts could not be read (the list is then without them). */
+export type LetturaReel = { righe: RigaReel[]; senzaVerdetti: boolean }
+
 export type Riepilogo = {
   reel: number
   views_3g_mediana: number | null
@@ -51,6 +54,76 @@ export async function leggiReel(db: Db, f: FiltriAnalisi, adesso: Date = new Dat
   const { data, error } = await q
   if (error) throw new Error(`reel non letti (${error.code ?? 'errore'})`)
   return (data ?? []) as unknown as RigaReel[]
+}
+
+const COLONNE_NUMERI = [
+  'media_id', 'shortcode', 'permalink', 'copertina_url', 'pubblicato_il', 'giorno', 'durata_ms', 'video_disponibile', 'eliminato',
+  'media_type', 'metriche_stato', 'metriche_il', 'numeri_parziali', 'eta_ore', 'views', 'reach', 'saved', 'shares', 'likes',
+  'comments', 'like_count', 'comments_count', 'avg_watch_ms', 'skip_rate', 'views_3g', 'views_7g', 'tasso_salvataggi',
+  'tasso_condivisioni', 'visione_su_durata', 'lead_contati', 'lead_completi', 'dm_14g', 'in_target_14g', 'call_14g', 'dm',
+  'lead_in_target', 'call_prenotate',
+].join(', ')
+
+/**
+ * The same list without the verdicts, the comparison, the readings and the analyses: only the numbers of the
+ * posts and their place in the calendar (v_instagram_numeri, v_instagram_post), which are plain reads. It is
+ * the way out when v_analisi_reel does not answer (1.37.1): the page shows the reels and says what is missing.
+ */
+export async function leggiReelSenzaVerdetti(db: Db, f: FiltriAnalisi, adesso: Date = new Date()): Promise<RigaReel[]> {
+  const dal = aggiungiGiorni(oggiRoma(adesso), -f.periodo)
+  let q = db.from('v_instagram_numeri').select(COLONNE_NUMERI).gte('giorno', dal).or('reel.eq.true,media_type.eq.VIDEO')
+  if (f.ordine === 'views') q = q.order('views', { ascending: false, nullsFirst: false })
+  else if (f.ordine === 'lead') q = q.order('in_target_14g', { ascending: false, nullsFirst: false }).order('dm_14g', { ascending: false, nullsFirst: false })
+  const { data, error } = await q.order('pubblicato_il', { ascending: false }).limit(REEL_MAX)
+  if (error) throw new Error(`reel non letti (${error.code ?? 'errore'})`)
+  const numeri = (data ?? []) as unknown as Record<string, unknown>[]
+  if (numeri.length === 0) return []
+
+  const ids = numeri.map((n) => n.media_id as string)
+  const { data: post, error: errorePost } = await db
+    .from('v_instagram_post')
+    .select('media_id, didascalia, stato_collegamento, contenuto_id, contenuto_nome, contenuto_stato')
+    .in('media_id', ids)
+  if (errorePost) throw new Error(`reel non letti (${errorePost.code ?? 'errore'})`)
+  const perId = new Map((post ?? []).map((p) => [p.media_id as string, p]))
+
+  const righe = numeri.map((n) => {
+    const p = perId.get(n.media_id as string)
+    return {
+      ...n,
+      didascalia_inizio: p?.didascalia ? [...p.didascalia].slice(0, 140).join('') : null,
+      stato_collegamento: p?.stato_collegamento ?? null,
+      contenuto_id: p?.contenuto_id ?? null,
+      nome: p?.contenuto_nome ?? null,
+      status: p?.contenuto_stato ?? null,
+      reel_type: null, formato: null, eta_confronto: null, confronto: null, views_all_eta: null, views_confronto: null,
+      views_rapporto: null, salvataggi_rapporto: null, visione_media_s: null, quota_vista: null, fascia_pubblico: null,
+      fascia_lead: null, verdetto_oggi: null, lettura_stato: null, lettura_richiesta: null, lettura_video: null,
+      trascrizione_esito: null, visione_esito: null, fonte_visione: null, lettura_errore: null, analisi_id: null,
+      analisi_stato: null, analisi_verdetto: null, analisi_eta_ore: null, analisi_eta_confronto: null,
+      analisi_finita_il: null, analisi_errore: null, analisi_motivo: null,
+    }
+  }) as unknown as RigaReel[]
+  return f.senzaContenuto ? righe.filter((r) => r.contenuto_id === null) : righe
+}
+
+/**
+ * The reels of the page: the full list, or (only with the default verdict filter, the one the page opens
+ * with) the list without verdicts when the full one cannot be read. Throws when neither can.
+ */
+export async function leggiReelConRipiego(db: Db, f: FiltriAnalisi, adesso: Date = new Date()): Promise<LetturaReel> {
+  try {
+    return { righe: await leggiReel(db, f, adesso), senzaVerdetti: false }
+  } catch (errore) {
+    if (f.verdetto !== 'tutti') throw errore
+    try {
+      const righe = await leggiReelSenzaVerdetti(db, f, adesso)
+      console.error('[analisi] elenco dei reel senza verdetti:', errore instanceof Error ? errore.message : 'errore')
+      return { righe, senzaVerdetti: true }
+    } catch {
+      throw errore
+    }
+  }
 }
 
 /** The tiles for the same period. Throws on a read error. */

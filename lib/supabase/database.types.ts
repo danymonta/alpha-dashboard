@@ -2116,6 +2116,11 @@ isOneToOne: false
 "analisi_numeri_reel":
 { Args: { "p_eta"?: number,"p_media_id": string }; Returns: Json
                            },
+"analisi_numeri_set":
+{ Args: { "p_eta"?: number,"p_media_ids"?: (string)[] }; Returns: {
+              "media_id": string,"num": Json
+            }[]
+                           },
 "analisi_riepilogo":
 { Args: { "p_a": string,"p_da": string }; Returns: Json
                            },

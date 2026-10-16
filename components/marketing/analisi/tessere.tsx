@@ -18,7 +18,18 @@ function Tessera({ etichetta, valore, nota, testId }: { etichetta: string; valor
  * not count is said as such, never counted as zero. No gold: the page has no
  * number more important than the others.
  */
-export function Tessere({ r }: { r: Riepilogo }) {
+export function Tessere({ r }: { r: Riepilogo | null }) {
+  if (r === null) {
+    // the tiles could not be read: the page goes on without them (1.37.1)
+    return (
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="analisi-tessere" data-non-lette="1">
+        <Tessera testId="tessera-reel" etichetta="Reel del periodo" valore="n/d" nota="non caricato" />
+        <Tessera testId="tessera-views" etichetta="Views a 3 giorni" valore="n/d" nota="non caricato" />
+        <Tessera testId="tessera-lead" etichetta="Lead dai DM" valore="n/d" nota="non caricato" />
+        <Tessera testId="tessera-cambiare" etichetta="Da cambiare" valore="n/d" nota="non caricato" />
+      </div>
+    )
+  }
   const lead = r.reel_contati > 0
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="analisi-tessere">

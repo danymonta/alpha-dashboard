@@ -1,4 +1,4 @@
-import { Clapperboard } from 'lucide-react'
+import { AlertTriangle, Clapperboard } from 'lucide-react'
 
 import { FiltriAnalisiVista } from '@/components/marketing/analisi/filtri-analisi'
 import { ElencoReel } from '@/components/marketing/analisi/elenco-reel'
@@ -11,7 +11,7 @@ import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { leggiDettaglioReel } from '@/lib/marketing/analisi/dettaglio'
-import { leggiPermesso, leggiReel, leggiRiepilogo, leggiSituazione, REEL_MAX } from '@/lib/marketing/analisi/elenco'
+import { leggiPermesso, leggiReelConRipiego, leggiRiepilogo, leggiSituazione, REEL_MAX } from '@/lib/marketing/analisi/elenco'
 import { filtriDaParametri, PARAMETRO_REEL, sonoFiltriPredefiniti } from '@/lib/marketing/analisi/filtri'
 import { eMediaId } from '@/lib/marketing/analisi/pannello'
 import { createClient } from '@/lib/supabase/server'
@@ -51,9 +51,14 @@ export default async function AnalisiPage({
       )
     : Promise.resolve(null)
 
-  const [righe, riepilogo, situazione, permesso, account, dettaglio] = await Promise.all([
-    leggiReel(supabase, filtri),
-    leggiRiepilogo(supabase, filtri),
+  // The tiles and the verdicts are the parts that need the comparison of the reels: if they cannot be read
+  // the page still shows the reels (and says what is missing), instead of the error of the whole page.
+  const [{ righe, senzaVerdetti }, riepilogo, situazione, permesso, account, dettaglio] = await Promise.all([
+    leggiReelConRipiego(supabase, filtri),
+    leggiRiepilogo(supabase, filtri).catch((e) => {
+      console.error('[analisi] tessere non lette:', e instanceof Error ? e.message : 'errore')
+      return null
+    }),
     leggiSituazione(supabase),
     leggiPermesso(supabase).catch(() => null),
     supabase.from('instagram_contenuti_stato').select('account_username').maybeSingle(),
@@ -75,6 +80,13 @@ export default async function AnalisiPage({
         <RigaSituazione situazione={situazione} oggi={oggi} permesso={permesso} accountStatistiche={nomeAccount ?? undefined} />
 
         <Tessere r={riepilogo} />
+
+        {senzaVerdetti ? (
+          <p className="flex items-start gap-2 text-sm text-muted-foreground" role="status" data-testid="analisi-senza-verdetti">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden />
+            <span>I verdetti e i confronti non si sono caricati: qui sotto i reel con i loro numeri. Riprova fra un momento.</span>
+          </p>
+        ) : null}
 
         <FiltriAnalisiVista filtri={filtri} />
 
