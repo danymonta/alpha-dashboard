@@ -53,6 +53,7 @@ const STRUMENTI_TEAM = [
   'crea_contenuti',
   'elenco_contenuti',
   'etichette_contenuti',
+  'guida_contenuti',
   'icp',
   'leggi_contenuto',
   'modifica_contenuto',
@@ -171,6 +172,14 @@ test('il marketing collega Claude: consenso, token e strumenti sul calendario', 
     const icp = await mcp.callTool({ name: 'icp', arguments: {} })
     expect(icp.isError, testoRisultato(icp)).toBeFalsy()
     expect(datiRisultato<{ profilo: string }>(icp).profilo).toBe(ICP)
+
+    // Dany's guide to the content (1.39.0): read only, a constant of the code, no price in it
+    const guida = await mcp.callTool({ name: 'guida_contenuti', arguments: {} })
+    expect(guida.isError, testoRisultato(guida)).toBeFalsy()
+    const testoGuida = datiRisultato<{ guida: string }>(guida).guida
+    expect(testoGuida).toContain('Tono di voce di Dany')
+    expect(testoGuida).not.toMatch(/euro|€|rate da/i)
+    expect(datiRisultato<{ guida: string }>(await mcp.callTool({ name: 'guida_contenuti', arguments: { parte: 'punteggio' } })).guida).toContain('Tabelle pesi')
 
     // the weekly brief (1.37.0): read only, the themes in words, never a name or a figure of money
     const spunti = await mcp.callTool({ name: 'spunti_contenuti', arguments: {} })

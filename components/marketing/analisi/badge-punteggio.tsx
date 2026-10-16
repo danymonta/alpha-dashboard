@@ -48,12 +48,14 @@ export function BadgePunteggio({
   const Icona = ICONA[f.codice]
   return (
     <span
-      className={cn('inline-flex items-center gap-1.5 text-sm font-medium whitespace-nowrap', COLORE[f.codice], className)}
+      className={cn('inline-flex items-start gap-1.5 text-sm font-medium', COLORE[f.codice], className)}
       data-punteggio={f.codice}
     >
-      <Icona className="size-4 shrink-0" aria-hidden="true" />
-      <span className="num">{totale}</span>
-      <span>· {f.etichetta}</span>
+      <Icona className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      {/* the words may wrap in a narrow cell (390 px): a score that pushes the page sideways is worse than two lines */}
+      <span className="min-w-0 wrap-break-word">
+        <span className="num">{totale}</span> · {f.etichetta}
+      </span>
     </span>
   )
 }

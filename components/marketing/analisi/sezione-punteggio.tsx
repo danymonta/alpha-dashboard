@@ -237,7 +237,8 @@ export function SezionePunteggio({
           </p>
         ) : analisi ? (
           <p className="text-sm text-muted-foreground">
-            Questo reel è stato analizzato prima del punteggio.{puoAnalizzare ? ' Premi «Dai il punteggio»: rifà anche l’analisi.' : ''}
+            Questo reel è stato analizzato prima del punteggio.
+            {puoAnalizzare ? ' Premi «Dai il punteggio»: rifà anche l’analisi.' : ' Il punteggio lo dà Claude quando l’admin o il marketing analizzano il reel.'}
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">

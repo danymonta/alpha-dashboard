@@ -169,7 +169,7 @@ test('«Analizza» mette il reel in coda: lettura e analisi, con le frasi della 
     await apri(page, `/marketing/analisi?reel=${REEL_SENZA_ANALISI}`)
     const p = pannello(page)
     await p.getByTestId('analizza-reel').click()
-    await expect(page.locator('[data-sonner-toast]').getByText(/^Analisi in coda/)).toBeVisible()
+    await expect(page.locator('[data-sonner-toast]').getByText(/^Analisi e punteggio in coda/)).toBeVisible()
     await expect(p.getByTestId('reel-in-corso')).toContainText('In coda')
     // the button is gone while it is at work: a second request is never offered
     await expect(p.getByTestId('analizza-reel')).toHaveCount(0)

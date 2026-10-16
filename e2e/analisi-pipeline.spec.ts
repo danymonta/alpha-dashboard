@@ -110,10 +110,14 @@ test('Aggiorna da Instagram, Analizza, i passi e il pannello: dalla statistica a
     await page.goto(`/marketing/analisi?reel=${REEL}`)
     const p = page.getByTestId('pannello-reel')
     await expect(p.getByTestId('reel-numeri')).toBeVisible({ timeout: 60_000 })
+    // up to here the morning run read the posts and their numbers, and Claude was asked nothing: it works only after a click (1.39.0)
+    expect(await (await fetch(`${CLAUDE}/__ultime`)).json()).toHaveLength(0)
+    expect(await eseguiPassiMarketing()).toBe(0)
+    await expect(p.getByTestId('punteggio-vuoto')).toContainText('Non valutato')
     await p.getByTestId('analizza-reel').click()
     await expect(p.getByTestId('reel-in-corso')).toBeVisible()
 
-    // the steps: the reading (video, frames, speech, visual card), then the analysis
+    // the steps: the reading (video, frames, speech, visual card), then the analysis and the score
     expect(await eseguiPassiMarketing()).toBeGreaterThanOrEqual(2)
     const { data: lettura } = await db
       .from('instagram_letture')
@@ -125,17 +129,37 @@ test('Aggiorna da Instagram, Analizza, i passi e il pannello: dalla statistica a
     expect(lettura?.trascrizione).toContain('Niente sbarra')
     const { data: analisi } = await db
       .from('marketing_analisi')
-      .select('stato, verdetto, contenuto, fonti')
+      .select('stato, verdetto, contenuto, fonti, punteggio, punteggio_totale, punteggio_fascia, punteggio_tipo, versione_guida')
       .eq('media_id', REEL)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
     expect(analisi?.stato).toBe('pronta')
     expect((analisi?.contenuto as { idee: unknown[] }).idee.length).toBeGreaterThanOrEqual(2)
+    // the score of the same click: made by the app from the votes of Claude, with the passages that are in the reel
+    expect(analisi?.fonti).toMatchObject({ punteggio: 'si' })
+    const punteggio = analisi?.punteggio as {
+      tipo: string
+      tipo_origine: string
+      totale: number
+      hook: { testo: string }
+      criteri: { citazione_trovata: boolean }[]
+      rifacimento: { script_riscritto: string; hook_alternativi: unknown[] }
+    }
+    expect(analisi).toMatchObject({ punteggio_tipo: 'mof' })
+    expect(analisi?.punteggio_totale).toBe(punteggio.totale)
+    expect(analisi?.versione_guida).toMatch(/^2026-10-16\./)
+    expect(punteggio).toMatchObject({ tipo: 'mof', tipo_origine: 'dedotto' })
+    expect(punteggio.hook.testo).toContain('Niente sbarra')
+    expect(punteggio.criteri.every((c) => c.citazione_trovata)).toBe(true)
+    expect(punteggio.rifacimento.hook_alternativi).toHaveLength(3)
 
     // what reached the fakes: the frames as images, the audio to Whisper
-    const richieste = (await (await fetch(`${CLAUDE}/__ultime`)).json()) as { corpo: { messages: { content: { type: string }[] }[] } }[]
+    const richieste = (await (await fetch(`${CLAUDE}/__ultime`)).json()) as { corpo: { messages: { content: { type: string; text?: string }[] }[] } }[]
     expect(richieste.some((r) => r.corpo.messages[0].content.some((b) => b.type === 'image'))).toBe(true)
+    // the look, the analysis and the score: three requests, one click
+    const passi = richieste.map((r) => /<passo>([a-z_]+)<\/passo>/.exec(r.corpo.messages[0].content.map((b) => b.text ?? '').join('\n'))?.[1]).sort()
+    expect(passi).toEqual(['analisi_reel', 'punteggio_reel', 'visione_reel'])
     const voce = (await (await fetch(`${GROQ}/__ultime`)).json()) as { voce: { modello: string; byte: number } | null }
     expect(voce.voce?.byte).toBeGreaterThan(1000)
 
@@ -147,10 +171,60 @@ test('Aggiorna da Instagram, Analizza, i passi e il pannello: dalla statistica a
     // the panel shows it, with what Claude saw
     await page.goto(`/marketing/analisi?reel=${REEL}`)
     await expect(p.getByTestId('reel-analisi-pronta')).toBeVisible({ timeout: 60_000 })
+    await expect(p.getByTestId('punteggio-totale')).toHaveText(String(punteggio.totale))
+    await expect(p.getByTestId('reel-punteggio')).toContainText('Valutato come Consapevolezza (MOF), dedotto da Claude')
     await expect(p.getByTestId('reel-fonti')).toContainText('fotogrammi')
     await p.getByTestId('reel-parlato-blocco').locator('summary').click()
     await expect(p.getByTestId('reel-parlato')).toContainText('Niente sbarra? Nessun problema.')
     await expect(page.getByTestId('elenco-reel').getByTestId('colonna-analisi').first()).toBeVisible()
+  })
+})
+
+test('le trappole del controllo finale: la citazione inventata cade, il trattino e l’emoji li vede il codice, lo script esce pulito', async ({ page }) => {
+  test.setTimeout(240_000)
+  await conGiro(page, '', async () => {
+    const db = dbLocale()
+    // a caption with a long dash and an emoji (the code's own flags), and the markers that make the fake Claude misbehave
+    await db
+      .from('instagram_contenuti')
+      .update({ didascalia: 'Allenati a casa — davvero 🔥 [[citazione-falsa]] [[trattino]] [[emoji]] [[prezzo]] [[elenco]] [[hook-lungo]] [[atteso-alto]]' })
+      .eq('media_id', REEL)
+    await page.goto(`/marketing/analisi?reel=${REEL}`)
+    const p = page.getByTestId('pannello-reel')
+    await expect(p.getByTestId('reel-numeri')).toBeVisible({ timeout: 60_000 })
+    await p.getByTestId('analizza-reel').click()
+    await expect(p.getByTestId('reel-in-corso')).toBeVisible()
+    await eseguiPassiMarketing()
+
+    const { data } = await db.from('marketing_analisi').select('punteggio, punteggio_totale').eq('media_id', REEL).eq('stato', 'pronta').single()
+    const s = data?.punteggio as {
+      penalita: { flag: string; da: string; valore: number }[]
+      penalita_totali: number
+      criteri: { id: string; citazione_trovata: boolean; voto: number; voto_modello: number }[]
+      rifacimento: { script_riscritto: string; hook_alternativi: unknown[]; punteggio_atteso: number }
+      totale: number
+    }
+    // the code saw the dash and the emoji, whatever Claude said
+    expect(s.penalita.filter((x) => x.da === 'codice').map((x) => x.flag).sort()).toEqual(['EMOJI', 'EM_DASH'])
+    expect(s.penalita_totali).toBe(-8)
+    // two formal violations (10 - 4 = 6), and the long dash caps the conformity at 4 on its own
+    expect(s.criteri.find((c) => c.id === 'CF')).toMatchObject({ voto: 4, voto_modello: 10 })
+    expect(s.criteri.find((c) => c.id === 'H')?.citazione_trovata).toBe(false)
+    expect(s.rifacimento.hook_alternativi).toHaveLength(2)
+    expect(s.rifacimento.punteggio_atteso).toBeLessThanOrEqual(100)
+    expect(s.rifacimento.punteggio_atteso).toBeGreaterThanOrEqual(s.totale)
+    expect(s.rifacimento.script_riscritto).not.toMatch(/[–—€]|1\.500|\u{1F525}|^\s*[-*•]\s/mu)
+    expect(JSON.stringify(s)).not.toContain('Loris')
+
+    await page.goto(`/marketing/analisi?reel=${REEL}`)
+    await expect(p.getByTestId('punteggio-totale')).toHaveText(String(s.totale), { timeout: 60_000 })
+    await expect(p.getByTestId('punteggio-penalita')).toContainText('Contiene un trattino lungo o medio')
+    await expect(p.getByTestId('punteggio-penalita')).toContainText('Contiene emoji')
+    await p.getByTestId('punteggio-criteri').locator('summary').click()
+    await expect(p.locator('[data-criterio="H"]').getByTestId('citazione-non-trovata')).toBeVisible()
+    await p.getByTestId('punteggio-come-rifarlo').locator('summary').click()
+    await expect(p.getByTestId('punteggio-hook')).toHaveCount(2)
+    expect(await p.getByTestId('punteggio-script').innerText()).not.toMatch(/[–—€]/)
   })
 })
 
