@@ -24,23 +24,27 @@ async function apri(page: Page, url = '/marketing/analisi') {
   await expect(page.getByTestId('analisi-tessere')).toBeVisible({ timeout: 60_000 })
 }
 
-test('la lista: colonna Punteggio, Non valutato, filtri per fascia e ordine per punteggio', async ({ page }) => {
+test('la lista: colonna «Cosa fare» con il punteggio, Da valutare, filtri per fascia e ordine per punteggio', async ({ page }) => {
   await accedi(page, 'admin')
   await apri(page)
   const elenco = page.getByTestId('elenco-reel')
-  await expect(elenco.locator('thead').getByRole('columnheader', { name: 'Punteggio' })).toBeVisible()
+  // verdict, score and analysis are one column: what to do with the reel (1.39.1)
+  await expect(elenco.locator('thead').getByRole('columnheader', { name: 'Cosa fare' })).toBeVisible()
+  await expect(elenco.locator('thead').getByRole('columnheader', { name: 'Punteggio' })).toHaveCount(0)
   const riga82 = elenco.locator(`tr[data-riga-reel="${REEL_82}"]`)
-  await expect(riga82.getByTestId('colonna-punteggio')).toContainText('82 · Pubblicare dopo ritocchi')
+  await expect(riga82.getByTestId('colonna-cosa-fare')).toContainText('82')
+  await expect(riga82.getByTestId('colonna-cosa-fare')).toContainText('Ritoccalo e ripubblicalo')
   await expect(riga82.locator('[data-punteggio="pubblicare_dopo_ritocchi"]')).toBeVisible()
-  await expect(elenco.locator(`tr[data-riga-reel="${REEL_ANALIZZATO_SENZA_PUNTEGGIO}"]`).getByTestId('colonna-punteggio')).toContainText('Non valutato')
+  await expect(elenco.locator(`tr[data-riga-reel="${REEL_ANALIZZATO_SENZA_PUNTEGGIO}"]`).getByTestId('colonna-cosa-fare')).toContainText('Da valutare')
 
-  const filtri = page.getByRole('navigation', { name: 'Filtri dell’analisi' })
-  await filtri.getByRole('link', { name: 'Scartare o ripartire' }).click()
+  const filtri = page.getByRole('region', { name: 'Filtri dell’analisi' })
+  await filtri.getByRole('combobox', { name: 'Punteggio' }).selectOption({ label: 'Rifallo da capo (0-49)' })
   await expect(page).toHaveURL(/punteggio=scartare/)
   await expect(elenco.locator('tr[data-riga-reel]')).toHaveCount(1)
-  await expect(elenco.locator(`tr[data-riga-reel="${REEL_41}"]`).getByTestId('colonna-punteggio')).toContainText('41 · Scartare o ripartire')
+  await expect(elenco.locator(`tr[data-riga-reel="${REEL_41}"]`).getByTestId('colonna-cosa-fare')).toContainText('Rifallo da capo')
+  await expect(elenco.locator(`tr[data-riga-reel="${REEL_41}"]`).getByTestId('punteggio-numero')).toHaveText('41')
 
-  await filtri.getByRole('link', { name: 'Non valutati' }).click()
+  await filtri.getByRole('combobox', { name: 'Punteggio' }).selectOption({ label: 'Non valutati' })
   await expect(page).toHaveURL(/punteggio=non_valutato/)
   await expect(elenco.locator(`tr[data-riga-reel="${REEL_82}"]`)).toHaveCount(0)
   await expect(elenco.locator(`tr[data-riga-reel="${REEL_ANALIZZATO_SENZA_PUNTEGGIO}"]`)).toBeVisible()
@@ -52,38 +56,36 @@ test('la lista: colonna Punteggio, Non valutato, filtri per fascia e ordine per 
   expect(prime).toEqual([REEL_82, REEL_41])
 })
 
-test('il pannello: «Punteggio» è in cima, con la fascia, l’azione della guida, i criteri e «Come rifarlo»', async ({ page, context }) => {
+test('il pannello: «Cosa fare» è in cima, con la frase, il punteggio, le cose da sistemare; poi «Come rifarlo», «Perché», «Numeri»', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await accedi(page, 'admin')
   await apri(page, `/marketing/analisi?reel=${REEL_82}`)
   const p = pannello(page)
-  const sezione = p.getByTestId('reel-punteggio')
-  await expect(sezione).toBeVisible()
-  await expect(sezione.getByTestId('punteggio-totale')).toHaveText('82')
-  await expect(sezione).toContainText('Pubblicare dopo ritocchi')
-  await expect(sezione).toContainText('Correggi i criteri sotto 7, nessuna riscrittura completa.')
-  await expect(sezione).toContainText('Valutato come Consapevolezza (MOF), dal Reel Type del calendario')
-  // the score is the first section, before the numbers
+  const blocco = p.getByTestId('reel-cosa-fare')
+  await expect(blocco).toBeVisible()
+  await expect(blocco.getByTestId('punteggio-totale')).toHaveText('82')
+  await expect(blocco.getByTestId('cosa-fare-titolo-breve')).toHaveText('Ritoccalo e ripubblicalo')
+  // one sentence that joins the score's band and the verdict of the numbers, without saying the title twice
+  await expect(blocco.getByTestId('cosa-fare-frase')).toHaveText('Un criterio sotto 7. Il pubblico l’ha premiato: spingilo.')
+  await expect(blocco.getByTestId('punteggio-problemi')).toContainText('fino a')
+  expect(await blocco.getByTestId('punteggio-problemi').locator('li').count()).toBeLessThanOrEqual(3)
+  // the touch-ups: the action is to look at how, never the calendar; «Analizza di nuovo» is the quiet one at the bottom
+  await expect(blocco.getByTestId('vedi-rifacimento')).toBeVisible()
+  await expect(blocco.getByTestId('analizza-reel')).toHaveText('Analizza di nuovo')
+  // the block is the first thing, before the tabs and the numbers
   const y = async (id: string) => (await p.getByTestId(id).boundingBox())?.y ?? 0
-  expect(await y('reel-punteggio')).toBeLessThan(await y('reel-numeri'))
+  expect(await y('reel-cosa-fare')).toBeLessThan(await y('punteggio-rifacimento'))
 
-  // the criteria, collapsed: vote, weight, the passage, the reason, the correction
-  await expect(sezione.getByTestId('punteggio-criterio').first()).toBeHidden()
-  await sezione.getByTestId('punteggio-criteri').locator('summary').click()
-  const hook = sezione.locator('[data-criterio="H"]')
-  await expect(hook).toContainText('Hook')
-  await expect(hook).toContainText('8/10 · peso 20 · 16 punti')
-  await expect(hook).toContainText('«Niente sbarra? Nessun problema.»')
-  await expect(hook).toContainText('Correzione:')
-  await expect(sezione.getByTestId('punteggio-criterio')).toHaveCount(10)
-  await expect(sezione.getByTestId('punteggio-problemi')).toContainText('fino a')
-
-  // how to redo it: instructions, three hooks with «Copia», the script, the caption, the expected score
-  await sezione.getByTestId('punteggio-come-rifarlo').locator('summary').click()
-  const rifacimento = sezione.getByTestId('punteggio-rifacimento')
+  // the tabs, «Come rifarlo» first: instructions, three hooks with «Copia», the script, the caption, the expected score
+  const schede = p.getByRole('tablist', { name: 'Dettagli del reel' })
+  await expect(schede.getByRole('tab')).toHaveText(['Come rifarlo', 'Perché', 'Numeri'])
+  await expect(schede.getByRole('tab', { name: 'Come rifarlo' })).toHaveAttribute('aria-selected', 'true')
+  const rifacimento = p.getByTestId('punteggio-rifacimento')
   await expect(rifacimento.getByTestId('punteggio-hook')).toHaveCount(3)
   await expect(rifacimento.getByTestId('punteggio-script')).toContainText('Hook:')
   await expect(rifacimento.getByTestId('punteggio-atteso')).toContainText('Punteggio atteso dopo il rifacimento: 90 su 100.')
+  // the ideas of the analysis say they are others: not the rewrite of this reel
+  await expect(p.getByTestId('reel-idee')).toContainText('Altre idee dallo stesso tema')
   const copia = rifacimento.getByTestId('punteggio-hook').first().locator('button')
   // the first tap may come before the page is hydrated (a development server compiles on the first visit): tap again
   await expect(copia).toHaveAccessibleName(/^Copia l’hook: /)
@@ -94,6 +96,45 @@ test('il pannello: «Punteggio» è in cima, con la fascia, l’azione della gui
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Schiena forte senza sbarra, con tre oggetti.')
   await expect(rifacimento.getByRole('button', { name: 'Copia lo script riscritto' })).toBeVisible()
   await expect(rifacimento.getByRole('button', { name: 'Copia la caption riscritta' })).toBeVisible()
+
+  // «Perché»: the criteria, the weakest first and open, with the passage, the reason and the correction; the others closed
+  await schede.getByRole('tab', { name: 'Perché' }).click()
+  await expect(page).toHaveURL(/scheda=perche/)
+  const criteri = p.getByTestId('punteggio-criteri')
+  await expect(criteri.getByTestId('punteggio-criterio')).toHaveCount(10)
+  const primo = criteri.getByTestId('punteggio-criterio').first()
+  await expect(primo.locator('details')).toHaveAttribute('open', '')
+  await expect(primo).toContainText('Peso')
+  const hook = criteri.locator('[data-criterio="H"]')
+  await expect(hook).toContainText('8/10')
+  await expect(hook.locator('details')).not.toHaveAttribute('open', '')
+  await hook.locator('summary').click()
+  await expect(hook).toContainText('Peso 20 · 16 punti')
+  await expect(hook).toContainText('«Niente sbarra? Nessun problema.»')
+  await expect(hook).toContainText('Correzione:')
+  await expect(p.getByTestId('reel-perche')).toContainText('Valutato come Consapevolezza (MOF), dal Reel Type del calendario')
+  await expect(p.getByTestId('reel-perche')).toContainText('Fascia della guida: Pubblicare dopo ritocchi (80-89)')
+
+  // «Numeri»: the figures, the verdict of the numbers, the leads
+  await schede.getByRole('tab', { name: 'Numeri' }).click()
+  await expect(p.getByTestId('reel-numeri')).toContainText('12.480')
+  await expect(p.getByTestId('reel-verdetto')).toContainText('Spingere')
+
+  // the touch-up button leads to «Come rifarlo»
+  await blocco.getByTestId('vedi-rifacimento').click()
+  await expect(schede.getByRole('tab', { name: 'Come rifarlo' })).toHaveAttribute('aria-selected', 'true')
+  await expect(p.getByTestId('punteggio-rifacimento')).toBeVisible()
+})
+
+test('un reel da rifare (41): la fascia, la frase unica e l’azione «Aggiungi il rifacimento al calendario» in cima', async ({ page }) => {
+  await accedi(page, 'admin')
+  await apri(page, `/marketing/analisi?reel=${REEL_41}`)
+  const blocco = pannello(page).getByTestId('reel-cosa-fare')
+  await expect(blocco.getByTestId('cosa-fare-titolo-breve')).toHaveText('Rifallo da capo')
+  await expect(blocco.getByTestId('cosa-fare-frase')).toHaveText('L’idea non è allineata a fase, ICP o tono. I numeri confermano: sotto la mediana.')
+  await expect(blocco.getByTestId('aggiungi-rifacimento')).toHaveText('Aggiungi il rifacimento al calendario')
+  await expect(blocco.getByTestId('vedi-rifacimento')).toHaveCount(0)
+  await expect(blocco.getByTestId('punteggio-problemi').locator('li')).toHaveCount(3)
 })
 
 test('«Aggiungi al calendario» dal rifacimento crea un Reel Topic con lo script riscritto, una volta sola', async ({ page }) => {
@@ -106,8 +147,8 @@ test('«Aggiungi al calendario» dal rifacimento crea un Reel Topic con lo scrip
     await accedi(page, 'marketing')
     await apri(page, `/marketing/analisi?reel=${REEL_82}`)
     const p = pannello(page)
-    await p.getByTestId('punteggio-come-rifarlo').locator('summary').click()
-    await p.getByTestId('aggiungi-rifacimento').click()
+    // a touch-up (82): the button closes «Come rifarlo», the first tab; for the bands that ask to redo it is in the block on top
+    await p.getByTestId('punteggio-rifacimento').getByTestId('aggiungi-rifacimento').click()
     await expect(page.locator('[data-sonner-toast]').getByText(/^«Rifacimento: .*» è nel calendario, da girare\.$/)).toBeVisible()
     await expect(p.getByTestId('punteggio-rifacimento').getByRole('link', { name: 'Già nel calendario' })).toBeVisible()
     await expect(p.getByTestId('aggiungi-rifacimento')).toHaveCount(0)
@@ -138,13 +179,14 @@ test('«Non valutato»: un reel analizzato prima del punteggio dice «Dai il pun
   await accedi(page, 'admin')
   await apri(page, `/marketing/analisi?reel=${REEL_ANALIZZATO_SENZA_PUNTEGGIO}`)
   let p = pannello(page)
-  await expect(p.getByTestId('punteggio-vuoto')).toContainText('Non valutato')
+  await expect(p.getByTestId('cosa-fare-titolo-breve')).toHaveText('Da valutare')
   await expect(p.getByTestId('punteggio-vuoto')).toContainText('analizzato prima del punteggio')
   await expect(p.getByTestId('analizza-reel')).toHaveText('Dai il punteggio')
 
   await page.goto(`/marketing/analisi?reel=${REEL_SENZA_ANALISI}`)
   p = pannello(page)
-  await expect(p.getByTestId('punteggio-vuoto')).toContainText('parte solo da «Analizza»')
+  await expect(p.getByTestId('punteggio-vuoto')).toContainText('Premendo «Analizza» Claude guarda il video')
+  await expect(p.getByTestId('punteggio-vuoto')).toContainText('costo stimato circa 0,30 $')
   await expect(p.getByTestId('analizza-reel')).toHaveText('Analizza')
 
   await page.goto(`/marketing/analisi?reel=${REEL_82}`)
@@ -160,7 +202,7 @@ test('«Non valutato»: un reel analizzato prima del punteggio dice «Dai il pun
   await expect(pe.getByTestId('analizza-reel')).toHaveCount(0)
   await expect(editor.getByTestId('valuta-tutti')).toHaveCount(0)
   await editor.goto(`/marketing/analisi?reel=${REEL_ANALIZZATO_SENZA_PUNTEGGIO}`)
-  await expect(pannello(editor).getByTestId('punteggio-vuoto')).toContainText('quando l’admin o il marketing analizzano il reel')
+  await expect(pannello(editor).getByTestId('punteggio-vuoto')).toContainText('Le analisi le chiedono l’admin e il marketing')
   await contesto.close()
 })
 
@@ -215,13 +257,27 @@ test('a 390 px: il punteggio, i criteri e il rifacimento non allargano la pagina
   await accedi(page, 'admin')
   await apri(page)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
-  await expect(page.getByTestId('elenco-reel').locator(`li[data-riga-reel="${REEL_82}"]`)).toContainText('82 · Pubblicare dopo ritocchi')
+  const card = page.getByTestId('elenco-reel').locator(`li[data-riga-reel="${REEL_82}"]`)
+  await expect(card).toContainText('82')
+  await expect(card).toContainText('Ritoccalo e ripubblicalo')
+  // at 390 px the filters are one button, not four rows
+  await expect(page.getByTestId('filtri-apri')).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Periodo' })).toHaveCount(0)
+  await page.getByTestId('filtri-apri').click()
+  const foglio = page.getByTestId('filtri-foglio')
+  await foglio.getByRole('combobox', { name: 'Verdetto' }).selectOption('cambiare')
+  await expect(page).toHaveURL(/verdetto=cambiare/)
+  await expect(page.getByTestId('filtri-apri')).toContainText('Filtri (1)')
+  await foglio.getByRole('button', { name: 'Fatto' }).click()
+  await expect(foglio).toBeHidden()
+  await expect(page.getByTestId('filtri-apri')).toBeFocused()
+  await page.goto('/marketing/analisi')
   await page.goto(`/marketing/analisi?reel=${REEL_82}`)
   const p = pannello(page)
   await expect(p.getByTestId('punteggio-totale')).toBeVisible({ timeout: 60_000 })
-  await p.getByTestId('punteggio-criteri').locator('summary').click()
-  await p.getByTestId('punteggio-come-rifarlo').locator('summary').click()
   await expect(p.getByTestId('punteggio-rifacimento')).toBeVisible()
+  await p.getByRole('tab', { name: 'Perché' }).click()
+  await expect(p.getByTestId('punteggio-criteri')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   expect(await p.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
   for (const b of await p.getByRole('button').all()) {
@@ -236,7 +292,7 @@ test('Post di Instagram e il blocco del contenuto: il punteggio del reel collega
   await expect(page.getByRole('heading', { level: 1, name: 'Post di Instagram' })).toBeVisible({ timeout: 60_000 })
   const collegati = page.locator('section[aria-labelledby="titolo-collegati"]')
   const riga = collegati.locator('[data-post="SeedDemo01"]')
-  await expect(riga.getByTestId('punteggio-post')).toContainText('82 · Pubblicare dopo ritocchi')
+  await expect(riga.getByTestId('punteggio-post')).toContainText('82 · Ritoccalo e ripubblicalo')
   await expect(riga.getByTestId('punteggio-post').getByRole('link', { name: 'Apri l’analisi' })).toHaveAttribute('href', new RegExp(`reel=${REEL_82}`))
   // a linked reel never scored: «Non valutato», with the link to its analysis
   await expect(collegati.locator('[data-post="SeedPost02"]').getByTestId('punteggio-post')).toContainText('Non valutato')
@@ -245,7 +301,7 @@ test('Post di Instagram e il blocco del contenuto: il punteggio del reel collega
   const { data: contenuto } = await dbLocale().from('marketing_contenuti').select('id').eq('instagram_shortcode', 'SeedDemo01').single()
   await page.goto(`/marketing/contenuti?contenuto=${contenuto?.id}`)
   const blocco = page.getByRole('dialog').getByTestId('punteggio-post')
-  await expect(blocco).toContainText('82 · Pubblicare dopo ritocchi', { timeout: 60_000 })
+  await expect(blocco).toContainText('82 · Ritoccalo e ripubblicalo', { timeout: 60_000 })
 })
 
 test('Spunti e Fathom non parlano più di automatismi: nessun lunedì, un solo interruttore', async ({ page }) => {
