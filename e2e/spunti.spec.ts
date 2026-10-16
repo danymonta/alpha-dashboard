@@ -13,9 +13,15 @@ import { accedi } from './utenti'
 
 const BRIEF_SEED = '5ee70000-0000-4000-8000-000000000001'
 
-test.afterEach(async () => {
-  await dbLocale().from('marketing_contenuti').delete().like('nome', 'Idea di prova%')
-})
+/** The contents these tests make: the ideas of Claude's fake and the one taken from the seed's brief. */
+async function pulisci() {
+  const db = dbLocale()
+  await db.from('marketing_contenuti').delete().like('nome', 'Idea di prova%')
+  await db.from('marketing_contenuti').delete().eq('da_spunti', BRIEF_SEED)
+}
+
+test.beforeEach(pulisci)
+test.afterEach(pulisci)
 
 test('l’admin legge gli spunti, aggiunge un’idea al calendario una volta sola e vede «Per te»', async ({ page }) => {
   await accedi(page, 'admin')
