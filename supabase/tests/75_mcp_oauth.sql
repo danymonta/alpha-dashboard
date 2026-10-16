@@ -620,7 +620,7 @@ begin
   -- the calls of 1.37.0: every one reads current_role(), which an OAuth token does not have; the brief is made for it
   perform pg_temp.prova('call_analisi_richiedi', format($q$ select public.call_analisi_richiedi(%L)::text $q$, a.call_id));
   perform pg_temp.prova('call_imposta_costo_max', $q$ select public.call_imposta_costo_max(30)::text $q$);
-  perform pg_temp.prova('call_imposta_interruttori', $q$ select public.call_imposta_interruttori(false, false)::text $q$);
+  perform pg_temp.prova('call_imposta_interruttori', $q$ select public.call_imposta_interruttori(false)::text $q$);
   perform pg_temp.prova('call_lavori_situazione', $q$ select public.call_lavori_situazione()::text $q$);
   perform pg_temp.prova('call_numeri_periodo', $q$ select count(*)::text from public.call_numeri_periodo('2026-10-01', '2026-10-31', 'totale', null) $q$);
   perform pg_temp.prova('collega_registrazione', format($q$ select public.collega_registrazione(%L, '{"tipo":"non_registrata"}')::text $q$, a.call_id));

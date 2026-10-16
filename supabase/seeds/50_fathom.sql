@@ -2,8 +2,8 @@
 -- real Fathom meeting, a real link or a real person. After 45_analisi_reel.sql. Dates
 -- relative to the calls already there; idempotent (on conflict do nothing).
 --
--- The planner is quiet here: the automatic Monday brief is off (pg_cron runs for real
--- in the local database, and a brief appearing during an e2e test would disturb it).
+-- The planner is quiet here: since 1.39.0 the brief of the Spunti is only on request, so
+-- pg_cron has nothing to queue for it in the local database.
 -- No Fathom key in Vault, no step URL: nothing leaves this machine, the tests drive the steps.
 --
 -- The closer's held calls with an outcome, newest first:
@@ -11,8 +11,6 @@
 --   4    link pasted, not checked on Fathom yet
 --   5    «Call non registrata»
 --   6    a link of another site (Zoom): saved, no recording
-
-update public.call_lavori_stato set spunti_automatici = false where id;
 
 do $$
 declare

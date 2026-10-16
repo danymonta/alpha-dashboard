@@ -378,8 +378,8 @@ update public.instagram_contenuti set eliminato_il = null;
 select pg_temp.reel(20, 120); select pg_temp.reel(21, 48); select pg_temp.reel(22, 960); select pg_temp.reel(23, 1200);
 select pg_temp.reel(24, 240); select pg_temp.reel(25, 168); select pg_temp.reel(26, 72);
 insert into public.instagram_letture (media_id, richiesta, motivo, priorita, created_at) values
-  ('8100000000000020', 'completa', 'automatica', 1, now() - interval '1 hour'),
-  ('8100000000000021', 'completa', 'automatica', 1, now() - interval '1 hour'),
+  ('8100000000000020', 'trascrizione', 'automatica', 1, now() - interval '1 hour'),
+  ('8100000000000021', 'trascrizione', 'automatica', 1, now() - interval '1 hour'),
   ('8100000000000022', 'trascrizione', 'recupero', 0, now() - interval '1 hour'),
   ('8100000000000023', 'trascrizione', 'recupero', 0, now() - interval '1 hour'),
   ('8100000000000003', 'completa', 'richiesta', 2, now() - interval '3 hours'),
@@ -415,11 +415,12 @@ end;
 $$;
 
 -- at 03:00 (Rome): the requests first, oldest first; a request whose reading is waiting comes after it;
--- then the newest reel's automatic reading, the oldest reel's automatic analysis, the recoveries
+-- then the newest reel's automatic reading (the speech only), the recoveries; the automatic analyses (a4, a5,
+-- left in the queue by a version before 1.39.0) are never picked: Claude works only after a click
 select is(
   pg_temp.sequenza(((public.oggi()::timestamp + time '03:00') at time zone 'Europe/Rome')),
-  'lettura:03 lettura:02 lettura:26 analisi:a6 lettura:21 lettura:20 analisi:a4 analisi:a5 lettura:22 lettura:23',
-  'l''ordine: richieste, poi letture automatiche (reel più recente prima), analisi automatiche (reel più vecchio prima), recuperi');
+  'lettura:03 lettura:02 lettura:26 analisi:a6 lettura:21 lettura:20 lettura:22 lettura:23',
+  'l''ordine: richieste, poi letture automatiche della sola trascrizione (reel più recente prima), recuperi; mai un''analisi automatica');
 update public.instagram_letture set stato = 'in_coda', errore = null;
 update public.marketing_analisi set stato = 'in_coda', errore = null, finita_il = null;
 select is(
@@ -450,8 +451,8 @@ update public.instagram_letture set stato = 'fallita', errore = 'x' where media_
   ('8100000000000003', '8100000000000002', '8100000000000026');
 select is(
   pg_temp.sequenza(((public.oggi()::timestamp + time '03:00') at time zone 'Europe/Rome')),
-  'analisi:a6 analisi:a4 analisi:a5',
-  'con 30 letture automatiche e 60 recuperi già fatti oggi restano le richieste e le analisi: le altre letture aspettano domani');
+  'analisi:a6',
+  'con 30 letture automatiche e 60 recuperi già fatti oggi resta la richiesta: le altre letture aspettano domani');
 update public.marketing_analisi set stato = 'in_coda', errore = null, finita_il = null;
 delete from public.instagram_letture where media_id like '8199%';
 delete from public.instagram_contenuti where media_id like '8199%';
@@ -620,8 +621,8 @@ update public.instagram_contenuti set eliminato_il = now() where media_id !~ '^8
 select public.marketing_pianifica();
 select is(
   (select array_agg(right(l.media_id, 2) || ':' || l.richiesta || ':' || l.motivo || ':' || l.priorita order by l.media_id) from public.instagram_letture l),
-  array['30:completa:automatica:1', '31:completa:automatica:1', '32:trascrizione:recupero:0', '33:trascrizione:recupero:0'],
-  'letture nuove: 28 giorni completa, da 29 a 90 la sola trascrizione, oltre niente');
+  array['30:trascrizione:automatica:1', '31:trascrizione:automatica:1', '32:trascrizione:recupero:0', '33:trascrizione:recupero:0'],
+  'letture nuove: sempre la sola trascrizione (1.39.0, niente Claude da solo); fino a 28 giorni prima, da 29 a 90 come recupero, oltre niente');
 select public.marketing_pianifica();
 select is((select count(*)::integer from public.instagram_letture), 4, 'rifatto non cambia niente');
 delete from public.instagram_letture;
@@ -632,7 +633,7 @@ update public.marketing_lavori_stato set automatiche = true;
 delete from public.instagram_contenuti where media_id ~ '^81000000000000(3[0-4])$';
 update public.instagram_contenuti set eliminato_il = null where media_id ~ '^8100000000000(0[01]|1[0-8])';
 
--- automatic analyses: T (100 hours) with the 8 comparison reels. Without the permission: none
+-- no analysis by itself, whatever the age, the permission, the leads or the reading: T (100 hours) with the 8 comparison reels
 update public.instagram_contenuti_stato set permesso_insights = false;
 insert into public.instagram_letture (media_id, richiesta, motivo, stato, trascrizione_esito, visione_esito)
 values ('8100000000000001', 'completa', 'automatica', 'fatta', 'senza_parlato', 'rifiutata');
@@ -648,10 +649,10 @@ update public.instagram_contenuti set pubblicato_il = now() - interval '109 hour
 update public.instagram_contenuti_misure set giorno = ((now() - interval '37 hours') at time zone 'Europe/Rome')::date, letto_il = now() - interval '37 hours'
 where media_id = '8100000000000001';
 select public.marketing_pianifica();
-select is((select row(count(*), min(motivo))::text from public.marketing_analisi), row(1::bigint, 'automatica'::text)::text,
-  'a 109 ore parte comunque, senza i lead');
+select is((select count(*)::integer from public.marketing_analisi), 0,
+  'a 109 ore non parte nessuna analisi da sola (1.39.0)');
 select public.marketing_pianifica();
-select is((select count(*)::integer from public.marketing_analisi), 1, 'una sola analisi automatica per reel');
+select is((select count(*)::integer from public.marketing_analisi), 0, 'e ripianificando ancora niente');
 -- with counted leads it starts at 72 hours
 delete from public.marketing_analisi;
 update public.instagram_contenuti set pubblicato_il = now() - interval '80 hours' where media_id = '8100000000000001';
@@ -660,7 +661,7 @@ where media_id = '8100000000000001';
 insert into public.instagram_contenuti_dm_giorni (giorno)
 select ((now() - interval '80 hours') at time zone 'Europe/Rome')::date + g from generate_series(0, 2) g on conflict (giorno) do nothing;
 select public.marketing_pianifica();
-select is((select count(*)::integer from public.marketing_analisi), 1, 'con i lead contati parte a 80 ore');
+select is((select count(*)::integer from public.marketing_analisi), 0, 'nemmeno con i lead contati a 80 ore');
 -- the reading must be done (or failed): not waiting in the queue
 delete from public.marketing_analisi;
 update public.instagram_letture set stato = 'in_coda', trascrizione_esito = null, visione_esito = null, scheda = null where media_id = '8100000000000001';
@@ -668,7 +669,7 @@ select public.marketing_pianifica();
 select is((select count(*)::integer from public.marketing_analisi), 0, 'con la lettura ancora in coda non parte');
 update public.instagram_letture set created_at = now() - interval '49 hours' where media_id = '8100000000000001';
 select public.marketing_pianifica();
-select is((select count(*)::integer from public.marketing_analisi), 1, 'ma dopo 48 ore di coda parte lo stesso');
+select is((select count(*)::integer from public.marketing_analisi), 0, 'né dopo 48 ore di coda');
 delete from public.marketing_analisi;
 -- under 72 hours: nothing; at 336 hours: the whole life
 update public.instagram_contenuti set pubblicato_il = now() - interval '71 hours' where media_id = '8100000000000001';
@@ -682,7 +683,7 @@ select public.marketing_pianifica();
 select is((select count(*)::integer from public.marketing_analisi), 0, 'a 400 ore con meno di 8 reel di confronto più vecchi niente');
 update public.instagram_contenuti set pubblicato_il = now() - interval '600 hours' where media_id ~ '^81000000000000(1[1-3])$';
 select public.marketing_pianifica();
-select is((select count(*)::integer from public.marketing_analisi), 1, 'a 336 ore e più parte sulla vita intera, col confronto');
+select is((select count(*)::integer from public.marketing_analisi), 0, 'né a 336 ore e più sulla vita intera');
 update public.instagram_contenuti set pubblicato_il = now() - interval '700 hours' where media_id = '8100000000000001';
 delete from public.marketing_analisi;
 select public.marketing_pianifica();
@@ -819,7 +820,7 @@ select is(
      'marketing_tick()', 'marketing_dispatch()', 'marketing_pianifica()', 'marketing_c_e_lavoro()', 'marketing_costo_mese()',
      'marketing_scegli_lavoro(timestamptz)', 'marketing_sveglia()', 'marketing_prendi_passo(integer)',
      'marketing_lettura_fine(text, jsonb)',
-     'marketing_analisi_fine(uuid, text, jsonb, jsonb, jsonb, text, text, text, timestamptz)',
+     'marketing_analisi_fine(uuid, text, jsonb, jsonb, jsonb, text, text, text, timestamptz, jsonb, text)',
      'marketing_passo_finito(uuid, text, jsonb)', 'marketing_fonti_analisi(date, date)', 'marketing_da_oscurare()',
      'marketing_imposta_url(text)', 'marketing_segna_esito(text, text)']) f
    where has_function_privilege('anon', 'public.' || f, 'execute') or has_function_privilege('authenticated', 'public.' || f, 'execute')),

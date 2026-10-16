@@ -133,10 +133,10 @@ select is((select richieste_oggi::integer from public.call_lavori_stato where id
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 select is(pg_temp.codice($$ select public.call_analisi_richiedi('84840000-0000-4000-8000-0000000000a1') $$), '22023', 'con le analisi spente no');
-select is(pg_temp.codice($$ select public.call_imposta_interruttori(true, null) $$), 'ok', 'l''admin le accende');
+select is(pg_temp.codice($$ select public.call_imposta_interruttori(true) $$), 'ok', 'l''admin le accende');
 select is(pg_temp.codice($$ select public.call_imposta_costo_max(300) $$), '22023', 'il limite va da 0 a 200');
 set local request.jwt.claims to '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
-select is(pg_temp.codice($$ select public.call_imposta_interruttori(false, null) $$), '42501', 'il closer non spegne');
+select is(pg_temp.codice($$ select public.call_imposta_interruttori(false) $$), '42501', 'il closer non spegne');
 select is(pg_temp.codice($$ select public.call_imposta_costo_max(5) $$), '42501', 'né cambia il limite');
 reset role;
 
