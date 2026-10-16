@@ -64,7 +64,7 @@ function somma(a: ConteggiControllo, b: ConteggiControllo): ConteggiControllo {
 }
 
 /** A text cut and cleaned; null when nothing is left (or a note was copied). */
-class Pulitore {
+export class Pulitore {
   conteggi: ConteggiControllo = { nomi: 0, handle: 0, importi: 0, link: 0, trattini: 0 }
   scartate = 0
   constructor(private readonly o: OpzioniVerifica) {}

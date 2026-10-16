@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { aggiornaContenutiInstagram } from '@/lib/instagram/sincronizza-contenuti'
+import { urlPassoCall } from '@/lib/call/lavori/config'
 import { urlPassoMarketing } from '@/lib/marketing/analisi/config'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -50,6 +51,12 @@ export async function GET(request: NextRequest) {
     await db.rpc('marketing_imposta_url', { p_url: urlPassoMarketing() as never })
   } catch (e) {
     console.error('[contenuti-instagram] indirizzo dei passi non scritto:', e instanceof Error ? e.name : 'errore')
+  }
+  // and the one of the call work (1.37.0): the analyses of the calls and the weekly brief
+  try {
+    await db.rpc('call_imposta_url', { p_url: urlPassoCall() as never })
+  } catch (e) {
+    console.error('[contenuti-instagram] indirizzo dei passi delle call non scritto:', e instanceof Error ? e.name : 'errore')
   }
 
   const corpo = {

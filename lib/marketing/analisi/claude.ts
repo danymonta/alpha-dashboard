@@ -72,7 +72,7 @@ function codiceDi(e: unknown): { codice: CodiceErroreClaude; ritentabile: boolea
 }
 
 export type OpzioniChiedi<T> = {
-  passo: 'visione' | 'analisi'
+  passo: 'visione' | 'analisi' | 'call' | 'spunti'
   sistema: BetaTextBlockParam[]
   contenuto: ContenutoUtente
   formato: { type: 'json_schema'; schema: Record<string, unknown> }
@@ -83,6 +83,8 @@ export type OpzioniChiedi<T> = {
   /** epoch ms: the step's deadline */
   entro: number
   segnale?: AbortSignal
+  /** the output ceiling of the request: 16,000 unless the caller needs more (the weekly brief) */
+  maxTokens?: number
   /** the SDK client of the Insight; the tests pass theirs */
   cliente?: Anthropic
   modello?: string
@@ -118,7 +120,7 @@ export async function chiediAClaude<T>(op: OpzioniChiedi<T>): Promise<RispostaCl
       const stream = cliente.beta.messages.stream(
         {
           model: modello,
-          max_tokens: 16_000,
+          max_tokens: op.maxTokens ?? 16_000,
           system: op.sistema,
           messages: [{ role: 'user', content: op.contenuto }],
           output_config: { effort: op.effort, format: op.formato },
