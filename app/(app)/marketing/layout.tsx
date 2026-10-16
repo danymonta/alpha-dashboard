@@ -2,11 +2,9 @@ import type { ReactNode } from 'react'
 
 import { SchedeMarketing } from '@/components/marketing/schede-marketing'
 import { RUOLI_MARKETING } from '@/lib/auth/roles'
+import { STATI_DA_COLLEGARE } from '@/lib/marketing/parole-post'
 import { requireRuolo } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
-
-/** "Da collegare": a post with proposals or without a content (v_instagram_post). */
-const DA_COLLEGARE = ['proposto', 'senza_contenuto']
 
 /**
  * The Marketing area (1.33.0): its tabs stay still between its pages
@@ -22,7 +20,7 @@ export default async function LayoutMarketing({ children }: { children: ReactNod
   const { count, error } = await supabase
     .from('v_instagram_post')
     .select('shortcode', { count: 'exact', head: true })
-    .in('stato_collegamento', DA_COLLEGARE)
+    .in('stato_collegamento', STATI_DA_COLLEGARE)
 
   return (
     <div>

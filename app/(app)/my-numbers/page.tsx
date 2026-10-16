@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
 import { EtichettaConNota } from '@/components/metriche/nota'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
-import { LinkInsight24h } from '@/components/setting/insight-24h'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { LinkLegenda } from '@/components/setter/link-legenda'
 import { MieGiornate, VOCE_STRATEGY_STORICO, VOCI_GIORNATE } from '@/components/setter/mie-giornate'
@@ -178,7 +177,6 @@ export default async function IMieiNumeriPage({
       <div className="max-w-2xl space-y-5">
         <IntestazionePagina
           titolo="I miei numeri"
-          azione={<LinkInsight24h />}
           descrizione={
             <>
               Le tue metriche del periodo e le tue provvigioni.

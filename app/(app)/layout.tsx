@@ -6,6 +6,7 @@ import { alfireConfigurata } from '@/lib/alfire/config'
 import { haAreaDisponibile } from '@/lib/auth/roles'
 import { requireProfilo, type Profilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
+import { STATI_DA_COLLEGARE } from '@/lib/marketing/parole-post'
 import { NESSUN_PROMEMORIA, type Promemoria } from '@/lib/nav'
 import { contaCommentiMancanti } from '@/lib/setting/commenti-mancanti'
 import { createClient } from '@/lib/supabase/server'
@@ -24,6 +25,9 @@ import { createClient } from '@/lib/supabase/server'
  * - The setter's own days from 08/10/2026 still without the required comment
  *   of the day (Dany: "deve lui sempre lasciare un commento della
  *   giornata"), on his "Oggi": the setter only, never the admin.
+ * - The Instagram posts still to link to the content calendar (1.38.0: the
+ *   number of the Marketing tab, now on the menu item too), on "Post di
+ *   Instagram": admin, video editor and marketing. Posts, never persons.
  * Never another person's number, no alert, no email. The layout does not
  * render again on a client navigation: this is the start, the browser counts
  * again (EsitiDaRegistrareProvider), and `letto` tells it when these counts
@@ -34,7 +38,8 @@ async function contaPromemoria(profilo: Profilo): Promise<{ promemoria: Promemor
   const contaEsiti = profilo.ruolo === 'admin' || profilo.ruolo === 'closer'
   const contaDaApprovare = profilo.ruolo === 'admin' || profilo.ruolo === 'setter'
   const contaCommenti = profilo.ruolo === 'setter'
-  if (!contaEsiti && !contaDaApprovare) return { promemoria: NESSUN_PROMEMORIA, letto }
+  const contaDaCollegare = profilo.ruolo === 'admin' || profilo.ruolo === 'editor' || profilo.ruolo === 'marketing'
+  if (!contaEsiti && !contaDaApprovare && !contaDaCollegare) return { promemoria: NESSUN_PROMEMORIA, letto }
 
   const supabase = await createClient()
   const esiti = async () => {
@@ -60,8 +65,29 @@ async function contaPromemoria(profilo: Profilo): Promise<{ promemoria: Promemor
   }
   const commenti = async () =>
     contaCommenti ? ((await contaCommentiMancanti(supabase, profilo.id, oggiRoma(new Date(letto)))) ?? 0) : 0
-  const [numeroEsiti, numeroDaApprovare, numeroCommenti] = await Promise.all([esiti(), daApprovare(), commenti()])
-  return { promemoria: { esiti: numeroEsiti, daApprovare: numeroDaApprovare, commenti: numeroCommenti }, letto }
+  const daCollegare = async () => {
+    if (!contaDaCollegare) return 0
+    const { count, error } = await supabase
+      .from('v_instagram_post')
+      .select('shortcode', { count: 'exact', head: true })
+      .in('stato_collegamento', STATI_DA_COLLEGARE)
+    return error ? 0 : (count ?? 0)
+  }
+  const [numeroEsiti, numeroDaApprovare, numeroCommenti, numeroDaCollegare] = await Promise.all([
+    esiti(),
+    daApprovare(),
+    commenti(),
+    daCollegare(),
+  ])
+  return {
+    promemoria: {
+      esiti: numeroEsiti,
+      daApprovare: numeroDaApprovare,
+      commenti: numeroCommenti,
+      daCollegare: numeroDaCollegare,
+    },
+    letto,
+  }
 }
 
 export default async function AppLayout({ children }: { children: ReactNode }) {

@@ -1,3 +1,4 @@
+import { SchedeInsight } from '@/components/insight/schede-insight'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Scheletro,
@@ -7,11 +8,13 @@ import {
   ScheletroRighe,
 } from '@/components/stati/scheletri'
 
-/** Setter: the header with its actions, the period, one card per setter, the daily reports. */
+/** Setter: the tabs, the header with its actions, the period, one card per setter, the daily reports. */
 export default function Loading() {
   return (
     <Scheletro etichetta="Caricamento del setting">
-      <ScheletroIntestazione azioni={2} />
+      {/* the tabs are already there: only what is under them loads (1.38.0) */}
+      <SchedeInsight ruolo="admin" attiva="principale" />
+      <ScheletroIntestazione azioni={1} />
       <ScheletroPeriodo className="-ml-3" />
       <div className="grid gap-3 md:grid-cols-2">
         <ScheletroNumeri quanti={6} grande />

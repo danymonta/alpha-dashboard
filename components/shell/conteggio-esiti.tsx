@@ -7,8 +7,9 @@ type Props = {
   attiva?: boolean
   /**
    * "conteggio-esiti" (outcomes to record), "conteggio-da-approvare" (days to
-   * decide), "conteggio-commenti" (days without the comment), "conteggio-altro"
-   * (more than one of them).
+   * decide), "conteggio-commenti" (days without the comment),
+   * "conteggio-post-da-collegare" (posts to link, the menu item's),
+   * "conteggio-altro" (more than one of them).
    */
   testId?: string
   className?: string
@@ -55,6 +56,8 @@ export function ConteggioPromemoria({
     promemoria.esiti > 0 ? 'conteggio-esiti' : null,
     promemoria.daApprovare > 0 ? 'conteggio-da-approvare' : null,
     promemoria.commenti > 0 ? 'conteggio-commenti' : null,
+    // not 'conteggio-da-collegare': that one is the Marketing tab's, on the same page
+    promemoria.daCollegare > 0 ? 'conteggio-post-da-collegare' : null,
   ].filter((tipo) => tipo !== null)
   const testId = tipi.length > 1 ? 'conteggio-altro' : (tipi[0] ?? 'conteggio-esiti')
   return <ConteggioEsiti numero={totalePromemoria(promemoria)} attiva={attiva} testId={testId} className={className} />

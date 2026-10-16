@@ -52,6 +52,9 @@ export function etichettaCollega(stato: string | null | undefined): string {
   return !stato || stato === 'posted' ? 'Collega' : 'Collega e segna Posted'
 }
 
+/** "Da collegare": a post with proposals or without a content (v_instagram_post.stato_collegamento). */
+export const STATI_DA_COLLEGARE = ['proposto', 'senza_contenuto']
+
 /** "Post di Instagram, 5 da collegare": the tab's accessible name with its badge. */
 export function nomeSchedaPost(daCollegare: number): string {
   return daCollegare > 0 ? `Post di Instagram, ${daCollegare} da collegare` : 'Post di Instagram'

@@ -93,27 +93,29 @@ describe('percorsi del tutorial', () => {
     )
   })
 
-  it('il setter passa da «Insight ultime 24h» dopo Closer e prima di Alfire; l’admin no (1.35.0)', () => {
+  it('il setter passa dalla scheda «Insight 24h» di Oggi, subito dopo i due passi di Oggi; l’admin la nomina nel passo Closer (1.38.0)', () => {
     const setter = PERCORSI.setter
     const ids = setter.map((p) => p.id)
     expect(setter).toHaveLength(12)
-    expect(ids.indexOf('insight')).toBe(ids.indexOf('closer') + 1)
-    expect(ids.indexOf('alfire')).toBe(ids.indexOf('insight') + 1)
-    // never right after "Oggi": that step continues on /today
-    expect(ids[ids.indexOf('vai-oggi') + 1]).not.toBe('insight')
+    expect(ids.indexOf('insight')).toBe(ids.indexOf('salvato') + 1)
     const passo = setter[ids.indexOf('insight')]
     expect(passo.clic).toBeFalsy()
-    expect(passo.pagina).toBeUndefined()
-    expect(passo.target).toEqual(['nav-/insight', 'nav-altro'])
-    expect(passo.titolo).toBe('Insight ultime 24h')
+    // the tab is on /today: the step lives there, not in the menu
+    expect(passo.pagina).toBe('/today')
+    expect(passo.target).toEqual(['scheda-insight'])
+    expect(passo.titolo).toBe('Insight 24h')
+    // no step points at an item of the menu that is gone
+    for (const ruolo of TUTTI_I_RUOLI) {
+      expect(PERCORSI[ruolo].some((p) => (p.target ?? []).includes('nav-/insight')), ruolo).toBe(false)
+    }
 
-    // the admin's tour stays at 12, the most: his Closer step names the item instead
+    // the admin's tour stays at 12, the most: his Closer step names the tab of Setter
     expect(PERCORSI.admin).toHaveLength(12)
     expect(PERCORSI.admin.some((p) => p.id === 'insight')).toBe(false)
-    expect(PERCORSI.admin.find((p) => p.id === 'closer')?.testo).toContain('«Insight ultime 24h» con il recap dei DM')
+    expect(PERCORSI.admin.find((p) => p.id === 'closer')?.testo).toContain('nella scheda «Insight 24h», il recap dei DM')
     // nobody else has it
     for (const ruolo of ['closer', 'coach', 'editor', 'marketing', 'nutrizione', 'dev'] as const) {
-      expect(PERCORSI[ruolo].some((p) => p.id === 'insight' || (p.target ?? []).includes('nav-/insight')), ruolo).toBe(false)
+      expect(PERCORSI[ruolo].some((p) => p.id === 'insight'), ruolo).toBe(false)
     }
   })
 

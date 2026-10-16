@@ -2,7 +2,7 @@
 
 import { MoreHorizontal } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 import {
   Sheet,
@@ -16,7 +16,6 @@ import { usePromemoria } from '@/components/shell/esiti-da-registrare'
 import { LinkNav } from '@/components/shell/link-nav'
 import type { AppRole } from '@/lib/auth/roles'
 import {
-  classeTonoIcona,
   isAttiva,
   nomeConPromemoria,
   promemoriaDellaVoce,
@@ -33,7 +32,8 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
   // the person's own calls to record and days to decide (zero where the role has none)
   const promemoria = usePromemoria()
   const [apertoAltro, setApertoAltro] = useState(false)
-  const { principali, altre } = vociNav(ruolo)
+  const { principali, altre, gruppiAltro } = vociNav(ruolo)
+  const idBase = useId()
   // on a page reached from "Altro" (e.g. Impostazioni) the bar still says where you are
   const altroAttivo = altre.some((v) => isAttiva(pathname, v))
   // items with a count inside the sheet: "Altro" carries their numbers
@@ -61,7 +61,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                   attiva ? 'text-foreground' : 'text-muted-foreground'
                 }`}
               >
-                <voce.Icona className={`size-5 ${classeTonoIcona(voce, attiva)}`} aria-hidden="true" />
+                <voce.Icona className="size-5" aria-hidden="true" />
                 <span className="truncate">{voce.etichetta}</span>
                 <Conteggio promemoria={suoi} className={SUL_ICONA} />
                 <span
@@ -96,38 +96,61 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                   className={`h-0.5 w-6 rounded-full ${altroAttivo ? 'bg-primary-light' : 'bg-transparent'}`}
                 />
               </SheetTrigger>
-              <SheetContent side="bottom" className="rounded-t-xl pb-8">
+              <SheetContent side="bottom" className="max-h-[85dvh] rounded-t-xl pb-8">
                 <SheetHeader>
                   <SheetTitle>Altro</SheetTitle>
                 </SheetHeader>
-                <ul className="px-4">
-                  {altre.map((voce) => {
-                    const attiva = isAttiva(pathname, voce)
-                    const suoi = promemoriaDellaVoce(voce, promemoria)
+                {/* the same groups and titles as the desktop sidebar (1.38.0); two columns, so
+                    the admin's fifteen items fit a phone without scrolling much */}
+                <div className="space-y-3 overflow-y-auto px-4">
+                  {gruppiAltro.map(({ titolo, voci }, i) => {
+                    const idTitolo = `${idBase}-gruppo-${i}`
                     return (
-                      <li key={voce.href}>
-                        <LinkNav
-                          href={voce.href}
-                          onClick={() => setApertoAltro(false)}
-                          aria-current={attiva ? 'page' : undefined}
-                          aria-label={nomeConPromemoria(voce.etichetta, suoi)}
-                          // the sheet is already --accent (surface-2): the current page takes
-                          // the sidebar's active style, so it reads the same on every viewport
-                          className={`flex min-h-12 items-center gap-3 rounded-lg px-2 text-sm ${
-                            attiva ? 'bg-primary text-primary-foreground' : 'hover:bg-background'
-                          }`}
-                        >
-                          <voce.Icona
-                            className={`size-4 ${attiva ? '' : classeTonoIcona(voce, attiva) || 'text-muted-foreground'}`}
-                            aria-hidden="true"
-                          />
-                          {voce.etichetta}
-                          <Conteggio promemoria={suoi} attiva={attiva} className="ml-auto" />
-                        </LinkNav>
-                      </li>
+                      <div
+                        key={titolo ?? 'in-cima'}
+                        role={titolo ? 'group' : undefined}
+                        aria-labelledby={titolo ? idTitolo : undefined}
+                      >
+                        {titolo ? (
+                          <p
+                            id={idTitolo}
+                            className="px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                          >
+                            {titolo}
+                          </p>
+                        ) : null}
+                        <ul className="grid grid-cols-2 gap-x-2">
+                          {voci.map((voce) => {
+                            const attiva = isAttiva(pathname, voce)
+                            const suoi = promemoriaDellaVoce(voce, promemoria)
+                            return (
+                              <li key={voce.href}>
+                                <LinkNav
+                                  href={voce.href}
+                                  onClick={() => setApertoAltro(false)}
+                                  aria-current={attiva ? 'page' : undefined}
+                                  aria-label={nomeConPromemoria(voce.etichetta, suoi)}
+                                  // the sheet is already --accent (surface-2): the current page takes
+                                  // the sidebar's active style, so it reads the same on every viewport
+                                  className={`flex min-h-11 items-center gap-2.5 rounded-lg px-2 text-sm ${
+                                    attiva ? 'bg-primary text-primary-foreground' : 'hover:bg-background'
+                                  }`}
+                                >
+                                  <voce.Icona
+                                    className={`size-4 shrink-0 ${attiva ? '' : 'text-muted-foreground'}`}
+                                    aria-hidden="true"
+                                  />
+                                  <span className="min-w-0 truncate">{voce.etichetta}</span>
+                                  <Conteggio promemoria={suoi} attiva={attiva} className="ml-auto" />
+                                </LinkNav>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </div>
                     )
                   })}
-                </ul>
+                </div>
               </SheetContent>
             </Sheet>
           </li>
