@@ -56,8 +56,10 @@ export function PerformanceCall({ callId, valutazione: v, performanceSalvata }: 
     <section className="mt-1 ml-[4.25rem] space-y-2 rounded-lg border border-border p-3 text-sm" data-testid="performance-call">
       <h4 className="flex items-center gap-1.5 font-medium">
         <Gauge className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        {ANALISI.performance.titolo}
-        {proposta ? <span data-testid="performance-proposta">: {ETICHETTA_PERFORMANCE[proposta]}</span> : null}
+        <span>
+          {ANALISI.performance.titolo}
+          {proposta ? <span data-testid="performance-proposta">: {ETICHETTA_PERFORMANCE[proposta]}</span> : null}
+        </span>
       </h4>
       <p className="text-muted-foreground">
         {Object.entries(CRITERI)

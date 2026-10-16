@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
-import { normalizzaHandle, nuovaCallSchema } from '@/lib/validation/call'
+import { dettagliCallSchema, normalizzaHandle, nuovaCallSchema } from '@/lib/validation/call'
 
 const oggi = oggiRoma()
 const valida = {
@@ -58,5 +58,22 @@ describe('schema Nuova call', () => {
 
   it('rifiuta una fonte che non esiste nell’enum', () => {
     expect(nuovaCallSchema.safeParse({ ...valida, fonte: 'tiktok' }).success).toBe(false)
+  })
+})
+
+describe('link della registrazione nella matita', () => {
+  const link = (v: string | null) => dettagliCallSchema.parse({ link_registrazione: v }).link_registrazione
+
+  it('un link di Fathom si salva nella forma unica, come dal foglio dell’esito', () => {
+    expect(link('https://www.fathom.video/share/AbC123?tab=summary')).toBe('https://fathom.video/share/AbC123')
+    expect(link('http://fathom.video/calls/123456/')).toBe('https://fathom.video/calls/123456')
+    expect(link('https://fathom.video/share/AbC123')).toBe('https://fathom.video/share/AbC123')
+  })
+
+  it('un altro indirizzo resta com’è, e un campo vuoto lo toglie', () => {
+    expect(link('https://esempio.test/registrazione?x=1')).toBe('https://esempio.test/registrazione?x=1')
+    expect(link('  ')).toBeNull()
+    expect(link(null)).toBeNull()
+    expect(() => link('fathom.video/share/x')).toThrow()
   })
 })

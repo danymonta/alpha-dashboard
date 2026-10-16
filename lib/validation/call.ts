@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { FOLLOW_UP, erroreFollowUpPrimaDellaCall } from '@/lib/call/follow-up'
 import { aggiungiGiorni, isDataISO, oggiRoma } from '@/lib/date'
+import { normalizzaLink } from '@/lib/fathom/link'
 import { parseImporto } from '@/lib/importi'
 import { MASSIMO_NOTE_CLOSER, MASSIMO_NOTE_SETTER, NOTE_CLOSER, NOTE_SETTER } from '@/lib/setting/commento'
 import { Constants } from '@/lib/supabase/database.types'
@@ -251,7 +252,15 @@ export const dettagliCallSchema = z.object({
     .max(500, 'Link troppo lungo')
     .nullish()
     .transform(vuotoANull)
-    .refine((v) => v === null || /^https?:\/\/\S+$/i.test(v), 'Incolla il link completo, con https://'),
+    .refine((v) => v === null || /^https?:\/\/\S+$/i.test(v), 'Incolla il link completo, con https://')
+    // a link of Fathom is saved in the one form every copy of it shares (the outcome sheet does the same): a
+    // variant (www., a query) would not match the recording found for the link, and saving it would wipe
+    // that recording and Claude's analysis (calls_link_registrazione_cambiato)
+    .transform((v) => {
+      if (v === null) return null
+      const n = normalizzaLink(v)
+      return n.ok && n.fathom ? n.canonico : v
+    }),
   performance: z.enum(PERFORMANCE).nullish().transform((v) => v ?? null),
   prodotto_proposto_id: z
     .union([z.string().uuid(), z.literal('')])

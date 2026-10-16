@@ -213,7 +213,7 @@ export function AnalisiCall({ callId, analisi, analizzabile, esito, motivoSalvat
                         href={conMinuto(link, secondiDiMinuto(o.minuto))}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="num inline-flex min-h-8 items-center text-muted-foreground underline underline-offset-4"
+                        className="num inline-flex min-h-11 items-center text-muted-foreground underline underline-offset-4"
                       >
                         al minuto {o.minuto}
                       </a>

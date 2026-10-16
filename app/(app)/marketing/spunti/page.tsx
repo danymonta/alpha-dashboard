@@ -252,7 +252,7 @@ export default async function SpuntiPage() {
             </ul>
           )}
           <p className="px-1 text-xs text-muted-foreground">
-            <Link href="/setting/closer?per=contenuto" className="underline underline-offset-4">Tutti i numeri per contenuto</Link>
+            <Link href="/setting/closer?per=contenuto" className="inline-flex min-h-11 items-center underline underline-offset-4">Tutti i numeri per contenuto</Link>
           </p>
         </section>
       ) : null}
