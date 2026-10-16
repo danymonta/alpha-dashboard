@@ -499,7 +499,7 @@ test.describe('Tracciamento da approvare, nella pagina Setter dell’admin', () 
     }
   })
 
-  test('a 390 px: il numero su «Altro» e su «Oggi», la sezione e il foglio senza scroll di lato', async ({
+  test('a 390 px: il numero su «Setter» e su «Oggi», la sezione e il foglio senza scroll di lato', async ({
     page,
     browser,
   }) => {
@@ -515,14 +515,12 @@ test.describe('Tracciamento da approvare, nella pagina Setter dell’admin', () 
       await accedi(page, 'admin')
       await page.goto('/sales')
       const barra = page.getByRole('navigation', { name: 'Navigazione' })
-      // "Setter" sits in "Altro": the button carries the number (with the outcomes to record, if any)
-      const altro = barra.getByRole('button', {
-        name: new RegExp(`^Altro, (\\d+ esit[io] da registrare, )?${quante} giornat[ae] da approvare$`),
-      })
-      await expect(altro).toBeVisible()
-      await altro.click()
-      const foglioAltro = page.getByRole('dialog', { name: 'Altro' })
-      await foglioAltro.getByRole('link', { name: nomeDaApprovare('Setter', quante) }).click()
+      // "Setter" is in the bar since 1.38.0 (Panoramica, Le mie call, Setter, Contenuti): the link carries the number
+      const voce = barra.getByRole('link', { name: nomeDaApprovare('Setter', quante) })
+      await expect(voce).toBeVisible()
+      // «Altro» no longer carries the days to decide: only what its items carry (outcomes, posts to link)
+      await expect(barra.getByRole('button', { name: /giornat[ae] da approvare/ })).toHaveCount(0)
+      await voce.click()
       await expect(page).toHaveURL(/\/setting$/)
 
       const card = scheda(page, giorno)

@@ -111,9 +111,11 @@ test.describe('a 390 px', () => {
 
     await accedi(page, 'admin')
     await page.goto('/settings')
-    await page.getByRole('link', { name: /Instagram/ }).click()
+    // the settings by category (1.38.0): Instagram and Messenger sits in «Chiavi e collegamenti»
+    await expect(page.getByRole('region', { name: 'Chiavi e collegamenti' })).toBeVisible()
+    await page.getByRole('link', { name: /Instagram e Messenger/ }).click()
     await expect(page).toHaveURL(/\/settings\/instagram$/)
-    await expect(page.getByRole('heading', { level: 1, name: 'Instagram' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Instagram e Messenger' })).toBeVisible()
 
     const stato = page.getByTestId('instagram-stato')
     await expect(stato).toContainText('Non collegato')
@@ -123,21 +125,28 @@ test.describe('a 390 px', () => {
     // nothing to recompute without a token
     await expect(page.getByRole('button', { name: 'Ricalcola ieri' })).toBeDisabled()
     await expect(page.getByText('Prima salva il token.')).toBeVisible()
+    // the token is not pasted here any more (1.38.0): this page points to the one that has it
+    await expect(page.getByLabel('Token di accesso')).toHaveCount(0)
+    await page.getByRole('region', { name: 'Token', exact: true }).getByRole('link', { name: 'Chiavi e collegamenti' }).click()
+    await expect(page).toHaveURL(/\/settings\/chiavi#instagram$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'Chiavi e collegamenti' })).toBeVisible()
 
     // the token: a password field, never prefilled, pasted the messy way
-    const campo = page.getByLabel('Token di accesso')
+    const instagram = page.getByRole('region', { name: 'Instagram', exact: true })
+    await expect(instagram).toContainText('Non collegato')
+    const campo = instagram.getByLabel('Token di accesso')
     await expect(campo).toHaveAttribute('type', 'password')
     await expect(campo).toHaveAttribute('autocomplete', 'off')
     await expect(campo).toHaveValue('')
     await campo.fill(`  "IG_TOKEN=${TOKEN}"  `)
-    const salva = page.getByRole('button', { name: 'Salva il token' })
+    const salva = instagram.getByRole('button', { name: 'Salva il token' })
     expect((await salva.boundingBox())?.height).toBeGreaterThanOrEqual(44)
     await salva.click()
 
     const scade = formatData(oggiRoma(new Date(Date.now() + 60 * 86_400_000)))
     await expect(page.getByTestId('instagram-token-salvato')).toHaveText(`Token salvato, scade il ${scade}`)
-    await expect(stato).toContainText(`Salvato, scade il ${scade}`)
-    await expect(page.getByLabel('Token nuovo')).toHaveValue('')
+    await expect(instagram).toContainText(`Salvato, scade il ${scade}`)
+    await expect(instagram.getByLabel('Token nuovo')).toHaveValue('')
 
     // in Vault, cleaned as the DM Reader does
     const { data: salvato } = await db.rpc('instagram_token')
@@ -151,18 +160,52 @@ test.describe('a 390 px', () => {
     expect(valori.join('\n')).not.toContain(TOKEN)
     await page.reload()
     expect(await page.content()).not.toContain(TOKEN)
-    const html = await (await page.request.get('/settings/instagram')).text()
+    const html = await (await page.request.get('/settings/chiavi')).text()
     expect(html).toContain('Token salvato')
     expect(html).not.toContain(TOKEN)
+    const htmlInstagram = await (await page.request.get('/settings/instagram')).text()
+    expect(htmlInstagram).not.toContain(TOKEN)
     expect((await Promise.all(risposte)).join('\n')).not.toContain(TOKEN)
 
-    // expired, and the last error of the night: in evidence, with when
+    // the guide beside the key: closed at first, the path of Meta and the three permissions inside
+    const guida = instagram.getByTestId('guida-instagram')
+    await expect(guida).toHaveJSProperty('open', false)
+    const riassunto = guida.locator('summary')
+    expect((await riassunto.boundingBox())?.height).toBeGreaterThanOrEqual(44)
+    await riassunto.click()
+    await expect(guida).toHaveJSProperty('open', true)
+    await expect(guida).toContainText('developers.facebook.com › Le mie app › Alpha DM Reader')
+    await expect(guida).toContainText('Configurazione API con Business Login')
+    await expect(guida).toContainText('instagram_business_manage_insights')
+    await expect(guida).toContainText('Non incollare mai una chiave in chat')
+
+    // five days left: the warning, in words, from seven days before (the night run renews it every week)
+    await db
+      .from('instagram_collegamento')
+      .update({ token_scade_il: new Date(Date.now() + 5 * 86_400_000).toISOString() })
+      .eq('id', true)
+    await page.reload()
+    await expect(page.getByRole('region', { name: 'Instagram', exact: true })).toContainText('Scade tra 5 giorni')
+    await expect(page.getByTestId('chiavi-da-sistemare')).toContainText('Il token di Instagram scade tra 5 giorni')
+    await db
+      .from('instagram_collegamento')
+      .update({ token_scade_il: new Date(Date.now() + 50 * 86_400_000).toISOString() })
+      .eq('id', true)
+
+    // expired, and the last error of the night: in evidence, with when (on Chiavi e collegamenti and on Instagram e Messenger)
     await db
       .from('instagram_collegamento')
       .update({ token_scade_il: new Date(Date.now() - 3_600_000).toISOString() })
       .eq('id', true)
     await db.rpc('instagram_errore', { p_messaggio: 'Prova e2e: Instagram non ha risposto' })
     await page.reload()
+    await expect(page.getByTestId('instagram-token-scaduto')).toHaveText(
+      'Token Instagram scaduto: generane uno nuovo dal pannello Meta e incollalo qui.',
+    )
+    await expect(page.getByRole('region', { name: 'Instagram', exact: true })).toContainText(
+      `Scaduto il ${formatData(oggiRoma(new Date(Date.now() - 3_600_000)))}`,
+    )
+    await page.goto('/settings/instagram')
     await expect(page.getByTestId('instagram-token-scaduto')).toHaveText(
       'Token Instagram scaduto: generane uno nuovo dal pannello Meta e incollalo qui.',
     )
@@ -242,14 +285,15 @@ test.describe('a 390 px', () => {
     // no sideways scroll on the phone
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
 
-    // the token goes away after the question (the Instagram one: Messenger has its own, 1.35.0)
-    await page.getByRole('region', { name: 'Token', exact: true }).getByRole('button', { name: 'Togli il token' }).click()
+    // the token goes away after the question, on Chiavi e collegamenti (the Instagram one: Messenger has its own, 1.35.0)
+    await page.goto('/settings/chiavi')
+    await page.getByRole('region', { name: 'Instagram', exact: true }).getByRole('button', { name: 'Togli il token' }).click()
     const togli = page.getByRole('dialog', { name: 'Eliminare il token di Instagram?' })
     await expect(togli).toContainText('La proposta di ogni notte si ferma')
     await expect(togli).toContainText('la lettura dei post per il calendario dei contenuti')
     await togli.getByRole('button', { name: 'Elimina' }).click()
     await expect(togli).toBeHidden()
-    await expect(stato).toContainText('Non collegato')
+    await expect(page.getByRole('region', { name: 'Instagram', exact: true })).toContainText('Non collegato')
     const { data: dopo } = await db.rpc('instagram_token')
     expect(dopo).toBeNull()
   })
@@ -280,8 +324,12 @@ test.describe('Messenger a 390 px (1.35.0)', () => {
 
     try {
       await accedi(page, 'admin')
+      // the Page token is pasted in Chiavi e collegamenti (1.38.0); Instagram e Messenger only points there
       await page.goto('/settings/instagram')
       await expect(page.getByRole('heading', { level: 1, name: 'Instagram e Messenger' })).toBeVisible()
+      await expect(page.getByLabel('Token della Pagina')).toHaveCount(0)
+      await page.getByRole('region', { name: 'Messenger', exact: true }).getByRole('link', { name: 'Chiavi e collegamenti' }).click()
+      await expect(page).toHaveURL(/\/settings\/chiavi#messenger$/)
       const messenger = page.getByRole('region', { name: 'Messenger', exact: true })
       const stato = messenger.getByTestId('messenger-stato')
       await expect(stato).toContainText('Non collegata')
@@ -327,7 +375,7 @@ test.describe('Messenger a 390 px (1.35.0)', () => {
       await page.reload()
       await expect(stato).toContainText(`Collegata: Pagina «${PAGINA_FINTA}»`)
       expect(await page.content()).not.toContain(TOKEN_PAGINA)
-      const html = await (await page.request.get('/settings/instagram')).text()
+      const html = await (await page.request.get('/settings/chiavi')).text()
       expect(html).toContain(`Collegata: Pagina «${PAGINA_FINTA}»`)
       expect(html).not.toContain(TOKEN_PAGINA)
       expect((await Promise.all(risposte)).join('\n')).not.toContain(TOKEN_PAGINA)
