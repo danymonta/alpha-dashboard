@@ -86,6 +86,40 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.37.1',
+    data: '2026-10-16',
+    titolo: 'La pagina Analisi torna a caricarsi',
+    riassunto: 'L’Analisi dei reel si apre in meno di un secondo anche con tutti i reel dell’account; se Claude rifiuta una richiesta, l’app ora ne registra il motivo.',
+    intestazionePer: ['marketing'],
+    intestazioneTeam: {
+      titolo: 'La pagina Analisi torna a caricarsi',
+      riassunto: 'L’Analisi dei reel si apre in meno di un secondo anche con tutti i reel dell’account.',
+    },
+    novita: [],
+    correzioni: [
+      {
+        per: ['marketing'],
+        testo:
+          'La pagina Analisi dei reel diceva «Non siamo riusciti a caricare l’analisi dei reel»: con tutti i reel dell’account i calcoli di verdetto e confronto ci mettevano più del tempo concesso. Ora i numeri si calcolano una volta sola per tutti i reel e la pagina si apre in una frazione di secondo, con gli stessi verdetti di prima.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Se i verdetti e i confronti non si riescono a leggere, la pagina mostra comunque i reel con i loro numeri e dice cosa manca, invece dell’errore a tutta pagina. Le tessere in alto non caricate dicono «non caricato» e non fermano il resto.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Gli spunti della settimana e l’analisi delle call sono più robusti: un testo tagliato a metà di un’emoji non rompe più la richiesta a Claude.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Quando Claude rifiuta una richiesta (Spunti, analisi delle call, analisi dei reel, Insight), l’app scrive nei registri di Vercel il tipo e il messaggio dell’errore, senza il contenuto: se «Chiedi nuovi spunti» dice ancora «errore dell’app», il motivo preciso si legge lì, alla riga che comincia con «[claude]».',
+      },
+    ],
+  },
+  {
     versione: '1.37.0',
     data: '2026-10-16',
     titolo: 'Call da Fathom nel closing e Spunti nel Marketing',
