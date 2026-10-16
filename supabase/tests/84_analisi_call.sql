@@ -6,7 +6,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(55);
+select plan(57);
 
 create or replace function pg_temp.codice(p_sql text) returns text language plpgsql as $$
 begin execute p_sql; return 'ok'; exception when others then return sqlstate; end; $$;
@@ -126,8 +126,10 @@ set local request.jwt.claims to '{"sub":"33333333-3333-4333-8333-333333333333","
 select is(pg_temp.codice($$ select public.call_analisi_richiedi('84840000-0000-4000-8000-0000000000a1') $$), 'ok', 'una fallita si rifà');
 reset role;
 select is((select stato || '/' || motivo from public.call_analisi where call_id = '84840000-0000-4000-8000-0000000000a1'), 'in_coda/richiesta', 'in coda, chiesta da una persona');
+select is((select richieste_oggi::integer from public.call_lavori_stato where id), 1, 'la richiesta è contata nel limite del giorno');
 update public.call_lavori_stato set analisi_attive = false;
 update public.call_analisi set stato = 'fallita', errore = 'x' where call_id = '84840000-0000-4000-8000-0000000000a1';
+select is((select richieste_oggi::integer from public.call_lavori_stato where id), 0, 'finita fallita: il posto torna al limite del giorno (1.37.1)');
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 select is(pg_temp.codice($$ select public.call_analisi_richiedi('84840000-0000-4000-8000-0000000000a1') $$), '22023', 'con le analisi spente no');

@@ -111,7 +111,7 @@ select is((select array_agg(chi order by chi) from s87 where codice is null), ar
 select is((select array_agg(chi order by chi) from s87 where codice = '42501'), array['closer', 'setter'], 'il setter e il closer no');
 select ok((public.spunti_per_claude() ? 'contenuto') is not null, 'la funzione risponde anche senza sessione come service role');
 
--- requests: admin and marketing, 2 a day, one at a time
+-- requests: admin and marketing, 2 a day, one at a time (the ones that ended well; a failed one does not count: 89)
 delete from public.marketing_spunti where id <> '87870000-0000-4000-8000-0000000000b1';
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
@@ -120,12 +120,12 @@ set local request.jwt.claims to '{"sub":"61616161-6161-4161-8161-616161616161","
 select is(pg_temp.codice($$ select public.marketing_spunti_richiedi() $$), 'ok', 'il marketing sì');
 select is(pg_temp.codice($$ select public.marketing_spunti_richiedi() $$), '22023', 'una alla volta: Claude ci sta già lavorando');
 reset role;
-update public.marketing_spunti set stato = 'fallita', errore = 'x', finita_il = now() where stato = 'in_coda';
+update public.marketing_spunti set stato = 'pronta', contenuto = '{}'::jsonb, finita_il = now() where stato = 'in_coda';
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 select is(pg_temp.codice($$ select public.marketing_spunti_richiedi() $$), 'ok', 'la seconda del giorno passa');
 reset role;
-update public.marketing_spunti set stato = 'fallita', errore = 'x', finita_il = now() where stato = 'in_coda';
+update public.marketing_spunti set stato = 'pronta', contenuto = '{}'::jsonb, finita_il = now() where stato = 'in_coda';
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 select is(pg_temp.codice($$ select public.marketing_spunti_richiedi() $$), '22023', 'la terza no: riprova domani');

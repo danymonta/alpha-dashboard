@@ -290,10 +290,10 @@ reset role;
 set local request.jwt.claims to '{}';
 select is((select row(stato, priorita, tentativi)::text from public.instagram_letture where media_id = '8100000000000003'),
   row('in_coda'::text, 2::smallint, 0::smallint)::text, 'rilegge: di nuovo in coda, senza tentativi');
--- 10 requests a day for the whole team, failed ones included
+-- 10 requests a day for the whole team (the failed ones do not count: 89)
 update public.marketing_analisi set stato = 'fallita', errore = 'x', finita_il = now() where media_id = '8100000000000003' and stato = 'in_coda';
-insert into public.marketing_analisi (media_id, motivo, stato, errore, finita_il, periodo_da, periodo_a)
-select '8100000000000003', 'richiesta', 'fallita', 'x', now(), public.oggi() - 28, public.oggi() - 1 from generate_series(1, 10);
+insert into public.marketing_analisi (media_id, motivo, stato, contenuto, finita_il, periodo_da, periodo_a)
+select '8100000000000003', 'richiesta', 'pronta', '{}'::jsonb, now(), public.oggi() - 28, public.oggi() - 1 from generate_series(1, 10);
 select is((select count(*)::integer from public.marketing_analisi where motivo = 'richiesta' and created_at >= public.oggi()::timestamp at time zone 'Europe/Rome'),
   13, '13 richieste oggi nel test');
 set local role authenticated;
