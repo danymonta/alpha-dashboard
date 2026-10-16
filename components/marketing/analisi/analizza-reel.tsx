@@ -29,7 +29,7 @@ export function AnalizzaReel({
   /** the visible words: «Analizza», «Dai il punteggio» (analysed before the score existed), «Analizza di nuovo» */
   etichetta?: 'Analizza' | 'Dai il punteggio' | 'Analizza di nuovo'
   onFatto: () => void
-  variante?: 'default' | 'outline'
+  variante?: 'default' | 'outline' | 'ghost'
 }) {
   const opzioniToast = useOpzioniToast()
   const [inCorso, setInCorso] = useState(false)

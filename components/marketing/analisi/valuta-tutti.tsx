@@ -61,12 +61,13 @@ export function ValutaTutti({ mediaIds, restano, limiteGiorno }: { mediaIds: rea
   }
 
   return (
-    <div className="space-y-2" data-testid="valuta-tutti">
+    // `contents`: the button takes its place in the row of the filters, the confirmation below takes the whole row
+    <div className="contents" data-testid="valuta-tutti">
       <Button
         ref={apri}
         type="button"
         variant="outline"
-        className="h-11"
+        className="ml-auto h-11"
         aria-expanded={aperto}
         onClick={() => setAperto((x) => !x)}
         data-testid="valuta-tutti-apri"
@@ -75,7 +76,7 @@ export function ValutaTutti({ mediaIds, restano, limiteGiorno }: { mediaIds: rea
         Valuta i reel non valutati ({mediaIds.length})
       </Button>
       {aperto ? (
-        <div className="space-y-3 rounded-xl bg-card p-4 text-sm" role="group" aria-label="Conferma della valutazione dei reel" data-testid="valuta-tutti-conferma">
+        <div className="basis-full space-y-3 rounded-xl bg-card p-4 text-sm" role="group" aria-label="Conferma della valutazione dei reel" data-testid="valuta-tutti-conferma">
           {restano <= 0 ? (
             <p>Le analisi di oggi sono finite: sono {limiteGiorno} al giorno per tutto il team. Riprova domani.</p>
           ) : (

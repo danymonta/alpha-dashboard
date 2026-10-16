@@ -1,10 +1,8 @@
 'use client'
 
-import { CircleCheck, LoaderCircle, TriangleAlert } from 'lucide-react'
 import type { MouseEvent, ReactNode } from 'react'
 
-import { BadgePunteggio } from '@/components/marketing/analisi/badge-punteggio'
-import { BadgeVerdetto } from '@/components/marketing/analisi/badge-verdetto'
+import { CosaFareRiga } from '@/components/marketing/analisi/cosa-fare-riga'
 import { usePannelloReel } from '@/components/marketing/analisi/contesto-reel'
 import { LinkReel } from '@/components/marketing/analisi/link-reel'
 import { titoloReel } from '@/components/marketing/analisi/scheda-reel'
@@ -16,41 +14,13 @@ import {
   formatRapporto,
   formatTasso,
   formatVisione,
-  parolaAnalisi,
   parolaLead,
   SENZA_STATISTICHE,
-  type StatoAnalisiRiga,
 } from '@/lib/marketing/analisi/parole'
 import { giornoPost } from '@/lib/marketing/parole-post'
-import { fasciaDaCodice } from '@/lib/marketing/punteggio/tabelle'
 import { cn } from '@/lib/utils'
 
 const CONTROLLI = 'a, button, input, select, textarea, label'
-
-function ColonnaAnalisi({ r }: { r: RigaReel }) {
-  const stato = (r.analisi_stato ?? null) as StatoAnalisiRiga
-  const parola = parolaAnalisi(stato)
-  const Icona =
-    stato === 'pronta' ? CircleCheck : stato === 'fallita' ? TriangleAlert : stato === 'in_coda' || stato === 'in_corso' ? LoaderCircle : null
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 text-sm whitespace-nowrap',
-        stato === 'fallita' ? 'text-status-critical' : stato === 'pronta' ? 'text-foreground' : 'text-muted-foreground',
-      )}
-      data-testid="colonna-analisi"
-    >
-      {Icona ? <Icona className={cn('size-4 shrink-0', stato === 'in_corso' && 'animate-spin', stato === 'pronta' && 'text-status-ok')} aria-hidden="true" /> : null}
-      {parola}
-    </span>
-  )
-}
-
-/** The score of the last ready analysis that has one; a reel never scored says «Non valutato». */
-function PunteggioDelReel({ r }: { r: RigaReel }) {
-  const f = fasciaDaCodice(r.punteggio_fascia)
-  return <BadgePunteggio totale={r.punteggio_totale} fascia={f?.codice ?? null} />
-}
 
 function Views({ r }: { r: RigaReel }) {
   if (r.metriche_stato !== 'lette') return <span className="text-sm text-muted-foreground">{SENZA_STATISTICHE}</span>
@@ -82,13 +52,10 @@ function NomeReel({ r, comeCard }: { r: RigaReel; comeCard?: boolean }) {
         <LinkReel
           id={id}
           riga={r}
-          className={cn(
-            'line-clamp-2 min-h-11 text-sm font-medium wrap-anywhere outline-none',
-            comeCard && 'after:absolute after:inset-0 after:rounded-xl',
-            'inline-flex items-center',
-          )}
+          className={cn('flex min-h-11 items-center text-sm font-medium outline-none', comeCard && 'after:absolute after:inset-0 after:rounded-xl')}
         >
-          {titoloReel(r)}
+          {/* the clamp sits on the text: on the link itself the flex of the 44 px target would undo it */}
+          <span className="line-clamp-2 wrap-anywhere">{titoloReel(r)}</span>
         </LinkReel>
         <p className="num text-xs text-muted-foreground">
           {r.giorno ? giornoPost(r.giorno) : ''}
@@ -104,30 +71,21 @@ function CardReel({ r }: { r: RigaReel }) {
   return (
     <li
       data-riga-reel={r.media_id}
-      className="group/riga relative rounded-xl bg-card p-3 transition-colors hover:bg-accent/40 has-[a[data-apri-reel]:focus-visible]:ring-3 has-[a[data-apri-reel]:focus-visible]:ring-ring/50"
+      className="group/riga relative space-y-3 rounded-xl bg-card p-3 transition-colors hover:bg-accent/40 has-[a[data-apri-reel]:focus-visible]:ring-3 has-[a[data-apri-reel]:focus-visible]:ring-ring/50"
     >
       <NomeReel r={r} comeCard />
-      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 pl-[3.75rem] text-sm">
+      <div className="border-t border-border pt-3 pl-[3.75rem]">
+        <CosaFareRiga r={r} />
+      </div>
+      <dl className="grid grid-cols-3 gap-x-3 gap-y-2 pl-[3.75rem] text-sm">
         <Cella etichetta="Views">
           <Views r={r} />
         </Cella>
         <Cella etichetta="Salvataggi">
           <Salvataggi r={r} />
         </Cella>
-        <Cella etichetta="Visione media">
-          <span className="num">{r.metriche_stato === 'lette' ? formatVisione(r.avg_watch_ms, r.quota_vista) : '–'}</span>
-        </Cella>
         <Cella etichetta="Lead dai DM">
-          <span className="num">{parolaLead(r)}</span>
-        </Cella>
-        <Cella etichetta="Verdetto">
-          <BadgeVerdetto verdetto={r.verdetto_oggi} />
-        </Cella>
-        <Cella etichetta="Punteggio">
-          <PunteggioDelReel r={r} />
-        </Cella>
-        <Cella etichetta="Analisi">
-          <ColonnaAnalisi r={r} />
+          <span className="num text-xs">{parolaLead(r)}</span>
         </Cella>
       </dl>
     </li>
@@ -154,26 +112,20 @@ function RigaTabella({ r }: { r: RigaReel }) {
   }
   return (
     <tr data-riga-reel={r.media_id} onClick={clic} className="cursor-pointer border-b border-border align-top last:border-0 hover:bg-accent/30">
-      <td className="min-w-48 py-2 pr-2 pl-3">
+      <td className="py-2.5 pr-2 pl-3">
         <NomeReel r={r} />
       </td>
-      <td className="px-2 py-2 text-right whitespace-nowrap">
+      <td className="px-2 py-2.5" data-testid="colonna-punteggio">
+        <CosaFareRiga r={r} />
+      </td>
+      <td className="px-2 py-2.5 text-right">
         <Views r={r} />
       </td>
-      <td className="px-2 py-2 text-right whitespace-nowrap">
+      <td className="px-2 py-2.5 text-right whitespace-nowrap">
         <Salvataggi r={r} />
       </td>
-      <td className="num px-2 py-2 text-right whitespace-nowrap">{r.metriche_stato === 'lette' ? formatVisione(r.avg_watch_ms, r.quota_vista) : '–'}</td>
-      <td className="num min-w-32 px-2 py-2 text-sm">{parolaLead(r)}</td>
-      <td className="px-2 py-2">
-        <BadgeVerdetto verdetto={r.verdetto_oggi} />
-      </td>
-      <td className="max-w-44 px-2 py-2" data-testid="colonna-punteggio">
-        <PunteggioDelReel r={r} />
-      </td>
-      <td className="py-2 pr-3 pl-2">
-        <ColonnaAnalisi r={r} />
-      </td>
+      <td className="num px-2 py-2.5 text-right whitespace-nowrap">{r.metriche_stato === 'lette' ? formatVisione(r.avg_watch_ms, r.quota_vista) : '–'}</td>
+      <td className="num py-2.5 pr-3 pl-2 text-right text-xs whitespace-nowrap">{parolaLead(r)}</td>
     </tr>
   )
 }
@@ -188,18 +140,16 @@ export function ElencoReel({ righe, limite }: { righe: readonly RigaReel[]; limi
   return (
     <div className="space-y-3">
       <div className="hidden overflow-x-auto rounded-xl bg-card @min-[60rem]:block">
-        <table className="w-full text-sm" data-testid="tabella-reel">
-          <caption className="sr-only">Reel, con i numeri contro la mediana e il verdetto</caption>
+        <table className="w-full table-fixed text-sm" data-testid="tabella-reel">
+          <caption className="sr-only">Reel, con cosa fare per ognuno e i numeri contro la mediana</caption>
           <thead className="text-xs text-muted-foreground">
             <tr className="border-b border-border">
               <th scope="col" className="py-2.5 pr-2 pl-3 text-left font-normal">Reel</th>
-              <th scope="col" className="px-2 py-2.5 text-right font-normal">Views</th>
-              <th scope="col" className="px-2 py-2.5 text-right font-normal">Salvataggi</th>
-              <th scope="col" className="px-2 py-2.5 text-right font-normal">Visione media</th>
-              <th scope="col" className="px-2 py-2.5 text-left font-normal">Lead dai DM</th>
-              <th scope="col" className="px-2 py-2.5 text-left font-normal">Verdetto</th>
-              <th scope="col" className="px-2 py-2.5 text-left font-normal">Punteggio</th>
-              <th scope="col" className="py-2.5 pr-3 pl-2 text-left font-normal">Analisi</th>
+              <th scope="col" className="w-56 px-2 py-2.5 text-left font-normal">Cosa fare</th>
+              <th scope="col" className="w-24 px-2 py-2.5 text-right font-normal">Views</th>
+              <th scope="col" className="w-24 px-2 py-2.5 text-right font-normal">Salvataggi</th>
+              <th scope="col" className="w-24 px-2 py-2.5 text-right font-normal">Visione media</th>
+              <th scope="col" className="w-44 py-2.5 pr-3 pl-2 text-right font-normal">Lead dai DM</th>
             </tr>
           </thead>
           <tbody>

@@ -257,6 +257,7 @@ export function PannelloReel({
                 </>
               ) : riga ? (
                 <SchedaReel
+                  key={riga.media_id ?? 'reel'}
                   riga={riga}
                   dettaglio={voce?.dettaglio ?? null}
                   errore={voce?.stato === 'errore'}

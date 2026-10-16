@@ -42,12 +42,14 @@ test('la scheda «Analisi», le tessere, i filtri e la lista dei reel', async ({
   await expect(elenco.locator('[data-verdetto="spingere"]').first()).toContainText('Spingere')
   await expect(elenco.locator('[data-verdetto="cambiare"]').first()).toContainText('Cambiare')
 
-  // the filters live in the address
-  await page.getByRole('navigation', { name: 'Filtri dell’analisi' }).getByRole('link', { name: 'Cambiare' }).click()
+  // the filters have visible labels and live in the address
+  const filtri = page.getByRole('region', { name: 'Filtri dell’analisi' })
+  for (const etichetta of ['Periodo', 'Verdetto', 'Punteggio', 'Ordina per']) await expect(filtri.getByRole('combobox', { name: etichetta })).toBeVisible()
+  await filtri.getByRole('combobox', { name: 'Verdetto' }).selectOption('cambiare')
   await expect(page).toHaveURL(/verdetto=cambiare/)
   await expect(elenco.locator('[data-verdetto="spingere"]')).toHaveCount(0)
   await expect(elenco.locator('[data-verdetto="cambiare"]').first()).toBeVisible()
-  await page.getByRole('link', { name: 'Togli i filtri' }).click()
+  await filtri.getByRole('button', { name: 'Togli i filtri' }).click()
   await expect(page).toHaveURL(/\/marketing\/analisi$/)
 })
 
@@ -58,22 +60,29 @@ test('il pannello di un reel: numeri, verdetto, analisi di Claude, idee, parlato
   await expect(page).toHaveURL(new RegExp(`reel=${REEL_SPINGERE}`))
   const p = pannello(page)
   await expect(p.getByRole('heading', { name: /Trazioni senza sbarra/ })).toBeVisible()
-  await expect(p.getByTestId('reel-numeri')).toContainText('12.480')
-  await expect(p.getByTestId('reel-numeri')).toContainText('della mediana')
-  await expect(p.getByTestId('reel-verdetto')).toContainText('Spingere')
-  await expect(p.getByTestId('reel-lead-valore')).toContainText('4 DM · 3 in target · 1 call')
-  const analisi = p.getByTestId('reel-analisi-pronta')
-  await expect(analisi).toContainText('Cosa ha funzionato')
-  await expect(analisi).toContainText('Da migliorare')
-  await expect(p.getByTestId('reel-fonti')).toContainText('31 fotogrammi')
+  // the answer comes first: what to do with the reel, with the score
+  await expect(p.getByTestId('reel-cosa-fare')).toContainText('Ritoccalo e ripubblicalo')
+  await expect(p.getByTestId('reel-cosa-fare')).toContainText('Il pubblico l’ha premiato: spingilo.')
 
-  // the idea already in the calendar says so, the other can be added
+  // «Come rifarlo» is open first: the ideas of the analysis, the one already in the calendar says so, the other can be added
   const idee = p.getByTestId('reel-idea')
   await expect(idee).toHaveCount(2)
   await expect(idee.nth(0).getByRole('link', { name: 'Già nel calendario' })).toHaveAttribute('href', `/marketing/contenuti/${CONTENUTO_IDEA_GIA}`)
   await expect(idee.nth(1).getByTestId('aggiungi-idea')).toBeVisible()
 
-  // what is said, and what Claude saw
+  // «Perché»: Claude's analysis; «Numeri»: the figures, the verdict, the leads, what Claude saw and what is said
+  await p.getByTestId('scheda-perche').click()
+  await expect(page).toHaveURL(/scheda=perche/)
+  const analisi = p.getByTestId('reel-analisi-pronta')
+  await expect(p.getByTestId('reel-perche')).toContainText('Cosa ha funzionato')
+  await expect(p.getByTestId('reel-perche')).toContainText('Da migliorare')
+  await expect(analisi).toBeVisible()
+  await p.getByTestId('scheda-numeri').click()
+  await expect(p.getByTestId('reel-numeri')).toContainText('12.480')
+  await expect(p.getByTestId('reel-numeri')).toContainText('della mediana')
+  await expect(p.getByTestId('reel-verdetto')).toContainText('Spingere')
+  await expect(p.getByTestId('reel-lead-valore')).toContainText('4 DM · 3 in target · 1 call')
+  await expect(p.getByTestId('reel-fonti')).toContainText('31 fotogrammi')
   await p.getByTestId('reel-parlato-blocco').locator('summary').click()
   await expect(p.getByTestId('reel-parlato')).toBeVisible()
   await p.getByTestId('reel-scheda-visiva').locator('summary').click()
@@ -82,7 +91,7 @@ test('il pannello di un reel: numeri, verdetto, analisi di Claude, idee, parlato
   // Esc closes and the focus goes back to the link that opened it
   await page.keyboard.press('Escape')
   await expect(p).toBeHidden()
-  await expect(page).not.toHaveURL(/reel=/)
+  await expect(page).not.toHaveURL(/reel=|scheda=/)
   await expect(page.getByTestId('elenco-reel').getByRole('link', { name: /Trazioni senza sbarra/ }).first()).toBeFocused()
 
   // Back after opening closes too, Forward opens it again; the direct link opens it at once
@@ -212,8 +221,10 @@ test('a 390 px: niente scroll di lato, bottoni da 44 px, il pannello a tutto sch
   }
   await page.getByTestId('elenco-reel').getByRole('link', { name: /Trazioni senza sbarra/ }).first().click()
   const p = pannello(page)
-  await expect(p.getByTestId('reel-analisi-pronta')).toBeVisible()
+  await expect(p.getByTestId('reel-cosa-fare')).toBeVisible()
+  await expect(p.getByRole('tab', { name: 'Come rifarlo' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  for (const t of await p.getByRole('tab').all()) expect((await t.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(43.5)
   const chiudi = page.getByRole('button', { name: 'Chiudi' })
   expect((await chiudi.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(43.5)
   for (const b of await p.getByRole('button').all()) {

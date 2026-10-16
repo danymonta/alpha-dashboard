@@ -93,7 +93,7 @@ export default async function AnalisiPage({
 
         <RigaSituazione situazione={situazione} oggi={oggi} permesso={permesso} accountStatistiche={nomeAccount ?? undefined} />
 
-        <Tessere r={riepilogo} />
+        <Tessere r={riepilogo} filtri={filtri} />
 
         {senzaVerdetti ? (
           <p className="flex items-start gap-2 text-sm text-muted-foreground" role="status" data-testid="analisi-senza-verdetti">
@@ -102,9 +102,9 @@ export default async function AnalisiPage({
           </p>
         ) : null}
 
-        <FiltriAnalisiVista filtri={filtri} />
-
-        {puoAnalizzare ? <ValutaTutti mediaIds={daValutare} restano={restanoOggi} limiteGiorno={RICHIESTE_AL_GIORNO} /> : null}
+        <FiltriAnalisiVista filtri={filtri}>
+          {puoAnalizzare ? <ValutaTutti mediaIds={daValutare} restano={restanoOggi} limiteGiorno={RICHIESTE_AL_GIORNO} /> : null}
+        </FiltriAnalisiVista>
 
         <section aria-labelledby="titolo-reel" className="@container space-y-3" data-testid="elenco-reel">
           <h2 id="titolo-reel" className="sr-only">

@@ -1,12 +1,48 @@
+import Link from 'next/link'
+
 import { formatNumero } from '@/lib/format'
 import type { Riepilogo } from '@/lib/marketing/analisi/elenco'
+import { hrefAnalisi, type FiltriAnalisi } from '@/lib/marketing/analisi/filtri'
+import { cn } from '@/lib/utils'
 
-function Tessera({ etichetta, valore, nota, testId }: { etichetta: string; valore: string; nota?: string; testId: string }) {
-  return (
-    <div className="min-w-0 rounded-xl bg-card p-4" data-testid={testId}>
+function Tessera({
+  etichetta,
+  valore,
+  nota,
+  testId,
+  href,
+}: {
+  etichetta: string
+  valore: string
+  nota?: string
+  testId: string
+  /** a tile that is also a filter: a tap shows the reels it counts */
+  href?: string
+}) {
+  const corpo = (
+    <>
       <p className="text-sm text-muted-foreground">{etichetta}</p>
       <p className="num mt-1 text-2xl font-semibold">{valore}</p>
       {nota ? <p className="mt-1 text-sm text-muted-foreground">{nota}</p> : null}
+    </>
+  )
+  if (href) {
+    return (
+      <Link
+        href={href}
+        prefetch={false}
+        scroll={false}
+        className={cn('block min-w-0 rounded-xl bg-card p-4 transition-colors hover:bg-accent/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none')}
+        data-testid={testId}
+      >
+        {corpo}
+        <span className="mt-1 block text-sm underline underline-offset-4">Mostra i reel</span>
+      </Link>
+    )
+  }
+  return (
+    <div className="min-w-0 rounded-xl bg-card p-4" data-testid={testId}>
+      {corpo}
     </div>
   )
 }
@@ -18,7 +54,7 @@ function Tessera({ etichetta, valore, nota, testId }: { etichetta: string; valor
  * not count is said as such, never counted as zero. No gold: the page has no
  * number more important than the others.
  */
-export function Tessere({ r }: { r: Riepilogo | null }) {
+export function Tessere({ r, filtri }: { r: Riepilogo | null; filtri: FiltriAnalisi }) {
   if (r === null) {
     // the tiles could not be read: the page goes on without them (1.37.1)
     return (
@@ -57,6 +93,7 @@ export function Tessere({ r }: { r: Riepilogo | null }) {
         etichetta="Da cambiare"
         valore={formatNumero(r.da_cambiare)}
         nota={r.da_cambiare === 1 ? 'reel dice «Cambiare»' : 'reel dicono «Cambiare»'}
+        href={r.da_cambiare > 0 && filtri.verdetto !== 'cambiare' ? hrefAnalisi({ ...filtri, verdetto: 'cambiare' }) : undefined}
       />
     </div>
   )

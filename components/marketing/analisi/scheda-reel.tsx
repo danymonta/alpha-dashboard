@@ -2,22 +2,34 @@
 
 import { CalendarPlus, CircleCheck, Link2, LoaderCircle, RotateCw, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
-import { useState, type ReactNode, type Ref } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useRef, useState, type ReactNode, type Ref } from 'react'
 import { toast } from 'sonner'
 
 import { aggiungiIdeaAlCalendario, creaContenutoDaAnalisi } from '@/app/(app)/marketing/analisi/actions'
 import { collegaPost, creaContenutoDaPost } from '@/app/(app)/marketing/instagram/actions'
-import { ChiudiPannello } from '@/components/marketing/analisi/chiudi-pannello'
 import { AnalizzaReel } from '@/components/marketing/analisi/analizza-reel'
+import { COLORE_FASCIA, ICONA_FASCIA } from '@/components/marketing/analisi/badge-punteggio'
 import { BadgeVerdetto } from '@/components/marketing/analisi/badge-verdetto'
-import { SezionePunteggio } from '@/components/marketing/analisi/sezione-punteggio'
+import { ChiudiPannello } from '@/components/marketing/analisi/chiudi-pannello'
+import {
+  AggiungiRifacimento,
+  ComeRifarlo,
+  CriteriDelPunteggio,
+  numero,
+  PenalitaDelPunteggio,
+  ProblemiDaSistemare,
+} from '@/components/marketing/analisi/sezione-punteggio'
 import { useOpzioniToast } from '@/components/marketing/contesto-pannello'
 import { ApriSuInstagram, CopertinaPost } from '@/components/marketing/instagram/copertina-post'
 import { Button } from '@/components/ui/button'
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatNumero } from '@/lib/format'
 import { tipoDelPost } from '@/lib/marketing/abbinamento'
-import type { DettaglioReel, LetturaLetta } from '@/lib/marketing/analisi/dettaglio'
+import { COSTO_STIMATO_PER_REEL_USD } from '@/lib/marketing/analisi/costi'
+import { cosaFare, type StatoAnalisiCosaFare } from '@/lib/marketing/analisi/cosa-fare'
+import type { AnalisiLetta, DettaglioReel, LetturaLetta } from '@/lib/marketing/analisi/dettaglio'
 import type { RigaReel } from '@/lib/marketing/analisi/elenco'
 import { fraseFonti } from '@/lib/marketing/analisi/frasi'
 import {
@@ -31,23 +43,28 @@ import {
   SENZA_STATISTICHE,
   viewsConConfronto,
 } from '@/lib/marketing/analisi/parole'
+import { eSchedaReel, PARAMETRO_SCHEDA, urlConScheda, type SchedaReel as NomeScheda } from '@/lib/marketing/analisi/pannello'
 import type { AnalisiContenuto, SchedaVisiva } from '@/lib/marketing/analisi/tipi'
 import { nomeDaDidascalia } from '@/lib/marketing/da-post'
 import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE, type FormatContenuto, type ReelType } from '@/lib/marketing/etichette'
 import { etichettaCollega, motiviInParole, quandoPubblicato } from '@/lib/marketing/parole-post'
+import { fasciaDaCodice, ETICHETTA_TIPO, intervalloFascia } from '@/lib/marketing/punteggio/tabelle'
+import { cn } from '@/lib/utils'
 
 const CONNESSIONE = 'Connessione assente. Riprova.'
+const usd = (n: number) => `${n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
 
 export function titoloReel(r: Pick<RigaReel, 'nome' | 'didascalia_inizio' | 'giorno'>): string {
   return r.nome || nomeDaDidascalia(r.didascalia_inizio) || (r.giorno ? `Reel del ${r.giorno.slice(8, 10)}/${r.giorno.slice(5, 7)}/${r.giorno.slice(0, 4)}` : 'Reel')
 }
 
+/** A titled part of a tab. The tab says the big thing; the title says what this part is. */
 function Sezione({ id, titolo, children, nota }: { id: string; titolo: string; children: ReactNode; nota?: ReactNode }) {
   return (
     <section aria-labelledby={id} className="space-y-2" data-testid={`reel-${id}`}>
-      <h3 id={id} className="text-sm font-medium">
+      <h4 id={id} className="text-sm font-medium">
         {titolo}
-      </h3>
+      </h4>
       {nota ? <p className="text-sm text-muted-foreground">{nota}</p> : null}
       {children}
     </section>
@@ -97,7 +114,7 @@ function NumeriReel({ r }: { r: RigaReel }) {
   const salvataggi = formatRapporto(r.salvataggi_rapporto)
   return (
     <div className="space-y-2">
-      <dl className="grid grid-cols-2 gap-2">
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <Numero etichetta="Views" valore={v.numero ?? 'n/d'} nota={v.confronto} />
         <Numero etichetta="Copertura" valore={r.reach === null ? 'n/d' : formatNumero(r.reach)} />
         <Numero
@@ -237,132 +254,6 @@ function ParlatoVisto({ l }: { l: LetturaLetta | null }) {
   )
 }
 
-const ETICHETTA_PRIORITA = { alta: 'Alta', media: 'Media', bassa: 'Bassa' } as const
-
-function AnalisiPronta({
-  idAnalisi,
-  c,
-  idee,
-  puoScrivere,
-  onFatto,
-}: {
-  idAnalisi: string
-  c: AnalisiContenuto
-  idee: DettaglioReel['idee']
-  puoScrivere: boolean
-  onFatto: () => void
-}) {
-  const opzioniToast = useOpzioniToast()
-  const [inVolo, setInVolo] = useState<number | null>(null)
-  const [aggiunte, setAggiunte] = useState<Record<number, { id: string; nome: string }>>({})
-
-  async function aggiungi(indice: number) {
-    if (inVolo !== null) return
-    setInVolo(indice)
-    try {
-      const esito = await aggiungiIdeaAlCalendario({ analisi_id: idAnalisi, indice })
-      if (!esito.ok) {
-        toast.error(esito.errore, opzioniToast)
-        return
-      }
-      setAggiunte((prima) => ({ ...prima, [indice]: { id: esito.id, nome: esito.nome } }))
-      toast.success(`«${esito.nome}» è nel calendario, da girare.`, opzioniToast)
-      onFatto()
-    } catch {
-      toast.error(CONNESSIONE, opzioniToast)
-    } finally {
-      setInVolo(null)
-    }
-  }
-
-  return (
-    <div className="space-y-4" data-testid="reel-analisi-pronta">
-      <p className="text-sm break-words">{c.sintesi}</p>
-      <p className="text-sm break-words text-muted-foreground">{c.perche_verdetto}</p>
-      {c.cosa_ha_funzionato.length ? (
-        <div className="space-y-1">
-          <p className="text-sm font-medium">Cosa ha funzionato</p>
-          <Elenco voci={c.cosa_ha_funzionato} />
-        </div>
-      ) : null}
-      {c.da_migliorare.length ? (
-        <div className="space-y-1">
-          <p className="text-sm font-medium">Da migliorare</p>
-          <ul className="space-y-1.5 text-sm">
-            {c.da_migliorare.map((m, i) => (
-              <li key={i} className="break-words">
-                <span className="text-muted-foreground">{ETICHETTA_PRIORITA[m.priorita]}.</span> {m.cosa} <span className="text-muted-foreground">Come: {m.come}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {c.dai_lead ? (
-        <div className="space-y-1">
-          <p className="text-sm font-medium">Dai lead</p>
-          <p className="text-sm break-words">{c.dai_lead}</p>
-        </div>
-      ) : null}
-      {c.idee.length ? (
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Idee per il calendario</p>
-          <ul className="space-y-3">
-            {c.idee.map((idea, i) => {
-              const fatta = aggiunte[i] ?? idee.find((x) => x.indice === i)
-              const faId = fatta ? ('contenuto_id' in fatta ? fatta.contenuto_id : fatta.id) : null
-              return (
-                <li key={i} className="space-y-1.5 rounded-lg bg-muted/40 p-3 text-sm" data-testid="reel-idea">
-                  <p className="font-medium break-words">{idea.name}</p>
-                  <p className="text-muted-foreground">
-                    {ETICHETTA_REEL_TYPE[idea.reel_type] ?? idea.reel_type}
-                    {idea.format ? ` · ${ETICHETTA_FORMAT[idea.format] ?? idea.format}` : ''}
-                  </p>
-                  <p className="break-words">
-                    <span className="font-medium">Gancio:</span> {idea.gancio}
-                  </p>
-                  <p className="break-words">{idea.messaggio}</p>
-                  <p className="break-words text-muted-foreground">
-                    Hook: {idea.script.hook} {idea.script.righe.length ? `· ${idea.script.righe.join(' · ')}` : ''} · CTA: {idea.script.cta}
-                  </p>
-                  <p className="break-words text-muted-foreground">Perché: {idea.perche}</p>
-                  {faId ? (
-                    <Link
-                      href={`/marketing/contenuti/${faId}`}
-                      className="inline-flex min-h-11 items-center gap-1.5 text-sm underline underline-offset-4"
-                    >
-                      <CircleCheck className="size-4 text-status-ok" aria-hidden="true" />
-                      Già nel calendario
-                    </Link>
-                  ) : puoScrivere ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11"
-                      focusableWhenDisabled
-                      disabled={inVolo !== null}
-                      aria-busy={inVolo === i}
-                      onClick={() => void aggiungi(i)}
-                      data-testid="aggiungi-idea"
-                    >
-                      {inVolo === i ? (
-                        <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                      ) : (
-                        <CalendarPlus className="size-4" aria-hidden="true" />
-                      )}
-                      Aggiungi al calendario
-                      <span className="sr-only">: {idea.name}</span>
-                    </Button>
-                  ) : null}
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 function Calendario({
   d,
   puoScrivere,
@@ -490,13 +381,396 @@ function Calendario({
   )
 }
 
+const ETICHETTA_PRIORITA = { alta: 'Alta', media: 'Media', bassa: 'Bassa' } as const
+
 /**
- * The sheet of a reel (1.36.0): header, the numbers against the account's
- * medians, the verdict, Claude's analysis with its ideas, the calendar, the
- * visual card and what is said in the reel. Every figure and the verdict are
- * SQL's; the sentences are Claude's, already checked on the server (names,
- * amounts, copied notes out). `dettaglio` null: only the row is known and
- * the rest is loading (or `errore`).
+ * The ideas of Claude's analysis (a new reel on the same subject, with its script), each with «Aggiungi al calendario».
+ * With a score, the rewrite of THIS reel is in «Come rifarlo» above them: the title says these are others.
+ */
+function IdeeDellAnalisi({
+  idAnalisi,
+  idee,
+  fatte,
+  conRifacimento,
+  puoScrivere,
+  onFatto,
+}: {
+  idAnalisi: string
+  idee: AnalisiContenuto['idee']
+  fatte: DettaglioReel['idee']
+  conRifacimento: boolean
+  puoScrivere: boolean
+  onFatto: () => void
+}) {
+  const opzioniToast = useOpzioniToast()
+  const [inVolo, setInVolo] = useState<number | null>(null)
+  const [aggiunte, setAggiunte] = useState<Record<number, { id: string; nome: string }>>({})
+
+  async function aggiungi(indice: number) {
+    if (inVolo !== null) return
+    setInVolo(indice)
+    try {
+      const esito = await aggiungiIdeaAlCalendario({ analisi_id: idAnalisi, indice })
+      if (!esito.ok) {
+        toast.error(esito.errore, opzioniToast)
+        return
+      }
+      setAggiunte((prima) => ({ ...prima, [indice]: { id: esito.id, nome: esito.nome } }))
+      toast.success(`«${esito.nome}» è nel calendario, da girare.`, opzioniToast)
+      onFatto()
+    } catch {
+      toast.error(CONNESSIONE, opzioniToast)
+    } finally {
+      setInVolo(null)
+    }
+  }
+
+  if (idee.length === 0) return null
+  return (
+    <section className="space-y-2" aria-labelledby="idee-titolo" data-testid="reel-idee">
+      <h4 id="idee-titolo" className="text-sm font-medium">
+        {conRifacimento ? 'Altre idee dallo stesso tema' : 'Idee per il calendario'}
+      </h4>
+      <p className="text-sm text-muted-foreground">
+        {conRifacimento
+          ? 'Reel nuovi che Claude propone sullo stesso tema: non sono il rifacimento di questo reel.'
+          : 'Reel nuovi che Claude propone a partire da questo.'}
+      </p>
+      <ul className="space-y-3">
+        {idee.map((idea, i) => {
+          const fatta = aggiunte[i] ?? fatte.find((x) => x.indice === i)
+          const faId = fatta ? ('contenuto_id' in fatta ? fatta.contenuto_id : fatta.id) : null
+          return (
+            <li key={i} className="space-y-1.5 rounded-lg bg-muted/40 p-3 text-sm" data-testid="reel-idea">
+              <p className="font-medium break-words">{idea.name}</p>
+              <p className="text-muted-foreground">
+                {ETICHETTA_REEL_TYPE[idea.reel_type] ?? idea.reel_type}
+                {idea.format ? ` · ${ETICHETTA_FORMAT[idea.format] ?? idea.format}` : ''}
+              </p>
+              <p className="break-words">
+                <span className="font-medium">Gancio:</span> {idea.gancio}
+              </p>
+              <p className="break-words">{idea.messaggio}</p>
+              <p className="break-words text-muted-foreground">
+                Hook: {idea.script.hook} {idea.script.righe.length ? `· ${idea.script.righe.join(' · ')}` : ''} · CTA: {idea.script.cta}
+              </p>
+              <p className="break-words text-muted-foreground">Perché: {idea.perche}</p>
+              {faId ? (
+                <Link href={`/marketing/contenuti/${faId}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm underline underline-offset-4">
+                  <CircleCheck className="size-4 text-status-ok" aria-hidden="true" />
+                  Già nel calendario
+                </Link>
+              ) : puoScrivere ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11"
+                  focusableWhenDisabled
+                  disabled={inVolo !== null}
+                  aria-busy={inVolo === i}
+                  onClick={() => void aggiungi(i)}
+                  data-testid="aggiungi-idea"
+                >
+                  {inVolo === i ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarPlus className="size-4" aria-hidden="true" />}
+                  Aggiungi al calendario
+                  <span className="sr-only">: {idea.name}</span>
+                </Button>
+              ) : null}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+/** «Perché»: the reasons, in the order they are read: Claude's summary, what worked, what to improve, the penalties, the criteria. */
+function Perche({ d }: { d: DettaglioReel }) {
+  const analisi = d.analisi
+  const c = analisi?.contenuto ?? null
+  const p = d.punteggio?.punteggio ?? null
+  const forza = [...new Set([...(p?.punti_di_forza ?? []), ...(c?.cosa_ha_funzionato ?? [])])]
+  const fascia = p ? fasciaDaCodice(p.fascia) : null
+  const intervallo = fascia ? intervalloFascia(fascia.codice) : null
+  return (
+    <div className="space-y-5" data-testid="reel-perche">
+      {c ? (
+        <div className="space-y-2" data-testid="reel-analisi-pronta">
+          <p className="num text-sm text-muted-foreground">
+            {analisi?.finita_il ? `Analisi del ${new Date(analisi.finita_il).toLocaleDateString('it-IT')}` : 'Analisi'}
+            {analisi?.eta_ore !== null && analisi?.eta_ore !== undefined ? `, a ${Math.round(analisi.eta_ore / 24)} giorni dalla pubblicazione` : ''}
+            {analisi?.verdetto ? ` · verdetto di allora: ${analisi.verdetto}` : ''}
+          </p>
+          <p className="text-sm break-words">{c.sintesi}</p>
+          <p className="text-sm break-words text-muted-foreground">{c.perche_verdetto}</p>
+        </div>
+      ) : null}
+      {forza.length > 0 ? (
+        <div className="space-y-1.5">
+          <h4 className="text-sm font-medium">Cosa ha funzionato</h4>
+          <Elenco voci={forza} />
+        </div>
+      ) : null}
+      {c && c.da_migliorare.length > 0 ? (
+        <div className="space-y-1.5">
+          <h4 className="text-sm font-medium">Da migliorare</h4>
+          <ul className="space-y-1.5 text-sm">
+            {c.da_migliorare.map((m, i) => (
+              <li key={i} className="break-words">
+                <span className="text-muted-foreground">{ETICHETTA_PRIORITA[m.priorita]}.</span> {m.cosa} <span className="text-muted-foreground">Come: {m.come}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {c?.dai_lead ? (
+        <div className="space-y-1.5">
+          <h4 className="text-sm font-medium">Cosa dicono i lead</h4>
+          <p className="text-sm break-words">{c.dai_lead}</p>
+        </div>
+      ) : null}
+      {p ? (
+        <>
+          <PenalitaDelPunteggio p={p} />
+          <CriteriDelPunteggio p={p} />
+          <p className="num text-sm text-muted-foreground">
+            Valutato come {ETICHETTA_TIPO[p.tipo]}, {p.tipo_origine === 'dichiarato' ? 'dal Reel Type del calendario' : 'dedotto da Claude'}
+            {p.motivo_classificazione ? `: ${p.motivo_classificazione}` : ''}
+            {d.punteggio?.finita_il ? ` · fatto il ${new Date(d.punteggio.finita_il).toLocaleDateString('it-IT')}` : ''}
+            {d.punteggio?.eta_ore !== null && d.punteggio?.eta_ore !== undefined ? `, a ${Math.round(d.punteggio.eta_ore / 24)} giorni dalla pubblicazione` : ''}. Somma dei
+            criteri {numero(p.totale_grezzo)}
+            {p.penalita_totali !== 0 ? `, penalità ${p.penalita_totali}` : ''}
+            {p.limiti_applicati.length > 0 ? `. ${p.limiti_applicati.join('. ')}` : ''}.
+            {fascia && intervallo ? ` Fascia della guida: ${fascia.etichetta} (${intervallo.da}-${intervallo.a}).` : ''}
+          </p>
+        </>
+      ) : null}
+    </div>
+  )
+}
+
+/** «Numeri»: how it went, the verdict of the numbers, the leads, the calendar, what Claude saw and what is said in the reel. */
+function NumeriTab({
+  d,
+  r,
+  lettura,
+  fonti,
+  puoScrivere,
+  onFatto,
+}: {
+  d: DettaglioReel | null
+  r: RigaReel
+  lettura: LetturaLetta | null
+  fonti: string | null
+  puoScrivere: boolean
+  onFatto: () => void
+}) {
+  return (
+    <div className="space-y-5" data-testid="reel-tab-numeri">
+      <Sezione id="numeri" titolo="Come è andato">
+        <NumeriReel r={r} />
+      </Sezione>
+      <Sezione id="verdetto" titolo="Verdetto dei numeri">
+        <Verdetto r={r} />
+      </Sezione>
+      <Sezione id="lead" titolo="Lead dai DM" nota="Chi ha scritto in DM dopo questo reel: i primi 14 giorni, contati dall’Insight.">
+        <p className="num text-sm" data-testid="reel-lead-valore">
+          {parolaLead(r)}
+        </p>
+      </Sezione>
+      {d ? (
+        <Sezione id="calendario" titolo="Nel calendario">
+          <Calendario d={d} puoScrivere={puoScrivere} onFatto={onFatto} />
+        </Sezione>
+      ) : null}
+      {lettura?.scheda ? (
+        <details className="rounded-lg border border-border p-3" data-testid="reel-scheda-visiva">
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">Cosa ha visto Claude</summary>
+          <div className="pt-2">
+            <SchedaVisivaVista s={lettura.scheda} />
+          </div>
+        </details>
+      ) : null}
+      {d ? (
+        <details className="rounded-lg border border-border p-3" data-testid="reel-parlato-blocco">
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">Parlato</summary>
+          <div className="pt-2">
+            <ParlatoVisto l={lettura} />
+          </div>
+        </details>
+      ) : null}
+      {fonti ? (
+        <p className="text-sm text-muted-foreground" data-testid="reel-fonti">
+          {fonti}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * The block at the top of the panel (1.39.1): the one answer. «Cosa fare con questo reel», in one sentence that joins
+ * what the score says about the content and what the numbers say about the audience (lib/marketing/analisi/cosa-fare.ts),
+ * the score, the first things to fix and ONE primary action: put the rewrite in the calendar for the bands that ask to
+ * redo, look at how to touch it up for the touch-ups, «Analizza» when there is no score. «Analizza di nuovo» is
+ * secondary, at the bottom. It paints from the list's row at once; the rest comes with the detail.
+ */
+function BloccoCosaFare({
+  r,
+  dettaglio,
+  statoAnalisi,
+  inLavoro,
+  puoAnalizzare,
+  puoScrivere,
+  onRileggi,
+  onVediRifacimento,
+}: {
+  r: RigaReel
+  dettaglio: DettaglioReel | null
+  statoAnalisi: StatoAnalisiCosaFare | null
+  inLavoro: boolean
+  puoAnalizzare: boolean
+  puoScrivere: boolean
+  onRileggi: () => void
+  onVediRifacimento: () => void
+}) {
+  const punteggio = dettaglio?.punteggio ?? null
+  const p = punteggio?.punteggio ?? null
+  const totale = p?.totale ?? r.punteggio_totale
+  const fasciaCodice = p?.fascia ?? r.punteggio_fascia
+  const fascia = totale !== null && totale !== undefined ? fasciaDaCodice(fasciaCodice) : null
+  const cf = cosaFare({
+    fascia: fascia?.codice ?? null,
+    verdetto: r.verdetto_oggi,
+    giovane: r.eta_ore !== null && r.eta_ore < 72,
+    criteriSotto7: p ? p.criteri.filter((c) => c.voto < 7).length : null,
+    statoAnalisi,
+    eliminato: r.eliminato === true,
+  })
+  const Icona = fascia ? ICONA_FASCIA[fascia.codice] : null
+  const colore = fascia ? COLORE_FASCIA[fascia.codice] : cf.tono === 'critico' ? 'text-status-critical' : 'text-foreground'
+  const analisi = dettaglio?.analisi ?? null
+  const ultima = dettaglio?.ultima ?? null
+  const nonRiuscito = analisi?.fonti?.punteggio === 'non_riuscito'
+  const pubblicabile = !r.eliminato && r.media_id && puoAnalizzare && !inLavoro
+  const etichettaAnalizza: 'Analizza' | 'Dai il punteggio' | 'Analizza di nuovo' = p
+    ? 'Analizza di nuovo'
+    : ultima?.stato === 'fallita'
+      ? 'Analizza di nuovo'
+      : analisi
+        ? 'Dai il punteggio'
+        : 'Analizza'
+
+  return (
+    <section
+      aria-labelledby="cosa-fare-titolo"
+      className="space-y-4 rounded-xl border border-border bg-card p-4"
+      data-testid="reel-cosa-fare"
+      data-cosa-fare={cf.chiave}
+      aria-busy={dettaglio === null}
+    >
+      <h3 id="cosa-fare-titolo" className="text-sm font-medium text-muted-foreground">
+        Cosa fare con questo reel
+      </h3>
+      <div className="flex items-start gap-4">
+        {fascia && totale !== null && totale !== undefined ? (
+          <div className="shrink-0 text-center" data-testid="punteggio-pronto">
+            <p className="num text-5xl leading-none font-semibold text-gold" data-testid="punteggio-totale">
+              {totale}
+            </p>
+            <p className="num mt-1 text-xs text-muted-foreground">su 100</p>
+          </div>
+        ) : null}
+        <div className="min-w-0 space-y-1.5">
+          <p className={cn('flex items-start gap-2 text-lg leading-6 font-semibold', colore)} data-testid="cosa-fare-titolo-breve" data-punteggio={fascia?.codice ?? 'vuoto'}>
+            {Icona ? <Icona className="mt-0.5 size-5 shrink-0" aria-hidden="true" /> : null}
+            <span className="min-w-0 wrap-break-word">{cf.breve}</span>
+          </p>
+          <p className="text-sm break-words" data-testid="cosa-fare-frase">
+            {cf.spiegazione}
+          </p>
+        </div>
+      </div>
+
+      {inLavoro ? (
+        <p className="flex items-start gap-2 text-sm" role="status" data-testid="reel-in-corso">
+          <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin" aria-hidden="true" />
+          <span>
+            {ultima?.stato === 'in_coda' ? 'In coda: parte a breve.' : r.lettura_stato === 'in_coda' || r.lettura_stato === 'in_corso' ? 'Claude sta guardando il reel…' : 'Claude la sta facendo…'}{' '}
+            Di solito servono pochi minuti; la pagina si aggiorna da sola.
+          </span>
+        </p>
+      ) : null}
+      {ultima?.stato === 'fallita' ? (
+        <p className="flex items-start gap-2 text-sm text-status-critical" role="alert" data-testid="reel-fallita">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          {ultima.errore ?? 'L’analisi non è riuscita.'}
+        </p>
+      ) : null}
+
+      {p ? <ProblemiDaSistemare p={p} /> : null}
+
+      {dettaglio === null ? (
+        <p className="text-sm text-muted-foreground">Carico il resto…</p>
+      ) : p && punteggio ? (
+        <>
+          {cf.azione === 'aggiungi_rifacimento' && p.rifacimento.script_riscritto && puoScrivere ? (
+            <AggiungiRifacimento analisiId={punteggio.analisi_id} nato={punteggio.rifacimento_nel_calendario} onFatto={onRileggi} />
+          ) : null}
+          {cf.azione === 'vedi_rifacimento' ? (
+            <Button type="button" className="h-11 w-full sm:w-auto" onClick={onVediRifacimento} data-testid="vedi-rifacimento">
+              Vedi come ritoccarlo
+            </Button>
+          ) : null}
+        </>
+      ) : !p && !r.eliminato && !inLavoro ? (
+        <div className="space-y-2" data-testid="punteggio-vuoto">
+          {nonRiuscito ? (
+            <p className="flex items-start gap-2 text-sm text-status-warning" role="status" data-testid="punteggio-non-riuscito">
+              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              Il punteggio dell’ultima analisi non è riuscito. L’analisi c’è: la leggi in «Perché».
+            </p>
+          ) : analisi ? (
+            <p className="text-sm text-muted-foreground">Questo reel è stato analizzato prima del punteggio.</p>
+          ) : null}
+          {puoAnalizzare ? (
+            <>
+              <p className="text-sm text-muted-foreground" data-testid="reel-senza-analisi">
+                {analisi
+                  ? 'Premendo «Dai il punteggio» Claude rifà l’analisi e dà il punteggio.'
+                  : 'Premendo «Analizza» Claude guarda il video, ascolta il parlato, scrive l’analisi e dà il punteggio.'}{' '}
+                Servono pochi minuti; costo stimato circa {usd(COSTO_STIMATO_PER_REEL_USD)}.
+              </p>
+              <AnalizzaReel mediaId={r.media_id as string} etichetta={etichettaAnalizza} onFatto={onRileggi} variante="default" />
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground" data-testid="reel-senza-permesso">
+              Le analisi le chiedono l’admin e il marketing: appena è pronta la leggi qui.
+            </p>
+          )}
+        </div>
+      ) : null}
+
+      {p && pubblicabile && r.media_id ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border pt-3">
+          <p className="text-xs text-muted-foreground">Rifà lettura, analisi e punteggio: circa {usd(COSTO_STIMATO_PER_REEL_USD)}.</p>
+          <AnalizzaReel mediaId={r.media_id} etichetta="Analizza di nuovo" onFatto={onRileggi} variante="ghost" />
+        </div>
+      ) : null}
+      {p && !puoAnalizzare ? (
+        <p className="border-t border-border pt-3 text-xs text-muted-foreground">Le analisi le chiedono l’admin e il marketing: tu le leggi qui.</p>
+      ) : null}
+    </section>
+  )
+}
+
+/**
+ * The sheet of a reel (1.36.0, redesigned in 1.39.1): a header that stays in view (cover, the reel in two lines, the
+ * day and the length, «Apri su Instagram» as a quiet link), the block «Cosa fare con questo reel» with the one answer
+ * and the one action, and below three tabs in the order they are used: «Come rifarlo», «Perché», «Numeri». A tab that
+ * has nothing to say for this reel is not drawn (a reel without a score has only «Numeri», and then no tabs at all).
+ * Every figure and the verdict are SQL's; the sentences are Claude's, already checked on the server (names,
+ * amounts, copied notes out). `dettaglio` null: only the row is known and the rest is loading (or `errore`).
  */
 export function SchedaReel({
   riga,
@@ -517,50 +791,63 @@ export function SchedaReel({
 }) {
   const r = dettaglio?.reel ?? riga
   const tipo = tipoDelPost({ media_type: r.media_type ?? 'VIDEO', reel: true })
-  const analisi = dettaglio?.analisi ?? null
+  const analisi: AnalisiLetta | null = dettaglio?.analisi ?? null
   const ultima = dettaglio?.ultima ?? null
   const lettura = dettaglio?.lettura ?? null
   const inCorso = ultima?.stato === 'in_coda' || ultima?.stato === 'in_corso'
   const leggendo = r.lettura_stato === 'in_coda' || r.lettura_stato === 'in_corso'
+  const inLavoro = inCorso || leggendo
   const fonti = lettura
     ? fraseFonti({ fotogrammi: lettura.fotogrammi, video: (lettura.video as never) ?? null, trascrizione_esito: lettura.trascrizione_esito as never, fonte_visione: lettura.fonte_visione as never })
     : null
+  const statoAnalisi: StatoAnalisiCosaFare | null = inLavoro
+    ? 'in_corso'
+    : ultima?.stato === 'fallita'
+      ? 'fallita'
+      : r.analisi_stato === 'pronta' || r.analisi_stato === 'fallita' || r.analisi_stato === 'in_coda' || r.analisi_stato === 'in_corso'
+        ? r.analisi_stato
+        : null
+
+  // the tabs that have something to say, in the order of use
+  const punteggio = dettaglio?.punteggio ?? null
+  const idee = analisi?.contenuto?.idee ?? []
+  const schede: NomeScheda[] = dettaglio
+    ? [...(punteggio || idee.length > 0 ? (['rifare'] as const) : []), ...(punteggio || analisi?.contenuto ? (['perche'] as const) : []), 'numeri']
+    : []
+  const daIndirizzo = useSearchParams().get(PARAMETRO_SCHEDA)
+  const [scelta, setScelta] = useState<NomeScheda | null>(eSchedaReel(daIndirizzo) ? daIndirizzo : null)
+  const attiva: NomeScheda = scelta && schede.includes(scelta) ? scelta : (schede[0] ?? 'numeri')
+  const schedeRef = useRef<HTMLDivElement>(null)
+
+  function vaiA(s: NomeScheda, scorri = false) {
+    setScelta(s)
+    const { pathname, search } = window.location
+    window.history.replaceState(null, '', urlConScheda(pathname, search, s))
+    if (scorri) schedeRef.current?.scrollIntoView({ block: 'start' })
+  }
+
+  const conAggiungiNelTab = !!punteggio && cosaFare({ fascia: punteggio.punteggio.fascia, verdetto: null }).azione !== 'aggiungi_rifacimento'
 
   return (
     <>
       <SheetHeader className="sticky top-0 z-10 border-b border-border bg-popover">
         <ChiudiPannello />
         <div className="flex items-start gap-3">
-          <CopertinaPost url={r.copertina_url} tipo={tipo} className="h-20 w-[3.75rem]" />
-          <div className="min-w-0 space-y-1">
-            <SheetTitle ref={titoloRef} tabIndex={-1} className="text-base break-words outline-none">
+          <CopertinaPost url={r.copertina_url} tipo={tipo} className="h-14 w-[2.625rem]" />
+          <div className="min-w-0 space-y-0.5">
+            <SheetTitle ref={titoloRef} tabIndex={-1} className="line-clamp-2 text-base break-words outline-none">
               {titoloReel(r)}
             </SheetTitle>
             <SheetDescription className="num">
               {r.pubblicato_il ? quandoPubblicato(r.pubblicato_il) : ''}
               {r.durata_ms ? ` · ${formatDurata(r.durata_ms / 1000)}` : ''}
             </SheetDescription>
-            <BadgeVerdetto verdetto={r.verdetto_oggi} />
+            {r.permalink ? <ApriSuInstagram href={r.permalink} className="-ml-2" /> : null}
           </div>
         </div>
       </SheetHeader>
 
-      <div className="space-y-6 px-4 pt-4 pb-10">
-        <div className="flex flex-wrap items-start gap-2">
-          {r.permalink ? <ApriSuInstagram href={r.permalink} /> : null}
-          {r.media_id && puoAnalizzare && !r.eliminato && !inCorso && !leggendo ? (
-            <AnalizzaReel
-              mediaId={r.media_id}
-              etichetta={dettaglio?.punteggio || ultima?.stato === 'fallita' ? 'Analizza di nuovo' : analisi ? 'Dai il punteggio' : 'Analizza'}
-              onFatto={onRileggi}
-              variante={dettaglio?.punteggio ? 'outline' : 'default'}
-            />
-          ) : null}
-        </div>
-        {!puoAnalizzare ? (
-          <p className="text-sm text-muted-foreground">Le analisi le chiedono l’admin e il marketing; le leggi qui quando sono pronte.</p>
-        ) : null}
-
+      <div className="space-y-5 px-4 pt-4 pb-10">
         {errore ? (
           <div role="alert" className="flex flex-wrap items-center gap-2 text-sm" data-testid="reel-errore">
             <TriangleAlert className="size-4 shrink-0 text-status-critical" aria-hidden="true" />
@@ -572,102 +859,57 @@ export function SchedaReel({
           </div>
         ) : null}
 
-        <Sezione id="punteggio" titolo="Punteggio">
-          <SezionePunteggio
-            punteggio={dettaglio?.punteggio ?? null}
-            analisi={analisi}
-            caricato={dettaglio !== null}
-            inLavoro={inCorso || leggendo}
-            puoAnalizzare={puoAnalizzare}
-            puoScrivere={puoScrivere}
-            onFatto={onRileggi}
-          />
-        </Sezione>
+        <BloccoCosaFare
+          r={r}
+          dettaglio={dettaglio}
+          statoAnalisi={statoAnalisi}
+          inLavoro={inLavoro}
+          puoAnalizzare={puoAnalizzare}
+          puoScrivere={puoScrivere}
+          onRileggi={onRileggi}
+          onVediRifacimento={() => vaiA('rifare', true)}
+        />
 
-        <Sezione id="numeri" titolo="Come è andato">
-          <NumeriReel r={r} />
-        </Sezione>
-
-        <Sezione id="verdetto" titolo="Verdetto">
-          <Verdetto r={r} />
-        </Sezione>
-
-        <Sezione id="lead" titolo="Lead dai DM" nota="Chi ha scritto in DM dopo questo reel: i primi 14 giorni, contati dall’Insight.">
-          <p className="num text-sm" data-testid="reel-lead-valore">
-            {parolaLead(r)}
+        {dettaglio === null && !errore ? (
+          <p className="text-sm text-muted-foreground" aria-busy="true">
+            Carico i numeri e l’analisi…
           </p>
-        </Sezione>
-
-        <Sezione id="analisi" titolo="L’analisi di Claude">
-          {!dettaglio && !errore ? (
-            <p className="text-sm text-muted-foreground" aria-busy="true">
-              Carico l’analisi…
-            </p>
-          ) : null}
-          {inCorso ? (
-            <p className="flex items-start gap-2 text-sm" role="status" data-testid="reel-in-corso">
-              <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin" aria-hidden="true" />
-              {ultima?.stato === 'in_coda' ? 'In coda: parte a breve.' : 'Claude la sta facendo…'} Di solito servono pochi minuti; la pagina si aggiorna da sola.
-            </p>
-          ) : null}
-          {!inCorso && leggendo && !analisi ? (
-            <p className="flex items-start gap-2 text-sm" role="status">
-              <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin" aria-hidden="true" />
-              Claude sta guardando il reel…
-            </p>
-          ) : null}
-          {ultima?.stato === 'fallita' ? (
-            <p className="flex items-start gap-2 text-sm text-status-critical" role="alert" data-testid="reel-fallita">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {ultima.errore ?? 'L’analisi non è riuscita.'}
-            </p>
-          ) : null}
-          {analisi?.contenuto ? (
-            <>
-              <p className="num text-sm text-muted-foreground">
-                {analisi.finita_il ? `Fatta il ${new Date(analisi.finita_il).toLocaleDateString('it-IT')}` : 'Fatta'}
-                {analisi.eta_ore !== null ? `, a ${Math.round(analisi.eta_ore / 24)} giorni dalla pubblicazione` : ''}
-                {analisi.verdetto ? ` · verdetto di allora: ${analisi.verdetto}` : ''}
-              </p>
-              <AnalisiPronta idAnalisi={analisi.id} c={analisi.contenuto} idee={dettaglio?.idee ?? []} puoScrivere={puoScrivere} onFatto={onRileggi} />
-            </>
-          ) : dettaglio && !inCorso && !leggendo && ultima?.stato !== 'fallita' ? (
-            <p className="text-sm text-muted-foreground" data-testid="reel-senza-analisi">
-              {r.eta_ore !== null && r.eta_ore < 72
-                ? 'Questo reel ha meno di 3 giorni: i numeri sono ancora pochi per un verdetto, ma puoi chiedere subito l’analisi e il punteggio.'
-                : 'Ancora nessuna analisi di Claude per questo reel: parte solo da «Analizza».'}
-            </p>
-          ) : null}
-        </Sezione>
-
-        {dettaglio ? (
-          <Sezione id="calendario" titolo="Nel calendario">
-            <Calendario d={dettaglio} puoScrivere={puoScrivere} onFatto={onRileggi} />
-          </Sezione>
         ) : null}
 
-        {lettura?.scheda ? (
-          <details className="rounded-lg border border-border p-3" data-testid="reel-scheda-visiva">
-            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">Cosa ha visto Claude</summary>
-            <div className="pt-2">
-              <SchedaVisivaVista s={lettura.scheda} />
-            </div>
-          </details>
-        ) : null}
-
-        {dettaglio ? (
-          <details className="rounded-lg border border-border p-3" data-testid="reel-parlato-blocco">
-            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">Parlato</summary>
-            <div className="pt-2">
-              <ParlatoVisto l={lettura} />
-            </div>
-          </details>
-        ) : null}
-
-        {fonti ? (
-          <p className="text-sm text-muted-foreground" data-testid="reel-fonti">
-            {fonti}
-          </p>
+        {dettaglio !== null || errore ? (
+          <div ref={schedeRef} className="scroll-mt-24">
+            {schede.length > 1 ? (
+              <Tabs value={attiva} onValueChange={(v) => eSchedaReel(v) && vaiA(v)}>
+                <TabsList variant="line" aria-label="Dettagli del reel" className="group-data-horizontal/tabs:h-11 w-full gap-0 rounded-none border-b border-border p-0">
+                  {schede.map((s) => (
+                    <TabsTrigger key={s} value={s} className="h-11 flex-1 rounded-none text-sm" data-testid={`scheda-${s}`}>
+                      {s === 'rifare' ? 'Come rifarlo' : s === 'perche' ? 'Perché' : 'Numeri'}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {schede.includes('rifare') ? (
+                  <TabsContent value="rifare" className="space-y-6 pt-4">
+                    {dettaglio && punteggio ? (
+                      <ComeRifarlo p={punteggio.punteggio} analisiId={punteggio.analisi_id} nato={punteggio.rifacimento_nel_calendario} conAggiungi={conAggiungiNelTab} onFatto={onRileggi} />
+                    ) : null}
+                    {dettaglio && analisi ? (
+                      <IdeeDellAnalisi idAnalisi={analisi.id} idee={idee} fatte={dettaglio.idee} conRifacimento={!!punteggio} puoScrivere={puoScrivere} onFatto={onRileggi} />
+                    ) : null}
+                  </TabsContent>
+                ) : null}
+                {schede.includes('perche') && dettaglio ? (
+                  <TabsContent value="perche" className="pt-4">
+                    <Perche d={dettaglio} />
+                  </TabsContent>
+                ) : null}
+                <TabsContent value="numeri" className="pt-4">
+                  <NumeriTab d={dettaglio} r={r} lettura={lettura} fonti={fonti} puoScrivere={puoScrivere} onFatto={onRileggi} />
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <NumeriTab d={dettaglio} r={r} lettura={lettura} fonti={fonti} puoScrivere={puoScrivere} onFatto={onRileggi} />
+            )}
+          </div>
         ) : null}
       </div>
     </>
