@@ -21,7 +21,7 @@ export const COLORE_FASCIA: Record<CodiceFascia, string> = {
 }
 
 /**
- * The score of a reel where it is shown small (Post di Instagram, the content panel): «82 · Ritoccalo e ripubblicalo»,
+ * The score of a reel where it is shown small (Post di Instagram, the content panel): «82 · Rifallo con qualche ritocco»,
  * the number and what to do with the reel, with an icon (1.39.1: the same words as the list and the panel, so the
  * band of the guide never seems to contradict the verdict of the numbers). Without a score «Non valutato».
  * The numbers were computed by the app from Claude's votes (the page only says them).

@@ -86,6 +86,35 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.40.0',
+    data: '2026-10-16',
+    titolo: 'L’analisi di un reel dice cosa fare',
+    riassunto:
+      'Il pannello di un reel apre con una risposta sola e un’azione, il resto sta in tre schede; la pagina Analisi ha una barra dei filtri con le etichette e una colonna «Cosa fare».',
+    intestazionePer: ['marketing'],
+    novita: [
+      {
+        per: ['marketing'],
+        testo:
+          'Aprendo un reel, in cima trovi «Cosa fare con questo reel»: il punteggio, una frase che unisce il giudizio sul contenuto e come è andato col pubblico, le tre cose da sistemare per prime e un bottone solo, di solito «Aggiungi il rifacimento al calendario».',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Il resto del pannello è in tre schede: «Come rifarlo» (hook, script e caption da copiare, poi altre idee sullo stesso tema), «Perché» (i criteri dal più basso, cosa ha funzionato, cosa migliorare) e «Numeri» (statistiche, lead dai DM, calendario, parlato).',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'In Analisi i filtri stanno in una barra sola con le etichette Periodo, Verdetto, Punteggio e Ordina per (sul telefono dietro «Filtri»), e la tabella ha una colonna «Cosa fare» al posto di verdetto, punteggio e analisi, con il titolo del reel più largo.',
+      },
+      {
+        per: ['marketing'],
+        testo: 'Il punteggio in Post di Instagram e nel pannello di un contenuto dice anche cosa fare, per esempio «82 · Rifallo con qualche ritocco».',
+      },
+    ],
+  },
+  {
     versione: '1.39.0',
     data: '2026-10-16',
     titolo: 'Il punteggio dei contenuti, e Claude solo dopo un click',

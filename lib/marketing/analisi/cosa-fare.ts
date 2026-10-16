@@ -48,7 +48,7 @@ export type CosaFare = {
 /** The short form of every band: the action, in the words of the person who does it. */
 export const BREVE_FASCIA: Record<CodiceFascia, string> = {
   pubblicare: 'Va bene così',
-  pubblicare_dopo_ritocchi: 'Ritoccalo e ripubblicalo',
+  pubblicare_dopo_ritocchi: 'Rifallo con qualche ritocco',
   rifare_le_parti_deboli: 'Rifai le parti deboli',
   riscrivere: 'Riscrivilo',
   scartare: 'Rifallo da capo',
@@ -78,8 +78,8 @@ function apertura(fascia: CodiceFascia, criteriSotto7: number | null | undefined
       return 'Il contenuto è pronto, non serve rifarlo.'
     case 'pubblicare_dopo_ritocchi':
       return criteriSotto7 === 0
-        ? 'Ritoccalo e ripubblicalo: manca poco, basta un ritocco.'
-        : `Ritoccalo e ripubblicalo: ${paroleCriteri(criteriSotto7)}.`
+        ? 'Rifallo con qualche ritocco: manca poco.'
+        : `Rifallo con qualche ritocco: ${paroleCriteri(criteriSotto7)}.`
     case 'rifare_le_parti_deboli':
       return 'Rifai le parti deboli: l’hook e i due criteri più bassi, l’idea resta.'
     case 'riscrivere':

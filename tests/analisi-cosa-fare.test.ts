@@ -9,7 +9,7 @@ describe('cosaFare', () => {
       'Rifallo da capo: l’idea non è allineata a fase, ICP o tono. I numeri confermano: sotto la mediana.',
     )
     expect(cosaFare({ fascia: 'pubblicare_dopo_ritocchi', verdetto: 'spingere', criteriSotto7: 2 }).frase).toBe(
-      'Ritoccalo e ripubblicalo: due criteri sotto 7. Il pubblico l’ha premiato: spingilo.',
+      'Rifallo con qualche ritocco: due criteri sotto 7. Il pubblico l’ha premiato: spingilo.',
     )
   })
 
@@ -38,7 +38,7 @@ describe('cosaFare', () => {
   it('counts the criteria under 7 in words, and has a sentence for none or unknown', () => {
     expect(cosaFare({ fascia: 'pubblicare_dopo_ritocchi', verdetto: null, criteriSotto7: 1 }).frase).toContain('un criterio sotto 7')
     expect(cosaFare({ fascia: 'pubblicare_dopo_ritocchi', verdetto: null, criteriSotto7: 4 }).frase).toContain('quattro criteri sotto 7')
-    expect(cosaFare({ fascia: 'pubblicare_dopo_ritocchi', verdetto: null, criteriSotto7: 0 }).frase).toContain('basta un ritocco')
+    expect(cosaFare({ fascia: 'pubblicare_dopo_ritocchi', verdetto: null, criteriSotto7: 0 }).frase).toContain('manca poco')
     expect(cosaFare({ fascia: 'pubblicare_dopo_ritocchi', verdetto: null }).frase).toContain('i criteri sotto 7')
   })
 

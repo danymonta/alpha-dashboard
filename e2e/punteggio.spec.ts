@@ -33,7 +33,7 @@ test('la lista: colonna «Cosa fare» con il punteggio, Da valutare, filtri per 
   await expect(elenco.locator('thead').getByRole('columnheader', { name: 'Punteggio' })).toHaveCount(0)
   const riga82 = elenco.locator(`tr[data-riga-reel="${REEL_82}"]`)
   await expect(riga82.getByTestId('colonna-cosa-fare')).toContainText('82')
-  await expect(riga82.getByTestId('colonna-cosa-fare')).toContainText('Ritoccalo e ripubblicalo')
+  await expect(riga82.getByTestId('colonna-cosa-fare')).toContainText('Rifallo con qualche ritocco')
   await expect(riga82.locator('[data-punteggio="pubblicare_dopo_ritocchi"]')).toBeVisible()
   await expect(elenco.locator(`tr[data-riga-reel="${REEL_ANALIZZATO_SENZA_PUNTEGGIO}"]`).getByTestId('colonna-cosa-fare')).toContainText('Da valutare')
 
@@ -64,7 +64,7 @@ test('il pannello: «Cosa fare» è in cima, con la frase, il punteggio, le cose
   const blocco = p.getByTestId('reel-cosa-fare')
   await expect(blocco).toBeVisible()
   await expect(blocco.getByTestId('punteggio-totale')).toHaveText('82')
-  await expect(blocco.getByTestId('cosa-fare-titolo-breve')).toHaveText('Ritoccalo e ripubblicalo')
+  await expect(blocco.getByTestId('cosa-fare-titolo-breve')).toHaveText('Rifallo con qualche ritocco')
   // one sentence that joins the score's band and the verdict of the numbers, without saying the title twice
   await expect(blocco.getByTestId('cosa-fare-frase')).toHaveText('Un criterio sotto 7. Il pubblico l’ha premiato: spingilo.')
   await expect(blocco.getByTestId('punteggio-problemi')).toContainText('fino a')
@@ -259,7 +259,7 @@ test('a 390 px: il punteggio, i criteri e il rifacimento non allargano la pagina
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   const card = page.getByTestId('elenco-reel').locator(`li[data-riga-reel="${REEL_82}"]`)
   await expect(card).toContainText('82')
-  await expect(card).toContainText('Ritoccalo e ripubblicalo')
+  await expect(card).toContainText('Rifallo con qualche ritocco')
   // at 390 px the filters are one button, not four rows
   await expect(page.getByTestId('filtri-apri')).toBeVisible()
   await expect(page.getByRole('combobox', { name: 'Periodo' })).toHaveCount(0)
@@ -292,7 +292,7 @@ test('Post di Instagram e il blocco del contenuto: il punteggio del reel collega
   await expect(page.getByRole('heading', { level: 1, name: 'Post di Instagram' })).toBeVisible({ timeout: 60_000 })
   const collegati = page.locator('section[aria-labelledby="titolo-collegati"]')
   const riga = collegati.locator('[data-post="SeedDemo01"]')
-  await expect(riga.getByTestId('punteggio-post')).toContainText('82 · Ritoccalo e ripubblicalo')
+  await expect(riga.getByTestId('punteggio-post')).toContainText('82 · Rifallo con qualche ritocco')
   await expect(riga.getByTestId('punteggio-post').getByRole('link', { name: 'Apri l’analisi' })).toHaveAttribute('href', new RegExp(`reel=${REEL_82}`))
   // a linked reel never scored: «Non valutato», with the link to its analysis
   await expect(collegati.locator('[data-post="SeedPost02"]').getByTestId('punteggio-post')).toContainText('Non valutato')
@@ -301,7 +301,7 @@ test('Post di Instagram e il blocco del contenuto: il punteggio del reel collega
   const { data: contenuto } = await dbLocale().from('marketing_contenuti').select('id').eq('instagram_shortcode', 'SeedDemo01').single()
   await page.goto(`/marketing/contenuti?contenuto=${contenuto?.id}`)
   const blocco = page.getByRole('dialog').getByTestId('punteggio-post')
-  await expect(blocco).toContainText('82 · Ritoccalo e ripubblicalo', { timeout: 60_000 })
+  await expect(blocco).toContainText('82 · Rifallo con qualche ritocco', { timeout: 60_000 })
 })
 
 test('Spunti e Fathom non parlano più di automatismi: nessun lunedì, un solo interruttore', async ({ page }) => {

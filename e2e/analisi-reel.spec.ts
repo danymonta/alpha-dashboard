@@ -61,7 +61,7 @@ test('il pannello di un reel: numeri, verdetto, analisi di Claude, idee, parlato
   const p = pannello(page)
   await expect(p.getByRole('heading', { name: /Trazioni senza sbarra/ })).toBeVisible()
   // the answer comes first: what to do with the reel, with the score
-  await expect(p.getByTestId('reel-cosa-fare')).toContainText('Ritoccalo e ripubblicalo')
+  await expect(p.getByTestId('reel-cosa-fare')).toContainText('Rifallo con qualche ritocco')
   await expect(p.getByTestId('reel-cosa-fare')).toContainText('Il pubblico l’ha premiato: spingilo.')
 
   // «Come rifarlo» is open first: the ideas of the analysis, the one already in the calendar says so, the other can be added
