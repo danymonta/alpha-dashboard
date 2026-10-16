@@ -10,6 +10,7 @@ import type { Database } from '@/lib/supabase/database.types'
 import { FOLLOW_UP } from '@/lib/call/follow-up'
 import { SPOSTA } from '@/lib/call/spostamento'
 import { campiFollowUp, campiSpostamento } from '@/lib/validation/call'
+import { sceltaRegistrazioneSchema } from '@/lib/validation/registrazione'
 
 type AggiornamentoCall = Pick<
   Database['public']['Tables']['calls']['Update'],
@@ -58,7 +59,7 @@ const noteCloser = z
  * with "persa".
  */
 const scelte = z.discriminatedUnion('esito', [
-  z.object({ call_id: callId, esito: z.literal('chiusa') }),
+  z.object({ call_id: callId, esito: z.literal('chiusa'), registrazione: sceltaRegistrazioneSchema.optional() }),
   z.object({
     call_id: callId,
     esito: z.enum(['follow_up', 'persa']),
@@ -67,6 +68,7 @@ const scelte = z.discriminatedUnion('esito', [
     note_closer: noteCloser,
     follow_up_data: campiFollowUp.data.optional(),
     follow_up_ora: campiFollowUp.ora.optional(),
+    registrazione: sceltaRegistrazioneSchema.optional(),
   }),
   z.object({
     call_id: callId,

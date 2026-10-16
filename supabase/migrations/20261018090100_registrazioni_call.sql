@@ -74,6 +74,10 @@ begin
     set recording_id = null, durata_secondi = null, inizio_registrazione = null, verificata_il = null,
         link_verificato = null, stato = 'collegata'
     where r.call_id = new.id and r.link_verificato is distinct from new.link_registrazione;
+    -- a link written by whoever (the sheet, the pencil, Alfire) is a recording to look for
+    insert into public.call_registrazioni as r (call_id, stato)
+    values (new.id, 'collegata')
+    on conflict (call_id) do update set stato = 'collegata' where r.stato = 'non_registrata';
   end if;
   return new;
 end;

@@ -1,0 +1,51 @@
+/**
+ * The words of the recording (1.37.0, CLAUDE.md section 31): the outcome sheet, the call's
+ * card, the settings and the toasts. One place; a test compares them with the database's.
+ */
+export const REGISTRAZIONE = {
+  titolo: 'La registrazione della call',
+  domanda: 'Incolla il link della registrazione di Fathom, oppure tocca «Call non registrata».',
+  aiuto: 'Su Fathom apri la call › Condividi › Copia link.',
+  analisi: 'Claude, un’intelligenza artificiale, analizza ogni call registrata.',
+  campo: 'Link della registrazione di Fathom',
+  verifica: 'Verifica il link',
+  verificando: 'Cerco la registrazione su Fathom…',
+  usa: 'Continua con questa registrazione',
+  salvaCosi: 'Salva il link così',
+  salvaLink: 'Salva il link',
+  correggi: 'Correggi',
+  nonRegistrata: 'Call non registrata',
+  nonRegistrataAiuto: 'Un tocco, senza motivo: la call si salva senza registrazione.',
+  manca: 'Incolla il link della registrazione, oppure tocca «Call non registrata».',
+  linkTroppoLungo: 'Il link è troppo lungo.',
+  nonFathom: 'Non è un link di Fathom: lo salvo, ma trascrizione e analisi non arrivano.',
+  nonTrovata: 'Non trovo questa registrazione su Fathom: forse è di un altro account o non è condivisa con te.',
+  nonCollegato: 'Fathom non è collegato: l’admin incolla la chiave in Impostazioni › Fathom. Il link si salva lo stesso.',
+  erroreFathom: 'Fathom non risponde: il link si salva lo stesso e lo controllo più tardi.',
+  avvisoNonSalvata: 'Esito salvato, ma la registrazione no: aggiungila dalla scheda della call.',
+  toastCollegata: 'Registrazione collegata.',
+  toastNonRegistrata: 'Call non registrata.',
+  trovata: (titolo: string | null, quando: string, minuti: number | null) =>
+    `Trovata su Fathom${titolo ? `: «${titolo}»` : ''}, ${quando}${minuti ? `, ${minuti} min` : ''}.`,
+  cambia: 'cambia',
+  // the card of the call
+  scheda: {
+    titolo: 'Registrazione',
+    suFathom: (minuti: number | null) => (minuti ? `Su Fathom · ${minuti} min` : 'Su Fathom'),
+    nonVerificata: 'Link della registrazione (non lo trovo ancora su Fathom)',
+    link: 'Link della registrazione',
+    nonRegistrata: 'Call non registrata',
+    daAggiungere: 'Registrazione da aggiungere',
+    apri: 'Apri su Fathom',
+    trascrizione: 'Trascrizione',
+    riassunto: 'Riassunto di Fathom',
+    aggiungi: 'Aggiungi il link',
+    cambia: 'Cambia',
+    scollega: 'Scollega',
+    verificaDiNuovo: 'Cerca su Fathom',
+    verificaFatta: 'Registrazione trovata su Fathom.',
+    trascrizioneNota: 'Letta adesso da Fathom: l’app non la conserva.',
+    riassuntoNota: 'Scritto da Fathom, in inglese. Letto adesso: l’app non lo conserva.',
+  },
+  daCollegare: 'Registrazione da collegare',
+} as const

@@ -16,6 +16,8 @@ import {
   RotateCw,
   TriangleAlert,
   UserX,
+  Video,
+  VideoOff,
   type LucideIcon,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -25,6 +27,7 @@ import { toast } from 'sonner'
 import { registraEsito } from '@/app/(app)/calls/actions'
 import { CampiFollowUp } from '@/app/(app)/calls/follow-up'
 import { CampiSpostamento } from '@/app/(app)/calls/sposta-call'
+import { PassoRegistrazione } from '@/components/call/passo-registrazione'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -38,12 +41,14 @@ import {
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
 import { FOLLOW_UP, quandoFollowUpDa } from '@/lib/call/follow-up'
+import { REGISTRAZIONE } from '@/lib/call/registrazione'
 import { SPOSTA, spostamentoPredefinito } from '@/lib/call/spostamento'
 import { etichettaGiorno } from '@/lib/date'
 import { MASSIMO_MOTIVO, MASSIMO_NOTE_CLOSER, MOTIVO_NON_CHIUSURA, NOTE_CLOSER } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 import { erroreGiornoFollowUp, schemaSpostamento } from '@/lib/validation/call'
 import { ETICHETTA_ESITO, esitoCallSchema, type EsitoCallInput, type SceltaEsito } from '@/lib/validation/esito'
+import type { SceltaRegistrazioneInput } from '@/lib/validation/registrazione'
 
 type Props = {
   callId: string
@@ -81,6 +86,12 @@ type Props = {
    * tap on "Follow-up" then asks no question, one call has one follow-up.
    */
   followUp?: string | null
+  /**
+   * A held call with no recording yet, from the day the link became required (Dany,
+   * 16/10/2026): closed, follow-up and lost first ask for the link of its Fathom
+   * recording, or «Call non registrata» (lib/validation/registrazione.ts).
+   */
+  chiedeRegistrazione?: boolean
 }
 
 /**
@@ -90,6 +101,7 @@ type Props = {
  */
 type Passo =
   | { nome: 'scelte' }
+  | { nome: 'registrazione'; esito: 'chiusa' | 'follow_up' | 'persa' }
   | { nome: 'nuovaData' }
   | { nome: 'attesa' }
   | { nome: 'followUp' }
@@ -146,6 +158,7 @@ export function RegistraEsito({
   admin = false,
   setter = null,
   followUp = null,
+  chiedeRegistrazione = false,
 }: Props) {
   const router = useRouter()
   const id = useId()
@@ -160,6 +173,7 @@ export function RegistraEsito({
   const [dataFollowUp, setDataFollowUp] = useState(giornoDopo.data)
   const [oraFollowUp, setOraFollowUp] = useState(giornoDopo.ora)
   const [erroreFollowUp, setErroreFollowUp] = useState<string | null>(null)
+  const [registrazione, setRegistrazione] = useState<SceltaRegistrazioneInput | null>(null)
   const [motivo, setMotivo] = useState(motivoSalvato ?? '')
   const [note, setNote] = useState(noteSalvate ?? '')
   const [erroreMotivo, setErroreMotivo] = useState<string | null>(null)
@@ -197,6 +211,7 @@ export function RegistraEsito({
     setDataFollowUp(giornoDopo.data)
     setOraFollowUp(giornoDopo.ora)
     setErroreFollowUp(null)
+    setRegistrazione(null)
     setMotivo(motivoSalvato ?? '')
     setNote(noteSalvate ?? '')
     setErroreMotivo(null)
@@ -224,6 +239,7 @@ export function RegistraEsito({
         input.esito === 'follow_up' && esito.followUp && input.follow_up_data && input.follow_up_ora
           ? quandoFollowUpDa(input.follow_up_data, input.follow_up_ora, oggi)
           : null
+      const registrazioneInviata = 'registrazione' in input ? input.registrazione : undefined
       toast.success(spostata ? SPOSTA.fatto(nomeLead) : `${nomeLead}: ${ETICHETTA_ESITO[input.esito].toLowerCase()}`, {
         description: esito.vaiA
           ? 'Ora registra la vendita.'
@@ -231,8 +247,14 @@ export function RegistraEsito({
             ? `${etichettaGiorno(spostata.data, oggi)} alle ${spostata.ora}`
             : conFollowUp
               ? FOLLOW_UP.diCall(conFollowUp)
-              : undefined,
+              : registrazioneInviata && !esito.avvisoRegistrazione
+                ? registrazioneInviata.tipo === 'link'
+                  ? REGISTRAZIONE.toastCollegata
+                  : REGISTRAZIONE.toastNonRegistrata
+                : undefined,
       })
+      // the outcome is saved, the recording is not: said, never asked to repeat the outcome
+      if (esito.avvisoRegistrazione) toast.warning(esito.avvisoRegistrazione)
       // the outcome is saved, the follow-up call is not: say it, never ask to repeat the outcome;
       // the card's button only when booking it again can work (the call has none yet)
       if (esito.avviso) {
@@ -247,7 +269,22 @@ export function RegistraEsito({
   }
 
   function scegli(esito: SceltaEsito) {
+    // a held call's outcome first asks for the recording (Dany, 16/10/2026)
+    if (chiedeRegistrazione && registrazione === null && (esito === 'chiusa' || esito === 'follow_up' || esito === 'persa')) {
+      vai({ nome: 'registrazione', esito }, sceltaFollowUp)
+      return
+    }
+    procedi(esito, registrazione)
+  }
+
+  /** The recording is chosen (or not asked): the outcome goes on as before. */
+  function procedi(esito: SceltaEsito, reg: SceltaRegistrazioneInput | null) {
     if (esito === 'follow_up') {
+      // the answer already given about the follow-up call stays (the sheet came back to change the recording)
+      if (sceltaFollowUp !== null) {
+        vai({ nome: 'motivo', esito }, sceltaFollowUp)
+        return
+      }
       // one follow-up call per call: the one there is stays, the reason is asked
       if (followUp) vai({ nome: 'motivo', esito }, 'gia')
       else vai({ nome: 'followUp' }, null)
@@ -257,7 +294,7 @@ export function RegistraEsito({
       vai({ nome: 'motivo', esito }, null)
       return
     }
-    salva({ call_id: callId, esito })
+    salva({ call_id: callId, esito, ...(reg && esito === 'chiusa' ? { registrazione: reg } : {}) })
   }
 
   /** «Sì, call fissata»: its day and time are checked before the reason is asked. */
@@ -306,6 +343,7 @@ export function RegistraEsito({
       motivo,
       note_closer: note,
       ...(conCall ? { follow_up_data: sceltaFollowUp.data, follow_up_ora: sceltaFollowUp.ora } : {}),
+      ...(registrazione ? { registrazione } : {}),
     }
     const verifica = esitoCallSchema.safeParse(input)
     if (!verifica.success) {
@@ -333,6 +371,8 @@ export function RegistraEsito({
     switch (passo.nome) {
       case 'scelte':
         return 'Esito della call'
+      case 'registrazione':
+        return REGISTRAZIONE.titolo
       case 'nuovaData':
         return SPOSTA.riprogrammata.domanda
       case 'attesa':
@@ -388,6 +428,29 @@ export function RegistraEsito({
     )
   }
 
+  /** «Registrazione: link di Fathom · cambia», above the reason: the way back to the recording. */
+  function rigaRegistrazione(esito: 'follow_up' | 'persa') {
+    if (registrazione === null) return null
+    return (
+      <button
+        type="button"
+        className={INDIETRO}
+        data-testid="scelta-registrazione"
+        onClick={() => vai({ nome: 'registrazione', esito })}
+      >
+        <ChevronLeft className="size-4 shrink-0" aria-hidden="true" />
+        {registrazione.tipo === 'link' ? (
+          <Video className="size-4 shrink-0" aria-hidden="true" />
+        ) : (
+          <VideoOff className="size-4 shrink-0" aria-hidden="true" />
+        )}
+        <span>
+          {registrazione.tipo === 'link' ? 'Registrazione: link di Fathom' : REGISTRAZIONE.nonRegistrata}: {REGISTRAZIONE.cambia}
+        </span>
+      </button>
+    )
+  }
+
   return (
     <Sheet open={aperto} onOpenChange={apriChiudi}>
       <SheetTrigger
@@ -418,7 +481,26 @@ export function RegistraEsito({
           <p role="status" className="sr-only">
             {annuncio}
           </p>
-          {passo.nome === 'nuovaData' ? (
+          {passo.nome === 'registrazione' ? (
+            <>
+              <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
+                <ChevronLeft className="size-4" aria-hidden="true" />
+                {ETICHETTA_ESITO[passo.esito]}: cambia esito
+              </button>
+              <h3 className="text-sm font-medium">{REGISTRAZIONE.titolo}</h3>
+              <p className="text-sm text-muted-foreground">{REGISTRAZIONE.domanda}</p>
+              <PassoRegistrazione
+                callId={callId}
+                disabilitato={inCorso}
+                valore={registrazione}
+                oggi={oggi}
+                onScelta={(scelta) => {
+                  setRegistrazione(scelta)
+                  procedi(passo.esito, scelta)
+                }}
+              />
+            </>
+          ) : passo.nome === 'nuovaData' ? (
             <>
               <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
                 <ChevronLeft className="size-4" aria-hidden="true" />
@@ -609,6 +691,7 @@ export function RegistraEsito({
           ) : (
             <>
               {intestazioneMotivo(passo.esito)}
+              {rigaRegistrazione(passo.esito)}
 
               <div className="space-y-1.5">
                 <Label htmlFor={`${id}-motivo`}>

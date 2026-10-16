@@ -27,7 +27,8 @@ select is((select count(*)::integer from public.call_analisi where call_id = '84
 update public.calls set stato = 'svolta', esito = 'follow_up', qualificata = true, obiezione_principale = 'Tempo' where id = '84840000-0000-4000-8000-0000000000a1';
 select is((select count(*)::integer from public.call_analisi where call_id = '84840000-0000-4000-8000-0000000000a1'), 0, 'svolta ma senza registrazione: no');
 update public.calls set link_registrazione = 'https://zoom.example.test/rec/1' where id = '84840000-0000-4000-8000-0000000000a1';
-insert into public.call_registrazioni (call_id, stato) values ('84840000-0000-4000-8000-0000000000a1', 'collegata');
+-- (a link written on a call makes its row of call_registrazioni)
+insert into public.call_registrazioni (call_id, stato) values ('84840000-0000-4000-8000-0000000000a1', 'collegata') on conflict (call_id) do nothing;
 select is((select count(*)::integer from public.call_analisi where call_id = '84840000-0000-4000-8000-0000000000a1'), 0, 'un link che non è di Fathom: no');
 update public.calls set link_registrazione = 'https://fathom.video/share/T84A1' where id = '84840000-0000-4000-8000-0000000000a1';
 select public.call_analisi_valuta('84840000-0000-4000-8000-0000000000a1');
@@ -37,7 +38,9 @@ select is((select motivo from public.call_analisi where call_id = '84840000-0000
 -- the other call: a recording found, an analysis ready
 update public.calls set link_registrazione = 'https://fathom.video/share/T84B1' where id = '84840000-0000-4000-8000-0000000000b1';
 insert into public.call_registrazioni (call_id, stato, link_verificato, recording_id, durata_secondi, verificata_il)
-values ('84840000-0000-4000-8000-0000000000b1', 'collegata', 'https://fathom.video/share/T84B1', 9400002, 2400, now());
+values ('84840000-0000-4000-8000-0000000000b1', 'collegata', 'https://fathom.video/share/T84B1', 9400002, 2400, now())
+on conflict (call_id) do update set link_verificato = excluded.link_verificato, recording_id = excluded.recording_id,
+  durata_secondi = excluded.durata_secondi, verificata_il = excluded.verificata_il;
 update public.call_analisi set stato = 'pronta', riassunto = 'Riassunto di prova', analizzata_il = now(), recording_id = 9400002
 where call_id = '84840000-0000-4000-8000-0000000000b1';
 insert into public.call_analisi_setter (call_id, in_target, sorprese, analizzata_il) values ('84840000-0000-4000-8000-0000000000b1', 'si', '[]', now());

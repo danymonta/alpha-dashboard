@@ -40,7 +40,11 @@ begin
       insert into public.call_registrazioni (call_id, stato, link_verificato, recording_id, durata_secondi, inizio_registrazione, verificata_il)
       values (r.id, 'collegata', 'https://fathom.video/share/SeedFathom' || lpad(n::text, 2, '0'), 9000000 + n,
               1800 + n * 420, now() - make_interval(days => n), now())
-      on conflict (call_id) do nothing;
+      -- the link written on the call already made its row (calls_link_registrazione_cambiato): complete it
+      on conflict (call_id) do update
+        set link_verificato = excluded.link_verificato, recording_id = excluded.recording_id,
+            durata_secondi = excluded.durata_secondi, inizio_registrazione = excluded.inizio_registrazione,
+            verificata_il = excluded.verificata_il;
     elsif n = 4 then
       update public.calls set link_registrazione = 'https://fathom.video/share/SeedFathom99' where id = r.id;
       insert into public.call_registrazioni (call_id, stato) values (r.id, 'collegata') on conflict (call_id) do nothing;

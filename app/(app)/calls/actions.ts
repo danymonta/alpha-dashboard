@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { messaggioErrore } from '@/lib/auth/azioni'
 import { getProfilo } from '@/lib/auth/session'
 import { FOLLOW_UP, VENDITA_DA_REGISTRARE } from '@/lib/call/follow-up'
+import { REGISTRAZIONE } from '@/lib/call/registrazione'
 import { motivoNonSpostabile } from '@/lib/call/spostamento'
 import { formatOra, oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
@@ -17,6 +18,7 @@ import {
   schemaSpostamento,
 } from '@/lib/validation/call'
 import { aggiornamentoDaEsito, esitoCallSchema, followUpEsito, nuovaDataEsito } from '@/lib/validation/esito'
+import { chiedeRegistrazione, registrazioneMancante } from '@/lib/validation/registrazione'
 
 /** Every page that lists calls or counts them by day. */
 const PAGINE_DELLE_CALL = ['/calls', '/', '/setting', '/setting/closer', '/setting/closer/giorno', '/leads', '/my-numbers']
@@ -38,6 +40,8 @@ export type EsitoRegistrazione =
        * when the call already has its follow-up call (handed to another closer).
        */
       avvisoRiprova?: boolean
+      /** The outcome is saved, the recording is not (the card of the call adds it). */
+      avvisoRegistrazione?: string
     }
   | { ok: false; errore: string }
 
@@ -65,6 +69,25 @@ export async function registraEsito(input: unknown): Promise<EsitoRegistrazione>
   const supabase = await createClient()
   const v = parsed.data
   const admin = profilo.ruolo === 'admin'
+
+  // The recording of a held call (Dany, 16/10/2026): the link of Fathom, or «Call non registrata». Checked
+  // before anything is saved, so a missing link never leaves half the work done. «Cambia esito» on a call
+  // that already has its link, or a call from before the day it became required, is not asked.
+  const scelta = 'registrazione' in v ? v.registrazione : undefined
+  if (chiedeRegistrazione(v.esito)) {
+    const [chiamata, registrata] = await Promise.all([
+      supabase.from('calls').select('programmata_il, link_registrazione').eq('id', v.call_id).maybeSingle(),
+      supabase.from('call_registrazioni').select('stato').eq('call_id', v.call_id).maybeSingle(),
+    ])
+    if (chiamata.error || registrata.error) return { ok: false, errore: 'Esito non salvato. Riprova.' }
+    if (chiamata.data) {
+      const mancante = registrazioneMancante(v.esito, scelta, {
+        giorno: oggiRoma(new Date(chiamata.data.programmata_il)),
+        haRegistrazione: chiamata.data.link_registrazione !== null || registrata.data !== null,
+      })
+      if (mancante) return { ok: false, errore: mancante }
+    }
+  }
 
   // "Sì, call fissata" (Dany, 07/10/2026): the follow-up call's day is checked
   // before the outcome is saved, so a wrong day never leaves half the work done
@@ -110,7 +133,15 @@ export async function registraEsito(input: unknown): Promise<EsitoRegistrazione>
   if (error) return { ok: false, errore: 'Esito non salvato. Riprova.' }
   if (!data) return { ok: false, errore: 'Questa call non è assegnata a te.' }
 
-  // the outcome is saved: then the follow-up call, on its own day
+  // the outcome is saved: then the recording (it never undoes the outcome), then the follow-up call, on its own day
+  let avvisoRegistrazione: string | undefined
+  if (scelta && chiedeRegistrazione(v.esito)) {
+    const { error: erroreRegistrazione } = await supabase.rpc('collega_registrazione', {
+      p_call_id: v.call_id,
+      p_scelta: scelta,
+    })
+    if (erroreRegistrazione) avvisoRegistrazione = REGISTRAZIONE.avvisoNonSalvata
+  }
   let fissata: EsitoFollowUp | null = null
   if (followUp) fissata = await fissa({ call_id: v.call_id, ...followUp }, admin)
 
@@ -120,6 +151,7 @@ export async function registraEsito(input: unknown): Promise<EsitoRegistrazione>
     ok: true,
     // A closed call goes straight to the prefilled sale
     vaiA: v.esito === 'chiusa' ? `/sales/new?call=${data.id}` : null,
+    ...(avvisoRegistrazione ? { avvisoRegistrazione } : {}),
     ...(fissata?.ok ? { followUp: fissata.id } : {}),
     ...(fissata && !fissata.ok
       ? { avviso: FOLLOW_UP.nonFissata(fissata.errore.replace(/\.$/, '')), avvisoRiprova: !fissata.giaPresente }
