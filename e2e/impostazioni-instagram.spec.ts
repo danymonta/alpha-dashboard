@@ -610,5 +610,10 @@ for (const ruolo of ['setter', 'coach'] as const) {
     await expect(page).not.toHaveURL(/\/settings/)
     await expect(page.getByRole('heading', { level: 1, name: 'Instagram' })).toHaveCount(0)
     await expect(page.getByText('Chat escluse')).toHaveCount(0)
+    // nor Chiavi e collegamenti (1.38.0): no field, no state of any key
+    await page.goto('/settings/chiavi')
+    await expect(page).not.toHaveURL(/\/settings/)
+    await expect(page.getByRole('heading', { level: 1, name: 'Chiavi e collegamenti' })).toHaveCount(0)
+    await expect(page.getByLabel('Token di accesso')).toHaveCount(0)
   })
 }
