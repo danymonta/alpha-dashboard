@@ -240,8 +240,8 @@ export default async function PostInstagramPage({
                 {profilo.ruolo === 'admin' ? (
                   <>
                     {' '}
-                    <Link href="/settings/instagram" className="underline underline-offset-4 hover:text-foreground">
-                      Impostazioni › Instagram
+                    <Link href="/settings/chiavi#instagram" className="underline underline-offset-4 hover:text-foreground">
+                      Impostazioni › Chiavi e collegamenti
                     </Link>
                   </>
                 ) : null}

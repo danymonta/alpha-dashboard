@@ -21,15 +21,15 @@ export const FRASI_INSIGHT = {
   /** the route, without ANTHROPIC_API_KEY on Vercel */
   nonConfigurato: 'Insight non configurato: manca ANTHROPIC_API_KEY su Vercel.',
   /** no Instagram token in Vault */
-  senzaToken: 'Instagram non è collegato: incolla il token in Impostazioni › Instagram e Messenger.',
+  senzaToken: 'Instagram non è collegato: incolla il token in Impostazioni › Chiavi e collegamenti.',
   /** code 190 */
   token:
-    'Il token di Instagram è scaduto o non è più valido: generane uno nuovo dal pannello Meta e incollalo in Impostazioni › Instagram e Messenger.',
+    'Il token di Instagram è scaduto o non è più valido: generane uno nuovo dal pannello Meta e incollalo in Impostazioni › Chiavi e collegamenti.',
   limite: 'Instagram ha limitato le letture per troppe richieste: riprova più tardi con Aggiorna dati.',
   rete: 'Instagram non ha risposto: riprova più tardi con Aggiorna dati.',
   meta: 'Instagram ha rifiutato la lettura delle chat: riprova più tardi con Aggiorna dati.',
   tempo: 'Le chat da leggere erano troppe per il tempo a disposizione: riprova con Aggiorna dati.',
-  account: 'Instagram non ha detto quale account è collegato: incolla di nuovo il token in Impostazioni › Instagram e Messenger.',
+  account: 'Instagram non ha detto quale account è collegato: incolla di nuovo il token in Impostazioni › Chiavi e collegamenti.',
   database: 'Il gestionale non è riuscito a leggere o salvare i dati del recap: riprova con Aggiorna dati.',
   /** Anthropic: authentication, permission, credit or spend limit (C46) */
   claude:
@@ -51,7 +51,7 @@ export const AVVISI_INSIGHT = {
   chat_troppe: 'Troppe chat aggiornate in un giorno: lette le più recenti.',
   contenuti_non_letti: 'Post e reel non letti da Instagram: la tabella dei contenuti usa i dati già salvati.',
   messenger_token:
-    'Messenger non letto: il token della Pagina è scaduto o non è più valido. Incollane uno nuovo in Impostazioni › Instagram e Messenger.',
+    'Messenger non letto: il token della Pagina è scaduto o non è più valido. Incollane uno nuovo in Impostazioni › Chiavi e collegamenti.',
   messenger_non_letto: 'Messenger non letto: Meta non ha risposto. Riprova più tardi con Aggiorna dati.',
   messenger_chat_non_lette: 'Alcune chat Messenger non sono state lette: nel recap c’è la loro ultima versione salvata.',
   conteggi: 'Conteggi per contenuto non aggiornati: riprova con Aggiorna dati.',

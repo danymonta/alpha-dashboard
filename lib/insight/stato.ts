@@ -113,7 +113,7 @@ export function pianificatoreFermo(stato: Pick<StatoInsightAdmin, 'attivo' | 'ul
  * writes it from here (lib/insight/frasi.ts), never a copy.
  */
 export const AVVISO_STATISTICHE =
-  'Statistiche dei contenuti non disponibili: aggiungi il permesso instagram_business_manage_insights all’app Meta e incolla di nuovo il token in Impostazioni › Instagram e Messenger.'
+  'Statistiche dei contenuti non disponibili: aggiungi il permesso instagram_business_manage_insights all’app Meta e incolla di nuovo il token in Impostazioni › Chiavi e collegamenti.'
 
 export function haAvvisoStatistiche(stato: Pick<StatoInsightAdmin, 'esecuzione'> | null): boolean {
   return stato?.esecuzione?.avvisi.includes(AVVISO_STATISTICHE) ?? false

@@ -9,7 +9,7 @@ import { aggiornaDati } from '@/app/(app)/insight/actions'
 import { useAdessoMezzoMinuto } from '@/components/insight/orologio'
 import { Button } from '@/components/ui/button'
 import { formatOra } from '@/lib/date'
-import { LINK_IMPOSTAZIONI_INSTAGRAM } from '@/lib/insight/link'
+import { LINK_CHIAVE_INSTAGRAM } from '@/lib/insight/link'
 import { AGGIORNA, fasePasso, rigaFallita, rigaInCorso, rigaPianificatore } from '@/lib/insight/parole'
 import {
   esecuzioneInCorso,
@@ -277,7 +277,7 @@ function rigaDi(v: Valore): Riga | null {
     return {
       tono: 'errore',
       testo: AGGIORNA.tokenScaduto,
-      link: { href: LINK_IMPOSTAZIONI_INSTAGRAM, etichetta: AGGIORNA.apriImpostazioni },
+      link: { href: LINK_CHIAVE_INSTAGRAM, etichetta: AGGIORNA.apriImpostazioni },
     }
   }
   if (stato?.esecuzione?.stato === 'fallita') {

@@ -558,12 +558,12 @@ test('«Aggiorna da Instagram» senza token: la frase del token mancante, mai un
   await accedi(page, 'marketing')
   await apriPagina(page)
   await page.getByRole('button', { name: 'Aggiorna da Instagram' }).click()
-  await expect(page.getByText('Instagram non è collegato: l’admin incolla il token in Impostazioni › Instagram.').first()).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('Instagram non è collegato: l’admin incolla il token in Impostazioni › Chiavi e collegamenti.').first()).toBeVisible({ timeout: 30_000 })
 })
 
 test('dopo un giro fallito: «Ultimo tentativo», mai «Aggiornati»; «Aggiorna da Instagram» riparte subito', async ({ page }) => {
   test.setTimeout(120_000)
-  const errore = 'Instagram non è collegato: l’admin incolla il token in Impostazioni › Instagram.'
+  const errore = 'Instagram non è collegato: l’admin incolla il token in Impostazioni › Chiavi e collegamenti.'
   const { error } = await dbLocale()
     .from('instagram_contenuti_stato')
     .update({

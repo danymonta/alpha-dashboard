@@ -17,8 +17,8 @@ export const FRASI_ANALISI = {
   troppoLungo: 'Il reel è troppo lungo da leggere in un passo: riprova.',
   interrotta: 'Interrotta: il server non ha finito il lavoro. Riprova.',
   reelSparito: 'Questo reel non c’è più su Instagram.',
-  senzaToken: 'Instagram non è collegato: l’admin incolla il token in Impostazioni › Instagram.',
-  tokenScaduto: 'Il token di Instagram è scaduto: l’admin ne incolla uno nuovo in Impostazioni › Instagram.',
+  senzaToken: 'Instagram non è collegato: l’admin incolla il token in Impostazioni › Chiavi e collegamenti.',
+  tokenScaduto: 'Il token di Instagram è scaduto: l’admin ne incolla uno nuovo in Impostazioni › Chiavi e collegamenti.',
   lettura: 'La lettura del reel non è riuscita: riprova.',
   vuota: 'Non c’è abbastanza da analizzare in questo reel.',
 } as const
