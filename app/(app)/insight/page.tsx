@@ -16,7 +16,7 @@ import { requireRuolo } from '@/lib/auth/session'
 import { isDataISO } from '@/lib/date'
 import { canaleIniziale, COOKIE_CANALE_INSIGHT, fonteDi, ID_PANNELLO_INSIGHT, idScheda, type Canale } from '@/lib/insight/canale'
 import { insightConfigurato, UrlPassoNonValido, urlPasso } from '@/lib/insight/config'
-import { LINK_IMPOSTAZIONI_INSTAGRAM } from '@/lib/insight/link'
+import { LINK_CHIAVE_MESSENGER } from '@/lib/insight/link'
 import {
   AGGIORNA,
   DESCRIZIONE_NESSUN_RECAP,
@@ -196,7 +196,7 @@ export default async function InsightPage({
             Icona={MessageCircle}
             titolo={MESSENGER_NON_COLLEGATO.titolo}
             descrizione={admin ? MESSENGER_NON_COLLEGATO.admin : MESSENGER_NON_COLLEGATO.setter}
-            azione={admin ? <LinkBottone href={LINK_IMPOSTAZIONI_INSTAGRAM}>{AGGIORNA.apriImpostazioni}</LinkBottone> : undefined}
+            azione={admin ? <LinkBottone href={LINK_CHIAVE_MESSENGER}>{AGGIORNA.apriImpostazioni}</LinkBottone> : undefined}
           />
         )
       }

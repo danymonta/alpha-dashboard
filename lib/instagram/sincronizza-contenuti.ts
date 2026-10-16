@@ -63,8 +63,8 @@ export type CausaContenuti = 'senza_token' | 'token' | 'limite' | 'rete' | 'temp
 
 /** The sentences of the run, for the page, Impostazioni and the toast. */
 export const FRASI_CONTENUTI: Record<Exclude<CausaContenuti, 'tempo' | 'meta'>, string> & { meta: string } = {
-  senza_token: 'Instagram non è collegato: l’admin incolla il token in Impostazioni › Instagram.',
-  token: 'Il token di Instagram è scaduto: l’admin ne incolla uno nuovo in Impostazioni › Instagram.',
+  senza_token: 'Instagram non è collegato: l’admin incolla il token in Impostazioni › Chiavi e collegamenti.',
+  token: 'Il token di Instagram è scaduto: l’admin ne incolla uno nuovo in Impostazioni › Chiavi e collegamenti.',
   limite: 'Instagram ha chiesto di rallentare: il resto arriva col prossimo aggiornamento.',
   rete: 'Instagram non ha risposto: riprova più tardi.',
   meta: 'Instagram ha rifiutato la lettura dei post.',

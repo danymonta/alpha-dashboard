@@ -558,12 +558,12 @@ test('«Aggiorna da Instagram» senza token: la frase del token mancante, mai un
   await accedi(page, 'marketing')
   await apriPagina(page)
   await page.getByRole('button', { name: 'Aggiorna da Instagram' }).click()
-  await expect(page.getByText('Instagram non è collegato: l’admin incolla il token in Impostazioni › Instagram.').first()).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('Instagram non è collegato: l’admin incolla il token in Impostazioni › Chiavi e collegamenti.').first()).toBeVisible({ timeout: 30_000 })
 })
 
 test('dopo un giro fallito: «Ultimo tentativo», mai «Aggiornati»; «Aggiorna da Instagram» riparte subito', async ({ page }) => {
   test.setTimeout(120_000)
-  const errore = 'Instagram non è collegato: l’admin incolla il token in Impostazioni › Instagram.'
+  const errore = 'Instagram non è collegato: l’admin incolla il token in Impostazioni › Chiavi e collegamenti.'
   const { error } = await dbLocale()
     .from('instagram_contenuti_stato')
     .update({
@@ -595,7 +595,7 @@ test('dopo un giro fallito: «Ultimo tentativo», mai «Aggiornati»; «Aggiorna
   await expect(page.locator('[data-sonner-toast]').getByText(/riprova tra/)).toHaveCount(0)
 })
 
-test('sul telefono: niente scroll di lato, bottoni da 44 px, «Contenuti» accesa', async ({ page }) => {
+test('sul telefono: niente scroll di lato, bottoni da 44 px, «Post di Instagram» accesa in «Altro»', async ({ page }) => {
   test.setTimeout(120_000)
   await creaPost(8, 'Un reel di prova con una didascalia lunga '.repeat(8))
   await page.setViewportSize({ width: 390, height: 844 })
@@ -605,9 +605,18 @@ test('sul telefono: niente scroll di lato, bottoni da 44 px, «Contenuti» acces
   for (const bottone of await scheda(page, 8).getByRole('button').all()) {
     expect((await bottone.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
   }
-  // the bottom bar's item, lit on every tab of the area (attivaSu)
-  const voce = page.getByRole('navigation', { name: 'Navigazione', exact: true }).getByRole('link', { name: 'Contenuti', exact: true })
-  await expect(voce).toHaveAttribute('aria-current', 'page')
+  // 1.38.0: every page of the area is an item of the menu, lit on its own page. «Contenuti» is in the bar
+  // and is not lit here; «Post di Instagram» is in «Altro», which the bar shows as the current place
+  const barra = page.getByRole('navigation', { name: 'Navigazione', exact: true })
+  await expect(barra.getByRole('link', { name: 'Contenuti', exact: true })).not.toHaveAttribute('aria-current', 'page')
+  await barra.getByRole('button', { name: /^Altro/ }).click()
+  const altro = page.getByRole('dialog', { name: 'Altro' })
+  await expect(altro.getByRole('group', { name: 'Marketing' }).getByRole('link', { name: /^Post di Instagram/ })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  await page.keyboard.press('Escape')
+  await expect(altro).toBeHidden()
 
   // a content linked to that post, with another Post Date: its panel on this page takes
   // the whole screen, and the block «Post su Instagram» (long caption, «Usa la data di

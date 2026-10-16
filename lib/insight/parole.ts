@@ -54,8 +54,8 @@ export const AGGIORNA = {
   fatto: 'Dati aggiornati.',
   chiaveMancante: 'Insight spento: manca ANTHROPIC_API_KEY su Vercel.',
   tokenScaduto:
-    'Token Instagram scaduto: generane uno nuovo dal pannello Meta e incollalo in Impostazioni › Instagram e Messenger.',
-  apriImpostazioni: 'Apri Impostazioni',
+    'Token Instagram scaduto: generane uno nuovo dal pannello Meta e incollalo in Impostazioni › Chiavi e collegamenti.',
+  apriImpostazioni: 'Apri Chiavi e collegamenti',
   connessione: 'Connessione assente. Riprova.',
   nonAvviato: 'Aggiornamento non avviato. Riprova.',
   /** the setter's only line during a run: never the phase, an error or a cost */
@@ -307,7 +307,7 @@ export function titoloNessunRecap(canale: Canale): string {
 
 export const MESSENGER_NON_COLLEGATO = {
   titolo: 'Messenger non collegato',
-  admin: 'Incolla il token della Pagina in Impostazioni › Instagram e Messenger: dal recap successivo trovi qui le chat Messenger.',
+  admin: 'Incolla il token della Pagina in Impostazioni › Chiavi e collegamenti: dal recap successivo trovi qui le chat Messenger.',
   setter: 'Lo collega Dany.',
 } as const
 

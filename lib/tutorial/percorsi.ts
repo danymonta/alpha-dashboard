@@ -33,6 +33,7 @@ export const TARGET_DI_PAGINA = [
   'mio-task',
   'card-progetto',
   'elenco-contenuti',
+  'scheda-insight',
 ] as const
 
 /** What each role does, as the tour and the admin's preview menu call it. */
@@ -162,7 +163,7 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
       // Setter and Closer instead of "Setting" (07/10/2026): his outcomes are recorded every day
       id: 'closer',
       titolo: 'Closer',
-      testo: 'In cima le tue call ancora senza esito, da registrare ogni giorno; sotto i numeri del closer giorno per giorno. Accanto, «Setter» con i report dei setter e «Insight ultime 24h» con il recap dei DM.',
+      testo: 'In cima le tue call ancora senza esito, da registrare ogni giorno; sotto i numeri del closer giorno per giorno. Accanto, «Setter» con i report dei setter e, nella scheda «Insight 24h», il recap dei DM.',
       target: nav('/setting/closer', 'nav-altro'),
     },
     {
@@ -203,6 +204,15 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
       testo: 'Qui vedi quando è stato salvato: nessun tasto “invia” da ricordare. Ci metti meno di un minuto.',
       target: ['oggi-salvato'],
     },
+    {
+      // the recap of the DMs of the last 24 hours is the second tab of Oggi (1.38.0): it lives on /today,
+      // so the step follows the two steps of Oggi and is not a "tocca qui"
+      id: 'insight',
+      pagina: '/today',
+      titolo: 'Insight 24h',
+      testo: 'Qui sopra, nella scheda «Insight 24h»: ogni sera i DM del giorno letti da Claude, con chi aspetta una risposta e il messaggio da copiare.',
+      target: ['scheda-insight'],
+    },
     tocca('/calls/new', 'vai-nuova-call', 'Nuova call', 'Tocca «Nuova call».'),
     {
       id: 'nuova-call',
@@ -229,14 +239,6 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
       titolo: 'Closer',
       testo: 'Come vanno le call di tutti i setter, giorno per giorno: svolte, chiuse, show rate, cash e revenue, dagli esiti che registra il closer.',
       target: nav('/setting/closer', 'nav-altro'),
-    },
-    {
-      // the recap of the DMs of the last 24 hours (1.35.0): not a "tocca qui"
-      // step, and never right after "Oggi" (that step continues on /today)
-      id: 'insight',
-      titolo: 'Insight ultime 24h',
-      testo: 'Ogni sera i DM del giorno letti da Claude: chi aspetta una risposta e il messaggio da copiare. Lo trovi nel menu; sul telefono in «Altro».',
-      target: nav('/insight', 'nav-altro'),
     },
     alfire('Chiedile come stai andando o dille “aggiungi 20 DM al report di oggi”, anche col vocale. Scrive solo dopo la tua conferma.'),
     PROFILO,

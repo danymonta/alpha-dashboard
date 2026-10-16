@@ -2,6 +2,7 @@
 
 import { LogOut } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { useEffect, useId, useRef } from 'react'
 
 import { esci } from '@/app/auth/actions'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
@@ -11,7 +12,7 @@ import { usePromemoria } from '@/components/shell/esiti-da-registrare'
 import { LinkNav } from '@/components/shell/link-nav'
 import { Button } from '@/components/ui/button'
 import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
-import { classeTonoIcona, isAttiva, nomeConPromemoria, perSezione, promemoriaDellaVoce, vociNav } from '@/lib/nav'
+import { isAttiva, nomeConPromemoria, promemoriaDellaVoce, vociNav } from '@/lib/nav'
 
 type Props = {
   ruolo: AppRole
@@ -23,8 +24,13 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
   const pathname = usePathname()
   // the person's own calls to record and days to decide (zero where the role has none)
   const promemoria = usePromemoria()
-  const { principali, altre } = vociNav(ruolo)
-  const gruppi = perSezione([...principali, ...altre])
+  const { gruppi } = vociNav(ruolo)
+  const idBase = useId()
+  // sixteen items do not fit a laptop screen: the list scrolls, and the lit item must never be out of sight
+  const elenco = useRef<HTMLElement>(null)
+  useEffect(() => {
+    elenco.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' })
+  }, [pathname])
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
@@ -34,40 +40,52 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
       </div>
 
 
-      <nav aria-label="Navigazione principale" className="flex-1 space-y-4 overflow-y-auto px-2">
-        {gruppi.map(({ sezione, voci }) => (
-          <div key={sezione}>
-            {/* one heading per area, only when there is more than one */}
-            {gruppi.length > 1 ? (
-              <p className="px-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{sezione}</p>
-            ) : null}
-            <ul className="space-y-0.5">
-              {voci.map((voce) => {
-                const attiva = isAttiva(pathname, voce)
-                const suoi = promemoriaDellaVoce(voce, promemoria)
-                return (
-                  <li key={voce.href}>
-                    <LinkNav
-                      href={voce.href}
-                      data-tour={`nav-${voce.href}`}
-                      aria-current={attiva ? 'page' : undefined}
-                      aria-label={nomeConPromemoria(voce.etichetta, suoi)}
-                      className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${
-                        attiva
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                      }`}
-                    >
-                      <voce.Icona className={`size-4 shrink-0 ${classeTonoIcona(voce, attiva)}`} aria-hidden="true" />
-                      {voce.etichetta}
-                      <ConteggioPromemoria promemoria={suoi} attiva={attiva} className="ml-auto" />
-                    </LinkNav>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        ))}
+      <nav ref={elenco} aria-label="Navigazione principale" className="flex-1 space-y-4 overflow-y-auto px-2 pt-2">
+        {gruppi.map(({ titolo, voci }, i) => {
+          const idTitolo = `${idBase}-gruppo-${i}`
+          return (
+            // a real group with its title (1.38.0); the first group has none: its item stands on top
+            <div
+              key={titolo ?? 'in-cima'}
+              role={titolo ? 'group' : undefined}
+              aria-labelledby={titolo ? idTitolo : undefined}
+            >
+              {titolo ? (
+                <p
+                  id={idTitolo}
+                  className="px-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                >
+                  {titolo}
+                </p>
+              ) : null}
+              <ul className="space-y-0.5">
+                {voci.map((voce) => {
+                  const attiva = isAttiva(pathname, voce)
+                  const suoi = promemoriaDellaVoce(voce, promemoria)
+                  return (
+                    <li key={voce.href}>
+                      <LinkNav
+                        href={voce.href}
+                        data-tour={`nav-${voce.href}`}
+                        aria-current={attiva ? 'page' : undefined}
+                        aria-label={nomeConPromemoria(voce.etichetta, suoi)}
+                        className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${
+                          attiva
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                        }`}
+                      >
+                        <voce.Icona className="size-4 shrink-0" aria-hidden="true" />
+                        {voce.etichetta}
+                        <ConteggioPromemoria promemoria={suoi} attiva={attiva} className="ml-auto" />
+                      </LinkNav>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )
+        })}
       </nav>
 
       <div className="border-t border-border p-2">

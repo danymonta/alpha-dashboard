@@ -19,7 +19,7 @@ import { SceltaGiorno } from '@/app/(app)/today/scelta-giorno'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
 import { GiorniSenzaCommento } from '@/components/setter/giorni-senza-commento'
 import { ProposteInstagram } from '@/components/setter/proposte-instagram'
-import { LinkInsight24h } from '@/components/setting/insight-24h'
+import { SchedeInsight } from '@/components/insight/schede-insight'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, dataReportValida, etichettaGiorno, oggiRoma } from '@/lib/date'
 import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
@@ -129,6 +129,9 @@ export default async function OggiPage({
 
   return (
     <div className="max-w-xl">
+      {/* the recap of the DMs of the last 24 hours is the second tab of Oggi (1.38.0) */}
+      <SchedeInsight ruolo="setter" attiva="principale" />
+
       <header className="mb-2 flex items-center justify-between gap-2">
         <NavGiorno
           href={hrefGiorno(precedente, oggi)}
@@ -176,11 +179,6 @@ export default async function OggiPage({
         errore={!!proposte.error || erroreTuoi || !!decisaDelGiorno.error}
         idTitoloPagina={ID_TITOLO}
       />
-
-      {/* the DM insights of the last 24 hours, in Dany's Claude artifact (08/10/2026) */}
-      <div className="mb-4 flex justify-center">
-        <LinkInsight24h className="w-full sm:w-auto" />
-      </div>
 
       <ReportForm
         key={`${data}:${decisaDelGiorno.data?.deciso_il ?? ''}`}

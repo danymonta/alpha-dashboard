@@ -86,6 +86,56 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.38.0',
+    data: '2026-10-16',
+    titolo: 'Menu a categorie, Insight 24h in una scheda e Chiavi e collegamenti',
+    riassunto:
+      'Le voci del menu sono divise per categoria con gli stessi titoli sul computer e sul telefono; Insight 24h diventa una scheda di Setter e di Oggi; le Impostazioni hanno una pagina con le chiavi dei servizi esterni e la guida per rigenerarle.',
+    intestazionePer: ['tutti'],
+    intestazioneTeam: {
+      titolo: 'Il menu a categorie',
+      riassunto:
+        'Le voci del menu sono divise per categoria, con gli stessi titoli sul computer e nel foglio «Altro» del telefono.',
+    },
+    novita: [
+      {
+        per: ['tutti'],
+        testo:
+          'Il menu è diviso per categoria, con un titolo per ogni gruppo: lo stesso elenco nella barra laterale del computer e nel foglio «Altro» del telefono. Le voci che ti servono ogni giorno restano nella barra in basso; tutte le altre le trovi in «Altro», sotto il loro titolo. Gli indirizzi delle pagine non cambiano.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il menu per te: in cima Panoramica; poi Vendite (Le mie call, Pipeline, Clienti, Vendite, Incassi, Rinnovi), Team (Setter, Closer, Provvigioni), Marketing (Contenuti, Post di Instagram, Analisi, Spunti, ognuna una voce sua), Progetti (Progetti, I miei task, Tempo) e Amministrazione (Costi, Impostazioni, Novità). La barra in basso del telefono: Panoramica, Le mie call, Setter e Contenuti; il resto in «Altro», con gli stessi titoli.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Insight 24h non è più una voce del menu: è la seconda scheda di Setter, «Numeri | Insight 24h», in cima a tutte e due le pagine. Il link «Insight delle ultime 24h» accanto ad «Aggiungi giornata» non serve più e non c’è.',
+      },
+      {
+        per: ['setter'],
+        testo:
+          'Insight 24h non è più nel menu: è la seconda scheda di «Oggi», «Il mio giorno | Insight 24h», in cima a tutte e due le pagine. Il menu è diviso in «Il mio lavoro», «Team», «Progetti» e «Generale»; la barra in basso non cambia (Oggi, Nuova call, Pipeline, I miei numeri).',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Contenuti, Post di Instagram, Analisi e Spunti sono quattro voci del gruppo «Marketing», ognuna accesa sulla sua pagina; le schede in cima alle pagine restano. Il numero dei post ancora da collegare, che era sulla scheda «Post di Instagram», sta anche sulla voce del menu.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Le Impostazioni sono divise per categoria: Team e accessi, Prodotti e provvigioni, Chiavi e collegamenti, Esporta e backup, Progetti.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Nuova pagina Impostazioni › Chiavi e collegamenti: in un posto solo Instagram, Messenger, Fathom, Claude e Groq, ognuno con il suo stato in vista (per Instagram anche «Scade tra N giorni» da una settimana prima) e, in un pannello da aprire, la guida passo passo per generare o rigenerare la chiave: dove andare, cosa incollare e dove, come capire che funziona e cosa succede quando scade. I campi dove incollare il token di Instagram, quello della Pagina di Messenger e la chiave di Fathom stanno lì (non più nelle loro pagine); per Claude e Groq si vede solo se la chiave c’è su Vercel, mai il valore. Le chiavi si salvano come prima e non vanno mai incollate in chat.',
+      },
+    ],
+  },
+  {
     versione: '1.37.1',
     data: '2026-10-16',
     titolo: 'La pagina Analisi torna a caricarsi',

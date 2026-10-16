@@ -16,6 +16,8 @@ export type Esito = { ok: true } | { ok: false; errore: string }
 export type EsitoChiave = { ok: true; prova: 'risponde' | { errore: string } } | { ok: false; errore: string }
 
 const PAGINA = '/settings/fathom'
+// the key is pasted there since 1.38.0
+const CHIAVI = '/settings/chiavi'
 const CHIAVE_NON_VALIDA = 'Questa non sembra una chiave di Fathom: copiala di nuovo da Impostazioni › API Access.'
 const INCOLLATO_MAX = 2048
 
@@ -54,6 +56,7 @@ export async function salvaChiaveFathom(dati: unknown): Promise<EsitoChiave> {
   } catch (e) {
     console.error('[fathom] indirizzo dei passi non scritto:', e instanceof Error ? e.name : 'errore')
   }
+  revalidatePath(CHIAVI)
   revalidatePath(PAGINA)
   return { ok: true, prova }
 }
@@ -64,6 +67,7 @@ export async function togliChiaveFathom(): Promise<Esito> {
   const supabase = await createClient()
   const { error } = await supabase.rpc('fathom_togli_chiave')
   if (error) return { ok: false, errore: messaggioErrore(error, 'Chiave non tolta. Riprova.') }
+  revalidatePath(CHIAVI)
   revalidatePath(PAGINA)
   return { ok: true }
 }

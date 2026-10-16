@@ -9,12 +9,10 @@ import {
   RicalcolaIeri,
   RigaEsclusione,
   SceltaSetterInstagram,
-  TokenInstagram,
 } from '@/app/(app)/settings/instagram/instagram-client'
 import {
   NuovaEsclusioneMessenger,
   RigaEsclusioneMessenger,
-  TokenMessenger,
   type ChatMessenger,
 } from '@/app/(app)/settings/instagram/messenger-client'
 import { quando } from '@/app/(app)/settings/instagram/quando'
@@ -23,6 +21,7 @@ import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
 import { insightConfigurato } from '@/lib/insight/config'
+import { fraseScadePresto, statoToken } from '@/lib/instagram/stato-token'
 import { leggiPermesso, leggiSituazione } from '@/lib/marketing/analisi/elenco'
 import { trascrizioneAttiva } from '@/lib/marketing/trascrizione'
 import { leggiStatoInsightAdmin } from '@/lib/insight/stato'
@@ -38,10 +37,6 @@ export const maxDuration = 300
 function adessoMs() {
   return Date.now()
 }
-
-const GIORNO_MS = 86_400_000
-/** The nightly run refreshes the token every week: this close to the end, it has not managed to. */
-const AVVISO_SCADENZA_GIORNI = 7
 
 async function caricaInstagram() {
   const supabase = await createClient()
@@ -156,15 +151,15 @@ export default async function InstagramPage() {
   const oggi = oggiRoma(new Date(adesso))
   const ieri = aggiungiGiorni(oggi, -1)
 
-  const scadeMs = collegamento?.token_scade_il ? Date.parse(collegamento.token_scade_il) : null
   const scadeGiorno = collegamento?.token_scade_il ? oggiRoma(new Date(collegamento.token_scade_il)) : null
   // expired by date, or refused by Meta (code 190) on the last run, maybe well
   // before its date (a password changed): then the date is not said as past
-  const scadutoPerData = scadeMs !== null && scadeMs <= adesso
-  const tokenScaduto = tokenPresente && (scadutoPerData || collegamento?.ultimo_errore === FRASI_ERRORE.token)
-  const giorniAllaScadenza = scadeMs !== null ? Math.ceil((scadeMs - adesso) / GIORNO_MS) : null
-  const scadePresto =
-    tokenPresente && !tokenScaduto && giorniAllaScadenza !== null && giorniAllaScadenza <= AVVISO_SCADENZA_GIORNI
+  const { scaduto: tokenScaduto, scadutoPerData, giorniAllaScadenza, scadePresto } = statoToken({
+    presente: tokenPresente,
+    scadeIl: collegamento?.token_scade_il ?? null,
+    rifiutatoDaMeta: collegamento?.ultimo_errore === FRASI_ERRORE.token,
+    adesso,
+  })
 
   const setterScelto = persone.find((p) => p.id === scelto) ?? null
   const chat = collegamento?.ultimo_calcolo_chat ?? 0
@@ -186,6 +181,13 @@ export default async function InstagramPage() {
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-critical" aria-hidden="true" />
           Token Instagram scaduto: generane uno nuovo dal pannello Meta e incollalo qui.
         </div>
+      ) : null}
+      {tokenScaduto ? (
+        <p className="-mt-3 text-sm">
+          <Link href="/settings/chiavi#instagram" className="underline underline-offset-4 hover:text-foreground">
+            Vai a Chiavi e collegamenti: il token si incolla lì, con la guida per generarlo.
+          </Link>
+        </p>
       ) : null}
 
       <section aria-labelledby="titolo-collegamento" className="rounded-xl bg-card p-4" data-testid="instagram-stato">
@@ -215,10 +217,9 @@ export default async function InstagramPage() {
                 <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
                 <span>
                   Salvato{scadeGiorno ? `, scade il ${formatData(scadeGiorno)}` : ''}
-                  {scadePresto ? (
+                  {scadePresto && giorniAllaScadenza !== null ? (
                     <span className="block text-status-warning">
-                      Scade tra {giorniAllaScadenza === 1 ? '1 giorno' : `${giorniAllaScadenza} giorni`}: se non si rinnova da
-                      solo, incolla un token nuovo prima di allora.
+                      {fraseScadePresto(giorniAllaScadenza)}: se non si rinnova da solo, incolla un token nuovo prima di allora.
                     </span>
                   ) : null}
                 </span>
@@ -292,17 +293,17 @@ export default async function InstagramPage() {
         </dl>
       </section>
 
-      <section aria-labelledby="titolo-token" className="space-y-3 rounded-xl bg-card p-4">
-        <div className="space-y-1">
-          <h2 id="titolo-token" className="text-sm font-medium">
-            Token
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Generalo dal pannello Meta dell’app (Instagram, token di accesso) e incollalo qui. Si salva cifrato, non si
-            mostra più e si rinnova da solo ogni settimana finché resta valido.
-          </p>
-        </div>
-        <TokenInstagram presente={tokenPresente} scaduto={tokenScaduto} scadeIl={scadeGiorno} />
+      <section aria-labelledby="titolo-token" className="space-y-1 rounded-xl bg-card p-4">
+        <h2 id="titolo-token" className="text-sm font-medium">
+          Token
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Il token di Instagram e il token della Pagina di Messenger si incollano, e si rigenerano quando scadono, in{' '}
+          <Link href="/settings/chiavi#instagram" className="underline underline-offset-4 hover:text-foreground">
+            Chiavi e collegamenti
+          </Link>
+          , con la guida passo passo.
+        </p>
       </section>
 
       <section aria-labelledby="titolo-setter" className="space-y-3 rounded-xl bg-card p-4">
@@ -381,56 +382,23 @@ export default async function InstagramPage() {
         />
       </section>
 
-      <section id="messenger" aria-labelledby="titolo-messenger" className="scroll-mt-4 space-y-3 rounded-xl bg-card p-4">
-        <div className="space-y-1">
-          <h2 id="titolo-messenger" className="text-sm font-medium">
-            Messenger
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Il token della Pagina Facebook di Percorso Alpha. Serve solo per leggere le chat Messenger nell’Insight. Non
-            manda mai messaggi.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Generalo da Meta › Messenger › Impostazioni dell’API (genera il token della Pagina) e incollalo qui: l’app lo
-            prova prima di salvarlo.
-          </p>
-        </div>
-        <dl className="divide-y divide-border" data-testid="messenger-stato">
-          <Voce etichetta="Pagina">
-            {tokenMessenger ? (
-              <span className="inline-flex items-start gap-1.5">
-                <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
-                <span>
-                  {messenger?.pagina_nome ? `Collegata: Pagina «${messenger.pagina_nome}»` : 'Collegata'}
-                  {messenger?.token_aggiornato_il ? (
-                    <span className="num block text-muted-foreground">
-                      Token salvato il {formatData(oggiRoma(new Date(messenger.token_aggiornato_il)))}
-                    </span>
-                  ) : null}
-                </span>
-              </span>
-            ) : (
-              <span className="text-muted-foreground">Non collegata</span>
-            )}
-          </Voce>
-          {messenger?.ultimo_errore ? (
-            <Voce etichetta="Ultimo errore">
-              <span className="flex items-start gap-1.5 text-status-critical" data-testid="messenger-ultimo-errore">
-                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span>
-                  {messenger.ultimo_errore_il ? (
-                    <span className="num inline-flex items-center gap-1 text-muted-foreground">
-                      <Clock className="size-3.5" aria-hidden="true" />
-                      {quando(messenger.ultimo_errore_il, oggi)}:
-                    </span>
-                  ) : null}{' '}
-                  {messenger.ultimo_errore}
-                </span>
-              </span>
-            </Voce>
-          ) : null}
-        </dl>
-        <TokenMessenger presente={tokenMessenger} />
+      <section id="messenger" aria-labelledby="titolo-messenger" className="scroll-mt-4 space-y-2 rounded-xl bg-card p-4">
+        <h2 id="titolo-messenger" className="text-sm font-medium">
+          Messenger
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {tokenMessenger
+            ? messenger?.pagina_nome
+              ? `Collegata: Pagina «${messenger.pagina_nome}».`
+              : 'Collegata.'
+            : 'Non collegata.'}{' '}
+          Il token della Pagina Facebook serve solo per leggere le chat Messenger nell’Insight, e non manda mai messaggi: lo
+          incolli in{' '}
+          <Link href="/settings/chiavi#messenger" className="underline underline-offset-4 hover:text-foreground">
+            Chiavi e collegamenti
+          </Link>
+          .
+        </p>
       </section>
 
       <section

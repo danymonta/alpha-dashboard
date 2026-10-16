@@ -1,3 +1,4 @@
+import { SchedeInsight } from '@/components/insight/schede-insight'
 import { Skeleton } from '@/components/ui/skeleton'
 
 // Same shape as the form: Messaggi (3 counters), Conversazioni (1 counter and,
@@ -13,6 +14,7 @@ const GRUPPI = [
 export default function Loading() {
   return (
     <div className="max-w-xl space-y-5" aria-busy="true">
+      <SchedeInsight ruolo="setter" attiva="principale" />
       <div className="flex flex-col items-center gap-2 py-1">
         <Skeleton className="h-6 w-24" />
         <Skeleton className="h-4 w-20" />

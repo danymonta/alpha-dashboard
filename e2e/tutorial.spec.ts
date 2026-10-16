@@ -170,38 +170,41 @@ test('l’anteprima del tour del marketing passa da «Contenuti», evidenziato n
   await expect(tour).toContainText('Marketing · 3/10')
 })
 
-test('il tour del setter passa da «Insight ultime 24h» dopo Closer, evidenziato nella barra laterale (1.35.0)', async ({
-  page,
-}) => {
-  // nine steps of 2 seconds of reading each
+test('il tour del setter mostra la scheda «Insight 24h» di Oggi, subito dopo i passi di Oggi (1.38.0)', async ({ page }) => {
   test.setTimeout(90_000)
   await page.setViewportSize({ width: 1440, height: 900 })
-  await accedi(page, 'admin')
-  await page.getByRole('button', { name: 'Testa il tutorial' }).click()
-  await page.getByRole('menuitem', { name: 'Setter' }).click()
+  await primoAccesso(UTENTI.setter.email, false)
+  await accedi(page, 'setter')
+  await page.goto('/calls')
   const tour = page.getByTestId('tutorial')
-  await expect(tour).toContainText('Setter · 1/12')
-  // a preview walks with "Avanti" up to the Closer step, then the Insight
-  for (let passo = 2; passo <= 10; passo++) {
-    await avanti(page, tour)
-    await expect(tour).toContainText(`Setter · ${passo}/12`)
-  }
-  const insight = tour.getByRole('dialog', { name: 'Insight ultime 24h' })
+  await expect(tour).toContainText('1/12')
+  await avanti(page, tour)
+  // the real "Oggi" of the sidebar: the page opens and the tour follows
+  await page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'Oggi' }).click()
+  await expect(tour.getByRole('dialog', { name: 'I contatori' })).toBeVisible()
+  await avanti(page, tour)
+  await expect(tour.getByRole('dialog', { name: 'Si salva da solo' })).toBeVisible()
+  await avanti(page, tour)
+  const insight = tour.getByRole('dialog', { name: 'Insight 24h' })
+  await expect(insight).toBeVisible()
   await expect(insight).toContainText('i DM del giorno letti da Claude')
-  // the admin has the item too: the highlight sits on it, no "not on your account" note
-  await expect(tour.getByText(/Anteprima: sul tuo account questo elemento non c’è/)).toHaveCount(0)
-  const voce = page
-    .getByRole('navigation', { name: 'Navigazione principale' })
-    .getByRole('link', { name: 'Insight ultime 24h', exact: true })
+  await expect(tour).toContainText('5/12')
+
+  // the highlight sits on the tab, which is a link of the page and not an item of the menu
+  const scheda = page.getByRole('navigation', { name: 'Sezioni di Oggi' }).getByRole('link', { name: 'Insight 24h', exact: true })
   const alone = tour.locator('div.ring-2')
   await expect(alone).toHaveCount(1)
   await expect
     .poll(async () => {
-      const [a, v] = await Promise.all([alone.boundingBox(), voce.boundingBox()])
+      const [a, v] = await Promise.all([alone.boundingBox(), scheda.boundingBox()])
       if (!a || !v) return null
       return [Math.round(a.x - v.x), Math.round(a.y - v.y)]
     })
     .toEqual([-6, -6])
+  // the menu has no Insight item at all
+  await expect(
+    page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: /Insight/ }),
+  ).toHaveCount(0)
   await avanti(page, tour)
-  await expect(tour.getByRole('dialog', { name: 'Alfire, la nostra AI' })).toBeVisible()
+  await expect(tour.getByRole('dialog', { name: 'Nuova call' })).toBeVisible()
 })

@@ -70,5 +70,8 @@ export function linkContenutoCalendario(id: string): string {
 /** «Gestisci le chat escluse» (admin): the anchor of Impostazioni › Instagram e Messenger. */
 export const LINK_CHAT_ESCLUSE = '/settings/instagram#chat-escluse'
 
-/** Impostazioni › Instagram e Messenger, for the token lines. */
-export const LINK_IMPOSTAZIONI_INSTAGRAM = '/settings/instagram'
+/** Impostazioni › Chiavi e collegamenti (1.38.0), where the Instagram token is pasted and regenerated. */
+export const LINK_CHIAVE_INSTAGRAM = '/settings/chiavi#instagram'
+
+/** The same for the Page token of Messenger. */
+export const LINK_CHIAVE_MESSENGER = '/settings/chiavi#messenger'

@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 
 import type { AppRole } from '@/lib/auth/roles'
 import { oggiRoma } from '@/lib/date'
+import { STATI_DA_COLLEGARE } from '@/lib/marketing/parole-post'
 import { NESSUN_PROMEMORIA, type Promemoria } from '@/lib/nav'
 import { contaCommentiMancanti } from '@/lib/setting/commenti-mancanti'
 import { createClient } from '@/lib/supabase/client'
@@ -19,7 +20,10 @@ import { createClient } from '@/lib/supabase/client'
  *   (08/10/2026), on the setter's "Oggi" (his own) and on the admin's
  *   "Setter" (every setter's: Dany decides them too);
  * - the setter's own days from 08/10/2026 still without the required comment
- *   of the day (08/10/2026), on his "Oggi": the setter only, never the admin.
+ *   of the day (08/10/2026), on his "Oggi": the setter only, never the admin;
+ * - the Instagram posts still to link to the content calendar (1.38.0, as on
+ *   the Marketing tab), on "Post di Instagram": admin, video editor and
+ *   marketing. Posts, never persons.
  *
  * The layout counts them on the server, but a shared layout does not render
  * again on a client navigation: a call that passes while the app is open, or
@@ -72,13 +76,14 @@ function cosaConta(ruolo: AppRole) {
     esiti: ruolo === 'admin' || ruolo === 'closer',
     daApprovare: ruolo === 'admin' || ruolo === 'setter',
     commenti: ruolo === 'setter',
+    daCollegare: ruolo === 'admin' || ruolo === 'editor' || ruolo === 'marketing',
   }
 }
 
 export function EsitiDaRegistrareProvider({ iniziale, versione, profiloId, ruolo, children }: Props) {
   const pathname = usePathname()
   const conta = cosaConta(ruolo)
-  const contaQualcosa = conta.esiti || conta.daApprovare || conta.commenti
+  const contaQualcosa = conta.esiti || conta.daApprovare || conta.commenti || conta.daCollegare
   const [stato, setStato] = useState({ versione, promemoria: iniziale })
   // a new server render: its counts win over whatever the browser read before
   if (stato.versione !== versione) setStato({ versione, promemoria: iniziale })
@@ -87,7 +92,12 @@ export function EsitiDaRegistrareProvider({ iniziale, versione, profiloId, ruolo
 
   useEffect(() => {
     if (!contaQualcosa) return
-    const { esiti: contaEsiti, daApprovare: contaDaApprovare, commenti: contaCommenti } = cosaConta(ruolo)
+    const {
+      esiti: contaEsiti,
+      daApprovare: contaDaApprovare,
+      commenti: contaCommenti,
+      daCollegare: contaDaCollegare,
+    } = cosaConta(ruolo)
     const supabase = createClient()
     let attivo = true
     let ultima = 0
@@ -121,10 +131,25 @@ export function EsitiDaRegistrareProvider({ iniziale, versione, profiloId, ruolo
       return contaCommentiMancanti(supabase, profiloId, oggiRoma())
     }
 
+    async function contaDaLegare(): Promise<number | null> {
+      if (!contaDaCollegare) return 0
+      // as the Marketing layout counts them (v_instagram_post, under RLS)
+      const { count, error } = await supabase
+        .from('v_instagram_post')
+        .select('shortcode', { count: 'exact', head: true })
+        .in('stato_collegamento', STATI_DA_COLLEGARE)
+      return error ? null : count
+    }
+
     async function aggiorna() {
       avviataAlle = Date.now()
       const questa = ++ultima
-      const [esiti, daApprovare, commenti] = await Promise.all([contaGliEsiti(), contaDaDecidere(), contaICommenti()])
+      const [esiti, daApprovare, commenti, daCollegare] = await Promise.all([
+        contaGliEsiti(),
+        contaDaDecidere(),
+        contaICommenti(),
+        contaDaLegare(),
+      ])
       // only the latest answer of this page counts; a failed one keeps the last number
       if (!attivo || questa !== ultima) return
       setStato((attuale) => {
@@ -132,10 +157,12 @@ export function EsitiDaRegistrareProvider({ iniziale, versione, profiloId, ruolo
           esiti: esiti ?? attuale.promemoria.esiti,
           daApprovare: daApprovare ?? attuale.promemoria.daApprovare,
           commenti: commenti ?? attuale.promemoria.commenti,
+          daCollegare: daCollegare ?? attuale.promemoria.daCollegare,
         }
         return promemoria.esiti === attuale.promemoria.esiti &&
           promemoria.daApprovare === attuale.promemoria.daApprovare &&
-          promemoria.commenti === attuale.promemoria.commenti
+          promemoria.commenti === attuale.promemoria.commenti &&
+          promemoria.daCollegare === attuale.promemoria.daCollegare
           ? attuale
           : { ...attuale, promemoria }
       })
@@ -175,6 +202,7 @@ export function EsitiDaRegistrareProvider({ iniziale, versione, profiloId, ruolo
         esiti: conta.esiti ? promemoria.esiti : 0,
         daApprovare: conta.daApprovare ? promemoria.daApprovare : 0,
         commenti: conta.commenti ? promemoria.commenti : 0,
+        daCollegare: conta.daCollegare ? promemoria.daCollegare : 0,
       }}
     >
       {children}

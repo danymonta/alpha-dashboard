@@ -1,7 +1,8 @@
 import { CircleCheck, Clock, TriangleAlert } from 'lucide-react'
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 
-import { ChiaveFathom, InterruttoriCall, LimiteSpesaCall } from '@/app/(app)/settings/fathom/fathom-client'
+import { InterruttoriCall, LimiteSpesaCall } from '@/app/(app)/settings/fathom/fathom-client'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { requireRuolo } from '@/lib/auth/session'
 import { formatData } from '@/lib/format'
@@ -52,8 +53,9 @@ export default async function ImpostazioniFathomPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
+        indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
         titolo="Fathom"
-        descrizione="Le registrazioni delle call e l’analisi di Claude: la chiave per leggere da Fathom, gli interruttori e il limite di spesa."
+        descrizione="Le registrazioni delle call e l’analisi di Claude: lo stato del collegamento, gli interruttori e il limite di spesa. La chiave si incolla in Chiavi e collegamenti."
       />
 
       <Riquadro titolo="Collegamento">
@@ -77,11 +79,15 @@ export default async function ImpostazioniFathomPage() {
             {c.ultimo_errore}
           </p>
         ) : null}
-        <ChiaveFathom presente={presente.data === true} salvataIl={c?.chiave_aggiornata_il ?? null} />
+        <p className="text-sm">
+          <Link href="/settings/chiavi#fathom" className="underline underline-offset-4 hover:text-foreground">
+            Incolla o rigenera la chiave in Chiavi e collegamenti
+          </Link>
+          , con la guida passo passo.
+        </p>
         <p className="text-xs text-muted-foreground">
           L’app legge da Fathom solo la registrazione che corrisponde al link incollato dal closer, e la trascrizione quando la apri o
-          quando Claude analizza la call. Trascrizioni e riassunti non si conservano. Su Fathom, in My Settings, spegni l’uso dei dati
-          dell’account per migliorare i loro modelli; nella condivisione dei link scegli «Solo le persone aggiunte».
+          quando Claude analizza la call. Trascrizioni e riassunti non si conservano.
         </p>
       </Riquadro>
 
@@ -89,7 +95,11 @@ export default async function ImpostazioniFathomPage() {
         {!chiaveClaude ? (
           <p role="alert" className="flex items-start gap-2 text-sm text-status-warning" data-testid="fathom-senza-claude">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            Claude non è collegato: manca ANTHROPIC_API_KEY su Vercel. Le analisi aspettano in coda.
+            Claude non è collegato: manca ANTHROPIC_API_KEY su Vercel. Le analisi aspettano in coda. Come rimetterla:{' '}
+            <Link href="/settings/chiavi#anthropic" className="underline underline-offset-4">
+              Chiavi e collegamenti
+            </Link>
+            .
           </p>
         ) : null}
         <p className="text-sm" data-testid="fathom-costo">

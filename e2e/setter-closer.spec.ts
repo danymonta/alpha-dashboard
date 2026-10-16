@@ -125,17 +125,30 @@ test('l’admin ha Setter e Closer nella barra laterale, ognuna accesa sulla sua
   await expect(closer).not.toHaveAttribute('aria-current', 'page')
   // no tabs on top any more: the two pages are two items
   await expect(page.getByRole('navigation', { name: 'Setter e closer' })).toHaveCount(0)
-  // the DM insights: the app's own page from 1.35.0, in the same tab, no longer the artifact
-  const insight = page.getByRole('main').getByRole('link', { name: 'Insight delle ultime 24h', exact: true })
+  // the DM insights are the second tab of Setter (1.38.0), not an item of the menu and not a button
+  const schede = page.getByRole('navigation', { name: 'Sezioni di Setter' })
+  await expect(schede.getByRole('link', { name: 'Numeri' })).toHaveAttribute('aria-current', 'page')
+  const insight = schede.getByRole('link', { name: 'Insight 24h', exact: true })
   await expect(insight).toHaveAttribute('href', '/insight')
   expect(await insight.getAttribute('target')).toBeNull()
+  expect((await insight.boundingBox())?.height).toBeGreaterThanOrEqual(44)
+  await expect(page.getByRole('main').getByRole('link', { name: 'Insight delle ultime 24h' })).toHaveCount(0)
   await expect(page.locator('a[href*="claude.ai/artifact"]')).toHaveCount(0)
-  // and an item of the menu, right after Setter, with the sparkles
-  const voceInsight = nav.getByRole('link', { name: 'Insight ultime 24h', exact: true })
-  await expect(voceInsight).toHaveAttribute('href', '/insight')
-  await expect(voceInsight).not.toHaveAttribute('aria-current', 'page')
-  const vociDelMenu = await nav.getByRole('link').evaluateAll((link) => link.map((a) => a.getAttribute('href')))
-  expect(vociDelMenu.indexOf('/insight')).toBe(vociDelMenu.indexOf('/setting') + 1)
+  await expect(nav.getByRole('link', { name: /Insight/ })).toHaveCount(0)
+  // the menu has the groups with their titles, Setter and Closer together in «Team»
+  const team = nav.getByRole('group', { name: 'Team' })
+  await expect(team.getByRole('link')).toHaveText([/^Setter/, /^Closer/, 'Provvigioni'])
+
+  // the tab opens the Insight, and Setter stays lit there
+  await insight.click()
+  await expect(page).toHaveURL(/\/insight/)
+  await expect(setter).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('navigation', { name: 'Sezioni di Setter' }).getByRole('link', { name: 'Insight 24h' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  await setter.click()
+  await expect(page).toHaveURL('/setting')
 
   await closer.click()
   await expect(page).toHaveURL('/setting/closer')
@@ -223,29 +236,43 @@ test('il setter sul telefono: i giorni non aprono la giornata, niente scroll di 
   await page.screenshot({ path: '.shots/setter-closer-390.png', fullPage: true })
 })
 
-test('il setter apre gli insight delle ultime 24h da Oggi, da I miei numeri e dal menu', async ({ page }) => {
+test('il setter trova gli insight delle ultime 24h come seconda scheda di Oggi, non nel menu', async ({ page }) => {
   await accedi(page, 'setter')
-  for (const pagina of ['/today', '/my-numbers']) {
-    await page.goto(pagina)
-    // the app's own page from 1.35.0, in the same tab
-    const insight = page.getByRole('main').getByRole('link', { name: 'Insight delle ultime 24h', exact: true })
-    await expect(insight).toHaveAttribute('href', '/insight')
-    expect(await insight.getAttribute('target')).toBeNull()
-  }
-  // the first item of his "Altro", in the sidebar on the computer
+  await page.goto('/today')
+  const schede = page.getByRole('navigation', { name: 'Sezioni di Oggi' })
+  await expect(schede.getByRole('link', { name: 'Il mio giorno' })).toHaveAttribute('aria-current', 'page')
+  const insight = schede.getByRole('link', { name: 'Insight 24h', exact: true })
+  await expect(insight).toHaveAttribute('href', '/insight')
+  expect(await insight.getAttribute('target')).toBeNull()
+  // no longer a link in the pages, nor an item of the menu
+  await expect(page.getByRole('main').getByRole('link', { name: 'Insight delle ultime 24h' })).toHaveCount(0)
+  await page.goto('/my-numbers')
+  await expect(page.getByRole('main').getByRole('link', { name: 'Insight delle ultime 24h' })).toHaveCount(0)
   const nav = sidebar(page)
-  await expect(nav.getByRole('link', { name: 'Insight ultime 24h', exact: true })).toHaveAttribute('href', '/insight')
-  const vociDelMenu = await nav.getByRole('link').evaluateAll((link) => link.map((a) => a.getAttribute('href')))
-  expect(vociDelMenu.indexOf('/insight')).toBe(vociDelMenu.indexOf('/my-numbers') + 1)
+  await expect(nav.getByRole('link', { name: /Insight/ })).toHaveCount(0)
+  // the groups of the setter's menu
+  await expect(nav.getByRole('group', { name: 'Il mio lavoro' })).toBeVisible()
+  await expect(nav.getByRole('group', { name: 'Team' }).getByRole('link', { name: 'Closer' })).toBeVisible()
 
-  // on the phone: the bar keeps its four items, the Insight is the first of "Altro"
+  // the tab opens the Insight and "Oggi" stays lit
+  await page.goto('/today')
+  await insight.click()
+  await expect(page).toHaveURL(/\/insight/)
+  await expect(nav.getByRole('link', { name: /^Oggi/ })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('navigation', { name: 'Sezioni di Oggi' }).getByRole('link', { name: 'Insight 24h' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+
+  // on the phone: the bar keeps its four items, "Altro" has the groups with the same titles and no Insight
   await page.setViewportSize({ width: 390, height: 844 })
   const barra = page.getByRole('navigation', { name: 'Navigazione' })
-  await expect(barra.getByRole('link', { name: 'Insight ultime 24h' })).toHaveCount(0)
+  await expect(barra.getByRole('link', { name: /Insight/ })).toHaveCount(0)
   await barra.getByRole('button', { name: /^Altro/ }).click()
   const altro = page.getByRole('dialog', { name: 'Altro' })
-  await expect(altro.getByRole('link').first()).toHaveAccessibleName('Insight ultime 24h')
-  await expect(altro.getByRole('link', { name: 'Insight ultime 24h' })).toHaveAttribute('href', '/insight')
+  await expect(altro.getByRole('link', { name: /Insight/ })).toHaveCount(0)
+  await expect(altro.getByRole('group', { name: 'Team' }).getByRole('link', { name: 'Closer' })).toBeVisible()
+  await expect(altro.getByRole('group', { name: 'Progetti' })).toBeVisible()
   await page.keyboard.press('Escape')
 })
 
@@ -334,8 +361,10 @@ test('a 390px il numero sta su «Le mie call» e su «Altro», e la pagina non s
 
   const barra = page.getByRole('navigation', { name: 'Navigazione' })
   await expect(barra.getByRole('link', { name: nomeConEsiti('Le mie call', quante) })).toBeVisible()
-  // "Closer" sits in "Altro": the button carries the number too
-  const altro = barra.getByRole('button', { name: nomeConEsiti('Altro', quante) })
+  // "Closer" sits in "Altro": the button carries the number too (and, since 1.38.0, the posts to link of «Post di Instagram»)
+  const altro = barra.getByRole('button', {
+    name: new RegExp(`^Altro, ${quante} ${quante === 1 ? 'esito' : 'esiti'} da registrare(, \\d+ post da collegare)?$`),
+  })
   await expect(altro).toBeVisible()
   const box = await barra.getByRole('link', { name: /^Le mie call/ }).boundingBox()
   expect(box!.height).toBeGreaterThanOrEqual(44)

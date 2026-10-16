@@ -34,6 +34,7 @@ export type EsitoEsclusione = { ok: true; cancellati: boolean; avviso: string | 
 /** The Page the token belongs to, as Meta names it; never the token. */
 export type EsitoTokenMessenger = { ok: true; pagina: string | null } | { ok: false; errore: string }
 
+const CHIAVI = '/settings/chiavi'
 const PAGINA = '/settings/instagram'
 const INSIGHT = '/insight'
 
@@ -83,6 +84,7 @@ export async function salvaTokenInstagram(dati: unknown): Promise<EsitoToken> {
   if (error) return { ok: false, errore: messaggioErrore(error, 'Token non salvato. Riprova.') }
 
   const { data } = await supabase.from('instagram_collegamento').select('token_scade_il').maybeSingle()
+  revalidatePath(CHIAVI)
   revalidatePath(PAGINA)
   return { ok: true, scade_il: data?.token_scade_il ? oggiRoma(new Date(data.token_scade_il)) : null }
 }
@@ -96,6 +98,7 @@ export async function togliTokenInstagram(): Promise<Esito> {
   const { error } = await supabase.rpc('instagram_togli_token')
   if (error) return { ok: false, errore: messaggioErrore(error, 'Token non tolto. Riprova.') }
 
+  revalidatePath(CHIAVI)
   revalidatePath(PAGINA)
   return { ok: true }
 }
@@ -224,6 +227,7 @@ export async function salvaTokenMessenger(dati: unknown): Promise<EsitoTokenMess
   })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Token della Pagina non salvato. Riprova.') }
 
+  revalidatePath(CHIAVI)
   revalidatePath(PAGINA)
   revalidatePath(INSIGHT)
   return { ok: true, pagina: nome }
@@ -238,6 +242,7 @@ export async function togliTokenMessenger(): Promise<Esito> {
   const { error } = await supabase.rpc('messenger_togli_token')
   if (error) return { ok: false, errore: messaggioErrore(error, 'Token della Pagina non tolto. Riprova.') }
 
+  revalidatePath(CHIAVI)
   revalidatePath(PAGINA)
   revalidatePath(INSIGHT)
   return { ok: true }

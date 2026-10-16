@@ -15,8 +15,20 @@ test('l’admin incolla la chiave: Fathom risponde, la chiave non torna mai nell
   test.skip(Boolean(gia), 'Nel Vault locale c’è già una chiave di Fathom.')
   await accedi(page, 'admin')
   try {
+    // the key is pasted in Chiavi e collegamenti since 1.38.0; Fathom only points there
     await page.goto('/settings/fathom')
     await expect(page.getByTestId('fathom-stato')).toContainText('Non collegato')
+    await expect(page.getByLabel('Chiave API')).toHaveCount(0)
+    await page.getByRole('link', { name: /Incolla o rigenera la chiave/ }).click()
+    await expect(page).toHaveURL(/\/settings\/chiavi#fathom$/)
+    await expect(page.getByTestId('fathom-stato')).toContainText('Non collegato')
+    // the guide is a closed panel with the path of Fathom inside
+    const guida = page.getByTestId('guida-fathom')
+    await expect(guida).toHaveJSProperty('open', false)
+    await guida.locator('summary').click()
+    await expect(guida).toContainText('My Settings › API Access')
+    await expect(guida).toContainText('Generate Api Key')
+    await expect(guida).toContainText('Non incollare mai una chiave in chat')
     const campo = page.getByLabel('Chiave API')
     await expect(campo).toHaveAttribute('type', 'password')
     // an empty field says what to do; a key that is not one is refused by the database
@@ -76,8 +88,10 @@ test('la pagina è dell’admin: il closer e il setter non la aprono', async ({ 
   for (const ruolo of ['closer', 'setter'] as const) {
     await page.context().clearCookies()
     await accedi(page, ruolo)
-    await page.goto('/settings/fathom')
-    await expect(page.getByRole('heading', { name: 'Fathom' })).toHaveCount(0)
-    await expect(page.getByLabel('Chiave API')).toHaveCount(0)
+    for (const pagina of ['/settings/fathom', '/settings/chiavi']) {
+      await page.goto(pagina)
+      await expect(page.getByRole('heading', { name: /Fathom|Chiavi e collegamenti/ })).toHaveCount(0)
+      await expect(page.getByLabel('Chiave API')).toHaveCount(0)
+    }
   }
 })

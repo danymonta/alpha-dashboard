@@ -145,14 +145,18 @@ test('il marketing atterra sui contenuti: in cima quello con la Post Date più r
     await expect(nav.getByRole('link', { name: voce, exact: true })).toHaveCount(0)
   }
 
-  // the tabs of the area (1.33.0): «Contenuti» here, «Post di Instagram» next to it; the sidebar item stays lit
+  // the sidebar groups the area under «Marketing» with its four pages as items (1.38.0), each lit on its own page
+  const gruppoMarketing = nav.getByRole('group', { name: 'Marketing' })
+  await expect(gruppoMarketing.getByRole('link')).toHaveText([/^Contenuti/, /^Post di Instagram/, 'Analisi', 'Spunti'])
+  // the tabs of the area (1.33.0): «Contenuti» here, «Post di Instagram» next to it
   const schede = page.getByRole('navigation', { name: 'Sezioni del Marketing' })
   await expect(schede.getByRole('link', { name: 'Contenuti', exact: true })).toHaveAttribute('aria-current', 'page')
   await schede.getByRole('link', { name: /^Post di Instagram/ }).click()
   await expect(page).toHaveURL(/\/marketing\/instagram$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Post di Instagram' })).toBeVisible()
   await expect(schede.getByRole('link', { name: /^Post di Instagram/ })).toHaveAttribute('aria-current', 'page')
-  await expect(nav.getByRole('link', { name: 'Contenuti' })).toHaveAttribute('aria-current', 'page')
+  await expect(nav.getByRole('link', { name: /^Post di Instagram/ })).toHaveAttribute('aria-current', 'page')
+  await expect(nav.getByRole('link', { name: 'Contenuti' })).not.toHaveAttribute('aria-current', 'page')
   await schede.getByRole('link', { name: 'Contenuti', exact: true }).click()
   await expect(page).toHaveURL(/\/marketing\/contenuti$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Instagram Posts' })).toBeVisible()
