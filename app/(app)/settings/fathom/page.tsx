@@ -13,7 +13,6 @@ export const dynamic = 'force-dynamic'
 
 type Situazione = {
   analisi_attive?: boolean
-  spunti_automatici?: boolean
   costo_mese?: number
   costo_max?: number
   analisi_mese?: number
@@ -55,7 +54,7 @@ export default async function ImpostazioniFathomPage() {
       <IntestazionePagina
         indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
         titolo="Fathom"
-        descrizione="Le registrazioni delle call e l’analisi di Claude: lo stato del collegamento, gli interruttori e il limite di spesa. La chiave si incolla in Chiavi e collegamenti."
+        descrizione="Le registrazioni delle call e l’analisi di Claude: lo stato del collegamento, l’interruttore delle analisi e il limite di spesa. La chiave si incolla in Chiavi e collegamenti."
       />
 
       <Riquadro titolo="Collegamento">
@@ -119,7 +118,7 @@ export default async function ImpostazioniFathomPage() {
             Ultimo problema: {s.ultimo_errore}
           </p>
         ) : null}
-        <InterruttoriCall analisi={s.analisi_attive ?? true} spunti={s.spunti_automatici ?? true} />
+        <InterruttoriCall analisi={s.analisi_attive ?? true} />
         <LimiteSpesaCall valore={limite} />
         <p className="text-xs text-muted-foreground">
           Claude analizza tutte le call registrate: il lead rispetto al cliente ideale, le obiezioni, le domande, il motivo di non

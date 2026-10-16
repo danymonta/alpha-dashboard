@@ -72,16 +72,15 @@ export async function togliChiaveFathom(): Promise<Esito> {
   return { ok: true }
 }
 
-/** The two switches: the analysis of the recorded calls, the weekly brief on Mondays. */
+/** The switch of the analysis of the recorded calls (the brief of the Spunti has none since 1.39.0: it is only on request). */
 export async function impostaInterruttoriCall(input: unknown): Promise<Esito> {
   const negato = await negaSeNon(['admin'])
   if (negato) return { ok: false, errore: negato }
-  const letto = z.object({ analisi: z.boolean().optional(), spunti: z.boolean().optional() }).safeParse(input)
+  const letto = z.object({ analisi: z.boolean() }).safeParse(input)
   if (!letto.success) return { ok: false, errore: 'Richiesta non valida.' }
   const supabase = await createClient()
   const { error } = await supabase.rpc('call_imposta_interruttori', {
-    p_analisi: (letto.data.analisi ?? null) as never,
-    p_spunti: (letto.data.spunti ?? null) as never,
+    p_analisi: letto.data.analisi,
   })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Impostazione non salvata. Riprova.') }
   revalidatePath(PAGINA)

@@ -8,15 +8,17 @@ vi.mock('@/lib/env', () => ({
 
 import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE, ETICHETTA_STATUS } from '@/lib/marketing/etichette'
 import { ICP, ICP_AGGIORNATO_IL } from '@/lib/marketing/icp'
-import { FUORI_PORTATA, REGOLA_ICP, istruzioniMcp } from '@/lib/mcp/istruzioni'
+import { GUIDA_AGGIORNATA_IL } from '@/lib/marketing/punteggio/guida'
+import { FUORI_PORTATA, REGOLA_GUIDA, REGOLA_ICP, istruzioniMcp } from '@/lib/mcp/istruzioni'
+import { LIMITI_MCP } from '@/lib/mcp/limiti'
 import { schemaMcp } from '@/lib/mcp/schema'
 import { STRUMENTI, strumentiPer } from '@/lib/mcp/strumenti'
 
-const LETTURE = ['etichette_contenuti', 'elenco_contenuti', 'leggi_contenuto', 'icp', 'spunti_contenuti']
+const LETTURE = ['etichette_contenuti', 'elenco_contenuti', 'leggi_contenuto', 'icp', 'guida_contenuti', 'spunti_contenuti']
 const SCRITTURE = ['crea_contenuti', 'modifica_contenuto', 'cambia_status', 'scrivi_sezione']
 
 describe('gli strumenti per ruolo', () => {
-  it('video editor e marketing: 9 strumenti, senza eliminare', () => {
+  it('video editor e marketing: 10 strumenti, senza eliminare', () => {
     for (const ruolo of ['editor', 'marketing']) {
       expect(strumentiPer(ruolo).map((s) => s.nome)).toEqual([...LETTURE, ...SCRITTURE])
     }
@@ -177,6 +179,30 @@ describe('come Claude vede gli strumenti', () => {
     const elenco = STRUMENTI.find((s) => s.nome === 'elenco_contenuti')
     expect(elenco?.descrizione).not.toMatch(/parole nel Name/i)
     expect(elenco?.descrizione).toContain('più parole valgono solo se nel Name sono di seguito')
+  })
+
+  it('guida_contenuti: la guida di Dany nel codice, in sola lettura, senza prezzi, dentro il limite dei risultati', async () => {
+    const guida = STRUMENTI.find((s) => s.nome === 'guida_contenuti')
+    if (!guida) throw new Error('guida_contenuti')
+    expect(guida.annotazioni).toMatchObject({ readOnlyHint: true, idempotentHint: true, openWorldHint: false })
+    expect(guida.scrive).toBe(false)
+    for (const ruolo of ['admin', 'editor', 'marketing']) expect(strumentiPer(ruolo).map((s) => s.nome)).toContain('guida_contenuti')
+    for (const parte of [undefined, 'linee_guida', 'punteggio', 'tutta'] as const) {
+      const r = await guida.esegui(parte ? { parte } : {}, {} as never)
+      expect(r.ok).toBe(true)
+      if (!r.ok) continue
+      const testo = JSON.stringify(r.dati)
+      expect(testo, String(parte)).not.toMatch(/euro|€|rate da/i)
+      expect([...testo].length, String(parte)).toBeLessThan(LIMITI_MCP.risultato - 3_000)
+      expect(r.dati.aggiornata_il).toBe(GUIDA_AGGIORNATA_IL)
+    }
+    const linee = await guida.esegui({}, {} as never)
+    expect(linee.ok && String(linee.dati.guida)).toContain('Tono di voce di Dany')
+    expect(linee.ok && String(linee.dati.guida)).not.toContain('Tabelle pesi')
+    const punteggio = await guida.esegui({ parte: 'punteggio' }, {} as never)
+    expect(punteggio.ok && String(punteggio.dati.guida)).toContain('Tabelle pesi')
+    expect(schemaMcp(guida.input)['~standard'].validate({ parte: 'altro' })).toMatchObject({ issues: [expect.anything()] })
+    expect(REGOLA_GUIDA).toContain('guida_contenuti')
   })
 
   it('icp: il profilo del cliente ideale, in sola lettura, per admin, video editor e marketing', async () => {

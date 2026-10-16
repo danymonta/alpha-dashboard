@@ -137,7 +137,7 @@ function Interruttore({
   descrizione,
   testId,
 }: {
-  chiave: 'analisi' | 'spunti'
+  chiave: 'analisi'
   acceso: boolean
   titolo: string
   descrizione: string
@@ -188,7 +188,7 @@ function Interruttore({
   )
 }
 
-export function InterruttoriCall({ analisi, spunti }: { analisi: boolean; spunti: boolean }) {
+export function InterruttoriCall({ analisi }: { analisi: boolean }) {
   return (
     <div className="space-y-3">
       <Interruttore
@@ -197,13 +197,6 @@ export function InterruttoriCall({ analisi, spunti }: { analisi: boolean; spunti
         titolo="Analisi delle call"
         descrizione="Claude analizza ogni call registrata (svolta, con l’esito e il link di Fathom) pochi minuti dopo l’esito. Spente, partono solo con «Analizza»."
         testId="fathom-analisi"
-      />
-      <Interruttore
-        chiave="spunti"
-        acceso={spunti}
-        titolo="Spunti automatici"
-        descrizione="Ogni lunedì dalle 07:00 Claude scrive gli spunti per i contenuti del Marketing. Spenti, partono solo con «Chiedi nuovi spunti»."
-        testId="fathom-spunti"
       />
     </div>
   )

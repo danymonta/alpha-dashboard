@@ -20,6 +20,7 @@ import {
   type TipoContenuto,
 } from '@/lib/marketing/etichette'
 import { ICP, ICP_AGGIORNATO_IL } from '@/lib/marketing/icp'
+import { GUIDA_AGGIORNATA_IL, GUIDA_CONTESTO, GUIDA_LINEE, GUIDA_SCORING } from '@/lib/marketing/punteggio/guida'
 import { improntaTesto } from '@/lib/marketing/impronta'
 import {
   contaPerGruppo,
@@ -131,6 +132,24 @@ export async function etichetteContenuti(): Promise<EsitoStrumento> {
 /** The ideal client profile, word for word: a constant of the code, no database read. */
 export async function profiloClienteIdeale(): Promise<EsitoStrumento> {
   return ok({ aggiornato_il: ICP_AGGIORNATO_IL, profilo: ICP })
+}
+
+// ── guida_contenuti ─────────────────────────────────────────────────────────
+
+/**
+ * Dany's guide to the content (1.39.0), a constant of the code like the ICP: no database read, no price
+ * (a test checks it). The default part is the guidelines, the part Claude needs to write or propose a
+ * content; the scoring part is how a reel is judged; both together stay under the result limit.
+ */
+export async function guidaContenuti(input: { parte?: 'linee_guida' | 'punteggio' | 'tutta' | null }): Promise<EsitoStrumento> {
+  const parte = input.parte ?? 'linee_guida'
+  const linee = `# Contesto\n\n${GUIDA_CONTESTO}\n\n# Linee guida per i contenuti\n\n${GUIDA_LINEE}`
+  const punteggio = `# Come si valuta un reel\n\n${GUIDA_SCORING}`
+  return ok({
+    aggiornata_il: GUIDA_AGGIORNATA_IL,
+    parte,
+    guida: parte === 'linee_guida' ? linee : parte === 'punteggio' ? punteggio : `${linee}\n\n${punteggio}`,
+  })
 }
 
 // ── elenco_contenuti ────────────────────────────────────────────────────────

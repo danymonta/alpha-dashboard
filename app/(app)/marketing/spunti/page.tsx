@@ -90,7 +90,7 @@ export default async function SpuntiPage() {
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         titolo="Spunti"
-        descrizione="Ogni lunedì Claude incrocia i reel, i DM, il setting e le call: cosa funziona, cosa chiedono i lead e cosa pubblicare adesso."
+        descrizione="Quando li chiedi, Claude incrocia i reel, i DM, il setting e le call: cosa funziona, cosa chiedono i lead e cosa pubblicare adesso. Non partono mai da soli."
         azione={puoChiedere ? <ChiediSpunti inCorso={inCorso !== null} /> : undefined}
       />
 
@@ -114,8 +114,8 @@ export default async function SpuntiPage() {
           titolo="Nessuno spunto ancora"
           descrizione={
             puoChiedere
-              ? 'Gli spunti arrivano ogni lunedì mattina, o quando li chiedi tu.'
-              : 'Gli spunti arrivano ogni lunedì mattina.'
+              ? 'Gli spunti arrivano solo quando li chiedi: tocca «Chiedi nuovi spunti».'
+              : 'Gli spunti arrivano quando l’admin o il marketing li chiedono.'
           }
         />
       ) : (

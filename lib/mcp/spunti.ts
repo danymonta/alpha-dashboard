@@ -30,7 +30,7 @@ export async function spuntiPerClaude(input: { settimana?: string | null }, ctx:
     idee_nel_calendario?: { idea: number; name: string }[]
   } | null
   if (!r || !r.contenuto) {
-    return { ok: true, dati: { spunti: null, nota: 'Non ci sono ancora spunti per questa settimana: arrivano ogni lunedì mattina.' } }
+    return { ok: true, dati: { spunti: null, nota: 'Non ci sono ancora spunti per questa settimana: si chiedono dalla scheda Spunti dell’app.' } }
   }
   const c = r.contenuto
   const fatti = (rif: string[] | undefined) => (rif ?? []).map((x) => c.fatti[x]).filter((x): x is string => Boolean(x))

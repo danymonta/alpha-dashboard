@@ -89,10 +89,10 @@ describe('verificaSpunti', () => {
     expect(r.dati.idee[0]).toMatchObject({ reel_type: 'education', format: 'show_and_tell' })
     expect(r.dati.idee[1]).toMatchObject({ modello: 'carousel', format: null })
   })
-  it('al massimo 8 idee, il gancio al massimo 12 parole', () => {
+  it('al massimo 8 idee, il gancio al massimo 9 parole (la guida: sotto le 10)', () => {
     const r = verificaSpunti(m({ idee: Array.from({ length: 12 }, (_, i) => idea(i + 1, { gancio: 'uno due tre quattro cinque sei sette otto nove dieci undici dodici tredici quattordici' })) }), F)!
     expect(r.dati.idee).toHaveLength(8)
-    expect(r.dati.idee[0].gancio.split(' ')).toHaveLength(12)
+    expect(r.dati.idee[0].gancio.split(' ')).toHaveLength(9)
   })
   it('senza riassunto e senza idee il brief fallisce', () => {
     expect(verificaSpunti(m({ in_breve: ' ', idee: [] }), F)).toBeNull()

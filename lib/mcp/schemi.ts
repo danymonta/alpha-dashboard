@@ -134,6 +134,17 @@ export const etichetteContenutiSchema = z.object({}).strict()
 
 export const icpSchema = z.object({}).strict()
 
+export const guidaContenutiSchema = z
+  .object({
+    parte: z
+      .enum(['linee_guida', 'punteggio', 'tutta'])
+      .nullish()
+      .describe(
+        'linee_guida (predefinita): il contesto del brand e le linee guida di Dany per i contenuti (tono di voce, formato degli script, funnel, hook, CTA, caption, stories, template, proof). punteggio: come si valuta un reel (pesi per fase, criteri, penalità, fasce, protocollo di rifacimento). tutta: entrambe.',
+      ),
+  })
+  .strict()
+
 export const spuntiSchema = z
   .object({
     settimana: data

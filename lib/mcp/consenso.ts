@@ -154,8 +154,8 @@ export const CONSENSO = {
   potra: 'Claude potrà, a tuo nome:',
   // without the final punctuation: azioniConsenso puts «;» after each item and «.» after the last
   azioni: [
-    'leggere il calendario dei contenuti (reel e caroselli) con i testi delle sezioni, e il profilo del cliente ideale',
-    'leggere gli spunti della settimana (temi a parole, senza nomi né cifre di persone)',
+    'leggere il calendario dei contenuti (reel e caroselli) con i testi delle sezioni, il profilo del cliente ideale e la guida di Dany ai contenuti',
+    'leggere gli ultimi spunti per i contenuti (temi a parole, senza nomi né cifre di persone)',
     'creare contenuti, cambiare proprietà e Status, scrivere script, didascalie e commenti',
   ],
   azioneAdmin: 'eliminare un contenuto, quando glielo chiedi tu',

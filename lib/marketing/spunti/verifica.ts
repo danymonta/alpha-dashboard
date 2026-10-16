@@ -30,7 +30,8 @@ export const LIMITI_SPUNTI = {
   cosaFunziona: 5, temi: 8, obiezioni: 6, domande: 6, voci: 5, idee: 8, righe: 5, slide: 8,
 } as const
 
-const GANCIO_PAROLE_MAX = 12
+/** Dany's guide (section 11): a hook has fewer than 10 words. */
+const GANCIO_PAROLE_MAX = 9
 /** What each section may cite. */
 const AMMESSI = {
   voci: ['R', 'P', 'F'],

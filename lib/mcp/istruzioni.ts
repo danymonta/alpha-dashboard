@@ -24,11 +24,18 @@ export const REGOLA_ICP =
   'Il cliente ideale di Percorso Alpha lo descrive icp: prima di proporre o creare contenuti, e prima di ogni suggerimento di marketing, leggilo e scrivi idee, hook e script per quell’uomo, con le sue parole; mai il fisico da bodybuilder (fit, non grosso), sempre tempi onesti.'
 
 /**
+ * Dany's guide to the content (1.39.0): the tone, the format of a script, the funnel, the hooks, the CTA.
+ * Claude applies it when it writes or proposes a content; the ideal client stays the one of `icp`.
+ */
+export const REGOLA_GUIDA =
+  'La guida di Dany ai contenuti la dà guida_contenuti: quando scrivi o proponi un contenuto applicala (tono di Dany, script in prosa con le indicazioni visive tra parentesi e nessun elenco, hook sotto le 10 parole, la CTA della fase del funnel, mai trattini lunghi né emoji); dove la guida e l’ICP dicono cose diverse sul cliente vale icp.'
+
+/**
  * The weekly brief (1.37.0): themes in words, never names or figures of people; it feeds ideas, it does
  * not replace the ICP.
  */
 export const REGOLA_SPUNTI =
-  'Gli spunti della settimana li dà spunti_contenuti: leggili prima di proporre idee nuove, non ripetere un’idea che c’è già nel calendario, e non cercare dietro i temi le persone da cui nascono.'
+  'Gli ultimi spunti li dà spunti_contenuti: leggili prima di proporre idee nuove, non ripetere un’idea che c’è già nel calendario, e non cercare dietro i temi le persone da cui nascono.'
 
 /** The sentence that names the rest of the app: the only one (a test checks it). */
 export const FUORI_PORTATA = 'lead, call, clienti, soldi e messaggi diretti non sono raggiungibili da qui'
@@ -43,6 +50,7 @@ export function istruzioniMcp(ruolo: RuoloMcp): string {
     `Qui lavori solo sul calendario dei contenuti Instagram (area Marketing), la copia nell’app del database Notion «📸 Instagram Posts DANYMONTA», con le stesse proprietà e le stesse etichette in inglese: ${PROPRIETA}.`,
     `Ogni contenuto nasce da un modello: ${REEL} o ${CAROUSEL}.`,
     REGOLA_ICP,
+    REGOLA_GUIDA,
     REGOLA_SPUNTI,
     'Prima di cambiare qualcosa leggi: elenco_contenuti per trovarlo, leggi_contenuto per i testi, la loro impronta e la versione; impronta e versione sono codici da ricopiare così come sono.',
     'Ogni scrittura cambia la versione e restituisce quella nuova insieme ai valori attuali, che possono contenere modifiche di altri (scrivi_sezione anche la nuova impronta della sezione): usale per la scrittura dopo su quel contenuto, partendo da quei valori.',

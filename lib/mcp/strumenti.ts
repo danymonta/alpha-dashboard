@@ -11,6 +11,7 @@ import {
   elencoContenuti,
   eliminaContenutoPerClaude,
   etichetteContenuti,
+  guidaContenuti,
   leggiContenutoPerClaude,
   modificaContenutoPerClaude,
   profiloClienteIdeale,
@@ -25,6 +26,7 @@ import {
   elencoContenutiSchema,
   eliminaContenutoSchema,
   etichetteContenutiSchema,
+  guidaContenutiSchema,
   icpSchema,
   leggiContenutoSchema,
   modificaContenutoSchema,
@@ -145,10 +147,20 @@ export const STRUMENTI: readonly Strumento[] = [
     esegui: () => profiloClienteIdeale(),
   }),
   strumento({
+    nome: 'guida_contenuti',
+    titolo: 'Guida di Dany ai contenuti',
+    descrizione:
+      'La guida di Dany ai contenuti di Percorso Alpha, in Markdown, con il giorno in cui è stata scritta: il contesto del brand, il tono di voce e le frasi vietate, il formato degli script (prosa, indicazioni visive tra parentesi, nessun elenco), il funnel (attrazione, consapevolezza, conversione), le regole di ogni fase, la libreria degli hook, le regole delle CTA, della caption e delle stories, i template e le regole su proof e specificità. Con parte punteggio anche come si valuta un reel (pesi, criteri, penalità, fasce) e come si rifà. Senza prezzi: il cliente ideale resta quello di icp. Senza parte dà le linee guida.',
+    input: guidaContenutiSchema,
+    lettura: true,
+    idempotente: true,
+    esegui: guidaContenuti,
+  }),
+  strumento({
     nome: 'spunti_contenuti',
     titolo: 'Spunti per i contenuti',
     descrizione:
-      'Gli spunti della settimana che Claude scrive ogni lunedì per chi fa i contenuti (gli stessi della scheda Spunti dell’app), in sola lettura: in breve, cosa funziona, cosa chiedono i lead, le obiezioni da anticipare, le domande da trasformare in contenuti, cosa mantenere, cambiare e potenziare, e le idee pronte per il calendario (anche caroselli), con il perché di ognuna. Sono temi a parole, senza nomi né cifre di persone: nascono da reel, DM, note del setting e call, e dicono da dove vengono, mai quanti. Senza parametri dà i più recenti; con settimana (AAAA-MM-GG) quelli che coprono quel giorno. Per creare un contenuto da un’idea usa crea_contenuti.',
+      'Gli ultimi spunti che Claude ha scritto per chi fa i contenuti (gli stessi della scheda Spunti dell’app, che si chiedono dall’app), in sola lettura: in breve, cosa funziona, cosa chiedono i lead, le obiezioni da anticipare, le domande da trasformare in contenuti, cosa mantenere, cambiare e potenziare, e le idee pronte per il calendario (anche caroselli), con il perché di ognuna. Sono temi a parole, senza nomi né cifre di persone: nascono da reel, DM, note del setting e call, e dicono da dove vengono, mai quanti. Senza parametri dà i più recenti; con settimana (AAAA-MM-GG) quelli che coprono quel giorno. Per creare un contenuto da un’idea usa crea_contenuti.',
     input: spuntiSchema,
     lettura: true,
     idempotente: true,
