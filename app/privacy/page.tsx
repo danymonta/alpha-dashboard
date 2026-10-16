@@ -215,9 +215,10 @@ const SEZIONI: Sezione[] = [
           legge anche i numeri del reel (visualizzazioni, salvataggi, condivisioni, tempo di visione) e, per i reel più
           recenti, ne scarica il video per il tempo della lettura e lo cancella subito: non lo conserva. Dal video ricava
           alcuni fotogrammi e la traccia audio. I fotogrammi, la didascalia e la trascrizione del parlato vengono inviati ad
-          Anthropic PBC (Stati Uniti) per un’analisi che dice come è fatto il reel e cosa pubblicare dopo; la traccia audio
+          Anthropic PBC (Stati Uniti) per un’analisi che dice come è fatto il reel, gli dà un punteggio di qualità e dice
+          cosa pubblicare dopo; l’analisi parte solo quando una persona del team la chiede su quel reel. La traccia audio
           viene inviata a Groq (Stati Uniti) per essere trascritta e non viene conservata. Il gestionale conserva il testo
-          della trascrizione, la scheda scritta da Claude e i numeri del reel. In queste analisi non entrano messaggi né
+          della trascrizione, la scheda scritta da Claude, il punteggio e i numeri del reel. In queste analisi non entrano messaggi né
           nomi: dei contatti arrivati dai messaggi diretti Claude riceve solo conteggi e, se il nostro team lo consente,
           il testo delle note interne del team sui contatti (cosa frenava i contatti, i motivi per cui una call non si è
           chiusa), ripulito dei nomi, dei recapiti e delle cifre, e mai i testi dei messaggi.
@@ -239,8 +240,8 @@ const SEZIONI: Sezione[] = [
           registrata.
         </p>
         <p>
-          <strong className="font-semibold">Spunti per i contenuti.</strong> Ogni settimana Claude scrive, per il team
-          dei contenuti, un riepilogo di temi, obiezioni e domande ricorrenti dei contatti, incrociando i nostri reel, i
+          <strong className="font-semibold">Spunti per i contenuti.</strong> Quando una persona del team lo chiede, Claude
+          scrive, per il team dei contenuti, un riepilogo di temi, obiezioni e domande ricorrenti dei contatti, incrociando i nostri reel, i
           conteggi dei messaggi diretti, le note interne del team e i temi delle analisi delle call. Riceve solo testo già
           ripulito di nomi, recapiti e cifre, mai trascrizioni né messaggi, e gli spunti che scrive non contengono
           nomi né frasi di singole persone.
@@ -386,8 +387,8 @@ const SEZIONI: Sezione[] = [
           arrivano da un nostro post o reel), senza nomi né testi: li conserviamo per l’analisi dei contenuti.
         </li>
         <li>
-          <strong className="font-semibold">Analisi dei reel</strong>: il testo del parlato, la scheda di Claude e i
-          numeri di ogni reel, finché il reel è nel nostro archivio dei contenuti; il video e l’audio non si conservano.
+          <strong className="font-semibold">Analisi dei reel</strong>: il testo del parlato, la scheda e il punteggio di
+          Claude e i numeri di ogni reel, finché il reel è nel nostro archivio dei contenuti; il video e l’audio non si conservano.
         </li>
         <li>
           <strong className="font-semibold">Analisi delle call</strong>: l’analisi scritta da Claude, senza nomi, cifre
@@ -395,7 +396,7 @@ const SEZIONI: Sezione[] = [
           secondo le sue impostazioni, e il gestionale non le conserva.
         </li>
         <li>
-          <strong className="font-semibold">Spunti per i contenuti</strong>: i riepiloghi settimanali, senza nomi, al
+          <strong className="font-semibold">Spunti per i contenuti</strong>: i riepiloghi, senza nomi, al
           massimo 26 settimane.
         </li>
         <li>

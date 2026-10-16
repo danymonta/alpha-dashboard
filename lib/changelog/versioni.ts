@@ -86,6 +86,76 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.39.0',
+    data: '2026-10-16',
+    titolo: 'Il punteggio dei contenuti, e Claude solo dopo un click',
+    riassunto:
+      'Ogni reel ha un punteggio di qualità con la guida di Dany e un rifacimento pronto per il calendario; Claude lavora su un contenuto solo quando una persona lo chiede, e gli Spunti non partono più il lunedì.',
+    intestazionePer: ['marketing'],
+    intestazioneTeam: {
+      titolo: 'Il punteggio dei reel',
+      riassunto:
+        'Ogni reel ha un punteggio di qualità con la guida di Dany e un rifacimento pronto per il calendario; Claude lavora su un reel solo quando una persona lo chiede.',
+    },
+    novita: [
+      {
+        per: ['marketing'],
+        testo:
+          'Ogni reel ha un punteggio da 0 a 100 con la guida di Dany ai contenuti: l’hook, la struttura, il tono, la CTA e gli altri criteri della sua fase (attrazione, consapevolezza o conversione), le penalità e la fascia, da «Pubblicare» a «Scartare o ripartire». In Analisi c’è la colonna «Punteggio» (un reel mai valutato dice «Non valutato»), puoi filtrare per fascia o per «Non valutati» e ordinare per punteggio.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Il pannello di un reel parte dal punteggio: cosa ha preso, perché, con la frase del reel che lo motiva e la correzione da fare per ogni criterio, le penalità con la riga che le ha causate, i punti di forza e cosa sistemare per primo. Il tipo (attrazione, consapevolezza, conversione) è quello del Reel Type del contenuto collegato; senza, lo deduce Claude e lo dice.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          '«Come rifarlo»: le azioni in ordine di impatto, tre hook alternativi sotto le 10 parole, lo script riscritto nel formato della guida e la caption, ognuno con «Copia», e il punteggio che ti aspetti dopo. «Aggiungi al calendario» crea un Reel Topic Not started con lo script riscritto (una volta sola per analisi).',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'In Post di Instagram e nel pannello di un contenuto collegato vedi il punteggio del reel con il link alla sua analisi; per i caroselli e le foto il punteggio non c’è («Il punteggio vale per i reel»). Il punteggio si legge e basta: da quelle pagine Claude non viene chiamato.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          '«Analizza» fa tutto in un click: guarda il reel, lo analizza e gli dà il punteggio. Per un reel analizzato prima del punteggio il tasto dice «Dai il punteggio». «Valuta i reel non valutati (N)» li fa a gruppi, i più recenti per primi, con la spesa stimata mostrata prima di confermare e nei limiti delle richieste del giorno.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Claude lavora su un reel solo dopo un click di una persona che può chiederlo (admin e marketing): di notte non guarda e non analizza più niente da solo. Resta solo la trascrizione del parlato dei reel nuovi, che non usa Claude.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Gli Spunti arrivano solo quando li chiedi («Chiedi nuovi spunti», admin e marketing): non c’è più quello automatico del lunedì. Per le idee, Claude ora usa le linee guida di Dany: hook sotto le 10 parole, script in prosa con le indicazioni visive tra parentesi, la CTA giusta per la fase del funnel.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Claude collegato (connettore): c’è un nuovo strumento, «Guida di Dany ai contenuti», che gli dà la guida (senza prezzi) quando scrive o propone un contenuto; il cliente ideale resta quello di sempre.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'In Impostazioni › Instagram e Messenger › Analisi dei reel l’interruttore «Analisi automatiche» diventa «Trascrizioni automatiche (senza Claude)»: acceso, di notte si trascrive solo il parlato dei reel nuovi con Whisper. Analisi, sguardo di Claude e punteggio partono solo da «Analizza». Il tetto di 10 richieste al giorno per il team e il limite di spesa del mese valgono come prima; «Valuta i reel non valutati» mostra una stima di circa 0,30 $ a reel prima di confermare, e il costo vero lo conta il gestionale.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'In Impostazioni › Fathom l’interruttore «Spunti automatici» non c’è più: gli Spunti si chiedono solo a mano (2 al giorno). Le analisi delle call restano automatiche, come prima.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il punteggio, la guida e il rifacimento non passano da Alfire; la guida nel gestionale non ha prezzi né condizioni di pagamento, perché il video editor e il marketing la leggono tramite Claude e non vedono mai il listino.',
+      },
+    ],
+  },
+  {
     versione: '1.38.0',
     data: '2026-10-16',
     titolo: 'Menu a categorie, Insight 24h in una scheda e Chiavi e collegamenti',

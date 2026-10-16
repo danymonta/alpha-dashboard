@@ -44,7 +44,11 @@ test('l’informativa si apre senza sessione, con le istruzioni per la cancellaz
   // the reel analysis (1.36.0): frames, caption and transcript to Anthropic, the audio to Groq, the video never kept
   await expect(metaEAi.getByText('Analisi dei reel.', { exact: true })).toBeVisible()
   await expect(metaEAi).toContainText('I fotogrammi, la didascalia e la trascrizione del parlato vengono inviati ad Anthropic PBC')
-  await expect(metaEAi).toContainText('la traccia audio viene inviata a Groq (Stati Uniti) per essere trascritta e non viene conservata')
+  await expect(metaEAi).toContainText('La traccia audio viene inviata a Groq (Stati Uniti) per essere trascritta e non viene conservata')
+  // 1.39.0: the score, and Claude works on a reel only when a person asks for it
+  await expect(metaEAi).toContainText('gli dà un punteggio di qualità')
+  await expect(metaEAi).toContainText('l’analisi parte solo quando una persona del team la chiede su quel reel')
+  await expect(metaEAi).toContainText('Quando una persona del team lo chiede, Claude scrive')
   await expect(metaEAi).toContainText('lo cancella subito: non lo conserva')
   // the analysis of the recorded calls (1.37.0): the transcript to Anthropic, cleaned, never kept; the health stays out
   await expect(metaEAi.getByText('Analisi delle call.', { exact: true })).toBeVisible()
