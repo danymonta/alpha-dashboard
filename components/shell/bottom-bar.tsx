@@ -140,7 +140,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                                     className={`size-4 shrink-0 ${attiva ? '' : 'text-muted-foreground'}`}
                                     aria-hidden="true"
                                   />
-                                  <span className="min-w-0 truncate">{voce.etichetta}</span>
+                                  <span className="min-w-0 leading-tight">{voce.etichetta}</span>
                                   <Conteggio promemoria={suoi} attiva={attiva} className="ml-auto" />
                                 </LinkNav>
                               </li>

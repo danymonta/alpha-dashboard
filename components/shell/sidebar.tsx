@@ -2,7 +2,7 @@
 
 import { LogOut } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 
 import { esci } from '@/app/auth/actions'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
@@ -26,6 +26,11 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
   const promemoria = usePromemoria()
   const { gruppi } = vociNav(ruolo)
   const idBase = useId()
+  // sixteen items do not fit a laptop screen: the list scrolls, and the lit item must never be out of sight
+  const elenco = useRef<HTMLElement>(null)
+  useEffect(() => {
+    elenco.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' })
+  }, [pathname])
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
@@ -35,7 +40,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
       </div>
 
 
-      <nav aria-label="Navigazione principale" className="flex-1 space-y-4 overflow-y-auto px-2">
+      <nav ref={elenco} aria-label="Navigazione principale" className="flex-1 space-y-4 overflow-y-auto px-2 pt-2">
         {gruppi.map(({ titolo, voci }, i) => {
           const idTitolo = `${idBase}-gruppo-${i}`
           return (
