@@ -193,6 +193,8 @@ export type Archivio = {
    * marked as counted (zero leads would mean «not read»)
    */
   salvaConteggi(righe: readonly RigaContenutiDm[], opzioni?: { segnaGiorni?: boolean }): Promise<number>
+  /** The leads of the last 30 days without a reel of origin, looked up in the chats just updated (1.37.0): how many were tried. */
+  collegaLeadAiContenuti(): Promise<number>
 }
 
 // ---------------------------------------------------------------------------
@@ -768,6 +770,12 @@ export function creaArchivio(db: AdminClient): Archivio {
         p_segna_giorni: opzioni?.segnaGiorni !== false,
       })
       if (error) throw guasto('conteggi non salvati', error)
+      return typeof data === 'number' ? data : 0
+    },
+
+    async collegaLeadAiContenuti() {
+      const { data, error } = await db.rpc('lead_contenuto_da_insight')
+      if (error) throw guasto('origine dei lead non aggiornata', error)
       return typeof data === 'number' ? data : 0
     },
   }

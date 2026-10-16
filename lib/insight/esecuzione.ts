@@ -915,6 +915,13 @@ async function passoUnione(archivio: Archivio, op: OpPasso, riga: RigaEsecuzione
     avvisi.push(AVVISI_INSIGHT.conteggi)
   }
 
+  // 4. the reel each new lead came from, now that the chats carry their origin (1.37.0): never a failed run
+  try {
+    await archivio.collegaLeadAiContenuti()
+  } catch {
+    console.error('[insight] origine dei lead non aggiornata:', op.esecuzione.slice(0, 8))
+  }
+
   const attribuite = documenti.flatMap((d) => d.leads).filter((l) => l.origine?.shortcode).length
   console.info(
     '[insight] token',

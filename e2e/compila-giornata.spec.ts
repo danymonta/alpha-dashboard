@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { aggiungiGiorni, formatOra, oggiRoma } from '../lib/date'
 import { formatData, formatEuro, formatNumero } from '../lib/format'
 import { ID_ADMIN, ID_CLOSER, ID_SETTER, creaCallDiProva, dbLocale, pulisciVendite } from './db'
+import { nonRegistrata } from './registrazione'
 import { accedi } from './utenti'
 
 // Every lead created here starts with this name: removed at the end (calls cascade)
@@ -127,6 +128,7 @@ test('giornata: l’admin aggiunge una call passata per il setter, ne registra l
   await scheda.getByRole('button', { name: 'Registra esito' }).click()
   const foglio = page.getByRole('dialog', { name: nome })
   await foglio.getByRole('button', { name: 'Follow-up' }).click()
+  await nonRegistrata(foglio)
   await foglio.getByRole('button', { name: 'No, follow-up in chat' }).click()
   // the reason for not closing is required (Dany, 30/09/2026)
   await foglio.getByLabel(/Motivo di non chiusura/).fill('Vuole provare da solo')
@@ -187,6 +189,7 @@ test('giornata: una call chiusa su un giorno passato porta la vendita su quel gi
   const scheda = page.getByRole('article', { name: lead })
   await scheda.getByRole('button', { name: 'Registra esito' }).click()
   await page.getByRole('dialog', { name: lead }).getByRole('button', { name: 'Chiusa' }).click()
+  await nonRegistrata(page.getByRole('dialog'))
 
   // the prefilled sale: dated on the call's day, with the way back to the day;
   // the path usually starts a week after the payment (02/10/2026)
@@ -297,6 +300,7 @@ test('giornata: dopo l’esito la matita apre le note aggiuntive appena salvate,
   await scheda.getByRole('button', { name: 'Registra esito' }).click()
   const esito = page.getByRole('dialog')
   await esito.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await nonRegistrata(esito)
   await esito.getByRole('button', { name: 'No, follow-up in chat' }).click()
   await esito.getByLabel(/Motivo di non chiusura/).fill('Deve parlarne con la compagna')
   await esito.getByLabel(/Note aggiuntive/).fill('Richiamare lunedì')
@@ -314,6 +318,7 @@ test('giornata: dopo l’esito la matita apre le note aggiuntive appena salvate,
   // a new outcome with new notes: the pencil opens on those, not on the first ones
   await scheda.getByRole('button', { name: 'Cambia esito' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Persa', exact: true }).click()
+  await nonRegistrata(page.getByRole('dialog'))
   await page.getByRole('dialog').getByLabel(/Note aggiuntive/).fill('Ha scelto un altro coach')
   await page.getByRole('dialog').getByRole('button', { name: 'No', exact: true }).click()
   await expect(scheda.getByText('Persa')).toBeVisible()

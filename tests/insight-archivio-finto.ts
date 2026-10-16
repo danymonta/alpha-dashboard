@@ -497,6 +497,13 @@ export class ArchivioFinto implements Archivio {
     }
   }
 
+  /** how many times the run asked for the origin of the leads */
+  originiLead = 0
+  async collegaLeadAiContenuti() {
+    this.controlla('collegaLeadAiContenuti')
+    this.originiLead++
+    return 0
+  }
   async salvaConteggi(righe: readonly RigaContenutiDm[], opzioni?: { segnaGiorni?: boolean }) {
     this.controlla('salvaConteggi')
     for (const r of righe) if (r.dm <= 0) throw new Error('dm a zero')

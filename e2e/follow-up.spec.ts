@@ -7,6 +7,7 @@ import { formatData, formatEuro } from '../lib/format'
 import { ETICHETTA_TIPO_VENDITA } from '../lib/validation/vendita'
 import { MOTIVO_NON_CHIUSURA } from '../lib/setting/commento'
 import { ID_ADMIN, ID_CLOSER, ID_SETTER, PRODOTTO_3_MESI, creaCallDiProva, dbLocale, pulisciVendite } from './db'
+import { nonRegistrata } from './registrazione'
 import { accedi, UTENTI } from './utenti'
 
 // The follow-up call (Dany, 07/10/2026): "Follow-up" asks whether a follow-up
@@ -88,6 +89,7 @@ test('l’admin come closer: Follow-up, «Sì, call fissata» domani alle 18:00 
   await primaCall(page, nome).getByRole('button', { name: 'Registra esito' }).click()
   const foglio = page.getByRole('dialog')
   await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await nonRegistrata(foglio)
 
   // the question first, with its two big choices
   await expect(foglio.getByRole('group', { name: FOLLOW_UP.domanda })).toBeVisible()
@@ -152,6 +154,7 @@ test('l’admin come closer: Follow-up, «Sì, call fissata» domani alle 18:00 
   // the first call already has its follow-up call: "Follow-up" asks no question again
   await primaCall(page, nome).getByRole('button', { name: 'Cambia esito' }).click()
   await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await nonRegistrata(foglio)
   await expect(foglio.getByTestId('follow-up-gia-fissata')).toHaveText(FOLLOW_UP.giaFissata(quando))
   await expect(foglio.getByRole('group', { name: FOLLOW_UP.domanda })).toHaveCount(0)
   await expect(foglio.getByLabel(/Motivo di non chiusura/)).toHaveValue('Deve sentire il commercialista')
@@ -177,6 +180,7 @@ test('a 390 px: «No, follow-up in chat» non fissa niente; poi «Fissa la call 
   await primaCall(page, nome).getByRole('button', { name: 'Registra esito' }).click()
   const foglio = page.getByRole('dialog')
   await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await nonRegistrata(foglio)
   await foglio.getByRole('button', { name: FOLLOW_UP.no }).click()
 
   // the reason step says the choice; the sheet never scrolls sideways
@@ -381,6 +385,7 @@ test('la call di follow-up passata a un altro closer: la prima call lo dice, sen
   await card.getByRole('button', { name: 'Cambia esito' }).click()
   const foglio = page.getByRole('dialog')
   await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await nonRegistrata(foglio)
   await expect(foglio.getByTestId('follow-up-gia-fissata')).toHaveText(FOLLOW_UP.giaFissata(FOLLOW_UP.assegnataAltroCloser))
   await expect(foglio.getByRole('group', { name: FOLLOW_UP.domanda })).toHaveCount(0)
 })

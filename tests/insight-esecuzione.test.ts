@@ -454,6 +454,18 @@ describe('con chat preparate', () => {
     expect(fine.avvisi).toContain(AVVISI_INSIGHT.conteggi)
   })
 
+  it('l’origine dei lead si cerca a ogni giro e, se non riesce, il giro finisce lo stesso', async () => {
+    const archivio = new ArchivioFinto()
+    const fine = await giro(archivio, archivio.creaEsecuzione(oggiRoma()), { leggi: leggiCon([chat('Ciao, ho 30 anni')]) })
+    expect(fine.stato).toBe('pronta')
+    expect(archivio.originiLead).toBe(1)
+    const guasto = new ArchivioFinto()
+    guasto.guasti.add('collegaLeadAiContenuti')
+    const dopo = await giro(guasto, guasto.creaEsecuzione(oggiRoma()), { leggi: leggiCon([chat('Salve, ho 30 anni')]) })
+    expect(dopo.stato).toBe('pronta')
+    expect(dopo.avvisi).not.toContain(AVVISI_INSIGHT.conteggi)
+  })
+
   it('oltre il tetto di spesa il giro non parte e Claude non riceve niente', async () => {
     vi.stubEnv('INSIGHT_COSTO_MAX_USD', '0.01')
     const archivio = new ArchivioFinto()

@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { SPOSTA } from '../lib/call/spostamento'
 import { ID_ADMIN, ID_CLOSER, creaCallDiProva, dbLocale } from './db'
+import { nonRegistrata } from './registrazione'
 import { accedi } from './utenti'
 
 const PREFISSO = 'E2E Esito'
@@ -54,6 +55,7 @@ test.describe('Le mie call, closer', () => {
 
     const foglio = await apriEsito(page, nome) // 1
     await foglio.getByRole('button', { name: 'Persa', exact: true }).click() // 2
+    await nonRegistrata(foglio)
 
     // the reason is asked, with its guidance; the save line says what is missing
     const motivo = foglio.getByLabel(/Motivo di non chiusura/)
@@ -102,6 +104,7 @@ test.describe('Le mie call, closer', () => {
     // changing the outcome opens on the saved reason
     const ancora = await apriEsito(page, nome)
     await ancora.getByRole('button', { name: 'Follow-up', exact: true }).click()
+    await nonRegistrata(ancora)
     await ancora.getByRole('button', { name: 'No, follow-up in chat' }).click()
     await expect(ancora.getByLabel(/Motivo di non chiusura/)).toHaveValue('Fuori budget, ci risentiamo a gennaio')
   })
@@ -121,6 +124,7 @@ test.describe('Le mie call, closer', () => {
 
     const foglio = await apriEsito(page, nome)
     await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+    await nonRegistrata(foglio)
     await foglio.getByRole('button', { name: 'No, follow-up in chat' }).click()
     // never taller than the screen: it scrolls, and the two texts stop growing
     const box = (await foglio.boundingBox())!
@@ -144,6 +148,7 @@ test.describe('Le mie call, closer', () => {
 
     const foglio = await apriEsito(page, nome)
     await foglio.getByRole('button', { name: 'Chiusa', exact: true }).click()
+    await nonRegistrata(foglio)
 
     await expect(page).toHaveURL(`/sales/new?call=${callId}`)
     // the client is prefilled from the lead: "E2E Esito Chiusa 123" -> nome + cognome
@@ -182,6 +187,7 @@ test('l’admin registra l’esito delle call assegnate a lui', async ({ page })
 
   const foglio = await apriEsito(page, nome)
   await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await nonRegistrata(foglio)
   await foglio.getByRole('button', { name: 'No, follow-up in chat' }).click()
   await foglio.getByLabel(/Motivo di non chiusura/).fill('Deve parlarne con la compagna')
   await foglio.getByRole('button', { name: 'Sì', exact: true }).click()
@@ -228,6 +234,7 @@ test('le note aggiuntive sono del closer: il setter le legge, scrive solo le sue
   await expect(scheda(closer, nome).getByTestId('note-setter')).toContainText('Chiamarlo dopo le 18')
   const foglio = await apriEsito(closer, nome)
   await foglio.getByRole('button', { name: 'Follow-up', exact: true }).click()
+  await nonRegistrata(foglio)
   await foglio.getByRole('button', { name: 'No, follow-up in chat' }).click()
   await foglio.getByLabel(/Motivo di non chiusura/).fill('Deve parlarne con la compagna')
   await foglio.getByLabel(/Note aggiuntive/).fill('Richiamare lunedì dopo le 18')
