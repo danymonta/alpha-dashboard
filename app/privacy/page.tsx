@@ -223,6 +223,29 @@ const SEZIONI: Sezione[] = [
           chiusa), ripulito dei nomi, dei recapiti e delle cifre, e mai i testi dei messaggi.
         </p>
         <p>
+          <strong className="font-semibold">Analisi delle call.</strong> Quando una call con te si fa in video e viene
+          registrata con Fathom (Stati Uniti), chi l’ha tenuta incolla nel gestionale il link della registrazione. Il
+          gestionale trova la registrazione su Fathom e, per ogni call registrata, ne legge la trascrizione e la invia ad
+          Anthropic PBC (Stati Uniti), fornitore del modello Claude, per un’analisi: com’è andata la call, se la persona
+          era in linea con quella a cui ci rivolgiamo, quali dubbi ha espresso, una proposta del motivo per cui non ha
+          deciso e un giudizio su come è stata condotta, che legge solo chi l’ha condotta. Prima dell’invio togliamo dal
+          testo i nomi, i recapiti, le cifre e i link. Il gestionale non conserva la registrazione né la trascrizione: la
+          trascrizione si rilegge da Fathom solo quando una persona del team la apre. Conserva l’analisi scritta da
+          Claude, senza nomi, senza cifre e senza dati sulla salute. Se durante la call racconti qualcosa sulla tua
+          salute, può essere presente nella trascrizione che Anthropic riceve per l’analisi: chiediamo a Claude di non
+          riportarlo e il gestionale toglie dal testo salvato ogni frase che ne parla. Non vogliamo analizzare le
+          conversazioni con i minorenni: se il testo lo fa capire, l’analisi si ferma e non viene salvata. Se non vuoi
+          che una call venga registrata o analizzata, dillo all’inizio della call o scrivici: la call si segna come non
+          registrata.
+        </p>
+        <p>
+          <strong className="font-semibold">Spunti per i contenuti.</strong> Ogni settimana Claude scrive, per il team
+          dei contenuti, un riepilogo di temi, obiezioni e domande ricorrenti dei contatti, incrociando i nostri reel, i
+          conteggi dei messaggi diretti, le note interne del team e i temi delle analisi delle call. Riceve solo testo già
+          ripulito di nomi, recapiti e cifre, mai trascrizioni né messaggi, e gli spunti che scrive non contengono
+          nomi né frasi di singole persone.
+        </p>
+        <p>
           <strong className="font-semibold">Riepilogo dei messaggi diretti.</strong> Ogni giorno il gestionale legge
           anche i messaggi diretti dell’account Instagram di Percorso Alpha e della sua Pagina Facebook (Messenger):
           le conversazioni delle ultime 24 ore e quelle ferme da qualche giorno (fino a 14) per cui può servire un
@@ -283,7 +306,7 @@ const SEZIONI: Sezione[] = [
           </li>
           <li>
             <strong className="font-semibold">Anthropic</strong> (Stati Uniti): l’assistente di intelligenza
-            artificiale Claude;
+            artificiale Claude, anche per l’analisi delle call registrate;
           </li>
           <li>
             <strong className="font-semibold">Groq</strong> (Stati Uniti): l’assistente interno del nostro gestionale e la
@@ -305,7 +328,8 @@ const SEZIONI: Sezione[] = [
           </li>
           <li>
             <strong className="font-semibold">Fathom</strong> (Stati Uniti): la registrazione e la trascrizione delle call
-            con chi ci chiede informazioni, quando la call si fa in video;
+            con chi ci chiede informazioni, quando la call si fa in video; il gestionale le legge da Fathom con una
+            chiave di sola lettura;
           </li>
           <li>
             <strong className="font-semibold">Coach Plus</strong>: la piattaforma in cui seguiamo il percorso dei
@@ -364,6 +388,15 @@ const SEZIONI: Sezione[] = [
         <li>
           <strong className="font-semibold">Analisi dei reel</strong>: il testo del parlato, la scheda di Claude e i
           numeri di ogni reel, finché il reel è nel nostro archivio dei contenuti; il video e l’audio non si conservano.
+        </li>
+        <li>
+          <strong className="font-semibold">Analisi delle call</strong>: l’analisi scritta da Claude, senza nomi, cifre
+          né dati sulla salute, al massimo 24 mesi dalla call; la registrazione e la trascrizione restano su Fathom,
+          secondo le sue impostazioni, e il gestionale non le conserva.
+        </li>
+        <li>
+          <strong className="font-semibold">Spunti per i contenuti</strong>: i riepiloghi settimanali, senza nomi, al
+          massimo 26 settimane.
         </li>
         <li>
           <strong className="font-semibold">Dati dei clienti</strong>: per tutta la durata del rapporto. Dopo,

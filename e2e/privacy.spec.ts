@@ -46,9 +46,18 @@ test('l’informativa si apre senza sessione, con le istruzioni per la cancellaz
   await expect(metaEAi).toContainText('I fotogrammi, la didascalia e la trascrizione del parlato vengono inviati ad Anthropic PBC')
   await expect(metaEAi).toContainText('la traccia audio viene inviata a Groq (Stati Uniti) per essere trascritta e non viene conservata')
   await expect(metaEAi).toContainText('lo cancella subito: non lo conserva')
+  // the analysis of the recorded calls (1.37.0): the transcript to Anthropic, cleaned, never kept; the health stays out
+  await expect(metaEAi.getByText('Analisi delle call.', { exact: true })).toBeVisible()
+  await expect(metaEAi).toContainText('ne legge la trascrizione e la invia ad Anthropic PBC (Stati Uniti)')
+  await expect(metaEAi).toContainText('Il gestionale non conserva la registrazione né la trascrizione')
+  await expect(metaEAi).toContainText('senza dati sulla salute')
+  await expect(metaEAi).toContainText('Se non vuoi che una call venga registrata o analizzata')
+  await expect(metaEAi.getByText('Spunti per i contenuti.', { exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: /Con chi condividiamo i dati/ })).toContainText('la trascrizione dell’audio dei nostri reel')
   const conservazione = page.getByRole('region', { name: /Per quanto tempo li conserviamo/ })
   await expect(conservazione).toContainText('il video e l’audio non si conservano')
+  await expect(conservazione).toContainText('al massimo 24 mesi dalla call')
+  await expect(conservazione).toContainText('al massimo 26 settimane')
   await expect(conservazione).toContainText('il riepilogo e i messaggi letti per prepararlo, al massimo 30 giorni')
   await expect(conservazione).toContainText('Contatti per contenuto')
   await expect(page.getByRole('region', { name: /Come chiedere la cancellazione dei dati/ })).toContainText(

@@ -86,6 +86,76 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.37.0',
+    data: '2026-10-16',
+    titolo: 'Call da Fathom nel closing e Spunti nel Marketing',
+    riassunto:
+      'Il foglio dell’esito chiede il link della registrazione di Fathom per le call svolte; Claude analizza ogni call registrata e propone motivo e performance; il Marketing ha la scheda «Spunti», il brief settimanale che incrocia reel, DM, setting e call.',
+    intestazionePer: ['closer', 'setter', 'marketing'],
+    intestazioneTeam: {
+      titolo: 'Call registrate e Spunti',
+      riassunto:
+        'Per le call svolte si incolla il link della registrazione di Fathom; Claude analizza le call registrate; il Marketing ha la scheda «Spunti» con il brief settimanale.',
+    },
+    novita: [
+      {
+        per: ['closer'],
+        testo:
+          'Per una call svolta (chiusa, follow-up o persa) il foglio dell’esito chiede il link della registrazione di Fathom: lo incolli, l’app controlla che la registrazione esista e si va avanti. Se la call non è stata registrata tocchi «Call non registrata»: un tocco, senza motivo. No show, cancellata e in attesa di conferma non lo chiedono. Vale per le call da oggi in poi.',
+      },
+      {
+        per: ['closer'],
+        testo:
+          'Sulla scheda della call vedi la registrazione («Apri su Fathom»), la trascrizione con i minuti che aprono il video e il riassunto di Fathom. Si leggono da Fathom quando li apri: l’app non li conserva. Il link si cambia o si toglie dalla scheda.',
+      },
+      {
+        per: ['closer'],
+        testo:
+          'Claude, un’intelligenza artificiale, analizza ogni call registrata pochi minuti dopo l’esito: com’è andata, il lead rispetto al cliente ideale, le obiezioni (con il minuto), le domande e i momenti da riascoltare. Propone il motivo di non chiusura, che usi con un tocco, e la performance con il perché: li confermi o li cambi tu, niente si scrive da solo. Come hai condotto la call lo vedi solo tu.',
+      },
+      {
+        per: ['closer'],
+        testo:
+          'In I miei numeri c’è «Dalle call registrate»: quante call hai registrato, la durata media, la performance che hai confermato, le obiezioni più frequenti e come vanno le call per fonte e per contenuto da cui arriva il lead.',
+      },
+      {
+        per: ['closer'],
+        testo:
+          'Alfire registra l’esito di una call svolta con il link di Fathom, o con «non registrata», e te lo chiede se manca.',
+      },
+      {
+        per: ['setter'],
+        testo:
+          'Sulle call che hai fissato c’è «Dalla call»: se il lead era in target, cosa sapeva arrivando, cosa l’ha sorpreso e su cosa si è fermato, con uno o tre spunti per i tuoi DM che vedi solo tu. Non vedi la registrazione, la trascrizione né come il closer ha condotto la call.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Nuova scheda «Spunti» nel Marketing: ogni lunedì Claude incrocia i reel, i DM, le note del setting e le call e scrive cosa funziona, cosa chiedono i lead, le obiezioni da anticipare, le domande da trasformare in contenuti e da cinque a otto idee pronte. «Aggiungi al calendario» crea il contenuto con lo script già scritto. Solo temi, mai nomi, frasi di persone o cifre.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'L’admin e il marketing possono chiedere nuovi spunti quando vogliono (due volte al giorno al massimo). Il Claude collegato al calendario li legge in sola lettura.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Impostazioni › Fathom: incolli la chiave API (resta nel Vault, non torna mai nella pagina), vedi la spesa del mese contro il limite di 10 $ (si cambia), e accendi o spegni le analisi delle call e gli spunti automatici del lunedì.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'In Closer, «Dalle call registrate» per fonte e per contenuto di provenienza: call, show rate, chiuse, close rate e, solo per te, cash e revenue dei clienti nuovi. In Spunti, «Per te» mette sotto ogni contenuto i numeri delle call che ne sono nate. Copertura, durata e performance le vedi solo sulle tue call.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Claude analizza tutte le call registrate, senza una domanda nel foglio: l’informativa privacy lo dice. La trascrizione non viene mai salvata e a Claude arriva senza nomi, cifre e link; la salute di una persona non resta in nessun testo salvato. Le analisi si cancellano dopo 24 mesi.',
+      },
+    ],
+  },
+  {
     versione: '1.36.0',
     data: '2026-10-16',
     titolo: 'Analisi dei reel: numeri, verdetto e idee per il calendario',

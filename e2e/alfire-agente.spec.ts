@@ -176,6 +176,7 @@ test('il closer segna follow-up con la call già fissata: la scheda dice quando,
   await expect(scheda).toContainText(/Motivo di non chiusura: (– → )?Ne parla con la compagna/)
   // the follow-up call with its day, and who keeps a sale: the first call's setter
   await expect(scheda).toContainText(`Call di follow-up: ${giornoEsteso(domani)} alle 18:00, stesso lead e stesso setter (${UTENTI.setter.nome})`)
+  await expect(scheda).toContainText('Registrazione: call non registrata')
   // nothing written before the tap
   const prima = await db.from('calls').select('id').eq('follow_up_di', callId)
   expect(prima.data).toHaveLength(0)
@@ -195,6 +196,18 @@ test('il closer segna follow-up con la call già fissata: la scheda dice quando,
   expect(seguito[0]).toMatchObject({ lead_id: partenza.lead_id, setter_id: ID_SETTER, closer_id: ID_CLOSER, tipo: 'discovery', stato: 'programmata' })
   expect(oggiRoma(new Date(seguito[0].programmata_il))).toBe(domani)
   expect(formatOra(seguito[0].programmata_il)).toBe('18:00')
+})
+
+test('una call svolta senza la registrazione di Fathom: la scheda si ferma e dice cosa manca', async ({ page }) => {
+  const nome = `E2EAlfireSenzaReg${Date.now()} Neri`
+  const callId = await creaCallDiProva(nome, ID_CLOSER, 2)
+  const pannello = await chiedi(page, `Segna persa per ${nome} senza dire la registrazione`, 'closer')
+  await expect(pannello).toContainText('Manca la registrazione della call: incolla il link di Fathom, oppure dimmi che la call non è stata registrata.')
+  // the indication for the model stays out of the person's card
+  await expect(pannello).not.toContainText('proponi_risposte')
+  await expect(pannello.getByRole('button', { name: 'Conferma' })).toHaveCount(0)
+  const { data } = await dbLocale().from('calls').select('stato, esito').eq('id', callId).single()
+  expect(data).toMatchObject({ stato: 'programmata', esito: null })
 })
 
 test('il setter chiede i numeri del closer della settimana: arrivano da giornate_closer, di tutti i setter, come li legge l’admin', async ({ page }) => {

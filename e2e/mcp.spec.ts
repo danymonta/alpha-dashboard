@@ -57,6 +57,7 @@ const STRUMENTI_TEAM = [
   'leggi_contenuto',
   'modifica_contenuto',
   'scrivi_sezione',
+  'spunti_contenuti',
 ]
 
 test.describe.configure({ mode: 'serial' })
@@ -170,6 +171,14 @@ test('il marketing collega Claude: consenso, token e strumenti sul calendario', 
     const icp = await mcp.callTool({ name: 'icp', arguments: {} })
     expect(icp.isError, testoRisultato(icp)).toBeFalsy()
     expect(datiRisultato<{ profilo: string }>(icp).profilo).toBe(ICP)
+
+    // the weekly brief (1.37.0): read only, the themes in words, never a name or a figure of money
+    const spunti = await mcp.callTool({ name: 'spunti_contenuti', arguments: {} })
+    expect(spunti.isError, testoRisultato(spunti)).toBeFalsy()
+    const brief = datiRisultato<{ in_breve: string; idee: { name: string; script: { hook: string } }[] }>(spunti)
+    expect(brief.in_breve.length).toBeGreaterThan(0)
+    expect(brief.idee.length).toBeGreaterThan(0)
+    expect(JSON.stringify(brief)).not.toMatch(/€|Loris|Dany/)
 
     const oggi = oggiRoma()
     const creato = await mcp.callTool({
@@ -336,6 +345,16 @@ test('con il token di Claude le Data API aprono solo il calendario', async () =>
   }
   const insight = await db.rpc('insight_stato')
   expect(insight.error?.code).toBe('42501')
+
+  // the calls and the weekly brief (1.37.0): the brief only through spunti_per_claude, never the tables
+  for (const tabella of ['marketing_spunti', 'call_registrazioni', 'call_analisi', 'call_analisi_setter', 'lead_contenuto'] as const) {
+    const righe = await db.from(tabella).select('*')
+    expect(righe.error?.code, tabella).toBe('42501')
+  }
+  const numeri = await db.rpc('call_numeri_periodo', { p_da: '2026-10-01', p_a: '2026-10-31', p_per: 'totale' })
+  expect(numeri.error?.code).toBe('42501')
+  const brief = await db.rpc('spunti_per_claude', {})
+  expect(brief.error).toBeNull()
 
   const nomeProgetto = `${PREFISSO}progetto`
   const progetto = await db.rpc('pm_crea_progetto', { p_nome: nomeProgetto, p_reparto_id: randomUUID() })

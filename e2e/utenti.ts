@@ -62,6 +62,8 @@ const CONTENUTI = [
   // 1.36.0: the analysis of the reels and its panel, on supabase/seeds/45_analisi_reel.sql
   { nome: 'analisi', url: '/marketing/analisi' },
   { nome: 'analisi-reel', url: '/marketing/analisi?reel=17900000000000001' },
+  // 1.37.0: the weekly brief, on supabase/seeds/52_spunti.sql
+  { nome: 'spunti', url: '/marketing/spunti' },
 ]
 
 export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
@@ -78,6 +80,9 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'setting', url: '/setting' },
     ...INSIGHT,
     { nome: 'closer', url: '/setting/closer' },
+    // 1.37.0: the recorded calls by source and by content, on the seeds of Fathom
+    { nome: 'closer-per-fonte', url: '/setting/closer?per=fonte' },
+    { nome: 'closer-per-contenuto', url: '/setting/closer?per=contenuto' },
     { nome: 'compila-giornata', url: '/setting/closer/giorno' },
     { nome: 'provvigioni', url: '/commissions' },
     { nome: 'costi', url: '/expenses' },
@@ -90,6 +95,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'registro', url: '/settings/audit' },
     { nome: 'impostazioni-progetti', url: '/settings/progetti' },
     { nome: 'impostazioni-instagram', url: '/settings/instagram' },
+    { nome: 'impostazioni-fathom', url: '/settings/fathom' },
     CHANGELOG,
     PROGETTI,
     ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE),

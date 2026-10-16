@@ -373,7 +373,14 @@ createServer(async (req, res) => {
       motivo: 'Ne parla con la compagna',
       follow_up_data: giornoRoma(1),
       follow_up_ora: `${followUp[2].padStart(2, '0')}:00`,
+      // a held call asks for its Fathom recording, or «non registrata» (1.37.0)
+      registrazione: 'non registrata',
     })
+  }
+  // 1.37.0: a lost call with no word on the recording: the card stops before the tap
+  const senzaRegistrazione = /^segna persa per (.+?) senza dire la registrazione$/i.exec(contenuto(ultimo).trim())
+  if (senzaRegistrazione) {
+    return chiamata(res, 'call', { azione: 'esito', lead: senzaRegistrazione[1], esito: 'persa', qualificata: false, motivo: 'Troppo caro' })
   }
   if (domanda.includes('numeri del closer questa settimana')) {
     return chiamata(res, 'giornate_closer', { da: lunediRoma(), a: giornoRoma() })

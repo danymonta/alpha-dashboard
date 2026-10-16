@@ -30,7 +30,7 @@ export function SchedeMarketing({ daCollegare }: { daCollegare: number }) {
 
   return (
     <nav aria-label="Sezioni del Marketing" className="mb-5 border-b border-border">
-      <ul className="flex gap-1">
+      <ul className="flex gap-0.5 overflow-x-auto sm:gap-1">
         {schede.map(({ href, etichetta, numero, nome }) => {
           const attiva = pathname === href || pathname.startsWith(`${href}/`)
           return (
@@ -40,7 +40,7 @@ export function SchedeMarketing({ daCollegare }: { daCollegare: number }) {
                 aria-current={attiva ? 'page' : undefined}
                 aria-label={nome}
                 className={cn(
-                  '-mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-2.5 text-sm transition-colors sm:px-3',
+                  '-mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-2 text-sm transition-colors sm:px-3',
                   attiva
                     ? 'border-primary font-medium text-foreground'
                     : 'border-transparent text-muted-foreground hover:text-foreground',
