@@ -195,7 +195,9 @@ function rispostaSpunti(dati, testoDati) {
     format: 'Show&Tell',
     gancio: 'Ho solo 40 minuti la sera',
     messaggio: 'Si può allenarsi bene anche con la giornata piena.',
-    script: { hook: 'Ho solo 40 minuti la sera', righe: ['Cinque minuti di riscaldamento', 'Due esercizi, tre serie'], cta: 'Salvalo per stasera' },
+    hook: 'Ho solo 40 minuti la sera',
+    righe: ['Cinque minuti di riscaldamento', 'Due esercizi, tre serie'],
+    cta: 'Salvalo per stasera',
     perche: 'Scioglie il dubbio del tempo prima della call.',
     rif: uno.length ? uno : molti.slice(0, 1),
     ...extra,
@@ -206,13 +208,17 @@ function rispostaSpunti(dati, testoDati) {
   const citazione = testoDati.includes('[[citazione]]') ? ' Dicono « non riesco mai a trovare il tempo giusto per allenarmi dopo il lavoro ».' : ''
   return {
     in_breve: `I contenuti che mostrano una sera qualunque portano più lead in target.${nome}${prezzo}`,
-    cosa_funziona: uno.length ? [{ testo: 'Il reel sulla sera dopo il lavoro porta lead in target', perche: 'Mostra l’allenamento breve in una giornata piena.', rif: uno }] : [],
+    voci: uno.length
+      ? [
+          { gruppo: 'cosa_funziona', testo: 'Il reel sulla sera dopo il lavoro porta lead in target', perche: 'Mostra l’allenamento breve in una giornata piena.', rif: uno },
+          { gruppo: 'mantieni', testo: 'Gancio concreto nei primi due secondi', perche: 'Funziona sui reel migliori.', rif: uno },
+          { gruppo: 'cambia', testo: 'Chiusure senza un motivo per salvare', perche: 'La CTA arriva tardi.', rif: uno },
+          { gruppo: 'potenzia', testo: 'Serie sulla giornata piena', perche: 'Porta lead in target.', rif: uno },
+        ]
+      : [],
     temi: molti.length ? [{ tema: 'Poco tempo la sera', cosa_dicono: `Chiedono se bastano 40 minuti dopo il lavoro.${cifra}${citazione}`, fonti: ['dm'], tendenza: 'in_aumento', rif: molti }] : [],
     obiezioni: molti.length ? [{ obiezione: 'Non ho tempo la sera', dove_pesa: 'in_call', contenuto_che_la_scioglie: 'Una sera tipo, minuto per minuto.', perche: 'Torna in più fonti.', rif: molti }] : [],
     domande: molti.length ? [{ domanda: 'Si può fare senza attrezzi?', risposta_in_breve: 'Sì, serve solo una sbarra.', rif: [...D, ...S, ...C].slice(0, 6) }] : [],
-    mantieni: uno.length ? [{ testo: 'Gancio concreto nei primi due secondi', perche: 'Funziona sui reel migliori.', rif: uno }] : [],
-    cambia: uno.length ? [{ testo: 'Chiusure senza un motivo per salvare', perche: 'La CTA arriva tardi.', rif: uno }] : [],
-    potenzia: uno.length ? [{ testo: 'Serie sulla giornata piena', perche: 'Porta lead in target.', rif: uno }] : [],
     idee: [1, 2, 3, 4, 5, 6].map((n) => idea(n, n === 6 ? { format: 'Formato Inventato' } : {})),
   }
 }

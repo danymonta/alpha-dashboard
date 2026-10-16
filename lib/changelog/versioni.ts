@@ -89,7 +89,7 @@ export const VERSIONI: readonly Versione[] = [
     versione: '1.37.1',
     data: '2026-10-16',
     titolo: 'La pagina Analisi torna a caricarsi',
-    riassunto: 'L’Analisi dei reel si apre in meno di un secondo anche con tutti i reel dell’account; se Claude rifiuta una richiesta, l’app ora ne registra il motivo.',
+    riassunto: 'L’Analisi dei reel si apre in meno di un secondo anche con tutti i reel dell’account; una richiesta fallita non consuma più il limite del giorno; se Claude rifiuta una richiesta, l’app ora ne registra il motivo.',
     intestazionePer: ['marketing'],
     intestazioneTeam: {
       titolo: 'La pagina Analisi torna a caricarsi',
@@ -106,6 +106,11 @@ export const VERSIONI: readonly Versione[] = [
         per: ['marketing'],
         testo:
           'Se i verdetti e i confronti non si riescono a leggere, la pagina mostra comunque i reel con i loro numeri e dice cosa manca, invece dell’errore a tutta pagina. Le tessere in alto non caricate dicono «non caricato» e non fermano il resto.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Una richiesta che non va a buon fine (gli spunti, l’analisi di un reel o di una call chiesti a mano) non consuma più il limite del giorno: conta solo quella riuscita o ancora in corso. Prima due errori di fila ti lasciavano senza «Chiedi nuovi spunti» fino al giorno dopo.',
       },
       {
         per: ['marketing'],

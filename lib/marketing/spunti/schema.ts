@@ -13,10 +13,19 @@ import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE } from '@/lib/marketing/etichette
 const testo = () => z.string()
 const rif = () => z.array(z.string())
 
+/** The four groups of «voci»: what the brief says about the contents. */
+export const GRUPPI_VOCI = ['cosa_funziona', 'mantieni', 'cambia', 'potenzia'] as const
+
+/*
+ * The shape Claude answers is the SMALLEST one that says everything (1.37.1): the four lists of the same
+ * entry (cosa_funziona, mantieni, cambia, potenzia) are one list with a `gruppo`, and the script of an
+ * idea is flat (hook, righe, cta). Fewer objects and arrays in the schema that goes to the API, a smaller
+ * grammar to compile; the brief the page shows keeps its shape (SpuntiModello), made by comeSpuntiModello.
+ */
 function costruisci(stretto: boolean) {
   const reelType = () => (stretto ? z.enum(Object.values(ETICHETTA_REEL_TYPE) as [string, ...string[]]) : z.string())
   const format = () => (stretto ? z.enum(Object.values(ETICHETTA_FORMAT) as [string, ...string[]]) : z.string())
-  const voce = () => z.object({ testo: testo(), perche: testo(), rif: rif() })
+  const voce = () => z.object({ gruppo: z.enum(GRUPPI_VOCI), testo: testo(), perche: testo(), rif: rif() })
   const idea = () =>
     z.object({
       modello: z.enum(['reel', 'carousel']),
@@ -27,13 +36,15 @@ function costruisci(stretto: boolean) {
       format: z.union([format(), z.null()]),
       gancio: testo(),
       messaggio: testo(),
-      script: z.object({ hook: testo(), righe: z.array(testo()), cta: testo() }),
+      hook: testo(),
+      righe: z.array(testo()),
+      cta: testo(),
       perche: testo(),
       rif: rif(),
     })
   return z.object({
     in_breve: testo(),
-    cosa_funziona: z.array(voce()),
+    voci: z.array(voce()),
     temi: z.array(
       z.object({
         tema: testo(),
@@ -53,15 +64,41 @@ function costruisci(stretto: boolean) {
       }),
     ),
     domande: z.array(z.object({ domanda: testo(), risposta_in_breve: testo(), rif: rif() })),
-    mantieni: z.array(voce()),
-    cambia: z.array(voce()),
-    potenzia: z.array(voce()),
     idee: z.array(idea()),
   })
 }
 
 export const SchemaSpunti = costruisci(true)
 export const LettoSpunti = costruisci(false)
-export type SpuntiModello = z.infer<typeof LettoSpunti>
-export type IdeaSpuntiModello = SpuntiModello['idee'][number]
+export type RispostaSpunti = z.infer<typeof LettoSpunti>
 export const FORMATO_SPUNTI = formato(SchemaSpunti)
+
+/** The brief in the shape the strict layer and the page know (the four lists, the script inside the idea). */
+export type SpuntiModello = Omit<RispostaSpunti, 'voci' | 'idee'> & {
+  cosa_funziona: VoceModello[]
+  mantieni: VoceModello[]
+  cambia: VoceModello[]
+  potenzia: VoceModello[]
+  idee: IdeaSpuntiModello[]
+}
+type VoceModello = { testo: string; perche: string; rif: string[] }
+export type IdeaSpuntiModello = Omit<RispostaSpunti['idee'][number], 'hook' | 'righe' | 'cta'> & {
+  script: { hook: string; righe: string[]; cta: string }
+}
+
+/** From what Claude answered to the shape of SpuntiModello; the order inside each group is kept. */
+export function comeSpuntiModello(r: RispostaSpunti): SpuntiModello {
+  const gruppo = (g: (typeof GRUPPI_VOCI)[number]): VoceModello[] =>
+    r.voci.filter((v) => v.gruppo === g).map(({ testo, perche, rif }) => ({ testo, perche, rif }))
+  return {
+    in_breve: r.in_breve,
+    cosa_funziona: gruppo('cosa_funziona'),
+    temi: r.temi,
+    obiezioni: r.obiezioni,
+    domande: r.domande,
+    mantieni: gruppo('mantieni'),
+    cambia: gruppo('cambia'),
+    potenzia: gruppo('potenzia'),
+    idee: r.idee.map(({ hook, righe, cta, ...resto }) => ({ ...resto, script: { hook, righe, cta } })),
+  }
+}

@@ -9,7 +9,7 @@ import { chiaveNome } from '@/lib/marketing/analisi/verifica'
 import { USO_ZERO, type UsoToken } from '@/lib/marketing/analisi/tipi'
 import { preparaFonti } from '@/lib/marketing/spunti/fonti'
 import { contenutoSpunti, sistemaSpunti, VERSIONE_PROMPT_SPUNTI } from '@/lib/marketing/spunti/prompt'
-import { FORMATO_SPUNTI, LettoSpunti } from '@/lib/marketing/spunti/schema'
+import { comeSpuntiModello, FORMATO_SPUNTI, LettoSpunti } from '@/lib/marketing/spunti/schema'
 import { verificaSpunti } from '@/lib/marketing/spunti/verifica'
 
 /**
@@ -125,7 +125,7 @@ export async function generaSpunti(op: {
           return { esito: 'parziale', uso }
       }
     }
-    const verificato = verificaSpunti(risposta.dati, fonti)
+    const verificato = verificaSpunti(comeSpuntiModello(risposta.dati), fonti)
     if (!verificato) {
       await fine('in_coda', { riprovaIl: tra(10), conta: true, errore: FRASI_SPUNTI.illeggibile })
       return { esito: 'parziale', uso }
