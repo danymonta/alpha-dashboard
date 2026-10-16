@@ -262,7 +262,7 @@ export function SezionePunteggio({
           </span>
           <span className="num text-sm text-muted-foreground">su 100</span>
         </p>
-        <BadgePunteggio totale={p.totale} fascia={p.fascia} className="text-base" />
+        <BadgePunteggio totale={p.totale} fascia={p.fascia} senzaNumero className="text-base" />
         {fascia ? <p className="text-sm break-words">{fascia.azione}</p> : null}
         <p className="num text-sm text-muted-foreground">
           Valutato come {ETICHETTA_TIPO[p.tipo]}, {p.tipo_origine === 'dichiarato' ? 'dal Reel Type del calendario' : 'dedotto da Claude'}

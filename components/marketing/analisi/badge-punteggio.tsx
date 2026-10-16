@@ -29,11 +29,14 @@ export function BadgePunteggio({
   totale,
   fascia,
   vuoto = 'Non valutato',
+  senzaNumero = false,
   className,
 }: {
   totale: number | null | undefined
   fascia: string | null | undefined
   vuoto?: string
+  /** only the band: where the number is already said large next to it */
+  senzaNumero?: boolean
   className?: string
 }) {
   const f = fasciaDaCodice(fascia)
@@ -54,7 +57,8 @@ export function BadgePunteggio({
       <Icona className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       {/* the words may wrap in a narrow cell (390 px): a score that pushes the page sideways is worse than two lines */}
       <span className="min-w-0 wrap-break-word">
-        <span className="num">{totale}</span> · {f.etichetta}
+        {senzaNumero ? null : <span className="num">{totale} · </span>}
+        {f.etichetta}
       </span>
     </span>
   )

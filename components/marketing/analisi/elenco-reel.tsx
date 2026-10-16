@@ -154,7 +154,7 @@ function RigaTabella({ r }: { r: RigaReel }) {
   }
   return (
     <tr data-riga-reel={r.media_id} onClick={clic} className="cursor-pointer border-b border-border align-top last:border-0 hover:bg-accent/30">
-      <td className="min-w-56 py-2 pr-2 pl-3">
+      <td className="min-w-48 py-2 pr-2 pl-3">
         <NomeReel r={r} />
       </td>
       <td className="px-2 py-2 text-right whitespace-nowrap">
@@ -164,11 +164,11 @@ function RigaTabella({ r }: { r: RigaReel }) {
         <Salvataggi r={r} />
       </td>
       <td className="num px-2 py-2 text-right whitespace-nowrap">{r.metriche_stato === 'lette' ? formatVisione(r.avg_watch_ms, r.quota_vista) : '–'}</td>
-      <td className="num min-w-36 px-2 py-2 text-sm">{parolaLead(r)}</td>
+      <td className="num min-w-32 px-2 py-2 text-sm">{parolaLead(r)}</td>
       <td className="px-2 py-2">
         <BadgeVerdetto verdetto={r.verdetto_oggi} />
       </td>
-      <td className="px-2 py-2" data-testid="colonna-punteggio">
+      <td className="max-w-44 px-2 py-2" data-testid="colonna-punteggio">
         <PunteggioDelReel r={r} />
       </td>
       <td className="py-2 pr-3 pl-2">
