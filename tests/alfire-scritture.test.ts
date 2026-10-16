@@ -4748,3 +4748,43 @@ describe('la guida dopo il 07/10/2026: Setter e Closer, il follow-up, la vendita
     }
   })
 })
+
+describe('la registrazione di Fathom con l’esito (Dany, 16/10/2026)', () => {
+  const ESITO = { azione: 'esito', lead: 'Luca Neri', esito: 'persa', qualificata: true, motivo: 'Troppo caro' }
+  const NUOVA = 'Manca la registrazione della call: incolla il link di Fathom, oppure dimmi che la call non è stata registrata.'
+
+  /** Luca Neri's call after the day the link became required, still without a recording. */
+  function callDopo() {
+    const righe = mondo()
+    righe.calls = [{ ...righe.calls[0], programmata_il: '2026-10-20T13:00:00Z', link_registrazione: null, registrazione: null }, ...righe.calls.slice(1)]
+    return righe
+  }
+
+  it('una call svolta dopo il 16/10 non si registra senza il link o senza «non registrata»', async () => {
+    for (const ruolo of ['closer', 'admin'] as const) {
+      const r = await anteprima('call', ESITO, ruolo, callDopo())
+      expect(r, ruolo).toMatchObject({ errore: NUOVA })
+    }
+    // the older call of the same lead is not asked
+    expect(await anteprima('call', ESITO, 'closer')).not.toMatchObject({ errore: NUOVA })
+  })
+
+  it('con il link o con «non registrata» la scheda lo dice e l’esito parte con la scelta', async () => {
+    const link = 'https://fathom.video/share/AbCdEf123456789_xyz'
+    const conLink = await anteprima('call', { ...ESITO, registrazione: link }, 'closer', callDopo())
+    expect(conLink).not.toHaveProperty('errore')
+    expect(JSON.stringify(conLink)).toContain('Registrazione: link di Fathom')
+    const senza = await anteprima('call', { ...ESITO, registrazione: 'non registrata' }, 'closer', callDopo())
+    expect(JSON.stringify(senza)).toContain('Registrazione: call non registrata')
+  })
+
+  it('no show e cancellata non la chiedono', async () => {
+    const r = await anteprima('call', { azione: 'esito', lead: 'Luca Neri', esito: 'no_show' }, 'closer', callDopo())
+    expect(r).not.toMatchObject({ errore: NUOVA })
+  })
+
+  it('il setter non ha la performance né il link nelle letture, e non registra l’esito', async () => {
+    expect(await campiDi(strumenti('setter', 'employee'), 'call')).not.toContain('registrazione')
+    expect(await campiDi(strumenti('closer', 'employee'), 'call')).toContain('registrazione')
+  })
+})

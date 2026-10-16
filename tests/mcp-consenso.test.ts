@@ -494,8 +494,8 @@ describe('le parole della scheda di consenso', () => {
   })
 
   it('l’elenco di «Claude potrà» è una frase: «;» tra le voci e «.» in fondo, con o senza l’eliminazione', () => {
-    expect(azioniConsenso(false)).toEqual([`${CONSENSO.azioni[0]};`, `${CONSENSO.azioni[1]}.`])
-    expect(azioniConsenso(true)).toEqual([`${CONSENSO.azioni[0]};`, `${CONSENSO.azioni[1]};`, `${CONSENSO.azioneAdmin}.`])
+    expect(azioniConsenso(false)).toEqual(CONSENSO.azioni.map((v, i) => `${v}${i === CONSENSO.azioni.length - 1 ? '.' : ';'}`))
+    expect(azioniConsenso(true)).toEqual([...CONSENSO.azioni.map((v) => `${v};`), `${CONSENSO.azioneAdmin}.`])
     for (const voce of [...CONSENSO.azioni, CONSENSO.azioneAdmin]) expect(voce).not.toMatch(/[;.,:]$/)
     for (const admin of [false, true]) {
       const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, admin }))

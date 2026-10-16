@@ -134,6 +134,14 @@ export const etichetteContenutiSchema = z.object({}).strict()
 
 export const icpSchema = z.object({}).strict()
 
+export const spuntiSchema = z
+  .object({
+    settimana: data
+      .nullish()
+      .describe('Un giorno della settimana degli spunti, AAAA-MM-GG; senza, gli spunti più recenti.'),
+  })
+  .strict()
+
 export const elencoContenutiSchema = z
   .object({
     mese: z
@@ -277,6 +285,7 @@ export const eliminaContenutoSchema = z
   })
   .strict()
 
+export type SpuntiInput = z.output<typeof spuntiSchema>
 export type ElencoContenutiInput = z.output<typeof elencoContenutiSchema>
 export type LeggiContenutoInput = z.output<typeof leggiContenutoSchema>
 export type CreaContenutiInput = z.output<typeof creaContenutiSchema>

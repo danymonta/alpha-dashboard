@@ -116,7 +116,7 @@ function primoErrore(issues: { message: string }[]): string {
 
 function errore(error: { code?: string; message: string }, nonSalvato = NON_SALVATO): string {
   // the unique index of the ideas: the same idea twice
-  if (error.code === '23505' && error.message.includes('marketing_contenuti_idea_idx')) return IDEA_GIA_NEL_CALENDARIO
+  if (error.code === '23505' && (error.message.includes('marketing_contenuti_idea_idx') || error.message.includes('marketing_contenuti_spunti_idx'))) return IDEA_GIA_NEL_CALENDARIO
   // the unique index on instagram_shortcode: the same post on two contents
   if (error.code === '23505') return POST_GIA_COLLEGATO
   // the trigger of the ideas, in its own words
@@ -137,7 +137,12 @@ function aggiorna() {
 async function inserisci(db: Db, dati: ContenutoDati, bozza: string | null, origine?: OrigineIdea) {
   return db
     .from('marketing_contenuti')
-    .insert({ ...dati, bozza, ...(origine ? { da_analisi: origine.analisi_id, da_idea: origine.idea } : {}) })
+    .insert({
+      ...dati,
+      bozza,
+      ...(origine && 'analisi_id' in origine ? { da_analisi: origine.analisi_id, da_idea: origine.idea } : {}),
+      ...(origine && 'spunti_id' in origine ? { da_spunti: origine.spunti_id, da_spunti_idea: origine.idea } : {}),
+    })
     .select('id, updated_at')
     .single()
 }
@@ -148,7 +153,7 @@ async function inserisci(db: Db, dati: ContenutoDati, bozza: string | null, orig
  * the Analisi page passes it; the MCP server and the «Nuovo contenuto» form
  * never do (the database refuses it to a Claude token and to a made-up one).
  */
-export type OrigineIdea = { analisi_id: string; idea: number }
+export type OrigineIdea = { analisi_id: string; idea: number } | { spunti_id: string; idea: number }
 
 const IDEA_GIA_NEL_CALENDARIO = 'Questa idea è già nel calendario.'
 

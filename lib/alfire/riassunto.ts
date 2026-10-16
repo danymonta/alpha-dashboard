@@ -2,6 +2,7 @@ import { formatData, formatEuro, formatMese } from '@/lib/format'
 import { elencoNomi } from '@/lib/progetti'
 import type { NomeScrittura } from '@/lib/alfire/permessi'
 import { FOLLOW_UP } from '@/lib/call/follow-up'
+import { REGISTRAZIONE } from '@/lib/call/registrazione'
 import { SPOSTA, quandoBreveDa } from '@/lib/call/spostamento'
 import { giornoEsteso, isDataISO } from '@/lib/date'
 import {
@@ -379,6 +380,7 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
             testo(input.note_closer) && `${NOTE_CLOSER.titolo}: ${input.note_closer}`,
             // "Sì, call fissata" (07/10/2026): the follow-up call with its day; the preview says the rest
             followUp && FOLLOW_UP.diCall(followUp),
+            registrazioneDetta(input),
             esito === 'chiusa' && 'Poi registriamo la vendita',
             // "In attesa di conferma" (04/10/2026): no date, the call stays on its day
             esito === 'riprogrammata' && SPOSTA.attesa.descrizione,
@@ -571,10 +573,19 @@ const ETICHETTA_CAMBIO: Record<string, string> = {
   nuovo_task: 'Sposto sul task',
   esito: 'Esito',
   link_registrazione: 'Registrazione',
+  registrazione: 'Registrazione',
   performance: 'Performance',
   prodotto_proposto: 'Prodotto proposto',
   importo_proposto: 'Importo proposto',
   piano_predefinito: 'Piano abituale',
+}
+
+/** The Fathom link (or «Call non registrata») said with the outcome; the card's preview adds what the database finds. */
+function registrazioneDetta(input: Input): string | null {
+  const r = testo(input.registrazione)
+  if (!r) return null
+  if (/non\s+registrata/i.test(r)) return `Registrazione: ${REGISTRAZIONE.nonRegistrata}`
+  return `Registrazione: ${r}`
 }
 
 const IMPORTI = ['valore', 'importo', 'prezzo_listino', 'importo_proposto']

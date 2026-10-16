@@ -1,6 +1,7 @@
 import { ChevronDown, ClipboardCheck, Phone } from 'lucide-react'
 
 import { DaRegistrare, caricaCallDaRegistrare } from '@/app/(app)/setting/closer/da-registrare'
+import { DalleRegistrazioni, leggiPer } from '@/app/(app)/setting/closer/dalle-registrazioni'
 import { LinkBottone } from '@/components/link-bottone'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
 import { EtichettaConNota } from '@/components/metriche/nota'
@@ -440,6 +441,18 @@ export default async function CloserPage({
               )}
             </p>
           </section>
+
+          {/* 1.37.0: the recorded calls, for the admin and the closer; the setter reads the page without it */}
+          {setter ? null : (
+            <DalleRegistrazioni
+              periodo={periodo}
+              closer={closer}
+              per={leggiPer(parametri.per)}
+              admin={admin}
+              proprie={ruolo === 'closer' || (admin && (closer === profilo.id))}
+              parametri={{ ...periodo.parametri, closer }}
+            />
+          )}
 
           <LegendaSezione voci={LEGENDA_PAGINA} />
         </>

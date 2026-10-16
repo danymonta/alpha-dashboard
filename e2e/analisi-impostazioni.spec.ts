@@ -33,7 +33,7 @@ test('il blocco «Analisi dei reel»: spesa, limite e interruttori, solo dell’
     const note = blocco.getByTestId('analisi-note-team')
     await expect(note).toBeChecked()
     await note.click()
-    await expect(page.locator('[data-sonner-toast]').getByText('Note di setter e closer nelle analisi: spente')).toBeVisible()
+    await expect(page.locator('[data-sonner-toast]').getByText('Note del team e temi delle call negli spunti e nelle analisi: spente')).toBeVisible()
     expect((await statoLavori()).note_team).toBe(false)
     const automatiche = blocco.getByTestId('analisi-automatiche')
     await automatiche.click()

@@ -64,6 +64,7 @@ export const ANALISI = {
   motivoProposto: 'Motivo di non chiusura proposto',
   usaMotivo: 'Usa come motivo di non chiusura',
   motivoAggiornato: 'Motivo di non chiusura aggiornato',
+  motivoCambiato: 'Il motivo di non chiusura è cambiato da un’altra parte: ricarica la pagina e controlla.',
   esitoDiverso: (letto: string) => `Dalla registrazione sembra una call ${letto}: controlla l’esito.`,
   letta: 'Dalla registrazione della call, letta da Claude.',
   il: 'Il lead',

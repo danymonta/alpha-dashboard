@@ -151,8 +151,8 @@ export function InterruttoriAnalisi({ automatiche, noteTeam }: { automatiche: bo
       <Interruttore
         chiave="note_team"
         acceso={noteTeam}
-        titolo="Note di setter e closer nelle analisi"
-        descrizione="Claude legge le risposte del setter («cosa frenava i lead») e i motivi di non chiusura del closer, senza nomi, per dire cosa dicono i lead. Spente, non le vede mai. Non rifà le analisi già pronte."
+        titolo="Note del team e temi delle call negli spunti e nelle analisi"
+        descrizione="Acceso, Claude riceve senza nomi le note di chi risponde ai DM, i motivi di non chiusura, i temi dei DM e, dalle call analizzate, obiezioni, domande e dubbi dei lead. Al video editor e al marketing arrivano solo come temi a parole. Spento, non li vede mai. Non rifà le analisi già pronte."
         testId="analisi-note-team"
       />
     </div>

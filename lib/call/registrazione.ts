@@ -22,6 +22,7 @@ export const REGISTRAZIONE = {
   nonTrovata: 'Non trovo questa registrazione su Fathom: forse è di un altro account o non è condivisa con te.',
   nonCollegato: 'Fathom non è collegato: l’admin incolla la chiave in Impostazioni › Fathom. Il link si salva lo stesso.',
   erroreFathom: 'Fathom non risponde: il link si salva lo stesso e lo controllo più tardi.',
+  soloChiHaFatto: 'La registrazione la collegano il closer della call e l’admin.',
   avvisoNonSalvata: 'Esito salvato, ma la registrazione no: aggiungila dalla scheda della call.',
   toastCollegata: 'Registrazione collegata.',
   toastNonRegistrata: 'Call non registrata.',

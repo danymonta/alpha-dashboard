@@ -10,6 +10,8 @@ import { salvaReportGiornaliero } from '@/app/(app)/today/actions'
 import { breve, cambi, cambio } from '@/lib/alfire/cambi'
 import { CONSEGUENZE } from '@/lib/alfire/conseguenze'
 import { FOLLOW_UP, quandoFollowUp } from '@/lib/call/follow-up'
+import { REGISTRAZIONE } from '@/lib/call/registrazione'
+import { chiedeRegistrazione, registrazioneMancante, sceltaRegistrazioneSchema } from '@/lib/validation/registrazione'
 import {
   SPOSTA,
   correzioneSenzaTraccia,
@@ -21,7 +23,7 @@ import {
   rifiutoSpostaAlfire,
 } from '@/lib/call/spostamento'
 import type { Anteprima } from '@/lib/alfire/riassunto'
-import { errore, followUpDiAltroCloser, isErrore, isIo, quandoCall, seguitoDi, trova, type Call } from '@/lib/alfire/risolvi'
+import { errore, followUpDiAltroCloser, isErrore, isIo, quandoCall, seguitoDi, trova, type Call, type Errore } from '@/lib/alfire/risolvi'
 import {
   anteprima,
   anteprimaConConseguenze,
@@ -272,6 +274,11 @@ function call(ctx: Contesto): Definizione {
             .optional()
             .describe(`${NOTE_CLOSER.diChi}: con esito follow_up, persa o riprogrammata, o con modifica; "" le toglie`),
           link_registrazione: z.string().max(500).optional(),
+          registrazione: z
+            .string()
+            .max(500)
+            .optional()
+            .describe('Con esito chiusa, follow_up o persa: il link della registrazione di Fathom, oppure "non registrata" se la call non è stata registrata'),
           performance: z.enum(PERFORMANCE).optional(),
           prodotto_proposto: z.string().optional().describe('Nome del prodotto; "nessuno" lo toglie'),
           importo_proposto: z.number().nonnegative().optional(),
@@ -292,6 +299,7 @@ function call(ctx: Contesto): Definizione {
     note?: string
     note_closer?: string
     link_registrazione?: string
+    registrazione?: string
     performance?: Performance
     prodotto_proposto?: string
     importo_proposto?: number
@@ -359,9 +367,29 @@ function call(ctx: Contesto): Definizione {
    * What registraEsito receives: the closer's notes only with follow_up, persa
    * and "In attesa di conferma" (riprogrammata, without a date), as in the sheet.
    */
+  /**
+   * «registrazione», as the person said it: a link of Fathom, or that the call was not recorded
+   * (Dany, 16/10/2026). A link is not checked on Fathom from here: it is saved as it is and the
+   * card of the call can look for the recording.
+   */
+  function sceltaRegistrazione(v: Input): { tipo: 'link'; url: string } | { tipo: 'non_registrata' } | null | Errore {
+    const detto = v.registrazione?.trim()
+    if (!detto) return null
+    if (/^(?:la\s+)?(?:call\s+)?(?:non\s+(?:è\s+stata\s+|l['’]ho\s+)?registrata|non\s+registrata|al\s+telefono)\b/i.test(detto)) {
+      return { tipo: 'non_registrata' }
+    }
+    const letta = sceltaRegistrazioneSchema.safeParse({ tipo: 'link', url: detto })
+    return letta.success
+      ? (letta.data as { tipo: 'link'; url: string })
+      : errore(letta.error.issues[0]?.message ?? REGISTRAZIONE.manca, 'Chiedi il link intero di Fathom, oppure se la call non è stata registrata.')
+  }
+
   function inputEsito(v: Input, callId: string) {
+    const scelta = chiedeRegistrazione(v.esito) ? sceltaRegistrazione(v) : null
+    const registrazione = scelta && !isErrore(scelta) ? { registrazione: scelta } : {}
     if (chiedeMotivo(v.esito)) {
       return {
+        ...registrazione,
         call_id: callId,
         esito: v.esito,
         qualificata: v.qualificata,
@@ -373,7 +401,7 @@ function call(ctx: Contesto): Definizione {
       }
     }
     if (v.esito === 'riprogrammata') return { call_id: callId, esito: v.esito, note_closer: v.note_closer }
-    return { call_id: callId, esito: v.esito }
+    return { call_id: callId, esito: v.esito, ...registrazione }
   }
 
   /**
@@ -423,6 +451,15 @@ function call(ctx: Contesto): Definizione {
     return followUpDiAltroCloser(c) ? FOLLOW_UP.giaFissata(FOLLOW_UP.assegnataAltroCloser) : FOLLOW_UP.inChat
   }
 
+  /** The outcome card's line on the recording: what will be saved, or that one is already there. */
+  async function rigaRegistrazione(v: Input, c: Call): Promise<string | null> {
+    const scelta = sceltaRegistrazione(v)
+    if (scelta && !isErrore(scelta)) {
+      return scelta.tipo === 'link' ? `Registrazione: link di Fathom (lo cerco quando apri la scheda)` : `Registrazione: ${REGISTRAZIONE.nonRegistrata.toLowerCase()}`
+    }
+    return c.link_registrazione || c.registrazione ? 'Registrazione: già collegata' : null
+  }
+
   function controllaEsito(v: Input, c: Call) {
     if (!v.esito) return errore('Dimmi l’esito della call.')
     // a follow-up call goes only with the outcome "follow_up" (a lost call has none)
@@ -447,6 +484,19 @@ function call(ctx: Contesto): Definizione {
     const callId = c.id
     if (chiedeMotivo(v.esito) && v.qualificata === undefined) {
       return errore('Dimmi se il lead era qualificato.')
+    }
+    // the recording of a held call (Dany, 16/10/2026): the link of Fathom, or «non registrata», as the sheet asks
+    const scelta = chiedeRegistrazione(v.esito) ? sceltaRegistrazione(v) : null
+    if (isErrore(scelta)) return scelta
+    const mancante = registrazioneMancante(v.esito, scelta, {
+      giorno: oggiRoma(new Date(c.programmata_il)),
+      haRegistrazione: Boolean(c.link_registrazione) || Boolean(c.registrazione),
+    })
+    if (mancante) {
+      return errore(
+        'Manca la registrazione della call: incolla il link di Fathom, oppure dimmi che la call non è stata registrata.',
+        'Chiedi il link, o usa proponi_risposte con "Call non registrata" e un campo libero per il link.',
+      )
     }
     // the outcome sheet's own schema: follow_up and persa need the reason for not closing
     const verifica = esitoCallSchema.safeParse(inputEsito(v, callId))
@@ -541,6 +591,8 @@ function call(ctx: Contesto): Definizione {
           (nonChiusa || inAttesa) && v.note_closer !== undefined
             ? cambio(NOTE_CLOSER.titolo, c.note_closer, v.note_closer, 'lungo')
             : null,
+          // the recording (16/10/2026): the link, «non registrata», or the one already there
+          chiedeRegistrazione(esito) ? await rigaRegistrazione(v, c) : null,
           // "Hai fissato una call di follow-up?" (07/10/2026): the call booked with its day, or the chat
           followUp,
           inAttesa ? SPOSTA.attesa.descrizione : null,
@@ -627,7 +679,7 @@ function call(ctx: Contesto): Definizione {
           return { fatto: true, call_id: c.id, poi: 'Registra la vendita con registra_vendita e questo call_id.', link: '/calls' }
         }
         // the outcome is saved, the follow-up call is not: the person reads why, and books it later
-        if (esito.avviso) return { fatto: true, avviso: esito.avviso, link: '/calls' }
+        if (esito.avviso || esito.avvisoRegistrazione) return { fatto: true, avviso: esito.avviso ?? esito.avvisoRegistrazione, link: '/calls' }
         return v.follow_up_data && v.follow_up_ora && esito.followUp
           ? { fatto: true, call_di_follow_up: quandoEsteso(v.follow_up_data, v.follow_up_ora), link: '/calls' }
           : { fatto: true, link: '/calls' }

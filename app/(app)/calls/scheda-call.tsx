@@ -5,6 +5,10 @@ import { FissaFollowUp } from '@/app/(app)/calls/follow-up'
 import { ModificaCall } from '@/app/(app)/calls/modifica-call'
 import { RegistraEsito } from '@/app/(app)/calls/registra-esito'
 import { SpostaCall } from '@/app/(app)/calls/sposta-call'
+import { AnalisiCall } from '@/components/call/analisi-call'
+import { DallaCall } from '@/components/call/dalla-call'
+import { PerformanceCall } from '@/components/call/performance-call'
+import { RegistrazioneCall } from '@/components/call/registrazione-call'
 import { StatoCall } from '@/components/call/stato-call'
 import { LinkBottone } from '@/components/link-bottone'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +19,17 @@ import { MOTIVO_NON_CHIUSURA, NOTE_CLOSER, NOTE_SETTER } from '@/lib/setting/com
 import type { Database } from '@/lib/supabase/database.types'
 import { ETICHETTA_TIPO_CALL } from '@/lib/validation/call'
 import { chiedeMotivo } from '@/lib/validation/esito'
+import { REGISTRAZIONE_OBBLIGATORIA_DAL } from '@/lib/validation/registrazione'
+import {
+  COLONNE_ANALISI,
+  COLONNE_DALLA_CALL,
+  COLONNE_VALUTAZIONE,
+  type AnalisiVista,
+  type DallaCallVista,
+  type RegistrazioneVista,
+  type ValutazioneVista,
+} from '@/lib/call/analisi/vista'
+import { normalizzaLink } from '@/lib/fathom/link'
 
 type Enums = Database['public']['Enums']
 
@@ -28,7 +43,7 @@ type Enums = Database['public']['Enums']
  * when. `di_follow_up` marks a follow-up call, also once its first call is gone.
  */
 export const CAMPI_CALL =
-  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, importata, note, note_closer, obiezione_principale, link_registrazione, performance, prodotto_proposto_id, spostata_dal, volte_spostata, follow_up_di, di_follow_up, ha_follow_up:call_ha_follow_up, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome), partenza:follow_up_di(id, programmata_il), call_di_follow_up:calls!follow_up_di(id, programmata_il, stato)'
+  'id, programmata_il, tipo, stato, esito, qualificata, closer_id, importata, note, note_closer, obiezione_principale, prodotto_proposto_id, spostata_dal, volte_spostata, follow_up_di, di_follow_up, ha_follow_up:call_ha_follow_up, lead:leads(nome, instagram_handle), setter:profiles!calls_setter_id_fkey(nome), closer:profiles!calls_closer_id_fkey(nome), partenza:follow_up_di(id, programmata_il), call_di_follow_up:calls!follow_up_di(id, programmata_il, stato)'
 
 /**
  * The amount pitched is read only where RLS lets it through: closer and admin.
@@ -38,7 +53,15 @@ export const CAMPI_CALL =
  * the database keeps him from changing them. The setter's note goes the other
  * way: he writes it, the closer reads it.
  */
-export const CAMPI_CALL_CLOSER = `${CAMPI_CALL}, pitch:call_pitch(importo_proposto), ha_vendita:call_ha_vendita`
+export const CAMPI_CALL_CLOSER = `${CAMPI_CALL}, link_registrazione, performance, pitch:call_pitch(importo_proposto), ha_vendita:call_ha_vendita, registrazione:call_registrazioni(stato, recording_id, link_verificato, durata_secondi), analisi:call_analisi(${COLONNE_ANALISI}), valutazione:call_valutazioni(${COLONNE_VALUTAZIONE}), spunti:call_spunti_setter(spunti)`
+
+/**
+ * The setter's query adds what he reads of the analysis («Dalla call»: the lead, never the recording,
+ * the performance or the closer's valuation) and his own suggestions. He does not receive
+ * link_registrazione nor performance (1.37.0): the Fathom link could show the whole call, price
+ * included, and the performance is how the closer led it.
+ */
+export const CAMPI_CALL_SETTER = `${CAMPI_CALL}, dalla_call:call_analisi_setter(${COLONNE_DALLA_CALL}), spunti:call_spunti_setter(spunti)`
 
 export type CallVista = {
   id: string
@@ -54,9 +77,21 @@ export type CallVista = {
   note: string | null
   /** "Note aggiuntive" of the closer: the closer writes them, the setter reads them. */
   note_closer: string | null
-  link_registrazione: string | null
-  performance: Enums['call_performance'] | null
+  /** Only in the closer's query (CAMPI_CALL_CLOSER): never in the setter's page. */
+  link_registrazione?: string | null
+  /** Only in the closer's query. */
+  performance?: Enums['call_performance'] | null
   prodotto_proposto_id: string | null
+  /** What Fathom answered for the link, or «non registrata»: the closer's query only. */
+  registrazione?: RegistrazioneVista | null
+  /** Claude's analysis, the closer's query only. */
+  analisi?: AnalisiVista | null
+  /** How the call was led: only the closer who led it (RLS), the closer's query only. */
+  valutazione?: ValutazioneVista | null
+  /** «Dalla call»: the setter's query only. */
+  dalla_call?: DallaCallVista | null
+  /** Suggestions on the DMs: the call's setter only (RLS). */
+  spunti?: { spunti: string[] } | null
   /** Where the call was before its last move ("Spostata dal …"), and how many moves. */
   spostata_dal: string | null
   volte_spostata: number
@@ -222,8 +257,8 @@ export function SchedaCall({
               note: call.note,
               note_closer: call.note_closer,
               obiezione_principale: call.obiezione_principale ?? null,
-              link_registrazione: call.link_registrazione,
-              performance: call.performance,
+              link_registrazione: vista === 'closer' ? (call.link_registrazione ?? null) : null,
+              performance: vista === 'closer' ? (call.performance ?? null) : null,
               prodotto_proposto_id: call.prodotto_proposto_id,
               importo_proposto: call.pitch?.importo_proposto ?? null,
             }}
@@ -263,6 +298,9 @@ export function SchedaCall({
                 oggi={oggi}
                 admin={admin}
                 setter={call.setter?.nome ?? null}
+                chiedeRegistrazione={
+                  passata && !call.link_registrazione && !call.registrazione && giorno >= REGISTRAZIONE_OBBLIGATORIA_DAL
+                }
                 followUp={
                   seguito
                     ? quandoFollowUp(seguito.programmata_il, oggi)
@@ -339,6 +377,35 @@ export function SchedaCall({
         </div>
       ) : null}
 
+      {/* the recording, Claude's analysis and how the call was led: the closer and the admin; the setter reads «Dalla call» */}
+      {vista === 'closer' ? (
+        <>
+          <RegistrazioneCall
+            callId={call.id}
+            nomeLead={nome}
+            link={call.link_registrazione ?? null}
+            registrazione={call.registrazione ?? null}
+            svolta={call.stato === 'svolta' && chiedeRegistrazioneEsito(call.esito)}
+            oggi={oggi}
+          />
+          <AnalisiCall
+            callId={call.id}
+            analisi={call.analisi ?? null}
+            analizzabile={call.stato === 'svolta' && Boolean(call.esito) && analizzabileDa(call)}
+            esito={call.esito}
+            motivoSalvato={call.obiezione_principale ?? null}
+            link={call.link_registrazione ?? null}
+          />
+          {call.valutazione ? (
+            <PerformanceCall callId={call.id} valutazione={call.valutazione} performanceSalvata={call.performance ?? null} />
+          ) : null}
+          {/* the admin who is also the call's setter reads his own suggestions (RLS gives no other row) */}
+          {call.spunti?.spunti?.length ? <SpuntiDelSetter spunti={call.spunti.spunti} /> : null}
+        </>
+      ) : call.dalla_call ? (
+        <DallaCall dalla={call.dalla_call} spunti={call.spunti?.spunti ?? null} />
+      ) : null}
+
       {/* the closer reads what the setter wrote with the call's pencil */}
       {vista === 'closer' ? <TestoCall etichetta={NOTE_SETTER.titolo} testo={call.note} testId="note-setter" /> : null}
 
@@ -360,5 +427,30 @@ function TestoCall({ etichetta, testo, testId }: { etichetta: string; testo: str
     <p className="mt-1 line-clamp-2 pl-[4.25rem] text-sm break-words" data-testid={testId}>
       <span className="text-muted-foreground">{etichetta}:</span> {testo}
     </p>
+  )
+}
+
+function chiedeRegistrazioneEsito(esito: string | null): boolean {
+  return esito === 'chiusa' || esito === 'follow_up' || esito === 'persa'
+}
+
+/** A held call with a Fathom link and a registration row: the one Claude can analyse. */
+function analizzabileDa(call: CallVista): boolean {
+  if (!call.link_registrazione || call.registrazione?.stato !== 'collegata') return false
+  const n = normalizzaLink(call.link_registrazione)
+  return n.ok && n.fathom
+}
+
+function SpuntiDelSetter({ spunti }: { spunti: string[] }) {
+  return (
+    <div className="mt-1 pl-[4.25rem] text-sm" data-testid="spunti-per-te">
+      <h5 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Spunti per i tuoi DM</h5>
+      <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
+        {spunti.map((s, i) => (
+          <li key={i}>{s}</li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted-foreground">Li vedi solo tu.</p>
+    </div>
   )
 }

@@ -29,7 +29,9 @@ import {
   leggiContenutoSchema,
   modificaContenutoSchema,
   scriviSezioneSchema,
+  spuntiSchema,
 } from './schemi'
+import { spuntiPerClaude } from './spunti'
 
 /**
  * The MCP tools (Claude connected to the content calendar, 09/10/2026): name,
@@ -141,6 +143,16 @@ export const STRUMENTI: readonly Strumento[] = [
     lettura: true,
     idempotente: true,
     esegui: () => profiloClienteIdeale(),
+  }),
+  strumento({
+    nome: 'spunti_contenuti',
+    titolo: 'Spunti per i contenuti',
+    descrizione:
+      'Gli spunti della settimana che Claude scrive ogni lunedì per chi fa i contenuti (gli stessi della scheda Spunti dell’app), in sola lettura: in breve, cosa funziona, cosa chiedono i lead, le obiezioni da anticipare, le domande da trasformare in contenuti, cosa mantenere, cambiare e potenziare, e le idee pronte per il calendario (anche caroselli), con il perché di ognuna. Sono temi a parole, senza nomi né cifre di persone: nascono da reel, DM, note del setting e call, e dicono da dove vengono, mai quanti. Senza parametri dà i più recenti; con settimana (AAAA-MM-GG) quelli che coprono quel giorno. Per creare un contenuto da un’idea usa crea_contenuti.',
+    input: spuntiSchema,
+    lettura: true,
+    idempotente: true,
+    esegui: spuntiPerClaude,
   }),
   strumento({
     nome: 'crea_contenuti',

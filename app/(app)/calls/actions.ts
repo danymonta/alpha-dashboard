@@ -18,7 +18,9 @@ import {
   schemaSpostamento,
 } from '@/lib/validation/call'
 import { aggiornamentoDaEsito, esitoCallSchema, followUpEsito, nuovaDataEsito } from '@/lib/validation/esito'
-import { chiedeRegistrazione, registrazioneMancante } from '@/lib/validation/registrazione'
+import { chiedeRegistrazione, registrazioneMancante, sceltaRegistrazioneSchema } from '@/lib/validation/registrazione'
+import { ANALISI } from '@/lib/call/analisi/parole'
+import { LIVELLI_PERFORMANCE } from '@/lib/call/analisi/vista'
 
 /** Every page that lists calls or counts them by day. */
 const PAGINE_DELLE_CALL = ['/calls', '/', '/setting', '/setting/closer', '/setting/closer/giorno', '/leads', '/my-numbers']
@@ -361,5 +363,105 @@ export async function modificaCall(input: unknown): Promise<EsitoModifica> {
   revalidatePath('/leads')
   revalidatePath('/')
   revalidatePath('/setting')
+  return { ok: true }
+}
+
+
+// ── the card of a held call: the recording, the proposed reason, the performance (1.37.0) ──────────────
+
+const callIdSchema = z.object({ call_id: z.string().uuid('Call non valida') })
+
+async function chiPuo(): Promise<{ ok: true } | { ok: false; errore: string }> {
+  const profilo = await getProfilo()
+  if (!profilo || !profilo.attivo) return { ok: false, errore: 'Sessione scaduta. Rientra e riprova.' }
+  if (profilo.ruolo !== 'closer' && profilo.ruolo !== 'admin') return { ok: false, errore: REGISTRAZIONE.soloChiHaFatto }
+  return { ok: true }
+}
+
+export type EsitoSemplice = { ok: true } | { ok: false; errore: string }
+
+/** «Aggiungi il link» / «Cambia» on the card, and «Call non registrata»: the same function the sheet uses. */
+export async function collegaRegistrazione(input: unknown): Promise<EsitoSemplice> {
+  const letto = callIdSchema.extend({ scelta: sceltaRegistrazioneSchema }).safeParse(input)
+  if (!letto.success) return { ok: false, errore: letto.error.issues[0]?.message ?? 'Registrazione non valida.' }
+  const chi = await chiPuo()
+  if (!chi.ok) return chi
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('collega_registrazione', { p_call_id: letto.data.call_id, p_scelta: letto.data.scelta })
+  if (error) return { ok: false, errore: error.code === '22023' || error.code === '42501' ? error.message : 'Registrazione non salvata. Riprova.' }
+  for (const pagina of PAGINE_DELLE_CALL) revalidatePath(pagina)
+  return { ok: true }
+}
+
+export async function scollegaRegistrazione(input: unknown): Promise<EsitoSemplice> {
+  const letto = callIdSchema.safeParse(input)
+  if (!letto.success) return { ok: false, errore: 'Call non valida.' }
+  const chi = await chiPuo()
+  if (!chi.ok) return chi
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('scollega_registrazione', { p_call_id: letto.data.call_id })
+  if (error) return { ok: false, errore: error.code === '42501' ? error.message : 'Registrazione non tolta. Riprova.' }
+  for (const pagina of PAGINE_DELLE_CALL) revalidatePath(pagina)
+  return { ok: true }
+}
+
+/**
+ * «Usa come motivo di non chiusura»: writes the reason Claude proposed, only if the saved reason is
+ * still the one the card showed (an update «where obiezione_principale is not distinct from»): a reason
+ * someone wrote meanwhile is never overwritten. Returns the previous reason, for «Annulla».
+ */
+export async function usaMotivoProposto(input: unknown): Promise<{ ok: true; precedente: string | null } | { ok: false; errore: string }> {
+  const letto = callIdSchema.extend({ motivo_mostrato: z.string().nullable() }).safeParse(input)
+  if (!letto.success) return { ok: false, errore: 'Richiesta non valida.' }
+  const chi = await chiPuo()
+  if (!chi.ok) return chi
+  const supabase = await createClient()
+  const { data: analisi, error: e1 } = await supabase
+    .from('call_analisi')
+    .select('motivo_proposto')
+    .eq('call_id', letto.data.call_id)
+    .eq('stato', 'pronta')
+    .maybeSingle()
+  const proposto = analisi?.motivo_proposto?.trim()
+  if (e1 || !proposto) return { ok: false, errore: 'Claude non ha proposto un motivo per questa call.' }
+  return scriviMotivo(supabase, letto.data.call_id, letto.data.motivo_mostrato, proposto)
+}
+
+/** «Annulla» of the toast: back to the reason there was, only if it is still the proposed one. */
+export async function annullaMotivoProposto(input: unknown): Promise<EsitoSemplice> {
+  const letto = callIdSchema.extend({ motivo_attuale: z.string(), precedente: z.string().nullable() }).safeParse(input)
+  if (!letto.success) return { ok: false, errore: 'Richiesta non valida.' }
+  const chi = await chiPuo()
+  if (!chi.ok) return chi
+  const supabase = await createClient()
+  const esito = await scriviMotivo(supabase, letto.data.call_id, letto.data.motivo_attuale, letto.data.precedente)
+  return esito.ok ? { ok: true } : esito
+}
+
+async function scriviMotivo(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  callId: string,
+  daLeggere: string | null,
+  nuovo: string | null,
+): Promise<{ ok: true; precedente: string | null } | { ok: false; errore: string }> {
+  let q = supabase.from('calls').update({ obiezione_principale: nuovo }).eq('id', callId)
+  q = daLeggere === null ? q.is('obiezione_principale', null) : q.eq('obiezione_principale', daLeggere)
+  const { data, error } = await q.select('id').maybeSingle()
+  if (error) return { ok: false, errore: 'Motivo non salvato. Riprova.' }
+  if (!data) return { ok: false, errore: ANALISI.motivoCambiato }
+  for (const pagina of PAGINE_DELLE_CALL) revalidatePath(pagina)
+  return { ok: true, precedente: daLeggere }
+}
+
+/** «Conferma» / «Cambia» of the proposed performance: only the call's closer and the admin (decidi_performance). */
+export async function decidiPerformance(input: unknown): Promise<{ ok: true } | { ok: false; errore: string }> {
+  const letto = callIdSchema.extend({ livello: z.enum(LIVELLI_PERFORMANCE).nullable() }).safeParse(input)
+  if (!letto.success) return { ok: false, errore: 'Livello non valido.' }
+  const chi = await chiPuo()
+  if (!chi.ok) return chi
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('decidi_performance', { p_call_id: letto.data.call_id, p_livello: letto.data.livello as never })
+  if (error) return { ok: false, errore: error.code === '42501' ? error.message : 'Performance non salvata. Riprova.' }
+  for (const pagina of PAGINE_DELLE_CALL) revalidatePath(pagina)
   return { ok: true }
 }

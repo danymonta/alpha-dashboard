@@ -359,8 +359,12 @@ export type Call = {
   note_closer: string | null
   /** "Motivo di non chiusura": the outcome card shows it before → after, or that it goes */
   obiezione_principale: string | null
-  link_registrazione: string | null
-  performance: string | null
+  /** Not read for the setter (1.37.0): a Fathom link could show the whole call. */
+  link_registrazione?: string | null
+  /** Not read for the setter: how the closer led the call. */
+  performance?: string | null
+  /** The row of the recording (admin and the call's closer only): says whether a link or «non registrata» is already there. */
+  registrazione?: { stato: string } | null
   prodotto_proposto_id: string | null
   lead_id: string
   lead: { nome: string; stato: string; fonte: string } | null
@@ -376,8 +380,12 @@ export type Call = {
   ha_follow_up?: boolean | null
 }
 
-const CAMPI_CALL =
-  'id, tipo, programmata_il, stato, esito, qualificata, closer_id, setter_id, note, note_closer, obiezione_principale, link_registrazione, performance, prodotto_proposto_id, lead_id, lead:leads(nome, stato, fonte), follow_up_di, di_follow_up, ha_follow_up:call_ha_follow_up, partenza:follow_up_di(id, programmata_il), call_di_follow_up:calls!follow_up_di(id, programmata_il, stato)'
+const CAMPI_CALL_BASE =
+  'id, tipo, programmata_il, stato, esito, qualificata, closer_id, setter_id, note, note_closer, obiezione_principale, prodotto_proposto_id, lead_id, lead:leads(nome, stato, fonte), follow_up_di, di_follow_up, ha_follow_up:call_ha_follow_up, partenza:follow_up_di(id, programmata_il), call_di_follow_up:calls!follow_up_di(id, programmata_il, stato)'
+
+/** The setter never reads the link of the recording nor the performance (1.37.0); the others do, with the recording's row. */
+const campiCall = (ruolo: string) =>
+  ruolo === 'setter' ? CAMPI_CALL_BASE : `${CAMPI_CALL_BASE}, link_registrazione, performance, registrazione:call_registrazioni(stato)`
 
 /** "12/09/2026 alle 15:00" in Europe/Rome */
 export function quandoCall(c: Pick<Call, 'programmata_il'>): string {
@@ -800,7 +808,7 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
     preferisci: readonly ((c: Call) => boolean)[] = [],
   ): Promise<Call | Errore> {
     if (call_id) {
-      const { data, error } = await supabase.from('calls').select(CAMPI_CALL).eq('id', call_id).maybeSingle()
+      const { data, error } = await supabase.from('calls').select(campiCall(profilo.ruolo)).eq('id', call_id).maybeSingle()
       if (error) return errore(NON_LETTO)
       return data ? (data as unknown as Call) : errore('Call non trovata o non tua.')
     }
@@ -808,7 +816,7 @@ export function risolutori(supabase: Supabase, profilo: Profilo) {
     if (isErrore(l)) return l
     const { data, error } = await supabase
       .from('calls')
-      .select(CAMPI_CALL)
+      .select(campiCall(profilo.ruolo))
       .eq('lead_id', l.id)
       .order('programmata_il', { ascending: false })
       .limit(10)

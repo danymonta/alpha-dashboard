@@ -1,6 +1,6 @@
 import { CalendarPlus, PhoneOff } from 'lucide-react'
 
-import { CAMPI_CALL, CAMPI_CALL_CLOSER, SchedaCall, type CallVista } from '@/app/(app)/calls/scheda-call'
+import { CAMPI_CALL_CLOSER, CAMPI_CALL_SETTER, SchedaCall, type CallVista } from '@/app/(app)/calls/scheda-call'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -54,7 +54,7 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
           .limit(200)
       : supabase
           .from('calls')
-          .select(CAMPI_CALL)
+          .select(CAMPI_CALL_SETTER)
           .eq('setter_id', profiloId)
           .gte('programmata_il', new Date(adesso - 30 * GIORNO_MS).toISOString())
           .order('programmata_il', { ascending: true })

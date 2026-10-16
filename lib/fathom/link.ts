@@ -49,3 +49,12 @@ export function stessoLink(a: string, b: string): boolean {
   const y = normalizzaLink(b)
   return x.ok && y.ok && x.chiave === y.chiave
 }
+
+/** The key as pasted from Fathom's panel: «FATHOM_API_KEY=…», «X-Api-Key: …», quotes and spaces off. */
+export function pulisciChiave(incollato: string): string {
+  return incollato
+    .trim()
+    .replace(/^(?:export\s+)?(?:FATHOM_API_KEY\s*=|X-Api-Key\s*:)\s*/i, '')
+    .replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')
+    .trim()
+}

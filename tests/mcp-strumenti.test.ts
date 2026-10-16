@@ -12,11 +12,11 @@ import { FUORI_PORTATA, REGOLA_ICP, istruzioniMcp } from '@/lib/mcp/istruzioni'
 import { schemaMcp } from '@/lib/mcp/schema'
 import { STRUMENTI, strumentiPer } from '@/lib/mcp/strumenti'
 
-const LETTURE = ['etichette_contenuti', 'elenco_contenuti', 'leggi_contenuto', 'icp']
+const LETTURE = ['etichette_contenuti', 'elenco_contenuti', 'leggi_contenuto', 'icp', 'spunti_contenuti']
 const SCRITTURE = ['crea_contenuti', 'modifica_contenuto', 'cambia_status', 'scrivi_sezione']
 
 describe('gli strumenti per ruolo', () => {
-  it('video editor e marketing: 8 strumenti, senza eliminare', () => {
+  it('video editor e marketing: 9 strumenti, senza eliminare', () => {
     for (const ruolo of ['editor', 'marketing']) {
       expect(strumentiPer(ruolo).map((s) => s.nome)).toEqual([...LETTURE, ...SCRITTURE])
     }
