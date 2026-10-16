@@ -93,6 +93,12 @@ select results_eq(
      order by 1 $$,
   $$ select x collate "C" from unnest(array[
        'aggiorna_mio_profilo', 'aggiorna_stato_lead', 'aggiungi_rata', 'anteprima_eliminazione',
+       -- the calls of 1.37.0: the recording (admin and the call's closer), the analysis and its requests, the numbers
+       -- (admin, closer), the planner's settings (admin), the performance (the call's closer, admin), the brief for Claude
+       'call_analisi_richiedi', 'call_imposta_costo_max', 'call_imposta_interruttori', 'call_lavori_situazione',
+       'call_numeri_periodo', 'collega_registrazione', 'decidi_performance',
+       'fathom_chiave_presente', 'fathom_imposta_chiave', 'fathom_togli_chiave',
+       'marketing_spunti_richiedi', 'scollega_registrazione', 'spunti_per_claude',
        'call_ha_follow_up', 'call_ha_vendita', 'current_role', 'elimina_call', 'elimina_cliente',
        'elimina_lead', 'elimina_persona', 'elimina_prodotto', 'elimina_rata', 'fissa_follow_up',
        'giornate_closer', 'giornate_setter', 'incassi_clienti_setter', 'inserisci_piano',

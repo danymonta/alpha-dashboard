@@ -234,7 +234,7 @@ insert into ammesse values
   ('v_instagram_post'), ('v_marketing_proposte'), ('instagram_contenuti_dm'), ('instagram_contenuti_dm_giorni'),
   -- the reel analysis (1.36.0): numbers, readings, Claude's analyses and the views that join them.
   -- marketing_lavori_stato (cost, limit, switches) stays out: 0 rows for the marketing and the editor
-  ('instagram_contenuti_misure'), ('instagram_account_misure'), ('instagram_letture'), ('marketing_analisi'),
+  ('instagram_contenuti_misure'), ('instagram_account_misure'), ('instagram_letture'), ('marketing_analisi'), ('marketing_spunti'),
   ('v_instagram_numeri'), ('v_instagram_mediane'), ('v_analisi_reel');
 select is(
   (select coalesce(array_agg(relazione order by relazione), '{}') from righe_viste

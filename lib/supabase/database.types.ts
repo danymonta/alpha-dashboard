@@ -24,6 +24,57 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"call_analisi": {
+                  Row: {
+                    "analizzata_il": string | null,"call_id": string,"categorie_obiezioni": (string)[],"convinto_da": Json | null,"created_at": string,"desideri": (string)[],"domande": Json | null,"errore": string | null,"esito_letto": string | null,"in_attesa_dal": string,"in_target": string | null,"iniziata_il": string | null,"lead": Json | null,"momenti": Json | null,"motivo": string,"motivo_proposto": string | null,"obiezioni": Json | null,"pain": (string)[],"prossimi_passi": Json | null,"prossimo_tentativo_il": string | null,"recording_id": number | null,"riassunto": string | null,"spunti_contenuto": Json | null,"stato": string,"tentativi": number,"updated_at": string,"versione_prompt": string | null
+                  }
+                  Insert: {
+                    "analizzata_il"?: string | null,"call_id": string,"categorie_obiezioni"?: (string)[],"convinto_da"?: Json | null,"created_at"?: string,"desideri"?: (string)[],"domande"?: Json | null,"errore"?: string | null,"esito_letto"?: string | null,"in_attesa_dal"?: string,"in_target"?: string | null,"iniziata_il"?: string | null,"lead"?: Json | null,"momenti"?: Json | null,"motivo"?: string,"motivo_proposto"?: string | null,"obiezioni"?: Json | null,"pain"?: (string)[],"prossimi_passi"?: Json | null,"prossimo_tentativo_il"?: string | null,"recording_id"?: number | null,"riassunto"?: string | null,"spunti_contenuto"?: Json | null,"stato"?: string,"tentativi"?: number,"updated_at"?: string,"versione_prompt"?: string | null
+                  }
+                  Update: {
+                    "analizzata_il"?: string | null,"call_id"?: string,"categorie_obiezioni"?: (string)[],"convinto_da"?: Json | null,"created_at"?: string,"desideri"?: (string)[],"domande"?: Json | null,"errore"?: string | null,"esito_letto"?: string | null,"in_attesa_dal"?: string,"in_target"?: string | null,"iniziata_il"?: string | null,"lead"?: Json | null,"momenti"?: Json | null,"motivo"?: string,"motivo_proposto"?: string | null,"obiezioni"?: Json | null,"pain"?: (string)[],"prossimi_passi"?: Json | null,"prossimo_tentativo_il"?: string | null,"recording_id"?: number | null,"riassunto"?: string | null,"spunti_contenuto"?: Json | null,"stato"?: string,"tentativi"?: number,"updated_at"?: string,"versione_prompt"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "call_analisi_call_id_fkey"
+      columns: ["call_id"]
+isOneToOne: true
+      referencedRelation: "calls"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"call_analisi_setter": {
+                  Row: {
+                    "analizzata_il": string,"call_id": string,"created_at": string,"in_target": string | null,"obiezioni": NonNullable<Json>,"sapeva": (string)[],"segnali": NonNullable<Json>,"sorprese": NonNullable<Json>,"updated_at": string
+                  }
+                  Insert: {
+                    "analizzata_il": string,"call_id": string,"created_at"?: string,"in_target"?: string | null,"obiezioni"?: NonNullable<Json>,"sapeva"?: (string)[],"segnali"?: NonNullable<Json>,"sorprese"?: NonNullable<Json>,"updated_at"?: string
+                  }
+                  Update: {
+                    "analizzata_il"?: string,"call_id"?: string,"created_at"?: string,"in_target"?: string | null,"obiezioni"?: NonNullable<Json>,"sapeva"?: (string)[],"segnali"?: NonNullable<Json>,"sorprese"?: NonNullable<Json>,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "call_analisi_setter_call_id_fkey"
+      columns: ["call_id"]
+isOneToOne: true
+      referencedRelation: "calls"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"call_lavori_stato": {
+                  Row: {
+                    "analisi_attive": boolean,"analisi_mese": number,"costo_max_mese": number,"costo_mese_usd": number,"created_at": string,"giorno_richieste": string | null,"id": boolean,"inviata_il": string | null,"lease_fino_al": string | null,"mese": string,"passo_cosa": string | null,"passo_id": string | null,"passo_rif": string | null,"richieste_oggi": number,"spunti_automatici": boolean,"spunti_mese": number,"token_cache_letti": number,"token_cache_scritti": number,"token_input": number,"token_output": number,"ultimo_errore": string | null,"ultimo_esito": string | null,"ultimo_passo_il": string | null,"ultimo_tick_il": string | null,"updated_at": string,"url_passo": string | null
+                  }
+                  Insert: {
+                    "analisi_attive"?: boolean,"analisi_mese"?: number,"costo_max_mese"?: number,"costo_mese_usd"?: number,"created_at"?: string,"giorno_richieste"?: string | null,"id"?: boolean,"inviata_il"?: string | null,"lease_fino_al"?: string | null,"mese"?: string,"passo_cosa"?: string | null,"passo_id"?: string | null,"passo_rif"?: string | null,"richieste_oggi"?: number,"spunti_automatici"?: boolean,"spunti_mese"?: number,"token_cache_letti"?: number,"token_cache_scritti"?: number,"token_input"?: number,"token_output"?: number,"ultimo_errore"?: string | null,"ultimo_esito"?: string | null,"ultimo_passo_il"?: string | null,"ultimo_tick_il"?: string | null,"updated_at"?: string,"url_passo"?: string | null
+                  }
+                  Update: {
+                    "analisi_attive"?: boolean,"analisi_mese"?: number,"costo_max_mese"?: number,"costo_mese_usd"?: number,"created_at"?: string,"giorno_richieste"?: string | null,"id"?: boolean,"inviata_il"?: string | null,"lease_fino_al"?: string | null,"mese"?: string,"passo_cosa"?: string | null,"passo_id"?: string | null,"passo_rif"?: string | null,"richieste_oggi"?: number,"spunti_automatici"?: boolean,"spunti_mese"?: number,"token_cache_letti"?: number,"token_cache_scritti"?: number,"token_input"?: number,"token_output"?: number,"ultimo_errore"?: string | null,"ultimo_esito"?: string | null,"ultimo_passo_il"?: string | null,"ultimo_tick_il"?: string | null,"updated_at"?: string,"url_passo"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"call_pitch": {
                   Row: {
                     "call_id": string,"created_at": string,"created_by": string | null,"id": string,"importo_proposto": number,"updated_at": string
@@ -44,6 +95,81 @@ isOneToOne: true
     },{
       foreignKeyName: "call_pitch_created_by_fkey"
       columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"call_registrazioni": {
+                  Row: {
+                    "call_id": string,"created_at": string,"created_by": string | null,"durata_secondi": number | null,"inizio_registrazione": string | null,"link_verificato": string | null,"recording_id": number | null,"stato": string,"updated_at": string,"verificata_il": string | null
+                  }
+                  Insert: {
+                    "call_id": string,"created_at"?: string,"created_by"?: string | null,"durata_secondi"?: number | null,"inizio_registrazione"?: string | null,"link_verificato"?: string | null,"recording_id"?: number | null,"stato": string,"updated_at"?: string,"verificata_il"?: string | null
+                  }
+                  Update: {
+                    "call_id"?: string,"created_at"?: string,"created_by"?: string | null,"durata_secondi"?: number | null,"inizio_registrazione"?: string | null,"link_verificato"?: string | null,"recording_id"?: number | null,"stato"?: string,"updated_at"?: string,"verificata_il"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "call_registrazioni_call_id_fkey"
+      columns: ["call_id"]
+isOneToOne: true
+      referencedRelation: "calls"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "call_registrazioni_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"call_spunti_setter": {
+                  Row: {
+                    "call_id": string,"created_at": string,"setter_id": string,"spunti": NonNullable<Json>,"updated_at": string
+                  }
+                  Insert: {
+                    "call_id": string,"created_at"?: string,"setter_id": string,"spunti"?: NonNullable<Json>,"updated_at"?: string
+                  }
+                  Update: {
+                    "call_id"?: string,"created_at"?: string,"setter_id"?: string,"spunti"?: NonNullable<Json>,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "call_spunti_setter_call_id_fkey"
+      columns: ["call_id"]
+isOneToOne: true
+      referencedRelation: "calls"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "call_spunti_setter_setter_id_fkey"
+      columns: ["setter_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"call_valutazioni": {
+                  Row: {
+                    "call_id": string,"closer_id": string,"created_at": string,"criteri": NonNullable<Json>,"da_provare": NonNullable<Json>,"decisa_il": string | null,"decisa_livello": Database["public"]['Enums']["call_performance"] | null,"funzionato": NonNullable<Json>,"livello_proposto": Database["public"]['Enums']["call_performance"] | null,"perche": NonNullable<Json>,"quota_parlato": number | null,"updated_at": string
+                  }
+                  Insert: {
+                    "call_id": string,"closer_id": string,"created_at"?: string,"criteri": NonNullable<Json>,"da_provare"?: NonNullable<Json>,"decisa_il"?: string | null,"decisa_livello"?: Database["public"]['Enums']["call_performance"] | null,"funzionato"?: NonNullable<Json>,"livello_proposto"?: Database["public"]['Enums']["call_performance"] | null,"perche"?: NonNullable<Json>,"quota_parlato"?: number | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "call_id"?: string,"closer_id"?: string,"created_at"?: string,"criteri"?: NonNullable<Json>,"da_provare"?: NonNullable<Json>,"decisa_il"?: string | null,"decisa_livello"?: Database["public"]['Enums']["call_performance"] | null,"funzionato"?: NonNullable<Json>,"livello_proposto"?: Database["public"]['Enums']["call_performance"] | null,"perche"?: NonNullable<Json>,"quota_parlato"?: number | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "call_valutazioni_call_id_fkey"
+      columns: ["call_id"]
+isOneToOne: true
+      referencedRelation: "calls"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "call_valutazioni_closer_id_fkey"
+      columns: ["closer_id"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -273,6 +399,25 @@ isOneToOne: false
                     {
       foreignKeyName: "expenses_created_by_fkey"
       columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"fathom_collegamento": {
+                  Row: {
+                    "chiave_aggiornata_il": string | null,"created_at": string,"id": boolean,"ultima_prova_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"updated_at": string,"updated_by": string | null
+                  }
+                  Insert: {
+                    "chiave_aggiornata_il"?: string | null,"created_at"?: string,"id"?: boolean,"ultima_prova_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "chiave_aggiornata_il"?: string | null,"created_at"?: string,"id"?: boolean,"ultima_prova_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "fathom_collegamento_updated_by_fkey"
+      columns: ["updated_by"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -650,6 +795,49 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"lead_contenuto": {
+                  Row: {
+                    "certo": boolean,"come": string,"created_at": string,"giorno": string,"lead_id": string,"shortcode": string | null
+                  }
+                  Insert: {
+                    "certo": boolean,"come": string,"created_at"?: string,"giorno": string,"lead_id": string,"shortcode"?: string | null
+                  }
+                  Update: {
+                    "certo"?: boolean,"come"?: string,"created_at"?: string,"giorno"?: string,"lead_id"?: string,"shortcode"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "lead_contenuto_lead_id_fkey"
+      columns: ["lead_id"]
+isOneToOne: true
+      referencedRelation: "leads"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "lead_contenuto_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "instagram_contenuti"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "lead_contenuto_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_analisi_reel"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "lead_contenuto_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_instagram_numeri"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "lead_contenuto_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_instagram_post"
+      referencedColumns: ["shortcode"]
+    }
+                  ]
                 },"leads": {
                   Row: {
                     "created_at": string,"created_by": string | null,"fonte": Database["public"]['Enums']["lead_source"],"id": string,"instagram_handle": string | null,"nome": string,"note": string | null,"setter_id": string | null,"stato": Database["public"]['Enums']["lead_status"],"updated_at": string
@@ -800,13 +988,13 @@ isOneToOne: false
                   ]
                 },"marketing_contenuti": {
                   Row: {
-                    "audio": string | null,"bozza": string | null,"commenti": string | null,"created_at": string,"created_by": string | null,"da_analisi": string | null,"da_idea": number | null,"finale": string | null,"formato": Database["public"]['Enums']["contenuto_format"] | null,"id": string,"inspiration": string | null,"instagram_shortcode": string | null,"messaggio": string | null,"nome": string,"notion_page_id": string | null,"post_date": string | null,"reel_type": Database["public"]['Enums']["contenuto_reel_type"] | null,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"],"updated_at": string,"url": string | null,"view_count": number | null
+                    "audio": string | null,"bozza": string | null,"commenti": string | null,"created_at": string,"created_by": string | null,"da_analisi": string | null,"da_idea": number | null,"da_spunti": string | null,"da_spunti_idea": number | null,"finale": string | null,"formato": Database["public"]['Enums']["contenuto_format"] | null,"id": string,"inspiration": string | null,"instagram_shortcode": string | null,"messaggio": string | null,"nome": string,"notion_page_id": string | null,"post_date": string | null,"reel_type": Database["public"]['Enums']["contenuto_reel_type"] | null,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"],"updated_at": string,"url": string | null,"view_count": number | null
                   }
                   Insert: {
-                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"finale"?: string | null,"formato"?: Database["public"]['Enums']["contenuto_format"] | null,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome": string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: Database["public"]['Enums']["contenuto_reel_type"] | null,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
+                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: Database["public"]['Enums']["contenuto_format"] | null,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome": string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: Database["public"]['Enums']["contenuto_reel_type"] | null,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
                   }
                   Update: {
-                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"finale"?: string | null,"formato"?: Database["public"]['Enums']["contenuto_format"] | null,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome"?: string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: Database["public"]['Enums']["contenuto_reel_type"] | null,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
+                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: Database["public"]['Enums']["contenuto_format"] | null,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome"?: string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: Database["public"]['Enums']["contenuto_reel_type"] | null,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
                   }
                   Relationships: [
                     {
@@ -827,6 +1015,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_analisi_reel"
       referencedColumns: ["analisi_id"]
+    },{
+      foreignKeyName: "marketing_contenuti_da_spunti_fkey"
+      columns: ["da_spunti"]
+isOneToOne: false
+      referencedRelation: "marketing_spunti"
+      referencedColumns: ["id"]
     }
                   ]
                 },"marketing_lavori_stato": {
@@ -878,6 +1072,19 @@ isOneToOne: true
       referencedRelation: "v_instagram_post"
       referencedColumns: ["shortcode"]
     }
+                  ]
+                },"marketing_spunti": {
+                  Row: {
+                    "contenuto": Json | null,"created_at": string,"errore": string | null,"finita_il": string | null,"fonti": Json | null,"id": string,"iniziata_il": string | null,"modello": string | null,"motivo": string,"periodo_a": string,"periodo_da": string,"prossimo_il": string | null,"stato": Database["public"]['Enums']["analisi_stato"],"tentativi": number,"updated_at": string,"versione_prompt": string | null
+                  }
+                  Insert: {
+                    "contenuto"?: Json | null,"created_at"?: string,"errore"?: string | null,"finita_il"?: string | null,"fonti"?: Json | null,"id"?: string,"iniziata_il"?: string | null,"modello"?: string | null,"motivo": string,"periodo_a": string,"periodo_da": string,"prossimo_il"?: string | null,"stato"?: Database["public"]['Enums']["analisi_stato"],"tentativi"?: number,"updated_at"?: string,"versione_prompt"?: string | null
+                  }
+                  Update: {
+                    "contenuto"?: Json | null,"created_at"?: string,"errore"?: string | null,"finita_il"?: string | null,"fonti"?: Json | null,"id"?: string,"iniziata_il"?: string | null,"modello"?: string | null,"motivo"?: string,"periodo_a"?: string,"periodo_da"?: string,"prossimo_il"?: string | null,"stato"?: Database["public"]['Enums']["analisi_stato"],"tentativi"?: number,"updated_at"?: string,"versione_prompt"?: string | null
+                  }
+                  Relationships: [
+                    
                   ]
                 },"messenger_collegamento": {
                   Row: {
@@ -1931,11 +2138,80 @@ isOneToOne: false
 "backup_completo":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"call_analisi_fallita":
+{ Args: { "p_call": string,"p_conta"?: boolean,"p_errore": string,"p_passo": string,"p_riprova_tra"?: string,"p_stato": string }; Returns: undefined
+                           },
+"call_analisi_pulizia":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"call_analisi_richiedi":
+{ Args: { "p_call": string }; Returns: undefined
+                           },
+"call_analisi_salva":
+{ Args: { "p": Json,"p_call": string,"p_passo": string }; Returns: boolean
+                           },
+"call_analisi_valuta":
+{ Args: { "p_call": string }; Returns: undefined
+                           },
+"call_c_e_lavoro":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"call_costo_mese":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"call_dispatch":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"call_fonti_analisi":
+{ Args: { "p_call": string }; Returns: Json
+                           },
 "call_ha_follow_up":
 { Args: { "c": Database["public"]['Tables']["calls"]['Row'] }; Returns: boolean
                            },
 "call_ha_vendita":
 { Args: { "c": Database["public"]['Tables']["calls"]['Row'] }; Returns: boolean
+                           },
+"call_imposta_costo_max":
+{ Args: { "p_usd": number }; Returns: undefined
+                           },
+"call_imposta_interruttori":
+{ Args: { "p_analisi"?: boolean,"p_spunti"?: boolean }; Returns: undefined
+                           },
+"call_imposta_url":
+{ Args: { "p_url": string }; Returns: undefined
+                           },
+"call_lavori_situazione":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"call_numeri_periodo":
+{ Args: { "p_a": string,"p_closer"?: string,"p_da": string,"p_per": string }; Returns: {
+              "analizzate": number,"call": number,"cash_nuovi": number,"chiuse": number,"close_rate": number,"close_rate_qualificate": number,"copertura": number,"durata_media_min": number,"etichetta": string,"gruppo": string,"in_target_da_verificare": number,"in_target_no": number,"in_target_si": number,"media_id": string,"no_show": number,"obiezioni": Json,"performance": Json,"qualificate": number,"quota_in_target": number,"registrate": number,"revenue_nuovi": number,"show_rate": number,"svolte": number,"vendite_nuove": number
+            }[]
+                           },
+"call_passo_finito":
+{ Args: { "p_contatori": Json,"p_esito": string,"p_passo": string }; Returns: boolean
+                           },
+"call_pianifica":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"call_prendi_passo":
+{ Args: { "p_secondi"?: number }; Returns: {
+              "cosa": string,"passo": string,"rif": string
+            }[]
+                           },
+"call_scegli_lavoro":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "cosa": string,"rif": string
+            }[]
+                           },
+"call_segna_esito":
+{ Args: { "p_errore": string,"p_esito": string }; Returns: undefined
+                           },
+"call_sveglia":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"call_tick":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "cash_mensile":
 { Args: { "p_fino"?: string,"p_mesi"?: number }; Returns: {
@@ -1944,6 +2220,9 @@ isOneToOne: false
                            },
 "chiudi_regola_provvigione":
 { Args: { "p_rule_id": string,"p_valida_al": string }; Returns: undefined
+                           },
+"collega_registrazione":
+{ Args: { "p_call_id": string,"p_scelta": Json }; Returns: Json
                            },
 "collega_vendita_call":
 { Args: { "p_call_id": string,"p_sale_id": string }; Returns: undefined
@@ -2009,6 +2288,9 @@ isOneToOne: false
               "in_ritardo": number,"numero_in_ritardo": number,"numero_oltre": number,"numero_prossimi_30": number,"numero_rate": number,"oltre": number,"prossimi_30": number,"totale": number,"vendite": number
             }[]
                            },
+"decidi_performance":
+{ Args: { "p_call_id": string,"p_livello": Database["public"]['Enums']["call_performance"] }; Returns: undefined
+                           },
 "dettagli_call":
 { Args: { "p_call_id": string,"p_importo_proposto"?: number,"p_link_registrazione"?: string,"p_note_closer"?: string,"p_performance"?: Database["public"]['Enums']["call_performance"],"p_prodotto_proposto_id"?: string }; Returns: undefined
                            },
@@ -2035,6 +2317,27 @@ isOneToOne: false
                            },
 "euro_testo":
 { Args: { "p_importo": number }; Returns: string
+                           },
+"fathom_chiave":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"fathom_chiave_presente":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"fathom_errore":
+{ Args: { "p_testo": string }; Returns: string
+                           },
+"fathom_imposta_chiave":
+{ Args: { "p_chiave": string }; Returns: string
+                           },
+"fathom_salva_verifica":
+{ Args: { "p_call_id": string,"p_durata": number,"p_inizio": string,"p_recording_id": number,"p_url": string }; Returns: undefined
+                           },
+"fathom_segna_esito":
+{ Args: { "p_errore": string }; Returns: undefined
+                           },
+"fathom_togli_chiave":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "fissa_call":
 { Args: { "p_closer_id": string,"p_data": string,"p_fonte": Database["public"]['Enums']["lead_source"],"p_instagram_handle"?: string,"p_nome": string,"p_ora": string,"p_setter_id"?: string,"p_tipo": Database["public"]['Enums']["call_type"] }; Returns: {
@@ -2224,6 +2527,12 @@ isOneToOne: false
 "lead_appartiene_al_setter":
 { Args: { "p_lead_id": string,"p_setter_id": string }; Returns: boolean
                            },
+"lead_contenuto_da_chat":
+{ Args: { "p_lead": string }; Returns: undefined
+                           },
+"lead_contenuto_da_insight":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
 "marketing_analisi_fine":
 { Args: { "p_contenuto": Json,"p_errore": string,"p_fonti": Json,"p_id": string,"p_modello": string,"p_numeri": Json,"p_riprova_il"?: string,"p_stato": string,"p_versione": string }; Returns: boolean
                            },
@@ -2248,6 +2557,9 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "marketing_fonti_analisi":
+{ Args: { "p_a": string,"p_da": string }; Returns: Json
+                           },
+"marketing_fonti_spunti":
 { Args: { "p_a": string,"p_da": string }; Returns: Json
                            },
 "marketing_imposta_costo_max":
@@ -2283,6 +2595,12 @@ isOneToOne: false
                            },
 "marketing_segna_esito":
 { Args: { "p_errore": string,"p_esito": string }; Returns: undefined
+                           },
+"marketing_spunti_fine":
+{ Args: { "p_conta"?: boolean,"p_contenuto": Json,"p_errore": string,"p_fonti": Json,"p_id": string,"p_modello": string,"p_passo": string,"p_riprova_il": string,"p_stato": string,"p_versione": string }; Returns: boolean
+                           },
+"marketing_spunti_richiedi":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "marketing_sveglia":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -2558,6 +2876,9 @@ isOneToOne: false
 "scarta_proposta_instagram":
 { Args: { "p_commento"?: Json,"p_id": string }; Returns: undefined
                            },
+"scollega_registrazione":
+{ Args: { "p_call_id": string }; Returns: undefined
+                           },
 "segna_rata_incassata":
 { Args: { "p_importo"?: number,"p_incassato_il"?: string,"p_metodo"?: Database["public"]['Enums']["payment_method"],"p_payment_id": string }; Returns: {
               "data_registrata": string,"importo_registrato": number,"rata": number
@@ -2568,6 +2889,9 @@ isOneToOne: false
                            },
 "sposta_call":
 { Args: { "p_call_id": string,"p_data": string,"p_ora": string }; Returns: undefined
+                           },
+"spunti_per_claude":
+{ Args: { "p_giorno"?: string }; Returns: Json
                            },
 "testo_scritto":
 { Args: { "p_testo": string }; Returns: boolean

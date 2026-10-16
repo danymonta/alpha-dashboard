@@ -617,6 +617,20 @@ begin
   perform pg_temp.prova('aggiorna_stato_lead', format($q$ select public.aggiorna_stato_lead(%L, 'perso')::text $q$, a.lead_id));
   perform pg_temp.prova('aggiungi_rata', format($q$ select public.aggiungi_rata(%L, public.oggi(), 100)::text $q$, a.sale_id));
   perform pg_temp.prova('anteprima_eliminazione', format($q$ select public.anteprima_eliminazione('cliente', %L)::text $q$, a.client_id));
+  -- the calls of 1.37.0: every one reads current_role(), which an OAuth token does not have; the brief is made for it
+  perform pg_temp.prova('call_analisi_richiedi', format($q$ select public.call_analisi_richiedi(%L)::text $q$, a.call_id));
+  perform pg_temp.prova('call_imposta_costo_max', $q$ select public.call_imposta_costo_max(30)::text $q$);
+  perform pg_temp.prova('call_imposta_interruttori', $q$ select public.call_imposta_interruttori(false, false)::text $q$);
+  perform pg_temp.prova('call_lavori_situazione', $q$ select public.call_lavori_situazione()::text $q$);
+  perform pg_temp.prova('call_numeri_periodo', $q$ select count(*)::text from public.call_numeri_periodo('2026-10-01', '2026-10-31', 'totale', null) $q$);
+  perform pg_temp.prova('collega_registrazione', format($q$ select public.collega_registrazione(%L, '{"tipo":"non_registrata"}')::text $q$, a.call_id));
+  perform pg_temp.prova('decidi_performance', format($q$ select public.decidi_performance(%L, 'buona')::text $q$, a.call_id));
+  perform pg_temp.prova('fathom_chiave_presente', $q$ select public.fathom_chiave_presente()::text $q$);
+  perform pg_temp.prova('fathom_imposta_chiave', $q$ select public.fathom_imposta_chiave('chiave-da-claude-0123456789abcdef')::text $q$);
+  perform pg_temp.prova('fathom_togli_chiave', $q$ select public.fathom_togli_chiave()::text $q$);
+  perform pg_temp.prova('marketing_spunti_richiedi', $q$ select public.marketing_spunti_richiedi()::text $q$);
+  perform pg_temp.prova('scollega_registrazione', format($q$ select public.scollega_registrazione(%L)::text $q$, a.call_id));
+  perform pg_temp.prova('spunti_per_claude', $q$ select ((public.spunti_per_claude() ->> 'periodo_a') is not null)::text $q$);
   perform pg_temp.prova('call_ha_follow_up', $q$ select public.call_ha_follow_up(row(u.*)::public.calls)::text from pg_temp.una_call u $q$);
   perform pg_temp.prova('call_ha_vendita', $q$ select public.call_ha_vendita(row(u.*)::public.calls)::text from pg_temp.una_call u $q$);
   perform pg_temp.prova('current_role', $q$ select public.current_role()::text $q$);
@@ -704,18 +718,28 @@ select is(
     'aggiungi_rata 42501',
     'anteprima_eliminazione 42501',
     'avanzamento_obiettivi 42501',
+    'call_analisi_richiedi 42501',
     'call_ha_follow_up ok:null',
     'call_ha_vendita ok:null',
+    'call_imposta_costo_max 42501',
+    'call_imposta_interruttori 42501',
+    'call_lavori_situazione 42501',
+    'call_numeri_periodo 42501',
     'cash_mensile 42501',
+    'collega_registrazione 42501',
     'commenti_setter_periodo 42501',
     'current_role ok:null',
     'da_incassare_closer 42501',
+    'decidi_performance 42501',
     'elimina_call 42501',
     'elimina_cliente 42501',
     'elimina_lead 42501',
     'elimina_persona 42501',
     'elimina_prodotto 42501',
     'elimina_rata 42501',
+    'fathom_chiave_presente 42501',
+    'fathom_imposta_chiave 42501',
+    'fathom_togli_chiave 42501',
     'fissa_call 42501',
     'fissa_follow_up 42501',
     'giornate_closer 42501',
@@ -737,6 +761,7 @@ select is(
     'marketing_imposta_costo_max 42501',
     'marketing_imposta_interruttori 42501',
     'marketing_lavori_situazione 42501',
+    'marketing_spunti_richiedi 42501',
     'mcp_chi_sono ok:ok',
     'mcp_client ok:0',
     'mcp_filtro_richiesta 42501',
@@ -767,7 +792,9 @@ select is(
     'provvigioni_per_vendita 42501',
     'puo_usare_mcp ok:false',
     'registra_vendita 42501',
+    'scollega_registrazione 42501',
     'segna_tutorial_visto 42501',
+    'spunti_per_claude ok:true',
     'unisci_profili 42501',
     'vede_marketing ok:true',
     'vendite_da_collegare 42501'
