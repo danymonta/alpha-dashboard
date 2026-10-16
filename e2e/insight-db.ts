@@ -35,7 +35,7 @@ export async function ultimaEsecuzione(dal: string): Promise<Esecuzione | null> 
 }
 
 /** Posts one step of a run to the dev server; 202, or 409 when a step is already working. */
-export async function mandaPasso(id: string, base = process.env.E2E_BASE_URL ?? 'http://localhost:3200'): Promise<number> {
+export async function mandaPasso(id: string, base = process.env.E2E_BASE_URL ?? 'http://localhost:3000'): Promise<number> {
   const segreto = process.env.CRON_SECRET
   if (!segreto) throw new Error('Manca CRON_SECRET in .env.local')
   const r = await fetch(`${base}/api/cron/insight`, {

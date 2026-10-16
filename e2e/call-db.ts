@@ -51,7 +51,7 @@ async function attendiPasso(scadenza: number) {
 
 /** Posts steps until none is due. Returns how many ran. */
 export async function eseguiPassiCall(opzioni: { timeoutMs?: number; base?: string } = {}): Promise<number> {
-  const base = opzioni.base ?? process.env.E2E_BASE_URL ?? 'http://localhost:3200'
+  const base = opzioni.base ?? process.env.E2E_BASE_URL ?? 'http://localhost:3000'
   const segreto = process.env.CRON_SECRET
   if (!segreto) throw new Error('Manca CRON_SECRET in .env.local')
   const scadenza = Date.now() + (opzioni.timeoutMs ?? 150_000)

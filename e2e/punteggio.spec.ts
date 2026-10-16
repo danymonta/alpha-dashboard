@@ -150,7 +150,7 @@ test('«Non valutato»: un reel analizzato prima del punteggio dice «Dai il pun
   await page.goto(`/marketing/analisi?reel=${REEL_82}`)
   await expect(pannello(page).getByTestId('analizza-reel')).toHaveText('Analizza di nuovo')
 
-  const contesto = await browser.newContext({ baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3200', locale: 'it-IT' })
+  const contesto = await browser.newContext({ baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000', locale: 'it-IT' })
   const editor = await contesto.newPage()
   await accedi(editor, 'editor')
   await editor.goto(`/marketing/analisi?reel=${REEL_82}`)
