@@ -8,6 +8,10 @@
 // ANTHROPIC_BASE_URL=http://127.0.0.1:6011. In Vitest: creaClaudeFinto()
 // listens on a free port (tests/insight-esegui.test.ts).
 //
+// Like the real API it answers 400 invalid_request_error to a body the API refuses (1.37.1,
+// e2e/schema-strutturato.mjs): a schema out of the rules of structured outputs, a text with a lone
+// surrogate, an empty text block, an effort or a max_tokens that does not exist.
+//
 // Scenario markers, inside the invented message texts of a chat:
 //   [[rifiuto]]        stop_reason refusal (general_harms) for any request carrying it
 //   [[tronca]]         a cut JSON and stop_reason max_tokens
@@ -46,6 +50,8 @@
 import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
 import { pathToFileURL } from 'node:url'
+
+import { verificaCorpoRichiesta } from './schema-strutturato.mjs'
 
 const ULTIME_MAX = 50
 
@@ -515,6 +521,14 @@ export function creaClaudeFinto(opzioni = {}) {
     } catch {
       res.writeHead(400, { 'content-type': 'application/json' })
       return res.end(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'JSON non valido' } }))
+    }
+    // what the real API refuses (a schema out of its rules, a lone surrogate, an empty block...): 400,
+    // with a message that says what, as the API does (1.37.1)
+    const problemi = verificaCorpoRichiesta(corpo)
+    if (problemi.length > 0) {
+      ultime.push({ corpo: senzaImmagini(corpo), beta: req.headers['anthropic-beta'] ?? null, versione: req.headers['anthropic-version'] ?? null, rifiutata: problemi })
+      res.writeHead(400, { 'content-type': 'application/json' })
+      return res.end(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: problemi.slice(0, 3).join('; ') } }))
     }
     ultime.push({ corpo: senzaImmagini(corpo), beta: req.headers['anthropic-beta'] ?? null, versione: req.headers['anthropic-version'] ?? null })
     if (ultime.length > ULTIME_MAX) ultime.shift()

@@ -73,7 +73,7 @@ export function preparaFonti(raw: unknown, chiaveNome: (nome: string) => string)
   const rifInviati = new Set<string>()
   const fatti = new Map<string, string>()
 
-  const pulito = (v: unknown, max = 400) => oscura(str(v), parole).slice(0, max)
+  const pulito = (v: unknown, max = 400) => [...oscura(str(v), parole)].slice(0, max).join('')
   /** a text from the team: also without the sentences of health; '' when nothing is left */
   const dalTeam = (v: unknown, max = 300) => {
     const o = pulito(v, max)

@@ -196,6 +196,27 @@ type Chiamata =
 type ErroreRichiesta = { codice: CodiceErroreBlocco; esito: 'da_rifare' | 'fatale'; ritentabile: boolean; attesaMs: number }
 
 /** An SDK error as a code, by its class and status, never by its message. */
+/**
+ * One log line for a request the API refused (any 4xx but a rate limit): the status, the type and the
+ * message of Anthropic's error, cut to 300 characters, and nothing else (1.37.1). Never the request,
+ * never a text of the app, never a key (a string that looks like one is blanked). null when the error
+ * is not a 4xx of the API.
+ */
+export function descriviErrore4xx(e: unknown): string | null {
+  if (!(e instanceof Anthropic.APIError)) return null
+  const stato = e.status ?? 0
+  if (stato < 400 || stato >= 500 || stato === 429) return null
+  const corpo = (e.error ?? {}) as { error?: { type?: unknown; message?: unknown }; type?: unknown; message?: unknown }
+  const dentro = corpo.error ?? corpo
+  const tipo = typeof dentro.type === 'string' ? dentro.type.replace(/[^a-z_]/g, '').slice(0, 60) : 'errore'
+  const messaggio = typeof dentro.message === 'string' ? dentro.message : ''
+  const pulito = messaggio
+    .replace(/sk-ant-[A-Za-z0-9_-]+/g, '[chiave]')
+    .replace(/[\r\n]+/g, ' ')
+    .slice(0, 300)
+  return `${stato} ${tipo}: ${pulito}`
+}
+
 export function classificaErrore(e: unknown): ErroreRichiesta {
   if (e instanceof Anthropic.APIUserAbortError) return { codice: 'timeout', esito: 'da_rifare', ritentabile: false, attesaMs: 0 }
   if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
@@ -274,6 +295,8 @@ class Lavoro {
       try {
         return await this.una(voci)
       } catch (e) {
+        const rifiutata = descriviErrore4xx(e)
+        if (rifiutata) console.error(`[claude] insight ${this.passo}: ${rifiutata}`)
         const errore = classificaErrore(e)
         const restaDopo = this.restaMs() - (Number.isFinite(errore.attesaMs) ? errore.attesaMs : 0)
         if (tentativo === 0 && errore.ritentabile && !this.op.segnale.aborted && restaDopo >= MINIMO_PER_INIZIARE_MS) {

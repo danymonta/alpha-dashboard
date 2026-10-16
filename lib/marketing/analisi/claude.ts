@@ -9,6 +9,7 @@ import {
   ATTESA_LIMITE_MAX_MS,
   BETA_FALLBACK,
   classificaErrore,
+  descriviErrore4xx,
   servitoDaFallback,
   somma,
   testoRisposta,
@@ -35,6 +36,15 @@ import { USO_ZERO, type CodiceErroreClaude, type RispostaClaude, type UsoToken }
  * Stored or logged: error codes, token counts and the request id: never the
  * message of an exception, of JSON.parse or of Zod, which quote the text.
  */
+
+/**
+ * A text with no lone surrogate. A cut that falls inside an emoji (a slice by UTF-16 unit) or a
+ * text that came from outside with one makes a body the API reads as invalid JSON (400): every
+ * text that goes to Claude passes from here, whatever the step.
+ */
+export function benFormato<B extends BetaTextBlockParam | BetaImageBlockParam>(blocchi: B[]): B[] {
+  return blocchi.map((b) => (b.type === 'text' && !b.text.isWellFormed() ? { ...b, text: b.text.toWellFormed() } : b))
+}
 
 export type ContenutoUtente = (BetaTextBlockParam | BetaImageBlockParam)[]
 
@@ -121,8 +131,8 @@ export async function chiediAClaude<T>(op: OpzioniChiedi<T>): Promise<RispostaCl
         {
           model: modello,
           max_tokens: op.maxTokens ?? 16_000,
-          system: op.sistema,
-          messages: [{ role: 'user', content: op.contenuto }],
+          system: benFormato(op.sistema),
+          messages: [{ role: 'user', content: benFormato(op.contenuto) }],
           output_config: { effort: op.effort, format: op.formato },
           betas: [BETA_FALLBACK],
           fallbacks: 'default',
@@ -162,6 +172,9 @@ export async function chiediAClaude<T>(op: OpzioniChiedi<T>): Promise<RispostaCl
         modello: msg.model || modello,
       }
     } catch (e) {
+      // a request the API refused says why (status, type, message of its error: never the request)
+      const rifiutata = descriviErrore4xx(e)
+      if (rifiutata) console.error(`[claude] ${op.passo}: ${rifiutata}`)
       const errore = codiceDi(e)
       const restaDopo = op.entro - Date.now() - (Number.isFinite(errore.attesaMs) ? errore.attesaMs : 0)
       if (tentativo === 0 && errore.ritentabile && !op.segnale?.aborted && restaDopo >= op.minimo && errore.attesaMs <= ATTESA_LIMITE_MAX_MS) {

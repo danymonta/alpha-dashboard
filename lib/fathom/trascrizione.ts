@@ -78,5 +78,8 @@ export function comeTesto(segmenti: Segmento[], max = TRASCRIZIONE_MAX_CARATTERI
   const intero = righe.join('\n')
   if (intero.length <= max) return { testo: intero, tagliata: false }
   const meta = Math.floor((max - 120) / 2)
-  return { testo: `${intero.slice(0, meta)}\n[… parte centrale della call tagliata per la lunghezza …]\n${intero.slice(-meta)}`, tagliata: true }
+  // a cut by UTF-16 unit may fall inside an emoji: the edge is made well formed
+  const inizio = intero.slice(0, meta).toWellFormed()
+  const fine = intero.slice(-meta).toWellFormed()
+  return { testo: `${inizio}\n[… parte centrale della call tagliata per la lunghezza …]\n${fine}`, tagliata: true }
 }
