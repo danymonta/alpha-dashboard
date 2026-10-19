@@ -6,7 +6,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(70);
+select plan(73);
 
 -- a clean slate for the kinds this test looks at (the seed has one example of each)
 delete from public.notifiche where tipo in ('rate_in_ritardo', 'chiave_in_scadenza', 'chiave_rifiutata', 'proposta_da_approvare', 'spesa_claude');
@@ -249,6 +249,11 @@ select is((public.notifiche_collegamenti_stato() -> 'instagram' ->> 'errore'), '
 select is((public.notifiche_collegamenti_stato() -> 'messenger' ->> 'errore'), 'Errore Messenger', 'quello di Messenger');
 select ok(not (public.notifiche_collegamenti_stato()::text ~* 'token_valore|decrypted'), 'mai un token o una chiave');
 select ok((public.notifiche_collegamenti_stato() -> 'instagram') ? 'presente', 'dice solo se il token c''è');
+
+select is((public.notifiche_collegamenti_stato() -> 'fathom' ->> 'presente')::boolean, false, 'Fathom senza chiave: presente = false');
+select vault.create_secret('chiave-di-prova-del-test-92', 'fathom_chiave', 'test 92');
+select is((public.notifiche_collegamenti_stato() -> 'fathom' ->> 'presente')::boolean, true, 'con la chiave nel Vault: presente = true');
+select ok(public.notifiche_collegamenti_stato()::text not like '%chiave-di-prova-del-test-92%', 'e la chiave non esce mai dalla funzione');
 
 -- ---------------------------------------------------------------------------
 -- 7. Who reads the alerts

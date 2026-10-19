@@ -86,6 +86,41 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.42.0',
+    data: '2026-10-19',
+    titolo: 'Gli avvisi nelle notifiche',
+    riassunto:
+      'Nel centro notifiche arrivano anche gli avvisi che esistono solo nell’app: rate in ritardo, chiavi in scadenza, giornate da approvare e spesa di Claude vicina al limite.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Ogni sera, se qualche rata è andata in ritardo, trovi un avviso con l’elenco: cliente, «Rata 2 di 4», importo e scadenza. Una rata si annuncia una volta sola, e senza rate nuove in ritardo non arriva niente. Il bottone apre Incassi sulle rate in ritardo.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il token di Instagram ti avvisa quando mancano 7 giorni alla scadenza, e di nuovo se è scaduto o se Meta lo rifiuta. Lo stesso per il token della Pagina di Messenger e per la chiave di Fathom quando vengono rifiutati. Il bottone apre Impostazioni › Chiavi e collegamenti, dove c’è la guida per rifarli.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Quando arriva un nuovo tracciamento di Loris da confermare, c’è un avviso «Da approvare: il tracciamento di Loris di ieri…» che porta alla scheda in Setter. Un ricalcolo della stessa giornata non ne manda un secondo.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'La spesa di Claude, per le analisi dei reel e per le call e gli Spunti, ti avvisa una volta quando arriva all’80% del limite del mese e una volta quando lo raggiunge e le analisi si fermano fino al mese dopo. Il bottone apre le impostazioni dove puoi alzare il limite.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Questi avvisi non partono per email: nell’elenco c’è scritto «Solo nell’app» al posto di «Email inviata». Un avviso che elimini non torna, e lo stesso avviso non si ripete due volte.',
+      },
+    ],
+  },
+  {
     versione: '1.41.0',
     data: '2026-10-19',
     titolo: 'Le notifiche dentro l’app',

@@ -617,8 +617,10 @@ test.describe('i cron salvano le notifiche anche senza email', () => {
     } finally {
       await sessione.rpc('instagram_togli_token')
       if (prima) {
-        const { id: _id, created_at: _c, updated_at: _u, ...campi } = prima
-        await db.from('instagram_collegamento').update(campi).eq('id', true)
+        await db
+          .from('instagram_collegamento')
+          .update({ token_scade_il: prima.token_scade_il, token_aggiornato_il: prima.token_aggiornato_il, ultimo_errore: prima.ultimo_errore, ultimo_errore_il: prima.ultimo_errore_il })
+          .eq('id', true)
       }
       await db.from('notifiche').delete().like('chiave', 'instagram-token-%')
     }
