@@ -51,3 +51,14 @@ cross join (values
 ) as v(id, tipo, titolo, anteprima, dettagli, link, chiave, letta_il, created_at)
 where p.id = '11111111-1111-4111-8111-111111111111'
 on conflict (destinatario_id, chiave) do nothing;
+
+-- The keys of these alerts are remembered like the real ones (an alert is emitted once), and one instalment already
+-- paid is marked as announced (it was overdue once): pgTAP 75 wants a row in every table of public. The seed's
+-- overdue instalments are left unannounced, so the first evening cron announces them.
+insert into public.notifiche_avvisi_emessi (chiave)
+select n.chiave from public.notifiche n where n.chiave like 'seed/%' and n.canale = 'app'
+on conflict (chiave) do nothing;
+
+insert into public.rate_notificate (payment_id, notificata_il)
+select p.id, public.oggi() - 30 from public.payments p where p.stato = 'incassata' order by p.id limit 1
+on conflict (payment_id) do nothing;
