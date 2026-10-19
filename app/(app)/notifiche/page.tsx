@@ -33,7 +33,7 @@ export default async function NotifichePage() {
   const [{ data, error, count }, { count: daLeggere, error: erroreConteggio }] = await Promise.all([
     supabase
       .from('notifiche')
-      .select('id, tipo, titolo, anteprima, email_inviata, letta_il, created_at', { count: 'exact' })
+      .select('id, tipo, titolo, anteprima, canale, email_inviata, letta_il, created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
       .limit(MASSIMO),
     supabase.from('notifiche').select('id', { count: 'exact', head: true }).is('letta_il', null),
@@ -48,7 +48,7 @@ export default async function NotifichePage() {
     <div className="max-w-3xl space-y-5">
       <IntestazionePagina
         titolo="Notifiche"
-        descrizione="Le email che l’app ti manda, salvate anche qui: le ritrovi quando vuoi, anche se l’email non è partita."
+        descrizione="Le email che l’app ti manda, salvate anche qui, e gli avvisi che compaiono solo qui: le ritrovi quando vuoi, anche se l’email non è partita."
         azione={notifiche.length > 0 ? <SegnaTutteLette daLeggere={nonLette} /> : undefined}
       />
 
@@ -58,7 +58,7 @@ export default async function NotifichePage() {
           titolo="Nessuna notifica"
           descrizione={
             admin
-              ? 'Qui compaiono il riepilogo della settimana, il backup e i promemoria dei clienti, appena partono.'
+              ? 'Qui compaiono il riepilogo della settimana, il backup, i promemoria dei clienti e gli avvisi (rate in ritardo, chiavi in scadenza, tracciamenti da approvare, spesa di Claude), appena ci sono.'
               : 'Per ora le notifiche arrivano solo all’admin. Se qualcosa dell’app ti riguarda, lo trovi qui.'
           }
           azione={<LinkBottone href={percorsoIniziale(profilo.ruolo)}>Torna al lavoro</LinkBottone>}
@@ -95,7 +95,7 @@ export default async function NotifichePage() {
                         ) : null}
                         <span>{eTipoNotifica(n.tipo) ? ETICHETTA_TIPO[n.tipo] : 'Notifica'}</span>
                         <span className="num">{quandoNotifica(n.created_at)}</span>
-                        <StatoEmail inviata={n.email_inviata} />
+                        <StatoEmail inviata={n.email_inviata} canale={n.canale === 'app' ? 'app' : 'email'} />
                       </span>
                     </span>
                   </LinkRiga>

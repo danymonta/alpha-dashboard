@@ -33,7 +33,7 @@ export default async function NotificaPage({ params }: { params: Promise<{ id: s
   const { data: n, error } = valido
     ? await supabase
         .from('notifiche')
-        .select('id, tipo, titolo, anteprima, corpo_html, link, email_inviata, letta_il, created_at')
+        .select('id, tipo, titolo, anteprima, corpo_html, dettagli, canale, link, email_inviata, letta_il, created_at')
         .eq('id', id)
         .maybeSingle()
     : { data: null, error: null }
@@ -55,6 +55,9 @@ export default async function NotificaPage({ params }: { params: Promise<{ id: s
 
   const link = linkInterno(n.link)
   const etichetta = etichettaLink(link)
+  // an alert exists only in the app: no email, no HTML, a short text and maybe a list of plain lines
+  const soloApp = n.canale === 'app' || n.corpo_html === null
+  const righe = Array.isArray(n.dettagli) ? n.dettagli.filter((riga): riga is string => typeof riga === 'string') : []
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -66,12 +69,12 @@ export default async function NotificaPage({ params }: { params: Promise<{ id: s
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span>{eTipoNotifica(n.tipo) ? ETICHETTA_TIPO[n.tipo] : 'Notifica'}</span>
             <span className="num">{quandoNotifica(n.created_at)}</span>
-            <StatoEmail inviata={n.email_inviata} />
+            <StatoEmail inviata={n.email_inviata} canale={soloApp ? 'app' : 'email'} />
           </span>
         }
       />
 
-      {!n.email_inviata ? (
+      {!soloApp && !n.email_inviata ? (
         <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
           L’email non è partita (il servizio di invio non è configurato o non ha risposto): questa è la copia salvata
           nell’app.
@@ -82,14 +85,32 @@ export default async function NotificaPage({ params }: { params: Promise<{ id: s
         {link && etichetta ? <LinkBottone href={link}>{etichetta}</LinkBottone> : null}
       </div>
 
-      <iframe
-        title={`Email: ${n.titolo}`}
-        data-testid="corpo-notifica"
-        sandbox="allow-popups allow-popups-to-escape-sandbox"
-        srcDoc={documentoSicuro(n.corpo_html, publicEnv.appUrl)}
-        referrerPolicy="no-referrer"
-        className="h-[30rem] w-full rounded-xl border border-border bg-white md:h-[36rem]"
-      />
+      {soloApp || n.corpo_html === null ? (
+        <section
+          data-testid="corpo-avviso"
+          aria-label="Dettagli dell’avviso"
+          className="space-y-3 rounded-xl bg-card p-4 md:p-5"
+        >
+          {n.anteprima ? <p className="text-sm break-words">{n.anteprima}</p> : null}
+          {righe.length > 0 ? (
+            <ul className="list-disc space-y-1.5 pl-5 text-sm break-words text-muted-foreground" data-testid="righe-avviso">
+              {righe.map((riga, i) => (
+                <li key={i}>{riga}</li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="text-xs text-muted-foreground">Questo avviso c’è solo nell’app: nessuna email.</p>
+        </section>
+      ) : (
+        <iframe
+          title={`Email: ${n.titolo}`}
+          data-testid="corpo-notifica"
+          sandbox="allow-popups allow-popups-to-escape-sandbox"
+          srcDoc={documentoSicuro(n.corpo_html, publicEnv.appUrl)}
+          referrerPolicy="no-referrer"
+          className="h-[30rem] w-full rounded-xl border border-border bg-white md:h-[36rem]"
+        />
+      )}
 
       <EliminaNotifica id={n.id} titolo={n.titolo} variante="foglio" dopo="/notifiche" />
     </div>
