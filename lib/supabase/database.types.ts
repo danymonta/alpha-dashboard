@@ -1126,13 +1126,13 @@ isOneToOne: false
                   ]
                 },"notifiche": {
                   Row: {
-                    "anteprima": string,"chiave": string,"corpo_html": string,"created_at": string,"destinatario_id": string,"email_inviata": boolean,"id": string,"letta_il": string | null,"link": string | null,"tipo": string,"titolo": string
+                    "anteprima": string,"canale": string,"chiave": string,"corpo_html": string | null,"created_at": string,"destinatario_id": string,"dettagli": Json | null,"email_inviata": boolean,"id": string,"letta_il": string | null,"link": string | null,"tipo": string,"titolo": string
                   }
                   Insert: {
-                    "anteprima"?: string,"chiave": string,"corpo_html": string,"created_at"?: string,"destinatario_id": string,"email_inviata"?: boolean,"id"?: string,"letta_il"?: string | null,"link"?: string | null,"tipo": string,"titolo": string
+                    "anteprima"?: string,"canale"?: string,"chiave": string,"corpo_html"?: string | null,"created_at"?: string,"destinatario_id": string,"dettagli"?: Json | null,"email_inviata"?: boolean,"id"?: string,"letta_il"?: string | null,"link"?: string | null,"tipo": string,"titolo": string
                   }
                   Update: {
-                    "anteprima"?: string,"chiave"?: string,"corpo_html"?: string,"created_at"?: string,"destinatario_id"?: string,"email_inviata"?: boolean,"id"?: string,"letta_il"?: string | null,"link"?: string | null,"tipo"?: string,"titolo"?: string
+                    "anteprima"?: string,"canale"?: string,"chiave"?: string,"corpo_html"?: string | null,"created_at"?: string,"destinatario_id"?: string,"dettagli"?: Json | null,"email_inviata"?: boolean,"id"?: string,"letta_il"?: string | null,"link"?: string | null,"tipo"?: string,"titolo"?: string
                   }
                   Relationships: [
                     {
@@ -1142,6 +1142,19 @@ isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
     }
+                  ]
+                },"notifiche_avvisi_emessi": {
+                  Row: {
+                    "chiave": string,"emessa_il": string
+                  }
+                  Insert: {
+                    "chiave": string,"emessa_il"?: string
+                  }
+                  Update: {
+                    "chiave"?: string,"emessa_il"?: string
+                  }
+                  Relationships: [
+                    
                   ]
                 },"obiettivi_mese": {
                   Row: {
@@ -1636,6 +1649,37 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_vendite"
       referencedColumns: ["sale_id"]
+    }
+                  ]
+                },"rate_notificate": {
+                  Row: {
+                    "notificata_il": string,"payment_id": string
+                  }
+                  Insert: {
+                    "notificata_il"?: string,"payment_id": string
+                  }
+                  Update: {
+                    "notificata_il"?: string,"payment_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "rate_notificate_payment_id_fkey"
+      columns: ["payment_id"]
+isOneToOne: true
+      referencedRelation: "payments"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "rate_notificate_payment_id_fkey"
+      columns: ["payment_id"]
+isOneToOne: true
+      referencedRelation: "v_provvigioni_maturate"
+      referencedColumns: ["payment_id"]
+    },{
+      foreignKeyName: "rate_notificate_payment_id_fkey"
+      columns: ["payment_id"]
+isOneToOne: true
+      referencedRelation: "v_rate"
+      referencedColumns: ["payment_id"]
     }
                   ]
                 },"report_proposte_instagram": {
@@ -2715,11 +2759,38 @@ isOneToOne: false
               "call_id": string,"closer": string,"data": string,"esito": Database["public"]['Enums']["call_outcome"],"lead": string,"motivo": string,"note_closer": string,"programmata_il": string,"qualificata": boolean
             }[]
                            },
+"notifiche_avviso":
+{ Args: { "p_anteprima": string,"p_chiave": string,"p_destinatari": (string)[],"p_dettagli": Json,"p_link": string,"p_tipo": string,"p_titolo": string }; Returns: number
+                           },
+"notifiche_avviso_admin":
+{ Args: { "p_anteprima": string,"p_chiave": string,"p_dettagli": Json,"p_link": string,"p_tipo": string,"p_titolo": string }; Returns: number
+                           },
+"notifiche_collegamenti_stato":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"notifiche_data":
+{ Args: { "p_giorno": string }; Returns: string
+                           },
+"notifiche_dollari":
+{ Args: { "p_importo": number }; Returns: string
+                           },
+"notifiche_euro":
+{ Args: { "p_importo": number }; Returns: string
+                           },
+"notifiche_proposta":
+{ Args: { "p_id": string }; Returns: number
+                           },
 "notifiche_pulizia":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
+"notifiche_rate_in_ritardo":
+{ Args: { "p_giorno": string }; Returns: number
+                           },
 "notifiche_registra":
 { Args: { "p_anteprima": string,"p_chiave": string,"p_corpo_html": string,"p_destinatari": (string)[],"p_email_inviata": boolean,"p_link": string,"p_tipo": string,"p_titolo": string }; Returns: number
+                           },
+"notifiche_spesa":
+{ Args: { "p_area": string,"p_dopo": number,"p_max": number,"p_mese": string,"p_prima": number }; Returns: number
                            },
 "nuova_regola_provvigione":
 { Args: { "p_applica_a": (Database["public"]['Enums']["sale_type"])[],"p_percentuale": number,"p_profile_id": string,"p_valida_dal": string }; Returns: string

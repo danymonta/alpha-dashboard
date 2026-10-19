@@ -3,7 +3,7 @@ import 'server-only'
 import { emailConfigurata, inviaEmail } from '@/lib/email/invia'
 import { emailPromemoria, type Promemoria } from '@/lib/email/promemoria'
 import { registraNotifica } from '@/lib/notifiche/registra'
-import type { TipoNotifica } from '@/lib/notifiche/tipi'
+import type { TipoEmail } from '@/lib/notifiche/tipi'
 import type { createAdminClient } from '@/lib/supabase/admin'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -87,7 +87,7 @@ async function libera(db: Db, id: string) {
   if (error) console.error('[promemoria] prenotazione non tolta:', error.message)
 }
 
-const TIPO_NOTIFICA: Record<Promemoria['tipo'], TipoNotifica> = {
+const TIPO_NOTIFICA: Record<Promemoria['tipo'], TipoEmail> = {
   feedback_3_mesi: 'promemoria_feedback',
   rinnovo_1_mese: 'promemoria_rinnovo',
 }

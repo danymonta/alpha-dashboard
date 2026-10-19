@@ -6,6 +6,7 @@ import { emailConfigurata } from '@/lib/email/invia'
 import { settimanaDelRiepilogo } from '@/lib/email/riepilogo'
 import { inviaRiepilogoSettimana, type Destinatario } from '@/lib/email/riepilogo-invio'
 import { publicEnv } from '@/lib/env'
+import { creaAvvisiDellaSera } from '@/lib/notifiche/collegamenti'
 import { inviaPromemoriaPercorso } from '@/lib/promemoria/percorso'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -22,6 +23,9 @@ const TEMPO_PROMEMORIA_MS = 50_000
  * never bite:
  * - every evening, email or not, its first query keeps the Supabase Free
  *   project awake (it pauses after 7 days without requests);
+ * - the in-app alerts for the admins (1.42.0, no email): the instalments that
+ *   became overdue and the keys that end soon or that Meta/Fathom refused; each
+ *   alert has a key, so a second run the same evening writes nothing;
  * - on Fridays (Europe/Rome), the weekly summary by email to the active admins,
  *   for the week from Saturday to Friday (Dany, 07/10/2026: once a week, no
  *   more every evening; settimanaDelRiepilogo, public.riepilogo_settimana);
@@ -53,6 +57,14 @@ export async function GET(request: NextRequest) {
 
   const esito: Record<string, unknown> = { ok: true }
   if (!emailConfigurata()) esito.email = 'non configurata'
+
+  // The alerts first: they are quick and need no Resend. One that fails is logged and stops nothing.
+  try {
+    esito.avvisi = await creaAvvisiDellaSera({ db: admin, oggi, destinatari: admins.map((d) => d.id) })
+  } catch (e) {
+    console.error('[giornaliero] avvisi', e instanceof Error ? e.name : 'errore')
+    esito.avvisi = 'non riusciti'
+  }
 
   // Friday in Rome: the week from Saturday to today. A summary that fails is
   // logged and never stops the reminders.

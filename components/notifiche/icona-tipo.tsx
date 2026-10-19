@@ -1,4 +1,15 @@
-import { CalendarClock, ChartNoAxesCombined, DatabaseBackup, RefreshCw, type LucideIcon } from 'lucide-react'
+import {
+  CalendarClock,
+  ChartNoAxesCombined,
+  ClipboardCheck,
+  DatabaseBackup,
+  Gauge,
+  KeyRound,
+  ReceiptText,
+  RefreshCw,
+  ShieldAlert,
+  type LucideIcon,
+} from 'lucide-react'
 
 import type { TipoNotifica } from '@/lib/notifiche/tipi'
 import { cn } from '@/lib/utils'
@@ -8,6 +19,11 @@ const ICONE: Record<TipoNotifica, LucideIcon> = {
   backup: DatabaseBackup,
   promemoria_feedback: CalendarClock,
   promemoria_rinnovo: RefreshCw,
+  rate_in_ritardo: ReceiptText,
+  chiave_in_scadenza: KeyRound,
+  chiave_rifiutata: ShieldAlert,
+  proposta_da_approvare: ClipboardCheck,
+  spesa_claude: Gauge,
 }
 
 /** The icon of a kind of notification, in a square: the kind is also written next to it, never the icon alone. */

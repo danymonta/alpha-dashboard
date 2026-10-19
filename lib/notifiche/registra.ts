@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { corpoDiRiserva, anteprimaDaTesto } from '@/lib/notifiche/testi'
-import { LIMITI_NOTIFICA, linkInterno, type TipoNotifica } from '@/lib/notifiche/tipi'
+import { LIMITI_NOTIFICA, linkInterno, type TipoEmail } from '@/lib/notifiche/tipi'
 import type { createAdminClient } from '@/lib/supabase/admin'
 
 /**
@@ -25,7 +25,7 @@ import type { createAdminClient } from '@/lib/supabase/admin'
 type Db = Pick<ReturnType<typeof createAdminClient>, 'rpc'>
 
 export type NotificaDaRegistrare = {
-  tipo: TipoNotifica
+  tipo: TipoEmail
   /** the email's subject */
   titolo: string
   /** one short line; when missing, taken from `testo` */
