@@ -2,6 +2,8 @@ import 'server-only'
 
 import { emailConfigurata, inviaEmail } from '@/lib/email/invia'
 import { emailPromemoria, type Promemoria } from '@/lib/email/promemoria'
+import { registraNotifica } from '@/lib/notifiche/registra'
+import type { TipoNotifica } from '@/lib/notifiche/tipi'
 import type { createAdminClient } from '@/lib/supabase/admin'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -12,8 +14,16 @@ import type { Database } from '@/lib/supabase/database.types'
  * Each one is booked before its email (promemoria_percorso_prenota, in_invio):
  * two runs of the cron on the same evening never send it twice. Resend accepted
  * it: the booking becomes inviato. Refused: the booking goes, and tomorrow
- * evening it is due again. Without email configured nothing is sent and
- * nothing is recorded.
+ * evening it is due again. Without email configured nothing is sent and no
+ * booking is made (the reminder stays due).
+ *
+ * Notifications (1.41.0): each reminder is also saved for the admins in the app
+ * (public.notifiche), whether or not the email could leave, with a key per
+ * client, kind and path end (never the day): the same reminder is one
+ * notification however many evenings it is tried, and the evening it finally
+ * goes by email turns "Email inviata" on. Without email configured the due
+ * reminders are saved all the same. A failure to save never touches the email
+ * path (registraNotifica never throws).
  */
 
 /** Resend takes 2 requests a second: one email at a time, a pause in between. */
@@ -29,7 +39,7 @@ type Db = Pick<ReturnType<typeof createAdminClient>, 'rpc' | 'from'>
 type Esito = Database['public']['Enums']['promemoria_esito']
 
 export type EsitoPromemoria =
-  | { configurata: false }
+  | { configurata: false; /** saved in the app without email (1.41.0) */ notificate?: number }
   | {
       configurata: true
       inviati: number
@@ -77,6 +87,16 @@ async function libera(db: Db, id: string) {
   if (error) console.error('[promemoria] prenotazione non tolta:', error.message)
 }
 
+const TIPO_NOTIFICA: Record<Promemoria['tipo'], TipoNotifica> = {
+  feedback_3_mesi: 'promemoria_feedback',
+  rinnovo_1_mese: 'promemoria_rinnovo',
+}
+
+/** One notification per client, kind and path end: never the day (a later evening is the same reminder). */
+export function chiaveNotifica(p: Promemoria) {
+  return `promemoria-percorso/${p.client_id}/${p.tipo}/${p.data_fine}`
+}
+
 /** The same reminder on the same day is one email for Resend, whatever retries it. */
 export function chiaveIdempotenza(p: Promemoria, oggi: string) {
   return `promemoria-percorso/${p.client_id}/${p.tipo}/${p.data_fine}/${oggi}`
@@ -86,6 +106,7 @@ export async function inviaPromemoriaPercorso({
   db,
   oggi,
   indirizzi,
+  destinatari = [],
   urlApp,
   invia = inviaEmail,
   pausaMs = PAUSA_TRA_INVII_MS,
@@ -96,6 +117,8 @@ export async function inviaPromemoriaPercorso({
   oggi: string
   /** the active admins */
   indirizzi: string[]
+  /** the same admins' profile ids: where the in-app notification goes (none: no notification) */
+  destinatari?: string[]
   urlApp: string
   invia?: typeof inviaEmail
   pausaMs?: number
@@ -107,11 +130,36 @@ export async function inviaPromemoriaPercorso({
    */
   entro?: number
 }): Promise<EsitoPromemoria> {
-  if (!emailConfigurata() || indirizzi.length === 0) return { configurata: false }
+  const configurata = emailConfigurata() && indirizzi.length > 0
+  if (!configurata && destinatari.length === 0) return { configurata: false }
 
   const { data, error } = await db.rpc('promemoria_percorso_da_inviare', { p_giorno: oggi })
   if (error) throw new Error(`promemoria_percorso_da_inviare: ${error.message}`)
   const dovuti = (data ?? []) as Promemoria[]
+
+  const salva = (p: Promemoria, emailInviata: boolean, email: ReturnType<typeof emailPromemoria>) =>
+    registraNotifica({
+      db: db as Parameters<typeof registraNotifica>[0]['db'],
+      destinatari,
+      notifica: {
+        tipo: TIPO_NOTIFICA[p.tipo],
+        titolo: email.oggetto,
+        testo: email.testo,
+        corpoHtml: email.html,
+        link: `/clients/${p.client_id}`,
+        emailInviata,
+        chiave: chiaveNotifica(p),
+      },
+    })
+
+  // no email to send with: the due reminders are saved in the app, and stay due for the email
+  if (!configurata) {
+    let notificate = 0
+    for (const p of dovuti.filter((d) => d.azione === 'invia')) {
+      if (await salva(p, false, emailPromemoria(p, { urlApp, oggi }))) notificate++
+    }
+    return { configurata: false, notificate }
+  }
 
   // catch-up: past both thresholds, the renewal one goes and the feedback one is recorded as skipped
   let saltati = 0
@@ -144,12 +192,14 @@ export async function inviaPromemoriaPercorso({
 
     if (mandate > 0 && pausaMs > 0) await attendi(pausaMs)
     mandate++
+    const email = emailPromemoria(p, { urlApp, oggi })
     const esito = await invia({
       a: indirizzi,
-      ...emailPromemoria(p, { urlApp, oggi }),
+      ...email,
       idempotenza: chiaveIdempotenza(p, oggi),
       timeoutMs: TEMPO_INVIO_MAX_MS,
     })
+    if (destinatari.length > 0) await salva(p, esito.inviata, email)
     if (!esito.inviata) {
       await libera(db, presa.id)
       nonRiusciti++
