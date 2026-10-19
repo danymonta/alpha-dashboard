@@ -14,6 +14,10 @@ for (const ruolo of ['admin', 'setter', 'closer', 'editor', 'marketing'] as Ruol
     test.setTimeout(120_000)
     const errori: string[] = []
     page.on('console', (m) => {
+      // the email of a notification (1.41.0) is shown in a sandboxed iframe with no scripts, on purpose:
+      // Playwright injects its own init script in every frame, and Chromium says it blocked it. A real
+      // browser has nothing to block there.
+      if (m.text().startsWith("Blocked script execution in 'about:srcdoc'")) return
       if (m.type() === 'error') errori.push(`${new URL(page.url()).pathname}: ${m.text().split('\n')[0]}`)
     })
     page.on('pageerror', (e) => errori.push(`${new URL(page.url()).pathname}: ${e.message}`))
