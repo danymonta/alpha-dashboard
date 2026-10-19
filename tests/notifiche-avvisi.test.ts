@@ -183,6 +183,22 @@ describe('gli avvisi dei collegamenti', () => {
     ).toEqual([])
   })
 
+  it('un rifiuto che la notte riscrive ogni giorno si annuncia una volta per token; un token nuovo rifiutato è un avviso nuovo', () => {
+    const salvato = '2026-10-10T08:00:00.000Z'
+    const stato = (versione: string) => ({
+      instagram: { presente: true, scade_il: traGiorni(40), versione, errore: FRASI_ERRORE.token, errore_il: oraFa(2) },
+      messenger: { presente: true, versione, errore: AVVISI_INSIGHT.messenger_token, errore_il: oraFa(2) },
+      fathom: { presente: true, versione, errore: FRASI_FATHOM.chiave, errore_il: oraFa(2) },
+    })
+    const oggi = avvisiCollegamenti(stato(salvato), ADESSO).map((a) => a.chiave)
+    const domani = avvisiCollegamenti(stato(salvato), new Date(ADESSO.getTime() + 86_400_000)).map((a) => a.chiave)
+    expect(oggi).toHaveLength(3)
+    expect(domani).toEqual(oggi)
+    expect(oggi.every((k) => k.endsWith(`/v${Date.parse(salvato)}`))).toBe(true)
+    const nuovo = avvisiCollegamenti(stato('2026-10-18T09:00:00.000Z'), ADESSO).map((a) => a.chiave)
+    expect(nuovo.some((k) => oggi.includes(k))).toBe(false)
+  })
+
   it('Messenger e Fathom rifiutati: una chiave per giorno', () => {
     const lista = avvisiCollegamenti(
       {
