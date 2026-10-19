@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(42);
+select plan(43);
 
 -- ---------------------------------------------------------------------------
 -- 1. The role, and an invite that uses it
@@ -121,6 +121,11 @@ values ('Test66Rifiutato', '66660000-0000-4000-8000-000000000066')
 on conflict (shortcode, contenuto_id) do nothing;
 insert into public.marketing_post_esclusi (shortcode) values ('Test66Post2')
 on conflict (shortcode) do nothing;
+-- The notification center (1.41.0, 91_notifiche.sql): a notification is its recipient's own, so the marketing user
+-- reads exactly one (theirs) and the editor none; the admin's seed notifications are nobody else's
+insert into public.notifiche (destinatario_id, tipo, titolo, corpo_html, chiave)
+values ('61616161-6161-4161-8161-616161616161', 'backup', 'Notifica del test 66', '<p>x</p>', 'test66/notifica')
+on conflict (destinatario_id, chiave) do nothing;
 -- The Insight (1.35.0): the leads per post are allowed below; the chats, the
 -- profiles, the runs, the AI work and the Messenger exclusions never (the
 -- recaps have the seed's rows, the automation and the Messenger Page their row)
@@ -235,7 +240,9 @@ insert into ammesse values
   -- the reel analysis (1.36.0): numbers, readings, Claude's analyses and the views that join them.
   -- marketing_lavori_stato (cost, limit, switches) stays out: 0 rows for the marketing and the editor
   ('instagram_contenuti_misure'), ('instagram_account_misure'), ('instagram_letture'), ('marketing_analisi'), ('marketing_spunti'),
-  ('v_instagram_numeri'), ('v_instagram_mediane'), ('v_analisi_reel');
+  ('v_instagram_numeri'), ('v_instagram_mediane'), ('v_analisi_reel'),
+  -- the notification center (1.41.0): each person reads only their own (checked right below)
+  ('notifiche');
 select is(
   (select coalesce(array_agg(relazione order by relazione), '{}') from righe_viste
    where persona = 'marketing' and righe > 0
@@ -243,6 +250,13 @@ select is(
      and relazione not like 'pm\_%' and relazione not like 'v\_pm\_%'),
   '{}'::text[],
   'il marketing non legge nient''altro: né soldi, né lead, call, clienti, report, proposte o DM'
+);
+select is(
+  (select array[
+     (select righe from righe_viste where persona = 'marketing' and relazione = 'notifiche'),
+     (select righe from righe_viste where persona = 'editor' and relazione = 'notifiche')]),
+  array[1, 0]::bigint[],
+  'le notifiche: il marketing legge la sua e basta, il video editor, che non ne ha, nessuna'
 );
 select is(
   (select coalesce(array_agg(relazione order by relazione), '{}') from righe_viste
@@ -254,7 +268,7 @@ select is(
 );
 select is(
   (select coalesce(array_agg(a.relazione order by a.relazione), '{}') from ammesse a
-   where a.relazione not in ('profiles', 'marketing_contenuti', 'products')
+   where a.relazione not in ('profiles', 'marketing_contenuti', 'products', 'notifiche')
      and not exists (select 1 from righe_viste r
                      where r.persona = 'marketing' and r.relazione = a.relazione and r.righe > 0)),
   '{}'::text[],
@@ -262,7 +276,7 @@ select is(
 );
 select is(
   (select coalesce(array_agg(a.relazione order by a.relazione), '{}') from ammesse a
-   where a.relazione not in ('profiles', 'marketing_contenuti', 'products')
+   where a.relazione not in ('profiles', 'marketing_contenuti', 'products', 'notifiche')
      and not exists (select 1 from righe_viste r
                      where r.persona = 'editor' and r.relazione = a.relazione and r.righe > 0)),
   '{}'::text[],

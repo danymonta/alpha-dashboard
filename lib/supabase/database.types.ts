@@ -1124,6 +1124,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"notifiche": {
+                  Row: {
+                    "anteprima": string,"chiave": string,"corpo_html": string,"created_at": string,"destinatario_id": string,"email_inviata": boolean,"id": string,"letta_il": string | null,"link": string | null,"tipo": string,"titolo": string
+                  }
+                  Insert: {
+                    "anteprima"?: string,"chiave": string,"corpo_html": string,"created_at"?: string,"destinatario_id": string,"email_inviata"?: boolean,"id"?: string,"letta_il"?: string | null,"link"?: string | null,"tipo": string,"titolo": string
+                  }
+                  Update: {
+                    "anteprima"?: string,"chiave"?: string,"corpo_html"?: string,"created_at"?: string,"destinatario_id"?: string,"email_inviata"?: boolean,"id"?: string,"letta_il"?: string | null,"link"?: string | null,"tipo"?: string,"titolo"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notifiche_destinatario_id_fkey"
+      columns: ["destinatario_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"obiettivi_mese": {
                   Row: {
                     "cash": number | null,"created_at": string,"created_by": string | null,"mese": string,"nuovi_clienti": number | null,"updated_at": string
@@ -2695,6 +2714,12 @@ isOneToOne: false
 { Args: { "p_a": string,"p_da": string,"p_limite"?: number,"p_setter"?: string }; Returns: {
               "call_id": string,"closer": string,"data": string,"esito": Database["public"]['Enums']["call_outcome"],"lead": string,"motivo": string,"note_closer": string,"programmata_il": string,"qualificata": boolean
             }[]
+                           },
+"notifiche_pulizia":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"notifiche_registra":
+{ Args: { "p_anteprima": string,"p_chiave": string,"p_corpo_html": string,"p_destinatari": (string)[],"p_email_inviata": boolean,"p_link": string,"p_tipo": string,"p_titolo": string }; Returns: number
                            },
 "nuova_regola_provvigione":
 { Args: { "p_applica_a": (Database["public"]['Enums']["sale_type"])[],"p_percentuale": number,"p_profile_id": string,"p_valida_dal": string }; Returns: string
