@@ -86,6 +86,41 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.41.0',
+    data: '2026-10-19',
+    titolo: 'Le notifiche dentro l’app',
+    riassunto:
+      'Ogni email che l’app ti manda è salvata anche in un centro notifiche, con la campanella e il pallino rosso in alto a destra, anche quando l’email non parte.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'In alto a destra, accanto ad Alfire, c’è la campanella: con notifiche da leggere ha un pallino rosso col numero. Un tocco apre le Notifiche, la stessa pagina si apre anche dal tuo profilo.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Ci finiscono il riepilogo del venerdì, il backup del lunedì e i promemoria «Call dei 3 mesi» e «Call di rinnovo». Ognuna dice se l’email è partita o no, si apre com’era nell’email, ha il bottone che porta a quello di cui parla e si segna letta da sola.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Le notifiche si salvano anche senza il servizio di invio delle email: la copia nell’app c’è comunque. Un secondo giro la stessa sera non le raddoppia. Il backup nell’app non porta il file né dati: dice che è partito per email e rimanda a Impostazioni › Esporta.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Puoi segnarle tutte come lette o eliminarne una (si toglie solo da qui, l’email resta nella posta); dopo 12 mesi si cancellano da sole. Le leggi solo tu: nessun altro vede le tue notifiche, e il backup settimanale non le contiene.',
+      },
+      {
+        per: ['tutti'],
+        testo:
+          'In alto a destra c’è la campanella delle notifiche. Per ora le notifiche dell’app arrivano solo all’admin: se qualcosa ti riguarda lo troverai lì.',
+      },
+    ],
+  },
+  {
     versione: '1.40.0',
     data: '2026-10-16',
     titolo: 'L’analisi di un reel dice cosa fare',
