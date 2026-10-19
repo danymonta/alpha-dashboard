@@ -88,7 +88,7 @@ export default async function NotificaPage({ params }: { params: Promise<{ id: s
         sandbox="allow-popups allow-popups-to-escape-sandbox"
         srcDoc={documentoSicuro(n.corpo_html, publicEnv.appUrl)}
         referrerPolicy="no-referrer"
-        className="h-[34rem] w-full rounded-xl border border-border bg-white md:h-[42rem]"
+        className="h-[30rem] w-full rounded-xl border border-border bg-white md:h-[36rem]"
       />
 
       <EliminaNotifica id={n.id} titolo={n.titolo} variante="foglio" dopo="/notifiche" />

@@ -25,6 +25,11 @@ export const PROGETTO_FUNNEL = 'bbbbbbb1-0000-4000-8000-000000000004'
 /** A seed content of the calendar (supabase/seeds/25_marketing.sql): a posted reel with every section written. */
 export const CONTENUTO_SEED = 'ccccccc1-0000-4000-8000-000000000001'
 
+/** The seed notifications of the admin (supabase/seeds/55_notifiche.sql, 1.41.0): a recap not read yet, a reminder and the backup, both read. */
+export const NOTIFICA_RIEPILOGO_SEED = 'dd000001-0000-4000-8000-000000000001'
+export const NOTIFICA_PROMEMORIA_SEED = 'dd000001-0000-4000-8000-000000000002'
+export const NOTIFICA_BACKUP_SEED = 'dd000001-0000-4000-8000-000000000003'
+
 /** Every tab of one project, for the screenshots. */
 function schedeProgetto(id: string) {
   return [
@@ -45,6 +50,8 @@ const PROFILO = { nome: 'profilo', url: '/account' }
 const MIEI_TASK = { nome: 'miei-task', url: '/task' }
 // every role opens the changelog, from "Altro" (CLAUDE.md section 23)
 const CHANGELOG = { nome: 'changelog', url: '/changelog' }
+// the notification center (1.41.0): every role has the page, the admin's has the seed notifications
+const NOTIFICHE = { nome: 'notifiche', url: '/notifiche' }
 // the recap of the DMs of the last 24 hours (1.35.0): the admin and the setter,
 // on the recaps of supabase/seeds/40_insight.sql
 const INSIGHT = [
@@ -98,6 +105,8 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'impostazioni-instagram', url: '/settings/instagram' },
     { nome: 'impostazioni-fathom', url: '/settings/fathom' },
     CHANGELOG,
+    NOTIFICHE,
+    { nome: 'notifica', url: `/notifiche/${NOTIFICA_RIEPILOGO_SEED}` },
     PROGETTI,
     ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE),
     TEMPO,
@@ -119,6 +128,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     TEMPO,
     MIEI_TASK,
     CHANGELOG,
+    NOTIFICHE,
     PROFILO,
   ],
   closer: [
