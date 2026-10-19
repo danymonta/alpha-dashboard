@@ -320,18 +320,21 @@ as $$
       select jsonb_build_object(
         'presente', exists (select 1 from vault.secrets s where s.name = 'instagram_token'),
         'scade_il', c.token_scade_il,
+        'versione', c.token_aggiornato_il,
         'errore', c.ultimo_errore,
         'errore_il', c.ultimo_errore_il)
       from public.instagram_collegamento c where c.id),
     'messenger', (
       select jsonb_build_object(
         'presente', exists (select 1 from vault.secrets s where s.name = 'messenger_token'),
+        'versione', m.token_aggiornato_il,
         'errore', m.ultimo_errore,
         'errore_il', m.ultimo_errore_il)
       from public.messenger_collegamento m where m.id),
     'fathom', (
       select jsonb_build_object(
         'presente', exists (select 1 from vault.secrets s where s.name = 'fathom_chiave'),
+        'versione', f.chiave_aggiornata_il,
         'errore', f.ultimo_errore,
         'errore_il', f.ultimo_errore_il)
       from public.fathom_collegamento f where f.id)
@@ -339,7 +342,7 @@ as $$
 $$;
 
 comment on function public.notifiche_collegamenti_stato() is
-  'service_role only (the evening cron): whether each connection has its token or key, when the Instagram token ends and the last error with its time. Never a token or a key.';
+  'service_role only (the evening cron): whether each connection has its token or key, when the Instagram token ends, when each token or key was saved (its version: a refusal is announced once per version) and the last error with its time. Never a token or a key.';
 revoke all on function public.notifiche_collegamenti_stato() from public, anon, authenticated;
 grant execute on function public.notifiche_collegamenti_stato() to service_role;
 

@@ -19,17 +19,28 @@ const statoSchema = z.object({
     .object({
       presente: z.boolean(),
       scade_il: z.string().nullable(),
+      versione: z.string().nullable().optional(),
       errore: z.string().nullable(),
       errore_il: z.string().nullable(),
     })
     .nullable()
     .optional(),
   messenger: z
-    .object({ presente: z.boolean(), errore: z.string().nullable(), errore_il: z.string().nullable() })
+    .object({
+      presente: z.boolean(),
+      versione: z.string().nullable().optional(),
+      errore: z.string().nullable(),
+      errore_il: z.string().nullable(),
+    })
     .nullable()
     .optional(),
   fathom: z
-    .object({ presente: z.boolean(), errore: z.string().nullable(), errore_il: z.string().nullable() })
+    .object({
+      presente: z.boolean(),
+      versione: z.string().nullable().optional(),
+      errore: z.string().nullable(),
+      errore_il: z.string().nullable(),
+    })
     .nullable()
     .optional(),
 })
@@ -40,6 +51,15 @@ const FINESTRA_ERRORE_MS = 36 * 3_600_000
 
 const LINK = '/settings/chiavi'
 const DOVE = 'Impostazioni › Chiavi e collegamenti'
+
+/**
+ * The episode of a refusal: the token or key that was refused (the time it was
+ * saved), so a refusal that the night keeps writing is announced once, and a new
+ * token refused again is a new alert. Without a version, the day of the refusal.
+ */
+function episodio(versione: string | null | undefined, giorno: string): string {
+  return versione ? `v${Date.parse(versione) || versione}` : giorno
+}
 
 /** The error is the one of a rejected token or key, written in the last 36 hours. */
 function rifiutataDi(frase: string, errore: string | null, erroreIl: string | null, adesso: Date): string | null {
@@ -53,8 +73,8 @@ function rifiutataDi(frase: string, errore: string | null, erroreIl: string | nu
  * The alerts the connections call for (pure, tested): the Instagram token that
  * ends within 7 days, that is expired or that Meta refused; the Messenger Page
  * token and the Fathom key that were refused. The key says the event: the end
- * date of the token (once), or the day of the refusal (one a day while the run
- * keeps failing). All of them open Impostazioni › Chiavi e collegamenti.
+ * date of the token (once), or the refused token or key (once per token: a
+ * refusal the night keeps writing is not news again). All of them open Impostazioni › Chiavi e collegamenti.
  */
 export function avvisiCollegamenti(stato: StatoCollegamenti, adesso: Date): AvvisoDaRegistrare[] {
   const avvisi: AvvisoDaRegistrare[] = []
@@ -94,7 +114,7 @@ export function avvisiCollegamenti(stato: StatoCollegamenti, adesso: Date): Avvi
         anteprima: 'Succede quando cambia la password dell’account o Meta lo invalida: i DM, i post e l’Insight sono fermi.',
         dettagli: ['Meta › Alpha DM Reader › Instagram › Genera token, poi incollalo qui. La guida è nella scheda Instagram.'],
         link: LINK,
-        chiave: `instagram-token-rifiutato/${giornoRifiuto}`,
+        chiave: `instagram-token-rifiutato/${episodio(ig.versione, giornoRifiuto)}`,
       })
     }
   }
@@ -109,7 +129,7 @@ export function avvisiCollegamenti(stato: StatoCollegamenti, adesso: Date): Avvi
         anteprima: 'Le chat di Messenger non si leggono più nell’Insight finché non lo cambi.',
         dettagli: ['Meta › Messenger › Impostazioni dell’API: la guida è nella scheda Messenger.'],
         link: LINK,
-        chiave: `messenger-token-rifiutato/${giorno}`,
+        chiave: `messenger-token-rifiutato/${episodio(fb.versione, giorno)}`,
       })
     }
   }
@@ -124,7 +144,7 @@ export function avvisiCollegamenti(stato: StatoCollegamenti, adesso: Date): Avvi
         anteprima: 'Le registrazioni delle call non si leggono e le analisi di Claude sulle call restano ferme.',
         dettagli: ['Fathom › My Settings › API Access › Generate Api Key: la guida è nella scheda Fathom.'],
         link: LINK,
-        chiave: `fathom-chiave-rifiutata/${giorno}`,
+        chiave: `fathom-chiave-rifiutata/${episodio(fa.versione, giorno)}`,
       })
     }
   }
