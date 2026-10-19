@@ -90,6 +90,19 @@ async function contaPromemoria(profilo: Profilo): Promise<{ promemoria: Promemor
   }
 }
 
+/**
+ * The person's unread notifications (1.41.0, the bell): one head count under
+ * RLS, their own whatever the role; 0 when the query fails.
+ */
+async function contaNotifiche(): Promise<number> {
+  const supabase = await createClient()
+  const { count, error } = await supabase
+    .from('notifiche')
+    .select('id', { count: 'exact', head: true })
+    .is('letta_il', null)
+  return error ? 0 : (count ?? 0)
+}
+
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const profilo = await requireProfilo()
 
@@ -97,7 +110,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect('/nessuna-area')
   }
 
-  const { promemoria, letto } = await contaPromemoria(profilo)
+  const [{ promemoria, letto }, notificheNonLette] = await Promise.all([contaPromemoria(profilo), contaNotifiche()])
 
   return (
     <AppShell
@@ -109,6 +122,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       primoAccesso={!profilo.tutorial_visto}
       promemoria={promemoria}
       promemoriaLetti={letto}
+      notificheNonLette={notificheNonLette}
     >
       {children}
     </AppShell>

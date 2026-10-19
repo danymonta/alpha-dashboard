@@ -31,7 +31,16 @@ export function linkInterno(link: string | null | undefined): string | null {
   if (!link) return null
   if (link.length > LIMITI_NOTIFICA.link) return null
   if (!link.startsWith('/') || link.startsWith('//')) return null
-  // eslint-disable-next-line no-control-regex
   if (/[\\\s\u0000-\u001f\u007f]/.test(link)) return null
   return link
+}
+
+/** The words of the button that opens what the notification is about, from its internal link. */
+export function etichettaLink(link: string | null): string | null {
+  if (!link) return null
+  if (link === '/') return 'Apri la Panoramica'
+  if (link.startsWith('/clients/')) return 'Apri la scheda del cliente'
+  if (link.startsWith('/settings/export')) return 'Apri Esporta'
+  if (link.startsWith('/payments')) return 'Apri Incassi'
+  return 'Apri'
 }

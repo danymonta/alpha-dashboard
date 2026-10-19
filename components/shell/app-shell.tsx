@@ -6,6 +6,7 @@ import { TimerProvider } from '@/components/pm/tempo/timer-provider'
 import { TutorialProvider } from '@/components/tutorial/tutorial'
 import { BottomBar } from '@/components/shell/bottom-bar'
 import { EsitiDaRegistrareProvider } from '@/components/shell/esiti-da-registrare'
+import { NotificheProvider } from '@/components/shell/notifiche-provider'
 import { Sidebar } from '@/components/shell/sidebar'
 import { TopBar } from '@/components/shell/top-bar'
 import { TransizionePagina } from '@/components/shell/transizione-pagina'
@@ -25,6 +26,8 @@ type Props = {
   promemoria: Promemoria
   /** When the layout counted them: a new value means a fresh server count. */
   promemoriaLetti: number
+  /** The person's unread notifications (the bell, 1.41.0): counted by the layout, then by the browser. */
+  notificheNonLette: number
   children: ReactNode
 }
 
@@ -42,6 +45,7 @@ export function AppShell({
   primoAccesso,
   promemoria,
   promemoriaLetti,
+  notificheNonLette,
   children,
 }: Props) {
   return (
@@ -50,6 +54,7 @@ export function AppShell({
       <AlfireProvider configurata={alfireConfigurata} ruolo={ruolo} nome={nome}>
       <TutorialProvider ruolo={ruolo} primoAccesso={primoAccesso}>
       <EsitiDaRegistrareProvider iniziale={promemoria} versione={promemoriaLetti} profiloId={profiloId} ruolo={ruolo}>
+      <NotificheProvider iniziale={notificheNonLette} versione={promemoriaLetti}>
       <div className="min-h-dvh md:pl-60">
         <Sidebar ruolo={ruolo} nome={nome} foto={foto} />
         <TopBar ruolo={ruolo} nome={nome} foto={foto} />
@@ -60,6 +65,7 @@ export function AppShell({
         {/* Brand moment: once per session, removed from the DOM when done */}
         <IntroIngresso />
       </div>
+      </NotificheProvider>
       </EsitiDaRegistrareProvider>
       </TutorialProvider>
       </AlfireProvider>

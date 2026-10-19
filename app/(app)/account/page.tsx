@@ -7,6 +7,7 @@ import { SchedeAccount } from '@/app/(app)/account/schede'
 import { esci } from '@/app/auth/actions'
 import { AppCollegate, ScheletroAppCollegate } from '@/components/account/app-collegate'
 import { ScheletroCollegaClaude, SezioneCollegaClaude } from '@/components/account/sezione-collega-claude'
+import { LinkNotifiche } from '@/components/account/link-notifiche'
 import { VoceNovita } from '@/components/changelog/voce-novita'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { RivediTutorial } from '@/components/tutorial/rivedi-tutorial'
@@ -60,6 +61,8 @@ export default async function AccountPage() {
             <Suspense fallback={<ScheletroAppCollegate />}>
               <AppCollegate />
             </Suspense>
+            {/* the notification center (1.41.0): the emails the app sends, saved here too */}
+            <LinkNotifiche />
             {/* the version in use and what changes in this person's work (CLAUDE.md section 23) */}
             <VoceNovita testId="voce-novita-profilo" descrizione="cosa cambia nel tuo lavoro a ogni aggiornamento." />
             <div className="flex flex-wrap gap-2">

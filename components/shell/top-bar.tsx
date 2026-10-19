@@ -8,15 +8,17 @@ import { TimerInCima } from '@/components/pm/tempo/timer-attivo'
 import { useTimer } from '@/components/pm/tempo/timer-provider'
 import { TestaTutorial } from '@/components/tutorial/testa-tutorial'
 import { FotoProfilo } from '@/components/profilo/foto-profilo'
+import { Campanella } from '@/components/shell/campanella'
 import { LinkNav } from '@/components/shell/link-nav'
 import type { AppRole } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
 /**
- * Top of every page. Mobile: the logo, the running timer, Alfire and the
+ * Top of every page. Mobile: the logo, the running timer, the notification
+ * bell (1.41.0), Alfire and the
  * profile (which opens the user settings, where "Esci" and the admin's
  * "Testa il tutorial" live). Desktop: the sidebar has identity and profile,
- * so the tutorial preview, the timer and Alfire, top right. Its real height
+ * so the tutorial preview, the timer, the bell and Alfire, top right. Its real height
  * (it grows with the timer strip) is published as --altezza-topbar, so sticky
  * bars below it (project tabs) sit right under it.
  */
@@ -48,6 +50,7 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <TimerInCima compatto />
+          <Campanella />
           <BottoneAlfire />
           <LinkNav
             href="/account"
@@ -62,6 +65,7 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
       <div className="hidden h-14 items-center justify-end gap-1 px-6 md:flex">
         {ruolo === 'admin' ? <TestaTutorial conEtichetta /> : null}
         <TimerInCima />
+        <Campanella />
         <BottoneAlfire conEtichetta />
       </div>
     </header>
