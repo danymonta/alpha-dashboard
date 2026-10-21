@@ -692,6 +692,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_instagram_post"
       referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "instagram_contenuti_dm_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_pubblicati"
+      referencedColumns: ["shortcode"]
     }
                   ]
                 },"instagram_contenuti_dm_giorni": {
@@ -741,6 +747,12 @@ isOneToOne: false
       columns: ["media_id"]
 isOneToOne: false
       referencedRelation: "v_instagram_post"
+      referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "instagram_contenuti_misure_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: false
+      referencedRelation: "v_pubblicati"
       referencedColumns: ["media_id"]
     }
                   ]
@@ -811,6 +823,12 @@ isOneToOne: true
 isOneToOne: true
       referencedRelation: "v_instagram_post"
       referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "instagram_letture_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: true
+      referencedRelation: "v_pubblicati"
+      referencedColumns: ["media_id"]
     }
                   ]
                 },"invites": {
@@ -873,6 +891,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_instagram_post"
       referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "lead_contenuto_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_pubblicati"
+      referencedColumns: ["shortcode"]
     }
                   ]
                 },"leads": {
@@ -930,6 +954,12 @@ isOneToOne: false
       referencedRelation: "v_instagram_post"
       referencedColumns: ["contenuto_id"]
     },{
+      foreignKeyName: "marketing_abbinamenti_contenuto_id_fkey"
+      columns: ["contenuto_id"]
+isOneToOne: false
+      referencedRelation: "v_pubblicati"
+      referencedColumns: ["contenuto_id"]
+    },{
       foreignKeyName: "marketing_abbinamenti_shortcode_fkey"
       columns: ["shortcode"]
 isOneToOne: false
@@ -952,6 +982,12 @@ isOneToOne: false
       columns: ["shortcode"]
 isOneToOne: false
       referencedRelation: "v_instagram_post"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "marketing_abbinamenti_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_pubblicati"
       referencedColumns: ["shortcode"]
     }
                   ]
@@ -983,6 +1019,12 @@ isOneToOne: false
       columns: ["contenuto_id"]
 isOneToOne: false
       referencedRelation: "v_instagram_post"
+      referencedColumns: ["contenuto_id"]
+    },{
+      foreignKeyName: "marketing_abbinamenti_rifiutati_contenuto_id_fkey"
+      columns: ["contenuto_id"]
+isOneToOne: false
+      referencedRelation: "v_pubblicati"
       referencedColumns: ["contenuto_id"]
     }
                   ]
@@ -1021,17 +1063,23 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_instagram_post"
       referencedColumns: ["media_id"]
+    },{
+      foreignKeyName: "marketing_analisi_media_id_fkey"
+      columns: ["media_id"]
+isOneToOne: false
+      referencedRelation: "v_pubblicati"
+      referencedColumns: ["media_id"]
     }
                   ]
                 },"marketing_contenuti": {
                   Row: {
-                    "audio": string | null,"bozza": string | null,"commenti": string | null,"created_at": string,"created_by": string | null,"da_analisi": string | null,"da_idea": number | null,"da_spunti": string | null,"da_spunti_idea": number | null,"finale": string | null,"formato": string | null,"formato_campo": string,"id": string,"inspiration": string | null,"instagram_shortcode": string | null,"messaggio": string | null,"nome": string,"notion_page_id": string | null,"post_date": string | null,"reel_type": string | null,"reel_type_campo": string,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"],"updated_at": string,"url": string | null,"view_count": number | null
+                    "audio": string | null,"bozza": string | null,"commenti": string | null,"created_at": string,"created_by": string | null,"da_analisi": string | null,"da_idea": number | null,"da_spunti": string | null,"da_spunti_idea": number | null,"finale": string | null,"formato": string | null,"formato_campo": string,"id": string,"inspiration": string | null,"instagram_shortcode": string | null,"messaggio": string | null,"nome": string,"notion_page_id": string | null,"post_date": string | null,"reel_type": string | null,"reel_type_campo": string,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"],"updated_at": string,"url": string | null,"view_count": number | null,"view_count_da_instagram": boolean
                   }
                   Insert: {
-                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: string | null,"formato_campo"?: string,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome": string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: string | null,"reel_type_campo"?: string,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
+                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: string | null,"formato_campo"?: string,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome": string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: string | null,"reel_type_campo"?: string,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null,"view_count_da_instagram"?: boolean
                   }
                   Update: {
-                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: string | null,"formato_campo"?: string,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome"?: string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: string | null,"reel_type_campo"?: string,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
+                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: string | null,"formato_campo"?: string,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome"?: string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: string | null,"reel_type_campo"?: string,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null,"view_count_da_instagram"?: boolean
                   }
                   Relationships: [
                     {
@@ -1051,6 +1099,12 @@ isOneToOne: false
       columns: ["da_analisi"]
 isOneToOne: false
       referencedRelation: "v_analisi_reel"
+      referencedColumns: ["analisi_id"]
+    },{
+      foreignKeyName: "marketing_contenuti_da_analisi_fkey"
+      columns: ["da_analisi"]
+isOneToOne: false
+      referencedRelation: "v_pubblicati"
       referencedColumns: ["analisi_id"]
     },{
       foreignKeyName: "marketing_contenuti_da_spunti_fkey"
@@ -1138,6 +1192,12 @@ isOneToOne: true
       columns: ["shortcode"]
 isOneToOne: true
       referencedRelation: "v_instagram_post"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "marketing_post_esclusi_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: true
+      referencedRelation: "v_pubblicati"
       referencedColumns: ["shortcode"]
     }
                   ]
@@ -2010,6 +2070,12 @@ isOneToOne: false
       referencedRelation: "v_instagram_post"
       referencedColumns: ["contenuto_id"]
     },{
+      foreignKeyName: "marketing_abbinamenti_contenuto_id_fkey"
+      columns: ["contenuto_id"]
+isOneToOne: false
+      referencedRelation: "v_pubblicati"
+      referencedColumns: ["contenuto_id"]
+    },{
       foreignKeyName: "marketing_abbinamenti_shortcode_fkey"
       columns: ["shortcode"]
 isOneToOne: false
@@ -2032,6 +2098,12 @@ isOneToOne: false
       columns: ["shortcode"]
 isOneToOne: false
       referencedRelation: "v_instagram_post"
+      referencedColumns: ["shortcode"]
+    },{
+      foreignKeyName: "marketing_abbinamenti_shortcode_fkey"
+      columns: ["shortcode"]
+isOneToOne: false
+      referencedRelation: "v_pubblicati"
       referencedColumns: ["shortcode"]
     }
                   ]
@@ -2158,6 +2230,13 @@ isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
     }
+                  ]
+                },"v_pubblicati": {
+                  Row: {
+                    "analisi_errore": string | null,"analisi_eta_confronto": number | null,"analisi_eta_ore": number | null,"analisi_finita_il": string | null,"analisi_id": string | null,"analisi_motivo": string | null,"analisi_stato": Database["public"]['Enums']["analisi_stato"] | null,"analisi_verdetto": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"classificazione_formato": string | null,"classificazione_reel_type": string | null,"comments": number | null,"comments_count": number | null,"confronto": string | null,"contenuto_id": string | null,"copertina_url": string | null,"didascalia": string | null,"didascalia_inizio": string | null,"dm": number | null,"dm_14g": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_confronto": number | null,"eta_ore": number | null,"fascia_lead": string | null,"fascia_pubblico": string | null,"fonte_visione": string | null,"formato": string | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_in_target": number | null,"lettura_errore": string | null,"lettura_richiesta": string | null,"lettura_stato": string | null,"lettura_video": string | null,"like_count": number | null,"likes": number | null,"media_id": string | null,"media_type": string | null,"metriche_il": string | null,"metriche_stato": string | null,"nome": string | null,"numeri_parziali": boolean | null,"permalink": string | null,"pubblicato_il": string | null,"punteggio_fascia": string | null,"punteggio_tipo": string | null,"punteggio_totale": number | null,"quota_vista": number | null,"reach": number | null,"reel": boolean | null,"reel_type": string | null,"salvataggi_rapporto": number | null,"saved": number | null,"shares": number | null,"shortcode": string | null,"skip_rate": number | null,"status": Database["public"]['Enums']["contenuto_status"] | null,"tasso_condivisioni": number | null,"tasso_salvataggi": number | null,"trascrizione_esito": string | null,"verdetto_oggi": string | null,"video_disponibile": boolean | null,"view_count": number | null,"view_count_da_instagram": boolean | null,"views": number | null,"views_3g": number | null,"views_7g": number | null,"views_all_eta": number | null,"views_confronto": number | null,"views_rapporto": number | null,"visione_esito": string | null,"visione_media_s": number | null,"visione_su_durata": number | null
+                  }
+                  Relationships: [
+                    
                   ]
                 },"v_rate": {
                   Row: {
