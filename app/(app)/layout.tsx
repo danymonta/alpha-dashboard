@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 
@@ -8,6 +9,7 @@ import { requireProfilo, type Profilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { STATI_DA_COLLEGARE } from '@/lib/marketing/parole-post'
 import { NESSUN_PROMEMORIA, type Promemoria } from '@/lib/nav'
+import { COOKIE_SIDEBAR, statoSidebar } from '@/lib/shell/sidebar-stato'
 import { contaCommentiMancanti } from '@/lib/setting/commenti-mancanti'
 import { createClient } from '@/lib/supabase/server'
 
@@ -112,6 +114,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   const [{ promemoria, letto }, notificheNonLette] = await Promise.all([contaPromemoria(profilo), contaNotifiche()])
 
+  // the sidebar's width, per device: read here so the first paint is already right
+  const sidebarIniziale = statoSidebar((await cookies()).get(COOKIE_SIDEBAR)?.value)
+
   return (
     <AppShell
       profiloId={profilo.id}
@@ -123,6 +128,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       promemoria={promemoria}
       promemoriaLetti={letto}
       notificheNonLette={notificheNonLette}
+      sidebarIniziale={sidebarIniziale}
     >
       {children}
     </AppShell>
