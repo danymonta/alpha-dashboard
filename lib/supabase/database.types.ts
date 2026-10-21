@@ -298,6 +298,43 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"clienti_sospensioni": {
+                  Row: {
+                    "client_id": string,"created_at": string,"created_by": string | null,"motivo": string | null,"sospeso_il": string,"updated_at": string
+                  }
+                  Insert: {
+                    "client_id": string,"created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"sospeso_il": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "client_id"?: string,"created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"sospeso_il"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "clienti_sospensioni_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_sospensioni_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_sospensioni_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_sospensioni_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"clients": {
                   Row: {
                     "closer_id": string | null,"cognome": string | null,"created_at": string,"created_by": string | null,"email": string | null,"fonte": Database["public"]['Enums']["lead_source"] | null,"id": string,"instagram_handle": string | null,"lead_id": string | null,"nome": string,"note": string | null,"setter_id": string | null,"telefono": string | null,"updated_at": string
@@ -1793,6 +1830,43 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"vendite_contratti": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"sale_id": string,"updated_at": string,"url": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"sale_id": string,"updated_at"?: string,"url": string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"sale_id"?: string,"updated_at"?: string,"url"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "vendite_contratti_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "vendite_contratti_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: true
+      referencedRelation: "sales"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "vendite_contratti_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: true
+      referencedRelation: "v_provvigioni_maturate"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "vendite_contratti_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: true
+      referencedRelation: "v_vendite"
+      referencedColumns: ["sale_id"]
+    }
+                  ]
                 }
           }
           Views: {
@@ -2288,6 +2362,11 @@ isOneToOne: false
                            },
 "chiudi_regola_provvigione":
 { Args: { "p_rule_id": string,"p_valida_al": string }; Returns: undefined
+                           },
+"clienti_elenco":
+{ Args: { "p_stati"?: (Database["public"]['Enums']["client_status"])[] }; Returns: {
+              "cartella_url": string,"chiuso_il": string,"client_id": string,"cognome": string,"contratto_url": string,"da_incassare": number,"data_fine": string,"data_inizio": string,"in_ritardo": number,"incassato": number,"ltv": number,"mese": number,"mesi_totali": number,"metodi": (string)[],"nome": string,"numero_percorso": number,"prodotto": string,"prossima_scadenza": string,"prossimo_importo": number,"rate": Json,"rate_incassate": number,"rate_totali": number,"sale_id": string,"settimana": number,"settimane_totali": number,"sospeso_il": string,"stato": Database["public"]['Enums']["client_status"],"tipo": Database["public"]['Enums']["sale_type"],"valore_contratto": number
+            }[]
                            },
 "collega_registrazione":
 { Args: { "p_call_id": string,"p_scelta": Json }; Returns: Json
@@ -3019,7 +3098,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "analisi_stato": "in_coda"|"in_corso"|"pronta"|"fallita","app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"marketing"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","contenuto_format": "text_opinion"|"check_caption"|"split"|"reaction"|"b_roll"|"green_screen"|"raw_talking_head"|"storytelling"|"transformation"|"show_and_tell","contenuto_reel_type": "attraction"|"education"|"converting"|"radio"|"workshop","contenuto_status": "not_started"|"to_be_recorded"|"to_be_edited"|"to_be_posted"|"posted"|"canceled","contenuto_tipo": "reel"|"carousel","expense_category": "team"|"software"|"ads"|"formazione"|"altro","insight_canale": "instagram"|"messenger","insight_passo": "lettura"|"analisi"|"unione","insight_stato_esecuzione": "in_coda"|"in_corso"|"pronta"|"fallita","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","proposta_stato": "da_confermare"|"confermata"|"scartata","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
+            "analisi_stato": "in_coda"|"in_corso"|"pronta"|"fallita","app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"marketing"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"sospeso"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","contenuto_format": "text_opinion"|"check_caption"|"split"|"reaction"|"b_roll"|"green_screen"|"raw_talking_head"|"storytelling"|"transformation"|"show_and_tell","contenuto_reel_type": "attraction"|"education"|"converting"|"radio"|"workshop","contenuto_status": "not_started"|"to_be_recorded"|"to_be_edited"|"to_be_posted"|"posted"|"canceled","contenuto_tipo": "reel"|"carousel","expense_category": "team"|"software"|"ads"|"formazione"|"altro","insight_canale": "instagram"|"messenger","insight_passo": "lettura"|"analisi"|"unione","insight_stato_esecuzione": "in_coda"|"in_corso"|"pronta"|"fallita","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","proposta_stato": "da_confermare"|"confermata"|"scartata","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -3135,8 +3214,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "analisi_stato": ["in_coda", "in_corso", "pronta", "fallita"],"app_role": ["admin", "setter", "closer", "coach", "editor", "marketing", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"contenuto_format": ["text_opinion", "check_caption", "split", "reaction", "b_roll", "green_screen", "raw_talking_head", "storytelling", "transformation", "show_and_tell"],"contenuto_reel_type": ["attraction", "education", "converting", "radio", "workshop"],"contenuto_status": ["not_started", "to_be_recorded", "to_be_edited", "to_be_posted", "posted", "canceled"],"contenuto_tipo": ["reel", "carousel"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"insight_canale": ["instagram", "messenger"],"insight_passo": ["lettura", "analisi", "unione"],"insight_stato_esecuzione": ["in_coda", "in_corso", "pronta", "fallita"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"proposta_stato": ["da_confermare", "confermata", "scartata"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
+            "analisi_stato": ["in_coda", "in_corso", "pronta", "fallita"],"app_role": ["admin", "setter", "closer", "coach", "editor", "marketing", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "sospeso", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"contenuto_format": ["text_opinion", "check_caption", "split", "reaction", "b_roll", "green_screen", "raw_talking_head", "storytelling", "transformation", "show_and_tell"],"contenuto_reel_type": ["attraction", "education", "converting", "radio", "workshop"],"contenuto_status": ["not_started", "to_be_recorded", "to_be_edited", "to_be_posted", "posted", "canceled"],"contenuto_tipo": ["reel", "carousel"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"insight_canale": ["instagram", "messenger"],"insight_passo": ["lettura", "analisi", "unione"],"insight_stato_esecuzione": ["in_coda", "in_corso", "pronta", "fallita"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"proposta_stato": ["da_confermare", "confermata", "scartata"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
           }
         }
 } as const
-
