@@ -5,12 +5,14 @@ import { RataAzioni } from '@/app/(app)/sales/[id]/rata-azioni'
 import { LinkBottone } from '@/components/link-bottone'
 import { AggiungiRata } from '@/app/(app)/sales/[id]/aggiungi-rata'
 import { ModificaVendita } from '@/app/(app)/sales/[id]/modifica-vendita'
+import { ContrattoVendita } from '@/components/cliente/contratto-vendita'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoRata } from '@/components/pagamento/stato-rata'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma, stessoGiornoTraMesi } from '@/lib/date'
 import { formatData, formatEuro, formatPercentuale } from '@/lib/format'
+import { configPickerRichiesta } from '@/lib/google/picker-server'
 import { createClient } from '@/lib/supabase/server'
 import { ETICHETTA_TIPO_VENDITA } from '@/lib/validation/vendita'
 
@@ -45,14 +47,19 @@ export default async function DettaglioVenditaPage({
 
   const admin = profilo.ruolo === 'admin'
   // the edit sheet's lists: admin only, former collaborators stay where they already are
-  const [catalogo, persone, provvigione] = admin
+  const [catalogo, persone, provvigione, contratto, picker] = admin
     ? await Promise.all([
         supabase.from('products').select('id, nome, attivo').order('nome'),
         supabase.from('profiles').select('id, nome, ruolo, attivo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
         // the setter's share of this sale, summed in SQL (admin only)
         supabase.rpc('provvigioni_per_vendita', { p_sale_id: id }),
+        // the link to the signed contract (21/10/2026): admin only, never read for the closer
+        supabase.from('vendite_contratti').select('url').eq('sale_id', id).maybeSingle(),
+        // "Scegli da Drive": the Google Picker's public values; none = the typed link only
+        configPickerRichiesta(),
       ])
-    : [null, null, null]
+    : [null, null, null, null, null]
+  if (contratto?.error) throw new Error('Impossibile caricare il contratto')
 
   const tornaIndietro = admin ? '/sales' : '/my-sales'
   const indietro = {
@@ -199,6 +206,11 @@ export default async function DettaglioVenditaPage({
           </div>
         ) : null}
       </dl>
+
+      {admin ? (
+        // one contract per sale: every path and every renewal has its own; only the admin sees it
+        <ContrattoVendita saleId={vendita.id} cliente={nomeCliente || 'questo cliente'} url={contratto?.data?.url ?? null} picker={picker} />
+      ) : null}
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2 px-1">

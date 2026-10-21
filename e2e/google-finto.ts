@@ -138,7 +138,7 @@ export async function googleFinto(page: Page, compito: CompitoFinto) {
           },
         },
         picker: {
-          ViewId: { FOLDERS: 'folders' },
+          ViewId: { FOLDERS: 'folders', DOCS: 'docs' },
           DocsView,
           PickerBuilder,
           Action: { PICKED: 'picked', CANCEL: 'cancel', ERROR: 'error' },

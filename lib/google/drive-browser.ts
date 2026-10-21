@@ -5,6 +5,7 @@ import {
   SCRIPT_GOOGLE,
   erroreAccessoGoogle,
   type ConfigPicker,
+  type ModoPicker,
 } from '@/lib/google/picker'
 
 /**
@@ -50,7 +51,7 @@ type Google = {
     }
   }
   picker?: {
-    ViewId: { FOLDERS: string }
+    ViewId: { FOLDERS: string; DOCS: string }
     DocsView: new (vista?: string) => Vista
     PickerBuilder: new () => Costruttore
     Action: { PICKED: string; CANCEL: string; ERROR?: string }
@@ -172,25 +173,37 @@ export type SceltaPicker = { azione: 'scelta'; documento: { id?: unknown; mimeTy
  * me" are not combined (Google's reference used to say the second is then
  * ignored): the person's Drive with its folders, and the folders shared with
  * him, as a list.
+ *
+ * `modo: 'file'` (21/10/2026, the contract of a sale): the same two tabs on the
+ * person's files and the ones shared with him, folders only to move through
+ * (never picked); same scope, same token, same errors.
  */
-export function apriPicker(config: ConfigPicker, token: string): Promise<SceltaPicker> {
+export function apriPicker(config: ConfigPicker, token: string, modo: ModoPicker = 'cartella'): Promise<SceltaPicker> {
   return new Promise((risolvi, rifiuta) => {
     const gp = finestra().google?.picker
     if (!gp) return rifiuta(new ErroreDrive(ERRORI_DRIVE.caricamento))
-    const mioDrive = new gp.DocsView(gp.ViewId.FOLDERS)
-      .setIncludeFolders(true)
-      .setSelectFolderEnabled(true)
-      .setMimeTypes(MIME_CARTELLA)
-    const condivise = new gp.DocsView(gp.ViewId.FOLDERS)
-      .setSelectFolderEnabled(true)
-      .setMimeTypes(MIME_CARTELLA)
-      .setOwnedByMe(false)
+    const [mioDrive, condivise] =
+      modo === 'file'
+        ? [
+            new gp.DocsView(gp.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false),
+            new gp.DocsView(gp.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false).setOwnedByMe(false),
+          ]
+        : [
+            new gp.DocsView(gp.ViewId.FOLDERS)
+              .setIncludeFolders(true)
+              .setSelectFolderEnabled(true)
+              .setMimeTypes(MIME_CARTELLA),
+            new gp.DocsView(gp.ViewId.FOLDERS)
+              .setSelectFolderEnabled(true)
+              .setMimeTypes(MIME_CARTELLA)
+              .setOwnedByMe(false),
+          ]
     const picker = new gp.PickerBuilder()
       .setAppId(config.appId)
       .setOAuthToken(token)
       .setDeveloperKey(config.apiKey)
       .setLocale('it')
-      .setTitle('Scegli la cartella del cliente')
+      .setTitle(modo === 'file' ? 'Scegli il contratto' : 'Scegli la cartella del cliente')
       .addView(mioDrive)
       .addView(condivise)
       .setCallback((dati) => {

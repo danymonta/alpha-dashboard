@@ -91,8 +91,32 @@ export function cartellaScelta(documento: { id?: unknown; mimeType?: unknown } |
   return url ? { ok: true, url } : { ok: false, errore: ERRORI_DRIVE.non_valida }
 }
 
+/**
+ * A file's URL rebuilt from its id (21/10/2026, the contract of a sale): never
+ * the URL the picker hands back.
+ */
+export function urlFileDrive(id: unknown): string | null {
+  return typeof id === 'string' && ID_DRIVE.test(id) ? `https://drive.google.com/file/d/${id}/view` : null
+}
+
+/** What the Picker gave back in "file" mode, checked: a file (not a folder) with a valid id, or the words for the person. */
+export function fileScelto(documento: { id?: unknown; mimeType?: unknown } | null | undefined):
+  | { ok: true; url: string }
+  | { ok: false; errore: string } {
+  if (!documento) return { ok: false, errore: ERRORI_DRIVE.nessun_file }
+  if (documento.mimeType === MIME_CARTELLA) return { ok: false, errore: ERRORI_DRIVE.non_file }
+  const url = urlFileDrive(documento.id)
+  return url ? { ok: true, url } : { ok: false, errore: ERRORI_DRIVE.file_non_valido }
+}
+
+/** What the Picker picks: a folder (the client's) or a file (the contract of a sale). */
+export type ModoPicker = 'cartella' | 'file'
+
 /** Every way the flow can stop, in Italian. */
 export const ERRORI_DRIVE = {
+  nessun_file: 'Nessun file scelto: scegline uno o incolla il link.',
+  non_file: 'Hai scelto una cartella, non un file: scegli il contratto.',
+  file_non_valido: 'Il file scelto non ha un indirizzo valido: riprova o incolla il link.',
   caricamento: 'Non riesco a caricare Google Drive: controlla la connessione e riprova.',
   popup_bloccato:
     'Il browser ha bloccato la finestra di Google: riprova, e se succede di nuovo consenti le finestre popup per questo sito.',

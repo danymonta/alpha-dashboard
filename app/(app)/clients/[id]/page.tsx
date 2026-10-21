@@ -44,7 +44,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
     supabase
       .from('sales')
       .select(
-        'id, tipo, data_vendita, data_inizio, data_fine, created_at, valore_contratto, prodotto_personalizzato, prodotto:products(nome, durata_mesi), rate:payments(id, numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato, metodo)',
+        'id, tipo, data_vendita, data_inizio, data_fine, created_at, valore_contratto, prodotto_personalizzato, prodotto:products(nome, durata_mesi), contratto:vendite_contratti(url), rate:payments(id, numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato, metodo)',
       )
       .eq('client_id', id)
       .order('numero_rata', { referencedTable: 'payments' })
@@ -101,6 +101,8 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       data_fine: v.data_fine,
       created_at: v.created_at,
       valore_contratto: v.valore_contratto,
+      // the signed contract's link (21/10/2026): this page is the admin's only
+      contratto_url: v.contratto?.url ?? null,
       rate: v.rate,
       incassato: i?.incassato ?? null,
       da_incassare: i?.da_incassare ?? null,
@@ -276,7 +278,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
           Storico percorsi ({percorsi.length})
         </h2>
         {percorsi.length > 0 ? (
-          <StoricoPercorsi percorsi={percorsi} oggi={oggi} />
+          <StoricoPercorsi percorsi={percorsi} oggi={oggi} cliente={nome} picker={picker} />
         ) : (
           // the action is the header's "Registra la prima vendita": one link, not two
           <StatoVuoto
