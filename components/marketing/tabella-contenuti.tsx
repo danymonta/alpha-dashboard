@@ -3,7 +3,7 @@
 import type { MouseEvent } from 'react'
 
 import { classeNome } from '@/components/marketing/badge-status'
-import { CellaContenuto, EditorCella } from '@/components/marketing/cella-contenuto'
+import { CellaContenuto, EditorCella, ViewCount } from '@/components/marketing/cella-contenuto'
 import { usePannello } from '@/components/marketing/contesto-pannello'
 import { LinkContenuto } from '@/components/marketing/link-contenuto'
 import { MenuStatus } from '@/components/marketing/menu-status'
@@ -63,7 +63,7 @@ export function CardContenuto({ riga }: { riga: RigaContenuto }) {
         />
         {riga.view_count !== null ? (
           <p className="shrink-0 text-right">
-            <span className="num block text-sm font-medium">{formatNumero(riga.view_count)}</span>
+            <ViewCount riga={riga} className="text-sm font-medium" />
             <span className="block text-xs text-muted-foreground">{INTESTAZIONE_PIANO.view_count}</span>
           </p>
         ) : null}

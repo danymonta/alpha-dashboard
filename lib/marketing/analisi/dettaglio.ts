@@ -9,10 +9,11 @@ import type { createClient } from '@/lib/supabase/server'
 type Db = Awaited<ReturnType<typeof createClient>>
 
 /**
- * The detail of a reel for its panel (1.36.0, CLAUDE.md section 30), read with
+ * The detail of a post for its panel (1.36.0, CLAUDE.md section 30; since 25/10/2026 of every kind of post, from
+ * v_pubblicati: a carousel or a photo has its numbers and its place in the plan, and no analysis), read with
  * the session of whoever asks (RLS: the Marketing area), never the service
  * role: the same reader for the page with ?reel and for the panel's GET. A
- * read that fails throws; a reel that is not there (or that RLS hides) is null.
+ * read that fails throws; a post that is not there (or that RLS hides) is null.
  */
 
 export type AnalisiLetta = {
@@ -70,10 +71,6 @@ export type DettaglioReel = {
   contenuto: ContenutoCalendario | null
   /** the ideas of the ready analysis already in the calendar: index → the content */
   idee: { indice: number; contenuto_id: string; nome: string }[]
-  /** Claude's proposal for the content, when still valid */
-  propostaClaude: { contenuto: ContenutoCalendario; sicurezza: string; perche: string } | null
-  /** the run's proposals for the post (v_marketing_proposte) */
-  proposte: { contenuto_id: string; nome: string; motivi: string[]; punteggio: number }[]
 }
 
 const COLONNE_ANALISI = 'id, stato, motivo, verdetto, eta_ore, eta_confronto, finita_il, errore, contenuto, fonti, numeri'
@@ -84,12 +81,12 @@ function comeAnalisi(r: Record<string, unknown> | null): AnalisiLetta | null {
 
 export async function leggiDettaglioReel(db: Db, mediaId: string): Promise<DettaglioReel | null> {
   if (!/^[0-9]{1,30}$/.test(mediaId)) return null
-  const { data: riga, error } = await db.from('v_analisi_reel').select(COLONNE_REEL).eq('media_id', mediaId).maybeSingle()
+  const { data: riga, error } = await db.from('v_pubblicati').select(COLONNE_REEL).eq('media_id', mediaId).maybeSingle()
   if (error) throw new Error(`reel non letto (${error.code ?? 'errore'})`)
   if (!riga) return null
   const reel = riga as unknown as RigaReel
 
-  const [pronta, ultime, lettura, contenuto, proposte, scorePronta] = await Promise.all([
+  const [pronta, ultime, lettura, contenuto, scorePronta] = await Promise.all([
     db.from('marketing_analisi').select(COLONNE_ANALISI).eq('media_id', mediaId).eq('stato', 'pronta').order('finita_il', { ascending: false }).limit(1).maybeSingle(),
     db.from('marketing_analisi').select(COLONNE_ANALISI).eq('media_id', mediaId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     db
@@ -100,9 +97,6 @@ export async function leggiDettaglioReel(db: Db, mediaId: string): Promise<Detta
     reel.contenuto_id
       ? db.from('marketing_contenuti').select('id, nome, reel_type, formato, stato').eq('id', reel.contenuto_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    reel.shortcode
-      ? db.from('v_marketing_proposte').select('contenuto_id, nome, motivi, punteggio').eq('shortcode', reel.shortcode).order('punteggio', { ascending: false }).limit(3)
-      : Promise.resolve({ data: [], error: null }),
     db
       .from('marketing_analisi')
       .select('id, finita_il, eta_ore, punteggio, versione_guida')
@@ -113,7 +107,7 @@ export async function leggiDettaglioReel(db: Db, mediaId: string): Promise<Detta
       .limit(1)
       .maybeSingle(),
   ])
-  for (const r of [pronta, ultime, lettura, contenuto, proposte, scorePronta]) if (r.error) throw new Error(`dettaglio non letto (${r.error.code ?? 'errore'})`)
+  for (const r of [pronta, ultime, lettura, contenuto, scorePronta]) if (r.error) throw new Error(`dettaglio non letto (${r.error.code ?? 'errore'})`)
 
   const analisi = comeAnalisi(pronta.data as Record<string, unknown> | null)
   const ultima = ultime.data && ultime.data.id !== analisi?.id ? comeAnalisi(ultime.data as Record<string, unknown>) : null
@@ -150,25 +144,6 @@ export async function leggiDettaglioReel(db: Db, mediaId: string): Promise<Detta
     }
   }
 
-  // Claude's proposal counts only while it is still valid (D28): a content without URL, not Canceled,
-  // the pair not refused, the post neither linked, excluded nor gone
-  let propostaClaude: DettaglioReel['propostaClaude'] = null
-  const collegamento = analisi?.contenuto?.collegamento
-  if (collegamento && !reel.contenuto_id && reel.stato_collegamento !== 'escluso' && !reel.eliminato && reel.shortcode) {
-    const [candidato, rifiuto] = await Promise.all([
-      db.from('marketing_contenuti').select('id, nome, reel_type, formato, stato, url').eq('id', collegamento.contenuto_id).maybeSingle(),
-      db.from('marketing_abbinamenti_rifiutati').select('contenuto_id').eq('shortcode', reel.shortcode).eq('contenuto_id', collegamento.contenuto_id).maybeSingle(),
-    ])
-    const c = candidato.data
-    if (!candidato.error && !rifiuto.error && c && c.url === null && c.stato !== 'canceled' && !rifiuto.data) {
-      propostaClaude = {
-        contenuto: { id: c.id, nome: c.nome, reel_type: c.reel_type, formato: c.formato, stato: c.stato },
-        sicurezza: collegamento.sicurezza,
-        perche: collegamento.perche,
-      }
-    }
-  }
-
   return {
     reel,
     analisi,
@@ -179,9 +154,5 @@ export async function leggiDettaglioReel(db: Db, mediaId: string): Promise<Detta
       ? { id: contenuto.data.id, nome: contenuto.data.nome, reel_type: contenuto.data.reel_type, formato: contenuto.data.formato, stato: contenuto.data.stato }
       : null,
     idee,
-    propostaClaude,
-    proposte: (proposte.data ?? []).flatMap((p) =>
-      p.contenuto_id && p.nome ? [{ contenuto_id: p.contenuto_id, nome: p.nome, motivi: p.motivi ?? [], punteggio: p.punteggio ?? 0 }] : [],
-    ),
   }
 }

@@ -4,7 +4,7 @@ import { LoaderCircle, Sparkles } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
-import { rivalidaMarketing } from '@/app/(app)/marketing/instagram/actions'
+import { rivalidaMarketing } from '@/app/(app)/marketing/pubblicati/actions'
 import { Button } from '@/components/ui/button'
 
 /** «Chiedi nuovi spunti»: a POST to the route (never a server action), then the area is redrawn once. */

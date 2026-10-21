@@ -1,6 +1,6 @@
 'use client'
 
-import { ExternalLink, LoaderCircle, TriangleAlert } from 'lucide-react'
+import { ExternalLink, LoaderCircle, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
 import { useCampoContenuto } from '@/components/marketing/campo-contenuto'
@@ -9,6 +9,7 @@ import { SelectOpzioni } from '@/components/marketing/select-opzioni'
 import { formatNumero } from '@/lib/format'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { CAMPI, CAMPO_MODELLO, ETICHETTA_MODELLO } from '@/lib/marketing/etichette'
+import { VIEW_COUNT_A_MANO, VIEW_COUNT_DA_INSTAGRAM } from '@/lib/marketing/pubblicati/parole'
 import { cn } from '@/lib/utils'
 import { AUDIO_MAX, LINK_MAX } from '@/lib/validation/contenuto'
 
@@ -241,6 +242,29 @@ function InputCampo<C extends CampoInput>({
 }
 
 /**
+ * The View Count (25/10/2026): when the content is linked to a post of Instagram whose views were read, it is the post's
+ * views, it updates itself every morning and it is read only here («Da Instagram: si aggiorna da solo»); otherwise it is
+ * written by hand, as before, and the help line says when it will start to fill itself. The database refuses a hand
+ * write on a number that comes from Instagram, so this is the screen saying it, not the only guard.
+ */
+function CampoViewCount({ riga }: { riga: Riga }) {
+  if (riga.view_count_da_instagram !== true || riga.view_count === null) {
+    return <InputCampo riga={riga} campo="view_count" aiuto={VIEW_COUNT_A_MANO} />
+  }
+  return (
+    <RigaProprieta etichetta={CAMPI.view_count}>
+      <p className="flex min-h-11 items-center gap-2 px-2.5 text-base md:text-sm" title={VIEW_COUNT_DA_INSTAGRAM} data-cella="view_count" data-sola-lettura="" data-testid="view-count-da-instagram">
+        <span className="num">{formatNumero(riga.view_count)}</span>
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <RefreshCw className="size-3.5 shrink-0" aria-hidden="true" />
+          {VIEW_COUNT_DA_INSTAGRAM}
+        </span>
+      </p>
+    </RigaProprieta>
+  )
+}
+
+/**
  * The properties of a content in the panel and on its page (1.33.0): every
  * one saves by itself, over the value it showed, with the same schema and
  * action as the table's cells. Native controls: on a phone the system's
@@ -257,7 +281,7 @@ export function ProprietaContenuto({ riga }: { riga: Riga }) {
         <InputCampo riga={riga} campo="audio" />
         <InputCampo riga={riga} campo="inspiration" />
         <InputCampo riga={riga} campo="url" aiuto="Il link del post pubblicato, copiato dal browser." />
-        <InputCampo riga={riga} campo="view_count" />
+        <CampoViewCount riga={riga} />
       </dl>
     </section>
   )

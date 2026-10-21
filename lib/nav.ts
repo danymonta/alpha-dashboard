@@ -6,7 +6,6 @@ import {
   ClipboardList,
   FolderKanban,
   Handshake,
-  Images,
   LayoutDashboard,
   Lightbulb,
   ListChecks,
@@ -76,12 +75,6 @@ export type VoceNav = {
    * never to the admin (CLAUDE.md section 17).
    */
   commenti?: true
-  /**
-   * The item carries the number of Instagram posts still to link to the
-   * content calendar (1.33.0 on the tab, 1.38.0 on the menu item too): posts
-   * to link, never persons (CLAUDE.md section 17).
-   */
-  daCollegare?: true
 }
 
 // The Projects area, the same for every role (CLAUDE.md section 3)
@@ -96,19 +89,14 @@ const NOVITA: VoceNav = { href: '/changelog', etichetta: 'Novità', Icona: Megap
 // The Marketing area, the content calendar, Notion's "Instagram Posts" (Dany,
 // 08/10/2026): the admin, the video editor and marketing (RUOLI_MARKETING).
 // Since 1.38.0 every page of the area is an item of the menu, lit on its own
-// page (the tabs on top of the pages stay). Only "Post di Instagram" carries a
-// number: the posts to link, never persons (CLAUDE.md section 17).
-// 21/10/2026: «Contenuti» became «Piano editoriale» (the address stays /marketing/contenuti)
+// page (the tabs on top of the pages stay). No item carries a number.
+// 21/10/2026: «Contenuti» became «Piano editoriale» (the address stays /marketing/contenuti).
+// 25/10/2026: «Post di Instagram» and «Analisi» became one item, «Pubblicati» (the published posts with
+// their insights); the old addresses redirect to it (proxy.ts).
 const CONTENUTI: VoceNav = { href: '/marketing/contenuti', etichetta: 'Piano editoriale', Icona: Clapperboard }
-const POST_INSTAGRAM: VoceNav = {
-  href: '/marketing/instagram',
-  etichetta: 'Post di Instagram',
-  Icona: Images,
-  daCollegare: true,
-}
-const ANALISI: VoceNav = { href: '/marketing/analisi', etichetta: 'Analisi', Icona: ChartNoAxesCombined }
+const PUBBLICATI: VoceNav = { href: '/marketing/pubblicati', etichetta: 'Pubblicati', Icona: ChartNoAxesCombined }
 const SPUNTI: VoceNav = { href: '/marketing/spunti', etichetta: 'Spunti', Icona: Lightbulb }
-const VOCI_MARKETING: VoceNav[] = [CONTENUTI, POST_INSTAGRAM, ANALISI, SPUNTI]
+const VOCI_MARKETING: VoceNav[] = [CONTENUTI, PUBBLICATI, SPUNTI]
 
 // Setter and Closer, two items instead of the old "Setting" with two tabs
 // (Dany, 07/10/2026): the URLs stay, many links and Alfire use them. "Setter"
@@ -291,11 +279,6 @@ export function testoCommenti(numero: number): string {
   return `${numero} ${numero === 1 ? 'commento' : 'commenti'} da scrivere`
 }
 
-/** "1 post da collegare", "3 post da collegare". */
-export function testoDaCollegare(numero: number): string {
-  return `${numero} post da collegare`
-}
-
 /** What a navigation item reminds the person of: never someone else's (CLAUDE.md section 17). */
 export type Promemoria = {
   /** Their own past calls still without an outcome (admin and closer). */
@@ -304,17 +287,15 @@ export type Promemoria = {
   daApprovare: number
   /** The setter's own days still without the required comment (the setter only). */
   commenti: number
-  /** Instagram posts still to link to the calendar (admin, video editor, marketing): posts, never persons. */
-  daCollegare: number
 }
 
-export const NESSUN_PROMEMORIA: Promemoria = { esiti: 0, daApprovare: 0, commenti: 0, daCollegare: 0 }
+export const NESSUN_PROMEMORIA: Promemoria = { esiti: 0, daApprovare: 0, commenti: 0 }
 
 /**
  * The accessible name of an item with its badge, "Le mie call, 2 esiti da
  * registrare", "Setter, 1 giornata da approvare", "Altro, 2 esiti da
  * registrare, 1 giornata da approvare", "Oggi, 1 giornata da approvare, 2
- * commenti da scrivere", "Post di Instagram, 5 post da collegare"; undefined
+ * commenti da scrivere"; undefined
  * without one (the visible label is the name).
  */
 export function nomeConPromemoria(etichetta: string, promemoria: Promemoria): string | undefined {
@@ -322,7 +303,6 @@ export function nomeConPromemoria(etichetta: string, promemoria: Promemoria): st
     promemoria.esiti > 0 ? testoEsiti(promemoria.esiti) : null,
     promemoria.daApprovare > 0 ? testoDaApprovare(promemoria.daApprovare) : null,
     promemoria.commenti > 0 ? testoCommenti(promemoria.commenti) : null,
-    promemoria.daCollegare > 0 ? testoDaCollegare(promemoria.daCollegare) : null,
   ].filter((parte) => parte !== null)
   return parti.length > 0 ? `${etichetta}, ${parti.join(', ')}` : undefined
 }
@@ -343,7 +323,6 @@ export function promemoriaDellaVoce(voce: VoceNav, promemoria: Promemoria): Prom
     esiti: esitiDellaVoce(voce, promemoria.esiti),
     daApprovare: voce.daApprovare && promemoria.daApprovare > 0 ? promemoria.daApprovare : 0,
     commenti: voce.commenti && promemoria.commenti > 0 ? promemoria.commenti : 0,
-    daCollegare: voce.daCollegare && promemoria.daCollegare > 0 ? promemoria.daCollegare : 0,
   }
 }
 
@@ -357,13 +336,12 @@ export function promemoriaDiAltro(voci: VoceNav[], promemoria: Promemoria): Prom
     esiti: Math.max(0, ...delleVoci.map((p) => p.esiti)),
     daApprovare: Math.max(0, ...delleVoci.map((p) => p.daApprovare)),
     commenti: Math.max(0, ...delleVoci.map((p) => p.commenti)),
-    daCollegare: Math.max(0, ...delleVoci.map((p) => p.daCollegare)),
   }
 }
 
 /** The digit on the badge: the counts an item carries add up, its name says each. */
 export function totalePromemoria(promemoria: Promemoria): number {
-  return promemoria.esiti + promemoria.daApprovare + promemoria.commenti + promemoria.daCollegare
+  return promemoria.esiti + promemoria.daApprovare + promemoria.commenti
 }
 
 function sotto(pathname: string, prefisso: string): boolean {

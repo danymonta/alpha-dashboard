@@ -6,12 +6,15 @@
 import type { Database } from '@/lib/supabase/database.types'
 
 export const COLONNE_ELENCO =
-  'id, tipo, nome, reel_type, formato, inspiration, stato, post_date, audio, url, view_count, created_at, updated_at'
+  'id, tipo, nome, reel_type, formato, inspiration, stato, post_date, audio, url, view_count, view_count_da_instagram, created_at, updated_at'
 
 type RigaContenuto = Database['public']['Tables']['marketing_contenuti']['Row']
 
-/** One row of a list, as COLONNE_ELENCO reads it. */
-export type ContenutoElenco = Pick<
+/**
+ * One row of a list, as COLONNE_ELENCO reads it. `view_count_da_instagram` (25/10/2026): the View Count is the views of
+ * the linked post of Instagram, it updates itself and is read only; absent or false: written by hand.
+ */
+export type ContenutoElenco = Partial<Pick<RigaContenuto, 'view_count_da_instagram'>> & Pick<
   RigaContenuto,
   | 'id'
   | 'tipo'

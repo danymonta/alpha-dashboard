@@ -8,7 +8,7 @@ export type SchedaPagina = {
   href: string
   etichetta: string
   attiva: boolean
-  /** The accessible name when it says more than the label (a badge, "Post di Instagram, 5 da collegare"). */
+  /** The accessible name when it says more than the label (a badge, "Oggi, 2 giornate da approvare"). */
   nome?: string
   Icona?: LucideIcon
   /** Classes of the icon (the Insight's sparkles take the brand's flame). */

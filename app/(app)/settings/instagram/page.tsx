@@ -248,8 +248,8 @@ export default async function InstagramPage() {
                     </span>
                   ) : null}{' '}
                   {post.ultimo_errore}{' '}
-                  <Link href="/marketing/instagram" className="text-foreground underline underline-offset-4">
-                    Post di Instagram
+                  <Link href="/marketing/pubblicati" className="text-foreground underline underline-offset-4">
+                    Pubblicati
                   </Link>
                 </span>
               </span>
@@ -266,8 +266,8 @@ export default async function InstagramPage() {
                   <span className="text-muted-foreground"> (ancora nessuna lettura)</span>
                 )}
                 .{' '}
-                <Link href="/marketing/instagram" className="underline underline-offset-4 hover:text-foreground">
-                  Post di Instagram
+                <Link href="/marketing/pubblicati" className="underline underline-offset-4 hover:text-foreground">
+                  Pubblicati
                 </Link>
               </span>
             )}

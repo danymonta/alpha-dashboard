@@ -1,6 +1,6 @@
 'use client'
 
-import { ExternalLink, Pencil, Plus, TriangleAlert } from 'lucide-react'
+import { ExternalLink, Pencil, Plus, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import type { Popover as PopoverPrimitive } from '@base-ui/react/popover'
 
@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/compone
 import { formatData, formatNumero } from '@/lib/format'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { CAMPI, COLONNE_PIANO } from '@/lib/marketing/etichette'
+import { VIEW_COUNT_DA_INSTAGRAM } from '@/lib/marketing/pubblicati/parole'
 import { cn } from '@/lib/utils'
 import { LINK_MAX, NOME_MAX } from '@/lib/validation/contenuto'
 
@@ -331,6 +332,22 @@ export function CellaNome({ riga }: { riga: Riga }) {
   )
 }
 
+/**
+ * The View Count as a number. When it comes from Instagram (the content is linked to a post whose views were read) a
+ * small Instagram mark says so, with a title and a text for screen readers: «Da Instagram: si aggiorna da solo».
+ */
+export function ViewCount({ riga, className }: { riga: Riga; className?: string }) {
+  if (riga.view_count === null) return null
+  const daInstagram = riga.view_count_da_instagram === true
+  return (
+    <span className={cn('num inline-flex items-center justify-end gap-1', className)} title={daInstagram ? VIEW_COUNT_DA_INSTAGRAM : undefined} data-view-count={daInstagram ? 'da-instagram' : 'a-mano'}>
+      {daInstagram ? <RefreshCw className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
+      {formatNumero(riga.view_count)}
+      {daInstagram ? <span className="sr-only">{VIEW_COUNT_DA_INSTAGRAM}</span> : null}
+    </span>
+  )
+}
+
 /** One cell of the table, by column (the Piano editoriale's). Every property but Views changes from its own cell. */
 export function CellaContenuto({ riga, colonna }: { riga: Riga; colonna: (typeof COLONNE_PIANO)[number] }) {
   switch (colonna) {
@@ -347,7 +364,7 @@ export function CellaContenuto({ riga, colonna }: { riga: Riga; colonna: (typeof
     case 'url':
       return <EditorCella id={riga.id} nome={riga.nome} campo="url" valore={riga.url} />
     case 'view_count':
-      // read only: the number will be read from Instagram; until then it is written in the panel
-      return riga.view_count === null ? null : <span className="num block text-right">{formatNumero(riga.view_count)}</span>
+      // read only here: the number is written in the panel, and comes from Instagram by itself when the content is linked to a post
+      return riga.view_count === null ? null : <ViewCount riga={riga} className="block text-right" />
   }
 }

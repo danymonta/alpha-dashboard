@@ -1,13 +1,13 @@
 'use client'
 
-import { CalendarPlus, CircleCheck, Link2, LoaderCircle, RotateCw, TriangleAlert } from 'lucide-react'
+import { CalendarPlus, CircleCheck, Link2, LoaderCircle, RotateCw, TriangleAlert, Unlink } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useRef, useState, type ReactNode, type Ref } from 'react'
 import { toast } from 'sonner'
 
-import { aggiungiIdeaAlCalendario, creaContenutoDaAnalisi } from '@/app/(app)/marketing/analisi/actions'
-import { collegaPost, creaContenutoDaPost } from '@/app/(app)/marketing/instagram/actions'
+import { annullaScollega, scollegaPost } from '@/app/(app)/marketing/pubblicati/actions'
+import { aggiungiIdeaAlCalendario } from '@/app/(app)/marketing/pubblicati/azioni-analisi'
 import { AnalizzaReel } from '@/components/marketing/analisi/analizza-reel'
 import { COLORE_FASCIA, ICONA_FASCIA } from '@/components/marketing/analisi/badge-punteggio'
 import { BadgeVerdetto } from '@/components/marketing/analisi/badge-verdetto'
@@ -21,12 +21,14 @@ import {
   ProblemiDaSistemare,
 } from '@/components/marketing/analisi/sezione-punteggio'
 import { useOpzioniToast } from '@/components/marketing/contesto-pannello'
-import { ApriSuInstagram, CopertinaPost } from '@/components/marketing/instagram/copertina-post'
+import { ApriSuInstagram, AZIONE_TOAST, CopertinaPost } from '@/components/marketing/instagram/copertina-post'
+import { useOpzioni } from '@/components/marketing/opzioni-contesto'
+import { Pillola } from '@/components/marketing/pillola'
+import { ElencoPerCollegare } from '@/components/marketing/pubblicati/collega'
 import { Button } from '@/components/ui/button'
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatNumero } from '@/lib/format'
-import { tipoDelPost } from '@/lib/marketing/abbinamento'
 import { COSTO_STIMATO_PER_REEL_USD } from '@/lib/marketing/analisi/costi'
 import { cosaFare, type StatoAnalisiCosaFare } from '@/lib/marketing/analisi/cosa-fare'
 import type { AnalisiLetta, DettaglioReel, LetturaLetta } from '@/lib/marketing/analisi/dettaglio'
@@ -46,16 +48,18 @@ import {
 import { eSchedaReel, PARAMETRO_SCHEDA, urlConScheda, type SchedaReel as NomeScheda } from '@/lib/marketing/analisi/pannello'
 import type { AnalisiContenuto, SchedaVisiva } from '@/lib/marketing/analisi/tipi'
 import { nomeDaDidascalia } from '@/lib/marketing/da-post'
-import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE, type FormatContenuto, type ReelType } from '@/lib/marketing/etichette'
-import { etichettaCollega, motiviInParole, quandoPubblicato } from '@/lib/marketing/parole-post'
+import { nomeDaValore, opzioneDaValore } from '@/lib/marketing/opzioni'
+import { quandoPubblicato } from '@/lib/marketing/parole-post'
+import { eReel, tipoDellaRiga } from '@/lib/marketing/pubblicati/parole'
 import { fasciaDaCodice, ETICHETTA_TIPO, intervalloFascia } from '@/lib/marketing/punteggio/tabelle'
 import { cn } from '@/lib/utils'
 
 const CONNESSIONE = 'Connessione assente. Riprova.'
 const usd = (n: number) => `${n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
 
-export function titoloReel(r: Pick<RigaReel, 'nome' | 'didascalia_inizio' | 'giorno'>): string {
-  return r.nome || nomeDaDidascalia(r.didascalia_inizio) || (r.giorno ? `Reel del ${r.giorno.slice(8, 10)}/${r.giorno.slice(5, 7)}/${r.giorno.slice(0, 4)}` : 'Reel')
+export function titoloReel(r: Pick<RigaReel, 'nome' | 'didascalia_inizio' | 'giorno' | 'media_type' | 'reel'>): string {
+  const cosa = eReel(r) ? 'Reel' : tipoDellaRiga(r) === 'carousel' ? 'Carosello' : 'Foto'
+  return r.nome || nomeDaDidascalia(r.didascalia_inizio) || (r.giorno ? `${cosa} del ${r.giorno.slice(8, 10)}/${r.giorno.slice(5, 7)}/${r.giorno.slice(0, 4)}` : cosa)
 }
 
 /** A titled part of a tab. The tab says the big thing; the title says what this part is. */
@@ -116,7 +120,7 @@ function NumeriReel({ r }: { r: RigaReel }) {
     <div className="space-y-2">
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <Numero etichetta="Views" valore={v.numero ?? 'n/d'} nota={v.confronto} />
-        <Numero etichetta="Copertura" valore={r.reach === null ? 'n/d' : formatNumero(r.reach)} />
+        <Numero etichetta="Reach" valore={r.reach === null ? 'n/d' : formatNumero(r.reach)} />
         <Numero
           etichetta="Salvataggi"
           valore={r.saved === null ? 'n/d' : formatNumero(r.saved)}
@@ -254,128 +258,115 @@ function ParlatoVisto({ l }: { l: LetturaLetta | null }) {
   )
 }
 
-function Calendario({
-  d,
-  puoScrivere,
-  onFatto,
-}: {
-  d: DettaglioReel
-  puoScrivere: boolean
-  onFatto: () => void
-}) {
+/**
+ * «Nel Piano editoriale» (25/10/2026): the content of the plan this post is linked to, with its pills, a link to its
+ * page and «Scollega» (with «Annulla»); or, when the post is not in the plan, one «Collega» that opens the search
+ * among the contents still without a post. No proposal, no «Crea il contenuto»: a post is linked by choice, and
+ * nobody has to. A post published before the plan is a normal post.
+ */
+function NelPiano({ d, puoScrivere, onFatto }: { d: DettaglioReel; puoScrivere: boolean; onFatto: () => void }) {
   const opzioniToast = useOpzioniToast()
+  const { opzioni } = useOpzioni()
   const r = d.reel
-  const [inVolo, setInVolo] = useState<string | null>(null)
+  const [inVolo, setInVolo] = useState(false)
+  const [cerca, setCerca] = useState(false)
 
-  async function esegui(chiave: string, fai: () => Promise<{ ok: true } | { ok: false; errore: string }>, ok: string) {
-    if (inVolo) return
-    setInVolo(chiave)
+  async function scollega(contenuto: { id: string; nome: string }) {
+    if (inVolo || !r.shortcode) return
+    setInVolo(true)
     try {
-      const esito = await fai()
-      if (!esito.ok) toast.error(esito.errore, opzioniToast)
-      else {
-        toast.success(ok, opzioniToast)
-        onFatto()
+      const esito = await scollegaPost({ shortcode: r.shortcode, contenuto_id: contenuto.id })
+      if (!esito.ok) {
+        toast.error(esito.errore, opzioniToast)
+        return
       }
+      toast.success(`Scollegato da «${contenuto.nome}».`, {
+        ...opzioniToast,
+        duration: 6000,
+        action: {
+          label: 'Annulla',
+          onClick: () => {
+            // the sign «Collegato da solo», if the run made the link, comes back by itself (database)
+            const coppia = { shortcode: r.shortcode as string, contenuto_id: contenuto.id }
+            void annullaScollega(coppia).then(
+              (x) => {
+                if (x.ok) {
+                  toast.success('Post di nuovo collegato.', opzioniToast)
+                  onFatto()
+                } else toast.error(x.errore, opzioniToast)
+              },
+              () => toast.error(CONNESSIONE, opzioniToast),
+            )
+          },
+        },
+        classNames: { actionButton: AZIONE_TOAST },
+      })
+      onFatto()
     } catch {
       toast.error(CONNESSIONE, opzioniToast)
     } finally {
-      setInVolo(null)
+      setInVolo(false)
     }
   }
 
   if (d.contenuto) {
+    const c = d.contenuto
+    const tipo = opzioneDaValore(opzioni.reel_type, c.reel_type)
+    const formato = opzioneDaValore(opzioni.formato, c.formato)
     return (
-      <p className="text-sm break-words" data-testid="reel-calendario">
-        Collegato a{' '}
-        <Link href={`/marketing/contenuti/${d.contenuto.id}`} className="underline underline-offset-4">
-          {d.contenuto.nome}
-        </Link>
-        {d.contenuto.reel_type ? ` · ${ETICHETTA_REEL_TYPE[d.contenuto.reel_type as ReelType]}` : ''}
-        {d.contenuto.formato ? ` · ${ETICHETTA_FORMAT[d.contenuto.formato as FormatContenuto]}` : ''}
-      </p>
+      <div className="space-y-2" data-testid="reel-calendario">
+        <p className="text-sm break-words">
+          Collegato a{' '}
+          <Link href={`/marketing/contenuti/${c.id}`} className="underline underline-offset-4">
+            {c.nome}
+          </Link>
+        </p>
+        {tipo || formato ? (
+          <div className="flex flex-wrap gap-1">
+            {tipo ? <Pillola nome={tipo.nome} colore={tipo.colore} /> : null}
+            {formato ? <Pillola nome={formato.nome} colore={formato.colore} /> : null}
+          </div>
+        ) : null}
+        {puoScrivere ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="-ml-2 h-11"
+            focusableWhenDisabled
+            disabled={inVolo}
+            aria-busy={inVolo || undefined}
+            aria-label={`Scollega il post da «${c.nome}»`}
+            onClick={() => void scollega({ id: c.id, nome: c.nome })}
+          >
+            {inVolo ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Unlink className="size-4" aria-hidden="true" />}
+            Scollega
+          </Button>
+        ) : null}
+      </div>
     )
   }
   if (r.eliminato) return <p className="text-sm text-muted-foreground">Non più su Instagram: nessun collegamento da fare.</p>
-  if (r.stato_collegamento === 'escluso') {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Fuori dal calendario. Lo rimetti da{' '}
-        <Link href="/marketing/instagram" className="underline underline-offset-4">
-          Post di Instagram
-        </Link>
-        .
-      </p>
-    )
-  }
-  const shortcode = r.shortcode
-  if (!shortcode) return null
-  const proposte = [
-    ...(d.propostaClaude
-      ? [
-          {
-            contenuto_id: d.propostaClaude.contenuto.id,
-            nome: d.propostaClaude.contenuto.nome,
-            stato: d.propostaClaude.contenuto.stato,
-            perche: `Claude pensa che sia questo (sicurezza ${d.propostaClaude.sicurezza}): ${d.propostaClaude.perche}`,
-          },
-        ]
-      : []),
-    ...d.proposte
-      .filter((p) => p.contenuto_id !== d.propostaClaude?.contenuto.id)
-      .map((p) => ({ contenuto_id: p.contenuto_id, nome: p.nome, stato: undefined as string | undefined, perche: motiviInParole(p.motivi, 'e') })),
-  ]
+  if (!r.shortcode || !r.giorno) return null
+  const post = { shortcode: r.shortcode, giorno: r.giorno, tipo: tipoDellaRiga(r) }
   return (
     <div className="space-y-2" data-testid="reel-calendario">
-      <p className="text-sm text-muted-foreground">Questo reel non è ancora collegato a un contenuto del calendario.</p>
-      {proposte.length > 0 ? (
-        <ul className="space-y-2">
-          {proposte.map((p) => (
-            <li key={p.contenuto_id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 p-3 text-sm">
-              <span className="min-w-0 flex-1 break-words">
-                <span className="font-medium">{p.nome}</span>
-                {p.perche ? <span className="block text-muted-foreground">{p.perche}</span> : null}
-              </span>
-              {puoScrivere ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11"
-                  focusableWhenDisabled
-                  disabled={inVolo !== null}
-                  aria-busy={inVolo === `c-${p.contenuto_id}`}
-                  onClick={() =>
-                    void esegui(`c-${p.contenuto_id}`, () => collegaPost({ shortcode, contenuto_id: p.contenuto_id }), `Collegato a «${p.nome}».`)
-                  }
-                >
-                  <Link2 className="size-4" aria-hidden="true" />
-                  {etichettaCollega(p.stato)}
-                  <span className="sr-only">: {p.nome}</span>
-                </Button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <p className="text-sm text-muted-foreground">
+        Questo post non è nel Piano editoriale. Si lega da solo quando incolli il suo link nell’URL di un contenuto; qui puoi sceglierlo a mano.
+      </p>
       {puoScrivere ? (
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11"
-          focusableWhenDisabled
-          disabled={inVolo !== null}
-          aria-busy={inVolo === 'crea'}
-          onClick={() =>
-            void esegui(
-              'crea',
-              () => (d.analisi ? creaContenutoDaAnalisi({ analisi_id: d.analisi.id }) : creaContenutoDaPost({ shortcode })),
-              'Contenuto creato dal reel.',
-            )
-          }
-        >
-          <CalendarPlus className="size-4" aria-hidden="true" />
-          Crea il contenuto
-        </Button>
+        cerca ? (
+          <div className="space-y-2">
+            <ElencoPerCollegare post={post} onFatto={onFatto} autoFocus />
+            <Button type="button" variant="ghost" className="-ml-2 h-11" onClick={() => setCerca(false)}>
+              Chiudi la ricerca
+            </Button>
+          </div>
+        ) : (
+          <Button type="button" variant="outline" className="h-11" onClick={() => setCerca(true)} data-testid="collega-dal-pannello">
+            <Link2 className="size-4" aria-hidden="true" />
+            Collega a un contenuto
+          </Button>
+        )
       ) : null}
     </div>
   )
@@ -403,6 +394,7 @@ function IdeeDellAnalisi({
   onFatto: () => void
 }) {
   const opzioniToast = useOpzioniToast()
+  const { opzioni } = useOpzioni()
   const [inVolo, setInVolo] = useState<number | null>(null)
   const [aggiunte, setAggiunte] = useState<Record<number, { id: string; nome: string }>>({})
 
@@ -444,8 +436,8 @@ function IdeeDellAnalisi({
             <li key={i} className="space-y-1.5 rounded-lg bg-muted/40 p-3 text-sm" data-testid="reel-idea">
               <p className="font-medium break-words">{idea.name}</p>
               <p className="text-muted-foreground">
-                {ETICHETTA_REEL_TYPE[idea.reel_type] ?? idea.reel_type}
-                {idea.format ? ` · ${ETICHETTA_FORMAT[idea.format] ?? idea.format}` : ''}
+                {nomeDaValore(opzioni.reel_type, idea.reel_type)}
+                {idea.format ? ` · ${nomeDaValore(opzioni.formato, idea.format)}` : ''}
               </p>
               <p className="break-words">
                 <span className="font-medium">Gancio:</span> {idea.gancio}
@@ -570,17 +562,19 @@ function NumeriTab({
       <Sezione id="numeri" titolo="Come è andato">
         <NumeriReel r={r} />
       </Sezione>
-      <Sezione id="verdetto" titolo="Verdetto dei numeri">
-        <Verdetto r={r} />
-      </Sezione>
+      {eReel(r) ? (
+        <Sezione id="verdetto" titolo="Verdetto dei numeri">
+          <Verdetto r={r} />
+        </Sezione>
+      ) : null}
       <Sezione id="lead" titolo="Lead dai DM" nota="Chi ha scritto in DM dopo questo reel: i primi 14 giorni, contati dall’Insight.">
         <p className="num text-sm" data-testid="reel-lead-valore">
           {parolaLead(r)}
         </p>
       </Sezione>
       {d ? (
-        <Sezione id="calendario" titolo="Nel calendario">
-          <Calendario d={d} puoScrivere={puoScrivere} onFatto={onFatto} />
+        <Sezione id="calendario" titolo="Nel Piano editoriale">
+          <NelPiano d={d} puoScrivere={puoScrivere} onFatto={onFatto} />
         </Sezione>
       ) : null}
       {lettura?.scheda ? (
@@ -790,7 +784,9 @@ export function SchedaReel({
   onRileggi: () => void
 }) {
   const r = dettaglio?.reel ?? riga
-  const tipo = tipoDelPost({ media_type: r.media_type ?? 'VIDEO', reel: true })
+  const tipo = tipoDellaRiga(r)
+  // a carousel or a photo has numbers and a place in the plan, but no verdict, score or analysis (the guide scores reels)
+  const reel = eReel(r)
   const analisi: AnalisiLetta | null = dettaglio?.analisi ?? null
   const ultima = dettaglio?.ultima ?? null
   const lettura = dettaglio?.lettura ?? null
@@ -851,7 +847,7 @@ export function SchedaReel({
         {errore ? (
           <div role="alert" className="flex flex-wrap items-center gap-2 text-sm" data-testid="reel-errore">
             <TriangleAlert className="size-4 shrink-0 text-status-critical" aria-hidden="true" />
-            <span>Il dettaglio del reel non si è caricato.</span>
+            <span>Il dettaglio del post non si è caricato.</span>
             <Button type="button" variant="outline" className="h-11" onClick={onRileggi}>
               <RotateCw className="size-4" aria-hidden="true" />
               Riprova
@@ -859,16 +855,18 @@ export function SchedaReel({
           </div>
         ) : null}
 
-        <BloccoCosaFare
-          r={r}
-          dettaglio={dettaglio}
-          statoAnalisi={statoAnalisi}
-          inLavoro={inLavoro}
-          puoAnalizzare={puoAnalizzare}
-          puoScrivere={puoScrivere}
-          onRileggi={onRileggi}
-          onVediRifacimento={() => vaiA('rifare', true)}
-        />
+        {reel ? (
+          <BloccoCosaFare
+            r={r}
+            dettaglio={dettaglio}
+            statoAnalisi={statoAnalisi}
+            inLavoro={inLavoro}
+            puoAnalizzare={puoAnalizzare}
+            puoScrivere={puoScrivere}
+            onRileggi={onRileggi}
+            onVediRifacimento={() => vaiA('rifare', true)}
+          />
+        ) : null}
 
         {dettaglio === null && !errore ? (
           <p className="text-sm text-muted-foreground" aria-busy="true">

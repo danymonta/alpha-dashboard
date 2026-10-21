@@ -37,7 +37,7 @@ import { coppiaPostSchema, postSchema } from '@/lib/validation/post-instagram'
 
 /**
  * The only way the content calendar is written (1.34.0, 10/10/2026): from the
- * app (the server actions of /marketing/contenuti and /marketing/instagram,
+ * app (the server actions of /marketing/contenuti and /marketing/pubblicati,
  * with the cookie session of whoever taps: the new-content form, the cells,
  * the panel, the Status, the sections, the posts of Instagram) and from
  * Claude (the MCP tools, with the OAuth token of whoever connected it). Same
@@ -115,6 +115,8 @@ function primoErrore(issues: { message: string }[]): string {
   return issues[0]?.message ?? 'Dati non validi.'
 }
 
+const VIEW_COUNT_DA_INSTAGRAM = 'Il View Count di questo contenuto arriva da Instagram: si aggiorna da solo.'
+
 function errore(error: { code?: string; message: string }, nonSalvato = NON_SALVATO): string {
   // the unique index of the ideas: the same idea twice
   if (error.code === '23505' && (error.message.includes('marketing_contenuti_idea_idx') || error.message.includes('marketing_contenuti_spunti_idx'))) return IDEA_GIA_NEL_CALENDARIO
@@ -124,6 +126,8 @@ function errore(error: { code?: string; message: string }, nonSalvato = NON_SALV
   if (error.code === '23505') return POST_GIA_COLLEGATO
   // the trigger of the ideas, in its own words
   if (error.code === '22023' && error.message.startsWith('Idea di Claude')) return error.message
+  // a View Count that comes from Instagram updates itself: not written from a session (25/10/2026)
+  if (error.code === '23514' && error.message.startsWith('Il View Count di questo contenuto arriva da Instagram')) return VIEW_COUNT_DA_INSTAGRAM
   // a write RLS refused: Postgres's own words are not for people
   if (error.code === '42501' && error.message.includes('row-level security')) return SOLO_MARKETING
   return messaggioErrore(error, nonSalvato)
@@ -446,10 +450,11 @@ export async function eliminaContenuto(db: Db, input: unknown): Promise<EsitoEli
 
 // ── the posts of Instagram (1.33.0) ─────────────────────────────────────────
 //
-// The taps of the admin, the video editor and marketing on "Da collegare",
-// "Collegati", "Fuori dal calendario" and the panel's «Post su Instagram»
-// (Collega, Annulla, Scollega, Crea il contenuto, Non va nel calendario,
-// Rimetti), all of them here: one write path. The permalink never comes
+// The taps of the admin, the video editor and marketing on «Collega» and
+// «Scollega» (the Pubblicati table and the reel panel) and the content panel's
+// «Post su Instagram» (Collega, Annulla, Scollega; «Crea il contenuto», «Non va
+// nel calendario» and «Rimetti» have no screen since 25/10/2026, the functions
+// stay), all of them here: one write path. The permalink never comes
 // from the input: it is read from instagram_contenuti with the caller's
 // client and checked like a URL typed by hand. Unlinking a post (the URL
 // emptied) leaves a "no" for that pair (trigger

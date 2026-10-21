@@ -8,9 +8,9 @@ import type { createClient } from '@/lib/supabase/server'
 /**
  * The block «Post su Instagram» of a content (1.33.0): in the panel and on the
  * content's own page, read with the detail in the same request (spec D17),
- * with the session of whoever looks (RLS: the Marketing area). At most two
- * queries: the post of the content's URL, or the content's proposals and
- * their posts. Never throws: a read that fails is { stato: 'errore' } and the
+ * with the session of whoever looks (RLS: the Marketing area). One query: the
+ * post of the content's URL (the proposals of the run are not shown any more,
+ * 25/10/2026). Never throws: a read that fails is { stato: 'errore' } and the
  * rest of the panel stays.
  */
 
@@ -34,12 +34,8 @@ export type PostInstagram = {
 
 export type PostDelContenuto =
   | { stato: 'collegato'; post: PostInstagram; daSolo: boolean; motivi: string[]; punteggio: PunteggioBreve | null }
-  | { stato: 'proposte'; proposte: (PostInstagram & { motivi: string[] })[] }
   | { stato: 'nessuno' }
   | { stato: 'errore' }
-
-/** At most this many proposals in the block. */
-const PROPOSTE_MAX = 3
 
 const COLONNE_POST = 'media_id, shortcode, permalink, media_type, reel, pubblicato_il, giorno, didascalia, copertina_url, eliminato_il'
 
@@ -91,26 +87,8 @@ export async function leggiPostDelContenuto(
       return { stato: 'collegato', post, daSolo: data.collegato_da_solo === true, motivi: data.motivi_collegamento ?? [], punteggio }
     }
 
-    const { data: proposte, error } = await supabase
-      .from('v_marketing_proposte')
-      .select('shortcode, motivi, punteggio')
-      .eq('contenuto_id', c.id)
-      .order('punteggio', { ascending: false })
-      .order('shortcode')
-      .limit(PROPOSTE_MAX)
-    if (error) return { stato: 'errore' }
-    const codici = (proposte ?? []).map((p) => p.shortcode).filter((s): s is string => Boolean(s))
-    if (codici.length === 0) return { stato: 'nessuno' }
-
-    const { data: post, error: errorePost } = await supabase.from('v_instagram_post').select(COLONNE_POST).in('shortcode', codici)
-    if (errorePost) return { stato: 'errore' }
-    const perCodice = new Map((post ?? []).map((r) => [r.shortcode, r]))
-    const elenco = (proposte ?? []).flatMap((p) => {
-      const riga = p.shortcode ? perCodice.get(p.shortcode) : undefined
-      const letto = riga ? versoPost(riga) : null
-      return letto && !letto.eliminato ? [{ ...letto, motivi: p.motivi ?? [] }] : []
-    })
-    return elenco.length > 0 ? { stato: 'proposte', proposte: elenco } : { stato: 'nessuno' }
+    // not linked: nothing here (the URL field says it all; the posts are linked from «Pubblicati» or by pasting the link)
+    return { stato: 'nessuno' }
   } catch {
     return { stato: 'errore' }
   }

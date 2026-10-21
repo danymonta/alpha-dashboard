@@ -65,10 +65,11 @@ const CONTENUTI = [
   { nome: 'contenuti-calendario', url: '/marketing/contenuti?vista=calendario' },
   { nome: 'contenuto', url: `/marketing/contenuti/${CONTENUTO_SEED}` },
   { nome: 'contenuto-pannello', url: `/marketing/contenuti?contenuto=${CONTENUTO_SEED}` },
-  { nome: 'post-instagram', url: '/marketing/instagram' },
-  // 1.36.0: the analysis of the reels and its panel, on supabase/seeds/45_analisi_reel.sql
-  { nome: 'analisi', url: '/marketing/analisi' },
-  { nome: 'analisi-reel', url: '/marketing/analisi?reel=17900000000000001' },
+  // 25/10/2026: the published posts with their insights (they replace Post di Instagram and Analisi), the reel's panel
+  // of 1.36.0 on supabase/seeds/45_analisi_reel.sql, and the sheet of «Collega»
+  { nome: 'pubblicati', url: '/marketing/pubblicati' },
+  { nome: 'pubblicati-reel', url: '/marketing/pubblicati?reel=17900000000000001' },
+  { nome: 'pubblicati-contenuto', url: `/marketing/pubblicati?contenuto=${CONTENUTO_SEED}` },
   // 1.37.0: the weekly brief, on supabase/seeds/52_spunti.sql
   { nome: 'spunti', url: '/marketing/spunti' },
 ]

@@ -4,7 +4,7 @@ import { LoaderCircle, RefreshCw } from 'lucide-react'
 import { useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
-import { rivalidaMarketing } from '@/app/(app)/marketing/instagram/actions'
+import { rivalidaMarketing } from '@/app/(app)/marketing/pubblicati/actions'
 import { Button } from '@/components/ui/button'
 import { fraseAggiornato } from '@/lib/marketing/parole-post'
 
