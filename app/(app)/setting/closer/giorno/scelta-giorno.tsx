@@ -25,7 +25,7 @@ export function SceltaGiorno({ data, percorso, closer }: { data: string; percors
           if (closer) parametri.set('closer', closer)
           router.push(`${percorso}?${parametri.toString()}`)
         }}
-        className="num h-10 bg-transparent text-sm outline-none [color-scheme:dark]"
+        className="num h-10 bg-transparent text-sm outline-none"
       />
     </label>
   )

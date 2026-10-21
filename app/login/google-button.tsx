@@ -38,7 +38,7 @@ export function GoogleButton() {
       disabled={pending}
     >
       {/* Google's mark needs a light ground to keep its four colours legible */}
-      <span className="flex size-7 items-center justify-center rounded-md bg-foreground text-background">
+      <span className="flex size-7 items-center justify-center rounded-md bg-foreground text-background chiaro:bg-primary-foreground chiaro:text-foreground">
         {pending ? (
           <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
         ) : (

@@ -10,6 +10,7 @@ import { ScheletroCollegaClaude, SezioneCollegaClaude } from '@/components/accou
 import { LinkNotifiche } from '@/components/account/link-notifiche'
 import { VoceNovita } from '@/components/changelog/voce-novita'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
+import { SceltaTema } from '@/components/tema/scelta-tema'
 import { RivediTutorial } from '@/components/tutorial/rivedi-tutorial'
 import { TestaTutorial } from '@/components/tutorial/testa-tutorial'
 import { Button } from '@/components/ui/button'
@@ -27,7 +28,12 @@ export default async function AccountPage() {
     <div className="max-w-2xl">
       <IntestazionePagina titolo="Il tuo profilo" descrizione="Foto, nome e preferenze: valgono solo per te." />
       <SchedeAccount
-        profilo={<ProfiloForm id={profilo.id} nome={profilo.nome} foto={profilo.foto_url} />}
+        profilo={
+          <div className="space-y-8">
+            <ProfiloForm id={profilo.id} nome={profilo.nome} foto={profilo.foto_url} />
+            <SceltaTema />
+          </div>
+        }
         alfire={
           <PreferenzeAlfire
             configurata={alfireConfigurata()}

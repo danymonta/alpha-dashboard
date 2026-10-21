@@ -160,9 +160,9 @@ export default async function PipelinePage({
               href={`/leads${qs.size ? `?${qs}` : ''}`}
               aria-current={attivo ? 'page' : undefined}
               className={cn(
-                'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm',
+                'inline-flex min-h-11 items-center gap-1.5 rounded-pillola border px-3 text-sm',
                 attivo
-                  ? 'border-primary bg-primary text-primary-foreground'
+                  ? 'border-selezione bg-selezione text-selezione-foreground'
                   : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
             >
@@ -183,7 +183,7 @@ export default async function PipelinePage({
           defaultValue={ricerca}
           placeholder="Cerca per nome o handle"
           autoComplete="off"
-          className="h-11 w-full rounded-lg border border-input bg-input/30 pr-3 pl-9 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+          className="h-11 w-full rounded-pillola border border-input bg-input/30 pr-3 pl-9 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         />
       </form>
 

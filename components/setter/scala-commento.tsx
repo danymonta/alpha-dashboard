@@ -89,7 +89,7 @@ export function ScalaCommento({ scala, valore, onCambia, obbligatoria = false, e
               className={cn(
                 'flex min-h-11 rounded-lg border px-3 py-2 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                 scala.affiancate ? 'flex-col items-center gap-1 text-center' : 'items-start gap-2.5 text-left',
-                attiva ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-input/30 hover:bg-accent',
+                attiva ? 'border-selezione bg-selezione text-selezione-foreground' : 'border-input bg-input/30 hover:bg-accent',
               )}
             >
               <Segno

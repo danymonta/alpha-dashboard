@@ -181,7 +181,7 @@ function FoglioPeriodo({ percorso, periodo, oggi }: { percorso: string; periodo:
                   onClick={() => setAperto(false)}
                   className={cn(
                     'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-center text-sm leading-tight transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                    s.attiva ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-input/30 hover:bg-accent',
+                    s.attiva ? 'border-selezione bg-selezione text-selezione-foreground' : 'border-input bg-input/30 hover:bg-accent',
                   )}
                 >
                   {s.attiva ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}

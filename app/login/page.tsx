@@ -35,7 +35,10 @@ export default async function LoginPage({
       <div className="w-full max-w-sm">
         <header className="flex flex-col items-center text-center">
           <p className="sr-only">Percorso Alpha</p>
-          <LogoFuoco dimensione="hero" decorativo preload />
+          {/* on the light theme the logo stands on its dark stage (globals.css, .palco-logo) */}
+          <div className="palco-logo palco-logo-ampio">
+            <LogoFuoco dimensione="hero" decorativo preload />
+          </div>
           <h1 className="mt-8 font-heading text-2xl font-semibold tracking-tight">{NOME_APP}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Il gestionale di Percorso Alpha: vendite, incassi, setting, provvigioni e progetti del team in un solo

@@ -109,9 +109,9 @@ export function FiltriContenuti({
         scroll={false}
         aria-current={attivo ? 'page' : undefined}
         className={cn(
-          'inline-flex min-h-11 items-center gap-1 rounded-lg border px-2.5 text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+          'inline-flex min-h-11 items-center gap-1 rounded-pillola border px-2.5 text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
           attivo
-            ? 'border-primary bg-primary text-primary-foreground'
+            ? 'border-selezione bg-selezione text-selezione-foreground'
             : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
         )}
       >
@@ -219,7 +219,7 @@ export function FiltriContenuti({
             autoComplete="off"
             enterKeyHint="search"
             maxLength={100}
-            className="h-11 w-full rounded-lg border border-input bg-input/30 pr-3 pl-9 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+            className="h-11 w-full rounded-pillola border border-input bg-input/30 pr-3 pl-9 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
           />
         </Form>
         {haFiltri(filtri) ? (

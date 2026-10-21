@@ -123,9 +123,9 @@ function CampiFiltri({ filtri, prefisso, impilati }: { filtri: FiltriAnalisi; pr
         disabled={inCorso}
         onClick={() => vai({ ...filtri, senzaContenuto: !filtri.senzaContenuto })}
         className={cn(
-          'inline-flex min-h-11 items-center gap-1.5 self-end rounded-lg border px-3 text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-60',
+          'inline-flex min-h-11 items-center gap-1.5 self-end rounded-pillola border px-3 text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-60',
           impilati && 'w-full justify-start',
-          filtri.senzaContenuto ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-input/30 text-foreground hover:bg-accent',
+          filtri.senzaContenuto ? 'border-selezione bg-selezione text-selezione-foreground' : 'border-input bg-input/30 text-foreground hover:bg-accent',
         )}
       >
         {filtri.senzaContenuto ? <CircleCheck className="size-4" aria-hidden="true" /> : <Circle className="size-4" aria-hidden="true" />}

@@ -99,9 +99,9 @@ export function FiltroInterruttore({
       disabled={inCorso}
       onClick={() => avvia(() => router.push(conParametro(percorso, parametri, nome, attivo ? null : '1')))}
       className={cn(
-        'inline-flex min-h-11 items-center gap-1.5 self-end rounded-lg border px-3 text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-60',
+        'inline-flex min-h-11 items-center gap-1.5 self-end rounded-pillola border px-3 text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-60',
         attivo
-          ? 'border-primary bg-primary text-primary-foreground'
+          ? 'border-selezione bg-selezione text-selezione-foreground'
           : 'border-input bg-input/30 text-foreground hover:bg-accent',
         className,
       )}
