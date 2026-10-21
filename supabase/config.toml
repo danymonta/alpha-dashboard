@@ -242,6 +242,12 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Email of the sign-in with a code (app/login): the same template goes in Supabase cloud
+# (Authentication > Email Templates > Magic Link). Needs `supabase stop` and `supabase start` to be read.
+[auth.email.template.magic_link]
+subject = "Il tuo accesso a Percorso Alpha"
+content_path = "./supabase/templates/accesso-con-codice.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

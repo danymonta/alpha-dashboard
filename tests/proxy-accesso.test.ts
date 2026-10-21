@@ -20,10 +20,21 @@ function richiesta(percorso: string, metodo = 'GET') {
 describe('il proxy non tocca la sessione mentre si entra con Google', () => {
   it.each([
     ['il rientro da Google', '/auth/callback?code=abc', 'GET'],
+    ['il link dell’email di accesso', '/auth/conferma?token_hash=abcdefabcdefabcdefabcdef&type=email', 'GET'],
     ['il pulsante «Accedi con Google»', '/login', 'POST'],
     ['il cron', '/api/cron/giornaliero', 'GET'],
   ])('%s passa senza refresh e senza cancellare il verificatore', async (_, percorso, metodo) => {
     const risposta = await updateSession(richiesta(percorso, metodo))
+    expect(risposta.headers.get('location')).toBeNull()
+    expect(risposta.cookies.getAll()).toEqual([])
+  })
+})
+
+describe('il link dell’email di accesso arriva anche senza sessione', () => {
+  it('senza cookie non passa dal login, e non tocca i cookie', async () => {
+    const risposta = await updateSession(
+      new NextRequest('http://localhost:3000/auth/conferma?token_hash=abcdefabcdefabcdefabcdef&type=email'),
+    )
     expect(risposta.headers.get('location')).toBeNull()
     expect(risposta.cookies.getAll()).toEqual([])
   })
