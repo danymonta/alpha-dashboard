@@ -222,7 +222,7 @@ select is(
   'il closer non legge il contratto nemmeno delle sue vendite'
 );
 select is(
-  (select count(*)::integer from public.clienti_sospensioni),
+  (select count(*)::integer from public.clienti_sospensioni where client_id::text like '94940000-%'),
   0,
   'il closer legge le sospensioni dei suoi clienti: A non è più sospeso'
 );

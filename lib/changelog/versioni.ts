@@ -86,6 +86,27 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.48.0',
+    data: '2026-10-21',
+    titolo: 'Pubblicati e View Count automatico',
+    riassunto: 'Una pagina sola per i post e i reel già usciti, con i loro numeri, e il View Count che si aggiorna da solo da Instagram.',
+    intestazionePer: ['marketing'],
+    novita: [
+      {
+        per: ['marketing'],
+        testo: 'Al posto di «Post di Instagram» e «Analisi» c’è una pagina sola, Pubblicati: tutti i post e i reel usciti con views, copertura, salvataggi, condivisioni, commenti, i lead dai DM, il punteggio e il contenuto del Piano editoriale collegato. Il tocco su una riga apre l’analisi del reel.',
+      },
+      {
+        per: ['marketing'],
+        testo: 'Il View Count dei contenuti del Piano editoriale si compila e si aggiorna da solo ogni mattina dalle views di Instagram, se nel contenuto c’è il link del reel pubblicato. Se il link non c’è, lo scrivi tu. Se le views non arrivano, serve il permesso Insights dell’app Meta.',
+      },
+      {
+        per: ['marketing'],
+        testo: 'Non c’è più niente da collegare per forza: incollando il link del reel nel Piano editoriale il contenuto si lega al post, e un post senza contenuto è una riga normale con un «Collega» se vuoi. Sono spariti «Da collegare», «Crea il contenuto» e «Non va nel calendario».',
+      },
+    ],
+  },
+  {
     versione: '1.47.0',
     data: '2026-10-21',
     titolo: 'Piano editoriale con etichette colorate',
