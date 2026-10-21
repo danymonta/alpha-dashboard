@@ -89,7 +89,7 @@ const PASSI_CONTENUTI: PassoTutorial[] = [
   {
     id: 'contenuti',
     pagina: '/marketing/contenuti',
-    titolo: 'Piano editoriale',
+    titolo: 'La tabella dei contenuti',
     testo: 'Una tabella come in Notion, dalla Post Date più recente. Ogni cella si cambia da sola; Reel Type e Format sono etichette colorate che crei tu, direttamente dalla cella. Il nome apre la pagina con gli script.',
     target: ['elenco-contenuti'],
   },

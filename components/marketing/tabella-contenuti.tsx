@@ -26,11 +26,12 @@ export function linkContenuto(id: string): string {
 const CONTROLLI = 'a, button, input, select, textarea, label, [role="menu"], [data-cella]'
 
 /**
- * One content as a card: the narrow lists (the table below 960px of section,
- * the calendar's agenda, "Senza data"). The Name opens the panel (the whole
+ * One content as a card: the narrow list (the table below 960px of section).
+ * The Name opens the panel (the whole
  * card is its target); Status, Post Date, Reel Type and Format are chips of
- * 44 px each that change the property and never open the card (1.33.0). The
- * other properties change in the panel; Views is only read here.
+ * 44 px each that change the property and never open the card (1.33.0), and a
+ * pencil renames it (the row «Nuovo» opens it). The other properties change in
+ * the panel; Views is only read here.
  */
 export function CardContenuto({ riga }: { riga: RigaContenuto }) {
   return (
@@ -51,6 +52,15 @@ export function CardContenuto({ riga }: { riga: RigaContenuto }) {
         >
           {riga.nome}
         </LinkContenuto>
+        <EditorCella
+          id={riga.id}
+          nome={riga.nome}
+          campo="nome"
+          valore={riga.nome}
+          aspetto="matita"
+          apriPerNuova
+          className="-my-3 ml-auto shrink-0"
+        />
         {riga.view_count !== null ? (
           <p className="shrink-0 text-right">
             <span className="num block text-sm font-medium">{formatNumero(riga.view_count)}</span>
@@ -108,9 +118,9 @@ function RigaTabella({ riga }: { riga: RigaContenuto }) {
             // the short values never shrink: the Name takes what is left
             (c === 'reel_type' || c === 'formato' || c === 'stato' || c === 'post_date' || c === 'view_count') && 'whitespace-nowrap',
             // a pill is never cut: "Converting", "Raw Talking Head" and "To be recorded" fit their column
-            c === 'reel_type' && 'min-w-28',
-            c === 'formato' && 'min-w-40',
-            c === 'stato' && 'min-w-36',
+            c === 'reel_type' && 'min-w-32',
+            c === 'formato' && 'min-w-44',
+            c === 'stato' && 'min-w-40',
           )}
         >
           <CellaContenuto riga={riga} colonna={c} />
