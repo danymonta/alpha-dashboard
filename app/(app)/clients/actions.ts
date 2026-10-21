@@ -8,6 +8,12 @@ import { isDataISO, oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 import { clienteSchema } from '@/lib/validation/anagrafiche'
 import { archivioClienteSchema, chiusuraClienteSchema, togliArchivioSchema } from '@/lib/validation/chiusura'
+import {
+  ERRORE_SOSPENDI_CHIUSO,
+  ERRORE_SOSPENDI_SENZA_PERCORSO,
+  riattivaClienteSchema,
+  sospensioneClienteSchema,
+} from '@/lib/validation/sospensione'
 
 export type Esito = { ok: true } | { ok: false; errore: string }
 
@@ -124,7 +130,7 @@ export async function interrompiPercorso(input: unknown): Promise<Esito> {
 
 /** Every page that lists a client by status: Clienti, Rinnovi, the Panoramica box. */
 function rivalidaStatoCliente(clientId: string) {
-  revalidatePath('/clients')
+  revalidatePath('/clients', 'layout')
   revalidatePath(`/clients/${clientId}`)
   revalidatePath('/rinnovi')
   revalidatePath('/')
@@ -269,4 +275,60 @@ export async function riapriCliente(input: unknown): Promise<Esito> {
 
   rivalidaStatoCliente(parsed.data.client_id)
   return { ok: true }
+}
+
+/**
+ * "Sospendi" (21/10/2026): the client goes on hold from that day, with an
+ * optional reason. Its own table, admin only (RLS); the path and the
+ * instalments do not change. A closed client has nothing to put on hold (the
+ * closure wins), and neither has one without a path. Suspending again replaces
+ * the day and the reason. The database ends the hold by itself when the client
+ * is closed or buys again: the pages refresh the same way.
+ */
+export async function sospendiCliente(input: unknown): Promise<Esito> {
+  const parsed = sospensioneClienteSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const { client_id, sospeso_il, motivo } = parsed.data
+  const supabase = await createClient()
+  const [chiusura, cliente] = await Promise.all([
+    supabase.from('v_clienti_chiusi').select('client_id').eq('client_id', client_id).maybeSingle(),
+    supabase.from('v_clienti').select('numero_vendite').eq('client_id', client_id).maybeSingle(),
+  ])
+  if (chiusura.error || cliente.error) return { ok: false, errore: 'Cliente non sospeso. Riprova.' }
+  if (!cliente.data) return { ok: false, errore: 'Cliente non trovato: ricarica la pagina.' }
+  if (chiusura.data) return { ok: false, errore: ERRORE_SOSPENDI_CHIUSO }
+  if ((cliente.data.numero_vendite ?? 0) === 0) return { ok: false, errore: ERRORE_SOSPENDI_SENZA_PERCORSO }
+
+  const { error } = await supabase
+    .from('clienti_sospensioni')
+    .upsert({ client_id, sospeso_il, motivo }, { onConflict: 'client_id' })
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non sospeso. Riprova.') }
+
+  rivalidaStatoCliente(client_id)
+  return { ok: true }
+}
+
+/** "Riattiva": the hold goes, the status comes back from the sale dates. */
+export async function riattivaCliente(input: unknown): Promise<Esito> {
+  const parsed = riattivaClienteSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: 'Cliente non valido.' }
+  const negato = await negaSeNon(['admin'])
+  if (negato) return { ok: false, errore: negato }
+
+  const supabase = await createClient()
+  // a delete that finds nothing raises nothing: read back what went
+  const { data, error } = await supabase
+    .from('clienti_sospensioni')
+    .delete()
+    .eq('client_id', parsed.data.client_id)
+    .select('client_id')
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non riattivato. Riprova.') }
+
+  rivalidaStatoCliente(parsed.data.client_id)
+  return data.length > 0
+    ? { ok: true }
+    : { ok: false, errore: 'Il cliente non è sospeso (forse l’hai già riattivato): ricarica la pagina.' }
 }

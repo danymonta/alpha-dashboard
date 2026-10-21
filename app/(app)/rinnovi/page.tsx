@@ -55,7 +55,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
       .gte('data_fine_ultima', oggi)
       .lte('data_fine_ultima', aggiungiGiorni(oggi, giorni))
       // a closed client does not renew, an archived one even less: never among the ones to chase
-      .not('stato', 'in', '(chiuso,ex_cliente)')
+      .not('stato', 'in', '(chiuso,ex_cliente,sospeso)')
       .order('data_fine_ultima'),
     supabase
       .from('v_clienti')

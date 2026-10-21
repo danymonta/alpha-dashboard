@@ -12,6 +12,8 @@ import {
   eliminaCliente,
   interrompiPercorso,
   riapriCliente,
+  riattivaCliente,
+  sospendiCliente,
   togliDallArchivio,
 } from '@/app/(app)/clients/actions'
 import {
@@ -96,7 +98,10 @@ function cliente(ctx: Contesto): Definizione {
   const { supabase, r } = ctx
   const schema = z.object({
     azione: enumAzioni(ctx, 'cliente'),
-    cliente: z.string().optional().describe('Nome e cognome attuali (modifica, chiudi, archivia, togli_archivio, riapri, elimina)'),
+    cliente: z
+      .string()
+      .optional()
+      .describe('Nome e cognome attuali (modifica, chiudi, archivia, togli_archivio, riapri, sospendi, riattiva, elimina)'),
     nome: z.string().min(1).max(80).optional(),
     cognome: z.string().max(80).optional(),
     email: z.string().max(160).optional(),
@@ -108,7 +113,12 @@ function cliente(ctx: Contesto): Definizione {
     note: z.string().max(1000).optional().describe('Sostituisce le note'),
     aggiungi_nota: z.string().max(500).optional().describe('In fondo alle note'),
     chiuso_il: dataISO('chiudi: da quando non rinnova; di base oggi (o il giorno già salvato), mai nel futuro').optional(),
-    motivo: z.string().max(MOTIVO_CHIUSURA_MAX).optional().describe('chiudi: perché non rinnova, facoltativo; "" lo toglie'),
+    motivo: z
+      .string()
+      .max(MOTIVO_CHIUSURA_MAX)
+      .optional()
+      .describe('chiudi: perché non rinnova; sospendi: perché lo sospendi; facoltativo, "" lo toglie'),
+    sospeso_il: dataISO('sospendi: da quando è in pausa; di base oggi (o il giorno già salvato), mai nel futuro').optional(),
   })
   type Input = z.infer<typeof schema>
   const campi = 'id, nome, cognome, email, telefono, instagram_handle, fonte, setter_id, closer_id, note'
@@ -164,6 +174,45 @@ function cliente(ctx: Contesto): Definizione {
     return { ...letta, dopo }
   }
 
+  /** The client and his hold in force ("Sospendi"), if any. */
+  async function sospensioneDi(v: Input) {
+    const c = await r.trovaCliente(v.cliente ?? '')
+    if (!c) return errore('Dimmi quale cliente.')
+    if (isErrore(c)) return c
+    const { data, error } = await supabase
+      .from('clienti_sospensioni')
+      .select('sospeso_il, motivo')
+      .eq('client_id', c.id)
+      .maybeSingle()
+    if (error) return errore('Non riesco a leggere il cliente: riprova tra poco.')
+    return { cliente: c, sospensione: data?.sospeso_il ? { sospeso_il: data.sospeso_il, motivo: data.motivo } : null }
+  }
+
+  /**
+   * "Sospendi": the hold as it will be saved. A closed client or one without a
+   * path, or a day in the future, stops the card, as the action would.
+   */
+  async function sospensioneNuova(v: Input) {
+    const letta = await sospensioneDi(v)
+    if (isErrore(letta)) return letta
+    const [chiusura, vendite] = await Promise.all([
+      supabase.from('v_clienti_chiusi').select('client_id').eq('client_id', letta.cliente.id).maybeSingle(),
+      supabase.from('sales').select('id').eq('client_id', letta.cliente.id).limit(1),
+    ])
+    if (chiusura.error || vendite.error) return errore('Non riesco a leggere il cliente: riprova tra poco.')
+    if (chiusura.data) return errore(`${letta.cliente.nome} è chiuso: prima va riaperto (riapri), poi si può sospendere.`)
+    if ((vendite.data ?? []).length === 0) {
+      return errore(`${letta.cliente.nome} non ha ancora un percorso: non c’è niente da sospendere.`)
+    }
+    const oggi = oggiRoma()
+    const dopo = {
+      sospeso_il: v.sospeso_il?.trim() || letta.sospensione?.sospeso_il || oggi,
+      motivo: v.motivo === undefined ? (letta.sospensione?.motivo ?? null) : v.motivo.trim() || null,
+    }
+    if (dopo.sospeso_il > oggi) return errore('Il giorno della sospensione non può essere nel futuro.')
+    return { ...letta, dopo }
+  }
+
   /** The row as it is, and as it will be after the edit. */
   async function unisci(v: Input) {
     const c = await r.trovaCliente(v.cliente ?? '')
@@ -208,6 +257,9 @@ function cliente(ctx: Contesto): Definizione {
       'su un cliente già chiuso corregge giorno o motivo. archivia: un cliente chiuso che non ricompra diventa ex cliente da oggi ' +
       '("Archivia come ex cliente"): esce da Non rinnovano, va sotto Ex cliente in Clienti. togli_archivio: torna chiuso. ' +
       'riapri: toglie la chiusura e l’archivio (anche una nuova vendita nuovo o rinnovo lo riapre da sola). ' +
+      'sospendi: il cliente va in pausa ("Sospendi" nella scheda), da sospeso_il (di base oggi) con un motivo facoltativo: ' +
+      'esce da In scadenza e dai promemoria, percorso e rate non cambiano; su un cliente già sospeso corregge giorno o motivo. ' +
+      'riattiva: toglie la sospensione (anche una nuova vendita nuovo o rinnovo, o "Non rinnova", la finisce da sola). ' +
       'elimina: con le sue vendite e rate.',
     inputSchema: schema,
     anteprima: async (v): Promise<Anteprima> => {
@@ -273,6 +325,32 @@ function cliente(ctx: Contesto): Definizione {
           x.chiusura.archiviato_il
             ? 'Torna con lo stato che dicono le date del percorso, con i promemoria ancora dovuti; giorno e motivo della chiusura e l’archivio si tolgono.'
             : 'Torna con lo stato che dicono le date del percorso, con i promemoria ancora dovuti; giorno e motivo della chiusura si tolgono.',
+        ])
+      }
+      if (v.azione === 'sospendi') {
+        const x = await sospensioneNuova(v)
+        if (isErrore(x)) return x
+        if (x.sospensione) {
+          return anteprima(`Correggo la sospensione di ${x.cliente.nome}`, [
+            ...cambi([
+              ['Sospeso dal', x.sospensione.sospeso_il, x.dopo.sospeso_il, 'data'],
+              ['Motivo', x.sospensione.motivo, x.dopo.motivo, 'lungo'],
+            ]),
+          ])
+        }
+        return anteprima(`Sospendo ${x.cliente.nome}`, [
+          `Sospeso dal ${formatData(x.dopo.sospeso_il)}`,
+          x.dopo.motivo ? `Motivo: ${x.dopo.motivo}` : 'Motivo: nessuno',
+          'Va tra i clienti sospesi: esce da In scadenza e dai rinnovi da chiamare, niente più promemoria del percorso. Percorso, rate e incassi restano; se compra di nuovo o non rinnova la sospensione finisce da sola.',
+        ])
+      }
+      if (v.azione === 'riattiva') {
+        const x = await sospensioneDi(v)
+        if (isErrore(x)) return x
+        if (!x.sospensione) return errore(`${x.cliente.nome} non è sospeso: non c’è niente da riattivare.`)
+        return anteprima(`Riattivo il cliente ${x.cliente.nome}`, [
+          `Era sospeso dal ${formatData(x.sospensione.sospeso_il)}${x.sospensione.motivo ? `: ${x.sospensione.motivo}` : ''}`,
+          'Torna con lo stato che dicono le date del percorso, con i promemoria ancora dovuti; giorno e motivo della sospensione si tolgono.',
         ])
       }
       const u = await unisci(v)
@@ -362,6 +440,19 @@ function cliente(ctx: Contesto): Definizione {
         if (isErrore(x)) return x
         if (!x.chiusura) return errore(`${x.cliente.nome} non è chiuso: non c’è niente da riaprire.`)
         const esito = await riapriCliente({ client_id: x.cliente.id })
+        return esito.ok ? { fatto: true, cliente: x.cliente.nome, link: `/clients/${x.cliente.id}` } : errore(esito.errore)
+      }
+      if (v.azione === 'sospendi') {
+        const x = await sospensioneNuova(v)
+        if (isErrore(x)) return x
+        const esito = await sospendiCliente({ client_id: x.cliente.id, ...x.dopo })
+        return esito.ok ? { fatto: true, cliente: x.cliente.nome, link: `/clients/${x.cliente.id}` } : errore(esito.errore)
+      }
+      if (v.azione === 'riattiva') {
+        const x = await sospensioneDi(v)
+        if (isErrore(x)) return x
+        if (!x.sospensione) return errore(`${x.cliente.nome} non è sospeso: non c’è niente da riattivare.`)
+        const esito = await riattivaCliente({ client_id: x.cliente.id })
         return esito.ok ? { fatto: true, cliente: x.cliente.nome, link: `/clients/${x.cliente.id}` } : errore(esito.errore)
       }
       const u = await unisci(v)

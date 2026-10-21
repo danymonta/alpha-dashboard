@@ -380,10 +380,13 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
     cerca_clienti: definizione({
       description:
         'Cerca clienti per nome o cognome, o per stato. Dà stato, fonte, setter (chi l’ha portato) e closer, valore firmato, incassato, da incassare e rate in ritardo; ' +
-        'per un cliente chiuso (non rinnova, lo decide l’admin) anche da quando e perché, e se l’admin l’ha archiviato come ex cliente da quando (archiviato_il).',
+        'per un cliente chiuso (non rinnova, lo decide l’admin) anche da quando e perché, e se l’admin l’ha archiviato come ex cliente da quando (archiviato_il); ' +
+        'per un cliente sospeso (in pausa, lo decide l’admin) da quando e perché (sospeso_il, motivo_sospensione).',
       inputSchema: z.object({
         testo: z.string().max(60).optional(),
-        stato: z.enum(['attivo', 'in_scadenza', 'da_iniziare', 'scaduto', 'chiuso', 'ex_cliente', 'mai_attivato']).optional(),
+        stato: z
+          .enum(['attivo', 'in_scadenza', 'da_iniziare', 'sospeso', 'scaduto', 'chiuso', 'ex_cliente', 'mai_attivato'])
+          .optional(),
       }),
       execute: async ({ testo, stato }) => {
         let q = supabase
@@ -411,6 +414,13 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
           : { data: [], error: null }
         if (chiusure.error) return errore('Clienti non disponibili.')
         const chiusura = new Map((chiusure.data ?? []).map((c) => [c.client_id, c]))
+        // "Sospendi" (21/10/2026): since when and why, for the ones on hold
+        const idSospesi = data.filter((c) => c.stato === 'sospeso' && c.client_id).map((c) => c.client_id as string)
+        const sospensioni = idSospesi.length
+          ? await supabase.from('clienti_sospensioni').select('client_id, sospeso_il, motivo').in('client_id', idSospesi)
+          : { data: [], error: null }
+        if (sospensioni.error) return errore('Clienti non disponibili.')
+        const sospensione = new Map((sospensioni.data ?? []).map((c) => [c.client_id, c]))
         return {
           clienti: data.map(({ setter_id, closer_id, ...c }) => ({
             ...c,
@@ -421,6 +431,12 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
                   chiuso_il: chiusura.get(c.client_id)?.chiuso_il ?? null,
                   motivo_chiusura: chiusura.get(c.client_id)?.motivo ?? null,
                   ...(chiusura.get(c.client_id)?.archiviato_il ? { archiviato_il: chiusura.get(c.client_id)?.archiviato_il } : {}),
+                }
+              : {}),
+            ...(c.client_id && sospensione.has(c.client_id)
+              ? {
+                  sospeso_il: sospensione.get(c.client_id)?.sospeso_il ?? null,
+                  motivo_sospensione: sospensione.get(c.client_id)?.motivo ?? null,
                 }
               : {}),
           })),

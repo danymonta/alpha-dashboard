@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ChiusuraCliente, NonRinnova } from '@/app/(app)/clients/[id]/chiusura-cliente'
 import { InterrompiPercorso } from '@/app/(app)/clients/[id]/interrompi-percorso'
 import { ModificaCliente } from '@/app/(app)/clients/[id]/modifica-cliente'
+import { Sospendi, SospensioneCliente } from '@/app/(app)/clients/[id]/sospensione-cliente'
 import { StoricoPercorsi, type Percorso } from '@/app/(app)/clients/[id]/storico-percorsi'
 import { CartellaDrive } from '@/components/cliente/cartella-drive'
 import { StatoClienteBadge } from '@/components/cliente/stato-cliente'
@@ -28,7 +29,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
 
   // "Scegli da Drive": the Google Picker's public values, read now; none = the typed link only
   const picker = await configPickerRichiesta()
-  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto, cartella, chiusura] = await Promise.all([
+  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto, cartella, chiusura, sospensione] = await Promise.all([
     supabase
       .from('clients')
       .select('id, nome, cognome, email, telefono, instagram_handle, fonte, note, created_at, setter_id, closer_id, setter:profiles!clients_setter_id_fkey(nome), closer:profiles!clients_closer_id_fkey(nome)')
@@ -64,8 +65,10 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
     supabase.from('clienti_cartelle').select('url').eq('client_id', id).maybeSingle(),
     // "Non rinnova" in force (04/10/2026), archived or not (05/10/2026): a later nuovo/rinnovo sale already reopened him
     supabase.from('v_clienti_chiusi').select('chiuso_il, motivo, archiviato_il').eq('client_id', id).maybeSingle(),
+    // "Sospendi" (21/10/2026): the day and the reason; the database ends it when he is closed or buys again
+    supabase.from('clienti_sospensioni').select('sospeso_il, motivo').eq('client_id', id).maybeSingle(),
   ])
-  if (vendite.error || importi.error || progetto.error || cartella.error || chiusura.error) {
+  if (vendite.error || importi.error || progetto.error || cartella.error || chiusura.error || sospensione.error) {
     throw new Error('Impossibile caricare lo storico del cliente')
   }
 
@@ -124,6 +127,8 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
     (valore.stato === 'chiuso' || valore.stato === 'ex_cliente') && chiusura.data?.chiuso_il
       ? { chiuso_il: chiusura.data.chiuso_il, motivo: chiusura.data.motivo, archiviato_il: chiusura.data.archiviato_il }
       : null
+  // on hold: only while the status says so (a closed client is not on hold)
+  const sospeso = valore.stato === 'sospeso' && sospensione.data ? sospensione.data : null
 
   const contatti: [string, string][] = [
     ['Email', cliente.email ?? '–'],
@@ -156,6 +161,8 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
               </LinkBottone>
               {/* the other answer: he does not renew, and goes among the closed clients (04/10/2026) */}
               {chiuso ? null : <NonRinnova clientId={id} cliente={nome} oggi={oggi} minimo={ultimaFirma} />}
+              {/* on hold, decided by hand like "Non rinnova" (21/10/2026): a closed client has nothing to suspend */}
+              {chiuso || sospeso ? null : <Sospendi clientId={id} cliente={nome} oggi={oggi} />}
               <LinkBottone href={`/sales/new?cliente=${id}&tipo=upsell`} variant="outline">
                 Upsell
               </LinkBottone>
@@ -195,6 +202,8 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
           </p>
         ) : null}
       </div>
+
+      {sospeso ? <SospensioneCliente clientId={id} cliente={nome} oggi={oggi} sospensione={sospeso} /> : null}
 
       {chiuso ? <ChiusuraCliente clientId={id} cliente={nome} oggi={oggi} minimo={ultimaFirma} chiusura={chiuso} /> : null}
 

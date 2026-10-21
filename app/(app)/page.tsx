@@ -204,7 +204,7 @@ export default async function PanoramicaPage({
       .select('client_id, nome, cognome, data_fine_ultima')
       .gte('data_fine_ultima', oggi)
       .lte('data_fine_ultima', aggiungiGiorni(oggi, 30))
-      .not('stato', 'in', '(chiuso,ex_cliente)')
+      .not('stato', 'in', '(chiuso,ex_cliente,sospeso)')
       .order('data_fine_ultima')
       .limit(6),
     inCorso ? supabase.rpc('oggi_team').single() : Promise.resolve({ data: null, error: null }),

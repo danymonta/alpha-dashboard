@@ -167,6 +167,16 @@ export function riassuntoScrittura(nome: NomeScrittura, input: Input): Riassunto
       if (azione === 'archivia') return { titolo: `Archivio ${chi} come ex cliente`, dettagli: ['Archiviato da oggi'] }
       if (azione === 'togli_archivio') return { titolo: `Tolgo ${chi} dall’archivio`, dettagli: ['Torna tra i clienti chiusi'] }
       if (azione === 'riapri') return { titolo: `Riapro il cliente ${chi}`, dettagli: [] }
+      if (azione === 'sospendi') {
+        return {
+          titolo: `Sospendo ${chi}`,
+          dettagli: righe(
+            testo(input.sospeso_il) ? `Sospeso dal ${formatData(input.sospeso_il as string)}` : 'Sospeso da oggi',
+            testo(input.motivo) && `Motivo: ${input.motivo}`,
+          ),
+        }
+      }
+      if (azione === 'riattiva') return { titolo: `Riattivo il cliente ${chi}`, dettagli: [] }
       return {
         titolo: `Creo il cliente ${[testo(input.nome), testo(input.cognome)].filter(Boolean).join(' ')}`,
         dettagli: righe(

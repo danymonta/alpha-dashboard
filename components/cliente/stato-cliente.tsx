@@ -1,4 +1,4 @@
-import { Archive, CalendarClock, CalendarX, CircleCheck, CircleDashed, Hourglass, UserMinus, type LucideIcon } from 'lucide-react'
+import { Archive, CalendarClock, CalendarX, CircleCheck, CircleDashed, CirclePause, Hourglass, UserMinus, type LucideIcon } from 'lucide-react'
 
 import type { Database } from '@/lib/supabase/database.types'
 import { cn } from '@/lib/utils'
@@ -9,6 +9,7 @@ export const ETICHETTA_STATO_CLIENTE: Record<StatoCliente, string> = {
   attivo: 'Attivo',
   in_scadenza: 'In scadenza',
   da_iniziare: 'Da iniziare',
+  sospeso: 'Sospeso',
   scaduto: 'Scaduto',
   chiuso: 'Chiuso',
   ex_cliente: 'Ex cliente',
@@ -20,6 +21,8 @@ const ASPETTO: Record<StatoCliente, { Icona: LucideIcon; tono: string }> = {
   in_scadenza: { Icona: Hourglass, tono: 'text-status-warning' },
   // the same look as "Da iniziare" in the client's path history
   da_iniziare: { Icona: CalendarClock, tono: 'text-muted-foreground' },
+  // on hold, set by the admin ("Sospendi", 21/10/2026): parked on purpose, nothing to chase, like Chiuso
+  sospeso: { Icona: CirclePause, tono: 'text-muted-foreground' },
   scaduto: { Icona: CalendarX, tono: 'text-status-critical' },
   // closed by the admin ("Non rinnova", 04/10/2026): handled, nothing to chase
   chiuso: { Icona: Archive, tono: 'text-muted-foreground' },
