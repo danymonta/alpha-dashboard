@@ -107,6 +107,10 @@ function RigaTabella({ riga }: { riga: RigaContenuto }) {
             ALLINEA_DESTRA.has(c) ? 'text-right' : 'text-left',
             // the short values never shrink: the Name takes what is left
             (c === 'reel_type' || c === 'formato' || c === 'stato' || c === 'post_date' || c === 'view_count') && 'whitespace-nowrap',
+            // a pill is never cut: "Converting", "Raw Talking Head" and "To be recorded" fit their column
+            c === 'reel_type' && 'min-w-28',
+            c === 'formato' && 'min-w-40',
+            c === 'stato' && 'min-w-36',
           )}
         >
           <CellaContenuto riga={riga} colonna={c} />

@@ -7,13 +7,7 @@ import { toast } from 'sonner'
 
 import { creaContenuto } from '@/app/(app)/marketing/contenuti/actions'
 import { Button } from '@/components/ui/button'
-import { PARAMETRO_CONTENUTO } from '@/lib/marketing/pannello'
-
-/** The Name a new row is born with: the database wants one, the person replaces it at once. */
-export const NOME_NUOVA_RIGA = 'Senza titolo'
-
-/** The address parameter that pins the row just created at the top of the table. */
-export const PARAMETRO_NUOVA = 'nuovo'
+import { NOME_NUOVA_RIGA, PARAMETRO_CONTENUTO, PARAMETRO_NUOVA } from '@/lib/marketing/pannello'
 
 /**
  * The row just created, whose Name editor opens by itself (once, in the copy

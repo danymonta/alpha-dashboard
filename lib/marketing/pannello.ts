@@ -12,6 +12,15 @@ import type { CampoInCella } from '@/lib/validation/contenuto'
 /** The search param the panel lives in. */
 export const PARAMETRO_CONTENUTO = 'contenuto'
 
+/**
+ * The search param that pins the row «Nuovo» just created at the top of the Piano editoriale (a row without a
+ * Post Date would sit at the bottom of the table): the id of that content.
+ */
+export const PARAMETRO_NUOVA = 'nuovo'
+
+/** The Name a new row is born with: the database wants one, the person replaces it at once. */
+export const NOME_NUOVA_RIGA = 'Senza titolo'
+
 /** A content's own page: direct links, Cmd/Ctrl-click, «Apri a tutta pagina». */
 export function hrefContenuto(id: string): string {
   return `/marketing/contenuti/${id}`

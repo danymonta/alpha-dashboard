@@ -390,6 +390,27 @@ export async function pulisciContenuti(prefisso: string) {
   if (error) throw error
 }
 
+type RigaOpzione = Database['public']['Tables']['marketing_opzioni']['Row']
+
+/** A label of Reel Type or Format (21/10/2026) by its name, or null when it is not there. */
+export async function opzioneDaNome(nome: string): Promise<RigaOpzione | null> {
+  const { data, error } = await dbLocale().from('marketing_opzioni').select('*').eq('nome', nome).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+/** The labels a test created, by the prefix of their name (the contents that used them lose them: the foreign key). */
+export async function pulisciOpzioni(prefisso: string) {
+  const { error } = await dbLocale().from('marketing_opzioni').delete().like('nome', `${prefisso}%`)
+  if (error) throw error
+}
+
+/** The rows «Nuovo» created and nobody named (their placeholder Name), left behind by a test that stopped. */
+export async function pulisciRigheSenzaTitolo() {
+  const { error } = await dbLocale().from('marketing_contenuti').delete().eq('nome', 'Senza titolo')
+  if (error) throw error
+}
+
 /**
  * A public OAuth client registered by hand, as Dany does in Supabase › Authentication ›
  * OAuth Apps (Claude connected, 09/10/2026): no secret, one redirect URI. Local only.
