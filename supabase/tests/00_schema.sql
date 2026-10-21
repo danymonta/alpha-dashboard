@@ -56,11 +56,22 @@ select is(
    from pg_tables t
    where t.schemaname = 'public'
      and case
-       when t.tablename = any (array['marketing_contenuti']) then exists (
+       when t.tablename = 'marketing_contenuti' then exists (
          select 1 from pg_policies p
          where p.schemaname = 'public' and p.tablename = t.tablename
            and (p.permissive = 'RESTRICTIVE' or p.policyname = t.tablename || '_mai_da_oauth')
        )
+       -- the labels (20261024090000): Claude reads them, so no restrictive policy on the read,
+       -- and exactly one per write (insert, update, delete)
+       when t.tablename = 'marketing_opzioni' then exists (
+         select 1 from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and p.permissive = 'RESTRICTIVE' and p.cmd in ('ALL', 'SELECT')
+       ) or (
+         select count(*) from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and p.permissive = 'RESTRICTIVE' and p.cmd in ('INSERT', 'UPDATE', 'DELETE')
+       ) <> 3
        else not exists (
          select 1 from pg_policies p
          where p.schemaname = 'public' and p.tablename = t.tablename

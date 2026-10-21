@@ -1025,13 +1025,13 @@ isOneToOne: false
                   ]
                 },"marketing_contenuti": {
                   Row: {
-                    "audio": string | null,"bozza": string | null,"commenti": string | null,"created_at": string,"created_by": string | null,"da_analisi": string | null,"da_idea": number | null,"da_spunti": string | null,"da_spunti_idea": number | null,"finale": string | null,"formato": Database["public"]['Enums']["contenuto_format"] | null,"id": string,"inspiration": string | null,"instagram_shortcode": string | null,"messaggio": string | null,"nome": string,"notion_page_id": string | null,"post_date": string | null,"reel_type": Database["public"]['Enums']["contenuto_reel_type"] | null,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"],"updated_at": string,"url": string | null,"view_count": number | null
+                    "audio": string | null,"bozza": string | null,"commenti": string | null,"created_at": string,"created_by": string | null,"da_analisi": string | null,"da_idea": number | null,"da_spunti": string | null,"da_spunti_idea": number | null,"finale": string | null,"formato": string | null,"formato_campo": string,"id": string,"inspiration": string | null,"instagram_shortcode": string | null,"messaggio": string | null,"nome": string,"notion_page_id": string | null,"post_date": string | null,"reel_type": string | null,"reel_type_campo": string,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"],"updated_at": string,"url": string | null,"view_count": number | null
                   }
                   Insert: {
-                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: Database["public"]['Enums']["contenuto_format"] | null,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome": string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: Database["public"]['Enums']["contenuto_reel_type"] | null,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
+                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: string | null,"formato_campo"?: string,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome": string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: string | null,"reel_type_campo"?: string,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
                   }
                   Update: {
-                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: Database["public"]['Enums']["contenuto_format"] | null,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome"?: string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: Database["public"]['Enums']["contenuto_reel_type"] | null,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
+                    "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: string | null,"formato_campo"?: string,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome"?: string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: string | null,"reel_type_campo"?: string,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null
                   }
                   Relationships: [
                     {
@@ -1058,6 +1058,18 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "marketing_spunti"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "marketing_contenuti_formato_fkey"
+      columns: ["formato_campo","formato"]
+isOneToOne: false
+      referencedRelation: "marketing_opzioni"
+      referencedColumns: ["campo","valore"]
+    },{
+      foreignKeyName: "marketing_contenuti_reel_type_fkey"
+      columns: ["reel_type_campo","reel_type"]
+isOneToOne: false
+      referencedRelation: "marketing_opzioni"
+      referencedColumns: ["campo","valore"]
     }
                   ]
                 },"marketing_lavori_stato": {
@@ -1072,6 +1084,25 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"marketing_opzioni": {
+                  Row: {
+                    "campo": string,"colore": string,"created_at": string,"created_by": string | null,"id": string,"nome": string,"ordine": number,"updated_at": string,"valore": string
+                  }
+                  Insert: {
+                    "campo": string,"colore"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"nome": string,"ordine"?: number,"updated_at"?: string,"valore": string
+                  }
+                  Update: {
+                    "campo"?: string,"colore"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"nome"?: string,"ordine"?: number,"updated_at"?: string,"valore"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "marketing_opzioni_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"marketing_post_esclusi": {
                   Row: {
@@ -1872,7 +1903,7 @@ isOneToOne: true
           Views: {
             "v_analisi_reel": {
                   Row: {
-                    "analisi_errore": string | null,"analisi_eta_confronto": number | null,"analisi_eta_ore": number | null,"analisi_finita_il": string | null,"analisi_id": string | null,"analisi_motivo": string | null,"analisi_stato": Database["public"]['Enums']["analisi_stato"] | null,"analisi_verdetto": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"classificazione_formato": string | null,"classificazione_reel_type": string | null,"comments": number | null,"comments_count": number | null,"confronto": string | null,"contenuto_id": string | null,"copertina_url": string | null,"didascalia_inizio": string | null,"dm": number | null,"dm_14g": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_confronto": number | null,"eta_ore": number | null,"fascia_lead": string | null,"fascia_pubblico": string | null,"fonte_visione": string | null,"formato": Database["public"]['Enums']["contenuto_format"] | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_in_target": number | null,"lettura_errore": string | null,"lettura_richiesta": string | null,"lettura_stato": string | null,"lettura_video": string | null,"like_count": number | null,"likes": number | null,"media_id": string | null,"media_type": string | null,"metriche_il": string | null,"metriche_stato": string | null,"nome": string | null,"numeri_parziali": boolean | null,"permalink": string | null,"pubblicato_il": string | null,"punteggio_fascia": string | null,"punteggio_tipo": string | null,"punteggio_totale": number | null,"quota_vista": number | null,"reach": number | null,"reel_type": Database["public"]['Enums']["contenuto_reel_type"] | null,"salvataggi_rapporto": number | null,"saved": number | null,"shares": number | null,"shortcode": string | null,"skip_rate": number | null,"stato_collegamento": string | null,"status": Database["public"]['Enums']["contenuto_status"] | null,"tasso_condivisioni": number | null,"tasso_salvataggi": number | null,"trascrizione_esito": string | null,"verdetto_oggi": string | null,"video_disponibile": boolean | null,"views": number | null,"views_3g": number | null,"views_7g": number | null,"views_all_eta": number | null,"views_confronto": number | null,"views_rapporto": number | null,"visione_esito": string | null,"visione_media_s": number | null,"visione_su_durata": number | null
+                    "analisi_errore": string | null,"analisi_eta_confronto": number | null,"analisi_eta_ore": number | null,"analisi_finita_il": string | null,"analisi_id": string | null,"analisi_motivo": string | null,"analisi_stato": Database["public"]['Enums']["analisi_stato"] | null,"analisi_verdetto": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"classificazione_formato": string | null,"classificazione_reel_type": string | null,"comments": number | null,"comments_count": number | null,"confronto": string | null,"contenuto_id": string | null,"copertina_url": string | null,"didascalia_inizio": string | null,"dm": number | null,"dm_14g": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_confronto": number | null,"eta_ore": number | null,"fascia_lead": string | null,"fascia_pubblico": string | null,"fonte_visione": string | null,"formato": string | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_in_target": number | null,"lettura_errore": string | null,"lettura_richiesta": string | null,"lettura_stato": string | null,"lettura_video": string | null,"like_count": number | null,"likes": number | null,"media_id": string | null,"media_type": string | null,"metriche_il": string | null,"metriche_stato": string | null,"nome": string | null,"numeri_parziali": boolean | null,"permalink": string | null,"pubblicato_il": string | null,"punteggio_fascia": string | null,"punteggio_tipo": string | null,"punteggio_totale": number | null,"quota_vista": number | null,"reach": number | null,"reel_type": string | null,"salvataggi_rapporto": number | null,"saved": number | null,"shares": number | null,"shortcode": string | null,"skip_rate": number | null,"stato_collegamento": string | null,"status": Database["public"]['Enums']["contenuto_status"] | null,"tasso_condivisioni": number | null,"tasso_salvataggi": number | null,"trascrizione_esito": string | null,"verdetto_oggi": string | null,"video_disponibile": boolean | null,"views": number | null,"views_3g": number | null,"views_7g": number | null,"views_all_eta": number | null,"views_confronto": number | null,"views_rapporto": number | null,"visione_esito": string | null,"visione_media_s": number | null,"visione_su_durata": number | null
                   }
                   Relationships: [
                     
@@ -2245,7 +2276,7 @@ isOneToOne: false
 { Args: { "p_importo": number,"p_sale_id": string,"p_scadenza": string }; Returns: string
                            },
 "analisi_fascia_lead":
-{ Args: { "p_dm": number,"p_in_target": number,"p_p75": number,"p_reel_type": Database["public"]['Enums']["contenuto_reel_type"] }; Returns: string
+{ Args: { "p_dm": number,"p_in_target": number,"p_p75": number,"p_reel_type": string }; Returns: string
                            },
 "analisi_fascia_pubblico":
 { Args: { "p_condivisioni": number,"p_salvataggi": number,"p_views": number }; Returns: string
@@ -2416,9 +2447,32 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"conteggi_opzioni_marketing":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "campo": string,"n": number,"valore": string
+            }[]
+                           },
 "copia_costi_ricorrenti":
 { Args: { "p_mese": string }; Returns: number
                            },
+"crea_opzione_marketing":
+{ Args: { "p_campo": string,"p_colore"?: string,"p_nome": string }; Returns: {
+              "campo": string,
+"colore": string,
+"created_at": string,
+"created_by": string | null,
+"id": string,
+"nome": string,
+"ordine": number,
+"updated_at": string,
+"valore": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "marketing_opzioni"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "current_role":
 { Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["app_role"]
                            },
@@ -2742,6 +2796,9 @@ isOneToOne: false
                            },
 "marketing_segna_esito":
 { Args: { "p_errore": string,"p_esito": string }; Returns: undefined
+                           },
+"marketing_slug":
+{ Args: { "p_nome": string }; Returns: string
                            },
 "marketing_spunti_fine":
 { Args: { "p_conta"?: boolean,"p_contenuto": Json,"p_errore": string,"p_fonti": Json,"p_id": string,"p_modello": string,"p_passo": string,"p_riprova_il": string,"p_stato": string,"p_versione": string }; Returns: boolean
@@ -3098,7 +3155,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "analisi_stato": "in_coda"|"in_corso"|"pronta"|"fallita","app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"marketing"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"sospeso"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","contenuto_format": "text_opinion"|"check_caption"|"split"|"reaction"|"b_roll"|"green_screen"|"raw_talking_head"|"storytelling"|"transformation"|"show_and_tell","contenuto_reel_type": "attraction"|"education"|"converting"|"radio"|"workshop","contenuto_status": "not_started"|"to_be_recorded"|"to_be_edited"|"to_be_posted"|"posted"|"canceled","contenuto_tipo": "reel"|"carousel","expense_category": "team"|"software"|"ads"|"formazione"|"altro","insight_canale": "instagram"|"messenger","insight_passo": "lettura"|"analisi"|"unione","insight_stato_esecuzione": "in_coda"|"in_corso"|"pronta"|"fallita","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","proposta_stato": "da_confermare"|"confermata"|"scartata","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
+            "analisi_stato": "in_coda"|"in_corso"|"pronta"|"fallita","app_role": "admin"|"setter"|"closer"|"coach"|"editor"|"marketing"|"nutrizione"|"dev","audit_action": "insert"|"update"|"delete","call_outcome": "chiusa"|"follow_up"|"persa","call_performance": "ottima"|"buona"|"discreta"|"media"|"scarsa","call_status": "programmata"|"svolta"|"no_show"|"cancellata"|"riprogrammata","call_type": "discovery"|"strategy","client_status": "attivo"|"in_scadenza"|"da_iniziare"|"sospeso"|"scaduto"|"chiuso"|"ex_cliente"|"mai_attivato","contenuto_status": "not_started"|"to_be_recorded"|"to_be_edited"|"to_be_posted"|"posted"|"canceled","contenuto_tipo": "reel"|"carousel","expense_category": "team"|"software"|"ads"|"formazione"|"altro","insight_canale": "instagram"|"messenger","insight_passo": "lettura"|"analisi"|"unione","insight_stato_esecuzione": "in_coda"|"in_corso"|"pronta"|"fallita","lead_source": "dm_inbound"|"dm_outbound"|"referral"|"organico"|"ads"|"altro","lead_status": "call_fissata"|"follow_up"|"cliente"|"perso","payment_method": "bonifico"|"stripe"|"paypal"|"carta"|"contanti"|"altro","payment_status": "prevista"|"incassata"|"fallita"|"rimborsata","pm_livello": "admin"|"manager"|"employee","pm_priorita": "bassa"|"media"|"alta","pm_stato_progetto": "attivo"|"in_pausa"|"completato"|"archiviato","pm_stato_task": "da_fare"|"in_corso"|"in_revisione"|"completato","promemoria_esito": "in_invio"|"inviato"|"saltato"|"interrotto","promemoria_tipo": "feedback_3_mesi"|"rinnovo_1_mese","proposta_stato": "da_confermare"|"confermata"|"scartata","qualita_conversazioni": "buone"|"medie"|"scarse","quota_in_target": "quasi_tutti"|"circa_meta"|"pochi","sale_type": "nuovo"|"rinnovo"|"upsell"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -3214,7 +3271,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "analisi_stato": ["in_coda", "in_corso", "pronta", "fallita"],"app_role": ["admin", "setter", "closer", "coach", "editor", "marketing", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "sospeso", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"contenuto_format": ["text_opinion", "check_caption", "split", "reaction", "b_roll", "green_screen", "raw_talking_head", "storytelling", "transformation", "show_and_tell"],"contenuto_reel_type": ["attraction", "education", "converting", "radio", "workshop"],"contenuto_status": ["not_started", "to_be_recorded", "to_be_edited", "to_be_posted", "posted", "canceled"],"contenuto_tipo": ["reel", "carousel"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"insight_canale": ["instagram", "messenger"],"insight_passo": ["lettura", "analisi", "unione"],"insight_stato_esecuzione": ["in_coda", "in_corso", "pronta", "fallita"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"proposta_stato": ["da_confermare", "confermata", "scartata"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
+            "analisi_stato": ["in_coda", "in_corso", "pronta", "fallita"],"app_role": ["admin", "setter", "closer", "coach", "editor", "marketing", "nutrizione", "dev"],"audit_action": ["insert", "update", "delete"],"call_outcome": ["chiusa", "follow_up", "persa"],"call_performance": ["ottima", "buona", "discreta", "media", "scarsa"],"call_status": ["programmata", "svolta", "no_show", "cancellata", "riprogrammata"],"call_type": ["discovery", "strategy"],"client_status": ["attivo", "in_scadenza", "da_iniziare", "sospeso", "scaduto", "chiuso", "ex_cliente", "mai_attivato"],"contenuto_status": ["not_started", "to_be_recorded", "to_be_edited", "to_be_posted", "posted", "canceled"],"contenuto_tipo": ["reel", "carousel"],"expense_category": ["team", "software", "ads", "formazione", "altro"],"insight_canale": ["instagram", "messenger"],"insight_passo": ["lettura", "analisi", "unione"],"insight_stato_esecuzione": ["in_coda", "in_corso", "pronta", "fallita"],"lead_source": ["dm_inbound", "dm_outbound", "referral", "organico", "ads", "altro"],"lead_status": ["call_fissata", "follow_up", "cliente", "perso"],"payment_method": ["bonifico", "stripe", "paypal", "carta", "contanti", "altro"],"payment_status": ["prevista", "incassata", "fallita", "rimborsata"],"pm_livello": ["admin", "manager", "employee"],"pm_priorita": ["bassa", "media", "alta"],"pm_stato_progetto": ["attivo", "in_pausa", "completato", "archiviato"],"pm_stato_task": ["da_fare", "in_corso", "in_revisione", "completato"],"promemoria_esito": ["in_invio", "inviato", "saltato", "interrotto"],"promemoria_tipo": ["feedback_3_mesi", "rinnovo_1_mese"],"proposta_stato": ["da_confermare", "confermata", "scartata"],"qualita_conversazioni": ["buone", "medie", "scarse"],"quota_in_target": ["quasi_tutti", "circa_meta", "pochi"],"sale_type": ["nuovo", "rinnovo", "upsell"]
           }
         }
 } as const

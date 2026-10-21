@@ -65,10 +65,16 @@ insert into public.marketing_contenuti (id, tipo, nome, stato, finale, created_b
 -- ---------------------------------------------------------------------------
 select enum_has_labels('public', 'contenuto_tipo', array['reel', 'carousel'],
   'i due modelli di Notion: Reel Topic e Carousel Topic');
-select enum_has_labels('public', 'contenuto_reel_type',
+-- Reel Type and Format are options in marketing_opzioni since 20261024090000 (test 95)
+select is(
+  (select array_agg(valore order by ordine) from public.marketing_opzioni where campo = 'reel_type'
+     and valore in ('attraction', 'education', 'converting', 'radio', 'workshop')),
   array['attraction', 'education', 'converting', 'radio', 'workshop'],
   'Reel Type con le opzioni di Notion');
-select enum_has_labels('public', 'contenuto_format',
+select is(
+  (select array_agg(valore order by ordine) from public.marketing_opzioni where campo = 'formato'
+     and valore in ('text_opinion', 'check_caption', 'split', 'reaction', 'b_roll',
+        'green_screen', 'raw_talking_head', 'storytelling', 'transformation', 'show_and_tell')),
   array['text_opinion', 'check_caption', 'split', 'reaction', 'b_roll',
         'green_screen', 'raw_talking_head', 'storytelling', 'transformation', 'show_and_tell'],
   'Format con le opzioni di Notion');

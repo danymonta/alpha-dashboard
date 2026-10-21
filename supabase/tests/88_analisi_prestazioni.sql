@@ -95,7 +95,7 @@ declare
   v_dm integer; v_tg integer; v_call integer;
   v_contati boolean := false;
   v_p75 numeric;
-  v_reel_type public.contenuto_reel_type;
+  v_reel_type text;
   v_tipo_scheda text;
   v_fascia_lead text;
   v_eta_confronto smallint;
@@ -225,7 +225,7 @@ begin
     select l.scheda -> 'classificazione' ->> 'reel_type' into v_tipo_scheda
     from public.instagram_letture l where l.media_id = r.media_id;
     if v_tipo_scheda in ('attraction', 'education', 'converting', 'radio', 'workshop') then
-      v_reel_type := v_tipo_scheda::public.contenuto_reel_type;
+      v_reel_type := v_tipo_scheda;
     end if;
   end if;
 
