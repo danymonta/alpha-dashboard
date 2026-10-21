@@ -112,9 +112,12 @@ test('il calendario dei contenuti è dell’area Marketing: il setter torna a Og
       '/marketing',
       '/marketing/contenuti',
       `/marketing/contenuti/${CONTENUTO_SEED}`,
-      // the panel's address and the posts of Instagram (1.33.0)
+      // the panel's address and the published posts (1.33.0; «Pubblicati» since 25/10/2026, the two old pages redirect to it)
       `/marketing/contenuti?contenuto=${CONTENUTO_SEED}`,
+      '/marketing/pubblicati',
+      `/marketing/pubblicati?reel=17900000000000001`,
       '/marketing/instagram',
+      '/marketing/analisi',
     ]) {
       await page.goto(pagina)
       await expect(page, `${ruolo} ${pagina}`).toHaveURL(casa)

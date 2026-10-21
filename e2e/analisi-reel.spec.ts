@@ -4,8 +4,8 @@ import { dbLocale } from './db'
 import { accedi } from './utenti'
 
 /**
- * «Analisi» (1.36.0): the reels with their numbers, the verdict, the panel with
- * Claude's analysis and the ideas for the calendar. On the seed's invented
+ * The reel panel of «Pubblicati» (the page of 25/10/2026 that replaced «Analisi», 1.36.0): the reels with their
+ * numbers, the verdict, the panel with Claude's analysis and the ideas for the calendar. On the seed's invented
  * reels (supabase/seeds/28 and 45); Claude and Instagram are never called here
  * (the request of an analysis is only queued: the steps are driven by
  * analisi-pipeline.spec.ts against the fake servers).
@@ -18,17 +18,17 @@ const NOME_IDEA_NUOVA = 'Parte 2: la sbarra in casa, quale comprare'
 
 const pannello = (page: Page) => page.getByTestId('pannello-reel')
 
-async function apri(page: Page, url = '/marketing/analisi') {
+async function apri(page: Page, url = '/marketing/pubblicati') {
   await page.goto(url)
   // the page's own content: with the panel open the rest of the page is aria-hidden (a heading would not be found)
   await expect(page.getByTestId('analisi-tessere')).toBeVisible({ timeout: 60_000 })
 }
 
-test('la scheda «Analisi», le tessere, i filtri e la lista dei reel', async ({ page }) => {
+test('la scheda «Pubblicati», le tessere, i filtri e la lista dei post', async ({ page }) => {
   await accedi(page, 'admin')
   await apri(page)
   const schede = page.getByRole('navigation', { name: 'Sezioni del Marketing' })
-  await expect(schede.getByRole('link', { name: 'Analisi' })).toHaveAttribute('aria-current', 'page')
+  await expect(schede.getByRole('link', { name: 'Pubblicati', exact: true })).toHaveAttribute('aria-current', 'page')
 
   const tessere = page.getByTestId('analisi-tessere')
   await expect(tessere).toContainText('Reel del periodo')
@@ -36,27 +36,29 @@ test('la scheda «Analisi», le tessere, i filtri e la lista dei reel', async ({
   await expect(tessere).toContainText('Lead dai DM')
   await expect(tessere).toContainText('Da cambiare')
 
-  const elenco = page.getByTestId('elenco-reel')
+  const elenco = page.getByTestId('elenco-pubblicati')
+  // the content of the plan the reel is linked to, with its pills
   await expect(elenco.getByText('Trazioni senza sbarra: tre alternative con quello che hai in casa').first()).toBeVisible()
   // the verdict has words and an icon, never colour alone
   await expect(elenco.locator('[data-verdetto="spingere"]').first()).toContainText('Spingere')
   await expect(elenco.locator('[data-verdetto="cambiare"]').first()).toContainText('Cambiare')
 
   // the filters have visible labels and live in the address
-  const filtri = page.getByRole('region', { name: 'Filtri dell’analisi' })
-  for (const etichetta of ['Periodo', 'Verdetto', 'Punteggio', 'Ordina per']) await expect(filtri.getByRole('combobox', { name: etichetta })).toBeVisible()
-  await filtri.getByRole('combobox', { name: 'Verdetto' }).selectOption('cambiare')
-  await expect(page).toHaveURL(/verdetto=cambiare/)
+  const filtri = page.getByRole('region', { name: 'Filtri dei pubblicati' })
+  for (const etichetta of ['Periodo', 'Tipo', 'Piano editoriale']) await expect(filtri.getByRole('combobox', { name: etichetta })).toBeVisible()
+  await expect(filtri.getByRole('searchbox', { name: 'Cerca nella didascalia' })).toBeVisible()
+  await filtri.getByRole('button', { name: 'Solo i reel da cambiare' }).click()
+  await expect(page).toHaveURL(/cambiare=1/)
   await expect(elenco.locator('[data-verdetto="spingere"]')).toHaveCount(0)
   await expect(elenco.locator('[data-verdetto="cambiare"]').first()).toBeVisible()
   await filtri.getByRole('button', { name: 'Togli i filtri' }).click()
-  await expect(page).toHaveURL(/\/marketing\/analisi$/)
+  await expect(page).toHaveURL(/\/marketing\/pubblicati$/)
 })
 
 test('il pannello di un reel: numeri, verdetto, analisi di Claude, idee, parlato; Esc e Indietro lo chiudono', async ({ page }) => {
   await accedi(page, 'admin')
   await apri(page)
-  await page.getByTestId('elenco-reel').getByRole('link', { name: /Trazioni senza sbarra/ }).first().click()
+  await page.getByTestId('elenco-pubblicati').getByRole('link', { name: /^Niente sbarra\? Nessun problema/ }).first().click()
   await expect(page).toHaveURL(new RegExp(`reel=${REEL_SPINGERE}`))
   const p = pannello(page)
   await expect(p.getByRole('heading', { name: /Trazioni senza sbarra/ })).toBeVisible()
@@ -92,16 +94,16 @@ test('il pannello di un reel: numeri, verdetto, analisi di Claude, idee, parlato
   await page.keyboard.press('Escape')
   await expect(p).toBeHidden()
   await expect(page).not.toHaveURL(/reel=|scheda=/)
-  await expect(page.getByTestId('elenco-reel').getByRole('link', { name: /Trazioni senza sbarra/ }).first()).toBeFocused()
+  await expect(page.getByTestId('elenco-pubblicati').getByRole('link', { name: /^Niente sbarra\? Nessun problema/ }).first()).toBeFocused()
 
   // Back after opening closes too, Forward opens it again; the direct link opens it at once
-  await page.getByTestId('elenco-reel').getByRole('link', { name: /Trazioni senza sbarra/ }).first().click()
+  await page.getByTestId('elenco-pubblicati').getByRole('link', { name: /^Niente sbarra\? Nessun problema/ }).first().click()
   await expect(p).toBeVisible()
   await page.goBack()
   await expect(p).toBeHidden()
   await page.goForward()
   await expect(p).toBeVisible()
-  await page.goto(`/marketing/analisi?reel=${REEL_SPINGERE}`)
+  await page.goto(`/marketing/pubblicati?reel=${REEL_SPINGERE}`)
   await expect(p.getByRole('heading', { name: /Trazioni senza sbarra/ })).toBeVisible()
 })
 
@@ -113,7 +115,7 @@ test('«Aggiungi al calendario» crea un Reel Topic con lo script e l’origine,
   await tolgo()
   try {
     await accedi(page, 'marketing')
-    await apri(page, `/marketing/analisi?reel=${REEL_SPINGERE}`)
+    await apri(page, `/marketing/pubblicati?reel=${REEL_SPINGERE}`)
     const p = pannello(page)
     const idea = p.getByTestId('reel-idea').nth(1)
     await idea.getByTestId('aggiungi-idea').click()
@@ -133,7 +135,7 @@ test('«Aggiungi al calendario» crea un Reel Topic con lo script e l’origine,
     // the content says where it was born
     await page.goto(`/marketing/contenuti/${data?.id}`)
     await expect(page.getByTestId('nato-da-idea')).toContainText('Nato da un’idea di Claude')
-    await page.getByTestId('nato-da-idea').getByRole('link', { name: 'Apri l’analisi' }).click()
+    await page.getByTestId('nato-da-idea').getByRole('link', { name: 'Apri nei Pubblicati' }).click()
     await expect(pannello(page).getByRole('heading', { name: /Trazioni senza sbarra/ })).toBeVisible()
   } finally {
     await tolgo()
@@ -142,7 +144,7 @@ test('«Aggiungi al calendario» crea un Reel Topic con lo script e l’origine,
 
 test('chi può chiedere un’analisi: admin e marketing sì, il video editor la legge soltanto; gli altri ruoli non vedono la pagina', async ({ page, browser }) => {
   await accedi(page, 'marketing')
-  await apri(page, `/marketing/analisi?reel=${REEL_SENZA_ANALISI}`)
+  await apri(page, `/marketing/pubblicati?reel=${REEL_SENZA_ANALISI}`)
   await expect(pannello(page).getByTestId('analizza-reel')).toBeVisible()
   await expect(pannello(page).getByTestId('reel-senza-analisi')).toBeVisible()
 
@@ -150,7 +152,7 @@ test('chi può chiedere un’analisi: admin e marketing sì, il video editor la 
     const contesto = await browser.newContext({ baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000', locale: 'it-IT' })
     const altra = await contesto.newPage()
     await accedi(altra, ruolo)
-    await altra.goto(`/marketing/analisi?reel=${REEL_SENZA_ANALISI}`)
+    await altra.goto(`/marketing/pubblicati?reel=${REEL_SENZA_ANALISI}`)
     if (nega) {
       await expect(altra.getByTestId('analisi-tessere')).toHaveCount(0)
       const api = await altra.request.get(`/api/marketing/analisi/${REEL_SENZA_ANALISI}`)
@@ -175,7 +177,7 @@ test('«Analizza» mette il reel in coda: lettura e analisi, con le frasi della 
   await pulisci()
   try {
     await accedi(page, 'admin')
-    await apri(page, `/marketing/analisi?reel=${REEL_SENZA_ANALISI}`)
+    await apri(page, `/marketing/pubblicati?reel=${REEL_SENZA_ANALISI}`)
     const p = pannello(page)
     await p.getByTestId('analizza-reel').click()
     await expect(page.locator('[data-sonner-toast]').getByText(/^Analisi e punteggio in coda/)).toBeVisible()
@@ -196,18 +198,16 @@ test('«Analizza» mette il reel in coda: lettura e analisi, con le frasi della 
   }
 })
 
-test('«Parlato» in Post di Instagram, aperto solo al tocco', async ({ page }) => {
+test('«Parlato» nel riquadro «Post su Instagram» di un contenuto, aperto solo al tocco', async ({ page }) => {
   await accedi(page, 'editor')
-  await page.goto('/marketing/instagram')
-  await expect(page.getByRole('heading', { level: 1, name: 'Post di Instagram' })).toBeVisible({ timeout: 60_000 })
-  const collegati = page.locator('section[aria-labelledby="titolo-collegati"]')
-  const riga = collegati.locator('[data-post="SeedDemo01"]')
-  await expect(riga).toBeVisible()
-  await expect(riga.getByTestId('parlato')).toHaveCount(0)
-  await riga.getByTestId('parlato-apri').click()
-  await expect(riga.getByTestId('parlato')).toBeVisible()
-  await expect(riga.getByTestId('parlato')).not.toContainText('Carico il parlato')
-  await expect(riga.getByTestId('parlato').getByRole('link', { name: 'Apri l’analisi del reel' })).toHaveAttribute('href', /reel=17900000000000001/)
+  await page.goto('/marketing/contenuti?contenuto=ccccccc1-0000-4000-8000-000000000001')
+  const riquadro = page.getByRole('region', { name: 'Post su Instagram' })
+  await expect(riquadro).toBeVisible({ timeout: 60_000 })
+  await expect(riquadro.getByTestId('parlato')).toHaveCount(0)
+  await riquadro.getByTestId('parlato-apri').click()
+  await expect(riquadro.getByTestId('parlato')).toBeVisible()
+  await expect(riquadro.getByTestId('parlato')).not.toContainText('Carico il parlato')
+  await expect(riquadro.getByTestId('parlato').getByRole('link', { name: 'Apri nei Pubblicati' })).toHaveAttribute('href', /reel=17900000000000001/)
 })
 
 test('a 390 px: niente scroll di lato, bottoni da 44 px, il pannello a tutto schermo', async ({ page }) => {
@@ -219,7 +219,7 @@ test('a 390 px: niente scroll di lato, bottoni da 44 px, il pannello a tutto sch
   for (const link of await schede.getByRole('link').all()) {
     expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(43.5)
   }
-  await page.getByTestId('elenco-reel').getByRole('link', { name: /Trazioni senza sbarra/ }).first().click()
+  await page.getByTestId('elenco-pubblicati').getByRole('link', { name: /^Niente sbarra\? Nessun problema/ }).first().click()
   const p = pannello(page)
   await expect(p.getByTestId('reel-cosa-fare')).toBeVisible()
   await expect(p.getByRole('tab', { name: 'Come rifarlo' })).toBeVisible()

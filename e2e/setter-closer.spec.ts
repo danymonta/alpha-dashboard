@@ -361,9 +361,9 @@ test('a 390px il numero sta su «Le mie call» e su «Altro», e la pagina non s
 
   const barra = page.getByRole('navigation', { name: 'Navigazione' })
   await expect(barra.getByRole('link', { name: nomeConEsiti('Le mie call', quante) })).toBeVisible()
-  // "Closer" sits in "Altro": the button carries the number too (and, since 1.38.0, the posts to link of «Post di Instagram»)
+  // "Closer" sits in "Altro": the button carries the number too (the posts to link of the Marketing menu are not counted any more, 25/10/2026)
   const altro = barra.getByRole('button', {
-    name: new RegExp(`^Altro, ${quante} ${quante === 1 ? 'esito' : 'esiti'} da registrare(, \\d+ post da collegare)?$`),
+    name: `Altro, ${quante} ${quante === 1 ? 'esito' : 'esiti'} da registrare`,
   })
   await expect(altro).toBeVisible()
   const box = await barra.getByRole('link', { name: /^Le mie call/ }).boundingBox()

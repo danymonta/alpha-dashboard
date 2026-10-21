@@ -72,7 +72,7 @@ async function conGiro(page: Page, modo: string, corpo: (costoPrima: number) => 
   try {
     // the morning run: posts and their statistics
     await accedi(page, 'admin')
-    await page.goto('/marketing/instagram')
+    await page.goto('/marketing/pubblicati')
     await page.getByRole('button', { name: 'Aggiorna da Instagram' }).click()
     await expect(page.getByText(/^Aggiornato: 5 post letti.*numeri di \d+ post/)).toBeVisible({ timeout: 60_000 })
     const { data: numeri } = await db.from('instagram_contenuti').select('views, metriche_stato').eq('media_id', REEL).single()
@@ -107,7 +107,7 @@ test('Aggiorna da Instagram, Analizza, i passi e il pannello: dalla statistica a
   test.setTimeout(240_000)
   await conGiro(page, '', async (costoPrima) => {
     const db = dbLocale()
-    await page.goto(`/marketing/analisi?reel=${REEL}`)
+    await page.goto(`/marketing/pubblicati?reel=${REEL}`)
     const p = page.getByTestId('pannello-reel')
     await expect(p.getByTestId('reel-numeri')).toBeVisible({ timeout: 60_000 })
     // up to here the morning run read the posts and their numbers, and Claude was asked nothing: it works only after a click (1.39.0)
@@ -170,7 +170,7 @@ test('Aggiorna da Instagram, Analizza, i passi e il pannello: dalla statistica a
     expect(dopo.passo_id).toBeNull()
 
     // the panel shows it, with what Claude saw
-    await page.goto(`/marketing/analisi?reel=${REEL}`)
+    await page.goto(`/marketing/pubblicati?reel=${REEL}`)
     await expect(p.getByTestId('punteggio-totale')).toHaveText(String(punteggio.totale), { timeout: 60_000 })
     await p.getByTestId('scheda-perche').click()
     await expect(p.getByTestId('reel-analisi-pronta')).toBeVisible()
@@ -179,7 +179,7 @@ test('Aggiorna da Instagram, Analizza, i passi e il pannello: dalla statistica a
     await expect(p.getByTestId('reel-fonti')).toContainText('fotogrammi')
     await p.getByTestId('reel-parlato-blocco').locator('summary').click()
     await expect(p.getByTestId('reel-parlato')).toContainText('Niente sbarra? Nessun problema.')
-    await expect(page.getByTestId('elenco-reel').getByTestId('colonna-cosa-fare').first()).toBeVisible()
+    await expect(page.getByTestId('elenco-pubblicati').getByTestId('colonna-cosa-fare').first()).toBeVisible()
   })
 })
 
@@ -192,7 +192,7 @@ test('le trappole del controllo finale: la citazione inventata cade, il trattino
       .from('instagram_contenuti')
       .update({ didascalia: 'Allenati a casa — davvero 🔥 [[citazione-falsa]] [[trattino]] [[emoji]] [[prezzo]] [[elenco]] [[hook-lungo]] [[atteso-alto]]' })
       .eq('media_id', REEL)
-    await page.goto(`/marketing/analisi?reel=${REEL}`)
+    await page.goto(`/marketing/pubblicati?reel=${REEL}`)
     const p = page.getByTestId('pannello-reel')
     await expect(p.getByTestId('reel-numeri')).toBeVisible({ timeout: 60_000 })
     await p.getByTestId('analizza-reel').click()
@@ -219,13 +219,15 @@ test('le trappole del controllo finale: la citazione inventata cade, il trattino
     expect(s.rifacimento.script_riscritto).not.toMatch(/[–—€]|1\.500|\u{1F525}|^\s*[-*•]\s/mu)
     expect(JSON.stringify(s)).not.toContain('Loris')
 
-    await page.goto(`/marketing/analisi?reel=${REEL}`)
+    await page.goto(`/marketing/pubblicati?reel=${REEL}`)
     await expect(p.getByTestId('punteggio-totale')).toHaveText(String(s.totale), { timeout: 60_000 })
+    // since 1.39.1 the penalties and the criteria are in «Perché», the rewrite in «Come rifarlo»
+    await p.getByTestId('scheda-perche').click()
     await expect(p.getByTestId('punteggio-penalita')).toContainText('Contiene un trattino lungo o medio')
     await expect(p.getByTestId('punteggio-penalita')).toContainText('Contiene emoji')
-    await p.getByTestId('punteggio-criteri').locator('summary').click()
+    await p.locator('[data-criterio="H"] summary').click()
     await expect(p.locator('[data-criterio="H"]').getByTestId('citazione-non-trovata')).toBeVisible()
-    await p.getByTestId('punteggio-come-rifarlo').locator('summary').click()
+    await p.getByTestId('scheda-rifare').click()
     await expect(p.getByTestId('punteggio-hook')).toHaveCount(2)
     expect(await p.getByTestId('punteggio-script').innerText()).not.toMatch(/[–—€]/)
   })
@@ -235,14 +237,14 @@ test('senza il video di Instagram (musica protetta): Claude vede la copertina, e
   test.setTimeout(240_000)
   await conGiro(page, '?video=assente', async () => {
     const db = dbLocale()
-    await page.goto(`/marketing/analisi?reel=${REEL}`)
+    await page.goto(`/marketing/pubblicati?reel=${REEL}`)
     const p = page.getByTestId('pannello-reel')
     await p.getByTestId('analizza-reel').click()
     await expect(p.getByTestId('reel-in-corso')).toBeVisible()
     await eseguiPassiMarketing()
     const { data: lettura } = await db.from('instagram_letture').select('video, fonte_visione, trascrizione_esito, fotogrammi').eq('media_id', REEL).single()
     expect(lettura).toMatchObject({ video: 'senza_media_url', fonte_visione: 'copertina', trascrizione_esito: 'senza_video' })
-    await page.goto(`/marketing/analisi?reel=${REEL}`)
+    await page.goto(`/marketing/pubblicati?reel=${REEL}`)
     await expect(p.getByTestId('cosa-fare-frase')).toBeVisible({ timeout: 60_000 })
     await p.getByTestId('scheda-numeri').click()
     await expect(p.getByTestId('reel-fonti')).toContainText('Instagram non dà il video di questo reel')

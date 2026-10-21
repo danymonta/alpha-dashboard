@@ -314,7 +314,7 @@ function NelPiano({ d, puoScrivere, onFatto }: { d: DettaglioReel; puoScrivere: 
     const tipo = opzioneDaValore(opzioni.reel_type, c.reel_type)
     const formato = opzioneDaValore(opzioni.formato, c.formato)
     return (
-      <div className="space-y-2" data-testid="reel-calendario">
+      <div className="space-y-2" data-testid="nel-piano">
         <p className="text-sm break-words">
           Collegato a{' '}
           <Link href={`/marketing/contenuti/${c.id}`} className="underline underline-offset-4">
@@ -349,7 +349,7 @@ function NelPiano({ d, puoScrivere, onFatto }: { d: DettaglioReel; puoScrivere: 
   if (!r.shortcode || !r.giorno) return null
   const post = { shortcode: r.shortcode, giorno: r.giorno, tipo: tipoDellaRiga(r) }
   return (
-    <div className="space-y-2" data-testid="reel-calendario">
+    <div className="space-y-2" data-testid="nel-piano">
       <p className="text-sm text-muted-foreground">
         Questo post non è nel Piano editoriale. Si lega da solo quando incolli il suo link nell’URL di un contenuto; qui puoi sceglierlo a mano.
       </p>

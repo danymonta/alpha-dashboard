@@ -131,17 +131,18 @@ test('il marketing atterra sul Piano editoriale: in cima quello con la Post Date
     await expect(nav.getByRole('link', { name: voce, exact: true })).toHaveCount(0)
   }
 
-  // the sidebar groups the area under «Marketing» with its four pages as items (1.38.0), each lit on its own page
+  // the sidebar groups the area under «Marketing» with its three pages as items (1.38.0; «Pubblicati» replaced «Post di
+  // Instagram» and «Analisi» on 25/10/2026), each lit on its own page, none with a number
   const gruppoMarketing = nav.getByRole('group', { name: 'Marketing' })
-  await expect(gruppoMarketing.getByRole('link')).toHaveText([/^Piano editoriale/, /^Post di Instagram/, 'Analisi', 'Spunti'])
-  // the tabs of the area (1.33.0): «Piano editoriale» here, «Post di Instagram» next to it
+  await expect(gruppoMarketing.getByRole('link')).toHaveText(['Piano editoriale', 'Pubblicati', 'Spunti'])
+  // the tabs of the area (1.33.0): «Piano editoriale» here, «Pubblicati» next to it
   const schede = page.getByRole('navigation', { name: 'Sezioni del Marketing' })
   await expect(schede.getByRole('link', { name: 'Piano editoriale', exact: true })).toHaveAttribute('aria-current', 'page')
-  await schede.getByRole('link', { name: /^Post di Instagram/ }).click()
-  await expect(page).toHaveURL(/\/marketing\/instagram$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Post di Instagram' })).toBeVisible()
-  await expect(schede.getByRole('link', { name: /^Post di Instagram/ })).toHaveAttribute('aria-current', 'page')
-  await expect(nav.getByRole('link', { name: /^Post di Instagram/ })).toHaveAttribute('aria-current', 'page')
+  await schede.getByRole('link', { name: 'Pubblicati', exact: true }).click()
+  await expect(page).toHaveURL(/\/marketing\/pubblicati$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Pubblicati' })).toBeVisible()
+  await expect(schede.getByRole('link', { name: 'Pubblicati', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(nav.getByRole('link', { name: 'Pubblicati', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(nav.getByRole('link', { name: 'Piano editoriale' })).not.toHaveAttribute('aria-current', 'page')
   await schede.getByRole('link', { name: 'Piano editoriale', exact: true }).click()
   await expect(page).toHaveURL(/\/marketing\/contenuti$/)

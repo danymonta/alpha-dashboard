@@ -39,11 +39,11 @@ test('il blocco «Analisi dei reel»: spesa, limite e interruttori, solo dell’
     await automatiche.click()
     await expect.poll(async () => (await statoLavori()).automatiche).toBe(true)
 
-    // Meta says the permission for the statistics is missing: the sentence, here and on the Analisi page
+    // Meta says the permission for the statistics is missing: the sentence, here and on the Pubblicati page
     await dbLocale().from('instagram_contenuti_stato').update({ permesso_insights: false }).eq('id', true)
     await page.reload()
     await expect(page.getByTestId('analisi-permesso')).toContainText('instagram_business_manage_insights')
-    await page.goto('/marketing/analisi')
+    await page.goto('/marketing/pubblicati')
     await expect(page.getByTestId('analisi-situazione')).toContainText('Instagram non dà ancora le statistiche dei post')
   } finally {
     await dbLocale().from('instagram_contenuti_stato').update({ permesso_insights: null }).eq('id', true)
@@ -53,7 +53,7 @@ test('il blocco «Analisi dei reel»: spesa, limite e interruttori, solo dell’
 
 test('il marketing non vede né i soldi né gli interruttori: la situazione dice solo che cosa fa il lavoro', async ({ page }) => {
   await accedi(page, 'marketing')
-  await page.goto('/marketing/analisi')
+  await page.goto('/marketing/pubblicati')
   const situazione = page.getByTestId('analisi-situazione')
   await expect(situazione).toBeVisible({ timeout: 60_000 })
   await expect(situazione).not.toContainText('$')
