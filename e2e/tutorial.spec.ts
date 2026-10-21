@@ -59,7 +59,7 @@ test.describe('tutorial al primo accesso, dal telefono', () => {
     await expect(page.getByTestId('tutorial')).toHaveCount(0)
   })
 
-  test('il marketing parte dai contenuti: tocca «Contenuti» anche se è già lì, poi il calendario', async ({ page }) => {
+  test('il marketing parte dal Piano editoriale: tocca «Piano editoriale» anche se è già lì, poi la tabella', async ({ page }) => {
     await primoAccesso(UTENTI.marketing.email, false)
     await accedi(page, 'marketing')
     await expect(page).toHaveURL(/\/marketing\/contenuti$/)
@@ -68,19 +68,19 @@ test.describe('tutorial al primo accesso, dal telefono', () => {
     await expect(tour.getByRole('dialog', { name: 'Benvenuto in Alpha Management' })).toBeVisible()
     await expect(tour).toContainText('1/10')
     await avanti(page, tour)
-    await expect(tour.getByRole('dialog', { name: 'Contenuti' })).toBeVisible()
+    await expect(tour.getByRole('dialog', { name: 'Piano editoriale' })).toBeVisible()
     await expect(page.getByTestId('tutorial-tocca')).toBeVisible()
 
     // the first item of the bottom bar: the tap advances even on the page he is on
-    await page.getByRole('navigation', { name: 'Navigazione', exact: true }).getByRole('link', { name: 'Contenuti' }).click()
-    await expect(tour.getByRole('dialog', { name: 'Instagram Posts' })).toBeVisible()
+    await page.getByRole('navigation', { name: 'Navigazione', exact: true }).getByRole('link', { name: 'Piano editoriale' }).click()
+    await expect(tour.getByRole('dialog', { name: 'La tabella dei contenuti' })).toBeVisible()
     await expect(tour).toContainText('3/10')
     // the step has its target: the list of contents, not a card in the middle of the screen
     await expect(tour.locator('div.ring-2')).toHaveCount(1)
     await page.waitForTimeout(400)
     await page.screenshot({ path: '.shots/tutorial-marketing-3-390.png' })
 
-    // his daily page is Contenuti: «I miei task» says what it holds, never «la tua pagina di tutti i giorni»
+    // his daily page is the Piano editoriale: «I miei task» says what it holds, never «la tua pagina di tutti i giorni»
     await avanti(page, tour)
     const task = tour.getByRole('dialog', { name: 'I miei task' })
     await expect(task).toContainText('Tocca «I miei task»: i task dei progetti assegnati a te.')
@@ -124,7 +124,7 @@ test('l’admin prova il tour di ogni ruolo da “Testa il tutorial”', async (
   await expect(tour).toContainText('Video editor · 1/10')
   await avanti(page, tour)
   // a preview never asks to tap: it walks with "Avanti"
-  await expect(tour.getByRole('dialog', { name: 'Contenuti' })).toBeVisible()
+  await expect(tour.getByRole('dialog', { name: 'Piano editoriale' })).toBeVisible()
   await expect(page.getByTestId('tutorial-tocca')).toHaveCount(0)
   await page.waitForTimeout(400)
   await page.screenshot({ path: '.shots/tutorial-admin-anteprima-1440.png' })
@@ -138,7 +138,7 @@ test('l’admin prova il tour di ogni ruolo da “Testa il tutorial”', async (
   await expect(tour).toContainText('Setter · 1/12')
 })
 
-test('l’anteprima del tour del marketing passa da «Contenuti», evidenziato nella barra laterale', async ({ page }) => {
+test('l’anteprima del tour del marketing passa dal «Piano editoriale», evidenziato nella barra laterale', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await accedi(page, 'admin')
   await page.getByRole('button', { name: 'Testa il tutorial' }).click()
@@ -149,10 +149,10 @@ test('l’anteprima del tour del marketing passa da «Contenuti», evidenziato n
 
   await avanti(page, tour)
   await expect(tour).toContainText('Marketing · 2/10')
-  await expect(tour.getByRole('dialog', { name: 'Contenuti' })).toBeVisible()
-  // the admin has "Contenuti" too: the step finds it, no "not on your account" note
+  await expect(tour.getByRole('dialog', { name: 'Piano editoriale' })).toBeVisible()
+  // the admin has the "Piano editoriale" too: the step finds it, no "not on your account" note
   await expect(tour.getByText(/Anteprima: sul tuo account questo elemento non c’è/)).toHaveCount(0)
-  const voce = page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'Contenuti' })
+  const voce = page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'Piano editoriale' })
   const alone = tour.locator('div.ring-2')
   await expect(alone).toHaveCount(1)
   // the highlight sits on the sidebar item, 6px around it
@@ -166,7 +166,7 @@ test('l’anteprima del tour del marketing passa da «Contenuti», evidenziato n
 
   // then the calendar page itself
   await avanti(page, tour)
-  await expect(tour.getByRole('dialog', { name: 'Instagram Posts' })).toBeVisible()
+  await expect(tour.getByRole('dialog', { name: 'La tabella dei contenuti' })).toBeVisible()
   await expect(tour).toContainText('Marketing · 3/10')
 })
 

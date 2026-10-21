@@ -28,7 +28,7 @@ test('l’admin vede la navigazione completa', async ({ page }) => {
     'Provvigioni',
     'Costi',
     // the Marketing area, between Economics and Progetti (1.32.0)
-    'Contenuti',
+    'Piano editoriale',
     'Impostazioni',
   ]
   for (const voce of voci) {
@@ -74,7 +74,7 @@ test('coach ed editor non hanno l’area Economics: le pagine Economics li ripor
     }
     const nav = page.getByRole('navigation', { name: 'Navigazione principale' })
     await expect(nav.getByRole('link', { name: 'Progetti' })).toBeVisible()
-    await expect(nav.getByRole('link', { name: 'Contenuti' })).toHaveCount(ruolo === 'editor' ? 1 : 0)
+    await expect(nav.getByRole('link', { name: 'Piano editoriale' })).toHaveCount(ruolo === 'editor' ? 1 : 0)
     await page.context().clearCookies()
   }
 })
@@ -82,10 +82,10 @@ test('coach ed editor non hanno l’area Economics: le pagine Economics li ripor
 test('il marketing atterra sui contenuti: le pagine Economics e le impostazioni lo riportano lì', async ({ page }) => {
   await accedi(page, 'marketing')
   await expect(page).toHaveURL('/marketing/contenuti')
-  await expect(page.getByRole('heading', { level: 1, name: 'Instagram Posts' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Piano editoriale' })).toBeVisible()
 
   const nav = page.getByRole('navigation', { name: 'Navigazione principale' })
-  for (const voce of ['Contenuti', 'I miei task', 'Progetti', 'Il mio tempo', 'Novità']) {
+  for (const voce of ['Piano editoriale', 'I miei task', 'Progetti', 'Il mio tempo', 'Novità']) {
     await expect(nav.getByRole('link', { name: voce, exact: true })).toBeVisible()
   }
   for (const voce of ['Panoramica', 'Oggi', 'Le mie call', 'Vendite', 'Pipeline', 'Costi', 'Impostazioni']) {
@@ -129,7 +129,7 @@ test('il calendario dei contenuti è dell’area Marketing: il setter torna a Og
     expect(aggiorna.status(), `${ruolo} aggiorna`).toBe(403)
     expect(await aggiorna.json()).toEqual({ errore: 'Aggiorna da Instagram lo usano l’admin e il marketing.' })
     await expect(
-      page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'Contenuti' }),
+      page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'Piano editoriale' }),
     ).toHaveCount(0)
     await page.context().clearCookies()
   }

@@ -1,8 +1,8 @@
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
 
-import { aggiungiGiorni, nomeGiorno, oggiRoma, primoDelMeseISO } from '../lib/date'
+import { aggiungiGiorni, oggiRoma } from '../lib/date'
 import { formatData } from '../lib/format'
-import { creaContenutoDiProva, dbLocale, leggiContenuto, pulisciContenuti } from './db'
+import { creaContenutoDiProva, dbLocale, leggiContenuto, pulisciContenuti, pulisciRigheSenzaTitolo } from './db'
 import { accedi, type RuoloSeed } from './utenti'
 
 /**
@@ -19,10 +19,12 @@ const CAMPO_CAMBIATO = (campo: string) =>
 
 test.beforeAll(async () => {
   await pulisciContenuti(PREFISSO)
+  await pulisciRigheSenzaTitolo()
 })
 
 test.afterAll(async () => {
   await pulisciContenuti(PREFISSO)
+  await pulisciRigheSenzaTitolo()
 })
 
 function escape(testo: string) {
@@ -34,7 +36,7 @@ function toast(page: Page, testo: string) {
 }
 
 function sezioneContenuti(page: Page) {
-  return page.getByRole('region', { name: 'Contenuti', exact: true })
+  return page.getByRole('region', { name: 'Piano editoriale', exact: true })
 }
 
 function pannello(page: Page, nome: string) {
@@ -53,7 +55,7 @@ function avanti(giorni: number) {
 
 /** Only these tests' rows: the search on their Name. */
 function listaDi(parte: string, altro = '') {
-  return `/marketing/contenuti?vista=tabella&q=${encodeURIComponent(`${PREFISSO}${parte}`)}${altro}`
+  return `/marketing/contenuti?q=${encodeURIComponent(`${PREFISSO}${parte}`)}${altro}`
 }
 
 async function senzaScrollLaterale(page: Page) {
@@ -91,6 +93,36 @@ async function fermo(el: Locator) {
     )
     .toBe(true)
   return prima!
+}
+
+/** The button of a label cell (Reel Type or Format): in a table row, a card, or the panel's field. */
+function campoEtichetta(dove: Page | Locator, campo: 'reel_type' | 'formato') {
+  return dove.locator(`[data-cella="${campo}"]`)
+}
+
+/** An option of the open menu (the native options of the filters are not these). */
+function voceMenu(page: Page, nome: string) {
+  return page.locator('[data-slot="popover-content"]').getByRole('option', { name: nome, exact: true })
+}
+
+/**
+ * Chooses a label from the menu a cell opens. A cell that is saving ignores the tap (the new value stays
+ * shown), so the tap waits for its last save.
+ */
+async function scegliEtichetta(page: Page, bottone: Locator, nome: string) {
+  await expect(bottone).not.toHaveAttribute('aria-busy', 'true')
+  await bottone.click()
+  await voceMenu(page, nome).click()
+}
+
+/** The same from the keyboard: Enter opens the menu, the label's name filters it, Enter chooses the first. */
+async function scegliEtichettaDaTastiera(page: Page, bottone: Locator, nome: string) {
+  await bottone.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('combobox', { name: /Cerca o crea un’etichetta/ })).toBeFocused()
+  await page.keyboard.type(nome)
+  await expect(voceMenu(page, nome)).toBeVisible()
+  await page.keyboard.press('Enter')
 }
 
 test.use({ viewport: { width: 1280, height: 800 } })
@@ -133,7 +165,7 @@ test('Esc subito dopo un salvataggio: il pannello si chiude e non si riapre, l�
 
   await sezioneContenuti(page).getByRole('link', { name: nome, exact: true }).click()
   const foglio = pannello(page, nome)
-  await foglio.getByLabel('Format').selectOption({ label: 'Split' })
+  await scegliEtichetta(page, campoEtichetta(foglio, 'formato'), 'Split')
   // at once, while the save is still on its way
   await page.keyboard.press('Escape')
   await expect(foglio).toBeHidden()
@@ -159,7 +191,7 @@ test('il tocco sul Name apre il pannello senza cambiare pagina; Esc lo chiude e 
   await expect(foglio).toBeVisible()
   await expect(page).toHaveURL(new RegExp(`/marketing/contenuti\\?.*contenuto=${id}`))
   // the list is still there, under the panel (inert while the panel is open)
-  await expect(page.locator('h1', { hasText: 'Instagram Posts' })).toBeAttached()
+  await expect(page.locator('h1', { hasText: 'Piano editoriale' })).toBeAttached()
   await expect(foglio.getByRole('region', { name: 'Topic / Main Message', exact: true }).getByText('Il messaggio del pannello')).toBeVisible()
   await expect(foglio.getByText('Ogni modifica si salva da sola.')).toBeVisible()
   await expect(foglio.getByRole('heading', { name: nome })).toBeFocused()
@@ -351,7 +383,7 @@ test('le proprietà nel pannello si salvano da sole; Esc in un campo cambiato lo
   await page.goto(`/marketing/contenuti?contenuto=${id}`)
   const foglio = pannello(page, nome)
 
-  await foglio.getByLabel('Reel Type').selectOption({ label: 'Education' })
+  await scegliEtichetta(page, campoEtichetta(foglio, 'reel_type'), 'Education')
   await expect(toast(page, 'Reel Type: Education')).toBeVisible()
   await foglio.getByLabel('Audio').fill('Audio dal pannello')
   await foglio.getByLabel('Audio').press('Tab')
@@ -406,6 +438,14 @@ test('nel pannello Esc chiude prima il riquadro o il menu aperto, poi il pannell
   await expect(page.getByRole('menuitem', { name: 'Copia il link' })).toBeHidden()
   await expect(foglio).toBeVisible()
 
+  // the menu of the labels: Esc closes the menu only
+  await campoEtichetta(foglio, 'reel_type').click()
+  const etichette = page.getByRole('combobox', { name: /Cerca o crea un’etichetta/ })
+  await expect(etichette).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(etichette).toBeHidden()
+  await expect(foglio).toBeVisible()
+
   // nothing open, nothing changed: Esc closes the panel
   await foglio.getByLabel('Audio').focus()
   await page.keyboard.press('Escape')
@@ -414,32 +454,20 @@ test('nel pannello Esc chiude prima il riquadro o il menu aperto, poi il pannell
   expect(await leggiContenuto(id)).toMatchObject({ nome, stato: 'not_started', audio: null })
 })
 
-test('le celle della tabella: Reel Type da tastiera, Post Date con Invio, Audio con Esc, URL, View Count, Name', async ({ page }) => {
+test('le celle della tabella: Reel Type da tastiera, URL, Name, Post Date con Invio; Views solo da leggere', async ({ page }) => {
   test.setTimeout(120_000)
   const nome = `${PREFISSO}celle`
-  const id = await creaContenutoDiProva(nome, { post_date: avanti(330) })
+  const id = await creaContenutoDiProva(nome, { post_date: avanti(330), view_count: 12480 })
   await creaContenutoDiProva(`${PREFISSO}celle dopo`, { post_date: avanti(329) })
   await accedi(page, 'marketing')
   await page.goto(listaDi('celle'))
   const r = riga(page, nome)
 
-  // Reel Type from the keyboard: the menu opens, an item, Enter
-  await r.getByRole('button', { name: `Vuoto: scegli Reel Type di «${nome}»` }).focus()
-  await page.keyboard.press('Enter')
-  await page.getByRole('menuitemradio', { name: 'Education' }).focus()
-  await page.keyboard.press('Enter')
+  // Reel Type from the keyboard: the menu opens on Enter, the label's name, Enter
+  await scegliEtichettaDaTastiera(page, r.getByRole('button', { name: `Vuoto: scegli Reel Type di «${nome}»` }), 'Education')
   await expect(toast(page, 'Reel Type: Education')).toBeVisible()
   await expect(r.getByRole('button', { name: `Education: cambia Reel Type di «${nome}»` })).toBeVisible()
   await expect.poll(async () => (await leggiContenuto(id))?.reel_type).toBe('education')
-
-  // Audio with Esc: nothing saved
-  await r.getByRole('button', { name: `Vuoto: scrivi Audio di «${nome}»` }).click()
-  const audio = page.getByRole('dialog').getByLabel('Audio')
-  await expect(audio).toBeFocused()
-  await audio.fill('Da non salvare')
-  await page.keyboard.press('Escape')
-  await expect(audio).toBeHidden()
-  expect((await leggiContenuto(id))?.audio).toBeNull()
 
   // URL: a share link is refused in the popover, then a real one
   await r.getByRole('button', { name: `Vuoto: aggiungi URL di «${nome}»` }).click()
@@ -454,12 +482,9 @@ test('le celle della tabella: Reel Type da tastiera, Post Date con Invio, Audio 
   await expect(toast(page, 'URL salvato')).toBeVisible()
   await expect.poll(async () => (await leggiContenuto(id))?.instagram_shortcode).toBe('E2ePanCella1')
 
-  // View Count as Notion shows it
-  await r.getByRole('button', { name: `Vuoto: scrivi View Count di «${nome}»` }).click()
-  await page.getByRole('dialog').getByLabel('View Count').fill('12.480')
-  await page.getByRole('dialog').getByRole('button', { name: 'Salva' }).click()
-  await expect(toast(page, 'View Count: 12.480')).toBeVisible()
-  await expect(r.getByRole('button', { name: `12.480: cambia View Count di «${nome}»` })).toBeVisible()
+  // Views as Notion shows it: read here, written in the panel (no cell to tap)
+  await expect(r.getByText('12.480', { exact: true })).toBeVisible()
+  await expect(r.getByRole('button', { name: /View Count/ })).toHaveCount(0)
 
   // the Name with the pencil: empty is refused
   await r.hover()
@@ -483,7 +508,7 @@ test('le celle della tabella: Reel Type da tastiera, Post Date con Invio, Audio 
   expect(await leggiContenuto(id)).toMatchObject({ post_date: dopo, view_count: 12480, audio: null })
 })
 
-test('le altre celle: Format, Inspiration, Status, la data tolta e il Name rinominato; tutto resta ricaricando', async ({ page }) => {
+test('le altre celle: Format, Status, la data tolta e il Name rinominato; tutto resta ricaricando', async ({ page }) => {
   test.setTimeout(120_000)
   const nome = `${PREFISSO}altre celle`
   const rinominato = `${PREFISSO}altre celle, rinominato`
@@ -493,29 +518,10 @@ test('le altre celle: Format, Inspiration, Status, la data tolta e il Name rinom
   await page.goto(listaDi('altre celle'))
   const r = riga(page, nome)
 
-  // Format with the mouse, from Notion's options
-  await r.getByRole('button', { name: `Vuoto: scegli Format di «${nome}»` }).click()
-  await page.getByRole('menuitemradio', { name: 'Green Screen' }).click()
+  // Format with the mouse, from the labels of the database
+  await scegliEtichetta(page, r.getByRole('button', { name: `Vuoto: scegli Format di «${nome}»` }), 'Green Screen')
   await expect(toast(page, 'Format: Green Screen')).toBeVisible()
   await expect(r.getByRole('button', { name: `Green Screen: cambia Format di «${nome}»` })).toBeVisible()
-
-  // Inspiration: a link pasted without https://; then its popover opens it
-  await r.getByRole('button', { name: `Vuoto: aggiungi Inspiration di «${nome}»` }).click()
-  const ispirazione = page.getByRole('dialog').getByLabel('Inspiration')
-  await expect(ispirazione).toBeFocused()
-  await ispirazione.fill('www.instagram.com/reel/AltroCreator01/')
-  await ispirazione.press('Enter')
-  await expect(toast(page, 'Inspiration salvata')).toBeVisible()
-  // a cell reopens once its save is back (spec R13): until then it is dimmed and busy
-  const cellaIspirazione = r.getByRole('button', { name: `Inspiration: apri o cambia il link di «${nome}»` })
-  await expect(cellaIspirazione).not.toHaveAttribute('aria-busy')
-  await cellaIspirazione.click()
-  await expect(page.getByRole('dialog').getByRole('link', { name: /^Apri l’ispirazione/ })).toHaveAttribute(
-    'href',
-    'https://www.instagram.com/reel/AltroCreator01/',
-  )
-  await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog')).toHaveCount(0)
 
   // the Status from its cell, one tap
   await r.getByRole('button', { name: `Not started: cambia lo Status di ${nome}` }).click()
@@ -540,13 +546,11 @@ test('le altre celle: Format, Inspiration, Status, la data tolta e il Name rinom
   await page.reload()
   const dopo = riga(page, rinominato)
   await expect(dopo.getByRole('button', { name: `Green Screen: cambia Format di «${rinominato}»` })).toBeVisible()
-  await expect(dopo.getByRole('button', { name: `Inspiration: apri o cambia il link di «${rinominato}»` })).toBeVisible()
   await expect(dopo.getByRole('button', { name: `To be recorded: cambia lo Status di ${rinominato}` })).toBeVisible()
   await expect(dopo.getByRole('button', { name: `Vuoto: scegli Post Date di «${rinominato}»` })).toBeVisible()
   expect(await leggiContenuto(id)).toMatchObject({
     nome: rinominato,
     formato: 'green_screen',
-    inspiration: 'https://www.instagram.com/reel/AltroCreator01/',
     stato: 'to_be_recorded',
     post_date: null,
   })
@@ -567,15 +571,14 @@ test('due browser, la tabella e il pannello: Reel Type e Name contesi; lo Status
   await expect(pannello(admin, nome)).toBeVisible()
 
   // the video editor picks a Reel Type from the table
-  await riga(page, nome).getByRole('button', { name: `Vuoto: scegli Reel Type di «${nome}»` }).click()
-  await page.getByRole('menuitemradio', { name: 'Converting' }).click()
+  await scegliEtichetta(page, riga(page, nome).getByRole('button', { name: `Vuoto: scegli Reel Type di «${nome}»` }), 'Converting')
   await expect(toast(page, 'Reel Type: Converting')).toBeVisible()
   await expect.poll(async () => (await leggiContenuto(id))?.reel_type).toBe('converting')
 
   // Dany, in the panel opened before, picks another one from «Vuoto»: nothing written, the panel shows the saved one
-  await pannello(admin, nome).getByLabel('Reel Type').selectOption({ label: 'Attraction' })
+  await scegliEtichetta(admin, campoEtichetta(pannello(admin, nome), 'reel_type'), 'Attraction')
   await expect(toast(admin, CAMPO_CAMBIATO('Reel Type'))).toBeVisible()
-  await expect(pannello(admin, nome).getByLabel('Reel Type')).toHaveValue('converting')
+  await expect(campoEtichetta(pannello(admin, nome), 'reel_type')).toHaveAccessibleName(`Converting: cambia Reel Type di «${nome}»`)
   expect((await leggiContenuto(id))?.reel_type).toBe('converting')
 
   // Dany renames it in the panel
@@ -639,11 +642,14 @@ test('due persone sullo stesso campo: chi salva per secondo vede quello salvato;
   expect((await leggiContenuto(id))?.post_date).toBe(dataA)
 
   // another field of the same row: never blocked
-  await riga(admin, nome).getByRole('button', { name: `Vuoto: scrivi Audio di «${nome}»` }).click()
-  await admin.getByRole('dialog').getByLabel('Audio').fill('Audio di Dany')
-  await admin.getByRole('dialog').getByLabel('Audio').press('Enter')
-  await expect(toast(admin, 'Audio salvato')).toBeVisible()
-  expect(await leggiContenuto(id)).toMatchObject({ post_date: dataA, audio: 'Audio di Dany' })
+  await riga(admin, nome).getByRole('button', { name: `Vuoto: aggiungi URL di «${nome}»` }).click()
+  await admin.getByRole('dialog').getByLabel('URL').fill('https://www.instagram.com/reel/E2ePanConteso1/')
+  await admin.getByRole('dialog').getByLabel('URL').press('Enter')
+  await expect(toast(admin, 'URL salvato')).toBeVisible()
+  expect(await leggiContenuto(id)).toMatchObject({
+    post_date: dataA,
+    url: 'https://www.instagram.com/reel/E2ePanConteso1/',
+  })
   await admin.context().close()
 })
 
@@ -675,10 +681,7 @@ test('una cella che fa uscire il contenuto dai filtri: il focus va sulla stessa 
   await accedi(page, 'marketing')
   await page.goto(listaDi('uscita', '&reel_type=radio'))
 
-  await riga(page, primo).getByRole('button', { name: `RADIO: cambia Reel Type di «${primo}»` }).focus()
-  await page.keyboard.press('Enter')
-  await page.getByRole('menuitemradio', { name: 'Workshop' }).focus()
-  await page.keyboard.press('Enter')
+  await scegliEtichettaDaTastiera(page, riga(page, primo).getByRole('button', { name: `RADIO: cambia Reel Type di «${primo}»` }), 'Workshop')
   await expect(toast(page, 'Reel Type: Workshop')).toBeVisible()
   await expect(riga(page, primo)).toHaveCount(0)
   await expect(riga(page, secondo).getByRole('button', { name: `RADIO: cambia Reel Type di «${secondo}»` })).toBeFocused()
@@ -720,8 +723,7 @@ test('il video editor modifica dalla cella e dal pannello, e non elimina', async
   await accedi(page, 'editor')
   await page.goto(listaDi('editor'))
 
-  await riga(page, nome).getByRole('button', { name: `Vuoto: scegli Format di «${nome}»` }).click()
-  await page.getByRole('menuitemradio', { name: 'Split' }).click()
+  await scegliEtichetta(page, riga(page, nome).getByRole('button', { name: `Vuoto: scegli Format di «${nome}»` }), 'Split')
   await expect(toast(page, 'Format: Split')).toBeVisible()
 
   await sezioneContenuti(page).getByRole('link', { name: nome, exact: true }).click()
@@ -734,7 +736,7 @@ test('il video editor modifica dalla cella e dal pannello, e non elimina', async
   expect(await leggiContenuto(id)).toMatchObject({ formato: 'split', audio: 'Audio del video editor' })
 })
 
-test('un contenuto nuovo che i filtri non mostrano: il pannello si apre coi suoi dati; chiuso, il focus torna su «Nuovo contenuto»', async ({
+test('una riga nuova che i filtri non mostrano resta in cima e si scrive subito; il Name apre il pannello; chiuso, il focus torna sul Name', async ({
   page,
 }) => {
   const nome = `${PREFISSO}nuovo fuori dai filtri`
@@ -742,13 +744,20 @@ test('un contenuto nuovo che i filtri non mostrano: il pannello si apre coi suoi
   await page.goto(listaDi('nessuno si chiama così'))
   await expect(sezioneContenuti(page).getByText('Nessun contenuto con questi filtri', { exact: true })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Nuovo contenuto' }).click()
-  const modulo = page.getByRole('dialog', { name: 'Nuovo contenuto' })
-  await modulo.getByLabel('Name', { exact: true }).fill(nome)
-  await modulo.getByRole('button', { name: 'Crea il contenuto' }).click()
+  await page.getByRole('button', { name: 'Nuovo', exact: true }).click()
+  const campoNome = page.getByRole('dialog', { name: 'Name', exact: true }).getByRole('textbox')
+  await expect(campoNome).toBeFocused()
+  await expect(campoNome).toHaveValue('Senza titolo')
+  await campoNome.fill(nome)
+  await campoNome.press('Enter')
+  await expect(toast(page, 'Name salvato')).toBeVisible()
+  // the filters do not show it, the page keeps it
+  await expect(riga(page, nome)).toBeVisible()
+
+  const link = sezioneContenuti(page).getByRole('link', { name: nome, exact: true })
+  await link.click()
   const foglio = pannello(page, nome)
   await expect(foglio).toBeVisible()
-  await expect(toast(page, 'Contenuto creato')).toBeVisible()
   await expect(page).toHaveURL(/contenuto=[0-9a-f-]{36}/)
   await expect(foglio.getByRole('heading', { name: nome })).toBeFocused()
   // its sections come with the GET: a Reel Topic starts with the template's rough draft
@@ -757,8 +766,8 @@ test('un contenuto nuovo che i filtri non mostrano: il pannello si apre coi suoi
   await page.keyboard.press('Escape')
   await expect(foglio).toBeHidden()
   await expect(page).not.toHaveURL(/contenuto=/)
-  // the focus goes back to the button that started it all, never <body>
-  await expect(page.getByRole('button', { name: 'Nuovo contenuto' })).toBeFocused()
+  // the focus goes back to the Name that started it, never <body>
+  await expect(link).toBeFocused()
 })
 
 test('il marketing elimina dal pannello: si chiude, la riga se ne va e il focus va sul Name dopo', async ({ page }) => {
@@ -816,9 +825,9 @@ test('chiuso dopo un salvataggio, il focus torna sul Name senza rileggere il con
   const link = sezioneContenuti(page).getByRole('link', { name: nome, exact: true })
   await link.click()
   const foglio = pannello(page, nome)
-  await foglio.getByLabel('Reel Type').selectOption({ label: 'Education' })
+  await scegliEtichetta(page, campoEtichetta(foglio, 'reel_type'), 'Education')
   await expect(toast(page, 'Reel Type: Education')).toBeVisible()
-  await expect(foglio.getByLabel('Reel Type')).not.toHaveAttribute('aria-busy')
+  await expect(campoEtichetta(foglio, 'reel_type')).not.toHaveAttribute('aria-busy')
 
   const letture: string[] = []
   page.on('request', (r) => {
@@ -851,19 +860,18 @@ test('con «Riduci movimento» il pannello non scorre', async ({ page }) => {
 test.describe('dal telefono', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  test('le card hanno Status, Post Date, Reel Type e Format da 44 px; una data cambiata sposta la card; il pannello a tutto schermo', async ({
+  test('le card hanno Status, Post Date, Reel Type e Format da 44 px; una data cambiata resta sulla card; il pannello a tutto schermo', async ({
     page,
   }) => {
     test.setTimeout(90_000)
-    const mese = primoDelMeseISO(oggiRoma())
-    const giorno = aggiungiGiorni(mese, 9)
-    const nuovoGiorno = aggiungiGiorni(mese, 19)
+    const giorno = avanti(420)
+    const nuovoGiorno = avanti(421)
     const nome = `${PREFISSO}telefono`
     // a long Script (Final): the panel scrolls well past one screen
     const finale = Array.from({ length: 60 }, (_, i) => `Line ${i + 1}: una riga dello script.`).join('\n')
     const id = await creaContenutoDiProva(nome, { post_date: giorno, reel_type: 'education', finale })
     await accedi(page, 'marketing')
-    await page.goto(`/marketing/contenuti?vista=calendario&q=${encodeURIComponent(nome)}`)
+    await page.goto(listaDi('telefono'))
     const sezione = sezioneContenuti(page)
     const card = sezione.getByRole('listitem').filter({ has: page.getByRole('link', { name: nome, exact: true }) })
     await expect(card).toBeVisible()
@@ -880,15 +888,12 @@ test.describe('dal telefono', () => {
     await expect(card.getByText('Format', { exact: true })).toBeVisible()
     await senzaScrollLaterale(page)
 
-    // the Post Date from the chip: the card goes to its new day
+    // the Post Date from the chip: it saves, the card stays
     await card.getByRole('button', { name: `${formatData(giorno)}: cambia Post Date di «${nome}»` }).click()
     await page.getByRole('dialog').getByLabel('Post Date').fill(nuovoGiorno)
     await page.getByRole('dialog').getByRole('button', { name: 'Salva' }).click()
     await expect(toast(page, `Post Date: ${formatData(nuovoGiorno)}`)).toBeVisible()
-    const giornoNuovo = `${nomeGiorno(nuovoGiorno)} ${nuovoGiorno.slice(8, 10)}/${nuovoGiorno.slice(5, 7)}`
-    await expect(
-      sezione.getByRole('region', { name: new RegExp(`${escape(giornoNuovo)}$`, 'i') }).getByRole('link', { name: nome, exact: true }),
-    ).toBeVisible()
+    await expect(card.getByRole('button', { name: `${formatData(nuovoGiorno)}: cambia Post Date di «${nome}»` })).toBeVisible()
     expect((await leggiContenuto(id))?.post_date).toBe(nuovoGiorno)
 
     // the panel: the whole screen, nothing sideways, a 44 px X
@@ -922,7 +927,7 @@ test.describe('dal telefono', () => {
     await page.goto(`/marketing/contenuti?contenuto=${id}`)
     const foglio = pannello(page, nome)
     await expect(foglio).toBeVisible()
-    await foglio.getByLabel('Reel Type').selectOption({ label: 'Education' })
+    await scegliEtichetta(page, campoEtichetta(foglio, 'reel_type'), 'Education')
     await expect(toast(page, 'Reel Type: Education')).toBeVisible()
 
     const scatola = (await page.locator('[data-sonner-toast]').first().boundingBox())!
@@ -954,7 +959,7 @@ test.describe('dal telefono', () => {
     await sezioneContenuti(page).getByRole('link', { name: nome, exact: true }).click()
     const foglio = pannello(page, nome)
     await expect(foglio).toBeVisible()
-    await foglio.getByLabel('Reel Type').selectOption({ label: 'Education' })
+    await scegliEtichetta(page, campoEtichetta(foglio, 'reel_type'), 'Education')
     await expect(toast(page, 'Reel Type: Education')).toBeVisible()
     const x = await fermo(foglio.getByRole('button', { name: 'Chiudi il contenuto' }))
     await page.mouse.click(x.x + x.width / 2, x.y + x.height / 2)
@@ -971,21 +976,30 @@ test.describe('dal telefono', () => {
     await expect(page).toHaveURL(/\/task(\?|$)/, { timeout: 5000 })
   })
 
-  test('«Crea il contenuto»: il pannello si apre col toast in basso, e la X lo chiude subito', async ({ page }) => {
+  test('«Nuovo» dal telefono: la riga si scrive subito, il Name apre il pannello col toast in basso, e la X lo chiude subito', async ({
+    page,
+  }) => {
     const nome = `${PREFISSO}nuovo dal telefono`
     await accedi(page, 'marketing')
     await page.goto(listaDi('nuovo dal telefono'))
-    await page.getByRole('button', { name: 'Nuovo contenuto', exact: true }).first().click()
-    const modulo = page.getByRole('dialog', { name: 'Nuovo contenuto' })
-    await modulo.getByLabel('Name', { exact: true }).fill(nome)
-    await modulo.getByRole('button', { name: 'Crea il contenuto' }).click()
+    await page.getByRole('button', { name: 'Nuovo', exact: true }).first().click()
+    const campoNome = page.getByRole('dialog', { name: 'Name', exact: true }).getByRole('textbox')
+    await expect(campoNome).toBeFocused()
+    await campoNome.fill(nome)
+    await campoNome.press('Enter')
+    await expect(toast(page, 'Name salvato')).toBeVisible()
+    await sezioneContenuti(page).getByRole('link', { name: nome, exact: true }).click()
     const foglio = pannello(page, nome)
     await expect(foglio).toBeVisible()
-    await expect(toast(page, 'Contenuto creato')).toBeVisible()
+
+    // the list's «Name salvato» went away with the panel opening; a save in the panel brings its own toast, at the bottom
+    await expect(toast(page, 'Name salvato')).toBeHidden()
+    await scegliEtichetta(page, campoEtichetta(foglio, 'formato'), 'Split')
+    await expect(toast(page, 'Format: Split')).toBeVisible()
 
     // the tap where the X is, once the panel is in place, while the toast is still there
     const x = await fermo(foglio.getByRole('button', { name: 'Chiudi il contenuto' }))
-    await expect(toast(page, 'Contenuto creato')).toBeVisible()
+    await expect(toast(page, 'Format: Split')).toBeVisible()
     const scatola = (await page.locator('[data-sonner-toast]').first().boundingBox())!
     expect(x.y + x.height <= scatola.y || x.y >= scatola.y + scatola.height, 'il toast copre la X').toBe(true)
     await page.mouse.click(x.x + x.width / 2, x.y + x.height / 2)
@@ -1007,8 +1021,7 @@ test.describe('dal telefono', () => {
     await senzaScrollLaterale(page)
 
     // a chip changes its property and never opens the card
-    await card.getByRole('button', { name: `Vuoto: scegli Format di «${nome}»` }).click()
-    await page.getByRole('menuitemradio', { name: 'Storytelling' }).click()
+    await scegliEtichetta(page, card.getByRole('button', { name: `Vuoto: scegli Format di «${nome}»` }), 'Storytelling')
     await expect(toast(page, 'Format: Storytelling')).toBeVisible()
     await expect(page).not.toHaveURL(/contenuto=/)
     await expect(card.getByRole('button', { name: `Storytelling: cambia Format di «${nome}»` })).toBeVisible()
@@ -1021,7 +1034,7 @@ test.describe('dal telefono', () => {
     await expect(foglio).toBeVisible()
     await expect(page).toHaveURL(new RegExp(`contenuto=${id}`))
     expect((await foglio.boundingBox())!.width).toBeGreaterThanOrEqual(389)
-    await expect(foglio.getByLabel('Format')).toHaveValue('storytelling')
+    await expect(campoEtichetta(foglio, 'formato')).toHaveAccessibleName(`Storytelling: cambia Format di «${nome}»`)
     await senzaScrollLaterale(page)
     const largo = await foglio.evaluate((el) => [el.scrollWidth, el.clientWidth])
     expect(largo[0]).toBeLessThanOrEqual(largo[1])

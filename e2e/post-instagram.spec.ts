@@ -141,7 +141,7 @@ test('il marketing collega un post proposto: l’URL nel contenuto, la scheda pa
 
   await accedi(page, 'marketing')
   await apriPagina(page)
-  // «Contenuti» stays lit on this tab of the area, and the tab says how many to link
+  // «Piano editoriale» stays lit on this tab of the area, and the tab says how many to link
   await expect(page.getByRole('navigation', { name: 'Sezioni del Marketing' }).getByRole('link', { name: /^Post di Instagram, \d+ da collegare$/ })).toHaveAttribute('aria-current', 'page')
 
   const card = daCollegare(page).locator(`[data-post="${codice(1)}"]`)
@@ -384,7 +384,7 @@ test('dal pannello del contenuto: «Forse è questo post», Collega, «Usa la da
   const prima = await daCollegareOra()
   expect(prima).toBeGreaterThan(0)
 
-  await page.getByRole('region', { name: 'Contenuti', exact: true }).getByRole('link', { name: nome, exact: true }).click()
+  await page.getByRole('region', { name: 'Piano editoriale', exact: true }).getByRole('link', { name: nome, exact: true }).click()
   const foglio = page.getByRole('dialog', { name: nome, exact: true })
   const blocco = foglio.getByRole('region', { name: 'Post su Instagram' })
   await expect(blocco).toContainText('Forse è questo post:')
@@ -506,7 +506,7 @@ test('nel pannello la domanda di «Elimina» è sempre quella del contenuto most
 
   await accedi(page, 'marketing')
   await page.goto(`/marketing/contenuti?vista=tabella&q=${encodeURIComponent(`E2E post ${RUN} vicino`)}`)
-  await page.getByRole('region', { name: 'Contenuti', exact: true }).getByRole('link', { name: collegato, exact: true }).click()
+  await page.getByRole('region', { name: 'Piano editoriale', exact: true }).getByRole('link', { name: collegato, exact: true }).click()
   const primo = page.getByRole('dialog', { name: collegato, exact: true })
   await primo.getByRole('button', { name: 'Elimina il contenuto' }).click()
   const domandaPrimo = page.getByRole('dialog', { name: `Eliminare il contenuto «${collegato}»?` })
@@ -605,10 +605,10 @@ test('sul telefono: niente scroll di lato, bottoni da 44 px, «Post di Instagram
   for (const bottone of await scheda(page, 8).getByRole('button').all()) {
     expect((await bottone.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
   }
-  // 1.38.0: every page of the area is an item of the menu, lit on its own page. «Contenuti» is in the bar
+  // 1.38.0: every page of the area is an item of the menu, lit on its own page. «Piano editoriale» is in the bar
   // and is not lit here; «Post di Instagram» is in «Altro», which the bar shows as the current place
   const barra = page.getByRole('navigation', { name: 'Navigazione', exact: true })
-  await expect(barra.getByRole('link', { name: 'Contenuti', exact: true })).not.toHaveAttribute('aria-current', 'page')
+  await expect(barra.getByRole('link', { name: 'Piano editoriale', exact: true })).not.toHaveAttribute('aria-current', 'page')
   await barra.getByRole('button', { name: /^Altro/ }).click()
   const altro = page.getByRole('dialog', { name: 'Altro' })
   await expect(altro.getByRole('group', { name: 'Marketing' }).getByRole('link', { name: /^Post di Instagram/ })).toHaveAttribute(

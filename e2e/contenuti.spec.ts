@@ -1,13 +1,12 @@
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
 
-import { aggiungiGiorni, aggiungiMesi, nomeGiorno, oggiRoma, primoDelMeseISO } from '../lib/date'
-import { formatMese } from '../lib/format'
+import { aggiungiGiorni, oggiRoma } from '../lib/date'
 import { creaContenutoDiProva, dbLocale, leggiContenuto, pulisciContenuti } from './db'
 import { accedi, type RuoloSeed } from './utenti'
 
 /**
- * The content calendar (1.32.0): Notion's "Instagram Posts" in the app, for
- * the admin, the video editor and marketing. Rows of these tests start with
+ * The content calendar (1.32.0), the Piano editoriale since 21/10/2026: Notion's
+ * "Instagram Posts" in the app, for the admin, the video editor and marketing. Rows of these tests start with
  * PREFISSO and go away at the end; the seed's twelve contents stay as they are.
  */
 const PREFISSO = 'E2E Contenuti '
@@ -35,23 +34,14 @@ function toast(page: Page, testo: string) {
   return page.locator('[data-sonner-toast]').getByText(testo, { exact: true })
 }
 
-/** The list or the calendar: the section the container queries measure. */
+/** The list: the section the container queries measure. */
 function sezioneContenuti(page: Page) {
-  return page.getByRole('region', { name: 'Contenuti', exact: true })
+  return page.getByRole('region', { name: 'Piano editoriale', exact: true })
 }
 
 /** The Status button of one content: "Posted: cambia lo Status di …". */
 function bottoneStatus(radice: Page | Locator, nome: string) {
   return radice.getByRole('button', { name: new RegExp(`: cambia lo Status di ${escape(nome)}$`) })
-}
-
-function vista(page: Page) {
-  return page.getByRole('group', { name: 'Vista dei contenuti' })
-}
-
-/** "lunedì 06/10", as the calendar names a day. */
-function giornoLungo(iso: string) {
-  return `${nomeGiorno(iso)} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 }
 
 /** An address without its #fragment. */
@@ -106,7 +96,7 @@ async function altezzeDelleParole(elemento: Locator, parole: string[]) {
   }, parole)
 }
 
-test('il marketing atterra sui contenuti: in cima quello con la Post Date più recente', async ({ page }) => {
+test('il marketing atterra sul Piano editoriale: in cima quello con la Post Date più recente', async ({ page }) => {
   // the same order as the page: Post Date newest first (undated last), then the newest created
   const { data, error } = await dbLocale()
     .from('marketing_contenuti')
@@ -120,49 +110,45 @@ test('il marketing atterra sui contenuti: in cima quello con la Post Date più r
 
   await accedi(page, 'marketing')
   await expect(page).toHaveURL(/\/marketing\/contenuti$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Instagram Posts' })).toBeVisible()
-  await expect(vista(page).getByRole('link', { name: 'Tabella' })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('heading', { level: 1, name: 'Piano editoriale' })).toBeVisible()
+  // one view only: the table (no «Tabella | Calendario» any more)
+  await expect(page.getByRole('group', { name: 'Vista dei contenuti' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Calendario' })).toHaveCount(0)
 
-  // on a desktop the section is wide enough for Notion's table, with its columns in Notion's order
+  // on a desktop the section is wide enough for the table: seven columns, Inspiration and Audio are in the panel
   const tabella = sezioneContenuti(page).getByRole('table')
-  await expect(tabella.getByRole('columnheader')).toHaveText([
-    'Name',
-    'Reel Type',
-    'Format',
-    'Inspiration',
-    'Status',
-    'Post Date',
-    'Audio',
-    'URL',
-    'View Count',
-  ])
+  await expect(tabella.getByRole('columnheader')).toHaveText(['Name', 'Reel Type', 'Format', 'Status', 'Post Date', 'URL', 'Views'])
   await expect(tabella.locator('tbody tr').first().getByRole('link').first()).toHaveText(primo)
 
-  // the sidebar: Contenuti lit, no Economics item
+  // the filters on one row: the search, Status, Reel Type, Format
+  await expect(page.getByRole('searchbox', { name: 'Cerca per Name' })).toBeVisible()
+  for (const campo of ['Status', 'Reel Type', 'Format']) await expect(page.getByLabel(campo, { exact: true })).toBeVisible()
+
+  // the sidebar: Piano editoriale lit, no Economics item
   const nav = page.getByRole('navigation', { name: 'Navigazione principale' })
-  await expect(nav.getByRole('link', { name: 'Contenuti' })).toHaveAttribute('aria-current', 'page')
+  await expect(nav.getByRole('link', { name: 'Piano editoriale' })).toHaveAttribute('aria-current', 'page')
   for (const voce of ['Panoramica', 'Oggi', 'Le mie call', 'Pipeline', 'Setter', 'Closer']) {
     await expect(nav.getByRole('link', { name: voce, exact: true })).toHaveCount(0)
   }
 
   // the sidebar groups the area under «Marketing» with its four pages as items (1.38.0), each lit on its own page
   const gruppoMarketing = nav.getByRole('group', { name: 'Marketing' })
-  await expect(gruppoMarketing.getByRole('link')).toHaveText([/^Contenuti/, /^Post di Instagram/, 'Analisi', 'Spunti'])
-  // the tabs of the area (1.33.0): «Contenuti» here, «Post di Instagram» next to it
+  await expect(gruppoMarketing.getByRole('link')).toHaveText([/^Piano editoriale/, /^Post di Instagram/, 'Analisi', 'Spunti'])
+  // the tabs of the area (1.33.0): «Piano editoriale» here, «Post di Instagram» next to it
   const schede = page.getByRole('navigation', { name: 'Sezioni del Marketing' })
-  await expect(schede.getByRole('link', { name: 'Contenuti', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(schede.getByRole('link', { name: 'Piano editoriale', exact: true })).toHaveAttribute('aria-current', 'page')
   await schede.getByRole('link', { name: /^Post di Instagram/ }).click()
   await expect(page).toHaveURL(/\/marketing\/instagram$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Post di Instagram' })).toBeVisible()
   await expect(schede.getByRole('link', { name: /^Post di Instagram/ })).toHaveAttribute('aria-current', 'page')
   await expect(nav.getByRole('link', { name: /^Post di Instagram/ })).toHaveAttribute('aria-current', 'page')
-  await expect(nav.getByRole('link', { name: 'Contenuti' })).not.toHaveAttribute('aria-current', 'page')
-  await schede.getByRole('link', { name: 'Contenuti', exact: true }).click()
+  await expect(nav.getByRole('link', { name: 'Piano editoriale' })).not.toHaveAttribute('aria-current', 'page')
+  await schede.getByRole('link', { name: 'Piano editoriale', exact: true }).click()
   await expect(page).toHaveURL(/\/marketing\/contenuti$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Instagram Posts' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Piano editoriale' })).toBeVisible()
 })
 
-test('nuovo Reel Topic: si apre nel pannello; Hook, Line e CTA a capo; Status, sezione e proprietà senza conflitti', async ({
+test('«Nuovo»: la riga si rinomina sul posto; il Name apre il pannello con Hook, Line e CTA a capo; Status, sezione e proprietà senza conflitti', async ({
   page,
 }) => {
   test.setTimeout(90_000)
@@ -170,19 +156,27 @@ test('nuovo Reel Topic: si apre nel pannello; Hook, Line e CTA a capo; Status, s
   const nome = `${PREFISSO}reel nuovo`
 
   await accedi(page, 'marketing')
-  await page.getByRole('button', { name: 'Nuovo contenuto' }).click()
-  const foglio = page.getByRole('dialog', { name: 'Nuovo contenuto' })
-  await expect(foglio.getByRole('radio', { name: 'Reel Topic' })).toBeChecked()
-  await foglio.getByText('Carousel Topic', { exact: true }).click()
-  await foglio.getByText('Reel Topic', { exact: true }).click()
-  await expect(foglio.getByRole('radio', { name: 'Reel Topic' })).toBeChecked()
-  await foglio.getByLabel('Name', { exact: true }).fill(nome)
-  await foglio.getByLabel('Post Date').fill(oggi)
-  await foglio.getByRole('button', { name: 'Crea il contenuto' }).click()
+  await page.getByRole('button', { name: 'Nuovo', exact: true }).click()
+  // an empty row at the top of the table, the cursor in its Name
+  const campoNome = page.getByRole('dialog', { name: 'Name', exact: true }).getByRole('textbox')
+  await expect(campoNome).toBeFocused()
+  await expect(campoNome).toHaveValue('Senza titolo')
+  await campoNome.fill(nome)
+  await campoNome.press('Enter')
+  await expect(toast(page, 'Name salvato')).toBeVisible()
+  const riga = sezioneContenuti(page).getByRole('row').filter({ has: page.getByRole('link', { name: nome, exact: true }) })
+  await expect(riga).toBeVisible()
+  // the row is a Reel Topic, Not started, with the labels and the date to fill in its cells
+  await expect(riga.getByRole('button', { name: `Not started: cambia lo Status di ${nome}` })).toBeVisible()
+  await riga.getByRole('button', { name: `Vuoto: scegli Post Date di «${nome}»` }).click()
+  const data = page.getByRole('dialog', { name: 'Post Date', exact: true }).getByLabel('Post Date')
+  await data.fill(oggi)
+  await data.press('Enter')
+  await expect(toast(page, `Post Date: ${oggi.slice(8, 10)}/${oggi.slice(5, 7)}/${oggi.slice(0, 4)}`)).toBeVisible()
 
-  // the content opens in the panel, the list stays behind (1.33.0)
-  await expect(page).toHaveURL(/\/marketing\/contenuti\?contenuto=[0-9a-f-]{36}$/)
-  await expect(toast(page, 'Contenuto creato')).toBeVisible()
+  // the Name opens the content in the panel, the list stays behind (1.33.0)
+  await riga.getByRole('link', { name: nome, exact: true }).click()
+  await expect(page).toHaveURL(/contenuto=[0-9a-f-]{36}/)
   const pannello = page.getByRole('dialog', { name: nome })
   await expect(pannello).toBeVisible()
   const id = new URL(page.url()).searchParams.get('contenuto')!
@@ -374,50 +368,7 @@ test('un link di condivisione di Instagram nell’URL: il campo lo spiega e non 
   await expect(visualizzazioni).toHaveValue('12.480')
 })
 
-test('il calendario va anche nei mesi avanti: «Mese successivo», e il «+» di un giorno crea il contenuto lì', async ({
-  page,
-}) => {
-  const prossimo = aggiungiMesi(primoDelMeseISO(oggiRoma()), 1)
-  const nome = `${PREFISSO}mese prossimo`
-  await creaContenutoDiProva(nome, { post_date: aggiungiGiorni(prossimo, 9) })
-
-  await accedi(page, 'marketing')
-  await page.goto('/marketing/contenuti?vista=calendario')
-  const mesi = page.getByRole('navigation', { name: 'Scegli il mese' })
-  await expect(mesi).toContainText(formatMese(oggiRoma()))
-  await mesi.getByRole('link', { name: 'Mese successivo' }).click()
-  await expect(page).toHaveURL(new RegExp(`mese=${prossimo.slice(0, 7)}`))
-  await expect(mesi).toContainText(formatMese(prossimo))
-  await expect(sezioneContenuti(page).getByRole('link', { name: `${nome}, Not started` })).toBeVisible()
-  // the plan goes on: the month after is there too
-  await expect(mesi.getByRole('link', { name: 'Mese successivo' })).toBeVisible()
-
-  // the "+" of a day: "Nuovo contenuto" with that Post Date
-  const giorno = aggiungiGiorni(prossimo, 13)
-  const piu = sezioneContenuti(page).getByRole('button', { name: `Nuovo contenuto per ${giornoLungo(giorno)}` })
-  await piu.hover()
-  await piu.click()
-  const foglio = page.getByRole('dialog', { name: 'Nuovo contenuto' })
-  await expect(foglio.getByLabel('Post Date')).toHaveValue(giorno)
-  await foglio.getByText('Carousel Topic', { exact: true }).click()
-  await foglio.getByLabel('Name', { exact: true }).fill(`${PREFISSO}carosello dal calendario`)
-  await foglio.getByRole('button', { name: 'Crea il contenuto' }).click()
-  // the panel opens on it, the calendar stays behind with its month
-  const pannello = page.getByRole('dialog', { name: `${PREFISSO}carosello dal calendario` })
-  await expect(pannello).toBeVisible()
-  await expect(page).toHaveURL(new RegExp(`mese=${prossimo.slice(0, 7)}.*contenuto=[0-9a-f-]{36}$`))
-  await expect(pannello.getByLabel('Post Date')).toHaveValue(giorno)
-  await expect(pannello.getByLabel('Modello')).toHaveValue('carousel')
-  // a Carousel Topic: Idea/Message, Carousel, Caption, empty (no rough draft, no Comments)
-  for (const titolo of ['Idea/Message', 'Carousel', 'Caption']) {
-    await expect(pannello.getByRole('region', { name: titolo, exact: true })).toBeVisible()
-  }
-  await expect(pannello.getByRole('region', { name: 'Comments', exact: true })).toHaveCount(0)
-  const id = new URL(page.url()).searchParams.get('contenuto')!
-  expect(await leggiContenuto(id)).toMatchObject({ tipo: 'carousel', post_date: giorno, bozza: null })
-})
-
-test('«Complete» mostra solo i Posted, «Togli i filtri» li toglie', async ({ page }) => {
+test('il filtro Status mostra solo i Posted, «Togli i filtri» li toglie; la ricerca e le etichette', async ({ page }) => {
   const { count: posted, error } = await dbLocale()
     .from('marketing_contenuti')
     .select('id', { count: 'exact', head: true })
@@ -425,29 +376,28 @@ test('«Complete» mostra solo i Posted, «Togli i filtri» li toglie', async ({
   if (error) throw error
 
   await accedi(page, 'marketing')
-  await page.goto('/marketing/contenuti?vista=tabella')
-  const gruppi = page.getByRole('navigation', { name: 'Gruppi di Status' })
-  await expect(gruppi.getByRole('link', { name: /^Tutti/ })).toHaveAttribute('aria-current', 'page')
-  await gruppi.getByRole('link', { name: new RegExp(`^Complete ${posted}$`) }).click()
-  await expect(page).toHaveURL(/gruppo=complete/)
-  await expect(gruppi.getByRole('link', { name: /^Complete/ })).toHaveAttribute('aria-current', 'page')
+  await page.goto('/marketing/contenuti')
+  // no filter at first, no «Togli i filtri»; the group chips are gone (the filters are one row)
+  await expect(page.getByRole('navigation', { name: 'Gruppi di Status' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Togli i filtri' })).toHaveCount(0)
 
+  // a Status, from the select grouped like Notion's menu
+  await page.getByLabel('Status', { exact: true }).selectOption({ label: 'Posted' })
+  await expect(page).toHaveURL(/stato=posted/)
   const stati = sezioneContenuti(page).getByRole('button', { name: /: cambia lo Status di / })
   await expect(stati).toHaveCount(posted ?? 0)
   for (const nome of await stati.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? ''))) {
     expect(nome).toMatch(/^Posted: /)
   }
-
-  // a Status of the group, from the select grouped like Notion's menu
   await page.getByLabel('Status', { exact: true }).selectOption({ label: 'Canceled' })
   await expect(page).toHaveURL(/stato=canceled/)
-  // Canceled is in To-do: the Complete chip goes, the Status stays
-  await expect(page).not.toHaveURL(/gruppo=/)
   await expect(stati.first()).toHaveAccessibleName(/^Canceled: /)
 
+  // Reel Type: the labels with how many contents use each
+  const reelType = page.getByLabel('Reel Type', { exact: true })
+  await expect(reelType.locator('option', { hasText: /^Education \(\d+\)$/ })).toHaveCount(1)
   await page.getByRole('link', { name: 'Togli i filtri' }).click()
-  await expect(page).not.toHaveURL(/gruppo=|stato=/)
-  await expect(gruppi.getByRole('link', { name: /^Tutti/ })).toHaveAttribute('aria-current', 'page')
+  await expect(page).not.toHaveURL(/stato=/)
   await expect(sezioneContenuti(page).getByRole('button', { name: /^Not started: cambia lo Status di / }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: 'Togli i filtri' })).toHaveCount(0)
 
@@ -464,29 +414,6 @@ test('«Complete» mostra solo i Posted, «Togli i filtri» li toglie', async ({
   await sezioneContenuti(page).getByRole('link', { name: 'Togli i filtri' }).click()
   await expect(page).not.toHaveURL(/q=/)
   await expect(cerca).toHaveValue('')
-})
-
-test('il numero di un gruppo è quello che apre: con lo Status di un altro gruppo il chip lo lascia, conto compreso', async ({
-  page,
-}) => {
-  const { count: inProgress, error } = await dbLocale()
-    .from('marketing_contenuti')
-    .select('id', { count: 'exact', head: true })
-    .in('stato', ['to_be_posted', 'to_be_edited', 'to_be_recorded'])
-  if (error) throw error
-  expect(inProgress).toBeGreaterThan(0)
-
-  await accedi(page, 'marketing')
-  await page.goto('/marketing/contenuti?vista=tabella&stato=posted')
-  const gruppi = page.getByRole('navigation', { name: 'Gruppi di Status' })
-  const chip = gruppi.getByRole('link', { name: /^In progress/ })
-  // never 0 by construction: the chip counts what its tap opens
-  await expect(chip).toHaveAccessibleName(`In progress ${inProgress}`)
-  await chip.click()
-  await expect(page).toHaveURL(/gruppo=in_progress/)
-  await expect(page).not.toHaveURL(/stato=/)
-  await expect(chip).toHaveAccessibleName(`In progress ${inProgress}`)
-  await expect(sezioneContenuti(page).getByRole('button', { name: /: cambia lo Status di / })).toHaveCount(inProgress ?? 0)
 })
 
 test('la ricerca prende ogni carattere com’è: l’asterisco non è un jolly', async ({ page }) => {
@@ -555,36 +482,12 @@ test('uno Status che fa uscire il contenuto dalla lista: il focus va sulla riga 
   await page.getByRole('menuitemradio', { name: 'Posted', exact: true }).focus()
   await page.keyboard.press('Enter')
   await expect(sezione.getByText('Nessun contenuto con questi filtri', { exact: true })).toBeVisible()
-  await expect(sezione.getByRole('heading', { level: 2, name: 'Contenuti' })).toBeFocused()
-  await expect(annuncio).toHaveText(`«${secondo}» non è più nella lista con questi filtri: ora sei sul titolo «Contenuti».`)
+  await expect(sezione.getByRole('heading', { level: 2, name: 'Piano editoriale' })).toBeFocused()
+  await expect(annuncio).toHaveText(`«${secondo}» non è più nella lista con questi filtri: ora sei sul titolo «Piano editoriale».`)
   expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('H2')
 })
 
-test('un giorno pieno del calendario: «+N» dice le parole che si vedono e mostra gli altri lì', async ({ page }) => {
-  const mese = aggiungiMesi(primoDelMeseISO(oggiRoma()), 2)
-  const giorno = aggiungiGiorni(mese, 16)
-  for (const n of [1, 2, 3, 4, 5]) await creaContenutoDiProva(`${PREFISSO}giorno pieno ${n}`, { post_date: giorno })
-  const { count, error } = await dbLocale()
-    .from('marketing_contenuti')
-    .select('id', { count: 'exact', head: true })
-    .eq('post_date', giorno)
-  if (error) throw error
-  const altri = (count ?? 0) - 3
-
-  await accedi(page, 'marketing')
-  await page.goto(`/marketing/contenuti?vista=calendario&mese=${mese.slice(0, 7)}`)
-  const piu = sezioneContenuti(page).getByRole('button', { name: new RegExp(`^\\+${altri} altri contenuti di `) })
-  await expect(piu).toHaveAccessibleName(`+${altri} altri contenuti di ${giornoLungo(giorno)}`)
-  await expect(piu).toHaveAttribute('aria-expanded', 'false')
-  // on screen only "+N"
-  expect(await piu.evaluate((el) => (el.firstChild?.textContent ?? '').trim())).toBe(`+${altri}`)
-  await piu.click()
-  const meno = sezioneContenuti(page).getByRole('button', { name: `Mostra meno contenuti di ${giornoLungo(giorno)}` })
-  await expect(meno).toHaveAttribute('aria-expanded', 'true')
-  await expect(sezioneContenuti(page).getByRole('link', { name: `${PREFISSO}giorno pieno 5, Not started` })).toBeVisible()
-})
-
-test('a 1200 px la sezione è stretta per le nove colonne: card; da 1280 px la tabella intera, nessuna colonna tagliata', async ({
+test('a 1200 px la sezione è stretta per la tabella: card; da 1280 px la tabella intera, nessuna colonna tagliata', async ({
   page,
 }) => {
   // a Name with a word longer than any column (a pasted link, as in Notion)
@@ -593,7 +496,7 @@ test('a 1200 px la sezione è stretta per le nove colonne: card; da 1280 px la t
   })
   await page.setViewportSize({ width: 1200, height: 800 })
   await accedi(page, 'marketing')
-  await page.goto('/marketing/contenuti?vista=tabella')
+  await page.goto('/marketing/contenuti')
   const sezione = sezioneContenuti(page)
   expect((await sezione.boundingBox())!.width).toBeLessThan(960)
   await expect(sezione.getByRole('table')).toHaveCount(0)
@@ -604,94 +507,66 @@ test('a 1200 px la sezione è stretta per le nove colonne: card; da 1280 px la t
   const tabella = sezione.getByRole('table')
   await expect(tabella).toBeVisible()
   await expect(tabella.getByRole('link', { name: /colonne strette/ })).toBeVisible()
-  // the table's own box never scrolls, not even with that Name: View Count is whole
+  // the table's own box never scrolls, not even with that Name: Views is whole
   const [scorre, visibile] = await tabella.evaluate((t) => [t.parentElement!.scrollWidth, t.parentElement!.clientWidth])
   expect(scorre).toBeLessThanOrEqual(visibile)
-  await expect(tabella.getByRole('columnheader', { name: 'View Count' })).toBeInViewport({ ratio: 1 })
+  await expect(tabella.getByRole('columnheader', { name: 'Views' })).toBeInViewport({ ratio: 1 })
+  // the pills are never cut: the longest labels and Statuses are whole in their cells
+  for (const cella of await tabella.locator('.pillola').all()) {
+    const [scorre, largo] = await cella.evaluate((el) => {
+      const testo = el.querySelector('.truncate')
+      return [testo?.scrollWidth ?? 0, testo?.clientWidth ?? 0]
+    })
+    expect(scorre).toBeLessThanOrEqual(largo)
+  }
 })
 
-test('a 1024 px con la barra laterale: card al posto della tabella, la griglia solo se la sezione ci sta', async ({
-  page,
-}) => {
+test('a 1024 px con la barra laterale: card al posto della tabella', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 })
   await accedi(page, 'marketing')
 
-  await page.goto('/marketing/contenuti?vista=tabella')
+  await page.goto('/marketing/contenuti')
   await expect(page.getByRole('navigation', { name: 'Navigazione principale' })).toBeVisible()
   const sezione = sezioneContenuti(page)
   const larghezza = (await sezione.boundingBox())!.width
-  // the screen is wide, the section next to the sidebar is not: Notion's nine columns would not fit
+  // the screen is wide, the section next to the sidebar is not: the table would not fit
   expect(larghezza).toBeLessThan(960)
   await expect(sezione.getByRole('table')).toHaveCount(0)
   await expect(sezione.getByRole('list').first()).toBeVisible()
-  await senzaScrollLaterale(page)
-
-  await page.goto('/marketing/contenuti?vista=calendario')
-  const griglia = sezioneContenuti(page).getByRole('table', { name: /per giorno$/ })
-  const miniMese = sezioneContenuti(page).getByRole('table', { name: /i giorni con un punto hanno contenuti$/ })
-  if (larghezza >= 672) {
-    await expect(griglia).toBeVisible()
-    await expect(miniMese).toHaveCount(0)
-  } else {
-    await expect(griglia).toHaveCount(0)
-    await expect(miniMese).toBeVisible()
-  }
   await senzaScrollLaterale(page)
 })
 
 test.describe('dal telefono', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  test('il calendario: mini mese e agenda col contenuto, senza scroll laterale; la vista resta', async ({ page }) => {
-    const oggi = oggiRoma()
+  test('il Piano editoriale: card con le etichette colorate, senza scroll laterale; il menu in basso', async ({ page }) => {
     const nome = `${PREFISSO}in agenda`
-    await creaContenutoDiProva(nome, { post_date: oggi, reel_type: 'education', formato: 'split' })
+    await creaContenutoDiProva(nome, { post_date: aggiungiGiorni(oggiRoma(), 300), reel_type: 'education', formato: 'split' })
 
     await accedi(page, 'marketing')
     await expect(page).toHaveURL(/\/marketing\/contenuti$/)
-    // "Contenuti" is the first item of the bottom bar
+    // "Piano editoriale" is the first item of the bottom bar
     const barra = page.getByRole('navigation', { name: 'Navigazione', exact: true })
-    await expect(barra.getByRole('link').first()).toHaveAccessibleName('Contenuti')
+    await expect(barra.getByRole('link').first()).toHaveAccessibleName('Piano editoriale')
     await senzaScrollLaterale(page)
 
-    await vista(page).getByRole('link', { name: 'Calendario' }).click()
-    await expect(page).toHaveURL(/vista=calendario/)
-    await expect(vista(page).getByRole('link', { name: 'Calendario' })).toHaveAttribute('aria-current', 'page')
-
-    // the mini month: today has a dot and leads to its day in the agenda
-    const sezione = sezioneContenuti(page)
-    await expect(sezione.getByRole('table', { name: /per giorno$/ })).toHaveCount(0)
-    const giorno = sezione.getByRole('link', { name: new RegExp(`^${escape(giornoLungo(oggi))}, \\d+ contenut`) })
-    await expect(giorno).toBeVisible()
-    await giorno.click()
-    await expect(page).toHaveURL(new RegExp(`#giorno-${oggi}$`))
-    const agenda = sezione.getByRole('region', { name: `Oggi, ${giornoLungo(oggi)}` })
-    await expect(agenda.getByRole('link', { name: nome })).toBeVisible()
-    // Reel Type and Format are chips of the card, changed with one tap (1.33.0)
-    await expect(agenda.getByRole('button', { name: `Education: cambia Reel Type di «${nome}»` })).toBeVisible()
-    await expect(agenda.getByRole('button', { name: `Split: cambia Format di «${nome}»` })).toBeVisible()
+    // no view switch: one list of cards
+    await expect(page.getByRole('group', { name: 'Vista dei contenuti' })).toHaveCount(0)
+    const card = sezioneContenuti(page).locator(`li[data-nome-contenuto="${nome}"]`)
+    await expect(card).toBeVisible()
+    // Reel Type and Format are chips of the card with the label's colour, changed with one tap (1.33.0)
+    await expect(card.getByRole('button', { name: `Education: cambia Reel Type di «${nome}»` }).locator('.pillola')).toHaveAttribute('data-colore', 'yellow')
+    await expect(card.getByRole('button', { name: `Split: cambia Format di «${nome}»` }).locator('.pillola')).toHaveAttribute('data-colore', 'purple')
     await senzaScrollLaterale(page)
 
     // the Status of a card is its own button: the tap changes it and never opens the card
     const lista = page.url()
-    await bottoneStatus(agenda, nome).click()
+    await bottoneStatus(card, nome).click()
     await page.getByRole('menuitemradio', { name: 'To be recorded' }).click()
     await expect(toast(page, 'Status: To be recorded')).toBeVisible()
-    // the same list, no panel: path and query unchanged. The #giorno- fragment
-    // may go: the mini month's day is a plain anchor Next's router never saw,
-    // and the redraw the action brings replaces the address with its own
     expect(senzaFrammento(page.url())).toBe(senzaFrammento(lista))
     await expect(page.getByRole('dialog')).toHaveCount(0)
-    await expect(bottoneStatus(agenda, nome)).toHaveAccessibleName(`To be recorded: cambia lo Status di ${nome}`)
-
-    // from the menu, the calendar again (a cookie of this browser)
-    const ricordata = (await page.context().cookies()).find((c) => c.name === 'alpha_vista_marketing')
-    expect(ricordata).toMatchObject({ value: 'calendario', path: '/marketing', sameSite: 'Lax' })
-    await page.goto('/task')
-    await barra.getByRole('link', { name: 'Contenuti' }).click()
-    await expect(page).toHaveURL(/\/marketing\/contenuti$/)
-    await expect(vista(page).getByRole('link', { name: 'Calendario' })).toHaveAttribute('aria-current', 'page')
-    await expect(sezioneContenuti(page).getByRole('link', { name: new RegExp(`^${escape(giornoLungo(oggi))}, `) })).toBeVisible()
+    await expect(bottoneStatus(card, nome)).toHaveAccessibleName(`To be recorded: cambia lo Status di ${nome}`)
     await senzaScrollLaterale(page)
   })
 
@@ -713,12 +588,12 @@ test.describe('dal telefono', () => {
     const id = await creaContenutoDiProva(nome, { post_date: oggiRoma() })
 
     await accedi(page, 'editor')
-    // the video editor still lands on his tasks; the calendar is in his bottom bar
+    // the video editor still lands on his tasks; the Piano editoriale is in his bottom bar
     await expect(page).toHaveURL(/\/task$/)
     const barra = page.getByRole('navigation', { name: 'Navigazione', exact: true })
-    await barra.getByRole('link', { name: 'Contenuti' }).click()
+    await barra.getByRole('link', { name: 'Piano editoriale' }).click()
     await expect(page).toHaveURL(/\/marketing\/contenuti$/)
-    await expect(page.getByRole('heading', { level: 1, name: 'Instagram Posts' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Piano editoriale' })).toBeVisible()
 
     await page.goto(`/marketing/contenuti/${id}`)
     await bottoneStatus(page, nome).click()
@@ -742,13 +617,13 @@ test.describe('dal telefono', () => {
     await domanda.getByRole('button', { name: 'Elimina', exact: true }).click()
     await expect(toast(page, 'Contenuto eliminato')).toBeVisible()
     await expect(page).toHaveURL(/\/marketing\/contenuti$/)
-    await expect(page.getByRole('heading', { level: 1, name: 'Instagram Posts' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Piano editoriale' })).toBeVisible()
     await expect(page.getByText(nome)).toHaveCount(0)
     expect(await leggiContenuto(id)).toBeNull()
 
     // its old address says so
     await page.goto(`/marketing/contenuti/${id}`)
     await expect(page.getByText('Questo contenuto non c’è più')).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Torna ai contenuti' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Torna al Piano editoriale' })).toBeVisible()
   })
 })
