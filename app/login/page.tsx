@@ -1,9 +1,11 @@
 import { TriangleAlert } from 'lucide-react'
 
 import { accediConGoogle } from '@/app/login/actions'
+import { AccessoCodice } from '@/app/login/accesso-codice'
 import { DevLoginForm } from '@/app/login/dev-login-form'
 import { GoogleButton } from '@/app/login/google-button'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
+import { PAROLE_ACCESSO } from '@/lib/auth/accesso'
 import { isDevLoginEnabled } from '@/lib/auth/dev-login'
 import { NOME_APP } from '@/lib/brand/nome'
 
@@ -12,7 +14,9 @@ const MESSAGGI: Record<string, string> = {
     'Questo indirizzo non è stato invitato. Chiedi a Dany di aggiungerti al team.',
   google: 'Non è stato possibile aprire l’accesso con Google. Riprova.',
   callback: 'Accesso non riuscito. Riprova.',
-  disattivato: 'Account disattivato. Contatta l’amministratore.',
+  disattivato: PAROLE_ACCESSO.disattivato,
+  // the link in the sign-in email, used or expired
+  'link-scaduto': PAROLE_ACCESSO.linkScaduto,
 }
 
 export default async function LoginPage({
@@ -55,6 +59,15 @@ export default async function LoginPage({
             <input type="hidden" name="da" value={da} />
             <GoogleButton />
           </form>
+
+          <section className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-border" aria-hidden="true" />
+              <h2 className="text-center text-xs font-medium text-muted-foreground">{PAROLE_ACCESSO.titolo}</h2>
+              <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            </div>
+            <AccessoCodice da={da} />
+          </section>
 
           {devLogin ? (
             <section className="space-y-4 rounded-xl border border-dashed border-border bg-card/60 p-4">
