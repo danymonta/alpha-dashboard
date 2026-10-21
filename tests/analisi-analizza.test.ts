@@ -44,6 +44,7 @@ function dbFinto(tabelle: Tabelle, rpc: Record<string, unknown>) {
       neq: (c: string, v: unknown) => ((r = r.filter((x) => x[c] !== v)), b),
       is: (c: string, v: unknown) => ((r = r.filter((x) => (x[c] ?? null) === v)), b),
       limit: () => b,
+      order: () => b,
       maybeSingle: async () => ({ data: r[0] ?? null, error: null }),
       then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: r, error: null }).then(ok),
     }
@@ -231,6 +232,38 @@ describe('analizzaReel', () => {
     expect(fine.p_punteggio!.totale).toBeGreaterThan(0)
     expect(fine.p_punteggio!.criteri.every((c) => c.citazione_trovata)).toBe(true)
     expect(fine.p_versione_guida).toMatch(/^2026-10-16\./)
+  })
+
+  // ---------------------------------------------------------------------------
+  // The Reel Type the people created (21/10/2026)
+  // ---------------------------------------------------------------------------
+  const COLLEGATO = (reel_type: string | null, formato: string | null = null): Tabelle => ({
+    ...BASE,
+    marketing_contenuti: [{ ...BASE.marketing_contenuti[0], instagram_shortcode: 'SeedPost02', reel_type, formato }],
+    marketing_opzioni: [
+      { id: 'o1', campo: 'reel_type', valore: 'education', nome: 'Education', colore: 'yellow', ordine: 20 },
+      { id: 'o2', campo: 'reel_type', valore: 'case_study', nome: 'Case study', colore: 'orange', ordine: 60 },
+      { id: 'o3', campo: 'formato', valore: 'meme', nome: 'Meme', colore: 'pink', ordine: 110 },
+    ],
+  })
+
+  it('un Reel Type creato dalla persona arriva a Claude col suo nome e non dichiara nessun tipo: lo deduce Claude', async () => {
+    const { db, chiamate } = dbFinto(COLLEGATO('case_study', 'meme'), { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_SPENTE })
+    const r = await analizzaReel({ db, id: 'a1', entro: entro(), cliente: client })
+    expect(r.esito).toBe('ok')
+    expect(richiesta()).toContain('"reel_type":"Case study"')
+    expect(richiesta()).toContain('"format":"Meme"')
+    // no invented score type: the declared type is null, the one of Claude's reading is used and said so
+    const fine = fineDi(chiamate)
+    expect(fine.p_punteggio?.tipo_origine).toBe('dedotto')
+  })
+
+  it('un Reel Type di partenza (Education) dichiara il suo tipo', async () => {
+    const { db, chiamate } = dbFinto(COLLEGATO('education'), { analisi_numeri_reel: NUMERI, marketing_fonti_analisi: FONTI_SPENTE })
+    await analizzaReel({ db, id: 'a1', entro: entro(), cliente: client })
+    expect(richiesta()).toContain('"reel_type":"Education"')
+    expect(fineDi(chiamate).p_punteggio?.tipo).toBe('mof')
+    expect(fineDi(chiamate).p_punteggio?.tipo_origine).toBe('dichiarato')
   })
 
   it('la guida e l’ICP stanno nel sistema del punteggio, senza prezzi; il reel nel turno dell’utente, senza i nomi', async () => {

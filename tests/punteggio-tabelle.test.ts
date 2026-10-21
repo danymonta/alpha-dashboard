@@ -218,4 +218,11 @@ describe('il tipo dal Reel Type del calendario', () => {
     expect(tipoDaReelType('workshop')).toBeNull()
     expect(tipoDaReelType(null)).toBeNull()
   })
+
+  it('un Reel Type creato dalla persona (21/10/2026) non dichiara nessun tipo: mai un punteggio inventato, lo deduce l’analisi', () => {
+    expect(tipoDaReelType('case_study')).toBeNull()
+    expect(tipoDaReelType('attraction_2')).toBeNull()
+    expect(tipoDaReelType('')).toBeNull()
+    expect(tipoDaReelType(undefined)).toBeNull()
+  })
 })
