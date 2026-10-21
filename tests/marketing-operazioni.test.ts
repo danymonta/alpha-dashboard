@@ -371,6 +371,21 @@ describe('modificaCampoContenuto', () => {
     expect(cache.revalidatePath.mock.calls).toEqual(AREA)
   })
 
+  it('un View Count che arriva da Instagram non si scrive a mano: il database lo rifiuta (23514) e l’app lo dice in parole', async () => {
+    finto.risponde({
+      error: { code: '23514', message: 'Il View Count di questo contenuto arriva da Instagram: si aggiorna da solo.' },
+    })
+    expect(await modificaCampoContenuto(db, { id: ID, campo: 'view_count', valore: '500', prima: 12480 })).toEqual({
+      ok: false,
+      errore: 'Il View Count di questo contenuto arriva da Instagram: si aggiorna da solo.',
+    })
+    // a check that says something else is never taken for it
+    finto.risponde({ error: { code: '23514', message: 'new row violates check constraint "marketing_contenuti_view_count"' } })
+    const altro = await modificaCampoContenuto(db, { id: ID, campo: 'view_count', valore: '500', prima: 12480 })
+    expect(altro.ok).toBe(false)
+    expect(!altro.ok && altro.errore).not.toContain('arriva da Instagram')
+  })
+
   it('un campo vuoto si scrive sopra il vuoto (is null)', async () => {
     finto.risponde({ data: riga({ reel_type: 'education', updated_at: NUOVA }) })
     await modificaCampoContenuto(db, { id: ID, campo: 'reel_type', valore: 'education', prima: null })

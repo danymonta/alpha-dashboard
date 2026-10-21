@@ -65,11 +65,9 @@ import {
   annullaCollega,
   annullaScollega,
   collegaPost,
-  creaContenutoDaPost,
-  escludiPost,
-  rimettiPost,
   scollegaPost,
-} from '@/app/(app)/marketing/instagram/actions'
+} from '@/app/(app)/marketing/pubblicati/actions'
+import * as operazioni from '@/lib/marketing/operazioni'
 import { POST as aggiornaRoute } from '@/app/api/marketing/instagram/aggiorna/route'
 
 const ID = '7e1f3a2b-0000-4000-8000-000000000001'
@@ -119,9 +117,8 @@ describe('chi collega i post', () => {
       for (const azione of [
         () => collegaPost({ shortcode: SHORTCODE, contenuto_id: ID }),
         () => scollegaPost({ shortcode: SHORTCODE, contenuto_id: ID }),
-        () => creaContenutoDaPost({ shortcode: SHORTCODE }),
-        () => escludiPost({ shortcode: SHORTCODE }),
-        () => rimettiPost({ shortcode: SHORTCODE }),
+        () => annullaCollega({ shortcode: SHORTCODE, contenuto_id: ID }),
+        () => annullaScollega({ shortcode: SHORTCODE, contenuto_id: ID }),
       ]) {
         expect(await azione()).toEqual({ ok: false, errore: 'Il calendario dei contenuti è dell’area Marketing.' })
       }
@@ -241,17 +238,18 @@ describe('annullaCollega e scollegaPost', () => {
     )
     expect(chiamate('from')).toContainEqual(['marketing_abbinamenti_rifiutati'])
     expect(chiamate('delete')).toHaveLength(1)
-    expect(giro.ricalcola).toHaveBeenCalledWith({ db: { ruolo: 'service_role' }, automatico: false })
+    // the proposals of the run are not shown any more: a tap does not redo them
+    expect(giro.ricalcola).not.toHaveBeenCalled()
   })
 
-  it('scollegaPost: URL via solo se il contenuto ha ancora quel post; poi le proposte, senza collegamenti automatici', async () => {
+  it('scollegaPost: URL via solo se il contenuto ha ancora quel post, senza collegamenti automatici né proposte rifatte', async () => {
     risponde(ok({ updated_at: VERSIONE }))
     expect(await scollegaPost({ shortcode: SHORTCODE, contenuto_id: ID })).toEqual({ ok: true, versione: VERSIONE })
     expect(chiamate('update')).toEqual([[{ url: null }]])
     expect(chiamate('eq')).toContainEqual(['instagram_shortcode', SHORTCODE])
     // the sign «Collegato da solo» stays in the database: never read for the browser
     expect(chiamate('from')).not.toContainEqual(['marketing_abbinamenti'])
-    expect(giro.ricalcola).toHaveBeenCalledWith({ db: { ruolo: 'service_role' }, automatico: false })
+    expect(giro.ricalcola).not.toHaveBeenCalled()
   })
 
   it('scollegaPost: un altro post intanto, o già scollegato', async () => {
@@ -261,13 +259,6 @@ describe('annullaCollega e scollegaPost', () => {
       errore: 'Questo contenuto ha già un altro post.',
     })
     risponde(ok(null), ok({ instagram_shortcode: null, updated_at: VERSIONE }))
-    expect(await scollegaPost({ shortcode: SHORTCODE, contenuto_id: ID })).toEqual({ ok: true, versione: VERSIONE })
-  })
-
-  it('le proposte che non si rifanno non fanno fallire il tocco', async () => {
-    giro.ricalcola.mockRejectedValueOnce(new Error('database'))
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    risponde(ok({ updated_at: VERSIONE }))
     expect(await scollegaPost({ shortcode: SHORTCODE, contenuto_id: ID })).toEqual({ ok: true, versione: VERSIONE })
   })
 
@@ -303,10 +294,15 @@ describe('annullaCollega e scollegaPost', () => {
   })
 })
 
-describe('creaContenutoDaPost, escludiPost, rimettiPost', () => {
+// No screen uses them since 25/10/2026 (the lists «Da collegare», «Crea il contenuto», «Non va nel calendario» and
+// «Rimetti» are gone): the core keeps the functions, and these tests keep them honest
+describe('il nucleo: creaContenutoDaPost, escludiPost, rimettiPost', () => {
+  const riproponi = vi.fn(async () => {})
+  beforeEach(() => riproponi.mockClear())
+
   it('crea un contenuto Posted dal post, senza la bozza del reel, e rifà le proposte', async () => {
     risponde(ok(POST), ok({ id: ID, updated_at: VERSIONE }))
-    expect(await creaContenutoDaPost({ shortcode: SHORTCODE })).toEqual({ ok: true, id: ID, versione: VERSIONE })
+    expect(await operazioni.creaContenutoDaPost(db.client as never, { shortcode: SHORTCODE }, { riproponi })).toEqual({ ok: true, id: ID, versione: VERSIONE })
     expect(chiamate('insert')[0][0]).toEqual({
       tipo: 'reel',
       nome: 'Niente sbarra? Nessun problema.',
@@ -320,12 +316,12 @@ describe('creaContenutoDaPost, escludiPost, rimettiPost', () => {
       view_count: null,
       bozza: null,
     })
-    expect(giro.ricalcola).toHaveBeenCalledTimes(1)
+    expect(riproponi).toHaveBeenCalledTimes(1)
   })
 
   it('il post già su un altro contenuto (23505)', async () => {
     risponde(ok(POST), { data: null, error: { code: '23505', message: 'duplicate key' } })
-    expect(await creaContenutoDaPost({ shortcode: SHORTCODE })).toEqual({
+    expect(await operazioni.creaContenutoDaPost(db.client as never, { shortcode: SHORTCODE })).toEqual({
       ok: false,
       errore: 'Questo post è già collegato a un altro contenuto.',
     })
@@ -333,23 +329,23 @@ describe('creaContenutoDaPost, escludiPost, rimettiPost', () => {
 
   it('escludi: mai un post collegato; due tocchi sono uno', async () => {
     risponde(ok({ id: ID }))
-    expect(await escludiPost({ shortcode: SHORTCODE })).toEqual({ ok: false, errore: 'Questo post è collegato: scollegalo prima.' })
+    expect(await operazioni.escludiPost(db.client as never, { shortcode: SHORTCODE })).toEqual({ ok: false, errore: 'Questo post è collegato: scollegalo prima.' })
     expect(chiamate('insert')).toEqual([])
 
     risponde(ok(null), ok(null))
-    expect(await escludiPost({ shortcode: SHORTCODE })).toEqual({ ok: true })
+    expect(await operazioni.escludiPost(db.client as never, { shortcode: SHORTCODE })).toEqual({ ok: true })
     expect(chiamate('insert')).toEqual([[{ shortcode: SHORTCODE }]])
 
     risponde(ok(null), { data: null, error: { code: '23505', message: 'duplicate key' } })
-    expect(await escludiPost({ shortcode: SHORTCODE })).toEqual({ ok: true })
+    expect(await operazioni.escludiPost(db.client as never, { shortcode: SHORTCODE })).toEqual({ ok: true })
   })
 
   it('rimetti: toglie l’esclusione e rifà le proposte', async () => {
     risponde(ok(null))
-    expect(await rimettiPost({ shortcode: SHORTCODE })).toEqual({ ok: true })
+    expect(await operazioni.rimettiPost(db.client as never, { shortcode: SHORTCODE }, { riproponi })).toEqual({ ok: true })
     expect(chiamate('from')).toEqual([['marketing_post_esclusi']])
     expect(chiamate('delete')).toHaveLength(1)
-    expect(giro.ricalcola).toHaveBeenCalledTimes(1)
+    expect(riproponi).toHaveBeenCalledTimes(1)
   })
 })
 

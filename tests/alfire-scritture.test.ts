@@ -2043,7 +2043,7 @@ describe('la guida: ogni ruolo legge la sua parte (03/10/2026)', () => {
       }
       expect(contenuti, ruolo).toContain('Alfire per ora non legge e non scrive i contenuti né i post di Instagram.')
       // the panel, the cells and the posts of Instagram (1.33.0)
-      for (const parola of ['apre il contenuto in un pannello a lato', 'dalla sua cella', 'Post di Instagram (/marketing/instagram)', '«Da collegare»', '«Scollega»', '«Aggiorna da Instagram» rilegge subito i post (admin e marketing)']) {
+      for (const parola of ['apre il contenuto in un pannello a lato', 'dalla sua cella', 'Pubblicati (/marketing/pubblicati', '«Collega»', '«Scollega»', 'si compila e si aggiorna da solo dalle views di Instagram', '«Aggiorna da Instagram» rilegge subito i post (admin e marketing)']) {
         expect(contenuti, `${ruolo}: ${parola}`).toContain(parola)
       }
       for (const parola of ['provvigion', 'incass', 'vendit', 'cliente', 'margine', 'costi', 'soldi', 'prezz']) {
