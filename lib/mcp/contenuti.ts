@@ -5,10 +5,8 @@ import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import {
   BOZZA_REEL,
   CAMPI,
-  ETICHETTA_FORMAT,
   ETICHETTA_GRUPPO,
   ETICHETTA_MODELLO,
-  ETICHETTA_REEL_TYPE,
   ETICHETTA_STATUS,
   GRUPPI_STATUS,
   ORDINE_COLONNE,
@@ -26,9 +24,11 @@ import {
   contaPerGruppo,
   leggiContenuto,
   leggiElenco,
+  leggiOpzioni,
   leggiProprietaContenuto,
   type FiltriElenco,
 } from '@/lib/marketing/letture'
+import { nomiDa, type Opzioni } from '@/lib/marketing/opzioni'
 import {
   cambiaStatusContenuto,
   creaContenuto,
@@ -49,7 +49,7 @@ import {
 } from '@/lib/validation/contenuto'
 
 import type { ContestoMcp } from './contesto'
-import { ETICHETTE, linkNotion, rigaPerClaude, valoreDa, versioneOpaca } from './etichette'
+import { EtichettaSconosciuta, linkNotion, rigaPerClaude, risolviEtichetta, valoreDa, versioneOpaca } from './etichette'
 import { LIMITI_MCP } from './limiti'
 import type {
   CambiaStatusInput,
@@ -99,7 +99,9 @@ export function misura(valore: unknown): number {
 
 // ── etichette_contenuti ─────────────────────────────────────────────────────
 
-export async function etichetteContenuti(): Promise<EsitoStrumento> {
+export async function etichetteContenuti(ctx: ContestoMcp): Promise<EsitoStrumento> {
+  // Reel Type and Format are the labels of the app, as they are now (names, codes and colours): read, never fixed
+  const opzioni = await leggiOpzioni(ctx.db)
   const modelli = (['reel', 'carousel'] as const satisfies readonly TipoContenuto[]).map((tipo) => ({
     nome: ETICHETTA_MODELLO[tipo],
     sezioni: SEZIONI[tipo],
@@ -107,8 +109,10 @@ export async function etichetteContenuti(): Promise<EsitoStrumento> {
   }))
   return ok({
     proprieta: ORDINE_COLONNE.map((c) => CAMPI[c]),
-    reel_type: ETICHETTE.reel_type,
-    format: ETICHETTE.format,
+    reel_type: opzioni.reel_type.map((o) => ({ nome: o.nome, codice: o.valore, colore: o.colore })),
+    format: opzioni.formato.map((o) => ({ nome: o.nome, codice: o.valore, colore: o.colore })),
+    nota_etichette:
+      'Reel Type e Format sono etichette colorate che la persona crea e cambia nell’app (Piano editoriale): usa il nome o il codice di una che c’è; se serve una nuova, dillo alla persona, da qui non se ne creano.',
     status: ORDINE_GRUPPI.map((g) => ({
       gruppo: ETICHETTA_GRUPPO[g],
       status: GRUPPI_STATUS[g].map((s) => ETICHETTA_STATUS[s]),
@@ -155,12 +159,12 @@ export async function guidaContenuti(input: { parte?: 'linee_guida' | 'punteggio
 // ── elenco_contenuti ────────────────────────────────────────────────────────
 
 /** The labels of the tool become the filters of the page (lib/marketing/filtri.ts), plus the dates. */
-export function filtriDaInput(input: ElencoContenutiInput): FiltriElenco {
+export function filtriDaInput(input: ElencoContenutiInput, opzioni: Opzioni): FiltriElenco {
   const f: FiltriElenco = {}
   if (input.status) f.stato = valoreDa(ETICHETTA_STATUS, input.status)
   if (input.gruppo) f.gruppo = valoreDa(ETICHETTA_GRUPPO, input.gruppo)
-  if (input.reel_type) f.reel_type = valoreDa(ETICHETTA_REEL_TYPE, input.reel_type)
-  if (input.format) f.formato = valoreDa(ETICHETTA_FORMAT, input.format)
+  if (input.reel_type) f.reel_type = risolviEtichetta('reel_type', input.reel_type, opzioni)
+  if (input.format) f.formato = risolviEtichetta('formato', input.format, opzioni)
   if (input.modello) f.tipo = valoreDa(ETICHETTA_MODELLO, input.modello)
   const cerca = input.cerca?.trim()
   if (cerca) f.q = cerca
@@ -176,7 +180,15 @@ export function filtriDaInput(input: ElencoContenutiInput): FiltriElenco {
 
 export async function elencoContenuti(input: ElencoContenutiInput, ctx: ContestoMcp): Promise<EsitoStrumento> {
   const limite = input.limite ?? LIMITI_MCP.righeElencoPredefinite
-  const filtri = filtriDaInput(input)
+  const opzioni = await leggiOpzioni(ctx.db)
+  let filtri: FiltriElenco
+  try {
+    filtri = filtriDaInput(input, opzioni)
+  } catch (e) {
+    if (e instanceof EtichettaSconosciuta) return no(e.message)
+    throw e
+  }
+  const nomi = nomiDa(opzioni)
   const [{ righe, totale }, conteggi] = await Promise.all([
     leggiElenco(ctx.db, filtri, limite),
     contaPerGruppo(ctx.db, filtri),
@@ -194,7 +206,7 @@ export async function elencoContenuti(input: ElencoContenutiInput, ctx: Contesto
   let usato = 0
   let tagliati = false
   for (const riga of righe) {
-    const voce = rigaPerClaude(riga)
+    const voce = rigaPerClaude(riga, nomi)
     const dimensione = misura(voce) + 1
     if (usato + dimensione > spazio) {
       tagliati = true
@@ -222,6 +234,7 @@ export async function elencoContenuti(input: ElencoContenutiInput, ctx: Contesto
 export async function leggiContenutoPerClaude(input: LeggiContenutoInput, ctx: ContestoMcp): Promise<EsitoStrumento> {
   const riga = await leggiContenuto(ctx.db, input.id)
   if (!riga) return no(NON_TROVATO)
+  const nomi = nomiDa(await leggiOpzioni(ctx.db))
 
   const valori: Record<SezioneContenuto, string | null> = {
     messaggio: riga.messaggio,
@@ -250,7 +263,7 @@ export async function leggiContenutoPerClaude(input: LeggiContenutoInput, ctx: C
   }
 
   return ok({
-    contenuto: { ...rigaPerClaude(riga), ...(riga.notion_page_id ? { Notion: linkNotion(riga.notion_page_id) } : {}) },
+    contenuto: { ...rigaPerClaude(riga, nomi), ...(riga.notion_page_id ? { Notion: linkNotion(riga.notion_page_id) } : {}) },
     sezioni,
     ...(daLeggere.length > 0 ? { da_leggere_a_parte: daLeggere } : {}),
   })
@@ -261,12 +274,12 @@ export async function leggiContenutoPerClaude(input: LeggiContenutoInput, ctx: C
 type Nuovo = CreaContenutiInput['contenuti'][number]
 
 /** The properties of a new content, from labels to values: the input of contenutoSchema. */
-function proprietaNuove(c: Nuovo) {
+function proprietaNuove(c: Nuovo, opzioni: Opzioni) {
   return {
     tipo: valoreDa(ETICHETTA_MODELLO, c.modello ?? ETICHETTA_MODELLO.reel),
     nome: c.name,
-    reel_type: c.reel_type ? valoreDa(ETICHETTA_REEL_TYPE, c.reel_type) : null,
-    formato: c.format ? valoreDa(ETICHETTA_FORMAT, c.format) : null,
+    reel_type: c.reel_type ? risolviEtichetta('reel_type', c.reel_type, opzioni) : null,
+    formato: c.format ? risolviEtichetta('formato', c.format, opzioni) : null,
     stato: c.status ? valoreDa(ETICHETTA_STATUS, c.status) : 'not_started',
     post_date: c.post_date ?? null,
     inspiration: c.inspiration ?? null,
@@ -289,9 +302,19 @@ function sezioniDaScrivere(sezioni: Nuovo['sezioni']): Partial<Record<SezioneCon
 export async function creaContenuti(input: CreaContenutiInput, ctx: ContestoMcp): Promise<EsitoStrumento> {
   const risultati: Record<string, unknown>[] = []
   let creati = 0
+  const opzioni = await leggiOpzioni(ctx.db)
+  const nomi = nomiDa(opzioni)
   // one after the other, in order: an item that fails does not stop the others
   for (const c of input.contenuti) {
-    const proprieta = proprietaNuove(c)
+    let proprieta: ReturnType<typeof proprietaNuove>
+    try {
+      proprieta = proprietaNuove(c, opzioni)
+    } catch (e) {
+      // a label that is not there: this content is not created, with the valid ones in the answer
+      if (!(e instanceof EtichettaSconosciuta)) throw e
+      risultati.push({ esito: 'errore', [CAMPI.nome]: c.name, errore: e.message })
+      continue
+    }
     const esito = await creaContenuto(ctx.db, proprieta, sezioniDaScrivere(c.sezioni))
     if (!esito.ok) {
       risultati.push({ esito: 'errore', [CAMPI.nome]: c.name, errore: esito.errore })
@@ -308,7 +331,7 @@ export async function creaContenuti(input: CreaContenutiInput, ctx: ContestoMcp)
     })
     risultati.push({
       esito: 'creato',
-      ...rigaPerClaude({ id: esito.id, ...valori, updated_at: esito.versione }),
+      ...rigaPerClaude({ id: esito.id, ...valori, updated_at: esito.versione }, nomi),
       sezioni_scritte: scritte,
       ...(nonScritte.length > 0 ? { sezioni_non_scritte: nonScritte } : {}),
     })
@@ -328,15 +351,15 @@ type CampoDaScrivere = { campo: CampoInCella; valore: unknown; prima: unknown }
  * (`prima`, the row at the version Claude holds): exactly what a cell sends.
  * Absent keeps the current value (not written), null empties it.
  */
-function campiDaScrivere(c: ModificaContenutoInput['campi'], riga: ContenutoElenco): CampoDaScrivere[] {
+function campiDaScrivere(c: ModificaContenutoInput['campi'], riga: ContenutoElenco, opzioni: Opzioni): CampoDaScrivere[] {
   const campi: CampoDaScrivere[] = []
   const aggiungi = (campo: CampoInCella, valore: unknown) => {
     if (valore !== undefined) campi.push({ campo, valore, prima: riga[campo] })
   }
   aggiungi('tipo', c.modello === undefined ? undefined : valoreDa(ETICHETTA_MODELLO, c.modello))
   aggiungi('nome', c.name)
-  aggiungi('reel_type', c.reel_type == null ? c.reel_type : valoreDa(ETICHETTA_REEL_TYPE, c.reel_type))
-  aggiungi('formato', c.format == null ? c.format : valoreDa(ETICHETTA_FORMAT, c.format))
+  aggiungi('reel_type', c.reel_type == null ? c.reel_type : risolviEtichetta('reel_type', c.reel_type, opzioni))
+  aggiungi('formato', c.format == null ? c.format : risolviEtichetta('formato', c.format, opzioni))
   aggiungi('post_date', c.post_date)
   aggiungi('inspiration', c.inspiration)
   aggiungi('audio', c.audio)
@@ -352,8 +375,19 @@ export async function modificaContenutoPerClaude(
   // the properties only: the sections are not needed to compare a version
   const riga = await leggiProprietaContenuto(ctx.db, input.id)
   if (!riga) return no(NON_C_E_PIU)
+  const opzioni = await leggiOpzioni(ctx.db)
+  const nomi = nomiDa(opzioni)
   if (versioneOpaca(riga.updated_at) !== input.versione) {
-    return ok({ esito: 'cambiato', messaggio: CAMBIATO, contenuto: rigaPerClaude(riga) }, 'cambiato')
+    return ok({ esito: 'cambiato', messaggio: CAMBIATO, contenuto: rigaPerClaude(riga, nomi) }, 'cambiato')
+  }
+
+  let campi: CampoDaScrivere[]
+  try {
+    campi = campiDaScrivere(input.campi, riga, opzioni)
+  } catch (e) {
+    // a label that is not there: nothing is written, the answer lists the valid ones
+    if (e instanceof EtichettaSconosciuta) return no(e.message)
+    throw e
   }
 
   // the version is the one just read, so these are the values Claude saw: each field is written
@@ -361,13 +395,13 @@ export async function modificaContenutoPerClaude(
   // read and the write stops everything (cambiato), a field Claude did not name is never written
   const esito = await modificaCampiContenuto(ctx.db, {
     id: riga.id,
-    campi: campiDaScrivere(input.campi, riga),
+    campi,
     stato: input.campi.status ? valoreDa(ETICHETTA_STATUS, input.campi.status) : undefined,
   })
   // the row as the write left it: its version covers exactly these values
-  if (esito.ok) return ok({ esito: 'salvato', contenuto: rigaPerClaude(esito.riga) })
+  if (esito.ok) return ok({ esito: 'salvato', contenuto: rigaPerClaude(esito.riga, nomi) })
   if (esito.cambiato) {
-    return ok({ esito: 'cambiato', messaggio: CAMBIATO, contenuto: rigaPerClaude(esito.cambiato) }, 'cambiato')
+    return ok({ esito: 'cambiato', messaggio: CAMBIATO, contenuto: rigaPerClaude(esito.cambiato, nomi) }, 'cambiato')
   }
   if (esito.sparito) return no(NON_C_E_PIU)
   return no(esito.errore)
@@ -385,8 +419,8 @@ export async function modificaContenutoPerClaude(
  */
 async function proprietaDopo(ctx: ContestoMcp, id: string): Promise<ReturnType<typeof rigaPerClaude> | null> {
   try {
-    const riga = await leggiProprietaContenuto(ctx.db, id)
-    return riga ? rigaPerClaude(riga) : null
+    const [riga, opzioni] = await Promise.all([leggiProprietaContenuto(ctx.db, id), leggiOpzioni(ctx.db)])
+    return riga ? rigaPerClaude(riga, nomiDa(opzioni)) : null
   } catch {
     return null
   }

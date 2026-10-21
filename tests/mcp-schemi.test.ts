@@ -8,10 +8,8 @@ vi.mock('@/lib/env', () => ({
 }))
 
 import {
-  ETICHETTA_FORMAT,
   ETICHETTA_GRUPPO,
   ETICHETTA_MODELLO,
-  ETICHETTA_REEL_TYPE,
   ETICHETTA_STATUS,
   ORDINE_GRUPPI,
 } from '@/lib/marketing/etichette'
@@ -79,8 +77,6 @@ describe('il JSON Schema di ogni strumento', () => {
   it('le scelte sono le etichette esatte di Notion, nel loro ordine', () => {
     const elenco = jsonDi(elencoContenutiSchema).properties as Json
     expect(enumDi(elenco.status)).toEqual(Object.values(ETICHETTA_STATUS))
-    expect(enumDi(elenco.reel_type)).toEqual(Object.values(ETICHETTA_REEL_TYPE))
-    expect(enumDi(elenco.format)).toEqual(Object.values(ETICHETTA_FORMAT))
     expect(enumDi(elenco.modello)).toEqual(Object.values(ETICHETTA_MODELLO))
     expect(enumDi(elenco.gruppo)).toEqual(ORDINE_GRUPPI.map((g) => ETICHETTA_GRUPPO[g]))
     expect(enumDi(elenco.status)).toEqual([
@@ -91,14 +87,23 @@ describe('il JSON Schema di ogni strumento', () => {
       'Posted',
       'Canceled',
     ])
-    expect(enumDi(elenco.format)).toContain('Show&Tell')
+    // Reel Type and Format are the labels people create in the app (21/10/2026): free text, resolved on the
+    // database, never a list frozen in the JSON Schema (a new label would be refused before it got there)
+    for (const chiave of ['reel_type', 'format']) {
+      const campo = elenco[chiave] as Json
+      expect(enumDi(campo), chiave).toBeUndefined()
+      expect(JSON.stringify(campo), chiave).toContain('"type":"string"')
+      expect(String(campo.description), chiave).toMatch(/etichette_contenuti/)
+      expect(String(campo.description), chiave).toMatch(/Non ne crei/)
+    }
 
     const campi = ((jsonDi(modificaContenutoSchema).properties as Json).campi as Json).properties as Json
     expect(enumDi(campi.status)).toEqual(Object.values(ETICHETTA_STATUS))
     expect(enumDi(campi.modello)).toEqual(['Reel Topic', 'Carousel Topic'])
 
     const voce = (((jsonDi(creaContenutiSchema).properties as Json).contenuti as Json).items as Json).properties as Json
-    expect(enumDi(voce.reel_type)).toEqual(['Attraction', 'Education', 'Converting', 'RADIO', 'Workshop'])
+    expect(enumDi(voce.reel_type)).toBeUndefined()
+    expect(JSON.stringify(voce.reel_type)).toContain('"type":"string"')
   })
 
   it('le descrizioni dei campi arrivano a Claude', () => {

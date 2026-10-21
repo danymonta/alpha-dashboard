@@ -7,6 +7,8 @@ vi.mock('@/lib/env', () => ({
   publicEnv: { supabaseUrl: 'http://127.0.0.1:54321', supabasePublishableKey: 'chiave-finta', appUrl: 'http://localhost:3000' },
 }))
 
+import { opzioniDiPartenza } from '@/lib/marketing/opzioni'
+
 import { supabaseFinto, ha, argomenti, type Chiamata, type RispostaFinta } from './helpers/supabase-finto-mcp'
 
 /**
@@ -89,7 +91,10 @@ let log: ReturnType<typeof vi.spyOn>[] = []
 beforeEach(() => {
   stato.ruolo = 'marketing'
   rispondi = (c) => (ha(c, 'limit') ? { data: [], count: 0 } : { data: null, count: 0 })
-  fake = supabaseFinto((c) => rispondi(c))
+  // the labels of the app (marketing_opzioni) are read by every tool: the starting ones
+  const partenza = opzioniDiPartenza()
+  const etichette = [...partenza.reel_type, ...partenza.formato]
+  fake = supabaseFinto((c) => (c.nome === 'marketing_opzioni' ? { data: etichette } : rispondi(c)))
   stato.db = fake.client
   azzeraLimiti()
   log = (['info', 'warn', 'error'] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => {}))
@@ -253,7 +258,15 @@ describe('/mcp come lo chiama Claude, a mano (2025-11-25, senza stato)', () => {
       ),
     )
     const testo = (chiamata.result?.content as { text: string }[])[0].text
-    expect(JSON.parse(testo)).toMatchObject({ reel_type: ['Attraction', 'Education', 'Converting', 'RADIO', 'Workshop'] })
+    expect(JSON.parse(testo)).toMatchObject({
+      reel_type: [
+        { nome: 'Attraction', codice: 'attraction', colore: 'blue' },
+        { nome: 'Education', codice: 'education', colore: 'yellow' },
+        { nome: 'Converting', codice: 'converting', colore: 'red' },
+        { nome: 'RADIO', codice: 'radio', colore: 'purple' },
+        { nome: 'Workshop', codice: 'workshop', colore: 'green' },
+      ],
+    })
   })
 
   it('senza text/event-stream in Accept: 406', async () => {

@@ -93,8 +93,6 @@ function strumento<S extends z.ZodTypeAny>(definizione: {
   }
 }
 
-const REEL_TYPE = elencoEtichette(ETICHETTE.reel_type)
-const FORMAT = elencoEtichette(ETICHETTE.format)
 const STATUS = elencoEtichette(ETICHETTE.status)
 const REEL = ETICHETTA_MODELLO.reel
 const CAROUSEL = ETICHETTA_MODELLO.carousel
@@ -111,11 +109,11 @@ export const STRUMENTI: readonly Strumento[] = [
   strumento({
     nome: 'etichette_contenuti',
     titolo: 'Etichette del calendario',
-    descrizione: `Le etichette esatte di Notion del calendario: Reel Type (${REEL_TYPE}), Format (${FORMAT}), Status (${STATUS}) nei gruppi ${TESTO_GRUPPI}, i modelli ${REEL} e ${CAROUSEL} con i nomi delle loro sezioni, lo scheletro della bozza di un reel e i limiti dei campi. Usala quando non sei sicuro di un’etichetta o di un limite.`,
+    descrizione: `Le etichette del calendario: Reel Type e Format come sono adesso nell’app (la persona li crea e li colora: nome, codice e colore di ognuno; tu non ne crei), Status (${STATUS}) nei gruppi ${TESTO_GRUPPI}, i modelli ${REEL} e ${CAROUSEL} con i nomi delle loro sezioni, lo scheletro della bozza di un reel e i limiti dei campi. Usala prima di scrivere un Reel Type o un Format, e quando non sei sicuro di un’etichetta o di un limite.`,
     input: etichetteContenutiSchema,
     lettura: true,
     idempotente: true,
-    esegui: () => etichetteContenuti(),
+    esegui: (_args, ctx) => etichetteContenuti(ctx),
   }),
   strumento({
     nome: 'elenco_contenuti',
@@ -169,7 +167,7 @@ export const STRUMENTI: readonly Strumento[] = [
   strumento({
     nome: 'crea_contenuti',
     titolo: 'Crea contenuti',
-    descrizione: `Crea da 1 a 20 contenuti nel calendario, ognuno con le proprietà di Notion e, se vuoi, i testi delle sezioni. Modello: ${REEL} (predefinito) o ${CAROUSEL}; un ${REEL} senza bozza nasce con lo scheletro Hook / Line / Line / … / CTA. Status predefinito Not started. Name obbligatorio, al massimo 300 caratteri; Post Date facoltativa (AAAA-MM-GG, anche nel futuro); Reel Type tra ${REEL_TYPE}; Format tra ${FORMAT}; Inspiration e URL sono link interi (https://…), URL è il link del post pubblicato (instagram.com/reel/… o /p/…) e mai un link di condivisione (instagram.com/share/…); Audio al massimo 200 caratteri; View Count un intero. Ogni sezione al massimo 30.000 caratteri, in Markdown (${CHIAVI_SEZIONI}). Restituisce l’esito di ogni contenuto, con le sue proprietà e la versione: uno che non va non ferma gli altri.`,
+    descrizione: `Crea da 1 a 20 contenuti nel calendario, ognuno con le proprietà di Notion e, se vuoi, i testi delle sezioni. Modello: ${REEL} (predefinito) o ${CAROUSEL}; un ${REEL} senza bozza nasce con lo scheletro Hook / Line / Line / … / CTA. Status predefinito Not started. Name obbligatorio, al massimo 300 caratteri; Post Date facoltativa (AAAA-MM-GG, anche nel futuro); Reel Type e Format sono il nome (o il codice) di un’etichetta che c’è già nell’app, quelle valide le dà etichette_contenuti (se non c’è, l’errore le elenca; da qui non se ne creano); Inspiration e URL sono link interi (https://…), URL è il link del post pubblicato (instagram.com/reel/… o /p/…) e mai un link di condivisione (instagram.com/share/…); Audio al massimo 200 caratteri; View Count un intero. Ogni sezione al massimo 30.000 caratteri, in Markdown (${CHIAVI_SEZIONI}). Restituisce l’esito di ogni contenuto, con le sue proprietà e la versione: uno che non va non ferma gli altri.`,
     input: creaContenutiSchema,
     lettura: false,
     // it only adds contents: the person can allow it once for all

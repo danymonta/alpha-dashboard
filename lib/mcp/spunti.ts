@@ -1,6 +1,8 @@
 import 'server-only'
 
 import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE } from '@/lib/marketing/etichette'
+import { leggiOpzioni } from '@/lib/marketing/letture'
+import { nomiDa } from '@/lib/marketing/opzioni'
 import type { SpuntiContenuto } from '@/lib/marketing/spunti/tipi'
 
 import type { EsitoStrumento } from './contenuti'
@@ -35,6 +37,8 @@ export async function spuntiPerClaude(input: { settimana?: string | null }, ctx:
   const c = r.contenuto
   const fatti = (rif: string[] | undefined) => (rif ?? []).map((x) => c.fatti[x]).filter((x): x is string => Boolean(x))
   const voce = (v: Voce) => ({ testo: v.testo, perche: v.perche, fatti: fatti(v.rif) })
+  // the names of the labels as the app has them now (a person may have renamed one); the starting ones when they cannot be read
+  const nomi = nomiDa(await leggiOpzioni(ctx.db).catch(() => undefined))
   const nelCalendario = new Map((r.idee_nel_calendario ?? []).map((x) => [x.idea, x.name]))
 
   const dati = {
@@ -56,8 +60,8 @@ export async function spuntiPerClaude(input: { settimana?: string | null }, ctx:
     idee: c.idee.map((i, n) => ({
       modello: i.modello === 'carousel' ? 'Carousel Topic' : 'Reel Topic',
       name: i.name,
-      reel_type: ETICHETTA_REEL_TYPE[i.reel_type],
-      format: i.format ? ETICHETTA_FORMAT[i.format] : null,
+      reel_type: nomi.reel_type[i.reel_type] ?? ETICHETTA_REEL_TYPE[i.reel_type] ?? i.reel_type,
+      format: i.format ? (nomi.formato[i.format] ?? ETICHETTA_FORMAT[i.format] ?? i.format) : null,
       fase: i.fase,
       gancio: i.gancio,
       messaggio: i.messaggio,

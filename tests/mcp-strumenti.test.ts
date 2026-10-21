@@ -6,7 +6,7 @@ vi.mock('@/lib/env', () => ({
   publicEnv: { supabaseUrl: 'http://127.0.0.1:54321', supabasePublishableKey: 'chiave-finta', appUrl: 'http://localhost:3000' },
 }))
 
-import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE, ETICHETTA_STATUS } from '@/lib/marketing/etichette'
+import { ETICHETTA_STATUS } from '@/lib/marketing/etichette'
 import { ICP, ICP_AGGIORNATO_IL } from '@/lib/marketing/icp'
 import { GUIDA_AGGIORNATA_IL } from '@/lib/marketing/punteggio/guida'
 import { FUORI_PORTATA, REGOLA_GUIDA, REGOLA_ICP, istruzioniMcp } from '@/lib/mcp/istruzioni'
@@ -74,10 +74,11 @@ describe('come Claude vede gli strumenti', () => {
       expect(per.cambia_status).toContain(etichetta)
       expect(per.etichette_contenuti).toContain(etichetta)
     }
-    for (const etichetta of [...Object.values(ETICHETTA_REEL_TYPE), ...Object.values(ETICHETTA_FORMAT)]) {
-      expect(per.crea_contenuti).toContain(etichetta)
-      expect(per.etichette_contenuti).toContain(etichetta)
-    }
+    // Reel Type and Format are the labels people create in the app: the descriptions send to
+    // etichette_contenuti for the live list, and say Claude creates none
+    expect(per.crea_contenuti).toContain('etichette_contenuti')
+    expect(per.crea_contenuti).toContain('da qui non se ne creano')
+    expect(per.etichette_contenuti).toContain('la persona li crea e li colora')
     expect(per.cambia_status).toContain('To-do (Canceled, Not started), In progress (To be posted, To be edited, To be recorded), Complete (Posted)')
     for (const titolo of ['Topic / Main Message', 'Script (Rough Draft)', 'Comments', 'Script (Final)', 'Idea/Message', 'Carousel', 'Caption']) {
       expect(per.leggi_contenuto).toContain(titolo)

@@ -4,14 +4,13 @@ import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import {
   CAMPI,
   CAMPO_MODELLO,
-  ETICHETTA_FORMAT,
   ETICHETTA_GRUPPO,
   ETICHETTA_MODELLO,
-  ETICHETTA_REEL_TYPE,
   ETICHETTA_STATUS,
   GRUPPI_STATUS,
   ORDINE_GRUPPI,
 } from '@/lib/marketing/etichette'
+import { opzioneDaNomeOValore, type CampoOpzione, type NomiOpzioni, type Opzione, type Opzioni } from '@/lib/marketing/opzioni'
 
 import { indirizziMcp } from './indirizzi'
 
@@ -21,6 +20,12 @@ import { indirizziMcp } from './indirizzi'
  * "📸 Instagram Posts DANYMONTA" («To be edited», «Reel Topic», «Show&Tell»).
  * The labels live in lib/marketing/etichette.ts only; this module maps them to
  * the database values and back, so renaming a label renames it here too.
+ *
+ * Reel Type and Format are the exception (21/10/2026): they are the labels
+ * people create and colour in the app (marketing_opzioni), so they are read
+ * from the database for every call and Claude names one that exists, by name
+ * or code; a name that is not there is an error that lists the valid ones,
+ * and Claude never creates a label.
  */
 
 /** The labels of a map, in its order, as the non-empty tuple z.enum wants. */
@@ -30,8 +35,6 @@ export function etichetteDi<T extends string>(mappa: Record<T, string>): [string
 
 export const ETICHETTE = {
   modello: etichetteDi(ETICHETTA_MODELLO),
-  reel_type: etichetteDi(ETICHETTA_REEL_TYPE),
-  format: etichetteDi(ETICHETTA_FORMAT),
   status: etichetteDi(ETICHETTA_STATUS),
   gruppo: ORDINE_GRUPPI.map((g) => ETICHETTA_GRUPPO[g]) as [string, ...string[]],
 } as const
@@ -48,6 +51,37 @@ export function valoreDa<T extends string>(mappa: Record<T, string>, etichetta: 
 
 export function etichettaDi<T extends string>(mappa: Record<T, string>, valore: T | null): string | null {
   return valore === null ? null : mappa[valore]
+}
+
+/** A Reel Type or Format that is not one of the labels of the app: the message says which ones are. */
+export class EtichettaSconosciuta extends Error {
+  constructor(messaggio: string) {
+    super(messaggio)
+    this.name = 'EtichettaSconosciuta'
+  }
+}
+
+const NOME_CAMPO: Record<CampoOpzione, string> = { reel_type: CAMPI.reel_type, formato: CAMPI.formato }
+
+/**
+ * The slug of the label Claude named (its name as the app shows it, without
+ * case, or its code), or an EtichettaSconosciuta that lists the valid ones.
+ * Never creates one: new labels are made by a person in the Piano editoriale.
+ */
+export function risolviEtichetta(campo: CampoOpzione, testo: string, opzioni: Opzioni): string {
+  const trovata: Opzione | null = opzioneDaNomeOValore(opzioni[campo], testo)
+  if (trovata) return trovata.valore
+  const valide = opzioni[campo].map((o) => o.nome)
+  throw new EtichettaSconosciuta(
+    `${NOME_CAMPO[campo]} «${testo}» non esiste. ${
+      valide.length > 0 ? `Etichette valide: ${elencoEtichette(valide)}.` : 'Non ci sono etichette.'
+    } Le etichette nuove le crea la persona nell’app, nel Piano editoriale: da qui non se ne creano.`,
+  )
+}
+
+/** The name of a label by slug as Claude reads it (the slug itself if the label is gone). */
+export function nomeEtichetta(nomi: NomiOpzioni, campo: CampoOpzione, valore: string | null): string | null {
+  return valore === null ? null : (nomi[campo][valore] ?? valore)
 }
 
 /** «Attraction, Education, Converting, RADIO, Workshop»: a label list for the descriptions. */
@@ -89,13 +123,13 @@ export type RigaPerClaude = ReturnType<typeof rigaPerClaude>
  * names, the model of the page, the opaque version and the link to the app.
  * Never who created or changed it, never when (CLAUDE.md section 17).
  */
-export function rigaPerClaude(riga: Omit<ContenutoElenco, 'created_at'>) {
+export function rigaPerClaude(riga: Omit<ContenutoElenco, 'created_at'>, nomi: NomiOpzioni) {
   return {
     id: riga.id,
     [CAMPI.nome]: riga.nome,
     [CAMPO_MODELLO]: ETICHETTA_MODELLO[riga.tipo],
-    [CAMPI.reel_type]: etichettaDi(ETICHETTA_REEL_TYPE, riga.reel_type),
-    [CAMPI.formato]: etichettaDi(ETICHETTA_FORMAT, riga.formato),
+    [CAMPI.reel_type]: nomeEtichetta(nomi, 'reel_type', riga.reel_type),
+    [CAMPI.formato]: nomeEtichetta(nomi, 'formato', riga.formato),
     [CAMPI.stato]: ETICHETTA_STATUS[riga.stato],
     [CAMPI.post_date]: riga.post_date,
     [CAMPI.inspiration]: riga.inspiration,
