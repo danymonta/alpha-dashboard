@@ -98,10 +98,7 @@ function cliente(ctx: Contesto): Definizione {
   const { supabase, r } = ctx
   const schema = z.object({
     azione: enumAzioni(ctx, 'cliente'),
-    cliente: z
-      .string()
-      .optional()
-      .describe('Nome e cognome attuali (modifica, chiudi, archivia, togli_archivio, riapri, sospendi, riattiva, elimina)'),
+    cliente: z.string().optional().describe('Nome e cognome attuali (tutte le azioni tranne crea)'),
     nome: z.string().min(1).max(80).optional(),
     cognome: z.string().max(80).optional(),
     email: z.string().max(160).optional(),
@@ -117,8 +114,8 @@ function cliente(ctx: Contesto): Definizione {
       .string()
       .max(MOTIVO_CHIUSURA_MAX)
       .optional()
-      .describe('chiudi: perché non rinnova; sospendi: perché lo sospendi; facoltativo, "" lo toglie'),
-    sospeso_il: dataISO('sospendi: da quando è in pausa; di base oggi (o il giorno già salvato), mai nel futuro').optional(),
+      .describe('chiudi o sospendi: il perché, facoltativo; "" lo toglie'),
+    sospeso_il: dataISO('sospendi: da quando; di base oggi, mai nel futuro').optional(),
   })
   type Input = z.infer<typeof schema>
   const campi = 'id, nome, cognome, email, telefono, instagram_handle, fonte, setter_id, closer_id, note'
@@ -257,9 +254,8 @@ function cliente(ctx: Contesto): Definizione {
       'su un cliente già chiuso corregge giorno o motivo. archivia: un cliente chiuso che non ricompra diventa ex cliente da oggi ' +
       '("Archivia come ex cliente"): esce da Non rinnovano, va sotto Ex cliente in Clienti. togli_archivio: torna chiuso. ' +
       'riapri: toglie la chiusura e l’archivio (anche una nuova vendita nuovo o rinnovo lo riapre da sola). ' +
-      'sospendi: il cliente va in pausa ("Sospendi" nella scheda), da sospeso_il (di base oggi) con un motivo facoltativo: ' +
-      'esce da In scadenza e dai promemoria, percorso e rate non cambiano; su un cliente già sospeso corregge giorno o motivo. ' +
-      'riattiva: toglie la sospensione (anche una nuova vendita nuovo o rinnovo, o "Non rinnova", la finisce da sola). ' +
+      'sospendi: il cliente va in pausa ("Sospendi"), da sospeso_il (di base oggi), motivo facoltativo: esce da In scadenza e dai promemoria, ' +
+      'percorso e rate restano; su un sospeso corregge giorno o motivo. riattiva: toglie la sospensione (la finisce anche una nuova vendita o "Non rinnova"). ' +
       'elimina: con le sue vendite e rate.',
     inputSchema: schema,
     anteprima: async (v): Promise<Anteprima> => {

@@ -229,8 +229,8 @@ export function ContrattoVendita({
             render={
               <Button
                 type="button"
-                variant="outline"
-                className="h-11 shrink-0"
+                variant={cella ? 'ghost' : 'outline'}
+                className={cn('h-11 shrink-0', cella && 'px-2 text-muted-foreground hover:text-foreground')}
                 aria-label={`Aggiungi il link del contratto di ${nome}`}
               />
             }

@@ -381,7 +381,7 @@ function letture({ supabase, profilo, livelloPm, r }: Contesto) {
       description:
         'Cerca clienti per nome o cognome, o per stato. Dà stato, fonte, setter (chi l’ha portato) e closer, valore firmato, incassato, da incassare e rate in ritardo; ' +
         'per un cliente chiuso (non rinnova, lo decide l’admin) anche da quando e perché, e se l’admin l’ha archiviato come ex cliente da quando (archiviato_il); ' +
-        'per un cliente sospeso (in pausa, lo decide l’admin) da quando e perché (sospeso_il, motivo_sospensione).',
+        'per un sospeso (in pausa) da quando e perché (sospeso_il, motivo_sospensione).',
       inputSchema: z.object({
         testo: z.string().max(60).optional(),
         stato: z
