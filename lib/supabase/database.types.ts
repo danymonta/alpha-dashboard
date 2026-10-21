@@ -2968,6 +2968,9 @@ isOneToOne: false
 "riepilogo_settimana":
 { Args: { "p_a": string,"p_da": string }; Returns: Json
                            },
+"riepilogo_tempo_team":
+{ Args: { "p_a": string,"p_da": string }; Returns: Json
+                           },
 "rinumera_rate":
 { Args: { "p_sale_id": string }; Returns: undefined
                            },

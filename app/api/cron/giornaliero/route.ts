@@ -5,10 +5,12 @@ import { lunediDellaSettimana, oggiRoma } from '@/lib/date'
 import { emailConfigurata } from '@/lib/email/invia'
 import { settimanaDelRiepilogo } from '@/lib/email/riepilogo'
 import { inviaRiepilogoSettimana, type Destinatario } from '@/lib/email/riepilogo-invio'
+import { inviaTempoTeam } from '@/lib/email/tempo-team-invio'
 import { publicEnv } from '@/lib/env'
 import { creaAvvisiDellaSera } from '@/lib/notifiche/collegamenti'
 import { inviaPromemoriaPercorso } from '@/lib/promemoria/percorso'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { settimanaPrecedente } from '@/lib/tempo'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -29,7 +31,8 @@ const TEMPO_PROMEMORIA_MS = 50_000
  * - on Fridays (Europe/Rome), the weekly summary by email to the active admins,
  *   for the week from Saturday to Friday (Dany, 07/10/2026: once a week, no
  *   more every evening; settimanaDelRiepilogo, public.riepilogo_settimana);
- * - on Mondays, the weekly backup;
+ * - on Mondays, the weekly backup and, after it, last week's team time by email
+ *   to the same admins (Dany, 21/10/2026; settimanaPrecedente, public.riepilogo_tempo_team);
  * - the path reminders ("Call dei 3 mesi", "Call di rinnovo"), one email each,
  *   to the same admins (04/10/2026), last because they can wait a day.
  * Every one of these emails is also saved for the admins in the app
@@ -81,6 +84,13 @@ export async function GET(request: NextRequest) {
     } catch (e) {
       console.error('[giornaliero] backup', e)
       esito.backup = 'non riuscito'
+    }
+    // after the backup: on the Free plan it is the only one, it never waits behind an optional email
+    try {
+      esito.tempo_team = await inviaTempoTeam({ db: admin, settimana: settimanaPrecedente(oggi), admin: admins, urlApp: publicEnv.appUrl })
+    } catch (e) {
+      console.error('[giornaliero] tempo del team', e instanceof Error ? e.name : 'errore')
+      esito.tempo_team = 'non riuscito'
     }
   }
 

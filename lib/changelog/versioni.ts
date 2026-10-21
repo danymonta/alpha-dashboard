@@ -86,6 +86,25 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.43.0',
+    data: '2026-10-21',
+    titolo: 'Il tempo del team ogni lunedì per email',
+    riassunto: 'Ogni lunedì sera ti arriva una mail con le ore registrate dal team nella settimana appena finita, persona per persona.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Ogni lunedì sera ti arriva la mail «Tempo del team»: il totale della settimana da lunedì a domenica, poi ogni persona con le sue ore, i progetti e i task su cui le ha messe. Un tocco apre Tempo › Team sulla stessa settimana. La stessa mail la trovi anche nelle notifiche.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Gli stessi limiti di Tempo › Team: solo il tempo già registrato, mai il timer acceso di qualcuno, compare solo chi ha registrato qualcosa nella settimana, in ordine alfabetico, nessuna classifica.',
+      },
+    ],
+  },
+  {
     versione: '1.42.0',
     data: '2026-10-19',
     titolo: 'Gli avvisi nelle notifiche',
