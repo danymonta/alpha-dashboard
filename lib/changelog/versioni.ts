@@ -86,6 +86,57 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.46.0',
+    data: '2026-10-21',
+    titolo: 'Barra laterale ridotta e tema chiaro',
+    riassunto: 'Puoi ridurre la barra laterale a sole icone e scegliere tra tema chiaro, scuro e quello del dispositivo.',
+    intestazionePer: ['tutti'],
+    novita: [
+      {
+        per: ['tutti'],
+        testo: 'Sul computer puoi ridurre la barra laterale a sole icone con la freccia in basso: il contenuto si allarga e l’app si ricorda la scelta su ogni dispositivo.',
+      },
+      {
+        per: ['tutti'],
+        testo: 'Dal Profilo, o con il tocco rapido sole e luna in alto, scegli il tema Chiaro, Scuro o Sistema. Di base resta scuro, come prima.',
+      },
+    ],
+  },
+  {
+    versione: '1.45.0',
+    data: '2026-10-21',
+    titolo: 'Accesso con codice via email',
+    riassunto: 'Oltre a Google, entri scrivendo la tua email: ti arriva un link e un codice di 6 cifre.',
+    intestazionePer: ['tutti'],
+    novita: [
+      {
+        per: ['tutti'],
+        testo: 'Nella pagina di accesso, sotto il bottone di Google, scrivi la tua email e ti arriva un messaggio con un link e un codice di 6 cifre: usa quello che preferisci. Funziona solo per chi è già stato invitato, e il link si può aprire anche da un altro telefono o dall’app di posta.',
+      },
+    ],
+  },
+  {
+    versione: '1.44.0',
+    data: '2026-10-21',
+    titolo: 'Clienti attivi, sospesi e chiusi con contratto',
+    riassunto: 'In Clienti vedi gli attivi in una tabella con mese e settimana del percorso, contratto, cartella Drive, pagato e rate da saldare, e puoi mettere un cliente in pausa.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'Clienti ha quattro schede: Attivi, Sospesi, Chiusi e Tutti. Per ogni cliente vedi a che mese e settimana del percorso è, il link al contratto e alla cartella Drive, quanto ha pagato e il suo LTV, come paga e quali rate deve ancora saldare, con il piano completo che si apre sotto la riga.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Nella scheda del cliente c’è «Sospendi», con il giorno e un motivo se vuoi: il cliente passa tra i Sospesi, esce dai rinnovi da chiamare e non riceve i promemoria. Con «Riattiva» torna com’era. Percorso e rate non cambiano. Se lo chiudi con «Non rinnova» o ricompra, la sospensione finisce da sola.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Ogni percorso e ogni rinnovo ha il suo contratto: un link a Drive, anche con «Scegli da Drive», che trovi nella vendita, nello storico del cliente e nell’elenco. Lo vedi solo tu. Anche Alfire può sospendere e riattivare un cliente.',
+      },
+    ],
+  },
+  {
     versione: '1.43.0',
     data: '2026-10-21',
     titolo: 'Il tempo del team ogni lunedì per email',
