@@ -89,8 +89,8 @@ export function FiltriContenuti({
   }
 
   return (
-    <div className="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap">
-      <Form action={PERCORSO} scroll={false} role="search" className="relative col-span-2 min-w-0 sm:w-64">
+    <div className="grid grid-cols-3 items-end gap-2 sm:flex sm:flex-wrap">
+      <Form action={PERCORSO} scroll={false} role="search" className="relative col-span-3 min-w-0 sm:w-64">
         {Object.entries({ ...parametriDaFiltri({ ...filtri, q: undefined }), ...resto }).map(([chiave, v]) =>
           v ? <input key={chiave} type="hidden" name={chiave} value={v} /> : null,
         )}
@@ -172,7 +172,7 @@ export function FiltriContenuti({
         <Link
           href={indirizzo({}, resto)}
           scroll={false}
-          className="col-span-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:col-span-1"
+          className="col-span-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:col-span-1"
         >
           <X className="size-4" aria-hidden="true" />
           Togli i filtri
