@@ -6,6 +6,7 @@ import { DaCollegare } from '@/components/marketing/instagram/da-collegare'
 import { PostCollegati } from '@/components/marketing/instagram/post-collegati'
 import { PostEsclusi } from '@/components/marketing/instagram/post-esclusi'
 import type { ContenutoScelta, PostCollegato, PostDaCollegare, PropostaPost } from '@/components/marketing/instagram/tipi'
+import { OpzioniProvider } from '@/components/marketing/opzioni-contesto'
 import { PannelloContenuti, type DettaglioIniziale } from '@/components/marketing/pannello-contenuto'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -16,6 +17,7 @@ import { formatData } from '@/lib/format'
 import { tipoDelPost } from '@/lib/marketing/abbinamento'
 import { leggiDettaglioContenuto } from '@/lib/marketing/dettaglio'
 import { COLONNE_ELENCO } from '@/lib/marketing/elenco'
+import { leggiConteggiOpzioni, leggiOpzioni } from '@/lib/marketing/letture'
 import { PARAMETRO_CONTENUTO } from '@/lib/marketing/pannello'
 import { eliminaContenuti } from '@/lib/marketing/permessi'
 import type { PostInstagram } from '@/lib/marketing/post-del-contenuto'
@@ -215,77 +217,82 @@ export default async function PostInstagramPage({
   // no post on the page and nothing read by the last run (none yet, or it failed): never «ogni post ha il suo contenuto»
   const nessunPost = (post.data ?? []).length === 0 && (!s?.ultimo_giro_il || fallito)
 
+  // the labels of Reel Type and Format, for the content panel that opens over this list
+  const [opzioni, conteggi] = await Promise.all([leggiOpzioni(supabase), leggiConteggiOpzioni(supabase)])
+
   return (
-    <PannelloContenuti righe={righe} iniziale={dettaglio} puoEliminare={eliminaContenuti(profilo.ruolo)}>
-      <div className="space-y-6">
-        <IntestazionePagina
-          titolo="Post di Instagram"
-          descrizione={`I post e i reel ${s?.account_username ? `di ${account}` : account}. Quando data e didascalia corrispondono a un contenuto del calendario si collegano da soli; gli altri li colleghi qui con un tocco.`}
-          azione={puoAggiornare ? <AggiornaDaInstagram /> : undefined}
-        />
-
-        <div className="space-y-1.5" data-testid="stato-post-instagram">
-          {s?.ultimo_giro_il ? (
-            <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
-              <Clock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span className="num">
-                {quandoAggiornati(s.ultimo_giro_il, s.ultimo_giro_motivo, oggi, fallito)}
-                {s.ultimo_giro_letti !== null && !fallito
-                  ? ` · ${s.ultimo_giro_letti === 1 ? '1 post letto' : `${s.ultimo_giro_letti} post letti`}`
-                  : ''}
-                {fallito ? ': non riuscito' : ''}
-                {s.ultimo_giro_esito === 'parziale' ? ' · in parte' : ''}
-                {puoAggiornare ? '' : '. Si aggiornano ogni notte.'}
-              </span>
-            </p>
-          ) : null}
-          {s?.ultimo_errore ? (
-            <p className="flex items-start gap-1.5 text-sm text-rosso-testo" role="alert">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>
-                {s.ultimo_errore}
-                {profilo.ruolo === 'admin' ? (
-                  <>
-                    {' '}
-                    <Link href="/settings/chiavi#instagram" className="underline underline-offset-4 hover:text-foreground">
-                      Impostazioni › Chiavi e collegamenti
-                    </Link>
-                  </>
-                ) : null}
-              </span>
-            </p>
-          ) : null}
-          {senzaDidascalie ? (
-            <p className="flex items-start gap-1.5 text-sm text-status-warning">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Instagram non dà le didascalie: i post si collegano solo con una proposta da confermare.
-            </p>
-          ) : null}
-        </div>
-
-        {nessunPost ? (
-          <StatoVuoto
-            Icona={Images}
-            titolo={fallito ? 'Nessun post da mostrare' : 'Nessun post letto finora'}
-            descrizione={
-              fallito
-                ? puoAggiornare
-                  ? 'L’ultimo aggiornamento non è riuscito: quando il problema qui sopra è risolto, aggiorna da Instagram.'
-                  : 'L’ultimo aggiornamento non è riuscito: i post arrivano col prossimo, ogni notte.'
-                : puoAggiornare
-                  ? 'Leggi adesso i post e i reel dell’account: quelli che corrispondono al calendario si collegano da soli.'
-                  : 'I post e i reel dell’account si leggono ogni notte: domattina li trovi qui.'
-            }
-            azione={puoAggiornare ? <AggiornaDaInstagram variante="default" /> : undefined}
+    <OpzioniProvider opzioni={opzioni} conteggi={conteggi} puoEliminare={eliminaContenuti(profilo.ruolo)}>
+      <PannelloContenuti righe={righe} iniziale={dettaglio} puoEliminare={eliminaContenuti(profilo.ruolo)}>
+        <div className="space-y-6">
+          <IntestazionePagina
+            titolo="Post di Instagram"
+            descrizione={`I post e i reel ${s?.account_username ? `di ${account}` : account}. Quando data e didascalia corrispondono a un contenuto del calendario si collegano da soli; gli altri li colleghi qui con un tocco.`}
+            azione={puoAggiornare ? <AggiornaDaInstagram /> : undefined}
           />
-        ) : (
-          <>
-            <DaCollegare post={daCollegare} contenuti={contenuti} />
-            <PostCollegati post={collegati} />
-            <PostEsclusi post={esclusi} />
-          </>
-        )}
-      </div>
-    </PannelloContenuti>
+
+          <div className="space-y-1.5" data-testid="stato-post-instagram">
+            {s?.ultimo_giro_il ? (
+              <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+                <Clock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span className="num">
+                  {quandoAggiornati(s.ultimo_giro_il, s.ultimo_giro_motivo, oggi, fallito)}
+                  {s.ultimo_giro_letti !== null && !fallito
+                    ? ` · ${s.ultimo_giro_letti === 1 ? '1 post letto' : `${s.ultimo_giro_letti} post letti`}`
+                    : ''}
+                  {fallito ? ': non riuscito' : ''}
+                  {s.ultimo_giro_esito === 'parziale' ? ' · in parte' : ''}
+                  {puoAggiornare ? '' : '. Si aggiornano ogni notte.'}
+                </span>
+              </p>
+            ) : null}
+            {s?.ultimo_errore ? (
+              <p className="flex items-start gap-1.5 text-sm text-rosso-testo" role="alert">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span>
+                  {s.ultimo_errore}
+                  {profilo.ruolo === 'admin' ? (
+                    <>
+                      {' '}
+                      <Link href="/settings/chiavi#instagram" className="underline underline-offset-4 hover:text-foreground">
+                        Impostazioni › Chiavi e collegamenti
+                      </Link>
+                    </>
+                  ) : null}
+                </span>
+              </p>
+            ) : null}
+            {senzaDidascalie ? (
+              <p className="flex items-start gap-1.5 text-sm text-status-warning">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                Instagram non dà le didascalie: i post si collegano solo con una proposta da confermare.
+              </p>
+            ) : null}
+          </div>
+
+          {nessunPost ? (
+            <StatoVuoto
+              Icona={Images}
+              titolo={fallito ? 'Nessun post da mostrare' : 'Nessun post letto finora'}
+              descrizione={
+                fallito
+                  ? puoAggiornare
+                    ? 'L’ultimo aggiornamento non è riuscito: quando il problema qui sopra è risolto, aggiorna da Instagram.'
+                    : 'L’ultimo aggiornamento non è riuscito: i post arrivano col prossimo, ogni notte.'
+                  : puoAggiornare
+                    ? 'Leggi adesso i post e i reel dell’account: quelli che corrispondono al calendario si collegano da soli.'
+                    : 'I post e i reel dell’account si leggono ogni notte: domattina li trovi qui.'
+              }
+              azione={puoAggiornare ? <AggiornaDaInstagram variante="default" /> : undefined}
+            />
+          ) : (
+            <>
+              <DaCollegare post={daCollegare} contenuti={contenuti} />
+              <PostCollegati post={collegati} />
+              <PostEsclusi post={esclusi} />
+            </>
+          )}
+        </div>
+      </PannelloContenuti>
+    </OpzioniProvider>
   )
 }

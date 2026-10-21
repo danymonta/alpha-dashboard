@@ -30,5 +30,3 @@ export type ContenutoElenco = Pick<
 
 /** The table shows the most recent ones by Post Date; over this, the page says so. */
 export const LIMITE_TABELLA = 300
-/** The calendar's "Senza data" shows at most this many; over this, the page points to the table. */
-export const LIMITE_SENZA_DATA = 50

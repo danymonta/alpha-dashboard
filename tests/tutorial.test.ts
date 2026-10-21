@@ -60,7 +60,7 @@ describe('percorsi del tutorial', () => {
     expect(ATTESA_LETTURA_MS).toBe(2000)
   })
 
-  it('video editor e marketing passano da «Contenuti» subito dopo il benvenuto (1.32.0)', () => {
+  it('video editor e marketing passano dal «Piano editoriale» subito dopo il benvenuto (1.32.0)', () => {
     for (const ruolo of ['editor', 'marketing'] as const) {
       const passi = PERCORSI[ruolo]
       expect(passi.map((p) => p.id).slice(0, 4), ruolo).toEqual(['benvenuto', 'vai-contenuti', 'contenuti', 'vai-task'])
@@ -87,7 +87,7 @@ describe('percorsi del tutorial', () => {
       expect(ogniGiorno, ruolo).toBe(percorsoIniziale(ruolo) === '/task')
     }
     expect(passi).toBeGreaterThanOrEqual(5)
-    // marketing lands on Contenuti: the step says what I miei task holds instead
+    // marketing lands on the Piano editoriale: the step says what I miei task holds instead
     expect(PERCORSI.marketing.find((p) => p.id === 'vai-task')?.testo).toBe(
       'Tocca «I miei task»: i task dei progetti assegnati a te.',
     )

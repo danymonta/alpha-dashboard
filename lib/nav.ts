@@ -98,7 +98,8 @@ const NOVITA: VoceNav = { href: '/changelog', etichetta: 'Novità', Icona: Megap
 // Since 1.38.0 every page of the area is an item of the menu, lit on its own
 // page (the tabs on top of the pages stay). Only "Post di Instagram" carries a
 // number: the posts to link, never persons (CLAUDE.md section 17).
-const CONTENUTI: VoceNav = { href: '/marketing/contenuti', etichetta: 'Contenuti', Icona: Clapperboard }
+// 21/10/2026: «Contenuti» became «Piano editoriale» (the address stays /marketing/contenuti)
+const CONTENUTI: VoceNav = { href: '/marketing/contenuti', etichetta: 'Piano editoriale', Icona: Clapperboard }
 const POST_INSTAGRAM: VoceNav = {
   href: '/marketing/instagram',
   etichetta: 'Post di Instagram',

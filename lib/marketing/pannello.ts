@@ -5,16 +5,8 @@
  * the link can be shared and Back closes it.
  */
 import { formatData, formatNumero } from '@/lib/format'
-import {
-  CAMPI,
-  CAMPO_MODELLO,
-  ETICHETTA_FORMAT,
-  ETICHETTA_MODELLO,
-  ETICHETTA_REEL_TYPE,
-  type FormatContenuto,
-  type ReelType,
-  type TipoContenuto,
-} from '@/lib/marketing/etichette'
+import { CAMPI, CAMPO_MODELLO, ETICHETTA_MODELLO, type TipoContenuto } from '@/lib/marketing/etichette'
+import { nomeDaValore, type Opzioni } from '@/lib/marketing/opzioni'
 import type { CampoInCella } from '@/lib/validation/contenuto'
 
 /** The search param the panel lives in. */
@@ -83,8 +75,11 @@ export function piuRecente(a: string, b: string): string {
   return a > b ? a : b
 }
 
-/** The short toast after a field is saved: "Reel Type: Education", "Post Date tolta", "Name salvato". */
-export function messaggioCampo(campo: CampoInCella, valore: unknown): string {
+/**
+ * The short toast after a field is saved: "Reel Type: Education", "Post Date tolta", "Name salvato".
+ * The name of a Reel Type or Format is the live label's (`opzioni`), the slug if the label is gone.
+ */
+export function messaggioCampo(campo: CampoInCella, valore: unknown, opzioni?: Opzioni): string {
   const vuoto = valore === null || valore === undefined || valore === ''
   switch (campo) {
     case 'tipo':
@@ -92,9 +87,9 @@ export function messaggioCampo(campo: CampoInCella, valore: unknown): string {
     case 'nome':
       return `${CAMPI.nome} salvato`
     case 'reel_type':
-      return vuoto ? `${CAMPI.reel_type} tolto` : `${CAMPI.reel_type}: ${ETICHETTA_REEL_TYPE[valore as ReelType]}`
+      return vuoto ? `${CAMPI.reel_type} tolto` : `${CAMPI.reel_type}: ${nomeDaValore(opzioni?.reel_type ?? [], String(valore))}`
     case 'formato':
-      return vuoto ? `${CAMPI.formato} tolto` : `${CAMPI.formato}: ${ETICHETTA_FORMAT[valore as FormatContenuto]}`
+      return vuoto ? `${CAMPI.formato} tolto` : `${CAMPI.formato}: ${nomeDaValore(opzioni?.formato ?? [], String(valore))}`
     case 'post_date':
       return vuoto ? `${CAMPI.post_date} tolta` : `${CAMPI.post_date}: ${formatData(String(valore))}`
     case 'inspiration':

@@ -83,14 +83,14 @@ const PASSI_CONTENUTI: PassoTutorial[] = [
   tocca(
     '/marketing/contenuti',
     'vai-contenuti',
-    'Contenuti',
-    'Tocca «Contenuti»: il calendario dei reel e dei caroselli di Instagram.',
+    'Piano editoriale',
+    'Tocca «Piano editoriale»: il calendario dei reel e dei caroselli di Instagram.',
   ),
   {
     id: 'contenuti',
     pagina: '/marketing/contenuti',
-    titolo: 'Instagram Posts',
-    testo: 'Le stesse proprietà di Notion: Tabella dalla Post Date più recente o Calendario mese per mese. Lo Status si cambia con un tocco; il nome apre la pagina con gli script.',
+    titolo: 'Piano editoriale',
+    testo: 'Una tabella come in Notion, dalla Post Date più recente. Ogni cella si cambia da sola; Reel Type e Format sono etichette colorate che crei tu, direttamente dalla cella. Il nome apre la pagina con gli script.',
     target: ['elenco-contenuti'],
   },
 ]
@@ -101,7 +101,7 @@ const TASK_OGNI_GIORNO = 'Tocca «I miei task»: è la tua pagina di tutti i gio
 /**
  * The Projects tour; `prima` are the steps of another area, right after the
  * welcome. `task`: the words of the "I miei task" step, for a role that lands
- * elsewhere (marketing lands on Contenuti, so I miei task is not his daily page).
+ * elsewhere (marketing lands on the Piano editoriale, so I miei task is not his daily page).
  */
 function soloProgetti(
   funzione: string,
@@ -279,7 +279,7 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
     'I progetti di Contenuti e Video: aprine uno per vedere panoramica, reel e montaggi come task, Gantt e note.',
     PASSI_CONTENUTI,
   ),
-  // marketing lands on Contenuti (percorsoIniziale): that is his daily page, not I miei task
+  // marketing lands on the Piano editoriale (percorsoIniziale): that is his daily page, not I miei task
   marketing: soloProgetti(
     FUNZIONE.marketing,
     'I progetti di cui fai parte: aprine uno per vedere panoramica, task, Gantt e note.',

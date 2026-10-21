@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { isDataISO } from '@/lib/date'
+import { RE_VALORE_OPZIONE } from '@/lib/marketing/opzioni'
 import { linkDiCondivisione } from '@/lib/marketing/shortcode'
 import { Constants } from '@/lib/supabase/database.types'
 
@@ -98,13 +99,21 @@ const viewCount = z
     return n
   })
 
-/** A select with "nessuno": '' and null are no value. */
-function sceltaFacoltativa<T extends Readonly<[string, ...string[]]>>(valori: T) {
-  return z
-    .union([z.enum(valori, { errorMap: () => ({ message: 'Scegli un valore della lista.' }) }), z.literal('')])
-    .nullish()
-    .transform((v) => (v ? v : null))
-}
+/**
+ * Reel Type and Format are the slug of an option of marketing_opzioni
+ * (21/10/2026): '' and null are no value. The shape is checked here (lower
+ * case, digits and underscore, up to 60); that the option exists is the
+ * database's job (the foreign key: 23503, said in words by the action), so
+ * the same schema runs in the browser, where the list of options is not at
+ * hand, and in the actions.
+ */
+export const ERRORE_ETICHETTA = 'Scegli un’etichetta della lista.'
+const sceltaOpzione = z
+  .union([z.string().regex(RE_VALORE_OPZIONE, ERRORE_ETICHETTA), z.literal('')], {
+    errorMap: () => ({ message: ERRORE_ETICHETTA }),
+  })
+  .nullish()
+  .transform((v) => (v ? v : null))
 
 export const contenutoSchema = z.object({
   tipo: z.enum(Constants.public.Enums.contenuto_tipo, { errorMap: () => ({ message: 'Scegli il modello.' }) }),
@@ -113,8 +122,8 @@ export const contenutoSchema = z.object({
     .trim()
     .min(1, 'Scrivi il nome.')
     .max(NOME_MAX, `Al massimo ${NOME_MAX} caratteri.`),
-  reel_type: sceltaFacoltativa(Constants.public.Enums.contenuto_reel_type),
-  formato: sceltaFacoltativa(Constants.public.Enums.contenuto_format),
+  reel_type: sceltaOpzione,
+  formato: sceltaOpzione,
   stato: z
     .enum(Constants.public.Enums.contenuto_status, { errorMap: () => ({ message: 'Scegli lo Status.' }) })
     .default('not_started'),
@@ -172,6 +181,8 @@ function primaTesto(max: number) {
 function primaScelta<T extends Readonly<[string, ...string[]]>>(valori: T) {
   return z.enum(valori, { errorMap: () => ({ message: PRIMA_NON_VALIDA }) })
 }
+/** The slug an option field showed: any slug, lenient (the foreign key already holds it). */
+const primaOpzione = z.string().regex(RE_VALORE_OPZIONE, PRIMA_NON_VALIDA)
 
 const forma = contenutoSchema.shape
 
@@ -189,13 +200,13 @@ export const campoContenutoSchema = z.discriminatedUnion(
       id: idContenuto,
       campo: z.literal('reel_type'),
       valore: forma.reel_type,
-      prima: primaScelta(Constants.public.Enums.contenuto_reel_type).nullable(),
+      prima: primaOpzione.nullable(),
     }),
     z.object({
       id: idContenuto,
       campo: z.literal('formato'),
       valore: forma.formato,
-      prima: primaScelta(Constants.public.Enums.contenuto_format).nullable(),
+      prima: primaOpzione.nullable(),
     }),
     z.object({
       id: idContenuto,

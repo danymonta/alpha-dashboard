@@ -135,7 +135,7 @@ describe('il numero delle giornate da approvare (08/10/2026)', () => {
       nutrizione: [],
       dev: [],
     })
-    // both sit in the phone's bar (1.38.0: the admin's bar is Panoramica, Le mie call, Setter, Contenuti)
+    // both sit in the phone's bar (1.38.0: the admin's bar is Panoramica, Le mie call, Setter, Piano editoriale)
     expect(vociNav('admin').principali.some((v) => v.daApprovare)).toBe(true)
     expect(vociNav('setter').principali.some((v) => v.daApprovare)).toBe(true)
   })
@@ -220,7 +220,7 @@ describe('il numero dei commenti da scrivere (08/10/2026)', () => {
 
 describe('l’area Marketing: le quattro pagine, ognuna una voce (1.38.0)', () => {
   const PAGINE = [
-    ['Contenuti', '/marketing/contenuti'],
+    ['Piano editoriale', '/marketing/contenuti'],
     ['Post di Instagram', '/marketing/instagram'],
     ['Analisi', '/marketing/analisi'],
     ['Spunti', '/marketing/spunti'],
@@ -239,7 +239,7 @@ describe('l’area Marketing: le quattro pagine, ognuna una voce (1.38.0)', () =
   })
 
   it('ogni voce si accende sulla sua pagina e basta (le schede in cima alle pagine restano)', () => {
-    const contenuti = voce('admin', 'Contenuti')
+    const contenuti = voce('admin', 'Piano editoriale')
     expect(isAttiva('/marketing/contenuti', contenuti)).toBe(true)
     expect(isAttiva('/marketing/contenuti/c0ffee00-0000-4000-8000-000000000001', contenuti)).toBe(true)
     expect(isAttiva('/marketing/instagram', contenuti)).toBe(false)
@@ -269,7 +269,7 @@ describe('l’area Marketing: le quattro pagine, ognuna una voce (1.38.0)', () =
     const promemoria = { esiti: 3, daApprovare: 2, commenti: 1, daCollegare: 5 }
     // posts, never someone else's number: only its own count
     expect(promemoriaDellaVoce(post, promemoria)).toEqual({ esiti: 0, daApprovare: 0, commenti: 0, daCollegare: 5 })
-    expect(promemoriaDellaVoce(voce('admin', 'Contenuti'), promemoria).daCollegare).toBe(0)
+    expect(promemoriaDellaVoce(voce('admin', 'Piano editoriale'), promemoria).daCollegare).toBe(0)
     expect(nomeConPromemoria('Post di Instagram', { ...NESSUN_PROMEMORIA, daCollegare: 5 })).toBe(
       'Post di Instagram, 5 post da collegare',
     )
@@ -278,7 +278,7 @@ describe('l’area Marketing: le quattro pagine, ognuna una voce (1.38.0)', () =
     expect(promemoriaDiAltro(vociNav('admin').altre, promemoria).daCollegare).toBe(5)
   })
 
-  it('il video editor ha Contenuti come quarta voce della barra e parte ancora dai suoi task', () => {
+  it('il video editor ha il Piano editoriale come quarta voce della barra e parte ancora dai suoi task', () => {
     const { principali, altre } = vociNav('editor')
     expect(principali.map((v) => v.href)).toEqual(['/task', '/progetti', '/tempo', '/marketing/contenuti'])
     expect(altre.map((v) => v.href)).toEqual([
@@ -339,14 +339,14 @@ describe('il menu a gruppi (1.38.0)', () => {
     expect(per(null)).toEqual(['Panoramica'])
     expect(per('Vendite')).toEqual(['Le mie call', 'Pipeline', 'Clienti', 'Vendite', 'Incassi', 'Rinnovi'])
     expect(per('Team')).toEqual(['Setter', 'Closer', 'Provvigioni'])
-    expect(per('Marketing')).toEqual(['Contenuti', 'Post di Instagram', 'Analisi', 'Spunti'])
+    expect(per('Marketing')).toEqual(['Piano editoriale', 'Post di Instagram', 'Analisi', 'Spunti'])
     expect(per('Progetti')).toEqual(['Progetti', 'I miei task', 'Tempo'])
     expect(per('Amministrazione')).toEqual(['Costi', 'Impostazioni', 'Novità'])
     expect(vociNav('admin').principali.map((v) => v.etichetta)).toEqual([
       'Panoramica',
       'Le mie call',
       'Setter',
-      'Contenuti',
+      'Piano editoriale',
     ])
   })
 

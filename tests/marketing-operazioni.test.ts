@@ -158,6 +158,60 @@ describe('creaContenuto', () => {
     finto.risponde({ error: { code: '08006', message: 'connection failure' } })
     expect(await creaContenuto(db, { tipo: 'reel', nome: 'X' })).toEqual({ ok: false, errore: 'Contenuto non salvato. Riprova.' })
   })
+
+  it('un Reel Type o un Format eliminato nel frattempo (23503) lo dice in parole, per ogni strada di scrittura', async () => {
+    const msg = 'insert or update on table "marketing_contenuti" violates foreign key constraint "marketing_contenuti_reel_type_fkey"'
+    const parole = 'Questa etichetta non c’è più: ricarica la pagina e scegline un’altra.'
+    finto.risponde({ error: { code: '23503', message: msg } })
+    expect(await creaContenuto(db, { tipo: 'reel', nome: 'X', reel_type: 'case_study' })).toEqual({ ok: false, errore: parole })
+    finto.risponde({
+      error: { code: '23503', message: msg.replace('reel_type', 'formato') },
+    })
+    expect(await modificaCampoContenuto(db, { id: ID, campo: 'formato', valore: 'meme', prima: null })).toEqual({
+      ok: false,
+      errore: parole,
+    })
+    // another foreign key (a deleted analysis) keeps the generic words
+    finto.risponde({ error: { code: '23503', message: 'violates foreign key constraint "marketing_contenuti_da_analisi_fkey"' } })
+    const altro = await creaContenuto(db, { tipo: 'reel', nome: 'X' })
+    expect(altro).toEqual({ ok: false, errore: 'Contenuto non salvato. Riprova.' })
+  })
+
+  it('un’idea di Claude con un’etichetta che una persona ha eliminato nasce senza quella, non viene rifiutata', async () => {
+    // the labels that are still there: only Education; the idea asked for Converting and Show&Tell
+    finto.risponde({ data: [{ campo: 'reel_type', valore: 'education' }] }, { data: { id: ID, updated_at: NUOVA } })
+    const esito = await creaContenuto(
+      db,
+      { tipo: 'reel', nome: 'Idea', reel_type: 'converting', formato: 'show_and_tell' },
+      undefined,
+      { analisi_id: ID, idea: 0 },
+    )
+    expect(esito.ok).toBe(true)
+    expect(finto.query[0].tabella).toBe('marketing_opzioni')
+    expect(finto.passi('insert')[0][0]).toMatchObject({ reel_type: null, formato: null })
+  })
+
+  it('un’idea con un’etichetta che c’è la tiene; e dal modulo (senza origine) non si controlla niente: ci pensa il database', async () => {
+    finto.risponde(
+      {
+        data: [
+          { campo: 'reel_type', valore: 'education' },
+          { campo: 'formato', valore: 'split' },
+        ],
+      },
+      { data: { id: ID, updated_at: NUOVA } },
+    )
+    await creaContenuto(db, { tipo: 'reel', nome: 'Idea', reel_type: 'education', formato: 'split' }, undefined, {
+      spunti_id: ID,
+      idea: 1,
+    })
+    expect(finto.passi('insert')[0][0]).toMatchObject({ reel_type: 'education', formato: 'split' })
+
+    const modulo = supabaseFinto()
+    modulo.risponde({ data: { id: ID, updated_at: NUOVA } })
+    await creaContenuto(modulo.client as unknown as Db, { tipo: 'reel', nome: 'A mano', reel_type: 'case_study' })
+    expect(modulo.query.map((q) => q.tabella)).toEqual(['marketing_contenuti'])
+  })
 })
 
 describe('creaContenuto con l’origine di un’idea di Claude (1.36.0)', () => {

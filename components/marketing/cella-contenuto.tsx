@@ -1,34 +1,30 @@
 'use client'
 
-import { ChevronDown, ExternalLink, Pencil, Plus, TriangleAlert } from 'lucide-react'
-import { useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { ExternalLink, Pencil, Plus, TriangleAlert } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import type { Popover as PopoverPrimitive } from '@base-ui/react/popover'
 
 import { classeNome } from '@/components/marketing/badge-status'
 import { useCampoContenuto, type ValoreCampo } from '@/components/marketing/campo-contenuto'
+import { CLASSE_BOTTONE_CELLA, CLASSE_CHIP, PiuVuoto } from '@/components/marketing/classi-cella'
 import { LinkContenuto } from '@/components/marketing/link-contenuto'
 import { MenuStatus } from '@/components/marketing/menu-status'
+import { consumaDaAprire } from '@/components/marketing/nuova-riga'
+import { SelectOpzioni } from '@/components/marketing/select-opzioni'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import { formatData, formatNumero } from '@/lib/format'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
-import { CAMPI, ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE, ORDINE_COLONNE } from '@/lib/marketing/etichette'
+import { CAMPI, COLONNE_PIANO } from '@/lib/marketing/etichette'
 import { cn } from '@/lib/utils'
-import { AUDIO_MAX, LINK_MAX, NOME_MAX } from '@/lib/validation/contenuto'
+import { LINK_MAX, NOME_MAX } from '@/lib/validation/contenuto'
 
 /** What a list reads (COLONNE_ELENCO): the properties, never the four sections. */
 type Riga = ContenutoElenco
 
-/** The fields a small editor (a popover with one input) changes. */
-export type CampoEditor = 'nome' | 'post_date' | 'audio' | 'inspiration' | 'url' | 'view_count'
+/** The fields a small editor (a popover with one input) changes in the table and the cards. */
+export type CampoEditor = 'nome' | 'post_date' | 'url'
 
 /**
  * - "cella": a table cell (the value as text, "+" when empty);
@@ -37,31 +33,13 @@ export type CampoEditor = 'nome' | 'post_date' | 'audio' | 'inspiration' | 'url'
  */
 export type AspettoEditor = 'cella' | 'chip' | 'matita'
 
-/** The cell's button: 44 px tall inside the cell's padding, so the table keeps its 960 px. */
-const CLASSE_BOTTONE_CELLA =
-  'relative z-10 -mx-1.5 inline-flex min-h-11 max-w-full items-center gap-1 rounded-lg border border-transparent px-1.5 text-left transition-colors hover:border-input hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-popup-open:border-input data-popup-open:bg-accent aria-busy:opacity-70'
-
-const CLASSE_CHIP =
-  'relative z-10 inline-flex min-h-11 max-w-full items-center gap-1 rounded-lg border border-transparent px-2 text-left text-sm transition-colors hover:border-input hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-popup-open:border-input data-popup-open:bg-accent aria-busy:opacity-70'
-
-/** The "+" of an empty cell: at rest nothing, on the row's hover or focus a muted "+", always with a finger. */
-function PiuVuoto() {
-  return (
-    <Plus
-      className="size-4 text-muted-foreground/60 opacity-0 transition-opacity group-hover/riga:opacity-100 group-focus-within/riga:opacity-100 pointer-coarse:opacity-100"
-      aria-hidden="true"
-    />
-  )
-}
-
-function etichettaCampo(campo: CampoEditor | 'reel_type' | 'formato'): string {
+function etichettaCampo(campo: CampoEditor): string {
   return CAMPI[campo]
 }
 
 /** The text an editor starts from: the saved value as a person types it. */
-function testoDi(campo: CampoEditor, valore: unknown): string {
+function testoDi(valore: unknown): string {
   if (valore === null || valore === undefined) return ''
-  if (campo === 'view_count') return formatNumero(Number(valore))
   return String(valore)
 }
 
@@ -69,7 +47,6 @@ function testoDi(campo: CampoEditor, valore: unknown): string {
 function testoMostrato(campo: CampoEditor, valore: unknown): string {
   if (valore === null || valore === undefined || valore === '') return ''
   if (campo === 'post_date') return formatData(String(valore))
-  if (campo === 'view_count') return formatNumero(Number(valore))
   return String(valore)
 }
 
@@ -77,7 +54,7 @@ function testoMostrato(campo: CampoEditor, valore: unknown): string {
 function nomeAccessibile(campo: CampoEditor, mostrato: string, nome: string, aspetto: AspettoEditor): string {
   if (aspetto === 'matita') return `Modifica il Name di «${nome}»`
   const etichetta = etichettaCampo(campo)
-  if (campo === 'inspiration' || campo === 'url') {
+  if (campo === 'url') {
     return mostrato ? `${etichetta}: apri o cambia il link di «${nome}»` : `Vuoto: aggiungi ${etichetta} di «${nome}»`
   }
   if (!mostrato) return `Vuoto: ${campo === 'post_date' ? 'scegli' : 'scrivi'} ${etichetta} di «${nome}»`
@@ -87,27 +64,23 @@ function nomeAccessibile(campo: CampoEditor, mostrato: string, nome: string, asp
 const TIPO_INPUT: Record<CampoEditor, { type?: string; inputMode?: 'numeric' | 'url'; maxLength?: number; placeholder?: string }> = {
   nome: { maxLength: NOME_MAX },
   post_date: { type: 'date' },
-  audio: { maxLength: AUDIO_MAX },
-  inspiration: { type: 'url', inputMode: 'url', maxLength: LINK_MAX, placeholder: 'https://' },
   url: { type: 'url', inputMode: 'url', maxLength: LINK_MAX, placeholder: 'https://www.instagram.com/reel/…' },
-  view_count: { inputMode: 'numeric' },
 }
 
 const TOGLI: Partial<Record<CampoEditor, string>> = {
   post_date: 'Togli la data',
-  inspiration: 'Togli il link',
   url: 'Togli il link',
 }
 
 const APRI_LINK: Partial<Record<CampoEditor, string>> = {
-  inspiration: 'Apri l’ispirazione',
   url: 'Apri il post',
 }
 
 /**
- * One property in a small popover (1.33.0): Name, Post Date, Audio, View
- * Count, Inspiration and URL, from a table cell, a card's chip or the pencil
- * next to a title. The popover is mounted at the first tap only: a plain
+ * One property in a small popover (1.33.0): Name, Post Date and URL, from a
+ * table cell, a card's chip or the pencil next to a title (Audio, Inspiration
+ * and View Count are in the content's panel since the Piano editoriale,
+ * 21/10/2026). The popover is mounted at the first tap only: a plain
  * button until then, so 300 rows of editors cost nothing to hydrate. Enter
  * or «Salva» saves; a tap or Tab outside saves when the value is valid and
  * different, and keeps the popover open with the error when it is not; Esc
@@ -122,6 +95,7 @@ export function EditorCella<C extends CampoEditor>({
   valore,
   aspetto = 'cella',
   allineaDestra = false,
+  apriPerNuova = false,
   className,
 }: {
   id: string
@@ -130,6 +104,8 @@ export function EditorCella<C extends CampoEditor>({
   valore: ValoreCampo<C>
   aspetto?: AspettoEditor
   allineaDestra?: boolean
+  /** The Name of the row «Nuovo» just created: the editor opens by itself, once, in the copy of the row that is on screen. */
+  apriPerNuova?: boolean
   className?: string
 }) {
   const { mostrato, inCorso, salva } = useCampoContenuto({ id, nome, campo, valore })
@@ -138,6 +114,7 @@ export function EditorCella<C extends CampoEditor>({
   const [bozza, setBozza] = useState('')
   const [errore, setErrore] = useState<string | null>(null)
   const input = useRef<HTMLInputElement>(null)
+  const bottone = useRef<HTMLButtonElement>(null)
   const idCampo = useId()
   const etichetta = etichettaCampo(campo)
   const visibile = testoMostrato(campo, mostrato)
@@ -145,7 +122,7 @@ export function EditorCella<C extends CampoEditor>({
   function apri() {
     // a save in flight: the field waits for it (spec R13), the new value stays shown
     if (inCorso) return
-    setBozza(testoDi(campo, mostrato))
+    setBozza(testoDi(mostrato))
     setErrore(null)
     setMontato(true)
     setAperto(true)
@@ -188,10 +165,21 @@ export function EditorCella<C extends CampoEditor>({
     if (prova(bozza)) setAperto(false)
   }
 
+  // «Nuovo»: the Name of the new row opens with the cursor in it. The table and the cards are both in the
+  // page, one hidden by a container query: only the copy that is on screen takes the signal.
+  useEffect(() => {
+    if (!apriPerNuova || !bottone.current || bottone.current.getClientRects().length === 0) return
+    // after the paint, in a callback (not in the effect's body); no cleanup, or React's double run in
+    // development would cancel the only opening the signal allows
+    if (consumaDaAprire(id)) window.setTimeout(apri, 0)
+    // once, at the mount of the row
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const contenuto: ReactNode =
     aspetto === 'matita' ? (
       <Pencil className="size-4" aria-hidden="true" />
-    ) : campo === 'inspiration' || campo === 'url' ? (
+    ) : campo === 'url' ? (
       mostrato ? (
         <ExternalLink className="size-4" aria-hidden="true" />
       ) : aspetto === 'chip' ? (
@@ -203,15 +191,7 @@ export function EditorCella<C extends CampoEditor>({
         <PiuVuoto />
       )
     ) : visibile ? (
-      <span
-        className={cn(
-          campo === 'post_date' || campo === 'view_count' ? 'num whitespace-nowrap' : 'block max-w-24 truncate',
-          aspetto === 'chip' && campo === 'audio' && 'max-w-40',
-        )}
-        title={campo === 'audio' ? visibile : undefined}
-      >
-        {visibile}
-      </span>
+      <span className={cn(campo === 'post_date' ? 'num whitespace-nowrap' : 'block max-w-24 truncate')}>{visibile}</span>
     ) : aspetto === 'chip' ? (
       <span className="inline-flex items-center gap-1 text-muted-foreground">
         <Plus className="size-4" aria-hidden="true" />
@@ -234,7 +214,7 @@ export function EditorCella<C extends CampoEditor>({
         : aspetto === 'matita'
           ? 'relative z-10 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-popup-open:bg-accent aria-busy:opacity-70'
           : CLASSE_BOTTONE_CELLA,
-      (campo === 'inspiration' || campo === 'url') && aspetto === 'cella' && 'size-11 justify-center text-muted-foreground hover:text-foreground',
+      campo === 'url' && aspetto === 'cella' && 'size-11 justify-center text-muted-foreground hover:text-foreground',
       allineaDestra && 'ml-auto justify-end',
       className,
     ),
@@ -243,7 +223,7 @@ export function EditorCella<C extends CampoEditor>({
   // until the first tap, a plain button: nothing of the popover is mounted
   if (!montato) {
     return (
-      <button {...propsBottone} onClick={apri}>
+      <button {...propsBottone} ref={bottone} onClick={apri}>
         {contenuto}
       </button>
     )
@@ -283,8 +263,8 @@ export function EditorCella<C extends CampoEditor>({
               if (campo !== 'post_date') e.currentTarget.select()
             }}
             autoComplete="off"
-            autoCapitalize={campo === 'url' || campo === 'inspiration' ? 'none' : undefined}
-            className={cn('h-11', campo === 'view_count' && 'num')}
+            autoCapitalize={campo === 'url' ? 'none' : undefined}
+            className="h-11"
             aria-invalid={errore ? true : undefined}
             aria-describedby={errore ? `${idCampo}-errore` : undefined}
             {...TIPO_INPUT[campo]}
@@ -318,114 +298,6 @@ export function EditorCella<C extends CampoEditor>({
   )
 }
 
-type CampoScelta = 'reel_type' | 'formato'
-
-const OPZIONI: Record<CampoScelta, Record<string, string>> = {
-  reel_type: ETICHETTA_REEL_TYPE,
-  formato: ETICHETTA_FORMAT,
-}
-
-/**
- * Reel Type or Format with one tap (1.33.0): a menu with «Vuoto» and Notion's
- * options in Notion's order, as the Status. Mounted at the first tap, like
- * the popovers.
- */
-export function MenuScelta<C extends CampoScelta>({
-  id,
-  nome,
-  campo,
-  valore,
-  aspetto = 'cella',
-  className,
-}: {
-  id: string
-  nome: string
-  campo: C
-  valore: ValoreCampo<C>
-  aspetto?: 'cella' | 'chip'
-  className?: string
-}) {
-  const { mostrato, inCorso, salva } = useCampoContenuto({ id, nome, campo, valore })
-  const [montato, setMontato] = useState(false)
-  const [aperto, setAperto] = useState(false)
-  const etichetta = CAMPI[campo]
-  const opzioni = OPZIONI[campo]
-  const visibile = mostrato ? opzioni[mostrato] : ''
-
-  const propsBottone = {
-    type: 'button' as const,
-    'data-cella': campo,
-    'data-etichetta': etichetta,
-    'aria-label': visibile ? `${visibile}: cambia ${etichetta} di «${nome}»` : `Vuoto: scegli ${etichetta} di «${nome}»`,
-    'aria-busy': inCorso || undefined,
-    'aria-haspopup': 'menu' as const,
-    className: cn(aspetto === 'chip' ? CLASSE_CHIP : CLASSE_BOTTONE_CELLA, className),
-  }
-  const contenuto = visibile ? (
-    <>
-      <span className={aspetto === 'cella' ? 'whitespace-nowrap' : undefined}>{visibile}</span>
-      {aspetto === 'chip' ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
-    </>
-  ) : aspetto === 'chip' ? (
-    <span className="inline-flex items-center gap-1 text-muted-foreground">
-      <Plus className="size-4" aria-hidden="true" />
-      {etichetta}
-    </span>
-  ) : (
-    <PiuVuoto />
-  )
-
-  if (!montato) {
-    return (
-      <button
-        {...propsBottone}
-        aria-expanded={false}
-        onClick={() => {
-          if (inCorso) return
-          setMontato(true)
-          setAperto(true)
-        }}
-      >
-        {contenuto}
-      </button>
-    )
-  }
-
-  return (
-    <DropdownMenu
-      open={aperto}
-      onOpenChange={(ora, dettagli) => {
-        if (ora && inCorso) {
-          dettagli.cancel()
-          return
-        }
-        setAperto(ora)
-      }}
-    >
-      <DropdownMenuTrigger render={<button {...propsBottone} />}>{contenuto}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuRadioGroup
-          value={mostrato ?? ''}
-          aria-label={etichetta}
-          onValueChange={(v) => {
-            setAperto(false)
-            salva(typeof v === 'string' && v ? v : null)
-          }}
-        >
-          <DropdownMenuRadioItem value="" closeOnClick className="min-h-11 px-3 text-muted-foreground">
-            Vuoto
-          </DropdownMenuRadioItem>
-          {Object.entries(opzioni).map(([valoreOpzione, testo]) => (
-            <DropdownMenuRadioItem key={valoreOpzione} value={valoreOpzione} closeOnClick className="min-h-11 px-3">
-              {testo}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 /**
  * The Name in the table: the link that opens the panel, and the pencil
  * «Rinomina». With a mouse the pencil floats over the end of the Name on the
@@ -452,32 +324,30 @@ export function CellaNome({ riga }: { riga: Riga }) {
         campo="nome"
         valore={riga.nome}
         aspetto="matita"
+        apriPerNuova
         className="opacity-0 group-hover/riga:opacity-100 group-focus-within/riga:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100 pointer-fine:absolute pointer-fine:top-1/2 pointer-fine:right-0 pointer-fine:-translate-y-1/2 pointer-fine:bg-card pointer-fine:hover:bg-accent pointer-fine:shadow-sm pointer-fine:ring-1 pointer-fine:ring-border pointer-coarse:opacity-100"
       />
     </div>
   )
 }
 
-/** One cell of the table, by column (Notion's order). Every property changes from its own cell. */
-export function CellaContenuto({ riga, colonna }: { riga: Riga; colonna: (typeof ORDINE_COLONNE)[number] }) {
+/** One cell of the table, by column (the Piano editoriale's). Every property but Views changes from its own cell. */
+export function CellaContenuto({ riga, colonna }: { riga: Riga; colonna: (typeof COLONNE_PIANO)[number] }) {
   switch (colonna) {
     case 'nome':
       return <CellaNome riga={riga} />
     case 'reel_type':
-      return <MenuScelta id={riga.id} nome={riga.nome} campo="reel_type" valore={riga.reel_type} />
+      return <SelectOpzioni id={riga.id} nome={riga.nome} campo="reel_type" valore={riga.reel_type} />
     case 'formato':
-      return <MenuScelta id={riga.id} nome={riga.nome} campo="formato" valore={riga.formato} />
-    case 'inspiration':
-      return <EditorCella id={riga.id} nome={riga.nome} campo="inspiration" valore={riga.inspiration} />
+      return <SelectOpzioni id={riga.id} nome={riga.nome} campo="formato" valore={riga.formato} />
     case 'stato':
       return <MenuStatus id={riga.id} nome={riga.nome} stato={riga.stato} className="-ml-2" />
     case 'post_date':
       return <EditorCella id={riga.id} nome={riga.nome} campo="post_date" valore={riga.post_date} />
-    case 'audio':
-      return <EditorCella id={riga.id} nome={riga.nome} campo="audio" valore={riga.audio} />
     case 'url':
       return <EditorCella id={riga.id} nome={riga.nome} campo="url" valore={riga.url} />
     case 'view_count':
-      return <EditorCella id={riga.id} nome={riga.nome} campo="view_count" valore={riga.view_count} allineaDestra />
+      // read only: the number will be read from Instagram; until then it is written in the panel
+      return riga.view_count === null ? null : <span className="num block text-right">{formatNumero(riga.view_count)}</span>
   }
 }

@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 
 /**
  * The Marketing area (1.33.0): its tabs stay still between its pages
- * («Contenuti», «Post di Instagram»; «Analisi» from 1.36.0). The admin, the
+ * («Piano editoriale», «Post di Instagram»; «Analisi» from 1.36.0). The admin, the
  * video editor and marketing (every page checks it again). The number on
  * «Post di Instagram» is a head count under RLS; when it does not read, no
  * number. Every action of the area revalidates this layout: the number

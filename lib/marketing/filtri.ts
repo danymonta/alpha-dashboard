@@ -1,17 +1,19 @@
 /**
- * The filters of /marketing/contenuti, in the address so they survive a
- * reload and the switch Tabella | Calendario. No filter by default, as in
- * Notion. An unknown value is dropped, never an error.
+ * The filters of the Piano editoriale (/marketing/contenuti), in the address so
+ * they survive a reload. No filter by default, as in Notion. An unknown value is
+ * dropped, never an error. Reel Type and Format are the slug of an option of
+ * marketing_opzioni: here only the shape is checked (the options are in the
+ * database), and the page drops a slug that is not an option any more
+ * (`senzaOpzioniSparite`).
  */
+import { RE_VALORE_OPZIONE, type Opzioni } from '@/lib/marketing/opzioni'
 import { Constants } from '@/lib/supabase/database.types'
 
 import {
   GRUPPI_STATUS,
   ORDINE_GRUPPI,
   gruppoDiStatus,
-  type FormatContenuto,
   type GruppoStatus,
-  type ReelType,
   type StatusContenuto,
   type TipoContenuto,
 } from './etichette'
@@ -19,8 +21,10 @@ import {
 export type FiltriContenuti = {
   gruppo?: GruppoStatus
   stato?: StatusContenuto
-  reel_type?: ReelType
-  formato?: FormatContenuto
+  /** the slug of a Reel Type option */
+  reel_type?: string
+  /** the slug of a Format option */
+  formato?: string
   tipo?: TipoContenuto
   q?: string
 }
@@ -36,16 +40,33 @@ function tra<T extends string>(valori: readonly T[], valore: string | undefined)
   return valore !== undefined && (valori as readonly string[]).includes(valore) ? (valore as T) : undefined
 }
 
+function slug(valore: string | undefined): string | undefined {
+  return valore !== undefined && RE_VALORE_OPZIONE.test(valore) ? valore : undefined
+}
+
 export function filtriDaParametri(sp: Record<string, string | string[] | undefined>): FiltriContenuti {
   const filtri: FiltriContenuti = {
     gruppo: tra(ORDINE_GRUPPI, primo(sp.gruppo)),
     stato: tra(Constants.public.Enums.contenuto_status, primo(sp.stato)),
-    reel_type: tra(Constants.public.Enums.contenuto_reel_type, primo(sp.reel_type)),
-    formato: tra(Constants.public.Enums.contenuto_format, primo(sp.formato)),
+    reel_type: slug(primo(sp.reel_type)),
+    formato: slug(primo(sp.formato)),
     tipo: tra(Constants.public.Enums.contenuto_tipo, primo(sp.tipo)),
     q: primo(sp.q)?.trim().slice(0, RICERCA_MAX) || undefined,
   }
   return senzaVuoti(filtri)
+}
+
+/**
+ * The filters without a Reel Type or a Format that is not an option any more
+ * (an old link, an option deleted meanwhile): the list shows everything for
+ * that filter rather than nothing.
+ */
+export function senzaOpzioniSparite(f: FiltriContenuti, opzioni: Opzioni): FiltriContenuti {
+  return senzaVuoti({
+    ...f,
+    reel_type: f.reel_type && opzioni.reel_type.some((o) => o.valore === f.reel_type) ? f.reel_type : undefined,
+    formato: f.formato && opzioni.formato.some((o) => o.valore === f.formato) ? f.formato : undefined,
+  })
 }
 
 /** The filters without the keys left undefined. */

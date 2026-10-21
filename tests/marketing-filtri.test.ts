@@ -7,8 +7,10 @@ import {
   haFiltri,
   parametriDaFiltri,
   patternRicerca,
+  senzaOpzioniSparite,
   statiFiltrati,
 } from '@/lib/marketing/filtri'
+import { opzioniDiPartenza } from '@/lib/marketing/opzioni'
 
 describe('i filtri dei contenuti, nell’indirizzo', () => {
   it('legge i valori validi e lascia cadere gli altri', () => {
@@ -98,5 +100,21 @@ describe('patternRicerca', () => {
     for (const q of ['*', 'a*b', '100%', 'b_roll', 'a\\b', '(bozza)', 'v1.2', '[x]', 'a|b', '^$']) {
       expect(patternRicerca(q)).toBe(`***=${q}`)
     }
+  })
+})
+
+describe('Reel Type e Format nell’indirizzo (le etichette create dalle persone)', () => {
+  it('di un codice si controlla la forma, non l’elenco: l’elenco è nel database', () => {
+    expect(filtriDaParametri({ reel_type: 'case_study', formato: 'meme_2' })).toEqual({ reel_type: 'case_study', formato: 'meme_2' })
+    expect(filtriDaParametri({ reel_type: 'Case study', formato: 'a'.repeat(61) })).toEqual({})
+    expect(filtriDaParametri({ reel_type: "x'; drop", formato: '../etc' })).toEqual({})
+  })
+
+  it('senzaOpzioniSparite: un’etichetta che non c’è più (un vecchio link) non svuota la lista', () => {
+    const opzioni = opzioniDiPartenza()
+    const filtri = { reel_type: 'case_study', formato: 'split', stato: 'posted', q: 'casa' } as const
+    expect(senzaOpzioniSparite(filtri, opzioni)).toEqual({ formato: 'split', stato: 'posted', q: 'casa' })
+    expect(senzaOpzioniSparite({ reel_type: 'radio' }, opzioni)).toEqual({ reel_type: 'radio' })
+    expect(senzaOpzioniSparite({}, opzioni)).toEqual({})
   })
 })

@@ -2037,7 +2037,7 @@ describe('la guida: ogni ruolo legge la sua parte (03/10/2026)', () => {
       expect(permessi, ruolo).toContain('I messaggi diretti e i nomi di chi scrive all’account non li vedi.')
       expect(permessi, ruolo).toContain('L’area Economics non è del tuo ruolo.')
       const contenuti = await testo(ruolo, 'marketing')
-      expect(contenuti, ruolo).toContain('Contenuti (area Marketing, /marketing/contenuti)')
+      expect(contenuti, ruolo).toContain('Piano editoriale (area Marketing, /marketing/contenuti')
       for (const parola of ['Name, Reel Type, Format, Inspiration, Status, Post Date, Audio, URL, View Count', 'Reel Topic', 'Carousel Topic']) {
         expect(contenuti, `${ruolo}: ${parola}`).toContain(parola)
       }
