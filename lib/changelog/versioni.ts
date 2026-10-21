@@ -86,6 +86,27 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.47.0',
+    data: '2026-10-21',
+    titolo: 'Piano editoriale con etichette colorate',
+    riassunto: 'I Contenuti diventano il Piano editoriale: una tabella pulita, e Reel Type e Format hanno etichette che crei tu, colorate come in Notion.',
+    intestazionePer: ['marketing'],
+    novita: [
+      {
+        per: ['marketing'],
+        testo: 'Reel Type e Format hanno etichette colorate come in Notion: apri la cella, scegli un’etichetta o scrivi un nome nuovo per crearla, e dal menu di ogni etichetta la rinomini, cambi il colore tra i dieci disponibili o la elimini (ti dice quanti contenuti la usano). Anche lo Status ha i suoi colori.',
+      },
+      {
+        per: ['marketing'],
+        testo: 'La pagina Contenuti si chiama Piano editoriale ed è una sola tabella con Name, Reel Type, Format, Status, Post Date, URL e Views. Ogni cella si cambia sul posto e «Nuovo» apre una riga vuota con il cursore già nel nome. Il calendario non c’è più: i filtri sono su una riga.',
+      },
+      {
+        per: ['marketing'],
+        testo: 'Claude, collegato all’app, usa le etichette per nome e non ne crea mai di nuove: se ne scrive una che non c’è, ti dice quali esistono.',
+      },
+    ],
+  },
+  {
     versione: '1.46.0',
     data: '2026-10-21',
     titolo: 'Barra laterale ridotta e tema chiaro',
