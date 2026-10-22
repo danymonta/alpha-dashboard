@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useLingua } from '@/components/i18n/lingua-provider'
-import { formatData, formato } from '@/lib/format'
+import { formato } from '@/lib/format'
 import { CLIENTI } from '@/lib/i18n/testi/clienti'
 import { MOTIVO_SOSPENSIONE_MAX, sospensioneClienteSchema } from '@/lib/validation/sospensione'
 
