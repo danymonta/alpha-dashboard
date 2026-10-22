@@ -7,8 +7,8 @@ import { PAGINE, accedi, type RuoloSeed } from './utenti'
 // exception. Catches what the dev overlay shows and a screenshot hides.
 test.use({ viewport: { width: 390, height: 844 } })
 
-// the Economics roles, and those of the Marketing area (the content calendar, 1.32.0)
-for (const ruolo of ['admin', 'setter', 'closer', 'editor', 'marketing'] as RuoloSeed[]) {
+// the Economics roles, those of the Marketing area (the content calendar, 1.32.0) and the business coach (1.52.0)
+for (const ruolo of ['admin', 'setter', 'closer', 'editor', 'marketing', 'business_coach'] as RuoloSeed[]) {
   test(`nessun errore in console: ${ruolo}`, async ({ page }) => {
     // one test walks every page of the role: the admin has twenty
     test.setTimeout(120_000)
