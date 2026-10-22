@@ -1,8 +1,10 @@
 import { ElencoAppCollegate, ErroreSezioneAccount, type AppCollegata } from '@/components/account/elenco-app-collegate'
 import { Skeleton } from '@/components/ui/skeleton'
 import { oggiRoma } from '@/lib/date'
-import { formatData } from '@/lib/format'
-import { APP_COLLEGATE } from '@/lib/mcp/consenso'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { getLingua } from '@/lib/i18n/server'
+import { ACCOUNT } from '@/lib/i18n/testi/account'
 import { createClient } from '@/lib/supabase/server'
 
 /*
@@ -14,7 +16,8 @@ import { createClient } from '@/lib/supabase/server'
  * trip, so the page streams it behind its own Suspense boundary.
  */
 
-function Intestazione({ id }: { id: string }) {
+function Intestazione({ id, lingua }: { id: string; lingua: Lingua }) {
+  const APP_COLLEGATE = ACCOUNT[lingua].app
   return (
     <div className="space-y-1">
       {/* focusable from code: after «Scollega» the row goes, and the focus lands here, never on <body> */}
@@ -29,29 +32,33 @@ function Intestazione({ id }: { id: string }) {
 export async function AppCollegate() {
   const supabase = await createClient()
   const { data, error } = await supabase.auth.oauth.listGrants()
+  const lingua = await getLingua()
   // the OAuth server is off: there is nothing to show and nothing to revoke
   if (error?.code === 'feature_disabled') return null
-  return <SezioneAppCollegate app={error || !data ? null : perData(data)} />
+  return <SezioneAppCollegate app={error || !data ? null : perData(data, lingua)} lingua={lingua} />
 }
 
 function perData(
   grants: { client: { id: string; name: string }; granted_at: string }[],
+  lingua: Lingua,
 ): AppCollegata[] {
+  const { formatData } = formato(lingua)
   return [...grants]
     .sort((a, b) => b.granted_at.localeCompare(a.granted_at))
     .map((g) => ({
       clientId: g.client.id,
-      nome: g.client.name || 'App senza nome',
+      nome: g.client.name || ACCOUNT[lingua].app.senzaNome,
       collegataIl: formatData(oggiRoma(new Date(g.granted_at))),
     }))
 }
 
 const ID_TITOLO = 'titolo-app-collegate'
 
-function SezioneAppCollegate({ app }: { app: AppCollegata[] | null }) {
+function SezioneAppCollegate({ app, lingua }: { app: AppCollegata[] | null; lingua: Lingua }) {
+  const APP_COLLEGATE = ACCOUNT[lingua].app
   return (
     <section aria-labelledby={ID_TITOLO} className="space-y-3">
-      <Intestazione id={ID_TITOLO} />
+      <Intestazione id={ID_TITOLO} lingua={lingua} />
       {app ? (
         <ElencoAppCollegate app={app} idTitolo={ID_TITOLO} />
       ) : (
@@ -61,13 +68,14 @@ function SezioneAppCollegate({ app }: { app: AppCollegata[] | null }) {
   )
 }
 
-export function ScheletroAppCollegate() {
+export async function ScheletroAppCollegate() {
+  const t = ACCOUNT[await getLingua()].app
   return (
     <div className="space-y-3" aria-busy="true" aria-live="polite">
       <Skeleton className="h-5 w-36" />
       <Skeleton className="h-4 w-64 max-w-full" />
       <Skeleton className="h-16 w-full rounded-xl" />
-      <span className="sr-only">Caricamento delle app collegate</span>
+      <span className="sr-only">{t.caricamento}</span>
     </div>
   )
 }

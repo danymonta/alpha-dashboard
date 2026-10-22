@@ -25,6 +25,8 @@ import {
 } from 'lucide-react'
 
 import type { AppRole } from '@/lib/auth/roles'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { SHELL } from '@/lib/i18n/testi/shell'
 
 /**
  * The title of a group of the menu (1.38.0, Dany 16/10/2026: "sistemami la
@@ -307,18 +309,28 @@ export function vociNav(ruolo: AppRole): NavRuolo {
 }
 
 /** "1 esito da registrare", "3 esiti da registrare": the badge's words for screen readers. */
-export function testoEsiti(numero: number): string {
-  return `${numero} ${numero === 1 ? 'esito' : 'esiti'} da registrare`
+export function testoEsiti(numero: number, lingua: Lingua = 'it'): string {
+  return SHELL[lingua].esiti(numero)
 }
 
 /** "1 giornata da approvare", "3 giornate da approvare". */
-export function testoDaApprovare(numero: number): string {
-  return `${numero} ${numero === 1 ? 'giornata' : 'giornate'} da approvare`
+export function testoDaApprovare(numero: number, lingua: Lingua = 'it'): string {
+  return SHELL[lingua].daApprovare(numero)
 }
 
 /** "1 commento da scrivere", "3 commenti da scrivere". */
-export function testoCommenti(numero: number): string {
-  return `${numero} ${numero === 1 ? 'commento' : 'commenti'} da scrivere`
+export function testoCommenti(numero: number, lingua: Lingua = 'it'): string {
+  return SHELL[lingua].commenti(numero)
+}
+
+/** The label of an item in a language (lib/i18n/testi/shell.ts): the Italian one is the key. */
+export function etichettaVoce(voce: VoceNav, lingua: Lingua): string {
+  return SHELL[lingua].voci[voce.etichetta] ?? voce.etichetta
+}
+
+/** The title of a group of the menu in a language. */
+export function titoloGruppo(titolo: TitoloGruppo, lingua: Lingua): string {
+  return SHELL[lingua].gruppi[titolo]
 }
 
 /** What a navigation item reminds the person of: never someone else's (CLAUDE.md section 17). */
@@ -340,11 +352,15 @@ export const NESSUN_PROMEMORIA: Promemoria = { esiti: 0, daApprovare: 0, comment
  * commenti da scrivere"; undefined
  * without one (the visible label is the name).
  */
-export function nomeConPromemoria(etichetta: string, promemoria: Promemoria): string | undefined {
+export function nomeConPromemoria(
+  etichetta: string,
+  promemoria: Promemoria,
+  lingua: Lingua = 'it',
+): string | undefined {
   const parti = [
-    promemoria.esiti > 0 ? testoEsiti(promemoria.esiti) : null,
-    promemoria.daApprovare > 0 ? testoDaApprovare(promemoria.daApprovare) : null,
-    promemoria.commenti > 0 ? testoCommenti(promemoria.commenti) : null,
+    promemoria.esiti > 0 ? testoEsiti(promemoria.esiti, lingua) : null,
+    promemoria.daApprovare > 0 ? testoDaApprovare(promemoria.daApprovare, lingua) : null,
+    promemoria.commenti > 0 ? testoCommenti(promemoria.commenti, lingua) : null,
   ].filter((parte) => parte !== null)
   return parti.length > 0 ? `${etichetta}, ${parti.join(', ')}` : undefined
 }

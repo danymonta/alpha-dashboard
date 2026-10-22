@@ -10,8 +10,11 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { LinkRiga } from '@/components/shell/link-riga'
 import { percorsoIniziale } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
+import { getLingua } from '@/lib/i18n/server'
+import { NOTIFICHE } from '@/lib/i18n/testi/notifiche'
+import { SHELL } from '@/lib/i18n/testi/shell'
 import { quandoNotifica } from '@/lib/notifiche/quando'
-import { ETICHETTA_TIPO, eTipoNotifica } from '@/lib/notifiche/tipi'
+import { eTipoNotifica } from '@/lib/notifiche/tipi'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +32,8 @@ const MASSIMO = 100
  */
 export default async function NotifichePage() {
   const profilo = await requireProfilo()
+  const lingua = await getLingua()
+  const t = NOTIFICHE[lingua]
   const supabase = await createClient()
   const [{ data, error, count }, { count: daLeggere, error: erroreConteggio }] = await Promise.all([
     supabase
@@ -47,26 +52,22 @@ export default async function NotifichePage() {
   return (
     <div className="max-w-3xl space-y-5">
       <IntestazionePagina
-        titolo="Notifiche"
-        descrizione="Le email che l’app ti manda, salvate anche qui, e gli avvisi che compaiono solo qui: le ritrovi quando vuoi, anche se l’email non è partita."
+        titolo={t.titolo}
+        descrizione={lingua === 'en' ? `${t.descrizione} ${t.inItaliano}` : t.descrizione}
         azione={notifiche.length > 0 ? <SegnaTutteLette daLeggere={nonLette} /> : undefined}
       />
 
       {notifiche.length === 0 ? (
         <StatoVuoto
           Icona={Bell}
-          titolo="Nessuna notifica"
-          descrizione={
-            admin
-              ? 'Qui compaiono il riepilogo della settimana, il backup, i promemoria dei clienti e gli avvisi (rate in ritardo, chiavi in scadenza, tracciamenti da approvare, spesa di Claude), appena ci sono.'
-              : 'Per ora le notifiche arrivano solo all’admin. Se qualcosa dell’app ti riguarda, lo trovi qui.'
-          }
-          azione={<LinkBottone href={percorsoIniziale(profilo.ruolo)}>Torna al lavoro</LinkBottone>}
+          titolo={t.vuotoTitolo}
+          descrizione={admin ? t.vuotoAdmin : t.vuotoTeam}
+          azione={<LinkBottone href={percorsoIniziale(profilo.ruolo)}>{SHELL[lingua].tornaAlLavoro}</LinkBottone>}
         />
       ) : (
         <>
           <p role="status" className="text-sm text-muted-foreground" data-testid="notifiche-riga-conteggio">
-            {nonLette > 0 ? `${nonLette} da leggere` : 'Hai letto tutto'}
+            {nonLette > 0 ? t.daLeggere(nonLette) : t.tuttoLetto}
           </p>
           <ul className="divide-y divide-border overflow-hidden rounded-xl bg-card" data-testid="elenco-notifiche">
             {notifiche.map((n) => {
@@ -80,7 +81,7 @@ export default async function NotifichePage() {
                     <IconaTipo tipo={n.tipo} />
                     <span className="min-w-0 flex-1 space-y-1">
                       <span className={cn('block text-sm break-words', nuova ? 'font-semibold' : 'font-medium')}>
-                        {nuova ? <span className="sr-only">Da leggere: </span> : null}
+                        {nuova ? <span className="sr-only">{t.daLeggerePrima}</span> : null}
                         {n.titolo}
                       </span>
                       {n.anteprima ? (
@@ -90,12 +91,12 @@ export default async function NotifichePage() {
                         {nuova ? (
                           <span className="inline-flex items-center gap-1 font-semibold text-foreground" data-testid="da-leggere">
                             <span aria-hidden="true" className="size-2 rounded-full bg-status-critical" />
-                            Da leggere
+                            {t.daLeggereEtichetta}
                           </span>
                         ) : null}
-                        <span>{eTipoNotifica(n.tipo) ? ETICHETTA_TIPO[n.tipo] : 'Notifica'}</span>
-                        <span className="num">{quandoNotifica(n.created_at)}</span>
-                        <StatoEmail inviata={n.email_inviata} canale={n.canale === 'app' ? 'app' : 'email'} />
+                        <span>{eTipoNotifica(n.tipo) ? t.tipi[n.tipo] : t.notifica}</span>
+                        <span className="num">{quandoNotifica(n.created_at, lingua)}</span>
+                        <StatoEmail inviata={n.email_inviata} canale={n.canale === 'app' ? 'app' : 'email'} lingua={lingua} />
                       </span>
                     </span>
                   </LinkRiga>
@@ -107,7 +108,7 @@ export default async function NotifichePage() {
             })}
           </ul>
           {(count ?? 0) > MASSIMO ? (
-            <p className="text-sm text-muted-foreground">Si vedono le {MASSIMO} più recenti.</p>
+            <p className="text-sm text-muted-foreground">{t.massimo(MASSIMO)}</p>
           ) : null}
         </>
       )}

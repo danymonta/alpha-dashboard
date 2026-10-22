@@ -7,10 +7,11 @@ import { useForm } from 'react-hook-form'
 
 import { richiediCodice, verificaCodice } from '@/app/login/actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PAROLE_ACCESSO, testoAttesa } from '@/lib/auth/accesso'
+import { ACCESSO, traduciAccesso } from '@/lib/i18n/testi/accesso'
 import {
   ATTESA_NUOVO_CODICE_S,
   CIFRE_CODICE,
@@ -64,6 +65,9 @@ function PassoEmail({
   inviata: (email: string) => void
 }) {
   const [errore, setErrore] = useState<string | null>(null)
+  const lingua = useLingua()
+  const t = ACCESSO[lingua]
+  const PAROLE_ACCESSO = t.parole
   const {
     register,
     handleSubmit,
@@ -83,7 +87,7 @@ function PassoEmail({
       return
     }
     if (!esito.ok) {
-      setErrore(esito.errore)
+      setErrore(traduciAccesso(esito.errore, lingua) ?? esito.errore)
       return
     }
     inviata(valori.email.trim().toLowerCase())
@@ -94,7 +98,7 @@ function PassoEmail({
       <p className="text-sm text-muted-foreground">{PAROLE_ACCESSO.introduzione}</p>
       <div className="space-y-1.5">
         {/* "Indirizzo di posta": the dev login below owns the label "Email" */}
-        <Label htmlFor="accesso-posta">Indirizzo di posta</Label>
+        <Label htmlFor="accesso-posta">{t.posta}</Label>
         <Input
           id="accesso-posta"
           type="email"
@@ -102,13 +106,13 @@ function PassoEmail({
           autoComplete="email"
           autoCapitalize="none"
           spellCheck={false}
-          placeholder="nome@dominio.it"
+          placeholder={t.esempioPosta}
           className="h-11"
           aria-invalid={errors.email ? true : undefined}
           aria-describedby={errors.email ? 'accesso-posta-errore' : undefined}
           {...register('email')}
         />
-        <ErroreCampo id="accesso-posta-errore" messaggio={errors.email?.message} />
+        <ErroreCampo id="accesso-posta-errore" messaggio={traduciAccesso(errors.email?.message, lingua)} />
       </div>
 
       {errore ? <Errore testo={errore} /> : null}
@@ -119,7 +123,7 @@ function PassoEmail({
         ) : (
           <Mail className="size-4" aria-hidden="true" />
         )}
-        {isSubmitting ? 'Invio in corso…' : 'Invia il codice'}
+        {isSubmitting ? t.invioInCorso : t.inviaCodice}
       </Button>
     </form>
   )
@@ -146,6 +150,9 @@ function PassoCodice({
   const fine = useRef(0)
   const [restano, setRestano] = useState(ATTESA_NUOVO_CODICE_S)
   const campo = useRef<HTMLInputElement | null>(null)
+  const lingua = useLingua()
+  const t = ACCESSO[lingua]
+  const PAROLE_ACCESSO = t.parole
 
   const {
     register,
@@ -173,7 +180,7 @@ function PassoCodice({
     try {
       const esito = await verificaCodice({ email, codice: valori.codice, da })
       if (!esito.ok) {
-        setErrore(esito.errore)
+        setErrore(traduciAccesso(esito.errore, lingua) ?? esito.errore)
         return
       }
       // a whole page load: the session cookie is new, nothing of the login page stays
@@ -193,7 +200,7 @@ function PassoCodice({
     try {
       const esito = await richiediCodice({ email, da })
       if (!esito.ok) {
-        setErrore(esito.errore)
+        setErrore(traduciAccesso(esito.errore, lingua) ?? esito.errore)
         return
       }
       fine.current = Date.now() + ATTESA_NUOVO_CODICE_S * 1000
@@ -211,15 +218,15 @@ function PassoCodice({
       <div role="status" className="space-y-1 rounded-lg bg-status-ok/10 px-3 py-2.5 text-sm">
         <p className="flex items-start gap-2 text-status-ok">
           <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <span>{reinviato ? `Codice inviato di nuovo. ${PAROLE_ACCESSO.inviata}` : PAROLE_ACCESSO.inviata}</span>
+          <span>{reinviato ? `${t.inviatoDiNuovo} ${PAROLE_ACCESSO.inviata}` : PAROLE_ACCESSO.inviata}</span>
         </p>
         <p className="text-xs text-muted-foreground">
-          Indirizzo: <span className="break-all text-foreground">{email}</span>. {PAROLE_ACCESSO.validita}
+          {t.indirizzo} <span className="break-all text-foreground">{email}</span>. {PAROLE_ACCESSO.validita}
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="accesso-codice">Codice di accesso</Label>
+        <Label htmlFor="accesso-codice">{t.codice}</Label>
         <Input
           id="accesso-codice"
           inputMode="numeric"
@@ -236,19 +243,19 @@ function PassoCodice({
             campo.current = el
           }}
         />
-        <ErroreCampo id="accesso-codice-errore" messaggio={errors.codice?.message} />
+        <ErroreCampo id="accesso-codice-errore" messaggio={traduciAccesso(errors.codice?.message, lingua)} />
       </div>
 
       {errore ? <Errore testo={errore} /> : null}
 
       <Button type="submit" className="h-11 w-full" disabled={isSubmitting || dentro}>
         {isSubmitting || dentro ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-        Entra
+        {t.entra}
       </Button>
 
       <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
         <Button type="button" variant="ghost" className="h-11 text-muted-foreground" onClick={cambiaEmail}>
-          Cambia email
+          {t.cambiaEmail}
         </Button>
         <Button
           type="button"
@@ -258,7 +265,7 @@ function PassoCodice({
           onClick={inviaDiNuovo}
         >
           {reinvio ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-          {restano > 0 ? testoAttesa(restano) : 'Invia di nuovo'}
+          {restano > 0 ? t.attesa(restano) : t.inviaDiNuovo}
         </Button>
       </div>
     </form>

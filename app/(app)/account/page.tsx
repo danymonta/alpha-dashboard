@@ -10,28 +10,36 @@ import { ScheletroCollegaClaude, SezioneCollegaClaude } from '@/components/accou
 import { LinkNotifiche } from '@/components/account/link-notifiche'
 import { VoceNovita } from '@/components/changelog/voce-novita'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
+import { SceltaLingua } from '@/components/i18n/scelta-lingua'
 import { SceltaTema } from '@/components/tema/scelta-tema'
 import { RivediTutorial } from '@/components/tutorial/rivedi-tutorial'
 import { TestaTutorial } from '@/components/tutorial/testa-tutorial'
 import { Button } from '@/components/ui/button'
 import { alfireConfigurata, nomeModelloAlfire, nomeModelloVisione } from '@/lib/alfire/config'
-import { ETICHETTA_LIVELLO_PM, ETICHETTA_RUOLO, RUOLI_MCP, livelloPmEffettivo } from '@/lib/auth/roles'
+import { RUOLI_MCP, livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
+import { getLingua } from '@/lib/i18n/server'
+import { ACCOUNT } from '@/lib/i18n/testi/account'
+import { SHELL } from '@/lib/i18n/testi/shell'
 
 export const dynamic = 'force-dynamic'
 
 /** The person's own settings: profile, Alfire, account. Every role. */
 export default async function AccountPage() {
   const profilo = await requireProfilo()
+  const lingua = await getLingua()
+  const t = ACCOUNT[lingua]
+  const shell = SHELL[lingua]
 
   return (
     <div className="max-w-2xl">
-      <IntestazionePagina titolo="Il tuo profilo" descrizione="Foto, nome e preferenze: valgono solo per te." />
+      <IntestazionePagina titolo={t.titolo} descrizione={t.descrizione} />
       <SchedeAccount
         profilo={
           <div className="space-y-8">
             <ProfiloForm id={profilo.id} nome={profilo.nome} foto={profilo.foto_url} />
             <SceltaTema />
+            <SceltaLingua />
           </div>
         }
         alfire={
@@ -45,10 +53,10 @@ export default async function AccountPage() {
           <div className="space-y-6">
             <dl className="divide-y divide-border rounded-xl bg-card">
               {[
-                ['Email', profilo.email],
-                ['Ruolo', ETICHETTA_RUOLO[profilo.ruolo]],
-                ['Livello nei progetti', ETICHETTA_LIVELLO_PM[livelloPmEffettivo(profilo.ruolo, profilo.livello_pm)]],
-                ['Accesso', 'Con Google, su invito'],
+                [t.dati.email, profilo.email],
+                [t.dati.ruolo, shell.ruoli[profilo.ruolo]],
+                [t.dati.livello, shell.livelliPm[livelloPmEffettivo(profilo.ruolo, profilo.livello_pm)]],
+                [t.dati.accesso, t.dati.accessoValore],
               ].map(([voce, valore]) => (
                 <div key={voce} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-0.5 px-4 py-3">
                   <dt className="text-sm text-muted-foreground">{voce}</dt>
@@ -56,7 +64,7 @@ export default async function AccountPage() {
                 </div>
               ))}
             </dl>
-            <p className="text-sm text-muted-foreground">Ruolo e livello li cambia l’admin in Impostazioni › Team.</p>
+            <p className="text-sm text-muted-foreground">{t.dati.chiCambia}</p>
             {/* Claude connected to Alpha Management (09/10/2026; every role since 22/10/2026): the
                 steps to connect it, and every role's own connected apps, each streamed on its own */}
             {RUOLI_MCP.includes(profilo.ruolo) ? (
@@ -70,7 +78,7 @@ export default async function AccountPage() {
             {/* the notification center (1.41.0): the emails the app sends, saved here too */}
             <LinkNotifiche />
             {/* the version in use and what changes in this person's work (CLAUDE.md section 23) */}
-            <VoceNovita testId="voce-novita-profilo" descrizione="cosa cambia nel tuo lavoro a ogni aggiornamento." />
+            <VoceNovita testId="voce-novita-profilo" descrizione={t.novita.profilo} />
             <div className="flex flex-wrap gap-2">
               <RivediTutorial />
               {/* admin, phone only: on desktop it sits top right */}
@@ -78,7 +86,7 @@ export default async function AccountPage() {
               <form action={esci}>
                 <Button type="submit" variant="outline" className="h-11">
                   <LogOut className="size-4" aria-hidden="true" />
-                  Esci
+                  {t.esci}
                 </Button>
               </form>
             </div>

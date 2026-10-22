@@ -1,7 +1,8 @@
 import { CollegaClaude, type ClientClaude } from '@/components/account/collega-claude'
 import { ErroreSezioneAccount } from '@/components/account/elenco-app-collegate'
 import { Skeleton } from '@/components/ui/skeleton'
-import { COLLEGA_CLAUDE } from '@/lib/mcp/consenso'
+import { getLingua } from '@/lib/i18n/server'
+import { ACCOUNT } from '@/lib/i18n/testi/account'
 import { indirizziMcp } from '@/lib/mcp/indirizzi'
 import { createClient } from '@/lib/supabase/server'
 
@@ -13,8 +14,9 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function SezioneCollegaClaude({ admin }: { admin: boolean }) {
   const supabase = await createClient()
+  const t = ACCOUNT[await getLingua()].claude
   const { data, error } = await supabase.rpc('mcp_client')
-  if (error) return <ErroreSezioneAccount titolo={COLLEGA_CLAUDE.errore} />
+  if (error) return <ErroreSezioneAccount titolo={t.errore} />
 
   // more than one per kind (a client registered twice): the oldest, as the function orders them
   const primo = (tipo: string): ClientClaude | null => {
@@ -32,7 +34,8 @@ export async function SezioneCollegaClaude({ admin }: { admin: boolean }) {
   )
 }
 
-export function ScheletroCollegaClaude() {
+export async function ScheletroCollegaClaude() {
+  const t = ACCOUNT[await getLingua()].claude
   return (
     <div className="space-y-4 rounded-xl bg-card p-4 sm:p-5" aria-busy="true" aria-live="polite">
       <Skeleton className="h-5 w-32" />
@@ -42,7 +45,7 @@ export function ScheletroCollegaClaude() {
           <Skeleton key={i} className="h-10 w-full rounded-lg" />
         ))}
       </div>
-      <span className="sr-only">Caricamento dei passi per collegare Claude</span>
+      <span className="sr-only">{t.caricamento}</span>
     </div>
   )
 }

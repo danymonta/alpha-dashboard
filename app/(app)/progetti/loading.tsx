@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { CaricamentoSr } from '@/components/stati/caricamento-sr'
 
 /** The shape of the projects page: filters, then departments of cards. */
 export default function Loading() {
@@ -22,7 +23,7 @@ export default function Loading() {
           </div>
         </div>
       ))}
-      <span className="sr-only">Caricamento in corso</span>
+      <CaricamentoSr />
     </div>
   )
 }

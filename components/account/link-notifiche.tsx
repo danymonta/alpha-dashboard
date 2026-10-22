@@ -2,8 +2,10 @@
 
 import { Bell, ChevronRight } from 'lucide-react'
 
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { LinkNav } from '@/components/shell/link-nav'
 import { useNotificheNonLette } from '@/components/shell/notifiche-provider'
+import { ACCOUNT } from '@/lib/i18n/testi/account'
 
 /**
  * Profile › Account (1.41.0): the way to the notification center from the
@@ -11,6 +13,7 @@ import { useNotificheNonLette } from '@/components/shell/notifiche-provider'
  */
 export function LinkNotifiche() {
   const numero = useNotificheNonLette()
+  const t = useTesti(ACCOUNT).notifiche
   return (
     <LinkNav
       href="/notifiche"
@@ -19,9 +22,9 @@ export function LinkNotifiche() {
     >
       <Bell className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium">Notifiche</span>
+        <span className="block text-sm font-medium">{t.titolo}</span>
         <span className="block text-sm text-muted-foreground">
-          {numero > 0 ? `${numero} da leggere` : 'Le email dell’app salvate qui: nessuna da leggere.'}
+          {numero > 0 ? t.daLeggere(numero) : t.nessuna}
         </span>
       </span>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />

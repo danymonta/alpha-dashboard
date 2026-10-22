@@ -5,12 +5,17 @@ import { useEffect, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { segnaLetta, segnaTutteLette } from '@/app/(app)/notifiche/actions'
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { ricontaNotifiche } from '@/components/shell/notifiche-provider'
 import { Button } from '@/components/ui/button'
+import { NOTIFICHE } from '@/lib/i18n/testi/notifiche'
+import { SHELL } from '@/lib/i18n/testi/shell'
 
 /** "Segna tutte come lette": a 44 px button; off when there is nothing to read. */
 export function SegnaTutteLette({ daLeggere }: { daLeggere: number }) {
   const [inCorso, avvia] = useTransition()
+  const t = useTesti(NOTIFICHE)
+  const shell = useTesti(SHELL)
   return (
     <Button
       type="button"
@@ -24,7 +29,7 @@ export function SegnaTutteLette({ daLeggere }: { daLeggere: number }) {
           try {
             esito = await segnaTutteLette()
           } catch {
-            toast.error('Connessione assente. Riprova.')
+            toast.error(shell.connessione)
             return
           }
           if (!esito.ok) {
@@ -32,7 +37,7 @@ export function SegnaTutteLette({ daLeggere }: { daLeggere: number }) {
             return
           }
           ricontaNotifiche()
-          toast.success('Tutte le notifiche sono segnate come lette')
+          toast.success(t.tutteLette)
         })
       }
     >
@@ -41,7 +46,7 @@ export function SegnaTutteLette({ daLeggere }: { daLeggere: number }) {
       ) : (
         <CheckCheck className="size-4" aria-hidden="true" />
       )}
-      Segna tutte come lette
+      {t.segnaTutte}
     </Button>
   )
 }

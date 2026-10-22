@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
 import { aggiungiGiorni, aggiungiMesi, fineMese, isDataISO, oggiRoma, parseMese, primoDelMeseISO } from '@/lib/date'
-import { formatData, formatMese, formatNomeMese } from '@/lib/format'
+import { formato, MESI_BREVI_EN } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
 
 /**
  * The period a page looks at: one month (?mese=2026-09) or any range of
@@ -80,31 +81,45 @@ export function periodoSuccessivo(i: Intervallo): Intervallo {
 
 const meseBreve = new Intl.DateTimeFormat('it-IT', { month: 'short' })
 
-/** "nov 2025" */
-function meseBreveAnno(iso: string): string {
+/** "nov 2025", "Nov 2025" */
+function meseBreveAnno(iso: string, lingua: Lingua): string {
   const d = new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, 1)
-  return `${meseBreve.format(d).replace('.', '')} ${iso.slice(0, 4)}`
+  const m = lingua === 'en' ? MESI_BREVI_EN[d.getMonth()] : meseBreve.format(d).replace('.', '')
+  return `${m} ${iso.slice(0, 4)}`
 }
 
 function annoIntero(i: Intervallo): boolean {
   return i.da.endsWith('-01-01') && i.a === `${i.da.slice(0, 4)}-12-31`
 }
 
-export function etichettaPeriodo(i: Intervallo): string {
+export function etichettaPeriodo(i: Intervallo, lingua: Lingua = 'it'): string {
+  const { formatData, formatMese, formatNomeMese } = formato(lingua)
   const mesi = mesiInteri(i)
   if (mesi === 1) return formatMese(i.da)
-  if (annoIntero(i)) return `anno ${i.da.slice(0, 4)}`
+  if (annoIntero(i)) return `${lingua === 'en' ? 'year' : 'anno'} ${i.da.slice(0, 4)}`
   if (mesi !== null) {
     return i.da.slice(0, 4) === i.a.slice(0, 4)
       ? `${formatNomeMese(i.da)} – ${formatMese(i.a)}`
-      : `${meseBreveAnno(i.da)} – ${meseBreveAnno(i.a)}`
+      : `${meseBreveAnno(i.da, lingua)} – ${meseBreveAnno(i.a, lingua)}`
   }
   if (i.da === i.a) return formatData(i.da)
   return `${formatData(i.da)} – ${formatData(i.a)}`
 }
 
-export function frasePeriodo(i: Intervallo): string {
+export function frasePeriodo(i: Intervallo, lingua: Lingua = 'it'): string {
+  const { formatData, formatMese, formatNomeMese } = formato(lingua)
   const mesi = mesiInteri(i)
+  if (lingua === 'en') {
+    if (mesi === 1) return `in ${formatMese(i.da)}`
+    if (annoIntero(i)) return `in ${i.da.slice(0, 4)}`
+    if (mesi !== null) {
+      return i.da.slice(0, 4) === i.a.slice(0, 4)
+        ? `from ${formatNomeMese(i.da)} to ${formatMese(i.a)}`
+        : `from ${formatMese(i.da)} to ${formatMese(i.a)}`
+    }
+    if (i.da === i.a) return `on ${formatData(i.da)}`
+    return `from ${formatData(i.da)} to ${formatData(i.a)}`
+  }
   if (mesi === 1) return `a ${formatMese(i.da)}`
   if (annoIntero(i)) return `nel ${i.da.slice(0, 4)}`
   if (mesi !== null) {
@@ -116,7 +131,8 @@ export function frasePeriodo(i: Intervallo): string {
   return `dal ${formatData(i.da)} al ${formatData(i.a)}`
 }
 
-export function creaPeriodo(i: Intervallo): Periodo {
+export function creaPeriodo(i: Intervallo, lingua: Lingua = 'it'): Periodo {
+  const { formatNomeMese } = formato(lingua)
   const mesi = mesiInteri(i)
   const precedente = periodoPrecedente(i)
   return {
@@ -125,15 +141,17 @@ export function creaPeriodo(i: Intervallo): Periodo {
     mese: mesi === 1 ? i.da : null,
     mesiInteri: mesi,
     giorni: giorniIntervallo(i),
-    etichetta: etichettaPeriodo(i),
-    frase: frasePeriodo(i),
+    etichetta: etichettaPeriodo(i, lingua),
+    frase: frasePeriodo(i, lingua),
     confronto:
       mesi === 1
         ? `vs ${formatNomeMese(precedente.da)}`
         : annoIntero(i)
           ? `vs ${precedente.da.slice(0, 4)}`
-          : 'vs periodo precedente',
-    precedente: { ...precedente, etichetta: etichettaPeriodo(precedente) },
+          : lingua === 'en'
+            ? 'vs previous period'
+            : 'vs periodo precedente',
+    precedente: { ...precedente, etichetta: etichettaPeriodo(precedente, lingua) },
     successivo: periodoSuccessivo(i),
     parametri: parametriPeriodo(i),
   }
@@ -180,24 +198,24 @@ function valore(parametri: Parametri, chiave: string): string | undefined {
 }
 
 /** The month of a date as a period. */
-export function periodoDelMese(iso: string): Periodo {
+export function periodoDelMese(iso: string, lingua: Lingua = 'it'): Periodo {
   const primo = primoDelMeseISO(iso)
-  return creaPeriodo({ da: primo, a: fineMese(primo) })
+  return creaPeriodo({ da: primo, a: fineMese(primo) }, lingua)
 }
 
 /**
  * Reads ?da=&a= (a valid range wins), then ?mese=, otherwise the current month.
  * Anything invalid falls back quietly: a hand-edited URL never breaks a page.
  */
-export function leggiPeriodo(parametri: Parametri, oggi: string = oggiRoma()): Periodo {
+export function leggiPeriodo(parametri: Parametri, oggi: string = oggiRoma(), lingua: Lingua = 'it'): Periodo {
   const da = valore(parametri, 'da')
   const a = valore(parametri, 'a')
   if (da !== undefined && a !== undefined && schemaIntervallo(oggi).safeParse({ da, a }).success) {
-    return creaPeriodo({ da, a })
+    return creaPeriodo({ da, a }, lingua)
   }
   const mese = parseMese(valore(parametri, 'mese'))
-  if (mese) return periodoDelMese(mese)
-  return periodoDelMese(oggi)
+  if (mese) return periodoDelMese(mese, lingua)
+  return periodoDelMese(oggi, lingua)
 }
 
 const CHIAVI_PERIODO = new Set(['mese', 'da', 'a'])
@@ -226,7 +244,27 @@ export function puoAndareAvanti(periodo: Periodo, oggi: string): boolean {
 export type PresetPeriodo = Intervallo & { chiave: string; etichetta: string }
 
 /** Quick choices of the period sheet, relative to today in Europe/Rome. */
-export function presetPeriodi(oggi: string = oggiRoma()): PresetPeriodo[] {
+const ETICHETTE_PRESET: Record<Lingua, Record<string, string>> = {
+  it: {
+    oggi: 'Oggi',
+    'questo-mese': 'Questo mese',
+    'mese-scorso': 'Mese scorso',
+    'ultimi-90': 'Ultimi 90 giorni',
+    trimestre: 'Trimestre in corso',
+    anno: 'Anno in corso',
+  },
+  en: {
+    oggi: 'Today',
+    'questo-mese': 'This month',
+    'mese-scorso': 'Last month',
+    'ultimi-90': 'Last 90 days',
+    trimestre: 'This quarter',
+    anno: 'This year',
+  },
+}
+
+export function presetPeriodi(oggi: string = oggiRoma(), lingua: Lingua = 'it'): PresetPeriodo[] {
+  const e = ETICHETTE_PRESET[lingua]
   const questoMese = primoDelMeseISO(oggi)
   const meseScorso = aggiungiMesi(questoMese, -1)
   const anno = oggi.slice(0, 4)
@@ -235,11 +273,11 @@ export function presetPeriodi(oggi: string = oggiRoma()): PresetPeriodo[] {
 
   return [
     // "Oggi" first: the daily tracking is looked at day by day (Dany, 28/09/2026)
-    { chiave: 'oggi', etichetta: 'Oggi', da: oggi, a: oggi },
-    { chiave: 'questo-mese', etichetta: 'Questo mese', da: questoMese, a: fineMese(questoMese) },
-    { chiave: 'mese-scorso', etichetta: 'Mese scorso', da: meseScorso, a: fineMese(meseScorso) },
-    { chiave: 'ultimi-90', etichetta: 'Ultimi 90 giorni', da: aggiungiGiorni(oggi, -89), a: oggi },
-    { chiave: 'trimestre', etichetta: 'Trimestre in corso', da: trimestre, a: fineMese(aggiungiMesi(trimestre, 2)) },
-    { chiave: 'anno', etichetta: 'Anno in corso', da: `${anno}-01-01`, a: `${anno}-12-31` },
+    { chiave: 'oggi', etichetta: e.oggi, da: oggi, a: oggi },
+    { chiave: 'questo-mese', etichetta: e['questo-mese'], da: questoMese, a: fineMese(questoMese) },
+    { chiave: 'mese-scorso', etichetta: e['mese-scorso'], da: meseScorso, a: fineMese(meseScorso) },
+    { chiave: 'ultimi-90', etichetta: e['ultimi-90'], da: aggiungiGiorni(oggi, -89), a: oggi },
+    { chiave: 'trimestre', etichetta: e.trimestre, da: trimestre, a: fineMese(aggiungiMesi(trimestre, 2)) },
+    { chiave: 'anno', etichetta: e.anno, da: `${anno}-01-01`, a: `${anno}-12-31` },
   ]
 }

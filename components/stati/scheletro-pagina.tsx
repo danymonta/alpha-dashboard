@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { CaricamentoSr } from '@/components/stati/caricamento-sr'
 
 /** Loading state: the shape of the page, never a full-screen spinner. */
 export function ScheletroPagina({ righe = 4 }: { righe?: number }) {
@@ -18,7 +19,7 @@ export function ScheletroPagina({ righe = 4 }: { righe?: number }) {
           <Skeleton key={i} className="h-12 rounded-lg" />
         ))}
       </div>
-      <span className="sr-only">Caricamento in corso</span>
+      <CaricamentoSr />
     </div>
   )
 }

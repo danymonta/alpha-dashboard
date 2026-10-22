@@ -1,8 +1,9 @@
 import { formatOra, oggiRoma } from '@/lib/date'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
 
 /** "19/10/2026 18:42", Europe/Rome, from a timestamptz. */
-export function quandoNotifica(istante: string): string {
+export function quandoNotifica(istante: string, lingua: Lingua = 'it'): string {
   const d = new Date(istante)
-  return `${formatData(oggiRoma(d))} ${formatOra(d)}`
+  return `${formato(lingua).formatData(oggiRoma(d))} ${formatOra(d)}`
 }

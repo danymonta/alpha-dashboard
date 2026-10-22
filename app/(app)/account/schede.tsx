@@ -3,13 +3,11 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ACCOUNT } from '@/lib/i18n/testi/account'
 
-const SCHEDE = [
-  { valore: 'profilo', etichetta: 'Profilo' },
-  { valore: 'alfire', etichetta: 'Alfire' },
-  { valore: 'account', etichetta: 'Account' },
-] as const
+const SCHEDE = [{ valore: 'profilo' }, { valore: 'alfire' }, { valore: 'account' }] as const
 
 type Scheda = (typeof SCHEDE)[number]['valore']
 
@@ -17,6 +15,7 @@ type Scheda = (typeof SCHEDE)[number]['valore']
 export function SchedeAccount(contenuti: Record<Scheda, ReactNode>) {
   const router = useRouter()
   const params = useSearchParams()
+  const etichette = useTesti(ACCOUNT).schede
   const richiesta = params.get('scheda')
   const attiva: Scheda = SCHEDE.some((s) => s.valore === richiesta) ? (richiesta as Scheda) : 'profilo'
 
@@ -29,7 +28,7 @@ export function SchedeAccount(contenuti: Record<Scheda, ReactNode>) {
       <TabsList variant="line" className="w-full group-data-horizontal/tabs:h-11 md:w-fit">
         {SCHEDE.map((s) => (
           <TabsTrigger key={s.valore} value={s.valore} className="min-h-10 px-4">
-            {s.etichetta}
+            {etichette[s.valore]}
           </TabsTrigger>
         ))}
       </TabsList>

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useId, useRef } from 'react'
 
 import { esci } from '@/app/auth/actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { FotoProfilo } from '@/components/profilo/foto-profilo'
 import { ConteggioPromemoria } from '@/components/shell/conteggio-esiti'
@@ -13,8 +14,9 @@ import { useSidebar } from '@/components/shell/contenitore-shell'
 import { LinkNav } from '@/components/shell/link-nav'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ETICHETTA_RUOLO, type AppRole } from '@/lib/auth/roles'
-import { isAttiva, nomeConPromemoria, promemoriaDellaVoce, vociNav } from '@/lib/nav'
+import type { AppRole } from '@/lib/auth/roles'
+import { SHELL } from '@/lib/i18n/testi/shell'
+import { etichettaVoce, isAttiva, nomeConPromemoria, promemoriaDellaVoce, titoloGruppo, vociNav } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -30,6 +32,8 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
   // the person's own calls to record and days to decide (zero where the role has none)
   const promemoria = usePromemoria()
   const { gruppi } = vociNav(ruolo)
+  const lingua = useLingua()
+  const t = SHELL[lingua]
   const idBase = useId()
   // sixteen items do not fit a laptop screen: the list scrolls, and the lit item must never be out of sight
   const elenco = useRef<HTMLElement>(null)
@@ -43,7 +47,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
       type="button"
       onClick={inverti}
       aria-expanded={!ridotta}
-      aria-label={ridotta ? 'Espandi la barra laterale' : 'Riduci la barra laterale'}
+      aria-label={ridotta ? t.espandiBarra : t.riduciBarra}
       data-testid="sidebar-toggle"
       className={cn(
         'flex min-h-11 w-full items-center rounded-lg text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
@@ -54,7 +58,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
         className={cn('size-4 shrink-0 transition-transform duration-150', ridotta && 'rotate-180')}
         aria-hidden="true"
       />
-      {ridotta ? null : 'Riduci'}
+      {ridotta ? null : t.riduci}
     </button>
   )
 
@@ -73,7 +77,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
 
       <nav
         ref={elenco}
-        aria-label="Navigazione principale"
+        aria-label={t.navigazionePrincipale}
         className="flex-1 space-y-4 overflow-y-auto px-2 pt-2"
       >
         {gruppi.map(({ titolo, voci }, i) => {
@@ -94,19 +98,20 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
                     ridotta ? 'sr-only' : 'px-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase',
                   )}
                 >
-                  {titolo}
+                  {titoloGruppo(titolo, lingua)}
                 </p>
               ) : null}
               <ul className="space-y-0.5">
                 {voci.map((voce) => {
                   const attiva = isAttiva(pathname, voce)
                   const suoi = promemoriaDellaVoce(voce, promemoria)
+                  const etichetta = etichettaVoce(voce, lingua)
                   const link = (
                     <LinkNav
                       href={voce.href}
                       data-tour={`nav-${voce.href}`}
                       aria-current={attiva ? 'page' : undefined}
-                      aria-label={nomeConPromemoria(voce.etichetta, suoi)}
+                      aria-label={nomeConPromemoria(etichetta, suoi, lingua)}
                       className={cn(
                         'relative flex min-h-11 items-center rounded-lg text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                         ridotta ? 'justify-center' : 'gap-3 px-3',
@@ -116,7 +121,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
                       )}
                     >
                       <voce.Icona className={cn('shrink-0', ridotta ? 'size-5' : 'size-4')} aria-hidden="true" />
-                      {ridotta ? <span className="sr-only">{voce.etichetta}</span> : voce.etichetta}
+                      {ridotta ? <span className="sr-only">{etichetta}</span> : etichetta}
                       <ConteggioPromemoria
                         promemoria={suoi}
                         attiva={attiva}
@@ -129,7 +134,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
                       {ridotta ? (
                         <Tooltip>
                           <TooltipTrigger render={link} />
-                          <TooltipContent side="right">{voce.etichetta}</TooltipContent>
+                          <TooltipContent side="right">{etichetta}</TooltipContent>
                         </Tooltip>
                       ) : (
                         link
@@ -147,7 +152,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
         {ridotta ? (
           <Tooltip>
             <TooltipTrigger render={bottoneRiduci} />
-            <TooltipContent side="right">Espandi la barra laterale</TooltipContent>
+            <TooltipContent side="right">{t.espandiBarra}</TooltipContent>
           </Tooltip>
         ) : (
           bottoneRiduci
@@ -157,7 +162,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
             href="/account"
             data-tour="profilo"
             aria-current={pathname.startsWith('/account') ? 'page' : undefined}
-            aria-label={`Il tuo profilo: ${nome}`}
+            aria-label={t.profilo(nome)}
             className={cn(
               'flex min-h-11 items-center rounded-lg hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:bg-accent',
               ridotta ? 'size-11 justify-center' : 'min-w-0 flex-1 gap-3 px-2 py-1.5',
@@ -167,7 +172,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
             {ridotta ? null : (
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{nome}</span>
-                <span className="block text-xs text-muted-foreground">{ETICHETTA_RUOLO[ruolo]}</span>
+                <span className="block text-xs text-muted-foreground">{t.ruoli[ruolo]}</span>
               </span>
             )}
           </LinkNav>
@@ -177,7 +182,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
               variant="ghost"
               size="icon"
               className="size-11 text-muted-foreground"
-              aria-label="Esci"
+              aria-label={t.esci}
             >
               <LogOut className="size-4" aria-hidden="true" />
             </Button>

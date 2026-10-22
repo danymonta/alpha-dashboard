@@ -6,9 +6,12 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { leggeComeAdmin, percorsoIniziale, TUTTI_I_RUOLI } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { NOME_APP } from '@/lib/brand/nome'
-import { ETICHETTA_PUBBLICO, VERSIONE_CORRENTE, type Pubblico } from '@/lib/changelog/versioni'
+import { VERSIONE_CORRENTE, type Pubblico } from '@/lib/changelog/versioni'
 import { versioniPer, type VersioneVisibile, type VoceVisibile } from '@/lib/changelog/visibili'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { getLingua } from '@/lib/i18n/server'
+import { NOVITA } from '@/lib/i18n/testi/novita'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +22,9 @@ export const dynamic = 'force-dynamic'
  */
 export default async function NovitaPage() {
   const { ruolo } = await requireRuolo(TUTTI_I_RUOLI)
+  const lingua = await getLingua()
+  const t = NOVITA[lingua]
+  const { formatData } = formato(lingua)
   // the business coach reads every item like the admin (22/10/2026)
   const admin = leggeComeAdmin(ruolo)
   const corrente = VERSIONE_CORRENTE
@@ -29,18 +35,16 @@ export default async function NovitaPage() {
   return (
     <div className="max-w-3xl space-y-5">
       <IntestazionePagina
-        titolo="Novità"
-        descrizione={
-          admin
-            ? `Il changelog di ${NOME_APP}, dalla più recente: ogni voce dice per chi è, e il team legge solo le voci del suo lavoro. Le 0.x sono le tappe prima della produzione.`
-            : `Cosa cambia nel tuo lavoro a ogni versione di ${NOME_APP}, dalla più recente. Le 0.x sono le tappe prima della produzione.`
-        }
+        titolo={t.titolo}
+        descrizione={admin ? t.descrizioneAdmin(NOME_APP) : t.descrizioneTeam(NOME_APP)}
       />
+      {/* the changelog is Dany's text, in Italian: an English reader is told so */}
+      {lingua === 'en' ? <p className="text-sm text-muted-foreground">{t.inItaliano}</p> : null}
 
       {corrente ? (
         <section aria-labelledby="versione-in-uso" className="rounded-xl bg-card p-4" data-testid="versione-corrente">
           <h2 id="versione-in-uso" className="text-sm text-muted-foreground">
-            Versione in uso
+            {t.inUso}
           </h2>
           {/* the one gold element of the screen */}
           <p className="num mt-1 text-4xl font-semibold tracking-tight text-gold">v{corrente.versione}</p>
@@ -54,16 +58,16 @@ export default async function NovitaPage() {
       {versioni.length === 0 ? (
         <StatoVuoto
           Icona={Megaphone}
-          titolo="Ancora nessuna novità per te"
-          descrizione="Le novità del tuo lavoro compaiono qui a ogni aggiornamento dell’app."
-          azione={<LinkBottone href={percorsoIniziale(ruolo)}>Torna al lavoro</LinkBottone>}
+          titolo={t.vuotoTitolo}
+          descrizione={t.vuotoDescrizione}
+          azione={<LinkBottone href={percorsoIniziale(ruolo)}>{t.tornaAlLavoro}</LinkBottone>}
         />
       ) : (
-        <ol className="space-y-3" aria-label="Versioni, dalla più recente">
+        <ol className="space-y-3" aria-label={t.versioni} lang={lingua === 'en' ? 'it' : undefined}>
           {versioni.map((v) => (
             <li key={v.versione}>
               {/* the latest day reads in full; older versions open with a tap, so the page stays short on a phone */}
-              <SchedaVersione versione={v} aperta={v.data === corrente?.data} />
+              <SchedaVersione versione={v} aperta={v.data === corrente?.data} lingua={lingua} />
             </li>
           ))}
         </ol>
@@ -77,18 +81,21 @@ function idTitolo(v: VersioneVisibile): string {
 }
 
 /** "7 novità · 2 correzioni": what a closed card holds. */
-function conteggio(v: VersioneVisibile): string {
+function conteggio(v: VersioneVisibile, lingua: Lingua): string {
+  const t = NOVITA[lingua]
   const correzioni = v.correzioni.length
   return [
-    v.novita.length > 0 ? `${v.novita.length} novità` : null,
-    correzioni > 0 ? `${correzioni} ${correzioni === 1 ? 'correzione' : 'correzioni'}` : null,
+    v.novita.length > 0 ? t.nNovita(v.novita.length) : null,
+    correzioni > 0 ? t.nCorrezioni(correzioni) : null,
   ]
     .filter(Boolean)
     .join(' · ')
 }
 
 /** Version, date, title and summary: spans and one heading, valid inside <summary> too. */
-function Testata({ v }: { v: VersioneVisibile }) {
+function Testata({ v, lingua }: { v: VersioneVisibile; lingua: Lingua }) {
+  const t = NOVITA[lingua]
+  const { formatData } = formato(lingua)
   return (
     <>
       <span className="num block text-sm text-muted-foreground">
@@ -96,30 +103,31 @@ function Testata({ v }: { v: VersioneVisibile }) {
       </span>
       <h2 id={idTitolo(v)} className="text-base font-semibold">
         {/* a heading about what this role does not read: a neutral one, never the admin's */}
-        {v.intestazione?.titolo ?? (v.novita.length > 0 ? 'Novità per te' : 'Correzioni per te')}
+        {v.intestazione?.titolo ?? (v.novita.length > 0 ? t.novitaPerTe : t.correzioniPerTe)}
       </h2>
       {v.intestazione ? <span className="block text-sm text-muted-foreground">{v.intestazione.riassunto}</span> : null}
     </>
   )
 }
 
-function Corpo({ v }: { v: VersioneVisibile }) {
+function Corpo({ v, lingua }: { v: VersioneVisibile; lingua: Lingua }) {
+  const t = NOVITA[lingua]
   return (
     <>
-      <Elenco titolo="Novità" voci={v.novita} />
-      <Elenco titolo="Correzioni" voci={v.correzioni} />
+      <Elenco titolo={t.novita} voci={v.novita} lingua={lingua} />
+      <Elenco titolo={t.correzioni} voci={v.correzioni} lingua={lingua} />
     </>
   )
 }
 
-function SchedaVersione({ versione: v, aperta }: { versione: VersioneVisibile; aperta: boolean }) {
+function SchedaVersione({ versione: v, aperta, lingua }: { versione: VersioneVisibile; aperta: boolean; lingua: Lingua }) {
   if (aperta) {
     return (
       <article aria-labelledby={idTitolo(v)} className="space-y-3 rounded-xl bg-card p-4" data-testid="versione">
         <header className="space-y-1">
-          <Testata v={v} />
+          <Testata v={v} lingua={lingua} />
         </header>
-        <Corpo v={v} />
+        <Corpo v={v} lingua={lingua} />
       </article>
     )
   }
@@ -128,18 +136,18 @@ function SchedaVersione({ versione: v, aperta }: { versione: VersioneVisibile; a
     <details className="group rounded-xl bg-card" data-testid="versione">
       {/* heading and spans as direct children: the only content <summary> allows */}
       <summary className="relative block min-h-11 cursor-pointer list-none space-y-1 rounded-xl p-4 pr-11 hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
-        <Testata v={v} />
-        <span className="block text-xs text-muted-foreground group-open:hidden">{conteggio(v)}</span>
+        <Testata v={v} lingua={lingua} />
+        <span className="block text-xs text-muted-foreground group-open:hidden">{conteggio(v, lingua)}</span>
         <ChevronDown className="absolute top-4 right-4 size-4 text-muted-foreground group-open:rotate-180" aria-hidden="true" />
       </summary>
       <div className="space-y-3 px-4 pb-4">
-        <Corpo v={v} />
+        <Corpo v={v} lingua={lingua} />
       </div>
     </details>
   )
 }
 
-function Elenco({ titolo, voci }: { titolo: string; voci: VoceVisibile[] }) {
+function Elenco({ titolo, voci, lingua }: { titolo: string; voci: VoceVisibile[]; lingua: Lingua }) {
   if (voci.length === 0) return null
   return (
     <section className="space-y-1.5">
@@ -148,7 +156,7 @@ function Elenco({ titolo, voci }: { titolo: string; voci: VoceVisibile[] }) {
         {voci.map((voce) => (
           <li key={voce.testo} data-testid="changelog-voce">
             {voce.testo}
-            {voce.per ? <PerChi per={voce.per} /> : null}
+            {voce.per ? <PerChi per={voce.per} lingua={lingua} /> : null}
           </li>
         ))}
       </ul>
@@ -157,13 +165,14 @@ function Elenco({ titolo, voci }: { titolo: string; voci: VoceVisibile[] }) {
 }
 
 /** Admin only: who else reads the item, as small tags after its text. */
-function PerChi({ per }: { per: readonly Pubblico[] }) {
+function PerChi({ per, lingua }: { per: readonly Pubblico[]; lingua: Lingua }) {
+  const t = NOVITA[lingua]
   return (
     <span className="ml-1.5 inline-flex flex-wrap gap-1 align-[1px]">
-      <span className="sr-only">Per:</span>
+      <span className="sr-only">{t.per}</span>
       {per.map((p) => (
         <span key={p} className="rounded-md border border-border px-1.5 text-xs whitespace-nowrap text-muted-foreground">
-          {ETICHETTA_PUBBLICO[p]}
+          {t.pubblico[p]}
         </span>
       ))}
     </span>

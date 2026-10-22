@@ -3,6 +3,7 @@
 import { Bell } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { LinkNav } from '@/components/shell/link-nav'
 import { nomeNotifiche, useNotificheNonLette } from '@/components/shell/notifiche-provider'
 import { cn } from '@/lib/utils'
@@ -16,13 +17,14 @@ import { cn } from '@/lib/utils'
  */
 export function Campanella() {
   const numero = useNotificheNonLette()
+  const lingua = useLingua()
   const pathname = usePathname()
   const attiva = pathname === '/notifiche' || pathname.startsWith('/notifiche/')
   return (
     <LinkNav
       href="/notifiche"
       data-testid="campanella"
-      aria-label={nomeNotifiche(numero)}
+      aria-label={nomeNotifiche(numero, lingua)}
       aria-current={attiva ? 'page' : undefined}
       className={cn(
         'relative flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',

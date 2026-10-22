@@ -4,8 +4,10 @@ import { useSyncExternalStore } from 'react'
 
 import { CHIAVE_LEGGI, useAlfire } from '@/components/alfire/alfire'
 import { Fiamma } from '@/components/alfire/fiamma'
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { ACCOUNT } from '@/lib/i18n/testi/account'
 
 // a per-browser convenience, not data: localStorage, with a listener so the switch follows
 const ascoltatori = new Set<() => void>()
@@ -41,45 +43,44 @@ export function PreferenzeAlfire({
 }) {
   const { apri } = useAlfire()
   const leggiRisposte = useSyncExternalStore(iscrivi, leggi, () => false)
+  const t = useTesti(ACCOUNT).alfire
 
   return (
     <div className="space-y-6">
       <section className="flex flex-wrap items-center gap-4 rounded-xl bg-card p-4">
         <Fiamma className="size-10" accesa />
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="font-medium">Alfire {configurata ? 'è attiva' : 'non è ancora attiva'}</p>
+          <p className="font-medium">{t.attiva(configurata)}</p>
           <p className="text-sm text-muted-foreground">
-            Risponde sui numeri che il tuo ruolo può vedere e registra solo dopo la tua conferma.
+            {t.cosaFa}
           </p>
         </div>
         <Button type="button" className="h-11" onClick={apri}>
-          Apri la chat
+          {t.apri}
         </Button>
       </section>
 
       <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-xl bg-card p-4">
         <span className="space-y-0.5">
-          <span className="block text-sm font-medium">Leggi le risposte ad alta voce</span>
-          <span className="block text-sm text-muted-foreground">Utile quando le parli col vocale. Vale solo su questo dispositivo.</span>
+          <span className="block text-sm font-medium">{t.leggi}</span>
+          <span className="block text-sm text-muted-foreground">{t.leggiNota}</span>
         </span>
-        <Switch checked={leggiRisposte} onCheckedChange={(v) => scrivi(v)} aria-label="Leggi le risposte ad alta voce" />
+        <Switch checked={leggiRisposte} onCheckedChange={(v) => scrivi(v)} aria-label={t.leggi} />
       </label>
 
       <section className="space-y-1.5 text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">Dove vanno i dati</p>
+        <p className="font-medium text-foreground">{t.dati}</p>
         <p>
-          Alfire usa il modello open source <span className="text-foreground">{modello}</span> su Groq, con server negli Stati
-          Uniti. Le tue domande, i dati che Alfire legge per risponderti e i vocali passano da lì; nella dashboard non resta
-          nessuna registrazione audio e la chat si cancella quando chiudi l’app.
+          {t.datiPrima} <span className="text-foreground">{modello}</span> {t.datiDopo}
         </p>
         <p data-testid="privacy-allegati">
-          Anche i file che alleghi (PDF, foto, Word, Excel, CSV) vanno a Groq per essere letti
+          {t.allegati}
           {modelloVisione ? (
             <>
-              ; foto e scansioni le legge il modello open source <span className="text-foreground">{modelloVisione}</span>
+              {t.allegatiVisione} <span className="text-foreground">{modelloVisione}</span>
             </>
           ) : null}
-          . Non vengono salvati da nessuna parte: vivono solo nella chat aperta e spariscono con lei.
+          {t.allegatiDopo}
         </p>
       </section>
     </div>

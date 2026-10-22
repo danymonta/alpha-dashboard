@@ -1,40 +1,14 @@
 /**
  * Presentation only. Every amount and every metric is computed in SQL:
  * TypeScript just formats what the database already decided.
+ *
+ * The one place where numbers and dates take a language (1.53.0): formato(lingua)
+ * gives the same functions in Italian («1.250,00 €», «22/10/2026», «ottobre 2026»)
+ * or in English («€1,250.00», «22 Oct 2026», «October 2026»). The plain exports
+ * below are the Italian ones, unchanged: the base language of the app.
  */
 
-const euro = new Intl.NumberFormat('it-IT', {
-  style: 'currency',
-  currency: 'EUR',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-  // it-IT would print "4500,00 €": in a column of amounts the dot must always be there
-  useGrouping: 'always',
-})
-
-const euroCompatto = new Intl.NumberFormat('it-IT', {
-  style: 'currency',
-  currency: 'EUR',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-  useGrouping: 'always',
-})
-
-const numero = new Intl.NumberFormat('it-IT', { useGrouping: 'always' })
-
-const percentuale = new Intl.NumberFormat('it-IT', {
-  style: 'percent',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 1,
-})
-
-const percentualeUnDecimale = new Intl.NumberFormat('it-IT', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-})
-
-const mese = new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' })
+import { LOCALE, type Lingua } from '@/lib/i18n/lingua'
 
 /** Placeholder for "no value": never NaN, never Infinity, never 0 by accident. */
 export const VUOTO = '–'
@@ -43,30 +17,6 @@ function toNumber(value: number | string | null | undefined): number | null {
   if (value === null || value === undefined || value === '') return null
   const n = typeof value === 'string' ? Number(value) : value
   return Number.isFinite(n) ? n : null
-}
-
-export function formatEuro(
-  value: number | string | null | undefined,
-  { compatto = false }: { compatto?: boolean } = {},
-): string {
-  const n = toNumber(value)
-  if (n === null) return VUOTO
-  return compatto ? euroCompatto.format(n) : euro.format(n)
-}
-
-export function formatNumero(value: number | string | null | undefined): string {
-  const n = toNumber(value)
-  return n === null ? VUOTO : numero.format(n)
-}
-
-/** Takes a ratio (0.42), prints "42%". */
-export function formatPercentuale(
-  value: number | string | null | undefined,
-  /** a column of shares: always one decimal, so "13,0%" sits under "40,3%" */
-  { unDecimale = false }: { unDecimale?: boolean } = {},
-): string {
-  const n = toNumber(value)
-  return n === null ? VUOTO : (unDecimale ? percentualeUnDecimale : percentuale).format(n)
 }
 
 /** Ratio with a guarded denominator: returns null instead of NaN/Infinity. */
@@ -80,36 +30,11 @@ export function rapporto(
   return a / b
 }
 
-/** Signed delta against the previous period, e.g. "+12,5%". */
-export function formatDelta(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return VUOTO
-  const segno = value > 0 ? '+' : ''
-  return `${segno}${percentuale.format(value)}`
-}
-
 /** 'YYYY-MM-DD' from Postgres, parsed as a local date (no timezone drift). */
 export function parseDataISO(value: string | Date): Date {
   if (value instanceof Date) return value
   const [anno, mese_, giorno] = value.slice(0, 10).split('-').map(Number)
   return new Date(anno, mese_ - 1, giorno)
-}
-
-/** dd/MM/yyyy */
-export function formatData(value: string | Date | null | undefined): string {
-  if (!value) return VUOTO
-  const d = parseDataISO(value)
-  if (Number.isNaN(d.getTime())) return VUOTO
-  const gg = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  return `${gg}/${mm}/${d.getFullYear()}`
-}
-
-/** "settembre 2026" */
-export function formatMese(value: string | Date | null | undefined): string {
-  if (!value) return VUOTO
-  const d = parseDataISO(value)
-  if (Number.isNaN(d.getTime())) return VUOTO
-  return mese.format(d)
 }
 
 /** First day of the month, as the 'YYYY-MM-DD' the database expects. */
@@ -118,44 +43,177 @@ export function primoDelMese(value: string | Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
 
-const importoInput = new Intl.NumberFormat('it-IT', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-  useGrouping: 'always',
-})
+/**
+ * The English names, written out: the ICU of the server and of the browser do not
+ * always agree ("Sept" or "Sep"), and a page rendered on one and hydrated on the
+ * other must print the same letters.
+ */
+export const MESI_EN = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const
+export const MESI_BREVI_EN = MESI_EN.map((m) => m.slice(0, 3))
+export const GIORNI_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const
+export const GIORNI_BREVI_EN = GIORNI_EN.map((g) => g.slice(0, 3))
 
-/** "1.500,00": the way an amount is shown inside an editable field. */
-export function formatImportoInput(value: number | string | null | undefined): string {
-  const n = toNumber(value)
-  return n === null ? '' : importoInput.format(n)
+export type Formato = {
+  lingua: Lingua
+  formatEuro: (value: number | string | null | undefined, opzioni?: { compatto?: boolean }) => string
+  formatNumero: (value: number | string | null | undefined) => string
+  /** Takes a ratio (0.42), prints "42%". */
+  formatPercentuale: (value: number | string | null | undefined, opzioni?: { unDecimale?: boolean }) => string
+  /** Signed delta against the previous period, e.g. "+12,5%". */
+  formatDelta: (value: number | null | undefined) => string
+  /** dd/MM/yyyy in Italian, "22 Oct 2026" in English. */
+  formatData: (value: string | Date | null | undefined) => string
+  /** "settembre 2026", "September 2026" */
+  formatMese: (value: string | Date | null | undefined) => string
+  /** "set" for chart ticks; January also carries the year ("gen 27", "Jan 27"). */
+  formatMeseBreve: (value: string) => string
+  /** Axis ticks: "0 €", "800 €", "1,5k €" ("€0", "€800", "€1.5k"). */
+  formatEuroAsse: (value: number) => string
+  /** "agosto", "August" (no year). */
+  formatNomeMese: (value: string) => string
+  /** Ratios like "DM per call": 12,5 (12.5). */
+  formatRapporto: (value: number | string | null | undefined) => string
+  /** "1.500,00": the way an amount is shown inside an editable field (always Italian: the forms read it so). */
+  formatImportoInput: (value: number | string | null | undefined) => string
 }
 
-const meseBreve = new Intl.DateTimeFormat('it-IT', { month: 'short' })
+function crea(lingua: Lingua): Formato {
+  const locale = LOCALE[lingua]
+  const euro = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    // it-IT would print "4500,00 €": in a column of amounts the dot must always be there
+    useGrouping: 'always',
+  })
+  const euroCompatto = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+    useGrouping: 'always',
+  })
+  const numero = new Intl.NumberFormat(locale, { useGrouping: 'always' })
+  const percentuale = new Intl.NumberFormat(locale, {
+    style: 'percent',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  })
+  const percentualeUnDecimale = new Intl.NumberFormat(locale, {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })
+  const unDecimale = new Intl.NumberFormat(locale, { maximumFractionDigits: 1, useGrouping: 'always' })
+  const migliaia = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 })
+  const importoInput = new Intl.NumberFormat('it-IT', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: 'always',
+  })
+  const meseIt = new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' })
+  const meseBreveIt = new Intl.DateTimeFormat('it-IT', { month: 'short' })
+  const nomeMeseIt = new Intl.DateTimeFormat('it-IT', { month: 'long' })
+  const inglese = lingua === 'en'
 
-/** "set" for chart ticks; January also carries the year ("gen 27"). */
-export function formatMeseBreve(value: string): string {
-  const d = parseDataISO(value)
-  const m = meseBreve.format(d).replace('.', '')
-  return d.getMonth() === 0 ? `${m} ${String(d.getFullYear()).slice(2)}` : m
+  const data = (value: string | Date | null | undefined): Date | null => {
+    if (!value) return null
+    const d = parseDataISO(value)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+
+  return {
+    lingua,
+    formatEuro(value, { compatto = false } = {}) {
+      const n = toNumber(value)
+      if (n === null) return VUOTO
+      return compatto ? euroCompatto.format(n) : euro.format(n)
+    },
+    formatNumero(value) {
+      const n = toNumber(value)
+      return n === null ? VUOTO : numero.format(n)
+    },
+    formatPercentuale(value, { unDecimale: uno = false } = {}) {
+      const n = toNumber(value)
+      return n === null ? VUOTO : (uno ? percentualeUnDecimale : percentuale).format(n)
+    },
+    formatDelta(value) {
+      if (value === null || value === undefined || !Number.isFinite(value)) return VUOTO
+      const segno = value > 0 ? '+' : ''
+      return `${segno}${percentuale.format(value)}`
+    },
+    formatData(value) {
+      const d = data(value)
+      if (!d) return VUOTO
+      const gg = String(d.getDate()).padStart(2, '0')
+      if (inglese) return `${gg} ${MESI_BREVI_EN[d.getMonth()]} ${d.getFullYear()}`
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      return `${gg}/${mm}/${d.getFullYear()}`
+    },
+    formatMese(value) {
+      const d = data(value)
+      if (!d) return VUOTO
+      return inglese ? `${MESI_EN[d.getMonth()]} ${d.getFullYear()}` : meseIt.format(d)
+    },
+    formatMeseBreve(value) {
+      const d = parseDataISO(value)
+      const m = inglese ? MESI_BREVI_EN[d.getMonth()] : meseBreveIt.format(d).replace('.', '')
+      return d.getMonth() === 0 ? `${m} ${String(d.getFullYear()).slice(2)}` : m
+    },
+    formatEuroAsse(value) {
+      if (inglese) {
+        if (Math.abs(value) < 1000) return `€${numero.format(Math.round(value))}`
+        return `€${migliaia.format(value / 1000)}k`
+      }
+      if (Math.abs(value) < 1000) return `${numero.format(Math.round(value))} €`
+      return `${migliaia.format(value / 1000)}k €`
+    },
+    formatNomeMese(value) {
+      const d = parseDataISO(value)
+      return inglese ? MESI_EN[d.getMonth()] : nomeMeseIt.format(d)
+    },
+    formatRapporto(value) {
+      const n = toNumber(value)
+      return n === null ? VUOTO : unDecimale.format(n)
+    },
+    formatImportoInput(value) {
+      const n = toNumber(value)
+      return n === null ? '' : importoInput.format(n)
+    },
+  }
 }
 
-/** Axis ticks: "0 €", "800 €", "1,5k €". Display scaling only. */
-export function formatEuroAsse(value: number): string {
-  if (Math.abs(value) < 1000) return `${numero.format(Math.round(value))} €`
-  return `${new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1 }).format(value / 1000)}k €`
+const FORMATI: Record<Lingua, Formato> = { it: crea('it'), en: crea('en') }
+
+/** The formatting of a language: destructure it where the page knows its language. */
+export function formato(lingua: Lingua): Formato {
+  return FORMATI[lingua]
 }
 
-const nomeMese = new Intl.DateTimeFormat('it-IT', { month: 'long' })
-
-/** "agosto" (no year): for "vs agosto" under a KPI. */
-export function formatNomeMese(value: string): string {
-  return nomeMese.format(parseDataISO(value))
-}
-
-const unDecimale = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1, useGrouping: 'always' })
-
-/** Ratios like "DM per call": 12,5. */
-export function formatRapporto(value: number | string | null | undefined): string {
-  const n = toNumber(value)
-  return n === null ? VUOTO : unDecimale.format(n)
-}
+// The Italian ones, as the app always had them.
+const IT = FORMATI.it
+export const formatEuro = IT.formatEuro
+export const formatNumero = IT.formatNumero
+export const formatPercentuale = IT.formatPercentuale
+export const formatDelta = IT.formatDelta
+export const formatData = IT.formatData
+export const formatMese = IT.formatMese
+export const formatMeseBreve = IT.formatMeseBreve
+export const formatEuroAsse = IT.formatEuroAsse
+export const formatNomeMese = IT.formatNomeMese
+export const formatRapporto = IT.formatRapporto
+export const formatImportoInput = IT.formatImportoInput

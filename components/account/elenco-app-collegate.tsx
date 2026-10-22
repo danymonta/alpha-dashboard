@@ -6,6 +6,7 @@ import { useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { scollegaApp } from '@/app/(app)/account/actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { StatoErrore } from '@/components/stati/stato-errore'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { APP_COLLEGATE } from '@/lib/mcp/consenso'
+import { ACCOUNT } from '@/lib/i18n/testi/account'
 
 export type AppCollegata = {
   clientId: string
@@ -30,6 +31,7 @@ export type AppCollegata = {
  * section's heading, where the focus goes when a disconnected row leaves.
  */
 export function ElencoAppCollegate({ app, idTitolo }: { app: AppCollegata[]; idTitolo: string }) {
+  const APP_COLLEGATE = ACCOUNT[useLingua()].app
   if (app.length === 0) {
     return (
       <p className="flex items-center gap-2 rounded-xl border border-dashed border-border px-4 py-4 text-sm text-muted-foreground">
@@ -53,6 +55,7 @@ function RigaApp({ app, idTitolo }: { app: AppCollegata; idTitolo: string }) {
   const scollegata = useRef(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
+  const APP_COLLEGATE = ACCOUNT[useLingua()].app
 
   function conferma() {
     setErrore(null)
@@ -61,14 +64,14 @@ function RigaApp({ app, idTitolo }: { app: AppCollegata; idTitolo: string }) {
       try {
         esito = await scollegaApp({ clientId: app.clientId })
       } catch {
-        setErrore('Connessione assente. Riprova.')
+        setErrore(APP_COLLEGATE.connessione)
         return
       }
       if (!esito.ok) {
         setErrore(esito.errore)
         return
       }
-      toast.success(`${app.nome} scollegato`)
+      toast.success(APP_COLLEGATE.scollegata(app.nome))
       scollegata.current = true
       setAperto(false)
       router.refresh()
@@ -79,7 +82,7 @@ function RigaApp({ app, idTitolo }: { app: AppCollegata; idTitolo: string }) {
     <li className="flex items-center justify-between gap-3 px-4 py-2">
       <div className="min-w-0 py-1.5">
         <p className="truncate text-sm font-medium">{app.nome}</p>
-        <p className="text-xs text-muted-foreground tabular-nums">collegata il {app.collegataIl}</p>
+        <p className="text-xs text-muted-foreground tabular-nums">{APP_COLLEGATE.collegataIl(app.collegataIl)}</p>
       </div>
       <Button
         type="button"
@@ -102,7 +105,7 @@ function RigaApp({ app, idTitolo }: { app: AppCollegata; idTitolo: string }) {
           finalFocus={() => (scollegata.current ? document.getElementById(idTitolo) : true)}
         >
           <DialogHeader>
-            <DialogTitle>Scollegare {app.nome}?</DialogTitle>
+            <DialogTitle>{APP_COLLEGATE.domanda(app.nome)}</DialogTitle>
             <DialogDescription>{APP_COLLEGATE.conseguenza}</DialogDescription>
           </DialogHeader>
           {errore ? (
@@ -112,7 +115,7 @@ function RigaApp({ app, idTitolo }: { app: AppCollegata; idTitolo: string }) {
           ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={() => setAperto(false)}>
-              Annulla
+              {APP_COLLEGATE.annulla}
             </Button>
             <Button type="button" variant="destructive" className="h-11" disabled={inCorso} onClick={conferma}>
               {inCorso ? (
@@ -132,10 +135,11 @@ function RigaApp({ app, idTitolo }: { app: AppCollegata; idTitolo: string }) {
 /** A section of Profilo › Account that did not load: the sentence and «Riprova». */
 export function ErroreSezioneAccount({ titolo }: { titolo: string }) {
   const router = useRouter()
+  const t = ACCOUNT[useLingua()].app
   return (
     <StatoErrore
       titolo={titolo}
-      descrizione="Controlla la connessione e riprova fra un momento."
+      descrizione={t.erroreDescrizione}
       riprova={() => router.refresh()}
     />
   )

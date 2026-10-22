@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { CaricamentoSr } from '@/components/stati/caricamento-sr'
 
 /** The overview: four tiles and four panels; header and tabs stay from the layout. */
 export default function Loading() {
@@ -14,7 +15,7 @@ export default function Loading() {
           <Skeleton key={i} className="h-48 rounded-xl" />
         ))}
       </div>
-      <span className="sr-only">Caricamento in corso</span>
+      <CaricamentoSr />
     </div>
   )
 }
