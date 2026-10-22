@@ -45,7 +45,7 @@ export function etichettaGiornoRecap(giorno: string): string {
   return formatoGiorno.format(new Date(Date.UTC(a, m - 1, g, 12)))
 }
 
-// ---------- «Aggiorna dati» (admin) and the run ----------
+// ---------- «Aggiorna dati» (admin and, from 1.50.0, the setters) and the run ----------
 
 export const AGGIORNA = {
   bottone: 'Aggiorna dati',
@@ -58,9 +58,46 @@ export const AGGIORNA = {
   apriImpostazioni: 'Apri Chiavi e collegamenti',
   connessione: 'Connessione assente. Riprova.',
   nonAvviato: 'Aggiornamento non avviato. Riprova.',
-  /** the setter's only line during a run: never the phase, an error or a cost */
-  setterInCorso: 'Recap in aggiornamento: arriva tra pochi minuti.',
 } as const
+
+/**
+ * The setter's words of «Aggiorna dati» (1.50.0, Dany, 22/10/2026: «No, anche
+ * Loris deve poter aggiornare i dati!!!!»; CLAUDE.md sections 10 and 29):
+ * never a cost, the name of a key or of a variable, the phase of the run or
+ * the text of a technical error. The two sentences of insight_richiedi()
+ * (FRASI_RICHIESTA) pass as written, to him as to the admin.
+ */
+export const AGGIORNA_SETTER = {
+  /** his line while any run works, his or not */
+  inCorso: 'Aggiornamento avviato: il recap arriva tra pochi minuti, puoi chiudere la pagina.',
+  /** ANTHROPIC_API_KEY missing: the setter learns only that it is off */
+  nonAttivo: 'L’Insight non è attivo: avvisa Dany.',
+  /** every other failure: the address of the app, a run that failed, an error of the database */
+  nonRiuscito: 'Aggiornamento non riuscito: riprova più tardi o avvisa Dany.',
+} as const
+
+/** The sentences insight_richiedi() raises with 22023 (20261027100000_insight_aggiorna_setter.sql). */
+export const FRASI_RICHIESTA = {
+  inCorso: 'Un aggiornamento è già in corso.',
+  limite: 'Hai già aggiornato 8 volte oggi: riprova domani.',
+} as const
+
+/** 42501 of insight_richiedi(): the closer, the other roles, an account turned off while the page was open. */
+export const SOLO_AGGIORNA = 'I dati dell’Insight li aggiornano l’admin e i setter.'
+
+/**
+ * The words of a refused insight_richiedi(). The admin reads the database's
+ * sentence (22023 and 42501 are worded for people, messaggioErrore); the
+ * setter reads only the two known sentences and the role's, else the generic one.
+ */
+export function erroreRichiesta(error: { code?: string; message: string }, admin: boolean): string {
+  if (admin) {
+    return error.code === '22023' || error.code === '42501' ? error.message : AGGIORNA.nonAvviato
+  }
+  if (error.code === '22023' && (Object.values(FRASI_RICHIESTA) as string[]).includes(error.message)) return error.message
+  if (error.code === '42501') return SOLO_AGGIORNA
+  return AGGIORNA_SETTER.nonRiuscito
+}
 
 export function fasePasso(passo: 'lettura' | 'analisi' | 'unione', fatti: number | null, totali: number | null): string {
   if (passo === 'analisi') {

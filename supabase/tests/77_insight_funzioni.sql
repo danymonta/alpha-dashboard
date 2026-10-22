@@ -1,6 +1,6 @@
 -- Insight ultime 24h (1.35.0): the functions. The scheduler starts the planned
 -- run at «Pronto alle» minus the advance, in Rome time across the DST changes;
--- «Aggiorna dati» is the admin's, one run at a time and 8 a day; each step is
+-- «Aggiorna dati» is the admin's and the setters' (1.50.0), one run at a time and 8 a day; each step is
 -- taken with a lease longer than the route lives, and a dead invocation's
 -- blocks go back to work (or fail at 3 attempts); the cost is computed in SQL;
 -- the watchdog fails a stuck run and a failed run leaves no message it read;
@@ -219,11 +219,11 @@ select is(public.insight_da_avviare('2026-03-28 17:45:00+00'), date '2026-03-28'
 update public.insight_impostazioni set attivo = false, url_passo = null where id;
 
 -- ---------------------------------------------------------------------------
--- 5. insight_richiedi(): «Aggiorna dati», the admin's
+-- 5. insight_richiedi(): «Aggiorna dati», the admin's and (1.50.0) the setters'
 -- ---------------------------------------------------------------------------
 set local role authenticated;
-set local request.jwt.claims to '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
-select throws_ok($$ select public.insight_richiedi() $$, '42501', null, 'il setter non aggiorna i dati');
+set local request.jwt.claims to '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select throws_ok($$ select public.insight_richiedi() $$, '42501', null, 'il closer non aggiorna i dati');
 set local request.jwt.claims to '{"sub":"61616161-6161-4161-8161-616161616161","role":"authenticated"}';
 select throws_ok($$ select public.insight_richiedi() $$, '42501', null, 'né il marketing');
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
@@ -235,8 +235,8 @@ select is(
   (select row(e.giorno = public.oggi(), e.motivo, e.stato, e.passo, e.richiesta_da, e.inviata_il)::text
    from public.insight_esecuzioni e join valori v on v.id = e.id and v.nome = 'manuale_senza_url'),
   row(true, 'manuale', 'in_coda'::public.insight_stato_esecuzione, 'lettura'::public.insight_passo,
-      '11111111-1111-4111-8111-111111111111'::uuid, null::timestamptz)::text,
-  'l''admin chiede un aggiornamento: un''esecuzione manuale di oggi, in coda, a suo nome'
+      null::uuid, null::timestamptz)::text,
+  'l''admin chiede un aggiornamento: un''esecuzione manuale di oggi, in coda, senza il nome di chi l''ha chiesta'
 );
 reset role;
 select is(pg_temp.in_coda_net(), (select numero from valori where nome = 'coda_prima'),
@@ -1243,7 +1243,7 @@ select is(
      and (p.prosrc ~ 'http_post' or p.prosrc ~ 'insight_dispatch')
      and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))),
   array['insight_richiedi'],
-  'una sessione arriva a pg_net solo da «Aggiorna dati», che controlla prima l''admin'
+  'una sessione arriva a pg_net solo da «Aggiorna dati», che controlla prima l''admin o il setter'
 );
 select ok(
   (select bool_and(p.proconfig @> array['search_path=""'])
