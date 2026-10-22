@@ -44,11 +44,13 @@ import { UTENTI, accedi, type RuoloSeed } from './utenti'
  * role and state back.
  */
 const PREFISSO = 'E2E MCP '
+/** The seed's coach (PM manager, member of four projects). */
+const ID_COACH = '44444444-4444-4444-8444-444444444444'
 const NOME_CLIENT = 'Claude Code (E2E)'
-const FILTRO = 'Da Claude si usa solo il calendario dei contenuti.'
+const FILTRO = 'Questa parte del gestionale non è raggiungibile da Claude.'
 const FINALE = 'Didascalia scritta da Claude: tre trazioni al giorno, ogni giorno.'
 const MESSAGGIO = 'Trazioni ogni giorno: il messaggio scritto da Claude.'
-const STRUMENTI_TEAM = [
+const STRUMENTI_CALENDARIO = [
   'cambia_status',
   'crea_contenuti',
   'elenco_contenuti',
@@ -60,6 +62,33 @@ const STRUMENTI_TEAM = [
   'scrivi_sezione',
   'spunti_contenuti',
 ]
+/** Projects, tasks, notes and one's own time (22/10/2026): every role. */
+const STRUMENTI_PROGETTI = [
+  'aggiungi_nota',
+  'avvia_timer',
+  'completa_task',
+  'crea_task',
+  'elenco_progetti',
+  'ferma_timer',
+  'leggi_progetto',
+  'miei_task',
+  'mio_tempo',
+  'modifica_task',
+  'modifica_tempo',
+  'persone_del_team',
+  'registra_tempo',
+]
+/** Who manages projects (the admin, a manager). */
+const STRUMENTI_GESTIONE = [
+  'aggiungi_membro',
+  'crea_lista',
+  'crea_progetto',
+  'modifica_lista',
+  'modifica_progetto',
+  'reparti_e_modelli',
+  'scegli_coach',
+]
+const STRUMENTI_TEAM = [...STRUMENTI_CALENDARIO, ...STRUMENTI_PROGETTI].sort()
 
 test.describe.configure({ mode: 'serial' })
 
@@ -76,6 +105,10 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await impostaProfilo(ID_MARKETING, { ruolo: 'marketing', attivo: true })
   await pulisciContenuti(PREFISSO)
+  // the tasks, notes and time the project tests wrote, by their prefix
+  await dbLocale().from('pm_tempo').delete().like('nota', `${PREFISSO}%`)
+  await dbLocale().from('pm_task').delete().like('titolo', `${PREFISSO}%`)
+  await dbLocale().from('pm_note').delete().like('testo', `${PREFISSO}%`)
   if (clientId) await eliminaClientMcp(clientId)
 })
 
@@ -330,14 +363,26 @@ test('ricollegare chiede sempre un tocco: Continua dà il codice, Annulla lo neg
   await expect(page.getByText(MESSAGGI_AUTORIZZAZIONE.usata)).toBeVisible()
 })
 
-test('con il token di Claude le Data API aprono solo il calendario', async () => {
+test('con il token di Claude le Data API aprono solo il calendario e i progetti', async () => {
   // 10. the token used straight on PostgREST, as a leaked token would be
   expect(marketing, 'il primo test ha collegato Claude').not.toBeNull()
   const db = dataApiConToken(marketing!.token.access_token)
 
+  // the areas of the later phases stay closed, with the filter's words
+  for (const tabella of ['calls', 'leads', 'clients', 'sales', 'payments', 'expenses', 'setter_daily_reports'] as const) {
+    const righe = await db.from(tabella).select('id')
+    expect(righe.error?.code, tabella).toBe('42501')
+    expect(righe.error?.message, tabella).toBe(FILTRO)
+  }
+  // projects and time (22/10/2026): readable as in the app, and nothing is deleted
   const profili = await db.from('profiles').select('id')
-  expect(profili.error?.code).toBe('42501')
-  expect(profili.error?.message).toBe(FILTRO)
+  expect(profili.error).toBeNull()
+  expect(profili.data?.length ?? 0).toBeGreaterThan(0)
+  const tempo = await db.from('pm_tempo').select('profile_id')
+  expect(tempo.error).toBeNull()
+  expect(new Set((tempo.data ?? []).map((r) => r.profile_id)).size).toBeLessThanOrEqual(1)
+  const elimina = await db.from('pm_task').delete().eq('id', randomUUID())
+  expect(elimina.error?.code).toBe('42501')
 
   const contenuti = await db.from('marketing_contenuti').select('id')
   expect(contenuti.error).toBeNull()
@@ -441,7 +486,9 @@ test('l’admin elimina da Claude solo con il Name esatto', async ({ browser }) 
   const mcp = await clientMcp(base, token.access_token)
   try {
     const { tools } = await mcp.listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual([...STRUMENTI_TEAM, 'elimina_contenuto'].sort())
+    expect(tools.map((t) => t.name).sort()).toEqual(
+      [...STRUMENTI_TEAM, 'elimina_contenuto', ...STRUMENTI_GESTIONE, 'tempo_team'].sort(),
+    )
     const elimina = tools.find((t) => t.name === 'elimina_contenuto')
     expect(elimina?.annotations?.destructiveHint).toBe(true)
 
@@ -464,38 +511,102 @@ test('l’admin elimina da Claude solo con il Name esatto', async ({ browser }) 
   }
 })
 
-test('chi non può collegare Claude torna a Claude con un rifiuto, mai con un codice', async ({ browser, page }) => {
+test('il coach collega Claude: i suoi progetti, un task e il suo tempo, mai il calendario', async ({ browser }) => {
   test.setTimeout(120_000)
-  // 13. the setter: the refusal card, «Torna a Claude» → access_denied with the state
-  const setter = await persona(browser, 'setter')
-  try {
-    const callback = await catturaCallback(setter)
-    await apriConsenso(setter, nuovaAutorizzazione(clientId, baseDi(setter), 'setter'))
-    await expect(setter.getByRole('heading', { level: 1, name: CONSENSO.titoloNonAmmesso })).toBeVisible()
-    await expect(setter.getByText(CONSENSO.nonAmmesso)).toBeVisible()
-    const arrivo = callback.prossima()
-    await setter.getByRole('button', { name: CONSENSO.tornaAClaude, exact: true }).click()
-    const rifiuto = await arrivo
-    expect(rifiuto.searchParams.get('error')).toBe('access_denied')
-    expect(rifiuto.searchParams.get('state')).toBe('setter')
-    expect(rifiuto.searchParams.has('code')).toBe(false)
-  } finally {
-    await setter.context().close()
-  }
-
-  // a person demoted after an old consent: Supabase approves on the spot, the code never leaves
-  await accedi(page, 'marketing')
-  marketing = await consentiEScambia(page, 'di-nuovo')
-  await impostaProfilo(ID_MARKETING, { ruolo: 'setter' })
+  // 13. every role connects Claude since 22/10/2026 (Claude a 360 gradi, phase 1): the coach, a
+  // manager of the projects, gets projects, tasks, notes and his own time, never the calendar
+  const page = await persona(browser, 'coach')
+  const base = baseDi(page)
   try {
     const callback = await catturaCallback(page)
-    await apriConsenso(page, nuovaAutorizzazione(clientId, baseDi(page), 'retrocessa'))
+    const a = nuovaAutorizzazione(clientId, base, 'coach')
+    await apriConsenso(page, a)
+    const carta = scheda(page, CONSENSO.titolo)
+    await expect(carta).toContainText(CONSENSO.azioniProgetti[2])
+    await expect(carta).toContainText(CONSENSO.azioneGestione)
+    await expect(carta).not.toContainText(CONSENSO.azioni[0])
+    const arrivo = callback.prossima()
+    await page.getByRole('button', { name: CONSENSO.consenti, exact: true }).click()
+    const token = await scambiaCodice(a, (await arrivo).searchParams.get('code') as string)
+
+    const mcp = await clientMcp(base, token.access_token)
+    try {
+      const { tools } = await mcp.listTools()
+      expect(tools.map((t) => t.name).sort()).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_GESTIONE].sort())
+      expect(mcp.getInstructions()).not.toContain('Instagram Posts')
+
+      // his projects (RLS: the ones he is a member of), then a task in the first one
+      const elenco = datiRisultato<{ progetti: { id: string; nome: string; gestisci: boolean }[] }>(
+        await mcp.callTool({ name: 'elenco_progetti', arguments: {} }),
+      )
+      expect(elenco.progetti.length).toBeGreaterThan(0)
+      const progetto = elenco.progetti[0]
+      const titolo = `${PREFISSO}task del coach`
+      const creato = await mcp.callTool({
+        name: 'crea_task',
+        arguments: { progetto_id: progetto.id, titolo, priorita: 'alta', scadenza: oggiRoma() },
+      })
+      expect(creato.isError, testoRisultato(creato)).toBeFalsy()
+      const task = datiRisultato<{ task: { id: string; priorita: string } }>(creato).task
+      expect(task.priorita).toBe('alta')
+      const { data: riga } = await dbLocale().from('pm_task').select('created_by, titolo').eq('id', task.id).single()
+      expect(riga).toEqual({ created_by: ID_COACH, titolo })
+
+      // his time on that task: 45 minutes, then read back as his
+      const nota = `${PREFISSO}revisione del coach`
+      const registrato = await mcp.callTool({
+        name: 'registra_tempo',
+        arguments: { progetto_id: progetto.id, task_id: task.id, durata: '45 min', nota },
+      })
+      expect(registrato.isError, testoRisultato(registrato)).toBeFalsy()
+      const voce = datiRisultato<{ voce_id: string }>(registrato).voce_id
+      const { data: tempo } = await dbLocale().from('pm_tempo').select('profile_id, minuti, task_id').eq('id', voce).single()
+      expect(tempo).toEqual({ profile_id: ID_COACH, minuti: 45, task_id: task.id })
+      const mio = datiRisultato<{ voci: { voce_id: string }[] }>(
+        await mcp.callTool({ name: 'mio_tempo', arguments: { task_id: task.id } }),
+      )
+      expect(mio.voci.map((v) => v.voce_id)).toContain(voce)
+
+      // completed, then a note: everything through the app's core
+      expect((await mcp.callTool({ name: 'completa_task', arguments: { task_id: task.id } })).isError).toBeFalsy()
+      const notaProgetto = await mcp.callTool({
+        name: 'aggiungi_nota',
+        arguments: { progetto_id: progetto.id, testo: `${PREFISSO}nota da Claude` },
+      })
+      expect(notaProgetto.isError, testoRisultato(notaProgetto)).toBeFalsy()
+
+      // the team's time is the admin's: for the coach the tool does not exist
+      await expect(mcp.callTool({ name: 'tempo_team', arguments: {} })).rejects.toThrow(/not found/)
+    } finally {
+      await mcp.close()
+    }
+
+    // straight on the Data API: no delete, no calendar, no other area
+    const db = dataApiConToken(token.access_token)
+    expect((await db.from('pm_task').delete().like('titolo', `${PREFISSO}%`)).error?.code).toBe('42501')
+    expect((await db.from('marketing_contenuti').select('id')).data ?? []).toEqual([])
+    expect((await db.from('calls').select('id')).error?.code).toBe('42501')
+  } finally {
+    await page.context().close()
+  }
+})
+
+test('un account disattivato non collega Claude: torna a Claude con un rifiuto, mai con un codice', async ({ page }) => {
+  test.setTimeout(120_000)
+  // 13a. a person deactivated after an old consent: Supabase approves on the spot, the code never leaves
+  await accedi(page, 'marketing')
+  marketing = await consentiEScambia(page, 'di-nuovo')
+  await impostaProfilo(ID_MARKETING, { attivo: false })
+  try {
+    const callback = await catturaCallback(page)
+    await apriConsenso(page, nuovaAutorizzazione(clientId, baseDi(page), 'disattivata'))
     await expect(page.getByRole('heading', { level: 1, name: CONSENSO.titoloNonAmmesso })).toBeVisible()
+    await expect(page.getByText(CONSENSO.nonAmmesso)).toBeVisible()
     const arrivo = callback.prossima()
     await page.getByRole('button', { name: CONSENSO.tornaAClaude, exact: true }).click()
     const rifiuto = await arrivo
     expect(rifiuto.searchParams.get('error')).toBe('access_denied')
-    expect(rifiuto.searchParams.get('state')).toBe('retrocessa')
+    expect(rifiuto.searchParams.get('state')).toBe('disattivata')
     expect(rifiuto.searchParams.has('code')).toBe(false)
 
     // and her live token stops at the door: 403 insufficient_scope
@@ -503,10 +614,24 @@ test('chi non può collegare Claude torna a Claude con un rifiuto, mai con un co
     expect(chiamata.status).toBe(403)
     expect(chiamata.headers.get('www-authenticate') ?? '').toContain('error="insufficient_scope"')
   } finally {
+    await impostaProfilo(ID_MARKETING, { attivo: true })
+  }
+  // a pause, not a disconnection: the account active again, the same token works again, no new consent
+  expect((await chiamataGrezza(baseDi(page), marketing.token.access_token)).status).toBe(200)
+  // and a role that is not the Marketing area's keeps Claude, without the calendar (22/10/2026)
+  await impostaProfilo(ID_MARKETING, { ruolo: 'setter' })
+  try {
+    expect((await chiamataGrezza(baseDi(page), marketing.token.access_token)).status).toBe(200)
+    const mcp = await clientMcp(baseDi(page), marketing.token.access_token)
+    try {
+      const nomi = (await mcp.listTools()).tools.map((t) => t.name).sort()
+      expect(nomi).toEqual([...STRUMENTI_PROGETTI].sort())
+    } finally {
+      await mcp.close()
+    }
+  } finally {
     await impostaProfilo(ID_MARKETING, { ruolo: 'marketing' })
   }
-  // a pause, not a disconnection: the role given back, the same token works again, no new consent
-  expect((await chiamataGrezza(baseDi(page), marketing.token.access_token)).status).toBe(200)
 })
 
 test('se i bundle non arrivano il tocco funziona lo stesso: un POST nativo, 303 verso Claude', async ({ browser }) => {
@@ -524,12 +649,12 @@ test('se i bundle non arrivano il tocco funziona lo stesso: un POST nativo, 303 
     const consenso = setter.waitForResponse((r) => new URL(r.url()).pathname === '/oauth/consent')
     await apriConsenso(setter, nuovaAutorizzazione(clientId, baseDi(setter), 'senza-bundle'))
     expect((await consenso).headers()['referrer-policy']).toBe('same-origin')
-    await expect(setter.getByRole('heading', { level: 1, name: CONSENSO.titoloNonAmmesso })).toBeVisible()
+    await expect(setter.getByRole('heading', { level: 1, name: CONSENSO.titolo })).toBeVisible()
 
     const post = setter.waitForResponse(
       (r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/oauth/consent',
     )
-    await setter.getByRole('button', { name: CONSENSO.tornaAClaude, exact: true }).click()
+    await setter.getByRole('button', { name: CONSENSO.rifiuta, exact: true }).click()
     const risposta = await post
     expect(risposta.request().headers()['next-action'], 'un POST nativo, non il fetch di React').toBeUndefined()
     expect(risposta.status()).toBe(303)
