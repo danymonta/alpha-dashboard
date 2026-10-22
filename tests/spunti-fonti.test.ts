@@ -35,6 +35,20 @@ describe('preparaFonti', () => {
     expect(testo).toContain('Togliersi la maglia davanti agli altri')
     expect(testo).toContain('Tempo')
   })
+  it('i nomi delle etichette sono quelli di adesso: una creata dalla persona arriva col suo nome, una sparita no', () => {
+    const grezzo = {
+      ...GREZZO,
+      reel: [{ ...GREZZO.reel[0], reel_type: 'case_study', format: 'meme_sparito' }],
+      in_calendario: [{ ...GREZZO.in_calendario[0], reel_type: 'education', format: 'meme' }],
+    }
+    const nomi = { reel_type: { case_study: 'Case study', education: 'Educational' }, formato: { meme: 'Meme' } }
+    const g = preparaFonti(grezzo, chiaveNome, nomi).perClaude as {
+      contenuti: { reel: { reel_type: string | null; format: string | null }[] }
+      in_calendario: { reel_type: string | null; format: string | null }[]
+    }
+    expect(g.contenuti.reel[0]).toMatchObject({ reel_type: 'Case study', format: null })
+    expect(g.in_calendario[0]).toMatchObject({ reel_type: 'Educational', format: 'Meme' })
+  })
   it('una voce che parla di salute esce intera o a frase; «condizioni personali» senza sintesi', () => {
     expect(testo).not.toMatch(/ernia/)
     expect(testo).not.toContain('SENTINELLA-CONDIZIONI')

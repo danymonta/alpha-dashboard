@@ -93,7 +93,7 @@ export function IntroIngresso() {
       data-testid="intro-ingresso"
       onClick={() => setFase((f) => (f === 'entrata' ? 'saltata' : f))}
       className={cn(
-        'fixed inset-0 z-[100] flex cursor-pointer items-center justify-center overflow-hidden bg-background',
+        'fixed inset-0 z-[100] flex cursor-pointer items-center justify-center overflow-hidden bg-palco',
         fase === 'entrata' && 'animate-[brand-fade-in_160ms_ease-out_both]',
         fase === 'uscita' &&
           'pointer-events-none animate-[brand-fade-out_400ms_cubic-bezier(0.4,0,1,1)_forwards]',

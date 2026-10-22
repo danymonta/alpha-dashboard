@@ -1,38 +1,139 @@
-import { Search, Users } from 'lucide-react'
+import { CirclePause, Search, Users } from 'lucide-react'
 
+import { ElencoClienti } from '@/components/cliente/elenco-clienti'
 import { ETICHETTA_STATO_CLIENTE, StatoClienteBadge, type StatoCliente } from '@/components/cliente/stato-cliente'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
+import {
+  ETICHETTA_VISTA,
+  STATI_VISTA,
+  VISTE,
+  ordinaElenco,
+  vistaDa,
+  type RigaElenco,
+  type Vista,
+} from '@/lib/clienti/elenco'
+import { oggiRoma } from '@/lib/date'
 import { formatData, formatEuro } from '@/lib/format'
+import { configPickerRichiesta } from '@/lib/google/picker-server'
 import { createClient } from '@/lib/supabase/server'
-import { cn } from '@/lib/utils'
 import { Constants } from '@/lib/supabase/database.types'
+import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
 const STATI = Constants.public.Enums.client_status
 
+type VistaTabella = Exclude<Vista, 'tutti'>
+
+/** What each table card says when it has nothing to list. */
+const VUOTO: Record<VistaTabella, { titolo: string; descrizione: string }> = {
+  attivi: {
+    titolo: 'Nessun cliente attivo',
+    descrizione: 'Un cliente è attivo da quando registri la sua prima vendita, finché dura il percorso.',
+  },
+  sospesi: {
+    titolo: 'Nessun cliente sospeso',
+    descrizione: 'Con «Sospendi» nella scheda del cliente lo metti in pausa: lo trovi qui, con percorso e rate come prima.',
+  },
+  chiusi: {
+    titolo: 'Nessun cliente chiuso',
+    descrizione: 'Con «Non rinnova» nella scheda del cliente lo chiudi: lo trovi qui, e il suo valore nel tempo resta.',
+  },
+}
+
 export default async function ClientiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; q?: string }>
+  searchParams: Promise<{ vista?: string; stato?: string; q?: string }>
 }) {
   await requireRuolo(['admin'])
-  const { stato, q } = await searchParams
-  const filtro = STATI.includes(stato as StatoCliente) ? (stato as StatoCliente) : null
-  const ricerca = (q ?? '').trim().slice(0, 60)
+  const { vista: vistaRichiesta, stato, q } = await searchParams
+  const vista = vistaDa(vistaRichiesta, stato, q)
+  const filtro = vista === 'tutti' && STATI.includes(stato as StatoCliente) ? (stato as StatoCliente) : null
+  const ricerca = vista === 'tutti' ? (q ?? '').trim().slice(0, 60) : ''
   const supabase = await createClient()
+  const oggi = oggiRoma()
 
-  // counts per status come from SQL, one head request each
-  const conteggi = await Promise.all(
-    [null, ...STATI].map((s) => {
-      const query = supabase.from('v_clienti').select('client_id', { count: 'exact', head: true })
-      return s ? query.eq('stato', s) : query
-    }),
+  // counts of the cards come from SQL, one head request each: the same function that lists them
+  const conteggioVista = (v: VistaTabella) =>
+    supabase.rpc('clienti_elenco', { p_stati: STATI_VISTA[v] }, { head: true, count: 'exact' })
+  const [attivi, sospesi, chiusi, tutti] = await Promise.all([
+    conteggioVista('attivi'),
+    conteggioVista('sospesi'),
+    conteggioVista('chiusi'),
+    supabase.from('v_clienti').select('client_id', { count: 'exact', head: true }),
+  ])
+  if (attivi.error || sospesi.error || chiusi.error || tutti.error) throw new Error('Impossibile caricare i clienti')
+  const conteggi: Record<Vista, number> = {
+    attivi: attivi.count ?? 0,
+    sospesi: sospesi.count ?? 0,
+    chiusi: chiusi.count ?? 0,
+    tutti: tutti.count ?? 0,
+  }
+
+  const schede = (
+    <nav aria-label="Elenco dei clienti" className="flex flex-wrap gap-2">
+      {VISTE.map((v) => {
+        const attiva = v === vista
+        return (
+          <LinkRiga
+            key={v}
+            href={`/clients?vista=${v}`}
+            aria-current={attiva ? 'page' : undefined}
+            data-testid={`vista-${v}`}
+            className={cn(
+              'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm',
+              attiva
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
+            )}
+          >
+            {ETICHETTA_VISTA[v]}
+            <span className="num text-xs opacity-80">{conteggi[v]}</span>
+          </LinkRiga>
+        )
+      })}
+    </nav>
   )
 
+  const intestazione = (
+    <IntestazionePagina
+      titolo="Clienti"
+      descrizione="Attivi, sospesi e chiusi con il loro percorso, il contratto, quanto hanno pagato e le rate da saldare. Lo stato si calcola dalle vendite; Sospeso e Chiuso li decidi tu dalla scheda del cliente («Sospendi», «Non rinnova»)."
+    />
+  )
+
+  if (vista !== 'tutti') {
+    const { data, error } = await supabase.rpc('clienti_elenco', { p_stati: STATI_VISTA[vista] })
+    if (error) throw new Error('Impossibile caricare i clienti')
+    // the generated types make every column non-null: the nullable ones are typed by hand
+    const righe = ordinaElenco(data as unknown as RigaElenco[], vista)
+
+    // the Instagram handle is not in the list function: one more read, only for these clients
+    const { data: anagrafiche, error: errAnagrafiche } = righe.length
+      ? await supabase.from('clients').select('id, instagram_handle').in('id', righe.map((r) => r.client_id))
+      : { data: [], error: null }
+    if (errAnagrafiche) throw new Error('Impossibile caricare i clienti')
+    const handle = Object.fromEntries((anagrafiche ?? []).map((c) => [c.id, c.instagram_handle]))
+    const picker = righe.length ? await configPickerRichiesta() : null
+
+    return (
+      <div className="space-y-5">
+        {intestazione}
+        {schede}
+        {righe.length === 0 ? (
+          <StatoVuoto Icona={vista === 'sospesi' ? CirclePause : Users} titolo={VUOTO[vista].titolo} descrizione={VUOTO[vista].descrizione} />
+        ) : (
+          <ElencoClienti righe={righe} handle={handle} oggi={oggi} picker={picker} etichetta={`Clienti ${ETICHETTA_VISTA[vista].toLowerCase()}`} />
+        )}
+      </div>
+    )
+  }
+
+  // "Tutti": the list of always, with the filter by state and the search
   let query = supabase
     .from('v_clienti')
     .select('client_id, nome, cognome, stato, instagram_handle, data_fine_ultima, incassato, da_incassare, in_ritardo, numero_vendite')
@@ -45,11 +146,15 @@ export default async function ClientiPage({
     query = query.or(`nome.ilike.%${termine}%,cognome.ilike.%${termine}%,instagram_handle.ilike.%${termine}%`)
   }
 
+  // counts per status come from SQL, one head request each
+  const perStato = await Promise.all(
+    STATI.map((s) => supabase.from('v_clienti').select('client_id', { count: 'exact', head: true }).eq('stato', s)),
+  )
   const { data: clienti, error } = await query
-  if (error) throw new Error('Impossibile caricare i clienti')
+  if (error || perStato.some((r) => r.error)) throw new Error('Impossibile caricare i clienti')
 
   const chip = (valore: StatoCliente | null, etichetta: string, n: number | null) => {
-    const qs = new URLSearchParams()
+    const qs = new URLSearchParams({ vista: 'tutti' })
     if (valore) qs.set('stato', valore)
     if (ricerca) qs.set('q', ricerca)
     const attivo = valore === filtro
@@ -57,12 +162,12 @@ export default async function ClientiPage({
     return (
       <LinkRiga
         key={valore ?? 'tutti'}
-        href={`/clients${qs.size ? `?${qs}` : ''}`}
+        href={`/clients?${qs}`}
         aria-current={attivo ? 'page' : undefined}
         className={cn(
-          'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm',
+          'inline-flex min-h-11 items-center gap-1.5 rounded-pillola border px-3 text-sm',
           attivo
-            ? 'border-primary bg-primary text-primary-foreground'
+            ? 'border-selezione bg-selezione text-selezione-foreground'
             : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
         )}
       >
@@ -74,17 +179,16 @@ export default async function ClientiPage({
 
   return (
     <div className="space-y-5">
-      <IntestazionePagina
-        titolo="Clienti"
-        descrizione="Lo stato si calcola dalle vendite: attivo, in scadenza, da iniziare, scaduto, ex cliente. Chiuso lo decidi tu, con «Non rinnova» nella scheda del cliente; se poi non ricompra, «Archivia come ex cliente» lo mette tra gli ex clienti."
-      />
+      {intestazione}
+      {schede}
 
       <nav aria-label="Filtra per stato" className="flex flex-wrap gap-2">
-        {chip(null, 'Tutti', conteggi[0].count)}
-        {STATI.map((s, i) => chip(s, ETICHETTA_STATO_CLIENTE[s], conteggi[i + 1].count))}
+        {chip(null, 'Tutti gli stati', conteggi.tutti)}
+        {STATI.map((s, i) => chip(s, ETICHETTA_STATO_CLIENTE[s], perStato[i].count))}
       </nav>
 
       <form method="get" role="search" className="relative max-w-md">
+        <input type="hidden" name="vista" value="tutti" />
         {filtro ? <input type="hidden" name="stato" value={filtro} /> : null}
         <label htmlFor="cerca-cliente" className="sr-only">Cerca un cliente</label>
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -94,7 +198,7 @@ export default async function ClientiPage({
           defaultValue={ricerca}
           placeholder="Cerca per nome, cognome o handle"
           autoComplete="off"
-          className="h-11 w-full rounded-lg border border-input bg-input/30 pr-3 pl-9 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+          className="h-11 w-full rounded-pillola border border-input bg-input/30 pr-3 pl-9 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         />
       </form>
 

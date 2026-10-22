@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Skeleton } from '@/components/ui/skeleton'
 import type { DettaglioReel } from '@/lib/marketing/analisi/dettaglio'
 import type { RigaReel } from '@/lib/marketing/analisi/elenco'
-import { PARAMETRO_REEL } from '@/lib/marketing/analisi/filtri'
+import { PARAMETRO_REEL } from '@/lib/marketing/pubblicati/filtri'
 import { eMediaId, urlConReel, urlSenzaReel } from '@/lib/marketing/analisi/pannello'
 
 /** A preload stays good this long. */

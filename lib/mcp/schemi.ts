@@ -13,6 +13,8 @@ import {
   sezioneContenutoSchema,
 } from '@/lib/validation/contenuto'
 
+import { NOME_OPZIONE_MAX } from '@/lib/marketing/opzioni'
+
 import { ETICHETTE, elencoEtichette } from './etichette'
 import { LIMITI_MCP } from './limiti'
 
@@ -36,8 +38,23 @@ function scelta(valori: [string, ...string[]], nome: string) {
 }
 
 const MODELLO = scelta(ETICHETTE.modello, CAMPO_MODELLO)
-const REEL_TYPE = scelta(ETICHETTE.reel_type, CAMPI.reel_type)
-const FORMAT = scelta(ETICHETTE.format, CAMPI.formato)
+/**
+ * Reel Type and Format are the labels people create in the app (21/10/2026), so
+ * they are not a fixed list in the JSON Schema: a name (or code) of a label that
+ * exists, which the tool resolves against the database and answers with the
+ * valid ones when it is not there.
+ */
+function etichettaEsistente(nome: string) {
+  return z
+    .string({ invalid_type_error: `${nome}: scrivi il nome di un’etichetta che c’è.` })
+    .trim()
+    .min(1, `${nome}: scrivi il nome di un’etichetta che c’è (etichette_contenuti le elenca).`)
+    .refine((v) => lunghezza(v) <= NOME_OPZIONE_MAX + 20, `${nome}: il nome di un’etichetta è al massimo ${NOME_OPZIONE_MAX} caratteri.`)
+}
+const REEL_TYPE = etichettaEsistente(CAMPI.reel_type)
+const FORMAT = etichettaEsistente(CAMPI.formato)
+const DESCRIZIONE_ETICHETTA = (nome: string) =>
+  `${nome}: il nome (o il codice) di un’etichetta che c’è già nell’app, quelle valide le dà etichette_contenuti. Non ne crei: le crea la persona.`
 const STATUS = scelta(ETICHETTE.status, CAMPI.stato)
 const GRUPPO = scelta(ETICHETTE.gruppo, 'Gruppo di Status')
 
@@ -90,8 +107,8 @@ const testoBreve = (descrizione: string) =>
 
 /** The properties of a content, with Notion's names in snake case; each one checked again by the shared core. */
 const proprieta = {
-  reel_type: REEL_TYPE.nullish().describe(`Reel Type: ${elencoEtichette(ETICHETTE.reel_type)}.`),
-  format: FORMAT.nullish().describe(`Format: ${elencoEtichette(ETICHETTE.format)}.`),
+  reel_type: REEL_TYPE.nullish().describe(DESCRIZIONE_ETICHETTA(CAMPI.reel_type)),
+  format: FORMAT.nullish().describe(DESCRIZIONE_ETICHETTA(CAMPI.formato)),
   post_date: data.nullish().describe('Post Date, AAAA-MM-GG (giorno di Roma), anche nel futuro.'),
   inspiration: testoBreve(`Inspiration: un link intero (https://…), al massimo ${LINK_MAX} caratteri.`),
   audio: testoBreve(`Audio, al massimo ${AUDIO_MAX} caratteri.`),
@@ -165,8 +182,8 @@ export const elencoContenutiSchema = z
     senza_data: z.boolean().nullish().describe('Solo i contenuti senza Post Date.'),
     status: STATUS.nullish().describe(`Uno Status: ${elencoEtichette(ETICHETTE.status)}.`),
     gruppo: GRUPPO.nullish().describe(`Un gruppo di Status: ${elencoEtichette(ETICHETTE.gruppo)}.`),
-    reel_type: REEL_TYPE.nullish().describe(`Reel Type: ${elencoEtichette(ETICHETTE.reel_type)}.`),
-    format: FORMAT.nullish().describe(`Format: ${elencoEtichette(ETICHETTE.format)}.`),
+    reel_type: REEL_TYPE.nullish().describe(DESCRIZIONE_ETICHETTA(CAMPI.reel_type)),
+    format: FORMAT.nullish().describe(DESCRIZIONE_ETICHETTA(CAMPI.formato)),
     modello: MODELLO.nullish().describe('Modello: Reel Topic o Carousel Topic.'),
     cerca: z
       .string({ invalid_type_error: 'Cerca: scrivi un pezzo del Name.' })

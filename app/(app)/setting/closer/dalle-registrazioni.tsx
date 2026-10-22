@@ -6,6 +6,7 @@ import { LinkNav } from '@/components/shell/link-nav'
 import { CATEGORIE_OBIEZIONI, etichetta } from '@/lib/call/analisi/icp-call'
 import { ETICHETTA_PERFORMANCE, LIVELLI_PERFORMANCE } from '@/lib/call/analisi/vista'
 import { formatEuro, formatNumero, formatPercentuale } from '@/lib/format'
+import { hrefAnalisiReel } from '@/lib/marketing/analisi/pannello'
 import type { Periodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
@@ -259,8 +260,8 @@ function Raggruppate({ righe, per, admin }: { righe: Riga[]; per: Per; admin: bo
             </dl>
             {r.obiezioni[0] ? <p className="mt-1 text-xs text-muted-foreground">Prima obiezione: {etichetta(CATEGORIE_OBIEZIONI, r.obiezioni[0].categoria)}</p> : null}
             {per === 'contenuto' && admin && r.media_id ? (
-              <LinkBottone href={`/marketing/analisi?reel=${r.media_id}`} variant="outline" className="mt-2 w-full">
-                Apri l’analisi
+              <LinkBottone href={hrefAnalisiReel(r.media_id)} variant="outline" className="mt-2 w-full">
+                Apri nei Pubblicati
               </LinkBottone>
             ) : null}
           </li>
@@ -284,8 +285,8 @@ function Raggruppate({ righe, per, admin }: { righe: Riga[]; per: Per; admin: bo
                 <th scope="row" className="px-3 py-2 text-left font-normal">
                   {r.etichetta}
                   {per === 'contenuto' && admin && r.media_id ? (
-                    <LinkBottone href={`/marketing/analisi?reel=${r.media_id}`} variant="ghost" className="ml-2 h-8 px-2 text-xs">
-                      Apri l’analisi
+                    <LinkBottone href={hrefAnalisiReel(r.media_id)} variant="ghost" className="ml-2 h-8 px-2 text-xs">
+                      Apri nei Pubblicati
                     </LinkBottone>
                   ) : null}
                 </th>

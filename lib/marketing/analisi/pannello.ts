@@ -1,4 +1,4 @@
-import { PARAMETRO_REEL } from '@/lib/marketing/analisi/filtri'
+import { PARAMETRO_REEL } from '@/lib/marketing/pubblicati/filtri'
 
 /**
  * The reel panel's address (1.36.0): ?reel=<media id> next to the filters, as
@@ -47,7 +47,7 @@ export function urlConScheda(pathname: string, search: string, scheda: SchedaRee
   return conParametri(pathname, parametri)
 }
 
-/** The page of the analysis open on a reel: from the content's panel, Post di Instagram. */
+/** The page of Pubblicati with the panel of a reel open: from the content's panel, a call's «Dalle registrazioni». */
 export function hrefAnalisiReel(mediaId: string): string {
-  return `/marketing/analisi?${PARAMETRO_REEL}=${mediaId}`
+  return `/marketing/pubblicati?${PARAMETRO_REEL}=${mediaId}`
 }

@@ -4,6 +4,7 @@ import {
   ChevronRight,
   CircleCheck,
   CircleStop,
+  FileText,
   Flag,
   TriangleAlert,
   type LucideIcon,
@@ -11,9 +12,11 @@ import {
 import Link from 'next/link'
 
 import { RataAzioni } from '@/app/(app)/sales/[id]/rata-azioni'
+import { ContrattoVendita } from '@/components/cliente/contratto-vendita'
 import { StatoRata } from '@/components/pagamento/stato-rata'
 import { fineDopoMesi } from '@/lib/date'
 import { formatData, formatEuro } from '@/lib/format'
+import type { ConfigPicker } from '@/lib/google/picker'
 import type { Database } from '@/lib/supabase/database.types'
 import { cn } from '@/lib/utils'
 
@@ -42,6 +45,8 @@ export type Percorso = {
   data_fine: string
   created_at: string
   valore_contratto: number
+  /** The link to the signed contract on Drive (admin only, this history is the admin's). */
+  contratto_url: string | null
   rate: RataPercorso[]
   /** Money from v_vendite (summed in SQL): only formatted here. */
   incassato: number | null
@@ -130,11 +135,15 @@ function CardPercorso({
   etichetta,
   oggi,
   principale,
+  cliente,
+  picker,
 }: {
   percorso: Percorso
   etichetta: string
   oggi: string
   principale: string | undefined
+  cliente: string
+  picker: ConfigPicker | null
 }) {
   const stato = statoPercorso(p, oggi)
   // the current path, or one with something still to collect, opens on its instalments;
@@ -167,6 +176,15 @@ function CardPercorso({
             <span className="num">{formatEuro(p.in_ritardo)} in ritardo</span>
           </p>
         ) : null}
+      </div>
+
+      {/* each path and each renewal has its own contract (21/10/2026) */}
+      <div className="flex min-h-11 items-center justify-between gap-2 border-t border-border pr-1.5 pl-3">
+        <span className="flex items-center gap-2 text-sm">
+          <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          Contratto su Drive
+        </span>
+        <ContrattoVendita saleId={p.id} cliente={cliente} percorso={etichetta} url={p.contratto_url} picker={picker} variante="cella" />
       </div>
 
       {p.rate.length > 0 ? (
@@ -228,7 +246,18 @@ function CardPercorso({
  * sale, so the previous period keeps its dates, contract and instalments below
  * it. Unpaid instalments are cashed here with the same one tap as the sale page.
  */
-export function StoricoPercorsi({ percorsi, oggi }: { percorsi: Percorso[]; oggi: string }) {
+export function StoricoPercorsi({
+  percorsi,
+  oggi,
+  cliente,
+  picker = null,
+}: {
+  percorsi: Percorso[]
+  oggi: string
+  /** The client's name: the contract's sheet and buttons say whose it is. */
+  cliente: string
+  picker?: ConfigPicker | null
+}) {
   const etichette = etichettePercorsi(percorsi)
   const dalPiuRecente = [...percorsi].sort((a, b) => inOrdineDiTempo(b, a))
   // filled button only on the instalment due first across the whole history
@@ -245,6 +274,8 @@ export function StoricoPercorsi({ percorsi, oggi }: { percorsi: Percorso[]; oggi
           etichetta={etichette.get(p.id) ?? 'Percorso'}
           oggi={oggi}
           principale={principale}
+          cliente={cliente}
+          picker={picker}
         />
       ))}
     </ol>

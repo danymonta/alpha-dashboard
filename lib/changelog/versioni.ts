@@ -86,6 +86,118 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.48.0',
+    data: '2026-10-21',
+    titolo: 'Pubblicati e View Count automatico',
+    riassunto: 'Una pagina sola per i post e i reel già usciti, con i loro numeri, e il View Count che si aggiorna da solo da Instagram.',
+    intestazionePer: ['marketing'],
+    novita: [
+      {
+        per: ['marketing'],
+        testo: 'Al posto di «Post di Instagram» e «Analisi» c’è una pagina sola, Pubblicati: tutti i post e i reel usciti con views, copertura, salvataggi, condivisioni, commenti, i lead dai DM, il punteggio e il contenuto del Piano editoriale collegato. Il tocco su una riga apre l’analisi del reel.',
+      },
+      {
+        per: ['marketing'],
+        testo: 'Il View Count dei contenuti del Piano editoriale si compila e si aggiorna da solo ogni mattina dalle views di Instagram, se nel contenuto c’è il link del reel pubblicato. Se il link non c’è, lo scrivi tu. Se le views non arrivano, serve il permesso Insights dell’app Meta.',
+      },
+      {
+        per: ['marketing'],
+        testo: 'Non c’è più niente da collegare per forza: incollando il link del reel nel Piano editoriale il contenuto si lega al post, e un post senza contenuto è una riga normale con un «Collega» se vuoi. Sono spariti «Da collegare», «Crea il contenuto» e «Non va nel calendario».',
+      },
+    ],
+  },
+  {
+    versione: '1.47.0',
+    data: '2026-10-21',
+    titolo: 'Piano editoriale con etichette colorate',
+    riassunto: 'I Contenuti diventano il Piano editoriale: una tabella pulita, e Reel Type e Format hanno etichette che crei tu, colorate come in Notion.',
+    intestazionePer: ['marketing'],
+    novita: [
+      {
+        per: ['marketing'],
+        testo: 'Reel Type e Format hanno etichette colorate come in Notion: apri la cella, scegli un’etichetta o scrivi un nome nuovo per crearla, e dal menu di ogni etichetta la rinomini, cambi il colore tra i dieci disponibili o la elimini (ti dice quanti contenuti la usano). Anche lo Status ha i suoi colori.',
+      },
+      {
+        per: ['marketing'],
+        testo: 'La pagina Contenuti si chiama Piano editoriale ed è una sola tabella con Name, Reel Type, Format, Status, Post Date, URL e Views. Ogni cella si cambia sul posto e «Nuovo» apre una riga vuota con il cursore già nel nome. Il calendario non c’è più: i filtri sono su una riga.',
+      },
+      {
+        per: ['marketing'],
+        testo: 'Claude, collegato all’app, usa le etichette per nome e non ne crea mai di nuove: se ne scrive una che non c’è, ti dice quali esistono.',
+      },
+    ],
+  },
+  {
+    versione: '1.46.0',
+    data: '2026-10-21',
+    titolo: 'Barra laterale ridotta e tema chiaro',
+    riassunto: 'Puoi ridurre la barra laterale a sole icone e scegliere tra tema chiaro, scuro e quello del dispositivo.',
+    intestazionePer: ['tutti'],
+    novita: [
+      {
+        per: ['tutti'],
+        testo: 'Sul computer puoi ridurre la barra laterale a sole icone con la freccia in basso: il contenuto si allarga e l’app si ricorda la scelta su ogni dispositivo.',
+      },
+      {
+        per: ['tutti'],
+        testo: 'Dal Profilo, o con il tocco rapido sole e luna in alto, scegli il tema Chiaro, Scuro o Sistema. Di base resta scuro, come prima.',
+      },
+    ],
+  },
+  {
+    versione: '1.45.0',
+    data: '2026-10-21',
+    titolo: 'Accesso con codice via email',
+    riassunto: 'Oltre a Google, entri scrivendo la tua email: ti arriva un link e un codice di 6 cifre.',
+    intestazionePer: ['tutti'],
+    novita: [
+      {
+        per: ['tutti'],
+        testo: 'Nella pagina di accesso, sotto il bottone di Google, scrivi la tua email e ti arriva un messaggio con un link e un codice di 6 cifre: usa quello che preferisci. Funziona solo per chi è già stato invitato, e il link si può aprire anche da un altro telefono o dall’app di posta.',
+      },
+    ],
+  },
+  {
+    versione: '1.44.0',
+    data: '2026-10-21',
+    titolo: 'Clienti attivi, sospesi e chiusi con contratto',
+    riassunto: 'In Clienti vedi gli attivi in una tabella con mese e settimana del percorso, contratto, cartella Drive, pagato e rate da saldare, e puoi mettere un cliente in pausa.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo: 'Clienti ha quattro schede: Attivi, Sospesi, Chiusi e Tutti. Per ogni cliente vedi a che mese e settimana del percorso è, il link al contratto e alla cartella Drive, quanto ha pagato e il suo LTV, come paga e quali rate deve ancora saldare, con il piano completo che si apre sotto la riga.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Nella scheda del cliente c’è «Sospendi», con il giorno e un motivo se vuoi: il cliente passa tra i Sospesi, esce dai rinnovi da chiamare e non riceve i promemoria. Con «Riattiva» torna com’era. Percorso e rate non cambiano. Se lo chiudi con «Non rinnova» o ricompra, la sospensione finisce da sola.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Ogni percorso e ogni rinnovo ha il suo contratto: un link a Drive, anche con «Scegli da Drive», che trovi nella vendita, nello storico del cliente e nell’elenco. Lo vedi solo tu. Anche Alfire può sospendere e riattivare un cliente.',
+      },
+    ],
+  },
+  {
+    versione: '1.43.0',
+    data: '2026-10-21',
+    titolo: 'Il tempo del team ogni lunedì per email',
+    riassunto: 'Ogni lunedì sera ti arriva una mail con le ore registrate dal team nella settimana appena finita, persona per persona.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Ogni lunedì sera ti arriva la mail «Tempo del team»: il totale della settimana da lunedì a domenica, poi ogni persona con le sue ore, i progetti e i task su cui le ha messe. Un tocco apre Tempo › Team sulla stessa settimana. La stessa mail la trovi anche nelle notifiche.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Gli stessi limiti di Tempo › Team: solo il tempo già registrato, mai il timer acceso di qualcuno, compare solo chi ha registrato qualcosa nella settimana, in ordine alfabetico, nessuna classifica.',
+      },
+    ],
+  },
+  {
     versione: '1.42.0',
     data: '2026-10-19',
     titolo: 'Gli avvisi nelle notifiche',

@@ -4,6 +4,7 @@ import {
   BOZZA_REEL,
   CAMPI,
   CAMPO_MODELLO,
+  COLORE_STATUS,
   ETICHETTA_FORMAT,
   ETICHETTA_GRUPPO,
   ETICHETTA_MODELLO,
@@ -23,14 +24,9 @@ import { Constants } from '@/lib/supabase/database.types'
 // Notion's "📸 Instagram Posts DANYMONTA", checked on 09/10/2026
 describe('le etichette di Notion', () => {
   it('Reel Type, Format e Status hanno le opzioni di Notion, nel suo ordine', () => {
-    expect(Constants.public.Enums.contenuto_reel_type.map((v) => ETICHETTA_REEL_TYPE[v])).toEqual([
-      'Attraction',
-      'Education',
-      'Converting',
-      'RADIO',
-      'Workshop',
-    ])
-    expect(Constants.public.Enums.contenuto_format.map((v) => ETICHETTA_FORMAT[v])).toEqual([
+    // Reel Type and Format are the labels of marketing_opzioni since 21/10/2026: here the starting names
+    expect(Object.values(ETICHETTA_REEL_TYPE)).toEqual(['Attraction', 'Education', 'Converting', 'RADIO', 'Workshop'])
+    expect(Object.values(ETICHETTA_FORMAT)).toEqual([
       'Text opinion',
       'Check Caption',
       'Split',
@@ -52,14 +48,35 @@ describe('le etichette di Notion', () => {
     ])
   })
 
-  it('ogni valore degli enum del database ha la sua etichetta', () => {
-    for (const v of Constants.public.Enums.contenuto_reel_type) expect(ETICHETTA_REEL_TYPE[v]).toBeTruthy()
-    for (const v of Constants.public.Enums.contenuto_format) expect(ETICHETTA_FORMAT[v]).toBeTruthy()
+  it('ogni valore degli enum del database ha la sua etichetta; i codici di partenza di Reel Type e Format sono quelli dei vecchi enum', () => {
     for (const v of Constants.public.Enums.contenuto_status) expect(ETICHETTA_STATUS[v]).toBeTruthy()
     for (const v of Constants.public.Enums.contenuto_tipo) expect(ETICHETTA_MODELLO[v]).toBeTruthy()
-    expect(Object.keys(ETICHETTA_REEL_TYPE)).toHaveLength(Constants.public.Enums.contenuto_reel_type.length)
-    expect(Object.keys(ETICHETTA_FORMAT)).toHaveLength(Constants.public.Enums.contenuto_format.length)
     expect(Object.keys(ETICHETTA_STATUS)).toHaveLength(Constants.public.Enums.contenuto_status.length)
+    // the slugs the contents already had (migration 20261009120100) stay the same
+    expect(Object.keys(ETICHETTA_REEL_TYPE)).toEqual(['attraction', 'education', 'converting', 'radio', 'workshop'])
+    expect(Object.keys(ETICHETTA_FORMAT)).toEqual([
+      'text_opinion',
+      'check_caption',
+      'split',
+      'reaction',
+      'b_roll',
+      'green_screen',
+      'raw_talking_head',
+      'storytelling',
+      'transformation',
+      'show_and_tell',
+    ])
+  })
+
+  it('ogni Status ha il suo colore, quelli degli screenshot di Notion', () => {
+    expect(COLORE_STATUS).toEqual({
+      not_started: 'gray',
+      to_be_recorded: 'blue',
+      to_be_edited: 'purple',
+      to_be_posted: 'orange',
+      posted: 'green',
+      canceled: 'red',
+    })
   })
 
   it('i gruppi di Status sono quelli di Notion: ogni Status una volta, nel loro ordine', () => {

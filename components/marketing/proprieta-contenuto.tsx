@@ -1,19 +1,15 @@
 'use client'
 
-import { ExternalLink, LoaderCircle, TriangleAlert } from 'lucide-react'
+import { ExternalLink, LoaderCircle, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
 import { useCampoContenuto } from '@/components/marketing/campo-contenuto'
 import { usePannello } from '@/components/marketing/contesto-pannello'
+import { SelectOpzioni } from '@/components/marketing/select-opzioni'
 import { formatNumero } from '@/lib/format'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
-import {
-  CAMPI,
-  CAMPO_MODELLO,
-  ETICHETTA_FORMAT,
-  ETICHETTA_MODELLO,
-  ETICHETTA_REEL_TYPE,
-} from '@/lib/marketing/etichette'
+import { CAMPI, CAMPO_MODELLO, ETICHETTA_MODELLO } from '@/lib/marketing/etichette'
+import { VIEW_COUNT_A_MANO, VIEW_COUNT_DA_INSTAGRAM } from '@/lib/marketing/pubblicati/parole'
 import { cn } from '@/lib/utils'
 import { AUDIO_MAX, LINK_MAX } from '@/lib/validation/contenuto'
 
@@ -35,11 +31,11 @@ function dataCompleta(valore: string): boolean {
 /** After the last change of a date field, the save waits this long (the person may still be typing). */
 const ATTESA_DATA_MS = 700
 
-function RigaProprieta({ etichetta, idCampo, children }: { etichetta: string; idCampo: string; children: ReactNode }) {
+function RigaProprieta({ etichetta, idCampo, children }: { etichetta: string; idCampo?: string; children: ReactNode }) {
   return (
     <div className="grid min-h-11 min-w-0 grid-cols-[6.5rem_minmax(0,1fr)] items-start gap-2 py-0.5">
       <dt className="pt-3 text-xs text-muted-foreground">
-        <label htmlFor={idCampo}>{etichetta}</label>
+        {idCampo ? <label htmlFor={idCampo}>{etichetta}</label> : etichetta}
       </dt>
       <dd className="min-w-0">{children}</dd>
     </div>
@@ -66,34 +62,25 @@ function Rotella({ inCorso }: { inCorso: boolean }) {
   )
 }
 
-type CampoSelect = 'tipo' | 'reel_type' | 'formato'
-
-const OPZIONI_SELECT: Record<CampoSelect, Record<string, string>> = {
-  tipo: ETICHETTA_MODELLO,
-  reel_type: ETICHETTA_REEL_TYPE,
-  formato: ETICHETTA_FORMAT,
-}
-
-/** Modello, Reel Type, Format: a native select (on a phone the system's picker), saved at the change. */
-function SelectCampo<C extends CampoSelect>({ riga, campo, etichetta }: { riga: Riga; campo: C; etichetta: string }) {
-  const { mostrato, inCorso, salva } = useCampoContenuto({ id: riga.id, nome: riga.nome, campo, valore: riga[campo] })
+/** Modello: a native select (on a phone the system's picker), saved at the change. */
+function SelectModello({ riga }: { riga: Riga }) {
+  const { mostrato, inCorso, salva } = useCampoContenuto({ id: riga.id, nome: riga.nome, campo: 'tipo', valore: riga.tipo })
   const idCampo = useId()
   const [errore, setErrore] = useState<string | null>(null)
   return (
-    <RigaProprieta etichetta={etichetta} idCampo={idCampo}>
+    <RigaProprieta etichetta={CAMPO_MODELLO} idCampo={idCampo}>
       <div className="relative">
         <select
           id={idCampo}
-          value={mostrato ?? ''}
+          value={mostrato}
           aria-busy={inCorso || undefined}
           aria-invalid={errore ? true : undefined}
           aria-describedby={errore ? `${idCampo}-errore` : undefined}
-          data-cella={campo}
+          data-cella="tipo"
           onChange={(e) => setErrore(salva(e.currentTarget.value || null))}
           className={cn(CLASSE_CONTROLLO, 'pr-8')}
         >
-          {campo === 'tipo' ? null : <option value="">Vuoto</option>}
-          {Object.entries(OPZIONI_SELECT[campo]).map(([valore, testo]) => (
+          {Object.entries(ETICHETTA_MODELLO).map(([valore, testo]) => (
             <option key={valore} value={valore}>
               {testo}
             </option>
@@ -102,6 +89,15 @@ function SelectCampo<C extends CampoSelect>({ riga, campo, etichetta }: { riga: 
         <Rotella inCorso={inCorso} />
       </div>
       <Errore id={`${idCampo}-errore`} testo={errore} />
+    </RigaProprieta>
+  )
+}
+
+/** Reel Type and Format: the label's pill, a tap opens the menu (create, rename, colour, delete). */
+function CampoEtichetta({ riga, campo }: { riga: Riga; campo: 'reel_type' | 'formato' }) {
+  return (
+    <RigaProprieta etichetta={CAMPI[campo]}>
+      <SelectOpzioni id={riga.id} nome={riga.nome} campo={campo} valore={riga[campo]} aspetto="campo" />
     </RigaProprieta>
   )
 }
@@ -246,6 +242,29 @@ function InputCampo<C extends CampoInput>({
 }
 
 /**
+ * The View Count (25/10/2026): when the content is linked to a post of Instagram whose views were read, it is the post's
+ * views, it updates itself every morning and it is read only here («Da Instagram: si aggiorna da solo»); otherwise it is
+ * written by hand, as before, and the help line says when it will start to fill itself. The database refuses a hand
+ * write on a number that comes from Instagram, so this is the screen saying it, not the only guard.
+ */
+function CampoViewCount({ riga }: { riga: Riga }) {
+  if (riga.view_count_da_instagram !== true || riga.view_count === null) {
+    return <InputCampo riga={riga} campo="view_count" aiuto={VIEW_COUNT_A_MANO} />
+  }
+  return (
+    <RigaProprieta etichetta={CAMPI.view_count}>
+      <p className="flex min-h-11 items-center gap-2 px-2.5 text-base md:text-sm" title={VIEW_COUNT_DA_INSTAGRAM} data-cella="view_count" data-sola-lettura="" data-testid="view-count-da-instagram">
+        <span className="num">{formatNumero(riga.view_count)}</span>
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <RefreshCw className="size-3.5 shrink-0" aria-hidden="true" />
+          {VIEW_COUNT_DA_INSTAGRAM}
+        </span>
+      </p>
+    </RigaProprieta>
+  )
+}
+
+/**
  * The properties of a content in the panel and on its page (1.33.0): every
  * one saves by itself, over the value it showed, with the same schema and
  * action as the table's cells. Native controls: on a phone the system's
@@ -255,14 +274,14 @@ export function ProprietaContenuto({ riga }: { riga: Riga }) {
   return (
     <section aria-label="Proprietà" className="rounded-xl bg-card px-2 py-2">
       <dl className="grid gap-x-6">
-        <SelectCampo riga={riga} campo="tipo" etichetta={CAMPO_MODELLO} />
-        <SelectCampo riga={riga} campo="reel_type" etichetta={CAMPI.reel_type} />
-        <SelectCampo riga={riga} campo="formato" etichetta={CAMPI.formato} />
+        <SelectModello riga={riga} />
+        <CampoEtichetta riga={riga} campo="reel_type" />
+        <CampoEtichetta riga={riga} campo="formato" />
         <InputCampo riga={riga} campo="post_date" />
         <InputCampo riga={riga} campo="audio" />
         <InputCampo riga={riga} campo="inspiration" />
         <InputCampo riga={riga} campo="url" aiuto="Il link del post pubblicato, copiato dal browser." />
-        <InputCampo riga={riga} campo="view_count" />
+        <CampoViewCount riga={riga} />
       </dl>
     </section>
   )

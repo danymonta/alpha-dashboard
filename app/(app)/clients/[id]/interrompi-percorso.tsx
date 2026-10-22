@@ -96,7 +96,7 @@ export function InterrompiPercorso({
             max={vendita.data_fine}
             value={giorno}
             onChange={(e) => aggiorna(e.target.value, togli)}
-            className="num h-11 [color-scheme:dark]"
+            className="num h-11"
           />
           <p className="text-xs text-muted-foreground">
             Il percorso andava dal <span className="num">{formatData(vendita.data_inizio)}</span> al{' '}

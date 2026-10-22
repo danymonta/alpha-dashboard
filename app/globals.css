@@ -3,10 +3,15 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* The light theme is the class .light on <html> (app/layout.tsx; «Sistema» adds it by the first-paint script
+   when the device is light). `chiaro:` styles only an element of the light page, never the dark one. */
+@custom-variant chiaro (&:where(.light, .light *));
 
 /* ---------------------------------------------------------------------------
    Alpha Management design tokens (CLAUDE.md section 11).
-   Dark theme only in v1. Never hard-code a colour in a component.
+   Two themes (Dany, 21/10/2026): dark is the base, here in :root, exactly as
+   it has always been; the light theme is the class .light on <html>, below.
+   Never hard-code a colour in a component.
 --------------------------------------------------------------------------- */
 :root {
   color-scheme: dark;
@@ -22,6 +27,16 @@
   --alpha-border: #2e2e31;
   --alpha-text: #f2f0ec;
   --alpha-text-muted: #8a8a8f;
+
+  /* The dark stage the logo lives on: its artwork is black with the fire baked in and
+     melts into a dark background (mix-blend lighten). The same in both themes: in the
+     light one the logo sits on a tile of it (.palco-logo, the login). */
+  --brand-palco: #121214;
+
+  /* A chosen filter pill: the brand bordeaux in dark, near-black in light (the style of the
+     light theme's reference screen). */
+  --selezione: var(--alpha-bordeaux);
+  --selezione-foreground: #f7eff0;
 
   /* Chart series: bound to the entity, never to the rank */
   --chart-nuovo: #c4515f;
@@ -97,6 +112,8 @@
 
   /* 6px controls, 8.4px cards (rounded-xl = radius * 1.4) */
   --radius: 0.375rem;
+  /* filter pills and search fields: the same corner as any control in dark, a full pill in light */
+  --raggio-pillola: 0.375rem;
 
   /* The toasts of the content panel (their own toaster, app/layout.tsx): bottom
      right, on a computer 24 px from the edge; below 768 px above the bottom bar
@@ -110,9 +127,57 @@
   }
 }
 
-/* v1 ships dark only: the .dark class inherits the same values. */
+/* The dark class (set by nothing today) keeps the dark values: the base above. */
 .dark {
   color-scheme: dark;
+}
+
+/* Light theme ------------------------------------------------------------------
+   Warm cream page, off-white cards with a hairline border and a wide radius, near-black
+   text with a brown-grey secondary, a dark bordeaux primary. Only values change: every
+   component already reads the tokens. Contrast of the main pairs (WCAG, checked by a
+   script, 21/10/2026): text 15.6 to 17.6, secondary text 4.8 to 5.9, white on bordeaux
+   10.0, gold on card 5.5, status text on card 5.0 to 6.4, chart series >= 3.6 on the card. */
+.light {
+  color-scheme: light;
+
+  --alpha-bordeaux: #7a1f2b;
+  --alpha-bordeaux-light: #93283a;
+  /* gold and brand red for TEXT on cream: darker, to stay readable (AA) */
+  --alpha-gold: #826400;
+  --alpha-rosso-testo: #a3222e;
+  --alpha-bg: #f5efe8;
+  --alpha-surface: #fffdf8;
+  --alpha-surface-2: #ede5da;
+  --alpha-border: #e4dbcf;
+  --alpha-text: #1a1714;
+  --alpha-text-muted: #6b6158;
+
+  --selezione: #1a1714;
+  --selezione-foreground: #fffdf8;
+
+  --chart-nuovo: #c4515f;
+  --chart-rate-precedenti: #824aca;
+  --chart-rinnovo: #a67f14;
+  --chart-upsell: #3f83cc;
+
+  --gantt-lista: #0b8c80;
+  --gantt-task: #7b62c8;
+  --gantt-progetto: #a85d17;
+
+  /* darker than on dark, so the text keeps >= 4.5:1 on the card and on its own pastel */
+  --status-ok: #186a40;
+  --status-warning: #8a5600;
+  --status-critical: #b3261e;
+
+  --primary-foreground: #fffdf8;
+  --popover: var(--alpha-surface);
+  --input: #d6cbbb;
+  --sidebar-primary-foreground: #fffdf8;
+
+  /* wide radius: cards 11px (rounded-xl = radius * 1.4), controls 8px */
+  --radius: 0.5rem;
+  --raggio-pillola: 9999px;
 }
 
 @theme inline {
@@ -144,6 +209,10 @@
   --color-status-ok: var(--status-ok);
   --color-status-warning: var(--status-warning);
   --color-status-critical: var(--status-critical);
+  --color-selezione: var(--selezione);
+  --color-selezione-foreground: var(--selezione-foreground);
+  --color-palco: var(--brand-palco);
+  --radius-pillola: var(--raggio-pillola);
   --color-gold: var(--alpha-gold);
   --color-rosso-testo: var(--alpha-rosso-testo);
   --color-ring: var(--ring);
@@ -429,6 +498,73 @@ input::-webkit-datetime-edit-minute-field:focus {
   from {
     opacity: 0;
   }
+}
+
+/* Light theme, the finishing touches (21/10/2026) ---------------------------------
+   What tokens alone do not give. Plain rules, outside the layers, so they win over the
+   utility classes of the components; they all start with .light: the dark theme gets none
+   of them. */
+/* very heavy, tight page titles */
+.light h1 {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* table headers: small caps spaced out, in the muted colour */
+.light thead th {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* a card on the cream page: a hairline edge (a shadow, never a border: no layout shift) */
+.light .bg-card.rounded-xl:not(.border):not([class*="ring-"]) {
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+/* fields and filters are drawn by their edge only */
+.light .bg-input\/30 {
+  background-color: transparent;
+}
+
+/* buttons are pills */
+.light [data-slot="button"] {
+  border-radius: var(--raggio-pillola);
+}
+
+/* The logo is black artwork with the fire baked in: it melts into a DARK backdrop. On the cream
+   page it sits on a tile of --brand-palco, so it stays legible and unchanged (brand moments are
+   the same in both themes). In dark these classes do nothing. */
+.palco-logo {
+  display: flex;
+  justify-content: center;
+}
+.light .palco-logo-ampio {
+  align-self: stretch;
+  padding: 2rem 0;
+  overflow: hidden;
+  border-radius: 1.75rem;
+  background-color: var(--brand-palco);
+}
+.light .palco-logo-piccolo {
+  overflow: hidden;
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.75rem;
+  background-color: var(--brand-palco);
+}
+
+/* selected text: white on the bordeaux (the dark theme's light text would be near-black here) */
+.light ::selection {
+  color: var(--primary-foreground);
+}
+.light input::-webkit-datetime-edit-day-field:focus,
+.light input::-webkit-datetime-edit-month-field:focus,
+.light input::-webkit-datetime-edit-year-field:focus,
+.light input::-webkit-datetime-edit-hour-field:focus,
+.light input::-webkit-datetime-edit-minute-field:focus {
+  color: var(--primary-foreground);
 }
 
 /* "Riduci movimento" on the phone or the computer: no animation in the whole app

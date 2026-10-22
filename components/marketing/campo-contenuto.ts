@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 
 import { modificaCampoContenuto, type EsitoCampo } from '@/app/(app)/marketing/contenuti/actions'
 import { useOpzioniToast, usePannello } from '@/components/marketing/contesto-pannello'
+import { useOpzioni } from '@/components/marketing/opzioni-contesto'
 import { useUscitaDallaLista } from '@/components/marketing/sezione-contenuti'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { messaggioCampo } from '@/lib/marketing/pannello'
@@ -41,6 +42,7 @@ export function useCampoContenuto<C extends CampoInCella>({
   const pannello = usePannello()
   const opzioniToast = useOpzioniToast()
   const uscita = useUscitaDallaLista()
+  const { opzioni } = useOpzioni()
   const [mostrato, imposta] = useOptimistic<ValoreCampo<C>>(valore)
   const [inCorso, avvia] = useTransition()
   // while the save (and the redraw it brings) is in flight, the panel knows
@@ -72,7 +74,7 @@ export function useCampoContenuto<C extends CampoInCella>({
       }
       if (esito.ok) {
         pannello?.aggiornaCampo(id, campo, esito.valore, esito.versione)
-        toast.success(messaggioCampo(campo, esito.valore), opzioniToast)
+        toast.success(messaggioCampo(campo, esito.valore, opzioni), opzioniToast)
         return
       }
       if (esito.cambiato) pannello?.aggiornaCampo(id, campo, esito.cambiato.valore, esito.cambiato.versione)

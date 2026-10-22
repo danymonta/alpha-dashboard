@@ -54,6 +54,12 @@ export function lunediDi(iso: string): string {
   return aggiungiGiorni(iso, giorno === 0 ? -6 : 1 - giorno)
 }
 
+/** The last whole Monday-to-Sunday week before the one that contains the date (the Monday email). */
+export function settimanaPrecedente(iso: string): { da: string; a: string } {
+  const lunedi = lunediDi(iso)
+  return { da: aggiungiGiorni(lunedi, -7), a: aggiungiGiorni(lunedi, -1) }
+}
+
 function giorniTra(da: string, a: string): number {
   const utc = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)))
   return Math.round((utc(a) - utc(da)) / 86_400_000)

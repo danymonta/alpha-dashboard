@@ -56,8 +56,6 @@ export function ConteggioPromemoria({
     promemoria.esiti > 0 ? 'conteggio-esiti' : null,
     promemoria.daApprovare > 0 ? 'conteggio-da-approvare' : null,
     promemoria.commenti > 0 ? 'conteggio-commenti' : null,
-    // not 'conteggio-da-collegare': that one is the Marketing tab's, on the same page
-    promemoria.daCollegare > 0 ? 'conteggio-post-da-collegare' : null,
   ].filter((tipo) => tipo !== null)
   const testId = tipi.length > 1 ? 'conteggio-altro' : (tipi[0] ?? 'conteggio-esiti')
   return <ConteggioEsiti numero={totalePromemoria(promemoria)} attiva={attiva} testId={testId} className={className} />

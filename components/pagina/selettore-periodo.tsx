@@ -189,7 +189,7 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
                     className={cn(
                       'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-center text-sm leading-tight transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                       selezionato
-                        ? 'border-primary bg-primary text-primary-foreground'
+                        ? 'border-selezione bg-selezione text-selezione-foreground'
                         : 'border-input bg-input/30 hover:bg-accent',
                     )}
                   >

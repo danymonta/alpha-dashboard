@@ -24,7 +24,7 @@ export function SceltaGiorno({ data, oggi }: { data: string; oggi: string }) {
           if (!scelta || scelta > oggi) return
           router.push(scelta === oggi ? '/today' : `/today?data=${scelta}`)
         }}
-        className="num h-10 bg-transparent text-sm outline-none [color-scheme:dark]"
+        className="num h-10 bg-transparent text-sm outline-none"
       />
     </label>
   )

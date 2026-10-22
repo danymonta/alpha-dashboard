@@ -126,7 +126,8 @@ export function isScrittura(nome: string): nome is NomeScrittura {
 export const AZIONI = {
   // chiudi / riapri: "Non rinnova" and "Riapri" of the client sheet (04/10/2026);
   // archivia / togli_archivio: "Archivia come ex cliente" and "Togli dall'archivio" (05/10/2026)
-  cliente: { admin: ['crea', 'modifica', 'chiudi', 'archivia', 'togli_archivio', 'riapri', 'elimina'] },
+  // sospendi / riattiva: "Sospendi" and "Riattiva" of the client sheet (21/10/2026)
+  cliente: { admin: ['crea', 'modifica', 'chiudi', 'archivia', 'togli_archivio', 'riapri', 'sospendi', 'riattiva', 'elimina'] },
   vendita: { admin: ['modifica', 'interrompi', 'elimina'] },
   rata: {
     admin: ['incassa', 'correggi_incasso', 'annulla_incasso', 'fallita', 'modifica', 'rimborso', 'aggiungi', 'elimina'],

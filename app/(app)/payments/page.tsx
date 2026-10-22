@@ -186,9 +186,9 @@ export default async function IncassiPage({
             }
             aria-current={v === vista ? 'page' : undefined}
             className={cn(
-              'inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm whitespace-nowrap',
+              'inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-pillola border px-3 text-sm whitespace-nowrap',
               v === vista
-                ? 'border-primary bg-primary text-primary-foreground'
+                ? 'border-selezione bg-selezione text-selezione-foreground'
                 : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
           >

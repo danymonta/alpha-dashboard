@@ -13,7 +13,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(92);
+select plan(99);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres): OAuth clients and sessions, two more roles, a
@@ -326,7 +326,7 @@ set local request.jwt.claims to '{}';
 select is(
   (select coalesce(string_agg(t.tablename, ', ' order by t.tablename), '')
    from pg_tables t
-   where t.schemaname = 'public' and t.tablename <> 'marketing_contenuti'
+   where t.schemaname = 'public' and t.tablename not in ('marketing_contenuti', 'marketing_opzioni')
      and not exists (
        select 1 from pg_policies p
        where p.schemaname = 'public' and p.tablename = t.tablename
@@ -342,6 +342,14 @@ select is(
    where schemaname = 'public' and tablename = 'marketing_contenuti' and permissive = 'RESTRICTIVE'),
   0,
   'il calendario non ne ha'
+);
+-- the labels of the calendar (20261024090000): Claude reads them, never writes: three restrictive policies, one per write
+select is(
+  (select array_agg(cmd order by cmd) from pg_policies
+   where schemaname = 'public' and tablename = 'marketing_opzioni' and permissive = 'RESTRICTIVE'
+     and policyname like 'marketing_opzioni_mai_da_oauth%' and roles = array['authenticated']::name[]),
+  array['DELETE', 'INSERT', 'UPDATE']::text[],
+  'le etichette: tre policy restrittive, una per ogni scrittura (e nessuna sulla lettura)'
 );
 select ok(
   exists (
@@ -369,6 +377,12 @@ insert into public.clienti_chiusure (client_id, chiuso_il, motivo)
 select c.id, public.oggi(), 'Prova del test 75' from public.clients c
 where not exists (select 1 from public.clienti_chiusure x where x.client_id = c.id)
   and not exists (select 1 from public.sales s where s.client_id = c.id and s.data_vendita > public.oggi())
+limit 1;
+-- a client on hold (1.44.0): closing the first client above ends his hold, so the hold goes to another one
+insert into public.clienti_sospensioni (client_id, sospeso_il)
+select c.id, public.oggi() from public.clients c
+where not exists (select 1 from public.clienti_sospensioni x where x.client_id = c.id)
+  and not exists (select 1 from public.clienti_chiusure x where x.client_id = c.id)
 limit 1;
 insert into public.report_proposte_instagram (setter_id, data, dm_outbound, chat_lette)
 values ('22222222-2222-4222-8222-222222222222', '2024-01-15', 12, 20)
@@ -498,12 +512,12 @@ select is(
 );
 select is(
   (select coalesce(array_agg(relazione order by relazione), '{}') from righe_viste where persona = 'admin' and righe > 0),
-  array['marketing_contenuti'],
-  'col token di Claude l''admin legge solo il calendario dei contenuti'
+  array['marketing_contenuti', 'marketing_opzioni'],
+  'col token di Claude l''admin legge solo il calendario dei contenuti e le sue etichette'
 );
 select is(
   (select coalesce(array_agg(relazione order by relazione), '{}') from righe_viste where persona = 'marketing' and righe > 0),
-  array['marketing_contenuti'],
+  array['marketing_contenuti', 'marketing_opzioni'],
   'e così il marketing: niente profili, progetti o prodotti'
 );
 
@@ -848,6 +862,29 @@ select is(
   'ne scrive una sezione'
 );
 
+-- The labels of Reel Type and Format (20261024090000): read yes, write never, not even through the RPC
+create or replace function pg_temp.opzioni_toccate(p_sql text)
+returns integer
+language plpgsql
+as $f$
+declare
+  n integer;
+begin
+  execute p_sql;
+  get diagnostics n = row_count;
+  return n;
+end;
+$f$;
+select ok((select count(*) from public.marketing_opzioni) >= 15, 'Claude dell''admin legge le etichette di Reel Type e Format');
+select throws_ok($$ insert into public.marketing_opzioni (campo, valore, nome) values ('formato', 'da_claude', 'Da Claude') $$,
+  '42501', null, 'ma non ne crea una');
+select is(pg_temp.opzioni_toccate($$ update public.marketing_opzioni set nome = 'Da Claude' where valore = 'split' $$), 0,
+  'né ne rinomina una');
+select is(pg_temp.opzioni_toccate($$ delete from public.marketing_opzioni where valore = 'radio' $$), 0,
+  'né ne elimina una');
+select throws_ok($$ select public.crea_opzione_marketing('formato', 'Da Claude') $$, '42501', null,
+  'e la funzione che le crea è rifiutata dalla policy');
+
 select pg_temp.come_oauth('55555555-5555-4555-8555-555555555555', '7c000000-0000-4000-8000-000000000001',
   '7e000000-0000-4000-8000-000000000002');
 select ok((select count(*) from public.marketing_contenuti) > 0, 'Claude del video editor legge il calendario');
@@ -1049,6 +1086,16 @@ select is(
   array['passa', 'passa', 'passa', 'passa', 'passa', 'passa', 'passa', 'passa', 'passa', 'passa',
         'passa', 'passa', 'passa', 'passa'],
   'token di Claude: passano il calendario (GET, HEAD, POST, PATCH, DELETE), salva_sezione_contenuto in POST e mcp_chi_sono'
+);
+select is(
+  array[
+    pg_temp.filtro('/marketing_opzioni', 'GET'), pg_temp.filtro('marketing_opzioni', 'GET'),
+    pg_temp.filtro('/marketing_opzioni', 'HEAD'), pg_temp.filtro('/marketing_opzioni', 'POST'),
+    pg_temp.filtro('/marketing_opzioni', 'PATCH'), pg_temp.filtro('/marketing_opzioni', 'DELETE'),
+    pg_temp.filtro('/rpc/crea_opzione_marketing', 'POST'), pg_temp.filtro('/rpc/conteggi_opzioni_marketing', 'POST')
+  ],
+  array['passa', 'passa', 'passa', '42501', '42501', '42501', '42501', '42501'],
+  'token di Claude: le etichette solo in lettura (GET, HEAD), mai scritte né create dalla funzione'
 );
 select is(
   array[

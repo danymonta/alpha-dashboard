@@ -40,6 +40,8 @@ const a = vi.hoisted(() => {
     archiviaCliente: ok(),
     togliDallArchivio: ok(),
     riapriCliente: ok(),
+    sospendiCliente: ok(),
+    riattivaCliente: ok(),
     creaCliente: ok(),
     eliminaCliente: ok(),
     interrompiPercorso: ok(),
@@ -122,6 +124,8 @@ vi.mock('@/app/(app)/clients/actions', () => ({
   archiviaCliente: a.archiviaCliente,
   togliDallArchivio: a.togliDallArchivio,
   riapriCliente: a.riapriCliente,
+  sospendiCliente: a.sospendiCliente,
+  riattivaCliente: a.riattivaCliente,
   creaCliente: a.creaCliente,
   eliminaCliente: a.eliminaCliente,
   interrompiPercorso: a.interrompiPercorso,
@@ -827,7 +831,17 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
 
   it('cliente: «non rinnova» chiude da oggi con il motivo; riapre solo un cliente chiuso', async () => {
     const s = strumenti()
-    expect(await azioniDi(s, 'cliente')).toEqual(['crea', 'modifica', 'chiudi', 'archivia', 'togli_archivio', 'riapri', 'elimina'])
+    expect(await azioniDi(s, 'cliente')).toEqual([
+      'crea',
+      'modifica',
+      'chiudi',
+      'archivia',
+      'togli_archivio',
+      'riapri',
+      'sospendi',
+      'riattiva',
+      'elimina',
+    ])
     expect(await anteprima('cliente', { azione: 'chiudi', cliente: 'Mario Rossi', motivo: 'Si allena da solo' })).toEqual({
       titolo: 'Mario Rossi non rinnova: lo chiudo',
       righe: [
@@ -942,6 +956,67 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
     expect(await anteprima('cliente', { azione: 'chiudi', cliente: 'Mario Rossi', chiuso_il: '2026-10-03' }, 'admin', archiviato)).toEqual({
       errore: 'Mario Rossi è archiviato dal 02/10/2026: la chiusura non può venire dopo quel giorno.',
     })
+  })
+
+  it('cliente: sospende da oggi con il motivo; riattiva solo un sospeso; mai un chiuso né chi non ha un percorso', async () => {
+    const s = strumenti()
+    expect(await anteprima('cliente', { azione: 'sospendi', cliente: 'Mario Rossi', motivo: 'Viaggio di lavoro' })).toEqual({
+      titolo: 'Sospendo Mario Rossi',
+      righe: [
+        `Sospeso dal ${formatData(oggiRoma())}`,
+        'Motivo: Viaggio di lavoro',
+        'Va tra i clienti sospesi: esce da In scadenza e dai rinnovi da chiamare, niente più promemoria del percorso. Percorso, rate e incassi restano; se compra di nuovo o non rinnova la sospensione finisce da sola.',
+      ],
+      sostituisceDettagli: true,
+    })
+    await esegui(s, 'cliente', { azione: 'sospendi', cliente: 'Mario Rossi', motivo: ' Viaggio di lavoro ' })
+    expect(a.sospendiCliente).toHaveBeenCalledWith({ client_id: MARIO, sospeso_il: oggiRoma(), motivo: 'Viaggio di lavoro' })
+
+    // not on hold: nothing to reactivate, before the tap and at the tap
+    expect(await anteprima('cliente', { azione: 'riattiva', cliente: 'Mario Rossi' })).toEqual({
+      errore: 'Mario Rossi non è sospeso: non c’è niente da riattivare.',
+    })
+    await esegui(s, 'cliente', { azione: 'riattiva', cliente: 'Mario Rossi' })
+    expect(a.riattivaCliente).not.toHaveBeenCalled()
+
+    // never in the future
+    expect(await esegui(s, 'cliente', { azione: 'sospendi', cliente: 'Mario Rossi', sospeso_il: aggiungiGiorni(oggiRoma(), 1) })).toEqual({
+      errore: 'Il giorno della sospensione non può essere nel futuro.',
+    })
+
+    // closed: the closure wins, nothing to suspend
+    const chiuso = { ...mondo(), v_clienti_chiusi: [{ client_id: MARIO, chiuso_il: '2026-09-30', motivo: null, archiviato_il: null }] }
+    expect(await anteprima('cliente', { azione: 'sospendi', cliente: 'Mario Rossi' }, 'admin', chiuso)).toEqual({
+      errore: 'Mario Rossi è chiuso: prima va riaperto (riapri), poi si può sospendere.',
+    })
+    // no path yet: nothing to suspend
+    expect(await anteprima('cliente', { azione: 'sospendi', cliente: 'Luca Rossi' })).toEqual({
+      errore: 'Luca Rossi non ha ancora un percorso: non c’è niente da sospendere.',
+    })
+    expect(a.sospendiCliente).toHaveBeenCalledTimes(1)
+  })
+
+  it('cliente: su un sospeso, sospendi corregge giorno o motivo e riattiva toglie la sospensione', async () => {
+    const righe = { ...mondo(), clienti_sospensioni: [{ client_id: MARIO, sospeso_il: '2026-10-10', motivo: 'Viaggio' }] }
+    expect(await anteprima('cliente', { azione: 'sospendi', cliente: 'Mario Rossi', sospeso_il: '2026-10-12' }, 'admin', righe)).toEqual({
+      titolo: 'Correggo la sospensione di Mario Rossi',
+      righe: ['Sospeso dal: 10/10/2026 → 12/10/2026'],
+      sostituisceDettagli: true,
+    })
+    const s = strumenti('admin', 'admin', righe)
+    // the reason already saved stays when only the day changes
+    await esegui(s, 'cliente', { azione: 'sospendi', cliente: 'Mario Rossi', sospeso_il: '2026-10-12' })
+    expect(a.sospendiCliente).toHaveBeenCalledWith({ client_id: MARIO, sospeso_il: '2026-10-12', motivo: 'Viaggio' })
+    expect(await anteprima('cliente', { azione: 'riattiva', cliente: 'Mario Rossi' }, 'admin', righe)).toEqual({
+      titolo: 'Riattivo il cliente Mario Rossi',
+      righe: [
+        'Era sospeso dal 10/10/2026: Viaggio',
+        'Torna con lo stato che dicono le date del percorso, con i promemoria ancora dovuti; giorno e motivo della sospensione si tolgono.',
+      ],
+      sostituisceDettagli: true,
+    })
+    await esegui(s, 'cliente', { azione: 'riattiva', cliente: 'Mario Rossi' })
+    expect(a.riattivaCliente).toHaveBeenCalledWith({ client_id: MARIO })
   })
 
   it('cliente: creare senza vendita, con setter e closer per nome', async () => {
@@ -1962,13 +2037,13 @@ describe('la guida: ogni ruolo legge la sua parte (03/10/2026)', () => {
       expect(permessi, ruolo).toContain('I messaggi diretti e i nomi di chi scrive all’account non li vedi.')
       expect(permessi, ruolo).toContain('L’area Economics non è del tuo ruolo.')
       const contenuti = await testo(ruolo, 'marketing')
-      expect(contenuti, ruolo).toContain('Contenuti (area Marketing, /marketing/contenuti)')
+      expect(contenuti, ruolo).toContain('Piano editoriale (area Marketing, /marketing/contenuti')
       for (const parola of ['Name, Reel Type, Format, Inspiration, Status, Post Date, Audio, URL, View Count', 'Reel Topic', 'Carousel Topic']) {
         expect(contenuti, `${ruolo}: ${parola}`).toContain(parola)
       }
       expect(contenuti, ruolo).toContain('Alfire per ora non legge e non scrive i contenuti né i post di Instagram.')
       // the panel, the cells and the posts of Instagram (1.33.0)
-      for (const parola of ['apre il contenuto in un pannello a lato', 'dalla sua cella', 'Post di Instagram (/marketing/instagram)', '«Da collegare»', '«Scollega»', '«Aggiorna da Instagram» rilegge subito i post (admin e marketing)']) {
+      for (const parola of ['apre il contenuto in un pannello a lato', 'dalla sua cella', 'Pubblicati (/marketing/pubblicati', '«Collega»', '«Scollega»', 'si compila e si aggiorna da solo dalle views di Instagram', '«Aggiorna da Instagram» rilegge subito i post (admin e marketing)']) {
         expect(contenuti, `${ruolo}: ${parola}`).toContain(parola)
       }
       for (const parola of ['provvigion', 'incass', 'vendit', 'cliente', 'margine', 'costi', 'soldi', 'prezz']) {

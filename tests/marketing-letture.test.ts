@@ -12,7 +12,9 @@ import {
   LetturaNonRiuscita,
   contaPerGruppo,
   leggiContenuto,
+  leggiConteggiOpzioni,
   leggiElenco,
+  leggiOpzioni,
   leggiProprietaContenuto,
 } from '@/lib/marketing/letture'
 import type { Db } from '@/lib/marketing/operazioni'
@@ -166,5 +168,54 @@ describe('leggiProprietaContenuto', () => {
     expect(finto.intatto()).toBe(true)
     finto.risponde({ error: { code: '57014', message: 'canceling statement due to statement timeout' } })
     await expect(leggiProprietaContenuto(db, ID)).rejects.toMatchObject({ name: 'LetturaNonRiuscita', codice: '57014' })
+  })
+})
+
+describe('leggiOpzioni e leggiConteggiOpzioni (le etichette di Reel Type e Format)', () => {
+  it('le etichette nell’ordine del menu, divise per campo; un colore che il codice non conosce è «default»', async () => {
+    finto.risponde({
+      data: [
+        { id: 'a', campo: 'reel_type', valore: 'education', nome: 'Education', colore: 'yellow', ordine: 20 },
+        { id: 'b', campo: 'formato', valore: 'meme', nome: 'Meme', colore: 'pink', ordine: 110 },
+        { id: 'c', campo: 'reel_type', valore: 'case_study', nome: 'Case study', colore: 'ultravioletto', ordine: 60 },
+        { id: 'd', campo: 'stato', valore: 'x', nome: 'Un campo che non c’è', colore: 'red', ordine: 1 },
+      ],
+    })
+    const opzioni = await leggiOpzioni(db)
+    expect(finto.query).toEqual([
+      {
+        tabella: 'marketing_opzioni',
+        passi: [['select', 'id, campo, valore, nome, colore, ordine'], ['order', 'ordine'], ['order', 'nome']],
+      },
+    ])
+    expect(opzioni.reel_type.map((o) => [o.valore, o.colore])).toEqual([
+      ['education', 'yellow'],
+      ['case_study', 'default'],
+    ])
+    expect(opzioni.formato.map((o) => o.nome)).toEqual(['Meme'])
+  })
+
+  it('una lettura che non riesce lancia LetturaNonRiuscita con il codice, mai il messaggio', async () => {
+    finto.risponde({ error: { code: '57014', message: 'canceling statement' } })
+    await expect(leggiOpzioni(db)).rejects.toMatchObject({ name: 'LetturaNonRiuscita', codice: '57014' })
+  })
+
+  it('i conteggi: quanti contenuti usano ogni etichetta, per campo e codice', async () => {
+    finto.risponde({
+      data: [
+        { campo: 'reel_type', valore: 'education', n: 12 },
+        { campo: 'formato', valore: 'b_roll', n: 3 },
+        { campo: 'altro', valore: 'x', n: 9 },
+      ],
+    })
+    expect(await leggiConteggiOpzioni(db)).toEqual({ reel_type: { education: 12 }, formato: { b_roll: 3 } })
+    expect(finto.rpc).toEqual([{ nome: 'conteggi_opzioni_marketing', args: undefined }])
+  })
+
+  it('senza etichette usate i conteggi sono vuoti; un errore lancia', async () => {
+    finto.risponde({ data: null })
+    expect(await leggiConteggiOpzioni(db)).toEqual({ reel_type: {}, formato: {} })
+    finto.risponde({ error: { code: '42501', message: 'x' } })
+    await expect(leggiConteggiOpzioni(db)).rejects.toBeInstanceOf(LetturaNonRiuscita)
   })
 })

@@ -52,25 +52,17 @@ export function etichettaCollega(stato: string | null | undefined): string {
   return !stato || stato === 'posted' ? 'Collega' : 'Collega e segna Posted'
 }
 
-/** "Da collegare": a post with proposals or without a content (v_instagram_post.stato_collegamento). */
-export const STATI_DA_COLLEGARE = ['proposto', 'senza_contenuto']
-
-/** "Post di Instagram, 5 da collegare": the tab's accessible name with its badge. */
-export function nomeSchedaPost(daCollegare: number): string {
-  return daCollegare > 0 ? `Post di Instagram, ${daCollegare} da collegare` : 'Post di Instagram'
-}
-
 /**
  * The toast after "Aggiorna da Instagram": «Aggiornato: 52 post letti, 3
- * collegati da soli, 5 proposte da controllare, numeri di 41 post.» It always
- * begins with «Aggiornato: N post letti»; when Meta says the permission for
- * the statistics is missing, it ends «; statistiche non attive.»
+ * collegati da soli, numeri di 41 post.» It always begins with «Aggiornato: N
+ * post letti»; when Meta says the permission for the statistics is missing, it
+ * ends «; statistiche non attive.» The proposals of the run are not said any
+ * more (25/10/2026): nobody has to link a post.
  */
-export function fraseAggiornato(esito: { letti: number; collegati: number; proposti: number; metriche?: number | null; permesso?: boolean | null }): string {
+export function fraseAggiornato(esito: { letti: number; collegati: number; proposti?: number; metriche?: number | null; permesso?: boolean | null }): string {
   const letti = esito.letti === 1 ? '1 post letto' : `${esito.letti} post letti`
   const collegati = esito.collegati === 1 ? '1 collegato da solo' : `${esito.collegati} collegati da soli`
-  const proposte = esito.proposti === 1 ? '1 proposta da controllare' : `${esito.proposti} proposte da controllare`
-  const base = `Aggiornato: ${letti}, ${collegati}, ${proposte}`
+  const base = `Aggiornato: ${letti}, ${collegati}`
   if (esito.permesso === false) return `${base}; statistiche non attive.`
   if (typeof esito.metriche === 'number' && esito.metriche > 0) {
     return `${base}, numeri di ${esito.metriche === 1 ? '1 post' : `${esito.metriche} post`}.`

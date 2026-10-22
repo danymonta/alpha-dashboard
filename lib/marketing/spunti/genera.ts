@@ -7,6 +7,8 @@ import { chiediAClaude } from '@/lib/marketing/analisi/claude'
 import { MINIMO_ANALISI_MS } from '@/lib/marketing/analisi/config'
 import { chiaveNome } from '@/lib/marketing/analisi/verifica'
 import { USO_ZERO, type UsoToken } from '@/lib/marketing/analisi/tipi'
+import { leggiOpzioni } from '@/lib/marketing/letture'
+import { nomiDa } from '@/lib/marketing/opzioni'
 import { preparaFonti } from '@/lib/marketing/spunti/fonti'
 import { contenutoSpunti, sistemaSpunti, VERSIONE_PROMPT_SPUNTI } from '@/lib/marketing/spunti/prompt'
 import { comeSpuntiModello, FORMATO_SPUNTI, LettoSpunti } from '@/lib/marketing/spunti/schema'
@@ -81,7 +83,8 @@ export async function generaSpunti(op: {
       await fine('in_coda', { riprovaIl: tra(10), conta: true })
       return { esito: 'fallito', uso }
     }
-    const fonti = preparaFonti(crudo, chiaveNome)
+    // the labels' live names: a Reel Type or Format a person created reaches Claude with its name
+    const fonti = preparaFonti(crudo, chiaveNome, nomiDa(await leggiOpzioni(db).catch(() => undefined)))
     if (fonti.insufficienti) {
       await fine('fallita', { errore: FRASI_SPUNTI.mancanoDati })
       return { esito: 'ok', uso }

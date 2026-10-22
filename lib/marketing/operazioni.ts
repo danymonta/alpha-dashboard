@@ -37,7 +37,7 @@ import { coppiaPostSchema, postSchema } from '@/lib/validation/post-instagram'
 
 /**
  * The only way the content calendar is written (1.34.0, 10/10/2026): from the
- * app (the server actions of /marketing/contenuti and /marketing/instagram,
+ * app (the server actions of /marketing/contenuti and /marketing/pubblicati,
  * with the cookie session of whoever taps: the new-content form, the cells,
  * the panel, the Status, the sections, the posts of Instagram) and from
  * Claude (the MCP tools, with the OAuth token of whoever connected it). Same
@@ -105,6 +105,7 @@ const SPARITO = 'Questo contenuto non c’è più.'
 const SEZIONE_CAMBIATA =
   'Questa parte è cambiata da un’altra parte: ricarico il testo salvato. Il tuo testo resta qui sotto: copialo se ti serve.'
 const POST_GIA_COLLEGATO = 'Questo post è già collegato a un altro contenuto.'
+const ETICHETTA_SPARITA = 'Questa etichetta non c’è più: ricarica la pagina e scegline un’altra.'
 /** A section of a content just created, changed by someone else before its text arrived: nobody has a page to reload. */
 const SEZIONE_CAMBIATA_APPENA_CREATO = 'Questa parte è cambiata da un’altra parte: rileggila prima di riscriverla.'
 /** Several properties, one of them changed meanwhile (Claude rereads it: the values come with the answer). */
@@ -114,13 +115,19 @@ function primoErrore(issues: { message: string }[]): string {
   return issues[0]?.message ?? 'Dati non validi.'
 }
 
+const VIEW_COUNT_DA_INSTAGRAM = 'Il View Count di questo contenuto arriva da Instagram: si aggiorna da solo.'
+
 function errore(error: { code?: string; message: string }, nonSalvato = NON_SALVATO): string {
   // the unique index of the ideas: the same idea twice
   if (error.code === '23505' && (error.message.includes('marketing_contenuti_idea_idx') || error.message.includes('marketing_contenuti_spunti_idx'))) return IDEA_GIA_NEL_CALENDARIO
+  // the foreign key of Reel Type or Format: the label was deleted (or never existed) while this was open
+  if (error.code === '23503' && /marketing_contenuti_(reel_type|formato)_fkey/.test(error.message)) return ETICHETTA_SPARITA
   // the unique index on instagram_shortcode: the same post on two contents
   if (error.code === '23505') return POST_GIA_COLLEGATO
   // the trigger of the ideas, in its own words
   if (error.code === '22023' && error.message.startsWith('Idea di Claude')) return error.message
+  // a View Count that comes from Instagram updates itself: not written from a session (25/10/2026)
+  if (error.code === '23514' && error.message.startsWith('Il View Count di questo contenuto arriva da Instagram')) return VIEW_COUNT_DA_INSTAGRAM
   // a write RLS refused: Postgres's own words are not for people
   if (error.code === '42501' && error.message.includes('row-level security')) return SOLO_MARKETING
   return messaggioErrore(error, nonSalvato)
@@ -132,6 +139,29 @@ function aggiorna() {
 }
 
 // ── a new content ───────────────────────────────────────────────────────────
+
+/**
+ * The Reel Type and the Format a content would be born with that are no
+ * longer options (a person deleted the label Claude's idea or the analysis
+ * names): left empty, so the content is created instead of refused by the
+ * foreign key. Never for what a person or Claude's tools write: those are
+ * resolved against the live options first and a missing one is an error.
+ */
+async function senzaEtichetteSparite<T extends { reel_type: string | null; formato: string | null }>(
+  db: Db,
+  dati: T,
+): Promise<T> {
+  const valori = [dati.reel_type, dati.formato].filter((v): v is string => v !== null)
+  if (valori.length === 0) return dati
+  const { data } = await db.from('marketing_opzioni').select('campo, valore').in('valore', valori)
+  const ci = (campo: string, valore: string | null) =>
+    valore !== null && (data ?? []).some((o) => o.campo === campo && o.valore === valore)
+  return {
+    ...dati,
+    reel_type: ci('reel_type', dati.reel_type) ? dati.reel_type : null,
+    formato: ci('formato', dati.formato) ? dati.formato : null,
+  }
+}
 
 /** The insert every new content goes through: the form, Claude and «Crea il contenuto» from a post. */
 async function inserisci(db: Db, dati: ContenutoDati, bozza: string | null, origine?: OrigineIdea) {
@@ -177,6 +207,8 @@ export async function creaContenuto(
 ): Promise<EsitoCreazioneConSezioni> {
   const parsed = contenutoSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error.issues) }
+  // an idea of Claude names a label of the starting set: if a person deleted it, the content is born without it
+  if (origine) parsed.data = await senzaEtichetteSparite(db, parsed.data)
 
   const testi: [SezioneContenuto, string][] = []
   for (const campo of ORDINE_SEZIONI) {
@@ -418,10 +450,11 @@ export async function eliminaContenuto(db: Db, input: unknown): Promise<EsitoEli
 
 // ── the posts of Instagram (1.33.0) ─────────────────────────────────────────
 //
-// The taps of the admin, the video editor and marketing on "Da collegare",
-// "Collegati", "Fuori dal calendario" and the panel's «Post su Instagram»
-// (Collega, Annulla, Scollega, Crea il contenuto, Non va nel calendario,
-// Rimetti), all of them here: one write path. The permalink never comes
+// The taps of the admin, the video editor and marketing on «Collega» and
+// «Scollega» (the Pubblicati table and the reel panel) and the content panel's
+// «Post su Instagram» (Collega, Annulla, Scollega; «Crea il contenuto», «Non va
+// nel calendario» and «Rimetti» have no screen since 25/10/2026, the functions
+// stay), all of them here: one write path. The permalink never comes
 // from the input: it is read from instagram_contenuti with the caller's
 // client and checked like a URL typed by hand. Unlinking a post (the URL
 // emptied) leaves a "no" for that pair (trigger
@@ -699,7 +732,7 @@ export async function creaContenutoDaPost(db: Db, input: unknown, opzioni: Opzio
   const dati = contenutoSchema.safeParse(contenutoDaPost(letto.post, opzioni.classificazione))
   if (!dati.success) return { ok: false, errore: primoErrore(dati.error.issues) }
 
-  const { data, error } = await inserisci(db, dati.data, null)
+  const { data, error } = await inserisci(db, await senzaEtichetteSparite(db, dati.data), null)
   if (error) {
     aggiorna()
     return { ok: false, errore: errorePost(error) }

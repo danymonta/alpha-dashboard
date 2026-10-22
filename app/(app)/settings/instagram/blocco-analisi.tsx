@@ -148,9 +148,9 @@ export function BloccoAnalisi({
         </div>
       ) : null}
 
-      <Link href="/marketing/analisi" className={cn(buttonVariants({ variant: 'outline' }), 'h-11 w-full sm:w-auto')}>
+      <Link href="/marketing/pubblicati" className={cn(buttonVariants({ variant: 'outline' }), 'h-11 w-full sm:w-auto')}>
         <Clapperboard className="size-4" aria-hidden="true" />
-        Apri l’analisi dei reel
+        Apri i Pubblicati
       </Link>
     </section>
   )

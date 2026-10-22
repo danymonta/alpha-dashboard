@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { opzioniDiPartenza } from '@/lib/marketing/opzioni'
+
 import {
   hrefContenuto,
   linkCondivisibile,
@@ -76,6 +78,8 @@ describe('piuRecente', () => {
 describe('messaggioCampo: il toast dopo un salvataggio', () => {
   it.each([
     ['reel_type', 'education', 'Reel Type: Education'],
+    ['reel_type', 'case_study', 'Reel Type: Case study'],
+    ['formato', 'sparita', 'Format: sparita'],
     ['reel_type', null, 'Reel Type tolto'],
     ['formato', 'raw_talking_head', 'Format: Raw Talking Head'],
     ['post_date', '2026-10-12', 'Post Date: 12/10/2026'],
@@ -89,6 +93,10 @@ describe('messaggioCampo: il toast dopo un salvataggio', () => {
     ['view_count', null, 'View Count tolto'],
     ['tipo', 'carousel', 'Modello: Carousel Topic'],
   ] as const)('%s = %s: «%s»', (campo, valore, atteso) => {
-    expect(messaggioCampo(campo, valore)).toBe(atteso)
+    // the name is the live label's: a label a person created (case_study) reads with its own name,
+    // one that is gone as its slug
+    const opzioni = opzioniDiPartenza()
+    opzioni.reel_type.push({ id: 'x', campo: 'reel_type', valore: 'case_study', nome: 'Case study', colore: 'orange', ordine: 60 })
+    expect(messaggioCampo(campo, valore, opzioni)).toBe(atteso)
   })
 })

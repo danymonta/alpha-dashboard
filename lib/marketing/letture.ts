@@ -3,6 +3,14 @@ import 'server-only'
 import { COLONNE_ELENCO, type ContenutoElenco } from '@/lib/marketing/elenco'
 import { ORDINE_GRUPPI, type GruppoStatus } from '@/lib/marketing/etichette'
 import { filtriDelGruppo, patternRicerca, statiFiltrati, type FiltriContenuti } from '@/lib/marketing/filtri'
+import {
+  CAMPI_OPZIONE,
+  isColore,
+  type CampoOpzione,
+  type ConteggiOpzioni,
+  type Opzione,
+  type Opzioni,
+} from '@/lib/marketing/opzioni'
 import type { Db } from '@/lib/marketing/operazioni'
 import { isUuid } from '@/lib/progetti'
 import type { Database } from '@/lib/supabase/database.types'
@@ -119,4 +127,44 @@ export async function leggiProprietaContenuto(db: Db, id: string): Promise<Conte
   const { data, error } = await db.from('marketing_contenuti').select(COLONNE_ELENCO).eq('id', id).maybeSingle()
   if (error) throw new LetturaNonRiuscita('Impossibile caricare il contenuto', error.code)
   return data
+}
+
+/**
+ * The labels of Reel Type and Format (marketing_opzioni), in the order the menu
+ * shows them: the order column, then the name. The page, the panel and Claude's
+ * tools read them with the caller's client, so RLS decides who sees them.
+ */
+export async function leggiOpzioni(db: Pick<Db, 'from'>): Promise<Opzioni> {
+  const { data, error } = await db
+    .from('marketing_opzioni')
+    .select('id, campo, valore, nome, colore, ordine')
+    .order('ordine')
+    .order('nome')
+  if (error) throw new LetturaNonRiuscita('Impossibile caricare le etichette', error.code)
+  const opzioni: Opzioni = { reel_type: [], formato: [] }
+  for (const riga of data ?? []) {
+    if (!(CAMPI_OPZIONE as readonly string[]).includes(riga.campo)) continue
+    const o: Opzione = {
+      id: riga.id,
+      campo: riga.campo as CampoOpzione,
+      valore: riga.valore,
+      nome: riga.nome,
+      // the table's check keeps the colour in Notion's ten; the default is for a column the code does not know yet
+      colore: isColore(riga.colore) ? riga.colore : 'default',
+      ordine: riga.ordine,
+    }
+    opzioni[o.campo].push(o)
+  }
+  return opzioni
+}
+
+/** How many contents use each option (only the ones used): the filters and the question before deleting one. */
+export async function leggiConteggiOpzioni(db: Pick<Db, 'rpc'>): Promise<ConteggiOpzioni> {
+  const { data, error } = await db.rpc('conteggi_opzioni_marketing')
+  if (error) throw new LetturaNonRiuscita('Impossibile contare i contenuti', error.code)
+  const conteggi: ConteggiOpzioni = { reel_type: {}, formato: {} }
+  for (const riga of data ?? []) {
+    if (riga.campo === 'reel_type' || riga.campo === 'formato') conteggi[riga.campo][riga.valore] = riga.n
+  }
+  return conteggi
 }

@@ -241,6 +241,10 @@ insert into ammesse values
   -- marketing_lavori_stato (cost, limit, switches) stays out: 0 rows for the marketing and the editor
   ('instagram_contenuti_misure'), ('instagram_account_misure'), ('instagram_letture'), ('marketing_analisi'), ('marketing_spunti'),
   ('v_instagram_numeri'), ('v_instagram_mediane'), ('v_analisi_reel'),
+  -- the Pubblicati page (25/10/2026, 97_pubblicati.sql): every post with its numbers, no names
+  ('v_pubblicati'),
+  -- the labels of Reel Type and Format of the Piano editoriale (21/10/2026, 95_etichette_contenuti.sql)
+  ('marketing_opzioni'),
   -- the notification center (1.41.0): each person reads only their own (checked right below)
   ('notifiche');
 select is(

@@ -10,6 +10,7 @@ import { TestaTutorial } from '@/components/tutorial/testa-tutorial'
 import { FotoProfilo } from '@/components/profilo/foto-profilo'
 import { Campanella } from '@/components/shell/campanella'
 import { LinkNav } from '@/components/shell/link-nav'
+import { BottoneTema } from '@/components/tema/bottone-tema'
 import type { AppRole } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
@@ -45,11 +46,14 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
     <header ref={barra} className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 md:hidden">
         <div className="flex min-w-0 items-center gap-3">
-          <LogoFuoco dimensione="mini" />
-          <p className={cn('truncate font-heading text-sm font-semibold', timer && 'sr-only')}>Alpha Management</p>
+          <div className="palco-logo palco-logo-piccolo">
+            <LogoFuoco dimensione="mini" />
+          </div>
+          <p className={cn('truncate font-heading text-sm font-semibold', timer ? 'sr-only' : 'max-[26.9rem]:sr-only')}>Alpha Management</p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <TimerInCima compatto />
+          <BottoneTema />
           <Campanella />
           <BottoneAlfire />
           <LinkNav
@@ -65,6 +69,7 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
       <div className="hidden h-14 items-center justify-end gap-1 px-6 md:flex">
         {ruolo === 'admin' ? <TestaTutorial conEtichetta /> : null}
         <TimerInCima />
+        <BottoneTema />
         <Campanella />
         <BottoneAlfire conEtichetta />
       </div>

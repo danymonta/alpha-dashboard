@@ -11,8 +11,7 @@ export type MotivoUscita = 'filtri' | 'eliminato'
 type Uscita = {
   /**
    * Whether this new value takes the content out of the list with its
-   * filters (a Status, a Reel Type, a Name outside the search), or may move
-   * it elsewhere in the page (a Post Date in the calendar).
+   * filters (a Status, a Reel Type, a Name outside the search).
    */
   esce: (campo: CampoInCella | 'stato', valore: unknown) => boolean
   /**
@@ -81,26 +80,16 @@ function frase(nome: string, motivo: MotivoUscita, dove: string): string {
 
 /**
  * The content list's focus keeper, at the root of the page (1.33.0): the
- * table, the cards, the calendar, and the content panel above them all. A
- * change from a row (Status, Reel Type, a Name outside the search, a Post
- * Date that moves the card to another day) or from the panel (a content
+ * table, the cards, and the content panel above them all. A
+ * change from a row (Status, Reel Type, a Name outside the search) or from the panel (a content
  * deleted, or out of the filters when it closes) can take the row out of the
  * page, and the focus would fall to <body>. From that tap the section is
  * watched, as "Non rinnovano" in Rinnovi: the focus goes to the same row in
  * its new place, else to the same cell of the row after, else the one
- * before, else to the list's heading «Contenuti», and a polite status says
+ * before, else to the list's heading «Piano editoriale», and a polite status says
  * where. A focus the person already moved elsewhere is never taken back.
  */
-export function UscitaDallaLista({
-  filtri,
-  intervallo = null,
-  children,
-}: {
-  filtri: FiltriContenuti
-  /** The calendar's days (the grid): a Post Date moves the card to another day, or off the page. */
-  intervallo?: { da: string; a: string } | null
-  children: ReactNode
-}) {
+export function UscitaDallaLista({ filtri, children }: { filtri: FiltriContenuti; children: ReactNode }) {
   const sezione = useRef<HTMLElement | null>(null)
   const titolo = useRef<HTMLElement | null>(null)
   const osservatore = useRef<MutationObserver | null>(null)
@@ -127,7 +116,6 @@ export function UscitaDallaLista({
 
   const { gruppo, stato, reel_type, formato, tipo, q } = filtri
   const stati: readonly StatusContenuto[] | null = useMemo(() => statiFiltrati({ gruppo, stato }), [gruppo, stato])
-  const nelCalendario = intervallo !== null
   const esce = useCallback(
     (campo: CampoInCella | 'stato', valore: unknown) => {
       switch (campo) {
@@ -141,14 +129,11 @@ export function UscitaDallaLista({
           return Boolean(tipo && valore !== tipo)
         case 'nome':
           return Boolean(q && typeof valore === 'string' && !valore.toLowerCase().includes(q.toLowerCase()))
-        case 'post_date':
-          // the calendar: the card moves to its new day (or out of the month)
-          return nelCalendario
         default:
           return false
       }
     },
-    [stati, reel_type, formato, tipo, q, nelCalendario],
+    [stati, reel_type, formato, tipo, q],
   )
 
   const ricorda = useCallback(
@@ -171,7 +156,7 @@ export function UscitaDallaLista({
         if (attivo && attivo !== document.body) return
         const radiceOra = sezione.current
         if (!radiceOra) return
-        // the same content in its new place (another day of the calendar): silently there
+        // the same content in its new place: silently there
         const stessa = rigaVisibile(radiceOra, id)
         const nellaStessa =
           stessa?.querySelector<HTMLElement>(selettore) ?? stessa?.querySelector<HTMLElement>('[data-apri-contenuto]')
@@ -181,7 +166,7 @@ export function UscitaDallaLista({
         }
         for (const altro of candidati) {
           const r = rigaVisibile(radiceOra, altro)
-          // the same cell, else the Status, else the Name (a day of the calendar's grid has only the Name)
+          // the same cell, else the Status, else the Name
           const ripieghi = [selettore, '[data-menu-status]', '[data-apri-contenuto]']
           const trovato = ripieghi
             .map((sel) => ({ sel, el: r?.querySelector<HTMLElement>(sel) ?? null }))
@@ -195,7 +180,7 @@ export function UscitaDallaLista({
         const t = titolo.current
         if (!t) return
         t.focus()
-        annuncia(frase(nome, opzioni.motivo ?? 'filtri', 'ora sei sul titolo «Contenuti»'))
+        annuncia(frase(nome, opzioni.motivo ?? 'filtri', 'ora sei sul titolo «Piano editoriale»'))
       }
 
       // the redrawn list replaces the rows: the tapped one gone, the focus with it
@@ -229,7 +214,7 @@ export function UscitaDallaLista({
         }
       }
       if (titolo.current) {
-        annuncia(frase(nome, motivo, 'ora sei sul titolo «Contenuti»'))
+        annuncia(frase(nome, motivo, 'ora sei sul titolo «Piano editoriale»'))
         return titolo.current
       }
       return null
@@ -253,9 +238,9 @@ export function UscitaDallaLista({
 }
 
 /**
- * The section of the content list (table, cards, the calendar's agenda and
- * "Senza data"), the box the container queries measure, with its own heading
- * «Contenuti» for screen readers (shown when the focus lands on it).
+ * The section of the content list (table and cards), the box the container
+ * queries measure, with its own heading «Piano editoriale» for screen readers
+ * (shown when the focus lands on it).
  */
 export function SezioneContenuti({ children }: { children: ReactNode }) {
   const uscita = useContext(Contesto)
@@ -275,7 +260,7 @@ export function SezioneContenuti({ children }: { children: ReactNode }) {
         tabIndex={-1}
         className="sr-only rounded-sm text-sm font-medium outline-none focus:not-sr-only focus:mb-2 focus:-ml-1 focus:inline-block focus:px-1 focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        Contenuti
+        Piano editoriale
       </h2>
       {children}
     </section>

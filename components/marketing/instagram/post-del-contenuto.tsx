@@ -6,7 +6,7 @@ import { useId, useLayoutEffect, useRef, useState, useTransition, type MouseEven
 import { toast } from 'sonner'
 
 import { modificaCampoContenuto } from '@/app/(app)/marketing/contenuti/actions'
-import { annullaCollega, annullaScollega, collegaPost, scollegaPost } from '@/app/(app)/marketing/instagram/actions'
+import { annullaScollega, scollegaPost } from '@/app/(app)/marketing/pubblicati/actions'
 import { useOpzioniToast, usePannello } from '@/components/marketing/contesto-pannello'
 import {
   ApriSuInstagram,
@@ -17,8 +17,7 @@ import {
 import { ParlatoDelPost } from '@/components/marketing/instagram/parlato-post'
 import { PunteggioDelPost } from '@/components/marketing/instagram/punteggio-del-post'
 import { Button } from '@/components/ui/button'
-import type { StatusContenuto } from '@/lib/marketing/etichette'
-import { etichettaCollega, giornoPost, motiviInParole, quandoPubblicato, rigaPost } from '@/lib/marketing/parole-post'
+import { motiviInParole, quandoPubblicato } from '@/lib/marketing/parole-post'
 import type { PostDelContenuto as DatiPost, PostInstagram } from '@/lib/marketing/post-del-contenuto'
 import { formatData } from '@/lib/format'
 
@@ -29,9 +28,9 @@ const CONNESSIONE = 'Connessione assente. Riprova.'
  * its own page (1.33.0, Dany: «volendo si può collegare e linkare il post da
  * instagram per fare comunicare le due parti»). Linked: the post, how it was
  * linked, «Usa la data di Instagram» when the Post Date differs, «Scollega».
- * Not linked with proposals: «Forse è questo post:» and «Collega». Nothing
- * otherwise (the URL field says it all). A read that failed says so and
- * leaves the rest of the panel as it is.
+ * Nothing otherwise (the URL field says it all: pasting the post's link links
+ * it; the proposals of the run are not shown any more, 25/10/2026). A read
+ * that failed says so and leaves the rest of the panel as it is.
  *
  * Every tap shows its result at once and goes back on failure (toast).
  * Inside the panel, the panel's copy of the content follows each write.
@@ -45,7 +44,6 @@ export function PostDelContenuto({
   contenutoId,
   nome,
   postDate,
-  stato,
   dati,
   puoModificare = true,
   onRiprova,
@@ -53,8 +51,6 @@ export function PostDelContenuto({
   contenutoId: string
   nome: string
   postDate: string | null
-  /** the content's Status: «Collega e segna Posted» when not yet posted */
-  stato?: StatusContenuto
   dati: DatiPost
   puoModificare?: boolean
   /** «Riprova» after a failed read; default: the page reads again */
@@ -116,52 +112,6 @@ export function PostDelContenuto({
         </div>
       </Riquadro>
     )
-  }
-
-  function collega(post: PostInstagram) {
-    const prima = vista
-    setInVolo(post.shortcode)
-    avvia(async () => {
-      mostra({ stato: 'collegato', post, daSolo: false, motivi: [], punteggio: null })
-      let esito: Awaited<ReturnType<typeof collegaPost>>
-      try {
-        esito = await collegaPost({ shortcode: post.shortcode, contenuto_id: contenutoId })
-      } catch {
-        esito = { ok: false, errore: CONNESSIONE }
-      }
-      if (!esito.ok) {
-        setInVolo(null)
-        mostra(prima)
-        toast.error(esito.errore, opzioniToast)
-        return
-      }
-      // the button leaves with this view: the focus goes to the title in the next commit
-      fuocoAlTitolo.current = true
-      setInVolo(null)
-      pannello?.aggiornaCampo(contenutoId, 'url', esito.url, esito.versione)
-      if (esito.stato !== esito.prima.stato) pannello?.aggiornaCampo(contenutoId, 'stato', esito.stato, esito.versione)
-      if (esito.prima.postDateScritta) pannello?.aggiornaCampo(contenutoId, 'post_date', esito.post_date, esito.versione)
-      const annulla = {
-        shortcode: post.shortcode,
-        contenuto_id: contenutoId,
-        prima: esito.stato !== esito.prima.stato ? esito.prima.stato : undefined,
-        post_date: esito.prima.postDateScritta ? esito.post_date : undefined,
-      }
-      toast.success(`Collegato a «${nome}».`, {
-        ...opzioniToast,
-        duration: 6000,
-        action: {
-          label: 'Annulla',
-          onClick: () => {
-            void annullaCollega(annulla).then(
-              (r) => (r.ok ? toast.success('Collegamento annullato.', opzioniToast) : toast.error(r.errore, opzioniToast)),
-              () => toast.error(CONNESSIONE, opzioniToast),
-            )
-          },
-        },
-        classNames: { actionButton: AZIONE_TOAST },
-      })
-    })
   }
 
   function scollega(post: PostInstagram) {
@@ -312,51 +262,7 @@ export function PostDelContenuto({
     )
   }
 
-  return (
-    <Riquadro titoloId={titoloId} titoloRef={titolo}>
-      <p className="text-sm text-muted-foreground">Forse è questo post:</p>
-      <ul className="space-y-3">
-        {vista.proposte.map((post, i) => (
-          <li key={post.shortcode} className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start">
-            <div className="flex min-w-0 flex-1 gap-3">
-              <CopertinaPost url={post.copertina_url} tipo={post.tipo} />
-              <div className="min-w-0 flex-1 space-y-1">
-                <p className="num text-sm font-medium">{rigaPost(post.giorno, post.tipo)}</p>
-                <Didascalia testo={post.didascalia} />
-                {post.motivi.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">{motiviInParole(post.motivi)}</p>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
-              {puoModificare ? (
-                <Button
-                  type="button"
-                  variant={i === 0 ? 'default' : 'outline'}
-                  className="h-11 aria-disabled:opacity-70"
-                  disabled={inCorso}
-                  focusableWhenDisabled
-                  aria-label={`${etichettaCollega(stato)}: il post del ${giornoPost(post.giorno)}`}
-                  onClick={(e) => {
-                    ricordaTocco(e)
-                    collega(post)
-                  }}
-                >
-                  {inVolo === post.shortcode ? (
-                    <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Link2 className="size-4" aria-hidden="true" />
-                  )}
-                  {etichettaCollega(stato)}
-                </Button>
-              ) : null}
-              <ApriSuInstagram href={post.permalink} />
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Riquadro>
-  )
+  return null
 }
 
 function Riquadro({

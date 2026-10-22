@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -33,9 +33,14 @@ describe('i tipi di notifica', () => {
     for (const t of TIPI_NOTIFICA) expect(ETICHETTA_TIPO[t].length).toBeGreaterThan(2)
   })
 
-  it('sono gli stessi che accetta la tabella (migration 20261022090000)', () => {
-    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/20261022090000_notifiche_avvisi.sql'), 'utf8')
-    const dalSql = [...sql.slice(sql.indexOf('notifiche_tipo_check check')).matchAll(/'([a-z_]+)'/g)].map((m) => m[1])
+  it('sono gli stessi che accetta la tabella (l\'ultima migration che ne scrive il vincolo)', () => {
+    const cartella = join(process.cwd(), 'supabase/migrations')
+    const ultima = readdirSync(cartella)
+      .filter((f) => f.endsWith('.sql') && readFileSync(join(cartella, f), 'utf8').includes('notifiche_tipo_check check'))
+      .sort()
+      .at(-1)
+    const sql = readFileSync(join(cartella, ultima!), 'utf8')
+    const dalSql = [...sql.slice(sql.lastIndexOf('notifiche_tipo_check check')).matchAll(/'([a-z_]+)'/g)].map((m) => m[1])
     for (const t of TIPI_NOTIFICA) expect(dalSql).toContain(t)
   })
 

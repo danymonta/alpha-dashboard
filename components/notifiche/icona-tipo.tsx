@@ -7,6 +7,7 @@ import {
   KeyRound,
   ReceiptText,
   RefreshCw,
+  Timer,
   ShieldAlert,
   type LucideIcon,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import { cn } from '@/lib/utils'
 
 const ICONE: Record<TipoNotifica, LucideIcon> = {
   riepilogo_settimana: ChartNoAxesCombined,
+  tempo_team: Timer,
   backup: DatabaseBackup,
   promemoria_feedback: CalendarClock,
   promemoria_rinnovo: RefreshCw,

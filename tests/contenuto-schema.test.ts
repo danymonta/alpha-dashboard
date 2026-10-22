@@ -124,6 +124,16 @@ describe('contenutoSchema', () => {
     expect(contenutoSchema.safeParse({ ...base, reel_type: 'RADIO' }).success).toBe(false)
   })
 
+  it('Reel Type e Format sono il codice di un’etichetta: la forma si controlla qui, che l’etichetta ci sia lo dice il database', () => {
+    // a label a person created (marketing_opzioni) is as good as a starting one
+    const v = contenutoSchema.parse({ ...base, reel_type: 'case_study', formato: 'meme_2' })
+    expect(v.reel_type).toBe('case_study')
+    expect(v.formato).toBe('meme_2')
+    expect(errore(contenutoSchema.safeParse({ ...base, reel_type: 'Case study' }))).toBe('Scegli un’etichetta della lista.')
+    expect(errore(contenutoSchema.safeParse({ ...base, formato: 'x'.repeat(61) }))).toBe('Scegli un’etichetta della lista.')
+    expect(contenutoSchema.safeParse({ ...base, reel_type: 12 }).success).toBe(false)
+  })
+
   it('Post Date: un giorno valido, passato o futuro, o vuoto', () => {
     expect(contenutoSchema.parse({ ...base, post_date: '2026-09-02' }).post_date).toBe('2026-09-02')
     expect(contenutoSchema.parse({ ...base, post_date: '2027-03-31' }).post_date).toBe('2027-03-31')

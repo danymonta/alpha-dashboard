@@ -8,11 +8,13 @@ vi.mock('@/lib/env', () => ({
 
 import { BOZZA_REEL, GRUPPI_STATUS } from '@/lib/marketing/etichette'
 import { improntaTesto } from '@/lib/marketing/impronta'
+import { CAMPI_OPZIONE, opzioniDiPartenza } from '@/lib/marketing/opzioni'
 import {
   cambiaStatus,
   creaContenuti,
   elencoContenuti,
   eliminaContenutoPerClaude,
+  etichetteContenuti,
   leggiContenutoPerClaude,
   modificaContenutoPerClaude,
   scriviSezione,
@@ -74,6 +76,13 @@ function riga(altro: Record<string, unknown> = {}) {
 let rispondi: (c: Chiamata) => RispostaFinta
 let fake: ReturnType<typeof supabaseFinto>
 
+/** The labels of the app as the database returns them: the starting ones, plus the ones a test adds. */
+let opzioniNelDatabase: Record<string, unknown>[] = []
+function righeOpzioni(extra: Record<string, unknown>[] = []): Record<string, unknown>[] {
+  const partenza = opzioniDiPartenza()
+  return [...CAMPI_OPZIONE.flatMap((campo) => partenza[campo].map((o) => ({ ...o }))), ...extra]
+}
+
 function contesto(ruolo: RuoloMcp = 'marketing'): ContestoMcp {
   return { db: fake.client as never, ruolo, sessione: 'sessione-di-prova' }
 }
@@ -91,7 +100,9 @@ let log: MockInstance<(...argomenti: unknown[]) => void>[] = []
 
 beforeEach(() => {
   rispondi = () => ({ data: null })
-  fake = supabaseFinto((c) => rispondi(c))
+  opzioniNelDatabase = righeOpzioni()
+  // the labels (marketing_opzioni) are read by every tool; the calendar's answers are the test's
+  fake = supabaseFinto((c) => (c.nome === 'marketing_opzioni' ? { data: opzioniNelDatabase } : rispondi(c)))
   azzeraLimiti()
   log = (['info', 'warn', 'error'] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => {}))
 })
@@ -567,6 +578,119 @@ describe('elimina_contenuto', () => {
     expect(dati(esito)).toEqual({ esito: 'eliminato', Name: 'Perché così' })
     const [eliminazione] = fake.chiamate.filter((c) => ha(c, 'delete'))
     expect(ha(eliminazione, 'eq', 'id', ID)).toBe(true)
+  })
+})
+
+describe('Reel Type e Format: le etichette create dalla persona nell’app', () => {
+  const CASE_STUDY = { id: 'opz-case', campo: 'reel_type', valore: 'case_study', nome: 'Case study', colore: 'orange', ordine: 60 }
+
+  function salvaSempre(c: Chiamata): RispostaFinta {
+    if (ha(c, 'insert')) return { data: { id: NUOVO, updated_at: '2026-10-09T09:00:00.000001+00:00' } }
+    if (ha(c, 'update')) return { data: riga({ reel_type: 'case_study', updated_at: '2026-10-09T10:00:00.5+00:00' }) }
+    return { data: riga() }
+  }
+  const scrittureSulleEtichette = () =>
+    fake.chiamate.filter(
+      (c) =>
+        (c.nome === 'marketing_opzioni' && (ha(c, 'insert') || ha(c, 'update') || ha(c, 'delete') || ha(c, 'upsert'))) ||
+        c.nome === 'crea_opzione_marketing',
+    )
+
+  it('etichette_contenuti dà nome, codice e colore di quelle che ci sono adesso, anche quelle nuove', async () => {
+    opzioniNelDatabase = righeOpzioni([CASE_STUDY])
+    const risultato = dati(await etichetteContenuti(contesto()))
+    const tipi = risultato.reel_type as { nome: string; codice: string; colore: string }[]
+    expect(tipi.map((o) => o.nome)).toEqual(['Attraction', 'Education', 'Converting', 'RADIO', 'Workshop', 'Case study'])
+    expect(tipi[5]).toEqual({ nome: 'Case study', codice: 'case_study', colore: 'orange' })
+    expect((risultato.format as { nome: string }[]).map((o) => o.nome)).toContain('Show&Tell')
+    expect(risultato.nota_etichette).toMatch(/da qui non se ne creano/)
+  })
+
+  it('crea_contenuti: il nome (senza maiuscole) o il codice di un’etichetta nuova diventa il suo codice', async () => {
+    opzioniNelDatabase = righeOpzioni([CASE_STUDY])
+    rispondi = salvaSempre
+    const input = creaContenutiSchema.parse({
+      contenuti: [
+        { name: 'Uno', reel_type: 'case STUDY' },
+        { name: 'Due', reel_type: 'case_study', format: 'b roll' },
+      ],
+    })
+    const risultato = dati(await creaContenuti(input, contesto()))
+    const inserimenti = fake.chiamate.filter((c) => ha(c, 'insert'))
+    expect(inserimenti.map((c) => argomenti(c, 'insert')?.[0])).toMatchObject([
+      { nome: 'Uno', reel_type: 'case_study', formato: null },
+      { nome: 'Due', reel_type: 'case_study', formato: 'b_roll' },
+    ])
+    expect(risultato).toMatchObject({ creati: 2, errori: 0 })
+    expect(scrittureSulleEtichette()).toEqual([])
+  })
+
+  it('crea_contenuti: un’etichetta che non c’è non si crea mai: quel contenuto no, con le valide nell’errore', async () => {
+    rispondi = salvaSempre
+    const input = creaContenutiSchema.parse({
+      contenuti: [
+        { name: 'Con etichetta nuova', reel_type: 'Case study' },
+        { name: 'Con etichetta vecchia', reel_type: 'Education' },
+      ],
+    })
+    const esito = await creaContenuti(input, contesto())
+    const risultato = dati(esito)
+    const [primo, secondo] = risultato.contenuti as Record<string, unknown>[]
+    expect(primo.esito).toBe('errore')
+    expect(primo.errore).toBe(
+      'Reel Type «Case study» non esiste. Etichette valide: Attraction, Education, Converting, RADIO, Workshop. Le etichette nuove le crea la persona nell’app, nel Piano editoriale: da qui non se ne creano.',
+    )
+    expect(secondo.esito).toBe('creato')
+    expect(fake.chiamate.filter((c) => ha(c, 'insert'))).toHaveLength(1)
+    expect(risultato).toMatchObject({ creati: 1, errori: 1 })
+    expect(esito.esito).toBe('parziale')
+    expect(scrittureSulleEtichette()).toEqual([])
+  })
+
+  it('modifica_contenuto: un Format che non c’è non scrive niente e dice quali ci sono', async () => {
+    rispondi = () => ({ data: riga() })
+    const input = modificaContenutoSchema.parse({
+      id: ID,
+      versione: versioneOpaca(AGGIORNATO),
+      campi: { name: 'Nuovo nome', format: 'Meme' },
+    })
+    const esito = await modificaContenutoPerClaude(input, contesto())
+    expect(esito.ok).toBe(false)
+    expect(!esito.ok && esito.messaggio).toMatch(/^Format «Meme» non esiste\. Etichette valide: Text opinion, Check Caption, /)
+    expect(scritture()).toEqual([])
+  })
+
+  it('modifica_contenuto: l’etichetta nuova per nome si scrive col suo codice e si legge col suo nome', async () => {
+    opzioniNelDatabase = righeOpzioni([CASE_STUDY])
+    rispondi = salvaSempre
+    const input = modificaContenutoSchema.parse({
+      id: ID,
+      versione: versioneOpaca(AGGIORNATO),
+      campi: { reel_type: 'Case study' },
+    })
+    const risultato = dati(await modificaContenutoPerClaude(input, contesto()))
+    const [modifica] = fake.chiamate.filter((c) => ha(c, 'update'))
+    expect(argomenti(modifica, 'update')?.[0]).toEqual({ reel_type: 'case_study' })
+    expect(ha(modifica, 'eq', 'reel_type', 'education')).toBe(true)
+    expect(risultato).toMatchObject({ esito: 'salvato', contenuto: { 'Reel Type': 'Case study' } })
+  })
+
+  it('elenco_contenuti: un filtro per un’etichetta che non c’è è un errore, senza leggere il calendario', async () => {
+    rispondi = () => ({ data: [riga()], count: 1 })
+    const esito = await elencoContenuti(elencoContenutiSchema.parse({ reel_type: 'Case study' }), contesto())
+    expect(esito.ok).toBe(false)
+    expect(!esito.ok && esito.messaggio).toMatch(/^Reel Type «Case study» non esiste\./)
+    expect(sulCalendario()).toEqual([])
+  })
+
+  it('una riga mostra il nome di adesso dell’etichetta (rinominata) e, se è sparita, il codice', async () => {
+    opzioniNelDatabase = righeOpzioni().map((o) => (o.valore === 'education' ? { ...o, nome: 'Educational' } : o))
+    rispondi = () => ({ data: [riga({ formato: 'meme_sparito' })], count: 1 })
+    const risultato = dati(await elencoContenuti(elencoContenutiSchema.parse({}), contesto()))
+    expect((risultato.contenuti as Record<string, unknown>[])[0]).toMatchObject({
+      'Reel Type': 'Educational',
+      Format: 'meme_sparito',
+    })
   })
 })
 

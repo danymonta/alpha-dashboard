@@ -52,6 +52,8 @@ vi.mock('@/app/(app)/clients/actions', () => ({
   interrompiPercorso: vi.fn(),
   anteprimaInterruzione: vi.fn(),
   riapriCliente: vi.fn(),
+  sospendiCliente: vi.fn(),
+  riattivaCliente: vi.fn(),
 }))
 vi.mock('@/app/(app)/expenses/actions', () => ({
   aggiungiCosto: vi.fn(),
@@ -544,6 +546,19 @@ describe('scheda di conferma: vendite e modifiche', () => {
     // reversible: "Conferma", never a red button
     expect(azioneDistruttiva('cliente', chiudi)).toBeNull()
     expect(azioneDistruttiva('cliente', { azione: 'riapri', cliente: 'Mario Rossi' })).toBeNull()
+  })
+
+  it('«sospendi» e «riattiva»: la scheda dice cosa succede, col bottone di sempre', () => {
+    const sospendi = { azione: 'sospendi', cliente: 'Mario Rossi', sospeso_il: '2026-10-10', motivo: 'Viaggio di lavoro' }
+    expect(riassuntoScrittura('cliente', sospendi)).toEqual({
+      titolo: 'Sospendo Mario Rossi',
+      dettagli: ['Sospeso dal 10/10/2026', 'Motivo: Viaggio di lavoro'],
+    })
+    expect(riassuntoScrittura('cliente', { azione: 'sospendi', cliente: 'Mario Rossi' }).dettagli).toEqual(['Sospeso da oggi'])
+    expect(riassuntoScrittura('cliente', { azione: 'riattiva', cliente: 'Mario Rossi' }).titolo).toBe('Riattivo il cliente Mario Rossi')
+    // reversible: "Conferma", never a red button
+    expect(azioneDistruttiva('cliente', sospendi)).toBeNull()
+    expect(azioneDistruttiva('cliente', { azione: 'riattiva', cliente: 'Mario Rossi' })).toBeNull()
   })
 
   it('«archivia come ex cliente» e «togli dall’archivio»: col bottone di sempre, si torna indietro', () => {

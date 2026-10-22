@@ -22,7 +22,7 @@ test('scheda cliente: valore nel tempo, rinnovo precompilato, contatti modificab
   const { data: vendita } = await dbLocale().from('sales').select('client_id').eq('id', venditaId).single()
   const clienteId = vendita!.client_id
 
-  await page.goto('/clients')
+  await page.goto('/clients?vista=tutti')
   await page.getByLabel('Cerca un cliente').fill(nome)
   await page.getByLabel('Cerca un cliente').press('Enter')
   await page.getByRole('link', { name: new RegExp(nome) }).filter({ visible: true }).click()

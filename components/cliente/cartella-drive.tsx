@@ -51,6 +51,7 @@ export function CartellaDrive({
   chi,
   picker = null,
   nonCaricata = false,
+  variante = 'scheda',
   className,
 }: {
   clientId: string
@@ -62,6 +63,8 @@ export function CartellaDrive({
   picker?: ConfigPicker | null
   /** The link could not be read: say so and offer to retry, never "no folder". */
   nonCaricata?: boolean
+  /** "cella": the short form for a table cell of the client list (21/10/2026): "Apri" and a pencil, or "Aggiungi". */
+  variante?: 'scheda' | 'cella'
   className?: string
 }) {
   const router = useRouter()
@@ -170,13 +173,29 @@ export function CartellaDrive({
     )
   }
 
+  const cella = variante === 'cella'
+
   return (
     <div
       data-testid="cartella-drive"
-      className={cn('flex min-h-11 items-center gap-3 rounded-xl bg-card py-1.5 pr-1.5 pl-3', className)}
+      className={cn(
+        cella ? 'inline-flex items-center gap-1' : 'flex min-h-11 items-center gap-3 rounded-xl bg-card py-1.5 pr-1.5 pl-3',
+        className,
+      )}
     >
-      <FolderOpen className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      {url ? (
+      {cella ? null : <FolderOpen className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+      {url && cella ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-sm hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          Apri
+          <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
+          <span className="sr-only">la cartella Drive di {cliente} (si apre in una nuova scheda)</span>
+        </a>
+      ) : cella ? null : url ? (
         <a
           href={url}
           target="_blank"
@@ -215,14 +234,23 @@ export function CartellaDrive({
                 variant="ghost"
                 size="icon"
                 className="size-11 shrink-0 text-muted-foreground"
-                aria-label="Modifica il link della cartella Drive"
+                aria-label={cella ? `Modifica il link della cartella Drive di ${cliente}` : 'Modifica il link della cartella Drive'}
               />
             }
           >
             <Pencil className="size-4" aria-hidden="true" />
           </SheetTrigger>
         ) : (
-          <SheetTrigger render={<Button type="button" variant="outline" className="h-11 shrink-0" />}>
+          <SheetTrigger
+            render={
+              <Button
+                type="button"
+                variant={cella ? 'ghost' : 'outline'}
+                className={cn('h-11 shrink-0', cella && 'px-2 text-muted-foreground hover:text-foreground')}
+                aria-label={cella ? `Aggiungi il link della cartella Drive di ${cliente}` : undefined}
+              />
+            }
+          >
             <Plus className="size-4" aria-hidden="true" />
             Aggiungi
           </SheetTrigger>

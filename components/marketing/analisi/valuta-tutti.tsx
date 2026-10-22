@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import { rivalidaAnalisi } from '@/app/(app)/marketing/analisi/actions'
+import { rivalidaAnalisi } from '@/app/(app)/marketing/pubblicati/azioni-analisi'
 import { Button } from '@/components/ui/button'
 import { COSTO_STIMATO_PER_REEL_USD } from '@/lib/marketing/analisi/costi'
 

@@ -134,7 +134,7 @@ export function NonRinnova({
             }}
             aria-invalid={errori.giorno ? true : undefined}
             aria-describedby={errori.giorno ? `${id}-giorno-errore` : `${id}-giorno-aiuto`}
-            className="num h-11 [color-scheme:dark]"
+            className="num h-11"
           />
           <ErroreCampo id={`${id}-giorno-errore`} messaggio={errori.giorno} />
           <p id={`${id}-giorno-aiuto`} className="text-xs text-muted-foreground">

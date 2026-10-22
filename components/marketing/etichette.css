@@ -1,0 +1,77 @@
+/*
+ * The colours of the labels of the content calendar (Reel Type, Format, Status):
+ * Notion's ten colours as tokens, three for each: --etichetta-<colore>-bg (the
+ * pill), -fg (its text, at least 4.5:1 on the background in both themes) and
+ * -punto (the dot of the Status, at least 3:1). Each is light-dark(light, dark),
+ * so it follows the color-scheme of the theme: on the dark theme a saturated
+ * dark background with light text, like Notion's; on the light one a pastel
+ * background with dark text of the same colour. Imported by pillola.tsx and
+ * nowhere else; components never write a colour of their own.
+ */
+:root {
+  --etichetta-default-bg: light-dark(#ebebe9, #3b3b3e);
+  --etichetta-default-fg: light-dark(#37352f, #ededed);
+  --etichetta-default-punto: light-dark(#787774, #a8a8ad);
+
+  --etichetta-gray-bg: light-dark(#e3e2e0, #454b4e);
+  --etichetta-gray-fg: light-dark(#32302c, #e8eaeb);
+  --etichetta-gray-punto: light-dark(#787774, #a3aaad);
+
+  --etichetta-brown-bg: light-dark(#eee0da, #603b2c);
+  --etichetta-brown-fg: light-dark(#442a1e, #f0ded5);
+  --etichetta-brown-punto: light-dark(#9f6b53, #c99882);
+
+  --etichetta-orange-bg: light-dark(#fadec9, #854c1d);
+  --etichetta-orange-fg: light-dark(#5c3b23, #fce6d2);
+  --etichetta-orange-punto: light-dark(#c2650a, #f2a765);
+
+  --etichetta-yellow-bg: light-dark(#fdecc8, #89632a);
+  --etichetta-yellow-fg: light-dark(#402c1b, #faefcf);
+  --etichetta-yellow-punto: light-dark(#a97b00, #f2c86b);
+
+  --etichetta-green-bg: light-dark(#dbeddb, #2b593f);
+  --etichetta-green-fg: light-dark(#1c3829, #d9f0e3);
+  --etichetta-green-punto: light-dark(#2e8b57, #6bc592);
+
+  --etichetta-blue-bg: light-dark(#d3e5ef, #28456c);
+  --etichetta-blue-fg: light-dark(#183347, #d8e8fa);
+  --etichetta-blue-punto: light-dark(#0b6e99, #6fa8e6);
+
+  --etichetta-purple-bg: light-dark(#e8deee, #492f64);
+  --etichetta-purple-fg: light-dark(#412454, #ebdff6);
+  --etichetta-purple-punto: light-dark(#8056bf, #b58bea);
+
+  --etichetta-pink-bg: light-dark(#f5e0e9, #69314c);
+  --etichetta-pink-fg: light-dark(#4c2337, #f8deeb);
+  --etichetta-pink-punto: light-dark(#c0448a, #ee7db5);
+
+  --etichetta-red-bg: light-dark(#ffe2dd, #6e3630);
+  --etichetta-red-fg: light-dark(#5d1715, #fce0de);
+  --etichetta-red-punto: light-dark(#d44c47, #f0716f);
+}
+
+/* One rule per colour, so a pill needs only data-colore. */
+.pillola[data-colore='default'] { --pillola-bg: var(--etichetta-default-bg); --pillola-fg: var(--etichetta-default-fg); --pillola-punto: var(--etichetta-default-punto); }
+.pillola[data-colore='gray'] { --pillola-bg: var(--etichetta-gray-bg); --pillola-fg: var(--etichetta-gray-fg); --pillola-punto: var(--etichetta-gray-punto); }
+.pillola[data-colore='brown'] { --pillola-bg: var(--etichetta-brown-bg); --pillola-fg: var(--etichetta-brown-fg); --pillola-punto: var(--etichetta-brown-punto); }
+.pillola[data-colore='orange'] { --pillola-bg: var(--etichetta-orange-bg); --pillola-fg: var(--etichetta-orange-fg); --pillola-punto: var(--etichetta-orange-punto); }
+.pillola[data-colore='yellow'] { --pillola-bg: var(--etichetta-yellow-bg); --pillola-fg: var(--etichetta-yellow-fg); --pillola-punto: var(--etichetta-yellow-punto); }
+.pillola[data-colore='green'] { --pillola-bg: var(--etichetta-green-bg); --pillola-fg: var(--etichetta-green-fg); --pillola-punto: var(--etichetta-green-punto); }
+.pillola[data-colore='blue'] { --pillola-bg: var(--etichetta-blue-bg); --pillola-fg: var(--etichetta-blue-fg); --pillola-punto: var(--etichetta-blue-punto); }
+.pillola[data-colore='purple'] { --pillola-bg: var(--etichetta-purple-bg); --pillola-fg: var(--etichetta-purple-fg); --pillola-punto: var(--etichetta-purple-punto); }
+.pillola[data-colore='pink'] { --pillola-bg: var(--etichetta-pink-bg); --pillola-fg: var(--etichetta-pink-fg); --pillola-punto: var(--etichetta-pink-punto); }
+.pillola[data-colore='red'] { --pillola-bg: var(--etichetta-red-bg); --pillola-fg: var(--etichetta-red-fg); --pillola-punto: var(--etichetta-red-punto); }
+
+.pillola {
+  background-color: var(--pillola-bg, var(--etichetta-default-bg));
+  color: var(--pillola-fg, var(--etichetta-default-fg));
+}
+.pillola-punto {
+  background-color: var(--pillola-punto, var(--etichetta-default-punto));
+}
+
+/* The swatch of a colour in the menu of an option: the pill's own background and dot, with the text colour as its edge. */
+.pillola-campione {
+  background-color: var(--pillola-bg, var(--etichetta-default-bg));
+  border: 2px solid var(--pillola-punto, var(--etichetta-default-punto));
+}

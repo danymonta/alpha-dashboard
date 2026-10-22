@@ -80,7 +80,7 @@ export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; o
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="ag-data">Giorno</Label>
-            <Input id="ag-data" type="date" max={oggi} className="num h-11 [color-scheme:dark]" {...register('data')} />
+            <Input id="ag-data" type="date" max={oggi} className="num h-11" {...register('data')} />
             <ErroreCampo id="ag-data-errore" messaggio={errors.data?.message} />
           </div>
         </div>

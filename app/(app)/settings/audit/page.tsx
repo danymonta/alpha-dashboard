@@ -71,9 +71,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
             href={t ? `/settings/audit?tabella=${t}` : '/settings/audit'}
             aria-current={t === filtro ? 'page' : undefined}
             className={cn(
-              'inline-flex min-h-11 items-center rounded-lg border px-3 text-sm',
+              'inline-flex min-h-11 items-center rounded-pillola border px-3 text-sm',
               t === filtro
-                ? 'border-primary bg-primary text-primary-foreground'
+                ? 'border-selezione bg-selezione text-selezione-foreground'
                 : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
           >

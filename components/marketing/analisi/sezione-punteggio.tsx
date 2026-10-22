@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import { aggiungiRifacimentoAlCalendario } from '@/app/(app)/marketing/analisi/actions'
+import { aggiungiRifacimentoAlCalendario } from '@/app/(app)/marketing/pubblicati/azioni-analisi'
 import { useOpzioniToast } from '@/components/marketing/contesto-pannello'
 import { Button } from '@/components/ui/button'
 import { copiaNegliAppunti } from '@/lib/appunti'

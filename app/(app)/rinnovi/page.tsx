@@ -55,7 +55,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
       .gte('data_fine_ultima', oggi)
       .lte('data_fine_ultima', aggiungiGiorni(oggi, giorni))
       // a closed client does not renew, an archived one even less: never among the ones to chase
-      .not('stato', 'in', '(chiuso,ex_cliente)')
+      .not('stato', 'in', '(chiuso,ex_cliente,sospeso)')
       .order('data_fine_ultima'),
     supabase
       .from('v_clienti')
@@ -219,9 +219,9 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
                 href={f === 30 ? '/rinnovi' : `/rinnovi?entro=${f}`}
                 aria-current={f === giorni ? 'page' : undefined}
                 className={cn(
-                  'inline-flex min-h-11 items-center rounded-lg border px-3 text-sm',
+                  'inline-flex min-h-11 items-center rounded-pillola border px-3 text-sm',
                   f === giorni
-                    ? 'border-primary bg-primary text-primary-foreground'
+                    ? 'border-selezione bg-selezione text-selezione-foreground'
                     : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
                 )}
               >

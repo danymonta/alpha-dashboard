@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 import { formatNumero } from '@/lib/format'
 import type { Riepilogo } from '@/lib/marketing/analisi/elenco'
-import { hrefAnalisi, type FiltriAnalisi } from '@/lib/marketing/analisi/filtri'
+import { hrefPubblicati, type FiltriPubblicati } from '@/lib/marketing/pubblicati/filtri'
 import { cn } from '@/lib/utils'
 
 function Tessera({
@@ -48,13 +48,13 @@ function Tessera({
 }
 
 /**
- * The tiles of the Analisi page (analisi_riepilogo): reels of the period, the
+ * The tiles of the Pubblicati page (analisi_riepilogo, the ones of the old Analisi page): reels of the period, the
  * median of views at three days, the leads of the first 14 days and the reels
  * that say «Cambiare». The leads are SQL's: a reel whose days the Insight did
  * not count is said as such, never counted as zero. No gold: the page has no
  * number more important than the others.
  */
-export function Tessere({ r, filtri }: { r: Riepilogo | null; filtri: FiltriAnalisi }) {
+export function Tessere({ r, filtri }: { r: Riepilogo | null; filtri: FiltriPubblicati }) {
   if (r === null) {
     // the tiles could not be read: the page goes on without them (1.37.1)
     return (
@@ -93,7 +93,7 @@ export function Tessere({ r, filtri }: { r: Riepilogo | null; filtri: FiltriAnal
         etichetta="Da cambiare"
         valore={formatNumero(r.da_cambiare)}
         nota={r.da_cambiare === 1 ? 'reel dice «Cambiare»' : 'reel dicono «Cambiare»'}
-        href={r.da_cambiare > 0 && filtri.verdetto !== 'cambiare' ? hrefAnalisi({ ...filtri, verdetto: 'cambiare' }) : undefined}
+        href={r.da_cambiare > 0 && !filtri.cambiare ? hrefPubblicati({ ...filtri, cambiare: true }) : undefined}
       />
     </div>
   )

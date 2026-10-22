@@ -242,7 +242,7 @@ export function SchedaContenuto({
             <span>
               Nato da un’idea di Claude, dall’analisi di un reel.{' '}
               <Link href={hrefAnalisiReel(idea.media_id)} className="underline underline-offset-4 hover:text-foreground">
-                Apri l’analisi
+                Apri nei Pubblicati
               </Link>
             </span>
           </p>
@@ -253,7 +253,6 @@ export function SchedaContenuto({
             contenutoId={id}
             nome={nome}
             postDate={contenuto.post_date}
-            stato={contenuto.stato}
             dati={instagram}
             onRiprova={onRileggi}
           />
@@ -300,7 +299,7 @@ export function SchedaContenuto({
                 'Si perdono anche il messaggio, gli script e i commenti.',
                 // a post no longer on Instagram goes nowhere: it is not work any more
                 ...(instagram?.stato === 'collegato' && !instagram.post.eliminato
-                  ? ['Il post di Instagram collegato torna in «Da collegare».']
+                  ? ['Il post di Instagram collegato resta tra i Pubblicati, senza contenuto.']
                   : []),
                 'Su Instagram e su Notion non cambia niente.',
               ]}

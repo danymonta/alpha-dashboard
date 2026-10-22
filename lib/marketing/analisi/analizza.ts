@@ -13,7 +13,9 @@ import { contenutoAnalisi, sistemaAnalisi, VERSIONE_PROMPT_ANALISI } from '@/lib
 import { FORMATO_ANALISI_REEL, LettoAnalisiReel } from '@/lib/marketing/analisi/schema'
 import { USO_ZERO, type FontiAnalisi, type SchedaVisiva, type UsoToken } from '@/lib/marketing/analisi/tipi'
 import { chiaveNome, verificaAnalisi, type Candidato } from '@/lib/marketing/analisi/verifica'
-import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE, ETICHETTA_STATUS } from '@/lib/marketing/etichette'
+import { ETICHETTA_STATUS } from '@/lib/marketing/etichette'
+import { leggiOpzioni } from '@/lib/marketing/letture'
+import { nomiDa } from '@/lib/marketing/opzioni'
 import { GUIDA_AGGIORNATA_IL } from '@/lib/marketing/punteggio/guida'
 import { VERSIONE_PROMPT_PUNTEGGIO } from '@/lib/marketing/punteggio/prompt'
 import { NOME_TIPO, tipoDaReelType, type TipoPunteggio } from '@/lib/marketing/punteggio/tabelle'
@@ -64,13 +66,16 @@ export async function datiCalendario(
   if (collegato.error) throw new Error('calendario non letto')
   const c = collegato.data
   if (c) {
+    // the words are the live labels' (a Reel Type or Format a person created too), not the starting set's
+    const nomi = nomiDa(await leggiOpzioni(db).catch(() => undefined))
     return {
-      // the type the Reel Type declares (Attraction, Education, Converting); Radio and Workshop are deduced by Claude
+      // the type the Reel Type declares (Attraction, Education, Converting); every other label (Radio, Workshop,
+      // one a person created) declares none: Claude deduces it (tipoDaReelType answers null, never a guess)
       tipoDichiarato: tipoDaReelType(c.reel_type),
       calendario: {
         name: oscura(c.nome, parole),
-        reel_type: c.reel_type ? ETICHETTA_REEL_TYPE[c.reel_type] : null,
-        format: c.formato ? ETICHETTA_FORMAT[c.formato] : null,
+        reel_type: c.reel_type ? (nomi.reel_type[c.reel_type] ?? null) : null,
+        format: c.formato ? (nomi.formato[c.formato] ?? null) : null,
         status: ETICHETTA_STATUS[c.stato],
         messaggio: oscura(taglia(c.messaggio, 800), parole),
         bozza: oscura(taglia(c.bozza, 1000), parole),

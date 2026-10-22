@@ -4,6 +4,7 @@ import { RotateCw, SearchX } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
+import { toast } from 'sonner'
 
 import {
   ContestoAzioniPannello,
@@ -244,6 +245,8 @@ export function PannelloContenuti({
       const riga = opzioni.riga
       setCopie((prima) => (prima[id] ? prima : { ...prima, [id]: riga }))
     }
+    // the list's confirmations are at the top of the screen, where the panel's header comes: they go away with it
+    toast.dismiss()
     setLocale({ id })
     const { pathname, search } = window.location
     if (indietroInAttesa.current) {

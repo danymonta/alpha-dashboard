@@ -109,11 +109,11 @@ export function ParlatoDelPost({ mediaId, className }: { mediaId: string; classN
                 <p className="break-words whitespace-pre-line">{stato.trascrizione}</p>
               )
             ) : (
-              <p className="text-muted-foreground">{(stato.esito && FRASE_VUOTO[stato.esito]) || 'Ancora non letto: parte con «Analizza» nella pagina Analisi.'}</p>
+              <p className="text-muted-foreground">{(stato.esito && FRASE_VUOTO[stato.esito]) || 'Ancora non letto: parte con «Analizza» nel pannello del reel, in Pubblicati.'}</p>
             )
           ) : null}
           <Link href={hrefAnalisiReel(mediaId)} className="inline-flex min-h-11 items-center text-sm underline underline-offset-4">
-            Apri l’analisi del reel
+            Apri nei Pubblicati
           </Link>
         </div>
       ) : null}

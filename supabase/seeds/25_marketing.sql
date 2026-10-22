@@ -79,7 +79,7 @@ insert into public.marketing_contenuti (
 )
 select
   x.id::uuid, x.tipo::public.contenuto_tipo, x.nome,
-  x.reel_type::public.contenuto_reel_type, x.formato::public.contenuto_format,
+  x.reel_type, x.formato,  -- the slugs of marketing_opzioni (20261024090000)
   x.inspiration, x.stato::public.contenuto_status,
   public.oggi() + x.giorni, x.audio, x.url, x.view_count,
   x.messaggio, x.bozza, x.commenti, x.finale,

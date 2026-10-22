@@ -2,16 +2,25 @@
  * The content calendar (Dany, 08/10/2026), a replica of Notion's
  * "📸 Instagram Posts DANYMONTA": the exact Notion labels, in English as in
  * Notion, live here and only here. The database keeps snake_case values
- * (public.contenuto_*); a label is renamed in one place.
+ * (public.contenuto_status, contenuto_tipo); a label is renamed in one place.
+ *
+ * Reel Type and Format are no longer fixed (Dany, 21/10/2026): they are the
+ * options of marketing_opzioni, which people create and colour (opzioni.ts).
+ * What stays here for them is the starting point: Notion's names of the
+ * options the calendar was born with, which the import from Notion and the
+ * words of Claude's analysis and weekly brief use.
  *
  * Checked against Notion on 09/10/2026: options, Status groups and their
  * order, the columns of the table view, the two page templates.
  */
+import { OPZIONI_DI_PARTENZA, type ColoreEtichetta } from '@/lib/marketing/opzioni'
 import type { Database } from '@/lib/supabase/database.types'
 
 export type TipoContenuto = Database['public']['Enums']['contenuto_tipo']
-export type ReelType = Database['public']['Enums']['contenuto_reel_type']
-export type FormatContenuto = Database['public']['Enums']['contenuto_format']
+/** The slug of a Reel Type option (marketing_opzioni.valore). */
+export type ReelType = string
+/** The slug of a Format option (marketing_opzioni.valore). */
+export type FormatContenuto = string
 export type StatusContenuto = Database['public']['Enums']['contenuto_status']
 export type SezioneContenuto = 'messaggio' | 'bozza' | 'commenti' | 'finale'
 export type GruppoStatus = 'to_do' | 'in_progress' | 'complete'
@@ -25,26 +34,15 @@ export const ETICHETTA_MODELLO: Record<TipoContenuto, string> = {
 /** tipo is not a Notion property: in the app it is the "Modello" of the page. */
 export const CAMPO_MODELLO = 'Modello'
 
-export const ETICHETTA_REEL_TYPE: Record<ReelType, string> = {
-  attraction: 'Attraction',
-  education: 'Education',
-  converting: 'Converting',
-  radio: 'RADIO',
-  workshop: 'Workshop',
-}
+/** Notion's names of the Reel Type options the calendar started with, by slug (the starting point, not the live list). */
+export const ETICHETTA_REEL_TYPE: Record<string, string> = Object.fromEntries(
+  OPZIONI_DI_PARTENZA.reel_type.map((o) => [o.valore, o.nome]),
+)
 
-export const ETICHETTA_FORMAT: Record<FormatContenuto, string> = {
-  text_opinion: 'Text opinion',
-  check_caption: 'Check Caption',
-  split: 'Split',
-  reaction: 'Reaction',
-  b_roll: 'B roll',
-  green_screen: 'Green Screen',
-  raw_talking_head: 'Raw Talking Head',
-  storytelling: 'Storytelling',
-  transformation: 'Transformation',
-  show_and_tell: 'Show&Tell',
-}
+/** Notion's names of the Format options the calendar started with, by slug. */
+export const ETICHETTA_FORMAT: Record<string, string> = Object.fromEntries(
+  OPZIONI_DI_PARTENZA.formato.map((o) => [o.valore, o.nome]),
+)
 
 export const ETICHETTA_STATUS: Record<StatusContenuto, string> = {
   not_started: 'Not started',
@@ -53,6 +51,20 @@ export const ETICHETTA_STATUS: Record<StatusContenuto, string> = {
   to_be_posted: 'To be posted',
   posted: 'Posted',
   canceled: 'Canceled',
+}
+
+/**
+ * The colour of each Status (the screenshots of Notion, 21/10/2026): the pill
+ * has a dot of this colour and always the name next to it. Not Notion's own
+ * grey for the first of the group: Not started is grey, Canceled red.
+ */
+export const COLORE_STATUS: Record<StatusContenuto, ColoreEtichetta> = {
+  not_started: 'gray',
+  to_be_recorded: 'blue',
+  to_be_edited: 'purple',
+  to_be_posted: 'orange',
+  posted: 'green',
+  canceled: 'red',
 }
 
 /** Notion's Status groups, each with its options in Notion's order (the menu shows them so). */
@@ -101,6 +113,31 @@ export const ORDINE_COLONNE = [
   'url',
   'view_count',
 ] as const satisfies readonly CampoContenuto[]
+
+/**
+ * The columns of the Piano editoriale (Dany, 21/10/2026: «una grafica minimal
+ * stile tabella Notion»): Inspiration and Audio leave the table and stay in the
+ * content's panel. Notion's names, except the last: Views.
+ */
+export const COLONNE_PIANO = [
+  'nome',
+  'reel_type',
+  'formato',
+  'stato',
+  'post_date',
+  'url',
+  'view_count',
+] as const satisfies readonly CampoContenuto[]
+
+export const INTESTAZIONE_PIANO: Record<(typeof COLONNE_PIANO)[number], string> = {
+  nome: CAMPI.nome,
+  reel_type: CAMPI.reel_type,
+  formato: CAMPI.formato,
+  stato: CAMPI.stato,
+  post_date: CAMPI.post_date,
+  url: CAMPI.url,
+  view_count: 'Views',
+}
 
 /** The sections of a page, in the order of the templates. */
 export const ORDINE_SEZIONI: readonly SezioneContenuto[] = ['messaggio', 'bozza', 'commenti', 'finale']

@@ -4,7 +4,7 @@
  * person it was sent to. Client-safe constants and the one pure check of the
  * link; the writer is lib/notifiche/registra.ts (server only).
  */
-export const TIPI_EMAIL = ['riepilogo_settimana', 'backup', 'promemoria_feedback', 'promemoria_rinnovo'] as const
+export const TIPI_EMAIL = ['riepilogo_settimana', 'tempo_team', 'backup', 'promemoria_feedback', 'promemoria_rinnovo'] as const
 /**
  * The in-app alerts (1.42.0, Dany 19/10/2026: «rate in ritardo, token di Instagram in scadenza, giornate di Loris
  * da approvare, spesa di Claude vicina al limite» · «si tutte»): they exist only in the app, no email.
@@ -27,6 +27,7 @@ export type CanaleNotifica = 'email' | 'app'
 /** The name of the kind, as the list shows it. */
 export const ETICHETTA_TIPO: Record<TipoNotifica, string> = {
   riepilogo_settimana: 'Riepilogo della settimana',
+  tempo_team: 'Tempo del team',
   backup: 'Backup',
   promemoria_feedback: 'Call dei 3 mesi',
   promemoria_rinnovo: 'Call di rinnovo',
@@ -75,6 +76,7 @@ export function etichettaLink(link: string | null): string | null {
   if (!link) return null
   if (link === '/') return 'Apri la Panoramica'
   if (link.startsWith('/clients/')) return 'Apri la scheda del cliente'
+  if (link.startsWith('/tempo/team')) return 'Apri Tempo › Team'
   if (link.startsWith('/settings/export')) return 'Apri Esporta'
   if (link.startsWith('/payments')) return 'Apri Incassi'
   if (link.startsWith('/settings/chiavi')) return 'Apri Chiavi e collegamenti'

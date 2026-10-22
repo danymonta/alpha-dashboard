@@ -8,7 +8,8 @@ import {
 } from '@/lib/call/analisi/icp-call'
 import { parlaDiSalute, pettoNeutro, pulisciTesto } from '@/lib/call/analisi/salute'
 import { ICP } from '@/lib/marketing/icp'
-import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE, ETICHETTA_STATUS } from '@/lib/marketing/etichette'
+import { ETICHETTA_STATUS } from '@/lib/marketing/etichette'
+import { nomiDa, type NomiOpzioni } from '@/lib/marketing/opzioni'
 import { oscura, paroleDaOscurare, paroleNormalizzate } from '@/lib/marketing/analisi/oscura'
 import type { FontiSpunti } from '@/lib/marketing/spunti/tipi'
 
@@ -64,7 +65,12 @@ const FRASE_FONTE: Record<string, string> = {
   C: 'Dalle call registrate',
 }
 
-export function preparaFonti(raw: unknown, chiaveNome: (nome: string) => string): FontiPreparate {
+export function preparaFonti(
+  raw: unknown,
+  chiaveNome: (nome: string) => string,
+  /** The live names of Reel Type and Format by slug (the starting ones when not given). */
+  nomi: NomiOpzioni = nomiDa(),
+): FontiPreparate {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Riga
   const parole = paroleDaOscurare(Array.isArray(r.da_oscurare) ? (r.da_oscurare as string[]) : [])
   const noteTeam = r.note_team === true
@@ -97,8 +103,8 @@ export function preparaFonti(raw: unknown, chiaveNome: (nome: string) => string)
     return {
       ref,
       name: pulito(x.name, 120) || null,
-      reel_type: typeof x.reel_type === 'string' ? ETICHETTA_REEL_TYPE[x.reel_type as keyof typeof ETICHETTA_REEL_TYPE] ?? null : null,
-      format: typeof x.format === 'string' ? ETICHETTA_FORMAT[x.format as keyof typeof ETICHETTA_FORMAT] ?? null : null,
+      reel_type: typeof x.reel_type === 'string' ? (nomi.reel_type[x.reel_type] ?? null) : null,
+      format: typeof x.format === 'string' ? (nomi.formato[x.format] ?? null) : null,
       pubblicato: str(x.pubblicato),
       gancio: pulito(x.gancio, 160) || null,
       verdetto: x.verdetto ?? null,
@@ -204,8 +210,8 @@ export function preparaFonti(raw: unknown, chiaveNome: (nome: string) => string)
   const calendario = arr(r.in_calendario).map((c) => ({
     name: pulito(c.name, 120),
     modello: c.modello === 'carousel' ? 'Carousel Topic' : 'Reel Topic',
-    reel_type: typeof c.reel_type === 'string' ? ETICHETTA_REEL_TYPE[c.reel_type as keyof typeof ETICHETTA_REEL_TYPE] ?? null : null,
-    format: typeof c.format === 'string' ? ETICHETTA_FORMAT[c.format as keyof typeof ETICHETTA_FORMAT] ?? null : null,
+    reel_type: typeof c.reel_type === 'string' ? (nomi.reel_type[c.reel_type] ?? null) : null,
+    format: typeof c.format === 'string' ? (nomi.formato[c.format] ?? null) : null,
     status: typeof c.status === 'string' ? ETICHETTA_STATUS[c.status as keyof typeof ETICHETTA_STATUS] ?? null : null,
   }))
   const nomiInCalendario = new Set(calendario.map((c) => chiaveNome(c.name)).filter(Boolean))
