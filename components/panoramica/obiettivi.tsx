@@ -7,11 +7,13 @@ import { useForm } from 'react-hook-form'
 
 import { salvaObiettivi } from '@/app/actions/obiettivi'
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatEuro, formatImportoInput, formatNumero } from '@/lib/format'
+import { formato, formatImportoInput } from '@/lib/format'
+import { PANORAMICA } from '@/lib/i18n/testi/panoramica'
 import { obiettiviSchema, type ObiettiviInput } from '@/lib/validation/obiettivi'
 
 export type Avanzamento = {
@@ -27,6 +29,7 @@ export type Avanzamento = {
 
 /** One bar: where the month is against its target. Numbers are computed by SQL. */
 function Barra({ etichetta, valore, obiettivo, quota }: { etichetta: string; valore: string; obiettivo: string; quota: number }) {
+  const t = PANORAMICA[useLingua()]
   const percento = Math.round(quota * 100)
   return (
     <div className="space-y-1.5">
@@ -34,7 +37,7 @@ function Barra({ etichetta, valore, obiettivo, quota }: { etichetta: string; val
         <span className="text-muted-foreground">{etichetta}</span>
         <span className="num">
           <span className="font-semibold">{valore}</span>
-          <span className="text-muted-foreground"> di {obiettivo} · {percento}%</span>
+          <span className="text-muted-foreground">{t.di(obiettivo, percento)}</span>
         </span>
       </div>
       <div
@@ -54,27 +57,28 @@ function Barra({ etichetta, valore, obiettivo, quota }: { etichetta: string; val
 /** "Obiettivi del mese" in the admin overview: progress, and the sheet to set them. */
 /** `solaLettura`: the business coach reads the goals and never sets them (22/10/2026). */
 export function ObiettiviMese({ a, solaLettura = false }: { a: Avanzamento; solaLettura?: boolean }) {
+  const lingua = useLingua()
+  const t = PANORAMICA[lingua]
+  const { formatEuro, formatNumero } = formato(lingua)
   const nessuno = a.obiettivo_cash === null && a.obiettivo_nuovi === null
   return (
     <section className="rounded-xl bg-card p-4" aria-labelledby="titolo-obiettivi" data-testid="obiettivi">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 id="titolo-obiettivi" className="flex items-center gap-2 text-sm font-medium">
           <Target className="size-4 text-muted-foreground" aria-hidden="true" />
-          Obiettivi di {a.etichettaMese}
+          {t.obiettiviDi(a.etichettaMese)}
         </h2>
         {solaLettura ? null : <ImpostaObiettivi a={a} />}
       </div>
       {nessuno ? (
         <p className="text-sm text-muted-foreground">
-          {solaLettura
-            ? 'Nessun obiettivo per questo mese.'
-            : 'Nessun obiettivo per questo mese. Imposta quanto vuoi incassare e quanti clienti nuovi vuoi chiudere: qui vedi a che punto sei.'}
+          {solaLettura ? t.nessunObiettivo : t.nessunObiettivoImposta}
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {a.obiettivo_cash !== null && a.quota_cash !== null ? (
             <Barra
-              etichetta="Cash incassato"
+              etichetta={t.cashIncassato}
               valore={formatEuro(a.cash, { compatto: true })}
               obiettivo={formatEuro(a.obiettivo_cash, { compatto: true })}
               quota={a.quota_cash}
@@ -82,7 +86,7 @@ export function ObiettiviMese({ a, solaLettura = false }: { a: Avanzamento; sola
           ) : null}
           {a.obiettivo_nuovi !== null && a.quota_nuovi !== null ? (
             <Barra
-              etichetta="Nuovi clienti"
+              etichetta={t.nuoviClienti}
               valore={formatNumero(a.nuovi)}
               obiettivo={formatNumero(a.obiettivo_nuovi)}
               quota={a.quota_nuovi}
@@ -95,6 +99,7 @@ export function ObiettiviMese({ a, solaLettura = false }: { a: Avanzamento; sola
 }
 
 function ImpostaObiettivi({ a }: { a: Avanzamento }) {
+  const t = PANORAMICA[useLingua()]
   const [aperto, setAperto] = useState(false)
   const { errore, setErrore, salva } = useSalvataggio()
   const iniziali: ObiettiviInput = {
@@ -122,7 +127,7 @@ function ImpostaObiettivi({ a }: { a: Avanzamento }) {
         else setErrore(null)
       }}
       trigger={<Button type="button" variant="outline" className="h-11" />}
-      contenutoTrigger={a.obiettivo_cash === null && a.obiettivo_nuovi === null ? 'Imposta' : 'Modifica'}
+      contenutoTrigger={a.obiettivo_cash === null && a.obiettivo_nuovi === null ? t.imposta : t.modifica}
       titolo={`Obiettivi di ${a.etichettaMese}`}
       descrizione="Lascia vuoto un campo se non vuoi un obiettivo su quel numero. Il cash conta gli incassi del mese, i nuovi clienti le vendite di tipo nuovo."
     >

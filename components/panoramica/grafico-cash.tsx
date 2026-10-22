@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import {
   ChartContainer,
   ChartLegend,
@@ -11,7 +12,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
-import { formatEuro, formatEuroAsse, formatMese, formatMeseBreve } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
 
 /** One month of cash_mensile: the four parts add up to the total. */
 export type PuntoCash = {
@@ -25,12 +27,30 @@ export type PuntoCash = {
 
 // colour follows the entity, never the rank (CLAUDE.md section 11); the four
 // colours are validated together in this stacking order (app/globals.css)
-const CONFIG = {
-  nuovi_clienti: { label: 'Nuovi clienti del mese', color: 'var(--chart-nuovo)' },
-  rate_precedenti: { label: 'Rate di clienti già entrati', color: 'var(--chart-rate-precedenti)' },
-  rinnovo: { label: 'Rinnovi', color: 'var(--chart-rinnovo)' },
-  upsell: { label: 'Upsell', color: 'var(--chart-upsell)' },
-} satisfies ChartConfig
+const ETICHETTE_SERIE: Record<Lingua, Record<'nuovi_clienti' | 'rate_precedenti' | 'rinnovo' | 'upsell', string>> = {
+  it: {
+    nuovi_clienti: 'Nuovi clienti del mese',
+    rate_precedenti: 'Rate di clienti già entrati',
+    rinnovo: 'Rinnovi',
+    upsell: 'Upsell',
+  },
+  en: {
+    nuovi_clienti: 'New clients of the month',
+    rate_precedenti: 'Instalments of earlier clients',
+    rinnovo: 'Renewals',
+    upsell: 'Upsells',
+  },
+}
+
+function configurazione(lingua: Lingua) {
+  const e = ETICHETTE_SERIE[lingua]
+  return {
+    nuovi_clienti: { label: e.nuovi_clienti, color: 'var(--chart-nuovo)' },
+    rate_precedenti: { label: e.rate_precedenti, color: 'var(--chart-rate-precedenti)' },
+    rinnovo: { label: e.rinnovo, color: 'var(--chart-rinnovo)' },
+    upsell: { label: e.upsell, color: 'var(--chart-upsell)' },
+  } satisfies ChartConfig
+}
 
 const SERIE = ['nuovi_clienti', 'rate_precedenti', 'rinnovo', 'upsell'] as const
 
@@ -53,6 +73,9 @@ function useStretto() {
 
 export function GraficoCash({ dati }: { dati: PuntoCash[] }) {
   const stretto = useStretto()
+  const lingua = useLingua()
+  const CONFIG = configurazione(lingua)
+  const { formatEuro, formatEuroAsse, formatMese, formatMeseBreve } = formato(lingua)
   // every other month counting back from the last one, so the selected month is always labelled
   const ticks = stretto ? dati.filter((_, i) => (dati.length - 1 - i) % 2 === 0).map((p) => p.mese) : undefined
 

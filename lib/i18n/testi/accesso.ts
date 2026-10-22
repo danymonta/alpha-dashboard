@@ -53,7 +53,8 @@ export const ACCESSO = bilingue(
     callback: 'Sign-in failed. Try again.',
     accediGoogle: 'Sign in with Google',
     aperturaGoogle: 'Opening Google…',
-    posta: 'Email address',
+    // never «Email»: the dev login below owns that label
+    posta: 'Your mail address',
     esempioPosta: 'name@domain.com',
     invioInCorso: 'Sending…',
     inviaCodice: 'Send the code',

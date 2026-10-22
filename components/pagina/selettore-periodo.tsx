@@ -8,6 +8,7 @@ import { useEffect, useId, useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { BottoneSalva, FoglioModifica } from '@/components/form/foglio-modifica'
 import { IndicatoreLink } from '@/components/shell/link-riga'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,7 @@ import {
   type IntervalloInput,
   type Periodo,
 } from '@/lib/periodo'
+import { PERIODO, traduciErrorePeriodo } from '@/lib/i18n/testi/periodo'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -51,13 +53,14 @@ const ATTESA_MASSIMA_MS = 15_000
 export function SelettorePeriodo({ periodo, oggi, percorso, parametri, confronto = true, className }: Props) {
   const unMese = periodo.mese !== null
   const successivo = puoAndareAvanti(periodo, oggi)
+  const t = PERIODO[useLingua()]
 
   return (
     // -ml-3: the chevron glyph (not its 44px hit area) lines up with the content edge
-    <nav aria-label="Scegli il periodo" className={cn('-ml-3 flex items-center gap-1', className)}>
+    <nav aria-label={t.scegliPeriodo} className={cn('-ml-3 flex items-center gap-1', className)}>
       <Link
         href={hrefPeriodo(percorso, periodo.precedente, parametri)}
-        aria-label={unMese ? 'Mese precedente' : 'Periodo precedente'}
+        aria-label={unMese ? t.mesePrecedente : t.periodoPrecedente}
         className={CLASSI_FRECCIA}
       >
         <IndicatoreLink className="size-5" riposo={<ChevronLeft className="size-5" />} />
@@ -68,7 +71,7 @@ export function SelettorePeriodo({ periodo, oggi, percorso, parametri, confronto
       {successivo ? (
         <Link
           href={hrefPeriodo(percorso, periodo.successivo, parametri)}
-          aria-label={unMese ? 'Mese successivo' : 'Periodo successivo'}
+          aria-label={unMese ? t.meseSuccessivo : t.periodoSuccessivo}
           className={CLASSI_FRECCIA}
         >
           <IndicatoreLink className="size-5" riposo={<ChevronRight className="size-5" />} />
@@ -85,6 +88,8 @@ export function SelettorePeriodo({ periodo, oggi, percorso, parametri, confronto
 function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<Props, 'className'>) {
   const id = useId()
   const router = useRouter()
+  const lingua = useLingua()
+  const t = PERIODO[lingua]
   const [aperto, setAperto] = useState(false)
   const [inCorso, avvia] = useTransition()
   // A quick choice closes the sheet at once and the page stays as it is until the
@@ -100,7 +105,7 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
     const t = setTimeout(() => setPartitoDa(null), ATTESA_MASSIMA_MS)
     return () => clearTimeout(t)
   }, [partitoDa])
-  const preset = presetPeriodi(oggi)
+  const preset = presetPeriodi(oggi, lingua)
   const attivo = preset.find((p) => p.da === periodo.da && p.a === periodo.a)
 
   const {
@@ -121,7 +126,7 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
     })
   })
 
-  const errore = errors.da?.message ?? errors.a?.message
+  const errore = traduciErrorePeriodo(errors.da?.message ?? errors.a?.message, lingua)
 
   return (
     <FoglioModifica
@@ -135,7 +140,7 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
         <Button
           type="button"
           variant="outline"
-          aria-label={`Periodo: ${periodo.etichetta}`}
+          aria-label={t.periodo(periodo.etichetta)}
           aria-busy={inViaggio || undefined}
           data-testid="etichetta-periodo"
           className="h-11 min-w-36 shrink gap-2 px-3"
@@ -151,20 +156,16 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
           <span className="num min-w-0 truncate">{periodo.etichetta}</span>
         </>
       }
-      titolo="Periodo"
-      descrizione={
-        confronto
-          ? 'Scegli un periodo pronto o due date. I numeri si confrontano con il periodo precedente di pari durata.'
-          : 'Scegli un periodo pronto o due date.'
-      }
+      titolo={t.titolo}
+      descrizione={confronto ? t.descrizioneConfronto : t.descrizione}
     >
       <div className="space-y-6">
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-border p-3 text-sm">
-          <dt className="text-muted-foreground">In uso</dt>
+          <dt className="text-muted-foreground">{t.inUso}</dt>
           <dd className="num font-medium">{periodo.etichetta}</dd>
           {confronto ? (
             <>
-              <dt className="text-muted-foreground">Confronto</dt>
+              <dt className="text-muted-foreground">{t.confronto}</dt>
               <dd className="num">{periodo.precedente.etichetta}</dd>
             </>
           ) : null}
@@ -172,7 +173,7 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
 
         <section aria-labelledby={`${id}-rapide`} className="space-y-2">
           <h3 id={`${id}-rapide`} className="text-sm font-medium">
-            Scelte rapide
+            {t.rapide}
           </h3>
           <ul className="grid grid-cols-2 gap-2">
             {preset.map((p) => {
@@ -205,18 +206,18 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
         <form onSubmit={invia} noValidate className="space-y-3" aria-labelledby={`${id}-personalizzato`}>
           <div className="flex items-center justify-between gap-3">
             <h3 id={`${id}-personalizzato`} className="text-sm font-medium">
-              Personalizzato
+              {t.personalizzato}
             </h3>
             {attivo ? null : (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Check className="size-3.5" aria-hidden="true" />
-                In uso
+                {t.inUso}
               </span>
             )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor={`${id}-da`}>Da</Label>
+              <Label htmlFor={`${id}-da`}>{t.da}</Label>
               <Input
                 id={`${id}-da`}
                 type="date"
@@ -228,7 +229,7 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={`${id}-a`}>A</Label>
+              <Label htmlFor={`${id}-a`}>{t.a}</Label>
               <Input
                 id={`${id}-a`}
                 type="date"
@@ -241,13 +242,11 @@ function FoglioPeriodo({ periodo, oggi, percorso, parametri, confronto }: Omit<P
             </div>
           </div>
           <ErroreCampo id={`${id}-errore`} messaggio={errore} />
-          <BottoneSalva inCorso={inCorso}>Mostra il periodo</BottoneSalva>
+          <BottoneSalva inCorso={inCorso}>{t.mostra}</BottoneSalva>
         </form>
 
         <p className="text-xs text-muted-foreground">
-          {confronto
-            ? 'Mesi interi si confrontano con gli stessi mesi prima (luglio–settembre con aprile–giugno); le altre date con lo stesso numero di giorni subito prima. Massimo 3 anni.'
-            : 'Un periodo copre al massimo 3 anni.'}
+          {confronto ? t.notaConfronto : t.nota}
         </p>
       </div>
     </FoglioModifica>

@@ -1,5 +1,7 @@
 import { EtichettaConNota } from '@/components/metriche/nota'
-import { formatNumero, formatPercentuale } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { getLingua } from '@/lib/i18n/server'
+import { PANORAMICA } from '@/lib/i18n/testi/panoramica'
 
 export type FaseFunnel = {
   ordine: number
@@ -23,7 +25,10 @@ export type FaseFunnel = {
  * Horizontal funnel. Bar length is only the visual scale of each stage against
  * the largest; the conversion rates come from SQL (funnel_periodo).
  */
-export function Funnel({ fasi }: { fasi: FaseFunnel[] }) {
+export async function Funnel({ fasi }: { fasi: FaseFunnel[] }) {
+  const lingua = await getLingua()
+  const { formatNumero, formatPercentuale } = formato(lingua)
+  const passa = PANORAMICA[lingua].passa
   const massimo = Math.max(1, ...fasi.map((f) => f.valore))
 
   return (
@@ -52,7 +57,7 @@ export function Funnel({ fasi }: { fasi: FaseFunnel[] }) {
                       }}
                     />
                   ) : (
-                    `${formatPercentuale(f.passaggio)} passa`
+                    `${formatPercentuale(f.passaggio)} ${passa}`
                   )}
                 </span>
               ) : (

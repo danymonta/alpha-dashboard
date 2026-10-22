@@ -78,6 +78,29 @@ describe('i dizionari delle due lingue', () => {
   }
 })
 
+/** The word modules that became bilingual outside lib/i18n/testi (1.53.0). */
+const ALTRI: Record<string, () => Promise<Record<string, unknown>>> = {
+  'lib/metriche/legenda-en.ts': () => import('@/lib/metriche/legenda-en'),
+}
+
+describe('i moduli di parole diventati bilingui', () => {
+  for (const [nome, carica] of Object.entries(ALTRI)) {
+    it(`${nome}: le stesse chiavi in italiano e in inglese`, async () => {
+      const modulo = await carica()
+      const dizionari = Object.entries(modulo).filter(
+        ([, v]) => v && typeof v === 'object' && 'it' in (v as object) && 'en' in (v as object),
+      )
+      expect(dizionari.length).toBeGreaterThan(0)
+      const fuori: string[] = []
+      for (const [chiave, d] of dizionari) {
+        const { it: italiano, en: inglese } = d as { it: Albero; en: Albero }
+        differenze(italiano, inglese, `${nome}:${chiave}`, fuori)
+      }
+      expect(fuori).toEqual([])
+    })
+  }
+})
+
 describe('il menu in inglese', () => {
   it('ogni voce e ogni gruppo di ogni ruolo ha la sua etichetta in tutte e due le lingue', () => {
     const mancano: string[] = []

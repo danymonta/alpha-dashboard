@@ -3,7 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { formatOra } from '@/lib/date'
+import { PANORAMICA } from '@/lib/i18n/testi/panoramica'
 import { autenticaRealtime, createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -46,6 +48,7 @@ let progressivo = 0
  */
 export function AggiornamentoLive({ lettaIl }: { lettaIl: number }) {
   const router = useRouter()
+  const t = PANORAMICA[useLingua()]
   const [stato, setStato] = useState<Stato>('connessione')
   const [ultimo, setUltimo] = useState<string | null>(null)
   // the render on screen now, and how to read its numbers again (set by the channel)
@@ -128,11 +131,11 @@ export function AggiornamentoLive({ lettaIl }: { lettaIl: number }) {
       </span>
       {stato === 'live'
         ? ultimo
-          ? `In tempo reale · aggiornato alle ${formatOra(ultimo)}`
-          : 'In tempo reale'
+          ? t.liveAlle(formatOra(ultimo))
+          : t.live
         : stato === 'offline'
-          ? 'Aggiornamento automatico non disponibile: ricarica la pagina'
-          : 'Collegamento…'}
+          ? t.liveNo
+          : t.collegamento}
     </p>
   )
 }

@@ -2,8 +2,10 @@
 
 import { Info } from 'lucide-react'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Popover, PopoverContent, PopoverDescription, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import type { VoceLegenda } from '@/lib/metriche/legenda'
+import { legende } from '@/lib/metriche/legenda-en'
 import { cn } from '@/lib/utils'
 
 /**
@@ -12,6 +14,7 @@ import { cn } from '@/lib/utils'
  * area is 44px.
  */
 export function EtichettaConNota({ voce, className }: { voce: VoceLegenda; className?: string }) {
+  const cosaConta = legende(useLingua()).cosaConta
   return (
     <span className={cn('inline-flex items-center gap-1', className)}>
       {voce.etichetta}
@@ -19,7 +22,7 @@ export function EtichettaConNota({ voce, className }: { voce: VoceLegenda; class
         <PopoverTrigger
           openOnHover
           delay={150}
-          aria-label={`Cosa conta «${voce.etichetta}»`}
+          aria-label={cosaConta(voce.etichetta)}
           render={
             <button
               type="button"
