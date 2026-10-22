@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { inviaBackup } from '@/lib/backup/invia'
+import { settimanaDeiContenuti } from '@/lib/email/contenuti-settimana'
+import { inviaContenutiSettimana } from '@/lib/email/contenuti-settimana-invio'
 import { lunediDellaSettimana, oggiRoma } from '@/lib/date'
 import { emailConfigurata } from '@/lib/email/invia'
 import { settimanaDelRiepilogo } from '@/lib/email/riepilogo'
@@ -31,6 +33,8 @@ const TEMPO_PROMEMORIA_MS = 50_000
  * - on Fridays (Europe/Rome), the weekly summary by email to the active admins,
  *   for the week from Saturday to Friday (Dany, 07/10/2026: once a week, no
  *   more every evening; settimanaDelRiepilogo, public.riepilogo_settimana);
+ * - on Sundays, the week of the contents by email (Dany, 22/10/2026; settimanaDeiContenuti,
+ *   public.riepilogo_contenuti_settimana);
  * - on Mondays, the weekly backup and, after it, last week's team time by email
  *   to the same admins (Dany, 21/10/2026; settimanaPrecedente, public.riepilogo_tempo_team);
  * - the path reminders ("Call dei 3 mesi", "Call di rinnovo"), one email each,
@@ -75,6 +79,25 @@ export async function GET(request: NextRequest) {
   esito.riepilogo = settimana
     ? await inviaRiepilogoSettimana({ db: admin, settimana, admin: admins, urlApp: publicEnv.appUrl })
     : 'solo il venerdì'
+
+  // Sunday in Rome (Dany, 22/10/2026): how the week of the contents went, Monday to today. A
+  // failure is logged and stops nothing.
+  const settimanaContenuti = settimanaDeiContenuti(oggi)
+  if (settimanaContenuti) {
+    try {
+      esito.contenuti_settimana = await inviaContenutiSettimana({
+        db: admin,
+        settimana: settimanaContenuti,
+        admin: admins,
+        urlApp: publicEnv.appUrl,
+      })
+    } catch (e) {
+      console.error('[giornaliero] contenuti della settimana', e instanceof Error ? e.name : 'errore')
+      esito.contenuti_settimana = 'non riuscito'
+    }
+  } else {
+    esito.contenuti_settimana = 'solo la domenica'
+  }
 
   // Monday in Rome: the weekly backup rides along
   if (lunediDellaSettimana(oggi) === oggi) {

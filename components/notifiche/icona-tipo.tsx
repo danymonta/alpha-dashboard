@@ -1,5 +1,6 @@
 import {
   CalendarClock,
+  Clapperboard,
   ChartNoAxesCombined,
   ClipboardCheck,
   DatabaseBackup,
@@ -18,6 +19,7 @@ import { cn } from '@/lib/utils'
 const ICONE: Record<TipoNotifica, LucideIcon> = {
   riepilogo_settimana: ChartNoAxesCombined,
   tempo_team: Timer,
+  contenuti_settimana: Clapperboard,
   backup: DatabaseBackup,
   promemoria_feedback: CalendarClock,
   promemoria_rinnovo: RefreshCw,
