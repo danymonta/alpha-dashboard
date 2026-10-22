@@ -8,9 +8,12 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiMesi, oggiRoma, primoDelMeseISO } from '@/lib/date'
-import { formatData, formatEuro, formatMese, formatPercentuale } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { getLingua } from '@/lib/i18n/server'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { PROVVIGIONI } from '@/lib/i18n/testi/provvigioni'
 import { createClient } from '@/lib/supabase/server'
-import { ETICHETTA_TIPO_VENDITA } from '@/lib/validation/vendita'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +22,9 @@ export default async function ProvvigioniPage() {
   const profilo = await requireRuolo(RUOLI_COME_ADMIN)
   const scrive = puoScrivere(profilo.ruolo)
   const oggi = oggiRoma()
+  const lingua = await getLingua()
+  const t = PROVVIGIONI[lingua]
+  const { formatData, formatEuro, formatMese, formatPercentuale } = formato(lingua)
   const supabase = await createClient()
 
   const [riepilogo, regole, pagamenti, perVendita] = await Promise.all([
@@ -35,7 +41,7 @@ export default async function ProvvigioniPage() {
     // client by client: "5% of 1.500 € = 75 €", summed in SQL
     supabase.rpc('provvigioni_per_vendita', {}),
   ])
-  if (riepilogo.error || regole.error || pagamenti.error || perVendita.error) throw new Error('Impossibile caricare le provvigioni')
+  if (riepilogo.error || regole.error || pagamenti.error || perVendita.error) throw new Error(t.errore)
 
   // months a payout can refer to: the last two years, plus whatever is already recorded
   const ultimi24 = Array.from({ length: 24 }, (_, i) => aggiungiMesi(primoDelMeseISO(oggi), -i))
@@ -51,15 +57,15 @@ export default async function ProvvigioniPage() {
   return (
     <div className="max-w-4xl space-y-6">
       <IntestazionePagina
-        titolo="Provvigioni"
-        descrizione="Maturano sull’incasso, non sulla firma: ogni rata incassata delle vendite coperte dalla regola (di solito solo i clienti nuovi), anche nei mesi dopo la firma. Un rimborso le riduce nel mese in cui avviene."
+        titolo={t.titolo}
+        descrizione={t.descrizione}
       />
 
       {persone.size === 0 ? (
         <StatoVuoto
           Icona={Percent}
-          titolo="Nessuna regola provvigionale"
-          descrizione="Le provvigioni compaiono quando un collaboratore ha una regola attiva (Impostazioni, Fase 4)."
+          titolo={t.vuoto}
+          descrizione={t.vuotoDescrizione}
         />
       ) : (
         [...persone.entries()].map(([id, { nome, righe }]) => {
@@ -76,10 +82,12 @@ export default async function ProvvigioniPage() {
                   <h2 id={`p-${id}`} className="text-base font-medium">{nome}</h2>
                   <p className="text-sm text-muted-foreground">
                     {regola
-                      ? `${formatPercentuale(regola.percentuale)} sull’incassato di: ${regola.applica_a
-                          .map((t) => ETICHETTA_TIPO_VENDITA[t].toLowerCase())
-                          .join(', ')} · dal ${formatData(regola.valida_dal)}`
-                      : 'Nessuna regola attiva oggi'}
+                      ? t.regola(
+                          formatPercentuale(regola.percentuale),
+                          regola.applica_a.map((tipo) => ETICHETTE[lingua].tipoVendita[tipo].toLowerCase()).join(', '),
+                          formatData(regola.valida_dal),
+                        )
+                      : t.nessunaRegola}
                   </p>
                 </div>
                 {scrive ? (
@@ -93,26 +101,26 @@ export default async function ProvvigioniPage() {
               </div>
 
               <div className="rounded-lg bg-muted/40 p-3" data-testid={`saldo-${id}`}>
-                <p className="text-xs text-muted-foreground">Da pagare a oggi</p>
+                <p className="text-xs text-muted-foreground">{t.daPagare}</p>
                 <p className="num text-3xl font-semibold text-gold">{formatEuro(ultima?.saldo_progressivo)}</p>
               </div>
 
               {/* below 768px: one card per month, no 4-column table */}
-              <ul className="space-y-2 md:hidden" aria-label={`Provvigioni di ${nome} per mese`}>
+              <ul className="space-y-2 md:hidden" aria-label={t.perMese(nome)}>
                 {mesiRecenti.map((r) => (
                   <li key={r.mese} className="rounded-lg border border-border px-3 py-2.5">
                     <p className="text-sm font-medium">{formatMese(r.mese)}</p>
                     <dl className="mt-1.5 grid grid-cols-3 gap-3">
                       <div className="text-right">
-                        <dt className="text-xs text-muted-foreground">Maturato</dt>
+                        <dt className="text-xs text-muted-foreground">{t.maturato}</dt>
                         <dd className="num text-sm">{formatEuro(r.maturato)}</dd>
                       </div>
                       <div className="text-right">
-                        <dt className="text-xs text-muted-foreground">Pagato</dt>
+                        <dt className="text-xs text-muted-foreground">{t.pagato}</dt>
                         <dd className="num text-sm">{formatEuro(r.pagato)}</dd>
                       </div>
                       <div className="text-right">
-                        <dt className="text-xs text-muted-foreground">Saldo del mese</dt>
+                        <dt className="text-xs text-muted-foreground">{t.saldo}</dt>
                         <dd className="num text-sm font-medium">{formatEuro(r.saldo_mese)}</dd>
                       </div>
                     </dl>
@@ -122,13 +130,13 @@ export default async function ProvvigioniPage() {
 
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-sm">
-                  <caption className="sr-only">Provvigioni di {nome} per mese</caption>
+                  <caption className="sr-only">{t.perMese(nome)}</caption>
                   <thead className="text-xs text-muted-foreground">
                     <tr className="border-b border-border">
-                      <th scope="col" className="py-2 text-left font-normal">Mese</th>
-                      <th scope="col" className="py-2 text-right font-normal">Maturato</th>
-                      <th scope="col" className="py-2 text-right font-normal">Pagato</th>
-                      <th scope="col" className="py-2 text-right font-normal">Saldo del mese</th>
+                      <th scope="col" className="py-2 text-left font-normal">{t.mese}</th>
+                      <th scope="col" className="py-2 text-right font-normal">{t.maturato}</th>
+                      <th scope="col" className="py-2 text-right font-normal">{t.pagato}</th>
+                      <th scope="col" className="py-2 text-right font-normal">{t.saldo}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -144,7 +152,7 @@ export default async function ProvvigioniPage() {
                 </table>
               </div>
 
-              <PerCliente nome={nome} righe={(perVendita.data ?? []).filter((v) => v.profile_id === id)} />
+              <PerCliente nome={nome} righe={(perVendita.data ?? []).filter((v) => v.profile_id === id)} lingua={lingua} />
             </section>
           )
         })
@@ -152,14 +160,14 @@ export default async function ProvvigioniPage() {
 
       {(pagamenti.data ?? []).length > 0 ? (
         <section className="space-y-2">
-          <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Ultimi pagamenti</h2>
+          <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{t.ultimiPagamenti}</h2>
           <ul className="divide-y divide-border rounded-xl bg-card">
             {pagamenti.data!.map((p) => (
               <li key={p.id} className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm">
                 <span className="min-w-0 flex-1">
-                  {persone.get(p.profile_id)?.nome ?? 'Collaboratore'}
+                  {persone.get(p.profile_id)?.nome ?? t.collaboratore}
                   <span className="block text-xs text-muted-foreground">
-                    {formatData(p.pagato_il)} · riferito a {formatMese(p.periodo)}
+                    {t.riferitoA(formatData(p.pagato_il), formatMese(p.periodo))}
                   </span>
                 </span>
                 <span className="num font-medium">{formatEuro(p.importo)}</span>
@@ -199,14 +207,16 @@ type RigaPerVendita = {
 }
 
 /** Client by client: what came in, the rate and the commission (provvigioni_per_vendita). */
-function PerCliente({ nome, righe }: { nome: string; righe: RigaPerVendita[] }) {
+function PerCliente({ nome, righe, lingua }: { nome: string; righe: RigaPerVendita[]; lingua: Lingua }) {
+  const t = PROVVIGIONI[lingua]
+  const { formatData, formatEuro, formatPercentuale } = formato(lingua)
   return (
     <div className="border-t border-border pt-3" data-testid="provvigioni-per-cliente">
-      <h3 className="text-sm font-medium">Per cliente</h3>
+      <h3 className="text-sm font-medium">{t.perCliente}</h3>
       {righe.length === 0 ? (
-        <p className="mt-1 text-sm text-muted-foreground">Nessun incasso con provvigione finora.</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t.nessunIncasso}</p>
       ) : (
-        <ul className="divide-y divide-border" aria-label={`Provvigioni di ${nome} per cliente`}>
+        <ul className="divide-y divide-border" aria-label={t.perClienteDi(nome)}>
           {righe.map((v) => (
             <li key={v.sale_id} aria-label={v.cliente} className="flex min-h-11 items-center justify-between gap-3 py-2 text-sm">
               <span className="min-w-0">
@@ -214,8 +224,11 @@ function PerCliente({ nome, righe }: { nome: string; righe: RigaPerVendita[] }) 
                   {v.cliente}
                 </Link>
                 <span className="num block text-xs text-muted-foreground">
-                  {v.percentuale === null ? 'regole diverse' : formatPercentuale(v.percentuale)} di {formatEuro(v.incassato)} ·
-                  ultimo incasso {formatData(v.ultimo_incasso)}
+                  {t.diIncasso(
+                    v.percentuale === null ? t.regoleDiverse : formatPercentuale(v.percentuale),
+                    formatEuro(v.incassato),
+                    formatData(v.ultimo_incasso),
+                  )}
                 </span>
               </span>
               <span className="num shrink-0 font-medium">{formatEuro(v.provvigione)}</span>
