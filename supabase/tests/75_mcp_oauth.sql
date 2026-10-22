@@ -2,18 +2,24 @@
 -- «creare un mcp nella mia dashboard che collego con claude normale e gli dico
 -- come riempire tutta la parte di content»; 20261010090000_mcp_oauth.sql).
 -- An OAuth token is an ordinary Supabase JWT plus client_id and session_id. It
--- reaches only the content calendar, even when it is the admin's: the Data API
--- filter (mcp_filtro_richiesta, run by PostgREST before every request), a
--- restrictive <table>_mai_da_oauth policy on every other table, and
--- current_role() / pm_livello_corrente() null for it, with explicit guards on
--- the definer RPCs that act on auth.uid(). This test never goes through
--- PostgREST: the layers B and C are checked here without the filter, the
--- filter on its own with the request settings PostgREST would write.
+-- reaches only the MCP allow-list, even when it is the admin's: the content
+-- calendar and, since 20261027110000_mcp_progetti_tempo.sql (phase 1 of 4,
+-- 22/10/2026), projects, lists, tasks, notes and time (100_mcp_progetti_tempo.sql
+-- tests those). Three layers: the Data API filter (mcp_filtro_richiesta, run by
+-- PostgREST before every request), a restrictive policy on every table
+-- (<table>_mai_da_oauth outside the list), and current_role() /
+-- pm_livello_corrente() null for it outside a request the filter approved, with
+-- explicit guards on the definer RPCs that act on auth.uid(). This test never
+-- goes through PostgREST: the layers B and C are checked here without the
+-- filter's approval (the flag alpha.mcp_filtro unset), so every definer RPC of
+-- the other areas still answers 42501 to the token; the filter on its own with
+-- the request settings PostgREST would write, and it refuses the path of every
+-- one of those RPCs.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(99);
+select plan(101);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres): OAuth clients and sessions, two more roles, a
@@ -288,7 +294,8 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- 3. The admin's OAuth token: no role, no project level, only the calendar
+-- 3. The admin's OAuth token outside a request the filter approved: no role, no
+--    project level, only the calendar (inside one, 100_mcp_progetti_tempo.sql)
 -- ---------------------------------------------------------------------------
 reset role;
 set local request.jwt.claims to '{}';
@@ -327,6 +334,9 @@ select is(
   (select coalesce(string_agg(t.tablename, ', ' order by t.tablename), '')
    from pg_tables t
    where t.schemaname = 'public' and t.tablename not in ('marketing_contenuti', 'marketing_opzioni')
+     -- the tables of phase 1 (20261027110000) have four restrictive _claude_* policies instead (00_schema.sql)
+     and t.tablename not in ('pm_progetti', 'pm_membri', 'pm_tasklist', 'pm_task', 'pm_task_assegnatari',
+                             'pm_tempo', 'pm_note', 'pm_reparti', 'pm_modelli', 'profiles')
      and not exists (
        select 1 from pg_policies p
        where p.schemaname = 'public' and p.tablename = t.tablename
@@ -335,7 +345,7 @@ select is(
          and p.roles = array['authenticated']::name[]
      )),
   '',
-  'ogni tabella tranne il calendario ha la sua policy restrittiva _mai_da_oauth'
+  'ogni tabella tranne il calendario e le tabelle dei progetti e del tempo ha la sua policy restrittiva _mai_da_oauth'
 );
 select is(
   (select count(*)::int from pg_policies
@@ -1029,7 +1039,8 @@ select pg_temp.come_oauth('61616161-6161-4161-8161-616161616161', '7c000000-0000
 select is(public.mcp_chi_sono(), '{"esito":"sessione"}'::jsonb, 'sessione che non vale: sessione');
 select pg_temp.come_oauth('22222222-2222-4222-8222-222222222222', '7c000000-0000-4000-8000-000000000001',
   '7e000000-0000-4000-8000-000000000004');
-select is(public.mcp_chi_sono(), '{"esito":"ruolo"}'::jsonb, 'setter: ruolo');
+select is(public.mcp_chi_sono() - 'filtro', '{"esito":"ok","ruolo":"setter","livello":"employee"}'::jsonb,
+  'setter: ok dal 22/10/2026, con il suo livello nei progetti');
 select pg_temp.come_oauth('99999999-9999-4999-8999-999999990075', '7c000000-0000-4000-8000-000000000001',
   '7e000000-0000-4000-8000-000000000007');
 select is(public.mcp_chi_sono(), '{"esito":"ruolo"}'::jsonb, 'marketing disattivato: ruolo');
@@ -1037,10 +1048,10 @@ select is(public.mcp_chi_sono(), '{"esito":"ruolo"}'::jsonb, 'marketing disattiv
 select set_config('alpha.mcp_filtro', '', true);
 select pg_temp.come_oauth('61616161-6161-4161-8161-616161616161', '7c000000-0000-4000-8000-000000000001',
   '7e000000-0000-4000-8000-000000000003');
-select is(public.mcp_chi_sono(), '{"esito":"ok","ruolo":"marketing","filtro":false}'::jsonb,
+select is(public.mcp_chi_sono(), '{"esito":"ok","ruolo":"marketing","livello":"employee","filtro":false}'::jsonb,
   'marketing senza il filtro sulla richiesta: ok, ma filtro falso (la route risponde 503)');
 select is(pg_temp.filtro('/rpc/mcp_chi_sono', 'POST'), 'passa', 'il filtro lascia passare la domanda');
-select is(public.mcp_chi_sono(), '{"esito":"ok","ruolo":"marketing","filtro":true}'::jsonb,
+select is(public.mcp_chi_sono(), '{"esito":"ok","ruolo":"marketing","livello":"employee","filtro":true}'::jsonb,
   'dopo il filtro, nella stessa richiesta: filtro vero');
 select set_config('alpha.mcp_filtro', '', true);
 select pg_temp.come_web('61616161-6161-4161-8161-616161616161');
@@ -1099,7 +1110,7 @@ select is(
 );
 select is(
   array[
-    pg_temp.filtro('/profiles', 'GET'),
+    pg_temp.filtro('/calls', 'GET'),
     pg_temp.filtro('/rpc/metriche_periodo', 'POST'),
     pg_temp.filtro('/rpc/graphql', 'POST', '{"content-profile":"graphql_public"}'),
     pg_temp.filtro('/rpc/salva_sezione_contenuto', 'GET'),
@@ -1110,18 +1121,49 @@ select is(
     pg_temp.filtro('', 'GET'),
     pg_temp.filtro(null, null),
     pg_temp.filtro('/marketing_contenuti/', 'GET'),
-    pg_temp.filtro('/rpc/pm_crea_progetto', 'POST'),
+    pg_temp.filtro('/clients', 'GET'),
     pg_temp.filtro('/rpc/inserisci_piano', 'POST')
   ],
   array['42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501',
         '42501', '42501', '42501'],
-  'token di Claude: tutto il resto no (profili, metriche, GraphQL, un altro schema, PUT, la radice OpenAPI, le RPC)'
+  'token di Claude: tutto il resto no (call, metriche, GraphQL, un altro schema, PUT, la radice OpenAPI, clienti, le RPC)'
 );
-select set_config('request.path', '/profiles', true), set_config('request.method', 'GET', true),
+select set_config('request.path', '/calls', true), set_config('request.method', 'GET', true),
   set_config('request.headers', '{}', true);
 select throws_ok($$ select public.mcp_filtro_richiesta() $$, '42501',
-  'Da Claude si usa solo il calendario dei contenuti.',
+  'Questa parte del gestionale non è raggiungibile da Claude.',
   'il rifiuto lo dice in italiano');
+-- Defence in depth for the areas of the later phases (22/10/2026): inside a request the filter
+-- approved current_role() names the token's person, so every reachable security definer RPC that is
+-- not on the allow-list must be refused by the filter itself, whatever the method
+select is(
+  (select coalesce(string_agg(p.proname::text collate "default", ', ' order by p.proname::text collate "default"), '')
+   from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and has_function_privilege('authenticated', p.oid, 'execute')
+     and p.prorettype <> 'trigger'::regtype
+     and p.proname::text not in (
+       -- the allow-list: the calendar, the route's question, projects, lists, tasks and time
+       'salva_sezione_contenuto', 'spunti_per_claude', 'mcp_chi_sono', 'pm_crea_progetto', 'pm_scegli_coach',
+       'pm_imposta_assegnatari', 'pm_registra_tempo', 'pm_modifica_tempo', 'pm_avvia_timer', 'pm_ferma_timer',
+       'pm_mio_tempo_per_task', 'pm_riepilogo_tempo', 'pm_tempo_per_persona', 'pm_timer_attivo')
+     and (pg_temp.filtro('/rpc/' || p.proname, 'POST') <> '42501'
+          or pg_temp.filtro('/rpc/' || p.proname, 'GET') <> '42501')),
+  '',
+  'token di Claude: il filtro rifiuta ogni altra funzione (economia, call, Insight, Fathom, team), in GET e in POST'
+);
+select is(
+  array[
+    pg_temp.filtro('/calls', 'GET'), pg_temp.filtro('/leads', 'GET'), pg_temp.filtro('/sales', 'GET'),
+    pg_temp.filtro('/payments', 'GET'), pg_temp.filtro('/expenses', 'GET'), pg_temp.filtro('/commission_rules', 'GET'),
+    pg_temp.filtro('/commission_payouts', 'GET'), pg_temp.filtro('/clients', 'GET'),
+    pg_temp.filtro('/setter_daily_reports', 'GET'), pg_temp.filtro('/pm_task', 'DELETE'),
+    pg_temp.filtro('/pm_tempo', 'POST'), pg_temp.filtro('/pm_note', 'PATCH'), pg_temp.filtro('/profiles', 'PATCH')
+  ],
+  array['42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501',
+        '42501', '42501', '42501'],
+  'token di Claude: le aree delle fasi successive restano chiuse, e niente si elimina dai progetti'
+);
 reset role;
 set local request.jwt.claims to '{}';
 
@@ -1142,7 +1184,8 @@ select pg_temp.come_web('61616161-6161-4161-8161-616161616161');
 select is((select array_agg(tipo order by tipo) from public.mcp_client()), array['claude', 'claude_code'],
   'web, marketing: gli stessi');
 select pg_temp.come_web('22222222-2222-4222-8222-222222222222');
-select is((select count(*)::int from public.mcp_client()), 0, 'web, setter: nessuno');
+select is((select array_agg(tipo order by tipo) from public.mcp_client()), array['claude', 'claude_code'],
+  'web, setter: gli stessi, dal 22/10/2026');
 select is(
   array[
     pg_temp.puo('11111111-1111-4111-8111-111111111111'),
@@ -1157,8 +1200,8 @@ select is(
     pg_temp.puo('61616161-6161-4161-8161-616161616161', '7c000000-0000-4000-8000-000000000001',
                 '7e000000-0000-4000-8000-000000000003')
   ],
-  array[true, true, true, false, false, false, false, false, false, false],
-  'collegano Claude admin, video editor e marketing attivi, dall''app: mai setter, closer, coach, nutrizione, sviluppo, un account disattivato o un token di Claude'
+  array[true, true, true, true, true, true, true, true, false, false],
+  'collegano Claude tutti i ruoli attivi, dall''app (22/10/2026): mai un account disattivato o un token di Claude'
 );
 reset role;
 set local request.jwt.claims to '{}';
