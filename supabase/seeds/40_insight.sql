@@ -110,7 +110,7 @@ begin
     chat_attribuite, token_input, token_cache_scritti, token_cache_letti, token_output, costo_usd,
     modello, creata_il, iniziata_il, finita_il)
   values
-    (v_esecuzione_oggi, v_oggi, 'manuale', '11111111-1111-4111-8111-111111111111', 'pronta', 'unione',
+    (v_esecuzione_oggi, v_oggi, 'manuale', null, 'pronta', 'unione',
      '{}'::jsonb, v_adesso - interval '25 minutes', 0, 3,
      array[v_avviso], v_dettagli_oggi, 9, 3, 2, 4, 6, 6, 3, 180000, 21000, 600000, 52000,
      public.insight_costo_usd(180000, 21000, 600000, 52000),
