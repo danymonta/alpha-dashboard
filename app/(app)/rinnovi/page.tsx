@@ -11,7 +11,9 @@ import { buttonVariants } from '@/components/ui/button'
 import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, fineMese, oggiRoma, primoDelMeseISO } from '@/lib/date'
-import { formatData, formatEuro, formatMese, formatPercentuale } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { getLingua } from '@/lib/i18n/server'
+import { RINNOVI } from '@/lib/i18n/testi/rinnovi'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 import { linkWhatsApp, messaggioRinnovo } from '@/lib/whatsapp'
@@ -47,6 +49,9 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
   const { entro } = await searchParams
   const giorni = FINESTRE.includes(Number(entro) as (typeof FINESTRE)[number]) ? Number(entro) : 30
   const oggi = oggiRoma()
+  const lingua = await getLingua()
+  const t = RINNOVI[lingua]
+  const { formatData, formatEuro, formatMese, formatPercentuale } = formato(lingua)
   const primo = primoDelMeseISO(oggi)
   const supabase = await createClient()
 
@@ -76,7 +81,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
     supabase.rpc('metriche_periodo', { p_da: primo, p_a: fineMese(primo) }).single(),
   ])
   if (inScadenza.error || scaduti.error || chiusi.error || chiusure.error || metriche.error) {
-    throw new Error('Impossibile caricare i rinnovi')
+    throw new Error(t.errore)
   }
 
   const chiusura = new Map(chiusure.data.map((c) => [c.client_id, c]))
@@ -110,14 +115,14 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
             {scaduto ? <History className="size-3.5" aria-hidden="true" /> : <CalendarClock className="size-3.5" aria-hidden="true" />}
             <span className="num">
               {scaduto
-                ? `finito il ${formatData(c.data_fine_ultima)}, ${-(mancano ?? 0)} ${mancano === -1 ? 'giorno' : 'giorni'} fa`
+                ? t.finitoFa(formatData(c.data_fine_ultima), -(mancano ?? 0))
                 : mancano === 0
-                  ? 'finisce oggi'
-                  : `finisce il ${formatData(c.data_fine_ultima)}, tra ${mancano} ${mancano === 1 ? 'giorno' : 'giorni'}`}
+                  ? t.finisceOggi
+                  : t.finisceTra(formatData(c.data_fine_ultima), mancano ?? 0)}
             </span>
           </p>
         </div>
-        <span className="num text-sm text-muted-foreground" title="Valore firmato in totale">
+        <span className="num text-sm text-muted-foreground" title={t.valoreFirmato}>
           {formatEuro(c.valore_firmato, { compatto: true })}
         </span>
         {scrive ? (
@@ -153,8 +158,8 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <Archive className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="num">
-              {c.chiuso_il ? `chiuso il ${formatData(c.chiuso_il)}` : 'chiuso'}
-              {c.data_fine_ultima ? `, percorso fino al ${formatData(c.data_fine_ultima)}` : ''}
+              {c.chiuso_il ? t.chiusoIl(formatData(c.chiuso_il)) : t.chiuso}
+              {c.data_fine_ultima ? t.percorsoFino(formatData(c.data_fine_ultima)) : ''}
             </span>
           </p>
           {c.motivo ? (
@@ -191,39 +196,35 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
-        titolo="Rinnovi"
-        descrizione={
-          scrive
-            ? 'Chi finisce il percorso a breve e chi l’ha finito da poco: scrivigli e registra il rinnovo con un tocco. In fondo chi non rinnova.'
-            : 'Chi finisce il percorso a breve e chi l’ha finito da poco. In fondo chi non rinnova.'
-        }
+        titolo={t.titolo}
+        descrizione={scrive ? t.descrizioneAdmin : t.descrizioneLettura}
       />
 
       <dl className="grid grid-cols-2 gap-3 rounded-xl bg-card p-4 sm:grid-cols-3" data-testid="tasso-rinnovo">
         <div className="col-span-2 sm:col-span-1">
-          <dt className="text-xs text-muted-foreground">Tasso di rinnovo di {formatMese(primo)}</dt>
+          <dt className="text-xs text-muted-foreground">{t.tassoDi(formatMese(primo))}</dt>
           <dd className="num text-2xl font-semibold text-foreground">{formatPercentuale(m.tasso_rinnovo)}</dd>
           <dd className="num text-xs text-muted-foreground">
-            {m.rinnovati} rinnovati su {m.in_scadenza} in scadenza nel mese
+            {t.rinnovatiSu(m.rinnovati, m.in_scadenza)}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-muted-foreground">In scadenza entro {giorni} giorni</dt>
+          <dt className="text-xs text-muted-foreground">{t.entro(giorni)}</dt>
           <dd className="num text-2xl font-semibold">{inScadenza.data.length}</dd>
         </div>
         <div>
-          <dt className="text-xs text-muted-foreground">Da recuperare</dt>
+          <dt className="text-xs text-muted-foreground">{t.daRecuperare}</dt>
           <dd className="num text-2xl font-semibold">{scaduti.data.length}</dd>
-          <dd className="text-xs text-muted-foreground">finiti da meno di 90 giorni</dd>
+          <dd className="text-xs text-muted-foreground">{t.finiti90}</dd>
         </div>
       </dl>
 
       <section aria-labelledby="titolo-scadenza" className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="titolo-scadenza" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            In scadenza
+            {t.inScadenza}
           </h2>
-          <nav aria-label="Finestra" className="flex gap-2">
+          <nav aria-label={t.finestra} className="flex gap-2">
             {FINESTRE.map((f) => (
               <Link
                 key={f}
@@ -236,7 +237,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
                     : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
                 )}
               >
-                {f} giorni
+                {t.nGiorni(f)}
               </Link>
             ))}
           </nav>
@@ -244,9 +245,9 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
         {inScadenza.data.length === 0 ? (
           <StatoVuoto
             Icona={CalendarClock}
-            titolo={`Nessuno finisce nei prossimi ${giorni} giorni`}
-            descrizione={giorni === 30 ? 'Guarda più avanti: passa a 60 giorni.' : 'Nessun percorso in chiusura a breve.'}
-            azione={giorni === 30 ? <LinkBottone href="/rinnovi?entro=60" variant="outline">Vedi 60 giorni</LinkBottone> : undefined}
+            titolo={t.nessunoFinisce(giorni)}
+            descrizione={giorni === 30 ? t.guardaAvanti : t.nessunaChiusura}
+            azione={giorni === 30 ? <LinkBottone href="/rinnovi?entro=60" variant="outline">{t.vedi60}</LinkBottone> : undefined}
           />
         ) : (
           <ul className="divide-y divide-border rounded-xl bg-card" data-testid="elenco-in-scadenza">
@@ -257,11 +258,11 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
 
       <section aria-labelledby="titolo-recuperare" className="space-y-2">
         <h2 id="titolo-recuperare" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Da recuperare
+          {t.daRecuperare}
         </h2>
         {scaduti.data.length === 0 ? (
           <p className="rounded-xl bg-card px-3 py-4 text-sm text-muted-foreground">
-            Nessun cliente scaduto negli ultimi 90 giorni senza rinnovo.
+            {t.nessunScaduto}
           </p>
         ) : (
           <ul className="divide-y divide-border rounded-xl bg-card" data-testid="elenco-da-recuperare">
@@ -278,14 +279,12 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
           data-focus-archivio="titolo"
           className="rounded-sm px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
-          Non rinnovano <span className="num">({nonRinnovano.length})</span>
+          {t.nonRinnovano} <span className="num">({nonRinnovano.length})</span>
         </h2>
         {nonRinnovano.length === 0 ? (
           <p className="rounded-xl bg-card px-3 py-4 text-sm text-muted-foreground">
             {/* the archived ones are closed too: counted just below */}
-            {archiviati > 0 ? 'Nessun cliente chiuso da archiviare.' : 'Nessun cliente chiuso.'} Quando un cliente non
-            rinnova, «Non rinnova» nella sua scheda lo mette qui; se poi non ricompra, «Archivia» lo sposta tra gli ex
-            clienti.
+            {archiviati > 0 ? t.nessunoDaArchiviare : t.nessunChiuso} {t.quandoChiuso}
           </p>
         ) : (
           <ul className="divide-y divide-border rounded-xl bg-card" data-testid="elenco-non-rinnovano">
@@ -301,8 +300,8 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
           >
             <UserMinus className="size-4 shrink-0" aria-hidden="true" />
             <span>
-              Archiviati come ex clienti: <span className="num">{archiviati}</span>. Li trovi in Clienti, «Ex cliente»,
-              insieme agli altri ex clienti.
+              {t.archiviati} <span className="num">{archiviati}</span>
+              {t.archiviatiDopo}
             </span>
           </Link>
         ) : null}
