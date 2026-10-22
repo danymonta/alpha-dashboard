@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
 import { messaggioErrore } from '@/lib/auth/azioni'
-import { livelloPmEffettivo, type AppRole, type LivelloPm } from '@/lib/auth/roles'
+import { livelloPmEffettivo, SOLA_LETTURA, solaLettura, type AppRole, type LivelloPm } from '@/lib/auth/roles'
 import { spostaInOrdine } from '@/lib/progetti'
 import type { Database } from '@/lib/supabase/database.types'
 import { eliminaNotaSchema, modificaNotaSchema, notaSchema } from '@/lib/validation/note'
@@ -62,6 +62,8 @@ export const TASK_NON_TUO = 'Puoi modificare solo i task assegnati a te o creati
 async function negaPm(ctx: Contesto, livelli: readonly LivelloPm[] = ['admin', 'manager', 'employee']): Promise<string | null> {
   const chi = await ctx.chi()
   if (!chi || !chi.attivo) return SESSIONE
+  // the business coach reads every project and writes none (22/10/2026)
+  if (solaLettura(chi.ruolo)) return SOLA_LETTURA
   const livello = livelloPmEffettivo(chi.ruolo, chi.livello_pm)
   if (!livelli.includes(livello)) {
     return livelli.length === 1 && livelli[0] === 'admin'
@@ -74,7 +76,8 @@ async function negaPm(ctx: Contesto, livelli: readonly LivelloPm[] = ['admin', '
 /** negaSeNon(TUTTI_I_RUOLI): every active person. */
 async function negaSessione(ctx: Contesto): Promise<string | null> {
   const chi = await ctx.chi()
-  return !chi || !chi.attivo ? SESSIONE : null
+  if (!chi || !chi.attivo) return SESSIONE
+  return solaLettura(chi.ruolo) ? SOLA_LETTURA : null
 }
 
 function primoErrore(e: { issues: { message: string }[] }) {

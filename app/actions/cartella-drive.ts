@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { messaggioErrore } from '@/lib/auth/azioni'
+import { SOLA_LETTURA, solaLettura } from '@/lib/auth/roles'
 import { getProfilo } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -31,7 +32,9 @@ function errore(error: { code?: string; message: string }, fallback: string): st
 
 async function sessioneAttiva(): Promise<string | null> {
   const profilo = await getProfilo()
-  return profilo?.attivo ? null : 'Sessione scaduta. Rientra e riprova.'
+  if (!profilo?.attivo) return 'Sessione scaduta. Rientra e riprova.'
+  // the business coach reads the link and never changes it (22/10/2026)
+  return solaLettura(profilo.ruolo) ? SOLA_LETTURA : null
 }
 
 /** The client sheet and the client's project (the one RLS lets the caller read), both show the link. */

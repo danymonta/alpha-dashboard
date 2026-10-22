@@ -1,4 +1,4 @@
-import { RUOLI_MARKETING } from '@/lib/auth/roles'
+import { RUOLI_MARKETING_LETTURA } from '@/lib/auth/roles'
 import { getProfilo } from '@/lib/auth/session'
 import { leggiDettaglioContenuto } from '@/lib/marketing/dettaglio'
 import { isUuid } from '@/lib/progetti'
@@ -22,7 +22,7 @@ function risposta(corpo: unknown, status: number) {
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const profilo = await getProfilo()
-  if (!profilo || !profilo.attivo || !RUOLI_MARKETING.includes(profilo.ruolo)) {
+  if (!profilo || !profilo.attivo || !RUOLI_MARKETING_LETTURA.includes(profilo.ruolo)) {
     return risposta({ errore: 'Il calendario dei contenuti è dell’area Marketing.' }, 403)
   }
 

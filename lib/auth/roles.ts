@@ -23,6 +23,37 @@ export const RUOLI_MARKETING: readonly AppRole[] = ['admin', 'editor', 'marketin
  */
 export const RUOLI_MCP: readonly AppRole[] = TUTTI_I_RUOLI
 
+/**
+ * The business coach (Dany, 22/10/2026: «Voglio che il business coach abbia
+ * accessi in lettura e veda tutto»): an external consultant who reads what the
+ * admin reads and never writes. Same list as legge_come_admin() in SQL.
+ */
+export const RUOLI_COME_ADMIN: readonly AppRole[] = ['admin', 'business_coach']
+
+/** The roles that read and never write: no button, form or action that writes is theirs. */
+export const RUOLI_SOLA_LETTURA: readonly AppRole[] = ['business_coach']
+
+/** Who reads the Marketing area: its three roles, and the business coach in read only. */
+export const RUOLI_MARKETING_LETTURA: readonly AppRole[] = [...RUOLI_MARKETING, 'business_coach']
+
+/** The person reads like the admin (the admin, the business coach). */
+export function leggeComeAdmin(ruolo: AppRole): boolean {
+  return RUOLI_COME_ADMIN.includes(ruolo)
+}
+
+/** The person reads and never writes: the pages hide what writes, the actions refuse it. */
+export function solaLettura(ruolo: AppRole): boolean {
+  return RUOLI_SOLA_LETTURA.includes(ruolo)
+}
+
+/** The opposite of solaLettura: the one helper the pages use to show a button that writes. */
+export function puoScrivere(ruolo: AppRole): boolean {
+  return !solaLettura(ruolo)
+}
+
+/** What an action answers a read-only account. */
+export const SOLA_LETTURA = 'Il tuo account legge e basta: questa modifica la fa l’admin.'
+
 /** Every role has at least the Projects area (since 28/09/2026). */
 export function haAreaDisponibile(ruolo: AppRole): boolean {
   return TUTTI_I_RUOLI.includes(ruolo)
@@ -36,9 +67,16 @@ export function haMarketing(ruolo: AppRole): boolean {
   return RUOLI_MARKETING.includes(ruolo)
 }
 
-/** The app admin is always PM admin, whatever livello_pm says (same rule as SQL). */
+/**
+ * The app admin is always PM admin, whatever livello_pm says (same rule as SQL).
+ * The business coach has no level in SQL (pm_livello_corrente() is null): he
+ * reads every project and writes none, so here he is the lowest level, and the
+ * guards (negaSeNonPm) refuse him by role.
+ */
 export function livelloPmEffettivo(ruolo: AppRole, livello: LivelloPm): LivelloPm {
-  return ruolo === 'admin' ? 'admin' : livello
+  if (ruolo === 'admin') return 'admin'
+  if (solaLettura(ruolo)) return 'employee'
+  return livello
 }
 
 export const ETICHETTA_LIVELLO_PM: Record<LivelloPm, string> = {
@@ -51,6 +89,8 @@ export const ETICHETTA_LIVELLO_PM: Record<LivelloPm, string> = {
 export function percorsoIniziale(ruolo: AppRole): string {
   switch (ruolo) {
     case 'admin':
+    case 'business_coach':
+      // he reads the admin's numbers first
       return '/'
     case 'setter':
       return '/today'
@@ -75,4 +115,5 @@ export const ETICHETTA_RUOLO: Record<AppRole, string> = {
   marketing: 'Marketing',
   nutrizione: 'Nutrizione',
   dev: 'Dev',
+  business_coach: 'Business coach',
 }

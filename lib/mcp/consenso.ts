@@ -167,6 +167,13 @@ export const CONSENSO = {
   ],
   azioneGestione: 'creare progetti e liste, cambiarli, aggiungere persone e scegliere il coach nei progetti che gestisci',
   azioneTempoTeam: 'leggere il tempo già dichiarato dal team, come in Tempo › Team',
+  // the business coach (22/10/2026): reads only
+  azioniSolaLettura: [
+    'leggere il calendario dei contenuti (reel e caroselli) con i testi delle sezioni, il profilo del cliente ideale, la guida di Dany ai contenuti e gli ultimi spunti',
+    'leggere tutti i progetti, con liste, task, membri e note',
+    'leggere il tempo già dichiarato dal team, come in Tempo › Team',
+    'senza mai creare, cambiare o eliminare niente',
+  ],
   maiVistoInizio: 'Non vedrà mai',
   maiVisto:
     'soldi, clienti, lead, call, report del setter, messaggi diretti, il tempo degli altri né il resto del gestionale, e non eliminerà niente dei progetti.',
@@ -205,7 +212,7 @@ const RUOLI_CALENDARIO = new Set(['admin', 'editor', 'marketing'])
  */
 export function azioniConsenso(chi: ChiCollega): string[] {
   const admin = chi.ruolo === 'admin'
-  const voci: string[] = [
+  const voci: string[] = chi.ruolo === 'business_coach' ? [...CONSENSO.azioniSolaLettura] : [
     ...(RUOLI_CALENDARIO.has(chi.ruolo) ? CONSENSO.azioni : []),
     ...(admin ? [CONSENSO.azioneAdmin] : []),
     ...CONSENSO.azioniProgetti,

@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { getProfilo } from '@/lib/auth/session'
-import type { AppRole } from '@/lib/auth/roles'
+import { SOLA_LETTURA, solaLettura, type AppRole } from '@/lib/auth/roles'
 
 /**
  * Server action guard: returns a human message when the caller is not allowed.
@@ -14,6 +14,8 @@ export async function negaSeNon(
 ): Promise<string | null> {
   const profilo = await getProfilo()
   if (!profilo || !profilo.attivo) return 'Sessione scaduta. Rientra e riprova.'
+  // the business coach reads and never writes (22/10/2026), whatever list an action passes
+  if (solaLettura(profilo.ruolo)) return SOLA_LETTURA
   if (!ruoli.includes(profilo.ruolo)) return messaggio
   return null
 }
