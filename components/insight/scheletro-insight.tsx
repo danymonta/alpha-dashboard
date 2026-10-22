@@ -1,14 +1,16 @@
 import { Scheletro } from '@/components/stati/scheletri'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { SHELL } from '@/lib/i18n/testi/shell'
 
 /**
  * The Insight while it loads, with the page's shape (1.33.0, spec A8): the
  * header with the day and «Aggiorna dati», the three tabs, the verdict, the
  * five numbers (two columns on a phone, the fifth across) and three cards.
  */
-export function ScheletroInsight() {
+export async function ScheletroInsight() {
   return (
-    <Scheletro etichetta="Caricamento in corso" className="space-y-6">
+    <Scheletro etichetta={SHELL[await getLingua()].caricamentoInCorso} className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
         <div className="space-y-2">
           <Skeleton className="h-3 w-52" />

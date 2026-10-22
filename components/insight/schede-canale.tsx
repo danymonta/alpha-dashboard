@@ -5,7 +5,8 @@ import type { KeyboardEvent } from 'react'
 
 import { IndicatoreLink } from '@/components/shell/link-riga'
 import { CANALI, cookieCanale, hrefInsight, ID_PANNELLO_INSIGHT, idScheda, type Canale } from '@/lib/insight/canale'
-import { BADGE_AGENDA, CANALE_ARIA, SCHEDE } from '@/lib/insight/parole'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { INSIGHT } from '@/lib/i18n/testi/insight'
 import { cn } from '@/lib/utils'
 
 /** Never in the way: without cookies the tab still works through the address. */
@@ -27,6 +28,7 @@ function ricorda(canale: Canale) {
  * without ?canale opens the tab chosen last (the artifact's localStorage).
  */
 export function SchedeCanale({ canale, callOggi }: { canale: Canale; callOggi: number }) {
+  const t = INSIGHT[useLingua()]
   function tastiera(e: KeyboardEvent<HTMLAnchorElement>, attuale: Canale) {
     const i = CANALI.indexOf(attuale)
     const prossimo =
@@ -50,7 +52,7 @@ export function SchedeCanale({ canale, callOggi }: { canale: Canale; callOggi: n
   return (
     // the line under the tabs is a shadow, not a border the tabs overlap: on a very narrow
     // screen the row scrolls sideways without a 1 px vertical scroll
-    <div role="tablist" aria-label={CANALE_ARIA} className="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--border)]">
+    <div role="tablist" aria-label={t.canale} className="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--border)]">
       {CANALI.map((c) => {
         const attiva = c === canale
         return (
@@ -73,13 +75,13 @@ export function SchedeCanale({ canale, callOggi }: { canale: Canale; callOggi: n
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
-            {SCHEDE[c]}
+            {t.schede[c]}
             {c === 'agenda' && callOggi > 0 ? (
               <>
                 <span className="num rounded-full bg-primary px-1.5 text-xs leading-5 text-primary-foreground" data-testid="badge-agenda">
                   {callOggi}
                 </span>
-                <span className="sr-only">{BADGE_AGENDA}</span>
+                <span className="sr-only">{t.badgeAgenda}</span>
               </>
             ) : null}
             {/* the tab's recap is on its way: a spinner after 120 ms */}

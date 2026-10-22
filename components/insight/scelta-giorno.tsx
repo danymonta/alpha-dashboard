@@ -6,8 +6,21 @@ import { useState } from 'react'
 import { CLASSE_SELECT } from '@/components/form/foglio-modifica'
 import { useNavigazioneInsight } from '@/components/insight/navigazione'
 import { hrefInsight, type Canale } from '@/lib/insight/canale'
-import { etichettaGiornoRecap, GIORNO } from '@/lib/insight/parole'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { GIORNI_EN, MESI_EN } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { INSIGHT } from '@/lib/i18n/testi/insight'
+import { etichettaGiornoRecap } from '@/lib/insight/parole'
 import { cn } from '@/lib/utils'
+
+/** «Thursday 8 October» in English, the artifact's option otherwise. */
+function etichettaGiorno(giorno: string, lingua: Lingua): string {
+  if (lingua === 'it') return etichettaGiornoRecap(giorno)
+  const [a, m, g] = giorno.split('-').map(Number)
+  if (!a || !m || !g) return giorno
+  const data = new Date(Date.UTC(a, m - 1, g, 12))
+  return `${GIORNI_EN[data.getUTCDay()]} ${g} ${MESI_EN[m - 1]}`
+}
 
 /**
  * «Giorno», as the artifact: the days with a recap of the tab, the newest
@@ -18,6 +31,8 @@ import { cn } from '@/lib/utils'
  */
 export function SceltaGiorno({ canale, giorni, giorno }: { canale: Canale; giorni: readonly string[]; giorno: string | null }) {
   const { inAttesa, vai } = useNavigazioneInsight()
+  const lingua = useLingua()
+  const t = INSIGHT[lingua]
   // the day chosen stays on screen while its recap arrives; the address's wins once it is there
   const [mostrato, setMostrato] = useState(giorno)
   const [letto, setLetto] = useState(giorno)
@@ -29,7 +44,7 @@ export function SceltaGiorno({ canale, giorni, giorno }: { canale: Canale; giorn
   return (
     <div className="grid w-full min-w-0 gap-1 sm:w-auto">
       <label htmlFor="giorno-recap" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {GIORNO.etichetta}
+        {t.giorno}
       </label>
       <div className="flex items-center gap-2">
         <select
@@ -45,11 +60,11 @@ export function SceltaGiorno({ canale, giorni, giorno }: { canale: Canale; giorn
           {giorni.length ? (
             giorni.map((g) => (
               <option key={g} value={g}>
-                {etichettaGiornoRecap(g)}
+                {etichettaGiorno(g, lingua)}
               </option>
             ))
           ) : (
-            <option value="">{GIORNO.nessuno}</option>
+            <option value="">{t.giornoNessuno}</option>
           )}
         </select>
         {/* the other recap is on its way: a spinner after 120 ms, at a fixed size, so nothing moves */}

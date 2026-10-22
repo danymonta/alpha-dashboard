@@ -1,6 +1,8 @@
 import { Sparkles } from 'lucide-react'
 
 import { SchedePagina } from '@/components/shell/schede-pagina'
+import { getLingua } from '@/lib/i18n/server'
+import { SETTER } from '@/lib/i18n/testi/setter'
 
 /**
  * The Insight of the last 24 hours is a tab, not an item of the menu (1.38.0,
@@ -15,16 +17,17 @@ export const SCHEDE_INSIGHT = {
   setter: { aria: 'Sezioni di Oggi', principale: { href: '/today', etichetta: 'Il mio giorno' } },
 } as const
 
-export function SchedeInsight({ ruolo, attiva }: { ruolo: 'admin' | 'setter'; attiva: 'principale' | 'insight' }) {
-  const { aria, principale } = SCHEDE_INSIGHT[ruolo]
+export async function SchedeInsight({ ruolo, attiva }: { ruolo: 'admin' | 'setter'; attiva: 'principale' | 'insight' }) {
+  const { principale } = SCHEDE_INSIGHT[ruolo]
+  const t = SETTER[await getLingua()].schede
   return (
     <SchedePagina
-      etichetta={aria}
+      etichetta={ruolo === 'admin' ? t.aria : t.ariaSetter}
       schede={[
-        { ...principale, attiva: attiva === 'principale' },
+        { ...principale, etichetta: ruolo === 'admin' ? t.numeri : t.mioGiorno, attiva: attiva === 'principale' },
         {
           href: '/insight',
-          etichetta: 'Insight 24h',
+          etichetta: t.insight,
           attiva: attiva === 'insight',
           Icona: Sparkles,
           classeIcona: 'text-[var(--brand-fire-flame)]',
