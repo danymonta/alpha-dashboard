@@ -3170,6 +3170,9 @@ isOneToOne: false
               "cliente_nuovo": boolean,"id_cliente": string,"id_vendita": string
             }[]
                            },
+"riepilogo_contenuti_settimana":
+{ Args: { "p_a": string,"p_da": string }; Returns: Json
+                           },
 "riepilogo_costi":
 { Args: { "p_mese": string }; Returns: {
               "categoria": Database["public"]['Enums']["expense_category"],"numero": number,"totale": number

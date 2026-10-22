@@ -86,6 +86,31 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.49.0',
+    data: '2026-10-22',
+    titolo: 'L’andamento dei contenuti ogni domenica per email',
+    riassunto:
+      'Ogni domenica sera ti arriva una mail con i lead della settimana in target e fuori target, i nuovi clienti, le call fissate, cosa ha attirato di più, cosa cambiare e cosa dicono le call registrate su Fathom.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Ogni domenica sera ti arriva la mail «Andamento dei contenuti», da lunedì a domenica: quanti lead hai attratto, quanti in target e quanti fuori target, i nuovi clienti, le call fissate e svolte e quante aspettano ancora l’esito. La stessa mail resta nelle Notifiche.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Sotto i numeri vedi i contenuti che hanno portato più lead in target e i reel della settimana da cambiare, col punteggio, l’azione consigliata e la prima cosa da sistemare. Per i reel non ancora valutati la mail ti dice di aprire Pubblicati e toccare Analizza.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Dalle call: quante ne hai svolte, quante sono registrate su Fathom e analizzate da Claude, quante erano in target e le obiezioni più frequenti. La mail non chiede nessuna analisi nuova a Claude: usa solo quello che l’app ha già.',
+      },
+    ],
+  },
+  {
     versione: '1.48.0',
     data: '2026-10-21',
     titolo: 'Pubblicati e View Count automatico',
