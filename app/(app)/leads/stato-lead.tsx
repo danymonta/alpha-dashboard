@@ -37,6 +37,8 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { ETICHETTA_FONTE, FONTI } from '@/lib/validation/call'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import {
   ETICHETTA_STATO_LEAD,
   STATI_LEAD,
@@ -102,6 +104,7 @@ export function StatoLeadArea({
   titolo,
   eliminabile = false,
   solaLettura = false,
+  lingua = 'it',
   children,
 }: {
   leadId: string
@@ -116,6 +119,8 @@ export function StatoLeadArea({
   eliminabile?: boolean
   /** The business coach (22/10/2026): the status to read, no pencil. */
   solaLettura?: boolean
+  /** The page's language (1.53.0): the status read on the card; the sheet stays Italian. */
+  lingua?: Lingua
   children: ReactNode
 }) {
   const { mostrato, inCorso, cambia } = useAggiornaStato(leadId, nome, stato)
@@ -135,7 +140,7 @@ export function StatoLeadArea({
           data-testid="stato-lead"
         >
           {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Icona className="size-4" aria-hidden="true" />}
-          {ETICHETTA_STATO_LEAD[mostrato]}
+          {ETICHETTE[lingua].statoLead[mostrato]}
         </span>
 
         {solaLettura ? null : (

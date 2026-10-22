@@ -1,6 +1,9 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { PIPELINE } from '@/lib/i18n/testi/pipeline'
 
-export default function Loading() {
+export default async function Loading() {
+  const t = PIPELINE[await getLingua()]
   return (
     <div className="max-w-3xl space-y-5" aria-busy="true">
       <Skeleton className="h-7 w-32" />
@@ -13,7 +16,7 @@ export default function Loading() {
       {Array.from({ length: 4 }).map((_, i) => (
         <Skeleton key={i} className="h-36 rounded-xl" />
       ))}
-      <span className="sr-only">Caricamento della pipeline</span>
+      <span className="sr-only">{t.caricamento}</span>
     </div>
   )
 }
