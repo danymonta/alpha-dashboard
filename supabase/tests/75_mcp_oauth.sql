@@ -681,6 +681,7 @@ begin
   perform pg_temp.prova('instagram_togli_token', $q$ select public.instagram_togli_token()::text $q$);
   perform pg_temp.prova('instagram_token_presente', $q$ select public.instagram_token_presente()::text $q$);
   perform pg_temp.prova('is_admin', $q$ select public.is_admin()::text $q$);
+  perform pg_temp.prova('legge_come_admin', $q$ select public.legge_come_admin()::text $q$);
   perform pg_temp.prova('lead_appartiene_al_setter', format($q$ select public.lead_appartiene_al_setter(%L, '11111111-1111-4111-8111-111111111111')::text $q$, a.lead_id));
   -- the reel analysis (1.36.0): the roles are checked first; an OAuth token has none
   perform pg_temp.prova('marketing_analisi_richiedi', $q$ select public.marketing_analisi_richiedi('6600000000000001')::text $q$);
@@ -781,6 +782,7 @@ select is(
     'instagram_token_presente 42501',
     'is_admin ok:false',
     'lead_appartiene_al_setter ok:false',
+    'legge_come_admin ok:false',
     'marketing_analisi_richiedi 42501',
     'marketing_imposta_costo_max 42501',
     'marketing_imposta_interruttori 42501',

@@ -132,10 +132,10 @@ select is((select count(*)::integer from vault.secrets where name = 'insight_chi
 --    through the MCP server, 1.34.0, never reaches them; section 12 below)
 -- ---------------------------------------------------------------------------
 select policies_are('public', 'insight_impostazioni',
-  array['insight_impostazioni_admin_lettura', 'insight_impostazioni_mai_da_oauth'],
+  array['insight_impostazioni_admin_lettura', 'insight_impostazioni_lettura_come_admin', 'insight_impostazioni_mai_da_oauth'],
   'l''automazione: solo la lettura dell''admin');
 select policies_are('public', 'insight_esecuzioni',
-  array['insight_esecuzioni_admin_lettura', 'insight_esecuzioni_mai_da_oauth'],
+  array['insight_esecuzioni_admin_lettura', 'insight_esecuzioni_lettura_come_admin', 'insight_esecuzioni_mai_da_oauth'],
   'le esecuzioni: solo la lettura dell''admin');
 select policies_are('public', 'insight_chat',
   array['insight_chat_nessuna_sessione', 'insight_chat_mai_da_oauth'],
@@ -150,10 +150,10 @@ select policies_are('public', 'insight_schede',
   array['insight_schede_nessuna_sessione', 'insight_schede_mai_da_oauth'],
   'le schede: nessuna sessione');
 select policies_are('public', 'insight_recap',
-  array['insight_recap_lettura', 'insight_recap_mai_da_oauth'],
+  array['insight_recap_lettura', 'insight_recap_lettura_come_admin', 'insight_recap_mai_da_oauth'],
   'il recap: solo la lettura');
 select policies_are('public', 'insight_fatto',
-  array['insight_fatto_lettura', 'insight_fatto_inserimento', 'insight_fatto_modifica', 'insight_fatto_mai_da_oauth'],
+  array['insight_fatto_lettura', 'insight_fatto_lettura_come_admin', 'insight_fatto_inserimento', 'insight_fatto_modifica', 'insight_fatto_mai_da_oauth'],
   'Fatto: lettura, inserimento e modifica, nessuna eliminazione');
 select policies_are('public', 'messenger_collegamento',
   array['messenger_collegamento_admin_lettura', 'messenger_collegamento_mai_da_oauth'],

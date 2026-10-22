@@ -140,6 +140,8 @@ select results_eq(
        'insight_ruota_chiave', 'insight_stato',
        'instagram_imposta_token', 'instagram_togli_token', 'instagram_token_presente', 'is_admin',
        'lead_appartiene_al_setter',
+       -- the business coach (1.52.0): true for an active admin or business coach, read policies and read functions only
+       'legge_come_admin',
        -- the reel analysis (1.36.0): marketing_analisi_richiedi (admin and marketing), the limit and the
        -- switches (admin), the situation (admin, editor, marketing): each checks current_role() first
        'marketing_analisi_richiedi', 'marketing_imposta_costo_max', 'marketing_imposta_interruttori',

@@ -115,20 +115,20 @@ select ok(
 -- <tabella>_mai_da_oauth: Claude's OAuth tokens never reach the posts nor their links
 -- (1.34.0, 20261010090000_mcp_oauth.sql, 75_mcp_oauth.sql)
 select policies_are('public', 'instagram_contenuti',
-  array['instagram_contenuti_lettura', 'instagram_contenuti_mai_da_oauth'],
+  array['instagram_contenuti_lettura', 'instagram_contenuti_lettura_come_admin', 'instagram_contenuti_mai_da_oauth'],
   'i post: solo la lettura');
 select policies_are('public', 'instagram_contenuti_stato',
-  array['instagram_contenuti_stato_lettura', 'instagram_contenuti_stato_mai_da_oauth'],
+  array['instagram_contenuti_stato_lettura', 'instagram_contenuti_stato_lettura_come_admin', 'instagram_contenuti_stato_mai_da_oauth'],
   'lo stato del giro: solo la lettura');
 select policies_are('public', 'marketing_abbinamenti',
-  array['marketing_abbinamenti_lettura', 'marketing_abbinamenti_mai_da_oauth'],
+  array['marketing_abbinamenti_lettura', 'marketing_abbinamenti_lettura_come_admin', 'marketing_abbinamenti_mai_da_oauth'],
   'i legami del giro: solo la lettura');
 select policies_are('public', 'marketing_abbinamenti_rifiutati',
-  array['marketing_abbinamenti_rifiutati_lettura', 'marketing_abbinamenti_rifiutati_inserimento',
+  array['marketing_abbinamenti_rifiutati_lettura', 'marketing_abbinamenti_rifiutati_lettura_come_admin', 'marketing_abbinamenti_rifiutati_inserimento',
         'marketing_abbinamenti_rifiutati_eliminazione', 'marketing_abbinamenti_rifiutati_mai_da_oauth'],
   'i no: lettura, inserimento ed eliminazione, nessuna modifica');
 select policies_are('public', 'marketing_post_esclusi',
-  array['marketing_post_esclusi_lettura', 'marketing_post_esclusi_inserimento',
+  array['marketing_post_esclusi_lettura', 'marketing_post_esclusi_lettura_come_admin', 'marketing_post_esclusi_inserimento',
         'marketing_post_esclusi_eliminazione', 'marketing_post_esclusi_mai_da_oauth'],
   'gli esclusi: lettura, inserimento ed eliminazione, nessuna modifica');
 select ok(

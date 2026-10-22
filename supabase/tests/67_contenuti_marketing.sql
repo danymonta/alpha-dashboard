@@ -85,7 +85,7 @@ select has_table('public', 'marketing_contenuti', 'la tabella del calendario c''
 select col_is_unique('public', 'marketing_contenuti', 'notion_page_id',
   'una pagina di Notion si importa una volta sola');
 select policies_are('public', 'marketing_contenuti',
-  array['marketing_contenuti_lettura', 'marketing_contenuti_inserimento',
+  array['marketing_contenuti_lettura', 'marketing_contenuti_lettura_come_admin', 'marketing_contenuti_inserimento',
         'marketing_contenuti_modifica', 'marketing_contenuti_eliminazione'],
   'quattro policy, nessun''altra');
 select has_function('public', 'salva_sezione_contenuto', array['uuid', 'text', 'text', 'text'],
