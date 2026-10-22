@@ -86,6 +86,40 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.51.0',
+    data: '2026-10-22',
+    titolo: 'Claude lavora sui progetti e sul tempo, per tutto il team',
+    riassunto:
+      'Claude collegato non è più solo il calendario dei contenuti: ognuno del team lo collega e, con i suoi permessi dell’app, lavora a parole su progetti, task, note e sul proprio tempo.',
+    intestazionePer: ['progetti'],
+    intestazioneTeam: {
+      titolo: 'Claude lavora sui tuoi progetti e sul tuo tempo',
+      riassunto:
+        'Da Profilo › Account colleghi Claude ad Alpha Management: a parole legge i tuoi progetti e i tuoi task, li aggiorna e registra il tuo tempo, con i tuoi permessi.',
+    },
+    novita: [
+      {
+        per: ['progetti'],
+        testo:
+          'Ogni persona del team con l’account attivo può collegare Claude da Profilo › Account › Collega Claude, non più solo tu, il video editor e il marketing. Claude legge i progetti di cui fa parte con liste, task, membri e note, e i suoi task; crea task, cambia quelli che ha creato o che le sono assegnati, li completa e scrive note; registra, corregge, avvia e ferma il suo tempo e lo rilegge con i totali già sommati. Chi gestisce progetti crea anche progetti e liste, aggiunge persone e sceglie il coach. Tutto con le stesse regole dell’app.',
+        testoTeam:
+          'Puoi collegare Claude ad Alpha Management da Profilo › Account › Collega Claude. A parole legge i progetti di cui fai parte, con liste, task, membri e note, e i tuoi task; crea task, cambia quelli che hai creato o che ti sono assegnati, li completa e scrive note; registra, corregge, avvia e ferma il tuo tempo e ti dice quanto hai lavorato. Se gestisci progetti, crea anche progetti e liste, aggiunge persone e sceglie il coach. Fa solo quello che puoi fare tu nell’app.',
+      },
+      {
+        per: ['progetti'],
+        testo:
+          'Da Claude non si elimina niente dei progetti: né task, né progetti, né liste, né note, né tempo. Il tempo che Claude scrive e corregge è sempre e solo di chi l’ha collegato, e quello degli altri non lo vede.',
+        testoTeam:
+          'Da Claude non si elimina niente: task, progetti, note e tempo si eliminano dall’app. Il tempo che Claude registra è sempre solo il tuo, e quello degli altri non lo vede.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Tu da Claude leggi anche il tempo già dichiarato dal team, come in Tempo › Team, senza timer accesi né classifiche. Call, lead, clienti, vendite, incassi e il resto dell’area Economics restano chiusi a Claude: arrivano nelle prossime fasi. Il cliente di un progetto si collega solo dall’app, e il calendario dei contenuti resta tuo, del video editor e del marketing, come prima.',
+      },
+    ],
+  },
+  {
     versione: '1.50.0',
     data: '2026-10-22',
     titolo: 'Anche Loris aggiorna i dati dell’Insight',
