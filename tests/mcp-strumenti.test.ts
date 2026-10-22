@@ -9,31 +9,74 @@ vi.mock('@/lib/env', () => ({
 import { ETICHETTA_STATUS } from '@/lib/marketing/etichette'
 import { ICP, ICP_AGGIORNATO_IL } from '@/lib/marketing/icp'
 import { GUIDA_AGGIORNATA_IL } from '@/lib/marketing/punteggio/guida'
-import { FUORI_PORTATA, REGOLA_GUIDA, REGOLA_ICP, istruzioniMcp } from '@/lib/mcp/istruzioni'
+import {
+  FUORI_PORTATA,
+  REGOLA_GUIDA,
+  REGOLA_ICP,
+  REGOLA_NIENTE_ELIMINAZIONI,
+  REGOLA_PROGETTI,
+  REGOLA_TEMPO,
+  istruzioniMcp,
+} from '@/lib/mcp/istruzioni'
 import { LIMITI_MCP } from '@/lib/mcp/limiti'
 import { schemaMcp } from '@/lib/mcp/schema'
 import { STRUMENTI, strumentiPer } from '@/lib/mcp/strumenti'
 
-const LETTURE = ['etichette_contenuti', 'elenco_contenuti', 'leggi_contenuto', 'icp', 'guida_contenuti', 'spunti_contenuti']
-const SCRITTURE = ['crea_contenuti', 'modifica_contenuto', 'cambia_status', 'scrivi_sezione']
+const LETTURE_CALENDARIO = ['etichette_contenuti', 'elenco_contenuti', 'leggi_contenuto', 'icp', 'guida_contenuti', 'spunti_contenuti']
+const SCRITTURE_CALENDARIO = ['crea_contenuti', 'modifica_contenuto', 'cambia_status', 'scrivi_sezione']
+// projects, lists, tasks, notes and time (22/10/2026): every role
+const LETTURE_PROGETTI = ['elenco_progetti', 'leggi_progetto', 'persone_del_team', 'miei_task', 'mio_tempo']
+const SCRITTURE_PROGETTI = [
+  'crea_task',
+  'modifica_task',
+  'completa_task',
+  'aggiungi_nota',
+  'registra_tempo',
+  'modifica_tempo',
+  'avvia_timer',
+  'ferma_timer',
+]
+// who manages projects (admin and manager of the projects)
+const GESTIONE = ['reparti_e_modelli', 'crea_progetto', 'modifica_progetto', 'aggiungi_membro', 'scegli_coach', 'crea_lista', 'modifica_lista']
+const LETTURE = [...LETTURE_CALENDARIO, ...LETTURE_PROGETTI, 'reparti_e_modelli', 'tempo_team']
+const PROGETTI = [...LETTURE_PROGETTI, ...SCRITTURE_PROGETTI]
+
+const ordinati = (nomi: string[]) => [...nomi].sort()
 
 describe('gli strumenti per ruolo', () => {
-  it('video editor e marketing: 10 strumenti, senza eliminare', () => {
+  it('video editor e marketing: il calendario senza eliminare, e i progetti come employee', () => {
     for (const ruolo of ['editor', 'marketing']) {
-      expect(strumentiPer(ruolo).map((s) => s.nome)).toEqual([...LETTURE, ...SCRITTURE])
+      expect(ordinati(strumentiPer(ruolo, 'employee').map((s) => s.nome))).toEqual(
+        ordinati([...LETTURE_CALENDARIO, ...SCRITTURE_CALENDARIO, ...PROGETTI]),
+      )
     }
   })
 
-  it('l’admin: anche elimina_contenuto', () => {
-    expect(strumentiPer('admin').map((s) => s.nome)).toEqual([...LETTURE, ...SCRITTURE, 'elimina_contenuto'])
+  it('l’admin: anche elimina_contenuto, la gestione dei progetti e il tempo del team', () => {
+    expect(ordinati(strumentiPer('admin').map((s) => s.nome))).toEqual(
+      ordinati([...LETTURE_CALENDARIO, ...SCRITTURE_CALENDARIO, 'elimina_contenuto', ...PROGETTI, ...GESTIONE, 'tempo_team']),
+    )
   })
 
-  it.each(['setter', 'closer', 'coach', 'nutrizione', 'dev', 'sconosciuto'])(
-    '%s non arriva mai fin qui: nessun server vuoto, un errore',
-    (ruolo) => {
-      expect(() => strumentiPer(ruolo)).toThrow()
-    },
-  )
+  it.each(['setter', 'closer', 'nutrizione', 'dev'])('%s (employee): i progetti e il suo tempo, mai il calendario', (ruolo) => {
+    expect(ordinati(strumentiPer(ruolo, 'employee').map((s) => s.nome))).toEqual(ordinati(PROGETTI))
+  })
+
+  it('il coach manager: anche la gestione dei progetti, mai il tempo del team', () => {
+    expect(ordinati(strumentiPer('coach', 'manager').map((s) => s.nome))).toEqual(ordinati([...PROGETTI, ...GESTIONE]))
+  })
+
+  it('un ruolo sconosciuto non arriva mai fin qui: nessun server vuoto, un errore', () => {
+    expect(() => strumentiPer('sconosciuto')).toThrow()
+  })
+
+  it('da Claude non si elimina niente, tranne un contenuto (solo l’admin)', () => {
+    const eliminano = STRUMENTI.filter((s) => /elimina|togli|cancella/.test(s.nome)).map((s) => s.nome)
+    expect(eliminano).toEqual(['elimina_contenuto'])
+    for (const s of STRUMENTI.filter((x) => PROGETTI.includes(x.nome) || GESTIONE.includes(x.nome))) {
+      expect(s.descrizione, s.nome).not.toMatch(/\belimina\b(?! niente)/)
+    }
+  })
 })
 
 describe('come Claude vede gli strumenti', () => {
@@ -223,12 +266,28 @@ describe('come Claude vede gli strumenti', () => {
       const istruzioni = istruzioniMcp(ruolo)
       expect(istruzioni).toContain(REGOLA_ICP)
       // it comes before the rules on reading and writing a content
-      expect(istruzioni.indexOf(REGOLA_ICP)).toBeLessThan(istruzioni.indexOf('Prima di cambiare qualcosa leggi'))
+      expect(istruzioni.indexOf(REGOLA_ICP)).toBeLessThan(istruzioni.indexOf('Prima di cambiare un contenuto leggi'))
     }
     expect(REGOLA_ICP).toContain('icp')
     expect(REGOLA_ICP).toContain('prima di proporre o creare contenuti, e prima di ogni suggerimento di marketing, leggilo')
     expect(REGOLA_ICP).toContain('scrivi idee, hook e script per quell’uomo, con le sue parole')
     expect(REGOLA_ICP).toContain('mai il fisico da bodybuilder (fit, non grosso), sempre tempi onesti')
+  })
+
+  it('le istruzioni per ruolo: il calendario solo nel Marketing, il tempo è solo proprio, niente eliminazioni dei progetti', () => {
+    for (const [ruolo, livello] of [['setter', 'employee'], ['coach', 'manager'], ['closer', 'employee']] as const) {
+      const istruzioni = istruzioniMcp(ruolo, livello)
+      expect(istruzioni, ruolo).not.toContain(REGOLA_ICP)
+      expect(istruzioni, ruolo).toContain(REGOLA_PROGETTI)
+      expect(istruzioni, ruolo).toContain(REGOLA_TEMPO)
+      expect(istruzioni, ruolo).toContain(REGOLA_NIENTE_ELIMINAZIONI)
+      expect(istruzioni, ruolo).toContain('Il tempo degli altri non lo leggi')
+      expect(istruzioni, ruolo).not.toContain('tempo_team')
+    }
+    expect(istruzioniMcp('coach', 'manager')).toContain('crea_progetto')
+    expect(istruzioniMcp('setter', 'employee')).not.toContain('crea_progetto')
+    expect(istruzioniMcp('admin')).toContain('tempo_team')
+    expect(istruzioniMcp('admin')).toContain('nessuna classifica né confronto tra persone')
   })
 
   it('solo all’admin le istruzioni parlano di eliminare un contenuto', () => {

@@ -18,7 +18,8 @@ import { supabaseFinto, ha, argomenti, type Chiamata, type RispostaFinta } from 
  * route, the SDK's handler, the tools, the shared core).
  */
 const stato = vi.hoisted(() => ({
-  ruolo: 'marketing' as 'admin' | 'editor' | 'marketing',
+  ruolo: 'marketing' as 'admin' | 'editor' | 'marketing' | 'setter' | 'coach',
+  livello: 'employee' as 'admin' | 'manager' | 'employee',
   db: null as unknown,
 }))
 
@@ -28,13 +29,20 @@ vi.mock('@/lib/mcp/auth', () => ({
       ? {
           ok: true,
           ruolo: stato.ruolo,
+          livello: stato.ruolo === 'admin' ? 'admin' : stato.livello,
+          persona: '61616161-6161-4161-8161-616161616161',
           sessione: 'sessione-di-prova',
           authInfo: {
             token: 'token-finto',
             clientId: '6c1f0c64-4f9b-4c49-9a3e-2f8c4c0a7e11',
             scopes: [],
             expiresAt: Math.floor(Date.now() / 1000) + 3600,
-            extra: { ruolo: stato.ruolo, sessione: 'sessione-di-prova' },
+            extra: {
+              ruolo: stato.ruolo,
+              livello: stato.ruolo === 'admin' ? 'admin' : stato.livello,
+              persona: '61616161-6161-4161-8161-616161616161',
+              sessione: 'sessione-di-prova',
+            },
           },
         }
       : {
@@ -106,10 +114,10 @@ afterEach(async () => {
 })
 
 describe('il client MCP dell’SDK contro /mcp', () => {
-  it('protocollo del 2025 (Claude oggi): il marketing vede 10 strumenti, con titoli e suggerimenti', async () => {
+  it('protocollo del 2025 (Claude oggi): il marketing vede i 10 strumenti del calendario e quelli dei progetti, con titoli e suggerimenti', async () => {
     const client = await collega()
     const { tools } = await client.listTools()
-    expect(tools.map((t) => t.name)).toEqual([
+    expect(tools.map((t) => t.name).slice(0, 10)).toEqual([
       'etichette_contenuti',
       'elenco_contenuti',
       'leggi_contenuto',
@@ -121,6 +129,10 @@ describe('il client MCP dell’SDK contro /mcp', () => {
       'cambia_status',
       'scrivi_sezione',
     ])
+    // projects, tasks, notes and his own time (22/10/2026), as an employee of the projects
+    expect(tools).toHaveLength(23)
+    expect(tools.map((t) => t.name)).toContain('registra_tempo')
+    expect(tools.map((t) => t.name)).not.toContain('crea_progetto')
     const crea = tools.find((t) => t.name === 'crea_contenuti')
     expect(crea?.title).toBe('Crea contenuti')
     expect(crea?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false, openWorldHint: false })
@@ -136,13 +148,35 @@ describe('il client MCP dell’SDK contro /mcp', () => {
     const { tools } = await client.listTools()
     const elimina = tools.find((t) => t.name === 'elimina_contenuto')
     expect(elimina?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true })
-    expect(tools).toHaveLength(11)
+    // the calendar with elimina_contenuto, projects, their management and the team's time
+    expect(tools).toHaveLength(32)
+    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['crea_progetto', 'tempo_team']))
+  })
+
+  it('il setter (dal 22/10/2026): solo progetti, task, note e il suo tempo, e registra_tempo arriva al database con il suo token', async () => {
+    stato.ruolo = 'setter'
+    rispondi = (c) => (c.nome === 'pm_registra_tempo' ? { data: '7a000000-0000-4000-8000-000000000001' } : { data: [], count: 0 })
+    const client = await collega()
+    const { tools } = await client.listTools()
+    const nomi = tools.map((t) => t.name)
+    expect(nomi).toHaveLength(13)
+    expect(nomi.some((n) => n.includes('contenut'))).toBe(false)
+    expect(nomi).not.toContain('tempo_team')
+    expect(client.getInstructions()).not.toContain('📸 Instagram Posts DANYMONTA')
+    const registra = await client.callTool({
+      name: 'registra_tempo',
+      arguments: { progetto_id: '0b77b059-ae57-4cc3-a97d-953b79ed3215', durata: '1h30', nota: 'Revisione' },
+    })
+    expect(registra.isError).toBeFalsy()
+    expect(JSON.parse(testoDi(registra))).toMatchObject({ esito: 'registrato', voce_id: '7a000000-0000-4000-8000-000000000001' })
+    const rpc = fake.chiamate.find((c) => c.nome === 'pm_registra_tempo')
+    expect(rpc && argomenti(rpc, 'args')?.[0]).toMatchObject({ p_progetto_id: '0b77b059-ae57-4cc3-a97d-953b79ed3215', p_minuti: 90, p_nota: 'Revisione' })
   })
 
   it('protocollo 2026-07-28: le stesse cose, senza sessione', async () => {
     const client = await collega({ versionNegotiation: { mode: { pin: '2026-07-28' } } })
     const { tools } = await client.listTools()
-    expect(tools).toHaveLength(10)
+    expect(tools).toHaveLength(23)
     const elenco = await client.callTool({ name: 'elenco_contenuti', arguments: {} })
     expect(elenco.isError).toBeFalsy()
     expect(JSON.parse(testoDi(elenco))).toMatchObject({ totale: 0, mostrati: 0, contenuti: [] })
@@ -249,7 +283,7 @@ describe('/mcp come lo chiama Claude, a mano (2025-11-25, senza stato)', () => {
     const elenco = await evento(
       await post({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, { 'MCP-Protocol-Version': '2025-11-25' }),
     )
-    expect((elenco.result?.tools as unknown[]).length).toBe(10)
+    expect((elenco.result?.tools as unknown[]).length).toBe(23)
 
     const chiamata = await evento(
       await post(

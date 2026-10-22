@@ -79,7 +79,7 @@ const sb = vi.hoisted(() => {
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(async () => sb.client) }))
 
 const sessione = vi.hoisted(() => ({
-  profilo: { id: 'p1', nome: 'Giulia Marketing', ruolo: 'marketing', attivo: true } as Record<string, unknown> | null,
+  profilo: { id: 'p1', nome: 'Giulia Marketing', ruolo: 'marketing', livello_pm: 'employee', attivo: true } as Record<string, unknown> | null,
 }))
 vi.mock('@/lib/auth/session', () => ({ getProfilo: vi.fn(async () => sessione.profilo) }))
 
@@ -155,7 +155,7 @@ beforeEach(() => {
   sb.stato.revoca = { data: {}, error: null }
   sb.stato.grants = { data: [], error: null }
   sb.stato.clientMcp = { data: [], error: null }
-  sessione.profilo = { id: 'p1', nome: 'Giulia Marketing', ruolo: 'marketing', attivo: true }
+  sessione.profilo = { id: 'p1', nome: 'Giulia Marketing', ruolo: 'marketing', livello_pm: 'employee', attivo: true }
 })
 
 describe('dove la pagina di consenso può mandare il browser', () => {
@@ -422,7 +422,7 @@ describe('la pagina di consenso mentre si apre', () => {
       client: 'Claude',
       nome: 'Giulia Marketing',
       ruolo: 'Marketing',
-      admin: false,
+      chi: { ruolo: 'marketing', livello: 'employee' },
       destinazione: { tipo: 'claude', host: 'claude.ai' },
     })
   })
@@ -567,9 +567,9 @@ describe('le parole della scheda di consenso', () => {
     expect(code).not.toContain('Connetti')
   })
 
-  it('chi non può: il perché e «Torna a Claude», che rifiuta', () => {
+  it('chi non può (un account disattivato): il perché e «Torna a Claude», che rifiuta', () => {
     const html = renderToStaticMarkup(createElement(SchedaNonAmmesso, { authorizationId: ID }))
-    expect(html).toContain('lo possono fare l’admin, il video editor e il marketing')
+    expect(html).toContain('solo con un account attivo')
     expect(html).toContain(CONSENSO.tornaAClaude)
     expect(html).toContain('value="rifiuta"')
     expect(html).not.toContain('value="consenti"')
