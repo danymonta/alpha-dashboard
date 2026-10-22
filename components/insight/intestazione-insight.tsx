@@ -10,7 +10,7 @@ import { EYEBROW, TITOLO_INSIGHT } from '@/lib/insight/parole'
  * («Percorso Alpha · Inbox Instagram»), the title with Dany's stars in the
  * flame colour (the one exception to the fire tokens on a data screen,
  * globals.css), the meta line («Aggiornato 08/10, 22:55 · ultime 24 ore»),
- * «Giorno», «Aggiorna dati» (admin) and the status line under it. On a phone
+ * «Giorno», «Aggiorna dati» (admin and setter, 1.50.0) and the status line under it. On a phone
  * the select and the button go full width under the title.
  */
 export function IntestazioneInsight({
@@ -24,7 +24,7 @@ export function IntestazioneInsight({
   meta: string
   giorni: readonly string[]
   giorno: string | null
-  /** «Aggiorna dati» here (admin with a recap: without one, it is the empty state's action) */
+  /** «Aggiorna dati» here (with a recap: without one, it is the empty state’s action) */
   conBottone: boolean
 }) {
   return (

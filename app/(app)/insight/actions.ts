@@ -2,19 +2,21 @@
 
 import { revalidatePath } from 'next/cache'
 
-import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
+import { negaSeNon } from '@/lib/auth/azioni'
+import { getProfilo } from '@/lib/auth/session'
 import { insightConfigurato, UrlPassoNonValido, urlPasso } from '@/lib/insight/config'
-import { AGGIORNA } from '@/lib/insight/parole'
+import { AGGIORNA, AGGIORNA_SETTER, erroreRichiesta, SOLO_AGGIORNA } from '@/lib/insight/parole'
 import { salvaUrlPasso, URL_PASSO_NON_SALVATO } from '@/lib/insight/url-passo'
 import { createClient } from '@/lib/supabase/server'
 import { segnaFattoSchema, URL_PASSO_MANCANTE, type SegnaFattoInput } from '@/lib/validation/insight'
 
 /**
  * The two taps of the Insight page (1.35.0, CLAUDE.md section 29), with the
- * session of whoever taps: RLS decides (insight_puo_leggere(), the admin in
- * insight_richiedi), the role check here only turns a refusal into words. The
- * one thing the service role does is writing the address of the steps, built
- * here from APP_URL (lib/insight/url-passo.ts), after the admin was checked.
+ * session of whoever taps: RLS decides (insight_puo_leggere(), in
+ * insight_richiedi too since 1.50.0), the role check here only turns a refusal
+ * into words. The one thing the service role does is writing the address of
+ * the steps, built here from APP_URL (lib/insight/url-passo.ts), after the
+ * admin or the active setter was checked.
  */
 
 export type EsitoFatto = { ok: true } | { ok: false; errore: string; solaLettura?: true }
@@ -23,6 +25,7 @@ export type EsitoAggiorna = { ok: true; esecuzione: string | null } | { ok: fals
 const SOLO_INSIGHT = 'L’Insight lo vedono l’admin e i setter.'
 const NON_SALVATO = 'Non salvato, riprova.'
 const RECAP_SPARITO = 'Questo recap non c’è più: ricarica la pagina.'
+const SESSIONE_SCADUTA = 'Sessione scaduta. Rientra e riprova.'
 
 /**
  * One «Fatto» switch of one recap (giorno, canale), shared by the admin and
@@ -56,34 +59,48 @@ export async function segnaFatto(input: SegnaFattoInput): Promise<EsitoFatto> {
 }
 
 /**
- * «Aggiorna dati» (admin): a new run of the Insight now. A fast RPC
- * (insight_richiedi queues the run and sends its first step with pg_net), so
- * a server action is fine (CLAUDE.md section 10: only long work goes to a
- * route). Without ANTHROPIC_API_KEY no run is created (D23); without a valid
- * address of the app nothing is called (D18). The database's sentences (an
- * update already running, the eighth of the day) pass as written.
+ * «Aggiorna dati» (the admin and, from 1.50.0, every active setter: Dany,
+ * 22/10/2026, «No, anche Loris deve poter aggiornare i dati!!!!»): a new run
+ * of the Insight now. A fast RPC (insight_richiedi queues the run and sends
+ * its first step with pg_net), so a server action is fine (CLAUDE.md section
+ * 10: only long work goes to a route). Without ANTHROPIC_API_KEY no run is
+ * created (D23); without a valid address of the app nothing is called (D18).
+ *
+ * The role is checked here before the service role writes the address of the
+ * steps; the database checks it again (insight_puo_leggere(), never an OAuth
+ * token). The admin reads the database's sentences and the reasons with their
+ * names (the key, APP_URL); the setter reads the same two sentences of the
+ * database (a run already working, the eighth of the day) and otherwise only
+ * neutral words (AGGIORNA_SETTER): never a cost, a key, a variable or a
+ * technical error. Nothing here says who pressed (section 17): no log, no column.
  */
 export async function aggiornaDati(): Promise<EsitoAggiorna> {
-  const negato = await negaSeNon(['admin'])
-  if (negato) return { ok: false, errore: negato }
+  const profilo = await getProfilo()
+  if (!profilo || !profilo.attivo) return { ok: false, errore: SESSIONE_SCADUTA }
+  if (profilo.ruolo !== 'admin' && profilo.ruolo !== 'setter') return { ok: false, errore: SOLO_AGGIORNA }
+  const admin = profilo.ruolo === 'admin'
 
-  if (!insightConfigurato()) return { ok: false, errore: AGGIORNA.chiaveMancante }
+  if (!insightConfigurato()) return { ok: false, errore: admin ? AGGIORNA.chiaveMancante : AGGIORNA_SETTER.nonAttivo }
 
   let url: string | null
   try {
     url = urlPasso()
   } catch (e) {
-    if (e instanceof UrlPassoNonValido) return { ok: false, errore: URL_PASSO_MANCANTE }
+    if (e instanceof UrlPassoNonValido) {
+      return { ok: false, errore: admin ? URL_PASSO_MANCANTE : AGGIORNA_SETTER.nonRiuscito }
+    }
     throw e
   }
 
   // null: no address to send the step to (INSIGHT_URL_PASSO=manuale), the run waits.
   // The address is written by the server, never chosen by the session that asks for the run
-  if (url !== null && !(await salvaUrlPasso(url))) return { ok: false, errore: URL_PASSO_NON_SALVATO }
+  if (url !== null && !(await salvaUrlPasso(url))) {
+    return { ok: false, errore: admin ? URL_PASSO_NON_SALVATO : AGGIORNA_SETTER.nonRiuscito }
+  }
 
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('insight_richiedi')
-  if (error) return { ok: false, errore: messaggioErrore(error, AGGIORNA.nonAvviato) }
+  if (error) return { ok: false, errore: erroreRichiesta(error, admin) }
 
   revalidatePath('/insight')
   return { ok: true, esecuzione: typeof data === 'string' ? data : null }

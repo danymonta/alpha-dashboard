@@ -86,6 +86,32 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.50.0',
+    data: '2026-10-22',
+    titolo: 'Anche Loris aggiorna i dati dell’Insight',
+    riassunto:
+      'Nell’Insight delle ultime 24h «Aggiorna dati» lo preme anche il setter, con lo stesso limite di 8 aggiornamenti al giorno condiviso con te.',
+    intestazionePer: ['setter'],
+    intestazioneTeam: {
+      titolo: 'Aggiorni tu i dati dell’Insight',
+      riassunto: 'Nell’Insight delle ultime 24h puoi premere tu «Aggiorna dati», fino a 8 volte al giorno insieme a Dany.',
+    },
+    novita: [
+      {
+        per: ['setter'],
+        testo:
+          'Loris trova «Aggiorna dati» nell’Insight delle ultime 24h, anche quando non c’è ancora nessun recap: una riga gli dice quando l’aggiornamento è partito e quando i dati sono aggiornati. Il limite resta di 8 aggiornamenti al giorno, condivisi tra voi.',
+        testoTeam:
+          'Nell’Insight delle ultime 24h ora puoi aggiornare tu i dati con «Aggiorna dati», anche quando non c’è ancora nessun recap. Una riga ti dice quando l’aggiornamento è partito e quando i dati sono aggiornati, e intanto puoi chiudere la pagina. Gli aggiornamenti sono al massimo 8 al giorno, insieme a Dany: se qualcosa non va, la riga ti dice di avvisarlo.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Automazione, Messenger, costo del recap, avvisi ed errori restano solo tuoi: a Loris arrivano frasi semplici, come «Aggiornamento non riuscito: riprova più tardi o avvisa Dany.». L’app non scrive da nessuna parte chi ha premuto «Aggiorna dati», nemmeno quando sei tu.',
+      },
+    ],
+  },
+  {
     versione: '1.49.0',
     data: '2026-10-22',
     titolo: 'L’andamento dei contenuti ogni domenica per email',
