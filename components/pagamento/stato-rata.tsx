@@ -1,5 +1,7 @@
 import { CircleCheck, CircleX, Clock, TriangleAlert, Undo2, type LucideIcon } from 'lucide-react'
 
+import type { Lingua } from '@/lib/i18n/lingua'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import type { Database } from '@/lib/supabase/database.types'
 import { cn } from '@/lib/utils'
 
@@ -14,24 +16,27 @@ export function StatoRata({
   scadenza,
   oggi,
   className,
+  lingua = 'it',
 }: {
   stato: StatoPagamento
   scadenza: string
   oggi: string
   className?: string
+  lingua?: Lingua
 }) {
+  const e = ETICHETTE[lingua].statoRata
   const inRitardo = stato === 'prevista' && scadenza < oggi
 
   const { etichetta, Icona, tono }: { etichetta: string; Icona: LucideIcon; tono: string } =
     inRitardo
-      ? { etichetta: 'In ritardo', Icona: TriangleAlert, tono: 'text-status-warning' }
+      ? { etichetta: e.inRitardo, Icona: TriangleAlert, tono: 'text-status-warning' }
       : stato === 'incassata'
-        ? { etichetta: 'Incassata', Icona: CircleCheck, tono: 'text-status-ok' }
+        ? { etichetta: e.incassata, Icona: CircleCheck, tono: 'text-status-ok' }
         : stato === 'fallita'
-          ? { etichetta: 'Fallita', Icona: CircleX, tono: 'text-status-critical' }
+          ? { etichetta: e.fallita, Icona: CircleX, tono: 'text-status-critical' }
           : stato === 'rimborsata'
-            ? { etichetta: 'Rimborsata', Icona: Undo2, tono: 'text-muted-foreground' }
-            : { etichetta: 'Prevista', Icona: Clock, tono: 'text-muted-foreground' }
+            ? { etichetta: e.rimborsata, Icona: Undo2, tono: 'text-muted-foreground' }
+            : { etichetta: e.prevista, Icona: Clock, tono: 'text-muted-foreground' }
 
   return (
     <span className={cn('inline-flex items-center gap-1.5 text-sm', tono, className)}>

@@ -15,8 +15,10 @@ import { RataAzioni } from '@/app/(app)/sales/[id]/rata-azioni'
 import { ContrattoVendita } from '@/components/cliente/contratto-vendita'
 import { StatoRata } from '@/components/pagamento/stato-rata'
 import { fineDopoMesi } from '@/lib/date'
-import { formatData, formatEuro } from '@/lib/format'
+import { formato } from '@/lib/format'
 import type { ConfigPicker } from '@/lib/google/picker'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { CLIENTI } from '@/lib/i18n/testi/clienti'
 import type { Database } from '@/lib/supabase/database.types'
 import { cn } from '@/lib/utils'
 
@@ -58,11 +60,11 @@ export type Percorso = {
 
 type StatoPercorso = 'da_iniziare' | 'in_corso' | 'concluso' | 'interrotto'
 
-const ASPETTO: Record<StatoPercorso, { etichetta: string; Icona: LucideIcon; tono: string }> = {
-  da_iniziare: { etichetta: 'Da iniziare', Icona: CalendarClock, tono: 'text-muted-foreground' },
-  in_corso: { etichetta: 'In corso', Icona: CircleCheck, tono: 'text-status-ok' },
-  concluso: { etichetta: 'Concluso', Icona: Flag, tono: 'text-muted-foreground' },
-  interrotto: { etichetta: 'Interrotto', Icona: CircleStop, tono: 'text-status-warning' },
+const ASPETTO: Record<StatoPercorso, { Icona: LucideIcon; tono: string }> = {
+  da_iniziare: { Icona: CalendarClock, tono: 'text-muted-foreground' },
+  in_corso: { Icona: CircleCheck, tono: 'text-status-ok' },
+  concluso: { Icona: Flag, tono: 'text-muted-foreground' },
+  interrotto: { Icona: CircleStop, tono: 'text-status-warning' },
 }
 
 /** Oldest first: the order in which the periods happened. */
@@ -87,7 +89,8 @@ function statoPercorso(p: Percorso, oggi: string): StatoPercorso {
 }
 
 /** "Primo percorso", "Rinnovo 1", "Rinnovo 2", "Upsell": counted in time order. */
-function etichettePercorsi(percorsi: Percorso[]): Map<string, string> {
+function etichettePercorsi(percorsi: Percorso[], lingua: Lingua): Map<string, string> {
+  const t = CLIENTI[lingua]
   const conta: Record<Enums['sale_type'], number> = { nuovo: 0, rinnovo: 0, upsell: 0 }
   const upsell = percorsi.filter((p) => p.tipo === 'upsell').length
   const etichette = new Map<string, string>()
@@ -96,14 +99,14 @@ function etichettePercorsi(percorsi: Percorso[]): Map<string, string> {
     etichette.set(
       p.id,
       p.tipo === 'rinnovo'
-        ? `Rinnovo ${n}`
+        ? t.rinnovoN(n)
         : p.tipo === 'upsell'
           ? upsell > 1
-            ? `Upsell ${n}`
-            : 'Upsell'
+            ? t.upsellN(n)
+            : t.upsell
           : n === 1
-            ? 'Primo percorso'
-            : 'Nuovo percorso',
+            ? t.primoPercorso
+            : t.nuovoPercorso,
     )
   }
   return etichette
@@ -111,8 +114,9 @@ function etichettePercorsi(percorsi: Percorso[]): Map<string, string> {
 
 const daIncassare = (r: RataPercorso) => r.stato === 'prevista' || r.stato === 'fallita'
 
-function BadgeStato({ stato }: { stato: StatoPercorso }) {
-  const { etichetta, Icona, tono } = ASPETTO[stato]
+function BadgeStato({ stato, lingua }: { stato: StatoPercorso; lingua: Lingua }) {
+  const { Icona, tono } = ASPETTO[stato]
+  const etichetta = CLIENTI[lingua].statoPercorso[stato]
   return (
     <span className={cn('inline-flex shrink-0 items-center gap-1.5 text-sm', tono)} data-testid="stato-percorso">
       <Icona className="size-4 shrink-0" aria-hidden="true" />
@@ -121,7 +125,8 @@ function BadgeStato({ stato }: { stato: StatoPercorso }) {
   )
 }
 
-function Cifra({ etichetta, valore }: { etichetta: string; valore: number | null }) {
+function Cifra({ etichetta, valore, lingua }: { etichetta: string; valore: number | null; lingua: Lingua }) {
+  const { formatEuro } = formato(lingua)
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{etichetta}</dt>
@@ -138,6 +143,7 @@ function CardPercorso({
   cliente,
   picker,
   solaLettura,
+  lingua,
 }: {
   percorso: Percorso
   etichetta: string
@@ -146,7 +152,10 @@ function CardPercorso({
   cliente: string
   picker: ConfigPicker | null
   solaLettura: boolean
+  lingua: Lingua
 }) {
+  const t = CLIENTI[lingua]
+  const { formatData, formatEuro } = formato(lingua)
   const stato = statoPercorso(p, oggi)
   // the current path, or one with something still to collect, opens on its instalments;
   // a finished and paid one stays folded
@@ -160,22 +169,22 @@ function CardPercorso({
             <h3 className="text-sm font-semibold">{etichetta}</h3>
             <p className="truncate text-sm text-muted-foreground">{p.prodotto}</p>
             <p className="num text-xs text-muted-foreground" data-testid="periodo">
-              dal {formatData(p.data_inizio)} al {formatData(p.data_fine)}
+              {t.dalAl(formatData(p.data_inizio), formatData(p.data_fine))}
             </p>
           </div>
-          <BadgeStato stato={stato} />
+          <BadgeStato stato={stato} lingua={lingua} />
         </div>
 
         <dl className="grid grid-cols-3 gap-3 border-t border-border pt-3">
-          <Cifra etichetta="Contratto" valore={p.valore_contratto} />
-          <Cifra etichetta="Incassato" valore={p.incassato} />
-          <Cifra etichetta="Da incassare" valore={p.da_incassare} />
+          <Cifra etichetta={t.contratto} valore={p.valore_contratto} lingua={lingua} />
+          <Cifra etichetta={t.incassatoCifra} valore={p.incassato} lingua={lingua} />
+          <Cifra etichetta={t.daIncassare} valore={p.da_incassare} lingua={lingua} />
         </dl>
 
         {Number(p.in_ritardo) > 0 ? (
           <p className="flex items-center gap-2 text-sm text-status-warning">
             <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-            <span className="num">{formatEuro(p.in_ritardo)} in ritardo</span>
+            <span className="num">{t.inRitardoImporto(formatEuro(p.in_ritardo))}</span>
           </p>
         ) : null}
       </div>
@@ -184,7 +193,7 @@ function CardPercorso({
       <div className="flex min-h-11 items-center justify-between gap-2 border-t border-border pr-1.5 pl-3">
         <span className="flex items-center gap-2 text-sm">
           <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          Contratto su Drive
+          {t.contrattoDrive}
         </span>
         <ContrattoVendita
           saleId={p.id}
@@ -201,10 +210,8 @@ function CardPercorso({
         <details open={aperto} className="group border-t border-border">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm hover:bg-accent/50 [&::-webkit-details-marker]:hidden">
             <span>
-              Rate{' '}
-              <span className="num text-muted-foreground">
-                · {p.rate_incassate ?? 0} di {p.rate_totali ?? 0} incassate
-              </span>
+              {t.rate}{' '}
+              <span className="num text-muted-foreground">{t.incassate(p.rate_incassate ?? 0, p.rate_totali ?? 0)}</span>
             </span>
             <ChevronDown className="size-4 shrink-0 text-muted-foreground group-open:rotate-180" aria-hidden="true" />
           </summary>
@@ -212,14 +219,14 @@ function CardPercorso({
             {p.rate.map((rata) => (
               <li
                 key={rata.id}
-                aria-label={`${etichetta} rata ${rata.numero_rata}${rata.stato === 'rimborsata' ? ' rimborso' : ''}`}
+                aria-label={t.rataEtichetta(etichetta, rata.numero_rata, rata.stato === 'rimborsata')}
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 md:flex-nowrap"
               >
                 <div className="flex min-h-11 min-w-0 flex-1 items-center gap-3">
                   <span className="num w-8 shrink-0 text-sm text-muted-foreground">{rata.numero_rata}ª</span>
                   <div className="min-w-0 flex-1">
                     <p className="num text-sm">{formatData(daIncassare(rata) ? rata.scadenza : rata.incassato_il)}</p>
-                    <StatoRata stato={rata.stato} scadenza={rata.scadenza} oggi={oggi} className="text-xs" />
+                    <StatoRata stato={rata.stato} scadenza={rata.scadenza} oggi={oggi} className="text-xs" lingua={lingua} />
                   </div>
                   <span className="num text-right text-sm font-medium">
                     {formatEuro(rata.importo_incassato ?? rata.importo_previsto)}
@@ -243,7 +250,7 @@ function CardPercorso({
         className="flex min-h-11 items-center justify-between gap-2 border-t border-border px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <span>
-          {solaLettura ? 'Apri la vendita' : 'Apri la vendita per modificarla'}
+          {solaLettura ? t.apriVendita : t.apriVenditaModifica}
           <span className="sr-only"> ({etichetta})</span>
         </span>
         <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
@@ -263,6 +270,7 @@ export function StoricoPercorsi({
   cliente,
   picker = null,
   solaLettura = false,
+  lingua = 'it',
 }: {
   percorsi: Percorso[]
   oggi: string
@@ -271,8 +279,9 @@ export function StoricoPercorsi({
   picker?: ConfigPicker | null
   /** The business coach (22/10/2026): instalments and contracts to read, nothing to tap. */
   solaLettura?: boolean
+  lingua?: Lingua
 }) {
-  const etichette = etichettePercorsi(percorsi)
+  const etichette = etichettePercorsi(percorsi, lingua)
   const dalPiuRecente = [...percorsi].sort((a, b) => inOrdineDiTempo(b, a))
   // filled button only on the instalment due first across the whole history
   const principale = percorsi
@@ -285,12 +294,13 @@ export function StoricoPercorsi({
         <CardPercorso
           key={p.id}
           percorso={p}
-          etichetta={etichette.get(p.id) ?? 'Percorso'}
+          etichetta={etichette.get(p.id) ?? CLIENTI[lingua].percorsoGenerico}
           oggi={oggi}
           principale={principale}
           cliente={cliente}
           picker={picker}
           solaLettura={solaLettura}
+          lingua={lingua}
         />
       ))}
     </ol>

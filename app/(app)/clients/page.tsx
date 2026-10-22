@@ -1,14 +1,13 @@
 import { CirclePause, Search, Users } from 'lucide-react'
 
 import { ElencoClienti } from '@/components/cliente/elenco-clienti'
-import { ETICHETTA_STATO_CLIENTE, StatoClienteBadge, type StatoCliente } from '@/components/cliente/stato-cliente'
+import { StatoClienteBadge, type StatoCliente } from '@/components/cliente/stato-cliente'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import {
-  ETICHETTA_VISTA,
   STATI_VISTA,
   VISTE,
   ordinaElenco,
@@ -17,8 +16,11 @@ import {
   type Vista,
 } from '@/lib/clienti/elenco'
 import { oggiRoma } from '@/lib/date'
-import { formatData, formatEuro } from '@/lib/format'
+import { formato } from '@/lib/format'
 import { configPickerRichiesta } from '@/lib/google/picker-server'
+import { getLingua } from '@/lib/i18n/server'
+import { CLIENTI } from '@/lib/i18n/testi/clienti'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import { createClient } from '@/lib/supabase/server'
 import { Constants } from '@/lib/supabase/database.types'
 import { cn } from '@/lib/utils'
@@ -29,22 +31,6 @@ const STATI = Constants.public.Enums.client_status
 
 type VistaTabella = Exclude<Vista, 'tutti'>
 
-/** What each table card says when it has nothing to list. */
-const VUOTO: Record<VistaTabella, { titolo: string; descrizione: string }> = {
-  attivi: {
-    titolo: 'Nessun cliente attivo',
-    descrizione: 'Un cliente è attivo da quando registri la sua prima vendita, finché dura il percorso.',
-  },
-  sospesi: {
-    titolo: 'Nessun cliente sospeso',
-    descrizione: 'Con «Sospendi» nella scheda del cliente lo metti in pausa: lo trovi qui, con percorso e rate come prima.',
-  },
-  chiusi: {
-    titolo: 'Nessun cliente chiuso',
-    descrizione: 'Con «Non rinnova» nella scheda del cliente lo chiudi: lo trovi qui, e il suo valore nel tempo resta.',
-  },
-}
-
 export default async function ClientiPage({
   searchParams,
 }: {
@@ -53,6 +39,11 @@ export default async function ClientiPage({
   // the admin, and the business coach in read only (22/10/2026)
   const profilo = await requireRuolo(RUOLI_COME_ADMIN)
   const scrive = puoScrivere(profilo.ruolo)
+  const lingua = await getLingua()
+  const t = CLIENTI[lingua]
+  const { formatData, formatEuro } = formato(lingua)
+  const VUOTO = t.vuoto
+  const ETICHETTA_VISTA = t.viste
   const { vista: vistaRichiesta, stato, q } = await searchParams
   const vista = vistaDa(vistaRichiesta, stato, q)
   const filtro = vista === 'tutti' && STATI.includes(stato as StatoCliente) ? (stato as StatoCliente) : null
@@ -69,7 +60,7 @@ export default async function ClientiPage({
     conteggioVista('chiusi'),
     supabase.from('v_clienti').select('client_id', { count: 'exact', head: true }),
   ])
-  if (attivi.error || sospesi.error || chiusi.error || tutti.error) throw new Error('Impossibile caricare i clienti')
+  if (attivi.error || sospesi.error || chiusi.error || tutti.error) throw new Error(t.errore)
   const conteggi: Record<Vista, number> = {
     attivi: attivi.count ?? 0,
     sospesi: sospesi.count ?? 0,
@@ -78,7 +69,7 @@ export default async function ClientiPage({
   }
 
   const schede = (
-    <nav aria-label="Elenco dei clienti" className="flex flex-wrap gap-2">
+    <nav aria-label={t.elencoClienti} className="flex flex-wrap gap-2">
       {VISTE.map((v) => {
         const attiva = v === vista
         return (
@@ -104,18 +95,14 @@ export default async function ClientiPage({
 
   const intestazione = (
     <IntestazionePagina
-      titolo="Clienti"
-      descrizione={
-        scrive
-          ? 'Attivi, sospesi e chiusi con il loro percorso, il contratto, quanto hanno pagato e le rate da saldare. Lo stato si calcola dalle vendite; Sospeso e Chiuso li decidi tu dalla scheda del cliente («Sospendi», «Non rinnova»).'
-          : 'Attivi, sospesi e chiusi con il loro percorso, il contratto, quanto hanno pagato e le rate da saldare. Lo stato si calcola dalle vendite; Sospeso e Chiuso li decide l’admin.'
-      }
+      titolo={t.titolo}
+      descrizione={scrive ? t.descrizioneAdmin : t.descrizioneLettura}
     />
   )
 
   if (vista !== 'tutti') {
     const { data, error } = await supabase.rpc('clienti_elenco', { p_stati: STATI_VISTA[vista] })
-    if (error) throw new Error('Impossibile caricare i clienti')
+    if (error) throw new Error(t.errore)
     // the generated types make every column non-null: the nullable ones are typed by hand
     const righe = ordinaElenco(data as unknown as RigaElenco[], vista)
 
@@ -123,7 +110,7 @@ export default async function ClientiPage({
     const { data: anagrafiche, error: errAnagrafiche } = righe.length
       ? await supabase.from('clients').select('id, instagram_handle').in('id', righe.map((r) => r.client_id))
       : { data: [], error: null }
-    if (errAnagrafiche) throw new Error('Impossibile caricare i clienti')
+    if (errAnagrafiche) throw new Error(t.errore)
     const handle = Object.fromEntries((anagrafiche ?? []).map((c) => [c.id, c.instagram_handle]))
     // the Picker opens Google to choose a folder: only for who can save it
     const picker = righe.length && scrive ? await configPickerRichiesta() : null
@@ -135,7 +122,7 @@ export default async function ClientiPage({
         {righe.length === 0 ? (
           <StatoVuoto Icona={vista === 'sospesi' ? CirclePause : Users} titolo={VUOTO[vista].titolo} descrizione={VUOTO[vista].descrizione} />
         ) : (
-          <ElencoClienti righe={righe} handle={handle} oggi={oggi} picker={picker} solaLettura={!scrive} etichetta={`Clienti ${ETICHETTA_VISTA[vista].toLowerCase()}`} />
+          <ElencoClienti righe={righe} handle={handle} oggi={oggi} picker={picker} solaLettura={!scrive} etichetta={t.clientiVista(ETICHETTA_VISTA[vista])} />
         )}
       </div>
     )
@@ -159,7 +146,7 @@ export default async function ClientiPage({
     STATI.map((s) => supabase.from('v_clienti').select('client_id', { count: 'exact', head: true }).eq('stato', s)),
   )
   const { data: clienti, error } = await query
-  if (error || perStato.some((r) => r.error)) throw new Error('Impossibile caricare i clienti')
+  if (error || perStato.some((r) => r.error)) throw new Error(t.errore)
 
   const chip = (valore: StatoCliente | null, etichetta: string, n: number | null) => {
     const qs = new URLSearchParams({ vista: 'tutti' })
@@ -190,21 +177,21 @@ export default async function ClientiPage({
       {intestazione}
       {schede}
 
-      <nav aria-label="Filtra per stato" className="flex flex-wrap gap-2">
-        {chip(null, 'Tutti gli stati', conteggi.tutti)}
-        {STATI.map((s, i) => chip(s, ETICHETTA_STATO_CLIENTE[s], perStato[i].count))}
+      <nav aria-label={t.filtraStato} className="flex flex-wrap gap-2">
+        {chip(null, t.tuttiStati, conteggi.tutti)}
+        {STATI.map((s, i) => chip(s, ETICHETTE[lingua].statoCliente[s], perStato[i].count))}
       </nav>
 
       <form method="get" role="search" className="relative max-w-md">
         <input type="hidden" name="vista" value="tutti" />
         {filtro ? <input type="hidden" name="stato" value={filtro} /> : null}
-        <label htmlFor="cerca-cliente" className="sr-only">Cerca un cliente</label>
+        <label htmlFor="cerca-cliente" className="sr-only">{t.cerca}</label>
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <input
           id="cerca-cliente"
           name="q"
           defaultValue={ricerca}
-          placeholder="Cerca per nome, cognome o handle"
+          placeholder={t.cercaPlaceholder}
           autoComplete="off"
           className="h-11 w-full rounded-pillola border border-input bg-input/30 pr-3 pl-9 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         />
@@ -213,8 +200,8 @@ export default async function ClientiPage({
       {clienti.length === 0 ? (
         <StatoVuoto
           Icona={Users}
-          titolo={ricerca ? `Nessun cliente per «${ricerca}»` : 'Nessun cliente in questo stato'}
-          descrizione="Un cliente nasce quando registri la sua prima vendita."
+          titolo={ricerca ? t.nessunoPer(ricerca) : t.nessunoStato}
+          descrizione={t.nasceVendita}
         />
       ) : (
         <>
@@ -228,15 +215,15 @@ export default async function ClientiPage({
                         <span className="truncate">{[c.nome, c.cognome].filter(Boolean).join(' ')}</span>
                         <IndicatoreLink />
                       </p>
-                      <StatoClienteBadge stato={c.stato!} className="text-xs" />
+                      <StatoClienteBadge stato={c.stato!} className="text-xs" lingua={lingua} />
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="num text-sm font-medium">{formatEuro(c.incassato)}</p>
-                      <p className="text-xs text-muted-foreground">incassato</p>
+                      <p className="text-xs text-muted-foreground">{t.incassato}</p>
                     </div>
                   </div>
                   {c.data_fine_ultima ? (
-                    <p className="mt-2 text-xs text-muted-foreground">Percorso fino al {formatData(c.data_fine_ultima)}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">{t.percorsoFino(formatData(c.data_fine_ultima))}</p>
                   ) : null}
                 </LinkRiga>
               </li>
@@ -245,15 +232,15 @@ export default async function ClientiPage({
 
           <div className="hidden overflow-hidden rounded-xl bg-card md:block">
             <table className="w-full text-sm">
-              <caption className="sr-only">Clienti</caption>
+              <caption className="sr-only">{t.titolo}</caption>
               <thead className="text-xs text-muted-foreground">
                 <tr className="border-b border-border">
-                  <th scope="col" className="px-3 py-2.5 text-left font-normal">Cliente</th>
-                  <th scope="col" className="px-3 py-2.5 text-left font-normal">Stato</th>
-                  <th scope="col" className="px-3 py-2.5 text-left font-normal">Fine percorso</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-normal">Vendite</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-normal">Incassato (LTV)</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-normal">Da incassare</th>
+                  <th scope="col" className="px-3 py-2.5 text-left font-normal">{t.cliente}</th>
+                  <th scope="col" className="px-3 py-2.5 text-left font-normal">{t.colStato}</th>
+                  <th scope="col" className="px-3 py-2.5 text-left font-normal">{t.colFine}</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-normal">{t.colVendite}</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-normal">{t.colLtv}</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-normal">{t.colDaIncassare}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -266,7 +253,7 @@ export default async function ClientiPage({
                       </LinkRiga>
                       {c.instagram_handle ? <p className="text-xs text-muted-foreground">{c.instagram_handle}</p> : null}
                     </td>
-                    <td className="px-3 py-2.5"><StatoClienteBadge stato={c.stato!} /></td>
+                    <td className="px-3 py-2.5"><StatoClienteBadge stato={c.stato!} lingua={lingua} /></td>
                     <td className="px-3 py-2.5">{formatData(c.data_fine_ultima)}</td>
                     <td className="px-3 py-2.5 text-right">{c.numero_vendite}</td>
                     <td className="px-3 py-2.5 text-right">{formatEuro(c.incassato)}</td>

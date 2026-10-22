@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 
 import { salvaCartellaDrive, togliCartellaDrive } from '@/app/actions/cartella-drive'
 import { Elimina } from '@/components/form/elimina'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +31,7 @@ import {
   type TokenDrive,
 } from '@/lib/google/drive-browser'
 import { ERRORI_DRIVE, cartellaScelta, type ConfigPicker } from '@/lib/google/picker'
+import { CLIENTI } from '@/lib/i18n/testi/clienti'
 import { cn } from '@/lib/utils'
 import { cartellaDriveSchema, type CartellaDriveInput, type ChiCartella } from '@/lib/validation/cartella'
 
@@ -71,6 +73,7 @@ export function CartellaDrive({
   solaLettura?: boolean
 }) {
   const router = useRouter()
+  const lingua = useLingua()
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [avviso, setAvviso] = useState<string | null>(null)
@@ -177,6 +180,7 @@ export function CartellaDrive({
   }
 
   const cella = variante === 'cella'
+  const parole = CLIENTI[lingua]
 
   return (
     <div
@@ -194,9 +198,9 @@ export function CartellaDrive({
           rel="noopener noreferrer"
           className="inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-sm hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
-          Apri
+          {parole.apri}
           <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
-          <span className="sr-only">la cartella Drive di {cliente} (si apre in una nuova scheda)</span>
+          <span className="sr-only">{parole.cartellaDi(cliente)}</span>
         </a>
       ) : cella ? null : url ? (
         <a
@@ -205,17 +209,17 @@ export function CartellaDrive({
           rel="noopener noreferrer"
           className="min-w-0 flex-1 rounded-md py-1 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
-          <span className="block text-sm font-medium">Cartella Drive</span>
+          <span className="block text-sm font-medium">{parole.cartellaDrive}</span>
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            Apri in Google Drive
+            {parole.apriInDrive}
             <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
-            <span className="sr-only">(si apre in una nuova scheda)</span>
+            <span className="sr-only">{parole.nuovaScheda}</span>
           </span>
         </a>
       ) : (
         <div className="min-w-0 flex-1 py-1">
-          <span className="block text-sm font-medium">Cartella Drive</span>
-          <span className="block text-xs text-muted-foreground">Nessuna cartella collegata</span>
+          <span className="block text-sm font-medium">{parole.cartellaDrive}</span>
+          <span className="block text-xs text-muted-foreground">{parole.nessunaCartella}</span>
         </div>
       )}
 

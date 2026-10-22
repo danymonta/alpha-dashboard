@@ -19,7 +19,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { formatData } from '@/lib/format'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { formatData, formato } from '@/lib/format'
+import { CLIENTI } from '@/lib/i18n/testi/clienti'
 import { MOTIVO_SOSPENSIONE_MAX, sospensioneClienteSchema } from '@/lib/validation/sospensione'
 
 /** What putting a client on hold does, before the confirmation. */
@@ -270,19 +272,22 @@ export function SospensioneCliente({
   /** The business coach reads it and never changes it (22/10/2026). */
   solaLettura?: boolean
 }) {
+  const lingua = useLingua()
+  const t = CLIENTI[lingua]
+  const { formatData } = formato(lingua)
   return (
     <section
-      aria-label="Sospensione del cliente"
+      aria-label={t.sospensione}
       data-testid="sospensione-cliente"
       className="flex items-start gap-3 rounded-xl bg-card py-2 pr-1.5 pl-3"
     >
       <CirclePause className="mt-2.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <div className="min-w-0 flex-1 py-1.5">
         <p className="text-sm font-medium">
-          Sospeso dal <span className="num">{formatData(sospensione.sospeso_il)}</span>
+          {t.sospesoDalRiga} <span className="num">{formatData(sospensione.sospeso_il)}</span>
           {sospensione.motivo ? <span className="font-normal text-muted-foreground"> · {sospensione.motivo}</span> : null}
         </p>
-        {sospensione.motivo ? null : <p className="mt-0.5 text-xs text-muted-foreground">Nessun motivo scritto</p>}
+        {sospensione.motivo ? null : <p className="mt-0.5 text-xs text-muted-foreground">{t.nessunMotivo}</p>}
       </div>
       {solaLettura ? null : (
         <div className="flex shrink-0 items-center gap-1">

@@ -53,11 +53,11 @@ export function BarraAvanzamento({
 }
 
 /** A client's project still without its coach (02/10/2026): icon and words. */
-export function SenzaCoach({ className }: { className?: string }) {
+export function SenzaCoach({ className, testo = 'Senza coach' }: { className?: string; testo?: string }) {
   return (
     <span className={cn('inline-flex shrink-0 items-center gap-1 text-xs text-status-warning', className)}>
       <UserRoundX className="size-3.5 shrink-0" aria-hidden="true" />
-      Senza coach
+      {testo}
     </span>
   )
 }
