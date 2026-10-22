@@ -12,6 +12,7 @@ import { ContenutoInsight, NavigazioneInsight } from '@/components/insight/navig
 import { RecapChat } from '@/components/insight/recap-chat'
 import { SchedeCanale } from '@/components/insight/schede-canale'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { leggeComeAdmin, puoScrivere } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { isDataISO } from '@/lib/date'
 import { canaleIniziale, COOKIE_CANALE_INSIGHT, fonteDi, ID_PANNELLO_INSIGHT, idScheda, type Canale } from '@/lib/insight/canale'
@@ -79,8 +80,12 @@ export default async function InsightPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const profilo = await requireRuolo(['admin', 'setter'])
+  // the business coach (22/10/2026): reads the admin's recap, its warnings and costs; no «Aggiorna dati»,
+  // no «Automazione», no «Fatto», no settings
+  const profilo = await requireRuolo(['admin', 'setter', 'business_coach'])
   const admin = profilo.ruolo === 'admin'
+  const comeAdmin = leggeComeAdmin(profilo.ruolo)
+  const scrive = puoScrivere(profilo.ruolo)
   const sp = await searchParams
   const canale: Canale = canaleIniziale(primo(sp.canale), (await cookies()).get(COOKIE_CANALE_INSIGHT)?.value)
   const fonte = fonteDi(canale)
@@ -129,7 +134,7 @@ export default async function InsightPage({
   // the run's warnings and how it was made are the admin's (C47, D23): they are not in the document the
   // setter reads (insight_recap.dati), they are on the run, which only the admin can read
   let recap: RecapLetto | null = letto
-  if (letto && admin && riga?.esecuzione_id) {
+  if (letto && comeAdmin && riga?.esecuzione_id) {
     const { data: run } = await supabase.from('insight_esecuzioni').select('dettagli_recap').eq('id', riga.esecuzione_id).maybeSingle()
     recap = { ...letto, ...leggiDettagliRecap(run?.dettagli_recap, fonte) }
   }
@@ -141,12 +146,12 @@ export default async function InsightPage({
 
   const stato: StatoInsight | StatoInsightAdmin | null = statoR.error
     ? null
-    : admin
+    : comeAdmin
       ? leggiStatoInsightAdmin(statoR.data)
       : leggiStatoInsight(statoR.data)
 
   // the admin only: the calendar of the posts the recap names, and whether Messenger has a token
-  const codici = admin && recap && canale !== 'agenda' ? shortcodeDelRecap(recap) : []
+  const codici = comeAdmin && recap && canale !== 'agenda' ? shortcodeDelRecap(recap) : []
   const [calendarioR, messengerR, fattiR] = await Promise.all([
     codici.length
       ? supabase.from('marketing_contenuti').select('id, nome, instagram_shortcode').in('instagram_shortcode', codici)
@@ -208,7 +213,7 @@ export default async function InsightPage({
           Icona={Sparkles}
           titolo={titoloNessunRecap(canale)}
           descrizione={fonte === 'messenger' ? PRIMO_RECAP_MESSENGER : DESCRIZIONE_NESSUN_RECAP}
-          azione={<BottoneAggiornaDati className="h-11 gap-1.5 px-4" />}
+          azione={scrive ? <BottoneAggiornaDati className="h-11 gap-1.5 px-4" /> : undefined}
         />
       )
     }
@@ -228,9 +233,10 @@ export default async function InsightPage({
         fonte={fonte}
         giorno={giorno}
         fatti={fatti}
-        admin={admin}
+        admin={comeAdmin}
         adesso={props.adesso}
         calendario={calendario}
+        solaLettura={!scrive}
       />
     )
   })()
@@ -238,7 +244,7 @@ export default async function InsightPage({
   const corpo = (
     <NavigazioneInsight>
       <div className="space-y-6">
-        <IntestazioneInsight canale={canale} meta={meta} giorni={giorni} giorno={giorno} conBottone={Boolean(riga)} />
+        <IntestazioneInsight canale={canale} meta={meta} giorni={giorni} giorno={giorno} conBottone={Boolean(riga) && scrive} />
         {admin ? (
           <Automazione
             attiva={stato?.attivo ?? false}
@@ -257,7 +263,7 @@ export default async function InsightPage({
 
   return (
     <AnnunciProvider>
-      {admin ? (
+      {comeAdmin ? (
         <AggiornamentoInsight
           admin
           {...props}

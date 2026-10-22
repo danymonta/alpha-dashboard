@@ -30,9 +30,14 @@ type Props = {
   /** A held call: with no link yet it says «Registrazione da aggiungere». */
   svolta: boolean
   oggi: string
+  /**
+   * The business coach (22/10/2026): the state of the recording and the link to Fathom, nothing to
+   * change, and not Fathom's transcript or summary (read live with the admin's key: the closed version).
+   */
+  solaLettura?: boolean
 }
 
-export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolta, oggi }: Props) {
+export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolta, oggi, solaLettura = false }: Props) {
   const [testo, setTesto] = useState<'trascrizione' | 'riassunto' | null>(null)
   const [foglio, setFoglio] = useState(false)
   const [inCorso, avvia] = useTransition()
@@ -127,7 +132,7 @@ export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolt
             <span className="sr-only"> ({nomeLead})</span>
           </a>
         ) : null}
-        {trovata ? (
+        {solaLettura ? null : trovata ? (
           <>
             <BottoneTesto etichetta={REGISTRAZIONE.scheda.trascrizione} onClick={() => setTesto('trascrizione')} />
             <BottoneTesto etichetta={REGISTRAZIONE.scheda.riassunto} onClick={() => setTesto('riassunto')} />
@@ -138,10 +143,12 @@ export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolt
             {REGISTRAZIONE.scheda.verificaDiNuovo}
           </Button>
         ) : null}
-        <Button type="button" variant="ghost" className="h-11" disabled={inCorso} onClick={() => setFoglio(true)}>
-          {link || nonRegistrata ? REGISTRAZIONE.scheda.cambia : REGISTRAZIONE.scheda.aggiungi}
-        </Button>
-        {link || nonRegistrata ? (
+        {solaLettura ? null : (
+          <Button type="button" variant="ghost" className="h-11" disabled={inCorso} onClick={() => setFoglio(true)}>
+            {link || nonRegistrata ? REGISTRAZIONE.scheda.cambia : REGISTRAZIONE.scheda.aggiungi}
+          </Button>
+        )}
+        {!solaLettura && (link || nonRegistrata) ? (
           <Button type="button" variant="ghost" className="h-11 text-muted-foreground" disabled={inCorso} onClick={scollega} onBlur={() => setConferma(false)}>
             {conferma ? 'Tocca ancora per scollegare' : REGISTRAZIONE.scheda.scollega}
           </Button>

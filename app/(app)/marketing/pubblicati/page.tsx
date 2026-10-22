@@ -14,7 +14,7 @@ import { StatoGiroInstagram } from '@/components/marketing/pubblicati/stato-giro
 import { TabellaPubblicati } from '@/components/marketing/pubblicati/tabella-pubblicati'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { RUOLI_MARKETING } from '@/lib/auth/roles'
+import { puoScrivere, RUOLI_MARKETING_LETTURA } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { RICHIESTE_AL_GIORNO } from '@/lib/marketing/analisi/costi'
@@ -60,7 +60,9 @@ export default async function PubblicatiPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const profilo = await requireRuolo(RUOLI_MARKETING)
+  // the business coach reads the page (22/10/2026): no update, no analysis, no link to a content
+  const profilo = await requireRuolo(RUOLI_MARKETING_LETTURA)
+  const scrive = puoScrivere(profilo.ruolo)
   const puoAggiornare = RUOLI_AGGIORNA.includes(profilo.ruolo)
   const puoAnalizzare = RUOLI_ANALIZZA.includes(profilo.ruolo)
   const sp = await searchParams
@@ -150,9 +152,9 @@ export default async function PubblicatiPage({
 
   return (
     <OpzioniProvider opzioni={opzioni} conteggi={conteggi} puoEliminare={eliminaContenuti(profilo.ruolo)}>
-      <ProviderCollega contenuti={contenutiLiberi} puoScrivere>
+      <ProviderCollega contenuti={contenutiLiberi} puoScrivere={scrive}>
         <PannelloContenuti righe={righeContenuti} iniziale={contenutoDettaglio} puoEliminare={eliminaContenuti(profilo.ruolo)}>
-          <PannelloReel righe={righe} iniziale={reelDettaglio} puoAnalizzare={puoAnalizzare} puoScrivere>
+          <PannelloReel righe={righe} iniziale={reelDettaglio} puoAnalizzare={puoAnalizzare} puoScrivere={scrive}>
             <div className="space-y-6">
               <IntestazionePagina
                 titolo="Pubblicati"

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { avviaTimer } from '@/app/(app)/tempo/actions'
 import { FermaTimerForm, descrizioneTimer } from '@/components/pm/tempo/timer-attivo'
 import { useTimer } from '@/components/pm/tempo/timer-provider'
+import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
@@ -24,7 +25,13 @@ type Props = {
  * one already running). While it runs it turns into a stop, which asks what
  * was done before stopping the clock.
  */
-export function AvviaTimer({ progettoId, taskId = null, titolo, className }: Props) {
+export function AvviaTimer(props: Props) {
+  // no timer for a read-only account (the business coach, 22/10/2026)
+  const solaLettura = useSolaLettura()
+  return solaLettura ? null : <AvviaTimerModificabile {...props} />
+}
+
+function AvviaTimerModificabile({ progettoId, taskId = null, titolo, className }: Props) {
   const { timer, ricarica } = useTimer()
   const [inCorso, avvia] = useTransition()
   const [aperto, setAperto] = useState(false)

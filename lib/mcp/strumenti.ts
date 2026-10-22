@@ -3,7 +3,7 @@ import 'server-only'
 import type { ToolAnnotations } from '@modelcontextprotocol/server'
 import type { z } from 'zod'
 
-import { RUOLI_MARKETING, TUTTI_I_RUOLI, type LivelloPm } from '@/lib/auth/roles'
+import { RUOLI_MARKETING, solaLettura, TUTTI_I_RUOLI, type LivelloPm } from '@/lib/auth/roles'
 
 import { ETICHETTA_MODELLO, SEZIONI } from '@/lib/marketing/etichette'
 
@@ -71,6 +71,8 @@ export type Strumento = {
 const MARKETING: readonly RuoloMcp[] = RUOLI_MARKETING
 /** Projects and time: every role has the Projects area. */
 const TUTTI: readonly RuoloMcp[] = TUTTI_I_RUOLI
+/** The reads of the person's own: nobody else's, so not the business coach's. */
+const SOLO_PROPRI = new Set(['miei_task', 'mio_tempo'])
 /** Who creates and manages projects (pm_crea_progetto, pm_puo_gestire). */
 const GESTISCE: readonly LivelloPm[] = ['admin', 'manager']
 
@@ -241,6 +243,11 @@ export const STRUMENTI: readonly Strumento[] = [
  */
 export function strumentiPer(ruolo: string, livello?: LivelloPm | null): Strumento[] {
   if (!isRuoloMcp(ruolo)) throw new Error('ruolo non ammesso al server MCP')
+  // the business coach (22/10/2026): every read the admin has, the calendar's too, never a write and
+  // nothing of his own (he has no tasks and no time); the Data API filter refuses his writes anyway
+  if (solaLettura(ruolo)) {
+    return STRUMENTI.filter((s) => !s.scrive && s.ruoli.includes('admin') && !SOLO_PROPRI.has(s.nome))
+  }
   const effettivo: LivelloPm | null = ruolo === 'admin' ? 'admin' : (livello ?? null)
   return STRUMENTI.filter(
     (s) => s.ruoli.includes(ruolo) && (!s.livelli || (effettivo !== null && s.livelli.includes(effettivo))),

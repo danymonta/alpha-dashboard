@@ -137,6 +137,11 @@ type Props = {
   eliminabile?: boolean
   /** Where the sale of a closed call returns after saving (an internal path, e.g. the closer's day). */
   tornaA?: string | null
+  /**
+   * The business coach (22/10/2026): the admin's card to read, no button that writes (no outcome,
+   * no move, no pencil, no follow-up, no sale, no analysis to ask for).
+   */
+  solaLettura?: boolean
 }
 
 export function SchedaCall({
@@ -150,6 +155,7 @@ export function SchedaCall({
   mostraGiorno = true,
   eliminabile = false,
   tornaA = null,
+  solaLettura = false,
 }: Props) {
   const giorno = oggiRoma(new Date(call.programmata_il))
   const ora = formatOra(call.programmata_il)
@@ -166,7 +172,7 @@ export function SchedaCall({
   // conferma" (stato riprogrammata, 04/10/2026). The setter moves only the first:
   // an outcome is the closer's, and moving a call clears it. A held call and a
   // no-show never move, for anyone (restaNelSuoGiorno): they are neither.
-  const spostabile = call.stato === 'programmata' || (vista === 'closer' && call.stato === 'riprogrammata')
+  const spostabile = !solaLettura && (call.stato === 'programmata' || (vista === 'closer' && call.stato === 'riprogrammata'))
   const sposta = spostabile ? (
     <SpostaCall
       callId={call.id}
@@ -246,33 +252,35 @@ export function SchedaCall({
           {/* setter: no outcome to record; a call he can move has the action row below */}
           {vista === 'setter' && !sposta ? <div className="mt-1">{stato}</div> : null}
         </div>
-        <div className="-mt-1.5 -mr-1.5">
-          <ModificaCall
-            call={{
-              id: call.id,
-              tipo: call.tipo,
-              data: giorno,
-              ora,
-              closer_id: call.closer_id,
-              note: call.note,
-              note_closer: call.note_closer,
-              obiezione_principale: call.obiezione_principale ?? null,
-              link_registrazione: vista === 'closer' ? (call.link_registrazione ?? null) : null,
-              performance: vista === 'closer' ? (call.performance ?? null) : null,
-              prodotto_proposto_id: call.prodotto_proposto_id,
-              importo_proposto: call.pitch?.importo_proposto ?? null,
-            }}
-            nomeLead={nome}
-            closers={closers}
-            prodotti={prodotti}
-            conDettagli={vista === 'closer'}
-            noteSetterModificabili={vista === 'setter' || admin}
-            // the setter's on any call not to be held any more; closer and admin
-            // correct the date of every call, a no-show included (03/10/2026)
-            quandoBloccato={motivoQuandoBloccato(call.stato, ruolo)}
-            conSposta={sposta !== null}
-            eliminabile={eliminabile}
-          />
+        <div className={solaLettura ? 'hidden' : '-mt-1.5 -mr-1.5'}>
+          {solaLettura ? null : (
+            <ModificaCall
+              call={{
+                id: call.id,
+                tipo: call.tipo,
+                data: giorno,
+                ora,
+                closer_id: call.closer_id,
+                note: call.note,
+                note_closer: call.note_closer,
+                obiezione_principale: call.obiezione_principale ?? null,
+                link_registrazione: vista === 'closer' ? (call.link_registrazione ?? null) : null,
+                performance: vista === 'closer' ? (call.performance ?? null) : null,
+                prodotto_proposto_id: call.prodotto_proposto_id,
+                importo_proposto: call.pitch?.importo_proposto ?? null,
+              }}
+              nomeLead={nome}
+              closers={closers}
+              prodotti={prodotti}
+              conDettagli={vista === 'closer'}
+              noteSetterModificabili={vista === 'setter' || admin}
+              // the setter's on any call not to be held any more; closer and admin
+              // correct the date of every call, a no-show included (03/10/2026)
+              quandoBloccato={motivoQuandoBloccato(call.stato, ruolo)}
+              conSposta={sposta !== null}
+              eliminabile={eliminabile}
+            />
+          )}
         </div>
       </div>
 
@@ -282,7 +290,7 @@ export function SchedaCall({
           {stato}
           <div className="ml-auto flex items-center gap-2">
             {sposta}
-            {vista === 'closer' ? (
+            {vista === 'closer' && !solaLettura ? (
               <RegistraEsito
                 callId={call.id}
                 nomeLead={nome}
@@ -331,7 +339,7 @@ export function SchedaCall({
             <MessageCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             {FOLLOW_UP.inChat}
           </p>
-          {vista === 'closer' ? (
+          {vista === 'closer' && !solaLettura ? (
             <div className="ml-auto">
               <FissaFollowUp
                 callId={call.id}
@@ -357,19 +365,21 @@ export function SchedaCall({
               <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
               {VENDITA_DA_REGISTRARE.etichetta}
             </p>
-            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-              {/* a sale registered without the call: the admin ties it, never a second sale */}
-              {admin ? (
-                <CollegaVendita callId={call.id} idTitolo={idTitolo} nomeLead={nome} hrefVendita={hrefVendita} />
-              ) : null}
-              <LinkBottone href={hrefVendita} className="gap-1.5 px-3" aria-label={VENDITA_DA_REGISTRARE.nomeBottone(nome)}>
-                <Receipt className="size-4" aria-hidden="true" />
-                {VENDITA_DA_REGISTRARE.bottone}
-              </LinkBottone>
-            </div>
+            {solaLettura ? null : (
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                {/* a sale registered without the call: the admin ties it, never a second sale */}
+                {admin ? (
+                  <CollegaVendita callId={call.id} idTitolo={idTitolo} nomeLead={nome} hrefVendita={hrefVendita} />
+                ) : null}
+                <LinkBottone href={hrefVendita} className="gap-1.5 px-3" aria-label={VENDITA_DA_REGISTRARE.nomeBottone(nome)}>
+                  <Receipt className="size-4" aria-hidden="true" />
+                  {VENDITA_DA_REGISTRARE.bottone}
+                </LinkBottone>
+              </div>
+            )}
           </div>
           {/* the closer does not tie a sale: he asks the admin, never a second sale */}
-          {admin ? null : (
+          {admin || solaLettura ? null : (
             <p className="text-xs text-muted-foreground" data-testid="vendita-chiedi-admin">
               {VENDITA_DA_REGISTRARE.chiediAdmin}
             </p>
@@ -387,6 +397,7 @@ export function SchedaCall({
             registrazione={call.registrazione ?? null}
             svolta={call.stato === 'svolta' && chiedeRegistrazioneEsito(call.esito)}
             oggi={oggi}
+            solaLettura={solaLettura}
           />
           <AnalisiCall
             callId={call.id}
@@ -395,6 +406,7 @@ export function SchedaCall({
             esito={call.esito}
             motivoSalvato={call.obiezione_principale ?? null}
             link={call.link_registrazione ?? null}
+            solaLettura={solaLettura}
           />
           {call.valutazione ? (
             <PerformanceCall callId={call.id} valutazione={call.valutazione} performanceSalvata={call.performance ?? null} />

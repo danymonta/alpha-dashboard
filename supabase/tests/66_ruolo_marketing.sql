@@ -16,7 +16,7 @@ select plan(43);
 -- 1. The role, and an invite that uses it
 -- ---------------------------------------------------------------------------
 select enum_has_labels('public', 'app_role',
-  array['admin', 'setter', 'closer', 'coach', 'editor', 'marketing', 'nutrizione', 'dev'],
+  array['admin', 'setter', 'closer', 'coach', 'editor', 'marketing', 'nutrizione', 'dev', 'business_coach'],
   'app_role ha marketing, dopo il video editor');
 
 insert into public.invites (email, ruolo) values

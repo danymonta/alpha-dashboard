@@ -46,6 +46,7 @@ export const FUNZIONE: Record<AppRole, string> = {
   marketing: 'Marketing',
   nutrizione: 'Nutrizione',
   dev: 'Sviluppo',
+  business_coach: 'Business coach',
 }
 
 const nav = (href: string, ...alternative: string[]) => [`nav-${href}`, ...alternative]
@@ -134,6 +135,35 @@ function soloProgetti(
 }
 
 export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
+  // the business coach (22/10/2026): six steps, read only, never a "tocca" on something that writes
+  business_coach: [
+    {
+      id: 'benvenuto',
+      titolo: 'Benvenuto in Alpha Management',
+      testo: 'Vedi tutto quello che vede l’admin, in sola lettura: numeri, call, clienti, setter, contenuti e progetti. Niente si modifica dal tuo account. Puoi rivedere questo tour quando vuoi dal tuo profilo.',
+    },
+    {
+      id: 'panoramica',
+      pagina: '/',
+      titolo: 'Panoramica',
+      testo: 'Il mese in un colpo d’occhio: cash incassato e quanto viene da nuovi clienti, rate di clienti già entrati o rinnovi, margine operativo, obiettivi e chi deve pagare.',
+      target: ['kpi-cash'],
+    },
+    {
+      id: 'setter',
+      titolo: 'Setter',
+      testo: 'I numeri del setting giorno per giorno e, nella scheda «Insight 24h», il recap dei DM.',
+      target: nav('/setting'),
+    },
+    {
+      id: 'closer',
+      titolo: 'Closer',
+      testo: 'I numeri del closer giorno per giorno: call, show rate, chiuse, cash e revenue dei clienti nuovi.',
+      target: nav('/setting/closer', 'nav-altro'),
+    },
+    alfire('Chiedile i numeri, anche col vocale: legge quello che leggi tu, e non scrive niente.'),
+    PROFILO,
+  ],
   admin: [
     benvenuto('admin'),
     {

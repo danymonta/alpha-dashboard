@@ -9,6 +9,7 @@ import { StatoRata } from '@/components/pagamento/stato-rata'
 import { BottoneWhatsApp } from '@/components/pagamento/whatsapp'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
+import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formatData, formatEuro, formatMese } from '@/lib/format'
@@ -43,7 +44,9 @@ export default async function IncassiPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  await requireRuolo(['admin'])
+  // the admin, and the business coach in read only (22/10/2026): no cash-in, no message to the client
+  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
+  const scrive = puoScrivere(profilo.ruolo)
   const parametri = await searchParams
   const richiesta = Array.isArray(parametri.vista) ? parametri.vista[0] : parametri.vista
   const vista: Vista = richiesta && richiesta in VISTE ? (richiesta as Vista) : 'ritardo'
@@ -100,8 +103,8 @@ export default async function IncassiPage({
         titolo="Incassi"
         descrizione={
           <>
-            I soldi, rata per rata: quando scade ogni pagamento e se è entrato. Segna incassata da qui. Il contratto da cui
-            nasce ogni rata è in{' '}
+            I soldi, rata per rata: quando scade ogni pagamento e se è entrato.{scrive ? ' Segna incassata da qui.' : ''} Il
+            contratto da cui nasce ogni rata è in{' '}
             <Link href="/sales" className="font-medium text-foreground underline underline-offset-4 hover:text-primary">
               Vendite
             </Link>
@@ -254,7 +257,7 @@ export default async function IncassiPage({
               </div>
               {/* fixed width from md up: amounts line up whatever the actions */}
               <div className="flex items-center justify-end gap-2 md:w-64 md:shrink-0">
-                {r.stato === 'prevista' ? (
+                {r.stato === 'prevista' && scrive ? (
                   <BottoneWhatsApp
                     compatto
                     etichetta={`Scrivi a ${r.cliente} su WhatsApp per la rata ${r.numero_rata}`}
@@ -270,7 +273,7 @@ export default async function IncassiPage({
                     )}
                   />
                 ) : null}
-                {r.stato !== 'rimborsata' ? (
+                {r.stato !== 'rimborsata' && scrive ? (
                   <RataAzioni
                     rata={{
                       id: r.payment_id!,

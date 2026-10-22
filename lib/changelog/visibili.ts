@@ -1,4 +1,4 @@
-import type { AppRole } from '@/lib/auth/roles'
+import { leggeComeAdmin, type AppRole } from '@/lib/auth/roles'
 import { VERSIONI, type Intestazione, type Pubblico, type Versione, type Voce } from '@/lib/changelog/versioni'
 
 /**
@@ -16,6 +16,8 @@ export const PUBBLICI_DEL_RUOLO: Record<AppRole, readonly Pubblico[]> = {
   marketing: ['marketing', 'progetti', 'tutti'],
   nutrizione: ['progetti', 'tutti'],
   dev: ['progetti', 'tutti'],
+  // the business coach reads what the admin reads (22/10/2026), the changelog too
+  business_coach: ['admin', 'setter', 'closer', 'marketing', 'progetti', 'tutti'],
 }
 
 export function leggePubblico(ruolo: AppRole, per: readonly Pubblico[]): boolean {
@@ -45,7 +47,8 @@ export type VersioneVisibile = {
  * browser.
  */
 export function versioniPer(ruolo: AppRole, versioni: readonly Versione[] = VERSIONI): VersioneVisibile[] {
-  const admin = ruolo === 'admin'
+  // the business coach reads the changelog as the admin does, with who else reads each item (22/10/2026)
+  const admin = leggeComeAdmin(ruolo)
   const scegli = (voci: readonly Voce[] = []): VoceVisibile[] =>
     voci
       .filter((voce) => leggePubblico(ruolo, voce.per))

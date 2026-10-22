@@ -35,7 +35,7 @@ select has_column('public', 'marketing_analisi', 'punteggio_tipo', 'e il tipo');
 select has_column('public', 'marketing_analisi', 'versione_guida', 'e la versione della guida');
 select hasnt_column('public', 'call_lavori_stato', 'spunti_automatici', 'l''interruttore degli spunti automatici non c''è più');
 select policies_are('public', 'marketing_analisi',
-  array['marketing_analisi_lettura', 'marketing_analisi_mai_da_oauth'], 'le analisi: sempre solo lettura, nessuna policy nuova');
+  array['marketing_analisi_lettura', 'marketing_analisi_lettura_come_admin', 'marketing_analisi_mai_da_oauth'], 'le analisi: sempre solo lettura, nessuna policy nuova');
 select hasnt_column('public', 'marketing_analisi', 'created_by', 'nessun autore: sono contenuti, non persone');
 
 -- ---------------------------------------------------------------------------

@@ -504,6 +504,8 @@ describe('le parole della scheda di consenso', () => {
     // every role connects Claude since 22/10/2026: the setter has projects and his own time, not the calendar
     expect(azioniConsenso({ ruolo: 'setter', livello: 'employee' })).toEqual(frase([...CONSENSO.azioniProgetti]))
     expect(azioniConsenso({ ruolo: 'coach', livello: 'manager' })).toEqual(frase([...CONSENSO.azioniProgetti, CONSENSO.azioneGestione]))
+    // the business coach reads only (22/10/2026), whatever his level
+    expect(azioniConsenso({ ruolo: 'business_coach', livello: 'manager' })).toEqual(frase([...CONSENSO.azioniSolaLettura]))
     for (const voce of [...CONSENSO.azioni, CONSENSO.azioneAdmin, ...CONSENSO.azioniProgetti, CONSENSO.azioneGestione, CONSENSO.azioneTempoTeam]) {
       expect(voce).not.toMatch(/[;.,:]$/)
     }

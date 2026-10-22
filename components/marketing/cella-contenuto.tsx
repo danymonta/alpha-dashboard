@@ -11,6 +11,7 @@ import { LinkContenuto } from '@/components/marketing/link-contenuto'
 import { MenuStatus } from '@/components/marketing/menu-status'
 import { consumaDaAprire } from '@/components/marketing/nuova-riga'
 import { SelectOpzioni } from '@/components/marketing/select-opzioni'
+import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
@@ -89,7 +90,38 @@ const APRI_LINK: Partial<Record<CampoEditor, string>> = {
  * The save is optimistic: the popover closes at once, the value shows, and
  * comes back by itself if the server refuses.
  */
-export function EditorCella<C extends CampoEditor>({
+/**
+ * The value of a cell for a read-only account (the business coach, 22/10/2026): the text, a link that
+ * opens for a URL, nothing for the pencil «Rinomina».
+ */
+function ValoreCella({ campo, valore, aspetto, className }: { campo: CampoEditor; valore: unknown; aspetto: AspettoEditor; className?: string }) {
+  if (aspetto === 'matita') return null
+  const visibile = testoMostrato(campo, valore)
+  if (!visibile) return <span className={cn('text-muted-foreground', className)}>–</span>
+  if (campo === 'url') {
+    return (
+      <a
+        href={visibile}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn('inline-flex min-h-11 items-center gap-1 text-sm underline-offset-4 hover:underline', className)}
+      >
+        <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
+        Apri il post
+      </a>
+    )
+  }
+  return <span className={cn('num text-sm', className)}>{visibile}</span>
+}
+
+/** A property changed from its own cell; for a read-only account only its value (useSolaLettura). */
+export function EditorCella<C extends CampoEditor>(props: Parameters<typeof EditorCellaModificabile<C>>[0]) {
+  const solaLettura = useSolaLettura()
+  if (solaLettura) return <ValoreCella campo={props.campo} valore={props.valore} aspetto={props.aspetto ?? 'cella'} />
+  return <EditorCellaModificabile {...props} />
+}
+
+function EditorCellaModificabile<C extends CampoEditor>({
   id,
   nome,
   campo,

@@ -5,6 +5,7 @@ import { ETICHETTA_STATO_CLIENTE, StatoClienteBadge, type StatoCliente } from '@
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import {
   ETICHETTA_VISTA,
@@ -49,7 +50,9 @@ export default async function ClientiPage({
 }: {
   searchParams: Promise<{ vista?: string; stato?: string; q?: string }>
 }) {
-  await requireRuolo(['admin'])
+  // the admin, and the business coach in read only (22/10/2026)
+  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
+  const scrive = puoScrivere(profilo.ruolo)
   const { vista: vistaRichiesta, stato, q } = await searchParams
   const vista = vistaDa(vistaRichiesta, stato, q)
   const filtro = vista === 'tutti' && STATI.includes(stato as StatoCliente) ? (stato as StatoCliente) : null
@@ -102,7 +105,11 @@ export default async function ClientiPage({
   const intestazione = (
     <IntestazionePagina
       titolo="Clienti"
-      descrizione="Attivi, sospesi e chiusi con il loro percorso, il contratto, quanto hanno pagato e le rate da saldare. Lo stato si calcola dalle vendite; Sospeso e Chiuso li decidi tu dalla scheda del cliente («Sospendi», «Non rinnova»)."
+      descrizione={
+        scrive
+          ? 'Attivi, sospesi e chiusi con il loro percorso, il contratto, quanto hanno pagato e le rate da saldare. Lo stato si calcola dalle vendite; Sospeso e Chiuso li decidi tu dalla scheda del cliente («Sospendi», «Non rinnova»).'
+          : 'Attivi, sospesi e chiusi con il loro percorso, il contratto, quanto hanno pagato e le rate da saldare. Lo stato si calcola dalle vendite; Sospeso e Chiuso li decide l’admin.'
+      }
     />
   )
 
@@ -118,7 +125,8 @@ export default async function ClientiPage({
       : { data: [], error: null }
     if (errAnagrafiche) throw new Error('Impossibile caricare i clienti')
     const handle = Object.fromEntries((anagrafiche ?? []).map((c) => [c.id, c.instagram_handle]))
-    const picker = righe.length ? await configPickerRichiesta() : null
+    // the Picker opens Google to choose a folder: only for who can save it
+    const picker = righe.length && scrive ? await configPickerRichiesta() : null
 
     return (
       <div className="space-y-5">
@@ -127,7 +135,7 @@ export default async function ClientiPage({
         {righe.length === 0 ? (
           <StatoVuoto Icona={vista === 'sospesi' ? CirclePause : Users} titolo={VUOTO[vista].titolo} descrizione={VUOTO[vista].descrizione} />
         ) : (
-          <ElencoClienti righe={righe} handle={handle} oggi={oggi} picker={picker} etichetta={`Clienti ${ETICHETTA_VISTA[vista].toLowerCase()}`} />
+          <ElencoClienti righe={righe} handle={handle} oggi={oggi} picker={picker} solaLettura={!scrive} etichetta={`Clienti ${ETICHETTA_VISTA[vista].toLowerCase()}`} />
         )}
       </div>
     )

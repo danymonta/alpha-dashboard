@@ -18,7 +18,8 @@ import { vociNav } from '@/lib/nav'
 
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 const PUBBLICI = Object.keys(ETICHETTA_PUBBLICO) as Pubblico[]
-const COLLABORATORI = TUTTI_I_RUOLI.filter((r) => r !== 'admin')
+// the business coach reads as the admin (22/10/2026): he is not one of the team here
+const COLLABORATORI = TUTTI_I_RUOLI.filter((r) => r !== 'admin' && r !== 'business_coach')
 
 /**
  * Who reads what, written here by hand (CLAUDE.md section 23) and not taken
@@ -35,6 +36,8 @@ const LEGGE: Record<AppRole, readonly Pubblico[]> = {
   marketing: ['marketing', 'progetti', 'tutti'],
   nutrizione: ['progetti', 'tutti'],
   dev: ['progetti', 'tutti'],
+  // the business coach reads what the admin reads (22/10/2026)
+  business_coach: ['admin', 'setter', 'closer', 'marketing', 'progetti', 'tutti'],
 }
 
 function legge(ruolo: AppRole, per: readonly Pubblico[]): boolean {
@@ -221,7 +224,7 @@ describe('per chi è ogni voce', () => {
 })
 
 describe('cosa legge ogni ruolo', () => {
-  it('chi legge cosa è quello deciso, per ognuno degli 8 ruoli', () => {
+  it('chi legge cosa è quello deciso, per ognuno dei 9 ruoli', () => {
     expect(Object.keys(LEGGE).sort()).toEqual([...TUTTI_I_RUOLI].sort())
     expect(PUBBLICI_DEL_RUOLO).toEqual(LEGGE)
   })
@@ -235,6 +238,10 @@ describe('cosa legge ogni ruolo', () => {
       expect(v.novita).toEqual(originale.novita.map(({ testo, per }) => ({ testo, per })))
       expect(v.correzioni).toEqual((originale.correzioni ?? []).map(({ testo, per }) => ({ testo, per })))
     })
+  })
+
+  it('il business coach legge il changelog come l’admin (22/10/2026)', () => {
+    expect(versioniPer('business_coach')).toEqual(versioniPer('admin'))
   })
 
   it.each(COLLABORATORI)('%s legge solo le voci per lui, con le parole del team', (ruolo: AppRole) => {

@@ -66,6 +66,22 @@ describe('gli strumenti per ruolo', () => {
     expect(ordinati(strumentiPer('coach', 'manager').map((s) => s.nome))).toEqual(ordinati([...PROGETTI, ...GESTIONE]))
   })
 
+  it('il business coach (22/10/2026): le letture dell’admin, mai una scrittura né i «miei», a ogni livello', () => {
+    for (const livello of ['admin', 'manager', 'employee', null] as const) {
+      const suoi = strumentiPer('business_coach', livello)
+      expect(ordinati(suoi.map((s) => s.nome)), String(livello)).toEqual(
+        ordinati([...LETTURE_CALENDARIO, 'elenco_progetti', 'leggi_progetto', 'persone_del_team', 'reparti_e_modelli', 'tempo_team']),
+      )
+      for (const s of suoi) {
+        expect(s.scrive, s.nome).toBe(false)
+        expect(s.annotazioni.readOnlyHint, s.nome).toBe(true)
+      }
+    }
+    const istruzioni = istruzioniMcp('business_coach', 'employee')
+    expect(istruzioni).toContain('non scrive niente')
+    expect(istruzioni).not.toMatch(/crea_contenuti|registra_tempo|crea_task|miei_task|mio_tempo/)
+  })
+
   it('un ruolo sconosciuto non arriva mai fin qui: nessun server vuoto, un errore', () => {
     expect(() => strumentiPer('sconosciuto')).toThrow()
   })

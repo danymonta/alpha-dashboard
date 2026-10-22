@@ -1,7 +1,7 @@
 import { NotebookPen } from 'lucide-react'
 
 import { EliminaNota, ModificaNota, NoteLive, NuovaNota } from '@/components/pm/note/note-client'
-import { livelloPmEffettivo } from '@/lib/auth/roles'
+import { livelloPmEffettivo, solaLettura } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { formatOra, oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
@@ -40,7 +40,8 @@ export default async function NoteProgettoPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-6">
       <NoteLive progettoId={id} />
-      <NuovaNota progettoId={id} oggi={oggi} />
+      {/* the business coach reads the notes and writes none (22/10/2026) */}
+      {solaLettura(profilo.ruolo) ? null : <NuovaNota progettoId={id} oggi={oggi} />}
 
       {note.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">

@@ -12,6 +12,7 @@ import { GraficoCash } from '@/components/panoramica/grafico-cash'
 import { ObiettiviMese } from '@/components/panoramica/obiettivi'
 import { TileKpi } from '@/components/panoramica/tile-kpi'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
+import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import {
@@ -168,9 +169,10 @@ export default async function PanoramicaPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  // Admin only: every other role goes to its own landing page (setter /today,
-  // closer /calls, the roles without Economics /progetti)
-  await requireRuolo(['admin'])
+  // The admin, and the business coach in read only (22/10/2026): every other role goes to its own
+  // landing page (setter /today, closer /calls, the roles without Economics /progetti)
+  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
+  const scrive = puoScrivere(profilo.ruolo)
 
   const oggi = oggiRoma()
   // a month (?mese=) or any range (?da=&a=); the comparison window comes with it
@@ -312,6 +314,7 @@ export default async function PanoramicaPage({
 
       {obiettivi.data ? (
         <ObiettiviMese
+          solaLettura={!scrive}
           a={{
             mese: obiettivi.data.mese,
             etichettaMese: formatMese(obiettivi.data.mese),
@@ -621,9 +624,11 @@ export default async function PanoramicaPage({
                       scade il {formatData(c.data_fine_ultima)}
                     </span>
                   </Link>
-                  <LinkBottone href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} variant="outline" className="shrink-0">
-                    Registra rinnovo
-                  </LinkBottone>
+                  {scrive ? (
+                    <LinkBottone href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} variant="outline" className="shrink-0">
+                      Registra rinnovo
+                    </LinkBottone>
+                  ) : null}
                 </li>
               ))}
             </ul>

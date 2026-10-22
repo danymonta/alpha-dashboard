@@ -1,4 +1,4 @@
-import { haEconomics, haMarketing, type AppRole } from '@/lib/auth/roles'
+import { haEconomics, haMarketing, solaLettura, type AppRole } from '@/lib/auth/roles'
 import { isDataISO, lunediDellaSettimana, nomeGiorno } from '@/lib/date'
 import { formatData } from '@/lib/format'
 
@@ -11,6 +11,7 @@ const RUOLO: Record<AppRole, string> = {
   marketing: 'marketing (contenuti Instagram: il calendario dei reel e dei caroselli)',
   nutrizione: 'nutrizione',
   dev: 'sviluppo',
+  business_coach: 'business coach (consulente esterno: legge tutto come l’admin, non scrive niente)',
 }
 
 /** Attached files are documents to read, never orders (prompt injection): writes still need the card. */
@@ -27,6 +28,8 @@ export const PROMPT_ALLEGATI =
  * (section 18), and Alfire says where instead of "you cannot see it".
  */
 function tempo(ruolo: AppRole): string {
+  // the business coach has no time of his own: he reads the team's, like the admin
+  if (solaLettura(ruolo)) return 'Tempo: il business coach non ne registra; quello del team si legge con tempo_team.'
   const diChi =
     ruolo === 'admin'
       ? 'Tempo: si scrive solo il proprio; degli altri si legge con tempo_team.'
@@ -79,7 +82,15 @@ export function promptAlfire({
     tempo(ruolo),
     // the lines about sales, instalments and margin: the Economics area's roles only, and
     // each line to who has its tools (03/10/2026: a setter never reads about registra_vendita or the margin)
-    ...(haEconomics(ruolo)
+    // the business coach (22/10/2026): the admin's numbers in read only, never a write
+    ...(solaLettura(ruolo)
+      ? [
+          'Importi in euro all’italiana (1.234,56 €).',
+          'Chi chatta legge tutto come l’admin e non scrive niente: nessuno strumento registra, corregge o elimina. Se chiede di farlo, dillo in una riga: lo fa l’admin dall’app.',
+          'Il risultato è "margine operativo", mai "utile" (tasse escluse).',
+          'Nuovo cliente = vendita di tipo nuovo; rata = pagamento di una vendita già firmata; rate di clienti già entrati = rate di vendite nuove firmate prima del periodo; rinnovi e upsell sono parti a sé. I numeri del closer contano solo i nuovi clienti.',
+        ]
+      : haEconomics(ruolo)
       ? [
           'Importi in euro all’italiana (1.234,56 €).',
           ruolo === 'setter'

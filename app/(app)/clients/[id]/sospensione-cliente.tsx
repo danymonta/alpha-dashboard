@@ -261,11 +261,14 @@ export function SospensioneCliente({
   cliente,
   oggi,
   sospensione,
+  solaLettura = false,
 }: {
   clientId: string
   cliente: string
   oggi: string
   sospensione: Sospensione
+  /** The business coach reads it and never changes it (22/10/2026). */
+  solaLettura?: boolean
 }) {
   return (
     <section
@@ -281,10 +284,12 @@ export function SospensioneCliente({
         </p>
         {sospensione.motivo ? null : <p className="mt-0.5 text-xs text-muted-foreground">Nessun motivo scritto</p>}
       </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <Sospendi clientId={clientId} cliente={cliente} oggi={oggi} sospensione={sospensione} />
-        <RiattivaCliente clientId={clientId} cliente={cliente} />
-      </div>
+      {solaLettura ? null : (
+        <div className="flex shrink-0 items-center gap-1">
+          <Sospendi clientId={clientId} cliente={cliente} oggi={oggi} sospensione={sospensione} />
+          <RiattivaCliente clientId={clientId} cliente={cliente} />
+        </div>
+      )}
     </section>
   )
 }

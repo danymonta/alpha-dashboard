@@ -66,16 +66,21 @@ export function FattiProvider({
   fonte,
   giorno,
   iniziali,
+  perRuolo = false,
   children,
 }: {
   fonte: Fonte
   giorno: string
   iniziali: readonly string[]
+  /** The business coach (22/10/2026): the ticks to read, every switch off; no banner, it is his role. */
+  perRuolo?: boolean
   children: ReactNode
 }) {
   const [server, setServer] = useState<Set<string>>(() => new Set(iniziali))
   const [errori, setErrori] = useState<Set<string>>(() => new Set())
-  const [solaLettura, setSolaLettura] = useState(false)
+  // a write the database refused as read only: the banner says so
+  const [rifiutata, setSolaLettura] = useState(false)
+  const solaLettura = perRuolo || rifiutata
   const [realtime, setRealtime] = useState<'connessione' | 'live' | 'offline'>('connessione')
   const annuncia = useAnnuncia()
   // our confirmed writes, with when they finished: a read started before must not undo them
@@ -242,7 +247,7 @@ export function FattiProvider({
 
   return (
     <ContestoFatti.Provider value={valore}>
-      {solaLettura ? (
+      {rifiutata && !perRuolo ? (
         <p
           role="status"
           className="sticky top-16 z-20 rounded-lg border border-border bg-card px-3 py-2.5 text-sm shadow-md md:top-4"

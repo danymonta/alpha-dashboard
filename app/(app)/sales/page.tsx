@@ -6,6 +6,7 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { ElencoVendite } from '@/components/vendite/elenco-vendite'
+import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { leggiPeriodo } from '@/lib/periodo'
@@ -23,7 +24,9 @@ export default async function VenditePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  await requireRuolo(['admin'])
+  // the admin, and the business coach in read only (22/10/2026)
+  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
+  const scrive = puoScrivere(profilo.ruolo)
   const parametri = await searchParams
   const oggi = oggiRoma()
   const periodo = leggiPeriodo(parametri, oggi)
@@ -62,10 +65,12 @@ export default async function VenditePage({
           </>
         }
         azione={
-          <LinkBottone href="/sales/new" data-tour="nuova-vendita">
-            <Plus className="size-4" aria-hidden="true" />
-            Nuova vendita
-          </LinkBottone>
+          scrive ? (
+            <LinkBottone href="/sales/new" data-tour="nuova-vendita">
+              <Plus className="size-4" aria-hidden="true" />
+              Nuova vendita
+            </LinkBottone>
+          ) : undefined
         }
       />
 
@@ -108,8 +113,8 @@ export default async function VenditePage({
         <StatoVuoto
           Icona={Receipt}
           titolo={`Nessuna vendita ${periodo.frase}`}
-          descrizione="Cambia periodo o filtri, oppure registra una vendita."
-          azione={<LinkBottone href="/sales/new">Registra una vendita</LinkBottone>}
+          descrizione={scrive ? 'Cambia periodo o filtri, oppure registra una vendita.' : 'Cambia periodo o filtri.'}
+          azione={scrive ? <LinkBottone href="/sales/new">Registra una vendita</LinkBottone> : undefined}
         />
       ) : (
         <ElencoVendite righe={righe} mostraPersone />

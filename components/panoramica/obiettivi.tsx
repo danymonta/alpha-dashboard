@@ -52,7 +52,8 @@ function Barra({ etichetta, valore, obiettivo, quota }: { etichetta: string; val
 }
 
 /** "Obiettivi del mese" in the admin overview: progress, and the sheet to set them. */
-export function ObiettiviMese({ a }: { a: Avanzamento }) {
+/** `solaLettura`: the business coach reads the goals and never sets them (22/10/2026). */
+export function ObiettiviMese({ a, solaLettura = false }: { a: Avanzamento; solaLettura?: boolean }) {
   const nessuno = a.obiettivo_cash === null && a.obiettivo_nuovi === null
   return (
     <section className="rounded-xl bg-card p-4" aria-labelledby="titolo-obiettivi" data-testid="obiettivi">
@@ -61,12 +62,13 @@ export function ObiettiviMese({ a }: { a: Avanzamento }) {
           <Target className="size-4 text-muted-foreground" aria-hidden="true" />
           Obiettivi di {a.etichettaMese}
         </h2>
-        <ImpostaObiettivi a={a} />
+        {solaLettura ? null : <ImpostaObiettivi a={a} />}
       </div>
       {nessuno ? (
         <p className="text-sm text-muted-foreground">
-          Nessun obiettivo per questo mese. Imposta quanto vuoi incassare e quanti clienti nuovi vuoi chiudere: qui vedi a
-          che punto sei.
+          {solaLettura
+            ? 'Nessun obiettivo per questo mese.'
+            : 'Nessun obiettivo per questo mese. Imposta quanto vuoi incassare e quanti clienti nuovi vuoi chiudere: qui vedi a che punto sei.'}
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

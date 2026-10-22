@@ -9,7 +9,7 @@ import { SezioneContenuti, UscitaDallaLista } from '@/components/marketing/sezio
 import { TabellaContenuti } from '@/components/marketing/tabella-contenuti'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { RUOLI_MARKETING } from '@/lib/auth/roles'
+import { RUOLI_MARKETING_LETTURA } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { leggiDettaglioContenuto } from '@/lib/marketing/dettaglio'
 import { LIMITE_TABELLA } from '@/lib/marketing/elenco'
@@ -40,7 +40,8 @@ export default async function PianoEditorialePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const profilo = await requireRuolo(RUOLI_MARKETING)
+  // the business coach reads the plan (22/10/2026): every cell shows its value, none changes (useSolaLettura)
+  const profilo = await requireRuolo(RUOLI_MARKETING_LETTURA)
   const sp = await searchParams
   const richiesto = primo(sp[PARAMETRO_CONTENUTO])
   const contenutoId = isUuid(richiesto) ? richiesto : null

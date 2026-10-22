@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { aggiungiTask } from '@/app/(app)/progetti/[id]/actions'
 import { useAttivita } from '@/components/pm/attivita/contesto'
 import { SceltaMultipla } from '@/components/form/scelta-multipla'
+import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -19,7 +20,13 @@ import { nuovoTaskSchema, type NuovoTaskInput } from '@/lib/validation/progetti'
  * task sheet later. The person button opens the members, to give the task to
  * one or more of them right away. Focus stays in the field to add the next one.
  */
-export function AggiuntaRapida({
+export function AggiuntaRapida(props: Parameters<typeof AggiuntaRapidaModificabile>[0]) {
+  // no new task from a read-only account (the business coach, 22/10/2026)
+  const solaLettura = useSolaLettura()
+  return solaLettura ? null : <AggiuntaRapidaModificabile {...props} />
+}
+
+function AggiuntaRapidaModificabile({
   progettoId,
   tasklistId = null,
   parentId = null,

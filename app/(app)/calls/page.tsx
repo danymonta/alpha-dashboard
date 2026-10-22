@@ -4,6 +4,7 @@ import { CAMPI_CALL_CLOSER, CAMPI_CALL_SETTER, SchedaCall, type CallVista } from
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { solaLettura } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { VENDITA_DA_REGISTRARE } from '@/lib/call/follow-up'
 import { SPOSTA } from '@/lib/call/spostamento'
@@ -37,16 +38,16 @@ function Sezione({
 }
 
 /** Data loading, kept out of the render: it reads the clock. */
-async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRiassegnare: boolean) {
+async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRiassegnare: boolean, tutte = false) {
   const supabase = await createClient()
   const adesso = Date.now()
+  // the business coach (22/10/2026): every closer's calls, as the admin reads them; nobody's "own"
+  const delCloser = <Q extends { eq: (colonna: 'closer_id', valore: string) => Q }>(q: Q): Q =>
+    tutte ? q : q.eq('closer_id', profiloId)
 
   const query =
     vista === 'closer'
-      ? supabase
-          .from('calls')
-          .select(CAMPI_CALL_CLOSER)
-          .eq('closer_id', profiloId)
+      ? delCloser(supabase.from('calls').select(CAMPI_CALL_CLOSER))
           // everything still open (one "In attesa di conferma" waits for its new day),
           // plus what was recorded in the last week
           .or(`stato.in.(programmata,riprogrammata),programmata_il.gte.${new Date(adesso - 7 * GIORNO_MS).toISOString()}`)
@@ -69,10 +70,7 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
     // too. The sale is looked for whatever closer it carries
     // (public.call_ha_vendita): the closer reads only the sales he closed.
     vista === 'closer'
-      ? supabase
-          .from('calls')
-          .select(CAMPI_CALL_CLOSER)
-          .eq('closer_id', profiloId)
+      ? delCloser(supabase.from('calls').select(CAMPI_CALL_CLOSER))
           .eq('esito', 'chiusa')
           .eq('importata', false)
           .eq('call_ha_vendita', false)
@@ -100,12 +98,15 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
 }
 
 export default async function LeMieCallPage() {
-  const profilo = await requireRuolo(['setter', 'closer', 'admin'])
+  // the business coach reads every call of the team (22/10/2026), the closer's card without its buttons
+  const profilo = await requireRuolo(['setter', 'closer', 'admin', 'business_coach'])
+  const leggeSolo = solaLettura(profilo.ruolo)
   const vista = profilo.ruolo === 'setter' ? 'setter' : 'closer'
   const { calls, senzaVendita, closers, prodotti, adesso, oggi } = await caricaCall(
     vista,
     profilo.id,
-    profilo.ruolo !== 'closer',
+    profilo.ruolo !== 'closer' && !leggeSolo,
+    leggeSolo,
   )
 
   const passata = (c: CallVista) => new Date(c.programmata_il).getTime() < adesso
@@ -133,8 +134,12 @@ export default async function LeMieCallPage() {
     </LinkBottone>
   )
 
-  const intestazione =
-    vista === 'closer' ? (
+  const intestazione = leggeSolo ? (
+    <IntestazionePagina
+      titolo="Call"
+      descrizione="Le call del team, di ogni closer, con stato, esito e analisi: in sola lettura."
+    />
+  ) : vista === 'closer' ? (
       <IntestazionePagina
         titolo="Le mie call"
         descrizione="Registra l’esito appena chiudi la call: bastano due o tre tocchi."
@@ -162,6 +167,12 @@ export default async function LeMieCallPage() {
                 Fissa una call
               </LinkBottone>
             }
+          />
+        ) : leggeSolo ? (
+          <StatoVuoto
+            Icona={PhoneOff}
+            titolo="Nessuna call in programma"
+            descrizione="Le call fissate dal team compaiono qui, con stato ed esito."
           />
         ) : (
           <StatoVuoto
@@ -199,6 +210,7 @@ export default async function LeMieCallPage() {
       admin={admin}
       mostraGiorno={mostraGiorno}
       eliminabile={admin}
+      solaLettura={leggeSolo}
     />
   )
 
@@ -249,7 +261,7 @@ export default async function LeMieCallPage() {
           {concluse.length > 0 ? (
             <Sezione
               titolo="Registrate negli ultimi 7 giorni"
-              descrizione="Hai sbagliato un esito? Correggilo da qui."
+              descrizione={leggeSolo ? undefined : 'Hai sbagliato un esito? Correggilo da qui.'}
             >
               {concluse.map((c) => scheda(c))}
             </Sezione>

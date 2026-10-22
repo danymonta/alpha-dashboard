@@ -2,7 +2,7 @@ import 'server-only'
 
 import { redirect } from 'next/navigation'
 
-import { livelloPmEffettivo, type LivelloPm } from '@/lib/auth/roles'
+import { livelloPmEffettivo, SOLA_LETTURA, solaLettura, type LivelloPm } from '@/lib/auth/roles'
 import { getProfilo, requireProfilo, type Profilo } from '@/lib/auth/session'
 
 /**
@@ -24,6 +24,7 @@ export async function negaSeNonPm(
 ): Promise<string | null> {
   const profilo = await getProfilo()
   if (!profilo || !profilo.attivo) return 'Sessione scaduta. Rientra e riprova.'
+  if (solaLettura(profilo.ruolo)) return SOLA_LETTURA
   const livello = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm)
   if (!livelli.includes(livello)) {
     return livelli.length === 1 && livelli[0] === 'admin'
