@@ -57,8 +57,8 @@ export default async function AccountPage() {
               ))}
             </dl>
             <p className="text-sm text-muted-foreground">Ruolo e livello li cambia l’admin in Impostazioni › Team.</p>
-            {/* Claude connected to the content calendar (09/10/2026): the steps for who may
-                connect it, and every role's own connected apps, each streamed on its own */}
+            {/* Claude connected to Alpha Management (09/10/2026; every role since 22/10/2026): the
+                steps to connect it, and every role's own connected apps, each streamed on its own */}
             {RUOLI_MCP.includes(profilo.ruolo) ? (
               <Suspense fallback={<ScheletroCollegaClaude />}>
                 <SezioneCollegaClaude admin={profilo.ruolo === 'admin'} />

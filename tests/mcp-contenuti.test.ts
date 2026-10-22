@@ -84,7 +84,13 @@ function righeOpzioni(extra: Record<string, unknown>[] = []): Record<string, unk
 }
 
 function contesto(ruolo: RuoloMcp = 'marketing'): ContestoMcp {
-  return { db: fake.client as never, ruolo, sessione: 'sessione-di-prova' }
+  return {
+    db: fake.client as never,
+    ruolo,
+    livello: ruolo === 'admin' ? 'admin' : 'employee',
+    persona: '61616161-6161-4161-8161-616161616161',
+    sessione: 'sessione-di-prova',
+  }
 }
 
 function dati(esito: EsitoStrumento): Record<string, unknown> {

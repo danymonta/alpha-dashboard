@@ -472,6 +472,8 @@ describe('la pagina di consenso mentre si apre', () => {
 })
 
 describe('le parole della scheda di consenso', () => {
+  const MARKETING = { ruolo: 'marketing', livello: 'employee' } as const
+  const ADMIN = { ruolo: 'admin', livello: 'admin' } as const
   const props = {
     authorizationId: ID,
     client: 'Claude',
@@ -481,8 +483,8 @@ describe('le parole della scheda di consenso', () => {
   }
 
   it('dice cosa farà Claude, cosa non vedrà mai e avvisa del link mandato da altri', () => {
-    const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, admin: false }))
-    for (const frase of [CONSENSO.titolo, ...azioniConsenso(false), CONSENSO.maiVisto, CONSENSO.team, CONSENSO.phishing]) {
+    const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, chi: MARKETING }))
+    for (const frase of [CONSENSO.titolo, ...azioniConsenso(MARKETING), CONSENSO.maiVisto, CONSENSO.team, CONSENSO.phishing]) {
       expect(html).toContain(frase)
     }
     expect(html).toContain('claude.ai')
@@ -493,25 +495,38 @@ describe('le parole della scheda di consenso', () => {
     expect(html).toContain('value="rifiuta"')
   })
 
-  it('l’elenco di «Claude potrà» è una frase: «;» tra le voci e «.» in fondo, con o senza l’eliminazione', () => {
-    expect(azioniConsenso(false)).toEqual(CONSENSO.azioni.map((v, i) => `${v}${i === CONSENSO.azioni.length - 1 ? '.' : ';'}`))
-    expect(azioniConsenso(true)).toEqual([...CONSENSO.azioni.map((v) => `${v};`), `${CONSENSO.azioneAdmin}.`])
-    for (const voce of [...CONSENSO.azioni, CONSENSO.azioneAdmin]) expect(voce).not.toMatch(/[;.,:]$/)
-    for (const admin of [false, true]) {
-      const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, admin }))
+  it('l’elenco di «Claude potrà» è una frase: «;» tra le voci e «.» in fondo, per ruolo e livello', () => {
+    const frase = (voci: readonly string[]) => voci.map((v, i) => `${v}${i === voci.length - 1 ? '.' : ';'}`)
+    expect(azioniConsenso(MARKETING)).toEqual(frase([...CONSENSO.azioni, ...CONSENSO.azioniProgetti]))
+    expect(azioniConsenso(ADMIN)).toEqual(
+      frase([...CONSENSO.azioni, CONSENSO.azioneAdmin, ...CONSENSO.azioniProgetti, CONSENSO.azioneGestione, CONSENSO.azioneTempoTeam]),
+    )
+    // every role connects Claude since 22/10/2026: the setter has projects and his own time, not the calendar
+    expect(azioniConsenso({ ruolo: 'setter', livello: 'employee' })).toEqual(frase([...CONSENSO.azioniProgetti]))
+    expect(azioniConsenso({ ruolo: 'coach', livello: 'manager' })).toEqual(frase([...CONSENSO.azioniProgetti, CONSENSO.azioneGestione]))
+    for (const voce of [...CONSENSO.azioni, CONSENSO.azioneAdmin, ...CONSENSO.azioniProgetti, CONSENSO.azioneGestione, CONSENSO.azioneTempoTeam]) {
+      expect(voce).not.toMatch(/[;.,:]$/)
+    }
+    for (const chi of [MARKETING, ADMIN, { ruolo: 'setter', livello: 'employee' } as const]) {
+      const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, chi }))
       const voci = [...html.matchAll(/<li[^>]*>(?:<svg.*?<\/svg>)?(.*?)<\/li>/g)].map((m) => m[1])
-      expect(voci, admin ? 'admin' : 'marketing').toEqual(azioniConsenso(admin))
+      expect(voci, chi.ruolo).toEqual(azioniConsenso(chi))
     }
   })
 
-  it('l’eliminazione solo per l’admin', () => {
-    const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, admin: true }))
-    expect(html).toContain(`${CONSENSO.azioneAdmin}.`)
+  it('l’eliminazione di un contenuto e il tempo del team solo per l’admin', () => {
+    const html = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, chi: ADMIN }))
+    expect(html).toContain(`${CONSENSO.azioneAdmin};`)
+    expect(html).toContain(`${CONSENSO.azioneTempoTeam}.`)
+    const coach = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, chi: { ruolo: 'coach', livello: 'manager' } }))
+    expect(coach).not.toContain(CONSENSO.azioneAdmin)
+    expect(coach).not.toContain(CONSENSO.azioneTempoTeam)
+    expect(coach).not.toContain(CONSENSO.azioni[0])
   })
 
   it('per Claude Code: il computer, l’avviso che ogni programma può rispondere, e niente «Connetti»', () => {
     const html = renderToStaticMarkup(
-      createElement(SchedaConsenso, { ...props, admin: false, destinazione: { tipo: 'claude_code', host: '127.0.0.1' } }),
+      createElement(SchedaConsenso, { ...props, chi: MARKETING, destinazione: { tipo: 'claude_code', host: '127.0.0.1' } }),
     )
     expect(html).toContain('un programma sul tuo computer (Claude Code), indirizzo 127.0.0.1')
     expect(html).toContain(CONSENSO.loopback)

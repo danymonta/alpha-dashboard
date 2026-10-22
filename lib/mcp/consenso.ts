@@ -141,8 +141,7 @@ export const CONSENSO = {
   titoloNonAmmesso: 'Claude non si collega a questo account',
   titoloNonDaClaude: 'Richiesta non riconosciuta',
   titoloInterrotto: 'Collegamento non riuscito',
-  nonAmmesso:
-    'Il tuo ruolo non può collegare Claude ad Alpha Management: lo possono fare l’admin, il video editor e il marketing, con l’account attivo.',
+  nonAmmesso: 'Il tuo account non è attivo: Claude si collega ad Alpha Management solo con un account attivo.',
   nonDaClaude: 'Questa richiesta non arriva da Claude: non la seguo.',
   rifiutataNonDaClaude: 'Richiesta rifiutata. Non torno a quell’indirizzo: non è di Claude.',
   chiede: 'chiede di lavorare ad Alpha Management come',
@@ -152,16 +151,26 @@ export const CONSENSO = {
   loopback:
     'Qualsiasi programma sul tuo computer può rispondere a quell’indirizzo: consenti solo se hai appena collegato Claude Code tu.',
   potra: 'Claude potrà, a tuo nome:',
-  // without the final punctuation: azioniConsenso puts «;» after each item and «.» after the last
+  // without the final punctuation: azioniConsenso puts «;» after each item and «.» after the last.
+  // The calendar: admin, video editor and marketing (azioni, azioneAdmin)
   azioni: [
     'leggere il calendario dei contenuti (reel e caroselli) con i testi delle sezioni, il profilo del cliente ideale e la guida di Dany ai contenuti',
     'leggere gli ultimi spunti per i contenuti (temi a parole, senza nomi né cifre di persone)',
     'creare contenuti, cambiare proprietà e Status, scrivere script, didascalie e commenti',
   ],
   azioneAdmin: 'eliminare un contenuto, quando glielo chiedi tu',
+  // projects, lists, tasks, notes and time (22/10/2026): every role, as in the app
+  azioniProgetti: [
+    'leggere i progetti di cui fai parte, con liste, task, membri e note, e i task assegnati a te',
+    'creare task, modificare quelli che crei o che ti sono assegnati, completarli e scrivere note',
+    'registrare, correggere e leggere il tuo tempo, e avviare e fermare il tuo timer',
+  ],
+  azioneGestione: 'creare progetti e liste, cambiarli, aggiungere persone e scegliere il coach nei progetti che gestisci',
+  azioneTempoTeam: 'leggere il tempo già dichiarato dal team, come in Tempo › Team',
   maiVistoInizio: 'Non vedrà mai',
-  maiVisto: 'soldi, clienti, lead, call, report del setter, messaggi diretti né il resto del gestionale.',
-  team: 'Ogni modifica di Claude la vede tutto il team nel calendario, come se l’avessi fatta tu.',
+  maiVisto:
+    'soldi, clienti, lead, call, report del setter, messaggi diretti, il tempo degli altri né il resto del gestionale, e non eliminerà niente dei progetti.',
+  team: 'Ogni modifica di Claude la vede il team nell’app, come se l’avessi fatta tu.',
   privacy:
     'I testi che Claude legge passano dal tuo account Claude (Anthropic): nelle impostazioni di privacy di Claude tieni spento l’uso delle chat per migliorare i modelli.',
   phishing: 'Hai appena premuto «Connetti» in Claude? Se questo link ti è arrivato da qualcun altro, premi Rifiuta.',
@@ -183,9 +192,26 @@ export const CONSENSO = {
   inCorso: 'Torno a Claude…',
 } as const
 
-/** «Claude potrà, a tuo nome:» as a sentence: «;» after each item, «.» after the last (the admin's one or not). */
-export function azioniConsenso(admin: boolean): string[] {
-  const voci: string[] = admin ? [...CONSENSO.azioni, CONSENSO.azioneAdmin] : [...CONSENSO.azioni]
+/** Whose card it is: the role and the project level, as the MCP server gives its tools. */
+export type ChiCollega = { ruolo: string; livello: 'admin' | 'manager' | 'employee' }
+
+const RUOLI_CALENDARIO = new Set(['admin', 'editor', 'marketing'])
+
+/**
+ * «Claude potrà, a tuo nome:» as a sentence: «;» after each item, «.» after the
+ * last. The calendar for admin, video editor and marketing (deleting a content
+ * the admin only), projects and one's own time for everyone, managing projects
+ * for who manages them, the team's time for the admin (22/10/2026).
+ */
+export function azioniConsenso(chi: ChiCollega): string[] {
+  const admin = chi.ruolo === 'admin'
+  const voci: string[] = [
+    ...(RUOLI_CALENDARIO.has(chi.ruolo) ? CONSENSO.azioni : []),
+    ...(admin ? [CONSENSO.azioneAdmin] : []),
+    ...CONSENSO.azioniProgetti,
+    ...(admin || chi.livello !== 'employee' ? [CONSENSO.azioneGestione] : []),
+    ...(admin ? [CONSENSO.azioneTempoTeam] : []),
+  ]
   return voci.map((voce, i) => `${voce}${i === voci.length - 1 ? '.' : ';'}`)
 }
 
@@ -237,7 +263,7 @@ export function etichettaDialogo(chiave: keyof typeof DIALOGO_CLAUDE): string {
 export const COLLEGA_CLAUDE = {
   titolo: 'Collega Claude',
   descrizione:
-    'Dal tuo account Claude lavori sul calendario dei contenuti a parole: legge, crea e scrive script e didascalie a tuo nome. Non raggiunge nient’altro del gestionale.',
+    'Dal tuo account Claude lavori a parole sui progetti, sui task e sul tuo tempo, e nel Marketing sul calendario dei contenuti, con i tuoi permessi dell’app. Non raggiunge soldi, clienti, lead, call né messaggi diretti, e non elimina niente dei progetti.',
   nome: 'Alpha Management',
   indirizzoMenu: 'claude.ai/customize/connectors',
   telefono: 'Sul telefono: dopo averlo collegato dal sito o dal computer, lo trovi anche nell’app di Claude.',
@@ -265,5 +291,5 @@ export const APP_COLLEGATE = {
   vuoto: 'Nessuna app collegata.',
   errore: 'Non riesco a leggere le app collegate.',
   scollega: 'Scollega',
-  conseguenza: 'Claude non potrà più leggere né scrivere il calendario finché non lo ricolleghi.',
+  conseguenza: 'Claude non potrà più leggere né scrivere niente a tuo nome finché non lo ricolleghi.',
 } as const

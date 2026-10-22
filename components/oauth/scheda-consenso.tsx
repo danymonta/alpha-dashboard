@@ -5,7 +5,7 @@ import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { LinkBottone } from '@/components/link-bottone'
 import { DecisioneConsenso } from '@/components/oauth/decisione-consenso'
 import { NOME_APP } from '@/lib/brand/nome'
-import { CONSENSO, avvisoPhishing, azioniConsenso, doveTorni, type DestinazioneClaude } from '@/lib/mcp/consenso'
+import { CONSENSO, avvisoPhishing, azioniConsenso, doveTorni, type ChiCollega, type DestinazioneClaude } from '@/lib/mcp/consenso'
 
 /*
  * The consent page's cards (Claude connected to Alpha Management, 09/10/2026).
@@ -91,16 +91,17 @@ export function SchedaConsenso({
   destinazione,
   nome,
   ruolo,
-  admin,
+  chi,
 }: {
   authorizationId: string
   client: string
   destinazione: Pick<DestinazioneClaude, 'tipo' | 'host'>
   nome: string
   ruolo: string
-  admin: boolean
+  /** Role and project level: what Claude may do depends on them (22/10/2026). */
+  chi: ChiCollega
 }) {
-  const azioni = azioniConsenso(admin)
+  const azioni = azioniConsenso(chi)
   return (
     <Scheda titolo={CONSENSO.titolo}>
       <ChiSiCollega client={client} nome={nome} ruolo={ruolo} />

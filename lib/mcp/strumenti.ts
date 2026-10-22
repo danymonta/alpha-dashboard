@@ -3,6 +3,8 @@ import 'server-only'
 import type { ToolAnnotations } from '@modelcontextprotocol/server'
 import type { z } from 'zod'
 
+import { RUOLI_MARKETING, TUTTI_I_RUOLI, type LivelloPm } from '@/lib/auth/roles'
+
 import { ETICHETTA_MODELLO, SEZIONI } from '@/lib/marketing/etichette'
 
 import {
@@ -33,11 +35,16 @@ import {
   scriviSezioneSchema,
   spuntiSchema,
 } from './schemi'
+import * as progetti from './progetti'
+import * as sp from './schemi-progetti'
 import { spuntiPerClaude } from './spunti'
 
 /**
- * The MCP tools (Claude connected to the content calendar, 09/10/2026): name,
- * title, description, input, annotations, roles and handler. Descriptions are
+ * The MCP tools: the content calendar (09/10/2026, admin, video editor and
+ * marketing) and, since 22/10/2026 (Claude a 360 gradi, phase 1), projects,
+ * lists, tasks, notes and time for every role, each with the person's own
+ * permissions in the app. Name, title, description, input, annotations,
+ * roles, project levels and handler. Descriptions are
  * in Italian with the exact Notion labels (built from lib/marketing/etichette.ts)
  * and say what a tool does; how Claude behaves is in the server instructions.
  *
@@ -55,10 +62,17 @@ export type Strumento = {
   /** a write tool: counted by the write limit */
   scrive: boolean
   ruoli: readonly RuoloMcp[]
+  /** The project levels that see the tool (who manages projects), when it depends on them. */
+  livelli?: readonly LivelloPm[]
   esegui: (args: unknown, ctx: ContestoMcp) => Promise<EsitoStrumento>
 }
 
-const TUTTI: readonly RuoloMcp[] = ['admin', 'editor', 'marketing']
+/** The calendar is the Marketing area's, from Claude too. */
+const MARKETING: readonly RuoloMcp[] = RUOLI_MARKETING
+/** Projects and time: every role has the Projects area. */
+const TUTTI: readonly RuoloMcp[] = TUTTI_I_RUOLI
+/** Who creates and manages projects (pm_crea_progetto, pm_puo_gestire). */
+const GESTISCE: readonly LivelloPm[] = ['admin', 'manager']
 
 function strumento<S extends z.ZodTypeAny>(definizione: {
   nome: string
@@ -69,6 +83,7 @@ function strumento<S extends z.ZodTypeAny>(definizione: {
   distruttivo?: boolean
   idempotente: boolean
   ruoli?: readonly RuoloMcp[]
+  livelli?: readonly LivelloPm[]
   esegui: (args: z.output<S>, ctx: ContestoMcp) => Promise<EsitoStrumento>
 }): Strumento {
   const annotazioni: ToolAnnotations = definizione.lettura
@@ -87,7 +102,8 @@ function strumento<S extends z.ZodTypeAny>(definizione: {
     input: definizione.input,
     annotazioni,
     scrive: !definizione.lettura,
-    ruoli: definizione.ruoli ?? TUTTI,
+    ruoli: definizione.ruoli ?? MARKETING,
+    ...(definizione.livelli ? { livelli: definizione.livelli } : {}),
     // the SDK hands over what the schema's validate returned: z.output<S>
     esegui: (args, ctx) => definizione.esegui(args as z.output<S>, ctx),
   }
@@ -214,14 +230,265 @@ export const STRUMENTI: readonly Strumento[] = [
     ruoli: ['admin'],
     esegui: eliminaContenutoPerClaude,
   }),
+  ...strumentiProgetti(),
 ]
 
 /**
- * The tools of a role. Only the admin, the video editor and marketing get
- * this far (the route answers 403 to anyone else): any other role here is a
- * bug, never an empty server.
+ * The tools of a role and of its project level. Every active role gets this
+ * far (the route answers 403 to a deactivated account): an unknown role here
+ * is a bug, never an empty server. Without a level only the tools that do not
+ * depend on it.
  */
-export function strumentiPer(ruolo: string): Strumento[] {
+export function strumentiPer(ruolo: string, livello?: LivelloPm | null): Strumento[] {
   if (!isRuoloMcp(ruolo)) throw new Error('ruolo non ammesso al server MCP')
-  return STRUMENTI.filter((s) => s.ruoli.includes(ruolo))
+  const effettivo: LivelloPm | null = ruolo === 'admin' ? 'admin' : (livello ?? null)
+  return STRUMENTI.filter(
+    (s) => s.ruoli.includes(ruolo) && (!s.livelli || (effettivo !== null && s.livelli.includes(effettivo))),
+  )
+}
+
+/**
+ * Projects, lists, tasks, notes and time (Claude a 360 gradi, phase 1,
+ * 22/10/2026), every role, with the person's own permissions in the app.
+ * Nothing here deletes: no task, project, note or time entry is removed from
+ * Claude. Ids come from the reads; Claude works by name through them.
+ */
+function strumentiProgetti(): Strumento[] {
+  return [
+    strumento({
+      nome: 'elenco_progetti',
+      titolo: 'Elenco dei progetti',
+      descrizione:
+        'I progetti che la persona vede nell’app (l’admin dei progetti tutti, gli altri quelli di cui sono membri), per nome, con id, stato, reparto, date, avanzamento dei task e se li gestisce. Quello di un cliente porta il suo nome. Filtri facoltativi: cerca (un pezzo del nome) e stato. Al massimo 100 (50 se non dici altro).',
+      input: sp.elencoProgettiSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: TUTTI,
+      esegui: progetti.elencoProgetti,
+    }),
+    strumento({
+      nome: 'leggi_progetto',
+      titolo: 'Leggi un progetto',
+      descrizione:
+        'Un progetto nel dettaglio: stato, date, responsabile, coach (progetti dei clienti), le liste (tappe) con i loro id, i task aperti con id, lista, scadenza, priorità e assegnatari (con completati anche gli ultimi completati), i membri con id e ruolo, e le ultime note. Serve per gli id dei task, delle liste e delle persone del progetto.',
+      input: sp.leggiProgettoSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: TUTTI,
+      esegui: progetti.leggiProgetto,
+    }),
+    strumento({
+      nome: 'persone_del_team',
+      titolo: 'Persone del team',
+      descrizione: 'Le persone attive del team, con id, nome e ruolo: per aggiungere un membro a un progetto, scegliere il coach o assegnare un task.',
+      input: sp.senzaInputSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: TUTTI,
+      esegui: (_args, ctx) => progetti.personeDelTeam(ctx),
+    }),
+    strumento({
+      nome: 'reparti_e_modelli',
+      titolo: 'Reparti e modelli',
+      descrizione: 'I reparti attivi e i modelli di progetto, con i loro id: servono a crea_progetto.',
+      input: sp.senzaInputSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: TUTTI,
+      livelli: GESTISCE,
+      esegui: (_args, ctx) => progetti.repartiEModelli(ctx),
+    }),
+    strumento({
+      nome: 'miei_task',
+      titolo: 'I miei task',
+      descrizione:
+        'I task aperti assegnati alla persona che ha collegato Claude, in tutti i suoi progetti, per scadenza, con id, progetto, stato, priorità e ritardo; con completati anche gli ultimi 30 completati. Solo i suoi.',
+      input: sp.mieiTaskSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: TUTTI,
+      esegui: progetti.mieiTask,
+    }),
+    strumento({
+      nome: 'mio_tempo',
+      titolo: 'Il mio tempo',
+      descrizione:
+        'Il tempo registrato dalla persona che ha collegato Claude nel periodo (di base il mese in corso; ultimi_giorni o da e a): totale, per giorno, per progetto e per task, contati dall’app, le voci più recenti con voce_id (per modifica_tempo) e il timer acceso, se c’è. Con progetto_id o task_id solo il tempo lì. Solo il suo tempo: i totali sono già sommati.',
+      input: sp.mioTempoSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: TUTTI,
+      esegui: progetti.mioTempo,
+    }),
+    strumento({
+      nome: 'tempo_team',
+      titolo: 'Tempo del team',
+      descrizione:
+        'Il tempo già dichiarato dal team nel periodo, come Tempo › Team: per persona, in ordine alfabetico, il totale, i progetti e i task con più tempo e le ultime voci. Facoltativi persona_id (da persone_del_team) e progetto_id. Mai i timer accesi; compare solo chi ha registrato qualcosa.',
+      input: sp.tempoTeamSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: ['admin'],
+      esegui: progetti.tempoTeam,
+    }),
+    strumento({
+      nome: 'crea_progetto',
+      titolo: 'Crea un progetto',
+      descrizione:
+        'Crea un progetto in un reparto (id da reparti_e_modelli), con nome, descrizione e date facoltative; da un modello nascono le sue liste e i suoi task, datati dall’inizio. Membri: chi crea più le persone dette. Mai il progetto di un cliente: nasce da solo quando il cliente paga. Restituisce il progetto_id.',
+      input: sp.creaProgettoSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: TUTTI,
+      livelli: GESTISCE,
+      esegui: progetti.creaProgetto,
+    }),
+    strumento({
+      nome: 'modifica_progetto',
+      titolo: 'Modifica un progetto',
+      descrizione:
+        'Cambia nome, descrizione, stato (attivo, in_pausa, completato, archiviato), reparto, date o responsabile di un progetto che la persona gestisce. Passa solo quello che cambia. Il cliente di un progetto non si cambia da qui.',
+      input: sp.modificaProgettoSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: TUTTI,
+      livelli: GESTISCE,
+      esegui: progetti.modificaProgetto,
+    }),
+    strumento({
+      nome: 'aggiungi_membro',
+      titolo: 'Aggiungi un membro',
+      descrizione: 'Aggiunge una persona del team (id da persone_del_team) a un progetto che la persona gestisce. Da qui non si toglie nessuno.',
+      input: sp.membroProgettoSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: true,
+      ruoli: TUTTI,
+      livelli: GESTISCE,
+      esegui: progetti.aggiungiMembro,
+    }),
+    strumento({
+      nome: 'scegli_coach',
+      titolo: 'Scegli il coach',
+      descrizione:
+        'Sceglie il coach del progetto di un cliente, come «Scegli il coach» nell’app: il coach entra nel progetto e prende i task principali senza nessuno e quelli del coach di prima; i task di un ruolo (la parte alimentare) vanno a una persona attiva con quel ruolo.',
+      input: sp.membroProgettoSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: TUTTI,
+      livelli: GESTISCE,
+      esegui: progetti.scegliCoach,
+    }),
+    strumento({
+      nome: 'crea_lista',
+      titolo: 'Crea una lista',
+      descrizione: 'Aggiunge una lista (tappa) in fondo a un progetto che la persona gestisce, con nome e date facoltative. Restituisce il lista_id.',
+      input: sp.creaListaSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: TUTTI,
+      livelli: GESTISCE,
+      esegui: progetti.creaLista,
+    }),
+    strumento({
+      nome: 'modifica_lista',
+      titolo: 'Modifica una lista',
+      descrizione: 'Cambia nome, descrizione o date di una lista di un progetto che la persona gestisce. Passa solo quello che cambia.',
+      input: sp.modificaListaSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: TUTTI,
+      livelli: GESTISCE,
+      esegui: progetti.modificaLista,
+    }),
+    strumento({
+      nome: 'crea_task',
+      titolo: 'Crea un task',
+      descrizione:
+        'Aggiunge un task a un progetto di cui la persona fa parte, in una lista o fuori, o come sotto-task, con assegnatari (membri del progetto) e, se vuoi, descrizione, priorità (bassa, media, alta, urgente), inizio, scadenza e stima. Restituisce il task con il suo id.',
+      input: sp.creaTaskSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: TUTTI,
+      esegui: progetti.creaTask,
+    }),
+    strumento({
+      nome: 'modifica_task',
+      titolo: 'Modifica un task',
+      descrizione:
+        'Cambia titolo, stato (da_fare, in_corso, in_revisione, completato), priorità, descrizione, date, stima, lista o assegnatari di un task: chi gestisce il progetto ogni task, gli altri quelli creati da loro o assegnati a loro. Passa solo quello che cambia; assegnatari è l’elenco intero.',
+      input: sp.modificaTaskSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: TUTTI,
+      esegui: progetti.modificaTask,
+    }),
+    strumento({
+      nome: 'completa_task',
+      titolo: 'Completa un task',
+      descrizione: 'Segna completato un task (con completato false lo riapre), come la spunta nell’app. I task del percorso di un cliente raccolgono il tempo: si completano solo quando la persona lo chiede.',
+      input: sp.completaTaskSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: TUTTI,
+      esegui: progetti.completaTask,
+    }),
+    strumento({
+      nome: 'aggiungi_nota',
+      titolo: 'Aggiungi una nota',
+      descrizione: 'Scrive una nota in un progetto di cui la persona fa parte, per un giorno (di base oggi). Le note lette sono in leggi_progetto. Da qui si aggiungono soltanto.',
+      input: sp.aggiungiNotaSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: TUTTI,
+      esegui: progetti.aggiungiNota,
+    }),
+    strumento({
+      nome: 'registra_tempo',
+      titolo: 'Registra il tempo',
+      descrizione:
+        'Registra il tempo della persona che ha collegato Claude su un progetto (e un task) di cui fa parte, per oggi o un giorno passato: una durata, o la fascia dalle–alle nel suo giorno. Solo il suo tempo. Restituisce il voce_id.',
+      input: sp.registraTempoSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: TUTTI,
+      esegui: progetti.registraTempo,
+    }),
+    strumento({
+      nome: 'modifica_tempo',
+      titolo: 'Correggi il tempo',
+      descrizione:
+        'Corregge una voce del proprio tempo (voce_id da mio_tempo o dalla risposta di registra_tempo): progetto, task, giorno, durata o fascia, nota. Passa solo quello che cambia: una durata toglie la fascia, una fascia dà i minuti. Mai il tempo di un altro.',
+      input: sp.modificaTempoSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: TUTTI,
+      esegui: progetti.modificaTempo,
+    }),
+    strumento({
+      nome: 'avvia_timer',
+      titolo: 'Avvia il timer',
+      descrizione: 'Avvia il timer della persona su un progetto (e un task) di cui fa parte, da adesso; un timer già acceso si ferma prima.',
+      input: sp.avviaTimerSchema,
+      lettura: false,
+      idempotente: false,
+      ruoli: TUTTI,
+      esegui: progetti.avviaTimer,
+    }),
+    strumento({
+      nome: 'ferma_timer',
+      titolo: 'Ferma il timer',
+      descrizione: 'Ferma adesso il timer acceso della persona, con una nota facoltativa, e dice quanti minuti ha registrato.',
+      input: sp.fermaTimerSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: TUTTI,
+      esegui: progetti.fermaTimer,
+    }),
+  ]
 }
