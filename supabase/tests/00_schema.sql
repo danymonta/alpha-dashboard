@@ -1,11 +1,12 @@
 -- Structural guarantees: no table without RLS, no view that bypasses it,
 -- no security definer function with a mutable search_path, and Claude's OAuth
--- tokens (20261010090000_mcp_oauth.sql) reach only the MCP allow-list.
+-- tokens (20261010090000_mcp_oauth.sql, 20261027110000_mcp_progetti_tempo.sql)
+-- reach only the MCP allow-list.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(9);
+select plan(10);
 
 -- Every table of the data model exists
 select is(
@@ -72,6 +73,27 @@ select is(
          where p.schemaname = 'public' and p.tablename = t.tablename
            and p.permissive = 'RESTRICTIVE' and p.cmd in ('INSERT', 'UPDATE', 'DELETE')
        ) <> 3
+       -- projects, lists, tasks, notes and time (20261027110000, phase 1 of 4): no _mai_da_oauth, and
+       -- exactly four restrictive policies, one per command, the delete one refusing every OAuth token
+       -- (the people of a task aside: pm_imposta_assegnatari and pm_scegli_coach replace them)
+       when t.tablename in ('pm_progetti', 'pm_membri', 'pm_tasklist', 'pm_task', 'pm_task_assegnatari',
+                            'pm_tempo', 'pm_note', 'pm_reparti', 'pm_modelli', 'profiles') then (
+         select coalesce(array_agg(p.policyname::text || ' ' || p.cmd order by p.policyname::text), '{}')
+         from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and (p.permissive = 'RESTRICTIVE' or p.policyname like '%_mai_da_oauth')
+       ) <> array[
+         t.tablename || '_claude_eliminazione DELETE', t.tablename || '_claude_inserimento INSERT',
+         t.tablename || '_claude_lettura SELECT', t.tablename || '_claude_modifica UPDATE'
+       ] or not exists (
+         select 1 from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and p.policyname = t.tablename || '_claude_eliminazione'
+           and p.roles = array['authenticated']::name[]
+           and p.qual = case when t.tablename = 'pm_task_assegnatari'
+                             then '((NOT ( SELECT da_client_oauth() AS da_client_oauth)) OR (( SELECT "current_role"() AS "current_role") IS NOT NULL))'
+                             else '(NOT ( SELECT da_client_oauth() AS da_client_oauth))' end
+       )
        else not exists (
          select 1 from pg_policies p
          where p.schemaname = 'public' and p.tablename = t.tablename
@@ -132,6 +154,25 @@ select results_eq(
        'vede_marketing'
      ]::text[]) as x order by 1 $$,
   'ogni funzione security definer raggiungibile è nella lista (e nel test 75 per i token di Claude)'
+);
+
+-- PostgREST calls a function that takes a row of a table or view as a computed column of that
+-- relation (GET /pm_task?select=f): on the relations Claude reaches, it would run inside a request the
+-- filter approved, with the person's role. None exists; one added later fails here until it is read
+-- for Claude's token and listed.
+select is(
+  (select coalesce(string_agg(p.proname::text || '(' || c.relname::text || ')', ', ' order by p.proname::text), '')
+   from pg_proc p
+   join pg_type ty on ty.oid = p.proargtypes[0]
+   join pg_class c on c.oid = ty.typrelid
+   where p.pronamespace = 'public'::regnamespace
+     and p.pronargs >= 1
+     and c.relnamespace = 'public'::regnamespace
+     and c.relname in ('marketing_contenuti', 'marketing_opzioni', 'pm_progetti', 'pm_membri', 'pm_tasklist',
+                       'pm_task', 'pm_task_assegnatari', 'pm_tempo', 'pm_note', 'pm_reparti', 'pm_modelli',
+                       'profiles', 'v_pm_progetti', 'v_pm_task', 'v_pm_tasklist')),
+  '',
+  'nessuna funzione fa da colonna calcolata sulle tabelle che Claude raggiunge'
 );
 
 -- The Data API filter is registered where PostgREST reads it

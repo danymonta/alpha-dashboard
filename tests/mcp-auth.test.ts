@@ -55,7 +55,7 @@ beforeEach(() => {
   finto.rpc.mockReset()
   finto.creati.length = 0
   finto.getClaims.mockResolvedValue({ data: { claims: claims() }, error: null })
-  chiSono({ esito: 'ok', ruolo: 'marketing', filtro: true })
+  chiSono({ esito: 'ok', ruolo: 'marketing', livello: 'employee', filtro: true })
   log = (['info', 'warn', 'error', 'log'] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => {}))
 })
 
@@ -130,8 +130,8 @@ describe('autenticaMcp: chi non ha un token valido riceve 401 con resource_metad
   })
 })
 
-describe('autenticaMcp: un ruolo che non può usare Claude riceve 403 insufficient_scope', () => {
-  it('setter, closer, coach o account disattivato: 403, intestazione ASCII e corpo in italiano', async () => {
+describe('autenticaMcp: un account disattivato riceve 403 insufficient_scope', () => {
+  it('account disattivato: 403, intestazione ASCII e corpo in italiano', async () => {
     chiSono({ esito: 'ruolo' })
     const esito = await autenticaMcp(`Bearer ${TOKEN}`)
     expect(esito.ok).toBe(false)
@@ -144,7 +144,7 @@ describe('autenticaMcp: un ruolo che non può usare Claude riceve 403 insufficie
     const { error, messaggio } = await corpo(esito.risposta)
     expect(error).toBe('insufficient_scope')
     expect(messaggio).toBe(
-      'Il tuo account non può usare Alpha Management da Claude: lo possono collegare l’admin, il video editor e il marketing, con l’account attivo.',
+      'Il tuo account non può usare Alpha Management da Claude: serve l’account attivo. Se è stato disattivato, chiedi all’admin.',
     )
   })
 })
@@ -170,7 +170,7 @@ describe('autenticaMcp: Supabase che non risponde è 503, mai 401', () => {
   })
 
   it('il filtro delle Data API non ha girato su questa richiesta: 503 «sospeso»', async () => {
-    chiSono({ esito: 'ok', ruolo: 'admin', filtro: false })
+    chiSono({ esito: 'ok', ruolo: 'admin', livello: 'admin', filtro: false })
     const esito = await autenticaMcp(`Bearer ${TOKEN}`)
     expect(esito.ok).toBe(false)
     if (esito.ok) return
@@ -189,7 +189,14 @@ describe('autenticaMcp: il token buono', () => {
     if (!esito.ok) return
     expect(esito.ruolo).toBe('marketing')
     expect(esito.sessione).toBe(SESSIONE)
-    expect(esito.authInfo).toMatchObject({ token: TOKEN, clientId: CLIENT, scopes: [], extra: { ruolo: 'marketing' } })
+    expect(esito.livello).toBe('employee')
+    expect(esito.persona).toBe(claims().sub)
+    expect(esito.authInfo).toMatchObject({
+      token: TOKEN,
+      clientId: CLIENT,
+      scopes: [],
+      extra: { ruolo: 'marketing', livello: 'employee', persona: claims().sub },
+    })
     expect(esito.authInfo.resourceMetadataUrl).toBe(METADATI)
     expect(finto.getClaims).toHaveBeenCalledWith(TOKEN)
     expect(finto.rpc).toHaveBeenCalledWith('mcp_chi_sono')
@@ -199,7 +206,17 @@ describe('autenticaMcp: il token buono', () => {
     expect(perRichiesta?.[2]).toMatchObject({ global: { headers: { Authorization: `Bearer ${TOKEN}` } } })
   })
 
-  it('un ruolo che mcp_chi_sono non conosce non entra', async () => {
+  it('ogni ruolo attivo entra dal 22/10/2026, con il suo livello nei progetti', async () => {
+    for (const [ruolo, livello] of [['setter', 'employee'], ['coach', 'manager'], ['closer', 'employee']] as const) {
+      chiSono({ esito: 'ok', ruolo, livello, filtro: true })
+      const esito = await autenticaMcp(`Bearer ${TOKEN}`)
+      expect(esito.ok && [esito.ruolo, esito.livello], ruolo).toEqual([ruolo, livello])
+    }
+  })
+
+  it('un ruolo o un livello che mcp_chi_sono non conosce non entra', async () => {
+    chiSono({ esito: 'ok', ruolo: 'ospite', livello: 'employee', filtro: true })
+    expect((await autenticaMcp(`Bearer ${TOKEN}`)).ok).toBe(false)
     chiSono({ esito: 'ok', ruolo: 'setter', filtro: true })
     const esito = await autenticaMcp(`Bearer ${TOKEN}`)
     expect(!esito.ok && esito.risposta.status).toBe(401)

@@ -32,7 +32,7 @@ const TITOLARE: {
 }
 
 /** Change both together when the text changes. */
-const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-16', testo: '16 ottobre 2026' }
+const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-22', testo: '22 ottobre 2026' }
 
 const TITOLO = 'Informativa privacy · Percorso Alpha'
 const DESCRIZIONE =
@@ -263,10 +263,11 @@ const SEZIONI: Sezione[] = [
           conservate né analizzate.
         </p>
         <p>
-          Il team può collegare il proprio account Claude (Anthropic) al calendario dei contenuti del gestionale: Claude
-          legge e scrive soltanto le idee, gli script e le didascalie dei post, a nome della persona che lo ha collegato,
-          e non raggiunge i messaggi diretti, i dati dei clienti o dei pagamenti. Chi lo collega tiene spento in Claude
-          l’uso delle chat per migliorare i modelli.
+          Il team può collegare il proprio account Claude (Anthropic) al calendario dei contenuti e ai progetti del
+          gestionale: Claude legge e scrive le idee, gli script e le didascalie dei post e, nei progetti, i task, le note
+          e il tempo di lavoro di chi lo ha collegato (il progetto di un cliente porta il suo nome), sempre a nome della
+          persona che lo ha collegato e con i suoi permessi. Non raggiunge i messaggi diretti, i contatti dei clienti o i
+          dati dei pagamenti. Chi lo collega tiene spento in Claude l’uso delle chat per migliorare i modelli.
         </p>
         <Elenco>
           <li>

@@ -6,7 +6,7 @@ import { VERSIONE_CORRENTE } from '@/lib/changelog/versioni'
 
 import { clientConToken } from './auth'
 import { misura, type EsitoStrumento } from './contenuti'
-import { isRuoloMcp, type ContestoMcp } from './contesto'
+import { isLivelloPm, isRuoloMcp, type ContestoMcp } from './contesto'
 import { istruzioniMcp } from './istruzioni'
 import { LIMITI_MCP, TROPPE_RICHIESTE, superaLimiteScritture } from './limiti'
 import { registraErroreMcp, registraStrumento } from './registro'
@@ -57,16 +57,20 @@ export async function eseguiStrumento(s: Strumento, args: unknown, ctx: Contesto
 
 export function creaServerMcp(authInfo: AuthInfo | undefined): McpServer {
   const ruolo = authInfo?.extra?.ruolo
+  const livello = authInfo?.extra?.livello
+  const persona = authInfo?.extra?.persona
   const sessione = authInfo?.extra?.sessione
-  // never reached without both: the route checks the token first
-  if (!authInfo || !isRuoloMcp(ruolo) || typeof sessione !== 'string') throw new Error('senza autenticazione')
+  // never reached without them: the route checks the token first
+  if (!authInfo || !isRuoloMcp(ruolo) || !isLivelloPm(livello) || typeof persona !== 'string' || typeof sessione !== 'string') {
+    throw new Error('senza autenticazione')
+  }
 
-  const ctx: ContestoMcp = { db: clientConToken(authInfo.token), ruolo, sessione }
+  const ctx: ContestoMcp = { db: clientConToken(authInfo.token), ruolo, livello, persona, sessione }
   const server = new McpServer(
     { name: 'alpha-management', title: 'Alpha Management', version: VERSIONE_CORRENTE?.versione ?? '1.0.0' },
-    { instructions: istruzioniMcp(ruolo), maxToolInputElements: LIMITI_MCP.elementiInput },
+    { instructions: istruzioniMcp(ruolo, livello), maxToolInputElements: LIMITI_MCP.elementiInput },
   )
-  for (const s of strumentiPer(ruolo)) {
+  for (const s of strumentiPer(ruolo, livello)) {
     server.registerTool(
       s.nome,
       {

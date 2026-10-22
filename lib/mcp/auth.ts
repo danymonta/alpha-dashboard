@@ -19,26 +19,29 @@ import {
 import { publicEnv } from '@/lib/env'
 import type { Database } from '@/lib/supabase/database.types'
 
-import { isRuoloMcp, type RuoloMcp } from './contesto'
+import { isLivelloPm, isRuoloMcp, type RuoloMcp } from './contesto'
+import type { LivelloPm } from '@/lib/auth/roles'
 import { indirizziMcp } from './indirizzi'
 import { registraAccesso, type MotivoAccesso } from './registro'
 
 /**
- * Who is calling /mcp (Claude connected to the content calendar, 09/10/2026).
+ * Who is calling /mcp (Claude connected to Alpha Management: the content
+ * calendar from 09/10/2026, projects and time for every role from 22/10/2026).
  * The token is an access token of Supabase Auth's OAuth 2.1 server: an
  * ordinary Supabase JWT plus client_id and session_id. Checked on every
  * request: signature and expiry (auth-js getClaims, JWKS cached), issuer,
  * aud, client_id (a JWT of the web app has none and never gets in), expiry
  * not within 30 seconds, then mcp_chi_sono() with the same token: a live OAuth
- * session of a client registered by hand, an active admin, video editor or
- * marketing person, and the Data API filter that ran on that very request.
+ * session of a client registered by hand, an active account (any role; its
+ * project level travels along), and the Data API filter that ran on that very
+ * request.
  *
  * 401 only for a token that is wrong or dead: Claude answers a 401 by
  * refreshing (Supabase rotates the refresh token) and, when that fails, by
  * running the whole sign-in again, so a Supabase hiccup must never be a 401.
- * Network, timeouts and 5xx are 503 with Retry-After, failing closed. A role
- * that may not use Claude is 403 insufficient_scope: Claude sends the person
- * to the consent page, which says why. The token never reaches a log.
+ * Network, timeouts and 5xx are 503 with Retry-After, failing closed. A
+ * deactivated account is 403 insufficient_scope: Claude sends the person to
+ * the consent page, which says why. The token never reaches a log.
  */
 
 /** A token this close to its exp gets 401: Claude refreshes before PostgREST refuses it mid-call. */
@@ -48,7 +51,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const MESSAGGIO_401 = 'Il collegamento con Claude non è valido o è scaduto: ricollega Alpha Management in Claude.'
 export const MESSAGGIO_RUOLO =
-  'Il tuo account non può usare Alpha Management da Claude: lo possono collegare l’admin, il video editor e il marketing, con l’account attivo.'
+  'Il tuo account non può usare Alpha Management da Claude: serve l’account attivo. Se è stato disattivato, chiedi all’admin.'
 const MESSAGGIO_SOSPESO = 'Il collegamento a Claude è sospeso: avvisa l’admin.'
 const MESSAGGIO_NON_DISPONIBILE = 'Alpha Management non risponde adesso: riprova tra poco.'
 
@@ -122,7 +125,7 @@ function audAutenticato(aud: unknown): boolean {
   return aud === 'authenticated' || (Array.isArray(aud) && aud.includes('authenticated'))
 }
 
-type RispostaChiSono = { esito?: string; ruolo?: unknown; filtro?: unknown }
+type RispostaChiSono = { esito?: string; ruolo?: unknown; livello?: unknown; filtro?: unknown }
 
 const verifier: OAuthTokenVerifier = {
   async verifyAccessToken(token) {
@@ -156,7 +159,9 @@ const verifier: OAuthTokenVerifier = {
     }
     const risposta = (data ?? {}) as RispostaChiSono
     if (risposta.esito === 'ruolo') throw senzaPermesso()
-    if (risposta.esito !== 'ok' || !isRuoloMcp(risposta.ruolo)) throw invalido('sessione', 'Session ended')
+    if (risposta.esito !== 'ok' || !isRuoloMcp(risposta.ruolo) || !isLivelloPm(risposta.livello)) {
+      throw invalido('sessione', 'Session ended')
+    }
     if (risposta.filtro !== true) throw new FiltroAssente()
 
     return {
@@ -164,13 +169,14 @@ const verifier: OAuthTokenVerifier = {
       clientId: claims.client_id,
       scopes: [],
       expiresAt: claims.exp,
-      extra: { ruolo: risposta.ruolo, sessione: claims.session_id },
+      // the person (the token's sub): the projects core writes created_by with it, and "my" tasks and time filter by it
+      extra: { ruolo: risposta.ruolo, livello: risposta.livello, persona: claims.sub, sessione: claims.session_id },
     }
   },
 }
 
 export type AccessoMcp =
-  | { ok: true; authInfo: AuthInfo; ruolo: RuoloMcp; sessione: string }
+  | { ok: true; authInfo: AuthInfo; ruolo: RuoloMcp; livello: LivelloPm; persona: string; sessione: string }
   | { ok: false; risposta: Response }
 
 function rispostaJson(stato: number, corpo: Record<string, string>, intestazioni: Record<string, string> = {}): Response {
@@ -183,9 +189,13 @@ export async function autenticaMcp(intestazione: string | null): Promise<Accesso
   try {
     const authInfo = await verifyBearerToken(intestazione, { verifier, resourceMetadataUrl: metadati })
     const ruolo = authInfo.extra?.ruolo
+    const livello = authInfo.extra?.livello
+    const persona = authInfo.extra?.persona
     const sessione = authInfo.extra?.sessione
-    if (!isRuoloMcp(ruolo) || typeof sessione !== 'string') throw invalido('sessione', 'Session ended')
-    return { ok: true, authInfo, ruolo, sessione }
+    if (!isRuoloMcp(ruolo) || !isLivelloPm(livello) || typeof persona !== 'string' || typeof sessione !== 'string') {
+      throw invalido('sessione', 'Session ended')
+    }
+    return { ok: true, authInfo, ruolo, livello, persona, sessione }
   } catch (e) {
     if (e instanceof OAuthError) {
       // status and WWW-Authenticate (with resource_metadata) from the SDK, the body in Italian

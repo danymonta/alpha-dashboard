@@ -2902,6 +2902,9 @@ isOneToOne: false
 "mcp_filtro_richiesta":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"mcp_richiesta_valida":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "mcp_ruolo":
 { Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["app_role"]
                            },

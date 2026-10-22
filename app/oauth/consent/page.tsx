@@ -8,7 +8,7 @@ import {
   SchedaNonDaClaude,
   SchedaRicollega,
 } from '@/components/oauth/scheda-consenso'
-import { ETICHETTA_RUOLO } from '@/lib/auth/roles'
+import { ETICHETTA_RUOLO, livelloPmEffettivo } from '@/lib/auth/roles'
 import { getProfilo } from '@/lib/auth/session'
 import {
   CONSENSO,
@@ -111,7 +111,7 @@ export default async function ConsensoPage({
           destinazione={destinazione}
           nome={nome}
           ruolo={ruolo}
-          admin={profilo.ruolo === 'admin'}
+          chi={{ ruolo: profilo.ruolo, livello: livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) }}
         />
       </PaginaConsenso>
     )
