@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 import { SchedeMarketing } from '@/components/marketing/schede-marketing'
-import { RUOLI_MARKETING } from '@/lib/auth/roles'
+import { RUOLI_MARKETING_LETTURA } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 
 /**
@@ -11,7 +11,8 @@ import { requireRuolo } from '@/lib/auth/session'
  * revalidates this layout.
  */
 export default async function LayoutMarketing({ children }: { children: ReactNode }) {
-  await requireRuolo(RUOLI_MARKETING)
+  // the business coach too, in read only (22/10/2026)
+  await requireRuolo(RUOLI_MARKETING_LETTURA)
 
   return (
     <div>

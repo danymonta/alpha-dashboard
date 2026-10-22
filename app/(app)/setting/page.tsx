@@ -20,6 +20,7 @@ import { CommentiMarketing, type RigaCommento, type RigaMotivo } from '@/compone
 import { SchedeInsight } from '@/components/insight/schede-insight'
 import { ProposteInstagram } from '@/components/setter/proposte-instagram'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formatData, formatNumero, formatPercentuale, formatRapporto } from '@/lib/format'
@@ -308,7 +309,10 @@ export default async function SettingPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  await requireRuolo(['admin'])
+  // the admin, and the business coach in read only (22/10/2026): no day to add or correct, and
+  // never the Instagram proposals of the setter's report (CLAUDE.md section 6: the closed version)
+  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
+  const scrive = puoScrivere(profilo.ruolo)
   const oggi = oggiRoma()
   const parametri = await searchParams
   const periodo = leggiPeriodo(parametri, oggi)
@@ -336,44 +340,45 @@ export default async function SettingPage({
     supabase.rpc('commenti_setter_periodo', { p_da: periodo.da, p_a: periodo.a, ...filtroSetter }),
     supabase.rpc('motivi_non_chiusura_periodo', { p_da: periodo.da, p_a: periodo.a, ...filtroSetter }),
     // the setters' days from Instagram still to decide: the admin decides them too (08/10/2026)
-    daApprovare(supabase),
+    scrive ? daApprovare(supabase) : null,
   ])
   if (metriche.error || report.error || giornate.error || persone.error || commenti.error || motivi.error) {
     throw new Error('Impossibile caricare il setting')
   }
 
-  const aggiungi = (
+  const aggiungi = scrive ? (
     <AggiungiReport
       oggi={oggi}
       persone={[...persone.data].sort((a, b) => Number(a.ruolo !== 'setter') - Number(b.ruolo !== 'setter'))}
     />
-  )
+  ) : undefined
 
   const righe = metriche.data ?? []
-  const correzione = (r: (typeof report.data)[number]) => (
-    <ModificaReport
-      data={r.data}
-      setter={r.setter?.nome ?? 'Setter'}
-      report={{
-        id: r.id,
-        dm_outbound: r.dm_outbound,
-        dm_inbound: r.dm_inbound,
-        conversazioni: r.conversazioni,
-        call_proposte: r.call_proposte,
-        discovery_prenotate: r.discovery_prenotate,
-        discovery_svolte: r.discovery_svolte,
-        call_qualificate: r.call_qualificate,
-        strategy_prenotate: r.strategy_prenotate,
-        follow_up: r.follow_up,
-        contenuto_pubblicato: r.contenuto_pubblicato,
-        note: r.note,
-        lead_in_target: r.lead_in_target,
-        qualita_conversazioni: r.qualita_conversazioni,
-        cosa_frenava: r.cosa_frenava,
-        domande_contenuti: r.domande_contenuti,
-      }}
-    />
-  )
+  const correzione = (r: (typeof report.data)[number]) =>
+    !scrive ? null : (
+      <ModificaReport
+        data={r.data}
+        setter={r.setter?.nome ?? 'Setter'}
+        report={{
+          id: r.id,
+          dm_outbound: r.dm_outbound,
+          dm_inbound: r.dm_inbound,
+          conversazioni: r.conversazioni,
+          call_proposte: r.call_proposte,
+          discovery_prenotate: r.discovery_prenotate,
+          discovery_svolte: r.discovery_svolte,
+          call_qualificate: r.call_qualificate,
+          strategy_prenotate: r.strategy_prenotate,
+          follow_up: r.follow_up,
+          contenuto_pubblicato: r.contenuto_pubblicato,
+          note: r.note,
+          lead_in_target: r.lead_in_target,
+          qualita_conversazioni: r.qualita_conversazioni,
+          cosa_frenava: r.cosa_frenava,
+          domande_contenuti: r.domande_contenuti,
+        }}
+      />
+    )
   const perSetter = righe.filter((r) => r.setter_id !== null)
   const totale = righe.find((r) => r.setter_id === null)
   const totaleReport = (giornate.data ?? []).find((r) => r.data === null)
@@ -408,16 +413,18 @@ export default async function SettingPage({
       />
 
       {/* the setters' days from Instagram still to decide, any period: nothing when there is none */}
-      <ProposteInstagram
-        per="admin"
-        proposte={approvare.proposte}
-        suoi={approvare.suoi}
-        oggi={oggi}
-        altre={approvare.totale > approvare.proposte.length}
-        errore={approvare.errore}
-        idTitoloPagina={ID_DA_APPROVARE}
-        totale={approvare.totale}
-      />
+      {approvare ? (
+        <ProposteInstagram
+          per="admin"
+          proposte={approvare.proposte}
+          suoi={approvare.suoi}
+          oggi={oggi}
+          altre={approvare.totale > approvare.proposte.length}
+          errore={approvare.errore}
+          idTitoloPagina={ID_DA_APPROVARE}
+          totale={approvare.totale}
+        />
+      ) : null}
 
       <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/setting" parametri={setter ? { setter } : undefined} />
 
@@ -425,7 +432,11 @@ export default async function SettingPage({
         <StatoVuoto
           Icona={TrendingUp}
           titolo={`Nessun report ${periodo.frase}`}
-          descrizione="I numeri arrivano dalla schermata Oggi del setter, oppure da «Aggiungi giornata»."
+          descrizione={
+            scrive
+              ? 'I numeri arrivano dalla schermata Oggi del setter, oppure da «Aggiungi giornata».'
+              : 'I numeri arrivano dalla schermata Oggi del setter.'
+          }
         />
       ) : (
         <>

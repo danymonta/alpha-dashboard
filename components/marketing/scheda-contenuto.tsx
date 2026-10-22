@@ -13,6 +13,7 @@ import { PostDelContenuto } from '@/components/marketing/instagram/post-del-cont
 import { MenuStatus } from '@/components/marketing/menu-status'
 import { ProprietaContenuto } from '@/components/marketing/proprieta-contenuto'
 import { SezioneContenuto } from '@/components/marketing/sezione-contenuto'
+import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -161,6 +162,9 @@ export function SchedaContenuto({
 }) {
   const { id, nome } = contenuto
   const titoli = SEZIONI[contenuto.tipo]
+  // the business coach reads the content as it is, and changes nothing (22/10/2026)
+  const solaLettura = useSolaLettura()
+  const salvaDaSola = solaLettura ? 'In sola lettura.' : 'Ogni modifica si salva da sola.'
 
   const intestazione =
     dove === 'pannello' ? (
@@ -215,12 +219,12 @@ export function SchedaContenuto({
             </div>
           ) : null}
         </div>
-        <SheetDescription className="mt-0.5 text-xs">Ogni modifica si salva da sola.</SheetDescription>
+        <SheetDescription className="mt-0.5 text-xs">{salvaDaSola}</SheetDescription>
       </div>
     ) : (
       <div className="-mt-3 space-y-1">
         <MenuStatus id={id} nome={nome} stato={contenuto.stato} grande />
-        <p className="text-xs text-muted-foreground">Ogni modifica si salva da sola.</p>
+        <p className="text-xs text-muted-foreground">{salvaDaSola}</p>
       </div>
     )
 
@@ -254,6 +258,7 @@ export function SchedaContenuto({
             nome={nome}
             postDate={contenuto.post_date}
             dati={instagram}
+            puoModificare={!solaLettura}
             onRiprova={onRileggi}
           />
         ) : null}
@@ -289,7 +294,7 @@ export function SchedaContenuto({
           </div>
         )}
 
-        {puoEliminare ? (
+        {solaLettura ? null : puoEliminare ? (
           <div className="border-t border-border pt-4">
             <Elimina
               etichetta="Elimina il contenuto"

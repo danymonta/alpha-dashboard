@@ -137,6 +137,7 @@ function CardPercorso({
   principale,
   cliente,
   picker,
+  solaLettura,
 }: {
   percorso: Percorso
   etichetta: string
@@ -144,6 +145,7 @@ function CardPercorso({
   principale: string | undefined
   cliente: string
   picker: ConfigPicker | null
+  solaLettura: boolean
 }) {
   const stato = statoPercorso(p, oggi)
   // the current path, or one with something still to collect, opens on its instalments;
@@ -184,7 +186,15 @@ function CardPercorso({
           <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           Contratto su Drive
         </span>
-        <ContrattoVendita saleId={p.id} cliente={cliente} percorso={etichetta} url={p.contratto_url} picker={picker} variante="cella" />
+        <ContrattoVendita
+          saleId={p.id}
+          cliente={cliente}
+          percorso={etichetta}
+          url={p.contratto_url}
+          picker={picker}
+          variante="cella"
+          solaLettura={solaLettura}
+        />
       </div>
 
       {p.rate.length > 0 ? (
@@ -218,7 +228,7 @@ function CardPercorso({
                 {/* phone: "Segna incassata" gets its own full row, a paid one keeps its menu inline;
                     fixed width from md up, so amounts line up whatever the actions */}
                 <div className={cn('md:w-52 md:shrink-0', daIncassare(rata) ? 'basis-full md:basis-auto' : 'shrink-0')}>
-                  {rata.stato !== 'rimborsata' ? (
+                  {rata.stato !== 'rimborsata' && !solaLettura ? (
                     <RataAzioni rata={rata} admin oggi={oggi} principale={rata.id === principale} />
                   ) : null}
                 </div>
@@ -233,7 +243,8 @@ function CardPercorso({
         className="flex min-h-11 items-center justify-between gap-2 border-t border-border px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <span>
-          Apri la vendita per modificarla<span className="sr-only"> ({etichetta})</span>
+          {solaLettura ? 'Apri la vendita' : 'Apri la vendita per modificarla'}
+          <span className="sr-only"> ({etichetta})</span>
         </span>
         <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
       </Link>
@@ -251,12 +262,15 @@ export function StoricoPercorsi({
   oggi,
   cliente,
   picker = null,
+  solaLettura = false,
 }: {
   percorsi: Percorso[]
   oggi: string
   /** The client's name: the contract's sheet and buttons say whose it is. */
   cliente: string
   picker?: ConfigPicker | null
+  /** The business coach (22/10/2026): instalments and contracts to read, nothing to tap. */
+  solaLettura?: boolean
 }) {
   const etichette = etichettePercorsi(percorsi)
   const dalPiuRecente = [...percorsi].sort((a, b) => inOrdineDiTempo(b, a))
@@ -276,6 +290,7 @@ export function StoricoPercorsi({
           principale={principale}
           cliente={cliente}
           picker={picker}
+          solaLettura={solaLettura}
         />
       ))}
     </ol>

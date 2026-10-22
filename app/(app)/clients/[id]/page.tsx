@@ -12,6 +12,7 @@ import { LinkBottone } from '@/components/link-bottone'
 import { SenzaCoach } from '@/components/pm/stato-progetto'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formatData, formatEuro } from '@/lib/format'
@@ -22,13 +23,15 @@ import { ETICHETTA_FONTE } from '@/lib/validation/call'
 export const dynamic = 'force-dynamic'
 
 export default async function SchedaClientePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRuolo(['admin'])
+  // the admin, and the business coach in read only (22/10/2026)
+  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
+  const scrive = puoScrivere(profilo.ruolo)
   const { id } = await params
   const supabase = await createClient()
   const oggi = oggiRoma()
 
   // "Scegli da Drive": the Google Picker's public values, read now; none = the typed link only
-  const picker = await configPickerRichiesta()
+  const picker = scrive ? await configPickerRichiesta() : null
   const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto, cartella, chiusura, sospensione] = await Promise.all([
     supabase
       .from('clients')
@@ -148,8 +151,9 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         titolo={nome}
         indietro={{ href: '/clients', etichetta: 'Clienti' }}
         azione={
-          // renewal and upsell need a first sale: without one, the only way is a "nuovo"
-          (valore.numero_vendite ?? 0) === 0 ? (
+          // the business coach reads (22/10/2026): no button that records or closes
+          !scrive ? undefined : (valore.numero_vendite ?? 0) === 0 ? (
+            // renewal and upsell need a first sale: without one, the only way is a "nuovo"
             <LinkBottone href={`/sales/new?cliente=${id}&tipo=nuovo`}>
               <Plus className="size-4" aria-hidden="true" />
               Registra la prima vendita
@@ -205,9 +209,13 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         ) : null}
       </div>
 
-      {sospeso ? <SospensioneCliente clientId={id} cliente={nome} oggi={oggi} sospensione={sospeso} /> : null}
+      {sospeso ? (
+        <SospensioneCliente clientId={id} cliente={nome} oggi={oggi} sospensione={sospeso} solaLettura={!scrive} />
+      ) : null}
 
-      {chiuso ? <ChiusuraCliente clientId={id} cliente={nome} oggi={oggi} minimo={ultimaFirma} chiusura={chiuso} /> : null}
+      {chiuso ? (
+        <ChiusuraCliente clientId={id} cliente={nome} oggi={oggi} minimo={ultimaFirma} chiusura={chiuso} solaLettura={!scrive} />
+      ) : null}
 
       {progetto.data ? (
         // the coach's side of the client: the project with the tasks and the time, never the money
@@ -230,32 +238,41 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         </Link>
       ) : null}
 
-      <CartellaDrive clientId={cliente.id} cliente={nome} url={cartella.data?.url ?? null} chi="admin" picker={picker} />
+      <CartellaDrive
+        clientId={cliente.id}
+        cliente={nome}
+        url={cartella.data?.url ?? null}
+        chi="admin"
+        picker={picker}
+        solaLettura={!scrive}
+      />
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2 px-1">
           <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Contatti</h2>
-          <ModificaCliente
-            cliente={{
-              id: cliente.id,
-              nome: cliente.nome,
-              cognome: cliente.cognome,
-              email: cliente.email,
-              telefono: cliente.telefono,
-              instagram_handle: cliente.instagram_handle,
-              fonte: cliente.fonte,
-              setter_id: cliente.setter_id,
-              closer_id: cliente.closer_id,
-              note: cliente.note,
-            }}
-            // a former collaborator stays selectable where they already are
-            setters={(persone ?? [])
-              .filter((p) => (p.ruolo === 'setter' || p.ruolo === 'admin') && (p.attivo || p.id === cliente.setter_id))
-              .map(({ id, nome }) => ({ id, nome }))}
-            closers={(persone ?? [])
-              .filter((p) => (p.ruolo === 'admin' || p.ruolo === 'closer') && (p.attivo || p.id === cliente.closer_id))
-              .map(({ id, nome }) => ({ id, nome }))}
-          />
+          {scrive ? (
+            <ModificaCliente
+              cliente={{
+                id: cliente.id,
+                nome: cliente.nome,
+                cognome: cliente.cognome,
+                email: cliente.email,
+                telefono: cliente.telefono,
+                instagram_handle: cliente.instagram_handle,
+                fonte: cliente.fonte,
+                setter_id: cliente.setter_id,
+                closer_id: cliente.closer_id,
+                note: cliente.note,
+              }}
+              // a former collaborator stays selectable where they already are
+              setters={(persone ?? [])
+                .filter((p) => (p.ruolo === 'setter' || p.ruolo === 'admin') && (p.attivo || p.id === cliente.setter_id))
+                .map(({ id, nome }) => ({ id, nome }))}
+              closers={(persone ?? [])
+                .filter((p) => (p.ruolo === 'admin' || p.ruolo === 'closer') && (p.attivo || p.id === cliente.closer_id))
+                .map(({ id, nome }) => ({ id, nome }))}
+            />
+          ) : null}
         </div>
         <dl className="divide-y divide-border rounded-xl bg-card px-3">
           {contatti.map(([etichetta, v]) => (
@@ -278,13 +295,17 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
           Storico percorsi ({percorsi.length})
         </h2>
         {percorsi.length > 0 ? (
-          <StoricoPercorsi percorsi={percorsi} oggi={oggi} cliente={nome} picker={picker} />
+          <StoricoPercorsi percorsi={percorsi} oggi={oggi} cliente={nome} picker={picker} solaLettura={!scrive} />
         ) : (
           // the action is the header's "Registra la prima vendita": one link, not two
           <StatoVuoto
             Icona={History}
             titolo="Nessun percorso registrato"
-            descrizione="Con «Registra la prima vendita» parte lo storico: ogni rinnovo si aggiunge sopra e i periodi passati restano qui."
+            descrizione={
+              scrive
+                ? 'Con «Registra la prima vendita» parte lo storico: ogni rinnovo si aggiunge sopra e i periodi passati restano qui.'
+                : 'Lo storico parte con la prima vendita: ogni rinnovo si aggiunge sopra e i periodi passati restano qui.'
+            }
           />
         )}
       </section>

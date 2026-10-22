@@ -14,6 +14,7 @@ import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, CLASSE_SELECT, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
 import { SceltaMultipla } from '@/components/form/scelta-multipla'
 import { SceltaRapida } from '@/components/form/scelta-rapida'
+import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -85,6 +86,7 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
   const a = useAttivita()
   const modificabile = puoModificare(a, task)
   const eliminabile = puoEliminare(a, task)
+  const solaLettura = useSolaLettura()
   const figli = a.tasks.filter((t) => t.parent_id === task.id)
   const principali = a.tasks.filter((t) => t.parent_id === null && t.id !== task.id)
   const { errore, setErrore, salva } = useSalvataggio()
@@ -143,7 +145,9 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
           {!modificabile ? (
             <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
               <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Lo modifica chi gestisce il progetto, chi l’ha creato o una delle persone a cui è assegnato.
+              {solaLettura
+                ? 'In sola lettura.'
+                : 'Lo modifica chi gestisce il progetto, chi l’ha creato o una delle persone a cui è assegnato.'}
             </p>
           ) : null}
 

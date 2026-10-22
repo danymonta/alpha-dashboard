@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { creaContenuto } from '@/app/(app)/marketing/contenuti/actions'
+import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { Button } from '@/components/ui/button'
 import { NOME_NUOVA_RIGA, PARAMETRO_CONTENUTO, PARAMETRO_NUOVA } from '@/lib/marketing/pannello'
 
@@ -34,7 +35,13 @@ export function consumaDaAprire(id: string): boolean {
  * row without a Post Date would sit at the bottom of the table, and its Name
  * editor opens. The rest of the row is edited in its cells.
  */
-export function NuovaRiga({ variante = 'primario' }: { variante?: 'primario' | 'outline' }) {
+/** «Nuovo»; nothing for a read-only account (the business coach, 22/10/2026). */
+export function NuovaRiga(props: { variante?: 'primario' | 'outline' }) {
+  const solaLettura = useSolaLettura()
+  return solaLettura ? null : <NuovaRigaModificabile {...props} />
+}
+
+function NuovaRigaModificabile({ variante = 'primario' }: { variante?: 'primario' | 'outline' }) {
   const router = useRouter()
   const parametri = useSearchParams()
   const [inCorso, setInCorso] = useState(false)

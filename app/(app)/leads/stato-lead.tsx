@@ -101,6 +101,7 @@ export function StatoLeadArea({
   dati,
   titolo,
   eliminabile = false,
+  solaLettura = false,
   children,
 }: {
   leadId: string
@@ -113,6 +114,8 @@ export function StatoLeadArea({
   titolo: ReactNode
   /** Admin: the lead can be deleted, with its calls. */
   eliminabile?: boolean
+  /** The business coach (22/10/2026): the status to read, no pencil. */
+  solaLettura?: boolean
   children: ReactNode
 }) {
   const { mostrato, inCorso, cambia } = useAggiornaStato(leadId, nome, stato)
@@ -135,90 +138,92 @@ export function StatoLeadArea({
           {ETICHETTA_STATO_LEAD[mostrato]}
         </span>
 
-        <Sheet
-          open={aperto}
-          onOpenChange={(v) => {
-            setAperto(v)
-            if (!v) setVista('stato')
-          }}
-        >
-          <SheetTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={`Cambia stato di ${nome}`}
-                className="-mt-3 -mr-1 size-11 shrink-0 text-muted-foreground"
-              />
-            }
+        {solaLettura ? null : (
+          <Sheet
+            open={aperto}
+            onOpenChange={(v) => {
+              setAperto(v)
+              if (!v) setVista('stato')
+            }}
           >
-            <Pencil className="size-4" aria-hidden="true" />
-          </SheetTrigger>
-          <SheetContent side="bottom" className="mx-auto max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
-            <SheetHeader>
-              <SheetTitle>{nome}</SheetTitle>
-              <SheetDescription>
-                {vista === 'stato' ? 'Stato nella pipeline, aggiornato a mano.' : 'Dati del lead: si correggono quando vuoi.'}
-              </SheetDescription>
-            </SheetHeader>
-            {vista === 'stato' ? (
-              <div className="space-y-3 px-4">
-                <div role="radiogroup" aria-label={`Stato di ${nome}`} className="grid grid-cols-2 gap-2">
-                  {STATI_LEAD.map((s) => {
-                    const { Icona: I, tono: t } = ASPETTO[s]
-                    const scelto = s === mostrato
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        role="radio"
-                        aria-checked={scelto}
-                        onClick={() => cambia(s, () => setAperto(false))}
-                        className={cn(
-                          'flex min-h-12 items-center gap-2 rounded-lg border px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                          scelto ? 'border-primary bg-primary/15 text-foreground' : 'border-input hover:bg-accent',
-                        )}
-                      >
-                        <I className={cn('size-4', t)} aria-hidden="true" />
-                        {ETICHETTA_STATO_LEAD[s]}
-                      </button>
-                    )
-                  })}
-                </div>
-                {dati ? (
-                  <Button type="button" variant="outline" className="h-11 w-full" onClick={() => setVista('dati')}>
-                    <Pencil className="size-4" aria-hidden="true" />
-                    Modifica nome, handle e fonte
-                  </Button>
-                ) : null}
-              </div>
-            ) : dati ? (
-              <div className="space-y-2 px-4">
-                <button
+            <SheetTrigger
+              render={
+                <Button
                   type="button"
-                  className="flex min-h-11 items-center gap-1 text-sm text-muted-foreground"
-                  onClick={() => setVista('stato')}
-                >
-                  <ChevronLeft className="size-4" aria-hidden="true" />
-                  Stato
-                </button>
-                <FormLead id={leadId} dati={dati} onSalvato={() => setAperto(false)} />
-                {eliminabile ? (
-                  <div className="border-t border-border pt-4">
-                    <Elimina
-                      etichetta="Elimina il lead"
-                      cosa={nome}
-                      fatto="Lead eliminato"
-                      anteprima={{ tipo: 'lead', id: leadId }}
-                      azione={() => eliminaLead({ id: leadId })}
-                    />
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Cambia stato di ${nome}`}
+                  className="-mt-3 -mr-1 size-11 shrink-0 text-muted-foreground"
+                />
+              }
+            >
+              <Pencil className="size-4" aria-hidden="true" />
+            </SheetTrigger>
+            <SheetContent side="bottom" className="mx-auto max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+              <SheetHeader>
+                <SheetTitle>{nome}</SheetTitle>
+                <SheetDescription>
+                  {vista === 'stato' ? 'Stato nella pipeline, aggiornato a mano.' : 'Dati del lead: si correggono quando vuoi.'}
+                </SheetDescription>
+              </SheetHeader>
+              {vista === 'stato' ? (
+                <div className="space-y-3 px-4">
+                  <div role="radiogroup" aria-label={`Stato di ${nome}`} className="grid grid-cols-2 gap-2">
+                    {STATI_LEAD.map((s) => {
+                      const { Icona: I, tono: t } = ASPETTO[s]
+                      const scelto = s === mostrato
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          role="radio"
+                          aria-checked={scelto}
+                          onClick={() => cambia(s, () => setAperto(false))}
+                          className={cn(
+                            'flex min-h-12 items-center gap-2 rounded-lg border px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                            scelto ? 'border-primary bg-primary/15 text-foreground' : 'border-input hover:bg-accent',
+                          )}
+                        >
+                          <I className={cn('size-4', t)} aria-hidden="true" />
+                          {ETICHETTA_STATO_LEAD[s]}
+                        </button>
+                      )
+                    })}
                   </div>
-                ) : null}
-              </div>
-            ) : null}
-          </SheetContent>
-        </Sheet>
+                  {dati ? (
+                    <Button type="button" variant="outline" className="h-11 w-full" onClick={() => setVista('dati')}>
+                      <Pencil className="size-4" aria-hidden="true" />
+                      Modifica nome, handle e fonte
+                    </Button>
+                  ) : null}
+                </div>
+              ) : dati ? (
+                <div className="space-y-2 px-4">
+                  <button
+                    type="button"
+                    className="flex min-h-11 items-center gap-1 text-sm text-muted-foreground"
+                    onClick={() => setVista('stato')}
+                  >
+                    <ChevronLeft className="size-4" aria-hidden="true" />
+                    Stato
+                  </button>
+                  <FormLead id={leadId} dati={dati} onSalvato={() => setAperto(false)} />
+                  {eliminabile ? (
+                    <div className="border-t border-border pt-4">
+                      <Elimina
+                        etichetta="Elimina il lead"
+                        cosa={nome}
+                        fatto="Lead eliminato"
+                        anteprima={{ tipo: 'lead', id: leadId }}
+                        azione={() => eliminaLead({ id: leadId })}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </SheetContent>
+          </Sheet>
+        )}
       </div>
       <div className="-mt-5">{children}</div>
 

@@ -12,6 +12,7 @@ import {
   titoloVoce,
   venditaDellaVoce,
 } from '@/lib/audit'
+import { RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, formatOra, oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
@@ -21,7 +22,8 @@ import { cn } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<{ tabella?: string }> }) {
-  await requireRuolo(['admin'])
+  // the business coach reads it like the admin (22/10/2026)
+  await requireRuolo(RUOLI_COME_ADMIN)
   const { tabella } = await searchParams
   const filtro = tabella && tabella in ETICHETTA_TABELLA ? tabella : null
   const supabase = await createClient()

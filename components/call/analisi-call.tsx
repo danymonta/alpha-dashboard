@@ -30,6 +30,8 @@ type Props = {
   esito: string | null
   motivoSalvato: string | null
   link: string | null
+  /** The business coach (22/10/2026): reads the analysis, never asks for one nor uses its reason. */
+  solaLettura?: boolean
 }
 
 const ETICHETTA_ESITO: Record<string, string> = { chiusa: 'chiusa', follow_up: 'in follow-up', persa: 'persa' }
@@ -48,7 +50,8 @@ function Elenco({ titolo, voci }: { titolo: string; voci: string[] }) {
   )
 }
 
-export function AnalisiCall({ callId, analisi, analizzabile, esito, motivoSalvato, link }: Props) {
+export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps, esito, motivoSalvato, link, solaLettura = false }: Props) {
+  const analizzabile = analizzabileDaProps && !solaLettura
   const [inCorso, avvia] = useTransition()
   const [motivo, setMotivo] = useState<string | null>(motivoSalvato)
 
@@ -131,7 +134,8 @@ export function AnalisiCall({ callId, analisi, analizzabile, esito, motivoSalvat
   const lead = analisi.lead
   const quando = analisi.analizzata_il ? `${formatData(analisi.analizzata_il)} alle ${formatOra(analisi.analizzata_il)}` : ''
   const esitoDiverso = analisi.esito_letto && analisi.esito_letto !== 'non_chiaro' && esito && analisi.esito_letto !== esito
-  const propone = (esito === 'follow_up' || esito === 'persa') && analisi.motivo_proposto && analisi.motivo_proposto !== motivo
+  const propone =
+    !solaLettura && (esito === 'follow_up' || esito === 'persa') && analisi.motivo_proposto && analisi.motivo_proposto !== motivo
   const Target = analisi.in_target === 'si' ? CircleCheck : analisi.in_target === 'no' ? CircleX : CircleHelp
   const targetEtichetta = analisi.in_target === 'si' ? ANALISI.inTarget : analisi.in_target === 'no' ? ANALISI.nonInTarget : ANALISI.daVerificare
 

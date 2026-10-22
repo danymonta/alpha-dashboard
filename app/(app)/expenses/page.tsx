@@ -3,6 +3,7 @@ import { Banknote } from 'lucide-react'
 import { CopiaRicorrenti, EliminaCosto, ModificaCosto, NuovoCosto } from '@/app/(app)/expenses/costi-client'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
+import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiMesi, oggiRoma } from '@/lib/date'
 import { formatData, formatEuro, formatMese } from '@/lib/format'
@@ -17,7 +18,9 @@ export default async function CostiPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  await requireRuolo(['admin'])
+  // the admin, and the business coach in read only (22/10/2026)
+  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
+  const scrive = puoScrivere(profilo.ruolo)
   const oggi = oggiRoma()
   const periodo = leggiPeriodo(await searchParams, oggi)
   // new costs default to today, or to the last day of a past period
@@ -49,7 +52,7 @@ export default async function CostiPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/expenses" />
         {/* recurring costs are copied month to month: only a single whole month offers it */}
-        {periodo.mese ? (
+        {periodo.mese && scrive ? (
           <CopiaRicorrenti mese={periodo.mese} meseSorgente={formatMese(aggiungiMesi(periodo.mese, -1))} />
         ) : null}
       </div>
@@ -71,10 +74,12 @@ export default async function CostiPage({
         ) : null}
       </div>
 
-      <section className="space-y-2">
-        <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Aggiungi</h2>
-        <NuovoCosto dataPredefinita={dataPredefinita} massima={oggi} />
-      </section>
+      {scrive ? (
+        <section className="space-y-2">
+          <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Aggiungi</h2>
+          <NuovoCosto dataPredefinita={dataPredefinita} massima={oggi} />
+        </section>
+      ) : null}
 
       <section className="space-y-2">
         <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -85,9 +90,11 @@ export default async function CostiPage({
             <Banknote className="size-6 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm font-medium">Nessun costo {periodo.frase}</p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              {periodo.mese
-                ? 'Aggiungilo qui sopra, oppure copia i ricorrenti del mese precedente.'
-                : 'Aggiungilo qui sopra, oppure cambia periodo.'}
+              {!scrive
+                ? 'Cambia periodo per vedere gli altri.'
+                : periodo.mese
+                  ? 'Aggiungilo qui sopra, oppure copia i ricorrenti del mese precedente.'
+                  : 'Aggiungilo qui sopra, oppure cambia periodo.'}
             </p>
           </div>
         ) : (
@@ -102,10 +109,12 @@ export default async function CostiPage({
                   </p>
                 </div>
                 <p className="num text-right text-sm font-medium">{formatEuro(c.importo)}</p>
-                <div className="-mr-1.5 flex shrink-0">
-                  <ModificaCosto costo={c} massima={oggi} />
-                  <EliminaCosto id={c.id} descrizione={c.descrizione} />
-                </div>
+                {scrive ? (
+                  <div className="-mr-1.5 flex shrink-0">
+                    <ModificaCosto costo={c} massima={oggi} />
+                    <EliminaCosto id={c.id} descrizione={c.descrizione} />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

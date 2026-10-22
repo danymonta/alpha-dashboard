@@ -10,7 +10,7 @@ import { CoachDelCliente, ScegliCoach, type PersonaCoach } from '@/components/pm
 import { SchedeProgetto } from '@/components/pm/schede-progetto'
 import { BarraAvanzamento } from '@/components/pm/stato-progetto'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { ETICHETTA_RUOLO, livelloPmEffettivo } from '@/lib/auth/roles'
+import { ETICHETTA_RUOLO, leggeComeAdmin, livelloPmEffettivo, solaLettura } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { formatData } from '@/lib/format'
 import { configPickerRichiesta } from '@/lib/google/picker-server'
@@ -59,7 +59,9 @@ export default async function LayoutProgetto({
   const adminApp = profilo.ruolo === 'admin'
   const adminPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === 'admin'
   // the client's Drive folder (05/10/2026): the admin and the project's coach only; RLS reads it
-  const chiCartella = chiVedeLaCartella(profilo, progetto)
+  // the business coach reads it like the admin and changes nothing (22/10/2026)
+  const leggeSolo = solaLettura(profilo.ruolo)
+  const chiCartella = chiVedeLaCartella(profilo, progetto) ?? (leggeSolo && progetto.client_id ? 'admin' : null)
   const [gestisce, avanzamento, membri, cliente, clienti, collegati, reparti, cartella, picker] = await Promise.all([
     supabase.rpc('pm_puo_gestire', { p_progetto: progetto.id }),
     // progress and late tasks: computed by the view, only read here
@@ -88,7 +90,7 @@ export default async function LayoutProgetto({
       ? supabase.from('clienti_cartelle').select('url').eq('client_id', progetto.client_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     // "Scegli da Drive": the Picker's public values reach only who may link the folder
-    chiCartella ? configPickerRichiesta() : Promise.resolve(null),
+    chiCartella && !leggeSolo ? configPickerRichiesta() : Promise.resolve(null),
   ])
 
   const conProgetto = new Set((collegati.data ?? []).map((p) => p.client_id))
@@ -196,7 +198,7 @@ export default async function LayoutProgetto({
                 elencoNonCaricato={elencoNonCaricato}
               />
             ) : null}
-            {adminApp ? (
+            {leggeComeAdmin(profilo.ruolo) ? (
               <Link
                 href={`/clients/${progetto.client_id}`}
                 className="inline-flex min-h-11 items-center gap-1 text-sm font-medium underline underline-offset-4"
@@ -215,6 +217,7 @@ export default async function LayoutProgetto({
             chi={chiCartella}
             picker={picker}
             nonCaricata={Boolean(cartella.error)}
+            solaLettura={leggeSolo}
             className="sm:max-w-sm"
           />
         ) : null}

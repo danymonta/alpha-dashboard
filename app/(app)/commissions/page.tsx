@@ -5,6 +5,7 @@ import { ModificaPagamento } from '@/app/(app)/commissions/modifica-pagamento'
 import { PagaProvvigione } from '@/app/(app)/commissions/paga-provvigione'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
+import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiMesi, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import { formatData, formatEuro, formatMese, formatPercentuale } from '@/lib/format'
@@ -14,7 +15,9 @@ import { ETICHETTA_TIPO_VENDITA } from '@/lib/validation/vendita'
 export const dynamic = 'force-dynamic'
 
 export default async function ProvvigioniPage() {
-  await requireRuolo(['admin'])
+  // the admin, and the business coach in read only (22/10/2026)
+  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
+  const scrive = puoScrivere(profilo.ruolo)
   const oggi = oggiRoma()
   const supabase = await createClient()
 
@@ -79,12 +82,14 @@ export default async function ProvvigioniPage() {
                       : 'Nessuna regola attiva oggi'}
                   </p>
                 </div>
-                <PagaProvvigione
-                  profileId={id}
-                  nome={nome}
-                  oggi={oggi}
-                  mesi={mesiRecenti.map((r) => ({ mese: r.mese, saldo_mese: r.saldo_mese }))}
-                />
+                {scrive ? (
+                  <PagaProvvigione
+                    profileId={id}
+                    nome={nome}
+                    oggi={oggi}
+                    mesi={mesiRecenti.map((r) => ({ mese: r.mese, saldo_mese: r.saldo_mese }))}
+                  />
+                ) : null}
               </div>
 
               <div className="rounded-lg bg-muted/40 p-3" data-testid={`saldo-${id}`}>
@@ -158,21 +163,23 @@ export default async function ProvvigioniPage() {
                   </span>
                 </span>
                 <span className="num font-medium">{formatEuro(p.importo)}</span>
-                <div className="-mr-1.5">
-                  <ModificaPagamento
-                    pagamento={{
-                      id: p.id,
-                      periodo: p.periodo,
-                      importo: p.importo,
-                      pagato_il: p.pagato_il,
-                      metodo: p.metodo,
-                      note: p.note,
-                    }}
-                    nome={persone.get(p.profile_id)?.nome ?? 'Collaboratore'}
-                    mesi={[...new Set([...ultimi24, p.periodo])].sort().reverse()}
-                    oggi={oggi}
-                  />
-                </div>
+                {scrive ? (
+                  <div className="-mr-1.5">
+                    <ModificaPagamento
+                      pagamento={{
+                        id: p.id,
+                        periodo: p.periodo,
+                        importo: p.importo,
+                        pagato_il: p.pagato_il,
+                        metodo: p.metodo,
+                        note: p.note,
+                      }}
+                      nome={persone.get(p.profile_id)?.nome ?? 'Collaboratore'}
+                      mesi={[...new Set([...ultimi24, p.periodo])].sort().reverse()}
+                      oggi={oggi}
+                    />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
