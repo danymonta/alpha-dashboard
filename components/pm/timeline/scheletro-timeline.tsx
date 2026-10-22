@@ -1,7 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton'
 
 /** The shape of the timeline while its lists and tasks arrive: controls, legend, rows of bars. */
-export function ScheletroTimeline() {
+export function ScheletroTimeline({ etichetta = 'Caricamento della timeline' }: { etichetta?: string }) {
   return (
     <div className="space-y-4" aria-busy="true" aria-live="polite">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -21,7 +21,7 @@ export function ScheletroTimeline() {
           ))}
         </div>
       </div>
-      <span className="sr-only">Caricamento della timeline</span>
+      <span className="sr-only">{etichetta}</span>
     </div>
   )
 }

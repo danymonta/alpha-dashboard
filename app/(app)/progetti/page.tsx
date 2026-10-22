@@ -14,8 +14,9 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { livelloPmEffettivo, solaLettura } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
+import { getLingua } from '@/lib/i18n/server'
+import { PROGETTI } from '@/lib/i18n/testi/progetti'
 import {
-  FILTRI_STATO_PROGETTO,
   STATI_DEL_FILTRO,
   isUuid,
   parseFiltroStatoProgetto,
@@ -25,21 +26,6 @@ import { COOKIE_VISTA_PROGETTI, vistaDaUrl, vistaIniziale } from '@/lib/progetti
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
-
-/** "Nessun progetto attivo", "Nessun progetto in pausa". */
-const STATO_AL_SINGOLARE: Record<keyof typeof FILTRI_STATO_PROGETTO, string> = {
-  attivi: ' attivo',
-  in_pausa: ' in pausa',
-  completati: ' completato',
-  archiviati: ' archiviato',
-  tutti: '',
-}
-
-const DESCRIZIONE = {
-  admin: 'Tutti i progetti, divisi per reparto.',
-  manager: 'I progetti di cui fai parte. Puoi aprirne di nuovi.',
-  employee: 'I progetti di cui fai parte.',
-} as const
 
 export default async function ProgettiPage({
   searchParams,
@@ -51,6 +37,8 @@ export default async function ProgettiPage({
   const creatore = puoCreareProgetti(livello)
   const adminApp = profilo.ruolo === 'admin'
   const parametri = await searchParams
+  const lingua = await getLingua()
+  const t = PROGETTI[lingua]
   const filtroStato = parseFiltroStatoProgetto(parametri.stato)
   // "Elenco | Timeline" (05/10/2026): the same projects, as cards or on the time axis.
   // ?vista always wins; without it, the view this browser chose last (a cookie)
@@ -88,7 +76,7 @@ export default async function ProgettiPage({
       : Promise.resolve({ data: [], error: null }),
   ])
   if (reparti.error || progetti.error || modelli.error || persone.error || clienti.error || collegati.error) {
-    throw new Error('Impossibile caricare i progetti')
+    throw new Error(t.errore)
   }
 
   const ids = progetti.data.map((p) => p.id!)
@@ -107,7 +95,7 @@ export default async function ProgettiPage({
       ? supabase.from('clients').select('id, nome, cognome').in('id', idClienti)
       : Promise.resolve({ data: [], error: null }),
   ])
-  if (membri.error || clientiCollegati.error) throw new Error('Impossibile caricare i progetti')
+  if (membri.error || clientiCollegati.error) throw new Error(t.errore)
 
   const nomiMembri = new Map<string, string[]>()
   for (const m of membri.data) {
@@ -138,7 +126,8 @@ export default async function ProgettiPage({
     .map((r) => ({ reparto: r, progetti: progetti.data.filter((p) => p.reparto_id === r.id) }))
     .filter((s) => s.progetti.length > 0 || (creatore && s.reparto.attivo))
 
-  const statoParola = STATO_AL_SINGOLARE[filtroStato]
+  // "Nessun progetto attivo", "Nessun progetto in pausa"
+  const statoParola = t.alSingolare[filtroStato]
   // departments shown but none with a project: one empty state instead of four
   const tuttiVuoti = sezioni.length > 0 && sezioni.every((s) => s.progetti.length === 0)
   const propsNuovo = {
@@ -161,15 +150,15 @@ export default async function ProgettiPage({
   return (
     <div className="max-w-6xl space-y-6">
       <IntestazionePagina
-        titolo="Progetti"
-        descrizione={solaLettura(profilo.ruolo) ? 'Tutti i progetti, divisi per reparto. In sola lettura.' : DESCRIZIONE[livello]}
+        titolo={t.titolo}
+        descrizione={solaLettura(profilo.ruolo) ? t.descrizioneLettura : t.descrizione[livello]}
         azione={
           livello === 'admin' || creatore ? (
             <div className="flex flex-wrap gap-2">
               {livello === 'admin' ? (
                 <LinkBottone href="/settings/progetti" variant="outline">
                   <Settings2 className="size-4" aria-hidden="true" />
-                  Reparti e modelli
+                  {t.repartiModelli}
                 </LinkBottone>
               ) : null}
               {/* the one primary action of the page: the department is chosen in the sheet */}
@@ -180,25 +169,25 @@ export default async function ProgettiPage({
       />
 
       {/* 390px: two selects side by side, the toggle on its own row */}
-      <div className="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap" role="search" aria-label="Filtra i progetti">
+      <div className="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap" role="search" aria-label={t.filtra}>
         <FiltroSelect
           id="filtro-stato"
-          etichetta="Stato"
+          etichetta={t.stato}
           nome="stato"
           valore={filtroStato}
           predefinito="attivi"
-          opzioni={Object.entries(FILTRI_STATO_PROGETTO).map(([valore, etichetta]) => ({ valore, etichetta }))}
+          opzioni={Object.entries(t.filtriStato).map(([valore, etichetta]) => ({ valore, etichetta }))}
           parametri={parametriCorrenti}
         />
         <FiltroSelect
           id="filtro-reparto"
-          etichetta="Reparto"
+          etichetta={t.reparto}
           nome="reparto"
           valore={repartoFiltro ?? ''}
           predefinito=""
           opzioni={[
-            { valore: '', etichetta: 'Tutti i reparti' },
-            ...reparti.data.map((r) => ({ valore: r.id, etichetta: r.attivo ? r.nome : `${r.nome} (disattivato)` })),
+            { valore: '', etichetta: t.tuttiReparti },
+            ...reparti.data.map((r) => ({ valore: r.id, etichetta: r.attivo ? r.nome : t.repartoDisattivato(r.nome) })),
           ]}
           parametri={parametriCorrenti}
         />
@@ -206,7 +195,7 @@ export default async function ProgettiPage({
           <FiltroInterruttore
             nome="miei"
             attivo={soloMiei}
-            etichetta="Solo i miei"
+            etichetta={t.soloMiei}
             parametri={parametriCorrenti}
             className="justify-self-start"
           />
@@ -221,16 +210,12 @@ export default async function ProgettiPage({
       {tuttiVuoti ? (
         <StatoVuoto
           Icona={FolderKanban}
-          titolo={`Nessun progetto${statoParola}`}
-          descrizione={
-            filtroStato !== 'tutti' || repartoFiltro
-              ? 'Cambia i filtri per vedere gli altri progetti, o aprine uno nuovo.'
-              : 'Apri il primo progetto con «Nuovo progetto»: il reparto lo scegli nel foglio.'
-          }
+          titolo={t.nessuno(statoParola)}
+          descrizione={filtroStato !== 'tutti' || repartoFiltro ? t.cambiaFiltriOApri : t.apriPrimo}
           azione={
             filtroStato !== 'tutti' || repartoFiltro ? (
               <LinkBottone href={mostraTutti} variant="outline">
-                Mostra tutti i progetti
+                {t.mostraTutti}
               </LinkBottone>
             ) : null
           }
@@ -238,22 +223,18 @@ export default async function ProgettiPage({
       ) : sezioni.length === 0 ? (
         <StatoVuoto
           Icona={FolderKanban}
-          titolo={filtroStato === 'attivi' && !repartoFiltro ? 'Non fai ancora parte di un progetto' : `Nessun progetto${statoParola}`}
-          descrizione={
-            filtroStato === 'attivi' && !repartoFiltro
-              ? 'Quando qualcuno ti aggiunge a un progetto, lo trovi qui con i tuoi task.'
-              : 'Cambia i filtri per vedere gli altri progetti.'
-          }
+          titolo={filtroStato === 'attivi' && !repartoFiltro ? t.nonFaiParte : t.nessuno(statoParola)}
+          descrizione={filtroStato === 'attivi' && !repartoFiltro ? t.quandoAggiunto : t.cambiaFiltri}
           azione={
             filtroStato !== 'tutti' || repartoFiltro ? (
               <LinkBottone href={mostraTutti} variant="outline">
-                Mostra tutti i progetti
+                {t.mostraTutti}
               </LinkBottone>
             ) : null
           }
         />
       ) : vista === 'timeline' ? (
-        <Suspense fallback={<ScheletroTimeline />}>
+        <Suspense fallback={<ScheletroTimeline etichetta={t.caricamentoTimeline} />}>
           <TimelineDati
             reparti={sezioni.map((s) => ({ id: s.reparto.id, nome: s.reparto.nome, progetti: s.progetti }))}
             nomeCliente={nomeCliente}
@@ -267,7 +248,7 @@ export default async function ProgettiPage({
               <h2 id={`reparto-${reparto.id}`} className="text-base font-medium">
                 {reparto.nome}
                 <span className="num ml-2 text-sm font-normal text-muted-foreground">{elenco.length}</span>
-                {reparto.attivo ? null : <span className="ml-2 text-xs font-normal text-muted-foreground">disattivato</span>}
+                {reparto.attivo ? null : <span className="ml-2 text-xs font-normal text-muted-foreground">{t.disattivato}</span>}
               </h2>
               {creatore && reparto.attivo ? (
                 <NuovoProgetto {...propsNuovo} repartoId={reparto.id} variante="icona" />
@@ -277,7 +258,7 @@ export default async function ProgettiPage({
             {elenco.length === 0 ? (
               // one compact line: the dashed box is only for a page with nothing at all
               <div className="flex min-h-11 flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
-                <span>Nessun progetto{statoParola}.</span>
+                <span>{t.nessunoPunto(statoParola)}</span>
                 {creatore && reparto.attivo ? (
                   <NuovoProgetto {...propsNuovo} repartoId={reparto.id} variante="link" />
                 ) : null}
@@ -302,6 +283,7 @@ export default async function ProgettiPage({
                       }}
                       membri={nomiMembri.get(p.id!) ?? []}
                       cliente={p.client_id ? (nomeCliente.get(p.client_id) ?? null) : null}
+                      lingua={lingua}
                     />
                   </li>
                 ))}

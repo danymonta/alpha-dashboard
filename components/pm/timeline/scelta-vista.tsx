@@ -3,12 +3,14 @@
 import { ChartGantt, LayoutGrid, type LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { PROGETTI } from '@/lib/i18n/testi/progetti'
 import { cookieVista, type VistaProgetti } from '@/lib/progetti-timeline'
 import { cn } from '@/lib/utils'
 
-const VISTE: { valore: VistaProgetti; etichetta: string; Icona: LucideIcon }[] = [
-  { valore: 'elenco', etichetta: 'Elenco', Icona: LayoutGrid },
-  { valore: 'timeline', etichetta: 'Timeline', Icona: ChartGantt },
+const VISTE: { valore: VistaProgetti; Icona: LucideIcon }[] = [
+  { valore: 'elenco', Icona: LayoutGrid },
+  { valore: 'timeline', Icona: ChartGantt },
 ]
 
 /** Never in the way: without cookies the switch still works through the address. */
@@ -35,6 +37,7 @@ export function SceltaVista({
   parametri: Record<string, string | undefined>
   className?: string
 }) {
+  const t = PROGETTI[useLingua()]
   function href(valore: VistaProgetti) {
     const cerca = new URLSearchParams()
     for (const [chiave, v] of Object.entries(parametri)) {
@@ -48,8 +51,8 @@ export function SceltaVista({
   }
 
   return (
-    <div role="group" aria-label="Vista dei progetti" className={cn('inline-flex self-end', className)}>
-      {VISTE.map(({ valore, etichetta, Icona }, i) => {
+    <div role="group" aria-label={t.vista} className={cn('inline-flex self-end', className)}>
+      {VISTE.map(({ valore, Icona }, i) => {
         const attiva = valore === vista
         return (
           <Link
@@ -66,7 +69,7 @@ export function SceltaVista({
             )}
           >
             <Icona className="size-4" aria-hidden="true" />
-            {etichetta}
+            {t.viste[valore]}
           </Link>
         )
       })}

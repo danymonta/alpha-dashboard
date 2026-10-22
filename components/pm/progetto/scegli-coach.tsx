@@ -174,12 +174,19 @@ function Elenco({
 }
 
 /** The coach line of a client's project: who it is, or that it has none yet. */
-export function CoachDelCliente({ coach }: { coach: { nome: string } | null }) {
-  if (!coach) return <SenzaCoach className="text-sm" />
+export function CoachDelCliente({
+  coach,
+  testi = { coach: 'Coach:', senza: 'Senza coach' },
+}: {
+  coach: { nome: string } | null
+  /** The page's words (1.53.0). */
+  testi?: { coach: string; senza: string }
+}) {
+  if (!coach) return <SenzaCoach className="text-sm" testo={testi.senza} />
   return (
     <span className="inline-flex items-center gap-1.5 text-sm">
       <UserRoundCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <span className="text-muted-foreground">Coach:</span> {coach.nome}
+      <span className="text-muted-foreground">{testi.coach}</span> {coach.nome}
     </span>
   )
 }
