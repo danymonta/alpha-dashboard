@@ -291,7 +291,8 @@ test.describe('exclusions and partial recaps', () => {
     await expect(setter.getByTestId('recap-parziale')).toHaveText(
       'Recap parziale: alcune chat non sono state analizzate, aprile da Instagram.',
     )
-    await expect(setter.getByRole('button', { name: /Aggiorna dati/ })).toHaveCount(0)
+    // «Aggiorna dati» is his too from 1.50.0; the Automazione stays the admin's
+    await expect(setter.getByRole('button', { name: 'Aggiorna dati' })).toBeVisible()
     await expect(setter.getByText('Automazione', { exact: true })).toHaveCount(0)
     await expect(setter.getByTestId('meta-insight')).toContainText(/recap automatico (alle \d\d:\d\d|spento)/)
     const html = await setter.content()
@@ -371,6 +372,110 @@ test.describe('Fatto, shared and live', () => {
 
     await admin.context().close()
     await setter.context().close()
+  })
+})
+
+test.describe('«Aggiorna dati» of the setter (1.50.0)', () => {
+  const RIGA = {
+    avviato: 'Aggiornamento avviato: il recap arriva tra pochi minuti, puoi chiudere la pagina.',
+    nonAttivo: 'L’Insight non è attivo: avvisa Dany.',
+    limite: 'Hai già aggiornato 8 volte oggi: riprova domani.',
+  }
+
+  /** The words the setter never reads on this page, whatever happens. */
+  async function niente(page: Page) {
+    const html = await page.content()
+    for (const parola of ['ANTHROPIC_API_KEY', 'APP_URL', 'INSIGHT_URL_PASSO', 'costo_usd', 'Claude analizza le chat', 'pianificatore']) {
+      expect(html, parola).not.toContain(parola)
+    }
+    await expect(page.getByText('Automazione', { exact: true })).toHaveCount(0)
+  }
+
+  test('the setter taps it, reads neutral words, and the 8 a day are shared', async ({ page }) => {
+    // the dev server must not send the run anywhere: INSIGHT_URL_PASSO=manuale (as insight-esecuzione.spec.ts),
+    // and the rows this test writes go at the end
+    const dal = new Date(Date.now() - 1000).toISOString()
+    await apriInsight(page, 'setter')
+    const bottone = page.getByRole('button', { name: 'Aggiorna dati' })
+    await expect(bottone).toBeVisible()
+    expect((await bottone.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
+    const riga = page.getByTestId('riga-aggiornamento')
+
+    if (await bottone.isDisabled()) {
+      // a dev server without ANTHROPIC_API_KEY: the setter learns only that the Insight is off
+      await expect(riga).toHaveText(RIGA.nonAttivo)
+      await niente(page)
+      return
+    }
+
+    try {
+      await bottone.click()
+      await expect(riga).toHaveText(RIGA.avviato)
+      await expect(page.getByRole('button', { name: /Aggiornamento in corso/ })).toBeDisabled()
+      await niente(page)
+
+      // the run: today's, manual, without the name of who pressed (CLAUDE.md section 17)
+      const { data: runs, error } = await db().from('insight_esecuzioni').select('id, motivo, richiesta_da').gte('creata_il', dal)
+      if (error) throw error
+      expect(runs).toHaveLength(1)
+      expect(runs?.[0]).toMatchObject({ motivo: 'manuale', richiesta_da: null })
+
+      // the run ends: «Dati aggiornati.» (the page reads the state every 15 seconds)
+      const fine = await db()
+        .from('insight_esecuzioni')
+        .update({ stato: 'pronta', finita_il: new Date().toISOString() })
+        .eq('id', runs?.[0]?.id as string)
+      if (fine.error) throw fine.error
+      await expect(riga).toHaveText('Dati aggiornati.', { timeout: 25_000 })
+
+      // the eighth of the day, whoever pressed it: the ninth is refused with the database's sentence
+      const { count, error: e2 } = await db()
+        .from('insight_esecuzioni')
+        .select('id', { count: 'exact', head: true })
+        .eq('motivo', 'manuale')
+        .eq('giorno', oggi())
+      if (e2) throw e2
+      const mancano = Math.max(0, 8 - (count ?? 0))
+      if (mancano) {
+        const pieni = await db()
+          .from('insight_esecuzioni')
+          .insert(Array.from({ length: mancano }, () => ({ giorno: oggi(), motivo: 'manuale', stato: 'pronta' as const })))
+        if (pieni.error) throw pieni.error
+      }
+      await page.reload()
+      await page.getByRole('button', { name: 'Aggiorna dati' }).click()
+      await expect(riga).toHaveText(RIGA.limite)
+      await niente(page)
+    } finally {
+      const via = await db().from('insight_esecuzioni').delete().gte('creata_il', dal)
+      if (via.error) throw via.error
+    }
+  })
+
+  test('without a recap the empty state has «Aggiorna dati» for the setter too', async ({ page }) => {
+    // the Instagram recaps and their Fatto rows go for this test and come back as they were
+    const recap = await db().from('insight_recap').select('*').eq('canale', 'instagram')
+    const fatti = await db().from('insight_fatto').select('*').eq('canale', 'instagram')
+    if (recap.error) throw recap.error
+    if (fatti.error) throw fatti.error
+    try {
+      const via = await db().from('insight_recap').delete().eq('canale', 'instagram')
+      if (via.error) throw via.error
+      await apriInsight(page, 'setter', '/insight?canale=instagram')
+      await expect(page.getByText('Nessun recap Instagram ancora')).toBeVisible()
+      // one button: the empty state's (the header has none without a recap)
+      await expect(page.getByRole('button', { name: 'Aggiorna dati' })).toHaveCount(1)
+      await niente(page)
+    } finally {
+      if (recap.data?.length) {
+        const su = await db().from('insight_recap').upsert(recap.data, { onConflict: 'giorno,canale' })
+        if (su.error) throw su.error
+      }
+      if (fatti.data?.length) {
+        const su = await db().from('insight_fatto').upsert(fatti.data, { onConflict: 'giorno,canale,chiave' })
+        if (su.error) throw su.error
+      }
+    }
   })
 })
 

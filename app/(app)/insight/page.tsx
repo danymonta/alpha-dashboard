@@ -68,8 +68,9 @@ function tokenScaduto(collegamento: { token_scade_il: string | null; ultimo_erro
  * browser, then Instagram; the day in ?giorno, else the newest (never
  * remembered, as the artifact).
  *
- * Everything is read with the session (RLS: insight_puo_leggere()). The
- * admin also gets «Aggiorna dati», «Automazione», the run's details, and the
+ * Everything is read with the session (RLS: insight_puo_leggere()). Both
+ * roles get «Aggiorna dati» (the setter from 1.50.0, with neutral words). The
+ * admin also gets «Automazione», the run's details, and the
  * calendar contents of the posts the recap names (never stored in the
  * recap: the setter has no Marketing area and gets none of it).
  */
@@ -184,6 +185,8 @@ export default async function InsightPage({
 
   const props = {
     stato,
+    // the admin reads why the Insight is off, the setter only that it is (1.50.0)
+    configurato: insightConfigurato(),
     ultimoGeneratoIl: ((ultimoR.data ?? null) as { generato_il: string } | null)?.generato_il ?? null,
     adesso: adesso.toISOString(),
   }
@@ -205,7 +208,7 @@ export default async function InsightPage({
           Icona={Sparkles}
           titolo={titoloNessunRecap(canale)}
           descrizione={fonte === 'messenger' ? PRIMO_RECAP_MESSENGER : DESCRIZIONE_NESSUN_RECAP}
-          azione={admin ? <BottoneAggiornaDati className="h-11 gap-1.5 px-4" /> : undefined}
+          azione={<BottoneAggiornaDati className="h-11 gap-1.5 px-4" />}
         />
       )
     }
@@ -235,7 +238,7 @@ export default async function InsightPage({
   const corpo = (
     <NavigazioneInsight>
       <div className="space-y-6">
-        <IntestazioneInsight canale={canale} meta={meta} giorni={giorni} giorno={giorno} conBottone={admin && Boolean(riga)} />
+        <IntestazioneInsight canale={canale} meta={meta} giorni={giorni} giorno={giorno} conBottone={Boolean(riga)} />
         {admin ? (
           <Automazione
             attiva={stato?.attivo ?? false}
@@ -258,7 +261,6 @@ export default async function InsightPage({
         <AggiornamentoInsight
           admin
           {...props}
-          configurato={insightConfigurato()}
           urlValido={urlValido}
           tokenScaduto={tokenScaduto(
             (collegamentoR.data ?? null) as { token_scade_il: string | null; ultimo_errore: string | null } | null,

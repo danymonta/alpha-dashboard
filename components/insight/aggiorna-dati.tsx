@@ -10,7 +10,7 @@ import { useAdessoMezzoMinuto } from '@/components/insight/orologio'
 import { Button } from '@/components/ui/button'
 import { formatOra } from '@/lib/date'
 import { LINK_CHIAVE_INSTAGRAM } from '@/lib/insight/link'
-import { AGGIORNA, fasePasso, rigaFallita, rigaInCorso, rigaPianificatore } from '@/lib/insight/parole'
+import { AGGIORNA, AGGIORNA_SETTER, fasePasso, rigaFallita, rigaInCorso, rigaPianificatore } from '@/lib/insight/parole'
 import {
   esecuzioneInCorso,
   leggiStatoInsight,
@@ -38,14 +38,17 @@ type PropsComuni = {
   ultimoGeneratoIl: string | null
   /** the server's instant (ISO), for the first render only */
   adesso: string
+  /**
+   * insightConfigurato() on the server (D23). The admin reads why (the key's
+   * name); the setter only that the Insight is off («avvisa Dany», 1.50.0)
+   */
+  configurato: boolean
   children: ReactNode
 }
 
 type Props =
   | (PropsComuni & {
       admin: true
-      /** insightConfigurato() on the server (D23): the setter never learns it */
-      configurato: boolean
       /** urlPasso() did not throw: the scheduler can send the steps (D18) */
       urlValido: boolean
       /** the Instagram token expired or refused by Meta, as Impostazioni › Instagram says it */
@@ -76,7 +79,8 @@ function appenaPronta(prima: Stato | null, dopo: Stato | null): boolean {
 
 /**
  * The state of the runs of the Insight, for the whole page: «Aggiorna dati»
- * (admin) and the line under the header (both roles), as the artifact's
+ * and the line under the header (both roles; the setter's button from
+ * 1.50.0), as the artifact's
  * refresh button and status, on the server pipeline of 1.35.0.
  *
  * - While a run is queued or working, insight_stato() is read again every
@@ -86,8 +90,10 @@ function appenaPronta(prima: Stato | null, dopo: Stato | null): boolean {
  * - While the page is on screen, every 60 seconds and when it comes back, the
  *   newest recap is looked for: a recap newer than the page's (a run of the
  *   automation, another admin's «Aggiorna dati») reloads it.
- * - The setter sees one line during a run and nothing else (D23, C47): never
- *   a phase, an error, a cost or whether the Insight is configured.
+ * - The setter (1.50.0) taps «Aggiorna dati» too and reads neutral lines
+ *   (AGGIORNA_SETTER): a run working, «Dati aggiornati.», the Insight off, a
+ *   generic failure; never a phase, a cost, a key's or a variable's name or
+ *   the text of an error (D23, C47).
  */
 export function AggiornamentoInsight(props: Props) {
   const { admin, stato: statoServer, ultimoGeneratoIl, adesso, children } = props
@@ -188,7 +194,6 @@ export function AggiornamentoInsight(props: Props) {
   }, [router])
 
   function aggiorna() {
-    if (!admin) return
     setErroreAzione(null)
     setFatto(false)
     avvia(async () => {
@@ -207,7 +212,7 @@ export function AggiornamentoInsight(props: Props) {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('insight_stato')
       if (error) return
-      const nuovo = leggiStatoInsightAdmin(data)
+      const nuovo = admin ? leggiStatoInsightAdmin(data) : leggiStatoInsight(data)
       if (nuovo) setStato(nuovo)
     })
   }
@@ -219,7 +224,7 @@ export function AggiornamentoInsight(props: Props) {
     avvio,
     fatto,
     erroreAzione,
-    configurato: props.admin ? props.configurato : true,
+    configurato: props.configurato,
     urlValido: props.admin ? props.urlValido : true,
     tokenScaduto: props.admin ? props.tokenScaduto : false,
     adessoMs,
@@ -235,10 +240,9 @@ function useAggiornamento(): Valore {
   return valore
 }
 
-/** «Aggiorna dati» (admin only): the page's one primary button, full width on a phone. */
+/** «Aggiorna dati» (the admin and, from 1.50.0, the setter): the page's one primary button, full width on a phone. */
 export function BottoneAggiornaDati({ className }: { className?: string }) {
-  const { admin, avvio, inCorso, configurato, aggiorna } = useAggiornamento()
-  if (!admin) return null
+  const { avvio, inCorso, configurato, aggiorna } = useAggiornamento()
   const parola = avvio ? AGGIORNA.avvio : inCorso ? AGGIORNA.inCorso : AGGIORNA.bottone
   return (
     <Button
@@ -262,7 +266,7 @@ type Riga = { tono: 'ok' | 'errore' | 'neutro'; testo: string; link?: { href: st
 
 function rigaDi(v: Valore): Riga | null {
   const { admin, stato, inCorso, avvio, fatto, erroreAzione, configurato, urlValido, tokenScaduto, adessoMs } = v
-  if (!admin) return inCorso ? { tono: 'neutro', testo: AGGIORNA.setterInCorso } : null
+  if (!admin) return rigaSetter(v)
   if (avvio) return null
   if (inCorso && stato?.esecuzione) {
     const e = stato.esecuzione
@@ -292,14 +296,30 @@ function rigaDi(v: Valore): Riga | null {
   return null
 }
 
+/**
+ * The setter's line (1.50.0): the same moments as the admin's, in neutral
+ * words. Never the phase, the minutes, a key, APP_URL, the Instagram token,
+ * the scheduler or the run's error: the admin's (C47, D23).
+ */
+function rigaSetter(v: Valore): Riga | null {
+  const { stato, inCorso, avvio, fatto, erroreAzione, configurato } = v
+  if (avvio) return null
+  if (inCorso) return { tono: 'neutro', testo: AGGIORNA_SETTER.inCorso }
+  if (fatto) return { tono: 'ok', testo: AGGIORNA.fatto }
+  if (erroreAzione) return { tono: 'errore', testo: erroreAzione }
+  if (!configurato) return { tono: 'errore', testo: AGGIORNA_SETTER.nonAttivo }
+  if (stato?.esecuzione?.stato === 'fallita') return { tono: 'errore', testo: AGGIORNA_SETTER.nonRiuscito }
+  return null
+}
+
 const ICONA = { ok: CircleCheck, errore: TriangleAlert, neutro: Clock } as const
 const COLORE = { ok: 'text-status-ok', errore: 'text-rosso-testo', neutro: 'text-muted-foreground' } as const
 
 /**
  * The line under the header (role="status", always there so a change is
  * read): the run's progress, «Dati aggiornati.», the reasons «Aggiorna dati»
- * cannot work (admin), the setter's one line during a run. Icon and words,
- * never colour alone.
+ * cannot work (admin), the setter's neutral lines. Icon and words, never
+ * colour alone.
  */
 export function RigaAggiornamento() {
   const v = useAggiornamento()
