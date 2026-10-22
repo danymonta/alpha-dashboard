@@ -86,6 +86,36 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.52.0',
+    data: '2026-10-22',
+    titolo: 'Il business coach: vede tutto, in sola lettura',
+    riassunto:
+      'Un ruolo nuovo, «Business coach»: vede quello che vedi tu, dalla Panoramica ai costi, ai progetti e al tempo del team, e non cambia niente.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'In Impostazioni › Team inviti una persona «come Business coach». Entra sulla Panoramica e legge le stesse pagine che leggi tu: tutte le call, Pipeline, Clienti, Vendite, Incassi, Rinnovi, Setter con l’Insight delle ultime 24h, Closer, Provvigioni, Costi, Piano editoriale, Pubblicati, Spunti, Progetti, Tempo › Team, Novità e, in Impostazioni, Team, Prodotti, Regole provvigioni e Registro modifiche.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Non scrive mai niente: nessun bottone che registra, modifica o elimina gli compare, e se ci provasse lo rifiuterebbero il database e il server. Niente esiti delle call, vendite, incassi, proposte da Instagram, spunte «Fatto», «Aggiorna dati», timer o tempo suo.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Restano tuoi: le chiavi e i collegamenti (Instagram, Messenger, Fathom), Esporta e backup, reparti e modelli dei progetti, le tue notifiche e i numeri da fare sul menu. Non vede come è stata condotta una call né i suggerimenti per i DM di Loris, che restano di chi l’ha fatta, e nemmeno le giornate di Loris da approvare, la trascrizione e il riassunto di Fathom e il link «Scrivi su WhatsApp».',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Alfire gli dà solo le tue letture, mai una scrittura. Può collegare Claude da Profilo › Account: Claude legge progetti, tempo del team e calendario dei contenuti e non scrive niente.',
+      },
+    ],
+  },
+  {
     versione: '1.51.0',
     data: '2026-10-22',
     titolo: 'Claude lavora sui progetti e sul tempo, per tutto il team',
