@@ -13,8 +13,12 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { solaLettura } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
-import { formatData, formatEuro, formatNumero, formatPercentuale } from '@/lib/format'
-import { LEGENDA_CLOSER, type VoceLegenda } from '@/lib/metriche/legenda'
+import { formato, type Formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { getLingua } from '@/lib/i18n/server'
+import { CLOSER } from '@/lib/i18n/testi/closer'
+import type { VoceLegenda } from '@/lib/metriche/legenda'
+import { legende } from '@/lib/metriche/legenda-en'
 import { leggiPeriodo } from '@/lib/periodo'
 import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
@@ -33,29 +37,36 @@ type Giornata = {
   revenue: number
 }
 
+type Colonna = { campo: keyof Giornata; etichetta: string; euro?: true }
+
 // Dany's Excel, CLOSER half, in its order: counts first, then the money.
 // Every column's full name and definition come from lib/metriche/legenda.
-const COLONNE: readonly { campo: keyof Giornata; etichetta: string; euro?: true }[] = [
-  // "Svolte": the tile above says "Call svolte", the column is the same number
-  { campo: 'call', etichetta: 'Svolte' },
-  { campo: 'qualificate', etichetta: 'Qualificate' },
-  { campo: 'no_show', etichetta: 'No show' },
-  // "(esito call)": not the setter's follow up in DM (the legend's label)
-  { campo: 'follow_up', etichetta: LEGENDA_CLOSER.follow_up.etichetta },
-  { campo: 'cancellate', etichetta: 'Cancellate' },
-  { campo: 'chiuse', etichetta: 'Chiuse' },
-  { campo: 'cash', etichetta: 'Cash', euro: true },
-  { campo: 'revenue', etichetta: 'Revenue', euro: true },
-]
+function colonne(lingua: Lingua): readonly Colonna[] {
+  const c = CLOSER[lingua].colonne
+  return [
+    // "Svolte": the tile above says "Call svolte", the column is the same number
+    { campo: 'call', etichetta: c.call },
+    { campo: 'qualificate', etichetta: c.qualificate },
+    { campo: 'no_show', etichetta: c.no_show },
+    // "(esito call)": not the setter's follow up in DM (the legend's label)
+    { campo: 'follow_up', etichetta: legende(lingua).closer.follow_up.etichetta },
+    { campo: 'cancellate', etichetta: c.cancellate },
+    { campo: 'chiuse', etichetta: c.chiuse },
+    { campo: 'cash', etichetta: c.cash, euro: true },
+    { campo: 'revenue', etichetta: c.revenue, euro: true },
+  ]
+}
 
 /** Header tooltip on a desktop: full name and definition. */
-function titolo(campo: keyof Giornata): string {
-  const voce = LEGENDA_CLOSER[campo]
+function titolo(campo: keyof Giornata, lingua: Lingua): string {
+  const voce = legende(lingua).closer[campo]
   return `${voce.etichetta}: ${voce.spiegazione}`
 }
 
 // the page's numbers in reading order: the tiles, then the rest of the table
-const LEGENDA_PAGINA: VoceLegenda[] = [
+function legendaPagina(lingua: Lingua): VoceLegenda[] {
+  const LEGENDA_CLOSER = legende(lingua).closer
+  return [
   LEGENDA_CLOSER.cash,
   LEGENDA_CLOSER.revenue,
   LEGENDA_CLOSER.call,
@@ -66,25 +77,27 @@ const LEGENDA_PAGINA: VoceLegenda[] = [
   LEGENDA_CLOSER.chiuse,
   LEGENDA_CLOSER.follow_up,
   LEGENDA_CLOSER.cancellate,
-]
-
-function valore(r: Giornata, colonna: (typeof COLONNE)[number]): string {
-  return colonna.euro ? formatEuro(r[colonna.campo]) : formatNumero(r[colonna.campo])
+  ]
 }
 
-function zero(r: Giornata, colonna: (typeof COLONNE)[number]): boolean {
+function valore(r: Giornata, colonna: Colonna, f: Formato): string {
+  return colonna.euro ? f.formatEuro(r[colonna.campo]) : f.formatNumero(r[colonna.campo])
+}
+
+function zero(r: Giornata, colonna: Colonna): boolean {
   return Number(r[colonna.campo]) === 0
 }
 
 /** A zero stays readable but steps back: the days with activity stand out. */
-function classeZero(r: Giornata, colonna: (typeof COLONNE)[number]): string | undefined {
+function classeZero(r: Giornata, colonna: Colonna): string | undefined {
   return zero(r, colonna) ? 'text-muted-foreground' : undefined
 }
 
 /* ---------- phone: one closed line per day, like the setter's "Giorno per giorno" ---------- */
 
 /** The line of a closed day: how many calls were held and closed, and the cash. */
-const RIASSUNTO = COLONNE.filter((c) => c.campo === 'call' || c.campo === 'chiuse' || c.campo === 'cash')
+const riassunto = (colonne: readonly Colonna[]) =>
+  colonne.filter((c) => c.campo === 'call' || c.campo === 'chiuse' || c.campo === 'cash')
 
 const CHEVRON = 'size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180'
 const SOMMARIO =
@@ -93,15 +106,18 @@ const SOMMARIO =
 const GRIGLIA = 'grid grid-cols-[5.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)_1rem] items-center gap-x-2'
 
 /** Every column of a day as label and value, two by two; a day leaves out its zeros. */
-function Dettaglio({ riga, senzaZeri = false }: { riga: Giornata; senzaZeri?: boolean }) {
+function Dettaglio({ riga, senzaZeri = false, lingua }: { riga: Giornata; senzaZeri?: boolean; lingua: Lingua }) {
+  const COLONNE = colonne(lingua)
+  const LEGENDA_CLOSER = legende(lingua).closer
+  const f = formato(lingua)
   const visibili = senzaZeri ? COLONNE.filter((c) => !zero(riga, c)) : COLONNE
-  if (visibili.length === 0) return <p className="py-1 text-xs text-muted-foreground">Tutto a zero</p>
+  if (visibili.length === 0) return <p className="py-1 text-xs text-muted-foreground">{CLOSER[lingua].tuttoZero}</p>
   return (
     <dl className="grid grid-cols-2 gap-x-6">
       {visibili.map((c) => (
         <div key={c.campo} className="flex items-baseline justify-between gap-2 py-1">
           <dt className="text-xs text-muted-foreground">{LEGENDA_CLOSER[c.campo].etichetta}</dt>
-          <dd className={cn('num text-right text-sm', classeZero(riga, c))}>{valore(riga, c)}</dd>
+          <dd className={cn('num text-right text-sm', classeZero(riga, c))}>{valore(riga, c, f)}</dd>
         </div>
       ))}
     </dl>
@@ -122,38 +138,44 @@ function GiornateTelefono({
   totale,
   closer,
   apriGiorno,
+  lingua,
 }: {
   giorni: (Giornata & { data: string })[]
   totale: Giornata
   closer: string | undefined
   /** Admin and closer open a day's page; the setter only reads the numbers. */
   apriGiorno: boolean
+  lingua: Lingua
 }) {
+  const t = CLOSER[lingua]
+  const f = formato(lingua)
+  const RIASSUNTO = riassunto(colonne(lingua))
+  const LEGENDA_CLOSER = legende(lingua).closer
   return (
     <div className="space-y-3 md:hidden" data-testid="giornate-closer-telefono">
       <details open className="group rounded-xl bg-card ring-1 ring-border" data-testid="giornata-totale">
         <summary className={cn(SOMMARIO, 'flex min-h-11 items-center justify-between gap-2 px-4 text-sm font-semibold')}>
-          Totale del periodo
+          {t.totalePeriodo}
           <ChevronDown className={CHEVRON} aria-hidden="true" />
         </summary>
         <div className="px-4 pt-1 pb-4">
-          <Dettaglio riga={totale} />
+          <Dettaglio riga={totale} lingua={lingua} />
         </div>
       </details>
 
       <div>
         {/* the header of the lines below: every line also says it to screen readers */}
         <div aria-hidden="true" className={cn(GRIGLIA, 'px-3 pb-1 text-[11px] text-muted-foreground')}>
-          <span>Giorno</span>
+          <span>{t.giorno}</span>
           {RIASSUNTO.map((c) => (
             <span key={c.campo} className="text-right">
               {c.etichetta}
             </span>
           ))}
         </div>
-        <ul className="space-y-2" aria-label="Giorni del periodo">
+        <ul className="space-y-2" aria-label={t.giorniPeriodo}>
           {giorni.map((r) => {
-            const giorno = formatData(r.data)
+            const giorno = f.formatData(r.data)
             return (
               <li key={r.data} aria-label={giorno} data-testid="giornata">
                 <details className="group rounded-xl bg-card">
@@ -162,16 +184,16 @@ function GiornateTelefono({
                     {RIASSUNTO.map((c) => (
                       <span key={c.campo} className={cn('num text-right text-sm whitespace-nowrap', classeZero(r, c))}>
                         <span className="sr-only">{LEGENDA_CLOSER[c.campo].etichetta}: </span>
-                        {valore(r, c)}
+                        {valore(r, c, f)}
                       </span>
                     ))}
                     <ChevronDown className={CHEVRON} aria-hidden="true" />
                   </summary>
                   <div className="space-y-2 px-4 pt-1 pb-4">
-                    <Dettaglio riga={r} senzaZeri />
+                    <Dettaglio riga={r} senzaZeri lingua={lingua} />
                     {apriGiorno ? (
                       <LinkBottone href={hrefGiorno(r.data, closer)} variant="outline" className="w-full">
-                        Apri la giornata
+                        {t.apriGiornata}
                       </LinkBottone>
                     ) : null}
                   </div>
@@ -184,19 +206,6 @@ function GiornateTelefono({
     </div>
   )
 }
-
-/** The page's description, from the side of who reads it. */
-const DESCRIZIONE = {
-  admin:
-    'Le tue call da registrare in cima, poi le call e le vendite del closer giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.',
-  // the admin on another closer: no calls to record on top (they are that closer's)
-  adminAltroCloser:
-    'Le call e le vendite del closer scelto, giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.',
-  closer:
-    'Le tue call da registrare in cima, poi le tue call e le tue vendite giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.',
-  setter:
-    'Le call e le vendite del closer, di tutti i setter, giorno per giorno: si calcolano dagli esiti delle call e dalle vendite registrate.',
-} as const
 
 export default async function CloserPage({
   searchParams,
@@ -215,7 +224,15 @@ export default async function CloserPage({
   const setter = ruolo === 'setter'
   const oggi = oggiRoma()
   const parametri = await searchParams
-  const periodo = leggiPeriodo(parametri, oggi)
+  const lingua = await getLingua()
+  const t = CLOSER[lingua]
+  // the page's description, from the side of who reads it (the admin on another closer: no calls to record on top)
+  const DESCRIZIONE = t.descrizione
+  const { formatData, formatEuro, formatNumero, formatPercentuale } = formato(lingua)
+  const f = formato(lingua)
+  const COLONNE = colonne(lingua)
+  const LEGENDA_CLOSER = legende(lingua).closer
+  const periodo = leggiPeriodo(parametri, oggi, lingua)
   const supabase = await createClient()
 
   // who closes: the closers, and the admin who closes too (Dany, 28/09/2026);
@@ -228,7 +245,7 @@ export default async function CloserPage({
       .eq('attivo', true)
       .in('ruolo', ['closer', 'admin'])
       .order('nome')
-    if (error) throw new Error('Impossibile caricare i closer')
+    if (error) throw new Error(t.errore)
     closers = data
   }
   const richiesto = Array.isArray(parametri.closer) ? parametri.closer[0] : parametri.closer
@@ -247,7 +264,7 @@ export default async function CloserPage({
     }),
     registraEsiti ? caricaCallDaRegistrare(profilo.id) : Promise.resolve(null),
   ])
-  if (giornate.error) throw new Error('Impossibile caricare le giornate del closer')
+  if (giornate.error) throw new Error(t.erroreGiornate)
 
   const righe = giornate.data ?? []
   const totale = righe.find((r) => r.data === null)
@@ -258,7 +275,7 @@ export default async function CloserPage({
   return (
     <div className="space-y-5">
       <IntestazionePagina
-        titolo={ruolo === 'closer' ? 'I miei numeri' : 'Closer'}
+        titolo={ruolo === 'closer' ? t.titoloCloser : t.titolo}
         descrizione={DESCRIZIONE[admin && !registraEsiti ? 'adminAltroCloser' : ruolo]}
         azione={
           // the day is filled from its calls: one outcome per call, no counters.
@@ -266,7 +283,7 @@ export default async function CloserPage({
           setter ? undefined : (
             <LinkBottone href={hrefGiorno(null, closer)} data-testid="compila-giornata">
               <ClipboardCheck className="size-4" aria-hidden="true" />
-              Compila la giornata
+              {t.compila}
             </LinkBottone>
           )
         }
@@ -279,6 +296,7 @@ export default async function CloserPage({
           closers={admin ? closers : []}
           hrefGiornata={hrefGiorno(null, undefined)}
           tornaA={qui}
+          lingua={lingua}
         />
       ) : null}
 
@@ -288,12 +306,12 @@ export default async function CloserPage({
         {closers.length > 1 ? (
           <FiltroSelect
             id="filtro-closer"
-            etichetta="Closer"
+            etichetta={t.filtro}
             nome="closer"
             valore={closer ?? ''}
             predefinito=""
             opzioni={[
-              { valore: '', etichetta: 'Tutti i closer' },
+              { valore: '', etichetta: t.tutti },
               ...closers.map((c) => ({ valore: c.id, etichetta: c.nome })),
             ]}
             parametri={{ ...periodo.parametri, closer }}
@@ -304,25 +322,21 @@ export default async function CloserPage({
       {giorni.length === 0 || !totale ? (
         <StatoVuoto
           Icona={Phone}
-          titolo="Nessuna call o vendita in questo periodo"
-          descrizione={
-            setter
-              ? `I numeri compaiono quando il closer registra l’esito di una call o una vendita ${periodo.frase}.`
-              : `I numeri compaiono quando si registra l’esito di una call o una vendita ${periodo.frase}.`
-          }
+          titolo={t.vuoto}
+          descrizione={setter ? t.vuotoSetter(periodo.frase) : t.vuotoAltri(periodo.frase)}
           azione={
             leggeSolo ? undefined : setter ? (
               <LinkBottone href="/my-numbers" variant="outline">
-                Vai ai miei numeri
+                {t.vaiMieiNumeri}
               </LinkBottone>
             ) : (
-              <LinkBottone href={hrefGiorno(null, closer)}>Compila la giornata</LinkBottone>
+              <LinkBottone href={hrefGiorno(null, closer)}>{t.compila}</LinkBottone>
             )
           }
         />
       ) : (
         <>
-          <section aria-label={`Totali ${periodo.frase}`} className="space-y-3" data-testid="kpi-closer">
+          <section aria-label={t.totali(periodo.frase)} className="space-y-3" data-testid="kpi-closer">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl bg-card p-4 md:p-5">
                 <p className="text-sm text-muted-foreground">
@@ -334,7 +348,7 @@ export default async function CloserPage({
                 </p>
                 {/* the closer's cash (20260929130000): first instalment of the new sales, on the sale day, refunds apart */}
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Prima rata dei nuovi clienti chiusi {periodo.frase}, sul giorno della vendita
+                  {t.cashNota(periodo.frase)}
                 </p>
               </div>
               <div className="rounded-xl bg-card p-4 md:p-5">
@@ -344,7 +358,7 @@ export default async function CloserPage({
                 <p className="num mt-1 text-2xl font-semibold tracking-tight md:text-3xl">
                   {formatEuro(totale.revenue)}
                 </p>
-                <p className="mt-2 text-xs text-muted-foreground">Contratti dei nuovi clienti firmati {periodo.frase}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{t.revenueNota(periodo.frase)}</p>
               </div>
             </div>
 
@@ -374,19 +388,19 @@ export default async function CloserPage({
               id="giorno-per-giorno"
               className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
             >
-              Giorno per giorno ({giorni.length})
+              {t.giornoPerGiorno(giorni.length)}
             </h2>
 
-            <GiornateTelefono giorni={giorni} totale={totale} closer={closer} apriGiorno={!setter} />
+            <GiornateTelefono giorni={giorni} totale={totale} closer={closer} apriGiorno={!setter} lingua={lingua} />
 
             <div className="hidden overflow-x-auto rounded-xl bg-card md:block">
               <table className="w-full text-sm" data-testid="giornate-closer">
-                <caption className="sr-only">Giornate del closer {periodo.frase}</caption>
+                <caption className="sr-only">{t.caption(periodo.frase)}</caption>
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b border-border">
-                    <th scope="col" className="px-3 py-2.5 text-left font-normal">Giorno</th>
+                    <th scope="col" className="px-3 py-2.5 text-left font-normal">{t.giorno}</th>
                     {COLONNE.map((c) => (
-                      <th key={c.campo} scope="col" title={titolo(c.campo)} className="px-3 py-2.5 text-right font-normal">
+                      <th key={c.campo} scope="col" title={titolo(c.campo, lingua)} className="px-3 py-2.5 text-right font-normal">
                         {c.etichetta}
                       </th>
                     ))}
@@ -402,7 +416,7 @@ export default async function CloserPage({
                           // one per day: prefetched only on intent
                           <LinkRiga
                             href={hrefGiorno(r.data, closer)}
-                            aria-label={`${formatData(r.data)}: apri la giornata`}
+                            aria-label={t.apriGiornataDi(formatData(r.data))}
                             className="num rounded-sm underline decoration-border underline-offset-4 hover:text-foreground hover:decoration-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                           >
                             {formatData(r.data)}
@@ -411,7 +425,7 @@ export default async function CloserPage({
                       </th>
                       {COLONNE.map((c) => (
                         <td key={c.campo} className={cn('num px-3 py-2 text-right', classeZero(r, c))}>
-                          {valore(r, c)}
+                          {valore(r, c, f)}
                         </td>
                       ))}
                     </tr>
@@ -419,10 +433,10 @@ export default async function CloserPage({
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-border font-medium">
-                    <th scope="row" className="px-3 py-2.5 text-left">Totale</th>
+                    <th scope="row" className="px-3 py-2.5 text-left">{t.totale}</th>
                     {COLONNE.map((c) => (
                       <td key={c.campo} className="num px-3 py-2.5 text-right">
-                        {valore(totale, c)}
+                        {valore(totale, c, f)}
                       </td>
                     ))}
                   </tr>
@@ -431,19 +445,7 @@ export default async function CloserPage({
             </div>
 
             <p className="px-1 text-xs text-muted-foreground">
-              {setter ? (
-                <>
-                  Svolte, qualificate, no show, follow up, cancellate e chiuse vengono dall’esito che il closer registra su
-                  ogni call, di tutti i setter; cash e revenue solo dai clienti nuovi (prima rata e contratto), mai rate
-                  successive o rinnovi.
-                </>
-              ) : (
-                <>
-                  Svolte, qualificate, no show, follow up, cancellate e chiuse vengono dall’esito registrato su ogni call,
-                  in «Le mie call» o in «Compila la giornata» (tocca un giorno per aprirla); cash e revenue solo dai
-                  clienti nuovi (prima rata e contratto), mai rate successive o rinnovi.
-                </>
-              )}
+              {setter ? t.notaSetter : t.notaAltri}
             </p>
           </section>
 
@@ -459,7 +461,7 @@ export default async function CloserPage({
             />
           )}
 
-          <LegendaSezione voci={LEGENDA_PAGINA} />
+          <LegendaSezione voci={legendaPagina(lingua)} />
         </>
       )}
     </div>

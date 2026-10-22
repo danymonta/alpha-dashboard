@@ -1,6 +1,9 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { CALL } from '@/lib/i18n/testi/call'
 
-export default function Loading() {
+export default async function Loading() {
+  const t = CALL[await getLingua()]
   return (
     <div className="max-w-2xl space-y-6" aria-busy="true">
       <div className="space-y-2">
@@ -15,7 +18,7 @@ export default function Loading() {
           ))}
         </div>
       ))}
-      <span className="sr-only">Caricamento delle call</span>
+      <span className="sr-only">{t.caricamento}</span>
     </div>
   )
 }

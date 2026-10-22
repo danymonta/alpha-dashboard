@@ -4,7 +4,9 @@ import type { ReactNode } from 'react'
 
 import { CAMPI_CALL_CLOSER, SchedaCall, type CallVista } from '@/app/(app)/calls/scheda-call'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
-import { formatNumero } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { CLOSER } from '@/lib/i18n/testi/closer'
 import { createClient } from '@/lib/supabase/server'
 
 /** The oldest calls without an outcome shown on top of the page; the heading counts them all. */
@@ -93,6 +95,8 @@ type Props = CallDaRegistrare & {
   hrefGiornata: string
   /** Where the sale of a call closed here comes back: this page. */
   tornaA: string
+  /** The page's language (1.53.0). */
+  lingua?: Lingua
 }
 
 /**
@@ -112,7 +116,10 @@ export function DaRegistrare({
   closers,
   hrefGiornata,
   tornaA,
+  lingua = 'it',
 }: Props) {
+  const t = CLOSER[lingua]
+  const { formatNumero } = formato(lingua)
   const scheda = (c: CallVista, mostraGiorno: boolean) => (
     <SchedaCall
       key={c.id}
@@ -126,6 +133,7 @@ export function DaRegistrare({
       mostraGiorno={mostraGiorno}
       eliminabile={admin}
       tornaA={tornaA}
+      lingua={lingua}
     />
   )
 
@@ -137,30 +145,28 @@ export function DaRegistrare({
             <Titolo
               id="da-registrare"
               descrizione={
-                totale > daRegistrare.length
-                  ? `Le tue call già passate senza esito: qui le ${formatNumero(daRegistrare.length)} più vecchie. Finché restano qui, i numeri del periodo non tornano.`
-                  : 'Le tue call già passate senza esito, dalla più vecchia. Finché restano qui, i numeri del periodo non tornano.'
+                totale > daRegistrare.length ? t.daRegistrare.piuVecchie(formatNumero(daRegistrare.length)) : t.daRegistrare.tutte
               }
             >
-              Da registrare ({formatNumero(totale)})
+              {t.daRegistrare.titolo(formatNumero(totale))}
             </Titolo>
             <div className="space-y-2">{daRegistrare.map((c) => scheda(c, true))}</div>
           </>
         ) : (
           <>
             <h2 id="da-registrare" className="sr-only">
-              Da registrare
+              {t.daRegistrare.titoloSr}
             </h2>
             <p className="flex flex-wrap items-center gap-x-3 rounded-xl border border-dashed border-border px-3 py-1 text-sm text-muted-foreground">
               <span className="inline-flex min-h-11 items-center gap-2">
                 <CircleCheck className="size-4 shrink-0 text-status-ok" aria-hidden="true" />
-                Nessun esito da registrare.
+                {t.daRegistrare.nessuno}
               </span>
               <Link
                 href={hrefGiornata}
                 className="inline-flex min-h-11 items-center rounded-sm text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
-                Compila la giornata
+                {t.compila}
               </Link>
             </p>
           </>
@@ -169,7 +175,7 @@ export function DaRegistrare({
 
       {diOggi.length > 0 ? (
         <section aria-labelledby="call-di-oggi" className="space-y-2" data-testid="call-di-oggi">
-          <Titolo id="call-di-oggi">Oggi ({formatNumero(diOggi.length)})</Titolo>
+          <Titolo id="call-di-oggi">{t.daRegistrare.oggi(formatNumero(diOggi.length))}</Titolo>
           <div className="space-y-2">{diOggi.map((c) => scheda(c, false))}</div>
         </section>
       ) : null}
