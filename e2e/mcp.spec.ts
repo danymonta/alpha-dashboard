@@ -2,13 +2,18 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Browser, type Page } from '@playwright/test'
 
-import { oggiRoma } from '../lib/date'
+import { aggiungiGiorni, oggiRoma } from '../lib/date'
 import { formatData } from '../lib/format'
 import { BOZZA_REEL } from '../lib/marketing/etichette'
 import { ICP } from '../lib/marketing/icp'
 import { CONSENSO, MESSAGGI_AUTORIZZAZIONE } from '../lib/mcp/consenso'
+import { MOTIVO_NON_CHIUSURA } from '../lib/setting/commento'
 import {
+  ID_ADMIN,
+  ID_CLOSER,
   ID_MARKETING,
+  ID_SETTER,
+  creaCallDiProva,
   dbLocale,
   eliminaClientMcp,
   impostaProfilo,
@@ -89,6 +94,20 @@ const STRUMENTI_GESTIONE = [
   'scegli_coach',
 ]
 const STRUMENTI_TEAM = [...STRUMENTI_CALENDARIO, ...STRUMENTI_PROGETTI].sort()
+/** Calls, leads and outcomes (23/10/2026, phase 2): the reads, the setter's and the closer's tools. */
+const LETTURE_CALL = ['elenco_call', 'elenco_lead', 'leggi_call']
+const STRUMENTI_CALL_SETTER = [...LETTURE_CALL, 'fissa_call', 'modifica_call', 'sposta_call', 'stato_lead']
+const STRUMENTI_CALL_CLOSER = [
+  ...LETTURE_CALL,
+  'dettagli_call',
+  'fissa_follow_up',
+  'modifica_call',
+  'prodotti',
+  'registra_esito',
+  'sposta_call',
+  'stato_lead',
+]
+const STRUMENTI_CALL_ADMIN = [...new Set([...STRUMENTI_CALL_SETTER, ...STRUMENTI_CALL_CLOSER])]
 
 test.describe.configure({ mode: 'serial' })
 
@@ -109,8 +128,19 @@ test.afterAll(async () => {
   await dbLocale().from('pm_tempo').delete().like('nota', `${PREFISSO}%`)
   await dbLocale().from('pm_task').delete().like('titolo', `${PREFISSO}%`)
   await dbLocale().from('pm_note').delete().like('testo', `${PREFISSO}%`)
+  await pulisciLeadDiProva()
   if (clientId) await eliminaClientMcp(clientId)
 })
+
+/** The leads (and their calls) the call tests wrote, by their prefix. */
+async function pulisciLeadDiProva() {
+  const db = dbLocale()
+  const { data: lead } = await db.from('leads').select('id').like('nome', `${PREFISSO}%`)
+  const ids = (lead ?? []).map((l) => l.id)
+  if (ids.length === 0) return
+  await db.from('calls').delete().in('lead_id', ids)
+  await db.from('leads').delete().in('id', ids)
+}
 
 function baseDi(page: Page): string {
   const url = test.info().project.use.baseURL ?? new URL(page.url()).origin
@@ -487,7 +517,7 @@ test('l’admin elimina da Claude solo con il Name esatto', async ({ browser }) 
   try {
     const { tools } = await mcp.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual(
-      [...STRUMENTI_TEAM, 'elimina_contenuto', ...STRUMENTI_GESTIONE, 'tempo_team'].sort(),
+      [...STRUMENTI_TEAM, 'elimina_contenuto', ...STRUMENTI_GESTIONE, 'tempo_team', ...STRUMENTI_CALL_ADMIN].sort(),
     )
     const elimina = tools.find((t) => t.name === 'elimina_contenuto')
     expect(elimina?.annotations?.destructiveHint).toBe(true)
@@ -625,7 +655,7 @@ test('un account disattivato non collega Claude: torna a Claude con un rifiuto, 
     const mcp = await clientMcp(baseDi(page), marketing.token.access_token)
     try {
       const nomi = (await mcp.listTools()).tools.map((t) => t.name).sort()
-      expect(nomi).toEqual([...STRUMENTI_PROGETTI].sort())
+      expect(nomi).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_SETTER].sort())
     } finally {
       await mcp.close()
     }
@@ -713,6 +743,218 @@ test('con i bundle lenti il tocco è già un POST nativo: «Consenti» risponde 
   } finally {
     rilascia()
     await editor.context().close()
+  }
+})
+
+/** Consent of a person of the call roles: the card's lines checked, then the tokens. */
+async function consentoCall(page: Page, state: string, azione: string, maiVisto: string) {
+  const callback = await catturaCallback(page)
+  const a = nuovaAutorizzazione(clientId, baseDi(page), state)
+  await apriConsenso(page, a)
+  const carta = scheda(page, CONSENSO.titolo)
+  await expect(carta).toContainText(azione)
+  await expect(carta).toContainText(`${CONSENSO.maiVistoInizio} ${maiVisto}`)
+  const arrivo = callback.prossima()
+  await page.getByRole('button', { name: CONSENSO.consenti, exact: true }).click()
+  return scambiaCodice(a, (await arrivo).searchParams.get('code') as string)
+}
+
+// After the consent tests of the setter and the editor (13b, 13c), which want a first consent
+test('il closer registra da Claude un esito Persa con il motivo e «non registrata»', async ({ browser }) => {
+  test.setTimeout(120_000)
+  // 14a. Claude a 360 gradi, phase 2 (23/10/2026): the closer records the outcome of his call with the
+  // rules of the app's sheet: the reason of not closing and the recording of Fathom (from 16/10/2026)
+  const nomeLead = `${PREFISSO}lead del closer`
+  const callId = await creaCallDiProva(nomeLead, ID_CLOSER, 2)
+  const page = await persona(browser, 'closer')
+  try {
+    const token = await consentoCall(page, 'closer', CONSENSO.azioniCall.closer, CONSENSO.maiVistoCall)
+    const mcp = await clientMcp(baseDi(page), token.access_token)
+    try {
+      const { tools } = await mcp.listTools()
+      expect(tools.map((t) => t.name).sort()).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_CLOSER].sort())
+      expect(mcp.getInstructions()).toContain('mai inventarli')
+
+      // the call to record, found as Claude finds it
+      const elenco = datiRisultato<{ call: { id: string; esito_da_registrare?: boolean; registrazione_richiesta?: boolean }[] }>(
+        await mcp.callTool({ name: 'elenco_call', arguments: { da_registrare: true, cerca: nomeLead } }),
+      )
+      const trovata = elenco.call.find((c) => c.id === callId)
+      expect(trovata).toMatchObject({ esito_da_registrare: true, registrazione_richiesta: true })
+
+      // without the reason, or without the recording: the sheet's sentence, nothing written
+      const senzaMotivo = await mcp.callTool({
+        name: 'registra_esito',
+        arguments: { call_id: callId, esito: 'persa', qualificata: true, non_registrata: true },
+      })
+      expect(senzaMotivo.isError).toBe(true)
+      expect(testoRisultato(senzaMotivo)).toBe(MOTIVO_NON_CHIUSURA.manca)
+      const senzaRegistrazione = await mcp.callTool({
+        name: 'registra_esito',
+        arguments: { call_id: callId, esito: 'persa', qualificata: true, motivo: 'Deve parlarne con la moglie' },
+      })
+      expect(senzaRegistrazione.isError).toBe(true)
+      expect(testoRisultato(senzaRegistrazione)).toContain('Manca la registrazione della call')
+      expect((await dbLocale().from('calls').select('stato').eq('id', callId).single()).data?.stato).toBe('programmata')
+
+      // the outcome, as the sheet saves it
+      const esito = await mcp.callTool({
+        name: 'registra_esito',
+        arguments: { call_id: callId, esito: 'persa', qualificata: true, motivo: 'Deve parlarne con la moglie', non_registrata: true },
+      })
+      expect(esito.isError, testoRisultato(esito)).toBeFalsy()
+      expect(datiRisultato<{ call: Record<string, unknown> }>(esito).call).toMatchObject({
+        stato: 'Svolta',
+        esito: 'Persa',
+        motivo_non_chiusura: 'Deve parlarne con la moglie',
+        registrazione: 'Call non registrata',
+      })
+    } finally {
+      await mcp.close()
+    }
+
+    const { data: riga } = await dbLocale()
+      .from('calls')
+      .select('stato, esito, qualificata, obiezione_principale, link_registrazione')
+      .eq('id', callId)
+      .single()
+    expect(riga).toEqual({
+      stato: 'svolta',
+      esito: 'persa',
+      qualificata: true,
+      obiezione_principale: 'Deve parlarne con la moglie',
+      link_registrazione: null,
+    })
+    const { data: registrazione } = await dbLocale().from('call_registrazioni').select('stato').eq('call_id', callId).single()
+    expect(registrazione?.stato).toBe('non_registrata')
+
+    // straight on the Data API: nothing deleted, the analyses and the money stay closed
+    const db = dataApiConToken(token.access_token)
+    expect((await db.from('calls').delete().eq('id', callId)).error?.code).toBe('42501')
+    for (const tabella of ['call_analisi', 'call_valutazioni', 'call_spunti_setter', 'sales', 'clients'] as const) {
+      expect((await db.from(tabella).select('*')).error?.code, tabella).toBe('42501')
+    }
+    expect((await dbLocale().from('calls').select('id').eq('id', callId)).data).toHaveLength(1)
+  } finally {
+    await page.context().close()
+  }
+})
+
+test('il setter fissa una call da Claude e non scrive mai un esito, nemmeno con un PATCH diretto', async ({ browser }) => {
+  test.setTimeout(120_000)
+  // 14b. the setter books his calls and never writes an outcome, a Fathom link or an amount; with his
+  // token the Data API never gives him the table of the calls (the link and the performance are in it)
+  const page = await persona(browser, 'setter')
+  try {
+    const token = await consentoCall(page, 'setter', CONSENSO.azioniCall.setter, CONSENSO.maiVistoSetter)
+    const mcp = await clientMcp(baseDi(page), token.access_token)
+    let callId = ''
+    try {
+      const { tools } = await mcp.listTools()
+      expect(tools.map((t) => t.name).sort()).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_SETTER].sort())
+
+      const fissata = await mcp.callTool({
+        name: 'fissa_call',
+        arguments: {
+          nome: `${PREFISSO}lead del setter`,
+          instagram_handle: '@e2e.mcp.setter',
+          fonte: 'dm_inbound',
+          data: aggiungiGiorni(oggiRoma(), 2),
+          ora: '18:00',
+        },
+      })
+      expect(fissata.isError, testoRisultato(fissata)).toBeFalsy()
+      const call = datiRisultato<{ call: Record<string, unknown> & { id: string } }>(fissata).call
+      callId = call.id
+      expect(call).toMatchObject({ tipo: 'Discovery', stato: 'Da fare', lead: { nome: `${PREFISSO}lead del setter` } })
+      for (const chiave of ['registrazione', 'performance', 'importo_proposto']) expect(call, chiave).not.toHaveProperty(chiave)
+
+      // the outcome is the closer's: for the setter the tool does not exist
+      await expect(
+        mcp.callTool({ name: 'registra_esito', arguments: { call_id: callId, esito: 'no_show' } }),
+      ).rejects.toThrow(/not found/)
+    } finally {
+      await mcp.close()
+    }
+
+    const { data: riga } = await dbLocale()
+      .from('calls')
+      .select('setter_id, created_by, closer_id, tipo, stato, esito')
+      .eq('id', callId)
+      .single()
+    expect(riga).toEqual({ setter_id: ID_SETTER, created_by: ID_SETTER, closer_id: ID_ADMIN, tipo: 'discovery', stato: 'programmata', esito: null })
+
+    // straight on the Data API with his token
+    const db = dataApiConToken(token.access_token)
+    const patch = await db
+      .from('calls')
+      .update({ stato: 'svolta', esito: 'persa', qualificata: true, obiezione_principale: 'Da un PATCH' })
+      .eq('id', callId)
+      .select('id')
+    expect(patch.error?.code).toBe('42501')
+    expect(patch.error?.message).toBe(FILTRO)
+    for (const tabella of ['calls', 'call_pitch', 'call_registrazioni', 'products'] as const) {
+      expect((await db.from(tabella).select('*')).error?.code, tabella).toBe('42501')
+    }
+    expect((await db.rpc('dettagli_call', { p_call_id: callId, p_performance: 'ottima' })).error?.code).toBe('42501')
+    const lette = await db.rpc('call_per_claude', { p_id: callId })
+    expect(lette.error).toBeNull()
+    expect(lette.data?.[0]).toMatchObject({ id: callId, link_registrazione: null, performance: null, importo_proposto: null })
+    expect((await dbLocale().from('calls').select('stato, esito').eq('id', callId).single()).data).toEqual({
+      stato: 'programmata',
+      esito: null,
+    })
+  } finally {
+    await page.context().close()
+  }
+})
+
+test('il business coach legge call e lead da Claude e non scrive niente', async ({ browser }) => {
+  test.setTimeout(120_000)
+  // 14c. he reads what the admin reads, never writes (1.52.0): the call reads, no call tool that writes
+  const page = await persona(browser, 'business_coach')
+  try {
+    const token = await consentoCall(page, 'business-coach', CONSENSO.azioniSolaLettura[3], CONSENSO.maiVistoSolaLettura)
+    const mcp = await clientMcp(baseDi(page), token.access_token)
+    try {
+      const nomi = (await mcp.listTools()).tools.map((t) => t.name).sort()
+      expect(nomi).toEqual(
+        [
+          ...STRUMENTI_CALENDARIO.filter((n) => !['crea_contenuti', 'modifica_contenuto', 'cambia_status', 'scrivi_sezione'].includes(n)),
+          'elenco_progetti',
+          'leggi_progetto',
+          'persone_del_team',
+          'reparti_e_modelli',
+          'tempo_team',
+          ...LETTURE_CALL,
+          'prodotti',
+        ].sort(),
+      )
+      const elenco = datiRisultato<{ totale: number }>(
+        await mcp.callTool({ name: 'elenco_call', arguments: { da: '2026-01-01', a: aggiungiGiorni(oggiRoma(), 60) } }),
+      )
+      expect(elenco.totale).toBeGreaterThan(0)
+      await expect(
+        mcp.callTool({ name: 'fissa_call', arguments: { nome: 'x', fonte: 'altro', data: oggiRoma(), ora: '10:00' } }),
+      ).rejects.toThrow(/not found/)
+    } finally {
+      await mcp.close()
+    }
+    const db = dataApiConToken(token.access_token)
+    const fissa = await db.rpc('fissa_call', {
+      p_nome: `${PREFISSO}del business coach`,
+      p_fonte: 'altro',
+      p_tipo: 'discovery',
+      p_data: oggiRoma(),
+      p_ora: '10:00',
+      p_closer_id: ID_ADMIN,
+    })
+    expect(fissa.error?.code).toBe('42501')
+    expect(fissa.error?.message).toBe('Il business coach legge e basta: da Claude non si scrive niente.')
+    expect((await db.from('calls').update({ note: 'Da Claude' }).eq('id', randomUUID())).error?.code).toBe('42501')
+    expect((await db.from('leads').select('id')).error).toBeNull()
+  } finally {
+    await page.context().close()
   }
 })
 
