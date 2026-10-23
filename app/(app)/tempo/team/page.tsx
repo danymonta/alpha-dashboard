@@ -10,7 +10,9 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
-import { formatNumero } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { getLingua } from '@/lib/i18n/server'
+import { TEMPO } from '@/lib/i18n/testi/tempo'
 import { hrefPeriodo, leggiPeriodo } from '@/lib/periodo'
 import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
@@ -39,7 +41,10 @@ export default async function TempoTeamPage({
   await requireRuolo(RUOLI_COME_ADMIN)
   const oggi = oggiRoma()
   const parametri = await searchParams
-  const periodo = leggiPeriodo(parametri, oggi)
+  const lingua = await getLingua()
+  const t = TEMPO[lingua]
+  const { formatNumero } = formato(lingua)
+  const periodo = leggiPeriodo(parametri, oggi, lingua)
   const persona = isUuid(primo(parametri.persona)) ? primo(parametri.persona) : undefined
   const progetto = isUuid(primo(parametri.progetto)) ? primo(parametri.progetto) : undefined
   const supabase = await createClient()
@@ -57,22 +62,22 @@ export default async function TempoTeamPage({
       ? supabase.from('profiles').select('id, nome').eq('id', persona).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ])
-  if (tempo.error || progetti.error || scelta.error) throw new Error('Impossibile caricare il tempo del team')
+  if (tempo.error || progetti.error || scelta.error) throw new Error(t.errore)
 
-  const team = raggruppaTempoTeam(tempo.data)
+  const team = raggruppaTempoTeam(tempo.data, lingua)
   const personaScelta = persona ? team.persone.find((p) => p.id === persona) : undefined
   const persone = persona ? (personaScelta ? [personaScelta] : []) : team.persone
   const opzioniPersone = team.persone.map((p) => ({ valore: p.id, etichetta: p.nome }))
   if (persona && !personaScelta) {
-    opzioniPersone.push({ valore: persona, etichetta: scelta.data?.nome ?? 'Persona scelta' })
+    opzioniPersone.push({ valore: persona, etichetta: scelta.data?.nome ?? t.personaScelta })
     opzioniPersone.sort((x, y) => x.etichetta.localeCompare(y.etichetta, 'it'))
   }
   const opzioniProgetti = progetti.data.map((p) => ({
     valore: p.id,
-    etichetta: p.stato === 'archiviato' ? `${p.nome} (archiviato)` : p.nome,
+    etichetta: p.stato === 'archiviato' ? t.archiviato(p.nome) : p.nome,
   }))
   if (progetto && !progetti.data.some((p) => p.id === progetto)) {
-    opzioniProgetti.push({ valore: progetto, etichetta: 'Progetto non più disponibile' })
+    opzioniProgetti.push({ valore: progetto, etichetta: t.nonDisponibile })
   }
 
   const filtri = { persona, progetto }
@@ -82,8 +87,8 @@ export default async function TempoTeamPage({
   return (
     <div className="max-w-4xl space-y-5">
       <IntestazionePagina
-        titolo="Tempo del team"
-        descrizione="Chi ha registrato cosa, persona per persona. Solo il tempo già dichiarato: i timer in corso restano privati."
+        titolo={t.titolo}
+        descrizione={t.descrizione}
       />
 
       {/* 390px: the period, then one full-width row per filter, never a truncated name */}
@@ -92,20 +97,20 @@ export default async function TempoTeamPage({
         <div className="grid gap-2 sm:flex sm:gap-3">
           <FiltroSelect
             id="filtro-persona"
-            etichetta="Persona"
+            etichetta={t.persona}
             nome="persona"
             valore={persona ?? ''}
             predefinito=""
-            opzioni={[{ valore: '', etichetta: 'Tutte le persone' }, ...opzioniPersone]}
+            opzioni={[{ valore: '', etichetta: t.tuttePersone }, ...opzioniPersone]}
             parametri={{ ...periodo.parametri, ...filtri }}
           />
           <FiltroSelect
             id="filtro-progetto"
-            etichetta="Progetto"
+            etichetta={t.progetto}
             nome="progetto"
             valore={progetto ?? ''}
             predefinito=""
-            opzioni={[{ valore: '', etichetta: 'Tutti i progetti' }, ...opzioniProgetti]}
+            opzioni={[{ valore: '', etichetta: t.tuttiProgetti }, ...opzioniProgetti]}
             parametri={{ ...periodo.parametri, ...filtri }}
           />
         </div>
@@ -114,16 +119,12 @@ export default async function TempoTeamPage({
       {persone.length === 0 ? (
         <StatoVuoto
           Icona={Timer}
-          titolo="Nessun tempo registrato nel periodo"
-          descrizione={
-            conFiltri
-              ? 'Con questi filtri non c’è tempo registrato. Cambia periodo o togli i filtri.'
-              : 'Qui compare il tempo che ognuno ha registrato sui progetti. Cambia periodo per vederne un altro.'
-          }
+          titolo={t.vuoto}
+          descrizione={conFiltri ? t.vuotoFiltri : t.vuotoDescrizione}
           azione={
             conFiltri ? (
               <LinkBottone href={hrefPeriodo(PERCORSO, periodo)} variant="outline">
-                Togli i filtri
+                {t.togliFiltri}
               </LinkBottone>
             ) : null
           }
@@ -134,23 +135,23 @@ export default async function TempoTeamPage({
           {persona ? null : (
             <div className="rounded-xl bg-card p-4" data-testid="totale-team">
               <p className="text-xs text-muted-foreground">
-                Tempo registrato{nomeProgetto ? ` su ${nomeProgetto}` : ''} · {periodo.etichetta}
+                {t.registrato(nomeProgetto, periodo.etichetta)}
               </p>
               <p className="num text-3xl font-semibold">{formatDurata(team.minuti)}</p>
               <p className="num text-xs text-muted-foreground">
-                {formatNumero(team.voci)} {team.voci === 1 ? 'voce' : 'voci'}
+                {t.voci(formatNumero(team.voci), team.voci === 1)}
               </p>
             </div>
           )}
 
           <section aria-labelledby="titolo-persone" className="space-y-2">
             <h2 id="titolo-persone" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Per persona
+              {t.perPersona}
             </h2>
             <ul className="space-y-2">
               {persone.map((p) => (
                 <li key={p.id}>
-                  <CardPersona persona={p} aperta={persone.length === 1} />
+                  <CardPersona persona={p} aperta={persone.length === 1} lingua={lingua} />
                 </li>
               ))}
             </ul>
