@@ -110,7 +110,7 @@ export const VERSIONI: readonly Versione[] = [
       {
         per: ['admin'],
         testo:
-          'Il business coach entra già in inglese: Panoramica, Clienti, Vendite, Incassi, Rinnovi, Setter (con la cornice dell’Insight), Closer e le call, Provvigioni, Costi, Pipeline, Progetti e Tempo del team. I fogli che scrivono e le pagine che lui non apre restano in italiano per ora; se preferisce l’italiano, tocca la bandierina.',
+          'Il business coach entra già in inglese: Panoramica, Clienti, Vendite, Incassi, Rinnovi, Setter (con la cornice dell’Insight), Closer e le call, Provvigioni, Costi, Pipeline, Progetti (con Note e Membri) e Tempo del team, Piano editoriale, Pubblicati e Spunti, e in Impostazioni Team, Prodotti, Regole provvigioni e Registro modifiche. I fogli che scrivono, i pannelli di un contenuto e di un reel, la timeline dei progetti e le pagine che lui non apre restano in italiano per ora; se preferisce l’italiano, tocca la bandierina.',
       },
     ],
   },
