@@ -125,10 +125,9 @@ declare
   viste text[] := '{}';
 begin
   -- calls, leads and the amount pitched are phase 2 (20261029090000, 102_mcp_call_lead.sql); clients,
-  -- sales, instalments and the Drive folder phase 3 (20261030090000, 103_mcp_clienti_vendite.sql)
-  foreach r in array array['expenses',
-    'commission_rules', 'commission_payouts', 'setter_daily_reports', 'invites', 'audit_log',
-    'insight_recap', 'notifiche'] loop
+  -- sales, instalments and the Drive folder phase 3 (20261030090000, 103_mcp_clienti_vendite.sql); costs,
+  -- commissions, goals and invites phase 4 (20261031090000, 104_mcp_costi_provvigioni.sql)
+  foreach r in array array['setter_daily_reports', 'audit_log', 'insight_recap', 'notifiche'] loop
     begin
       execute format('select count(*) from public.%I', r) into n;
       if n > 0 then viste := viste || r; end if;
@@ -174,7 +173,7 @@ select is(
   'e il tempo già dichiarato del team, mai il timer acceso di un altro'
 );
 select ok(pg_temp.conta('profiles') >= 6, 'e i profili del team (nomi per i membri e gli assegnatari)');
-select is(pg_temp.altre_aree(), '', 'admin: costi, provvigioni, report e inviti restano chiusi (clienti e vendite sono della fase 3)');
+select is(pg_temp.altre_aree(), '', 'admin: report, registro, Insight e notifiche restano chiusi (soldi e costi sono delle fasi 3 e 4)');
 
 select pg_temp.claude('44444444-4444-4444-8444-444444444444', '9e000000-0000-4000-8000-000000000004');
 select is(pg_temp.conta('pm_progetti'), 4::bigint, 'il coach legge solo i 4 progetti di cui è membro');

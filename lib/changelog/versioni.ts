@@ -86,6 +86,33 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.56.0',
+    data: '2026-10-23',
+    titolo: 'Claude lavora anche su costi, provvigioni, obiettivi e numeri dell’azienda',
+    riassunto:
+      'Ultima fase di Claude a 360 gradi: Claude collegato legge i numeri della Panoramica, i costi, le provvigioni e il team, e tu da lì registri costi e pagamenti, gestisci le regole provvigionali e imposti gli obiettivi; il setter legge le sue provvigioni.',
+    intestazionePer: ['setter'],
+    intestazioneTeam: {
+      titolo: 'Claude legge anche le tue provvigioni',
+      riassunto:
+        'Con Claude collegato ad Alpha Management leggi a parole anche le tue provvigioni maturate e pagate, mese per mese, come in I miei numeri.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Tu da Claude leggi i numeri dell’azienda come la Panoramica (cash incassato nelle sue quattro parti, revenue, margine operativo, indicatori sui nuovi clienti, funnel e confronto col periodo prima), il cash mese per mese, la previsione di cassa, gli obiettivi del mese con l’avanzamento, i numeri per fonte, i costi, le provvigioni per persona e mese con il saldo e per vendita, le regole provvigionali e il team (persone e inviti in attesa). Scrivi un costo (registra, correggi, copia i ricorrenti), un pagamento di provvigioni (registra, correggi), una regola provvigionale (nuova, chiudi, correggi) e gli obiettivi del mese. Tutti i numeri li calcola il gestionale, con le stesse funzioni delle pagine: Claude non somma niente, e il margine operativo lo chiama sempre così, mai utile. Da Claude non si elimina niente (né costi, né pagamenti, né regole, né obiettivi) e il team si legge e basta: inviti, ruoli, disattivazioni ed eliminazioni restano nell’app. Il business coach legge tutto questo come te e non scrive niente. Il closer non riceve niente di nuovo.',
+      },
+      {
+        per: ['setter'],
+        testo:
+          'Il setter, da Claude, legge le sue provvigioni maturate e pagate mese per mese, come in I miei numeri: mai quelle di altri, mai la sua regola o la percentuale, e non scrive niente.',
+        testoTeam:
+          'Da Claude leggi le tue provvigioni maturate e pagate, mese per mese, come in I miei numeri. Per i dettagli cliente per cliente resta la domanda sui tuoi clienti.',
+      },
+    ],
+  },
+  {
     versione: '1.55.1',
     data: '2026-10-23',
     titolo: 'La matita delle call e «Riapri» funzionano anche prima dell’aggiornamento del database',

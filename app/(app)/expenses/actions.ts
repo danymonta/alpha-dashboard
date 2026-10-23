@@ -4,11 +4,20 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
-import { isDataISO } from '@/lib/date'
+import { getProfilo } from '@/lib/auth/session'
+import * as economics from '@/lib/economics/operazioni'
 import { createClient } from '@/lib/supabase/server'
-import { costoSchema, modificaCostoSchema } from '@/lib/validation/anagrafiche'
 
 export type Esito = { ok: true; copiati?: number } | { ok: false; errore: string }
+
+/**
+ * The writes of costs live in the shared core (lib/economics/operazioni.ts),
+ * the same one Claude's tools use (Claude a 360 gradi, phase 4): these actions
+ * add only the cookie session. Deleting a cost stays here: never from Claude.
+ */
+async function nucleo(): Promise<economics.Contesto> {
+  return { db: await createClient(), chi: getProfilo }
+}
 
 function aggiorna() {
   revalidatePath('/expenses')
@@ -16,33 +25,12 @@ function aggiorna() {
 }
 
 export async function aggiungiCosto(input: unknown): Promise<Esito> {
-  const parsed = costoSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
-  const negato = await negaSeNon(['admin'])
-  if (negato) return { ok: false, errore: negato }
-
-  const supabase = await createClient()
-  const { error } = await supabase.from('expenses').insert(parsed.data)
-  if (error) return { ok: false, errore: messaggioErrore(error, 'Costo non salvato. Riprova.') }
-
-  aggiorna()
-  return { ok: true }
+  const esito = await economics.aggiungiCosto(await nucleo(), input)
+  return esito.ok ? { ok: true } : esito
 }
 
 export async function modificaCosto(input: unknown): Promise<Esito> {
-  const parsed = modificaCostoSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
-  const negato = await negaSeNon(['admin'])
-  if (negato) return { ok: false, errore: negato }
-
-  const { id, ...campi } = parsed.data
-  const supabase = await createClient()
-  const { data, error } = await supabase.from('expenses').update(campi).eq('id', id).select('id').maybeSingle()
-  if (error) return { ok: false, errore: messaggioErrore(error, 'Costo non aggiornato. Riprova.') }
-  if (!data) return { ok: false, errore: 'Costo non trovato.' }
-
-  aggiorna()
-  return { ok: true }
+  return economics.modificaCosto(await nucleo(), input)
 }
 
 export async function eliminaCosto(input: unknown): Promise<Esito> {
@@ -61,15 +49,5 @@ export async function eliminaCosto(input: unknown): Promise<Esito> {
 }
 
 export async function copiaRicorrenti(input: unknown): Promise<Esito> {
-  const parsed = z.object({ mese: z.string().refine(isDataISO) }).safeParse(input)
-  if (!parsed.success) return { ok: false, errore: 'Mese non valido.' }
-  const negato = await negaSeNon(['admin'])
-  if (negato) return { ok: false, errore: negato }
-
-  const supabase = await createClient()
-  const { data, error } = await supabase.rpc('copia_costi_ricorrenti', { p_mese: parsed.data.mese })
-  if (error) return { ok: false, errore: messaggioErrore(error, 'Copia non riuscita. Riprova.') }
-
-  aggiorna()
-  return { ok: true, copiati: data }
+  return economics.copiaRicorrenti(await nucleo(), input)
 }

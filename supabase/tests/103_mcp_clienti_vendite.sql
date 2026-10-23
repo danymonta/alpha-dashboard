@@ -180,7 +180,8 @@ begin
 end;
 $$;
 
--- What stays closed to Claude in every phase so far: costs, commissions, the audit log
+-- What stays closed to Claude in every phase: the audit log, the reminders, the setter's reports as such
+-- (costs and commissions are phase 4: 104_mcp_costi_provvigioni.sql)
 create or replace function pg_temp.chiuse()
 returns text
 language plpgsql
@@ -190,8 +191,7 @@ declare
   n bigint;
   viste text[] := '{}';
 begin
-  foreach r in array array['expenses', 'commission_rules', 'commission_payouts', 'audit_log',
-    'promemoria_percorso', 'obiettivi_mese', 'v_provvigioni_maturate'] loop
+  foreach r in array array['audit_log', 'promemoria_percorso', 'setter_daily_reports'] loop
     begin
       execute format('select count(*) from public.%I', r) into n;
       if n > 0 then viste := viste || r; end if;
@@ -227,12 +227,12 @@ select is(
   pg_temp.filtri(array['DELETE clients', 'DELETE sales', 'DELETE payments', 'DELETE clienti_chiusure',
     'DELETE clienti_sospensioni', 'POST rpc/elimina_cliente', 'POST rpc/elimina_rata', 'POST clienti_cartelle',
     'PATCH clienti_cartelle', 'POST vendite_contratti', 'PATCH vendite_contratti', 'POST sales', 'POST payments',
-    'GET expenses', 'GET commission_rules', 'GET commission_payouts', 'GET audit_log', 'POST rpc/collega_vendita_call',
-    'POST rpc/previsione_cassa', 'POST rpc/metriche_periodo', 'POST products', 'PATCH products',
+    'DELETE expenses', 'POST invites', 'GET setter_daily_reports', 'GET audit_log', 'POST rpc/collega_vendita_call',
+    'POST rpc/elimina_persona', 'POST rpc/unisci_profili', 'POST products', 'PATCH products',
     'POST rpc/mie_vendite_setter']),
   array['42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501',
         '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501'],
-  'admin: niente si elimina, cartella e contratto non si scrivono, costi, provvigioni, metriche e prodotti restano fuori'
+  'admin: niente si elimina, cartella e contratto non si scrivono, registro, report, persone e prodotti restano fuori'
 );
 
 select pg_temp.come('33333333-3333-4333-8333-333333333333', '9e103000-0000-4000-8000-000000000003');
@@ -307,7 +307,7 @@ select is(
 select is((select count(*) from public.clienti_elenco()), (select clienti_tutti from x),
   'admin: l''elenco dei clienti (LTV, mese del percorso, rate) risponde');
 select ok((select count(*) from public.da_incassare()) = 3, 'admin: il da incassare per fascia, dal SQL');
-select is(pg_temp.chiuse(), '', 'admin: costi, provvigioni, obiettivi, promemoria e registro restano chiusi');
+select is(pg_temp.chiuse(), '', 'admin: promemoria, registro e report del setter restano chiusi');
 
 -- The business coach: the same reads
 select pg_temp.come('bc000000-0000-4000-8000-000000000001', '9e103000-0000-4000-8000-000000000006');
@@ -316,7 +316,7 @@ select is((select count(*) from public.clienti_elenco()), (select clienti_tutti 
   'business coach: l''elenco dei clienti, come l''admin');
 select is(row(pg_temp.conta('sales'), pg_temp.conta('vendite_contratti'))::text,
   (select row(vendite_tutte, contratti)::text from x), 'business coach: vendite e contratti, come l''admin');
-select is(pg_temp.chiuse(), '', 'business coach: costi, provvigioni e registro restano chiusi');
+select is(pg_temp.chiuse(), '', 'business coach: promemoria, registro e report del setter restano chiusi');
 
 -- The closer: his sales and their instalments, never the folder or the contract
 select pg_temp.come('33333333-3333-4333-8333-333333333333', '9e103000-0000-4000-8000-000000000003');
@@ -330,7 +330,7 @@ select is(
 select is(row(pg_temp.conta('clienti_cartelle'), pg_temp.conta('vendite_contratti'))::text, '(0,0)',
   'closer: né la cartella Drive né il contratto, nemmeno delle sue vendite');
 select ok((select totale from public.da_incassare_closer()) >= 0, 'closer: il suo da incassare, dal SQL');
-select is(pg_temp.chiuse(), '', 'closer: costi, provvigioni e registro restano chiusi');
+select is(pg_temp.chiuse(), '', 'closer: promemoria, registro e report del setter restano chiusi');
 
 -- The setter: only his two functions; the tables give him nothing, whatever the path
 select pg_temp.come('22222222-2222-4222-8222-222222222222', '9e103000-0000-4000-8000-000000000002');

@@ -503,6 +503,7 @@ describe('le parole della scheda di consenso', () => {
       frase([
         CONSENSO.azioniCall.admin,
         CONSENSO.azioniVendite.admin,
+        CONSENSO.azioniEconomics.admin,
         ...CONSENSO.azioni,
         CONSENSO.azioneAdmin,
         ...CONSENSO.azioniProgetti,
@@ -513,7 +514,7 @@ describe('le parole della scheda di consenso', () => {
     // every role connects Claude since 22/10/2026: the setter has projects, his own time and (23/10/2026) his
     // calls and leads, not the calendar; the closer his calls and their outcome
     expect(azioniConsenso({ ruolo: 'setter', livello: 'employee' })).toEqual(
-      frase([CONSENSO.azioniCall.setter, CONSENSO.azioniVendite.setter, ...CONSENSO.azioniProgetti]),
+      frase([CONSENSO.azioniCall.setter, CONSENSO.azioniVendite.setter, CONSENSO.azioniEconomics.setter, ...CONSENSO.azioniProgetti]),
     )
     expect(azioniConsenso({ ruolo: 'closer', livello: 'employee' })).toEqual(
       frase([CONSENSO.azioniCall.closer, CONSENSO.azioniVendite.closer, ...CONSENSO.azioniProgetti]),
@@ -529,6 +530,7 @@ describe('le parole della scheda di consenso', () => {
       CONSENSO.azioneTempoTeam,
       ...Object.values(CONSENSO.azioniCall),
       ...Object.values(CONSENSO.azioniVendite),
+      ...Object.values(CONSENSO.azioniEconomics),
     ]) {
       expect(voce).not.toMatch(/[;.,:]$/)
     }
@@ -557,7 +559,15 @@ describe('le parole della scheda di consenso', () => {
     // phase 3 (23/10/2026): the closer never the other closers' sales or the clients' contacts, the setter
     // never anybody else's money
     expect(CONSENSO.maiVistoCloser).toMatch(/le vendite degli altri closer, i contatti dei clienti/)
-    expect(CONSENSO.maiVistoSetter).toMatch(/vendite e incassi di altri, contatti dei clienti/)
+    expect(CONSENSO.maiVistoSetter).toMatch(/vendite e incassi di altri, le provvigioni degli altri e la percentuale della tua regola, contatti dei clienti, costi, margine/)
+    // phase 4 (23/10/2026): the admin reaches costs, commissions and margin, never deletes them, never
+    // touches the people of the team; the closer still never reads them
+    expect(CONSENSO.maiVistoCall).toMatch(/né costi, né provvigioni/)
+    expect(CONSENSO.maiVistoCall).toContain('non inviterà persone, non cambierà ruoli e non disattiverà nessuno')
+    expect(CONSENSO.maiVistoCall).not.toMatch(/margine|Panoramica/)
+    expect(CONSENSO.maiVistoCloser).toMatch(/costi, provvigioni, margine/)
+    expect(CONSENSO.maiVistoSolaLettura).not.toMatch(/costi|provvigioni|margine/)
+    expect(CONSENSO.azioniSolaLettura).toContain('leggere i numeri dell’azienda, i costi, le provvigioni, gli obiettivi e il team, come l’admin')
     expect(maiVistoPer({ ruolo: 'setter' })).toBe(CONSENSO.maiVistoSetter)
     expect(CONSENSO.maiVistoSetter).toMatch(/importi proposti, link di Fathom, performance/)
     expect(maiVistoPer({ ruolo: 'business_coach' })).toBe(CONSENSO.maiVistoSolaLettura)

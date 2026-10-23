@@ -148,8 +148,8 @@ describe('il client MCP dell’SDK contro /mcp', () => {
     const { tools } = await client.listTools()
     const elimina = tools.find((t) => t.name === 'elimina_contenuto')
     expect(elimina?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true })
-    // the calendar with elimina_contenuto, projects, their management, the team's time and (23/10/2026) the 11 call tools and (phase 3) the 18 tools of clients, sales and instalments
-    expect(tools).toHaveLength(61)
+    // the calendar with elimina_contenuto, projects, their management, the team's time and (23/10/2026) the 11 call tools and (phase 3) the 18 tools of clients, sales and instalments and (phase 4) the 17 of costs, commissions, goals, numbers and team
+    expect(tools).toHaveLength(78)
     expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['crea_progetto', 'tempo_team', 'registra_esito', 'fissa_call']))
   })
 
@@ -159,7 +159,10 @@ describe('il client MCP dell’SDK contro /mcp', () => {
     const client = await collega()
     const { tools } = await client.listTools()
     const nomi = tools.map((t) => t.name)
-    expect(nomi).toHaveLength(21)
+    // phase 4 (23/10/2026): his own commissions, mie_provvigioni
+    expect(nomi).toHaveLength(22)
+    expect(nomi).toContain('mie_provvigioni')
+    expect(nomi.some((n) => ['costi', 'provvigioni', 'regole_provvigioni', 'numeri_periodo', 'team'].includes(n))).toBe(false)
     expect(nomi.some((n) => n.includes('contenut'))).toBe(false)
     expect(nomi).not.toContain('tempo_team')
     expect(nomi).toEqual(expect.arrayContaining(['elenco_call', 'fissa_call', 'sposta_call', 'stato_lead']))

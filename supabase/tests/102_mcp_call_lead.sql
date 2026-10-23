@@ -162,9 +162,9 @@ declare
   viste text[] := '{}';
 begin
   foreach r in array array['call_analisi', 'call_analisi_setter', 'call_spunti_setter', 'call_valutazioni',
-    'lead_contenuto', 'expenses', 'commission_rules', 'commission_payouts',
-    'setter_daily_reports', 'report_proposte_instagram', 'audit_log'] loop
-    -- clients, sales and instalments are phase 3 (20261030090000, 103_mcp_clienti_vendite.sql)
+    'lead_contenuto', 'setter_daily_reports', 'report_proposte_instagram', 'audit_log'] loop
+    -- clients, sales and instalments are phase 3 (20261030090000, 103_mcp_clienti_vendite.sql); costs and
+    -- commissions phase 4 (20261031090000, 104_mcp_costi_provvigioni.sql)
     begin
       execute format('select count(*) from public.%I', r) into n;
       if n > 0 then viste := viste || r; end if;

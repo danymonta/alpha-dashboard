@@ -342,6 +342,10 @@ select is(
      -- and so have the tables of phase 3 (20261030090000: clients, sales, instalments, 103_mcp_clienti_vendite.sql)
      and t.tablename not in ('clients', 'sales', 'payments', 'clienti_chiusure', 'clienti_sospensioni',
                              'clienti_cartelle', 'vendite_contratti')
+     -- and so have the tables of phase 4 (20261031090000: costs, commissions, goals, invites, the setter's
+     -- reports, 104_mcp_costi_provvigioni.sql)
+     and t.tablename not in ('expenses', 'commission_rules', 'commission_payouts', 'obiettivi_mese', 'invites',
+                             'setter_daily_reports')
      and not exists (
        select 1 from pg_policies p
        where p.schemaname = 'public' and p.tablename = t.tablename
@@ -350,7 +354,7 @@ select is(
          and p.roles = array['authenticated']::name[]
      )),
   '',
-  'ogni tabella tranne il calendario e le tabelle di progetti, tempo, call, lead, clienti e vendite ha la sua policy restrittiva _mai_da_oauth'
+  'ogni tabella tranne il calendario e le tabelle di progetti, tempo, call, lead, clienti, vendite, costi e provvigioni ha la sua policy restrittiva _mai_da_oauth'
 );
 select is(
   (select count(*)::int from pg_policies

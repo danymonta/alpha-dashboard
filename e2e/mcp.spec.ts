@@ -128,6 +128,29 @@ const STRUMENTI_VENDITE_ADMIN = [
   'stato_cliente',
 ]
 const STRUMENTI_VENDITE_CLOSER = ['da_incassare', 'elenco_vendite', 'leggi_vendita', 'rata', 'registra_vendita']
+/** Costs, commissions, goals, the Panoramica's economics and the team (23/10/2026, phase 4). */
+const LETTURE_ECONOMICS = [
+  'cash_mensile',
+  'costi',
+  'numeri_per_fonte',
+  'numeri_periodo',
+  'obiettivi',
+  'previsione_cassa',
+  'provvigioni',
+  'provvigioni_per_vendita',
+  'regole_provvigioni',
+  'team',
+]
+const STRUMENTI_ECONOMICS_ADMIN = [
+  ...LETTURE_ECONOMICS,
+  'copia_costi_ricorrenti',
+  'imposta_obiettivi',
+  'modifica_costo',
+  'modifica_pagamento_provvigione',
+  'regola_provvigione',
+  'registra_costo',
+  'registra_pagamento_provvigione',
+]
 
 test.describe.configure({ mode: 'serial' })
 
@@ -151,6 +174,8 @@ test.afterAll(async () => {
   await pulisciLeadDiProva()
   // the clients, sales and instalments of the money tests (phase 3), with the project a cash-in opened
   await pulisciVendite(PREFISSO)
+  // the costs of the economics tests (phase 4)
+  await dbLocale().from('expenses').delete().like('descrizione', `${PREFISSO}%`)
   if (clientId) await eliminaClientMcp(clientId)
 })
 
@@ -539,7 +564,15 @@ test('l’admin elimina da Claude solo con il Name esatto', async ({ browser }) 
   try {
     const { tools } = await mcp.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual(
-      [...STRUMENTI_TEAM, 'elimina_contenuto', ...STRUMENTI_GESTIONE, 'tempo_team', ...STRUMENTI_CALL_ADMIN, ...STRUMENTI_VENDITE_ADMIN].sort(),
+      [
+        ...STRUMENTI_TEAM,
+        'elimina_contenuto',
+        ...STRUMENTI_GESTIONE,
+        'tempo_team',
+        ...STRUMENTI_CALL_ADMIN,
+        ...STRUMENTI_VENDITE_ADMIN,
+        ...STRUMENTI_ECONOMICS_ADMIN,
+      ].sort(),
     )
     const elimina = tools.find((t) => t.name === 'elimina_contenuto')
     expect(elimina?.annotations?.destructiveHint).toBe(true)
@@ -600,15 +633,43 @@ test('l’admin elimina da Claude solo con il Name esatto', async ({ browser }) 
     expect(senzaAnteprima.isError).toBe(true)
     expect((await dbLocale().from('payments').select('id').eq('sale_id', vendita.vendita.sale_id).eq('stato', 'rimborsata')).data).toHaveLength(0)
 
-    // straight on the Data API: nothing of the money is deleted, costs and commissions stay closed
+    // straight on the Data API: nothing of the money is deleted, the audit log and the reports stay closed
     const db = dataApiConToken(token.access_token)
     expect((await db.from('payments').delete().eq('id', prima.payment_id)).error?.code).toBe('42501')
     expect((await db.from('sales').delete().eq('id', vendita.vendita.sale_id)).error?.code).toBe('42501')
     expect((await db.rpc('elimina_cliente', { p_client_id: vendita.vendita.client_id })).error?.code).toBe('42501')
-    for (const tabella of ['expenses', 'commission_rules', 'commission_payouts', 'audit_log'] as const) {
+    for (const tabella of ['audit_log', 'setter_daily_reports'] as const) {
       expect((await db.from(tabella).select('*')).error?.code, tabella).toBe('42501')
     }
     expect((await dbLocale().from('sales').select('id').eq('id', vendita.vendita.sale_id)).data).toHaveLength(1)
+
+    // Claude a 360 gradi, phase 4 (23/10/2026): the month's numbers as the Panoramica computes them, a cost
+    const mese = oggiRoma().slice(0, 7)
+    const numeri = await mcp.callTool({ name: 'numeri_periodo', arguments: { mese } })
+    expect(numeri.isError, testoRisultato(numeri)).toBeFalsy()
+    const n = datiRisultato<{ valuta: string; periodo: { da: string; a: string }; cash: { incassato: number }; margine_operativo: number; nota: string }>(numeri)
+    expect(n.valuta).toBe('EUR')
+    expect(n.nota).toContain('non è l’utile')
+    const sql = await db.rpc('metriche_periodo', { p_da: n.periodo.da, p_a: n.periodo.a }).single()
+    expect(sql.error).toBeNull()
+    expect(n.cash.incassato).toBe(Number(sql.data!.cash_incassato))
+    expect(n.margine_operativo).toBe(Number(sql.data!.margine_operativo))
+    const costo = await mcp.callTool({
+      name: 'registra_costo',
+      arguments: { categoria: 'software', descrizione: `${PREFISSO}Canva`, importo: 12.99 },
+    })
+    expect(costo.isError, testoRisultato(costo)).toBeFalsy()
+    const idCosto = datiRisultato<{ costo: { id: string } }>(costo).costo.id
+    const { data: rigaCosto } = await dbLocale().from('expenses').select('data, importo').eq('id', idCosto).single()
+    expect(rigaCosto).toEqual({ data: oggiRoma(), importo: 12.99 })
+    // as in the app, the audit log says who wrote it: the token's person
+    const { data: registroCosto } = await dbLocale().from('audit_log').select('utente_id').eq('tabella', 'expenses').eq('record_id', idCosto)
+    expect((registroCosto ?? []).map((r) => r.utente_id)).toContain(ID_ADMIN)
+    expect((await db.from('expenses').delete().eq('id', idCosto)).error?.code).toBe('42501')
+    expect((await db.from('invites').insert({ email: 'e2e.mcp.invito@alpha.test', ruolo: 'setter' })).error?.code).toBe('42501')
+    const squadra = datiRisultato<{ persone: { id: string }[] }>(await mcp.callTool({ name: 'team', arguments: {} }))
+    expect(squadra.persone.map((p) => p.id)).toContain(ID_SETTER)
+    expect((await dbLocale().from('expenses').select('id').eq('id', idCosto)).data).toHaveLength(1)
   } finally {
     await mcp.close()
     await page.context().close()
@@ -729,7 +790,7 @@ test('un account disattivato non collega Claude: torna a Claude con un rifiuto, 
     const mcp = await clientMcp(baseDi(page), marketing.token.access_token)
     try {
       const nomi = (await mcp.listTools()).tools.map((t) => t.name).sort()
-      expect(nomi).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_SETTER, 'miei_clienti'].sort())
+      expect(nomi).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_SETTER, 'miei_clienti', 'mie_provvigioni'].sort())
     } finally {
       await mcp.close()
     }
@@ -956,7 +1017,13 @@ test('il setter fissa una call da Claude e non scrive mai un esito, nemmeno con 
     let callId = ''
     try {
       const { tools } = await mcp.listTools()
-      expect(tools.map((t) => t.name).sort()).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_SETTER, 'miei_clienti'].sort())
+      expect(tools.map((t) => t.name).sort()).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_SETTER, 'miei_clienti', 'mie_provvigioni'].sort())
+
+      // phase 4 (23/10/2026): his own commissions month by month, never a rule or a percentage
+      const provvigioni = await mcp.callTool({ name: 'mie_provvigioni', arguments: { mesi: 3 } })
+      expect(provvigioni.isError, testoRisultato(provvigioni)).toBeFalsy()
+      expect(datiRisultato<{ mesi: unknown[] }>(provvigioni).mesi).toHaveLength(3)
+      expect(testoRisultato(provvigioni)).not.toMatch(/"percentuale"|"regola"/)
 
       // phase 3 (23/10/2026): his clients and his commission, never contacts, method, notes or the percentage
       const miei = await mcp.callTool({ name: 'miei_clienti', arguments: {} })
@@ -1012,6 +1079,10 @@ test('il setter fissa una call da Claude e non scrive mai un esito, nemmeno con 
       expect((await db.from(vista).select('*')).error?.code, vista).toBe('42501')
     }
     expect((await db.rpc('mie_vendite_setter')).error).toBeNull()
+    for (const tabella of ['commission_rules', 'commission_payouts', 'expenses'] as const) {
+      expect((await db.from(tabella).select('*')).error?.code, tabella).toBe('42501')
+    }
+    expect((await db.rpc('provvigioni_riepilogo', { p_mesi: 6 })).error?.code).toBe('42501')
     expect((await db.rpc('dettagli_call', { p_call_id: callId, p_performance: 'ottima' })).error?.code).toBe('42501')
     const lette = await db.rpc('call_per_claude', { p_id: callId })
     expect(lette.error).toBeNull()
@@ -1045,8 +1116,15 @@ test('il business coach legge call e lead da Claude e non scrive niente', async 
           ...LETTURE_CALL,
           'prodotti',
           ...LETTURE_VENDITE,
+          ...LETTURE_ECONOMICS,
         ].sort(),
       )
+      // phase 4 (23/10/2026): the numbers and the costs as the admin, in read only
+      const numeri = await mcp.callTool({ name: 'numeri_periodo', arguments: {} })
+      expect(numeri.isError, testoRisultato(numeri)).toBeFalsy()
+      await expect(
+        mcp.callTool({ name: 'registra_costo', arguments: { categoria: 'altro', descrizione: 'x', importo: 1 } }),
+      ).rejects.toThrow(/not found/)
       // phase 3 (23/10/2026): clients and sales as the admin, in read only
       const clienti = await mcp.callTool({ name: 'elenco_clienti', arguments: { vista: 'tutti' } })
       expect(clienti.isError, testoRisultato(clienti)).toBeFalsy()
@@ -1078,6 +1156,10 @@ test('il business coach legge call e lead da Claude e non scrive niente', async 
     expect((await db.from('sales').select('id')).error).toBeNull()
     expect((await db.rpc('segna_rata_incassata', { p_payment_id: randomUUID() })).error?.code).toBe('42501')
     expect((await db.from('payments').update({ stato: 'fallita' }).eq('id', randomUUID())).error?.code).toBe('42501')
+    expect((await db.from('expenses').select('id')).error).toBeNull()
+    const copia = await db.rpc('copia_costi_ricorrenti', { p_mese: `${oggiRoma().slice(0, 7)}-01` })
+    expect(copia.error?.code).toBe('42501')
+    expect(copia.error?.message).toBe('Il business coach legge e basta: da Claude non si scrive niente.')
   } finally {
     await page.context().close()
   }

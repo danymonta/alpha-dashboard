@@ -568,7 +568,10 @@ select is(
                            -- clients, sales and instalments (phase 3, 20261030090000): he reads them like the admin
                            'clients', 'sales', 'payments', 'clienti_chiusure', 'clienti_sospensioni',
                            'clienti_cartelle', 'vendite_contratti', 'v_clienti', 'v_vendite', 'v_rate',
-                           'v_clienti_chiusi', 'v_client_status')),
+                           'v_clienti_chiusi', 'v_client_status',
+                           -- costs, commissions, goals and the team (phase 4, 20261031090000): like the admin
+                           'expenses', 'commission_rules', 'commission_payouts', 'obiettivi_mese', 'invites',
+                           'v_provvigioni_maturate')),
   '',
   'token di Claude nel filtro: nessuna riga fuori dalle aree MCP'
 );
