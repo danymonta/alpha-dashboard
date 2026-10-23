@@ -14,6 +14,8 @@ export const PUBBLICATI = bilingue(
   {
     titolo: 'Pubblicati',
     errore: 'Impossibile caricare i pubblicati',
+    erroreDescrizione: 'Non siamo riusciti a caricare i post di Instagram. Riprova fra un momento.',
+    caricamento: 'Caricamento dei post di Instagram',
     descrizione: (account: string) =>
       `I post e i reel ${account} con i loro numeri: cosa hanno fatto su Instagram, quanti lead sono arrivati dai DM e a quale contenuto del Piano editoriale corrispondono. Tocca una riga per l’analisi.`,
     di: (nome: string) => `di ${nome}`,
@@ -135,6 +137,8 @@ export const PUBBLICATI = bilingue(
   {
     titolo: 'Published',
     errore: 'The published posts could not be loaded',
+    erroreDescrizione: 'We could not load the Instagram posts. Try again in a moment.',
+    caricamento: 'Loading the Instagram posts',
     descrizione: (account: string) =>
       `The posts and reels ${account} with their numbers: what they did on Instagram, how many leads came from the DMs and which content of the Content plan they match. Tap a row for the analysis.`,
     di: (nome: string) => `of ${nome}`,
