@@ -4,7 +4,9 @@
  * formatted, never recomputed.
  */
 import { ETICHETTA_LIVELLO_PM, ETICHETTA_RUOLO, type AppRole, type LivelloPm } from '@/lib/auth/roles'
-import { formatData, formatEuro, formatMese, formatPercentuale } from '@/lib/format'
+import { formato, formatData, formatEuro, formatMese, formatPercentuale } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { SHELL } from '@/lib/i18n/testi/shell'
 
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json }
 
@@ -64,6 +66,55 @@ const ETICHETTA_CAMPO: Record<string, string> = {
   note: 'note',
 }
 
+/** The same words in English (1.53.0): an entry reads in the page's language; a key missing here does not compile. */
+const INGLESE = {
+  tabelle: {
+    sales: 'Sale',
+    payments: 'Instalment',
+    commission_rules: 'Commission rule',
+    commission_payouts: 'Commission payout',
+    expenses: 'Expense',
+    profiles: 'User',
+  } satisfies Record<keyof typeof ETICHETTA_TABELLA, string>,
+  azioni: { insert: 'created', update: 'changed', delete: 'deleted' } satisfies Record<Azione, string>,
+  campi: {
+    nome: 'name',
+    ruolo: 'role',
+    livello_pm: 'projects level',
+    attivo: 'active',
+    tipo: 'type',
+    valore_contratto: 'value',
+    numero_rate: 'instalments',
+    data_vendita: 'sale date',
+    data_inizio: 'start',
+    data_fine: 'end',
+    numero_rata: 'instalment',
+    scadenza: 'due date',
+    importo_previsto: 'expected amount',
+    stato: 'status',
+    incassato_il: 'paid on',
+    importo_incassato: 'amount paid',
+    percentuale: 'percentage',
+    applica_a: 'applies to',
+    valida_dal: 'valid from',
+    valida_al: 'valid to',
+    periodo: 'period',
+    data: 'date',
+    descrizione: 'description',
+    categoria: 'category',
+    importo: 'amount',
+    pagato_il: 'paid on',
+    metodo: 'method',
+    ricorrente: 'recurring',
+    note: 'notes',
+  } satisfies Record<keyof typeof ETICHETTA_CAMPO, string>,
+}
+
+/** The table's name in the page's language: «Vendita», «Sale». */
+export function etichettaTabella(tabella: string, lingua: Lingua = 'it'): string {
+  return (lingua === 'it' ? ETICHETTA_TABELLA : (INGLESE.tabelle as Record<string, string>))[tabella] ?? tabella
+}
+
 const CAMPI = Object.keys(ETICHETTA_CAMPO)
 const IMPORTI = new Set(['valore_contratto', 'importo_previsto', 'importo_incassato', 'importo'])
 
@@ -78,19 +129,25 @@ function numeroOTesto(valore: Json): number | string | null {
 }
 
 /** One value, formatted the way the rest of the app shows that field. */
-export function leggibile(campo: string, valore: Json | undefined): string {
+export function leggibile(campo: string, valore: Json | undefined, lingua: Lingua = 'it'): string {
   if (vuoto(valore)) return '–'
-  if (IMPORTI.has(campo)) return formatEuro(numeroOTesto(valore))
-  if (campo === 'percentuale') return formatPercentuale(numeroOTesto(valore))
-  if (campo === 'periodo' && typeof valore === 'string') return formatMese(valore)
-  if (campo === 'ruolo' && typeof valore === 'string') return ETICHETTA_RUOLO[valore as AppRole] ?? valore
-  if (campo === 'livello_pm' && typeof valore === 'string') return ETICHETTA_LIVELLO_PM[valore as LivelloPm] ?? valore
-  if (typeof valore === 'boolean') return valore ? 'sì' : 'no'
-  if (Array.isArray(valore)) return valore.map((v) => leggibile(campo, v)).join(', ')
-  if (typeof valore === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(valore)) return formatData(valore)
+  const en = lingua === 'en'
+  const f = formato(lingua)
+  if (IMPORTI.has(campo)) return en ? f.formatEuro(numeroOTesto(valore)) : formatEuro(numeroOTesto(valore))
+  if (campo === 'percentuale') return en ? f.formatPercentuale(numeroOTesto(valore)) : formatPercentuale(numeroOTesto(valore))
+  if (campo === 'periodo' && typeof valore === 'string') return en ? f.formatMese(valore) : formatMese(valore)
+  if (campo === 'ruolo' && typeof valore === 'string')
+    return (en ? SHELL.en.ruoli : ETICHETTA_RUOLO)[valore as AppRole] ?? valore
+  if (campo === 'livello_pm' && typeof valore === 'string')
+    return (en ? SHELL.en.livelliPm : ETICHETTA_LIVELLO_PM)[valore as LivelloPm] ?? valore
+  if (typeof valore === 'boolean') return valore ? (en ? 'yes' : 'sì') : 'no'
+  if (Array.isArray(valore)) return valore.map((v) => leggibile(campo, v, lingua)).join(', ')
+  if (typeof valore === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(valore)) return en ? f.formatData(valore) : formatData(valore)
   if (typeof valore === 'string') return valore.replaceAll('_', ' ')
   return String(valore)
 }
+
+const leggibileIn = leggibile
 
 function oggetto(v: unknown): Record<string, Json> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, Json>) : {}
@@ -101,17 +158,19 @@ function oggetto(v: unknown): Record<string, Json> {
  * of the row that was created or removed. Technical columns (ids, timestamps,
  * foreign keys) are not in ETICHETTA_CAMPO, so they never show.
  */
-export function differenze(prima: unknown, dopo: unknown): Differenza[] {
+export function differenze(prima: unknown, dopo: unknown, lingua: Lingua = 'it'): Differenza[] {
   const a = oggetto(prima)
   const b = oggetto(dopo)
+  const etichette: Record<string, string> = lingua === 'it' ? ETICHETTA_CAMPO : INGLESE.campi
 
   return CAMPI.filter((c) => c in a || c in b)
     .filter((c) => JSON.stringify(a[c] ?? null) !== JSON.stringify(b[c] ?? null))
-    .map((c) => ({ campo: ETICHETTA_CAMPO[c], prima: leggibile(c, a[c]), dopo: leggibile(c, b[c]) }))
+    .map((c) => ({ campo: etichette[c], prima: leggibile(c, a[c], lingua), dopo: leggibile(c, b[c], lingua) }))
 }
 
 /** "Vendita creata", "Pagamento provvigione eliminato". */
-export function titoloVoce(tabella: string, azione: Azione): string {
+export function titoloVoce(tabella: string, azione: Azione, lingua: Lingua = 'it'): string {
+  if (lingua === 'en') return `${etichettaTabella(tabella, lingua)} ${INGLESE.azioni[azione]}`
   const genere = FEMMINILE.has(tabella) ? 1 : 0
   return `${ETICHETTA_TABELLA[tabella] ?? tabella} ${PARTICIPIO[azione][genere]}`
 }
@@ -120,8 +179,10 @@ export function titoloVoce(tabella: string, azione: Azione): string {
  * The few fields that identify the row at a glance, e.g.
  * "nuovo · 900,00 € · 3 rate" for a sale, "rata 2 · 300,00 € · scadenza 01/10/2026".
  */
-export function sintesi(tabella: string, dati: unknown): string {
+export function sintesi(tabella: string, dati: unknown, lingua: Lingua = 'it'): string {
   const d = oggetto(dati)
+  const en = lingua === 'en'
+  const leggibile = (campo: string, valore: Json | undefined) => leggibileIn(campo, valore, lingua)
   const parti: (string | null)[] = (() => {
     switch (tabella) {
       case 'sales': {
@@ -129,25 +190,25 @@ export function sintesi(tabella: string, dati: unknown): string {
         return [
           vuoto(d.tipo) ? null : leggibile('tipo', d.tipo),
           vuoto(d.valore_contratto) ? null : leggibile('valore_contratto', d.valore_contratto),
-          rate === null ? null : rate === 1 ? '1 rata' : `${rate} rate`,
+          rate === null ? null : en ? (rate === 1 ? '1 instalment' : `${rate} instalments`) : rate === 1 ? '1 rata' : `${rate} rate`,
         ]
       }
       case 'payments':
         return [
-          vuoto(d.numero_rata) ? null : `rata ${d.numero_rata}`,
+          vuoto(d.numero_rata) ? null : `${en ? 'instalment' : 'rata'} ${d.numero_rata}`,
           vuoto(d.importo_previsto) ? null : leggibile('importo_previsto', d.importo_previsto),
-          vuoto(d.scadenza) ? null : `scadenza ${leggibile('scadenza', d.scadenza)}`,
+          vuoto(d.scadenza) ? null : `${en ? 'due' : 'scadenza'} ${leggibile('scadenza', d.scadenza)}`,
         ]
       case 'commission_rules':
         return [
           vuoto(d.percentuale) ? null : leggibile('percentuale', d.percentuale),
-          vuoto(d.valida_dal) ? null : `dal ${leggibile('valida_dal', d.valida_dal)}`,
-          vuoto(d.valida_al) ? null : `al ${leggibile('valida_al', d.valida_al)}`,
+          vuoto(d.valida_dal) ? null : `${en ? 'from' : 'dal'} ${leggibile('valida_dal', d.valida_dal)}`,
+          vuoto(d.valida_al) ? null : `${en ? 'to' : 'al'} ${leggibile('valida_al', d.valida_al)}`,
         ]
       case 'commission_payouts':
         return [
           vuoto(d.importo) ? null : leggibile('importo', d.importo),
-          vuoto(d.periodo) ? null : `riferito a ${leggibile('periodo', d.periodo)}`,
+          vuoto(d.periodo) ? null : `${en ? 'for' : 'riferito a'} ${leggibile('periodo', d.periodo)}`,
         ]
       case 'expenses':
         return [
@@ -187,19 +248,21 @@ export function venditaDellaVoce(v: Pick<VoceRegistro, 'tabella' | 'record_id' |
 /** Where to look at the record today. Nothing for a deleted row. */
 export function collegamentoVoce(
   v: Pick<VoceRegistro, 'tabella' | 'record_id' | 'azione' | 'dati_prima' | 'dati_dopo'>,
+  lingua: Lingua = 'it',
 ): { href: string; etichetta: string } | null {
   if (v.azione === 'delete') return null
+  const en = lingua === 'en'
   const vendita = venditaDellaVoce(v)
-  if (vendita) return { href: `/sales/${vendita}`, etichetta: 'Apri la vendita' }
+  if (vendita) return { href: `/sales/${vendita}`, etichetta: en ? 'Open the sale' : 'Apri la vendita' }
   switch (v.tabella) {
     case 'commission_rules':
-      return { href: '/settings/commissions', etichetta: 'Apri le regole' }
+      return { href: '/settings/commissions', etichetta: en ? 'Open the rules' : 'Apri le regole' }
     case 'commission_payouts':
-      return { href: '/commissions', etichetta: 'Apri le provvigioni' }
+      return { href: '/commissions', etichetta: en ? 'Open the commissions' : 'Apri le provvigioni' }
     case 'expenses':
-      return { href: '/expenses', etichetta: 'Apri i costi' }
+      return { href: '/expenses', etichetta: en ? 'Open the expenses' : 'Apri i costi' }
     case 'profiles':
-      return { href: '/settings/team', etichetta: 'Apri il team' }
+      return { href: '/settings/team', etichetta: en ? 'Open the team' : 'Apri il team' }
     default:
       return null
   }

@@ -16,9 +16,11 @@ import { StatoVuoto } from "@/components/stati/stato-vuoto";
 import { puoScrivere, RUOLI_COME_ADMIN } from "@/lib/auth/roles";
 import { requireRuolo } from "@/lib/auth/session";
 import { aggiungiMesi, oggiRoma, primoDelMeseISO } from "@/lib/date";
-import { formatData, formatPercentuale } from "@/lib/format";
+import { formato } from "@/lib/format";
+import { getLingua } from "@/lib/i18n/server";
+import { ETICHETTE } from "@/lib/i18n/testi/etichette";
+import { IMPOSTAZIONI } from "@/lib/i18n/testi/impostazioni";
 import { createClient } from "@/lib/supabase/server";
-import { ETICHETTA_TIPO_VENDITA } from "@/lib/validation/vendita";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,10 @@ export default async function RegoleProvvigioniPage() {
   const profilo = await requireRuolo(RUOLI_COME_ADMIN);
   const scrive = puoScrivere(profilo.ruolo);
   const oggi = oggiRoma();
+  const lingua = await getLingua();
+  const T = IMPOSTAZIONI[lingua];
+  const t = T.regole;
+  const { formatData, formatPercentuale } = formato(lingua);
   const supabase = await createClient();
 
   const [{ data: regole, error }, { data: persone, error: errorePersone }] =
@@ -44,7 +50,7 @@ export default async function RegoleProvvigioniPage() {
         .in("ruolo", ["setter", "closer"])
         .order("nome"),
     ]);
-  if (error || errorePersone) throw new Error("Impossibile caricare le regole");
+  if (error || errorePersone) throw new Error(t.errore);
 
   // icon + words like every other status in the app; colour only reinforces
   const stato = (r: {
@@ -52,15 +58,15 @@ export default async function RegoleProvvigioniPage() {
     valida_al: string | null;
   }): { etichetta: string; Icona: LucideIcon; tono: string } =>
     r.valida_dal > oggi
-      ? { etichetta: "Futura", Icona: Clock, tono: "text-muted-foreground" }
+      ? { etichetta: t.futura, Icona: Clock, tono: "text-muted-foreground" }
       : r.valida_al && r.valida_al < oggi
         ? {
-            etichetta: "Chiusa",
+            etichetta: t.chiusa,
             Icona: CircleMinus,
             tono: "text-muted-foreground",
           }
         : {
-            etichetta: "In vigore",
+            etichetta: t.inVigore,
             Icona: CircleCheck,
             tono: "text-status-ok",
           };
@@ -68,9 +74,9 @@ export default async function RegoleProvvigioniPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
-        indietro={{ href: "/settings", etichetta: "Impostazioni" }}
-        titolo="Regole provvigioni"
-        descrizione="La provvigione matura sull’incasso con la regola valida quel giorno. Una nuova regola non riscrive il passato."
+        indietro={{ href: "/settings", etichetta: T.titolo }}
+        titolo={T.sezioni.commissions[0]}
+        descrizione={t.descrizione}
         azione={
           scrive ? (
             <NuovaRegola
@@ -84,8 +90,8 @@ export default async function RegoleProvvigioniPage() {
       {regole.length === 0 ? (
         <StatoVuoto
           Icona={Percent}
-          titolo="Nessuna regola"
-          descrizione="Senza una regola non matura nessuna provvigione. Crea quella del setter, ad esempio 5% sulle vendite nuove."
+          titolo={t.vuoto}
+          descrizione={t.vuotoDescrizione}
         />
       ) : (
         <ul
@@ -111,12 +117,13 @@ export default async function RegoleProvvigioniPage() {
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Sull’incassato di:{" "}
-                  {r.applica_a
-                    .map((t) => ETICHETTA_TIPO_VENDITA[t].toLowerCase())
-                    .join(", ")}{" "}
-                  · dal {formatData(r.valida_dal)}
-                  {r.valida_al ? ` al ${formatData(r.valida_al)}` : ""}
+                  {t.sullIncassato(
+                    r.applica_a
+                      .map((tipo) => ETICHETTE[lingua].tipoVendita[tipo].toLowerCase())
+                      .join(", "),
+                    formatData(r.valida_dal),
+                    r.valida_al ? formatData(r.valida_al) : null,
+                  )}
                 </p>
                 {scrive ? (
                   <div className="flex flex-wrap gap-2">

@@ -13,7 +13,10 @@ import { requireRuolo } from "@/lib/auth/session";
 import { oggiRoma } from "@/lib/date";
 import { emailConfigurata } from "@/lib/email/invia";
 import { origineCorrente } from "@/lib/auth/origine-server";
-import { formatData } from "@/lib/format";
+import { formato } from "@/lib/format";
+import { getLingua } from "@/lib/i18n/server";
+import { IMPOSTAZIONI } from "@/lib/i18n/testi/impostazioni";
+import { SHELL } from "@/lib/i18n/testi/shell";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +25,12 @@ export default async function TeamPage() {
   // the business coach reads the team (22/10/2026): no invite, no role change, no revoke
   const io = await requireRuolo(RUOLI_COME_ADMIN);
   const scrive = puoScrivere(io.ruolo);
+  const lingua = await getLingua();
+  const T = IMPOSTAZIONI[lingua];
+  const t = T.team;
+  const { formatData } = formato(lingua);
+  // the roles in the page's language; the admin's controls keep their own words
+  const etichettaRuolo = lingua === "it" ? ETICHETTA_RUOLO : SHELL[lingua].ruoli;
   // the link to share by hand points to the domain the admin is on
   const urlLogin = `${await origineCorrente()}/login`;
   const supabase = await createClient();
@@ -40,14 +49,14 @@ export default async function TeamPage() {
         .eq("revocato", false)
         .order("created_at", { ascending: false }),
     ]);
-  if (error || erroreInviti) throw new Error("Impossibile caricare il team");
+  if (error || erroreInviti) throw new Error(t.errore);
 
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
-        indietro={{ href: "/settings", etichetta: "Impostazioni" }}
-        titolo="Team"
-        descrizione="Accesso solo su invito. Chi è disattivato non entra più e non vede nessun dato."
+        indietro={{ href: "/settings", etichetta: T.titolo }}
+        titolo={T.sezioni.team[0]}
+        descrizione={t.descrizione}
         azione={
           scrive ? (
             <InvitaMembro
@@ -60,7 +69,7 @@ export default async function TeamPage() {
 
       <section className="space-y-2">
         <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Membri ({membri.length})
+          {t.membri(membri.length)}
         </h2>
         <ul
           className="divide-y divide-border rounded-xl bg-card"
@@ -77,8 +86,7 @@ export default async function TeamPage() {
                   {m.nome}
                   {m.id === io.id ? (
                     <span className="font-normal text-muted-foreground">
-                      {" "}
-                      · sei tu
+                      {t.seiTu}
                     </span>
                   ) : null}
                 </p>
@@ -100,8 +108,8 @@ export default async function TeamPage() {
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  {ETICHETTA_RUOLO[m.ruolo]}
-                  {m.attivo ? "" : " · disattivato"}
+                  {etichettaRuolo[m.ruolo]}
+                  {m.attivo ? "" : t.disattivato}
                 </p>
               )}
             </li>
@@ -109,21 +117,18 @@ export default async function TeamPage() {
         </ul>
         {scrive ? (
           <p className="px-1 text-xs text-muted-foreground">
-            Il tuo account non si disattiva e non perde il ruolo admin: lo
-            impedisce il database. Il livello progetti vale solo nell’area
-            Progetti; l’admin dell’app ne è sempre admin.
+            {t.nota}
           </p>
         ) : null}
       </section>
 
       <section className="space-y-2">
         <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Inviti in attesa ({inviti.length})
+          {t.inviti(inviti.length)}
         </h2>
         {inviti.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            Nessun invito in attesa. Chi riceve un invito compare tra i membri
-            al primo accesso.
+            {t.nessunInvito}
           </p>
         ) : (
           <ul
@@ -139,8 +144,10 @@ export default async function TeamPage() {
                 <div className="min-w-0">
                   <p className="truncate text-sm">{i.email}</p>
                   <p className="text-xs text-muted-foreground">
-                    {ETICHETTA_RUOLO[i.ruolo]} · invitato il{" "}
-                    {formatData(oggiRoma(new Date(i.created_at)))}
+                    {t.invitatoIl(
+                      etichettaRuolo[i.ruolo],
+                      formatData(oggiRoma(new Date(i.created_at))),
+                    )}
                   </p>
                 </div>
                 {scrive ? (

@@ -8,7 +8,9 @@ import { IntestazionePagina } from "@/components/pagina/intestazione";
 import { StatoVuoto } from "@/components/stati/stato-vuoto";
 import { puoScrivere, RUOLI_COME_ADMIN } from "@/lib/auth/roles";
 import { requireRuolo } from "@/lib/auth/session";
-import { formatEuro } from "@/lib/format";
+import { formato, type Formato } from "@/lib/format";
+import { getLingua } from "@/lib/i18n/server";
+import { IMPOSTAZIONI } from "@/lib/i18n/testi/impostazioni";
 import { createClient } from "@/lib/supabase/server";
 import {
   leggiPianoPredefinito,
@@ -18,42 +20,46 @@ import {
 export const dynamic = "force-dynamic";
 
 /** "3 × 500,00 € poi 3 × 333,33 €": runs of equal instalments, in order. */
-function descriviPiano(piano: PianoPredefinito) {
+function descriviPiano(piano: PianoPredefinito, formatEuro: Formato["formatEuro"], poi: string) {
   const gruppi: { n: number; importo: number }[] = [];
   for (const r of [...piano].sort((a, b) => a.mese - b.mese)) {
     const ultimo = gruppi.at(-1);
     if (ultimo && ultimo.importo === r.importo) ultimo.n += 1;
     else gruppi.push({ n: 1, importo: r.importo });
   }
-  return gruppi.map((g) => `${g.n} × ${formatEuro(g.importo)}`).join(" poi ");
+  return gruppi.map((g) => `${g.n} × ${formatEuro(g.importo)}`).join(poi);
 }
 
 export default async function ProdottiPage() {
   // the business coach reads the catalogue (22/10/2026): no form, no switch
   const profilo = await requireRuolo(RUOLI_COME_ADMIN);
   const scrive = puoScrivere(profilo.ruolo);
+  const lingua = await getLingua();
+  const T = IMPOSTAZIONI[lingua];
+  const t = T.prodotti;
+  const { formatEuro } = formato(lingua);
   const supabase = await createClient();
   const { data: prodotti, error } = await supabase
     .from("products")
     .select("id, nome, durata_mesi, prezzo_listino, attivo, piano_predefinito")
     .order("attivo", { ascending: false })
     .order("durata_mesi");
-  if (error) throw new Error("Impossibile caricare i prodotti");
+  if (error) throw new Error(t.errore);
 
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
-        indietro={{ href: "/settings", etichetta: "Impostazioni" }}
-        titolo="Prodotti"
-        descrizione="Il piano abituale si propone nella nuova vendita e resta modificabile. Fuori vendita: sparisce dal modulo ma resta nelle vendite passate. Eliminato: le vendite passate ne tengono il nome."
+        indietro={{ href: "/settings", etichetta: T.titolo }}
+        titolo={T.sezioni.products[0]}
+        descrizione={t.descrizione}
         azione={scrive ? <ProdottoForm /> : undefined}
       />
 
       {prodotti.length === 0 ? (
         <StatoVuoto
           Icona={Package}
-          titolo="Nessun prodotto"
-          descrizione="Crea il primo percorso in vendita, ad esempio «Percorso Alpha 3 mesi»."
+          titolo={t.vuoto}
+          descrizione={t.vuotoDescrizione}
           azione={scrive ? <ProdottoForm /> : undefined}
         />
       ) : (
@@ -69,8 +75,8 @@ export default async function ProdottiPage() {
                 <div className="min-w-0 basis-full md:basis-0 md:flex-1">
                   <p className="text-sm font-medium">{p.nome}</p>
                   <p className="num text-sm text-muted-foreground">
-                    {p.durata_mesi === 1 ? "1 mese" : `${p.durata_mesi} mesi`}
-                    {piano ? ` · ${descriviPiano(piano)}` : " · rate uguali"}
+                    {t.mesi(p.durata_mesi)}
+                    {piano ? ` · ${descriviPiano(piano, formatEuro, t.poi)}` : t.rateUguali}
                   </p>
                 </div>
                 <p className="num mr-auto text-sm font-medium md:mr-0 md:w-24 md:text-right">
@@ -85,7 +91,7 @@ export default async function ProdottiPage() {
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    {p.attivo ? "In vendita" : "Fuori vendita"}
+                    {p.attivo ? t.inVendita : t.fuoriVendita}
                   </p>
                 )}
               </li>

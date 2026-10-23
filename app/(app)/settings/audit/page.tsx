@@ -6,6 +6,7 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import {
   ETICHETTA_TABELLA,
   collegamentoVoce,
+  etichettaTabella,
   differenze,
   raggruppaVoci,
   sintesi,
@@ -15,7 +16,9 @@ import {
 import { RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, formatOra, oggiRoma } from '@/lib/date'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { getLingua } from '@/lib/i18n/server'
+import { IMPOSTAZIONI } from '@/lib/i18n/testi/impostazioni'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +28,10 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   // the business coach reads it like the admin (22/10/2026)
   await requireRuolo(RUOLI_COME_ADMIN)
   const { tabella } = await searchParams
+  const lingua = await getLingua()
+  const T = IMPOSTAZIONI[lingua]
+  const t = T.registro
+  const { formatData } = formato(lingua)
   const filtro = tabella && tabella in ETICHETTA_TABELLA ? tabella : null
   const supabase = await createClient()
 
@@ -36,14 +43,14 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   if (filtro) query = query.eq('tabella', filtro)
 
   const { data: voci, error } = await query
-  if (error) throw new Error('Impossibile caricare il registro')
+  if (error) throw new Error(t.errore)
 
   // who the sale was for: the audit row only has ids. A deleted sale has no name.
   const idVendite = [...new Set(voci.map(venditaDellaVoce).filter((id): id is string => id !== null))]
   const { data: vendite, error: erroreVendite } = idVendite.length
     ? await supabase.from('sales').select('id, cliente:clients(nome, cognome)').in('id', idVendite)
     : { data: [], error: null }
-  if (erroreVendite) throw new Error('Impossibile caricare il registro')
+  if (erroreVendite) throw new Error(t.errore)
   const clienteDi = new Map(
     vendite.map((s) => [s.id, s.cliente ? `${s.cliente.nome} ${s.cliente.cognome ?? ''}`.trim() : null]),
   )
@@ -61,25 +68,25 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   return (
     <div className="max-w-3xl space-y-5">
       <IntestazionePagina
-        titolo="Registro modifiche"
-        descrizione="Chi ha cambiato un importo, un ruolo o una regola, e quando. Le ultime 100 voci."
-        indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
+        titolo={T.sezioni.audit[0]}
+        descrizione={t.descrizione}
+        indietro={{ href: '/settings', etichetta: T.titolo }}
       />
 
-      <nav aria-label="Filtra per tipo" className="flex flex-wrap gap-2">
-        {[null, ...Object.keys(ETICHETTA_TABELLA)].map((t) => (
+      <nav aria-label={t.filtra} className="flex flex-wrap gap-2">
+        {[null, ...Object.keys(ETICHETTA_TABELLA)].map((tab) => (
           <Link
-            key={t ?? 'tutto'}
-            href={t ? `/settings/audit?tabella=${t}` : '/settings/audit'}
-            aria-current={t === filtro ? 'page' : undefined}
+            key={tab ?? 'tutto'}
+            href={tab ? `/settings/audit?tabella=${tab}` : '/settings/audit'}
+            aria-current={tab === filtro ? 'page' : undefined}
             className={cn(
               'inline-flex min-h-11 items-center rounded-pillola border px-3 text-sm',
-              t === filtro
+              tab === filtro
                 ? 'border-selezione bg-selezione text-selezione-foreground'
                 : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
           >
-            {t ? ETICHETTA_TABELLA[t] : 'Tutto'}
+            {tab ? etichettaTabella(tab, lingua) : t.tutto}
           </Link>
         ))}
       </nav>
@@ -87,15 +94,15 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       {voci.length === 0 ? (
         <StatoVuoto
           Icona={History}
-          titolo="Nessuna modifica registrata"
-          descrizione="Le modifiche a vendite, rate, costi, provvigioni e utenti compaiono qui."
+          titolo={t.vuoto}
+          descrizione={t.vuotoDescrizione}
         />
       ) : (
         <div className="space-y-5" data-testid="registro">
           {perGiorno.map(({ giorno, gruppi }) => (
             <section key={giorno} aria-labelledby={`giorno-${giorno}`} className="space-y-2">
               <h2 id={`giorno-${giorno}`} className="num px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {giorno === oggi ? `Oggi · ${formatData(giorno)}` : giorno === ieri ? `Ieri · ${formatData(giorno)}` : formatData(giorno)}
+                {giorno === oggi ? t.oggi(formatData(giorno)) : giorno === ieri ? t.ieri(formatData(giorno)) : formatData(giorno)}
               </h2>
               <ul className="divide-y divide-border rounded-xl bg-card">
                 {gruppi.map((gruppo) => {
@@ -105,12 +112,12 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                   const vendita = venditaDellaVoce(v)
                   const cliente = vendita ? clienteDi.get(vendita) : null
                   // a sale deleted later has nothing left to open
-                  const link = vendita && !clienteDi.has(vendita) ? null : collegamentoVoce(v)
-                  const cambi = differenze(v.dati_prima, v.dati_dopo)
-                  const riassunto = sintesi(v.tabella, dati)
+                  const link = vendita && !clienteDi.has(vendita) ? null : collegamentoVoce(v, lingua)
+                  const cambi = differenze(v.dati_prima, v.dati_dopo, lingua)
+                  const riassunto = sintesi(v.tabella, dati, lingua)
                   const titolo = piano
-                    ? `Piano rate ${v.azione === 'insert' ? 'creato' : 'eliminato'} · ${gruppo.length} rate`
-                    : titoloVoce(v.tabella, v.azione)
+                    ? t.piano(v.azione === 'insert', gruppo.length)
+                    : titoloVoce(v.tabella, v.azione, lingua)
 
                   return (
                     <li key={v.id} className="space-y-1 px-3 py-3">
@@ -122,10 +129,10 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                         {link ? (
                           <Link
                             href={link.href}
-                            aria-label={cliente ? `${link.etichetta} di ${cliente}` : link.etichetta}
+                            aria-label={cliente ? t.apriDi(link.etichetta, cliente) : link.etichetta}
                             className="-my-3 -mr-2 inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-md px-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
                           >
-                            Apri
+                            {t.apri}
                             <ChevronRight className="size-4" aria-hidden="true" />
                           </Link>
                         ) : null}
@@ -148,20 +155,20 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                       )}
 
                       <p className="num text-xs text-muted-foreground">
-                        {formatOra(v.created_at)} · {v.utente?.nome ?? 'sistema'}
+                        {formatOra(v.created_at)} · {v.utente?.nome ?? t.sistema}
                       </p>
 
                       {v.azione !== 'update' && (piano || cambi.length > 0) ? (
                         <details className="group text-sm">
                           <summary className="-mb-2 inline-flex min-h-11 cursor-pointer items-center gap-1 text-muted-foreground select-none hover:text-foreground">
                             <ChevronRight className="size-4 transition-transform group-open:rotate-90" aria-hidden="true" />
-                            {piano ? 'Le rate' : 'Tutti i campi'}
+                            {piano ? t.leRate : t.tuttiCampi}
                           </summary>
                           <ul className="space-y-0.5 pt-2 pb-1 pl-5">
                             {piano
                               ? gruppo.map((r) => (
                                   <li key={r.id} className="num text-muted-foreground">
-                                    {sintesi(r.tabella, r.azione === 'delete' ? r.dati_prima : r.dati_dopo)}
+                                    {sintesi(r.tabella, r.azione === 'delete' ? r.dati_prima : r.dati_dopo, lingua)}
                                   </li>
                                 ))
                               : cambi.map((c) => (
