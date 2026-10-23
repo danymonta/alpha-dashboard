@@ -15,7 +15,13 @@ import { COOKIE_LINGUA, eLingua, linguaIniziale, type Lingua } from '@/lib/i18n/
  * server action, a route) it reads the cookie again each time.
  */
 export const getLingua = cache(async (): Promise<Lingua> => {
-  const valore = (await cookies()).get(COOKIE_LINGUA)?.value
+  let valore: string | undefined
+  try {
+    valore = (await cookies()).get(COOKIE_LINGUA)?.value
+  } catch {
+    // outside a request (a test rendering a server component): the language of always
+    return 'it'
+  }
   if (eLingua(valore)) return valore
   const profilo = await profiloDellaRichiesta()
   return linguaIniziale(null, profilo?.ruolo ?? null)

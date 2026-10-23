@@ -126,8 +126,6 @@ export default async function ProgettiPage({
     .map((r) => ({ reparto: r, progetti: progetti.data.filter((p) => p.reparto_id === r.id) }))
     .filter((s) => s.progetti.length > 0 || (creatore && s.reparto.attivo))
 
-  // "Nessun progetto attivo", "Nessun progetto in pausa"
-  const statoParola = t.alSingolare[filtroStato]
   // departments shown but none with a project: one empty state instead of four
   const tuttiVuoti = sezioni.length > 0 && sezioni.every((s) => s.progetti.length === 0)
   const propsNuovo = {
@@ -210,7 +208,7 @@ export default async function ProgettiPage({
       {tuttiVuoti ? (
         <StatoVuoto
           Icona={FolderKanban}
-          titolo={t.nessuno(statoParola)}
+          titolo={t.nessuno(filtroStato)}
           descrizione={filtroStato !== 'tutti' || repartoFiltro ? t.cambiaFiltriOApri : t.apriPrimo}
           azione={
             filtroStato !== 'tutti' || repartoFiltro ? (
@@ -223,7 +221,7 @@ export default async function ProgettiPage({
       ) : sezioni.length === 0 ? (
         <StatoVuoto
           Icona={FolderKanban}
-          titolo={filtroStato === 'attivi' && !repartoFiltro ? t.nonFaiParte : t.nessuno(statoParola)}
+          titolo={filtroStato === 'attivi' && !repartoFiltro ? t.nonFaiParte : t.nessuno(filtroStato)}
           descrizione={filtroStato === 'attivi' && !repartoFiltro ? t.quandoAggiunto : t.cambiaFiltri}
           azione={
             filtroStato !== 'tutti' || repartoFiltro ? (
@@ -258,7 +256,7 @@ export default async function ProgettiPage({
             {elenco.length === 0 ? (
               // one compact line: the dashed box is only for a page with nothing at all
               <div className="flex min-h-11 flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
-                <span>{t.nessunoPunto(statoParola)}</span>
+                <span>{t.nessunoPunto(filtroStato)}</span>
                 {creatore && reparto.attivo ? (
                   <NuovoProgetto {...propsNuovo} repartoId={reparto.id} variante="link" />
                 ) : null}

@@ -1,5 +1,25 @@
 import { bilingue } from '@/lib/i18n/lingua'
-import { ETICHETTA_STATO_PROGETTO, ETICHETTA_STATO_TASK, FILTRI_STATO_PROGETTO } from '@/lib/progetti'
+import {
+  ETICHETTA_STATO_PROGETTO,
+  ETICHETTA_STATO_TASK,
+  FILTRI_STATO_PROGETTO,
+  type FiltroStatoProgetto,
+} from '@/lib/progetti'
+
+const STATO_IT: Record<FiltroStatoProgetto, string> = {
+  attivi: ' attivo',
+  in_pausa: ' in pausa',
+  completati: ' completato',
+  archiviati: ' archiviato',
+  tutti: '',
+}
+const STATO_EN: Record<FiltroStatoProgetto, string> = {
+  attivi: ' active',
+  in_pausa: ' paused',
+  completati: ' completed',
+  archiviati: ' archived',
+  tutti: '',
+}
 
 /**
  * Progetti (1.53.0): the list, a project's header, tabs and overview. Departments, projects,
@@ -28,9 +48,9 @@ export const PROGETTI = bilingue(
     soloMiei: 'Solo i miei',
     vista: 'Vista dei progetti',
     viste: { elenco: 'Elenco', timeline: 'Timeline' },
-    alSingolare: { attivi: ' attivo', in_pausa: ' in pausa', completati: ' completato', archiviati: ' archiviato', tutti: '' },
-    nessuno: (stato: string) => `Nessun progetto${stato}`,
-    nessunoPunto: (stato: string) => `Nessun progetto${stato}.`,
+    // "Nessun progetto attivo", "Nessun progetto in pausa"
+    nessuno: (filtro: FiltroStatoProgetto) => `Nessun progetto${STATO_IT[filtro]}`,
+    nessunoPunto: (filtro: FiltroStatoProgetto) => `Nessun progetto${STATO_IT[filtro]}.`,
     cambiaFiltriOApri: 'Cambia i filtri per vedere gli altri progetti, o aprine uno nuovo.',
     apriPrimo: 'Apri il primo progetto con «Nuovo progetto»: il reparto lo scegli nel foglio.',
     mostraTutti: 'Mostra tutti i progetti',
@@ -124,9 +144,8 @@ export const PROGETTI = bilingue(
     soloMiei: 'Only mine',
     vista: 'Projects view',
     viste: { elenco: 'List', timeline: 'Timeline' },
-    alSingolare: { attivi: ' active', in_pausa: ' paused', completati: ' completed', archiviati: ' archived', tutti: '' },
-    nessuno: (stato: string) => `No${stato} projects`,
-    nessunoPunto: (stato: string) => `No${stato} projects.`,
+    nessuno: (filtro: FiltroStatoProgetto) => `No${STATO_EN[filtro]} projects`,
+    nessunoPunto: (filtro: FiltroStatoProgetto) => `No${STATO_EN[filtro]} projects.`,
     cambiaFiltriOApri: 'Change the filters to see the other projects, or open a new one.',
     apriPrimo: 'Open the first project with «New project»: the department is chosen in the sheet.',
     mostraTutti: 'Show every project',
