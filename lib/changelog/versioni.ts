@@ -86,6 +86,20 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.57.1',
+    data: '2026-10-23',
+    titolo: 'Il codice di accesso via email ha 8 cifre',
+    riassunto: 'La pagina di accesso accetta il codice di 8 cifre che arriva via email: prima chiedeva 6 cifre e lo rifiutava.',
+    intestazionePer: ['tutti'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['tutti'],
+        testo: 'Entrando con l’email, il codice che arriva ha 8 cifre e ora la pagina lo accetta: prima diceva «Il codice ha 6 cifre» e non faceva entrare.',
+      },
+    ],
+  },
+  {
     versione: '1.57.0',
     data: '2026-10-23',
     titolo: 'I miei task e Il mio tempo anche in inglese',
