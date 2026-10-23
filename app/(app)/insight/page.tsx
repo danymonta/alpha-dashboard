@@ -18,17 +18,10 @@ import { isDataISO } from '@/lib/date'
 import { canaleIniziale, COOKIE_CANALE_INSIGHT, fonteDi, ID_PANNELLO_INSIGHT, idScheda, type Canale } from '@/lib/insight/canale'
 import { insightConfigurato, UrlPassoNonValido, urlPasso } from '@/lib/insight/config'
 import { LINK_CHIAVE_MESSENGER } from '@/lib/insight/link'
-import {
-  AGGIORNA,
-  DESCRIZIONE_NESSUN_RECAP,
-  META_NESSUN_RECAP,
-  MESSENGER_NON_COLLEGATO,
-  metaAggiornato,
-  metaAutomazione,
-  RECAP_ILLEGGIBILE,
-  titoloNessunRecap,
-} from '@/lib/insight/parole'
-import { leggiDettagliRecap, leggiRecap, type RecapLetto } from '@/lib/insight/recap'
+import { getLingua } from '@/lib/i18n/server'
+import { INSIGHT } from '@/lib/i18n/testi/insight'
+import { AGGIORNA } from '@/lib/insight/parole'
+import { formattaOraRecap, leggiDettagliRecap, leggiRecap, type RecapLetto } from '@/lib/insight/recap'
 import { leggiStatoInsight, leggiStatoInsightAdmin, type StatoInsight, type StatoInsightAdmin } from '@/lib/insight/stato'
 import { FRASI_ERRORE } from '@/lib/instagram/report'
 import { createClient } from '@/lib/supabase/server'
@@ -37,8 +30,6 @@ export const dynamic = 'force-dynamic'
 
 /** The days of a tab the select offers: the 30 of the retention, with room to spare. */
 const GIORNI_MAX = 60
-
-const PRIMO_RECAP_MESSENGER = 'Il primo recap Messenger compare qui dopo il prossimo aggiornamento automatico.'
 
 function primo(valore: string | string[] | undefined): string | undefined {
   return Array.isArray(valore) ? valore[0] : valore
@@ -180,10 +171,13 @@ export default async function InsightPage({
     }
   }
 
+  const t = INSIGHT[await getLingua()]
+  // «Aggiornato 08/10, 22:55 · ultime 24 ore», as lib/insight/parole.ts, in the page's language
+  const quando = riga ? formattaOraRecap(recap?.generated_at || riga.generato_il).replace(' ', ', ') : ''
   const meta = [
-    riga ? metaAggiornato(recap?.generated_at || riga.generato_il, recap?.window_hours ?? 24) : META_NESSUN_RECAP,
+    riga ? `${quando ? `${t.aggiornato(quando)} · ` : ''}${t.ultimeOre(recap?.window_hours ?? 24)}` : t.nessunRecap,
     // the setter has no «Automazione»: his meta line says when the recap comes
-    !admin && stato ? metaAutomazione(stato.attivo, stato.ora) : null,
+    !admin && stato ? (stato.attivo ? t.automatico(stato.ora) : t.automaticoSpento) : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -202,8 +196,8 @@ export default async function InsightPage({
         return (
           <StatoVuoto
             Icona={MessageCircle}
-            titolo={MESSENGER_NON_COLLEGATO.titolo}
-            descrizione={admin ? MESSENGER_NON_COLLEGATO.admin : MESSENGER_NON_COLLEGATO.setter}
+            titolo={t.messengerTitolo}
+            descrizione={admin ? t.messengerAdmin : t.messengerLettura}
             azione={admin ? <LinkBottone href={LINK_CHIAVE_MESSENGER}>{AGGIORNA.apriImpostazioni}</LinkBottone> : undefined}
           />
         )
@@ -211,8 +205,8 @@ export default async function InsightPage({
       return (
         <StatoVuoto
           Icona={Sparkles}
-          titolo={titoloNessunRecap(canale)}
-          descrizione={fonte === 'messenger' ? PRIMO_RECAP_MESSENGER : DESCRIZIONE_NESSUN_RECAP}
+          titolo={canale === 'agenda' ? t.vuotoAgenda : t.vuotoCanale(canale === 'messenger' ? 'Messenger' : 'Instagram')}
+          descrizione={fonte === 'messenger' ? t.primoMessenger : t.vuotoDescrizione}
           azione={scrive ? <BottoneAggiornaDati className="h-11 gap-1.5 px-4" /> : undefined}
         />
       )
@@ -221,7 +215,7 @@ export default async function InsightPage({
       return (
         <p role="alert" className="flex items-start gap-2 rounded-lg border border-status-warning/40 bg-status-warning/10 p-3 text-sm">
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
-          {RECAP_ILLEGGIBILE}
+          {t.illeggibile}
         </p>
       )
     }

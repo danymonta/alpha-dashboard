@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { CaricamentoSr } from '@/components/stati/caricamento-sr'
 
 export default function Loading() {
   return (
@@ -10,7 +11,7 @@ export default function Loading() {
           <Skeleton key={i} className="h-14 rounded-lg" />
         ))}
       </div>
-      <span className="sr-only">Caricamento in corso</span>
+      <CaricamentoSr />
     </div>
   )
 }

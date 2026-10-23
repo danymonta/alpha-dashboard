@@ -1,6 +1,8 @@
 import { Archive, CircleCheck, CircleDot, CirclePause, TriangleAlert, UserRoundX, type LucideIcon } from 'lucide-react'
 
-import { iniziali, ETICHETTA_STATO_PROGETTO, type StatoProgetto } from '@/lib/progetti'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { PROGETTI } from '@/lib/i18n/testi/progetti'
+import { iniziali, type StatoProgetto } from '@/lib/progetti'
 import { cn } from '@/lib/utils'
 
 const ICONA: Record<StatoProgetto, LucideIcon> = {
@@ -11,12 +13,21 @@ const ICONA: Record<StatoProgetto, LucideIcon> = {
 }
 
 /** Project state: icon plus words, never colour alone. */
-export function StatoProgettoBadge({ stato, className }: { stato: StatoProgetto; className?: string }) {
+export function StatoProgettoBadge({
+  stato,
+  className,
+  lingua = 'it',
+}: {
+  stato: StatoProgetto
+  className?: string
+  /** The page's language (1.53.0). */
+  lingua?: Lingua
+}) {
   const Icona = ICONA[stato]
   return (
     <span className={cn('inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground', className)}>
       <Icona className={cn('size-3.5', stato === 'completato' && 'text-status-ok')} aria-hidden="true" />
-      {ETICHETTA_STATO_PROGETTO[stato]}
+      {PROGETTI[lingua].statoProgetto[stato]}
     </span>
   )
 }
@@ -31,13 +42,16 @@ export function BarraAvanzamento({
   avanzamento,
   inRitardo = 0,
   className,
+  lingua = 'it',
 }: {
   completati: number
   totali: number
   avanzamento: number | null
   inRitardo?: number
   className?: string
+  lingua?: Lingua
 }) {
+  const t = PROGETTI[lingua]
   const percento = avanzamento === null ? 0 : Math.round(avanzamento * 100)
   return (
     <div className={cn('space-y-1', className)}>
@@ -45,19 +59,27 @@ export function BarraAvanzamento({
         <div className="h-full rounded-full bg-primary-light" style={{ width: `${percento}%` }} />
       </div>
       <p className="num flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-        <span>{totali === 0 ? 'Nessun task' : `${completati} di ${totali} task · ${percento}%`}</span>
-        {inRitardo > 0 ? <InRitardo testo={`${inRitardo} in ritardo`} /> : null}
+        <span>{totali === 0 ? t.nessunTask : t.taskDi(completati, totali, percento)}</span>
+        {inRitardo > 0 ? <InRitardo testo={t.inRitardoN(inRitardo)} /> : null}
       </p>
     </div>
   )
 }
 
 /** A client's project still without its coach (02/10/2026): icon and words. */
-export function SenzaCoach({ className }: { className?: string }) {
+export function SenzaCoach({
+  className,
+  lingua = 'it',
+  testo = PROGETTI[lingua].senzaCoach,
+}: {
+  className?: string
+  lingua?: Lingua
+  testo?: string
+}) {
   return (
     <span className={cn('inline-flex shrink-0 items-center gap-1 text-xs text-status-warning', className)}>
       <UserRoundX className="size-3.5 shrink-0" aria-hidden="true" />
-      Senza coach
+      {testo}
     </span>
   )
 }
@@ -80,11 +102,13 @@ export function InRitardo({ testo = 'In ritardo', className }: { testo?: string;
 export function InizialiMembri({
   nomi,
   massimo = 4,
-  etichetta = 'Membri',
+  lingua = 'it',
+  etichetta = PROGETTI[lingua].membri,
   piccole = false,
 }: {
   nomi: string[]
   massimo?: number
+  lingua?: Lingua
   etichetta?: string
   piccole?: boolean
 }) {

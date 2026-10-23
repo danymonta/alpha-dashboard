@@ -1,3 +1,5 @@
+import type { Lingua } from '@/lib/i18n/lingua'
+
 /**
  * The rows of pm_tempo_per_persona, shaped for the "Team" page. Every number
  * (minutes, entries) comes from SQL as it is: here rows are only grouped under
@@ -49,9 +51,14 @@ export type PersonaTempo = {
 
 export type TempoTeam = { minuti: number; voci: number; persone: PersonaTempo[] }
 
-const PROGETTO_SCONOSCIUTO = 'Progetto non più disponibile'
+/** Names the database could not give (a person or a project no longer there), in the page's language. */
+const SCONOSCIUTI = {
+  it: { progetto: 'Progetto non più disponibile', persona: 'Collaboratore' },
+  en: { progetto: 'Project no longer available', persona: 'Team member' },
+} as const
 
-export function raggruppaTempoTeam(righe: readonly RigaTempoTeam[]): TempoTeam {
+export function raggruppaTempoTeam(righe: readonly RigaTempoTeam[], lingua: Lingua = 'it'): TempoTeam {
+  const PROGETTO_SCONOSCIUTO = SCONOSCIUTI[lingua].progetto
   const totale = righe.find((r) => r.livello === 'totale')
   const persone = new Map<string, PersonaTempo>()
 
@@ -59,7 +66,7 @@ export function raggruppaTempoTeam(righe: readonly RigaTempoTeam[]): TempoTeam {
     if (r.livello !== 'persona' || !r.profile_id) continue
     persone.set(r.profile_id, {
       id: r.profile_id,
-      nome: r.persona ?? 'Collaboratore',
+      nome: r.persona ?? SCONOSCIUTI[lingua].persona,
       minuti: r.minuti,
       voci: r.voci ?? 0,
       progetti: [],

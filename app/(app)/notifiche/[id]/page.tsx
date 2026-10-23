@@ -9,9 +9,11 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireProfilo } from '@/lib/auth/session'
 import { publicEnv } from '@/lib/env'
+import { getLingua } from '@/lib/i18n/server'
+import { NOTIFICHE } from '@/lib/i18n/testi/notifiche'
 import { documentoSicuro } from '@/lib/notifiche/documento'
 import { quandoNotifica } from '@/lib/notifiche/quando'
-import { ETICHETTA_TIPO, eTipoNotifica, etichettaLink, linkInterno } from '@/lib/notifiche/tipi'
+import { eTipoNotifica, etichettaLink, linkInterno } from '@/lib/notifiche/tipi'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -27,6 +29,8 @@ export const dynamic = 'force-dynamic'
  */
 export default async function NotificaPage({ params }: { params: Promise<{ id: string }> }) {
   await requireProfilo()
+  const lingua = await getLingua()
+  const t = NOTIFICHE[lingua]
   const { id } = await params
   const supabase = await createClient()
   const valido = z.string().uuid().safeParse(id).success
@@ -42,19 +46,19 @@ export default async function NotificaPage({ params }: { params: Promise<{ id: s
   if (!n) {
     return (
       <div className="max-w-3xl">
-        <IntestazionePagina titolo="Notifica" indietro={{ href: '/notifiche', etichetta: 'Notifiche' }} />
+        <IntestazionePagina titolo={t.notifica} indietro={{ href: '/notifiche', etichetta: t.titolo }} />
         <StatoVuoto
           Icona={Bell}
-          titolo="Questa notifica non c’è più"
-          descrizione="L’hai eliminata, o non è una tua notifica."
-          azione={<LinkBottone href="/notifiche">Torna alle notifiche</LinkBottone>}
+          titolo={t.nonCePiu}
+          descrizione={t.nonCePiuDescrizione}
+          azione={<LinkBottone href="/notifiche">{t.tornaAlle}</LinkBottone>}
         />
       </div>
     )
   }
 
   const link = linkInterno(n.link)
-  const etichetta = etichettaLink(link)
+  const etichetta = etichettaLink(link, lingua)
   // an alert exists only in the app: no email, no HTML, a short text and maybe a list of plain lines
   const soloApp = n.canale === 'app' || n.corpo_html === null
   const righe = Array.isArray(n.dettagli) ? n.dettagli.filter((riga): riga is string => typeof riga === 'string') : []
@@ -64,20 +68,19 @@ export default async function NotificaPage({ params }: { params: Promise<{ id: s
       <SegnaLettaAllApertura id={n.id} giaLetta={n.letta_il !== null} />
       <IntestazionePagina
         titolo={n.titolo}
-        indietro={{ href: '/notifiche', etichetta: 'Notifiche' }}
+        indietro={{ href: '/notifiche', etichetta: t.titolo }}
         descrizione={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span>{eTipoNotifica(n.tipo) ? ETICHETTA_TIPO[n.tipo] : 'Notifica'}</span>
-            <span className="num">{quandoNotifica(n.created_at)}</span>
-            <StatoEmail inviata={n.email_inviata} canale={soloApp ? 'app' : 'email'} />
+            <span>{eTipoNotifica(n.tipo) ? t.tipi[n.tipo] : t.notifica}</span>
+            <span className="num">{quandoNotifica(n.created_at, lingua)}</span>
+            <StatoEmail inviata={n.email_inviata} canale={soloApp ? 'app' : 'email'} lingua={lingua} />
           </span>
         }
       />
 
       {!soloApp && !n.email_inviata ? (
         <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
-          L’email non è partita (il servizio di invio non è configurato o non ha risposto): questa è la copia salvata
-          nell’app.
+          {t.nonPartita}
         </p>
       ) : null}
 
@@ -88,7 +91,7 @@ export default async function NotificaPage({ params }: { params: Promise<{ id: s
       {soloApp || n.corpo_html === null ? (
         <section
           data-testid="corpo-avviso"
-          aria-label="Dettagli dell’avviso"
+          aria-label={t.dettagliAvviso}
           className="space-y-3 rounded-xl bg-card p-4 md:p-5"
         >
           {n.anteprima ? <p className="text-sm break-words">{n.anteprima}</p> : null}
@@ -99,11 +102,11 @@ export default async function NotificaPage({ params }: { params: Promise<{ id: s
               ))}
             </ul>
           ) : null}
-          <p className="text-xs text-muted-foreground">Questo avviso c’è solo nell’app: nessuna email.</p>
+          <p className="text-xs text-muted-foreground">{t.soloAppNota}</p>
         </section>
       ) : (
         <iframe
-          title={`Email: ${n.titolo}`}
+          title={t.email(n.titolo)}
           data-testid="corpo-notifica"
           sandbox="allow-popups allow-popups-to-escape-sandbox"
           srcDoc={documentoSicuro(n.corpo_html, publicEnv.appUrl)}

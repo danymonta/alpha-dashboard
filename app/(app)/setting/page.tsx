@@ -23,8 +23,12 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
-import { formatData, formatNumero, formatPercentuale, formatRapporto } from '@/lib/format'
-import { LEGENDA_CLOSER, LEGENDA_SETTING, type VoceLegenda } from '@/lib/metriche/legenda'
+import { formato, type Formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { getLingua } from '@/lib/i18n/server'
+import { SETTER } from '@/lib/i18n/testi/setter'
+import type { VoceLegenda } from '@/lib/metriche/legenda'
+import { legende } from '@/lib/metriche/legenda-en'
 import { leggiPeriodo } from '@/lib/periodo'
 import { LIMITE_MARKETING } from '@/lib/setting/commento'
 import { isUuid } from '@/lib/progetti'
@@ -44,15 +48,13 @@ type CampoReport =
 
 type Colonna = { campo: CampoReport | 'strategy_prenotate'; voce: VoceLegenda; forte?: true }
 
-// strategy calls are not done with leads (Dany, 29/09/2026): the setter books
-// discovery calls. Past days may still carry some, and "Call prenotate" counts
-// them: a column of history, shown only when the period has any
-const STRATEGY_STORICO: VoceLegenda = LEGENDA_SETTING.strategy_storico
-
 // the setter's report in the order he thinks of it: the DM and their total
-// (a database column), then the conversations and the calls
-function colonneReport(conStrategy: boolean): Colonna[] {
-  const S = LEGENDA_SETTING
+// (a database column), then the conversations and the calls. Strategy calls
+// are not done with leads (Dany, 29/09/2026): past days may still carry some,
+// and "Call prenotate" counts them: a column of history, shown only when the period has any
+function colonneReport(conStrategy: boolean, lingua: Lingua): Colonna[] {
+  const S = legende(lingua).setting
+  const STRATEGY_STORICO: VoceLegenda = S.strategy_storico
   return [
     { campo: 'dm_outbound', voce: S.dm_outbound },
     { campo: 'dm_inbound', voce: S.dm_inbound },
@@ -111,8 +113,10 @@ type Cella = { voce: VoceLegenda; valore: string; nota?: string }
  * recorded in the app. `strategy`: the period's strategy calls from the
  * history, already inside "Call prenotate" (giornate_setter, SQL).
  */
-function numeriSetter(r: MetricheSetter, strategy: number) {
-  const S = LEGENDA_SETTING
+function numeriSetter(r: MetricheSetter, strategy: number, lingua: Lingua) {
+  const { setting: S, closer: LEGENDA_CLOSER } = legende(lingua)
+  const t = SETTER[lingua]
+  const { formatNumero, formatPercentuale, formatRapporto } = formato(lingua)
   return {
     dm: [
       { voce: S.dm_outbound, valore: formatNumero(r.dm_outbound) },
@@ -122,14 +126,14 @@ function numeriSetter(r: MetricheSetter, strategy: number) {
     dmTotali: { voce: S.dm_totali, valore: formatNumero(r.dm_totali) },
     report: [
       { voce: S.conversazioni, valore: formatNumero(r.conversazioni) },
-      { voce: breve(S.tasso_conversazione, 'Tasso conv.'), valore: formatPercentuale(r.tasso_conversazione) },
+      { voce: breve(S.tasso_conversazione, t.tassoConv), valore: formatPercentuale(r.tasso_conversazione) },
       {
         voce: S.call_prenotate,
         valore: formatNumero(r.call_prenotate),
-        nota: strategy > 0 ? `di cui ${formatNumero(strategy)} strategy dallo storico` : undefined,
+        nota: strategy > 0 ? t.diCuiStrategy(formatNumero(strategy)) : undefined,
       },
-      { voce: breve(S.tasso_prenotazione, 'Tasso pren.'), valore: formatPercentuale(r.tasso_prenotazione) },
-      { voce: breve(S.dm_per_call, 'DM per call'), valore: formatRapporto(r.dm_per_call) },
+      { voce: breve(S.tasso_prenotazione, t.tassoPren), valore: formatPercentuale(r.tasso_prenotazione) },
+      { voce: breve(S.dm_per_call, t.dmPerCall), valore: formatRapporto(r.dm_per_call) },
     ],
     call: [
       { voce: S.prenotate_inbound, valore: formatNumero(r.prenotate_inbound) },
@@ -174,14 +178,27 @@ function Gruppo({ titolo, fonte, children }: { titolo: string; fonte: string; ch
  * its numbers spread over six columns. DM totali is the card's big number, the
  * sum under its three parts like on the setter's own page.
  */
-function SchedaSetter({ id, r, strategy, largo }: { id: string; r: MetricheSetter & { nome: string }; strategy: number; largo: boolean }) {
-  const n = numeriSetter(r, strategy)
+function SchedaSetter({
+  id,
+  r,
+  strategy,
+  largo,
+  lingua,
+}: {
+  id: string
+  r: MetricheSetter & { nome: string }
+  strategy: number
+  largo: boolean
+  lingua: Lingua
+}) {
+  const n = numeriSetter(r, strategy, lingua)
+  const t = SETTER[lingua]
   // two columns on a phone and in the half-width card: a label with its "i" never wraps badly
   const griglia = largo ? 'grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3 md:grid-cols-6' : 'grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3 md:grid-cols-2 xl:grid-cols-3'
   return (
     <section aria-labelledby={id} className={cn('space-y-4 rounded-xl bg-card p-4', largo && 'md:col-span-2')}>
       <h2 id={id} className="text-sm font-medium">{r.nome}</h2>
-      <Gruppo titolo="Dal report" fonte="Quello che il setter scrive ogni giorno nel report.">
+      <Gruppo titolo={t.dalReport} fonte={t.dalReportFonte}>
         {/* the three kinds of DM, then their sum: under a line, or on its right when the card is wide */}
         <dl className={cn('grid grid-cols-3 gap-3', largo && 'md:grid-cols-6')}>
           {n.dm.map((c) => (
@@ -208,8 +225,8 @@ function SchedaSetter({ id, r, strategy, largo }: { id: string; r: MetricheSette
         </dl>
       </Gruppo>
       <Gruppo
-        titolo="Dalle call"
-        fonte="Le call registrate nell’app. Le prenotate da DM inbound e outbound contano il giorno in cui la call è stata fissata; svolte, show rate e close rate il giorno della call."
+        titolo={t.dalleCall}
+        fonte={t.dalleCallFonte}
       >
         {/* items-end: a label on two lines ("Prenotate da DM outbound") keeps the values in a row */}
         <dl className={cn(griglia, 'items-end')}>
@@ -223,7 +240,9 @@ function SchedaSetter({ id, r, strategy, largo }: { id: string; r: MetricheSette
 }
 
 // the page's numbers in reading order: the report, the calls, then the rest of the table
-const LEGENDA_PAGINA: VoceLegenda[] = [
+function legendaPagina(lingua: Lingua): VoceLegenda[] {
+  const { setting: LEGENDA_SETTING, closer: LEGENDA_CLOSER } = legende(lingua)
+  return [
   LEGENDA_SETTING.dm_outbound,
   LEGENDA_SETTING.dm_inbound,
   LEGENDA_SETTING.follow_up,
@@ -243,7 +262,8 @@ const LEGENDA_PAGINA: VoceLegenda[] = [
   LEGENDA_SETTING.contenuto_pubblicato,
   LEGENDA_SETTING.lead_in_target,
   LEGENDA_SETTING.qualita_conversazioni,
-]
+  ]
+}
 
 /** The section's title: where the focus goes once the last day is decided. */
 const ID_DA_APPROVARE = 'titolo-da-approvare'
@@ -315,7 +335,11 @@ export default async function SettingPage({
   const scrive = puoScrivere(profilo.ruolo)
   const oggi = oggiRoma()
   const parametri = await searchParams
-  const periodo = leggiPeriodo(parametri, oggi)
+  const lingua = await getLingua()
+  const t = SETTER[lingua]
+  const { formatData, formatNumero }: Formato = formato(lingua)
+  const LEGENDA_SETTING = legende(lingua).setting
+  const periodo = leggiPeriodo(parametri, oggi, lingua)
   // the marketing section reads one setter or everyone (?setter=)
   const setterScelto = primo(parametri.setter)
   const setter = isUuid(setterScelto) ? setterScelto : null
@@ -343,7 +367,7 @@ export default async function SettingPage({
     scrive ? daApprovare(supabase) : null,
   ])
   if (metriche.error || report.error || giornate.error || persone.error || commenti.error || motivi.error) {
-    throw new Error('Impossibile caricare il setting')
+    throw new Error(t.errore)
   }
 
   const aggiungi = scrive ? (
@@ -392,13 +416,14 @@ export default async function SettingPage({
       perSetter.map((r) => supabase.rpc('giornate_setter', { p_da: periodo.da, p_a: periodo.a, p_setter: r.setter_id })),
     )
     perUno.forEach((risposta, i) => {
-      if (risposta.error) throw new Error('Impossibile caricare il setting')
+      if (risposta.error) throw new Error(t.errore)
       const suo = risposta.data.find((g) => g.data === null)
       strategyPerSetter.set(perSetter[i].setter_id, Number(suo?.strategy_prenotate ?? 0))
     })
   }
-  const colonne = colonneReport(strategyTotale > 0)
-  const legenda = strategyTotale > 0 ? [...LEGENDA_PAGINA, STRATEGY_STORICO] : LEGENDA_PAGINA
+  const colonne = colonneReport(strategyTotale > 0, lingua)
+  const LEGENDA_PAGINA = legendaPagina(lingua)
+  const legenda = strategyTotale > 0 ? [...LEGENDA_PAGINA, LEGENDA_SETTING.strategy_storico] : LEGENDA_PAGINA
   const schede = [...perSetter, ...(perSetter.length > 1 && totale ? [totale] : [])]
 
   return (
@@ -407,8 +432,8 @@ export default async function SettingPage({
       <SchedeInsight ruolo="admin" attiva="principale" />
 
       <IntestazionePagina
-        titolo="Setter"
-        descrizione="Per ogni setter: i numeri del suo report giornaliero e quelli delle call registrate nell’app."
+        titolo={t.titolo}
+        descrizione={t.descrizione}
         azione={aggiungi}
       />
 
@@ -431,12 +456,8 @@ export default async function SettingPage({
       {perSetter.length === 0 ? (
         <StatoVuoto
           Icona={TrendingUp}
-          titolo={`Nessun report ${periodo.frase}`}
-          descrizione={
-            scrive
-              ? 'I numeri arrivano dalla schermata Oggi del setter, oppure da «Aggiungi giornata».'
-              : 'I numeri arrivano dalla schermata Oggi del setter.'
-          }
+          titolo={t.nessunReport(periodo.frase)}
+          descrizione={scrive ? t.nessunReportAdmin : t.nessunReportLettura}
         />
       ) : (
         <>
@@ -451,6 +472,7 @@ export default async function SettingPage({
                   // the total card: every setter's strategy calls together
                   strategy={r.setter_id === null ? strategyTotale : (strategyPerSetter.get(r.setter_id) ?? 0)}
                   largo={schede.length === 1}
+                  lingua={lingua}
                 />
               )
             })}
@@ -458,7 +480,7 @@ export default async function SettingPage({
 
           <section className="space-y-2" aria-labelledby="report-giornalieri">
             <h2 id="report-giornalieri" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Report giornalieri ({report.data.length})
+              {t.reportGiornalieri(report.data.length)}
             </h2>
 
             <ul className="space-y-2 md:hidden">
@@ -470,13 +492,13 @@ export default async function SettingPage({
                     </p>
                     {/* raw fields of the report; DM totali is a database column */}
                     <p className="num mt-1 text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">DM totali {formatNumero(r.dm_totali)}</span> · conv.{' '}
-                      {formatNumero(r.conversazioni)} · prenotate {formatNumero(r.discovery_prenotate)}
+                      <span className="font-medium text-foreground">{t.dmTotali(formatNumero(r.dm_totali))}</span> · {t.conv}{' '}
+                      {formatNumero(r.conversazioni)} · {t.prenotate} {formatNumero(r.discovery_prenotate)}
                       {/* history only: the day's strategy calls, when it has some */}
                       {Number(r.strategy_prenotate) > 0 ? (
                         <>
                           {' '}
-                          <span className="whitespace-nowrap">· strategy {formatNumero(r.strategy_prenotate)}</span>
+                          <span className="whitespace-nowrap">· {t.strategy} {formatNumero(r.strategy_prenotate)}</span>
                         </>
                       ) : null}
                     </p>
@@ -490,11 +512,11 @@ export default async function SettingPage({
                 Until the table fits (about 1280px) it scrolls in its card, the day stays pinned on the left */}
             <div className="relative hidden overflow-x-auto rounded-xl bg-card md:block">
               <table className="w-full text-sm">
-                <caption className="sr-only">Report giornalieri del {periodo.mese ? 'mese' : 'periodo'}</caption>
+                <caption className="sr-only">{t.caption(periodo.mese !== null)}</caption>
                 <thead className="text-xs leading-tight text-muted-foreground">
                   <tr className="border-b border-border">
-                    <th scope="col" className={cn(GIORNO, 'py-2.5 align-bottom font-normal')}>Giorno</th>
-                    <th scope="col" className="px-3 py-2.5 text-left align-bottom font-normal">Setter</th>
+                    <th scope="col" className={cn(GIORNO, 'py-2.5 align-bottom font-normal')}>{t.giorno}</th>
+                    <th scope="col" className="px-3 py-2.5 text-left align-bottom font-normal">{t.setter}</th>
                     {colonne.map(({ campo, voce, forte }) => (
                       <th
                         key={campo}
@@ -513,9 +535,9 @@ export default async function SettingPage({
                       title={titolo(LEGENDA_SETTING.contenuto_pubblicato)}
                       className="px-3 py-2.5 text-center align-bottom font-normal"
                     >
-                      Contenuto
+                      {t.contenuto}
                     </th>
-                    <th scope="col" className="w-12 px-1 py-2.5"><span className="sr-only">Correggi</span></th>
+                    <th scope="col" className="w-12 px-1 py-2.5"><span className="sr-only">{t.correggi}</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -531,7 +553,7 @@ export default async function SettingPage({
                           {formatNumero(r[campo])}
                         </td>
                       ))}
-                      <td className="px-3 py-2 text-center">{r.contenuto_pubblicato ? 'Sì' : '–'}</td>
+                      <td className="px-3 py-2 text-center">{r.contenuto_pubblicato ? t.si : '–'}</td>
                       <td className="px-1 py-0.5">{correzione(r)}</td>
                     </tr>
                   ))}
@@ -539,8 +561,8 @@ export default async function SettingPage({
                 {totaleReport ? (
                   <tfoot>
                     <tr className="border-t border-border font-medium">
-                      <th scope="row" className={cn(GIORNO, 'py-2.5')}>Totale</th>
-                      <td className="px-3 py-2.5 text-muted-foreground">Tutti</td>
+                      <th scope="row" className={cn(GIORNO, 'py-2.5')}>{t.totale}</th>
+                      <td className="px-3 py-2.5 text-muted-foreground">{t.tutti}</td>
                       {colonne.map(({ campo, forte }) => (
                         <td key={campo} className={cn('num px-2 py-2.5 text-right', forte && cn(BANDA, 'font-semibold'))}>
                           {formatNumero(totaleReport[campo])}

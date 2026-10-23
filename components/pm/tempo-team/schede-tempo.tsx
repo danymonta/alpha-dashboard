@@ -2,12 +2,14 @@
 
 import { usePathname } from 'next/navigation'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { LinkNav } from '@/components/shell/link-nav'
+import { TEMPO } from '@/lib/i18n/testi/tempo'
 import { cn } from '@/lib/utils'
 
 const SCHEDE = [
-  { href: '/tempo', etichetta: 'Il mio tempo' },
-  { href: '/tempo/team', etichetta: 'Team' },
+  { href: '/tempo', chiave: 'mio' },
+  { href: '/tempo/team', chiave: 'team' },
 ] as const
 
 /**
@@ -17,11 +19,12 @@ const SCHEDE = [
  */
 export function SchedeTempo() {
   const pathname = usePathname()
+  const t = TEMPO[useLingua()].schede
 
   return (
-    <nav aria-label="Il mio tempo e il team" className="border-b border-border">
+    <nav aria-label={t.aria} className="border-b border-border">
       <ul className="flex gap-1">
-        {SCHEDE.map(({ href, etichetta }) => {
+        {SCHEDE.map(({ href, chiave }) => {
           const attiva = href === '/tempo' ? pathname === '/tempo' : pathname === href || pathname.startsWith(`${href}/`)
           return (
             <li key={href} className="shrink-0">
@@ -35,7 +38,7 @@ export function SchedeTempo() {
                     : 'border-transparent text-muted-foreground hover:text-foreground',
                 )}
               >
-                {etichetta}
+                {t[chiave]}
               </LinkNav>
             </li>
           )

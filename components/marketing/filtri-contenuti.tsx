@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useTransition, type ReactNode } from 'react'
 
 import { CLASSE_SELECT } from '@/components/form/foglio-modifica'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { useOpzioni } from '@/components/marketing/opzioni-contesto'
 import {
   CAMPI,
@@ -16,6 +17,7 @@ import {
   ORDINE_GRUPPI,
   gruppoDiStatus,
 } from '@/lib/marketing/etichette'
+import { MARKETING } from '@/lib/i18n/testi/marketing'
 import { haFiltri, parametriDaFiltri, type FiltriContenuti as Filtri } from '@/lib/marketing/filtri'
 import { cn } from '@/lib/utils'
 
@@ -83,6 +85,7 @@ export function FiltriContenuti({
   const router = useRouter()
   const [inCorso, avvia] = useTransition()
   const { opzioni, conteggi } = useOpzioni()
+  const t = MARKETING[useLingua()].piano
 
   function vai(nuovi: Filtri) {
     avvia(() => router.push(indirizzo(nuovi, resto), { scroll: false }))
@@ -95,7 +98,7 @@ export function FiltriContenuti({
           v ? <input key={chiave} type="hidden" name={chiave} value={v} /> : null,
         )}
         <label htmlFor="cerca-contenuto" className="sr-only">
-          Cerca per Name
+          {t.cerca}
         </label>
         <Search
           className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -108,7 +111,7 @@ export function FiltriContenuti({
           // a new search from elsewhere (Togli i filtri) shows in the field
           key={filtri.q ?? ''}
           defaultValue={filtri.q ?? ''}
-          placeholder="Cerca per Name"
+          placeholder={t.cerca}
           autoComplete="off"
           enterKeyHint="search"
           maxLength={100}
@@ -128,7 +131,7 @@ export function FiltriContenuti({
           vai({ ...filtri, stato, gruppo })
         }}
       >
-        <option value="">Tutti</option>
+        <option value="">{t.tutti}</option>
         {ORDINE_GRUPPI.map((g) => (
           <optgroup key={g} label={ETICHETTA_GRUPPO[g]}>
             {GRUPPI_STATUS[g].map((s) => (
@@ -146,7 +149,7 @@ export function FiltriContenuti({
         inCorso={inCorso}
         onCambia={(v) => vai({ ...filtri, reel_type: v || undefined })}
       >
-        <option value="">Tutti</option>
+        <option value="">{t.tutti}</option>
         {opzioni.reel_type.map((o) => (
           <option key={o.id} value={o.valore}>
             {o.nome} ({conteggi.reel_type[o.valore] ?? 0})
@@ -160,7 +163,7 @@ export function FiltriContenuti({
         inCorso={inCorso}
         onCambia={(v) => vai({ ...filtri, formato: v || undefined })}
       >
-        <option value="">Tutti</option>
+        <option value="">{t.tutti}</option>
         {opzioni.formato.map((o) => (
           <option key={o.id} value={o.valore}>
             {o.nome} ({conteggi.formato[o.valore] ?? 0})
@@ -175,7 +178,7 @@ export function FiltriContenuti({
           className="col-span-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:col-span-1"
         >
           <X className="size-4" aria-hidden="true" />
-          Togli i filtri
+          {t.togliFiltri}
         </Link>
       ) : null}
     </div>

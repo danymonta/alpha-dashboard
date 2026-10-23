@@ -2,7 +2,9 @@
 
 import { eliminaNotifica } from '@/app/(app)/notifiche/actions'
 import { Elimina } from '@/components/form/elimina'
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { ricontaNotifiche } from '@/components/shell/notifiche-provider'
+import { NOTIFICHE } from '@/lib/i18n/testi/notifiche'
 
 /**
  * The one way to delete (components/form/elimina.tsx) for a notification: the
@@ -21,13 +23,14 @@ export function EliminaNotifica({
   /** The detail page is gone after deleting: back to the list. */
   dopo?: string
 }) {
+  const t = useTesti(NOTIFICHE)
   return (
     <Elimina
-      cosa={`la notifica «${titolo}»`}
-      fatto="Notifica eliminata"
+      cosa={t.eliminaCosa(titolo)}
+      fatto={t.eliminata}
       variante={variante}
       dopo={dopo}
-      conseguenze={['Si toglie solo da qui: l’email, se è partita, resta nella tua posta.']}
+      conseguenze={[t.eliminaConseguenza]}
       azione={async () => {
         const esito = await eliminaNotifica(id)
         if (esito.ok) ricontaNotifiche()

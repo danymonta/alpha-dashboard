@@ -10,7 +10,9 @@ import { PassoRegistrazione } from '@/components/call/passo-registrazione'
 import { BottoneTesto, RiassuntoFathom, TrascrizioneFathom } from '@/components/call/testo-fathom'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { REGISTRAZIONE } from '@/lib/call/registrazione'
+import { CALL } from '@/lib/i18n/testi/call'
 import type { RegistrazioneVista } from '@/lib/call/analisi/vista'
 import { normalizzaLink } from '@/lib/fathom/link'
 import type { SceltaRegistrazioneInput } from '@/lib/validation/registrazione'
@@ -43,6 +45,8 @@ export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolt
   const [inCorso, avvia] = useTransition()
   const [cerca, setCerca] = useState(false)
   const [conferma, setConferma] = useState(false)
+  // the line that is read follows the page's language; the sheet that writes stays Italian (1.53.0)
+  const t = CALL[useLingua()].registrazione
 
   const nonRegistrata = registrazione?.stato === 'non_registrata'
   const trovata = Boolean(link && registrazione?.recording_id && registrazione.link_verificato === link)
@@ -105,17 +109,17 @@ export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolt
         {nonRegistrata ? (
           <>
             <VideoOff className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            {REGISTRAZIONE.scheda.nonRegistrata}
+            {t.nonRegistrata}
           </>
         ) : link ? (
           <>
             <Video className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            {trovata ? REGISTRAZIONE.scheda.suFathom(minuti) : fathom ? REGISTRAZIONE.scheda.nonVerificata : REGISTRAZIONE.scheda.link}
+            {trovata ? t.suFathom(minuti) : fathom ? t.nonVerificata : t.link}
           </>
         ) : (
           <>
             <CircleAlert className="size-4 shrink-0 text-status-warning" aria-hidden="true" />
-            <span className="text-status-warning">{REGISTRAZIONE.scheda.daAggiungere}</span>
+            <span className="text-status-warning">{t.daAggiungere}</span>
           </>
         )}
       </p>
@@ -128,7 +132,7 @@ export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolt
             className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border px-3 text-sm hover:bg-muted"
           >
             <ExternalLink className="size-4" aria-hidden="true" />
-            {REGISTRAZIONE.scheda.apri}
+            {t.apri}
             <span className="sr-only"> ({nomeLead})</span>
           </a>
         ) : null}

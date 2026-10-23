@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { CaricamentoSr } from '@/components/stati/caricamento-sr'
 
 /** The consent card's shape while Supabase answers: never a full-screen spinner. */
 export default function Loading() {
@@ -21,7 +22,7 @@ export default function Loading() {
           <Skeleton className="h-11 w-full rounded-lg" />
           <Skeleton className="h-11 w-full rounded-lg" />
         </div>
-        <span className="sr-only">Caricamento in corso</span>
+        <CaricamentoSr />
       </div>
     </main>
   )

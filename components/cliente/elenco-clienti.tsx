@@ -6,6 +6,7 @@ import { useId, useState } from 'react'
 import { CartellaDrive } from '@/components/cliente/cartella-drive'
 import { ContrattoVendita } from '@/components/cliente/contratto-vendita'
 import { StatoClienteBadge } from '@/components/cliente/stato-cliente'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { StatoRata } from '@/components/pagamento/stato-rata'
 import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import {
@@ -18,10 +19,12 @@ import {
   testoRatePagate,
   type RigaElenco,
 } from '@/lib/clienti/elenco'
-import { formatData, formatEuro } from '@/lib/format'
+import { formato } from '@/lib/format'
 import type { ConfigPicker } from '@/lib/google/picker'
+import { CLIENTI } from '@/lib/i18n/testi/clienti'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import { cn } from '@/lib/utils'
-import { ETICHETTA_METODO, type Metodo } from '@/lib/validation/incasso'
+import type { Metodo } from '@/lib/validation/incasso'
 
 /*
  * The table of the client list (Dany, 21/10/2026), minimal like Notion: tall
@@ -32,15 +35,6 @@ import { ETICHETTA_METODO, type Metodo } from '@/lib/validation/incasso'
  * contract, which no other role ever reads.
  */
 
-const COLONNE = [
-  'Cliente',
-  'Percorso',
-  'Contratto',
-  'Cartella Drive',
-  'Pagato',
-  'Come paga',
-  'Rate da saldare',
-] as const
 
 /** The same seven columns for the header and every row. */
 const GRIGLIA =
@@ -67,6 +61,9 @@ function Cella({
 }
 
 function PianoRate({ riga, oggi, id }: { riga: RigaElenco; oggi: string; id: string }) {
+  const lingua = useLingua()
+  const t = CLIENTI[lingua]
+  const { formatData, formatEuro } = formato(lingua)
   return (
     <div
       id={id}
@@ -75,10 +72,10 @@ function PianoRate({ riga, oggi, id }: { riga: RigaElenco; oggi: string; id: str
       className="mt-2 rounded-xl bg-muted/20 px-3 py-2 xl:mt-0 xl:rounded-none xl:border-t xl:border-border"
     >
       <div role="cell">
-        <ul className="divide-y divide-border" aria-label={`Piano rate di ${nomeCompleto(riga)}`}>
+        <ul className="divide-y divide-border" aria-label={t.pianoRateDi(nomeCompleto(riga))}>
           {riga.rate.map((rata) => {
             const pagata = rata.stato === 'incassata' || rata.stato === 'rimborsata'
-            const metodo = rata.metodo ? ETICHETTA_METODO[rata.metodo as Metodo] : null
+            const metodo = rata.metodo ? ETICHETTE[lingua].metodo[rata.metodo as Metodo] : null
             return (
               <li
                 key={rata.numero}
@@ -93,20 +90,20 @@ function PianoRate({ riga, oggi, id }: { riga: RigaElenco; oggi: string; id: str
                 <span className="num w-24 shrink-0 text-right font-medium">
                   {formatEuro(rata.importo_incassato ?? rata.importo_previsto)}
                 </span>
-                <StatoRata stato={rata.stato} scadenza={rata.scadenza} oggi={oggi} className="shrink-0 text-xs" />
+                <StatoRata stato={rata.stato} scadenza={rata.scadenza} oggi={oggi} className="shrink-0 text-xs" lingua={lingua} />
                 {pagata && metodo ? <span className="text-xs text-muted-foreground">{metodo}</span> : null}
               </li>
             )
           })}
         </ul>
         <p className="py-2 text-xs text-muted-foreground">
-          Per segnare un incasso apri la{' '}
+          {t.perSegnare}{' '}
           <LinkRiga href={`/sales/${riga.sale_id}`} className="rounded-sm underline hover:text-foreground">
-            vendita
+            {t.vendita}
           </LinkRiga>{' '}
-          o la{' '}
+          {t.oLa}{' '}
           <LinkRiga href={`/clients/${riga.client_id}`} className="rounded-sm underline hover:text-foreground">
-            scheda del cliente
+            {t.schedaCliente}
           </LinkRiga>
           .
         </p>
@@ -130,10 +127,14 @@ function RigaCliente({
 }) {
   const [aperto, setAperto] = useState(false)
   const id = useId()
+  const lingua = useLingua()
+  const t = CLIENTI[lingua]
+  const [C_CLIENTE, C_PERCORSO, C_CONTRATTO, C_CARTELLA, C_PAGATO, C_COME, C_RATE] = t.colonne
+  const { formatData, formatEuro } = formato(lingua)
   const nome = nomeCompleto(riga)
-  const percorso = testoPercorso(riga, oggi)
-  const etichettaVendita = etichettaPercorsoVendita(riga.tipo, riga.numero_percorso)
-  const metodi = testoMetodi(riga.metodi)
+  const percorso = testoPercorso(riga, oggi, lingua)
+  const etichettaVendita = etichettaPercorsoVendita(riga.tipo, riga.numero_percorso, lingua)
+  const metodi = testoMetodi(riga.metodi, lingua)
   const prossima = prossimaRata(riga)
   const daSaldare = riga.rate.filter((r) => r.stato === 'prevista' || r.stato === 'fallita').length
   const inRitardo = Number(riga.in_ritardo) > 0
@@ -148,7 +149,7 @@ function RigaCliente({
           GRIGLIA,
         )}
       >
-        <Cella etichetta="Cliente" larga>
+        <Cella etichetta={C_CLIENTE} larga>
           <div className="flex items-start justify-between gap-2 xl:block">
             <div className="min-w-0">
               <LinkRiga
@@ -160,18 +161,18 @@ function RigaCliente({
               </LinkRiga>
               {handle ? <p className="truncate text-xs text-muted-foreground">{handle}</p> : null}
             </div>
-            <StatoClienteBadge stato={riga.stato} className="shrink-0 text-xs xl:mt-1 xl:flex" />
+            <StatoClienteBadge stato={riga.stato} className="shrink-0 text-xs xl:mt-1 xl:flex" lingua={lingua} />
           </div>
         </Cella>
 
-        <Cella etichetta="Percorso" larga>
+        <Cella etichetta={C_PERCORSO} larga>
           <p className="num text-sm" data-testid="percorso-mese">
             {percorso.principale}
           </p>
           {percorso.avanzamento !== null ? (
             <div
               role="progressbar"
-              aria-label="Avanzamento del percorso"
+              aria-label={t.avanzamento}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(percorso.avanzamento * 100)}
@@ -186,11 +187,11 @@ function RigaCliente({
             {riga.prodotto ? ` · ${riga.prodotto}` : ''}
           </p>
           {riga.stato === 'sospeso' && riga.sospeso_il ? (
-            <p className="num text-xs text-muted-foreground">Sospeso dal {formatData(riga.sospeso_il)}</p>
+            <p className="num text-xs text-muted-foreground">{t.sospesoDal(formatData(riga.sospeso_il))}</p>
           ) : null}
         </Cella>
 
-        <Cella etichetta="Contratto">
+        <Cella etichetta={C_CONTRATTO}>
           <ContrattoVendita
             saleId={riga.sale_id}
             cliente={nome}
@@ -202,7 +203,7 @@ function RigaCliente({
           />
         </Cella>
 
-        <Cella etichetta="Cartella Drive">
+        <Cella etichetta={C_CARTELLA}>
           <CartellaDrive
             clientId={riga.client_id}
             cliente={nome}
@@ -214,43 +215,43 @@ function RigaCliente({
           />
         </Cella>
 
-        <Cella etichetta="Pagato">
+        <Cella etichetta={C_PAGATO}>
           <p className="num text-sm font-medium" data-testid="pagato">
             {formatEuro(riga.incassato)}
           </p>
-          <p className="num text-xs text-muted-foreground">su {formatEuro(riga.valore_contratto)}</p>
+          <p className="num text-xs text-muted-foreground">{t.su(formatEuro(riga.valore_contratto))}</p>
           {/* the lifetime value: what he paid across every path (a figure, not a ranking) */}
           <p className="num text-xs text-muted-foreground" data-testid="ltv">
             LTV {formatEuro(riga.ltv, { compatto: true })}
           </p>
         </Cella>
 
-        <Cella etichetta="Come paga">
-          <p className="text-sm">{metodi ?? <span className="text-muted-foreground">Nessun incasso</span>}</p>
-          <p className="num text-xs text-muted-foreground">{testoRatePagate(riga)}</p>
+        <Cella etichetta={C_COME}>
+          <p className="text-sm">{metodi ?? <span className="text-muted-foreground">{t.nessunIncasso}</span>}</p>
+          <p className="num text-xs text-muted-foreground">{testoRatePagate(riga, lingua)}</p>
         </Cella>
 
-        <Cella etichetta="Rate da saldare" larga>
+        <Cella etichetta={C_RATE} larga>
           {prossima ? (
             <div className="space-y-1">
               <p className="num text-sm" data-testid="prossima-rata">
-                <span className="text-muted-foreground">{testoRata(prossima, riga.rate_totali)} · </span>
+                <span className="text-muted-foreground">{testoRata(prossima, riga.rate_totali, lingua)} · </span>
                 {formatData(prossima.scadenza)} · {formatEuro(riga.prossimo_importo ?? prossima.importo_previsto)}
               </p>
               {inRitardo ? (
                 <p className="num flex items-center gap-1.5 text-xs font-medium text-status-warning" data-testid="in-ritardo">
                   <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-                  In ritardo: {formatEuro(riga.in_ritardo)}
+                  {t.inRitardo(formatEuro(riga.in_ritardo))}
                 </p>
               ) : null}
               <p className="num text-xs text-muted-foreground">
-                {daSaldare === 1 ? '1 rata' : `${daSaldare} rate`} da saldare · {formatEuro(riga.da_incassare)}
+                {t.daSaldare(daSaldare, formatEuro(riga.da_incassare))}
               </p>
             </div>
           ) : (
             <p className="flex items-center gap-1.5 text-sm text-status-ok">
               <CircleCheck className="size-4 shrink-0" aria-hidden="true" />
-              Tutto saldato
+              {t.tuttoSaldato}
             </p>
           )}
           {riga.rate.length > 0 ? (
@@ -262,8 +263,8 @@ function RigaCliente({
               className="-ml-1 mt-1 inline-flex min-h-11 items-center gap-1.5 rounded-md px-1 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               <ListChecks className="size-4 shrink-0" aria-hidden="true" />
-              {aperto ? 'Nascondi il piano' : 'Piano rate'}
-              <span className="sr-only"> di {nome}</span>
+              {aperto ? t.nascondiPiano : t.pianoRate}
+              <span className="sr-only">{t.di(nome)}</span>
               <ChevronDown className={cn('size-4 shrink-0 transition-transform', aperto && 'rotate-180')} aria-hidden="true" />
             </button>
           ) : null}
@@ -292,11 +293,12 @@ export function ElencoClienti({
   /** The business coach (22/10/2026): the links open, nothing changes them. */
   solaLettura?: boolean
 }) {
+  const colonne = CLIENTI[useLingua()].colonne
   return (
     <div role="table" aria-label={etichetta} className="xl:overflow-hidden xl:rounded-xl xl:border xl:border-border xl:bg-card">
       <div role="rowgroup" className="hidden xl:block">
         <div role="row" className={cn('grid gap-x-3 border-b border-border px-3 py-2', GRIGLIA)}>
-          {COLONNE.map((c) => (
+          {colonne.map((c) => (
             <div key={c} role="columnheader" className="text-xs font-normal text-muted-foreground">
               {c}
             </div>

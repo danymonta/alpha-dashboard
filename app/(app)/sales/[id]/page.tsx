@@ -12,10 +12,12 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { leggeComeAdmin, puoScrivere } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma, stessoGiornoTraMesi } from '@/lib/date'
-import { formatData, formatEuro, formatPercentuale } from '@/lib/format'
+import { formato } from '@/lib/format'
 import { configPickerRichiesta } from '@/lib/google/picker-server'
+import { getLingua } from '@/lib/i18n/server'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { VENDITE } from '@/lib/i18n/testi/vendite'
 import { createClient } from '@/lib/supabase/server'
-import { ETICHETTA_TIPO_VENDITA } from '@/lib/validation/vendita'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +29,9 @@ export default async function DettaglioVenditaPage({
   // the business coach reads it as the admin does, and never changes it (22/10/2026)
   const profilo = await requireRuolo(['admin', 'closer', 'business_coach'])
   const { id } = await params
+  const lingua = await getLingua()
+  const t = VENDITE[lingua]
+  const { formatData, formatEuro, formatPercentuale } = formato(lingua)
   const supabase = await createClient()
 
   // RLS: the admin reads every sale, the closer only the ones he closed
@@ -63,25 +68,25 @@ export default async function DettaglioVenditaPage({
         admin ? configPickerRichiesta() : null,
       ])
     : [null, null, null, null, null]
-  if (contratto?.error) throw new Error('Impossibile caricare il contratto')
+  if (contratto?.error) throw new Error(t.erroreContratto)
 
   const tornaIndietro = comeAdmin ? '/sales' : '/my-sales'
   const indietro = {
     href: tornaIndietro,
-    etichetta: comeAdmin ? 'Vendite' : 'Le mie vendite',
+    etichetta: comeAdmin ? t.titolo : t.leMieVendite,
   }
 
   if (!vendita) {
     return (
       <div className="max-w-2xl">
-        <IntestazionePagina titolo="Vendita" indietro={indietro} />
+        <IntestazionePagina titolo={t.vendita} indietro={indietro} />
         <StatoVuoto
           Icona={SearchX}
-          titolo="Vendita non trovata"
-          descrizione="La vendita non esiste o non è tra le tue."
+          titolo={t.nonTrovata}
+          descrizione={t.nonTrovataDescrizione}
           azione={
             <LinkBottone href={tornaIndietro} variant="outline">
-              Torna alle vendite
+              {t.tornaAlle}
             </LinkBottone>
           }
         />
@@ -95,27 +100,31 @@ export default async function DettaglioVenditaPage({
   const nomeCliente = [vendita.cliente?.nome, vendita.cliente?.cognome].filter(Boolean).join(' ')
 
   const dettagli: [string, string][] = [
-    ['Tipo', ETICHETTA_TIPO_VENDITA[vendita.tipo]],
-    ['Prodotto', vendita.prodotto?.nome ?? vendita.prodotto_personalizzato ?? '–'],
-    ['Data vendita', formatData(vendita.data_vendita)],
-    ['Percorso', `${formatData(vendita.data_inizio)} → ${formatData(vendita.data_fine)}`],
-    ['Closer', vendita.closer?.nome ?? '–'],
-    ['Setter', vendita.setter?.nome ?? '–'],
+    [t.tipo, ETICHETTE[lingua].tipoVendita[vendita.tipo]],
+    [t.prodotto, vendita.prodotto?.nome ?? vendita.prodotto_personalizzato ?? '–'],
+    [t.dataVendita, formatData(vendita.data_vendita)],
+    [t.percorso, `${formatData(vendita.data_inizio)} → ${formatData(vendita.data_fine)}`],
+    [t.closer, vendita.closer?.nome ?? '–'],
+    [t.setter, vendita.setter?.nome ?? '–'],
   ]
   const quota = provvigione?.data?.[0]
   if (comeAdmin && vendita.setter_id) {
     dettagli.push([
-      'Provvigione setter',
+      t.provvigione,
       quota
-        ? `${quota.percentuale === null ? 'regole diverse' : formatPercentuale(quota.percentuale)} di ${formatEuro(quota.incassato)} = ${formatEuro(quota.provvigione)}`
-        : 'nessuna finora',
+        ? t.quota(
+            quota.percentuale === null ? t.regoleDiverse : formatPercentuale(quota.percentuale),
+            formatEuro(quota.incassato),
+            formatEuro(quota.provvigione),
+          )
+        : t.nessunaFinora,
     ])
   }
 
   return (
     <div className="max-w-2xl space-y-6">
       <IntestazionePagina
-        titolo={nomeCliente || 'Vendita'}
+        titolo={nomeCliente || t.vendita}
         descrizione={vendita.cliente?.instagram_handle ?? undefined}
         indietro={indietro}
         azione={
@@ -151,21 +160,21 @@ export default async function DettaglioVenditaPage({
       />
 
       <div className="rounded-xl bg-card p-4">
-        <p className="text-xs text-muted-foreground">Valore del contratto</p>
+        <p className="text-xs text-muted-foreground">{t.valoreContratto}</p>
         {/* the one gold number of the screen */}
         <p className="num text-3xl font-semibold text-gold">{formatEuro(vendita.valore_contratto)}</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {vendita.numero_rate === 1 ? 'Pagamento unico' : `${vendita.numero_rate} rate mensili`}
+          {vendita.numero_rate === 1 ? t.unico : t.rateMensili(vendita.numero_rate)}
         </p>
 
         {riepilogo ? (
           <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4" data-testid="riepilogo-incassi">
             <div>
-              <dt className="text-xs text-muted-foreground">Incassato</dt>
+              <dt className="text-xs text-muted-foreground">{t.incassato}</dt>
               <dd className="num text-base font-medium">{formatEuro(riepilogo.incassato)}</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Da incassare</dt>
+              <dt className="text-xs text-muted-foreground">{t.daIncassare}</dt>
               <dd className="num text-base font-medium">{formatEuro(riepilogo.da_incassare)}</dd>
             </div>
             <div>
@@ -178,7 +187,7 @@ export default async function DettaglioVenditaPage({
                 {(riepilogo.rate_in_ritardo ?? 0) > 0 ? (
                   <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
                 ) : null}
-                In ritardo
+                {t.inRitardo}
               </dt>
               <dd className="num text-base font-medium text-foreground">{formatEuro(riepilogo.in_ritardo)}</dd>
             </div>
@@ -192,7 +201,7 @@ export default async function DettaglioVenditaPage({
           className="flex items-start gap-2 rounded-lg bg-status-warning/10 px-3 py-2.5 text-sm text-status-warning"
         >
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Il piano rate non torna con il contratto: scarto di {formatEuro(riepilogo.scarto_piano)}.
+          {t.scarto(formatEuro(riepilogo.scarto_piano))}
         </p>
       ) : null}
 
@@ -205,7 +214,7 @@ export default async function DettaglioVenditaPage({
         ))}
         {vendita.note ? (
           <div className="py-3">
-            <dt className="text-sm text-muted-foreground">Note</dt>
+            <dt className="text-sm text-muted-foreground">{t.note}</dt>
             <dd className="mt-1 text-sm whitespace-pre-line">{vendita.note}</dd>
           </div>
         ) : null}
@@ -216,7 +225,7 @@ export default async function DettaglioVenditaPage({
         // (and the business coach, who reads it and never changes it)
         <ContrattoVendita
           saleId={vendita.id}
-          cliente={nomeCliente || 'questo cliente'}
+          cliente={nomeCliente || t.questoCliente}
           url={contratto?.data?.url ?? null}
           picker={picker}
           solaLettura={!admin}
@@ -226,7 +235,7 @@ export default async function DettaglioVenditaPage({
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2 px-1">
           <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Piano rate · i soldi da incassare
+            {t.pianoRate}
           </h2>
           {admin ? (
             <AggiungiRata
@@ -243,7 +252,7 @@ export default async function DettaglioVenditaPage({
           {vendita.rate.map((rata) => (
             <li
               key={rata.id}
-              aria-label={`Rata ${rata.numero_rata}${rata.stato === 'rimborsata' ? ' rimborso' : ''}`}
+              aria-label={t.rata(rata.numero_rata, rata.stato === 'rimborsata')}
               className="px-3 py-2 md:flex md:items-center md:gap-3"
             >
               <div className="flex min-h-11 items-center gap-3 md:flex-1">
@@ -254,7 +263,7 @@ export default async function DettaglioVenditaPage({
                   <p className="num text-sm">
                     {formatData(rata.stato === 'prevista' || rata.stato === 'fallita' ? rata.scadenza : rata.incassato_il)}
                   </p>
-                  <StatoRata stato={rata.stato} scadenza={rata.scadenza} oggi={oggi} className="text-xs" />
+                  <StatoRata stato={rata.stato} scadenza={rata.scadenza} oggi={oggi} className="text-xs" lingua={lingua} />
                 </div>
                 <span className="num text-right text-sm font-medium">
                   {formatEuro(rata.importo_incassato ?? rata.importo_previsto)}

@@ -6,6 +6,7 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { anteprimaEliminazione } from '@/app/actions/eliminazione'
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -17,6 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { eliminazioneBloccata, frasiAnteprima, type TipoEliminazione } from '@/lib/eliminazione'
+import { SHELL } from '@/lib/i18n/testi/shell'
 import { cn } from '@/lib/utils'
 
 type EsitoAzione = { ok: true } | { ok: false; errore: string }
@@ -59,11 +61,14 @@ export function Elimina({
   dopo,
   onFatto,
   variante = 'foglio',
-  etichetta = 'Elimina',
+  etichetta: etichettaData,
   disabilitato = false,
   bloccata: bloccataNota = false,
 }: Props) {
   const router = useRouter()
+  const shell = useTesti(SHELL)
+  const t = shell.elimina
+  const etichetta = etichettaData ?? t.etichetta
   const [aperto, setAperto] = useState(false)
   const [frasi, setFrasi] = useState<string[] | null>(anteprima ? null : conseguenze)
   const [bloccata, setBloccata] = useState(bloccataNota)
@@ -98,7 +103,7 @@ export function Elimina({
       try {
         esito = await azione()
       } catch {
-        setErrore('Connessione assente. Riprova.')
+        setErrore(shell.connessione)
         return
       }
       if (!esito.ok) {
@@ -144,12 +149,12 @@ export function Elimina({
       <Dialog open={aperto} onOpenChange={(v) => !inCorso && setAperto(v)}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Eliminare {cosa}?</DialogTitle>
-            <DialogDescription>Non si può annullare.</DialogDescription>
+            <DialogTitle>{t.domanda(cosa)}</DialogTitle>
+            <DialogDescription>{t.irreversibile}</DialogDescription>
           </DialogHeader>
 
           {frasi === null ? (
-            <div className="space-y-2" aria-label="Controllo di cosa si elimina">
+            <div className="space-y-2" aria-label={t.controllo}>
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-2/3" />
             </div>
@@ -175,7 +180,7 @@ export function Elimina({
 
           <DialogFooter>
             <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={() => setAperto(false)}>
-              Annulla
+              {shell.annulla}
             </Button>
             <Button
               type="button"
@@ -185,7 +190,7 @@ export function Elimina({
               onClick={conferma}
             >
               {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Trash2 className="size-4" aria-hidden="true" />}
-              Elimina
+              {t.etichetta}
             </Button>
           </DialogFooter>
         </DialogContent>

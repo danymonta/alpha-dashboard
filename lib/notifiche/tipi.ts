@@ -1,3 +1,6 @@
+import type { Lingua } from '@/lib/i18n/lingua'
+import { NOTIFICHE } from '@/lib/i18n/testi/notifiche'
+
 /**
  * The notification center (1.41.0, CLAUDE.md sections 8 and 10): every email the
  * app sends to a profile of the app is also saved in public.notifiche, for the
@@ -73,17 +76,18 @@ export function linkInterno(link: string | null | undefined): string | null {
 }
 
 /** The words of the button that opens what the notification is about, from its internal link. */
-export function etichettaLink(link: string | null): string | null {
+export function etichettaLink(link: string | null, lingua: Lingua = 'it'): string | null {
   if (!link) return null
-  if (link === '/') return 'Apri la Panoramica'
-  if (link.startsWith('/clients/')) return 'Apri la scheda del cliente'
-  if (link.startsWith('/tempo/team')) return 'Apri Tempo › Team'
-  if (link.startsWith('/marketing/pubblicati')) return 'Apri Pubblicati'
-  if (link.startsWith('/settings/export')) return 'Apri Esporta'
-  if (link.startsWith('/payments')) return 'Apri Incassi'
-  if (link.startsWith('/settings/chiavi')) return 'Apri Chiavi e collegamenti'
-  if (link.startsWith('/settings/instagram')) return 'Apri le impostazioni delle analisi'
-  if (link.startsWith('/settings/fathom')) return 'Apri le impostazioni di Fathom'
-  if (link.startsWith('/setting#') || link.startsWith('/setting?') || link === '/setting') return 'Apri il tracciamento da approvare'
-  return 'Apri'
+  const t = NOTIFICHE[lingua].link
+  if (link === '/') return t.panoramica
+  if (link.startsWith('/clients/')) return t.cliente
+  if (link.startsWith('/tempo/team')) return t.tempoTeam
+  if (link.startsWith('/marketing/pubblicati')) return t.pubblicati
+  if (link.startsWith('/settings/export')) return t.esporta
+  if (link.startsWith('/payments')) return t.incassi
+  if (link.startsWith('/settings/chiavi')) return t.chiavi
+  if (link.startsWith('/settings/instagram')) return t.analisi
+  if (link.startsWith('/settings/fathom')) return t.fathom
+  if (link.startsWith('/setting#') || link.startsWith('/setting?') || link === '/setting') return t.daApprovare
+  return t.apri
 }

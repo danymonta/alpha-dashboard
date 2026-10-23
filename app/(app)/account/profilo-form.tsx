@@ -5,10 +5,12 @@ import { useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { fotoGoogle, salvaProfilo } from '@/app/(app)/account/actions'
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { FotoProfilo } from '@/components/profilo/foto-profilo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ACCOUNT } from '@/lib/i18n/testi/account'
 import { createClient } from '@/lib/supabase/client'
 
 const LATO = 256
@@ -37,6 +39,7 @@ export function ProfiloForm({ id, nome: nomeIniziale, foto: fotoIniziale }: { id
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
   const file = useRef<HTMLInputElement>(null)
+  const t = useTesti(ACCOUNT).foto
 
   function salva(nuova: { nome?: string; foto?: string | null }, messaggio: string, dopo?: () => Promise<void>) {
     setErrore(null)
@@ -62,8 +65,8 @@ export function ProfiloForm({ id, nome: nomeIniziale, foto: fotoIniziale }: { id
 
   async function carica(scelto: File) {
     setErrore(null)
-    if (!scelto.type.startsWith('image/')) return setErrore('Scegli un’immagine (JPG, PNG o WebP).')
-    if (scelto.size > 15 * 1024 * 1024) return setErrore('Immagine troppo grande: al massimo 15 MB.')
+    if (!scelto.type.startsWith('image/')) return setErrore(t.soloImmagini)
+    if (scelto.size > 15 * 1024 * 1024) return setErrore(t.troppoGrande)
     avvia(async () => {
       try {
         const blob = await preparaFoto(scelto)
@@ -72,13 +75,13 @@ export function ProfiloForm({ id, nome: nomeIniziale, foto: fotoIniziale }: { id
         const supabase = createClient()
         const { error } = await supabase.storage.from('avatari').upload(percorso, blob, { contentType: blob.type })
         if (error) {
-          setErrore('Foto non caricata. Riprova.')
+          setErrore(t.nonCaricata)
           return
         }
         const url = supabase.storage.from('avatari').getPublicUrl(percorso).data.publicUrl
-        salva({ foto: url }, 'Foto aggiornata', () => pulisciCartella(url))
+        salva({ foto: url }, t.aggiornata, () => pulisciCartella(url))
       } catch {
-        setErrore('Non riesco a leggere questa immagine. Provane un’altra.')
+        setErrore(t.nonLeggibile)
       }
     })
   }
@@ -93,7 +96,7 @@ export function ProfiloForm({ id, nome: nomeIniziale, foto: fotoIniziale }: { id
             type="file"
             accept="image/jpeg,image/png,image/webp,image/heic"
             className="sr-only"
-            aria-label="Scegli una foto"
+            aria-label={t.scegli}
             onChange={(e) => {
               const scelto = e.currentTarget.files?.[0]
               e.currentTarget.value = ''
@@ -102,7 +105,7 @@ export function ProfiloForm({ id, nome: nomeIniziale, foto: fotoIniziale }: { id
           />
           <Button type="button" className="h-11" disabled={inCorso} onClick={() => file.current?.click()}>
             {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <ImageUp className="size-4" aria-hidden="true" />}
-            Carica una foto
+            {t.carica}
           </Button>
           <Button
             type="button"
@@ -113,14 +116,14 @@ export function ProfiloForm({ id, nome: nomeIniziale, foto: fotoIniziale }: { id
               avvia(async () => {
                 const google = await fotoGoogle()
                 if (!google) {
-                  setErrore('Il tuo account Google non ha una foto.')
+                  setErrore(t.googleSenzaFoto)
                   return
                 }
-                salva({ foto: google }, 'Ora usi la foto di Google', () => pulisciCartella(null))
+                salva({ foto: google }, t.ora_google, () => pulisciCartella(null))
               })
             }
           >
-            Usa la foto di Google
+            {t.google}
           </Button>
           {foto ? (
             <Button
@@ -128,9 +131,9 @@ export function ProfiloForm({ id, nome: nomeIniziale, foto: fotoIniziale }: { id
               variant="ghost"
               className="h-11 text-muted-foreground"
               disabled={inCorso}
-              onClick={() => salva({ foto: null }, 'Foto tolta', () => pulisciCartella(null))}
+              onClick={() => salva({ foto: null }, t.tolta, () => pulisciCartella(null))}
             >
-              Togli la foto
+              {t.togli}
             </Button>
           ) : null}
         </div>
@@ -140,15 +143,15 @@ export function ProfiloForm({ id, nome: nomeIniziale, foto: fotoIniziale }: { id
         className="max-w-sm space-y-3"
         onSubmit={(e) => {
           e.preventDefault()
-          salva({ nome }, 'Nome aggiornato')
+          salva({ nome }, t.nomeAggiornato)
         }}
       >
         <div className="space-y-1.5">
-          <Label htmlFor="profilo-nome">Nome visibile al team</Label>
+          <Label htmlFor="profilo-nome">{t.nome}</Label>
           <Input id="profilo-nome" className="h-11" value={nome} maxLength={80} onChange={(e) => setNome(e.currentTarget.value)} />
         </div>
         <Button type="submit" variant="outline" className="h-11" disabled={inCorso || nome.trim() === nomeIniziale}>
-          Salva il nome
+          {t.salvaNome}
         </Button>
       </form>
 

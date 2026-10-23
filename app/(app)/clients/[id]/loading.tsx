@@ -1,7 +1,10 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { CLIENTI } from '@/lib/i18n/testi/clienti'
 
 /** The shape of the client sheet: header and actions, value, Drive folder, contacts, history of the paths. */
-export default function Loading() {
+export default async function Loading() {
+  const t = CLIENTI[await getLingua()]
   return (
     <div className="max-w-3xl space-y-6" aria-busy="true" aria-live="polite">
       <div className="space-y-2">
@@ -55,7 +58,7 @@ export default function Loading() {
           </div>
         ))}
       </div>
-      <span className="sr-only">Caricamento della scheda cliente</span>
+      <span className="sr-only">{t.caricamentoScheda}</span>
     </div>
   )
 }

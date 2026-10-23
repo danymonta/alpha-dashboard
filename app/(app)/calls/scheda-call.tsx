@@ -12,12 +12,13 @@ import { RegistrazioneCall } from '@/components/call/registrazione-call'
 import { StatoCall } from '@/components/call/stato-call'
 import { LinkBottone } from '@/components/link-bottone'
 import { Badge } from '@/components/ui/badge'
-import { FOLLOW_UP, VENDITA_DA_REGISTRARE, chiedeVendita, quandoFollowUp, rigaFollowUpDi } from '@/lib/call/follow-up'
-import { avvisoEsitoFermo, motivoQuandoBloccato, tracciaSpostamento } from '@/lib/call/spostamento'
-import { etichettaGiorno, etichettaGiornoBreve, formatOra, oggiRoma } from '@/lib/date'
-import { MOTIVO_NON_CHIUSURA, NOTE_CLOSER, NOTE_SETTER } from '@/lib/setting/commento'
+import { FOLLOW_UP, VENDITA_DA_REGISTRARE, chiedeVendita, quandoFollowUp } from '@/lib/call/follow-up'
+import { avvisoEsitoFermo, motivoQuandoBloccato } from '@/lib/call/spostamento'
+import { formatOra, oggiRoma } from '@/lib/date'
+import { etichettaGiornoBreveIn, etichettaGiornoIn, quandoBreveIn, quandoFollowUpIn } from '@/lib/i18n/date'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { CALL } from '@/lib/i18n/testi/call'
 import type { Database } from '@/lib/supabase/database.types'
-import { ETICHETTA_TIPO_CALL } from '@/lib/validation/call'
 import { chiedeMotivo } from '@/lib/validation/esito'
 import { REGISTRAZIONE_OBBLIGATORIA_DAL } from '@/lib/validation/registrazione'
 import {
@@ -142,6 +143,8 @@ type Props = {
    * no move, no pencil, no follow-up, no sale, no analysis to ask for).
    */
   solaLettura?: boolean
+  /** The page's language (1.53.0): the card's lines; the sheets that write stay Italian. */
+  lingua?: Lingua
 }
 
 export function SchedaCall({
@@ -156,17 +159,26 @@ export function SchedaCall({
   eliminabile = false,
   tornaA = null,
   solaLettura = false,
+  lingua = 'it',
 }: Props) {
+  const t = CALL[lingua]
   const giorno = oggiRoma(new Date(call.programmata_il))
   const ora = formatOra(call.programmata_il)
-  const nome = call.lead?.nome ?? 'Lead senza nome'
+  const nome = call.lead?.nome ?? t.leadSenzaNome
   const passata = new Date(call.programmata_il).getTime() < adesso
   const idTitolo = `call-${call.id}`
   const stato = (
-    <StatoCall stato={call.stato} esito={call.esito} qualificata={call.qualificata} passata={passata} />
+    <StatoCall stato={call.stato} esito={call.esito} qualificata={call.qualificata} passata={passata} lingua={lingua} />
   )
-  const descrizione = `${ETICHETTA_TIPO_CALL[call.tipo]} · ${etichettaGiorno(giorno, oggi).toLowerCase()} alle ${ora}`
-  const traccia = tracciaSpostamento(call, oggi)
+  // the sheets that write stay Italian (1.53.0): they get the Italian description
+  const descrizione = CALL.it.descrizioneCall(t.tipo[call.tipo], etichettaGiornoIn(giorno, oggi, 'it'), ora)
+  const volte = call.volte_spostata ?? 0
+  const traccia =
+    call.spostata_dal && volte >= 1
+      ? volte === 1
+        ? t.spostataDal(quandoBreveIn(call.spostata_dal, oggi, lingua))
+        : t.spostataVolte(volte, quandoBreveIn(call.spostata_dal, oggi, lingua))
+      : null
   const ruolo = vista === 'setter' ? 'setter' : admin ? 'admin' : 'closer'
   // "Sposta" (Dany, 02/10/2026): a call still to be held, or one "In attesa di
   // conferma" (stato riprogrammata, 04/10/2026). The setter moves only the first:
@@ -198,11 +210,11 @@ export function SchedaCall({
   const hrefVendita = `/sales/new?${new URLSearchParams({ call: call.id, ...(tornaA ? { da: tornaA } : {}) }).toString()}`
 
   const dettagli = [
-    ETICHETTA_TIPO_CALL[call.tipo],
+    t.tipo[call.tipo],
     call.lead?.instagram_handle,
     vista === 'closer'
-      ? call.setter && `da ${call.setter.nome.split(' ')[0]}`
-      : call.closer && `con ${call.closer.nome.split(' ')[0]}`,
+      ? call.setter && t.da(call.setter.nome.split(' ')[0])
+      : call.closer && t.con(call.closer.nome.split(' ')[0]),
   ].filter(Boolean)
 
   return (
@@ -213,7 +225,7 @@ export function SchedaCall({
           {mostraGiorno ? (
             // "gio 23/07" always on two lines, "oggi" on one: never a random wrap
             <p className="num text-xs leading-tight text-muted-foreground">
-              {etichettaGiornoBreve(giorno, oggi)
+              {etichettaGiornoBreveIn(giorno, oggi, lingua)
                 .split(' ')
                 .map((parte) => (
                   <span key={parte} className="block">
@@ -232,7 +244,7 @@ export function SchedaCall({
             {followUpFissato ? (
               <Badge variant="outline" className="text-muted-foreground" data-testid="badge-follow-up">
                 <RotateCw aria-hidden="true" />
-                {FOLLOW_UP.etichetta}
+                {t.followUp}
               </Badge>
             ) : null}
           </div>
@@ -240,7 +252,7 @@ export function SchedaCall({
           {followUpFissato ? (
             <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground" data-testid="follow-up-di">
               <RotateCw className="size-3.5 shrink-0" aria-hidden="true" />
-              {rigaFollowUpDi(call.partenza, oggi)}
+              {call.partenza ? t.followUpDella(quandoBreveIn(call.partenza.programmata_il, oggi, lingua)) : t.followUpSenzaData}
             </p>
           ) : null}
           {traccia ? (
@@ -326,18 +338,18 @@ export function SchedaCall({
       {seguito ? (
         <p className="mt-1 flex items-center gap-1.5 pl-[4.25rem] text-sm" data-testid="call-di-follow-up">
           <CalendarCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          {FOLLOW_UP.diCall(quandoFollowUp(seguito.programmata_il, oggi))}
+          {t.followUpDi(quandoFollowUpIn(seguito.programmata_il, oggi, lingua))}
         </p>
       ) : diAltroCloser ? (
         <p className="mt-1 flex items-center gap-1.5 pl-[4.25rem] text-sm" data-testid="call-di-follow-up">
           <CalendarCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          {FOLLOW_UP.diAltroCloser}
+          {t.followUpAltroCloser}
         </p>
       ) : inChat ? (
         <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pl-[4.25rem]">
           <p className="flex min-h-11 items-center gap-1.5 text-sm" data-testid="follow-up-in-chat">
             <MessageCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            {FOLLOW_UP.inChat}
+            {t.followUpInChat}
           </p>
           {vista === 'closer' && !solaLettura ? (
             <div className="ml-auto">
@@ -363,7 +375,7 @@ export function SchedaCall({
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <p className="flex min-h-11 items-center gap-1.5 text-sm text-status-warning" data-testid="vendita-da-registrare">
               <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
-              {VENDITA_DA_REGISTRARE.etichetta}
+              {t.venditaDaRegistrare}
             </p>
             {solaLettura ? null : (
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -412,22 +424,22 @@ export function SchedaCall({
             <PerformanceCall callId={call.id} valutazione={call.valutazione} performanceSalvata={call.performance ?? null} />
           ) : null}
           {/* the admin who is also the call's setter reads his own suggestions (RLS gives no other row) */}
-          {call.spunti?.spunti?.length ? <SpuntiDelSetter spunti={call.spunti.spunti} /> : null}
+          {call.spunti?.spunti?.length ? <SpuntiDelSetter spunti={call.spunti.spunti} lingua={lingua} /> : null}
         </>
       ) : call.dalla_call ? (
         <DallaCall dalla={call.dalla_call} spunti={call.spunti?.spunti ?? null} />
       ) : null}
 
       {/* the closer reads what the setter wrote with the call's pencil */}
-      {vista === 'closer' ? <TestoCall etichetta={NOTE_SETTER.titolo} testo={call.note} testId="note-setter" /> : null}
+      {vista === 'closer' ? <TestoCall etichetta={t.noteSetter} testo={call.note} testId="note-setter" /> : null}
 
       {/* both sides see it: the closer wrote it, the setter learns from it */}
       {chiedeMotivo(call.esito) ? (
-        <TestoCall etichetta={MOTIVO_NON_CHIUSURA.titolo} testo={call.obiezione_principale} testId="motivo-non-chiusura" />
+        <TestoCall etichetta={t.motivo} testo={call.obiezione_principale} testId="motivo-non-chiusura" />
       ) : null}
 
       {/* the setter reads the closer's notes, never writes them */}
-      {vista === 'setter' ? <TestoCall etichetta={NOTE_CLOSER.diChi} testo={call.note_closer} testId="note-closer" /> : null}
+      {vista === 'setter' ? <TestoCall etichetta={t.noteCloser} testo={call.note_closer} testId="note-closer" /> : null}
     </article>
   )
 }
@@ -437,7 +449,7 @@ function TestoCall({ etichetta, testo, testId }: { etichetta: string; testo: str
   if (!testo?.trim()) return null
   return (
     <p className="mt-1 line-clamp-2 pl-[4.25rem] text-sm break-words" data-testid={testId}>
-      <span className="text-muted-foreground">{etichetta}:</span> {testo}
+      <span className="text-muted-foreground">{etichetta}:</span> <span lang="it">{testo}</span>
     </p>
   )
 }
@@ -453,16 +465,17 @@ function analizzabileDa(call: CallVista): boolean {
   return n.ok && n.fathom
 }
 
-function SpuntiDelSetter({ spunti }: { spunti: string[] }) {
+function SpuntiDelSetter({ spunti, lingua }: { spunti: string[]; lingua: Lingua }) {
+  const t = CALL[lingua]
   return (
     <div className="mt-1 pl-[4.25rem] text-sm" data-testid="spunti-per-te">
-      <h5 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Spunti per i tuoi DM</h5>
+      <h5 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t.spuntiTitolo}</h5>
       <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
         {spunti.map((s, i) => (
           <li key={i}>{s}</li>
         ))}
       </ul>
-      <p className="text-xs text-muted-foreground">Li vedi solo tu.</p>
+      <p className="text-xs text-muted-foreground">{t.spuntiSoloTu}</p>
     </div>
   )
 }

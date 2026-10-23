@@ -3,9 +3,12 @@ import { Video } from 'lucide-react'
 import { LinkBottone } from '@/components/link-bottone'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { LinkNav } from '@/components/shell/link-nav'
-import { CATEGORIE_OBIEZIONI, etichetta } from '@/lib/call/analisi/icp-call'
-import { ETICHETTA_PERFORMANCE, LIVELLI_PERFORMANCE } from '@/lib/call/analisi/vista'
-import { formatEuro, formatNumero, formatPercentuale } from '@/lib/format'
+import { LIVELLI_PERFORMANCE } from '@/lib/call/analisi/vista'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { getLingua } from '@/lib/i18n/server'
+import { CLOSER, etichettaContenuto } from '@/lib/i18n/testi/closer'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import { hrefAnalisiReel } from '@/lib/marketing/analisi/pannello'
 import type { Periodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
@@ -52,11 +55,31 @@ export function leggiPer(valore: string | string[] | undefined): Per {
   return v === 'fonte' || v === 'contenuto' ? v : 'totale'
 }
 
-const SCHEDE: { per: Per; etichetta: string }[] = [
-  { per: 'totale', etichetta: 'Totale' },
-  { per: 'fonte', etichetta: 'Per fonte' },
-  { per: 'contenuto', etichetta: 'Per contenuto' },
-]
+const SCHEDE: readonly Per[] = ['totale', 'fonte', 'contenuto']
+
+/** An objection's category in the page's language (an unknown key stays as it is). */
+function categoria(lingua: Lingua, chiave: string): string {
+  return (CLOSER[lingua].registrate.categorie as Record<string, string>)[chiave] ?? chiave
+}
+
+const FONTI_EN: Record<string, string> = {
+  dm_inbound: 'Instagram inbound DM',
+  dm_outbound: 'Instagram outbound DM',
+  referral: 'Referral',
+  organico: 'Organic',
+  ads: 'Ads',
+}
+
+/**
+ * The group's name, written by SQL in Italian (call_numeri_periodo): in English the source by its
+ * key, the post's «Reel del 03/10 · Name» as «Reel of 03/10 · Name» (the Name is the team's).
+ */
+function nomeGruppo(r: Pick<Riga, 'gruppo' | 'etichetta'>, per: Per, lingua: Lingua): string {
+  if (lingua === 'it') return r.etichetta
+  if (per === 'totale') return 'All calls'
+  if (per === 'fonte') return FONTI_EN[r.gruppo ?? ''] ?? 'Other'
+  return etichettaContenuto(r.etichetta, lingua)
+}
 
 const hrefPer = (per: Per, parametri: Record<string, string | undefined>) => {
   const q = new URLSearchParams()
@@ -89,6 +112,8 @@ export async function DalleRegistrazioni({
   proprie: boolean
   parametri: Record<string, string | undefined>
 }) {
+  const lingua = await getLingua()
+  const t = CLOSER[lingua].registrate
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('call_numeri_periodo', {
     p_da: periodo.da,
@@ -101,21 +126,21 @@ export async function DalleRegistrazioni({
     <section className="space-y-3" aria-labelledby="dalle-registrazioni" data-testid="dalle-registrazioni">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <h2 id="dalle-registrazioni" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Dalle call registrate
+          {t.titolo}
         </h2>
-        <nav aria-label="Come raggruppare le call">
+        <nav aria-label={t.aria}>
           <ul className="flex gap-1">
             {SCHEDE.map((s) => (
-              <li key={s.per}>
+              <li key={s}>
                 <LinkNav
-                  href={hrefPer(s.per, parametri)}
-                  aria-current={per === s.per ? 'page' : undefined}
+                  href={hrefPer(s, parametri)}
+                  aria-current={per === s ? 'page' : undefined}
                   className={cn(
                     'inline-flex min-h-11 items-center rounded-lg px-3 text-sm',
-                    per === s.per ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
+                    per === s ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  {s.etichetta}
+                  {t.schede[s]}
                 </LinkNav>
               </li>
             ))}
@@ -125,28 +150,51 @@ export async function DalleRegistrazioni({
 
       {error ? (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4 text-sm">
-          <span>I numeri delle call registrate non si sono caricati.</span>
+          <span>{t.errore}</span>
           <LinkBottone href={hrefPer(per, parametri)} variant="outline">
-            Riprova
+            {t.riprova}
           </LinkBottone>
         </div>
       ) : (
-        <Contenuto righe={(data ?? []) as unknown as Riga[]} per={per} admin={admin} proprie={proprie} periodoFrase={periodo.frase} />
+        <Contenuto
+          righe={(data ?? []) as unknown as Riga[]}
+          per={per}
+          admin={admin}
+          proprie={proprie}
+          periodoFrase={periodo.frase}
+          lingua={lingua}
+        />
       )}
     </section>
   )
 }
 
-function Contenuto({ righe, per, admin, proprie, periodoFrase }: { righe: Riga[]; per: Per; admin: boolean; proprie: boolean; periodoFrase: string }) {
+function Contenuto({
+  righe,
+  per,
+  admin,
+  proprie,
+  periodoFrase,
+  lingua,
+}: {
+  righe: Riga[]
+  per: Per
+  admin: boolean
+  proprie: boolean
+  periodoFrase: string
+  lingua: Lingua
+}) {
+  const t = CLOSER[lingua].registrate
+  const { formatNumero, formatPercentuale } = formato(lingua)
   if (righe.length === 0) {
     return (
       <StatoVuoto
         Icona={Video}
-        titolo="Nessuna call registrata nel periodo"
-        descrizione={`Compaiono le call svolte o non presentate ${periodoFrase}.`}
+        titolo={t.vuoto}
+        descrizione={t.vuotoDescrizione(periodoFrase)}
         azione={
           <LinkBottone href="/calls" variant="outline">
-            Vai a Le mie call
+            {t.vaiCall}
           </LinkBottone>
         }
       />
@@ -178,52 +226,58 @@ function Contenuto({ righe, per, admin, proprie, periodoFrase }: { righe: Riga[]
       <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {proprie ? (
           <Numero
-            etichetta="Call registrate"
-            valore={`${formatNumero(totale.registrate)} su ${formatNumero(totale.svolte)}`}
-            nota={totale.svolte > 0 ? `${formatPercentuale(totale.registrate / totale.svolte)} delle svolte` : undefined}
+            etichetta={t.callRegistrate}
+            valore={t.suSvolte(formatNumero(totale.registrate), formatNumero(totale.svolte))}
+            nota={totale.svolte > 0 ? t.delleSvolte(formatPercentuale(totale.registrate / totale.svolte)) : undefined}
             testId="reg-registrate"
           />
         ) : null}
-        {proprie ? <Numero etichetta="Durata media" valore={durataMedia === null ? '-' : `${formatNumero(Math.round(durataMedia))} min`} testId="reg-durata" /> : null}
-        <Numero etichetta="Close rate" valore={formatPercentuale(totale.svolte > 0 ? totale.chiuse / totale.svolte : null)} testId="reg-close-rate" />
+        {proprie ? (
+          <Numero
+            etichetta={t.durata}
+            valore={durataMedia === null ? '-' : t.minuti(formatNumero(Math.round(durataMedia)))}
+            testId="reg-durata"
+          />
+        ) : null}
+        <Numero etichetta={t.closeRate} valore={formatPercentuale(totale.svolte > 0 ? totale.chiuse / totale.svolte : null)} testId="reg-close-rate" />
         <Numero
-          etichetta="In target"
+          etichetta={t.inTarget}
           valore={formatPercentuale(totale.si + totale.no > 0 ? totale.si / (totale.si + totale.no) : null)}
-          nota="Sulle call analizzate da Claude"
+          nota={t.inTargetNota}
           testId="reg-in-target"
         />
       </dl>
 
       {proprie ? (
         <div className="rounded-xl bg-card p-4" data-testid="reg-performance">
-          <h3 className="text-sm font-medium">Performance confermata</h3>
+          <h3 className="text-sm font-medium">{t.performance}</h3>
           <ul className="mt-2 grid grid-cols-5 gap-2 text-center">
             {LIVELLI_PERFORMANCE.map((l) => (
               <li key={l} className="min-w-0">
                 <p className="num text-lg font-semibold">{formatNumero(performance[l] ?? 0)}</p>
-                <p className="truncate text-xs text-muted-foreground">{ETICHETTA_PERFORMANCE[l]}</p>
+                <p className="truncate text-xs text-muted-foreground">{ETICHETTE[lingua].performance[l]}</p>
               </li>
             ))}
           </ul>
           <p className="mt-2 text-xs text-muted-foreground">
-            {formatNumero(performance.senza ?? 0)} senza performance scritta. Le valuta chi ha fatto la call: le vedi solo sulle tue.
+            {t.senzaPerformance(formatNumero(performance.senza ?? 0))}
           </p>
         </div>
       ) : (
         <p className="px-1 text-xs text-muted-foreground" data-testid="reg-solo-tue">
-          Copertura, durata e performance le vedi scegliendo te stesso: valutano chi fa le call.
+          {t.soloTue}
         </p>
       )}
 
       <div className="rounded-xl bg-card p-4" data-testid="reg-obiezioni">
-        <h3 className="text-sm font-medium">Obiezioni più frequenti</h3>
+        <h3 className="text-sm font-medium">{t.obiezioni}</h3>
         {prime.length === 0 ? (
-          <p className="mt-1 text-sm text-muted-foreground">Nessuna obiezione nelle call analizzate di {periodoFrase.replace(/^a /, '')}.</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t.nessunaObiezione(periodoFrase.replace(/^(a|in) /, ''))}</p>
         ) : (
           <ol className="mt-2 space-y-1">
-            {prime.map(([categoria, quante]) => (
-              <li key={categoria} className="flex items-baseline justify-between gap-3 text-sm">
-                <span>{etichetta(CATEGORIE_OBIEZIONI, categoria)}</span>
+            {prime.map(([chiave, quante]) => (
+              <li key={chiave} className="flex items-baseline justify-between gap-3 text-sm">
+                <span>{categoria(lingua, chiave)}</span>
                 <span className="num text-muted-foreground">{formatNumero(quante)}</span>
               </li>
             ))}
@@ -231,26 +285,33 @@ function Contenuto({ righe, per, admin, proprie, periodoFrase }: { righe: Riga[]
         )}
       </div>
 
-      {per !== 'totale' ? <Raggruppate righe={righe} per={per} admin={admin} /> : null}
+      {per !== 'totale' ? <Raggruppate righe={righe} per={per} admin={admin} lingua={lingua} /> : null}
     </div>
   )
 }
 
-function Raggruppate({ righe, per, admin }: { righe: Riga[]; per: Per; admin: boolean }) {
+function Raggruppate({ righe, per, admin, lingua }: { righe: Riga[]; per: Per; admin: boolean; lingua: Lingua }) {
+  const t = CLOSER[lingua].registrate
+  const { formatEuro, formatNumero, formatPercentuale } = formato(lingua)
   return (
     <div data-testid="reg-gruppi">
       <ul className="space-y-2 md:hidden">
         {righe.map((r) => (
           <li key={r.gruppo ?? 'tutte'} className="rounded-xl bg-card p-3 text-sm">
-            <p className="font-medium break-words">{r.etichetta}</p>
+            <p className="font-medium break-words">{nomeGruppo(r, per, lingua)}</p>
             <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
               {[
-                ['Call', formatNumero(r.call)],
-                ['Show rate', formatPercentuale(r.show_rate)],
-                ['Chiuse', formatNumero(r.chiuse)],
-                ['Close rate', formatPercentuale(r.close_rate)],
-                ['In target', formatPercentuale(r.quota_in_target)],
-                ...(admin ? [['Cash nuovi', formatEuro(r.cash_nuovi ?? 0)], ['Revenue nuovi', formatEuro(r.revenue_nuovi ?? 0)]] : []),
+                [t.call, formatNumero(r.call)],
+                [t.showRate, formatPercentuale(r.show_rate)],
+                [t.chiuse, formatNumero(r.chiuse)],
+                [t.closeRate, formatPercentuale(r.close_rate)],
+                [t.inTarget, formatPercentuale(r.quota_in_target)],
+                ...(admin
+                  ? [
+                      [t.cashNuovi, formatEuro(r.cash_nuovi ?? 0)],
+                      [t.revenueNuovi, formatEuro(r.revenue_nuovi ?? 0)],
+                    ]
+                  : []),
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">{k}</dt>
@@ -258,10 +319,12 @@ function Raggruppate({ righe, per, admin }: { righe: Riga[]; per: Per; admin: bo
                 </div>
               ))}
             </dl>
-            {r.obiezioni[0] ? <p className="mt-1 text-xs text-muted-foreground">Prima obiezione: {etichetta(CATEGORIE_OBIEZIONI, r.obiezioni[0].categoria)}</p> : null}
+            {r.obiezioni[0] ? (
+              <p className="mt-1 text-xs text-muted-foreground">{t.primaObiezioneDi(categoria(lingua, r.obiezioni[0].categoria))}</p>
+            ) : null}
             {per === 'contenuto' && admin && r.media_id ? (
               <LinkBottone href={hrefAnalisiReel(r.media_id)} variant="outline" className="mt-2 w-full">
-                Apri nei Pubblicati
+                {t.apriPubblicati}
               </LinkBottone>
             ) : null}
           </li>
@@ -269,24 +332,24 @@ function Raggruppate({ righe, per, admin }: { righe: Riga[]; per: Per; admin: bo
       </ul>
       <div className="hidden overflow-x-auto rounded-xl bg-card md:block">
         <table className="w-full text-sm">
-          <caption className="sr-only">Call registrate {per === 'fonte' ? 'per fonte del lead' : 'per contenuto di provenienza'}</caption>
+          <caption className="sr-only">{per === 'fonte' ? t.captionFonte : t.captionContenuto}</caption>
           <thead className="text-xs text-muted-foreground">
             <tr className="border-b border-border">
-              <th scope="col" className="px-3 py-2.5 text-left font-normal">{per === 'fonte' ? 'Fonte' : 'Contenuto'}</th>
-              {['Call', 'Svolte', 'Show rate', 'Chiuse', 'Close rate', 'In target', 'Prima obiezione'].map((h) => (
+              <th scope="col" className="px-3 py-2.5 text-left font-normal">{per === 'fonte' ? t.fonte : t.contenuto}</th>
+              {[t.call, t.svolte, t.showRate, t.chiuse, t.closeRate, t.inTarget, t.primaObiezione].map((h) => (
                 <th key={h} scope="col" className="px-3 py-2.5 text-right font-normal">{h}</th>
               ))}
-              {admin ? ['Cash nuovi', 'Revenue nuovi'].map((h) => <th key={h} scope="col" className="px-3 py-2.5 text-right font-normal">{h}</th>) : null}
+              {admin ? [t.cashNuovi, t.revenueNuovi].map((h) => <th key={h} scope="col" className="px-3 py-2.5 text-right font-normal">{h}</th>) : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {righe.map((r) => (
               <tr key={r.gruppo ?? 'tutte'}>
                 <th scope="row" className="px-3 py-2 text-left font-normal">
-                  {r.etichetta}
+                  {nomeGruppo(r, per, lingua)}
                   {per === 'contenuto' && admin && r.media_id ? (
                     <LinkBottone href={hrefAnalisiReel(r.media_id)} variant="ghost" className="ml-2 h-8 px-2 text-xs">
-                      Apri nei Pubblicati
+                      {t.apriPubblicati}
                     </LinkBottone>
                   ) : null}
                 </th>
@@ -296,7 +359,7 @@ function Raggruppate({ righe, per, admin }: { righe: Riga[]; per: Per; admin: bo
                 <td className="num px-3 py-2 text-right">{formatNumero(r.chiuse)}</td>
                 <td className="num px-3 py-2 text-right">{formatPercentuale(r.close_rate)}</td>
                 <td className="num px-3 py-2 text-right">{formatPercentuale(r.quota_in_target)}</td>
-                <td className="px-3 py-2 text-right">{r.obiezioni[0] ? etichetta(CATEGORIE_OBIEZIONI, r.obiezioni[0].categoria) : '-'}</td>
+                <td className="px-3 py-2 text-right">{r.obiezioni[0] ? categoria(lingua, r.obiezioni[0].categoria) : '-'}</td>
                 {admin ? (
                   <>
                     <td className="num px-3 py-2 text-right">{formatEuro(r.cash_nuovi ?? 0)}</td>
@@ -310,7 +373,7 @@ function Raggruppate({ righe, per, admin }: { righe: Riga[]; per: Per; admin: bo
       </div>
       {per === 'contenuto' && righe.some((r) => r.gruppo === 'non_riconosciuto') ? (
         <p className="mt-2 px-1 text-xs text-muted-foreground">
-          «Contenuto non riconosciuto»: l’origine del lead la riconosce l’Insight dai DM degli ultimi 30 giorni.
+          {t.nonRiconosciuto}
         </p>
       ) : null}
     </div>

@@ -2,7 +2,9 @@
 
 import { usePathname } from 'next/navigation'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { SchedePagina } from '@/components/shell/schede-pagina'
+import { MARKETING } from '@/lib/i18n/testi/marketing'
 
 /**
  * The tabs of the Marketing area (1.33.0): «Piano editoriale» (until 21/10/2026 «Contenuti»), the calendar, and
@@ -12,15 +14,16 @@ import { SchedePagina } from '@/components/shell/schede-pagina'
  */
 export function SchedeMarketing() {
   const pathname = usePathname()
+  const t = MARKETING[useLingua()].schede
   const schede = [
-    { href: '/marketing/contenuti', etichetta: 'Piano editoriale' },
-    { href: '/marketing/pubblicati', etichetta: 'Pubblicati' },
-    { href: '/marketing/spunti', etichetta: 'Spunti' },
+    { href: '/marketing/contenuti', etichetta: t.piano },
+    { href: '/marketing/pubblicati', etichetta: t.pubblicati },
+    { href: '/marketing/spunti', etichetta: t.spunti },
   ]
 
   return (
     <SchedePagina
-      etichetta="Sezioni del Marketing"
+      etichetta={t.aria}
       schede={schede.map((scheda) => ({
         ...scheda,
         attiva: pathname === scheda.href || pathname.startsWith(`${scheda.href}/`),

@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { CaricamentoSr } from '@/components/stati/caricamento-sr'
 
 /** The shape of "Tempo del team": period and filters, the total, one card per person. */
 export default function Loading() {
@@ -21,7 +22,7 @@ export default function Loading() {
           <Skeleton key={i} className="h-16 rounded-xl" />
         ))}
       </div>
-      <span className="sr-only">Caricamento in corso</span>
+      <CaricamentoSr />
     </div>
   )
 }

@@ -73,6 +73,14 @@
   --brand-fire-ember: #f0521d;
   --brand-fire-deep: #8e1c10;
 
+  /* the flags of the language switch (1.53.0): the real colours of the two flags, the same in both themes */
+  --bandiera-it-verde: #009246;
+  --bandiera-it-bianco: #f4f5f0;
+  --bandiera-it-rosso: #ce2b37;
+  --bandiera-uk-blu: #012169;
+  --bandiera-uk-bianco: #ffffff;
+  --bandiera-uk-rosso: #c8102e;
+
   /* ------------------------------------------------------------------
      shadcn mapping
   ------------------------------------------------------------------ */

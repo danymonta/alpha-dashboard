@@ -1,5 +1,7 @@
 import { SchedeInsight } from '@/components/insight/schede-insight'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { SETTER } from '@/lib/i18n/testi/setter'
 import {
   Scheletro,
   ScheletroIntestazione,
@@ -9,9 +11,9 @@ import {
 } from '@/components/stati/scheletri'
 
 /** Setter: the tabs, the header with its actions, the period, one card per setter, the daily reports. */
-export default function Loading() {
+export default async function Loading() {
   return (
-    <Scheletro etichetta="Caricamento del setting">
+    <Scheletro etichetta={SETTER[await getLingua()].caricamento}>
       {/* the tabs are already there: only what is under them loads (1.38.0) */}
       <SchedeInsight ruolo="admin" attiva="principale" />
       <ScheletroIntestazione azioni={1} />

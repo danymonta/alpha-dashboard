@@ -1,5 +1,7 @@
 import { Archive, CalendarClock, CalendarX, CircleCheck, CircleDashed, CirclePause, Hourglass, UserMinus, type LucideIcon } from 'lucide-react'
 
+import type { Lingua } from '@/lib/i18n/lingua'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import type { Database } from '@/lib/supabase/database.types'
 import { cn } from '@/lib/utils'
 
@@ -31,12 +33,12 @@ const ASPETTO: Record<StatoCliente, { Icona: LucideIcon; tono: string }> = {
 }
 
 /** Derived status (v_client_status): icon + words, colour only reinforces. */
-export function StatoClienteBadge({ stato, className }: { stato: StatoCliente; className?: string }) {
+export function StatoClienteBadge({ stato, className, lingua = 'it' }: { stato: StatoCliente; className?: string; lingua?: Lingua }) {
   const { Icona, tono } = ASPETTO[stato]
   return (
     <span className={cn('inline-flex items-center gap-1.5 text-sm', tono, className)}>
       <Icona className="size-4 shrink-0" aria-hidden="true" />
-      {ETICHETTA_STATO_CLIENTE[stato]}
+      {ETICHETTE[lingua].statoCliente[stato]}
     </span>
   )
 }

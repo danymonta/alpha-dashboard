@@ -3,7 +3,9 @@
 import { LoaderCircle } from 'lucide-react'
 import { useFormStatus } from 'react-dom'
 
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
+import { ACCESSO } from '@/lib/i18n/testi/accesso'
 
 function GoogleLogo() {
   return (
@@ -30,6 +32,7 @@ function GoogleLogo() {
 
 export function GoogleButton() {
   const { pending } = useFormStatus()
+  const t = useTesti(ACCESSO)
 
   return (
     <Button
@@ -45,7 +48,7 @@ export function GoogleButton() {
           <GoogleLogo />
         )}
       </span>
-      {pending ? 'Apertura di Google…' : 'Accedi con Google'}
+      {pending ? t.aperturaGoogle : t.accediGoogle}
     </Button>
   )
 }

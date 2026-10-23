@@ -1,7 +1,9 @@
+import { getLingua } from '@/lib/i18n/server'
+import { PUBBLICATI } from '@/lib/i18n/testi/pubblicati'
 import { Skeleton } from '@/components/ui/skeleton'
 
 /** The shape of «Post di Instagram»: header, the state line, then the cards of «Da collegare». */
-export default function Loading() {
+export default async function Loading() {
   return (
     <div className="space-y-6" aria-busy="true" aria-live="polite">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -25,7 +27,7 @@ export default function Loading() {
           </div>
         ))}
       </div>
-      <span className="sr-only">Caricamento dei post di Instagram</span>
+      <span className="sr-only">{PUBBLICATI[await getLingua()].caricamento}</span>
     </div>
   )
 }

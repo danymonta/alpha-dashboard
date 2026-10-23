@@ -11,15 +11,19 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { ConteggioPromemoria as Conteggio } from '@/components/shell/conteggio-esiti'
 import { usePromemoria } from '@/components/shell/esiti-da-registrare'
 import { LinkNav } from '@/components/shell/link-nav'
 import type { AppRole } from '@/lib/auth/roles'
+import { SHELL } from '@/lib/i18n/testi/shell'
 import {
+  etichettaVoce,
   isAttiva,
   nomeConPromemoria,
   promemoriaDellaVoce,
   promemoriaDiAltro,
+  titoloGruppo,
   vociNav,
 } from '@/lib/nav'
 
@@ -34,6 +38,8 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
   const [apertoAltro, setApertoAltro] = useState(false)
   const { principali, altre, gruppiAltro } = vociNav(ruolo)
   const idBase = useId()
+  const lingua = useLingua()
+  const t = SHELL[lingua]
   // on a page reached from "Altro" (e.g. Impostazioni) the bar still says where you are
   const altroAttivo = altre.some((v) => isAttiva(pathname, v))
   // items with a count inside the sheet: "Altro" carries their numbers
@@ -43,7 +49,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
 
   return (
     <nav
-      aria-label="Navigazione"
+      aria-label={t.navigazione}
       className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="flex items-stretch">
@@ -56,13 +62,13 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                 href={voce.href}
                 data-tour={`nav-${voce.href}`}
                 aria-current={attiva ? 'page' : undefined}
-                aria-label={nomeConPromemoria(voce.etichetta, suoi)}
+                aria-label={nomeConPromemoria(etichettaVoce(voce, lingua), suoi, lingua)}
                 className={`relative flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] leading-tight ${
                   attiva ? 'text-foreground' : 'text-muted-foreground'
                 }`}
               >
                 <voce.Icona className="size-5" aria-hidden="true" />
-                <span className="truncate">{voce.etichetta}</span>
+                <span className="truncate">{etichettaVoce(voce, lingua)}</span>
                 <Conteggio promemoria={suoi} className={SUL_ICONA} />
                 <span
                   aria-hidden="true"
@@ -81,7 +87,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                   <button
                     type="button"
                     data-tour="nav-altro"
-                    aria-label={nomeConPromemoria('Altro', inAltro)}
+                    aria-label={nomeConPromemoria(t.altro, inAltro, lingua)}
                     className={`relative flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] leading-tight ${
                       altroAttivo ? 'text-foreground' : 'text-muted-foreground'
                     }`}
@@ -89,7 +95,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                 }
               >
                 <MoreHorizontal className="size-5" aria-hidden="true" />
-                <span>Altro</span>
+                <span>{t.altro}</span>
                 <Conteggio promemoria={inAltro} className={SUL_ICONA} />
                 <span
                   aria-hidden="true"
@@ -98,7 +104,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
               </SheetTrigger>
               <SheetContent side="bottom" className="max-h-[85dvh] rounded-t-xl pb-8">
                 <SheetHeader>
-                  <SheetTitle>Altro</SheetTitle>
+                  <SheetTitle>{t.altro}</SheetTitle>
                 </SheetHeader>
                 {/* the same groups and titles as the desktop sidebar (1.38.0); two columns, so
                     the admin's fifteen items fit a phone without scrolling much */}
@@ -116,7 +122,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                             id={idTitolo}
                             className="px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
                           >
-                            {titolo}
+                            {titoloGruppo(titolo, lingua)}
                           </p>
                         ) : null}
                         <ul className="grid grid-cols-2 gap-x-2">
@@ -129,7 +135,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                                   href={voce.href}
                                   onClick={() => setApertoAltro(false)}
                                   aria-current={attiva ? 'page' : undefined}
-                                  aria-label={nomeConPromemoria(voce.etichetta, suoi)}
+                                  aria-label={nomeConPromemoria(etichettaVoce(voce, lingua), suoi, lingua)}
                                   // the sheet is already --accent (surface-2): the current page takes
                                   // the sidebar's active style, so it reads the same on every viewport
                                   className={`flex min-h-11 items-center gap-2.5 rounded-lg px-2 text-sm ${
@@ -140,7 +146,7 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
                                     className={`size-4 shrink-0 ${attiva ? '' : 'text-muted-foreground'}`}
                                     aria-hidden="true"
                                   />
-                                  <span className="min-w-0 leading-tight">{voce.etichetta}</span>
+                                  <span className="min-w-0 leading-tight">{etichettaVoce(voce, lingua)}</span>
                                   <Conteggio promemoria={suoi} attiva={attiva} className="ml-auto" />
                                 </LinkNav>
                               </li>

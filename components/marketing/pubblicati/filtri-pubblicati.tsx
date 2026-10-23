@@ -6,13 +6,12 @@ import { useRouter } from 'next/navigation'
 import { useId, useState, useTransition, type ReactNode } from 'react'
 
 import { CLASSE_SELECT } from '@/components/form/foglio-modifica'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
+import { PUBBLICATI } from '@/lib/i18n/testi/pubblicati'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { RICERCA_MAX } from '@/lib/marketing/filtri'
 import {
-  ETICHETTA_PERIODO,
-  ETICHETTA_PIANO_FILTRO,
-  ETICHETTA_TIPO_FILTRO,
   filtriAttivi,
   hrefPubblicati,
   parametriDaFiltri,
@@ -47,9 +46,10 @@ function CampiFiltri({ filtri, prefisso, impilati }: { filtri: FiltriPubblicati;
   const [inCorso, avvia] = useTransition()
   const vai = (nuovi: FiltriPubblicati) => avvia(() => router.push(hrefPubblicati(nuovi), { scroll: false }))
   const larghezza = impilati ? 'w-full' : 'w-44'
+  const t = PUBBLICATI[useLingua()].filtri
   return (
     <>
-      <Campo id={`${prefisso}-periodo`} etichetta="Periodo" className={larghezza}>
+      <Campo id={`${prefisso}-periodo`} etichetta={t.periodo} className={larghezza}>
         <select
           id={`${prefisso}-periodo`}
           value={filtri.periodo}
@@ -59,12 +59,12 @@ function CampiFiltri({ filtri, prefisso, impilati }: { filtri: FiltriPubblicati;
         >
           {PERIODI.map((p) => (
             <option key={p} value={p}>
-              {ETICHETTA_PERIODO[p]}
+              {t.periodi[p]}
             </option>
           ))}
         </select>
       </Campo>
-      <Campo id={`${prefisso}-tipo`} etichetta="Tipo" className={larghezza}>
+      <Campo id={`${prefisso}-tipo`} etichetta={t.tipo} className={larghezza}>
         <select
           id={`${prefisso}-tipo`}
           value={filtri.tipo}
@@ -72,14 +72,14 @@ function CampiFiltri({ filtri, prefisso, impilati }: { filtri: FiltriPubblicati;
           className={cn(CLASSE_SELECT, inCorso && 'opacity-60')}
           onChange={(e) => vai({ ...filtri, tipo: e.currentTarget.value as FiltriPubblicati['tipo'] })}
         >
-          {TIPI_FILTRO.map((t) => (
-            <option key={t} value={t}>
-              {ETICHETTA_TIPO_FILTRO[t]}
+          {TIPI_FILTRO.map((tipo) => (
+            <option key={tipo} value={tipo}>
+              {t.tipi[tipo]}
             </option>
           ))}
         </select>
       </Campo>
-      <Campo id={`${prefisso}-piano`} etichetta="Piano editoriale" className={larghezza}>
+      <Campo id={`${prefisso}-piano`} etichetta={t.piano} className={larghezza}>
         <select
           id={`${prefisso}-piano`}
           value={filtri.piano}
@@ -89,7 +89,7 @@ function CampiFiltri({ filtri, prefisso, impilati }: { filtri: FiltriPubblicati;
         >
           {PIANI_FILTRO.map((p) => (
             <option key={p} value={p}>
-              {ETICHETTA_PIANO_FILTRO[p]}
+              {t.piani[p]}
             </option>
           ))}
         </select>
@@ -106,12 +106,12 @@ function CampiFiltri({ filtri, prefisso, impilati }: { filtri: FiltriPubblicati;
         )}
       >
         {filtri.cambiare ? <CircleCheck className="size-4" aria-hidden="true" /> : <Circle className="size-4" aria-hidden="true" />}
-        Solo i reel da cambiare
+        {t.cambiare}
       </button>
       {inCorso ? (
         <span role="status" className="inline-flex min-h-11 items-center gap-1.5 self-end text-sm text-muted-foreground">
           <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-          Aggiorno l’elenco…
+          {t.aggiorno}
         </span>
       ) : null}
     </>
@@ -131,15 +131,16 @@ export function FiltriPubblicatiVista({ filtri, children }: { filtri: FiltriPubb
   const n = filtriAttivi(filtri)
   const router = useRouter()
   const parametriSenzaRicerca = Object.entries(parametriDaFiltri({ ...filtri, q: undefined }))
+  const t = PUBBLICATI[useLingua()].filtri
   return (
-    <section aria-label="Filtri dei pubblicati" className="@container space-y-3" data-testid="filtri-pubblicati">
+    <section aria-label={t.aria} className="@container space-y-3" data-testid="filtri-pubblicati">
       <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
         <Form action={PERCORSO} scroll={false} role="search" className="relative w-full min-w-0 @min-[56rem]:w-64">
           {parametriSenzaRicerca.map(([chiave, v]) => (
             <input key={chiave} type="hidden" name={chiave} value={v} />
           ))}
           <label htmlFor={`${id}-cerca`} className="sr-only">
-            Cerca nella didascalia
+            {t.cerca}
           </label>
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
@@ -149,7 +150,7 @@ export function FiltriPubblicatiVista({ filtri, children }: { filtri: FiltriPubb
             // a new search from elsewhere (Togli i filtri) shows in the field
             key={filtri.q ?? ''}
             defaultValue={filtri.q ?? ''}
-            placeholder="Cerca nella didascalia"
+            placeholder={t.cerca}
             autoComplete="off"
             enterKeyHint="search"
             maxLength={RICERCA_MAX}
@@ -162,21 +163,21 @@ export function FiltriPubblicatiVista({ filtri, children }: { filtri: FiltriPubb
           {!sonoFiltriPredefiniti(filtri) ? (
             <Button type="button" variant="ghost" className="h-11 gap-1.5" onClick={() => router.push(PERCORSO, { scroll: false })}>
               <X className="size-4" aria-hidden="true" />
-              Togli i filtri
+              {t.togli}
             </Button>
           ) : null}
         </div>
         <Button type="button" variant="outline" className="h-11 @min-[56rem]:hidden" aria-expanded={aperto} onClick={() => setAperto(true)} data-testid="filtri-apri">
           <SlidersHorizontal className="size-4" aria-hidden="true" />
-          Filtri{n > 0 ? ` (${n})` : ''}
+          {t.filtri(n)}
         </Button>
         {children}
       </div>
       <Sheet open={aperto} onOpenChange={setAperto}>
         <SheetContent side="bottom" className="max-h-[85dvh] gap-0 overflow-y-auto p-0" data-testid="filtri-foglio">
           <SheetHeader>
-            <SheetTitle>Filtri</SheetTitle>
-            <SheetDescription>L’elenco si aggiorna a ogni scelta.</SheetDescription>
+            <SheetTitle>{t.titolo}</SheetTitle>
+            <SheetDescription>{t.descrizione}</SheetDescription>
           </SheetHeader>
           <div className="space-y-3 px-4 pb-4">
             <CampiFiltri filtri={filtri} prefisso={`${id}m`} impilati />
@@ -184,11 +185,11 @@ export function FiltriPubblicatiVista({ filtri, children }: { filtri: FiltriPubb
           <div className="flex gap-2 border-t border-border p-4">
             {!sonoFiltriPredefiniti(filtri) ? (
               <Button type="button" variant="outline" className="h-11 flex-1" onClick={() => router.push(PERCORSO, { scroll: false })}>
-                Togli i filtri
+                {t.togli}
               </Button>
             ) : null}
             <Button type="button" className="h-11 flex-1" onClick={() => setAperto(false)}>
-              Fatto
+              {t.fatto}
             </Button>
           </div>
         </SheetContent>

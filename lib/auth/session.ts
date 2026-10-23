@@ -34,7 +34,7 @@ export async function getProfilo(): Promise<Profilo | null> {
  * render path uses it: server actions and route handlers call getProfilo, so an
  * action that changes the profile never reads a memoized one (spec R9).
  */
-const profiloDellaRichiesta = cache(getProfilo)
+export const profiloDellaRichiesta = cache(getProfilo)
 
 /**
  * Guard for every page inside the app shell: no session -> /login,

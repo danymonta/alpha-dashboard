@@ -15,7 +15,10 @@ import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
-import { formatData, formatNumero } from '@/lib/format'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { formato, formatData, formatNumero } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MARKETING } from '@/lib/i18n/testi/marketing'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { CAMPI, COLONNE_PIANO } from '@/lib/marketing/etichette'
 import { VIEW_COUNT_DA_INSTAGRAM } from '@/lib/marketing/pubblicati/parole'
@@ -46,9 +49,9 @@ function testoDi(valore: unknown): string {
 }
 
 /** The value as the cell shows it. */
-function testoMostrato(campo: CampoEditor, valore: unknown): string {
+function testoMostrato(campo: CampoEditor, valore: unknown, lingua: Lingua = 'it'): string {
   if (valore === null || valore === undefined || valore === '') return ''
-  if (campo === 'post_date') return formatData(String(valore))
+  if (campo === 'post_date') return lingua === 'it' ? formatData(String(valore)) : formato(lingua).formatData(String(valore))
   return String(valore)
 }
 
@@ -95,8 +98,9 @@ const APRI_LINK: Partial<Record<CampoEditor, string>> = {
  * opens for a URL, nothing for the pencil «Rinomina».
  */
 function ValoreCella({ campo, valore, aspetto, className }: { campo: CampoEditor; valore: unknown; aspetto: AspettoEditor; className?: string }) {
+  const lingua = useLingua()
   if (aspetto === 'matita') return null
-  const visibile = testoMostrato(campo, valore)
+  const visibile = testoMostrato(campo, valore, lingua)
   if (!visibile) return <span className={cn('text-muted-foreground', className)}>–</span>
   if (campo === 'url') {
     return (
@@ -107,7 +111,7 @@ function ValoreCella({ campo, valore, aspetto, className }: { campo: CampoEditor
         className={cn('inline-flex min-h-11 items-center gap-1 text-sm underline-offset-4 hover:underline', className)}
       >
         <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
-        Apri il post
+        {MARKETING[lingua].piano.apriPost}
       </a>
     )
   }
@@ -369,13 +373,15 @@ export function CellaNome({ riga }: { riga: Riga }) {
  * small Instagram mark says so, with a title and a text for screen readers: «Da Instagram: si aggiorna da solo».
  */
 export function ViewCount({ riga, className }: { riga: Riga; className?: string }) {
+  const lingua = useLingua()
   if (riga.view_count === null) return null
   const daInstagram = riga.view_count_da_instagram === true
+  const daInstagramTesto = lingua === 'it' ? VIEW_COUNT_DA_INSTAGRAM : MARKETING[lingua].piano.daInstagram
   return (
-    <span className={cn('num inline-flex items-center justify-end gap-1', className)} title={daInstagram ? VIEW_COUNT_DA_INSTAGRAM : undefined} data-view-count={daInstagram ? 'da-instagram' : 'a-mano'}>
+    <span className={cn('num inline-flex items-center justify-end gap-1', className)} title={daInstagram ? daInstagramTesto : undefined} data-view-count={daInstagram ? 'da-instagram' : 'a-mano'}>
       {daInstagram ? <RefreshCw className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
-      {formatNumero(riga.view_count)}
-      {daInstagram ? <span className="sr-only">{VIEW_COUNT_DA_INSTAGRAM}</span> : null}
+      {lingua === 'it' ? formatNumero(riga.view_count) : formato(lingua).formatNumero(riga.view_count)}
+      {daInstagram ? <span className="sr-only">{daInstagramTesto}</span> : null}
     </span>
   )
 }

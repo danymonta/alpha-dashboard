@@ -17,14 +17,20 @@ import { VoceNovita } from "@/components/changelog/voce-novita";
 import { IntestazionePagina } from "@/components/pagina/intestazione";
 import { RUOLI_COME_ADMIN, solaLettura } from "@/lib/auth/roles";
 import { requireRuolo } from "@/lib/auth/session";
+import { getLingua } from "@/lib/i18n/server";
+import { IMPOSTAZIONI } from "@/lib/i18n/testi/impostazioni";
 
 export const dynamic = "force-dynamic";
 
-/** `lettura`: the business coach opens it too, in read only (22/10/2026). */
+type Testi = (typeof IMPOSTAZIONI)["it"];
+
+/**
+ * The words of a section are the dictionary's (IMPOSTAZIONI.sezioni), by its key.
+ * `lettura`: the business coach opens it too, in read only (22/10/2026).
+ */
 type Sezione = {
   href: string;
-  titolo: string;
-  descrizione: string;
+  chiave: keyof Testi["sezioni"];
   Icona: LucideIcon;
   lettura?: boolean;
 };
@@ -34,90 +40,77 @@ type Sezione = {
  * is sold and paid, the keys of the outside services, the data out, the
  * projects. The addresses are the same as before.
  */
-const GRUPPI: { titolo: string; sezioni: Sezione[] }[] = [
+const GRUPPI: { gruppo: keyof Testi["gruppi"]; sezioni: Sezione[] }[] = [
   {
-    titolo: "Team e accessi",
+    gruppo: "team",
     sezioni: [
       {
         href: "/settings/team",
-        titolo: "Team",
-        descrizione: "Inviti, ruoli, attivazione degli account.",
+        chiave: "team",
         Icona: Users,
         lettura: true,
       },
     ],
   },
   {
-    titolo: "Prodotti e provvigioni",
+    gruppo: "prodotti",
     sezioni: [
       {
         href: "/settings/products",
-        titolo: "Prodotti",
-        descrizione: "Percorsi in vendita, durata e prezzo di listino.",
+        chiave: "products",
         Icona: Package,
         lettura: true,
       },
       {
         href: "/settings/commissions",
-        titolo: "Regole provvigioni",
-        descrizione: "Percentuale e tipi di vendita per collaboratore.",
+        chiave: "commissions",
         Icona: Percent,
         lettura: true,
       },
     ],
   },
   {
-    titolo: "Chiavi e collegamenti",
+    gruppo: "chiavi",
     sezioni: [
       {
         href: "/settings/chiavi",
-        titolo: "Chiavi e guide",
-        descrizione:
-          "Instagram, Messenger, Fathom, Claude e Groq: se funzionano, quando scadono, come rigenerarle.",
+        chiave: "chiavi",
         Icona: KeyRound,
       },
       {
         href: "/settings/instagram",
-        titolo: "Instagram e Messenger",
-        descrizione:
-          "I DM che precompilano il report del setter e preparano l’Insight: chi li lavora, chat escluse, analisi dei reel.",
+        chiave: "instagram",
         Icona: MessagesSquare,
       },
       {
         href: "/settings/fathom",
-        titolo: "Fathom",
-        descrizione:
-          "Le registrazioni delle call e l’analisi di Claude: interruttori e limite di spesa.",
+        chiave: "fathom",
         Icona: Video,
       },
     ],
   },
   {
-    titolo: "Esporta e backup",
+    gruppo: "esporta",
     sezioni: [
       {
         href: "/settings/export",
-        titolo: "Esporta CSV",
-        descrizione: "Vendite, incassi e costi del mese per la commercialista.",
+        chiave: "export",
         Icona: Download,
       },
       {
         href: "/settings/audit",
-        titolo: "Registro modifiche",
-        descrizione:
-          "Chi ha cambiato un importo, un ruolo o una regola, e quando.",
+        chiave: "audit",
         Icona: History,
         lettura: true,
       },
     ],
   },
   {
-    titolo: "Progetti",
+    gruppo: "progetti",
     sezioni: [
       {
         href: "/settings/progetti",
-        titolo: "Progetti",
-        descrizione: "Reparti e modelli con cui nascono i progetti.",
+        chiave: "progetti",
         Icona: FolderKanban,
       },
     ],
@@ -129,6 +122,7 @@ export default async function ImpostazioniPage() {
   // the business coach: team, products, commission rules and the audit log, in read only;
   // never keys, connections, export, backup or project templates (22/10/2026)
   const leggeSolo = solaLettura(profilo.ruolo);
+  const t = IMPOSTAZIONI[await getLingua()];
   const gruppi = GRUPPI.map((g) => ({
     ...g,
     sezioni: g.sezioni.filter((s) => !leggeSolo || s.lettura),
@@ -137,15 +131,15 @@ export default async function ImpostazioniPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
-        titolo="Impostazioni"
-        descrizione={
-          leggeSolo ? "In sola lettura: le cambia l’admin." : undefined
-        }
+        titolo={t.titolo}
+        descrizione={leggeSolo ? t.soloLettura : undefined}
       />
-      {gruppi.map(({ titolo, sezioni }) => {
-        const id = `gruppo-${titolo.toLowerCase().replaceAll(" ", "-")}`;
+      {gruppi.map(({ gruppo, sezioni }) => {
+        // the id stays the Italian one: links and tests do not change with the language
+        const id = `gruppo-${IMPOSTAZIONI.it.gruppi[gruppo].toLowerCase().replaceAll(" ", "-")}`;
+        const titolo = t.gruppi[gruppo];
         return (
-          <section key={titolo} aria-labelledby={id} className="space-y-2">
+          <section key={gruppo} aria-labelledby={id} className="space-y-2">
             <h2
               id={id}
               className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
@@ -153,7 +147,9 @@ export default async function ImpostazioniPage() {
               {titolo}
             </h2>
             <ul className="grid gap-2 sm:grid-cols-2">
-              {sezioni.map(({ href, titolo: nome, descrizione, Icona }) => (
+              {sezioni.map(({ href, chiave, Icona }) => {
+                const [nome, descrizione] = t.sezioni[chiave];
+                return (
                 <li key={href}>
                   <Link
                     href={href}
@@ -175,7 +171,8 @@ export default async function ImpostazioniPage() {
                     />
                   </Link>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         );
@@ -184,7 +181,7 @@ export default async function ImpostazioniPage() {
       {/* the app itself: which version is live and what changed (CLAUDE.md section 23) */}
       <VoceNovita
         testId="voce-changelog"
-        descrizione="il changelog: cosa cambia a ogni aggiornamento, per te e per il team."
+        descrizione={t.changelog}
       />
     </div>
   );

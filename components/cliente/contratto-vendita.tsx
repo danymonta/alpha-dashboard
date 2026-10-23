@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 
 import { salvaContrattoVendita, togliContrattoVendita } from '@/app/actions/contratto-vendita'
 import { Elimina } from '@/components/form/elimina'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,6 +30,7 @@ import {
   type TokenDrive,
 } from '@/lib/google/drive-browser'
 import { ERRORI_DRIVE, fileScelto, type ConfigPicker } from '@/lib/google/picker'
+import { CLIENTI } from '@/lib/i18n/testi/clienti'
 import { cn } from '@/lib/utils'
 import { salvaContrattoSchema, type SalvaContrattoInput } from '@/lib/validation/contratto'
 
@@ -68,6 +70,7 @@ export function ContrattoVendita({
   /** The business coach reads the link and never changes it (22/10/2026): no sheet, no pencil. */
   solaLettura?: boolean
 }) {
+  const parole = CLIENTI[useLingua()]
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [avviso, setAvviso] = useState<string | null>(null)
@@ -166,9 +169,9 @@ export function ContrattoVendita({
         rel="noopener noreferrer"
         className="inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-sm hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
-        Apri
+        {parole.apri}
         <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
-        <span className="sr-only">il contratto di {nome} (si apre in una nuova scheda)</span>
+        <span className="sr-only">{parole.contrattoDi(nome)}</span>
       </a>
     ) : (
       <a
@@ -177,18 +180,18 @@ export function ContrattoVendita({
         rel="noopener noreferrer"
         className="min-w-0 flex-1 rounded-md py-1 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
-        <span className="block text-sm font-medium">Contratto</span>
+        <span className="block text-sm font-medium">{parole.contratto}</span>
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
-          Apri in Google Drive
+          {parole.apriInDrive}
           <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
-          <span className="sr-only">(si apre in una nuova scheda)</span>
+          <span className="sr-only">{parole.nuovaScheda}</span>
         </span>
       </a>
     )
   ) : cella ? null : (
     <div className="min-w-0 flex-1 py-1">
-      <span className="block text-sm font-medium">Contratto</span>
-      <span className="block text-xs text-muted-foreground">Nessun link collegato</span>
+      <span className="block text-sm font-medium">{parole.contratto}</span>
+      <span className="block text-xs text-muted-foreground">{parole.nessunLink}</span>
     </div>
   )
 

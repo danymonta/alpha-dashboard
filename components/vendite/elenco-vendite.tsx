@@ -2,8 +2,12 @@ import { TriangleAlert } from 'lucide-react'
 import { Fragment } from 'react'
 
 import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
-import { formatData, formatEuro } from '@/lib/format'
-import { ETICHETTA_TIPO_VENDITA, type TipoVendita } from '@/lib/validation/vendita'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { getLingua } from '@/lib/i18n/server'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { VENDITE } from '@/lib/i18n/testi/vendite'
+import type { TipoVendita } from '@/lib/validation/vendita'
 
 export type RigaVendita = {
   id: string
@@ -20,12 +24,12 @@ export type RigaVendita = {
   setter?: string | null
 }
 
-function Ritardo({ n }: { n: number | null }) {
+function Ritardo({ n, lingua }: { n: number | null; lingua: Lingua }) {
   if (!n) return null
   return (
     <span className="inline-flex shrink-0 items-center gap-1 text-xs whitespace-nowrap text-status-warning">
       <TriangleAlert className="size-3.5" aria-hidden="true" />
-      {n === 1 ? '1 rata in ritardo' : `${n} rate in ritardo`}
+      {VENDITE[lingua].rateRitardo(n)}
     </span>
   )
 }
@@ -34,7 +38,7 @@ function Ritardo({ n }: { n: number | null }) {
  * Sales list: cards below 768px, table above (CLAUDE.md section 11).
  * Amounts come from v_vendite: this component only formats them.
  */
-export function ElencoVendite({
+export async function ElencoVendite({
   righe,
   mostraPersone,
   mostraCliente = true,
@@ -44,6 +48,10 @@ export function ElencoVendite({
   /** false inside a client's page: every row is the same client, the product leads. */
   mostraCliente?: boolean
 }) {
+  const lingua = await getLingua()
+  const t = VENDITE[lingua]
+  const { formatData, formatEuro } = formato(lingua)
+  const ETICHETTA_TIPO_VENDITA = ETICHETTE[lingua].tipoVendita
   return (
     <>
       <ul className="space-y-2 md:hidden" data-testid="elenco-vendite" data-tour="elenco-vendite">
@@ -67,9 +75,9 @@ export function ElencoVendite({
               </div>
               <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                 <span className="num min-w-0">
-                  Incassato {formatEuro(r.incassato)} · da incassare {formatEuro(r.da_incassare)}
+                  {t.incassatoRiga(formatEuro(r.incassato), formatEuro(r.da_incassare))}
                 </span>
-                <Ritardo n={r.rate_in_ritardo} />
+                <Ritardo n={r.rate_in_ritardo} lingua={lingua} />
               </div>
             </LinkRiga>
           </li>
@@ -81,7 +89,7 @@ export function ElencoVendite({
         {/* fixed layout: stacked tables (e.g. Le mie vendite) keep their columns aligned.
             A client's history is a single table: auto layout sizes it on its content. */}
         <table className={`w-full text-sm ${mostraCliente ? 'table-fixed' : 'table-auto'}`}>
-          <caption className="sr-only">Vendite</caption>
+          <caption className="sr-only">{t.vendite}</caption>
           {mostraCliente ? (
             <colgroup>
               <col />
@@ -96,16 +104,16 @@ export function ElencoVendite({
           <thead className="text-xs text-muted-foreground">
             <tr className="border-b border-border">
               {mostraCliente ? (
-                <th scope="col" className="px-3 py-2.5 text-left font-normal">Cliente</th>
+                <th scope="col" className="px-3 py-2.5 text-left font-normal">{t.cliente}</th>
               ) : null}
-              <th scope="col" className="px-3 py-2.5 text-left font-normal">Tipo</th>
-              <th scope="col" className="px-3 py-2.5 text-left font-normal">Data</th>
+              <th scope="col" className="px-3 py-2.5 text-left font-normal">{t.tipo}</th>
+              <th scope="col" className="px-3 py-2.5 text-left font-normal">{t.data}</th>
               {mostraPersone ? (
-                <th scope="col" className="px-3 py-2.5 text-left font-normal">Closer · Setter</th>
+                <th scope="col" className="px-3 py-2.5 text-left font-normal">{t.closerSetter}</th>
               ) : null}
-              <th scope="col" className="px-3 py-2.5 text-right font-normal">Valore</th>
-              <th scope="col" className="px-3 py-2.5 text-right font-normal">Incassato</th>
-              <th scope="col" className="px-3 py-2.5 text-right font-normal">Da incassare</th>
+              <th scope="col" className="px-3 py-2.5 text-right font-normal">{t.valore}</th>
+              <th scope="col" className="px-3 py-2.5 text-right font-normal">{t.incassato}</th>
+              <th scope="col" className="px-3 py-2.5 text-right font-normal">{t.daIncassare}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -152,7 +160,7 @@ export function ElencoVendite({
                 <td className="px-3 py-2.5 text-right">
                   {formatEuro(r.da_incassare)}
                   <div>
-                    <Ritardo n={r.rate_in_ritardo} />
+                    <Ritardo n={r.rate_in_ritardo} lingua={lingua} />
                   </div>
                 </td>
               </tr>

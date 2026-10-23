@@ -6,9 +6,9 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { solaLettura } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
-import { VENDITA_DA_REGISTRARE } from '@/lib/call/follow-up'
-import { SPOSTA } from '@/lib/call/spostamento'
 import { oggiRoma } from '@/lib/date'
+import { getLingua } from '@/lib/i18n/server'
+import { CALL } from '@/lib/i18n/testi/call'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -85,7 +85,7 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
       ? supabase.from('products').select('id, nome').eq('attivo', true).order('nome')
       : Promise.resolve({ data: [], error: null }),
   ])
-  if (error || senzaVendita.error || persone.error || catalogo.error) throw new Error('Impossibile caricare le call')
+  if (error || senzaVendita.error || persone.error || catalogo.error) throw new Error(CALL[await getLingua()].errore)
 
   return {
     calls: data as unknown as CallVista[],
@@ -100,6 +100,8 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
 export default async function LeMieCallPage() {
   // the business coach reads every call of the team (22/10/2026), the closer's card without its buttons
   const profilo = await requireRuolo(['setter', 'closer', 'admin', 'business_coach'])
+  const lingua = await getLingua()
+  const t = CALL[lingua]
   const leggeSolo = solaLettura(profilo.ruolo)
   const vista = profilo.ruolo === 'setter' ? 'setter' : 'closer'
   const { calls, senzaVendita, closers, prodotti, adesso, oggi } = await caricaCall(
@@ -130,25 +132,25 @@ export default async function LeMieCallPage() {
   const bottoneNuova = (
     <LinkBottone href="/calls/new">
       <CalendarPlus className="size-4" aria-hidden="true" />
-      Nuova call
+      {t.nuova}
     </LinkBottone>
   )
 
   const intestazione = leggeSolo ? (
     <IntestazionePagina
-      titolo="Call"
-      descrizione="Le call del team, di ogni closer, con stato, esito e analisi: in sola lettura."
+      titolo={t.titoloLettura}
+      descrizione={t.descrizioneLettura}
     />
   ) : vista === 'closer' ? (
       <IntestazionePagina
-        titolo="Le mie call"
-        descrizione="Registra l’esito appena chiudi la call: bastano due o tre tocchi."
+        titolo={t.titolo}
+        descrizione={t.descrizioneCloser}
         azione={admin ? bottoneNuova : undefined}
       />
     ) : (
       <IntestazionePagina
-        titolo="Le mie call"
-        descrizione="Le call che hai fissato e le loro call di follow-up, con stato ed esito."
+        titolo={t.titolo}
+        descrizione={t.descrizioneSetter}
         azione={bottoneNuova}
       />
     )
@@ -160,35 +162,27 @@ export default async function LeMieCallPage() {
         {vista === 'setter' ? (
           <StatoVuoto
             Icona={CalendarPlus}
-            titolo="Nessuna call negli ultimi 30 giorni"
-            descrizione="Quando fissi una call dai DM, la trovi qui con stato ed esito."
-            azione={
-              <LinkBottone href="/calls/new">
-                Fissa una call
-              </LinkBottone>
-            }
+            titolo={t.vuotoSetter}
+            descrizione={t.vuotoSetterDescrizione}
+            azione={<LinkBottone href="/calls/new">{t.fissa}</LinkBottone>}
           />
         ) : leggeSolo ? (
           <StatoVuoto
             Icona={PhoneOff}
-            titolo="Nessuna call in programma"
-            descrizione="Le call fissate dal team compaiono qui, con stato ed esito."
+            titolo={t.vuotoCloser}
+            descrizione={t.vuotoLettura}
           />
         ) : (
           <StatoVuoto
             Icona={PhoneOff}
-            titolo="Nessuna call in programma"
-            descrizione={
-              admin
-                ? 'Le call che fissi tu o che il setter ti assegna compaiono qui, con l’esito da registrare.'
-                : 'Le call che il setter ti assegna compaiono qui, con l’esito da registrare.'
-            }
+            titolo={t.vuotoCloser}
+            descrizione={admin ? t.vuotoAdmin : t.vuotoCloserDescrizione}
             azione={
               admin ? (
-                <LinkBottone href="/calls/new">Fissa una call</LinkBottone>
+                <LinkBottone href="/calls/new">{t.fissa}</LinkBottone>
               ) : (
                 <LinkBottone href="/my-sales" variant="outline">
-                  Vai alle mie vendite
+                  {t.vaiVendite}
                 </LinkBottone>
               )
             }
@@ -211,6 +205,7 @@ export default async function LeMieCallPage() {
       mostraGiorno={mostraGiorno}
       eliminabile={admin}
       solaLettura={leggeSolo}
+      lingua={lingua}
     />
   )
 
@@ -221,15 +216,15 @@ export default async function LeMieCallPage() {
       {vista === 'closer' ? (
         <>
           {inAttesa.length > 0 ? (
-            <Sezione titolo={`${SPOSTA.attesa.etichetta} (${inAttesa.length})`} descrizione={SPOSTA.attesa.descrizione}>
+            <Sezione titolo={`${t.attesa} (${inAttesa.length})`} descrizione={t.attesaDescrizione}>
               {[...inAttesa].reverse().map((c) => scheda(c))}
             </Sezione>
           ) : null}
 
           {daRegistrare.length > 0 ? (
             <Sezione
-              titolo={`Da registrare (${daRegistrare.length})`}
-              descrizione="Call già passate senza esito: finché restano qui, i numeri del mese non tornano."
+              titolo={t.daRegistrare(daRegistrare.length)}
+              descrizione={t.daRegistrareDescrizione}
             >
               {[...daRegistrare].reverse().map((c) => scheda(c))}
             </Sezione>
@@ -237,31 +232,31 @@ export default async function LeMieCallPage() {
 
           {senzaVendita.length > 0 ? (
             <Sezione
-              titolo={`${VENDITA_DA_REGISTRARE.sezione} (${senzaVendita.length})`}
-              descrizione={VENDITA_DA_REGISTRARE.descrizioneSezione}
+              titolo={`${t.venditaSezione} (${senzaVendita.length})`}
+              descrizione={t.venditaSezioneDescrizione}
             >
               {senzaVendita.map((c) => scheda(c))}
             </Sezione>
           ) : null}
 
-          <Sezione titolo="Oggi">
+          <Sezione titolo={t.oggi}>
             {diOggi.length > 0 ? (
               diOggi.map((c) => scheda(c, false))
             ) : (
               <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                Nessun’altra call oggi.
+                {t.nessunaOggi}
               </p>
             )}
           </Sezione>
 
           {prossime.length > 0 ? (
-            <Sezione titolo="Prossime">{prossime.map((c) => scheda(c))}</Sezione>
+            <Sezione titolo={t.prossime}>{prossime.map((c) => scheda(c))}</Sezione>
           ) : null}
 
           {concluse.length > 0 ? (
             <Sezione
-              titolo="Registrate negli ultimi 7 giorni"
-              descrizione={leggeSolo ? undefined : 'Hai sbagliato un esito? Correggilo da qui.'}
+              titolo={t.ultimi7}
+              descrizione={leggeSolo ? undefined : t.ultimi7Descrizione}
             >
               {concluse.map((c) => scheda(c))}
             </Sezione>
@@ -269,18 +264,18 @@ export default async function LeMieCallPage() {
         </>
       ) : (
         <>
-          <Sezione titolo="In programma">
+          <Sezione titolo={t.inProgramma}>
             {future.length > 0 ? (
               future.map((c) => scheda(c))
             ) : (
               <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                Nessuna call in programma.
+                {t.nessunaInProgramma}
               </p>
             )}
           </Sezione>
 
           {daRegistrare.length + inAttesa.length + concluse.length > 0 ? (
-            <Sezione titolo="Ultimi 30 giorni">
+            <Sezione titolo={t.ultimi30}>
               {[...daRegistrare, ...inAttesa, ...concluse]
                 .sort((a, b) => b.programmata_il.localeCompare(a.programmata_il))
                 .map((c) => scheda(c))}

@@ -4,13 +4,11 @@ import { Copy, TriangleAlert } from 'lucide-react'
 import { useId, useRef, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
-import {
-  COLLEGA_CLAUDE,
-  clientMancante,
-  comandoClaudeCode,
-  etichettaDialogo,
-} from '@/lib/mcp/consenso'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { ACCOUNT } from '@/lib/i18n/testi/account'
+import { clientMancante, comandoClaudeCode, DIALOGO_CLAUDE, etichettaDialogo } from '@/lib/mcp/consenso'
 
 export type ClientClaude = { clientId: string; nome: string }
 
@@ -33,6 +31,9 @@ type Props = {
  */
 export function CollegaClaude({ urlMcp, claude, claudeCode, admin }: Props) {
   const idTitolo = useId()
+  const lingua = useLingua()
+  const t = ACCOUNT[lingua].claude
+  const COLLEGA_CLAUDE = t
 
   return (
     <section aria-labelledby={idTitolo} className="space-y-4 rounded-xl bg-card p-4 sm:p-5">
@@ -47,13 +48,13 @@ export function CollegaClaude({ urlMcp, claude, claudeCode, admin }: Props) {
         <Nota>{admin ? COLLEGA_CLAUDE.nonAttivoAdmin : COLLEGA_CLAUDE.nonAttivo}</Nota>
       ) : null}
 
-      {claude ? <Passi urlMcp={urlMcp} clientId={claude.clientId} /> : null}
+      {claude ? <Passi urlMcp={urlMcp} clientId={claude.clientId} lingua={lingua} /> : null}
       {!claude && claudeCode ? <Nota>{admin ? clientMancante('claude') : COLLEGA_CLAUDE.mancaClaude}</Nota> : null}
 
       {claudeCode ? (
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="text-sm font-semibold">{COLLEGA_CLAUDE.claudeCode}</h3>
-          <DaCopiare valore={comandoClaudeCode(claudeCode.clientId, urlMcp)} etichetta="Copia il comando per Claude Code" />
+          <DaCopiare valore={comandoClaudeCode(claudeCode.clientId, urlMcp)} etichetta={t.copiaComando} />
           <p className="text-sm text-muted-foreground">
             {COLLEGA_CLAUDE.claudeCodeDopo} <code className="rounded bg-muted px-1 text-foreground">/mcp</code> › alpha ›
             Authenticate.
@@ -67,34 +68,43 @@ export function CollegaClaude({ urlMcp, claude, claudeCode, admin }: Props) {
   )
 }
 
-function Passi({ urlMcp, clientId }: { urlMcp: string; clientId: string }) {
+/** In English the dialog's verified English labels; in Italian the translation with the English in brackets. */
+function etichetta(chiave: keyof typeof DIALOGO_CLAUDE, lingua: Lingua): string {
+  return lingua === 'en' ? DIALOGO_CLAUDE[chiave].en : etichettaDialogo(chiave)
+}
+
+function Passi({ urlMcp, clientId, lingua }: { urlMcp: string; clientId: string; lingua: Lingua }) {
+  const t = ACCOUNT[lingua].claude
+  const COLLEGA_CLAUDE = t
+  const etichettaDialogo = (chiave: keyof typeof DIALOGO_CLAUDE) => etichetta(chiave, lingua)
   return (
     <ol className="space-y-4 text-sm">
       <Passo n={1}>
-        In Claude, dal sito o dall’app per computer: <b>{etichettaDialogo('menu')}</b> ({COLLEGA_CLAUDE.indirizzoMenu}) ›{' '}
+        {t.passo1} <b>{etichettaDialogo('menu')}</b> ({COLLEGA_CLAUDE.indirizzoMenu}) ›{' '}
         <b>{etichettaDialogo('aggiungiConnettore')}</b>.
       </Passo>
       <Passo n={2}>
         <p>
-          Nome: <b>{COLLEGA_CLAUDE.nome}</b>. URL, esattamente così:
+          {t.passo2} <b>{COLLEGA_CLAUDE.nome}</b>. {t.passo2Url}
         </p>
-        <DaCopiare valore={urlMcp} etichetta="Copia l’indirizzo" />
+        <DaCopiare valore={urlMcp} etichetta={t.copiaIndirizzo} />
       </Passo>
       <Passo n={3}>
         <p>
-          Accesso: <b>{etichettaDialogo('accediOra')}</b>. Client OAuth: scegli <b>{etichettaDialogo('clientProprio')}</b>,
-          non «{etichettaDialogo('identitaPubblicata')}» né «{etichettaDialogo('registrazioneAutomatica')}»: con Alpha
-          Management non funzionano. Incolla l’ID client:
+          {t.passo3Accesso} <b>{etichettaDialogo('accediOra')}</b>. {t.passo3Client} <b>{etichettaDialogo('clientProprio')}</b>,{' '}
+          {t.passo3Non} «{etichettaDialogo('identitaPubblicata')}» {t.passo3Ne} «{etichettaDialogo('registrazioneAutomatica')}»
+          {t.passo3Dopo}
         </p>
-        <DaCopiare valore={clientId} etichetta="Copia l’ID client" />
+        <DaCopiare valore={clientId} etichetta={t.copiaId} />
         <p>
-          Lascia vuoto il segreto. Se il riquadro ha tutto in una schermata, l’ID client sta in{' '}
+          {t.passo3Segreto}{' '}
           <b>{etichettaDialogo('avanzate')}</b>.
         </p>
       </Passo>
       <Passo n={4}>
-        Premi <b>{etichettaDialogo('aggiungi')}</b>, poi <b>{etichettaDialogo('connetti')}</b>: entri con Google e confermi qui.
-        Se hai sbagliato il passo 3 non si corregge: rimuovi il connettore e aggiungilo di nuovo.
+        {t.passo4Premi} <b>{etichettaDialogo('aggiungi')}</b>
+        {t.passo4Poi} <b>{etichettaDialogo('connetti')}</b>
+        {t.passo4Dopo}
       </Passo>
       <Passo n={5}>{COLLEGA_CLAUDE.telefono}</Passo>
     </ol>
@@ -118,17 +128,18 @@ function Passo({ n, children }: { n: number; children: ReactNode }) {
 /** A value to paste in Claude: in full, wrapped, with a 44 px copy button. */
 function DaCopiare({ valore, etichetta }: { valore: string; etichetta: string }) {
   const testo = useRef<HTMLElement>(null)
+  const t = ACCOUNT[useLingua()].claude
 
   async function copia() {
     try {
       await navigator.clipboard.writeText(valore)
-      toast.success('Copiato')
+      toast.success(t.copiato)
     } catch {
       // no clipboard (permissions, an old browser): the text selected, ready for the system copy
       const el = testo.current
       const selezione = window.getSelection()
       if (el && selezione) selezione.selectAllChildren(el)
-      toast('Testo selezionato: copialo dal menu del telefono o con Ctrl+C.')
+      toast(t.selezionato)
     }
   }
 

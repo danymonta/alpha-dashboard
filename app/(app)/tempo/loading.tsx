@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { CaricamentoSr } from '@/components/stati/caricamento-sr'
 
 /** The shape of "Il mio tempo": timer and form on the left, the week on the right. */
 export default function Loading() {
@@ -21,7 +22,7 @@ export default function Loading() {
           ))}
         </div>
       </div>
-      <span className="sr-only">Caricamento in corso</span>
+      <CaricamentoSr />
     </div>
   )
 }

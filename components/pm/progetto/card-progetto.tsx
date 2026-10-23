@@ -2,7 +2,9 @@ import { CalendarDays } from 'lucide-react'
 
 import { BarraAvanzamento, InRitardo, InizialiMembri, SenzaCoach, StatoProgettoBadge } from '@/components/pm/stato-progetto'
 import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { PROGETTI } from '@/lib/i18n/testi/progetti'
 import type { StatoProgetto } from '@/lib/progetti'
 
 export type ProgettoCard = {
@@ -25,13 +27,17 @@ export function CardProgetto({
   progetto,
   membri,
   cliente,
+  lingua = 'it',
 }: {
   progetto: ProgettoCard
   membri: string[]
   /** Only when the reader may see that client (RLS on clients decides). */
   cliente: string | null
+  lingua?: Lingua
 }) {
   const p = progetto
+  const t = PROGETTI[lingua]
+  const { formatData } = formato(lingua)
   return (
     <LinkRiga
       href={`/progetti/${p.id}`}
@@ -46,16 +52,16 @@ export function CardProgetto({
           </h3>
           {/* a client's own project is named after the client: the name is said once */}
           {cliente && cliente !== p.nome ? (
-            <p className="truncate text-xs text-muted-foreground">Cliente: {cliente}</p>
+            <p className="truncate text-xs text-muted-foreground">{t.cliente(cliente)}</p>
           ) : null}
         </div>
         <span className="flex shrink-0 flex-col items-end gap-1">
-          <StatoProgettoBadge stato={p.stato} />
-          {p.senza_coach ? <SenzaCoach /> : null}
+          <StatoProgettoBadge stato={p.stato} lingua={lingua} />
+          {p.senza_coach ? <SenzaCoach lingua={lingua} /> : null}
         </span>
       </div>
 
-      <BarraAvanzamento completati={p.task_completati} totali={p.task_totali} avanzamento={p.avanzamento} />
+      <BarraAvanzamento completati={p.task_completati} totali={p.task_totali} avanzamento={p.avanzamento} lingua={lingua} />
 
       {/* dates and delays stacked on the left, the team on the right: never a lonely wrapped row */}
       <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 text-xs">
@@ -65,24 +71,24 @@ export function CardProgetto({
               // the client's path is over: nothing late about it
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 <CalendarDays className="size-3.5" aria-hidden="true" />
-                <span className="num">Percorso finito il {formatData(p.data_fine)}</span>
+                <span className="num">{t.percorsoFinito(formatData(p.data_fine))}</span>
               </span>
             ) : p.scaduto ? (
-              <InRitardo testo={`Doveva finire il ${formatData(p.data_fine)}`} />
+              <InRitardo testo={t.dovevaFinire(formatData(p.data_fine))} />
             ) : (
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 <CalendarDays className="size-3.5" aria-hidden="true" />
-                <span className="num">Fine {formatData(p.data_fine)}</span>
+                <span className="num">{t.fine(formatData(p.data_fine))}</span>
               </span>
             )
           ) : (
-            <span className="text-muted-foreground">Senza data di fine</span>
+            <span className="text-muted-foreground">{t.senzaFine}</span>
           )}
           {p.task_in_ritardo > 0 ? (
-            <InRitardo testo={p.task_in_ritardo === 1 ? '1 task in ritardo' : `${p.task_in_ritardo} task in ritardo`} />
+            <InRitardo testo={t.taskInRitardo(p.task_in_ritardo)} />
           ) : null}
         </span>
-        <InizialiMembri nomi={membri} />
+        <InizialiMembri nomi={membri} lingua={lingua} />
       </div>
     </LinkRiga>
   )

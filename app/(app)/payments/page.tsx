@@ -12,7 +12,9 @@ import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
-import { formatData, formatEuro, formatMese } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { getLingua } from '@/lib/i18n/server'
+import { INCASSI } from '@/lib/i18n/testi/incassi'
 import type { TipoVendita } from '@/lib/validation/vendita'
 import { linkWhatsApp, messaggioRata } from '@/lib/whatsapp'
 import { hrefPeriodo, leggiPeriodo } from '@/lib/periodo'
@@ -21,21 +23,11 @@ import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
-/**
- * What kind of sale an instalment belongs to: the row says it before the number.
- * Same words as the client's history: the first path, whenever it was signed.
- */
-const TIPO_RATA: Record<TipoVendita, string> = {
-  nuovo: 'Primo percorso',
-  rinnovo: 'Rinnovo',
-  upsell: 'Upsell',
-}
-
 const VISTE = {
-  ritardo: 'In ritardo',
-  prossime: 'Prossimi 30 giorni',
-  previste: 'Tutte da incassare',
-  incassate: 'Incassate nel mese',
+  ritardo: true,
+  prossime: true,
+  previste: true,
+  incassate: true,
 } as const
 type Vista = keyof typeof VISTE
 
@@ -51,10 +43,18 @@ export default async function IncassiPage({
   const richiesta = Array.isArray(parametri.vista) ? parametri.vista[0] : parametri.vista
   const vista: Vista = richiesta && richiesta in VISTE ? (richiesta as Vista) : 'ritardo'
   const oggi = oggiRoma()
+  const lingua = await getLingua()
+  const t = INCASSI[lingua]
+  const { formatData, formatEuro, formatMese } = formato(lingua)
+  /**
+   * What kind of sale an instalment belongs to: the row says it before the number.
+   * Same words as the client's history: the first path, whenever it was signed.
+   */
+  const TIPO_RATA: Record<TipoVendita, string> = t.tipoRata
   // only the "incassate" view is bound to a period
-  const periodo = leggiPeriodo(parametri, oggi)
+  const periodo = leggiPeriodo(parametri, oggi, lingua)
   const etichettaVista = (v: Vista) =>
-    v === 'incassate' ? (periodo.mese ? 'Incassate nel mese' : 'Incassate nel periodo') : VISTE[v]
+    v === 'incassate' ? (periodo.mese ? t.viste.incassate : t.incassatePeriodo) : t.viste[v]
   const tra30 = aggiungiGiorni(oggi, 30)
   const supabase = await createClient()
 
@@ -85,7 +85,7 @@ export default async function IncassiPage({
       ),
     ),
   ])
-  if (righe.error || fasce.error || previsione.error) throw new Error('Impossibile caricare gli incassi')
+  if (righe.error || fasce.error || previsione.error) throw new Error(t.errore)
 
   // the client's phone for the WhatsApp reminder (only on instalments still due)
   const idClienti = [...new Set(righe.data.filter((r) => r.stato === 'prevista').map((r) => r.client_id).filter(Boolean))]
@@ -100,13 +100,13 @@ export default async function IncassiPage({
   return (
     <div className="space-y-5">
       <IntestazionePagina
-        titolo="Incassi"
+        titolo={t.titolo}
         descrizione={
           <>
-            I soldi, rata per rata: quando scade ogni pagamento e se è entrato.{scrive ? ' Segna incassata da qui.' : ''} Il
-            contratto da cui nasce ogni rata è in{' '}
+            {t.descrizionePrima}
+            {scrive ? t.segna : ''} {t.descrizioneDopo}{' '}
             <Link href="/sales" className="font-medium text-foreground underline underline-offset-4 hover:text-primary">
-              Vendite
+              {t.vendite}
             </Link>
             .
           </>
@@ -119,26 +119,26 @@ export default async function IncassiPage({
           <div>
             <dt className="flex items-center gap-1 text-xs text-status-warning">
               <TriangleAlert className="size-3.5" aria-hidden="true" />
-              In ritardo
+              {t.inRitardo}
             </dt>
             <dd className="num text-lg font-semibold md:text-2xl">{formatEuro(perFascia.in_ritardo?.totale, { compatto: true })}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">Prossimi 30 giorni</dt>
+            <dt className="text-xs text-muted-foreground">{t.prossimi30}</dt>
             <dd className="num text-lg font-semibold md:text-2xl">{formatEuro(perFascia.prossimi_30?.totale, { compatto: true })}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">Oltre</dt>
+            <dt className="text-xs text-muted-foreground">{t.oltre}</dt>
             <dd className="num text-lg font-semibold md:text-2xl">{formatEuro(perFascia.oltre?.totale, { compatto: true })}</dd>
           </div>
         </dl>
 
         <section aria-labelledby="titolo-previsione" className="p-4 md:rounded-xl md:bg-card" data-testid="previsione-cassa" data-tour="previsione-cassa">
           <h2 id="titolo-previsione" className="text-sm font-medium">
-            Previsione di cassa
+            {t.previsione}
           </h2>
           <p className="mb-3 text-xs text-muted-foreground">
-            Quanto entra nei prossimi mesi dalle rate già previste. Quelle in ritardo sono a parte: sono dovute, non pianificate.
+            {t.previsioneDescrizione}
           </p>
           <dl className="grid grid-cols-3 gap-3">
             {(previsione.data ?? []).map((m, i) => (
@@ -149,13 +149,14 @@ export default async function IncassiPage({
                   <>
                     {/* one short line each: no ragged wrap in a 100px column */}
                     <dd className="num text-xs text-muted-foreground">
-                      {formatEuro(m.incassato, { compatto: true })} <span className="max-md:hidden">già </span>entrati
+                      {formatEuro(m.incassato, { compatto: true })} <span className="max-md:hidden">{t.gia}</span>
+                      {t.entrati}
                     </dd>
-                    <dd className="num text-xs text-muted-foreground">{formatEuro(m.previsto, { compatto: true })} in arrivo</dd>
+                    <dd className="num text-xs text-muted-foreground">{t.inArrivo(formatEuro(m.previsto, { compatto: true }))}</dd>
                   </>
                 ) : (
                   <dd className="num text-xs text-muted-foreground">
-                    {m.rate_previste} {m.rate_previste === 1 ? 'rata' : 'rate'}
+                    {t.nRate(m.rate_previste)}
                   </dd>
                 )}
               </div>
@@ -166,8 +167,7 @@ export default async function IncassiPage({
             <p className="mt-3 hidden items-center gap-1.5 text-xs text-status-warning md:flex">
               <TriangleAlert className="size-3.5" aria-hidden="true" />
               <span className="num">
-                In più {formatEuro(previsione.data[0].in_ritardo, { compatto: true })} in ritardo su {previsione.data[0].rate_in_ritardo}{' '}
-                {previsione.data[0].rate_in_ritardo === 1 ? 'rata' : 'rate'}
+                {t.inPiu(formatEuro(previsione.data[0].in_ritardo, { compatto: true }), previsione.data[0].rate_in_ritardo)}
               </span>
             </p>
           ) : null}
@@ -175,7 +175,7 @@ export default async function IncassiPage({
       </div>
 
       {/* phone: one row that scrolls on its own, never the page, with the chosen view in sight */}
-      <nav aria-label="Viste" className="max-md:-mx-4">
+      <nav aria-label={t.vistePagina} className="max-md:-mx-4">
         <StrisciaScorrevole attivo={vista} className="flex gap-2 max-md:px-4 md:flex-wrap md:overflow-visible">
         {(Object.keys(VISTE) as Vista[]).map((v) => (
           <LinkRiga
@@ -211,19 +211,19 @@ export default async function IncassiPage({
           Icona={Wallet}
           titolo={
             vista === 'ritardo'
-              ? 'Nessuna rata in ritardo'
+              ? t.nessunRitardo
               : vista === 'incassate'
-                ? `Nessun incasso ${periodo.frase}`
-                : 'Nessuna rata in questa vista'
+                ? t.nessunIncasso(periodo.frase)
+                : t.nessunaVista
           }
-          descrizione={vista === 'ritardo' ? 'Tutti i clienti sono in pari con i pagamenti.' : 'Cambia vista o periodo.'}
+          descrizione={vista === 'ritardo' ? t.inPari : t.cambiaVista}
         />
       ) : (
         <ul className="divide-y divide-border rounded-xl bg-card" data-testid="elenco-rate">
           {righe.data.map((r) => (
             <li
               key={r.payment_id}
-              aria-label={`${r.cliente} rata ${r.numero_rata}`}
+              aria-label={t.rataDi(r.cliente ?? '', r.numero_rata)}
               className="px-3 py-2 md:flex md:items-center md:gap-3"
             >
               <div className="flex min-h-11 items-center gap-3 md:flex-1">
@@ -237,22 +237,19 @@ export default async function IncassiPage({
                   <div className="overflow-hidden">
                     <p className="-ml-5 flex flex-wrap items-center text-xs text-muted-foreground *:before:inline-block *:before:w-5 *:before:text-center *:before:content-['·']">
                       {r.tipo ? <span>{TIPO_RATA[r.tipo]}</span> : null}
-                      <span className="num">
-                        Rata {r.numero_rata}
-                        {r.vendita ? ` di ${r.vendita.numero_rate}` : ''}
-                      </span>
+                      <span className="num">{t.rata(r.numero_rata, r.vendita?.numero_rate ?? null)}</span>
                       <span className="num">
                         {r.stato === 'prevista' || r.stato === 'fallita'
-                          ? `scade il ${formatData(r.scadenza)}`
-                          : `incassata il ${formatData(r.incassato_il)}`}
+                          ? t.scadeIl(formatData(r.scadenza))
+                          : t.incassataIl(formatData(r.incassato_il))}
                       </span>
-                      {r.giorni_ritardo ? <span className="text-status-warning">{r.giorni_ritardo} giorni di ritardo</span> : null}
+                      {r.giorni_ritardo ? <span className="text-status-warning">{t.giorniRitardo(r.giorni_ritardo)}</span> : null}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="num text-sm font-medium">{formatEuro(r.importo_incassato ?? r.importo_previsto)}</p>
-                  <StatoRata stato={r.stato!} scadenza={r.scadenza!} oggi={oggi} className="text-xs" />
+                  <StatoRata stato={r.stato!} scadenza={r.scadenza!} oggi={oggi} className="text-xs" lingua={lingua} />
                 </div>
               </div>
               {/* fixed width from md up: amounts line up whatever the actions */}

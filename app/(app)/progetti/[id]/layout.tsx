@@ -12,9 +12,11 @@ import { BarraAvanzamento } from '@/components/pm/stato-progetto'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { ETICHETTA_RUOLO, leggeComeAdmin, livelloPmEffettivo, solaLettura } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { getLingua } from '@/lib/i18n/server'
+import { PROGETTI } from '@/lib/i18n/testi/progetti'
 import { configPickerRichiesta } from '@/lib/google/picker-server'
-import { ETICHETTA_STATO_PROGETTO, compitiDiRuoloInParole, isUuid } from '@/lib/progetti'
+import { compitiDiRuoloInParole, isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 import { chiVedeLaCartella } from '@/lib/validation/cartella'
 
@@ -29,6 +31,9 @@ export default async function LayoutProgetto({
   params: Promise<{ id: string }>
 }) {
   const profilo = await requireProfilo()
+  const lingua = await getLingua()
+  const t = PROGETTI[lingua]
+  const { formatData } = formato(lingua)
   const { id } = await params
   const supabase = await createClient()
 
@@ -45,12 +50,16 @@ export default async function LayoutProgetto({
   if (!progetto) {
     return (
       <div className="max-w-3xl">
-        <IntestazionePagina titolo="Progetto" indietro={{ href: '/progetti', etichetta: 'Progetti' }} />
+        <IntestazionePagina titolo={t.progetto} indietro={{ href: '/progetti', etichetta: t.titolo }} />
         <StatoVuoto
           Icona={SearchX}
-          titolo="Progetto non trovato"
-          descrizione="Il progetto non esiste o non fai parte del suo team."
-          azione={<LinkBottone href="/progetti" variant="outline">Torna ai progetti</LinkBottone>}
+          titolo={t.nonTrovato}
+          descrizione={t.nonTrovatoDescrizione}
+          azione={
+            <LinkBottone href="/progetti" variant="outline">
+              {t.torna}
+            </LinkBottone>
+          }
         />
       </div>
     )
@@ -116,13 +125,13 @@ export default async function LayoutProgetto({
   const nomeCliente = cliente.data ? [cliente.data.nome, cliente.data.cognome].filter(Boolean).join(' ') : null
   const periodo =
     progetto.data_inizio || progetto.data_fine
-      ? `${formatData(progetto.data_inizio)} → ${progetto.data_fine ? formatData(progetto.data_fine) : 'in corso'}`
+      ? `${formatData(progetto.data_inizio)} → ${progetto.data_fine ? formatData(progetto.data_fine) : t.inCorso}`
       : null
-  const meta = [progetto.reparto?.nome, ETICHETTA_STATO_PROGETTO[progetto.stato], periodo].filter(Boolean).join(' · ')
+  const meta = [progetto.reparto?.nome, t.statoProgetto[progetto.stato], periodo].filter(Boolean).join(' · ')
   // responsible and client only from 640px: on a phone the header stays short
   const chi = [
-    progetto.responsabile ? `Responsabile: ${progetto.responsabile.nome}` : null,
-    nomeCliente ? `Cliente: ${nomeCliente}` : null,
+    progetto.responsabile ? t.responsabile(progetto.responsabile.nome) : null,
+    nomeCliente ? t.cliente(nomeCliente) : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -150,7 +159,7 @@ export default async function LayoutProgetto({
           className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg pr-3 pl-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <ChevronLeft className="size-4" aria-hidden="true" />
-          Progetti
+          {t.titolo}
         </Link>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
@@ -187,7 +196,7 @@ export default async function LayoutProgetto({
         {progetto.client_id ? (
           // a client's project: its coach (or that it has none yet), and for the admin the way to the client
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1" data-testid="coach-del-cliente">
-            <CoachDelCliente coach={progetto.coach} />
+            <CoachDelCliente coach={progetto.coach} testi={{ coach: t.coach, senza: t.senzaCoach }} />
             {sceltaCoach ? (
               <ScegliCoach
                 progettoId={progetto.id}
@@ -203,7 +212,7 @@ export default async function LayoutProgetto({
                 href={`/clients/${progetto.client_id}`}
                 className="inline-flex min-h-11 items-center gap-1 text-sm font-medium underline underline-offset-4"
               >
-                Scheda del cliente
+                {t.schedaCliente}
               </Link>
             ) : null}
           </div>
@@ -228,10 +237,11 @@ export default async function LayoutProgetto({
             avanzamento={numeri.avanzamento}
             inRitardo={numeri.task_in_ritardo ?? 0}
             className="max-w-sm"
+            lingua={lingua}
           />
         ) : null}
       </header>
-      <SchedeProgetto id={progetto.id} />
+      <SchedeProgetto id={progetto.id} etichette={t.schede} />
       {children}
     </div>
   )

@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { CaricamentoSr } from '@/components/stati/caricamento-sr'
 
 /**
  * Loading state of a project tab (Gantt, Tempo, Note): the project header and
@@ -21,7 +22,7 @@ export function ScheletroScheda({ variante }: { variante: 'gantt' | 'elenco' }) 
           ))}
         </>
       )}
-      <span className="sr-only">Caricamento in corso</span>
+      <CaricamentoSr />
     </div>
   )
 }

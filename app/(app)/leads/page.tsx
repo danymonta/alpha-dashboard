@@ -8,10 +8,13 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { solaLettura } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { getLingua } from '@/lib/i18n/server'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { PIPELINE } from '@/lib/i18n/testi/pipeline'
 import { createClient } from '@/lib/supabase/server'
-import { ETICHETTA_FONTE, ETICHETTA_TIPO_CALL } from '@/lib/validation/call'
-import { ETICHETTA_STATO_LEAD, STATI_LEAD, type StatoLead } from '@/lib/validation/lead'
+import { STATI_LEAD, type StatoLead } from '@/lib/validation/lead'
 import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -20,26 +23,18 @@ type Filtro = 'aperti' | StatoLead
 
 const APERTI: StatoLead[] = ['call_fissata', 'follow_up']
 
-const ETICHETTA_ESITO: Record<string, string> = {
-  chiusa: 'chiusa',
-  follow_up: 'follow-up',
-  persa: 'persa',
-}
-
-const ETICHETTA_STATO_CALL: Record<string, string> = {
-  svolta: 'svolta',
-  no_show: 'no show',
-  cancellata: 'cancellata',
-  riprogrammata: 'in attesa di conferma',
-}
-
 /** Same reading as the suggestion below it: a past call without outcome is not "in programma". */
-function statoUltimaCall(ultima: { stato: string; esito: string | null; programmata_il: string }, adesso: number) {
-  if (ultima.esito) return ETICHETTA_ESITO[ultima.esito]
+function statoUltimaCall(
+  ultima: { stato: string; esito: string | null; programmata_il: string },
+  adesso: number,
+  lingua: Lingua,
+) {
+  const t = PIPELINE[lingua]
+  if (ultima.esito) return (t.esito as Record<string, string>)[ultima.esito]
   if (ultima.stato === 'programmata') {
-    return new Date(ultima.programmata_il).getTime() < adesso ? 'esito da registrare' : 'in programma'
+    return new Date(ultima.programmata_il).getTime() < adesso ? t.statoCall.daRegistrare : t.statoCall.inProgramma
   }
-  return ETICHETTA_STATO_CALL[ultima.stato] ?? null
+  return (t.statoCall as Record<string, string>)[ultima.stato] ?? null
 }
 
 type Ruolo = 'admin' | 'setter' | 'closer'
@@ -53,29 +48,31 @@ function suggerisci(
   ultima: { id: string; stato: string; esito: string | null; programmata_il: string } | undefined,
   ruolo: Ruolo,
   adesso: number,
+  lingua: Lingua,
 ): Suggerimento | null {
   if (!ultima) return null
   const puoVendere = ruolo !== 'setter'
+  const t = PIPELINE[lingua].suggerimenti
 
   if (ultima.esito === 'persa' && stato !== 'perso') {
-    return { tipo: 'stato', testo: 'L’ultima call è andata persa.', stato: 'perso', etichetta: 'Segna perso' }
+    return { tipo: 'stato', testo: t.persa, stato: 'perso', etichetta: t.segnaPerso }
   }
   if (ultima.esito === 'follow_up' && stato !== 'follow_up' && stato !== 'cliente') {
-    return { tipo: 'stato', testo: 'L’ultima call chiede un follow-up.', stato: 'follow_up', etichetta: 'Sposta in follow-up' }
+    return { tipo: 'stato', testo: t.followUp, stato: 'follow_up', etichetta: t.spostaFollowUp }
   }
   if (ultima.esito === 'chiusa' && stato !== 'cliente') {
     return {
       tipo: 'stato',
-      testo: 'Call chiusa.',
+      testo: t.chiusa,
       stato: 'cliente',
-      etichetta: 'Segna cliente',
-      link: puoVendere ? { href: `/sales/new?call=${ultima.id}`, etichetta: 'Registra la vendita' } : undefined,
+      etichetta: t.segnaCliente,
+      link: puoVendere ? { href: `/sales/new?call=${ultima.id}`, etichetta: t.registraVendita } : undefined,
     }
   }
   if (ultima.stato === 'programmata' && new Date(ultima.programmata_il).getTime() < adesso) {
     return puoVendere
-      ? { tipo: 'link', testo: 'Call passata senza esito.', href: '/calls', etichetta: 'Registra esito' }
-      : { tipo: 'info', testo: 'Call passata: si aspetta l’esito del closer.' }
+      ? { tipo: 'link', testo: t.senzaEsito, href: '/calls', etichetta: t.registraEsito }
+      : { tipo: 'info', testo: t.attesaCloser }
   }
   return null
 }
@@ -93,6 +90,9 @@ export default async function PipelinePage({
   // the business coach reads every lead like the admin (22/10/2026), and changes none
   const profilo = await requireRuolo(['admin', 'setter', 'closer', 'business_coach'])
   const leggeSolo = solaLettura(profilo.ruolo)
+  const lingua = await getLingua()
+  const t = PIPELINE[lingua]
+  const { formatData } = formato(lingua)
   const { stato, q } = await searchParams
   const filtro: Filtro = STATI_LEAD.includes(stato as StatoLead) ? (stato as StatoLead) : 'aperti'
   const ricerca = (q ?? '').trim().slice(0, 60)
@@ -128,34 +128,30 @@ export default async function PipelinePage({
   }
 
   const { data: leads, error } = await query
-  if (error) throw new Error('Impossibile caricare la pipeline')
+  if (error) throw new Error(t.errore)
   const adesso = adessoMs()
 
   const filtri: { valore: Filtro; etichetta: string; n: number }[] = [
-    { valore: 'aperti', etichetta: 'Aperti', n: aperti.count ?? 0 },
-    ...STATI_LEAD.map((s) => ({ valore: s as Filtro, etichetta: ETICHETTA_STATO_LEAD[s], n: conteggi[s] })),
+    { valore: 'aperti', etichetta: t.aperti, n: aperti.count ?? 0 },
+    ...STATI_LEAD.map((s) => ({ valore: s as Filtro, etichetta: ETICHETTE[lingua].statoLead[s], n: conteggi[s] })),
   ]
 
   return (
     <div className="max-w-3xl space-y-5">
       <IntestazionePagina
-        titolo="Pipeline"
-        descrizione={
-          leggeSolo
-            ? 'Ogni lead del team, con il suo stato e l’ultima call.'
-            : 'Ogni persona che hai caricato, con il suo stato. Si cambia con un tocco.'
-        }
+        titolo={t.titolo}
+        descrizione={leggeSolo ? t.descrizioneLettura : t.descrizione}
         azione={
           profilo.ruolo === 'setter' ? (
             <LinkBottone href="/calls/new">
               <CalendarPlus className="size-4" aria-hidden="true" />
-              Nuova call
+              {t.nuova}
             </LinkBottone>
           ) : undefined
         }
       />
 
-      <nav aria-label="Filtra per stato" className="flex flex-wrap gap-2">
+      <nav aria-label={t.filtra} className="flex flex-wrap gap-2">
         {filtri.map((f) => {
           const attivo = f.valore === filtro
           const qs = new URLSearchParams()
@@ -182,13 +178,15 @@ export default async function PipelinePage({
 
       <form method="get" role="search" className="relative">
         {filtro !== 'aperti' ? <input type="hidden" name="stato" value={filtro} /> : null}
-        <label htmlFor="cerca-lead" className="sr-only">Cerca per nome o handle</label>
+        <label htmlFor="cerca-lead" className="sr-only">
+          {t.cerca}
+        </label>
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <input
           id="cerca-lead"
           name="q"
           defaultValue={ricerca}
-          placeholder="Cerca per nome o handle"
+          placeholder={t.cerca}
           autoComplete="off"
           className="h-11 w-full rounded-pillola border border-input bg-input/30 pr-3 pl-9 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         />
@@ -197,14 +195,10 @@ export default async function PipelinePage({
       {leads.length === 0 ? (
         <StatoVuoto
           Icona={SquareKanban}
-          titolo={ricerca ? `Nessun lead per «${ricerca}»` : 'Nessun lead in questo stato'}
-          descrizione={
-            profilo.ruolo === 'setter'
-              ? 'Un lead nasce quando fissi una call.'
-              : 'I lead compaiono qui quando hanno una call assegnata a te.'
-          }
+          titolo={ricerca ? t.nessunoPer(ricerca) : t.nessuno}
+          descrizione={profilo.ruolo === 'setter' ? t.vuotoSetter : leggeSolo ? t.vuotoLettura : t.vuotoAltri}
           azione={
-            profilo.ruolo === 'setter' ? <LinkBottone href="/calls/new">Fissa una call</LinkBottone> : undefined
+            profilo.ruolo === 'setter' ? <LinkBottone href="/calls/new">{t.fissa}</LinkBottone> : undefined
           }
         />
       ) : (
@@ -213,8 +207,8 @@ export default async function PipelinePage({
             const ultima = [...lead.calls].sort((a, b) => b.programmata_il.localeCompare(a.programmata_il))[0]
             const dettagli = [
               lead.instagram_handle,
-              ETICHETTA_FONTE[lead.fonte],
-              profilo.ruolo !== 'setter' && lead.setter ? `da ${lead.setter.nome.split(' ')[0]}` : null,
+              ETICHETTE[lingua].fonte[lead.fonte],
+              profilo.ruolo !== 'setter' && lead.setter ? t.da(lead.setter.nome.split(' ')[0]) : null,
             ].filter(Boolean)
             const idTitolo = `lead-${lead.id}`
 
@@ -225,7 +219,7 @@ export default async function PipelinePage({
                     leadId={lead.id}
                     nome={lead.nome}
                     stato={lead.stato}
-                    suggerimento={leggeSolo ? null : suggerisci(lead.stato, ultima, profilo.ruolo as Ruolo, adesso)}
+                    suggerimento={leggeSolo ? null : suggerisci(lead.stato, ultima, profilo.ruolo as Ruolo, adesso, lingua)}
                     // the closer moves the status but does not rewrite the lead
                     dati={
                       profilo.ruolo === 'admin' || lead.setter_id === profilo.id
@@ -235,17 +229,18 @@ export default async function PipelinePage({
                     titolo={<h3 id={idTitolo} className="truncate text-sm font-medium">{lead.nome}</h3>}
                     eliminabile={profilo.ruolo === 'admin'}
                     solaLettura={leggeSolo}
+                    lingua={lingua}
                   >
                     <p className="truncate text-sm text-muted-foreground">{dettagli.join(' · ')}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {ultima
                         ? [
-                            `Ultima call: ${ETICHETTA_TIPO_CALL[ultima.tipo]} del ${formatData(oggiRoma(new Date(ultima.programmata_il)))}`,
-                            statoUltimaCall(ultima, adesso),
+                            t.ultimaCall(ETICHETTE[lingua].tipoCall[ultima.tipo], formatData(oggiRoma(new Date(ultima.programmata_il)))),
+                            statoUltimaCall(ultima, adesso, lingua),
                           ]
                             .filter(Boolean)
                             .join(' · ')
-                        : `Caricato il ${formatData(oggiRoma(new Date(lead.created_at)))}`}
+                        : t.caricatoIl(formatData(oggiRoma(new Date(lead.created_at))))}
                     </p>
                   </StatoLeadArea>
                 </article>

@@ -2,11 +2,13 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { cookies } from 'next/headers'
 
+import { LinguaProvider } from '@/components/i18n/lingua-provider'
 import { TOASTER_PANNELLO } from '@/components/marketing/toaster-pannello'
 import { TemaProvider } from '@/components/tema/tema-provider'
 import { ToasterTema } from '@/components/tema/toaster-tema'
 import { DESCRIZIONE_BREVE, NOME_APP } from '@/lib/brand/nome'
 import { origineCorrente } from '@/lib/auth/origine-server'
+import { getLingua } from '@/lib/i18n/server'
 import { COOKIE_TEMA, classeTema, temaDaCookie } from '@/lib/tema/tema'
 
 import './globals.css'
@@ -73,10 +75,12 @@ const SCRIPT_TEMA_SISTEMA =
 export default async function RootLayout({ children }: LayoutProps<'/'>) {
   // the theme of this device (cookie «alpha_tema»): «scuro», as the app always was, until someone chooses
   const tema = temaDaCookie((await cookies()).get(COOKIE_TEMA)?.value)
+  // the language of this device (cookie «alpha_lingua»), or of the role without one (1.53.0)
+  const lingua = await getLingua()
   return (
     // suppressHydrationWarning: the first-paint script may add «light» to the class for «Sistema»
     <html
-      lang="it"
+      lang={lingua}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${classeTema(tema)}`.trim()}
     >
@@ -85,6 +89,7 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <TemaProvider iniziale={tema}>
+        <LinguaProvider lingua={lingua}>
         {children}
         <ToasterTema position="top-center" richColors />
         {/* the content panel's toasts (TOAST_NEL_PANNELLO): never over its header, never over the bottom bar */}
@@ -96,6 +101,7 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
           mobileOffset={{ bottom: 'var(--toast-pannello-basso)' }}
           containerAriaLabel="Notifiche del contenuto"
         />
+        </LinguaProvider>
         </TemaProvider>
       </body>
     </html>

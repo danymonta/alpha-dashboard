@@ -1,6 +1,9 @@
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { CLIENTI } from '@/lib/i18n/testi/clienti'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import type { Database } from '@/lib/supabase/database.types'
-import { ETICHETTA_METODO, type Metodo } from '@/lib/validation/incasso'
+import type { Metodo } from '@/lib/validation/incasso'
 
 /**
  * The client list with the path, contract and instalments (Dany, 21/10/2026).
@@ -100,16 +103,20 @@ const giorni = (iso: string) => {
 export const nomeCompleto = (r: Pick<RigaElenco, 'nome' | 'cognome'>) => [r.nome, r.cognome].filter(Boolean).join(' ')
 
 /** "Primo percorso", "Rinnovo 1", "Upsell": the words of the path history, from the sale's type and its place among the paths. */
-export function etichettaPercorsoVendita(tipo: Enums['sale_type'], numeroPercorso: number): string {
-  if (tipo === 'upsell') return 'Upsell'
-  if (tipo === 'rinnovo') return numeroPercorso >= 2 ? `Rinnovo ${numeroPercorso - 1}` : 'Rinnovo'
-  return numeroPercorso <= 1 ? 'Primo percorso' : 'Nuovo percorso'
+export function etichettaPercorsoVendita(tipo: Enums['sale_type'], numeroPercorso: number, lingua: Lingua = 'it'): string {
+  const t = CLIENTI[lingua]
+  if (tipo === 'upsell') return t.upsell
+  if (tipo === 'rinnovo') return numeroPercorso >= 2 ? t.rinnovoN(numeroPercorso - 1) : t.rinnovo
+  return numeroPercorso <= 1 ? t.primoPercorso : t.nuovoPercorso
 }
 
 /** "Mese 2 di 6 · Settimana 8 di 26". */
-export function testoMeseSettimana(r: Pick<RigaElenco, 'mese' | 'mesi_totali' | 'settimana' | 'settimane_totali'>): string | null {
+export function testoMeseSettimana(
+  r: Pick<RigaElenco, 'mese' | 'mesi_totali' | 'settimana' | 'settimane_totali'>,
+  lingua: Lingua = 'it',
+): string | null {
   if (r.mese === null || r.settimana === null) return null
-  return `Mese ${r.mese} di ${r.mesi_totali} · Settimana ${r.settimana} di ${r.settimane_totali}`
+  return CLIENTI[lingua].meseSettimana(r.mese, r.mesi_totali, r.settimana, r.settimane_totali)
 }
 
 /** How far the path is, 0 to 1, by days; null when the card has no bar (a closed client). */
@@ -129,28 +136,33 @@ export type TestoPercorso = {
   avanzamento: number | null
 }
 
-export function testoPercorso(r: RigaElenco, oggi: string): TestoPercorso {
-  const fine = r.data_fine >= oggi ? `Fino al ${formatData(r.data_fine)}` : `Finito il ${formatData(r.data_fine)}`
+export function testoPercorso(r: RigaElenco, oggi: string, lingua: Lingua = 'it'): TestoPercorso {
+  const t = CLIENTI[lingua]
+  const { formatData } = formato(lingua)
+  const fine = r.data_fine >= oggi ? t.fino(formatData(r.data_fine)) : t.finito(formatData(r.data_fine))
   if (r.stato === 'chiuso' && r.chiuso_il) {
-    return { principale: `Chiuso il ${formatData(r.chiuso_il)}`, dettaglio: `Percorso: ${fine.toLowerCase()}`, avanzamento: null }
+    // only the first letter goes small: an English month keeps its capital
+    const minuscola = lingua === 'it' ? fine.toLowerCase() : fine.charAt(0).toLowerCase() + fine.slice(1)
+    return { principale: t.chiusoIl(formatData(r.chiuso_il)), dettaglio: t.percorso(minuscola), avanzamento: null }
   }
   if (r.data_inizio > oggi) {
-    return { principale: `Inizia il ${formatData(r.data_inizio)}`, dettaglio: fine, avanzamento: null }
+    return { principale: t.iniziaIl(formatData(r.data_inizio)), dettaglio: fine, avanzamento: null }
   }
-  return { principale: testoMeseSettimana(r) ?? fine, dettaglio: fine, avanzamento: avanzamentoPercorso(r, oggi) }
+  return { principale: testoMeseSettimana(r, lingua) ?? fine, dettaglio: fine, avanzamento: avanzamentoPercorso(r, oggi) }
 }
 
 /** "Bonifico, Stripe": the methods he paid with so far, in the app's words. */
-export function testoMetodi(metodi: readonly string[]): string | null {
-  const parole = metodi.map((m) => ETICHETTA_METODO[m as Metodo] ?? m)
+export function testoMetodi(metodi: readonly string[], lingua: Lingua = 'it'): string | null {
+  const parole = metodi.map((m) => ETICHETTE[lingua].metodo[m as Metodo] ?? m)
   return parole.length > 0 ? parole.join(', ') : null
 }
 
 /** "1 di 3 rate pagate", "Pagamento unico", "Tutte le 3 rate pagate". */
-export function testoRatePagate(r: Pick<RigaElenco, 'rate_totali' | 'rate_incassate'>): string {
-  if (r.rate_totali <= 1) return r.rate_incassate >= r.rate_totali ? 'Pagamento unico pagato' : 'Pagamento unico'
-  if (r.rate_incassate >= r.rate_totali) return `Tutte le ${r.rate_totali} rate pagate`
-  return `${r.rate_incassate} di ${r.rate_totali} rate pagate`
+export function testoRatePagate(r: Pick<RigaElenco, 'rate_totali' | 'rate_incassate'>, lingua: Lingua = 'it'): string {
+  const t = CLIENTI[lingua]
+  if (r.rate_totali <= 1) return r.rate_incassate >= r.rate_totali ? t.unicoPagato : t.unico
+  if (r.rate_incassate >= r.rate_totali) return t.tutteRate(r.rate_totali)
+  return t.ratePagate(r.rate_incassate, r.rate_totali)
 }
 
 /** The next instalment to collect (planned or failed), the one due first. */
@@ -163,8 +175,8 @@ export function prossimaRata(r: Pick<RigaElenco, 'rate'>): RataElenco | null {
 }
 
 /** "Rata 2 di 3". */
-export function testoRata(rata: Pick<RataElenco, 'numero'>, totali: number): string {
-  return `Rata ${rata.numero} di ${totali}`
+export function testoRata(rata: Pick<RataElenco, 'numero'>, totali: number, lingua: Lingua = 'it'): string {
+  return CLIENTI[lingua].rataDi(rata.numero, totali)
 }
 
 const perNome = (a: RigaElenco, b: RigaElenco) =>

@@ -15,10 +15,12 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
-import { formatData, formatEuro } from '@/lib/format'
+import { formato } from '@/lib/format'
 import { configPickerRichiesta } from '@/lib/google/picker-server'
+import { getLingua } from '@/lib/i18n/server'
+import { CLIENTI } from '@/lib/i18n/testi/clienti'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import { createClient } from '@/lib/supabase/server'
-import { ETICHETTA_FONTE } from '@/lib/validation/call'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +28,9 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   // the admin, and the business coach in read only (22/10/2026)
   const profilo = await requireRuolo(RUOLI_COME_ADMIN)
   const scrive = puoScrivere(profilo.ruolo)
+  const lingua = await getLingua()
+  const t = CLIENTI[lingua]
+  const { formatData, formatEuro } = formato(lingua)
   const { id } = await params
   const supabase = await createClient()
   const oggi = oggiRoma()
@@ -72,18 +77,18 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
     supabase.from('clienti_sospensioni').select('sospeso_il, motivo').eq('client_id', id).maybeSingle(),
   ])
   if (vendite.error || importi.error || progetto.error || cartella.error || chiusura.error || sospensione.error) {
-    throw new Error('Impossibile caricare lo storico del cliente')
+    throw new Error(t.erroreStorico)
   }
 
   if (!cliente || !valore) {
     return (
       <div className="max-w-3xl">
-        <IntestazionePagina titolo="Cliente" indietro={{ href: '/clients', etichetta: 'Clienti' }} />
+        <IntestazionePagina titolo={t.cliente} indietro={{ href: '/clients', etichetta: t.titolo }} />
         <StatoVuoto
           Icona={SearchX}
-          titolo="Cliente non trovato"
-          descrizione="Il cliente non esiste o è stato rimosso."
-          azione={<LinkBottone href="/clients" variant="outline">Torna ai clienti</LinkBottone>}
+          titolo={t.nonTrovato}
+          descrizione={t.nonTrovatoDescrizione}
+          azione={<LinkBottone href="/clients" variant="outline">{t.tornaAi}</LinkBottone>}
         />
       </div>
     )
@@ -136,20 +141,20 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   const sospeso = valore.stato === 'sospeso' && sospensione.data ? sospensione.data : null
 
   const contatti: [string, string][] = [
-    ['Email', cliente.email ?? '–'],
-    ['Telefono', cliente.telefono ?? '–'],
-    ['Instagram', cliente.instagram_handle ?? '–'],
-    ['Fonte', cliente.fonte ? ETICHETTA_FONTE[cliente.fonte] : '–'],
-    ['Setter', cliente.setter?.nome ?? '–'],
-    ['Closer', cliente.closer?.nome ?? '–'],
-    ['Cliente dal', formatData(cliente.created_at.slice(0, 10))],
+    [t.email, cliente.email ?? '–'],
+    [t.telefono, cliente.telefono ?? '–'],
+    [t.instagram, cliente.instagram_handle ?? '–'],
+    [t.fonte, cliente.fonte ? ETICHETTE[lingua].fonte[cliente.fonte] : '–'],
+    [t.setter, cliente.setter?.nome ?? '–'],
+    [t.closer, cliente.closer?.nome ?? '–'],
+    [t.clienteDal, formatData(cliente.created_at.slice(0, 10))],
   ]
 
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         titolo={nome}
-        indietro={{ href: '/clients', etichetta: 'Clienti' }}
+        indietro={{ href: '/clients', etichetta: t.titolo }}
         azione={
           // the business coach reads (22/10/2026): no button that records or closes
           !scrive ? undefined : (valore.numero_vendite ?? 0) === 0 ? (
@@ -181,30 +186,30 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       <div className="rounded-xl bg-card p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs text-muted-foreground">Valore nel tempo (incassato)</p>
+            <p className="text-xs text-muted-foreground">{t.valoreNelTempo}</p>
             {/* the one gold number of the screen: what this client has really paid */}
             <p className="num text-3xl font-semibold text-gold">{formatEuro(valore.incassato)}</p>
           </div>
-          <StatoClienteBadge stato={valore.stato!} />
+          <StatoClienteBadge stato={valore.stato!} lingua={lingua} />
         </div>
         <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4">
           <div>
-            <dt className="text-xs text-muted-foreground">Firmato</dt>
+            <dt className="text-xs text-muted-foreground">{t.firmato}</dt>
             <dd className="num text-base font-medium">{formatEuro(valore.valore_firmato)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">Da incassare</dt>
+            <dt className="text-xs text-muted-foreground">{t.daIncassare}</dt>
             <dd className="num text-base font-medium">{formatEuro(valore.da_incassare)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">Fine percorso</dt>
+            <dt className="text-xs text-muted-foreground">{t.finePercorso}</dt>
             <dd className="num text-base font-medium">{formatData(valore.data_fine_ultima)}</dd>
           </div>
         </dl>
         {Number(valore.in_ritardo) > 0 ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-status-warning">
             <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-            {formatEuro(valore.in_ritardo)} in ritardo
+            {t.inRitardoImporto(formatEuro(valore.in_ritardo))}
           </p>
         ) : null}
       </div>
@@ -226,13 +231,13 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         >
           <FolderKanban className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium">Progetto del percorso</span>
-            <span className="block text-xs text-muted-foreground">I task del coach e il tempo, in Progetti</span>
+            <span className="block text-sm font-medium">{t.progettoPercorso}</span>
+            <span className="block text-xs text-muted-foreground">{t.progettoDescrizione}</span>
           </span>
           {progetto.data.coach ? (
-            <span className="shrink-0 text-xs text-muted-foreground">Coach: {progetto.data.coach.nome}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">{t.coach(progetto.data.coach.nome)}</span>
           ) : (
-            <SenzaCoach />
+            <SenzaCoach testo={t.senzaCoach} />
           )}
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Link>
@@ -249,7 +254,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2 px-1">
-          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Contatti</h2>
+          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t.contatti}</h2>
           {scrive ? (
             <ModificaCliente
               cliente={{
@@ -283,7 +288,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
           ))}
           {cliente.note ? (
             <div className="py-3">
-              <dt className="text-sm text-muted-foreground">Note</dt>
+              <dt className="text-sm text-muted-foreground">{t.note}</dt>
               <dd className="mt-1 text-sm whitespace-pre-line">{cliente.note}</dd>
             </div>
           ) : null}
@@ -292,20 +297,16 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
 
       <section className="space-y-2">
         <h2 className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Storico percorsi ({percorsi.length})
+          {t.storico(percorsi.length)}
         </h2>
         {percorsi.length > 0 ? (
-          <StoricoPercorsi percorsi={percorsi} oggi={oggi} cliente={nome} picker={picker} solaLettura={!scrive} />
+          <StoricoPercorsi percorsi={percorsi} oggi={oggi} cliente={nome} picker={picker} solaLettura={!scrive} lingua={lingua} />
         ) : (
           // the action is the header's "Registra la prima vendita": one link, not two
           <StatoVuoto
             Icona={History}
-            titolo="Nessun percorso registrato"
-            descrizione={
-              scrive
-                ? 'Con «Registra la prima vendita» parte lo storico: ogni rinnovo si aggiunge sopra e i periodi passati restano qui.'
-                : 'Lo storico parte con la prima vendita: ogni rinnovo si aggiunge sopra e i periodi passati restano qui.'
-            }
+            titolo={t.nessunPercorso}
+            descrizione={scrive ? t.nessunPercorsoAdmin : t.nessunPercorsoLettura}
           />
         )}
       </section>

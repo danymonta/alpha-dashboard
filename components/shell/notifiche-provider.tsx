@@ -1,5 +1,7 @@
 'use client'
 
+import type { Lingua } from '@/lib/i18n/lingua'
+import { SHELL } from '@/lib/i18n/testi/shell'
 import { usePathname } from 'next/navigation'
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 
@@ -97,6 +99,7 @@ export function useNotificheNonLette(): number {
 }
 
 /** "Notifiche, 3 da leggere": the bell's accessible name; plain "Notifiche" with nothing to read. */
-export function nomeNotifiche(numero: number): string {
-  return numero > 0 ? `Notifiche, ${numero} da leggere` : 'Notifiche'
+export function nomeNotifiche(numero: number, lingua: Lingua = 'it'): string {
+  const t = SHELL[lingua]
+  return numero > 0 ? t.notificheDaLeggere(numero) : t.notifiche
 }

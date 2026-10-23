@@ -2,7 +2,9 @@ import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { EtichettaConNota } from '@/components/metriche/nota'
-import { formatDelta } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { getLingua } from '@/lib/i18n/server'
+import { PANORAMICA } from '@/lib/i18n/testi/panoramica'
 import type { VoceLegenda } from '@/lib/metriche/legenda'
 import { cn } from '@/lib/utils'
 
@@ -22,7 +24,7 @@ type Props = {
  * Delta against the previous period: always icon + sign + words, never colour
  * alone. For every number of the overview "up" is good.
  */
-export function DeltaKpi({
+export async function DeltaKpi({
   delta,
   confronto,
   className,
@@ -31,6 +33,8 @@ export function DeltaKpi({
   confronto: string
   className?: string
 }) {
+  const lingua = await getLingua()
+  const { formatDelta } = formato(lingua)
   const su = delta !== null && delta > 0
   const giu = delta !== null && delta < 0
   const Icona = su ? TrendingUp : giu ? TrendingDown : Minus
@@ -45,7 +49,7 @@ export function DeltaKpi({
       )}
     >
       <Icona className="size-4 shrink-0" aria-hidden="true" />
-      <span className="num font-medium">{delta === null ? 'n.d.' : formatDelta(delta)}</span>
+      <span className="num font-medium">{delta === null ? PANORAMICA[lingua].nd : formatDelta(delta)}</span>
       <span className="text-muted-foreground">{confronto}</span>
     </p>
   )

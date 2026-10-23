@@ -4,10 +4,12 @@ import dynamic from 'next/dynamic'
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { Fiamma } from '@/components/alfire/fiamma'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { AppRole } from '@/lib/auth/roles'
+import { SHELL } from '@/lib/i18n/testi/shell'
 import { cn } from '@/lib/utils'
 
 /** Per-viewer convenience (not data): read answers aloud. */
@@ -129,6 +131,7 @@ function ScheletroAlfire() {
 /** The flame button: header on desktop, top bar on mobile. */
 export function BottoneAlfire({ conEtichetta = false }: { conEtichetta?: boolean }) {
   const { apri, prepara } = useAlfire()
+  const etichetta = SHELL[useLingua()].chattaAlfire
   return (
     <Button
       type="button"
@@ -138,13 +141,13 @@ export function BottoneAlfire({ conEtichetta = false }: { conEtichetta?: boolean
       onPointerEnter={prepara}
       onFocus={prepara}
       onTouchStart={prepara}
-      aria-label="Chatta con Alfire"
+      aria-label={etichetta}
       className={cn('group h-11 gap-2', conEtichetta ? 'px-3' : 'w-11 px-0')}
       data-testid="apri-alfire"
       data-tour="alfire"
     >
       <Fiamma className="size-6" />
-      {conEtichetta ? <span className="text-sm font-medium">Chatta con Alfire</span> : null}
+      {conEtichetta ? <span className="text-sm font-medium">{etichetta}</span> : null}
     </Button>
   )
 }

@@ -7,12 +7,15 @@ import { toast } from 'sonner'
 import { annullaMotivoProposto, usaMotivoProposto } from '@/app/(app)/calls/actions'
 import { rivalidaTutto } from '@/app/actions/rivalida'
 import { Button } from '@/components/ui/button'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { ANALISI } from '@/lib/call/analisi/parole'
+import { CALL } from '@/lib/i18n/testi/call'
+import { CLOSER } from '@/lib/i18n/testi/closer'
 import {
   CATEGORIE_OBIEZIONI, DESIDERI, GIA_PROVATO, MOMENTI, PAIN, etichetta,
 } from '@/lib/call/analisi/icp-call'
 import { conMinuto, secondiDiMinuto, type AnalisiVista } from '@/lib/call/analisi/vista'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
 import { formatOra } from '@/lib/date'
 
 /**
@@ -34,14 +37,12 @@ type Props = {
   solaLettura?: boolean
 }
 
-const ETICHETTA_ESITO: Record<string, string> = { chiusa: 'chiusa', follow_up: 'in follow-up', persa: 'persa' }
-
 function Elenco({ titolo, voci }: { titolo: string; voci: string[] }) {
   if (voci.length === 0) return null
   return (
     <div>
       <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{titolo}</h4>
-      <ul className="mt-1 list-disc space-y-0.5 pl-5">
+      <ul lang="it" className="mt-1 list-disc space-y-0.5 pl-5">
         {voci.map((v, i) => (
           <li key={i}>{v}</li>
         ))}
@@ -52,6 +53,10 @@ function Elenco({ titolo, voci }: { titolo: string; voci: string[] }) {
 
 export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps, esito, motivoSalvato, link, solaLettura = false }: Props) {
   const analizzabile = analizzabileDaProps && !solaLettura
+  const lingua = useLingua()
+  // the frame follows the page's language; what Claude wrote stays in Italian (1.53.0)
+  const t = CALL[lingua].analisi
+  const categorie = CLOSER[lingua].registrate.categorie as Record<string, string>
   const [inCorso, avvia] = useTransition()
   const [motivo, setMotivo] = useState<string | null>(motivoSalvato)
 
@@ -97,7 +102,7 @@ export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps
       <div className="mt-1 flex flex-wrap items-center justify-between gap-2 pl-[4.25rem]" data-testid="analisi-assente">
         <p className="flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground">
           <Sparkles className="size-4 shrink-0" aria-hidden="true" />
-          {ANALISI.nessuna}
+          {t.nessuna}
         </p>
         <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={chiedi}>
           {ANALISI.analizza}
@@ -110,7 +115,7 @@ export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps
     return (
       <p className="mt-1 flex min-h-11 items-center gap-1.5 pl-[4.25rem] text-sm text-muted-foreground" data-testid="analisi-in-coda" role="status">
         <Sparkles className="size-4 shrink-0" aria-hidden="true" />
-        {analisi.stato === 'in_corso' ? ANALISI.inCorso : ANALISI.inCoda}
+        {analisi.stato === 'in_corso' ? t.inCorso : t.inCoda}
       </p>
     )
   }
@@ -120,7 +125,7 @@ export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps
       <div className="mt-1 flex flex-wrap items-center justify-between gap-2 pl-[4.25rem]" data-testid="analisi-fallita">
         <p role="alert" className="flex items-start gap-1.5 text-sm">
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
-          {analisi.errore ?? ANALISI.nessuna}
+          {analisi.errore ?? t.nessuna}
         </p>
         {analizzabile ? (
           <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={chiedi}>
@@ -132,12 +137,14 @@ export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps
   }
 
   const lead = analisi.lead
-  const quando = analisi.analizzata_il ? `${formatData(analisi.analizzata_il)} alle ${formatOra(analisi.analizzata_il)}` : ''
+  const quando = analisi.analizzata_il
+    ? CALL[lingua].alle(formato(lingua).formatData(analisi.analizzata_il), formatOra(analisi.analizzata_il))
+    : ''
   const esitoDiverso = analisi.esito_letto && analisi.esito_letto !== 'non_chiaro' && esito && analisi.esito_letto !== esito
   const propone =
     !solaLettura && (esito === 'follow_up' || esito === 'persa') && analisi.motivo_proposto && analisi.motivo_proposto !== motivo
   const Target = analisi.in_target === 'si' ? CircleCheck : analisi.in_target === 'no' ? CircleX : CircleHelp
-  const targetEtichetta = analisi.in_target === 'si' ? ANALISI.inTarget : analisi.in_target === 'no' ? ANALISI.nonInTarget : ANALISI.daVerificare
+  const targetEtichetta = analisi.in_target === 'si' ? t.inTarget : analisi.in_target === 'no' ? t.nonInTarget : t.daVerificare
 
   return (
     <div className="mt-1 space-y-2 pl-[4.25rem]" data-testid="analisi-call">
@@ -153,40 +160,47 @@ export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps
       {esitoDiverso ? (
         <p className="flex items-start gap-1.5 text-sm text-status-warning" data-testid="esito-diverso">
           <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {ANALISI.esitoDiverso(ETICHETTA_ESITO[analisi.esito_letto!] ?? analisi.esito_letto!)}
+          {t.esitoDiverso((t.esiti as Record<string, string>)[analisi.esito_letto!] ?? analisi.esito_letto!)}
         </p>
       ) : null}
 
       <details className="group rounded-lg border border-border">
         <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm font-medium">
           <Sparkles className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          {ANALISI.titolo}
+          {t.titolo}
           <span className="flex items-center gap-1 font-normal text-muted-foreground">
             · <Target className="size-3.5" aria-hidden="true" /> {targetEtichetta}
           </span>
         </summary>
         <div className="space-y-3 px-3 pb-3 text-sm">
-          {analisi.riassunto ? <p className="break-words">{analisi.riassunto}</p> : null}
+          {lingua === 'en' ? <p className="text-xs text-muted-foreground">{t.inItaliano}</p> : null}
+          {analisi.riassunto ? (
+            <p lang="it" className="break-words">
+              {analisi.riassunto}
+            </p>
+          ) : null}
 
           {lead ? (
             <section className="space-y-2">
-              <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{ANALISI.il}</h4>
+              <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t.il}</h4>
               {lead.segnali && lead.segnali.length > 0 ? (
                 <ul className="list-disc space-y-0.5 pl-5">
                   {lead.segnali.map((s, i) => (
                     <li key={i}>
-                      {s.testo} <span className="text-muted-foreground">({s.verso === 'in_target' ? 'in target' : 'non in target'})</span>
+                      <span lang="it">{s.testo}</span>{' '}
+                      <span className="text-muted-foreground">({s.verso === 'in_target' ? t.versoIn : t.versoNo})</span>
                     </li>
                   ))}
                 </ul>
               ) : null}
               {lead.punto_a || lead.punto_b ? (
                 <p>
-                  <span className="text-muted-foreground">Da:</span> {lead.punto_a} <span className="text-muted-foreground">A:</span> {lead.punto_b}
+                  <span className="text-muted-foreground">{t.da}</span> <span lang="it">{lead.punto_a}</span>{' '}
+                  <span className="text-muted-foreground">{t.a}</span> <span lang="it">{lead.punto_b}</span>
                 </p>
               ) : null}
               <div className="flex flex-wrap gap-1.5">
-                {[...(lead.pain ?? []).map((x) => etichetta(PAIN, x)), ...(lead.desideri ?? []).map((x) => etichetta(DESIDERI, x)), ...(lead.gia_provato ?? []).map((x) => `Già provato: ${etichetta(GIA_PROVATO, x)}`)].map((c) => (
+                {[...(lead.pain ?? []).map((x) => etichetta(PAIN, x)), ...(lead.desideri ?? []).map((x) => etichetta(DESIDERI, x)), ...(lead.gia_provato ?? []).map((x) => t.giaProvato(etichetta(GIA_PROVATO, x)))].map((c) => (
                   <span key={c} className="rounded-md bg-muted px-2 py-1 text-xs">
                     {c}
                   </span>
@@ -204,14 +218,14 @@ export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps
 
           {analisi.obiezioni && analisi.obiezioni.length > 0 ? (
             <section>
-              <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{ANALISI.obiezioni}</h4>
+              <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t.obiezioni}</h4>
               <ul className="mt-1 space-y-2">
                 {analisi.obiezioni.map((o, i) => (
                   <li key={i}>
-                    <span className="font-medium">{etichetta(CATEGORIE_OBIEZIONI, o.categoria)}</span>
-                    {o.sintesi ? `: ${o.sintesi}` : ''}{' '}
-                    {o.gestita ? <span className="text-muted-foreground">({ANALISI.gestita[o.gestita]})</span> : null}
-                    {o.risposta ? <span className="block text-muted-foreground">Ha funzionato: {o.risposta}</span> : null}
+                    <span className="font-medium">{categorie[o.categoria] ?? etichetta(CATEGORIE_OBIEZIONI, o.categoria)}</span>
+                    {o.sintesi ? <span lang="it">: {o.sintesi}</span> : null}{' '}
+                    {o.gestita ? <span className="text-muted-foreground">({t.gestita[o.gestita]})</span> : null}
+                    {o.risposta ? <span className="block text-muted-foreground">{t.funzionato(o.risposta)}</span> : null}
                     {o.minuto && link ? (
                       <a
                         href={conMinuto(link, secondiDiMinuto(o.minuto))}
@@ -219,7 +233,7 @@ export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps
                         rel="noopener noreferrer"
                         className="num inline-flex min-h-11 items-center text-muted-foreground underline underline-offset-4"
                       >
-                        al minuto {o.minuto}
+                        {t.alMinuto(o.minuto)}
                       </a>
                     ) : null}
                   </li>
@@ -228,13 +242,13 @@ export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps
             </section>
           ) : null}
 
-          <Elenco titolo={ANALISI.domande} voci={analisi.domande ?? []} />
-          <Elenco titolo={ANALISI.convintoDa} voci={analisi.convinto_da ?? []} />
-          <Elenco titolo={ANALISI.prossimiPassi} voci={(analisi.prossimi_passi ?? []).map((p) => `${p.cosa}${p.quando ? ` (${p.quando})` : ''}`)} />
+          <Elenco titolo={t.domande} voci={analisi.domande ?? []} />
+          <Elenco titolo={t.convintoDa} voci={analisi.convinto_da ?? []} />
+          <Elenco titolo={t.prossimiPassi} voci={(analisi.prossimi_passi ?? []).map((p) => `${p.cosa}${p.quando ? ` (${p.quando})` : ''}`)} />
 
           {analisi.momenti && analisi.momenti.length > 0 && link ? (
             <section>
-              <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{ANALISI.daRiascoltare}</h4>
+              <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t.daRiascoltare}</h4>
               <ul className="mt-1 flex flex-wrap gap-2">
                 {analisi.momenti.map((m, i) => (
                   <li key={i}>
@@ -253,7 +267,7 @@ export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps
           ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 text-xs text-muted-foreground">
-            <span>{ANALISI.analizzata(quando)}</span>
+            <span>{t.analizzata(quando)}</span>
             {analizzabile ? (
               <Button type="button" variant="ghost" className="h-11" disabled={inCorso} onClick={chiedi}>
                 {ANALISI.analizzaDiNuovo}

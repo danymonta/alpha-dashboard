@@ -17,9 +17,11 @@ import {
 
 import { segnaTutorialVisto } from '@/app/actions/tutorial'
 import { EVENTO_INTRO_FINITA } from '@/components/brand/intro-ingresso'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import type { AppRole } from '@/lib/auth/roles'
-import { ATTESA_LETTURA_MS, FUNZIONE, PERCORSI, suPagina, type PassoTutorial } from '@/lib/tutorial/percorsi'
+import { TUTORIAL } from '@/lib/i18n/testi/tutorial'
+import { ATTESA_LETTURA_MS, FUNZIONE, percorsoPer, suPagina, type PassoTutorial } from '@/lib/tutorial/percorsi'
 import { cn } from '@/lib/utils'
 
 type ContestoTutorial = {
@@ -147,7 +149,9 @@ function posizioneScheda(r: Riquadro | null, altezzaScheda: number): CSSProperti
 }
 
 function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean; chiudi: () => void }) {
-  const passi = PERCORSI[ruolo]
+  const lingua = useLingua()
+  const testi = TUTORIAL[lingua]
+  const passi = useMemo(() => percorsoPer(ruolo, lingua), [ruolo, lingua])
   const [indice, setIndice] = useState(0)
   const passo: PassoTutorial = passi[indice]
   const [riquadro, setRiquadro] = useState<Riquadro | null>(null)
@@ -304,7 +308,7 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
               variant="ghost"
               size="icon"
               className="-mr-2 size-11 text-muted-foreground"
-              aria-label="Chiudi il tutorial"
+              aria-label={testi.chiudi}
               disabled={!pronto}
               onClick={chiudi}
             >
@@ -319,7 +323,7 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
             <p className="text-sm leading-relaxed text-muted-foreground">{passo.testo}</p>
             {anteprima && mancaElemento ? (
               <p className="text-xs text-muted-foreground">
-                Anteprima: sul tuo account questo elemento non c’è, chi ha questo ruolo lo vede evidenziato.
+                {testi.anteprima}
               </p>
             ) : null}
           </div>
@@ -328,7 +332,7 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
             {indice > 0 ? (
               <Button type="button" variant="ghost" className="h-11" onClick={() => setIndice((i) => i - 1)}>
                 <ArrowLeft className="size-4" aria-hidden="true" />
-                Indietro
+                {testi.indietro}
               </Button>
             ) : (
               <span />
@@ -336,7 +340,7 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
             {toccaQui ? (
               <p className="flex items-center gap-1.5 text-sm font-medium text-primary-light" data-testid="tutorial-tocca">
                 <Pointer className="size-4" aria-hidden="true" />
-                Tocca il pulsante evidenziato
+                {testi.tocca}
               </p>
             ) : (
               <Button
@@ -356,7 +360,7 @@ function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean
                   />
                 )}
                 <span className="relative inline-flex items-center gap-1.5">
-                  {ultimo ? 'Fine' : 'Avanti'}
+                  {ultimo ? testi.fine : testi.avanti}
                   {ultimo ? null : <ArrowRight className="size-4" aria-hidden="true" />}
                 </span>
               </Button>

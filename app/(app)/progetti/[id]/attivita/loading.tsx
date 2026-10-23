@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { CaricamentoSr } from '@/components/stati/caricamento-sr'
 
 /** Lists with their rows: the header and the tabs stay from the layout. */
 export default function Loading() {
@@ -17,7 +18,7 @@ export default function Loading() {
           ))}
         </div>
       ))}
-      <span className="sr-only">Caricamento in corso</span>
+      <CaricamentoSr />
     </div>
   )
 }

@@ -19,7 +19,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { formatData } from '@/lib/format'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { formatData, formato } from '@/lib/format'
+import { CLIENTI } from '@/lib/i18n/testi/clienti'
 import { chiusuraClienteSchema, MOTIVO_CHIUSURA_MAX } from '@/lib/validation/chiusura'
 
 /** What closing a client does, before the confirmation. */
@@ -468,9 +470,12 @@ export function ChiusuraCliente({
   solaLettura?: boolean
 }) {
   const archiviato = chiusura.archiviato_il
+  const lingua = useLingua()
+  const t = CLIENTI[lingua]
+  const { formatData } = formato(lingua)
   return (
     <section
-      aria-label="Chiusura del cliente"
+      aria-label={t.chiusura}
       data-testid="chiusura-cliente"
       className="rounded-xl bg-card py-2 pr-1.5 pl-3"
     >
@@ -483,16 +488,16 @@ export function ChiusuraCliente({
         <div className="min-w-0 flex-1 py-1.5">
           {archiviato ? (
             <p className="text-sm font-medium" data-testid="archivio-cliente">
-              Ex cliente · archiviato il <span className="num">{formatData(archiviato)}</span>
+              {t.exCliente} <span className="num">{formatData(archiviato)}</span>
             </p>
           ) : null}
           <p className={archiviato ? 'mt-0.5 text-sm text-muted-foreground' : 'text-sm font-medium'}>
-            Non rinnova · chiuso il <span className="num">{formatData(chiusura.chiuso_il)}</span>
+            {t.nonRinnova} <span className="num">{formatData(chiusura.chiuso_il)}</span>
           </p>
           {chiusura.motivo ? (
             <p className="mt-0.5 text-sm break-words whitespace-pre-line text-muted-foreground">{chiusura.motivo}</p>
           ) : (
-            <p className="mt-0.5 text-xs text-muted-foreground">Nessun motivo scritto</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t.nessunMotivo}</p>
           )}
         </div>
         {solaLettura ? null : <NonRinnova clientId={clientId} cliente={cliente} oggi={oggi} minimo={minimo} chiusura={chiusura} />}

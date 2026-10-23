@@ -1,7 +1,10 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { SHELL } from '@/lib/i18n/testi/shell'
 
 /** Loading: the shape of the list, never a full-screen spinner. */
-export default function Loading() {
+export default async function Loading() {
+  const t = SHELL[await getLingua()]
   return (
     <div className="max-w-3xl space-y-5" aria-busy="true" aria-live="polite">
       <div className="space-y-2">
@@ -13,7 +16,7 @@ export default function Loading() {
           <Skeleton key={i} className="h-20 rounded-none" />
         ))}
       </div>
-      <span className="sr-only">Caricamento in corso</span>
+      <span className="sr-only">{t.caricamentoInCorso}</span>
     </div>
   )
 }
