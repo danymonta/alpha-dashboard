@@ -1,5 +1,16 @@
 import { bilingue } from '@/lib/i18n/lingua'
 import { CATEGORIE_OBIEZIONI } from '@/lib/call/analisi/icp-call'
+import type { Lingua } from '@/lib/i18n/lingua'
+
+/**
+ * A content's name as call_numeri_periodo writes it in Italian («Reel del 03/10 · Name», «Contenuto
+ * non riconosciuto»), in the page's language; the Name is the team's and stays.
+ */
+export function etichettaContenuto(etichetta: string, lingua: Lingua): string {
+  if (lingua === 'it') return etichetta
+  if (etichetta === 'Contenuto non riconosciuto') return 'Content not recognised'
+  return etichetta.replace(/^(Reel|Post) del /, '$1 of ')
+}
 
 /** The Closer page and «Dalle call registrate» (1.53.0). */
 export const CLOSER = bilingue(

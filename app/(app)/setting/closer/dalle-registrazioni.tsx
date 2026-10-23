@@ -7,7 +7,7 @@ import { LIVELLI_PERFORMANCE } from '@/lib/call/analisi/vista'
 import { formato } from '@/lib/format'
 import type { Lingua } from '@/lib/i18n/lingua'
 import { getLingua } from '@/lib/i18n/server'
-import { CLOSER } from '@/lib/i18n/testi/closer'
+import { CLOSER, etichettaContenuto } from '@/lib/i18n/testi/closer'
 import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import { hrefAnalisiReel } from '@/lib/marketing/analisi/pannello'
 import type { Periodo } from '@/lib/periodo'
@@ -78,8 +78,7 @@ function nomeGruppo(r: Pick<Riga, 'gruppo' | 'etichetta'>, per: Per, lingua: Lin
   if (lingua === 'it') return r.etichetta
   if (per === 'totale') return 'All calls'
   if (per === 'fonte') return FONTI_EN[r.gruppo ?? ''] ?? 'Other'
-  if (r.etichetta === 'Contenuto non riconosciuto') return 'Content not recognised'
-  return r.etichetta.replace(/^(Reel|Post) del /, '$1 of ')
+  return etichettaContenuto(r.etichetta, lingua)
 }
 
 const hrefPer = (per: Per, parametri: Record<string, string | undefined>) => {
