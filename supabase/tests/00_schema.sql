@@ -114,6 +114,31 @@ select is(
                              then '((NOT ( SELECT da_client_oauth() AS da_client_oauth)) OR (( SELECT "current_role"() AS "current_role") IS NOT NULL))'
                              else '(NOT ( SELECT da_client_oauth() AS da_client_oauth))' end
        )
+       -- clients, sales, instalments and cash-ins (20261030090000, phase 3 of 4): no _mai_da_oauth, and
+       -- exactly four restrictive policies, one per command; the delete one refuses every OAuth token, but
+       -- the three functions that delete to work, each bound to its own request: interrompi_percorso
+       -- (payments), riapri_cliente (clienti_chiusure), riattiva_cliente (clienti_sospensioni)
+       when t.tablename in ('clients', 'sales', 'payments', 'clienti_chiusure', 'clienti_sospensioni',
+                            'clienti_cartelle', 'vendite_contratti') then (
+         select coalesce(array_agg(p.policyname::text || ' ' || p.cmd order by p.policyname::text), '{}')
+         from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and (p.permissive = 'RESTRICTIVE' or p.policyname like '%_mai_da_oauth')
+       ) <> array[
+         t.tablename || '_claude_eliminazione DELETE', t.tablename || '_claude_inserimento INSERT',
+         t.tablename || '_claude_lettura SELECT', t.tablename || '_claude_modifica UPDATE'
+       ] or not exists (
+         select 1 from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and p.policyname = t.tablename || '_claude_eliminazione'
+           and p.roles = array['authenticated']::name[]
+           and case t.tablename
+                 when 'payments' then p.qual like '%''admin''%' and p.qual like '%''rpc/interrompi_percorso''%'
+                 when 'clienti_chiusure' then p.qual like '%''admin''%' and p.qual like '%''rpc/riapri_cliente''%'
+                 when 'clienti_sospensioni' then p.qual like '%''admin''%' and p.qual like '%''rpc/riattiva_cliente''%'
+                 else p.qual = '(NOT ( SELECT da_client_oauth() AS da_client_oauth))'
+               end
+       )
        else not exists (
          select 1 from pg_policies p
          where p.schemaname = 'public' and p.tablename = t.tablename
@@ -196,7 +221,11 @@ select is(
      and c.relname in ('marketing_contenuti', 'marketing_opzioni', 'pm_progetti', 'pm_membri', 'pm_tasklist',
                        'pm_task', 'pm_task_assegnatari', 'pm_tempo', 'pm_note', 'pm_reparti', 'pm_modelli',
                        'profiles', 'v_pm_progetti', 'v_pm_task', 'v_pm_tasklist',
-                       'calls', 'leads', 'call_pitch', 'call_registrazioni', 'products')
+                       'calls', 'leads', 'call_pitch', 'call_registrazioni', 'products',
+                       -- phase 3 (20261030090000): the money tables and their views
+                       'clients', 'sales', 'payments', 'clienti_chiusure', 'clienti_sospensioni',
+                       'clienti_cartelle', 'vendite_contratti', 'v_clienti', 'v_vendite', 'v_rate',
+                       'v_clienti_chiusi')
      and not (
        p.proname in ('call_ha_follow_up', 'call_ha_vendita') and c.relname = 'calls'
        and p.prosecdef and p.prosrc like '%not public.da_client_oauth()%'

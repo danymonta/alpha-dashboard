@@ -564,7 +564,11 @@ select is(
                            'pm_tasklist', 'pm_task', 'pm_task_assegnatari', 'pm_tempo', 'pm_note', 'pm_reparti',
                            'pm_modelli', 'v_pm_progetti', 'v_pm_task', 'v_pm_tasklist',
                            -- calls, leads and outcomes (phase 2, 20261029090000): he reads them like the admin
-                           'calls', 'leads', 'call_pitch', 'call_registrazioni', 'products')),
+                           'calls', 'leads', 'call_pitch', 'call_registrazioni', 'products',
+                           -- clients, sales and instalments (phase 3, 20261030090000): he reads them like the admin
+                           'clients', 'sales', 'payments', 'clienti_chiusure', 'clienti_sospensioni',
+                           'clienti_cartelle', 'vendite_contratti', 'v_clienti', 'v_vendite', 'v_rate',
+                           'v_clienti_chiusi', 'v_client_status')),
   '',
   'token di Claude nel filtro: nessuna riga fuori dalle aree MCP'
 );

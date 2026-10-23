@@ -162,8 +162,9 @@ declare
   viste text[] := '{}';
 begin
   foreach r in array array['call_analisi', 'call_analisi_setter', 'call_spunti_setter', 'call_valutazioni',
-    'lead_contenuto', 'clients', 'sales', 'payments', 'expenses', 'commission_rules', 'commission_payouts',
-    'setter_daily_reports', 'report_proposte_instagram', 'audit_log', 'v_vendite', 'v_rate', 'v_clienti'] loop
+    'lead_contenuto', 'expenses', 'commission_rules', 'commission_payouts',
+    'setter_daily_reports', 'report_proposte_instagram', 'audit_log'] loop
+    -- clients, sales and instalments are phase 3 (20261030090000, 103_mcp_clienti_vendite.sql)
     begin
       execute format('select count(*) from public.%I', r) into n;
       if n > 0 then viste := viste || r; end if;
@@ -190,7 +191,7 @@ select is(
     'GET call_registrazioni', 'GET products', 'POST leads', 'PATCH leads', 'DELETE leads', 'POST rpc/dettagli_call',
     'POST rpc/fissa_follow_up', 'POST rpc/collega_registrazione', 'POST rpc/scollega_registrazione',
     'POST rpc/elimina_call', 'POST rpc/elimina_lead', 'GET call_analisi_setter', 'GET call_spunti_setter',
-    'POST rpc/mie_vendite_setter', 'GET setter_daily_reports']),
+    'GET sales', 'GET setter_daily_reports']),
   array['42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501',
         '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501'],
   'setter: mai la tabella delle call (il link), importi, registrazioni, esiti, dettagli, eliminazioni, analisi, soldi o report'
@@ -208,10 +209,10 @@ select is(
   pg_temp.filtri(array['POST rpc/fissa_call', 'DELETE calls', 'POST calls', 'DELETE call_pitch', 'GET call_pitch',
     'POST rpc/scollega_registrazione', 'POST rpc/elimina_call', 'GET call_analisi', 'GET call_valutazioni',
     'POST rpc/decidi_performance', 'POST rpc/call_analisi_richiedi', 'POST rpc/vendite_da_collegare',
-    'GET sales', 'GET lead_contenuto']),
+    'GET clients', 'GET lead_contenuto']),
   array['42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501',
         '42501', '42501'],
-  'closer: non fissa call nuove, non elimina, non scollega, e analisi, valutazioni, performance proposta e vendite restano fuori'
+  'closer: non fissa call nuove, non elimina, non scollega, e analisi, valutazioni, performance proposta e clienti diretti restano fuori'
 );
 
 select pg_temp.come('11111111-1111-4111-8111-111111111111', '9e100000-0000-4000-8000-000000000001');
@@ -223,10 +224,10 @@ select is(
 );
 select is(
   pg_temp.filtri(array['DELETE calls', 'DELETE leads', 'PATCH leads', 'POST rpc/elimina_call', 'POST rpc/elimina_lead',
-    'POST rpc/collega_vendita_call', 'POST rpc/registra_vendita', 'POST rpc/scollega_registrazione',
+    'POST rpc/collega_vendita_call', 'POST rpc/elimina_cliente', 'POST rpc/scollega_registrazione',
     'GET call_valutazioni']),
   array['42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501'],
-  'admin: niente si elimina, nessuna vendita collegata o registrata da qui'
+  'admin: niente si elimina, nessuna vendita collegata da qui (la vendita si registra: fase 3)'
 );
 
 select pg_temp.come('bc000000-0000-4000-8000-000000000001', '9e100000-0000-4000-8000-000000000006');
@@ -284,7 +285,7 @@ select is(
   0::bigint,
   'setter: nemmeno passando da un lead arriva al link di una call'
 );
-select is(pg_temp.chiuse(), '', 'setter: analisi, spunti, origine dei lead, clienti, soldi e report restano chiusi');
+select is(pg_temp.chiuse(), '', 'setter: analisi, spunti, origine dei lead, costi, provvigioni e report restano chiusi');
 
 -- The closer: the calls assigned to him, with the amount pitched and the recording
 select pg_temp.come('33333333-3333-4333-8333-333333333333', '9e100000-0000-4000-8000-000000000003');
@@ -307,7 +308,7 @@ select is(
 );
 select ok((select valutazioni_closer from x) >= 0 and pg_temp.conta('call_valutazioni') = 0,
   'closer: come ha condotto la call (valutazione) non arriva a Claude');
-select is(pg_temp.chiuse(), '', 'closer: analisi, spunti, origine dei lead, clienti, soldi e report restano chiusi');
+select is(pg_temp.chiuse(), '', 'closer: analisi, spunti, origine dei lead, costi, provvigioni e report restano chiusi');
 
 -- The admin and the business coach: every call
 select pg_temp.come('11111111-1111-4111-8111-111111111111', '9e100000-0000-4000-8000-000000000001');
