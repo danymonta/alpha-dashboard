@@ -11,6 +11,7 @@ import { ICP, ICP_AGGIORNATO_IL } from '@/lib/marketing/icp'
 import { GUIDA_AGGIORNATA_IL } from '@/lib/marketing/punteggio/guida'
 import {
   FUORI_PORTATA,
+  FUORI_PORTATA_ADMIN,
   FUORI_PORTATA_CALL,
   FUORI_PORTATA_SETTER,
   REGOLA_GUIDA,
@@ -63,7 +64,31 @@ const SCRITTURE_VENDITE_ADMIN = [
 const VENDITE_ADMIN = [...LETTURE_VENDITE_ADMIN, ...ANTEPRIME, ...SCRITTURE_VENDITE_ADMIN]
 const VENDITE_CLOSER = ['elenco_vendite', 'leggi_vendita', 'da_incassare', 'registra_vendita', 'rata']
 const VENDITE_SETTER = ['miei_clienti']
-const VENDITE = [...VENDITE_ADMIN, ...VENDITE_SETTER]
+// costs, commissions, goals, the Panoramica's economics and the team (23/10/2026, phase 4): the admin, the
+// business coach in reading, the setter only his own commissions
+const LETTURE_ECONOMICS = [
+  'numeri_periodo',
+  'cash_mensile',
+  'previsione_cassa',
+  'obiettivi',
+  'numeri_per_fonte',
+  'costi',
+  'provvigioni',
+  'provvigioni_per_vendita',
+  'regole_provvigioni',
+  'team',
+]
+const SCRITTURE_ECONOMICS = [
+  'registra_costo',
+  'modifica_costo',
+  'copia_costi_ricorrenti',
+  'registra_pagamento_provvigione',
+  'modifica_pagamento_provvigione',
+  'regola_provvigione',
+  'imposta_obiettivi',
+]
+const ECONOMICS_SETTER = ['mie_provvigioni']
+const VENDITE = [...VENDITE_ADMIN, ...VENDITE_SETTER, ...LETTURE_ECONOMICS, ...SCRITTURE_ECONOMICS, ...ECONOMICS_SETTER]
 const LETTURE = [
   ...LETTURE_CALENDARIO,
   ...LETTURE_PROGETTI,
@@ -74,6 +99,8 @@ const LETTURE = [
   ...LETTURE_VENDITE_ADMIN,
   ...ANTEPRIME,
   ...VENDITE_SETTER,
+  ...LETTURE_ECONOMICS,
+  ...ECONOMICS_SETTER,
 ]
 const PROGETTI = [...LETTURE_PROGETTI, ...SCRITTURE_PROGETTI]
 
@@ -90,7 +117,7 @@ describe('gli strumenti per ruolo', () => {
 
   it('l’admin: anche elimina_contenuto, la gestione dei progetti e il tempo del team', () => {
     expect(ordinati(strumentiPer('admin').map((s) => s.nome))).toEqual(
-      ordinati([...LETTURE_CALENDARIO, ...SCRITTURE_CALENDARIO, 'elimina_contenuto', ...PROGETTI, ...GESTIONE, 'tempo_team', ...CALL_ADMIN, ...VENDITE_ADMIN]),
+      ordinati([...LETTURE_CALENDARIO, ...SCRITTURE_CALENDARIO, 'elimina_contenuto', ...PROGETTI, ...GESTIONE, 'tempo_team', ...CALL_ADMIN, ...VENDITE_ADMIN, ...LETTURE_ECONOMICS, ...SCRITTURE_ECONOMICS]),
     )
   })
 
@@ -99,7 +126,21 @@ describe('gli strumenti per ruolo', () => {
   })
 
   it('il setter (23/10/2026): le sue call e i suoi lead come nell’app, mai esito, dettagli o follow-up', () => {
-    expect(ordinati(strumentiPer('setter', 'employee').map((s) => s.nome))).toEqual(ordinati([...PROGETTI, ...CALL_SETTER, ...VENDITE_SETTER]))
+    expect(ordinati(strumentiPer('setter', 'employee').map((s) => s.nome))).toEqual(ordinati([...PROGETTI, ...CALL_SETTER, ...VENDITE_SETTER, ...ECONOMICS_SETTER]))
+  })
+
+  it('la fase 4 (23/10/2026): costi, provvigioni, obiettivi e team all’admin, al setter solo le sue provvigioni, al closer niente', () => {
+    const setter = strumentiPer('setter', 'employee').map((s) => s.nome)
+    for (const nome of [...LETTURE_ECONOMICS, ...SCRITTURE_ECONOMICS]) expect(setter, nome).not.toContain(nome)
+    const closer = strumentiPer('closer', 'employee').map((s) => s.nome)
+    for (const nome of [...LETTURE_ECONOMICS, ...SCRITTURE_ECONOMICS, ...ECONOMICS_SETTER]) expect(closer, nome).not.toContain(nome)
+    expect(strumentiPer('admin').map((s) => s.nome)).not.toContain('mie_provvigioni')
+    // adding is additive, changing replaces values
+    const per = Object.fromEntries(STRUMENTI.map((s) => [s.nome, s.annotazioni.destructiveHint]))
+    for (const nome of ['registra_costo', 'copia_costi_ricorrenti', 'registra_pagamento_provvigione']) expect(per[nome], nome).toBe(false)
+    for (const nome of ['modifica_costo', 'modifica_pagamento_provvigione', 'regola_provvigione', 'imposta_obiettivi']) {
+      expect(per[nome], nome).toBe(true)
+    }
   })
 
   it('il closer (23/10/2026): esito, follow-up, dettagli e matita sulle sue call, mai fissare call nuove', () => {
@@ -144,6 +185,7 @@ describe('gli strumenti per ruolo', () => {
           ...LETTURE_CALL,
           'prodotti',
           ...LETTURE_VENDITE_ADMIN,
+          ...LETTURE_ECONOMICS,
         ]),
       )
       for (const s of suoi) {
@@ -243,13 +285,19 @@ describe('come Claude vede gli strumenti', () => {
       const resto = istruzioni.replace(FUORI_PORTATA, '')
       expect(resto).not.toMatch(/\b(lead|call|clienti|soldi|messaggi diretti|vendite|incassi|provvigioni)\b/i)
     }
-    // who works on calls, leads and money (23/10/2026, phases 2 and 3): costs, margin and direct messages only
-    // in the sentence that says they are out of reach
-    for (const ruolo of ['admin', 'closer', 'business_coach'] as const) {
+    // the closer (23/10/2026, phases 2 and 3): costs, margin and direct messages only in the sentence that
+    // says they are out of reach
+    const closer = istruzioniMcp('closer', 'employee')
+    expect(closer).toContain(FUORI_PORTATA_CALL)
+    expect(closer.replace(FUORI_PORTATA_CALL, '')).not.toMatch(/\b(costi|margine|Panoramica|messaggi diretti|obiettivi)\b/i)
+    // the admin and the business coach (phase 4): the economics are theirs, the margin is never the profit;
+    // direct messages, the setter's report, backup and the audit log stay out
+    for (const ruolo of ['admin', 'business_coach'] as const) {
       const istruzioni = istruzioniMcp(ruolo, 'employee')
-      expect(istruzioni, ruolo).toContain(FUORI_PORTATA_CALL)
-      const resto = istruzioni.replace(FUORI_PORTATA_CALL, '')
-      expect(resto, ruolo).not.toMatch(/\b(costi|margine|Panoramica|messaggi diretti|obiettivi)\b/i)
+      expect(istruzioni, ruolo).toContain(FUORI_PORTATA_ADMIN)
+      expect(istruzioni, ruolo).toContain('non è l’utile')
+      expect(istruzioni, ruolo).toContain('mai classifiche o confronti tra collaboratori')
+      expect(istruzioni.replace(FUORI_PORTATA_ADMIN, ''), ruolo).not.toMatch(/\b(messaggi diretti|registro delle modifiche|backup)\b/i)
     }
     // the setter: his own clients through miei_clienti, nobody else's money
     const setter = istruzioniMcp('setter', 'employee')
@@ -257,6 +305,7 @@ describe('come Claude vede gli strumenti', () => {
     const resto = setter.replace(FUORI_PORTATA_SETTER, '')
     expect(resto).not.toMatch(/\b(costi|margine|messaggi diretti|contatti|elenco_vendite|registra_vendita)\b/i)
     expect(resto).toContain('miei_clienti')
+    expect(resto).toContain('mie_provvigioni')
   })
 
   it('le istruzioni delle call: le regole del foglio dell’esito al closer e all’admin, mai al setter', () => {

@@ -37,8 +37,10 @@ import {
 } from './schemi'
 import * as call from './call'
 import * as clienti from './clienti'
+import * as economics from './economics'
 import * as progetti from './progetti'
 import * as sc from './schemi-call'
+import * as se from './schemi-economics'
 import * as sp from './schemi-progetti'
 import * as sv from './schemi-vendite'
 import { spuntiPerClaude } from './spunti'
@@ -47,9 +49,10 @@ import * as vendite from './vendite'
 /**
  * The MCP tools: the content calendar (09/10/2026, admin, video editor and
  * marketing), since 22/10/2026 (Claude a 360 gradi, phase 1) projects, lists,
- * tasks, notes and time for every role, and since 23/10/2026 (phase 2) calls,
- * leads and outcomes for admin, setter and closer, each with the person's own
- * permissions in the app. Name, title, description, input, annotations,
+ * tasks, notes and time for every role, since 23/10/2026 calls, leads and
+ * outcomes (phase 2), clients, sales and instalments (phase 3), costs,
+ * commissions, goals, the Panoramica's economics and the team (phase 4), each
+ * with the person's own permissions in the app. Name, title, description, input, annotations,
  * roles, project levels and handler. Descriptions are
  * in Italian with the exact Notion labels (built from lib/marketing/etichette.ts)
  * and say what a tool does; how Claude behaves is in the server instructions.
@@ -251,6 +254,7 @@ export const STRUMENTI: readonly Strumento[] = [
   ...strumentiProgetti(),
   ...strumentiCall(),
   ...strumentiVendite(),
+  ...strumentiEconomics(),
 ]
 
 /**
@@ -873,6 +877,219 @@ function strumentiVendite(): Strumento[] {
       idempotente: false,
       ruoli: SOLO_ADMIN,
       esegui: vendite.aggiungiRata,
+    }),
+  ]
+}
+
+/**
+ * Costs, commissions, the month's goals, the Panoramica's economics and the
+ * team (Claude a 360 gradi, phase 4, 23/10/2026): the admin reads and writes
+ * what he does in the app, the business coach reads what the admin reads, the
+ * setter only his own commissions. Every number comes from the SQL functions
+ * of the pages; nothing here deletes, and the team is read only.
+ */
+function strumentiEconomics(): Strumento[] {
+  return [
+    strumento({
+      nome: 'numeri_periodo',
+      titolo: 'Numeri del periodo',
+      descrizione:
+        'I numeri dell’azienda come la Panoramica, per un mese (AAAA-MM) o da/a (di base il mese in corso): cash incassato con le sue quattro parti (nuovi clienti del periodo, rate di clienti già entrati, rinnovi, upsell), revenue firmata, vendite e nuovi clienti, provvigioni maturate, costi, margine operativo, gli indicatori sui nuovi clienti (cash e revenue per DM, cash per call svolta, valore medio), setting e call con i tassi, il funnel, il tasso di rinnovo e il confronto col periodo prima. Tutto calcolato dal gestionale, importi in euro.',
+      input: se.numeriPeriodoSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.numeriPeriodo,
+    }),
+    strumento({
+      nome: 'cash_mensile',
+      titolo: 'Cash mese per mese',
+      descrizione:
+        'Il cash incassato mese per mese (12 mesi se non dici altro, al massimo 24) fino al mese in corso o a fino (AAAA-MM), al netto dei rimborsi, nelle stesse quattro parti della Panoramica, col totale di ogni mese. Importi in euro dal gestionale.',
+      input: se.cashMensileSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.cashMensile,
+    }),
+    strumento({
+      nome: 'previsione_cassa',
+      titolo: 'Previsione di cassa',
+      descrizione:
+        'La previsione di cassa come in Incassi: per il mese in corso e i successivi (3 se non dici altro) le rate da incassare con scadenza da oggi in poi; per il mese in corso anche il già incassato e le rate in ritardo. Importi in euro dal gestionale.',
+      input: se.previsioneCassaSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.previsioneCassa,
+    }),
+    strumento({
+      nome: 'obiettivi',
+      titolo: 'Obiettivi del mese',
+      descrizione:
+        'Gli obiettivi di un mese (AAAA-MM, di base quello in corso) e l’avanzamento: cash incassato sull’obiettivo di cash, vendite nuove sull’obiettivo di nuovi clienti, con la quota raggiunta. Dal gestionale.',
+      input: se.obiettiviSchemaMcp,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.obiettivi,
+    }),
+    strumento({
+      nome: 'numeri_per_fonte',
+      titolo: 'Numeri per fonte',
+      descrizione:
+        '«Da dove arrivano i nuovi clienti» della Panoramica, per un mese o da/a: per ogni fonte il cash dei nuovi clienti del periodo con la sua quota, i nuovi clienti, i lead, le call svolte, le chiuse e il close rate. Dal gestionale.',
+      input: se.numeriPerFonteSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.numeriPerFonte,
+    }),
+    strumento({
+      nome: 'costi',
+      titolo: 'Costi',
+      descrizione:
+        'I costi come in Costi, per un mese o da/a (di base il mese in corso), dal più recente, con id, data, categoria, descrizione, importo e se è ricorrente, e il totale dei costi del periodo calcolato dal gestionale. Filtri: categoria, ricorrenti. Al massimo 100 (50 se non dici altro).',
+      input: se.costiSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.costi,
+    }),
+    strumento({
+      nome: 'provvigioni',
+      titolo: 'Provvigioni',
+      descrizione:
+        'Le provvigioni come in Provvigioni: per ogni persona con una regola o un pagamento, mese per mese (6 se non dici altro, al massimo 24) maturato, pagato e saldo, e il saldo da pagare; poi gli ultimi pagamenti con il loro id. Filtro: profile_id. Importi in euro dal gestionale.',
+      input: se.provvigioniSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.provvigioni,
+    }),
+    strumento({
+      nome: 'provvigioni_per_vendita',
+      titolo: 'Provvigioni per vendita',
+      descrizione:
+        'Provvigioni › Per cliente: per ogni vendita con un setter, cliente, tipo, setter, incassato, percentuale e provvigione maturata, e l’ultimo incasso. Filtri: profile_id del setter, sale_id. Dal gestionale.',
+      input: se.provvigioniPerVenditaSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.provvigioniPerVendita,
+    }),
+    strumento({
+      nome: 'regole_provvigioni',
+      titolo: 'Regole provvigionali',
+      descrizione:
+        'Le regole provvigionali come in Impostazioni › Regole provvigioni, con id, persona, percentuale, su quali vendite matura, da quando a quando e se è in vigore oggi. Filtro: profile_id.',
+      input: se.regoleProvvigioniSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.regoleProvvigioni,
+    }),
+    strumento({
+      nome: 'team',
+      titolo: 'Team',
+      descrizione:
+        'Il team come Impostazioni › Team, in sola lettura: le persone con id, nome, email, ruolo, livello nei progetti e se sono disattivate (con anche_non_attivi), e gli inviti in attesa con email, ruolo, chi ha invitato e quando.',
+      input: se.teamSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.team,
+    }),
+    strumento({
+      nome: 'mie_provvigioni',
+      titolo: 'Le mie provvigioni',
+      descrizione:
+        'Le provvigioni del setter che ha collegato Claude, come I miei numeri: mese per mese (6 se non dici altro, al massimo 12) quelle maturate sugli incassi dei suoi clienti e quelle pagate. Mai le provvigioni degli altri, la regola o la percentuale.',
+      input: se.mieProvvigioniSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: ['setter'],
+      esegui: economics.mieProvvigioni,
+    }),
+    strumento({
+      nome: 'registra_costo',
+      titolo: 'Registra un costo',
+      descrizione:
+        'Registra un costo come «Aggiungi» in Costi: giorno (di base oggi, mai nel futuro), categoria, descrizione, importo in euro e se si ripete ogni mese. Restituisce il costo con il suo id.',
+      input: se.registraCostoSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.registraCosto,
+    }),
+    strumento({
+      nome: 'modifica_costo',
+      titolo: 'Modifica un costo',
+      descrizione:
+        'Corregge un costo registrato, come la matita in Costi: giorno, categoria, descrizione, importo, ricorrente. Passa solo quello che cambia. Restituisce il costo.',
+      input: se.modificaCostoSchemaMcp,
+      lettura: false,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.modificaCosto,
+    }),
+    strumento({
+      nome: 'copia_costi_ricorrenti',
+      titolo: 'Copia i costi ricorrenti',
+      descrizione:
+        '«Copia i ricorrenti» di Costi: copia nel mese scelto (AAAA-MM) i costi ricorrenti del mese prima, nello stesso giorno del mese; quelli che ci sono già non si copiano due volte. Dice quanti ne ha copiati.',
+      input: se.copiaRicorrentiSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.copiaCostiRicorrenti,
+    }),
+    strumento({
+      nome: 'registra_pagamento_provvigione',
+      titolo: 'Registra un pagamento di provvigioni',
+      descrizione:
+        'Registra un pagamento di provvigioni come «Registra pagamento» in Provvigioni: a chi (profile_id), per quale mese (AAAA-MM), quanto, quando (di base oggi, mai nel futuro), il metodo e una nota facoltativi. Restituisce il pagamento con il suo id.',
+      input: se.registraPagamentoSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.registraPagamento,
+    }),
+    strumento({
+      nome: 'modifica_pagamento_provvigione',
+      titolo: 'Modifica un pagamento di provvigioni',
+      descrizione:
+        'Corregge un pagamento di provvigioni registrato: mese, importo, giorno, metodo, note (la persona non cambia). Passa solo quello che cambia; "" toglie metodo o note.',
+      input: se.modificaPagamentoSchemaMcp,
+      lettura: false,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.modificaPagamento,
+    }),
+    strumento({
+      nome: 'regola_provvigione',
+      titolo: 'Regola provvigionale',
+      descrizione:
+        'Le azioni di Impostazioni › Regole provvigioni: nuova (profile_id, percentuale in punti, valida_dal e su quali vendite, di base nuovo: chiude la regola in vigore il giorno prima), chiudi (rule_id e l’ultimo giorno, valida_al), modifica (rule_id e quello che cambia: percentuale, applica_a, valida_dal, valida_al; cambia anche le provvigioni già maturate con quella regola). Da qui le regole non si eliminano.',
+      input: se.regolaProvvigioneSchema,
+      lettura: false,
+      idempotente: false,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.regolaProvvigione,
+    }),
+    strumento({
+      nome: 'imposta_obiettivi',
+      titolo: 'Imposta gli obiettivi del mese',
+      descrizione:
+        'Imposta gli obiettivi di un mese (AAAA-MM) come nella Panoramica: cash incassato in euro e nuovi clienti; passa solo quello che cambia, "" toglie uno dei due. Da qui non si tolgono tutti e due. Restituisce l’avanzamento.',
+      input: se.impostaObiettiviSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: economics.impostaObiettivi,
     }),
   ]
 }
