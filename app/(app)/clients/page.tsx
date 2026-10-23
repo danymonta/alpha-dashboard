@@ -5,7 +5,6 @@ import { StatoClienteBadge, type StatoCliente } from '@/components/cliente/stato
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import {
   STATI_VISTA,
@@ -36,9 +35,7 @@ export default async function ClientiPage({
 }: {
   searchParams: Promise<{ vista?: string; stato?: string; q?: string }>
 }) {
-  // the admin, and the business coach in read only (22/10/2026)
-  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
-  const scrive = puoScrivere(profilo.ruolo)
+  await requireRuolo(['admin'])
   const lingua = await getLingua()
   const t = CLIENTI[lingua]
   const { formatData, formatEuro } = formato(lingua)
@@ -96,7 +93,7 @@ export default async function ClientiPage({
   const intestazione = (
     <IntestazionePagina
       titolo={t.titolo}
-      descrizione={scrive ? t.descrizioneAdmin : t.descrizioneLettura}
+      descrizione={t.descrizioneAdmin}
     />
   )
 
@@ -113,7 +110,7 @@ export default async function ClientiPage({
     if (errAnagrafiche) throw new Error(t.errore)
     const handle = Object.fromEntries((anagrafiche ?? []).map((c) => [c.id, c.instagram_handle]))
     // the Picker opens Google to choose a folder: only for who can save it
-    const picker = righe.length && scrive ? await configPickerRichiesta() : null
+    const picker = righe.length ? await configPickerRichiesta() : null
 
     return (
       <div className="space-y-5">
@@ -122,7 +119,7 @@ export default async function ClientiPage({
         {righe.length === 0 ? (
           <StatoVuoto Icona={vista === 'sospesi' ? CirclePause : Users} titolo={VUOTO[vista].titolo} descrizione={VUOTO[vista].descrizione} />
         ) : (
-          <ElencoClienti righe={righe} handle={handle} oggi={oggi} picker={picker} solaLettura={!scrive} etichetta={t.clientiVista(ETICHETTA_VISTA[vista])} />
+          <ElencoClienti righe={righe} handle={handle} oggi={oggi} picker={picker} etichetta={t.clientiVista(ETICHETTA_VISTA[vista])} />
         )}
       </div>
     )

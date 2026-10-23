@@ -2,6 +2,7 @@ import { DIMENSIONE_MAX, ERRORI_ALLEGATO, nomePulito } from '@/lib/alfire/allega
 import { alfireConfigurata, budgetVisione, visioneAttiva } from '@/lib/alfire/config'
 import { ErroreAllegato, leggiAllegato } from '@/lib/alfire/estrazione'
 import { leggiConVisione } from '@/lib/alfire/visione'
+import { soloRecap } from '@/lib/auth/roles'
 import { getProfilo } from '@/lib/auth/session'
 
 export const dynamic = 'force-dynamic'
@@ -28,6 +29,10 @@ export async function POST(req: Request) {
   const profilo = await getProfilo()
   if (!profilo || !profilo.attivo) {
     return Response.json({ errore: 'Sessione scaduta. Rientra e riprova.' }, { status: 401 })
+  }
+  // the business coach has no Alfire (1.58.0): his one page is the sales recap
+  if (soloRecap(profilo.ruolo)) {
+    return Response.json({ errore: 'Alfire non è attiva per il tuo account.' }, { status: 403 })
   }
   if (!alfireConfigurata()) {
     return Response.json({ errore: 'Alfire non è ancora configurata.' }, { status: 503 })

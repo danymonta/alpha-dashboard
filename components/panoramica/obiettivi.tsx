@@ -55,8 +55,7 @@ function Barra({ etichetta, valore, obiettivo, quota }: { etichetta: string; val
 }
 
 /** "Obiettivi del mese" in the admin overview: progress, and the sheet to set them. */
-/** `solaLettura`: the business coach reads the goals and never sets them (22/10/2026). */
-export function ObiettiviMese({ a, solaLettura = false }: { a: Avanzamento; solaLettura?: boolean }) {
+export function ObiettiviMese({ a }: { a: Avanzamento }) {
   const lingua = useLingua()
   const t = PANORAMICA[lingua]
   const { formatEuro, formatNumero } = formato(lingua)
@@ -68,11 +67,11 @@ export function ObiettiviMese({ a, solaLettura = false }: { a: Avanzamento; sola
           <Target className="size-4 text-muted-foreground" aria-hidden="true" />
           {t.obiettiviDi(a.etichettaMese)}
         </h2>
-        {solaLettura ? null : <ImpostaObiettivi a={a} />}
+        <ImpostaObiettivi a={a} />
       </div>
       {nessuno ? (
         <p className="text-sm text-muted-foreground">
-          {solaLettura ? t.nessunObiettivo : t.nessunObiettivoImposta}
+          {t.nessunObiettivoImposta}
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

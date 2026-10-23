@@ -33,8 +33,6 @@ type Props = {
   esito: string | null
   motivoSalvato: string | null
   link: string | null
-  /** The business coach (22/10/2026): reads the analysis, never asks for one nor uses its reason. */
-  solaLettura?: boolean
 }
 
 function Elenco({ titolo, voci }: { titolo: string; voci: string[] }) {
@@ -51,8 +49,7 @@ function Elenco({ titolo, voci }: { titolo: string; voci: string[] }) {
   )
 }
 
-export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps, esito, motivoSalvato, link, solaLettura = false }: Props) {
-  const analizzabile = analizzabileDaProps && !solaLettura
+export function AnalisiCall({ callId, analisi, analizzabile, esito, motivoSalvato, link }: Props) {
   const lingua = useLingua()
   // the frame follows the page's language; what Claude wrote stays in Italian (1.53.0)
   const t = CALL[lingua].analisi
@@ -141,8 +138,7 @@ export function AnalisiCall({ callId, analisi, analizzabile: analizzabileDaProps
     ? CALL[lingua].alle(formato(lingua).formatData(analisi.analizzata_il), formatOra(analisi.analizzata_il))
     : ''
   const esitoDiverso = analisi.esito_letto && analisi.esito_letto !== 'non_chiaro' && esito && analisi.esito_letto !== esito
-  const propone =
-    !solaLettura && (esito === 'follow_up' || esito === 'persa') && analisi.motivo_proposto && analisi.motivo_proposto !== motivo
+  const propone = (esito === 'follow_up' || esito === 'persa') && analisi.motivo_proposto && analisi.motivo_proposto !== motivo
   const Target = analisi.in_target === 'si' ? CircleCheck : analisi.in_target === 'no' ? CircleX : CircleHelp
   const targetEtichetta = analisi.in_target === 'si' ? t.inTarget : analisi.in_target === 'no' ? t.nonInTarget : t.daVerificare
 

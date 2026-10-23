@@ -7,7 +7,6 @@ import { FiltroSelect } from '@/components/pm/filtri'
 import { CardPersona } from '@/components/pm/tempo-team/card-persona'
 import { raggruppaTempoTeam } from '@/components/pm/tempo-team/dati'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -37,8 +36,7 @@ export default async function TempoTeamPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  // the business coach reads it like the admin (22/10/2026)
-  await requireRuolo(RUOLI_COME_ADMIN)
+  await requireRuolo(['admin'])
   const oggi = oggiRoma()
   const parametri = await searchParams
   const lingua = await getLingua()

@@ -11,7 +11,6 @@ import { CLASSE_BOTTONE_CELLA, CLASSE_CAMPO, CLASSE_CHIP, PiuVuoto } from '@/com
 import { useOpzioniToast } from '@/components/marketing/contesto-pannello'
 import { useOpzioni } from '@/components/marketing/opzioni-contesto'
 import { CampioneColore, Pillola } from '@/components/marketing/pillola'
-import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { CAMPI } from '@/lib/marketing/etichette'
@@ -52,20 +51,7 @@ const CLASSE_RIGA_ICONA =
  * taps. A combobox: the arrows move, Enter chooses or creates, Esc closes.
  * Mounted at the first tap, like the other editors: 300 rows cost nothing to hydrate.
  */
-/** The label with its menu; for a read-only account (useSolaLettura) the pill alone, or a dash. */
-export function SelectOpzioni<C extends CampoOpzione>(props: Parameters<typeof SelectOpzioniModificabile<C>>[0]) {
-  const solaLettura = useSolaLettura()
-  const { opzioni } = useOpzioni()
-  if (!solaLettura) return <SelectOpzioniModificabile {...props} />
-  const scelta = opzioneDaValore(opzioni[props.campo], props.valore)
-  return scelta ? (
-    <Pillola nome={scelta.nome} colore={scelta.colore} />
-  ) : (
-    <span className="text-muted-foreground">–</span>
-  )
-}
-
-function SelectOpzioniModificabile<C extends CampoOpzione>({
+export function SelectOpzioni<C extends CampoOpzione>({
   id,
   nome,
   campo,

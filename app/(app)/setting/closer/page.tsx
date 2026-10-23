@@ -10,7 +10,6 @@ import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { FiltroSelect } from '@/components/pm/filtri'
 import { LinkRiga } from '@/components/shell/link-riga'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { solaLettura } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formato, type Formato } from '@/lib/format'
@@ -214,12 +213,8 @@ export default async function CloserPage({
 }) {
   // the setter too, read only (Dany, 07/10/2026: "il setter può accedere alla tab
   // closer", every setter's calls and the money too, as aggregate numbers by day)
-  // the business coach reads it like the setter's page (no day to fill, no calls to record) and
-  // like the admin's (the recorded calls with cash and revenue): 22/10/2026
-  const profilo = await requireRuolo(['admin', 'closer', 'setter', 'business_coach'])
-  const leggeSolo = solaLettura(profilo.ruolo)
-  const ruolo =
-    profilo.ruolo === 'admin' ? 'admin' : profilo.ruolo === 'setter' || leggeSolo ? 'setter' : 'closer'
+  const profilo = await requireRuolo(['admin', 'closer', 'setter'])
+  const ruolo = profilo.ruolo === 'admin' ? 'admin' : profilo.ruolo === 'setter' ? 'setter' : 'closer'
   const admin = ruolo === 'admin'
   const setter = ruolo === 'setter'
   const oggi = oggiRoma()
@@ -325,7 +320,7 @@ export default async function CloserPage({
           titolo={t.vuoto}
           descrizione={setter ? t.vuotoSetter(periodo.frase) : t.vuotoAltri(periodo.frase)}
           azione={
-            leggeSolo ? undefined : setter ? (
+            setter ? (
               <LinkBottone href="/my-numbers" variant="outline">
                 {t.vaiMieiNumeri}
               </LinkBottone>
@@ -450,12 +445,12 @@ export default async function CloserPage({
           </section>
 
           {/* 1.37.0: the recorded calls, for the admin and the closer; the setter reads the page without it */}
-          {setter && !leggeSolo ? null : (
+          {setter ? null : (
             <DalleRegistrazioni
               periodo={periodo}
               closer={closer}
               per={leggiPer(parametri.per)}
-              admin={admin || leggeSolo}
+              admin={admin}
               proprie={ruolo === 'closer' || (admin && (closer === profilo.id))}
               parametri={{ ...periodo.parametri, closer }}
             />

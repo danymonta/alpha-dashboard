@@ -18,7 +18,7 @@ values
   ('instagram', 't85-c3', 'lead.t85c', '850000000003', 'storia', null, now() - interval '3 days', (now() - interval '3 days')::date, now());
 
 select has_table('public', 'lead_contenuto', 'l''origine del lead ha la sua tabella');
-select policies_are('public', 'lead_contenuto', array['lead_contenuto_admin', 'lead_contenuto_lettura_come_admin', 'lead_contenuto_mai_da_oauth'], 'la legge solo l''admin');
+select policies_are('public', 'lead_contenuto', array['lead_contenuto_admin', 'lead_contenuto_mai_da_oauth'], 'la legge solo l''admin');
 select ok((select bool_and(not has_table_privilege('authenticated', 'public.lead_contenuto', p)) from unnest(array['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) p), 'nessuna sessione scrive');
 
 insert into public.leads (id, nome, instagram_handle, setter_id, fonte, stato) values

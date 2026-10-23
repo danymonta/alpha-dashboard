@@ -248,13 +248,13 @@ select is(
   pg_temp.filtri(array['GET expenses', 'GET invites', 'POST rpc/metriche_periodo', 'POST rpc/provvigioni_riepilogo',
     'POST rpc/previsione_cassa', 'POST expenses', 'PATCH commission_rules', 'POST obiettivi_mese',
     'POST rpc/nuova_regola_provvigione', 'POST rpc/copia_costi_ricorrenti']),
-  array['passa', 'passa', 'passa', 'passa', 'passa', '42501', '42501', '42501', '42501', '42501'],
-  'business coach: legge come l''admin, mai una scrittura'
+  array['42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501'],
+  'business coach: non collega Claude (1.58.0), ogni richiesta si ferma al filtro'
 );
 select set_config('request.path', 'expenses', true), set_config('request.method', 'POST', true),
   set_config('request.headers', '{}', true);
 select throws_ok($$ select public.mcp_filtro_richiesta() $$, '42501',
-  'Il business coach legge e basta: da Claude non si scrive niente.', 'business coach: il rifiuto lo dice');
+  'Il business coach non collega Claude: legge il recap vendite nell''app.', 'business coach: il rifiuto lo dice');
 
 select pg_temp.come('22222222-2222-4222-8222-222222222222', '9e104000-0000-4000-8000-000000000002');
 select is(
@@ -307,11 +307,10 @@ select is(
   'Claude dell''admin: le stesse risposte della Panoramica, di Incassi e di Provvigioni (anche i DM del periodo)'
 );
 select is(
-  (select coalesce(string_agg(a.funzione, ', ' order by a.funzione), '')
-   from risposte a join risposte b on b.funzione = a.funzione and b.persona = 'claude_bc'
-   where a.persona = 'web_admin' and a.testo is distinct from b.testo),
+  (select coalesce(string_agg(funzione || ' ' || testo, ', ' order by funzione), '')
+   from risposte where persona = 'claude_bc' and testo <> 'errore 42501'),
   '',
-  'Claude del business coach: le stesse risposte dell''admin'
+  'Claude del business coach: ogni funzione risponde 42501 (1.58.0)'
 );
 select pg_temp.come('11111111-1111-4111-8111-111111111111', '9e104000-0000-4000-8000-000000000001');
 select from pg_temp.filtro('rpc/metriche_periodo', 'POST');
@@ -332,8 +331,8 @@ select ok(pg_temp.conta('setter_daily_reports') = (select report from x),
 
 select pg_temp.come('bc000000-0000-4000-8000-000000000001', '9e104000-0000-4000-8000-000000000006');
 select from pg_temp.filtro('commission_rules', 'GET');
-select is(row(pg_temp.conta('commission_rules'), pg_temp.conta('invites'))::text, (select row(regole, inviti)::text from x),
-  'business coach: regole e inviti, come l''admin');
+select is(row(pg_temp.conta('commission_rules'), pg_temp.conta('invites'))::text, '(0,0)',
+  'business coach: nessuna regola, nessun invito');
 select is(pg_temp.conta('setter_daily_reports'), 0::bigint, 'business coach: mai i report diretti');
 
 -- The setter: his commissions from miei_numeri_periodo, the same as his page; nothing else

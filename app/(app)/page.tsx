@@ -12,7 +12,6 @@ import { GraficoCash } from '@/components/panoramica/grafico-cash'
 import { ObiettiviMese } from '@/components/panoramica/obiettivi'
 import { TileKpi } from '@/components/panoramica/tile-kpi'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
-import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -184,10 +183,9 @@ export default async function PanoramicaPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  // The admin, and the business coach in read only (22/10/2026): every other role goes to its own
-  // landing page (setter /today, closer /calls, the roles without Economics /progetti)
-  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
-  const scrive = puoScrivere(profilo.ruolo)
+  // Admin only: every other role goes to its own landing page (setter /today, closer /calls, the
+  // business coach /recap, the roles without Economics /progetti)
+  await requireRuolo(['admin'])
   const lingua = await getLingua()
   const { formatData, formatEuro, formatMese, formatNumero, formatPercentuale, formatRapporto } = formato(lingua)
   const {
@@ -344,7 +342,6 @@ export default async function PanoramicaPage({
 
       {obiettivi.data ? (
         <ObiettiviMese
-          solaLettura={!scrive}
           a={{
             mese: obiettivi.data.mese,
             etichettaMese: formatMese(obiettivi.data.mese),
@@ -654,11 +651,9 @@ export default async function PanoramicaPage({
                       {t.scadeIl(formatData(c.data_fine_ultima))}
                     </span>
                   </Link>
-                  {scrive ? (
-                    <LinkBottone href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} variant="outline" className="shrink-0">
-                      {t.registraRinnovo}
-                    </LinkBottone>
-                  ) : null}
+                  <LinkBottone href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} variant="outline" className="shrink-0">
+                    {t.registraRinnovo}
+                  </LinkBottone>
                 </li>
               ))}
             </ul>

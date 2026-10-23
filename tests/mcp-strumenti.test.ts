@@ -21,6 +21,7 @@ import {
   REGOLA_TEMPO,
   istruzioniMcp,
 } from '@/lib/mcp/istruzioni'
+import { isRuoloMcp } from '@/lib/mcp/contesto'
 import { LIMITI_MCP } from '@/lib/mcp/limiti'
 import { schemaMcp } from '@/lib/mcp/schema'
 import { STRUMENTI, strumentiPer } from '@/lib/mcp/strumenti'
@@ -171,31 +172,9 @@ describe('gli strumenti per ruolo', () => {
     expect(ordinati(strumentiPer('coach', 'manager').map((s) => s.nome))).toEqual(ordinati([...PROGETTI, ...GESTIONE]))
   })
 
-  it('il business coach (22/10/2026): le letture dell’admin, mai una scrittura né i «miei», a ogni livello', () => {
-    for (const livello of ['admin', 'manager', 'employee', null] as const) {
-      const suoi = strumentiPer('business_coach', livello)
-      expect(ordinati(suoi.map((s) => s.nome)), String(livello)).toEqual(
-        ordinati([
-          ...LETTURE_CALENDARIO,
-          'elenco_progetti',
-          'leggi_progetto',
-          'persone_del_team',
-          'reparti_e_modelli',
-          'tempo_team',
-          ...LETTURE_CALL,
-          'prodotti',
-          ...LETTURE_VENDITE_ADMIN,
-          ...LETTURE_ECONOMICS,
-        ]),
-      )
-      for (const s of suoi) {
-        expect(s.scrive, s.nome).toBe(false)
-        expect(s.annotazioni.readOnlyHint, s.nome).toBe(true)
-      }
-    }
-    const istruzioni = istruzioniMcp('business_coach', 'employee')
-    expect(istruzioni).toContain('non scrive niente')
-    expect(istruzioni).not.toMatch(/crea_contenuti|registra_tempo|crea_task|miei_task|mio_tempo/)
+  it('il business coach (1.58.0) non è un ruolo MCP: nessun server, un errore', () => {
+    expect(isRuoloMcp('business_coach')).toBe(false)
+    expect(() => strumentiPer('business_coach')).toThrow()
   })
 
   it('un ruolo sconosciuto non arriva mai fin qui: nessun server vuoto, un errore', () => {
@@ -290,9 +269,9 @@ describe('come Claude vede gli strumenti', () => {
     const closer = istruzioniMcp('closer', 'employee')
     expect(closer).toContain(FUORI_PORTATA_CALL)
     expect(closer.replace(FUORI_PORTATA_CALL, '')).not.toMatch(/\b(costi|margine|Panoramica|messaggi diretti|obiettivi)\b/i)
-    // the admin and the business coach (phase 4): the economics are theirs, the margin is never the profit;
+    // the admin (phase 4): the economics are his, the margin is never the profit;
     // direct messages, the setter's report, backup and the audit log stay out
-    for (const ruolo of ['admin', 'business_coach'] as const) {
+    for (const ruolo of ['admin'] as const) {
       const istruzioni = istruzioniMcp(ruolo, 'employee')
       expect(istruzioni, ruolo).toContain(FUORI_PORTATA_ADMIN)
       expect(istruzioni, ruolo).toContain('non è l’utile')

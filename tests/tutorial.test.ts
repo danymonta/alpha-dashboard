@@ -9,8 +9,12 @@ const COMUNI = ['alfire', 'profilo', 'nav-altro']
 const DI_PAGINA = new Set<string>(TARGET_DI_PAGINA)
 
 describe('percorsi del tutorial', () => {
+  it('il business coach non ha un tour (1.58.0): ha solo il recap vendite', () => {
+    expect(PERCORSI.business_coach).toEqual([])
+  })
+
   it('ogni ruolo ha il suo tour, dal benvenuto al profilo', () => {
-    for (const ruolo of TUTTI_I_RUOLI) {
+    for (const ruolo of TUTTI_I_RUOLI.filter((r) => r !== 'business_coach')) {
       const passi = PERCORSI[ruolo]
       expect(passi.length, ruolo).toBeGreaterThanOrEqual(4)
       expect(passi.length, ruolo).toBeLessThanOrEqual(12)

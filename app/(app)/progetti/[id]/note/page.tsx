@@ -1,7 +1,7 @@
 import { NotebookPen } from 'lucide-react'
 
 import { EliminaNota, ModificaNota, NoteLive, NuovaNota } from '@/components/pm/note/note-client'
-import { livelloPmEffettivo, solaLettura } from '@/lib/auth/roles'
+import { livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { formatOra, oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
@@ -30,7 +30,6 @@ export default async function NoteProgettoPage({ params }: { params: Promise<{ i
   const oggi = oggiRoma()
   const lingua = await getLingua()
   const t = PROGETTI[lingua].note
-  const leggeSolo = solaLettura(profilo.ruolo)
   const supabase = await createClient()
   const { data: note, error } = await supabase
     .from('pm_note')
@@ -47,13 +46,13 @@ export default async function NoteProgettoPage({ params }: { params: Promise<{ i
     <div className="space-y-6">
       <NoteLive progettoId={id} />
       {/* the business coach reads the notes and writes none (22/10/2026) */}
-      {leggeSolo ? null : <NuovaNota progettoId={id} oggi={oggi} />}
+      <NuovaNota progettoId={id} oggi={oggi} />
 
       {note.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">
           <NotebookPen className="size-6 text-muted-foreground" aria-hidden="true" />
           <p className="text-sm font-medium">{t.vuoto}</p>
-          <p className="max-w-sm text-sm text-muted-foreground">{leggeSolo ? t.vuotoLettura : t.vuotoDescrizione}</p>
+          <p className="max-w-sm text-sm text-muted-foreground">{t.vuotoDescrizione}</p>
         </div>
       ) : (
         <div className="space-y-6">

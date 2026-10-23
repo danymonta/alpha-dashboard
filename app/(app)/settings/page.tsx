@@ -15,7 +15,6 @@ import Link from "next/link";
 
 import { VoceNovita } from "@/components/changelog/voce-novita";
 import { IntestazionePagina } from "@/components/pagina/intestazione";
-import { RUOLI_COME_ADMIN, solaLettura } from "@/lib/auth/roles";
 import { requireRuolo } from "@/lib/auth/session";
 import { getLingua } from "@/lib/i18n/server";
 import { IMPOSTAZIONI } from "@/lib/i18n/testi/impostazioni";
@@ -26,13 +25,11 @@ type Testi = (typeof IMPOSTAZIONI)["it"];
 
 /**
  * The words of a section are the dictionary's (IMPOSTAZIONI.sezioni), by its key.
- * `lettura`: the business coach opens it too, in read only (22/10/2026).
  */
 type Sezione = {
   href: string;
   chiave: keyof Testi["sezioni"];
   Icona: LucideIcon;
-  lettura?: boolean;
 };
 
 /**
@@ -48,7 +45,6 @@ const GRUPPI: { gruppo: keyof Testi["gruppi"]; sezioni: Sezione[] }[] = [
         href: "/settings/team",
         chiave: "team",
         Icona: Users,
-        lettura: true,
       },
     ],
   },
@@ -59,13 +55,11 @@ const GRUPPI: { gruppo: keyof Testi["gruppi"]; sezioni: Sezione[] }[] = [
         href: "/settings/products",
         chiave: "products",
         Icona: Package,
-        lettura: true,
       },
       {
         href: "/settings/commissions",
         chiave: "commissions",
         Icona: Percent,
-        lettura: true,
       },
     ],
   },
@@ -101,7 +95,6 @@ const GRUPPI: { gruppo: keyof Testi["gruppi"]; sezioni: Sezione[] }[] = [
         href: "/settings/audit",
         chiave: "audit",
         Icona: History,
-        lettura: true,
       },
     ],
   },
@@ -118,23 +111,13 @@ const GRUPPI: { gruppo: keyof Testi["gruppi"]; sezioni: Sezione[] }[] = [
 ];
 
 export default async function ImpostazioniPage() {
-  const profilo = await requireRuolo(RUOLI_COME_ADMIN);
-  // the business coach: team, products, commission rules and the audit log, in read only;
-  // never keys, connections, export, backup or project templates (22/10/2026)
-  const leggeSolo = solaLettura(profilo.ruolo);
+  await requireRuolo(["admin"]);
   const t = IMPOSTAZIONI[await getLingua()];
-  const gruppi = GRUPPI.map((g) => ({
-    ...g,
-    sezioni: g.sezioni.filter((s) => !leggeSolo || s.lettura),
-  })).filter((g) => g.sezioni.length > 0);
 
   return (
     <div className="max-w-3xl space-y-6">
-      <IntestazionePagina
-        titolo={t.titolo}
-        descrizione={leggeSolo ? t.soloLettura : undefined}
-      />
-      {gruppi.map(({ gruppo, sezioni }) => {
+      <IntestazionePagina titolo={t.titolo} />
+      {GRUPPI.map(({ gruppo, sezioni }) => {
         // the id stays the Italian one: links and tests do not change with the language
         const id = `gruppo-${IMPOSTAZIONI.it.gruppi[gruppo].toLowerCase().replaceAll(" ", "-")}`;
         const titolo = t.gruppi[gruppo];

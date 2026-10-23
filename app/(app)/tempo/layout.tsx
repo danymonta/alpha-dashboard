@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 
 import { SchedeTempo } from '@/components/pm/tempo-team/schede-tempo'
-import { solaLettura } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 
 /**
@@ -10,8 +9,7 @@ import { requireProfilo } from '@/lib/auth/session'
  */
 export default async function LayoutTempo({ children }: { children: ReactNode }) {
   const profilo = await requireProfilo()
-  // the business coach has no time of his own: only «Team» (22/10/2026), no tabs
-  if (profilo.ruolo !== 'admin' || solaLettura(profilo.ruolo)) return children
+  if (profilo.ruolo !== 'admin') return children
 
   return (
     <div className="space-y-5">

@@ -8,7 +8,6 @@ import { BottoneWhatsApp } from '@/components/pagamento/whatsapp'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
 import { buttonVariants } from '@/components/ui/button'
-import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, fineMese, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -43,9 +42,7 @@ function giorniTra(da: string, a: string) {
  * this page; the focus goes to the next row, SezioneArchiviabile) and "Riapri".
  */
 export default async function RinnoviPage({ searchParams }: { searchParams: Promise<{ entro?: string }> }) {
-  // the admin, and the business coach in read only (22/10/2026): no message, no renewal, no archive
-  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
-  const scrive = puoScrivere(profilo.ruolo)
+  await requireRuolo(['admin'])
   const { entro } = await searchParams
   const giorni = FINESTRE.includes(Number(entro) as (typeof FINESTRE)[number]) ? Number(entro) : 30
   const oggi = oggiRoma()
@@ -125,23 +122,21 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
         <span className="num text-sm text-muted-foreground" title={t.valoreFirmato}>
           {formatEuro(c.valore_firmato, { compatto: true })}
         </span>
-        {scrive ? (
-          <div className="flex items-center gap-2">
-            <BottoneWhatsApp
-              compatto
-              etichetta={`Scrivi a ${nome} su WhatsApp per il rinnovo`}
-              href={linkWhatsApp(
-                c.client_id ? telefono.get(c.client_id) : null,
-                messaggioRinnovo({ nome, data_fine: c.data_fine_ultima!, oggi }),
-              )}
-            />
-            {/* one per row: prefetched only on intent (LinkRiga), styled as LinkBottone */}
-            <LinkRiga href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} className={cn(buttonVariants({ variant: 'outline' }), 'h-11')}>
-              <IndicatoreLink riposo={<RefreshCw className="size-4" />} />
-              Registra rinnovo
-            </LinkRiga>
-          </div>
-        ) : null}
+        <div className="flex items-center gap-2">
+          <BottoneWhatsApp
+            compatto
+            etichetta={`Scrivi a ${nome} su WhatsApp per il rinnovo`}
+            href={linkWhatsApp(
+              c.client_id ? telefono.get(c.client_id) : null,
+              messaggioRinnovo({ nome, data_fine: c.data_fine_ultima!, oggi }),
+            )}
+          />
+          {/* one per row: prefetched only on intent (LinkRiga), styled as LinkBottone */}
+          <LinkRiga href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} className={cn(buttonVariants({ variant: 'outline' }), 'h-11')}>
+            <IndicatoreLink riposo={<RefreshCw className="size-4" />} />
+            Registra rinnovo
+          </LinkRiga>
+        </div>
       </li>
     )
   }
@@ -168,27 +163,25 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
             </p>
           ) : null}
         </div>
-        {scrive ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {c.data_fine_ultima ? (
-              <BottoneWhatsApp
-                compatto
-                etichetta={`Scrivi a ${nome} su WhatsApp`}
-                href={linkWhatsApp(
-                  c.client_id ? telefono.get(c.client_id) : null,
-                  messaggioRinnovo({ nome, data_fine: c.data_fine_ultima, oggi }),
-                )}
-              />
-            ) : null}
-            {c.client_id ? <BottoneArchivio clientId={c.client_id} cliente={nome} archiviato={false} breve /> : null}
-            {c.client_id ? <RiapriCliente clientId={c.client_id} cliente={nome} /> : null}
-            {/* one per row: prefetched only on intent (LinkRiga), styled as LinkBottone */}
-            <LinkRiga href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} className={cn(buttonVariants({ variant: 'outline' }), 'h-11')}>
-              <IndicatoreLink riposo={<RefreshCw className="size-4" />} />
-              Registra rinnovo
-            </LinkRiga>
-          </div>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {c.data_fine_ultima ? (
+            <BottoneWhatsApp
+              compatto
+              etichetta={`Scrivi a ${nome} su WhatsApp`}
+              href={linkWhatsApp(
+                c.client_id ? telefono.get(c.client_id) : null,
+                messaggioRinnovo({ nome, data_fine: c.data_fine_ultima, oggi }),
+              )}
+            />
+          ) : null}
+          {c.client_id ? <BottoneArchivio clientId={c.client_id} cliente={nome} archiviato={false} breve /> : null}
+          {c.client_id ? <RiapriCliente clientId={c.client_id} cliente={nome} /> : null}
+          {/* one per row: prefetched only on intent (LinkRiga), styled as LinkBottone */}
+          <LinkRiga href={`/sales/new?cliente=${c.client_id}&tipo=rinnovo`} className={cn(buttonVariants({ variant: 'outline' }), 'h-11')}>
+            <IndicatoreLink riposo={<RefreshCw className="size-4" />} />
+            Registra rinnovo
+          </LinkRiga>
+        </div>
       </li>
     )
   }
@@ -197,7 +190,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
         titolo={t.titolo}
-        descrizione={scrive ? t.descrizioneAdmin : t.descrizioneLettura}
+        descrizione={t.descrizioneAdmin}
       />
 
       <dl className="grid grid-cols-2 gap-3 rounded-xl bg-card p-4 sm:grid-cols-3" data-testid="tasso-rinnovo">

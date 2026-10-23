@@ -16,39 +16,38 @@ export const RUOLI_MARKETING: readonly AppRole[] = ['admin', 'editor', 'marketin
 
 /**
  * Who connects Claude to Alpha Management: every role with an active account
- * (Dany, 22/10/2026, Claude a 360 gradi; until then the Marketing area's three).
+ * (Dany, 22/10/2026, Claude a 360 gradi; until then the Marketing area's three),
+ * except the business coach, who sees only the sales recap (23/10/2026, 1.58.0).
  * Each one reaches what the app gives that person; the calendar stays the
  * Marketing area's (RUOLI_MARKETING). The SQL puo_usare_mcp(), mcp_ruolo() and
  * mcp_chi_sono() accept the same roles.
  */
-export const RUOLI_MCP: readonly AppRole[] = TUTTI_I_RUOLI
+export const RUOLI_MCP: readonly AppRole[] = TUTTI_I_RUOLI.filter((ruolo) => ruolo !== 'business_coach')
 
 /**
- * The business coach (Dany, 22/10/2026: «Voglio che il business coach abbia
- * accessi in lettura e veda tutto»): an external consultant who reads what the
- * admin reads and never writes. Same list as legge_come_admin() in SQL.
+ * Who opens the sales recap (/recap, 1.58.0): the business coach, whose only
+ * page it is, and the admin, to see what he sees. Same roles as recap_sales() in SQL.
  */
-export const RUOLI_COME_ADMIN: readonly AppRole[] = ['admin', 'business_coach']
+export const RUOLI_RECAP: readonly AppRole[] = ['admin', 'business_coach']
 
-/** The roles that read and never write: no button, form or action that writes is theirs. */
+/**
+ * The business coach (Dany, 23/10/2026: «lui vede una pagina, una dashboard con
+ * le informazioni principali del business»): one page, the sales recap, and
+ * nothing else of the app. The (app) layout sends him there from every other page.
+ */
+export function soloRecap(ruolo: AppRole): boolean {
+  return ruolo === 'business_coach'
+}
+
+/**
+ * The roles that never write. The business coach reads only his recap: the
+ * server actions refuse him anyway (negaPer, negaSeNonPm), and RLS before them.
+ */
 export const RUOLI_SOLA_LETTURA: readonly AppRole[] = ['business_coach']
 
-/** Who reads the Marketing area: its three roles, and the business coach in read only. */
-export const RUOLI_MARKETING_LETTURA: readonly AppRole[] = [...RUOLI_MARKETING, 'business_coach']
-
-/** The person reads like the admin (the admin, the business coach). */
-export function leggeComeAdmin(ruolo: AppRole): boolean {
-  return RUOLI_COME_ADMIN.includes(ruolo)
-}
-
-/** The person reads and never writes: the pages hide what writes, the actions refuse it. */
+/** The person never writes: every action refuses it (SOLA_LETTURA). */
 export function solaLettura(ruolo: AppRole): boolean {
   return RUOLI_SOLA_LETTURA.includes(ruolo)
-}
-
-/** The opposite of solaLettura: the one helper the pages use to show a button that writes. */
-export function puoScrivere(ruolo: AppRole): boolean {
-  return !solaLettura(ruolo)
 }
 
 /** What an action answers a read-only account. */
@@ -69,9 +68,9 @@ export function haMarketing(ruolo: AppRole): boolean {
 
 /**
  * The app admin is always PM admin, whatever livello_pm says (same rule as SQL).
- * The business coach has no level in SQL (pm_livello_corrente() is null): he
- * reads every project and writes none, so here he is the lowest level, and the
- * guards (negaSeNonPm) refuse him by role.
+ * The business coach has no level in SQL (pm_livello_corrente() is null): no
+ * project is his, so here he is the lowest level, and the guards (negaSeNonPm)
+ * refuse him by role.
  */
 export function livelloPmEffettivo(ruolo: AppRole, livello: LivelloPm): LivelloPm {
   if (ruolo === 'admin') return 'admin'
@@ -89,9 +88,10 @@ export const ETICHETTA_LIVELLO_PM: Record<LivelloPm, string> = {
 export function percorsoIniziale(ruolo: AppRole): string {
   switch (ruolo) {
     case 'admin':
-    case 'business_coach':
-      // he reads the admin's numbers first
       return '/'
+    case 'business_coach':
+      // his one page (1.58.0)
+      return '/recap'
     case 'setter':
       return '/today'
     case 'closer':

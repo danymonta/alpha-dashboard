@@ -30,7 +30,7 @@ $$;
 -- ---------------------------------------------------------------------------
 select has_table('public', 'marketing_opzioni', 'la tabella delle etichette c''è');
 select policies_are('public', 'marketing_opzioni',
-  array['marketing_opzioni_lettura', 'marketing_opzioni_lettura_come_admin', 'marketing_opzioni_inserimento', 'marketing_opzioni_modifica',
+  array['marketing_opzioni_lettura', 'marketing_opzioni_inserimento', 'marketing_opzioni_modifica',
         'marketing_opzioni_eliminazione', 'marketing_opzioni_mai_da_oauth', 'marketing_opzioni_mai_da_oauth_modifica',
         'marketing_opzioni_mai_da_oauth_eliminazione'],
   'quattro policy per le persone e tre restrittive per Claude');

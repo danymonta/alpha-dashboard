@@ -7,7 +7,6 @@ import { toast } from 'sonner'
 import { salvaSezioneContenuto } from '@/app/(app)/marketing/contenuti/actions'
 import { useOpzioniToast, usePannello } from '@/components/marketing/contesto-pannello'
 import { MarkdownContenuto } from '@/components/marketing/markdown-contenuto'
-import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import type { SezioneContenuto as Campo } from '@/lib/marketing/etichette'
@@ -49,8 +48,6 @@ export function SezioneContenuto({
 }) {
   const pannello = usePannello()
   const opzioniToast = useOpzioniToast()
-  // the business coach reads the sections and writes none (22/10/2026)
-  const solaLettura = useSolaLettura()
   const idTitolo = useId()
   const idAiuto = useId()
   const area = useRef<HTMLTextAreaElement>(null)
@@ -257,7 +254,7 @@ export function SezioneContenuto({
           ) : salvato.testo ? (
             <MarkdownContenuto testo={salvato.testo} />
           ) : (
-            <p className="text-sm text-muted-foreground">{solaLettura ? 'Vuota.' : 'Vuota: tocca Modifica per scriverla.'}</p>
+            <p className="text-sm text-muted-foreground">Vuota: tocca Modifica per scriverla.</p>
           )}
 
           {ilMio !== null && !inModifica ? (
@@ -293,7 +290,7 @@ export function SezioneContenuto({
           ) : null}
         </div>
       </details>
-      {inModifica || solaLettura ? null : (
+      {inModifica ? null : (
         <Button
           ref={bottoneModifica}
           type="button"

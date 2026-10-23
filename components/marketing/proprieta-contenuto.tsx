@@ -6,8 +6,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode 
 import { useCampoContenuto } from '@/components/marketing/campo-contenuto'
 import { usePannello } from '@/components/marketing/contesto-pannello'
 import { SelectOpzioni } from '@/components/marketing/select-opzioni'
-import { useSolaLettura } from '@/components/shell/sola-lettura'
-import { formatData, formatNumero } from '@/lib/format'
+import { formatNumero } from '@/lib/format'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { CAMPI, CAMPO_MODELLO, ETICHETTA_MODELLO } from '@/lib/marketing/etichette'
 import { VIEW_COUNT_A_MANO, VIEW_COUNT_DA_INSTAGRAM } from '@/lib/marketing/pubblicati/parole'
@@ -272,8 +271,6 @@ function CampoViewCount({ riga }: { riga: Riga }) {
  * pickers, never a popover above the keyboard.
  */
 export function ProprietaContenuto({ riga }: { riga: Riga }) {
-  const solaLettura = useSolaLettura()
-  if (solaLettura) return <ProprietaSoloLettura riga={riga} />
   return (
     <section aria-label="Proprietà" className="rounded-xl bg-card px-2 py-2">
       <dl className="grid gap-x-6">
@@ -290,48 +287,3 @@ export function ProprietaContenuto({ riga }: { riga: Riga }) {
   )
 }
 
-/** A link of the properties, opened in a new tab. */
-function LinkProprieta({ href }: { href: string | null }) {
-  if (!href) return <span className="text-muted-foreground">–</span>
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 break-all underline-offset-4 hover:underline">
-      <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
-      {href}
-    </a>
-  )
-}
-
-/** The properties for a read-only account (the business coach, 22/10/2026): the same rows, the values only. */
-function ProprietaSoloLettura({ riga }: { riga: Riga }) {
-  const testo = (valore: string | null) => (valore ? valore : <span className="text-muted-foreground">–</span>)
-  return (
-    <section aria-label="Proprietà" className="rounded-xl bg-card px-2 py-2">
-      <dl className="grid gap-x-6">
-        <RigaProprieta etichetta={CAMPO_MODELLO}>
-          <p className="flex min-h-11 items-center px-2.5 text-sm">{ETICHETTA_MODELLO[riga.tipo]}</p>
-        </RigaProprieta>
-        <CampoEtichetta riga={riga} campo="reel_type" />
-        <CampoEtichetta riga={riga} campo="formato" />
-        <RigaProprieta etichetta={CAMPI.post_date}>
-          <p className="num flex min-h-11 items-center px-2.5 text-sm">{testo(riga.post_date ? formatData(riga.post_date) : null)}</p>
-        </RigaProprieta>
-        <RigaProprieta etichetta={CAMPI.audio}>
-          <p className="flex min-h-11 items-center px-2.5 text-sm">{testo(riga.audio)}</p>
-        </RigaProprieta>
-        <RigaProprieta etichetta={CAMPI.inspiration}>
-          <p className="flex min-h-11 items-center px-2.5 text-sm">
-            <LinkProprieta href={riga.inspiration} />
-          </p>
-        </RigaProprieta>
-        <RigaProprieta etichetta={CAMPI.url}>
-          <p className="flex min-h-11 items-center px-2.5 text-sm">
-            <LinkProprieta href={riga.url} />
-          </p>
-        </RigaProprieta>
-        <RigaProprieta etichetta={CAMPI.view_count}>
-          <p className="num flex min-h-11 items-center px-2.5 text-sm">{testo(riga.view_count === null ? null : formatNumero(riga.view_count))}</p>
-        </RigaProprieta>
-      </dl>
-    </section>
-  )
-}

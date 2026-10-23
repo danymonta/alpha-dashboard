@@ -234,8 +234,8 @@ select pg_temp.come('bc000000-0000-4000-8000-000000000001', '9e100000-0000-4000-
 select is(
   pg_temp.filtri(array['GET leads', 'POST rpc/call_per_claude', 'GET products', 'GET calls', 'PATCH calls',
     'POST rpc/fissa_call', 'POST rpc/aggiorna_stato_lead', 'POST rpc/sposta_call']),
-  array['passa', 'passa', 'passa', '42501', '42501', '42501', '42501', '42501'],
-  'business coach: legge (call_per_claude, lead, prodotti), mai una scrittura'
+  array['42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501'],
+  'business coach: non collega Claude (1.58.0), ogni richiesta si ferma al filtro'
 );
 
 select pg_temp.come('44444444-4444-4444-8444-444444444444', '9e100000-0000-4000-8000-000000000004');
@@ -310,16 +310,16 @@ select ok((select valutazioni_closer from x) >= 0 and pg_temp.conta('call_valuta
   'closer: come ha condotto la call (valutazione) non arriva a Claude');
 select is(pg_temp.chiuse(), '', 'closer: analisi, spunti, origine dei lead, costi, provvigioni e report restano chiusi');
 
--- The admin and the business coach: every call
+-- The admin: every call; the business coach: nothing (1.58.0, he sees only the sales recap)
 select pg_temp.come('11111111-1111-4111-8111-111111111111', '9e100000-0000-4000-8000-000000000001');
 select is(pg_temp.filtro('calls', 'GET'), 'passa', 'admin: GET calls passa');
 select is(row(pg_temp.conta('calls'), pg_temp.conta('leads'), pg_temp.conta('call_pitch'))::text,
   (select row(call_tutte, lead_tutti, pitch_tutti)::text from x), 'admin: tutte le call, tutti i lead, tutti gli importi');
 select is(pg_temp.chiuse(), '', 'admin: le aree delle fasi dopo restano chiuse');
 select pg_temp.come('bc000000-0000-4000-8000-000000000001', '9e100000-0000-4000-8000-000000000006');
-select is(pg_temp.filtro('rpc/call_per_claude', 'POST'), 'passa', 'business coach: la lettura delle call passa');
-select is((select max(totale) from public.call_per_claude(p_limite => 200)), (select call_tutte from x),
-  'business coach: tutte le call, come l''admin');
+select is(pg_temp.filtro('rpc/call_per_claude', 'POST'), '42501', 'business coach: la lettura delle call non passa');
+select throws_ok($$ select * from public.call_per_claude(p_limite => 200) $$, '42501', null,
+  'business coach: call_per_claude risponde 42501');
 
 -- Coach: nothing, even inside an approved request of another area
 select pg_temp.come('44444444-4444-4444-8444-444444444444', '9e100000-0000-4000-8000-000000000004');

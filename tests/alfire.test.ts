@@ -212,28 +212,10 @@ describe('strumenti di Alfire per ruolo', () => {
     expect(strumentiConsentiti('coach', 'employee')).toContain('task')
   })
 
-  it('il business coach (22/10/2026): le letture dell’admin e nessuna scrittura, a ogni livello', () => {
+  it('il business coach (1.58.0): nessuno strumento, a ogni livello', () => {
     for (const livello of ['admin', 'manager', 'employee', null] as const) {
-      const suoi = strumentiConsentiti('business_coach', livello)
-      for (const s of SCRITTURE) expect(suoi, `${livello} → ${s}`).not.toContain(s)
-      expect(suoi, String(livello)).not.toContain('miei_task')
-      expect(suoi, String(livello)).not.toContain('mio_tempo')
-      expect(suoi, String(livello)).not.toContain('mie_giornate')
-      expect(suoi, String(livello)).not.toContain('miei_numeri')
+      expect(strumentiConsentiti('business_coach', livello), String(livello)).toEqual([])
     }
-    expect([...strumentiConsentiti('business_coach', 'employee')].sort()).toEqual(
-      [
-        'guida',
-        'proponi_risposte',
-        ...SOLDI.filter((s) => !isScrittura(s)),
-        'metriche_setting',
-        'commenti_marketing',
-        'call_periodo',
-        'progetti',
-        'progetto_dettaglio',
-        'tempo_team',
-      ].sort(),
-    )
   })
 
   it('ogni scrittura è uno strumento esistente e passa dalla conferma', () => {

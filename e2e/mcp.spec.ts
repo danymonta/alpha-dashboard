@@ -1096,70 +1096,20 @@ test('il setter fissa una call da Claude e non scrive mai un esito, nemmeno con 
   }
 })
 
-test('il business coach legge call e lead da Claude e non scrive niente', async ({ browser }) => {
+test('il business coach non collega Claude: la pagina lo dice e torna a Claude con un rifiuto', async ({ browser }) => {
   test.setTimeout(120_000)
-  // 14c. he reads what the admin reads, never writes (1.52.0): the call reads, no call tool that writes
+  // 14c. 1.58.0 (Dany, 23/10/2026): his one page is the sales recap; Claude never connects for him
   const page = await persona(browser, 'business_coach')
   try {
-    const token = await consentoCall(page, 'business-coach', CONSENSO.azioniSolaLettura[3], CONSENSO.maiVistoSolaLettura)
-    const mcp = await clientMcp(baseDi(page), token.access_token)
-    try {
-      const nomi = (await mcp.listTools()).tools.map((t) => t.name).sort()
-      expect(nomi).toEqual(
-        [
-          ...STRUMENTI_CALENDARIO.filter((n) => !['crea_contenuti', 'modifica_contenuto', 'cambia_status', 'scrivi_sezione'].includes(n)),
-          'elenco_progetti',
-          'leggi_progetto',
-          'persone_del_team',
-          'reparti_e_modelli',
-          'tempo_team',
-          ...LETTURE_CALL,
-          'prodotti',
-          ...LETTURE_VENDITE,
-          ...LETTURE_ECONOMICS,
-        ].sort(),
-      )
-      // phase 4 (23/10/2026): the numbers and the costs as the admin, in read only
-      const numeri = await mcp.callTool({ name: 'numeri_periodo', arguments: {} })
-      expect(numeri.isError, testoRisultato(numeri)).toBeFalsy()
-      await expect(
-        mcp.callTool({ name: 'registra_costo', arguments: { categoria: 'altro', descrizione: 'x', importo: 1 } }),
-      ).rejects.toThrow(/not found/)
-      // phase 3 (23/10/2026): clients and sales as the admin, in read only
-      const clienti = await mcp.callTool({ name: 'elenco_clienti', arguments: { vista: 'tutti' } })
-      expect(clienti.isError, testoRisultato(clienti)).toBeFalsy()
-      expect(datiRisultato<{ totale: number }>(clienti).totale).toBeGreaterThan(0)
-      await expect(mcp.callTool({ name: 'rata', arguments: { payment_id: randomUUID(), azione: 'incassa' } })).rejects.toThrow(/not found/)
-      const elenco = datiRisultato<{ totale: number }>(
-        await mcp.callTool({ name: 'elenco_call', arguments: { da: '2026-01-01', a: aggiungiGiorni(oggiRoma(), 60) } }),
-      )
-      expect(elenco.totale).toBeGreaterThan(0)
-      await expect(
-        mcp.callTool({ name: 'fissa_call', arguments: { nome: 'x', fonte: 'altro', data: oggiRoma(), ora: '10:00' } }),
-      ).rejects.toThrow(/not found/)
-    } finally {
-      await mcp.close()
-    }
-    const db = dataApiConToken(token.access_token)
-    const fissa = await db.rpc('fissa_call', {
-      p_nome: `${PREFISSO}del business coach`,
-      p_fonte: 'altro',
-      p_tipo: 'discovery',
-      p_data: oggiRoma(),
-      p_ora: '10:00',
-      p_closer_id: ID_ADMIN,
-    })
-    expect(fissa.error?.code).toBe('42501')
-    expect(fissa.error?.message).toBe('Il business coach legge e basta: da Claude non si scrive niente.')
-    expect((await db.from('calls').update({ note: 'Da Claude' }).eq('id', randomUUID())).error?.code).toBe('42501')
-    expect((await db.from('leads').select('id')).error).toBeNull()
-    expect((await db.from('sales').select('id')).error).toBeNull()
-    expect((await db.rpc('segna_rata_incassata', { p_payment_id: randomUUID() })).error?.code).toBe('42501')
-    expect((await db.from('payments').update({ stato: 'fallita' }).eq('id', randomUUID())).error?.code).toBe('42501')
-    expect((await db.from('expenses').select('id')).error).toBeNull()
-    const copia = await db.rpc('copia_costi_ricorrenti', { p_mese: `${oggiRoma().slice(0, 7)}-01` })
-    expect(copia.error?.code).toBe('42501')
-    expect(copia.error?.message).toBe('Il business coach legge e basta: da Claude non si scrive niente.')
+    const callback = await catturaCallback(page)
+    await apriConsenso(page, nuovaAutorizzazione(clientId, baseDi(page), 'business-coach'))
+    await expect(page.getByRole('heading', { level: 1, name: CONSENSO.titoloNonAmmesso })).toBeVisible()
+    await expect(page.getByText(CONSENSO.nonAmmessoRecap)).toBeVisible()
+    const arrivo = callback.prossima()
+    await page.getByRole('button', { name: CONSENSO.tornaAClaude, exact: true }).click()
+    const rifiuto = await arrivo
+    expect(rifiuto.searchParams.get('error')).toBe('access_denied')
+    expect(rifiuto.searchParams.has('code')).toBe(false)
   } finally {
     await page.context().close()
   }

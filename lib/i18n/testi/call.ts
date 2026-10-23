@@ -15,8 +15,6 @@ export const CALL = bilingue(
   {
     errore: 'Impossibile caricare le call',
     caricamento: 'Caricamento delle call',
-    titoloLettura: 'Call',
-    descrizioneLettura: 'Le call del team, di ogni closer, con stato, esito e analisi: in sola lettura.',
     titolo: 'Le mie call',
     descrizioneCloser: 'Registra l’esito appena chiudi la call: bastano due o tre tocchi.',
     descrizioneSetter: 'Le call che hai fissato e le loro call di follow-up, con stato ed esito.',
@@ -25,7 +23,6 @@ export const CALL = bilingue(
     vuotoSetter: 'Nessuna call negli ultimi 30 giorni',
     vuotoSetterDescrizione: 'Quando fissi una call dai DM, la trovi qui con stato ed esito.',
     vuotoCloser: 'Nessuna call in programma',
-    vuotoLettura: 'Le call fissate dal team compaiono qui, con stato ed esito.',
     vuotoAdmin: 'Le call che fissi tu o che il setter ti assegna compaiono qui, con l’esito da registrare.',
     vuotoCloserDescrizione: 'Le call che il setter ti assegna compaiono qui, con l’esito da registrare.',
     vaiVendite: 'Vai alle mie vendite',
@@ -118,8 +115,6 @@ export const CALL = bilingue(
   {
     errore: 'The calls could not be loaded',
     caricamento: 'Loading the calls',
-    titoloLettura: 'Calls',
-    descrizioneLettura: 'The team’s calls, from every closer, with state, outcome and analysis: read only.',
     titolo: 'My calls',
     descrizioneCloser: 'Record the outcome as soon as the call ends: two or three taps are enough.',
     descrizioneSetter: 'The calls you booked and their follow-up calls, with state and outcome.',
@@ -128,7 +123,6 @@ export const CALL = bilingue(
     vuotoSetter: 'No calls in the last 30 days',
     vuotoSetterDescrizione: 'When you book a call from the DMs, you find it here with state and outcome.',
     vuotoCloser: 'No calls scheduled',
-    vuotoLettura: 'The calls booked by the team appear here, with state and outcome.',
     vuotoAdmin: 'The calls you book or the setter assigns to you appear here, with the outcome to record.',
     vuotoCloserDescrizione: 'The calls the setter assigns to you appear here, with the outcome to record.',
     vaiVendite: 'Go to my sales',

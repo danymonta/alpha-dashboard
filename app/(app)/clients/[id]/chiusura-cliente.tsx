@@ -459,15 +459,12 @@ export function ChiusuraCliente({
   oggi,
   minimo,
   chiusura,
-  solaLettura = false,
 }: {
   clientId: string
   cliente: string
   oggi: string
   minimo: string | null
   chiusura: Chiusura
-  /** The business coach reads the closure and never changes it (22/10/2026). */
-  solaLettura?: boolean
 }) {
   const archiviato = chiusura.archiviato_il
   const lingua = useLingua()
@@ -500,14 +497,12 @@ export function ChiusuraCliente({
             <p className="mt-0.5 text-xs text-muted-foreground">{t.nessunMotivo}</p>
           )}
         </div>
-        {solaLettura ? null : <NonRinnova clientId={clientId} cliente={cliente} oggi={oggi} minimo={minimo} chiusura={chiusura} />}
+        <NonRinnova clientId={clientId} cliente={cliente} oggi={oggi} minimo={minimo} chiusura={chiusura} />
       </div>
-      {solaLettura ? null : (
-        <div className="flex flex-wrap justify-end gap-2 pt-1 pb-0.5 pl-7">
-          <BottoneArchivio clientId={clientId} cliente={cliente} archiviato={archiviato !== null} />
-          <RiapriCliente clientId={clientId} cliente={cliente} />
-        </div>
-      )}
+      <div className="flex flex-wrap justify-end gap-2 pt-1 pb-0.5 pl-7">
+        <BottoneArchivio clientId={clientId} cliente={cliente} archiviato={archiviato !== null} />
+        <RiapriCliente clientId={clientId} cliente={cliente} />
+      </div>
     </section>
   )
 }

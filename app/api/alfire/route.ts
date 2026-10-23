@@ -18,7 +18,7 @@ import { SCRITTURE } from '@/lib/alfire/permessi'
 import { promptAlfire } from '@/lib/alfire/prompt'
 import { proposteComeTesto } from '@/lib/alfire/risposte'
 import { strumentiAlfire } from '@/lib/alfire/strumenti'
-import { livelloPmEffettivo } from '@/lib/auth/roles'
+import { livelloPmEffettivo, soloRecap } from '@/lib/auth/roles'
 import { getProfilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
@@ -43,6 +43,10 @@ export async function POST(req: Request) {
   const profilo = await getProfilo()
   if (!profilo || !profilo.attivo) {
     return Response.json({ errore: 'Sessione scaduta. Rientra e riprova.' }, { status: 401 })
+  }
+  // the business coach has no Alfire (1.58.0): his one page is the sales recap
+  if (soloRecap(profilo.ruolo)) {
+    return Response.json({ errore: 'Alfire non è attiva per il tuo account.' }, { status: 403 })
   }
   if (!alfireConfigurata()) {
     return Response.json({ errore: 'Alfire non è ancora configurata.' }, { status: 503 })

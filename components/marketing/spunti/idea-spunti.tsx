@@ -6,7 +6,6 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { aggiungiIdeaSpuntiAlCalendario } from '@/app/(app)/marketing/spunti/actions'
-import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import { MARKETING } from '@/lib/i18n/testi/marketing'
@@ -26,8 +25,6 @@ export function IdeaSpuntiCard({
   giaNelCalendario: { id: string; nome: string } | null
 }) {
   const [aggiunta, setAggiunta] = useState<{ id: string; nome: string } | null>(giaNelCalendario)
-  // the business coach reads the ideas, never adds one (22/10/2026)
-  const solaLettura = useSolaLettura()
   const t = MARKETING[useLingua()].spunti
   const [inCorso, avvia] = useTransition()
 
@@ -82,7 +79,7 @@ export function IdeaSpuntiCard({
             {t.apriContenuto}
           </Link>
         </p>
-      ) : solaLettura ? null : (
+      ) : (
         <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={aggiungi}>
           {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarPlus className="size-4" aria-hidden="true" />}
           Aggiungi al calendario

@@ -1,6 +1,4 @@
 import type { AppRole } from '@/lib/auth/roles'
-import type { Lingua } from '@/lib/i18n/lingua'
-import { TUTORIAL } from '@/lib/i18n/testi/tutorial'
 
 /**
  * The guided tour shown at the first sign-in, one per role (CLAUDE.md
@@ -137,35 +135,8 @@ function soloProgetti(
 }
 
 export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
-  // the business coach (22/10/2026): six steps, read only, never a "tocca" on something that writes
-  business_coach: [
-    {
-      id: 'benvenuto',
-      titolo: 'Benvenuto in Alpha Management',
-      testo: 'Vedi tutto quello che vede l’admin, in sola lettura: numeri, call, clienti, setter, contenuti e progetti. Niente si modifica dal tuo account. Puoi rivedere questo tour quando vuoi dal tuo profilo.',
-    },
-    {
-      id: 'panoramica',
-      pagina: '/',
-      titolo: 'Panoramica',
-      testo: 'Il mese in un colpo d’occhio: cash incassato e quanto viene da nuovi clienti, rate di clienti già entrati o rinnovi, margine operativo, obiettivi e chi deve pagare.',
-      target: ['kpi-cash'],
-    },
-    {
-      id: 'setter',
-      titolo: 'Setter',
-      testo: 'I numeri del setting giorno per giorno e, nella scheda «Insight 24h», il recap dei DM.',
-      target: nav('/setting'),
-    },
-    {
-      id: 'closer',
-      titolo: 'Closer',
-      testo: 'I numeri del closer giorno per giorno: call, show rate, chiuse, cash e revenue dei clienti nuovi.',
-      target: nav('/setting/closer', 'nav-altro'),
-    },
-    alfire('Chiedile i numeri, anche col vocale: legge quello che leggi tu, e non scrive niente.'),
-    PROFILO,
-  ],
+  // the business coach (1.58.0): no tour, his one page is the sales recap
+  business_coach: [],
   admin: [
     benvenuto('admin'),
     {
@@ -323,25 +294,6 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
 }
 
 /** How long a step stays before it can be closed or skipped: time to read. */
-/**
- * The tour in the page's language (1.53.0): the business coach's in English when he reads
- * the app in English, the same steps and targets; every other tour stays Italian.
- */
-export function percorsoPer(ruolo: AppRole, lingua: Lingua): PassoTutorial[] {
-  const passi = PERCORSI[ruolo]
-  if (lingua !== 'en' || ruolo !== 'business_coach') return passi
-  const t = TUTORIAL.en.businessCoach
-  const testi: Record<string, [string, string]> = {
-    benvenuto: [t.benvenuto, t.benvenutoTesto],
-    panoramica: [t.panoramica, t.panoramicaTesto],
-    setter: [t.setter, t.setterTesto],
-    closer: [t.closer, t.closerTesto],
-    alfire: [t.alfire, t.alfireTesto],
-    profilo: [t.profilo, t.profiloTesto],
-  }
-  return passi.map((p) => (testi[p.id] ? { ...p, titolo: testi[p.id][0], testo: testi[p.id][1] } : p))
-}
-
 export const ATTESA_LETTURA_MS = 2000
 
 /** Is `pathname` the step's page ("/" only itself, the others with their sub-pages). */

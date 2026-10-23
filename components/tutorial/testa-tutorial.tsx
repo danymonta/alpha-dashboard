@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { TUTTI_I_RUOLI } from '@/lib/auth/roles'
-import { FUNZIONE } from '@/lib/tutorial/percorsi'
+import { FUNZIONE, PERCORSI } from '@/lib/tutorial/percorsi'
 import { cn } from '@/lib/utils'
 
 /**
@@ -49,7 +49,8 @@ export function TestaTutorial({
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Tutorial di…</DropdownMenuLabel>
-          {TUTTI_I_RUOLI.map((ruolo) => (
+          {/* a role without a tour (the business coach, 1.58.0) is not offered */}
+          {TUTTI_I_RUOLI.filter((ruolo) => PERCORSI[ruolo].length > 0).map((ruolo) => (
             <DropdownMenuItem key={ruolo} className="min-h-11 px-3" onClick={() => avvia(ruolo)}>
               {FUNZIONE[ruolo]}
             </DropdownMenuItem>

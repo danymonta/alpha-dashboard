@@ -3,8 +3,6 @@ import type { ReactNode } from 'react'
 import { AlfireProvider } from '@/components/alfire/alfire'
 import { IntroIngresso } from '@/components/brand/intro-ingresso'
 import { TimerProvider } from '@/components/pm/tempo/timer-provider'
-import { SolaLetturaProvider } from '@/components/shell/sola-lettura'
-import { solaLettura } from '@/lib/auth/roles'
 import { TutorialProvider } from '@/components/tutorial/tutorial'
 import { BottomBar } from '@/components/shell/bottom-bar'
 import { ContenitoreShell } from '@/components/shell/contenitore-shell'
@@ -57,7 +55,6 @@ export function AppShell({
 }: Props) {
   return (
     // the running timer (Projects area) is shown in the sidebar and the top bar
-    <SolaLetturaProvider attiva={solaLettura(ruolo)}>
     <TimerProvider profiloId={profiloId}>
       <AlfireProvider configurata={alfireConfigurata} ruolo={ruolo} nome={nome}>
       <TutorialProvider ruolo={ruolo} primoAccesso={primoAccesso}>
@@ -80,6 +77,5 @@ export function AppShell({
       </TutorialProvider>
       </AlfireProvider>
     </TimerProvider>
-    </SolaLetturaProvider>
   )
 }

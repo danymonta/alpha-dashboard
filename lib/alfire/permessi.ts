@@ -1,4 +1,4 @@
-import { solaLettura, type AppRole, type LivelloPm } from '@/lib/auth/roles'
+import { soloRecap, type AppRole, type LivelloPm } from '@/lib/auth/roles'
 
 /**
  * Which tools Alfire receives for whom. The first filter only: every tool runs
@@ -17,15 +17,7 @@ import { solaLettura, type AppRole, type LivelloPm } from '@/lib/auth/roles'
  * setter giornate_closer: the closer's numbers of every setter, as the Closer
  * page shows them to him since 07/10/2026), never from them.
  */
-type Chi = { ruoli?: readonly AppRole[]; livelliPm?: readonly LivelloPm[]; tranne?: readonly AppRole[] }
-
-/**
- * The business coach (22/10/2026): the admin's readings and nothing else. No
- * write tool at all (strumentiConsentiti drops them by role), no "mine": he is
- * nobody's closer and has no tasks or time of his own.
- */
-const COME_ADMIN = ['admin', 'business_coach'] as const
-const SENZA_BUSINESS_COACH = ['business_coach'] as const
+type Chi = { ruoli?: readonly AppRole[]; livelliPm?: readonly LivelloPm[] }
 
 const TUTTI_I_LIVELLI = ['admin', 'manager', 'employee'] as const
 const CHI_GESTISCE = ['admin', 'manager'] as const
@@ -36,18 +28,18 @@ export const STRUMENTI = {
   // answers at a tap: buttons in the chat, never a write (lib/alfire/risposte.ts)
   proponi_risposte: {},
   // admin: the money
-  numeri_periodo: { ruoli: COME_ADMIN },
-  cash_per_mese: { ruoli: COME_ADMIN },
-  da_incassare: { ruoli: COME_ADMIN },
-  cerca_clienti: { ruoli: COME_ADMIN },
-  rate_cliente: { ruoli: COME_ADMIN },
-  vendite_periodo: { ruoli: COME_ADMIN },
-  metriche_setting: { ruoli: COME_ADMIN },
+  numeri_periodo: { ruoli: ['admin'] },
+  cash_per_mese: { ruoli: ['admin'] },
+  da_incassare: { ruoli: ['admin'] },
+  cerca_clienti: { ruoli: ['admin'] },
+  rate_cliente: { ruoli: ['admin'] },
+  vendite_periodo: { ruoli: ['admin'] },
+  metriche_setting: { ruoli: ['admin'] },
   // what the leads say, for marketing (30/09/2026): the setters' reports and
   // the closers' reasons for not closing
-  commenti_marketing: { ruoli: COME_ADMIN },
-  provvigioni: { ruoli: COME_ADMIN },
-  costi_periodo: { ruoli: COME_ADMIN },
+  commenti_marketing: { ruoli: ['admin'] },
+  provvigioni: { ruoli: ['admin'] },
+  costi_periodo: { ruoli: ['admin'] },
   // setter: own numbers only
   miei_numeri: { ruoli: ['setter'] },
   // each one's own money, as the app already shows it to him (03/10/2026): the setter
@@ -63,15 +55,15 @@ export const STRUMENTI = {
   // The closer reads only his own (mie_giornate), the admin as before
   giornate_closer: { ruoli: ['setter'] },
   // who has calls
-  call_periodo: { ruoli: ['admin', 'setter', 'closer', 'business_coach'] },
+  call_periodo: { ruoli: ['admin', 'setter', 'closer'] },
   // projects: every level sees what RLS lets them see; one's own time for everyone
   progetti: { livelliPm: TUTTI_I_LIVELLI },
   progetto_dettaglio: { livelliPm: TUTTI_I_LIVELLI },
-  miei_task: { livelliPm: TUTTI_I_LIVELLI, tranne: SENZA_BUSINESS_COACH },
-  mio_tempo: { livelliPm: TUTTI_I_LIVELLI, tranne: SENZA_BUSINESS_COACH },
+  miei_task: { livelliPm: TUTTI_I_LIVELLI },
+  mio_tempo: { livelliPm: TUTTI_I_LIVELLI },
   // the team's declared time, as Tempo › Team (30/09/2026): the app admin only,
   // like the RPC it reads (pm_tempo_per_persona refuses anybody else)
-  tempo_team: { ruoli: COME_ADMIN },
+  tempo_team: { ruoli: ['admin'] },
 
   // writes: always behind the user's confirmation
   cliente: { ruoli: ['admin'] },
@@ -192,12 +184,11 @@ export function azioniConsentite(nome: ConAzioni, ruolo: AppRole, livelloPm: Liv
 }
 
 export function strumentiConsentiti(ruolo: AppRole, livelloPm: LivelloPm | null): NomeStrumento[] {
+  // the business coach has no Alfire (1.58.0): his one page is the sales recap
+  if (soloRecap(ruolo)) return []
   return (Object.entries(STRUMENTI) as [NomeStrumento, Chi][])
     .filter(([nome, chi]) => {
       if (chi.ruoli && !chi.ruoli.includes(ruolo)) return false
-      if (chi.tranne?.includes(ruolo)) return false
-      // a read-only account never gets a write tool, whatever its projects level says
-      if (solaLettura(ruolo) && isScrittura(nome)) return false
       if (chi.livelliPm && (!livelloPm || !chi.livelliPm.includes(livelloPm))) return false
       // a write tool with no action for this person is not offered at all
       if (nome in AZIONI && azioniConsentite(nome as ConAzioni, ruolo, livelloPm).length === 0) return false

@@ -55,7 +55,6 @@ export function ContrattoVendita({
   picker = null,
   variante = 'scheda',
   className,
-  solaLettura = false,
 }: {
   saleId: string
   /** Whose contract it is, as it reads in the sheet and the buttons. */
@@ -67,8 +66,6 @@ export function ContrattoVendita({
   picker?: ConfigPicker | null
   variante?: 'scheda' | 'cella'
   className?: string
-  /** The business coach reads the link and never changes it (22/10/2026): no sheet, no pencil. */
-  solaLettura?: boolean
 }) {
   const parole = CLIENTI[useLingua()]
   const [aperto, setAperto] = useState(false)
@@ -206,135 +203,131 @@ export function ContrattoVendita({
       {cella ? null : <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
       {apri}
 
-      {solaLettura ? (
-        cella && !url ? <span className="px-1 text-sm text-muted-foreground">–</span> : null
-      ) : (
-        <Sheet
-          open={aperto}
-          onOpenChange={(v) => {
-            setAperto(v)
-            setErrore(null)
-            setAvviso(null)
-            // always on the saved link
-            reset({ sale_id: saleId, url: url ?? '' })
-          }}
-        >
-          {url ? (
-            <SheetTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-11 shrink-0 text-muted-foreground"
-                  aria-label={`Modifica il link del contratto di ${nome}`}
-                />
-              }
-            >
-              <Pencil className="size-4" aria-hidden="true" />
-            </SheetTrigger>
-          ) : (
-            <SheetTrigger
-              render={
-                <Button
-                  type="button"
-                  variant={cella ? 'ghost' : 'outline'}
-                  className={cn('h-11 shrink-0', cella && 'px-2 text-muted-foreground hover:text-foreground')}
-                  aria-label={`Aggiungi il link del contratto di ${nome}`}
-                />
-              }
-            >
-              <Plus className="size-4" aria-hidden="true" />
-              {cella ? 'Aggiungi' : 'Aggiungi il link'}
-            </SheetTrigger>
-          )}
-          <SheetContent side="right" className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md">
-            <SheetHeader>
-              <SheetTitle>Contratto</SheetTitle>
-              <SheetDescription>
-                Il link al contratto firmato di {nome} su Google Drive. Lo vedi solo tu: closer, setter e coach no. Ogni
-                percorso e ogni rinnovo ha il suo contratto.
-              </SheetDescription>
-            </SheetHeader>
-            <form onSubmit={invia} noValidate className="space-y-4 px-4 pb-6">
-              <input type="hidden" {...register('sale_id')} />
-              {picker ? (
-                <div className="space-y-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-11 w-full"
-                    disabled={inDrive || isSubmitting}
-                    onClick={() => void scegliDaDrive()}
-                  >
-                    {inDrive ? (
-                      <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      <FileSearch className="size-4" aria-hidden="true" />
-                    )}
-                    Scegli da Drive
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Ti colleghi con Google e scegli il file: l’app vede solo i file che scegli tu.
-                  </p>
-                </div>
-              ) : null}
+      <Sheet
+        open={aperto}
+        onOpenChange={(v) => {
+          setAperto(v)
+          setErrore(null)
+          setAvviso(null)
+          // always on the saved link
+          reset({ sale_id: saleId, url: url ?? '' })
+        }}
+      >
+        {url ? (
+          <SheetTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-11 shrink-0 text-muted-foreground"
+                aria-label={`Modifica il link del contratto di ${nome}`}
+              />
+            }
+          >
+            <Pencil className="size-4" aria-hidden="true" />
+          </SheetTrigger>
+        ) : (
+          <SheetTrigger
+            render={
+              <Button
+                type="button"
+                variant={cella ? 'ghost' : 'outline'}
+                className={cn('h-11 shrink-0', cella && 'px-2 text-muted-foreground hover:text-foreground')}
+                aria-label={`Aggiungi il link del contratto di ${nome}`}
+              />
+            }
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            {cella ? 'Aggiungi' : 'Aggiungi il link'}
+          </SheetTrigger>
+        )}
+        <SheetContent side="right" className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Contratto</SheetTitle>
+            <SheetDescription>
+              Il link al contratto firmato di {nome} su Google Drive. Lo vedi solo tu: closer, setter e coach no. Ogni
+              percorso e ogni rinnovo ha il suo contratto.
+            </SheetDescription>
+          </SheetHeader>
+          <form onSubmit={invia} noValidate className="space-y-4 px-4 pb-6">
+            <input type="hidden" {...register('sale_id')} />
+            {picker ? (
               <div className="space-y-1.5">
-                <Label htmlFor={`ct-url-${saleId}`}>Link del contratto</Label>
-                <Input
-                  id={`ct-url-${saleId}`}
-                  type="url"
-                  inputMode="url"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder="https://drive.google.com/file/d/…"
-                  className="h-11"
-                  aria-invalid={errors.url ? true : undefined}
-                  aria-describedby={errors.url ? `ct-url-errore-${saleId}` : `ct-url-aiuto-${saleId}`}
-                  {...register('url')}
-                />
-                <ErroreCampo id={`ct-url-errore-${saleId}`} messaggio={errors.url?.message} />
-                <p id={`ct-url-aiuto-${saleId}`} className="text-xs text-muted-foreground">
-                  {picker ? 'Oppure incolla il link. ' : null}Su Drive: tasto destro sul file › Condividi › Copia link.
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full"
+                  disabled={inDrive || isSubmitting}
+                  onClick={() => void scegliDaDrive()}
+                >
+                  {inDrive ? (
+                    <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <FileSearch className="size-4" aria-hidden="true" />
+                  )}
+                  Scegli da Drive
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Ti colleghi con Google e scegli il file: l’app vede solo i file che scegli tu.
                 </p>
               </div>
-              {avviso ? (
-                <p role="status" className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                  {avviso}
-                </p>
-              ) : null}
-              {errore ? (
-                <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
-                  <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                  {errore}
-                </p>
-              ) : null}
-              {/* never held by the Drive flow: the pasted link always saves */}
-              <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
-                {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                Salva
-              </Button>
-              {url ? (
-                <div className="border-t border-border pt-4">
-                  <Elimina
-                    etichetta="Togli il link"
-                    cosa={`il link al contratto di ${nome}`}
-                    fatto="Link tolto"
-                    conseguenze={['Il file su Google Drive resta com’è: si toglie solo il link dall’app.']}
-                    azione={async () => {
-                      const esito = await togliContrattoVendita({ sale_id: saleId })
-                      if (esito.ok) setAperto(false)
-                      return esito
-                    }}
-                  />
-                </div>
-              ) : null}
-            </form>
-          </SheetContent>
-        </Sheet>
-      )}
+            ) : null}
+            <div className="space-y-1.5">
+              <Label htmlFor={`ct-url-${saleId}`}>Link del contratto</Label>
+              <Input
+                id={`ct-url-${saleId}`}
+                type="url"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="https://drive.google.com/file/d/…"
+                className="h-11"
+                aria-invalid={errors.url ? true : undefined}
+                aria-describedby={errors.url ? `ct-url-errore-${saleId}` : `ct-url-aiuto-${saleId}`}
+                {...register('url')}
+              />
+              <ErroreCampo id={`ct-url-errore-${saleId}`} messaggio={errors.url?.message} />
+              <p id={`ct-url-aiuto-${saleId}`} className="text-xs text-muted-foreground">
+                {picker ? 'Oppure incolla il link. ' : null}Su Drive: tasto destro sul file › Condividi › Copia link.
+              </p>
+            </div>
+            {avviso ? (
+              <p role="status" className="flex items-start gap-2 text-sm text-muted-foreground">
+                <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                {avviso}
+              </p>
+            ) : null}
+            {errore ? (
+              <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                {errore}
+              </p>
+            ) : null}
+            {/* never held by the Drive flow: the pasted link always saves */}
+            <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
+              {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+              Salva
+            </Button>
+            {url ? (
+              <div className="border-t border-border pt-4">
+                <Elimina
+                  etichetta="Togli il link"
+                  cosa={`il link al contratto di ${nome}`}
+                  fatto="Link tolto"
+                  conseguenze={['Il file su Google Drive resta com’è: si toglie solo il link dall’app.']}
+                  azione={async () => {
+                    const esito = await togliContrattoVendita({ sale_id: saleId })
+                    if (esito.ok) setAperto(false)
+                    return esito
+                  }}
+                />
+              </div>
+            ) : null}
+          </form>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

@@ -272,9 +272,9 @@ select is(
   pg_temp.filtri(array['GET clients', 'GET sales', 'GET payments', 'GET v_rate', 'GET clienti_cartelle',
     'POST rpc/clienti_elenco', 'POST rpc/da_incassare', 'PATCH payments', 'POST rpc/registra_vendita',
     'POST rpc/segna_rata_incassata', 'POST clients', 'POST rpc/riapri_cliente', 'POST rpc/interrompi_percorso']),
-  array['passa', 'passa', 'passa', 'passa', 'passa', 'passa', 'passa', '42501', '42501', '42501', '42501', '42501',
+  array['42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501',
         '42501'],
-  'business coach: legge come l''admin, mai una scrittura'
+  'business coach: non collega Claude (1.58.0), ogni richiesta si ferma al filtro'
 );
 
 select pg_temp.come('44444444-4444-4444-8444-444444444444', '9e103000-0000-4000-8000-000000000004');
@@ -309,13 +309,13 @@ select is((select count(*) from public.clienti_elenco()), (select clienti_tutti 
 select ok((select count(*) from public.da_incassare()) = 3, 'admin: il da incassare per fascia, dal SQL');
 select is(pg_temp.chiuse(), '', 'admin: promemoria, registro e report del setter restano chiusi');
 
--- The business coach: the same reads
+-- The business coach: nothing (1.58.0, he sees only the sales recap, in the app)
 select pg_temp.come('bc000000-0000-4000-8000-000000000001', '9e103000-0000-4000-8000-000000000006');
-select is(pg_temp.filtro('rpc/clienti_elenco', 'POST'), 'passa', 'business coach: la lettura dell''elenco passa');
-select is((select count(*) from public.clienti_elenco()), (select clienti_tutti from x),
-  'business coach: l''elenco dei clienti, come l''admin');
-select is(row(pg_temp.conta('sales'), pg_temp.conta('vendite_contratti'))::text,
-  (select row(vendite_tutte, contratti)::text from x), 'business coach: vendite e contratti, come l''admin');
+select is(pg_temp.filtro('rpc/clienti_elenco', 'POST'), '42501', 'business coach: la lettura dell''elenco non passa');
+select throws_ok($$ select count(*) from public.clienti_elenco() $$, '42501', null,
+  'business coach: l''elenco dei clienti risponde 42501');
+select is(row(pg_temp.conta('sales'), pg_temp.conta('vendite_contratti'))::text, '(0,0)',
+  'business coach: nessuna vendita, nessun contratto');
 select is(pg_temp.chiuse(), '', 'business coach: promemoria, registro e report del setter restano chiusi');
 
 -- The closer: his sales and their instalments, never the folder or the contract

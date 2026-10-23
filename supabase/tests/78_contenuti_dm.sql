@@ -92,7 +92,7 @@ select ok((select relrowsecurity from pg_class where oid = 'public.instagram_con
 -- instagram_contenuti_dm_mai_da_oauth: Claude connected through the MCP server (1.34.0) never reads
 -- them, though vede_marketing() is true for an admin, editor or marketing token (76_insight_dati.sql)
 select policies_are('public', 'instagram_contenuti_dm',
-  array['instagram_contenuti_dm_lettura', 'instagram_contenuti_dm_lettura_come_admin', 'instagram_contenuti_dm_mai_da_oauth'], 'solo la lettura');
+  array['instagram_contenuti_dm_lettura', 'instagram_contenuti_dm_mai_da_oauth'], 'solo la lettura');
 select is(
   (select count(*)::integer from information_schema.role_table_grants
    where grantee = 'anon' and table_schema = 'public' and table_name = 'instagram_contenuti_dm'),
@@ -124,7 +124,7 @@ select col_is_pk('public', 'instagram_contenuti_dm_giorni', 'giorno', 'una riga 
 select ok((select relrowsecurity from pg_class where oid = 'public.instagram_contenuti_dm_giorni'::regclass),
   'RLS attiva sui giorni contati');
 select policies_are('public', 'instagram_contenuti_dm_giorni',
-  array['instagram_contenuti_dm_giorni_lettura', 'instagram_contenuti_dm_giorni_lettura_come_admin', 'instagram_contenuti_dm_giorni_mai_da_oauth'],
+  array['instagram_contenuti_dm_giorni_lettura', 'instagram_contenuti_dm_giorni_mai_da_oauth'],
   'i giorni contati: solo la lettura');
 select is(
   (select count(*)::integer from information_schema.role_table_grants

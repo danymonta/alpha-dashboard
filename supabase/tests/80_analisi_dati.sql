@@ -38,9 +38,9 @@ select ok(
                  'public.marketing_lavori_stato'::regclass)),
   'RLS attiva sulle tre');
 select policies_are('public', 'instagram_letture',
-  array['instagram_letture_lettura', 'instagram_letture_lettura_come_admin', 'instagram_letture_mai_da_oauth'], 'le letture: solo la lettura');
+  array['instagram_letture_lettura', 'instagram_letture_mai_da_oauth'], 'le letture: solo la lettura');
 select policies_are('public', 'marketing_analisi',
-  array['marketing_analisi_lettura', 'marketing_analisi_lettura_come_admin', 'marketing_analisi_mai_da_oauth'], 'le analisi: solo la lettura');
+  array['marketing_analisi_lettura', 'marketing_analisi_mai_da_oauth'], 'le analisi: solo la lettura');
 select policies_are('public', 'marketing_lavori_stato',
   array['marketing_lavori_stato_admin', 'marketing_lavori_stato_mai_da_oauth'], 'lo stato: solo l''admin legge');
 -- the defaults of the columns (the seed turns the automatic analyses off for the e2e tests)

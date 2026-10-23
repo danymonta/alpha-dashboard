@@ -59,6 +59,15 @@
      "in scadenza" icon beside its bars) and --status-ok. */
   --gantt-progetto: #b36d2a;
 
+  /* The business coach's sales recap (1.58.0), bound to the entity: the three parts of the DM
+     (outbound, inbound, follow up) and the calls held; the closed calls are new clients
+     (--chart-nuovo). Validated on #1C1C1E with the dataviz validator, all pairs: lightness
+     band, chroma, CVD (DM worst 11.1, calls 19.0), normal vision >= 19.8, contrast >= 3:1. */
+  --chart-dm-outbound: #2f9e8f;
+  --chart-dm-inbound: #8a6fd6;
+  --chart-dm-follow-up: #c47a2c;
+  --chart-call-svolte: #5f86d9;
+
   /* Status: always paired with an icon and a label, never colour alone */
   --status-ok: #4caf7a;
   --status-warning: #e0a43a;
@@ -173,6 +182,12 @@
   --gantt-task: #7b62c8;
   --gantt-progetto: #a85d17;
 
+  /* the recap's series on #FFFDF8: same checks, all pairs (CVD >= 10.4, normal >= 19.4, contrast >= 3:1) */
+  --chart-dm-outbound: #138c7c;
+  --chart-dm-inbound: #7459c4;
+  --chart-dm-follow-up: #a8611c;
+  --chart-call-svolte: #4a72c8;
+
   /* darker than on dark, so the text keeps >= 4.5:1 on the card and on its own pastel */
   --status-ok: #186a40;
   --status-warning: #8a5600;
@@ -214,6 +229,10 @@
   --color-gantt-lista: var(--gantt-lista);
   --color-gantt-task: var(--gantt-task);
   --color-gantt-progetto: var(--gantt-progetto);
+  --color-chart-dm-outbound: var(--chart-dm-outbound);
+  --color-chart-dm-inbound: var(--chart-dm-inbound);
+  --color-chart-dm-follow-up: var(--chart-dm-follow-up);
+  --color-chart-call-svolte: var(--chart-call-svolte);
   --color-status-ok: var(--status-ok);
   --color-status-warning: var(--status-warning);
   --color-status-critical: var(--status-critical);

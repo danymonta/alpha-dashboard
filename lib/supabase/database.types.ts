@@ -3173,6 +3173,9 @@ isOneToOne: false
 "rapporto":
 { Args: { "p_denominatore": number,"p_numeratore": number }; Returns: number
                            },
+"recap_sales":
+{ Args: { "p_a": string,"p_da": string }; Returns: Json
+                           },
 "registra_rimborso":
 { Args: { "p_data": string,"p_importo": number,"p_note"?: string,"p_payment_id": string }; Returns: string
                            },

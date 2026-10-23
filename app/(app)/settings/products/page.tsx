@@ -6,7 +6,6 @@ import {
 } from "@/app/(app)/settings/products/prodotto-form";
 import { IntestazionePagina } from "@/components/pagina/intestazione";
 import { StatoVuoto } from "@/components/stati/stato-vuoto";
-import { puoScrivere, RUOLI_COME_ADMIN } from "@/lib/auth/roles";
 import { requireRuolo } from "@/lib/auth/session";
 import { formato, type Formato } from "@/lib/format";
 import { getLingua } from "@/lib/i18n/server";
@@ -31,9 +30,7 @@ function descriviPiano(piano: PianoPredefinito, formatEuro: Formato["formatEuro"
 }
 
 export default async function ProdottiPage() {
-  // the business coach reads the catalogue (22/10/2026): no form, no switch
-  const profilo = await requireRuolo(RUOLI_COME_ADMIN);
-  const scrive = puoScrivere(profilo.ruolo);
+  await requireRuolo(["admin"]);
   const lingua = await getLingua();
   const T = IMPOSTAZIONI[lingua];
   const t = T.prodotti;
@@ -52,7 +49,7 @@ export default async function ProdottiPage() {
         indietro={{ href: "/settings", etichetta: T.titolo }}
         titolo={T.sezioni.products[0]}
         descrizione={t.descrizione}
-        azione={scrive ? <ProdottoForm /> : undefined}
+        azione={<ProdottoForm />}
       />
 
       {prodotti.length === 0 ? (
@@ -60,7 +57,7 @@ export default async function ProdottiPage() {
           Icona={Package}
           titolo={t.vuoto}
           descrizione={t.vuotoDescrizione}
-          azione={scrive ? <ProdottoForm /> : undefined}
+          azione={<ProdottoForm />}
         />
       ) : (
         <ul className="divide-y divide-border rounded-xl bg-card">
@@ -82,18 +79,10 @@ export default async function ProdottiPage() {
                 <p className="num mr-auto text-sm font-medium md:mr-0 md:w-24 md:text-right">
                   {formatEuro(p.prezzo_listino)}
                 </p>
-                {scrive ? (
-                  <>
-                    <AttivoProdotto id={p.id} nome={p.nome} attivo={p.attivo} />
-                    <ProdottoForm
-                      prodotto={{ ...p, piano_predefinito: piano }}
-                    />
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {p.attivo ? t.inVendita : t.fuoriVendita}
-                  </p>
-                )}
+                <AttivoProdotto id={p.id} nome={p.nome} attivo={p.attivo} />
+                <ProdottoForm
+                  prodotto={{ ...p, piano_predefinito: piano }}
+                />
               </li>
             );
           })}

@@ -3,7 +3,7 @@ import 'server-only'
 import type { ToolAnnotations } from '@modelcontextprotocol/server'
 import type { z } from 'zod'
 
-import { RUOLI_MARKETING, solaLettura, TUTTI_I_RUOLI, type LivelloPm } from '@/lib/auth/roles'
+import { RUOLI_MARKETING, RUOLI_MCP, type LivelloPm } from '@/lib/auth/roles'
 
 import { ETICHETTA_MODELLO, SEZIONI } from '@/lib/marketing/etichette'
 
@@ -79,19 +79,14 @@ export type Strumento = {
 /** The calendar is the Marketing area's, from Claude too. */
 const MARKETING: readonly RuoloMcp[] = RUOLI_MARKETING
 /** Projects and time: every role has the Projects area. */
-const TUTTI: readonly RuoloMcp[] = TUTTI_I_RUOLI
-/**
- * The reads of the person's own (nobody else's), and the previews of a write
- * (only who writes asks them): never the business coach's.
- */
-const SOLO_PROPRI = new Set(['miei_task', 'mio_tempo', 'anteprima_interruzione', 'anteprima_rimborso'])
+const TUTTI: readonly RuoloMcp[] = RUOLI_MCP
 /** Who creates and manages projects (pm_crea_progetto, pm_puo_gestire). */
 const GESTISCE: readonly LivelloPm[] = ['admin', 'manager']
-/** The call tools' roles (phase 2): the business coach reads through the admin's reads. */
+/** The call tools' roles (phase 2). */
 const CALL_TUTTI: readonly RuoloMcp[] = ['admin', 'setter', 'closer']
 const CALL_CLOSER: readonly RuoloMcp[] = ['admin', 'closer']
 const CALL_SETTER: readonly RuoloMcp[] = ['admin', 'setter']
-/** Clients, sales and instalments (phase 3): the business coach reads through the admin's reads. */
+/** Clients, sales and instalments (phase 3). */
 const SOLO_ADMIN: readonly RuoloMcp[] = ['admin']
 const VENDITE: readonly RuoloMcp[] = ['admin', 'closer']
 
@@ -265,11 +260,6 @@ export const STRUMENTI: readonly Strumento[] = [
  */
 export function strumentiPer(ruolo: string, livello?: LivelloPm | null): Strumento[] {
   if (!isRuoloMcp(ruolo)) throw new Error('ruolo non ammesso al server MCP')
-  // the business coach (22/10/2026): every read the admin has, the calendar's too, never a write and
-  // nothing of his own (he has no tasks and no time); the Data API filter refuses his writes anyway
-  if (solaLettura(ruolo)) {
-    return STRUMENTI.filter((s) => !s.scrive && s.ruoli.includes('admin') && !SOLO_PROPRI.has(s.nome))
-  }
   const effettivo: LivelloPm | null = ruolo === 'admin' ? 'admin' : (livello ?? null)
   return STRUMENTI.filter(
     (s) => s.ruoli.includes(ruolo) && (!s.livelli || (effettivo !== null && s.livelli.includes(effettivo))),
@@ -525,8 +515,7 @@ function strumentiProgetti(): Strumento[] {
 
 /**
  * Calls, leads and outcomes (Claude a 360 gradi, phase 2, 23/10/2026): admin,
- * setter and closer, with the person's own permissions in the app; the
- * business coach reads. Nothing here deletes, nothing reads Claude's analyses
+ * setter and closer, with the person's own permissions in the app. Nothing here deletes, nothing reads Claude's analyses
  * of the calls, Fathom's transcripts, sales or clients.
  */
 function strumentiCall(): Strumento[] {
@@ -660,7 +649,7 @@ function strumentiCall(): Strumento[] {
  * Clients, sales, instalments and cash-ins (Claude a 360 gradi, phase 3,
  * 23/10/2026): the admin, the closer on his own sales, the setter on his
  * clients through his two functions, with the person's own permissions in the
- * app; the business coach reads what the admin reads. Nothing here deletes;
+ * app. Nothing here deletes;
  * the totals come from SQL; a refund and the interruption of a path go
  * through their preview first.
  */
@@ -884,8 +873,7 @@ function strumentiVendite(): Strumento[] {
 /**
  * Costs, commissions, the month's goals, the Panoramica's economics and the
  * team (Claude a 360 gradi, phase 4, 23/10/2026): the admin reads and writes
- * what he does in the app, the business coach reads what the admin reads, the
- * setter only his own commissions. Every number comes from the SQL functions
+ * what he does in the app, the setter only his own commissions. Every number comes from the SQL functions
  * of the pages; nothing here deletes, and the team is read only.
  */
 function strumentiEconomics(): Strumento[] {

@@ -3,7 +3,7 @@ import { ChevronDown, Megaphone } from 'lucide-react'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { leggeComeAdmin, percorsoIniziale, TUTTI_I_RUOLI } from '@/lib/auth/roles'
+import { percorsoIniziale, TUTTI_I_RUOLI } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { NOME_APP } from '@/lib/brand/nome'
 import { VERSIONE_CORRENTE, type Pubblico } from '@/lib/changelog/versioni'
@@ -25,8 +25,7 @@ export default async function NovitaPage() {
   const lingua = await getLingua()
   const t = NOVITA[lingua]
   const { formatData } = formato(lingua)
-  // the business coach reads every item like the admin (22/10/2026)
-  const admin = leggeComeAdmin(ruolo)
+  const admin = ruolo === 'admin'
   const corrente = VERSIONE_CORRENTE
   const versioni = versioniPer(ruolo)
   // the heading of the version in use, when this role reads it
