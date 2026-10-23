@@ -369,7 +369,7 @@ export async function registraEsito(input: RegistraEsitoInput, ctx: ContestoMcp)
     esito: 'salvato',
     call: call ? callPerClaude(call, ctx, true) : { id: input.call_id },
     ...(input.esito === 'chiusa'
-      ? { vendita: 'Ora va registrata la vendita della call: si registra dall’app (Vendite › Nuova vendita dalla call), non da qui.' }
+      ? { vendita: 'Ora va registrata la vendita della call: registra_vendita con il call_id di questa call (o dall’app, Vendite › Nuova vendita dalla call).' }
       : {}),
     ...(esito.followUp ? { call_di_follow_up_id: esito.followUp } : {}),
     ...(esito.avviso ? { avviso: esito.avviso } : {}),
