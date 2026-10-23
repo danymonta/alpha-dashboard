@@ -2,12 +2,12 @@ import { z } from 'zod'
 
 /**
  * Sign-in by email (Supabase email OTP): the person asks for a code, the email
- * carries a link and a 6 digit code, either one signs in. The same field
+ * carries a link and an 8 digit code (the cloud project's Email OTP Length), either one signs in. The same field
  * schemas bind the form and the server actions.
  */
 
 /** Digits in the code: Supabase › Authentication › Email › OTP length (config.toml: otp_length). */
-export const CIFRE_CODICE = 6
+export const CIFRE_CODICE = 8
 
 /** Seconds before a new code can be asked for (the form counts down, the server does not rely on it). */
 export const ATTESA_NUOVO_CODICE_S = 60

@@ -39,24 +39,24 @@ describe('l’indirizzo per il codice', () => {
   })
 })
 
-describe('il codice di 6 cifre', () => {
+describe('il codice di 8 cifre', () => {
   it.each([
-    ['123456', '123456'],
-    [' 123456 ', '123456'],
-    ['123 456', '123456'],
-    ['123-456', '123456'],
-    ['000000', '000000'],
+    ['12345678', '12345678'],
+    [' 12345678 ', '12345678'],
+    ['1234 5678', '12345678'],
+    ['1234-5678', '12345678'],
+    ['00000000', '00000000'],
   ])('«%s» vale %s', (scritto, atteso) => {
     expect(codiceAccessoSchema.parse(scritto)).toBe(atteso)
   })
 
-  it.each(['', '12345', '1234567', 'abcdef', '12a456', '12.456'])('rifiuta «%s»', (v) => {
+  it.each(['', '1234567', '123456789', 'abcdefgh', '12a45678', '12.45678'])('rifiuta «%s»', (v) => {
     expect(codiceAccessoSchema.safeParse(v).success).toBe(false)
   })
 
   it('i messaggi sono quelli della pagina', () => {
-    const corto = codiceAccessoSchema.safeParse('12345')
-    expect(corto.success ? '' : corto.error.issues[0].message).toBe('Il codice ha 6 cifre')
+    const corto = codiceAccessoSchema.safeParse('1234567')
+    expect(corto.success ? '' : corto.error.issues[0].message).toBe('Il codice ha 8 cifre')
     const vuoto = codiceAccessoSchema.safeParse('  ')
     expect(vuoto.success ? '' : vuoto.error.issues[0].message).toBe('Scrivi il codice')
   })
@@ -68,13 +68,13 @@ describe('quello che ricevono le server action', () => {
   })
 
   it('la verifica vuole indirizzo e codice', () => {
-    expect(verificaCodiceSchema.parse({ email: 'a@b.it', codice: '123 456', da: '/sales' })).toEqual({
+    expect(verificaCodiceSchema.parse({ email: 'a@b.it', codice: '1234 5678', da: '/sales' })).toEqual({
       email: 'a@b.it',
-      codice: '123456',
+      codice: '12345678',
       da: '/sales',
     })
     expect(verificaCodiceSchema.safeParse({ email: 'a@b.it' }).success).toBe(false)
-    expect(verificaCodiceSchema.safeParse({ codice: '123456' }).success).toBe(false)
+    expect(verificaCodiceSchema.safeParse({ codice: '12345678' }).success).toBe(false)
   })
 
   it('«da» fuori dall’app arriva fin qui come testo ma non porta mai fuori', () => {

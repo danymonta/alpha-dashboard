@@ -53,7 +53,7 @@ function linkDa(html: string): string | null {
 }
 
 function codiceDa(html: string): string | null {
-  return html.match(/>\s*(\d{6})\s*</)?.[1] ?? null
+  return html.match(/>\s*(\d{8})\s*</)?.[1] ?? null
 }
 
 /** Code and link of the email just sent; from the admin API if the email does not carry them (see above). */
@@ -246,9 +246,9 @@ test.describe('accesso con codice e link', () => {
     await page.getByLabel('Indirizzo di posta').fill(ADMIN)
     await page.getByRole('button', { name: 'Invia il codice' }).click()
     const passo = passoCodice(page)
-    await passo.getByLabel('Codice di accesso').fill('12345')
+    await passo.getByLabel('Codice di accesso').fill('1234567')
     await passo.getByRole('button', { name: 'Entra' }).click()
-    await expect(passo.getByText('Il codice ha 6 cifre')).toBeVisible()
+    await expect(passo.getByText('Il codice ha 8 cifre')).toBeVisible()
     await aspettaMail(ADMIN, viste)
 
     // "Cambia email" goes back to the first step with the address still there
