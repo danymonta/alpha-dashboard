@@ -17,7 +17,9 @@ import { NavigazionePeriodo } from '@/components/pm/tempo/navigazione-periodo'
 import { solaLettura } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { getLingua } from '@/lib/i18n/server'
+import { MIO_TEMPO } from '@/lib/i18n/testi/tempo'
 import { createClient } from '@/lib/supabase/server'
 import { formatDurata, periodoTempo } from '@/lib/tempo'
 
@@ -34,7 +36,10 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
   // the business coach logs no time: he reads the team's (22/10/2026)
   if (solaLettura(profilo.ruolo)) redirect('/tempo/team')
   const oggi = oggiRoma()
-  const periodo = periodoTempo(await searchParams, oggi)
+  const lingua = await getLingua()
+  const testi = MIO_TEMPO[lingua]
+  const { formatData } = formato(lingua)
+  const periodo = periodoTempo(await searchParams, oggi, lingua)
   const supabase = await createClient()
 
   const [progetti, task, voci, riepilogo, perTask] = await Promise.all([
@@ -55,7 +60,7 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
     supabase.rpc('pm_mio_tempo_per_task', { p_da: periodo.da, p_a: periodo.a }),
   ])
   if (progetti.error || task.error || voci.error || riepilogo.error || perTask.error) {
-    throw new Error('Impossibile caricare il tuo tempo')
+    throw new Error(testi.errore)
   }
 
   const opzioniProgetti = progetti.data
@@ -84,10 +89,10 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
     fine: v.fine,
     minuti: v.minuti!,
     nota: v.nota,
-    titolo: v.progetto?.nome ?? 'Progetto non più accessibile',
+    titolo: v.progetto?.nome ?? testi.progettoNonAccessibile,
     dettaglio: v.task?.titolo ?? null,
     progetto_id: v.progetto_id,
-    nomeProgetto: v.progetto?.nome ?? 'Progetto attuale',
+    nomeProgetto: v.progetto?.nome ?? testi.progettoAttuale,
     task_id: v.task_id,
     daTimer: v.inizio !== null,
   }))
@@ -97,10 +102,7 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
 
   return (
     <div className="space-y-6">
-      <IntestazionePagina
-        titolo="Il mio tempo"
-        descrizione="Il timer e le ore che dedichi ai progetti. Lo registri tu, quando vuoi: è il tuo resoconto, non un controllo."
-      />
+      <IntestazionePagina titolo={testi.titolo} descrizione={testi.descrizione} />
       <AggiornaConTempo />
 
       {/* below lg: timer, then the period with its total and entries; logging afterwards is a sheet */}
@@ -108,7 +110,7 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
         <div className="space-y-3 lg:space-y-6">
           <section aria-labelledby="titolo-timer" className="space-y-2">
             <h2 id="titolo-timer" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Timer
+              {testi.timer}
             </h2>
             <CardTimer progetti={opzioniProgetti} task={opzioniTask} />
           </section>
@@ -116,13 +118,13 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
           {conProgetti ? (
             <>
               <div className="lg:hidden">
-                <FoglioNuovoTempo progetti={opzioniProgetti} task={opzioniTask} oggi={oggi} />
+                <FoglioNuovoTempo progetti={opzioniProgetti} task={opzioniTask} oggi={oggi} lingua={lingua} />
               </div>
               <section id="registra" aria-labelledby="titolo-registra" className="hidden scroll-mt-24 space-y-2 lg:block">
                 <h2 id="titolo-registra" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  Registra tempo passato
+                  {testi.registraPassato}
                 </h2>
-                <NuovoTempo progetti={opzioniProgetti} task={opzioniTask} oggi={oggi} secondario />
+                <NuovoTempo progetti={opzioniProgetti} task={opzioniTask} oggi={oggi} secondario lingua={lingua} />
               </section>
             </>
           ) : null}
@@ -131,12 +133,12 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
         {mostraPeriodo ? (
           <section aria-labelledby="titolo-periodo" className="space-y-4">
             <h2 id="titolo-periodo" className="sr-only">
-              Il tempo registrato
+              {testi.tempoRegistrato}
             </h2>
-            <NavigazionePeriodo percorso="/tempo" periodo={periodo} oggi={oggi} />
+            <NavigazionePeriodo percorso="/tempo" periodo={periodo} oggi={oggi} lingua={lingua} />
 
             <div className="rounded-xl bg-card p-4" data-testid="totale-periodo">
-              <p className="text-xs text-muted-foreground">Totale · {periodo.titolo.toLowerCase()}</p>
+              <p className="text-xs text-muted-foreground">{testi.totale(periodo.titolo.toLowerCase())}</p>
               <p className="num text-3xl font-semibold">{formatDurata(totale)}</p>
               {perProgetto.length > 0 ? (
                 <dl className="mt-4 space-y-2 border-t border-border pt-4">
@@ -150,11 +152,11 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
                         className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 text-sm"
                         data-testid="totale-progetto"
                       >
-                        <dt className="min-w-0 truncate text-muted-foreground">{r.progetto ?? 'Progetto non più accessibile'}</dt>
+                        <dt className="min-w-0 truncate text-muted-foreground">{r.progetto ?? testi.progettoNonAccessibile}</dt>
                         <dd className="num font-medium">{formatDurata(r.minuti)}</dd>
                         {conTask ? (
                           <dd className="col-span-2">
-                            <dl className="space-y-1 border-l border-border pl-3" aria-label={`Per task, ${r.progetto ?? 'progetto'}`}>
+                            <dl className="space-y-1 border-l border-border pl-3" aria-label={testi.perTask(r.progetto ?? testi.progettoGenerico)}>
                               {sottoTask.map((t) => (
                                 <div
                                   key={t.task_id ?? 'senza-task'}
@@ -162,7 +164,7 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
                                   data-testid="totale-task"
                                 >
                                   <dt className="min-w-0 truncate text-muted-foreground">
-                                    {t.task_id ? (t.task ?? 'Task non più accessibile') : 'Senza task'}
+                                    {t.task_id ? (t.task ?? testi.taskNonAccessibile) : testi.senzaTask}
                                   </dt>
                                   <dd className="num shrink-0 text-muted-foreground">{formatDurata(t.minuti)}</dd>
                                 </div>
@@ -180,17 +182,15 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
             {elenco.length === 0 ? (
               <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">
                 <Timer className="size-6 text-muted-foreground" aria-hidden="true" />
-                <p className="text-sm font-medium">Nessun tempo registrato in questo periodo</p>
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  Avvia il timer quando inizi un lavoro, oppure registra dopo il tempo che hai dedicato.
-                </p>
+                <p className="text-sm font-medium">{testi.vuoto}</p>
+                <p className="max-w-sm text-sm text-muted-foreground">{testi.vuotoDescrizione}</p>
                 {conProgetti ? (
                   // below lg the "Registra tempo passato" button is right above
                   <a
                     href="#registra"
                     className="hidden min-h-11 items-center text-sm font-medium underline-offset-4 hover:underline lg:inline-flex"
                   >
-                    Registra tempo passato
+                    {testi.registraPassato}
                   </a>
                 ) : null}
               </div>
@@ -199,9 +199,10 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
                 voci={elenco}
                 totaliGiorno={totaliGiorno}
                 oggi={oggi}
+                lingua={lingua}
                 azioni={(voce) => {
                   const completa = elenco.find((e) => e.id === voce.id)!
-                  const descrizione = `il tempo del ${formatData(voce.data)} su ${voce.titolo}`
+                  const descrizione = testi.descrizioneVoce(formatData(voce.data), voce.titolo)
                   return (
                     <>
                       <ModificaTempo
@@ -210,8 +211,9 @@ export default async function IlMioTempoPage({ searchParams }: { searchParams: P
                         task={opzioniTask}
                         oggi={oggi}
                         descrizione={descrizione}
+                        lingua={lingua}
                       />
-                      <EliminaTempo id={voce.id} descrizione={descrizione} />
+                      <EliminaTempo id={voce.id} descrizione={descrizione} lingua={lingua} />
                     </>
                   )
                 }}

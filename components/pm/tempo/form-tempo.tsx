@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MIO_TEMPO, traduciErroreTempo } from '@/lib/i18n/testi/tempo'
 import { formatDurataInput } from '@/lib/tempo'
 import {
   MAX_MINUTI,
@@ -39,7 +41,8 @@ const DURATE_RAPIDE = [
 /**
  * The fields shared by "add" and "edit": project, task, day, duration, the
  * optional range ("Dalle"–"Alle") and the note. With a range the duration is
- * computed from it and not typed.
+ * computed from it and not typed. The words in the page's language (1.53.0):
+ * the messages of the schema too, read through traduciErroreTempo.
  */
 function CampiTempo({
   form,
@@ -48,6 +51,7 @@ function CampiTempo({
   task,
   oggi,
   progettoFisso,
+  lingua,
 }: {
   form: UseFormReturn<TempoManualeInput> | UseFormReturn<ModificaTempoInput>
   prefisso: string
@@ -55,7 +59,10 @@ function CampiTempo({
   task: readonly OpzioneTask[]
   oggi: string
   progettoFisso: boolean
+  lingua: Lingua
 }) {
+  const t = MIO_TEMPO[lingua].campi
+  const errore = (messaggio: string | undefined) => traduciErroreTempo(messaggio, lingua)
   // both forms share these fields: narrowing the union is only for the types
   const f = form as UseFormReturn<TempoManualeInput>
   const {
@@ -70,7 +77,7 @@ function CampiTempo({
   const taskId = useWatch({ control, name: 'task_id' })
   const dalle = useWatch({ control, name: 'dalle' })
   const alle = useWatch({ control, name: 'alle' })
-  const taskDelProgetto = task.filter((t) => t.progetto_id === progettoId && (!t.completato || t.id === taskId))
+  const taskDelProgetto = task.filter((x) => x.progetto_id === progettoId && (!x.completato || x.id === taskId))
   // both hours written: the duration is the range's, not typed
   const conFascia = Boolean(parseOra(dalle) && parseOra(alle))
   const unaFascia = Boolean(dalle || alle)
@@ -96,37 +103,37 @@ function CampiTempo({
     <>
       {progettoFisso ? null : (
         <div className="space-y-1.5">
-          <Label htmlFor={`${prefisso}-progetto`}>Progetto</Label>
+          <Label htmlFor={`${prefisso}-progetto`}>{t.progetto}</Label>
           <select
             id={`${prefisso}-progetto`}
             className={CLASSE_SELECT}
             aria-describedby={errors.progetto_id ? `${prefisso}-progetto-errore` : undefined}
             {...register('progetto_id', { onChange: () => setValue('task_id', '') })}
           >
-            <option value="">Scegli il progetto</option>
+            <option value="">{t.scegliProgetto}</option>
             {progetti.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nome}
               </option>
             ))}
           </select>
-          <ErroreCampo id={`${prefisso}-progetto-errore`} messaggio={errors.progetto_id?.message} />
+          <ErroreCampo id={`${prefisso}-progetto-errore`} messaggio={errore(errors.progetto_id?.message)} />
         </div>
       )}
 
       <div className="space-y-1.5">
-        <Label htmlFor={`${prefisso}-task`}>Attività (facoltativa)</Label>
+        <Label htmlFor={`${prefisso}-task`}>{t.attivita}</Label>
         <select
           id={`${prefisso}-task`}
           className={CLASSE_SELECT}
           disabled={!progettoId}
           {...register('task_id')}
         >
-          <option value="">{progettoId ? 'Nessuna attività in particolare' : 'Prima scegli il progetto'}</option>
-          {taskDelProgetto.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.titolo}
-              {t.completato ? ' (completata)' : ''}
+          <option value="">{progettoId ? t.nessunaAttivita : t.primaProgetto}</option>
+          {taskDelProgetto.map((opzione) => (
+            <option key={opzione.id} value={opzione.id}>
+              {opzione.titolo}
+              {opzione.completato ? t.completata : ''}
             </option>
           ))}
         </select>
@@ -134,7 +141,7 @@ function CampiTempo({
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
-          <Label htmlFor={`${prefisso}-data`}>Giorno</Label>
+          <Label htmlFor={`${prefisso}-data`}>{t.giorno}</Label>
           <Input
             id={`${prefisso}-data`}
             type="date"
@@ -144,7 +151,7 @@ function CampiTempo({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`${prefisso}-durata`}>Durata</Label>
+          <Label htmlFor={`${prefisso}-durata`}>{t.durata}</Label>
           <Input
             id={`${prefisso}-durata`}
             inputMode="text"
@@ -157,7 +164,7 @@ function CampiTempo({
           />
         </div>
       </div>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Durate rapide">
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t.durateRapide}>
         {DURATE_RAPIDE.map((d) => (
           <Button
             key={d.valore}
@@ -172,18 +179,16 @@ function CampiTempo({
         ))}
       </div>
       <p id={`${prefisso}-durata-aiuto`} className="-mt-2 text-xs text-muted-foreground">
-        {conFascia
-          ? 'Calcolata dalla fascia oraria: per scriverla a mano togli la fascia.'
-          : 'Ore e minuti: 1:30, 1h30 o 90 (un numero da solo sono minuti).'}
+        {conFascia ? t.calcolata : t.aiutoDurata}
       </p>
-      <ErroreCampo id={`${prefisso}-data-errore`} messaggio={errors.data?.message ?? errors.durata?.message} />
+      <ErroreCampo id={`${prefisso}-data-errore`} messaggio={errore(errors.data?.message ?? errors.durata?.message)} />
 
       <fieldset className="space-y-1.5">
-        <legend className="mb-2 text-sm leading-none font-medium">Fascia oraria (facoltativa)</legend>
+        <legend className="mb-2 text-sm leading-none font-medium">{t.fascia}</legend>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
             <Label htmlFor={`${prefisso}-dalle`} className="font-normal text-muted-foreground">
-              Dalle
+              {t.dalle}
             </Label>
             <Input
               id={`${prefisso}-dalle`}
@@ -197,7 +202,7 @@ function CampiTempo({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${prefisso}-alle`} className="font-normal text-muted-foreground">
-              Alle
+              {t.alle}
             </Label>
             <Input
               id={`${prefisso}-alle`}
@@ -212,16 +217,16 @@ function CampiTempo({
         </div>
         {unaFascia ? (
           <Button type="button" variant="ghost" className="-ml-3 h-11 px-3 text-muted-foreground" onClick={togliFascia}>
-            Togli la fascia
+            {t.togliFascia}
           </Button>
         ) : null}
-        <ErroreCampo id={`${prefisso}-fascia-errore`} messaggio={errors.dalle?.message ?? errors.alle?.message} />
+        <ErroreCampo id={`${prefisso}-fascia-errore`} messaggio={errore(errors.dalle?.message ?? errors.alle?.message)} />
       </fieldset>
 
       <div className="space-y-1.5">
-        <Label htmlFor={`${prefisso}-nota`}>Nota (facoltativa)</Label>
-        <Textarea id={`${prefisso}-nota`} rows={2} maxLength={2000} placeholder="Cosa hai fatto" {...register('nota')} />
-        <ErroreCampo id={`${prefisso}-nota-errore`} messaggio={errors.nota?.message} />
+        <Label htmlFor={`${prefisso}-nota`}>{t.nota}</Label>
+        <Textarea id={`${prefisso}-nota`} rows={2} maxLength={2000} placeholder={t.cosaHaiFatto} {...register('nota')} />
+        <ErroreCampo id={`${prefisso}-nota-errore`} messaggio={errore(errors.nota?.message)} />
       </div>
     </>
   )
@@ -239,6 +244,8 @@ type PropsNuovoTempo = {
   nelFoglio?: boolean
   /** After a successful save (the sheet closes). */
   onRegistrato?: () => void
+  /** The page's language (1.53.0); a project's Tempo tab passes none and stays Italian. */
+  lingua?: Lingua
 }
 
 /** Time logged afterwards. On a project page the project is fixed. */
@@ -250,7 +257,9 @@ export function NuovoTempo({
   secondario = false,
   nelFoglio = false,
   onRegistrato,
+  lingua = 'it',
 }: PropsNuovoTempo) {
+  const testi = MIO_TEMPO[lingua]
   const prefisso = useId()
   const [errore, setErrore] = useState<string | null>(null)
   const form = useForm<TempoManualeInput>({
@@ -277,14 +286,14 @@ export function NuovoTempo({
     try {
       esito = await registraTempo(valori)
     } catch {
-      setErrore('Connessione assente. Riprova.')
+      setErrore(testi.form.connessione)
       return
     }
     if (!esito.ok) {
-      setErrore(esito.errore)
+      setErrore(traduciErroreTempo(esito.errore, lingua) ?? null)
       return
     }
-    toast.success('Tempo registrato')
+    toast.success(testi.form.registrato)
     // same project and day: the next entry is usually the same context
     reset({ progetto_id: valori.progetto_id, task_id: '', data: valori.data, durata: '', dalle: '', alle: '', nota: '' })
     onRegistrato?.()
@@ -295,7 +304,7 @@ export function NuovoTempo({
       onSubmit={invia}
       noValidate
       className={nelFoglio ? 'space-y-4' : 'space-y-4 rounded-xl bg-card p-4'}
-      aria-label="Registra tempo passato"
+      aria-label={testi.registraPassato}
     >
       <CampiTempo
         form={form}
@@ -304,6 +313,7 @@ export function NuovoTempo({
         task={task}
         oggi={oggi}
         progettoFisso={Boolean(progettoId)}
+        lingua={lingua}
       />
       <ErroreModulo testo={errore} />
       <Button type="submit" variant={secondario ? 'outline' : 'default'} className="h-11 w-full" disabled={isSubmitting}>
@@ -312,7 +322,7 @@ export function NuovoTempo({
         ) : (
           <Plus className="size-4" aria-hidden="true" />
         )}
-        Registra il tempo
+        {testi.form.registra}
       </Button>
     </form>
   )
@@ -324,6 +334,7 @@ export function NuovoTempo({
  */
 export function FoglioNuovoTempo(props: Omit<PropsNuovoTempo, 'secondario' | 'nelFoglio' | 'onRegistrato'>) {
   const [aperto, setAperto] = useState(false)
+  const testi = MIO_TEMPO[props.lingua ?? 'it']
   return (
     <FoglioModifica
       aperto={aperto}
@@ -332,11 +343,11 @@ export function FoglioNuovoTempo(props: Omit<PropsNuovoTempo, 'secondario' | 'ne
       contenutoTrigger={
         <>
           <History className="size-4" aria-hidden="true" />
-          Registra tempo passato
+          {testi.registraPassato}
         </>
       }
-      titolo="Registra tempo passato"
-      descrizione="Per oggi o per un giorno passato: i totali si aggiornano subito."
+      titolo={testi.registraPassato}
+      descrizione={testi.form.foglioDescrizione}
     >
       <NuovoTempo {...props} nelFoglio onRegistrato={() => setAperto(false)} />
     </FoglioModifica>
@@ -366,6 +377,7 @@ export function ModificaTempo({
   oggi,
   descrizione,
   progettoFisso = false,
+  lingua = 'it',
 }: {
   voce: VoceModificabile
   progetti: readonly OpzioneProgetto[]
@@ -373,7 +385,10 @@ export function ModificaTempo({
   oggi: string
   descrizione: string
   progettoFisso?: boolean
+  /** The page's language (1.53.0); a project's Tempo tab passes none and stays Italian. */
+  lingua?: Lingua
 }) {
+  const testi = MIO_TEMPO[lingua].form
   const prefisso = useId()
   const [aperto, setAperto] = useState(false)
   const { errore, setErrore, salva } = useSalvataggio()
@@ -405,7 +420,7 @@ export function ModificaTempo({
   } = form
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => modificaTempo(valori), 'Tempo aggiornato')) setAperto(false)
+    if (await salva(() => modificaTempo(valori), testi.aggiornato)) setAperto(false)
   })
 
   return (
@@ -423,18 +438,18 @@ export function ModificaTempo({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={`Modifica ${descrizione}`}
+          aria-label={testi.modifica(descrizione)}
           className="size-11 shrink-0 text-muted-foreground"
         />
       }
       contenutoTrigger={<Pencil className="size-4" aria-hidden="true" />}
-      titolo="Correggi il tempo"
+      titolo={testi.correggi}
       descrizione={
         senzaFascia
-          ? `Viene dal timer (${senzaFascia}): se cambi giorno o durata resta solo la durata.`
+          ? testi.daTimerSenzaFascia(testi.orariTimer(senzaFascia))
           : voce.daTimer
-            ? 'Viene dal timer: puoi correggere la fascia, o toglierla e scrivere solo la durata.'
-            : 'I totali si ricalcolano subito.'
+            ? testi.daTimer
+            : testi.ricalcolo
       }
     >
       <form onSubmit={invia} noValidate className="space-y-4">
@@ -445,16 +460,27 @@ export function ModificaTempo({
           task={task}
           oggi={oggi}
           progettoFisso={progettoFisso}
+          lingua={lingua}
         />
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>Salva</BottoneSalva>
+        <ErroreModulo testo={traduciErroreTempo(errore, lingua) ?? null} />
+        <BottoneSalva inCorso={isSubmitting}>{testi.salva}</BottoneSalva>
       </form>
     </FoglioModifica>
   )
 }
 
 /** Two taps on purpose: the first arms, the second deletes. */
-export function EliminaTempo({ id, descrizione }: { id: string; descrizione: string }) {
+export function EliminaTempo({
+  id,
+  descrizione,
+  lingua = 'it',
+}: {
+  id: string
+  descrizione: string
+  /** The page's language (1.53.0); a project's Tempo tab passes none and stays Italian. */
+  lingua?: Lingua
+}) {
+  const testi = MIO_TEMPO[lingua].form
   const [pronto, setPronto] = useState(false)
   const [inCorso, avvia] = useTransition()
 
@@ -465,7 +491,7 @@ export function EliminaTempo({ id, descrizione }: { id: string; descrizione: str
         variant="ghost"
         size="icon"
         className="size-11 text-muted-foreground"
-        aria-label={`Elimina ${descrizione}`}
+        aria-label={testi.elimina(descrizione)}
         onClick={() => setPronto(true)}
       >
         <Trash2 className="size-4" aria-hidden="true" />
@@ -485,16 +511,16 @@ export function EliminaTempo({ id, descrizione }: { id: string; descrizione: str
         avvia(async () => {
           try {
             const esito = await eliminaTempo({ id })
-            if (esito.ok) toast.success('Voce eliminata')
-            else toast.error(esito.errore)
+            if (esito.ok) toast.success(testi.eliminata)
+            else toast.error(traduciErroreTempo(esito.errore, lingua))
           } catch {
-            toast.error('Connessione assente. Riprova.')
+            toast.error(testi.connessione)
           }
           setPronto(false)
         })
       }
     >
-      Conferma
+      {testi.conferma}
     </Button>
   )
 }

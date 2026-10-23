@@ -2,13 +2,14 @@
 
 import { CircleCheck } from 'lucide-react'
 
+import { useFormato, useLingua } from '@/components/i18n/lingua-provider'
 import { InRitardo } from '@/components/pm/stato-progetto'
 import { AvviaTimer } from '@/components/pm/tempo/avvia-timer'
 import { LinkRiga } from '@/components/shell/link-riga'
 import { Checkbox } from '@/components/ui/checkbox'
-import { formatData } from '@/lib/format'
+import { MIEI_TASK } from '@/lib/i18n/testi/task'
 import type { MioTask } from '@/lib/miei-task'
-import { ETICHETTA_STATO_TASK, elencoNomi, linkTask } from '@/lib/progetti'
+import { linkTask } from '@/lib/progetti'
 import { cn } from '@/lib/utils'
 
 /** The title opens the task: a 44px row of its own, the checkbox and the timer beside it. */
@@ -55,6 +56,9 @@ type Props = {
  * focus stays on it.
  */
 export function RigaMioTask({ task, completatoAdesso, onCompleta, onRiapri }: Props) {
+  const lingua = useLingua()
+  const t = MIEI_TASK[lingua]
+  const { formatData } = useFormato()
   return (
     <li
       aria-label={task.titolo}
@@ -69,7 +73,7 @@ export function RigaMioTask({ task, completatoAdesso, onCompleta, onRiapri }: Pr
           checked={completatoAdesso}
           className="size-5"
           onCheckedChange={(v) => (v ? onCompleta() : onRiapri())}
-          aria-label={completatoAdesso ? `Riapri ${task.titolo}` : `Completa ${task.titolo}`}
+          aria-label={completatoAdesso ? t.riapriTask(task.titolo) : t.completa(task.titolo)}
         />
       </label>
       <div className="min-w-0 flex-1 pb-3">
@@ -87,22 +91,22 @@ export function RigaMioTask({ task, completatoAdesso, onCompleta, onRiapri }: Pr
             {completatoAdesso ? (
               <span className="inline-flex items-center gap-1 font-medium text-status-ok">
                 <CircleCheck className="size-3.5" aria-hidden="true" />
-                Completato adesso
+                {t.completatoAdesso}
               </span>
             ) : (
-              <span>{ETICHETTA_STATO_TASK[task.stato]}</span>
+              <span>{t.statiTask[task.stato]}</span>
             )}
-            {task.con.length > 0 ? <span>con {elencoNomi(task.con)}</span> : null}
+            {task.con.length > 0 ? <span>{t.con(task.con)}</span> : null}
             {completatoAdesso ? null : task.in_ritardo ? (
-              <InRitardo testo={`In ritardo, scadenza ${formatData(task.scadenza)}`} />
+              <InRitardo testo={t.inRitardo(formatData(task.scadenza))} />
             ) : task.scadenza ? (
-              <span className="num">Scadenza {formatData(task.scadenza)}</span>
+              <span className="num">{t.scadenza(formatData(task.scadenza))}</span>
             ) : null}
           </p>
         </div>
       </div>
       {/* time is counted on open tasks, as in the project's Attività */}
-      {completatoAdesso ? null : <AvviaTimer progettoId={task.progetto_id} taskId={task.id} titolo={task.titolo} />}
+      {completatoAdesso ? null : <AvviaTimer progettoId={task.progetto_id} taskId={task.id} titolo={task.titolo} lingua={lingua} />}
     </li>
   )
 }

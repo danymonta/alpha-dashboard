@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 
 import { avviaTimer } from '@/app/(app)/tempo/actions'
 import { CLASSE_SELECT } from '@/components/form/foglio-modifica'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { LinkBottone } from '@/components/link-bottone'
 import { Cronometro } from '@/components/pm/tempo/cronometro'
 import { FermaTimerForm, descrizioneTimer } from '@/components/pm/tempo/timer-attivo'
@@ -16,11 +17,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatOra } from '@/lib/date'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MIO_TEMPO, traduciErroreTempo } from '@/lib/i18n/testi/tempo'
 import { avviaTimerSchema } from '@/lib/validation/tempo'
 
 /**
  * The timer of "Il mio tempo": running (clock, stop with a note) or ready to
- * start on a project and, optionally, a task of that project.
+ * start on a project and, optionally, a task of that project. Only on "Il
+ * mio tempo": in the page's language (1.53.0).
  */
 export function CardTimer({
   progetti,
@@ -30,6 +34,8 @@ export function CardTimer({
   task: readonly OpzioneTask[]
 }) {
   const { stato, timer, ricarica } = useTimer()
+  const lingua = useLingua()
+  const t = MIO_TEMPO[lingua].cronometro
 
   if (stato === 'caricamento') {
     return (
@@ -37,7 +43,7 @@ export function CardTimer({
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-11 w-full" />
         <Skeleton className="h-11 w-full" />
-        <span className="sr-only">Caricamento del timer</span>
+        <span className="sr-only">{t.caricamento}</span>
       </div>
     )
   }
@@ -47,10 +53,10 @@ export function CardTimer({
       <div role="alert" className="flex flex-col items-start gap-3 rounded-xl bg-card p-4">
         <p className="flex items-center gap-2 text-sm">
           <TriangleAlert className="size-4 text-status-critical" aria-hidden="true" />
-          Non riesco a leggere il timer.
+          {t.nonLeggo}
         </p>
         <Button type="button" variant="outline" className="h-11" onClick={() => void ricarica()}>
-          Riprova
+          {t.riprova}
         </Button>
       </div>
     )
@@ -58,13 +64,13 @@ export function CardTimer({
 
   if (timer) {
     return (
-      <section aria-label="Timer in corso" className="space-y-4 rounded-xl bg-card p-4" data-testid="card-timer">
+      <section aria-label={t.inCorso} className="space-y-4 rounded-xl bg-card p-4" data-testid="card-timer">
         <div>
-          <p className="text-xs text-muted-foreground">Timer in corso · acceso alle {formatOra(timer.inizio)}</p>
-          <p className="mt-1 truncate text-sm font-medium">{descrizioneTimer(timer)}</p>
+          <p className="text-xs text-muted-foreground">{t.accesoAlle(formatOra(timer.inizio))}</p>
+          <p className="mt-1 truncate text-sm font-medium">{descrizioneTimer(timer, lingua)}</p>
           <Cronometro inizio={timer.inizio} className="mt-1 block text-4xl font-semibold tracking-tight" />
         </div>
-        <FermaTimerForm key={timer.id} notaIniziale={timer.nota} />
+        <FermaTimerForm key={timer.id} notaIniziale={timer.nota} lingua={lingua} />
       </section>
     )
   }
@@ -74,22 +80,31 @@ export function CardTimer({
       <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-10 text-center">
         <FolderKanban className="size-6 text-muted-foreground" aria-hidden="true" />
         <div className="space-y-1">
-          <p className="text-sm font-medium">Non fai ancora parte di un progetto</p>
-          <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-            Il tempo si registra sui progetti di cui sei membro. Chi gestisce il progetto ti aggiunge al team.
-          </p>
+          <p className="text-sm font-medium">{t.senzaProgetti}</p>
+          <p className="mx-auto max-w-sm text-sm text-muted-foreground">{t.senzaProgettiDescrizione}</p>
         </div>
         <LinkBottone href="/progetti" variant="outline">
-          Vai ai progetti
+          {t.vaiProgetti}
         </LinkBottone>
       </div>
     )
   }
 
-  return <AvviaTimerForm progetti={progetti} task={task} />
+  return <AvviaTimerForm progetti={progetti} task={task} lingua={lingua} />
 }
 
-function AvviaTimerForm({ progetti, task }: { progetti: readonly OpzioneProgetto[]; task: readonly OpzioneTask[] }) {
+function AvviaTimerForm({
+  progetti,
+  task,
+  lingua,
+}: {
+  progetti: readonly OpzioneProgetto[]
+  task: readonly OpzioneTask[]
+  lingua: Lingua
+}) {
+  const testi = MIO_TEMPO[lingua]
+  const t = testi.cronometro
+  const campi = testi.campi
   const { ricarica } = useTimer()
   const id = useId()
   const [progettoId, setProgettoId] = useState(progetti.length === 1 ? progetti[0].id : '')
@@ -97,38 +112,38 @@ function AvviaTimerForm({ progetti, task }: { progetti: readonly OpzioneProgetto
   const [nota, setNota] = useState('')
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
-  const taskDelProgetto = task.filter((t) => t.progetto_id === progettoId && !t.completato)
+  const taskDelProgetto = task.filter((x) => x.progetto_id === progettoId && !x.completato)
 
   function invia(evento: FormEvent) {
     evento.preventDefault()
     setErrore(null)
     const parsed = avviaTimerSchema.safeParse({ progetto_id: progettoId, task_id: taskId, nota })
     if (!parsed.success) {
-      setErrore(parsed.error.issues[0]?.message ?? 'Dati non validi.')
+      setErrore(traduciErroreTempo(parsed.error.issues[0]?.message, lingua) ?? testi.form.datiNonValidi)
       return
     }
     avvia(async () => {
       try {
         const esito = await avviaTimer(parsed.data)
         if (!esito.ok) {
-          setErrore(esito.errore)
+          setErrore(traduciErroreTempo(esito.errore, lingua) ?? null)
           return
         }
-        toast.success('Timer avviato')
+        toast.success(t.avviato)
         setNota('')
       } catch {
-        setErrore('Connessione assente. Riprova.')
+        setErrore(testi.form.connessione)
       }
       await ricarica()
     })
   }
 
   return (
-    <form onSubmit={invia} noValidate className="space-y-4 rounded-xl bg-card p-4" aria-label="Avvia un timer" data-testid="card-timer">
-      <p className="text-xs text-muted-foreground">Nessun timer acceso</p>
+    <form onSubmit={invia} noValidate className="space-y-4 rounded-xl bg-card p-4" aria-label={t.avviaAria} data-testid="card-timer">
+      <p className="text-xs text-muted-foreground">{t.nessunoAcceso}</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor={`${id}-progetto`}>Progetto</Label>
+          <Label htmlFor={`${id}-progetto`}>{campi.progetto}</Label>
           <select
             id={`${id}-progetto`}
             className={CLASSE_SELECT}
@@ -138,7 +153,7 @@ function AvviaTimerForm({ progetti, task }: { progetti: readonly OpzioneProgetto
               setTaskId('')
             }}
           >
-            <option value="">Scegli il progetto</option>
+            <option value="">{campi.scegliProgetto}</option>
             {progetti.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nome}
@@ -147,7 +162,7 @@ function AvviaTimerForm({ progetti, task }: { progetti: readonly OpzioneProgetto
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`${id}-task`}>Attività (facoltativa)</Label>
+          <Label htmlFor={`${id}-task`}>{campi.attivita}</Label>
           <select
             id={`${id}-task`}
             className={CLASSE_SELECT}
@@ -155,23 +170,23 @@ function AvviaTimerForm({ progetti, task }: { progetti: readonly OpzioneProgetto
             disabled={!progettoId}
             onChange={(e) => setTaskId(e.target.value)}
           >
-            <option value="">{progettoId ? 'Nessuna attività in particolare' : 'Prima scegli il progetto'}</option>
-            {taskDelProgetto.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.titolo}
+            <option value="">{progettoId ? campi.nessunaAttivita : campi.primaProgetto}</option>
+            {taskDelProgetto.map((opzione) => (
+              <option key={opzione.id} value={opzione.id}>
+                {opzione.titolo}
               </option>
             ))}
           </select>
         </div>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor={`${id}-nota`}>Nota (facoltativa)</Label>
+        <Label htmlFor={`${id}-nota`}>{campi.nota}</Label>
         <Input
           id={`${id}-nota`}
           className="h-11"
           value={nota}
           maxLength={2000}
-          placeholder="Su cosa stai lavorando"
+          placeholder={t.suCosa}
           onChange={(e) => setNota(e.target.value)}
         />
       </div>
@@ -183,7 +198,7 @@ function AvviaTimerForm({ progetti, task }: { progetti: readonly OpzioneProgetto
       ) : null}
       <Button type="submit" className="h-11 w-full" disabled={inCorso}>
         {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <AlarmClock className="size-4" aria-hidden="true" />}
-        Avvia il timer
+        {t.avvia}
       </Button>
     </form>
   )

@@ -155,16 +155,31 @@ export function completatiDaMostrare(
   return completati.filter((t) => !mostrati.has(t.id))
 }
 
+/** The words of etichettaCompletato; lib/i18n/testi/task.ts has them in English too (1.53.0). */
+export const PAROLE_COMPLETATO = {
+  completato: 'Completato',
+  oggi: (ora: string) => `Completato oggi alle ${ora}`,
+  ieri: (ora: string) => `Completato ieri alle ${ora}`,
+  il: (data: string) => `Completato il ${data}`,
+}
+export type ParoleCompletato = typeof PAROLE_COMPLETATO
+
 /**
  * "Completato oggi alle 18:42", "Completato ieri alle 09:05",
- * "Completato il 28/09/2026": the day in Europe/Rome.
+ * "Completato il 28/09/2026": the day in Europe/Rome. Another language passes
+ * its words and its date format ("Completed on 28 Sep 2026").
  */
-export function etichettaCompletato(completatoIl: string | null, oggi: string = oggiRoma()): string {
-  if (!completatoIl) return 'Completato'
+export function etichettaCompletato(
+  completatoIl: string | null,
+  oggi: string = oggiRoma(),
+  parole: ParoleCompletato = PAROLE_COMPLETATO,
+  data: (iso: string) => string = formatData,
+): string {
+  if (!completatoIl) return parole.completato
   const istante = new Date(completatoIl)
-  if (Number.isNaN(istante.getTime())) return 'Completato'
+  if (Number.isNaN(istante.getTime())) return parole.completato
   const giorno = oggiRoma(istante)
-  if (giorno === oggi) return `Completato oggi alle ${formatOra(istante)}`
-  if (giorno === aggiungiGiorni(oggi, -1)) return `Completato ieri alle ${formatOra(istante)}`
-  return `Completato il ${formatData(giorno)}`
+  if (giorno === oggi) return parole.oggi(formatOra(istante))
+  if (giorno === aggiungiGiorni(oggi, -1)) return parole.ieri(formatOra(istante))
+  return parole.il(data(giorno))
 }

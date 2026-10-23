@@ -4,7 +4,9 @@
  * only format them and pick which days a page looks at.
  */
 import { aggiungiGiorni, isDataISO, oggiRoma } from '@/lib/date'
-import { VUOTO, formatData, parseDataISO } from '@/lib/format'
+import { VUOTO, formatData, formato, parseDataISO } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MIO_TEMPO } from '@/lib/i18n/testi/tempo'
 
 /** A period of the time pages can span at most (about a quarter). */
 export const MAX_GIORNI_PERIODO = 92
@@ -84,13 +86,17 @@ export type PeriodoTempo = {
  * The period of a time page from its query: ?da=&a= (free range, at most
  * MAX_GIORNI_PERIODO days, the start pulled forward when longer), else
  * ?settimana=<any day of the week>, else the current week. Future weeks do
- * not exist: time is logged for today or the past.
+ * not exist: time is logged for today or the past. The words and the dates
+ * in the page's language (1.53.0), Italian by default.
  */
 export function periodoTempo(
   parametri: { settimana?: string | string[]; da?: string | string[]; a?: string | string[] },
   oggi: string = oggiRoma(),
+  lingua: Lingua = 'it',
 ): PeriodoTempo {
   const { settimana, da, a } = parametri
+  const parole = MIO_TEMPO[lingua].periodo
+  const data = formato(lingua).formatData
   const lunediOggi = lunediDi(oggi)
 
   if (isDataISO(da) && isDataISO(a) && da <= a) {
@@ -99,8 +105,8 @@ export function periodoTempo(
       da: inizio,
       a,
       tipo: 'libero',
-      titolo: 'Periodo',
-      etichetta: `${formatData(inizio)} – ${formatData(a)}`,
+      titolo: parole.libero,
+      etichetta: `${data(inizio)} – ${data(a)}`,
       precedente: null,
       successivo: null,
       corrente: false,
@@ -112,17 +118,17 @@ export function periodoTempo(
   const domenica = aggiungiGiorni(lunedi, 6)
   const corrente = lunedi === lunediOggi
   const titolo = corrente
-    ? 'Questa settimana'
+    ? parole.questaSettimana
     : lunedi === aggiungiGiorni(lunediOggi, -7)
-      ? 'Settimana scorsa'
-      : `Settimana del ${formatData(lunedi)}`
+      ? parole.settimanaScorsa
+      : parole.settimanaDel(data(lunedi))
 
   return {
     da: lunedi,
     a: domenica,
     tipo: 'settimana',
     titolo,
-    etichetta: `${formatData(lunedi)} – ${formatData(domenica)}`,
+    etichetta: `${data(lunedi)} – ${data(domenica)}`,
     precedente: aggiungiGiorni(lunedi, -7),
     successivo: corrente ? null : aggiungiGiorni(lunedi, 7),
     corrente,

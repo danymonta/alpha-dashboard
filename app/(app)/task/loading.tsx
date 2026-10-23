@@ -1,10 +1,12 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Scheletro, ScheletroIntestazione } from '@/components/stati/scheletri'
+import { getLingua } from '@/lib/i18n/server'
+import { MIEI_TASK } from '@/lib/i18n/testi/task'
 
 /** I miei task: groups by due date, each row a 44 px tick, the title and its project. */
-export default function Loading() {
+export default async function Loading() {
   return (
-    <Scheletro etichetta="Caricamento dei tuoi task" className="max-w-3xl">
+    <Scheletro etichetta={MIEI_TASK[await getLingua()].caricamento} className="max-w-3xl">
       <ScheletroIntestazione />
       {[2, 3].map((righe, g) => (
         <div key={g} className="space-y-2">

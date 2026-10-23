@@ -1,4 +1,4 @@
-import { bilingue } from '@/lib/i18n/lingua'
+import { bilingue, type Lingua } from '@/lib/i18n/lingua'
 
 /** Tempo › Team (1.53.0), and the tabs of the time area. Projects, tasks and notes stay as written. */
 export const TEMPO = bilingue(
@@ -82,3 +82,289 @@ export const TEMPO = bilingue(
     senzaOrario: 'No time range',
   },
 )
+
+/**
+ * Il mio tempo (/tempo, 1.53.0): the page, its period, the timer and the form that logs time
+ * afterwards. Projects, tasks and notes are the team's and stay as written. The components it
+ * shares with a project's Tempo tab take the language as a prop, 'it' by default: that tab
+ * stays Italian until it is translated whole.
+ */
+export const MIO_TEMPO = bilingue(
+  {
+    titolo: 'Il mio tempo',
+    descrizione: 'Il timer e le ore che dedichi ai progetti. Lo registri tu, quando vuoi: è il tuo resoconto, non un controllo.',
+    errore: 'Impossibile caricare il tuo tempo',
+    timer: 'Timer',
+    registraPassato: 'Registra tempo passato',
+    tempoRegistrato: 'Il tempo registrato',
+    totale: (periodo: string) => `Totale · ${periodo}`,
+    progettoNonAccessibile: 'Progetto non più accessibile',
+    progettoAttuale: 'Progetto attuale',
+    perTask: (progetto: string) => `Per task, ${progetto}`,
+    progettoGenerico: 'progetto',
+    taskNonAccessibile: 'Task non più accessibile',
+    senzaTask: 'Senza task',
+    vuoto: 'Nessun tempo registrato in questo periodo',
+    vuotoDescrizione: 'Avvia il timer quando inizi un lavoro, oppure registra dopo il tempo che hai dedicato.',
+    descrizioneVoce: (data: string, titolo: string) => `il tempo del ${data} su ${titolo}`,
+    totaleGiorno: 'Totale del giorno: ',
+    periodo: {
+      questaSettimana: 'Questa settimana',
+      settimanaScorsa: 'Settimana scorsa',
+      settimanaDel: (data: string) => `Settimana del ${data}`,
+      libero: 'Periodo',
+    },
+    navigazione: {
+      aria: 'Scegli il periodo',
+      precedente: 'Settimana precedente',
+      successiva: 'Settimana successiva',
+      bottone: (titolo: string, etichetta: string) => `Periodo: ${titolo}, ${etichetta}`,
+      titolo: 'Periodo',
+      descrizione: 'Una settimana alla volta, oppure un intervallo di al massimo tre mesi.',
+      inUso: 'In uso',
+      giorni: 'Giorni',
+      rapide: 'Scelte rapide',
+      questoMese: 'Questo mese',
+      meseScorso: 'Mese scorso',
+      intervallo: 'Dal … al …',
+      dal: 'Dal',
+      al: 'Al',
+      massimo: 'Al massimo tre mesi alla volta: un intervallo più lungo parte più tardi.',
+      mostra: 'Mostra il periodo',
+    },
+    cronometro: {
+      progetto: 'Progetto',
+      caricamento: 'Caricamento del timer',
+      nonLeggo: 'Non riesco a leggere il timer.',
+      riprova: 'Riprova',
+      inCorso: 'Timer in corso',
+      accesoAlle: (ora: string) => `Timer in corso · acceso alle ${ora}`,
+      senzaProgetti: 'Non fai ancora parte di un progetto',
+      senzaProgettiDescrizione:
+        'Il tempo si registra sui progetti di cui sei membro. Chi gestisce il progetto ti aggiunge al team.',
+      vaiProgetti: 'Vai ai progetti',
+      avviaAria: 'Avvia un timer',
+      nessunoAcceso: 'Nessun timer acceso',
+      suCosa: 'Su cosa stai lavorando',
+      avviato: 'Timer avviato',
+      avviatoFermato: 'Timer avviato. Quello di prima è stato fermato.',
+      avviatoInAlto: 'Timer avviato: lo trovi in alto a destra',
+      avvia: 'Avvia il timer',
+      avviaSu: (titolo: string) => `Avvia il timer su ${titolo}`,
+      fermaSu: (titolo: string) => `Ferma il timer su ${titolo}`,
+      tocca: 'Timer in corso: tocca per fermarlo',
+      inCorsoSu: (descrizione: string) => `Timer in corso su ${descrizione}: tocca per fermarlo`,
+      acceso: (ora: string) => `Acceso alle ${ora} ·`,
+      ilMioTempo: 'Il mio tempo',
+      ferma: 'Ferma il timer',
+      fermato: 'Timer fermato',
+      fermatoDopo: (durata: string) => `Timer fermato · ${durata}`,
+    },
+    campi: {
+      progetto: 'Progetto',
+      scegliProgetto: 'Scegli il progetto',
+      attivita: 'Attività (facoltativa)',
+      nessunaAttivita: 'Nessuna attività in particolare',
+      primaProgetto: 'Prima scegli il progetto',
+      completata: ' (completata)',
+      giorno: 'Giorno',
+      durata: 'Durata',
+      durateRapide: 'Durate rapide',
+      calcolata: 'Calcolata dalla fascia oraria: per scriverla a mano togli la fascia.',
+      aiutoDurata: 'Ore e minuti: 1:30, 1h30 o 90 (un numero da solo sono minuti).',
+      fascia: 'Fascia oraria (facoltativa)',
+      dalle: 'Dalle',
+      alle: 'Alle',
+      togliFascia: 'Togli la fascia',
+      nota: 'Nota (facoltativa)',
+      cosaHaiFatto: 'Cosa hai fatto',
+    },
+    form: {
+      registra: 'Registra il tempo',
+      registrato: 'Tempo registrato',
+      foglioDescrizione: 'Per oggi o per un giorno passato: i totali si aggiornano subito.',
+      modifica: (descrizione: string) => `Modifica ${descrizione}`,
+      correggi: 'Correggi il tempo',
+      daTimerSenzaFascia: (orari: string) => `Viene dal timer (${orari}): se cambi giorno o durata resta solo la durata.`,
+      orariTimer: (orari: string) => orari,
+      daTimer: 'Viene dal timer: puoi correggere la fascia, o toglierla e scrivere solo la durata.',
+      ricalcolo: 'I totali si ricalcolano subito.',
+      salva: 'Salva',
+      aggiornato: 'Tempo aggiornato',
+      elimina: (descrizione: string) => `Elimina ${descrizione}`,
+      conferma: 'Conferma',
+      eliminata: 'Voce eliminata',
+      connessione: 'Connessione assente. Riprova.',
+      datiNonValidi: 'Dati non validi.',
+    },
+  },
+  {
+    titolo: 'My time',
+    descrizione: 'The timer and the hours you give to the projects. You log it yourself, whenever you like: it is your own account, not a check.',
+    errore: 'Your time could not be loaded',
+    timer: 'Timer',
+    registraPassato: 'Log past time',
+    tempoRegistrato: 'The time logged',
+    totale: (periodo: string) => `Total · ${periodo}`,
+    progettoNonAccessibile: 'Project no longer accessible',
+    progettoAttuale: 'Current project',
+    perTask: (progetto: string) => `By task, ${progetto}`,
+    progettoGenerico: 'project',
+    taskNonAccessibile: 'Task no longer accessible',
+    senzaTask: 'No task',
+    vuoto: 'No time logged in this period',
+    vuotoDescrizione: 'Start the timer when you begin a piece of work, or log afterwards the time you spent.',
+    descrizioneVoce: (data: string, titolo: string) => `the time of ${data} on ${titolo}`,
+    totaleGiorno: 'Day total: ',
+    periodo: {
+      questaSettimana: 'This week',
+      settimanaScorsa: 'Last week',
+      settimanaDel: (data: string) => `Week of ${data}`,
+      libero: 'Period',
+    },
+    navigazione: {
+      aria: 'Choose the period',
+      precedente: 'Previous week',
+      successiva: 'Next week',
+      bottone: (titolo: string, etichetta: string) => `Period: ${titolo}, ${etichetta}`,
+      titolo: 'Period',
+      descrizione: 'One week at a time, or a range of three months at most.',
+      inUso: 'In use',
+      giorni: 'Days',
+      rapide: 'Quick choices',
+      questoMese: 'This month',
+      meseScorso: 'Last month',
+      intervallo: 'From … to …',
+      dal: 'From',
+      al: 'To',
+      massimo: 'Three months at most: a longer range starts later.',
+      mostra: 'Show the period',
+    },
+    cronometro: {
+      progetto: 'Project',
+      caricamento: 'Loading the timer',
+      nonLeggo: 'The timer cannot be read.',
+      riprova: 'Try again',
+      inCorso: 'Timer running',
+      accesoAlle: (ora: string) => `Timer running · started at ${ora}`,
+      senzaProgetti: 'You are not part of a project yet',
+      senzaProgettiDescrizione:
+        'Time is logged on the projects you are a member of. Whoever manages the project adds you to the team.',
+      vaiProgetti: 'Go to the projects',
+      avviaAria: 'Start a timer',
+      nessunoAcceso: 'No timer running',
+      suCosa: 'What you are working on',
+      avviato: 'Timer started',
+      avviatoFermato: 'Timer started. The previous one has been stopped.',
+      avviatoInAlto: 'Timer started: you find it at the top right',
+      avvia: 'Start the timer',
+      avviaSu: (titolo: string) => `Start the timer on ${titolo}`,
+      fermaSu: (titolo: string) => `Stop the timer on ${titolo}`,
+      tocca: 'Timer running: tap to stop it',
+      inCorsoSu: (descrizione: string) => `Timer running on ${descrizione}: tap to stop it`,
+      acceso: (ora: string) => `Started at ${ora} ·`,
+      ilMioTempo: 'My time',
+      ferma: 'Stop the timer',
+      fermato: 'Timer stopped',
+      fermatoDopo: (durata: string) => `Timer stopped · ${durata}`,
+    },
+    campi: {
+      progetto: 'Project',
+      scegliProgetto: 'Choose the project',
+      attivita: 'Task (optional)',
+      nessunaAttivita: 'No task in particular',
+      primaProgetto: 'Choose the project first',
+      completata: ' (completed)',
+      giorno: 'Day',
+      durata: 'Duration',
+      durateRapide: 'Quick durations',
+      calcolata: 'Computed from the time range: to type it by hand, remove the range.',
+      aiutoDurata: 'Hours and minutes: 1:30, 1h30 or 90 (a number alone is minutes).',
+      fascia: 'Time range (optional)',
+      dalle: 'From',
+      alle: 'To',
+      togliFascia: 'Remove the range',
+      nota: 'Note (optional)',
+      cosaHaiFatto: 'What you did',
+    },
+    form: {
+      registra: 'Log the time',
+      registrato: 'Time logged',
+      foglioDescrizione: 'For today or a past day: the totals update straight away.',
+      modifica: (descrizione: string) => `Edit ${descrizione}`,
+      correggi: 'Correct the time',
+      daTimerSenzaFascia: (orari: string) =>
+        `It comes from the timer (${orari}): if you change the day or the duration, only the duration stays.`,
+      orariTimer: (orari: string) =>
+        orari
+          .replace('a cavallo della mezzanotte', 'across midnight')
+          .replace('meno di un minuto', 'under a minute')
+          .replace('nella notte del cambio d’ora', 'on the night the clocks change'),
+      daTimer: 'It comes from the timer: you can correct the range, or remove it and type only the duration.',
+      ricalcolo: 'The totals are recalculated straight away.',
+      salva: 'Save',
+      aggiornato: 'Time updated',
+      elimina: (descrizione: string) => `Delete ${descrizione}`,
+      conferma: 'Confirm',
+      eliminata: 'Entry deleted',
+      connessione: 'No connection. Try again.',
+      datiNonValidi: 'Invalid data.',
+    },
+  },
+)
+
+/**
+ * The checks of the time schemas (lib/validation/tempo.ts) and the answers of the time actions
+ * (lib/progetti/operazioni.ts), in English, as traduciAccesso does for the sign-in: the schemas
+ * and the actions stay as they are. The database's own words stay Italian.
+ */
+const ERRORI_TEMPO_EN: Record<string, string> = {
+  'Connessione assente. Riprova.': 'No connection. Try again.',
+  'Dati non validi.': 'Invalid data.',
+  'Sessione scaduta. Rientra e riprova.': 'Session expired. Sign in again and retry.',
+  'Scegli il progetto': 'Choose the project',
+  'Scegli il giorno': 'Choose the day',
+  'Data non valida': 'Invalid date',
+  'Il tempo si registra per oggi o per un giorno passato': 'Time is logged for today or a past day',
+  'Al massimo 2000 caratteri': '2000 characters at most',
+  'Scrivi l’ora come 09:30': 'Write the time as 09:30',
+  'La fascia finisce entro le 23:59: fino a mezzanotte scrivi la durata, senza fascia':
+    'A range ends by 23:59: up to midnight write the duration, without a range',
+  'Una fascia che parte a mezzanotte comincia alle 00:00: scrivi 00:00': 'A range starting at midnight begins at 00:00: write 00:00',
+  'Indica sia l’inizio sia la fine, o nessuno dei due': 'Give both the start and the end, or neither',
+  'L’ora di fine deve essere dopo quella di inizio': 'The end time must be after the start time',
+  'Al massimo 24 ore in una voce': '24 hours at most in one entry',
+  'La fascia non può finire nel futuro': 'The range cannot end in the future',
+  'Scrivi la durata, ad esempio 1:30, 90 o 1h30': 'Write the duration, for example 1:30, 90 or 1h30',
+  'La durata deve essere di almeno un minuto': 'The duration must be at least one minute',
+  'Voce non valida': 'Invalid entry',
+  'Timer non avviato. Riprova.': 'Timer not started. Try again.',
+  'Timer non fermato. Riprova.': 'Timer not stopped. Try again.',
+  'Tempo non salvato. Riprova.': 'Time not saved. Try again.',
+  'Voce non aggiornata. Riprova.': 'Entry not updated. Try again.',
+  'Voce non trovata.': 'Entry not found.',
+  'Puoi correggere solo il tuo tempo.': 'You can only correct your own time.',
+  'Voce non eliminata. Riprova.': 'Entry not deleted. Try again.',
+  'Puoi eliminare solo il tuo tempo.': 'You can only delete your own time.',
+}
+
+/** messaggioMezzanotte (lib/validation/tempo.ts): a range across midnight, said as two entries. */
+const MEZZANOTTE =
+  /^L’ora di fine deve essere dopo quella di inizio\. (?:Fino a mezzanotte registra|Se passa la mezzanotte sono due voci: nel giorno dell’inizio) (.+) come durata, senza fascia \(dalle (\d{2}:\d{2}) a mezzanotte\)(?:, e nel giorno dopo la fascia 00:00–(\d{2}:\d{2}))?$/
+
+/** A message of the time schemas or actions in the page's language; an unknown one stays as it came. */
+export function traduciErroreTempo(testo: string | null | undefined, lingua: Lingua): string | undefined {
+  if (!testo) return undefined
+  if (lingua === 'it') return testo
+  const noto = ERRORI_TEMPO_EN[testo]
+  if (noto) return noto
+  const m = MEZZANOTTE.exec(testo)
+  if (m) {
+    const [, durata, dalle, alle] = m
+    const prima = `${durata} as a duration, without a range (from ${dalle} to midnight)`
+    return alle
+      ? `The end time must be after the start time. If it goes past midnight it is two entries: on the start day ${prima}, and on the next day the range 00:00–${alle}`
+      : `The end time must be after the start time. Up to midnight log ${prima}`
+  }
+  return testo
+}

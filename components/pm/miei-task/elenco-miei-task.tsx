@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { completaTask } from '@/app/(app)/progetti/[id]/actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { LinkBottone } from '@/components/link-bottone'
 import { RigaCompletato } from '@/components/pm/miei-task/riga-completato'
 import { RigaMioTask } from '@/components/pm/miei-task/riga-mio-task'
@@ -16,11 +17,12 @@ import {
   raggruppa,
   righeAperte,
   scordaRiaperti,
-  titoloGruppo,
   type MioTask,
   type MioTaskCompletato,
   type Tocco,
 } from '@/lib/miei-task'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MIEI_TASK, traduciErroreTask } from '@/lib/i18n/testi/task'
 
 type Props = {
   aperti: MioTask[]
@@ -38,11 +40,13 @@ const AZIONE_TOAST = 'h-11! px-4! text-sm!'
 
 const TITOLO_GRUPPO = 'mb-1 px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase'
 
-async function salva(id: string, completato: boolean) {
+async function salva(id: string, completato: boolean, lingua: Lingua) {
+  const t = MIEI_TASK[lingua]
   try {
-    return await completaTask({ id, completato })
+    const esito = await completaTask({ id, completato })
+    return esito.ok ? esito : { ok: false as const, errore: traduciErroreTask(esito.errore, lingua) }
   } catch {
-    return { ok: false as const, errore: 'Connessione assente. Riprova.' }
+    return { ok: false as const, errore: t.connessione }
   }
 }
 
@@ -53,6 +57,8 @@ async function salva(id: string, completato: boolean) {
  * screen readers in a polite live region, and the focus stays on the task.
  */
 export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, oggi }: Props) {
+  const lingua = useLingua()
+  const t = MIEI_TASK[lingua]
   const [tocchi, setTocchi] = useState<ReadonlyMap<string, Tocco>>(() => new Map())
   const [annuncio, setAnnuncio] = useState('')
   // the task whose checkbox takes the focus as soon as it is on the page
@@ -100,20 +106,20 @@ export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, og
   async function completa(task: MioTask) {
     const mossa = nuovaMossa(task.id)
     tocca(task.id, { task, stato: 'completato' })
-    setAnnuncio(`${task.titolo}: completato. Resta qui spuntato, poi lo trovi in Completati.`)
-    const esito = await salva(task.id, true)
+    setAnnuncio(t.annunci.completato(task.titolo))
+    const esito = await salva(task.id, true, lingua)
     if (!esito.ok) {
       tocca(task.id, null, 'completato')
-      if (eUltima(task.id, mossa)) setAnnuncio(`${task.titolo}: non completato.`)
+      if (eUltima(task.id, mossa)) setAnnuncio(t.annunci.nonCompletato(task.titolo))
       toast.error(esito.errore)
       return
     }
     // unticked while the server answered: no "Fatto", the reopening speaks
     if (!eUltima(task.id, mossa)) return
-    toast.success('Fatto', {
+    toast.success(t.fatto, {
       description: task.titolo,
       duration: 6000,
-      action: { label: 'Annulla', onClick: () => void riapriQui(task, true) },
+      action: { label: t.annulla, onClick: () => void riapriQui(task, true) },
       classNames: { actionButton: AZIONE_TOAST },
     })
   }
@@ -124,32 +130,32 @@ export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, og
     if (dalToast) focusSu.current = task.id
     const mossa = nuovaMossa(task.id)
     tocca(task.id, { task, stato: 'riapertura' })
-    const esito = await salva(task.id, false)
+    const esito = await salva(task.id, false, lingua)
     if (!esito.ok) {
       tocca(task.id, { task, stato: 'completato' }, 'riapertura')
-      if (eUltima(task.id, mossa)) setAnnuncio(`${task.titolo}: non riaperto.`)
+      if (eUltima(task.id, mossa)) setAnnuncio(t.annunci.nonRiaperto(task.titolo))
       toast.error(esito.errore)
       return
     }
     tocca(task.id, { task, stato: 'riaperto' }, 'riapertura')
     // ticked again while the server answered: that tick has the last word
     if (!eUltima(task.id, mossa)) return
-    setAnnuncio(`${task.titolo}: riaperto.`)
-    toast.success('Task riaperto', { description: task.titolo })
+    setAnnuncio(t.annunci.riaperto(task.titolo))
+    toast.success(t.taskRiaperto, { description: task.titolo })
   }
 
   /** "Riapri" in Completati: back to its group, with the focus on it. */
   async function riapriCompletato(task: MioTaskCompletato) {
     focusSu.current = task.id
-    const esito = await salva(task.id, false)
+    const esito = await salva(task.id, false, lingua)
     if (!esito.ok) {
       focusSu.current = null
-      setAnnuncio(`${task.titolo}: non riaperto.`)
+      setAnnuncio(t.annunci.nonRiaperto(task.titolo))
       toast.error(esito.errore)
       return
     }
-    setAnnuncio(`${task.titolo}: riaperto, torna in ${titoloGruppo(gruppoDi(task.scadenza, oggi))}.`)
-    toast.success('Task riaperto', { description: task.titolo })
+    setAnnuncio(t.annunci.riapertoIn(task.titolo, t.gruppi[gruppoDi(task.scadenza, oggi)]))
+    toast.success(t.taskRiaperto, { description: task.titolo })
   }
 
   const righe = righeAperte(aperti, tocchi)
@@ -160,9 +166,9 @@ export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, og
     return (
       <StatoVuoto
         Icona={ListChecks}
-        titolo="Nessun task assegnato a te"
-        descrizione="Quando qualcuno ti assegna un task in un progetto, lo trovi qui con la sua scadenza."
-        azione={<LinkBottone href="/progetti">Vai ai progetti</LinkBottone>}
+        titolo={t.vuoto}
+        descrizione={t.vuotoDescrizione}
+        azione={<LinkBottone href="/progetti">{t.vaiProgetti}</LinkBottone>}
       />
     )
   }
@@ -176,11 +182,11 @@ export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, og
       {righe.length === 0 ? (
         <StatoVuoto
           Icona={CircleCheck}
-          titolo="Niente da fare"
-          descrizione="Hai chiuso tutti i task assegnati a te: li trovi qui sotto, in Completati."
+          titolo={t.nienteDaFare}
+          descrizione={t.nienteDaFareDescrizione}
           azione={
             <LinkBottone href="/progetti" variant="outline">
-              Vai ai progetti
+              {t.vaiProgetti}
             </LinkBottone>
           }
         />
@@ -188,7 +194,7 @@ export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, og
         gruppi.map((g) => (
           <section key={g.chiave} aria-labelledby={`gruppo-${g.chiave}`} data-testid={`gruppo-${g.chiave}`}>
             <h2 id={`gruppo-${g.chiave}`} className={TITOLO_GRUPPO}>
-              {g.titolo} <span className="num">({g.daFare})</span>
+              {t.gruppi[g.chiave]} <span className="num">({g.daFare})</span>
             </h2>
             <ul className="divide-y divide-border rounded-xl bg-card">
               {g.righe.map((r) => (
@@ -207,7 +213,7 @@ export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, og
 
       <section aria-labelledby="gruppo-completati" data-testid="gruppo-completati" className="pt-2">
         <h2 id="gruppo-completati" className={TITOLO_GRUPPO}>
-          Completati <span className="num">({totaleCompletati})</span>
+          {t.completati} <span className="num">({totaleCompletati})</span>
         </h2>
         {visibili.length > 0 ? (
           <ul className="divide-y divide-border rounded-xl bg-card">
@@ -217,27 +223,27 @@ export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, og
           </ul>
         ) : (
           <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-            {totaleCompletati === 0
-              ? 'Nessun task completato. Quando ne spunti uno, lo ritrovi qui con il giorno in cui l’hai chiuso.'
-              : 'Quello che hai appena spuntato resta qui sopra: lo ritrovi qui quando torni sulla pagina.'}
+            {totaleCompletati === 0 ? t.nessunCompletato : t.appenaSpuntato}
           </p>
         )}
         {!tutti && totaleCompletati > completati.length ? (
           <LinkBottone href="/task?completati=tutti" scroll={false} variant="outline" className="mt-3 w-full">
             {/* one span: the button's flex gap would split "(42)" */}
             <span>
-              Mostra tutti (<span className="num">{totaleCompletati}</span>)
+              {t.mostraTutti} (<span className="num">{totaleCompletati}</span>)
             </span>
           </LinkBottone>
         ) : null}
         {tutti && totaleCompletati > completati.length ? (
           <p className="mt-2 px-1 text-xs text-muted-foreground">
-            Si vedono i <span className="num">{completati.length}</span> più recenti.
+            {t.recenti.prima}
+            <span className="num">{completati.length}</span>
+            {t.recenti.dopo}
           </p>
         ) : null}
         {tutti && totaleCompletati > COMPLETATI_RECENTI ? (
           <LinkBottone href="/task" scroll={false} variant="outline" className="mt-3 w-full">
-            Mostra solo i più recenti
+            {t.soloRecenti}
           </LinkBottone>
         ) : null}
       </section>
