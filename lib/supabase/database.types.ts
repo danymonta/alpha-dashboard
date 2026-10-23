@@ -3173,6 +3173,9 @@ isOneToOne: false
 "rapporto":
 { Args: { "p_denominatore": number,"p_numeratore": number }; Returns: number
                            },
+"recap_mese":
+{ Args: { "p_mese": string }; Returns: Json
+                           },
 "recap_sales":
 { Args: { "p_a": string,"p_da": string }; Returns: Json
                            },
