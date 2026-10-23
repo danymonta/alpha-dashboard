@@ -1,4 +1,5 @@
-import { formatNumero } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
 import { tipoDelPost, type TipoPost } from '@/lib/marketing/abbinamento'
 
 /**
@@ -9,8 +10,8 @@ import { tipoDelPost, type TipoPost } from '@/lib/marketing/abbinamento'
 export const TRATTINO = '–'
 
 /** A number as the table says it: «–» when Instagram has not given it (never 0 for a number not read), else with the thousands. */
-export function numeroOTrattino(valore: number | null | undefined): string {
-  return valore === null || valore === undefined || !Number.isFinite(valore) ? TRATTINO : formatNumero(valore)
+export function numeroOTrattino(valore: number | null | undefined, lingua: Lingua = 'it'): string {
+  return valore === null || valore === undefined || !Number.isFinite(valore) ? TRATTINO : formato(lingua).formatNumero(valore)
 }
 
 /** The kind of a row of v_pubblicati. */

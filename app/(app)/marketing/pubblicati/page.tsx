@@ -17,6 +17,8 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { puoScrivere, RUOLI_MARKETING_LETTURA } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
+import { getLingua } from '@/lib/i18n/server'
+import { PUBBLICATI } from '@/lib/i18n/testi/pubblicati'
 import { RICHIESTE_AL_GIORNO } from '@/lib/marketing/analisi/costi'
 import { leggiDettaglioReel } from '@/lib/marketing/analisi/dettaglio'
 import { leggiPermesso, leggiRichiesteRimaste, leggiRiepilogo, leggiSituazione } from '@/lib/marketing/analisi/elenco'
@@ -28,7 +30,6 @@ import { PARAMETRO_CONTENUTO } from '@/lib/marketing/pannello'
 import { eliminaContenuti } from '@/lib/marketing/permessi'
 import { POST_MAX, leggiPubblicatiConRipiego } from '@/lib/marketing/pubblicati/elenco'
 import { filtriDaParametri, PARAMETRO_REEL, sonoFiltriPredefiniti } from '@/lib/marketing/pubblicati/filtri'
-import { SENZA_NUMERI_INSTAGRAM } from '@/lib/marketing/pubblicati/parole'
 import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
@@ -66,6 +67,8 @@ export default async function PubblicatiPage({
   const puoAggiornare = RUOLI_AGGIORNA.includes(profilo.ruolo)
   const puoAnalizzare = RUOLI_ANALIZZA.includes(profilo.ruolo)
   const sp = await searchParams
+  const lingua = await getLingua()
+  const t = PUBBLICATI[lingua]
   const filtri = filtriDaParametri(sp)
   const reelRichiesto = primo(sp[PARAMETRO_REEL])
   const reelId = eMediaId(reelRichiesto) ? reelRichiesto : null
@@ -117,14 +120,14 @@ export default async function PubblicatiPage({
         .order('id')
         .limit(CONTENUTI_LIBERI_MAX),
     ])
-  if (stato.error || liberi.error) throw new Error('Impossibile caricare i pubblicati')
+  if (stato.error || liberi.error) throw new Error(t.errore)
 
   // the linked contents: the content panel opens at once with their properties
   const idCollegati = [...new Set(righe.map((r) => r.contenuto_id).filter((id): id is string => id !== null))]
   const collegati = idCollegati.length
     ? await supabase.from('marketing_contenuti').select(COLONNE_ELENCO).in('id', idCollegati)
     : { data: [], error: null }
-  if (collegati.error) throw new Error('Impossibile caricare i pubblicati')
+  if (collegati.error) throw new Error(t.errore)
 
   const contenutiLiberi: ContenutoLibero[] = (liberi.data ?? []).map((c) => ({
     id: c.id,
@@ -137,7 +140,7 @@ export default async function PubblicatiPage({
 
   const s = stato.data
   const oggi = oggiRoma()
-  const account = s?.account_username ? `@${s.account_username}` : 'dell’account collegato'
+  const account = s?.account_username ? `@${s.account_username}` : t.account
   const fallito = s?.ultimo_giro_esito === 'fallito'
   const nomeAccount = s?.account_username ? `@${s.account_username}` : null
   const predefiniti = sonoFiltriPredefiniti(filtri)
@@ -157,28 +160,34 @@ export default async function PubblicatiPage({
           <PannelloReel righe={righe} iniziale={reelDettaglio} puoAnalizzare={puoAnalizzare} puoScrivere={scrive}>
             <div className="space-y-6">
               <IntestazionePagina
-                titolo="Pubblicati"
-                descrizione={`I post e i reel ${nomeAccount ? `di ${nomeAccount}` : account} con i loro numeri: cosa hanno fatto su Instagram, quanti lead sono arrivati dai DM e a quale contenuto del Piano editoriale corrispondono. Tocca una riga per l’analisi.`}
+                titolo={t.titolo}
+                descrizione={t.descrizione(nomeAccount ? t.di(nomeAccount) : account)}
                 azione={puoAggiornare ? <AggiornaDaInstagram /> : undefined}
               />
 
               <div className="space-y-1.5">
-                <StatoGiroInstagram stato={s} oggi={oggi} puoAggiornare={puoAggiornare} admin={profilo.ruolo === 'admin'} />
-                <RigaSituazione situazione={situazione} oggi={oggi} permesso={permesso} accountStatistiche={nomeAccount ?? undefined} />
+                <StatoGiroInstagram stato={s} oggi={oggi} puoAggiornare={puoAggiornare} admin={profilo.ruolo === 'admin'} lingua={lingua} />
+                <RigaSituazione
+                  situazione={situazione}
+                  oggi={oggi}
+                  permesso={permesso}
+                  accountStatistiche={nomeAccount ?? undefined}
+                  lingua={lingua}
+                />
                 {senzaStatistiche ? (
                   <p className="flex items-start gap-1.5 text-sm text-muted-foreground" data-testid="pubblicati-senza-statistiche">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden />
-                    <span>{SENZA_NUMERI_INSTAGRAM}</span>
+                    <span>{t.senzaNumeri}</span>
                   </p>
                 ) : null}
               </div>
 
-              <Tessere r={riepilogo} filtri={filtri} />
+              <Tessere r={riepilogo} filtri={filtri} lingua={lingua} />
 
               {senzaVerdetti ? (
                 <p className="flex items-start gap-2 text-sm text-muted-foreground" role="status" data-testid="pubblicati-senza-verdetti">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden />
-                  <span>I verdetti e i confronti non si sono caricati: qui sotto i post con i loro numeri. Riprova fra un momento.</span>
+                  <span>{t.senzaVerdetti}</span>
                 </p>
               ) : null}
 
@@ -188,38 +197,38 @@ export default async function PubblicatiPage({
 
               <section aria-labelledby="titolo-pubblicati" className="@container space-y-3" data-testid="elenco-pubblicati">
                 <h2 id="titolo-pubblicati" className="sr-only">
-                  Post pubblicati
+                  {t.elenco}
                 </h2>
                 {righe.length === 0 ? (
                   nessunPostLetto ? (
                     <StatoVuoto
                       Icona={Images}
-                      titolo={fallito ? 'Nessun post da mostrare' : 'Nessun post letto finora'}
+                      titolo={fallito ? t.nessunoFallito : t.nessunoLetto}
                       descrizione={
                         fallito
                           ? puoAggiornare
-                            ? 'L’ultimo aggiornamento non è riuscito: quando il problema qui sopra è risolto, aggiorna da Instagram.'
-                            : 'L’ultimo aggiornamento non è riuscito: i post arrivano col prossimo, ogni notte.'
+                            ? t.fallitoAggiorna
+                            : t.fallitoNotte
                           : puoAggiornare
-                            ? 'Leggi adesso i post e i reel dell’account: appena ci sono li trovi qui con i loro numeri.'
-                            : 'I post e i reel dell’account si leggono ogni notte: domattina li trovi qui.'
+                            ? t.leggiAdesso
+                            : t.domattina
                       }
                       azione={puoAggiornare ? <AggiornaDaInstagram variante="default" /> : undefined}
                     />
                   ) : predefiniti ? (
                     <StatoVuoto
                       Icona={Images}
-                      titolo="Nessun post in questo periodo"
-                      descrizione="Prova un periodo più lungo: i post si leggono ogni mattina da Instagram."
+                      titolo={t.nessunoPeriodo}
+                      descrizione={t.periodoLungo}
                     />
                   ) : (
                     <StatoVuoto
                       Icona={SearchX}
-                      titolo="Nessun post con questi filtri"
-                      descrizione="Cambia il periodo, il tipo o la ricerca, oppure togli i filtri."
+                      titolo={t.nessunoFiltri}
+                      descrizione={t.cambiaFiltri}
                       azione={
                         <LinkBottone href="/marketing/pubblicati" variant="outline" scroll={false}>
-                          Togli i filtri
+                          {t.togliFiltri}
                         </LinkBottone>
                       }
                     />

@@ -1,14 +1,22 @@
 import { CircleCheck, Clock, TriangleAlert } from 'lucide-react'
 
 import { quando } from '@/app/(app)/settings/instagram/quando'
+import { aggiungiGiorni, formatOra, oggiRoma } from '@/lib/date'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { PUBBLICATI } from '@/lib/i18n/testi/pubblicati'
 import type { Situazione } from '@/lib/marketing/analisi/elenco'
 
-const FRASE = {
-  attive: 'Claude lavora solo quando premi «Analizza»: l’analisi e il punteggio partono da lì. Di notte si trascrive solo il parlato dei reel nuovi.',
-  in_pausa_spesa: 'Le analisi sono in pausa: il limite di spesa del mese è raggiunto.',
-  ferme_chiave: 'Le analisi sono ferme: manca la chiave di Claude.',
-  spente: 'Claude lavora solo quando premi «Analizza»: l’analisi e il punteggio partono da lì. Le trascrizioni di notte sono spente.',
-} as const
+/** "oggi alle 00:41" in the page's language. */
+function quandoIn(istante: string, oggi: string, lingua: Lingua): string {
+  if (lingua === 'it') return quando(istante, oggi)
+  const t = PUBBLICATI[lingua]
+  const giorno = oggiRoma(new Date(istante))
+  const ora = formatOra(istante)
+  if (giorno === oggi) return t.quandoOggi(ora)
+  if (giorno === aggiungiGiorni(oggi, -1)) return t.quandoIeri(ora)
+  return t.quandoIl(formato(lingua).formatData(giorno), ora)
+}
 
 /**
  * The line under the title: what the work is doing, as marketing_lavori_situazione
@@ -20,14 +28,17 @@ export function RigaSituazione({
   oggi,
   permesso,
   accountStatistiche,
+  lingua = 'it',
 }: {
   situazione: Situazione | null
   oggi: string
   /** Meta said the permission for the statistics is missing: false */
   permesso: boolean | null
   accountStatistiche?: string
+  lingua?: Lingua
 }) {
   if (!situazione && permesso !== false) return null
+  const t = PUBBLICATI[lingua]
   const s = situazione
   const buona = s?.automatiche === 'attive'
   return (
@@ -40,22 +51,21 @@ export function RigaSituazione({
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
           )}
           <span>
-            {FRASE[s.automatiche]}
-            {s.in_coda > 0 ? ` ${s.in_coda === 1 ? '1 lavoro in coda' : `${s.in_coda} lavori in coda`}.` : ''}
+            {t.situazione[s.automatiche]}
+            {s.in_coda > 0 ? t.inCoda(s.in_coda) : ''}
           </span>
         </p>
       ) : null}
       {s?.ultimo_passo_il ? (
         <p className="num flex items-center gap-1.5 text-sm text-muted-foreground">
           <Clock className="size-4 shrink-0" aria-hidden="true" />
-          Ultimo lavoro {quando(s.ultimo_passo_il, oggi)}
+          {t.ultimoLavoro(quandoIn(s.ultimo_passo_il, oggi, lingua))}
         </p>
       ) : null}
       {permesso === false ? (
         <p className="flex items-start gap-1.5 text-sm text-status-warning" role="status">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Instagram non dà ancora le statistiche dei post{accountStatistiche ? ` di ${accountStatistiche}` : ''}: i numeri
-          arrivano quando l’admin rinnova il token con il permesso giusto.
+          {t.senzaPermesso(accountStatistiche ?? '')}
         </p>
       ) : null}
     </div>

@@ -2,20 +2,23 @@ import { Clock, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 
 import { aggiungiGiorni, formatOra, oggiRoma } from '@/lib/date'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { PUBBLICATI } from '@/lib/i18n/testi/pubblicati'
 
 /**
  * «Aggiornati stanotte», «Aggiornati oggi alle 10:12», «ieri alle 05:31», «il 05/10/2026 alle 05:31»; for a run that
  * failed «Ultimo tentativo …»: it read nothing, and the posts on the page may be older.
  */
-export function quandoAggiornati(istante: string, motivo: string | null, oggi: string, fallito: boolean): string {
-  const prima = fallito ? 'Ultimo tentativo' : 'Aggiornati'
+export function quandoAggiornati(istante: string, motivo: string | null, oggi: string, fallito: boolean, lingua: Lingua = 'it'): string {
+  const t = PUBBLICATI[lingua]
+  const prima = fallito ? t.ultimoTentativo : t.aggiornati
   const giorno = oggiRoma(new Date(istante))
-  if (giorno === oggi && motivo === 'notte') return `${prima} stanotte`
+  if (giorno === oggi && motivo === 'notte') return t.stanotte(prima)
   const ora = formatOra(istante)
-  if (giorno === oggi) return `${prima} oggi alle ${ora}`
-  if (giorno === aggiungiGiorni(oggi, -1)) return `${prima} ieri alle ${ora}`
-  return `${prima} il ${formatData(giorno)} alle ${ora}`
+  if (giorno === oggi) return t.oggiAlle(prima, ora)
+  if (giorno === aggiungiGiorni(oggi, -1)) return t.ieriAlle(prima, ora)
+  return t.ilAlle(prima, formato(lingua).formatData(giorno), ora)
 }
 
 export type StatoGiro = {
@@ -33,7 +36,20 @@ export type StatoGiro = {
  * words (the admin gets the link to where the token is), and, when Instagram does not give the captions, that the
  * automatic link then has less to go on.
  */
-export function StatoGiroInstagram({ stato, oggi, puoAggiornare, admin }: { stato: StatoGiro; oggi: string; puoAggiornare: boolean; admin: boolean }) {
+export function StatoGiroInstagram({
+  stato,
+  oggi,
+  puoAggiornare,
+  admin,
+  lingua = 'it',
+}: {
+  stato: StatoGiro
+  oggi: string
+  puoAggiornare: boolean
+  admin: boolean
+  lingua?: Lingua
+}) {
+  const t = PUBBLICATI[lingua]
   const fallito = stato?.ultimo_giro_esito === 'fallito'
   const senzaDidascalie = stato?.campi === 'senza_didascalia' || stato?.campi === 'minimi'
   return (
@@ -42,13 +58,11 @@ export function StatoGiroInstagram({ stato, oggi, puoAggiornare, admin }: { stat
         <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
           <Clock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <span className="num">
-            {quandoAggiornati(stato.ultimo_giro_il, stato.ultimo_giro_motivo, oggi, fallito)}
-            {stato.ultimo_giro_letti !== null && !fallito
-              ? ` · ${stato.ultimo_giro_letti === 1 ? '1 post letto' : `${stato.ultimo_giro_letti} post letti`}`
-              : ''}
-            {fallito ? ': non riuscito' : ''}
-            {stato.ultimo_giro_esito === 'parziale' ? ' · in parte' : ''}
-            {puoAggiornare ? '' : '. Si aggiornano ogni notte.'}
+            {quandoAggiornati(stato.ultimo_giro_il, stato.ultimo_giro_motivo, oggi, fallito, lingua)}
+            {stato.ultimo_giro_letti !== null && !fallito ? t.postLetti(stato.ultimo_giro_letti) : ''}
+            {fallito ? t.nonRiuscito : ''}
+            {stato.ultimo_giro_esito === 'parziale' ? t.inParte : ''}
+            {puoAggiornare ? '' : t.ogniNotte}
           </span>
         </p>
       ) : null}
@@ -56,12 +70,12 @@ export function StatoGiroInstagram({ stato, oggi, puoAggiornare, admin }: { stat
         <p className="flex items-start gap-1.5 text-sm text-rosso-testo" role="alert">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <span>
-            {stato.ultimo_errore}
+            <span lang="it">{stato.ultimo_errore}</span>
             {admin ? (
               <>
                 {' '}
                 <Link href="/settings/chiavi#instagram" className="underline underline-offset-4 hover:text-foreground">
-                  Impostazioni › Chiavi e collegamenti
+                  {t.chiavi}
                 </Link>
               </>
             ) : null}
@@ -71,7 +85,7 @@ export function StatoGiroInstagram({ stato, oggi, puoAggiornare, admin }: { stat
       {senzaDidascalie ? (
         <p className="flex items-start gap-1.5 text-sm text-status-warning">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Instagram non dà le didascalie: la ricerca nella didascalia e il collegamento automatico hanno meno da cui partire.
+          {t.senzaDidascalie}
         </p>
       ) : null}
     </div>
