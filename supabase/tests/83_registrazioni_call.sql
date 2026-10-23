@@ -21,7 +21,10 @@ insert into public.calls (id, lead_id, setter_id, closer_id, tipo, programmata_i
 
 select has_table('public', 'call_registrazioni', 'la registrazione di una call ha la sua tabella');
 select ok((select relrowsecurity from pg_class where oid = 'public.call_registrazioni'::regclass), 'RLS attiva');
-select policies_are('public', 'call_registrazioni', array['call_registrazioni_lettura', 'call_registrazioni_lettura_come_admin', 'call_registrazioni_mai_da_oauth'],
+-- Claude (20261029090000_mcp_call_lead.sql): read only, inside a request the filter approved
+select policies_are('public', 'call_registrazioni', array['call_registrazioni_lettura', 'call_registrazioni_lettura_come_admin',
+  'call_registrazioni_claude_lettura', 'call_registrazioni_claude_inserimento', 'call_registrazioni_claude_modifica',
+  'call_registrazioni_claude_eliminazione'],
   'solo la lettura: admin e closer della call');
 select ok((select bool_and(not has_table_privilege('authenticated', 'public.call_registrazioni', p))
            from unnest(array['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) p), 'nessuna sessione scrive');

@@ -86,6 +86,40 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.54.0',
+    data: '2026-10-23',
+    titolo: 'Claude lavora anche su call, lead ed esiti',
+    riassunto:
+      'Claude collegato arriva a call, lead ed esiti: il setter fissa e sposta le sue call, il closer ne registra l’esito con le regole del foglio, tu fai tutto; ognuno con i permessi che ha nell’app.',
+    intestazionePer: ['setter', 'closer'],
+    intestazioneTeam: {
+      titolo: 'Claude lavora anche sulle tue call',
+      riassunto:
+        'Con Claude collegato ad Alpha Management lavori a parole anche sulle tue call e sui tuoi lead, con i permessi che hai nell’app.',
+    },
+    novita: [
+      {
+        per: ['setter'],
+        testo:
+          'Il setter, da Claude, legge le call col suo nome e i suoi lead, fissa una call (lead e call insieme, sempre discovery, da 7 giorni fa in avanti), sposta una sua call ancora da fare, la passa a un altro closer, scrive le sue note e sposta i suoi lead nella pipeline. L’esito, il motivo di non chiusura e le note del closer restano del closer, e il link di Fathom, la performance e gli importi non gli arrivano mai, nemmeno usando il collegamento di Claude fuori da Claude.',
+        testoTeam:
+          'Da Claude leggi le call col tuo nome e i tuoi lead, fissi una call (lead e call insieme, sempre discovery), sposti una tua call ancora da fare, la passi a un altro closer, scrivi le tue note e sposti i tuoi lead nella pipeline. L’esito e le note del closer restano del closer, come nell’app.',
+      },
+      {
+        per: ['closer'],
+        testo:
+          'Il closer, da Claude, legge le call assegnate a lui e i loro lead e registra l’esito con le regole del foglio: con Follow-up o Persa il motivo di non chiusura è obbligatorio, e per le call dal 16/10/2026 serve il link di Fathom o «non registrata»; fissa la call di follow-up, sposta, corregge con la matita, scrive link, performance, prodotto e importo proposti e le note aggiuntive, e cambia lo stato del lead. Le call nuove le fissano il setter e tu.',
+        testoTeam:
+          'Da Claude leggi le call assegnate a te e i loro lead e registri l’esito con le regole del foglio: con Follow-up o Persa serve il motivo di non chiusura, e per le call dal 16/10/2026 il link di Fathom o «non registrata». Fissi la call di follow-up, sposti, correggi con la matita, scrivi i dettagli (link, performance, prodotto e importo proposti, note aggiuntive) e cambi lo stato del lead.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Tu da Claude fai quello che fanno setter e closer su ogni call, e fissi call per te o per un setter, anche già fatte, fino a un anno indietro. Il business coach le legge e basta. Da Claude non si elimina né una call né un lead, non si scollega una registrazione, e dopo «Chiusa» la vendita si registra dall’app; le analisi di Claude sulle call, come è stata condotta una call, le trascrizioni di Fathom, clienti, vendite e incassi restano chiusi a Claude: i soldi arrivano nella prossima fase.',
+      },
+    ],
+  },
+  {
     versione: '1.53.0',
     data: '2026-10-22',
     titolo: 'L’app anche in inglese, con la bandierina',

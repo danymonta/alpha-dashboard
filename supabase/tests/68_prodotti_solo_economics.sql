@@ -9,9 +9,11 @@ set local search_path to extensions, public;
 
 select plan(8);
 
--- products_mai_da_oauth: Claude's OAuth tokens never reach it (20261010090000_mcp_oauth.sql, 75_mcp_oauth.sql)
+-- Claude's OAuth tokens: read only, inside a request the filter approved (20261029090000_mcp_call_lead.sql,
+-- 102_mcp_call_lead.sql): four restrictive products_claude_* instead of products_mai_da_oauth
 select policies_are('public', 'products',
-  array['products_select_economics', 'products_lettura_come_admin', 'products_write_admin', 'products_mai_da_oauth'],
+  array['products_select_economics', 'products_lettura_come_admin', 'products_write_admin', 'products_claude_lettura',
+        'products_claude_inserimento', 'products_claude_modifica', 'products_claude_eliminazione'],
   'prodotti: lettura per l''area Economics, scrittura per l''admin');
 
 create temp table tutti_prodotti on commit drop as

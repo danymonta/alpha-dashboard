@@ -109,6 +109,7 @@ import {
   destinazioneClaude,
   erroreVersoClaude,
   leggiDestinazione,
+  maiVistoPer,
   tipoErroreAutorizzazione,
 } from '@/lib/mcp/consenso'
 import { NON_VALIDA, consensoSchema, scollegaAppSchema } from '@/lib/validation/mcp'
@@ -499,14 +500,34 @@ describe('le parole della scheda di consenso', () => {
     const frase = (voci: readonly string[]) => voci.map((v, i) => `${v}${i === voci.length - 1 ? '.' : ';'}`)
     expect(azioniConsenso(MARKETING)).toEqual(frase([...CONSENSO.azioni, ...CONSENSO.azioniProgetti]))
     expect(azioniConsenso(ADMIN)).toEqual(
-      frase([...CONSENSO.azioni, CONSENSO.azioneAdmin, ...CONSENSO.azioniProgetti, CONSENSO.azioneGestione, CONSENSO.azioneTempoTeam]),
+      frase([
+        CONSENSO.azioniCall.admin,
+        ...CONSENSO.azioni,
+        CONSENSO.azioneAdmin,
+        ...CONSENSO.azioniProgetti,
+        CONSENSO.azioneGestione,
+        CONSENSO.azioneTempoTeam,
+      ]),
     )
-    // every role connects Claude since 22/10/2026: the setter has projects and his own time, not the calendar
-    expect(azioniConsenso({ ruolo: 'setter', livello: 'employee' })).toEqual(frase([...CONSENSO.azioniProgetti]))
+    // every role connects Claude since 22/10/2026: the setter has projects, his own time and (23/10/2026) his
+    // calls and leads, not the calendar; the closer his calls and their outcome
+    expect(azioniConsenso({ ruolo: 'setter', livello: 'employee' })).toEqual(
+      frase([CONSENSO.azioniCall.setter, ...CONSENSO.azioniProgetti]),
+    )
+    expect(azioniConsenso({ ruolo: 'closer', livello: 'employee' })).toEqual(
+      frase([CONSENSO.azioniCall.closer, ...CONSENSO.azioniProgetti]),
+    )
     expect(azioniConsenso({ ruolo: 'coach', livello: 'manager' })).toEqual(frase([...CONSENSO.azioniProgetti, CONSENSO.azioneGestione]))
     // the business coach reads only (22/10/2026), whatever his level
     expect(azioniConsenso({ ruolo: 'business_coach', livello: 'manager' })).toEqual(frase([...CONSENSO.azioniSolaLettura]))
-    for (const voce of [...CONSENSO.azioni, CONSENSO.azioneAdmin, ...CONSENSO.azioniProgetti, CONSENSO.azioneGestione, CONSENSO.azioneTempoTeam]) {
+    for (const voce of [
+      ...CONSENSO.azioni,
+      CONSENSO.azioneAdmin,
+      ...CONSENSO.azioniProgetti,
+      CONSENSO.azioneGestione,
+      CONSENSO.azioneTempoTeam,
+      ...Object.values(CONSENSO.azioniCall),
+    ]) {
       expect(voce).not.toMatch(/[;.,:]$/)
     }
     for (const chi of [MARKETING, ADMIN, { ruolo: 'setter', livello: 'employee' } as const]) {
@@ -524,6 +545,23 @@ describe('le parole della scheda di consenso', () => {
     expect(coach).not.toContain(CONSENSO.azioneAdmin)
     expect(coach).not.toContain(CONSENSO.azioneTempoTeam)
     expect(coach).not.toContain(CONSENSO.azioni[0])
+  })
+
+  it('«Non vedrà mai» per ruolo: chi lavora sulle call le raggiunge, il setter mai importi, link di Fathom o performance', () => {
+    expect(maiVistoPer(MARKETING)).toBe(CONSENSO.maiVisto)
+    expect(maiVistoPer({ ruolo: 'coach' })).toBe(CONSENSO.maiVisto)
+    expect(maiVistoPer(ADMIN)).toBe(CONSENSO.maiVistoCall)
+    expect(maiVistoPer({ ruolo: 'closer' })).toBe(CONSENSO.maiVistoCall)
+    expect(maiVistoPer({ ruolo: 'setter' })).toBe(CONSENSO.maiVistoSetter)
+    expect(CONSENSO.maiVistoSetter).toMatch(/importi, link di Fathom, performance/)
+    expect(maiVistoPer({ ruolo: 'business_coach' })).toBe(CONSENSO.maiVistoSolaLettura)
+    for (const frase of [CONSENSO.maiVistoCall, CONSENSO.maiVistoSetter]) {
+      expect(frase).toContain('le analisi di Claude sulle call')
+      expect(frase).toContain('né call, né lead')
+    }
+    const setter = renderToStaticMarkup(createElement(SchedaConsenso, { ...props, chi: { ruolo: 'setter', livello: 'employee' } }))
+    expect(setter).toContain(CONSENSO.maiVistoSetter)
+    expect(setter).not.toContain(CONSENSO.azioniCall.closer)
   })
 
   it('per Claude Code: il computer, l’avviso che ogni programma può rispondere, e niente «Connetti»', () => {

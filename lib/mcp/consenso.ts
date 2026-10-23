@@ -167,16 +167,33 @@ export const CONSENSO = {
   ],
   azioneGestione: 'creare progetti e liste, cambiarli, aggiungere persone e scegliere il coach nei progetti che gestisci',
   azioneTempoTeam: 'leggere il tempo già dichiarato dal team, come in Tempo › Team',
+  // calls, leads and outcomes (phase 2, 23/10/2026): admin, setter and closer, as in the app
+  azioniCall: {
+    setter:
+      'leggere le call col tuo nome e i tuoi lead, fissare call, spostarle finché sono da fare, cambiarne il closer, scrivere le tue note e cambiare lo stato dei tuoi lead',
+    closer:
+      'leggere le call assegnate a te e i loro lead, registrarne l’esito con la registrazione di Fathom, fissare la call di follow-up, spostarle, correggerle e scriverne i dettagli, e cambiare lo stato dei lead',
+    admin:
+      'leggere tutte le call e tutti i lead, fissare call, registrare esiti, spostare, correggere e scrivere i dettagli di ogni call, e cambiare lo stato dei lead',
+  },
   // the business coach (22/10/2026): reads only
   azioniSolaLettura: [
     'leggere il calendario dei contenuti (reel e caroselli) con i testi delle sezioni, il profilo del cliente ideale, la guida di Dany ai contenuti e gli ultimi spunti',
     'leggere tutti i progetti, con liste, task, membri e note',
     'leggere il tempo già dichiarato dal team, come in Tempo › Team',
+    'leggere tutte le call e tutti i lead',
     'senza mai creare, cambiare o eliminare niente',
   ],
   maiVistoInizio: 'Non vedrà mai',
   maiVisto:
     'soldi, clienti, lead, call, report del setter, messaggi diretti, il tempo degli altri né il resto del gestionale, e non eliminerà niente dei progetti.',
+  // who works on calls and leads (phase 2, 23/10/2026)
+  maiVistoCall:
+    'clienti, vendite, incassi, report del setter, le analisi di Claude sulle call, messaggi diretti, il tempo degli altri né il resto del gestionale, e non eliminerà niente: né call, né lead, né progetti.',
+  maiVistoSetter:
+    'importi, link di Fathom, performance delle call, clienti, vendite, incassi, report del setter, le analisi di Claude sulle call, messaggi diretti, il tempo degli altri né il resto del gestionale, e non eliminerà niente: né call, né lead, né progetti.',
+  maiVistoSolaLettura:
+    'clienti, vendite, incassi, report del setter, le analisi di Claude sulle call, messaggi diretti, i timer accesi degli altri né il resto del gestionale.',
   team: 'Ogni modifica di Claude la vede il team nell’app, come se l’avessi fatta tu.',
   privacy:
     'I testi che Claude legge passano dal tuo account Claude (Anthropic): nelle impostazioni di privacy di Claude tieni spento l’uso delle chat per migliorare i modelli.',
@@ -212,7 +229,9 @@ const RUOLI_CALENDARIO = new Set(['admin', 'editor', 'marketing'])
  */
 export function azioniConsenso(chi: ChiCollega): string[] {
   const admin = chi.ruolo === 'admin'
+  const call = chi.ruolo === 'admin' || chi.ruolo === 'setter' || chi.ruolo === 'closer' ? CONSENSO.azioniCall[chi.ruolo] : null
   const voci: string[] = chi.ruolo === 'business_coach' ? [...CONSENSO.azioniSolaLettura] : [
+    ...(call ? [call] : []),
     ...(RUOLI_CALENDARIO.has(chi.ruolo) ? CONSENSO.azioni : []),
     ...(admin ? [CONSENSO.azioneAdmin] : []),
     ...CONSENSO.azioniProgetti,
@@ -220,6 +239,14 @@ export function azioniConsenso(chi: ChiCollega): string[] {
     ...(admin ? [CONSENSO.azioneTempoTeam] : []),
   ]
   return voci.map((voce, i) => `${voce}${i === voci.length - 1 ? '.' : ';'}`)
+}
+
+/** «Non vedrà mai …», by role: who works on calls and leads reaches them (phase 2, 23/10/2026). */
+export function maiVistoPer(chi: Pick<ChiCollega, 'ruolo'>): string {
+  if (chi.ruolo === 'business_coach') return CONSENSO.maiVistoSolaLettura
+  if (chi.ruolo === 'setter') return CONSENSO.maiVistoSetter
+  if (chi.ruolo === 'admin' || chi.ruolo === 'closer') return CONSENSO.maiVistoCall
+  return CONSENSO.maiVisto
 }
 
 /**
@@ -270,7 +297,7 @@ export function etichettaDialogo(chiave: keyof typeof DIALOGO_CLAUDE): string {
 export const COLLEGA_CLAUDE = {
   titolo: 'Collega Claude',
   descrizione:
-    'Dal tuo account Claude lavori a parole sui progetti, sui task e sul tuo tempo, e nel Marketing sul calendario dei contenuti, con i tuoi permessi dell’app. Non raggiunge soldi, clienti, lead, call né messaggi diretti, e non elimina niente dei progetti.',
+    'Dal tuo account Claude lavori a parole sui progetti, sui task e sul tuo tempo, nel Marketing sul calendario dei contenuti e, se sei setter, closer o admin, su call, lead ed esiti, con i tuoi permessi dell’app. Non raggiunge soldi, clienti, vendite né messaggi diretti, e non elimina né call, né lead, né niente dei progetti.',
   nome: 'Alpha Management',
   indirizzoMenu: 'claude.ai/customize/connectors',
   telefono: 'Sul telefono: dopo averlo collegato dal sito o dal computer, lo trovi anche nell’app di Claude.',

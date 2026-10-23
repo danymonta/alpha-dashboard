@@ -562,7 +562,9 @@ select is(
    where persona = 'claude' and coalesce(righe, 0) > 0
      and relazione not in ('profiles', 'marketing_contenuti', 'marketing_opzioni', 'pm_progetti', 'pm_membri',
                            'pm_tasklist', 'pm_task', 'pm_task_assegnatari', 'pm_tempo', 'pm_note', 'pm_reparti',
-                           'pm_modelli', 'v_pm_progetti', 'v_pm_task', 'v_pm_tasklist')),
+                           'pm_modelli', 'v_pm_progetti', 'v_pm_task', 'v_pm_tasklist',
+                           -- calls, leads and outcomes (phase 2, 20261029090000): he reads them like the admin
+                           'calls', 'leads', 'call_pitch', 'call_registrazioni', 'products')),
   '',
   'token di Claude nel filtro: nessuna riga fuori dalle aree MCP'
 );

@@ -3,8 +3,8 @@
 -- app, inside a request the Data API filter approved. The filter's approval is simulated here as
 -- PostgREST does it: the request settings, then mcp_filtro_richiesta() (which raises the
 -- transaction-local flag alpha.mcp_filtro). Time is always one's own from Claude (the app admin
--- reads the team's declared time), nothing is deleted, and the areas of the later phases (calls,
--- leads, clients, money, costs, the setter's reports) stay closed.
+-- reads the team's declared time), nothing is deleted, and the areas of the later phases (clients,
+-- money, costs, the setter's reports) stay closed. Calls and leads are phase 2 (102_mcp_call_lead.sql).
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
@@ -124,7 +124,8 @@ declare
   n bigint;
   viste text[] := '{}';
 begin
-  foreach r in array array['calls', 'leads', 'call_pitch', 'clients', 'sales', 'payments', 'expenses',
+  -- calls, leads and the amount pitched are phase 2 (20261029090000, 102_mcp_call_lead.sql)
+  foreach r in array array['clients', 'sales', 'payments', 'expenses',
     'commission_rules', 'commission_payouts', 'setter_daily_reports', 'invites', 'audit_log',
     'clienti_cartelle', 'insight_recap', 'notifiche'] loop
     begin
@@ -172,7 +173,7 @@ select is(
   'e il tempo già dichiarato del team, mai il timer acceso di un altro'
 );
 select ok(pg_temp.conta('profiles') >= 6, 'e i profili del team (nomi per i membri e gli assegnatari)');
-select is(pg_temp.altre_aree(), '', 'admin: call, lead, clienti, vendite, incassi, costi, provvigioni, report e inviti restano chiusi');
+select is(pg_temp.altre_aree(), '', 'admin: clienti, vendite, incassi, costi, provvigioni, report e inviti restano chiusi');
 
 select pg_temp.claude('44444444-4444-4444-8444-444444444444', '9e000000-0000-4000-8000-000000000004');
 select is(pg_temp.conta('pm_progetti'), 4::bigint, 'il coach legge solo i 4 progetti di cui è membro');
@@ -187,7 +188,7 @@ select is(pg_temp.conta('marketing_contenuti'), 0::bigint, 'e il calendario dei 
 
 select pg_temp.claude('22222222-2222-4222-8222-222222222222', '9e000000-0000-4000-8000-000000000002');
 select is(pg_temp.conta('pm_progetti'), 0::bigint, 'il setter, membro di nessun progetto, non ne legge');
-select is(pg_temp.altre_aree(), '', 'e nemmeno da Claude legge le sue call, i suoi lead o i suoi report: sono di una fase dopo');
+select is(pg_temp.altre_aree(), '', 'e nemmeno da Claude legge i suoi report o i suoi clienti: sono di una fase dopo (call e lead sono della fase 2)');
 
 -- ---------------------------------------------------------------------------
 -- 3. Writing as in the app

@@ -94,6 +94,26 @@ select is(
                              then '((NOT ( SELECT da_client_oauth() AS da_client_oauth)) OR (( SELECT "current_role"() AS "current_role") IS NOT NULL))'
                              else '(NOT ( SELECT da_client_oauth() AS da_client_oauth))' end
        )
+       -- calls, leads and outcomes (20261029090000, phase 2 of 4): no _mai_da_oauth, and exactly four
+       -- restrictive policies, one per command; the delete one refuses every OAuth token (the amount
+       -- pitched aside: dettagli_call clears it by deleting its row, as in the app)
+       when t.tablename in ('calls', 'leads', 'call_pitch', 'call_registrazioni', 'products') then (
+         select coalesce(array_agg(p.policyname::text || ' ' || p.cmd order by p.policyname::text), '{}')
+         from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and (p.permissive = 'RESTRICTIVE' or p.policyname like '%_mai_da_oauth')
+       ) <> array[
+         t.tablename || '_claude_eliminazione DELETE', t.tablename || '_claude_inserimento INSERT',
+         t.tablename || '_claude_lettura SELECT', t.tablename || '_claude_modifica UPDATE'
+       ] or not exists (
+         select 1 from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and p.policyname = t.tablename || '_claude_eliminazione'
+           and p.roles = array['authenticated']::name[]
+           and p.qual = case when t.tablename = 'call_pitch'
+                             then '((NOT ( SELECT da_client_oauth() AS da_client_oauth)) OR (( SELECT "current_role"() AS "current_role") IS NOT NULL))'
+                             else '(NOT ( SELECT da_client_oauth() AS da_client_oauth))' end
+       )
        else not exists (
          select 1 from pg_policies p
          where p.schemaname = 'public' and p.tablename = t.tablename
@@ -159,9 +179,12 @@ select results_eq(
 );
 
 -- PostgREST calls a function that takes a row of a table or view as a computed column of that
--- relation (GET /pm_task?select=f): on the relations Claude reaches, it would run inside a request the
--- filter approved, with the person's role. None exists; one added later fails here until it is read
--- for Claude's token and listed.
+-- relation (GET /calls?select=f): on the relations Claude reaches, it would run inside a request the
+-- filter approved, with the person's role. The only ones admitted are the two booleans of calls
+-- (call_ha_follow_up, call_ha_vendita, 20261029090000): security definer, they answer only about a call
+-- the caller reads in the app, and null to every OAuth token (their body checks da_client_oauth(),
+-- 102_mcp_call_lead.sql calls them with Claude's tokens). Any other fails here until it is read for
+-- Claude's token and listed.
 select is(
   (select coalesce(string_agg(p.proname::text || '(' || c.relname::text || ')', ', ' order by p.proname::text), '')
    from pg_proc p
@@ -172,9 +195,14 @@ select is(
      and c.relnamespace = 'public'::regnamespace
      and c.relname in ('marketing_contenuti', 'marketing_opzioni', 'pm_progetti', 'pm_membri', 'pm_tasklist',
                        'pm_task', 'pm_task_assegnatari', 'pm_tempo', 'pm_note', 'pm_reparti', 'pm_modelli',
-                       'profiles', 'v_pm_progetti', 'v_pm_task', 'v_pm_tasklist')),
+                       'profiles', 'v_pm_progetti', 'v_pm_task', 'v_pm_tasklist',
+                       'calls', 'leads', 'call_pitch', 'call_registrazioni', 'products')
+     and not (
+       p.proname in ('call_ha_follow_up', 'call_ha_vendita') and c.relname = 'calls'
+       and p.prosecdef and p.prosrc like '%not public.da_client_oauth()%'
+     )),
   '',
-  'nessuna funzione fa da colonna calcolata sulle tabelle che Claude raggiunge'
+  'nessuna funzione fa da colonna calcolata sulle tabelle che Claude raggiunge (tranne i due booleani delle call, nulli per Claude)'
 );
 
 -- The Data API filter is registered where PostgREST reads it
