@@ -1,7 +1,9 @@
+import { getLingua } from '@/lib/i18n/server'
+import { MARKETING } from '@/lib/i18n/testi/marketing'
 import { Skeleton } from '@/components/ui/skeleton'
 
 /** The shape of the Piano editoriale: header, the row of filters, then the rows. */
-export default function Loading() {
+export default async function Loading() {
   return (
     <div className="space-y-4" aria-busy="true" aria-live="polite">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -22,7 +24,7 @@ export default function Loading() {
           <Skeleton key={i} className="h-20 rounded-xl md:h-12" />
         ))}
       </div>
-      <span className="sr-only">Caricamento del Piano editoriale</span>
+      <span className="sr-only">{MARKETING[await getLingua()].piano.caricamento}</span>
     </div>
   )
 }

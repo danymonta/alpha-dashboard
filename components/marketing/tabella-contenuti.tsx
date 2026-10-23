@@ -8,7 +8,9 @@ import { usePannello } from '@/components/marketing/contesto-pannello'
 import { LinkContenuto } from '@/components/marketing/link-contenuto'
 import { MenuStatus } from '@/components/marketing/menu-status'
 import { SelectOpzioni } from '@/components/marketing/select-opzioni'
-import { formatNumero } from '@/lib/format'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { formato } from '@/lib/format'
+import { MARKETING } from '@/lib/i18n/testi/marketing'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { COLONNE_PIANO, INTESTAZIONE_PIANO } from '@/lib/marketing/etichette'
 import { hrefContenuto } from '@/lib/marketing/pannello'
@@ -150,12 +152,14 @@ export function TabellaContenuti({
   totale: number
   limite: number
 }) {
+  const lingua = useLingua()
+  const t = MARKETING[lingua].piano
   return (
     <div className="space-y-3">
       {/* the columns fit 960px of section; the inner scroll is a safety net, never the page */}
       <div className="hidden overflow-x-auto rounded-lg border border-border @min-[60rem]:block">
         <table className="w-full text-sm">
-          <caption className="sr-only">Piano editoriale, dalla Post Date più recente</caption>
+          <caption className="sr-only">{t.caption}</caption>
           <thead className="text-xs text-muted-foreground">
             <tr className="border-b border-border">
               {COLONNE_PIANO.map((c) => (
@@ -187,7 +191,7 @@ export function TabellaContenuti({
 
       {totale > limite ? (
         <p className="text-sm text-muted-foreground">
-          Si vedono i {formatNumero(limite)} più recenti: usa i filtri o la ricerca per trovare gli altri.
+          {t.limite(formato(lingua).formatNumero(limite))}
         </p>
       ) : null}
     </div>

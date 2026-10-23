@@ -7,6 +7,26 @@ import { bilingue } from '@/lib/i18n/lingua'
 export const MARKETING = bilingue(
   {
     schede: { aria: 'Sezioni del Marketing', piano: 'Piano editoriale', pubblicati: 'Pubblicati', spunti: 'Spunti' },
+    piano: {
+      titolo: 'Piano editoriale',
+      descrizione:
+        'I reel e i caroselli dall’idea al post pubblicato. Ogni cella si cambia da sola; le etichette le crei e le colori tu.',
+      descrizioneLettura: 'I reel e i caroselli dall’idea al post pubblicato, in sola lettura.',
+      vuoto: 'Nessun contenuto',
+      vuotoDescrizione: 'Aggiungi la prima riga: poi scegli Reel Type, Format e Status dalle celle.',
+      vuotoLettura: 'Il piano si riempie quando il team aggiunge i contenuti.',
+      vuotoFiltri: 'Nessun contenuto con questi filtri',
+      vuotoFiltriDescrizione: 'Cambia i filtri o la ricerca, o toglili per vedere tutti i contenuti.',
+      togliFiltri: 'Togli i filtri',
+      cerca: 'Cerca per Name',
+      tutti: 'Tutti',
+      caption: 'Piano editoriale, dalla Post Date più recente',
+      limite: (n: string) => `Si vedono i ${n} più recenti: usa i filtri o la ricerca per trovare gli altri.`,
+      apriPost: 'Apri il post',
+      daInstagram: 'Da Instagram: si aggiorna da solo',
+      caricamento: 'Caricamento del Piano editoriale',
+      inItaliano: 'Name e testi li scrive il team, in italiano.',
+    },
     spunti: {
       titolo: 'Spunti',
       descrizione:
@@ -60,6 +80,26 @@ export const MARKETING = bilingue(
   },
   {
     schede: { aria: 'Marketing sections', piano: 'Content plan', pubblicati: 'Published', spunti: 'Ideas' },
+    piano: {
+      titolo: 'Content plan',
+      descrizione:
+        'The reels and carousels from the idea to the published post. Every cell changes on its own; you create and colour the labels.',
+      descrizioneLettura: 'The reels and carousels from the idea to the published post, read only.',
+      vuoto: 'No content',
+      vuotoDescrizione: 'Add the first row: then choose Reel Type, Format and Status from the cells.',
+      vuotoLettura: 'The plan fills up when the team adds content.',
+      vuotoFiltri: 'No content with these filters',
+      vuotoFiltriDescrizione: 'Change the filters or the search, or remove them to see all the content.',
+      togliFiltri: 'Remove the filters',
+      cerca: 'Search by Name',
+      tutti: 'All',
+      caption: 'Content plan, newest Post Date first',
+      limite: (n: string) => `The ${n} most recent are shown: use the filters or the search to find the others.`,
+      apriPost: 'Open the post',
+      daInstagram: 'From Instagram: it updates by itself',
+      caricamento: 'Loading the Content plan',
+      inItaliano: 'Names and texts are written by the team, in Italian.',
+    },
     spunti: {
       titolo: 'Ideas',
       descrizione:
