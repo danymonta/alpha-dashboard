@@ -2,6 +2,8 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { ElencoMieiTask } from '@/components/pm/miei-task/elenco-miei-task'
 import { requireProfilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
+import { getLingua } from '@/lib/i18n/server'
+import { MIEI_TASK } from '@/lib/i18n/testi/task'
 import {
   COMPLETATI_MAX,
   COMPLETATI_RECENTI,
@@ -25,6 +27,7 @@ export const dynamic = 'force-dynamic'
  */
 export default async function MieiTaskPage({ searchParams }: { searchParams: Promise<{ completati?: string }> }) {
   const profilo = await requireProfilo()
+  const testi = MIEI_TASK[await getLingua()]
   const tutti = mostraTuttiICompletati((await searchParams).completati)
   const supabase = await createClient()
   const oggi = oggiRoma()
@@ -51,7 +54,7 @@ export default async function MieiTaskPage({ searchParams }: { searchParams: Pro
       .order('id')
       .limit(tutti ? COMPLETATI_MAX : COMPLETATI_RECENTI),
   ])
-  if (error || errChiusi) throw new Error('Impossibile caricare i tuoi task')
+  if (error || errChiusi) throw new Error(testi.errore)
 
   const idProgetti = [
     ...new Set([...(righe ?? []), ...(chiusi ?? [])].map((t) => t.progetto_id).filter((id): id is string => Boolean(id))),
@@ -65,7 +68,7 @@ export default async function MieiTaskPage({ searchParams }: { searchParams: Pro
       ? supabase.from('profiles').select('id, nome').in('id', idAltri)
       : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
   ])
-  const nomi = new Map((progetti ?? []).map((p) => [p.id, p.nome ?? 'Progetto']))
+  const nomi = new Map((progetti ?? []).map((p) => [p.id, p.nome ?? testi.progetto]))
   const nomiPersone = new Map((persone ?? []).map((p) => [p.id, p.nome]))
 
   const aperti: MioTask[] = (righe ?? []).map((t) => ({
@@ -75,7 +78,7 @@ export default async function MieiTaskPage({ searchParams }: { searchParams: Pro
     scadenza: t.scadenza,
     in_ritardo: Boolean(t.in_ritardo),
     progetto_id: t.progetto_id!,
-    progetto: nomi.get(t.progetto_id) ?? 'Progetto',
+    progetto: nomi.get(t.progetto_id) ?? testi.progetto,
     con: nomiAssegnatari(
       (t.assegnatari ?? []).filter((id) => id !== profilo.id),
       nomiPersone,
@@ -88,16 +91,13 @@ export default async function MieiTaskPage({ searchParams }: { searchParams: Pro
     titolo: t.titolo ?? '',
     scadenza: t.scadenza,
     progetto_id: t.progetto_id!,
-    progetto: nomi.get(t.progetto_id) ?? 'Progetto',
+    progetto: nomi.get(t.progetto_id) ?? testi.progetto,
     completato_il: t.completato_il,
   }))
 
   return (
     <div className="max-w-3xl">
-      <IntestazionePagina
-        titolo="I miei task"
-        descrizione="Quello che ti è stato assegnato in tutti i progetti. Tocca il titolo per aprirlo nel suo progetto, spunta quando è fatto, tocca la sveglia per contare il tempo; sotto, quelli che hai chiuso."
-      />
+      <IntestazionePagina titolo={testi.titolo} descrizione={testi.descrizione} />
       <ElencoMieiTask
         aperti={aperti}
         completati={completati}

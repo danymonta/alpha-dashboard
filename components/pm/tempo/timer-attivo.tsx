@@ -6,6 +6,7 @@ import { useId, useState, useSyncExternalStore, useTransition, type FormEvent } 
 import { toast } from 'sonner'
 
 import { fermaTimer } from '@/app/(app)/tempo/actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Cronometro } from '@/components/pm/tempo/cronometro'
 import { useTimer, type TimerAcceso } from '@/components/pm/tempo/timer-provider'
 import { Button } from '@/components/ui/button'
@@ -13,12 +14,14 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { formatOra } from '@/lib/date'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MIO_TEMPO, traduciErroreTempo } from '@/lib/i18n/testi/tempo'
 import { formatDurata } from '@/lib/tempo'
 import { cn } from '@/lib/utils'
 
 /** "Progetto · Task", or just the project. */
-export function descrizioneTimer(timer: Pick<TimerAcceso, 'progetto' | 'task'>): string {
-  const progetto = timer.progetto ?? 'Progetto'
+export function descrizioneTimer(timer: Pick<TimerAcceso, 'progetto' | 'task'>, lingua: Lingua = 'it'): string {
+  const progetto = timer.progetto ?? MIO_TEMPO[lingua].cronometro.progetto
   return timer.task ? `${progetto} · ${timer.task}` : progetto
 }
 
@@ -41,17 +44,22 @@ function usePuntatoreFine() {
 
 /**
  * Stop with an optional note: the note field is prefilled with the one given
- * at start. Enter with Cmd/Ctrl, or the button, stops the clock.
+ * at start. Enter with Cmd/Ctrl, or the button, stops the clock. In the
+ * page's language (1.53.0), Italian when none is passed.
  */
 export function FermaTimerForm({
   notaIniziale,
   onFermato,
   compatto = false,
+  lingua = 'it',
 }: {
   notaIniziale: string | null
   onFermato?: () => void
   compatto?: boolean
+  lingua?: Lingua
 }) {
+  const testi = MIO_TEMPO[lingua]
+  const t = testi.cronometro
   const { ricarica } = useTimer()
   const id = useId()
   const [nota, setNota] = useState(notaIniziale ?? '')
@@ -67,22 +75,22 @@ export function FermaTimerForm({
       try {
         const esito = await fermaTimer({ nota })
         if (!esito.ok) {
-          setErrore(esito.errore)
+          setErrore(traduciErroreTempo(esito.errore, lingua) ?? null)
           return
         }
-        toast.success(esito.minuti ? `Timer fermato · ${formatDurata(esito.minuti)}` : 'Timer fermato')
+        toast.success(esito.minuti ? t.fermatoDopo(formatDurata(esito.minuti)) : t.fermato)
         onFermato?.()
       } catch {
-        setErrore('Connessione assente. Riprova.')
+        setErrore(testi.form.connessione)
       }
       await ricarica()
     })
   }
 
   return (
-    <form onSubmit={ferma} className="space-y-3" aria-label="Ferma il timer">
+    <form onSubmit={ferma} className="space-y-3" aria-label={t.ferma}>
       <div className="space-y-1.5">
-        <Label htmlFor={`${id}-nota`}>Nota (facoltativa)</Label>
+        <Label htmlFor={`${id}-nota`}>{testi.campi.nota}</Label>
         <Textarea
           id={`${id}-nota`}
           // stopping is the moment to say what was done; on a phone no keyboard
@@ -95,7 +103,7 @@ export function FermaTimerForm({
           }}
           maxLength={2000}
           rows={compatto ? 2 : 3}
-          placeholder="Cosa hai fatto"
+          placeholder={testi.campi.cosaHaiFatto}
         />
       </div>
       {errore ? (
@@ -109,7 +117,7 @@ export function FermaTimerForm({
         ) : (
           <Square className="size-3.5 fill-current" aria-hidden="true" />
         )}
-        Ferma il timer
+        {t.ferma}
       </Button>
     </form>
   )
@@ -122,6 +130,9 @@ export function FermaTimerForm({
  * Sober on purpose: no animation next to the numbers (CLAUDE.md section 11).
  */
 export function TimerInCima({ compatto = false }: { compatto?: boolean }) {
+  // the shell is in the page's language (1.53.0)
+  const lingua = useLingua()
+  const t = MIO_TEMPO[lingua].cronometro
   const { timer } = useTimer()
   const [aperto, setAperto] = useState(false)
   if (!timer) return null
@@ -133,7 +144,7 @@ export function TimerInCima({ compatto = false }: { compatto?: boolean }) {
           <Button
             type="button"
             variant="outline"
-            aria-label={`Timer in corso su ${descrizioneTimer(timer)}: tocca per fermarlo`}
+            aria-label={t.inCorsoSu(descrizioneTimer(timer, lingua))}
             data-testid={compatto ? 'timer-attivo-mobile' : 'timer-attivo-desktop'}
             className={cn('h-11 shrink-0 gap-2 border-primary/60', compatto ? 'px-2.5' : 'max-w-72 px-3')}
           />
@@ -145,16 +156,22 @@ export function TimerInCima({ compatto = false }: { compatto?: boolean }) {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-3 p-4">
         <div>
-          <p className="text-sm font-medium">{descrizioneTimer(timer)}</p>
+          <p className="text-sm font-medium">{descrizioneTimer(timer, lingua)}</p>
           <p className="text-xs text-muted-foreground">
-            Acceso alle {formatOra(timer.inizio)} ·{' '}
+            {t.acceso(formatOra(timer.inizio))}{' '}
             <Link href="/tempo" onClick={() => setAperto(false)} className="underline underline-offset-4">
-              Il mio tempo
+              {t.ilMioTempo}
             </Link>
           </p>
         </div>
         {/* keyed on the timer: a new timer starts with its own note */}
-        <FermaTimerForm key={timer.id} notaIniziale={timer.nota} onFermato={() => setAperto(false)} compatto />
+        <FermaTimerForm
+          key={timer.id}
+          notaIniziale={timer.nota}
+          onFermato={() => setAperto(false)}
+          compatto
+          lingua={lingua}
+        />
       </PopoverContent>
     </Popover>
   )

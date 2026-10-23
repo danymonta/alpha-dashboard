@@ -2,7 +2,10 @@ import { Clock } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { formatOra } from '@/lib/date'
-import { formatDurata, intestazioneGiorno, perGiorno } from '@/lib/tempo'
+import { intestazioneGiornoIn } from '@/lib/i18n/date'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MIO_TEMPO } from '@/lib/i18n/testi/tempo'
+import { formatDurata, perGiorno } from '@/lib/tempo'
 
 export type VoceTempo = {
   id: string
@@ -19,20 +22,24 @@ export type VoceTempo = {
 
 /**
  * Time entries grouped by day, most recent first. The day totals come from
- * SQL (pm_riepilogo_tempo / pm_tempo_progetto), never summed here.
+ * SQL (pm_riepilogo_tempo / pm_tempo_progetto), never summed here. In the
+ * page's language (1.53.0); a project's Tempo tab passes none and stays Italian.
  */
 export function ElencoTempo({
   voci,
   totaliGiorno,
   oggi,
   azioni,
+  lingua = 'it',
 }: {
   voci: readonly VoceTempo[]
   totaliGiorno: ReadonlyMap<string, number>
   oggi: string
   /** Edit and delete buttons of an entry, when the viewer may use them. */
   azioni?: (voce: VoceTempo) => ReactNode
+  lingua?: Lingua
 }) {
+  const t = MIO_TEMPO[lingua]
   return (
     <div className="space-y-5">
       {perGiorno(voci).map(({ data, righe }) => {
@@ -41,10 +48,10 @@ export function ElencoTempo({
           <section key={data} aria-labelledby={idTitolo} data-testid={`giorno-${data}`} className="space-y-2">
             <div className="flex items-baseline justify-between gap-3 px-1">
               <h3 id={idTitolo} className="text-sm font-medium first-letter:uppercase">
-                {intestazioneGiorno(data, oggi)}
+                {intestazioneGiornoIn(data, oggi, lingua)}
               </h3>
               <p className="num text-sm font-medium" data-testid="totale-giorno">
-                <span className="sr-only">Totale del giorno: </span>
+                <span className="sr-only">{t.totaleGiorno}</span>
                 {formatDurata(totaliGiorno.get(data) ?? 0)}
               </p>
             </div>
@@ -68,7 +75,9 @@ export function ElencoTempo({
                       </span>
                     </p>
                     {voce.nota ? (
-                      <p className="mt-0.5 line-clamp-2 text-xs whitespace-pre-line text-muted-foreground">{voce.nota}</p>
+                      <p lang="it" className="mt-0.5 line-clamp-2 text-xs whitespace-pre-line text-muted-foreground">
+                        {voce.nota}
+                      </p>
                     ) : null}
                   </div>
                   {azioni ? <div className="flex shrink-0">{azioni(voce)}</div> : null}

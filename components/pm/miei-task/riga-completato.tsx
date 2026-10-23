@@ -3,6 +3,7 @@
 import { CircleCheck, LoaderCircle, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 
+import { useFormato, useTesti } from '@/components/i18n/lingua-provider'
 import {
   CLASSE_DETTAGLI,
   CLASSE_PROGETTO,
@@ -11,6 +12,7 @@ import {
 } from '@/components/pm/miei-task/riga-mio-task'
 import { LinkRiga } from '@/components/shell/link-riga'
 import { Button } from '@/components/ui/button'
+import { MIEI_TASK } from '@/lib/i18n/testi/task'
 import { etichettaCompletato, type MioTaskCompletato } from '@/lib/miei-task'
 import { linkTask } from '@/lib/progetti'
 import { cn } from '@/lib/utils'
@@ -29,6 +31,8 @@ type Props = {
  */
 export function RigaCompletato({ task, oggi, onRiapri }: Props) {
   const [inCorso, setInCorso] = useState(false)
+  const t = useTesti(MIEI_TASK)
+  const { formatData } = useFormato()
 
   async function riapri() {
     if (inCorso) return
@@ -62,7 +66,7 @@ export function RigaCompletato({ task, oggi, onRiapri }: Props) {
             {task.progetto}
           </LinkRiga>
           <p className={CLASSE_DETTAGLI}>
-            <span className="num">{etichettaCompletato(task.completato_il, oggi)}</span>
+            <span className="num">{etichettaCompletato(task.completato_il, oggi, t.completato, formatData)}</span>
           </p>
         </div>
       </div>
@@ -72,7 +76,7 @@ export function RigaCompletato({ task, oggi, onRiapri }: Props) {
         className="h-11 shrink-0 gap-1.5 px-3"
         // never disabled while the server answers: the focus stays on it
         aria-disabled={inCorso || undefined}
-        aria-label={`Riapri ${task.titolo}`}
+        aria-label={t.riapriTask(task.titolo)}
         onClick={riapri}
       >
         {inCorso ? (
@@ -80,7 +84,7 @@ export function RigaCompletato({ task, oggi, onRiapri }: Props) {
         ) : (
           <RotateCcw className="size-4" aria-hidden="true" />
         )}
-        Riapri
+        {t.riapri}
       </Button>
     </li>
   )

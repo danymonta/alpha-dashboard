@@ -10,6 +10,8 @@ import { useTimer } from '@/components/pm/tempo/timer-provider'
 import { useSolaLettura } from '@/components/shell/sola-lettura'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MIO_TEMPO, traduciErroreTempo } from '@/lib/i18n/testi/tempo'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -18,6 +20,8 @@ type Props = {
   /** What the timer is about, for the accessible name: the task title or the project name. */
   titolo: string
   className?: string
+  /** The page's language (1.53.0); a project's Attività tab passes none and stays Italian. */
+  lingua?: Lingua
 }
 
 /**
@@ -31,7 +35,8 @@ export function AvviaTimer(props: Props) {
   return solaLettura ? null : <AvviaTimerModificabile {...props} />
 }
 
-function AvviaTimerModificabile({ progettoId, taskId = null, titolo, className }: Props) {
+function AvviaTimerModificabile({ progettoId, taskId = null, titolo, className, lingua = 'it' }: Props) {
+  const t = MIO_TEMPO[lingua].cronometro
   const { timer, ricarica } = useTimer()
   const [inCorso, avvia] = useTransition()
   const [aperto, setAperto] = useState(false)
@@ -46,18 +51,24 @@ function AvviaTimerModificabile({ progettoId, taskId = null, titolo, className }
               type="button"
               size="icon"
               className={cn('size-11 shrink-0', className)}
-              aria-label={`Ferma il timer su ${titolo}`}
+              aria-label={t.fermaSu(titolo)}
               aria-pressed
               data-stato="in-corso"
-              title="Timer in corso: tocca per fermarlo"
+              title={t.tocca}
             />
           }
         >
           <Square className="size-3.5 fill-current" aria-hidden="true" />
         </PopoverTrigger>
         <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-3 p-4">
-          <p className="text-sm font-medium">{descrizioneTimer(timer)}</p>
-          <FermaTimerForm key={timer.id} notaIniziale={timer.nota} onFermato={() => setAperto(false)} compatto />
+          <p className="text-sm font-medium">{descrizioneTimer(timer, lingua)}</p>
+          <FermaTimerForm
+            key={timer.id}
+            notaIniziale={timer.nota}
+            onFermato={() => setAperto(false)}
+            compatto
+            lingua={lingua}
+          />
         </PopoverContent>
       </Popover>
     )
@@ -68,10 +79,10 @@ function AvviaTimerModificabile({ progettoId, taskId = null, titolo, className }
       try {
         const cera = timer !== null
         const esito = await avviaTimer({ progetto_id: progettoId, task_id: taskId })
-        if (!esito.ok) toast.error(esito.errore)
-        else toast.success(cera ? 'Timer avviato. Quello di prima è stato fermato.' : 'Timer avviato: lo trovi in alto a destra')
+        if (!esito.ok) toast.error(traduciErroreTempo(esito.errore, lingua))
+        else toast.success(cera ? t.avviatoFermato : t.avviatoInAlto)
       } catch {
-        toast.error('Connessione assente. Riprova.')
+        toast.error(MIO_TEMPO[lingua].form.connessione)
       }
       await ricarica()
     })
@@ -83,10 +94,10 @@ function AvviaTimerModificabile({ progettoId, taskId = null, titolo, className }
       variant="outline"
       size="icon"
       className={cn('size-11 shrink-0', className)}
-      aria-label={`Avvia il timer su ${titolo}`}
+      aria-label={t.avviaSu(titolo)}
       aria-pressed={false}
       data-stato="fermo"
-      title="Avvia il timer"
+      title={t.avvia}
       disabled={inCorso}
       onClick={tocca}
     >

@@ -10,18 +10,30 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { aggiungiGiorni } from '@/lib/date'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MIO_TEMPO } from '@/lib/i18n/testi/tempo'
 import { lunediDi, type PeriodoTempo } from '@/lib/tempo'
 import { cn } from '@/lib/utils'
 
 const FRECCIA =
   'flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground'
 
-/** "21–27/09/2026", "29/09–05/10/2026", "29/12/2025–04/01/2026": the year once when it can. */
-function etichettaBreve(da: string, a: string): string {
+/**
+ * "21–27/09/2026", "29/09–05/10/2026", "29/12/2025–04/01/2026": the year once when it can.
+ * In English "21–27 Sep 2026", "29 Sep–05 Oct 2026", "29 Dec 2025–04 Jan 2026".
+ */
+function etichettaBreve(da: string, a: string, lingua: Lingua): string {
+  const { formatData } = formato(lingua)
   if (da === a) return formatData(da)
   const [annoDa, meseDa, giornoDa] = da.split('-')
   const [annoA, meseA, giornoA] = a.split('-')
+  if (lingua === 'en') {
+    if (annoDa !== annoA) return `${formatData(da)}–${formatData(a)}`
+    const senzaAnno = (iso: string) => formatData(iso).slice(0, -5)
+    if (meseDa === meseA) return `${giornoDa}–${formatData(a)}`
+    return `${senzaAnno(da)}–${formatData(a)}`
+  }
   if (annoDa === annoA && meseDa === meseA) return `${giornoDa}–${giornoA}/${meseA}/${annoA}`
   if (annoDa === annoA) return `${giornoDa}/${meseDa}–${giornoA}/${meseA}/${annoA}`
   return `${formatData(da)}–${formatData(a)}`
@@ -33,7 +45,8 @@ type Scelta = { chiave: string; etichetta: string; href: string; attiva: boolean
  * The quick choices, as the same URL parameters the page already reads:
  * no parameter (this week), ?settimana= (any day of a week), ?da=&a= (a range).
  */
-function scelteRapide(percorso: string, periodo: PeriodoTempo, oggi: string): Scelta[] {
+function scelteRapide(percorso: string, periodo: PeriodoTempo, oggi: string, lingua: Lingua): Scelta[] {
+  const parole = MIO_TEMPO[lingua]
   const settimanaScorsa = aggiungiGiorni(lunediDi(oggi), -7)
   const primoDelMese = `${oggi.slice(0, 8)}01`
   const fineMeseScorso = aggiungiGiorni(primoDelMese, -1)
@@ -42,25 +55,25 @@ function scelteRapide(percorso: string, periodo: PeriodoTempo, oggi: string): Sc
   return [
     {
       chiave: 'settimana',
-      etichetta: 'Questa settimana',
+      etichetta: parole.periodo.questaSettimana,
       href: percorso,
       attiva: periodo.tipo === 'settimana' && periodo.corrente,
     },
     {
       chiave: 'settimana-scorsa',
-      etichetta: 'Settimana scorsa',
+      etichetta: parole.periodo.settimanaScorsa,
       href: `${percorso}?settimana=${settimanaScorsa}`,
       attiva: periodo.tipo === 'settimana' && periodo.da === settimanaScorsa,
     },
     {
       chiave: 'mese',
-      etichetta: 'Questo mese',
+      etichetta: parole.navigazione.questoMese,
       href: `${percorso}?da=${primoDelMese}&a=${oggi}`,
       attiva: intervallo(primoDelMese, oggi),
     },
     {
       chiave: 'mese-scorso',
-      etichetta: 'Mese scorso',
+      etichetta: parole.navigazione.meseScorso,
       href: `${percorso}?da=${primoMeseScorso}&a=${fineMeseScorso}`,
       attiva: intervallo(primoMeseScorso, fineMeseScorso),
     },
@@ -70,23 +83,27 @@ function scelteRapide(percorso: string, periodo: PeriodoTempo, oggi: string): Sc
 /**
  * Week arrows (never into the future) around a "Periodo" button, the same
  * shape as the Economics selector: the sheet has quick choices and a free
- * range. Everything stays in the URL.
+ * range. Everything stays in the URL. In the page's language (1.53.0); a
+ * project's Tempo tab passes none and stays Italian.
  */
 export function NavigazionePeriodo({
   percorso,
   periodo,
   oggi,
+  lingua = 'it',
 }: {
   percorso: string
   periodo: PeriodoTempo
   oggi: string
+  lingua?: Lingua
 }) {
+  const t = MIO_TEMPO[lingua].navigazione
   const settimana = periodo.tipo === 'settimana'
   return (
     // -ml-3: the chevron glyph (not its 44px hit area) lines up with the content edge
-    <nav aria-label="Scegli il periodo" className="-ml-3 flex items-center gap-1">
+    <nav aria-label={t.aria} className="-ml-3 flex items-center gap-1">
       {settimana && periodo.precedente ? (
-        <Link href={`${percorso}?settimana=${periodo.precedente}`} aria-label="Settimana precedente" className={FRECCIA}>
+        <Link href={`${percorso}?settimana=${periodo.precedente}`} aria-label={t.precedente} className={FRECCIA}>
           <ChevronLeft className="size-5" aria-hidden="true" />
         </Link>
       ) : (
@@ -95,10 +112,10 @@ export function NavigazionePeriodo({
         </span>
       )}
 
-      <FoglioPeriodo percorso={percorso} periodo={periodo} oggi={oggi} />
+      <FoglioPeriodo percorso={percorso} periodo={periodo} oggi={oggi} lingua={lingua} />
 
       {settimana && periodo.successivo ? (
-        <Link href={`${percorso}?settimana=${periodo.successivo}`} aria-label="Settimana successiva" className={FRECCIA}>
+        <Link href={`${percorso}?settimana=${periodo.successivo}`} aria-label={t.successiva} className={FRECCIA}>
           <ChevronRight className="size-5" aria-hidden="true" />
         </Link>
       ) : (
@@ -110,7 +127,18 @@ export function NavigazionePeriodo({
   )
 }
 
-function FoglioPeriodo({ percorso, periodo, oggi }: { percorso: string; periodo: PeriodoTempo; oggi: string }) {
+function FoglioPeriodo({
+  percorso,
+  periodo,
+  oggi,
+  lingua,
+}: {
+  percorso: string
+  periodo: PeriodoTempo
+  oggi: string
+  lingua: Lingua
+}) {
+  const t = MIO_TEMPO[lingua].navigazione
   const id = useId()
   const router = useRouter()
   const [aperto, setAperto] = useState(false)
@@ -118,9 +146,9 @@ function FoglioPeriodo({ percorso, periodo, oggi }: { percorso: string; periodo:
   const fineMassima = periodo.a > oggi ? oggi : periodo.a
   const [da, setDa] = useState(periodo.da)
   const [a, setA] = useState(fineMassima)
-  const scelte = scelteRapide(percorso, periodo, oggi)
+  const scelte = scelteRapide(percorso, periodo, oggi, lingua)
   const personalizzato = !scelte.some((s) => s.attiva)
-  const etichetta = etichettaBreve(periodo.da, periodo.a)
+  const etichetta = etichettaBreve(periodo.da, periodo.a, lingua)
 
   function invia(evento: FormEvent) {
     evento.preventDefault()
@@ -146,7 +174,7 @@ function FoglioPeriodo({ percorso, periodo, oggi }: { percorso: string; periodo:
         <Button
           type="button"
           variant="outline"
-          aria-label={`Periodo: ${periodo.titolo}, ${periodo.etichetta}`}
+          aria-label={t.bottone(periodo.titolo, periodo.etichetta)}
           data-testid="etichetta-periodo-tempo"
           className="h-11 min-w-36 shrink gap-2 px-3"
         />
@@ -157,20 +185,20 @@ function FoglioPeriodo({ percorso, periodo, oggi }: { percorso: string; periodo:
           <span className="num min-w-0 truncate">{etichetta}</span>
         </>
       }
-      titolo="Periodo"
-      descrizione="Una settimana alla volta, oppure un intervallo di al massimo tre mesi."
+      titolo={t.titolo}
+      descrizione={t.descrizione}
     >
       <div className="space-y-6">
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-border p-3 text-sm">
-          <dt className="text-muted-foreground">In uso</dt>
+          <dt className="text-muted-foreground">{t.inUso}</dt>
           <dd className="font-medium">{periodo.titolo}</dd>
-          <dt className="text-muted-foreground">Giorni</dt>
+          <dt className="text-muted-foreground">{t.giorni}</dt>
           <dd className="num">{periodo.etichetta}</dd>
         </dl>
 
         <section aria-labelledby={`${id}-rapide`} className="space-y-2">
           <h3 id={`${id}-rapide`} className="text-sm font-medium">
-            Scelte rapide
+            {t.rapide}
           </h3>
           <ul className="grid grid-cols-2 gap-2">
             {scelte.map((s) => (
@@ -195,18 +223,18 @@ function FoglioPeriodo({ percorso, periodo, oggi }: { percorso: string; periodo:
         <form onSubmit={invia} className="space-y-3" aria-labelledby={`${id}-personalizzato`}>
           <div className="flex items-center justify-between gap-3">
             <h3 id={`${id}-personalizzato`} className="text-sm font-medium">
-              Dal … al …
+              {t.intervallo}
             </h3>
             {personalizzato ? (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Check className="size-3.5" aria-hidden="true" />
-                In uso
+                {t.inUso}
               </span>
             ) : null}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor={`${id}-da`}>Dal</Label>
+              <Label htmlFor={`${id}-da`}>{t.dal}</Label>
               <Input
                 id={`${id}-da`}
                 type="date"
@@ -218,7 +246,7 @@ function FoglioPeriodo({ percorso, periodo, oggi }: { percorso: string; periodo:
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={`${id}-a`}>Al</Label>
+              <Label htmlFor={`${id}-a`}>{t.al}</Label>
               <Input
                 id={`${id}-a`}
                 type="date"
@@ -231,8 +259,8 @@ function FoglioPeriodo({ percorso, periodo, oggi }: { percorso: string; periodo:
               />
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">Al massimo tre mesi alla volta: un intervallo più lungo parte più tardi.</p>
-          <BottoneSalva inCorso={inCorso}>Mostra il periodo</BottoneSalva>
+          <p className="text-xs text-muted-foreground">{t.massimo}</p>
+          <BottoneSalva inCorso={inCorso}>{t.mostra}</BottoneSalva>
         </form>
       </div>
     </FoglioModifica>

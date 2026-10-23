@@ -86,6 +86,21 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.57.0',
+    data: '2026-10-23',
+    titolo: 'I miei task e Il mio tempo anche in inglese',
+    riassunto:
+      'Con la bandierina su EN anche I miei task e Il mio tempo sono in inglese: gruppi, completati, totali, voci, il modulo per registrare il tempo e il timer in alto.',
+    intestazionePer: ['progetti'],
+    novita: [
+      {
+        per: ['progetti'],
+        testo:
+          'Con la bandierina su EN, I miei task (gruppi per scadenza, Completati, Riapri, messaggi) e Il mio tempo (periodo, totali per progetto e task, voci, il modulo con durata o fascia oraria, il timer in alto) sono in inglese. Titoli dei task, nomi dei progetti e note restano come li avete scritti.',
+      },
+    ],
+  },
+  {
     versione: '1.56.0',
     data: '2026-10-23',
     titolo: 'Claude lavora anche su costi, provvigioni, obiettivi e numeri dell’azienda',
