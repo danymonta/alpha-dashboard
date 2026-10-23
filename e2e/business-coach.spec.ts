@@ -1,6 +1,15 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { accedi } from './utenti'
+import { accedi as accediSeed } from './utenti'
+
+/**
+ * Italian here (1.53.0): without a choice the business coach reads English (e2e/lingua.spec.ts
+ * covers it); these tests check the Italian words, so they choose Italian on the device first.
+ */
+async function accedi(page: Page, ruolo: Parameters<typeof accediSeed>[1]) {
+  await accediSeed(page, ruolo)
+  await page.context().addCookies([{ name: 'alpha_lingua', value: 'it', url: new URL(page.url()).origin }])
+}
 
 /**
  * The business coach (1.52.0, Dany 22/10/2026: «Voglio che il business coach abbia accessi in lettura e
