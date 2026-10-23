@@ -5,7 +5,10 @@ import { livelloPmEffettivo, solaLettura } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { formatOra, oggiRoma } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
-import { intestazioneGiorno, perGiorno } from '@/lib/tempo'
+import { intestazioneGiornoIn } from '@/lib/i18n/date'
+import { getLingua } from '@/lib/i18n/server'
+import { PROGETTI } from '@/lib/i18n/testi/progetti'
+import { perGiorno } from '@/lib/tempo'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +28,9 @@ export default async function NoteProgettoPage({ params }: { params: Promise<{ i
   if (!UUID.test(id)) return null
 
   const oggi = oggiRoma()
+  const lingua = await getLingua()
+  const t = PROGETTI[lingua].note
+  const leggeSolo = solaLettura(profilo.ruolo)
   const supabase = await createClient()
   const { data: note, error } = await supabase
     .from('pm_note')
@@ -33,7 +39,7 @@ export default async function NoteProgettoPage({ params }: { params: Promise<{ i
     .order('data', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(LIMITE)
-  if (error) throw new Error('Impossibile caricare le note')
+  if (error) throw new Error(t.errore)
 
   const adminPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === 'admin'
 
@@ -41,23 +47,20 @@ export default async function NoteProgettoPage({ params }: { params: Promise<{ i
     <div className="space-y-6">
       <NoteLive progettoId={id} />
       {/* the business coach reads the notes and writes none (22/10/2026) */}
-      {solaLettura(profilo.ruolo) ? null : <NuovaNota progettoId={id} oggi={oggi} />}
+      {leggeSolo ? null : <NuovaNota progettoId={id} oggi={oggi} />}
 
       {note.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">
           <NotebookPen className="size-6 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm font-medium">Ancora nessuna nota</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Scrivi qui sopra cosa è successo oggi: una decisione, un feedback, una cosa da ricordare. Il team la ritrova
-            sotto la sua data.
-          </p>
+          <p className="text-sm font-medium">{t.vuoto}</p>
+          <p className="max-w-sm text-sm text-muted-foreground">{leggeSolo ? t.vuotoLettura : t.vuotoDescrizione}</p>
         </div>
       ) : (
         <div className="space-y-6">
           {perGiorno(note).map(({ data, righe }) => (
             <section key={data} aria-labelledby={`note-${data}`} data-testid={`note-${data}`} className="space-y-2">
               <h2 id={`note-${data}`} className="px-1 text-sm font-medium first-letter:uppercase">
-                {intestazioneGiorno(data, oggi)}
+                {intestazioneGiornoIn(data, oggi, lingua)}
               </h2>
               <ul className="divide-y divide-border rounded-xl bg-card">
                 {righe.map((n) => {
@@ -67,12 +70,14 @@ export default async function NoteProgettoPage({ params }: { params: Promise<{ i
                     <li key={n.id} className="flex gap-2 py-3 pr-1 pl-4" data-testid="nota">
                       <div className="min-w-0 flex-1 space-y-1">
                         <p className="text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{mia ? 'Tu' : (n.autore?.nome ?? 'Collaboratore')}</span>
+                          <span className="font-medium text-foreground">{mia ? t.tu : (n.autore?.nome ?? t.collaboratore)}</span>
                           {' · '}
                           <span className="num">{formatOra(n.created_at)}</span>
-                          {modificata ? ' · modificata' : ''}
+                          {modificata ? t.modificata : ''}
                         </p>
-                        <p className="text-sm break-words whitespace-pre-line">{n.testo}</p>
+                        <p lang="it" className="text-sm break-words whitespace-pre-line">
+                          {n.testo}
+                        </p>
                       </div>
                       {mia || adminPm ? (
                         <div className="flex shrink-0 items-start">
@@ -87,7 +92,7 @@ export default async function NoteProgettoPage({ params }: { params: Promise<{ i
             </section>
           ))}
           {note.length === LIMITE ? (
-            <p className="text-center text-xs text-muted-foreground">Sono mostrate le {LIMITE} note più recenti.</p>
+            <p className="text-center text-xs text-muted-foreground">{t.limite(LIMITE)}</p>
           ) : null}
         </div>
       )}

@@ -1,8 +1,9 @@
 import { quandoFollowUp } from '@/lib/call/follow-up'
 import { quandoBreve } from '@/lib/call/spostamento'
 import { aggiungiGiorni, etichettaGiorno, etichettaGiornoBreve, formatOra, oggiRoma } from '@/lib/date'
-import { GIORNI_BREVI_EN, GIORNI_EN, parseDataISO } from '@/lib/format'
+import { formato, GIORNI_BREVI_EN, GIORNI_EN, parseDataISO } from '@/lib/format'
 import type { Lingua } from '@/lib/i18n/lingua'
+import { intestazioneGiorno } from '@/lib/tempo'
 
 /**
  * The day words of lib/date.ts and lib/call in the page's language (1.53.0). Italian is the
@@ -48,4 +49,14 @@ export function quandoFollowUpIn(istante: string, oggi: string, lingua: Lingua):
   if (lingua === 'it') return quandoFollowUp(istante, oggi)
   const giorno = oggiRoma(new Date(istante))
   return `${GIORNI_EN[parseDataISO(giorno).getDay()]} ${data(giorno, oggi)} at ${formatOra(istante)}`
+}
+
+/** "Today · 22 Oct 2026", "Monday 20 Oct 2026" (intestazioneGiorno). */
+export function intestazioneGiornoIn(iso: string, oggi: string, lingua: Lingua): string {
+  if (lingua === 'it') return intestazioneGiorno(iso, oggi)
+  const data = formato(lingua).formatData(iso)
+  if (iso === oggi) return `Today · ${data}`
+  if (iso === aggiungiGiorni(oggi, -1)) return `Yesterday · ${data}`
+  if (iso === aggiungiGiorni(oggi, 1)) return `Tomorrow · ${data}`
+  return `${GIORNI_EN[parseDataISO(iso).getDay()]} ${data}`
 }

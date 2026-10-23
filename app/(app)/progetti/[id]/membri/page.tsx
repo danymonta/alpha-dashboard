@@ -4,6 +4,9 @@ import { AggiungiMembro, TogliMembro } from '@/components/pm/membri/membri-clien
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { ETICHETTA_LIVELLO_PM, ETICHETTA_RUOLO, livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
+import { getLingua } from '@/lib/i18n/server'
+import { PROGETTI } from '@/lib/i18n/testi/progetti'
+import { SHELL } from '@/lib/i18n/testi/shell'
 import { iniziali, isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
@@ -15,6 +18,11 @@ export default async function MembriPage({ params }: { params: Promise<{ id: str
   const { id } = await params
   if (!isUuid(id)) return null
   const supabase = await createClient()
+  const lingua = await getLingua()
+  const t = PROGETTI[lingua].membri_
+  // roles and levels in the page's language; the sheet that adds a person keeps the Italian ones
+  const ruoli = lingua === 'it' ? ETICHETTA_RUOLO : SHELL[lingua].ruoli
+  const livelli = lingua === 'it' ? ETICHETTA_LIVELLO_PM : SHELL[lingua].livelliPm
 
   const [progetto, gestisce, membri] = await Promise.all([
     supabase.from('pm_progetti').select('id, responsabile_id').eq('id', id).maybeSingle(),
@@ -25,7 +33,7 @@ export default async function MembriPage({ params }: { params: Promise<{ id: str
       .eq('progetto_id', id)
       .order('created_at'),
   ])
-  if (progetto.error || gestisce.error || membri.error) throw new Error('Impossibile caricare i membri')
+  if (progetto.error || gestisce.error || membri.error) throw new Error(t.errore)
   if (!progetto.data) return null
 
   const responsabileId = progetto.data.responsabile_id
@@ -33,7 +41,7 @@ export default async function MembriPage({ params }: { params: Promise<{ id: str
   const { data: attivi, error } = gestisce.data
     ? await supabase.from('profiles').select('id, nome, ruolo').eq('attivo', true).order('nome')
     : { data: [], error: null }
-  if (error) throw new Error('Impossibile caricare le persone')
+  if (error) throw new Error(t.errorePersone)
   const dentro = new Set(persone.map((p) => p.id))
   const aggiungibili = attivi
     .filter((p) => !dentro.has(p.id))
@@ -45,17 +53,13 @@ export default async function MembriPage({ params }: { params: Promise<{ id: str
 
       <section aria-labelledby="titolo-membri" className="space-y-2">
         <h2 id="titolo-membri" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Membri ({persone.length})
+          {t.titolo(persone.length)}
         </h2>
         {persone.length === 0 ? (
           <StatoVuoto
             Icona={Users}
-            titolo="Nessun membro"
-            descrizione={
-              gestisce.data
-                ? 'Aggiungi le persone che lavorano al progetto: vedranno le liste e i loro task.'
-                : 'Chi gestisce il progetto aggiunge le persone.'
-            }
+            titolo={t.vuoto}
+            descrizione={gestisce.data ? t.vuotoGestisce : t.vuotoAltri}
           />
         ) : (
           <ul className="divide-y divide-border rounded-xl bg-card" data-testid="membri-progetto">
@@ -72,17 +76,17 @@ export default async function MembriPage({ params }: { params: Promise<{ id: str
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium">
                       <span className="truncate">{p.nome}</span>
-                      {p.id === profilo.id ? <span className="font-normal text-muted-foreground">sei tu</span> : null}
+                      {p.id === profilo.id ? <span className="font-normal text-muted-foreground">{t.seiTu}</span> : null}
                       {responsabile ? (
                         <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
                           <Crown className="size-3.5" aria-hidden="true" />
-                          Responsabile
+                          {t.responsabile}
                         </span>
                       ) : null}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {ETICHETTA_RUOLO[p.ruolo]} · Progetti: {ETICHETTA_LIVELLO_PM[livelloPmEffettivo(p.ruolo, p.livello_pm)]}
-                      {p.attivo ? '' : ' · account disattivato'}
+                      {t.progetti(ruoli[p.ruolo], livelli[livelloPmEffettivo(p.ruolo, p.livello_pm)])}
+                      {p.attivo ? '' : t.disattivato}
                     </p>
                   </div>
                   {gestisce.data && p.id !== profilo.id ? (
@@ -94,7 +98,7 @@ export default async function MembriPage({ params }: { params: Promise<{ id: str
           </ul>
         )}
         <p className="px-1 text-xs text-muted-foreground">
-          Manager: gestisce liste, task e persone del progetto. Employee: aggiunge task e lavora quelli assegnati a lui.
+          {t.livelli}
         </p>
       </section>
     </div>
