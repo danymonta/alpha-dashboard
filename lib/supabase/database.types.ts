@@ -2443,6 +2443,11 @@ isOneToOne: false
 "call_passo_finito":
 { Args: { "p_contatori": Json,"p_esito": string,"p_passo": string }; Returns: boolean
                            },
+"call_per_claude":
+{ Args: { "p_a"?: string,"p_cerca"?: string,"p_closer"?: string,"p_da"?: string,"p_da_registrare"?: boolean,"p_id"?: string,"p_lead"?: string,"p_limite"?: number,"p_recenti"?: boolean,"p_setter"?: string,"p_stati"?: (Database["public"]['Enums']["call_status"])[] }; Returns: {
+              "closer_id": string,"closer_nome": string,"di_follow_up": boolean,"esito": Database["public"]['Enums']["call_outcome"],"follow_up_di": string,"follow_up_id": string,"follow_up_il": string,"follow_up_stato": Database["public"]['Enums']["call_status"],"id": string,"importata": boolean,"importo_proposto": number,"lead_fonte": Database["public"]['Enums']["lead_source"],"lead_handle": string,"lead_id": string,"lead_nome": string,"lead_stato": Database["public"]['Enums']["lead_status"],"link_registrazione": string,"motivo": string,"note_closer": string,"note_setter": string,"partenza_il": string,"performance": Database["public"]['Enums']["call_performance"],"prenotata_il": string,"prodotto": string,"prodotto_proposto_id": string,"programmata_il": string,"qualificata": boolean,"registrazione": string,"setter_id": string,"setter_nome": string,"spostata_dal": string,"stato": Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"totale": number,"volte_spostata": number
+            }[]
+                           },
 "call_pianifica":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },

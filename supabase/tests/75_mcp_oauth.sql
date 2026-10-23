@@ -337,6 +337,8 @@ select is(
      -- the tables of phase 1 (20261027110000) have four restrictive _claude_* policies instead (00_schema.sql)
      and t.tablename not in ('pm_progetti', 'pm_membri', 'pm_tasklist', 'pm_task', 'pm_task_assegnatari',
                              'pm_tempo', 'pm_note', 'pm_reparti', 'pm_modelli', 'profiles')
+     -- and so have the tables of phase 2 (20261029090000: calls, leads and outcomes, 102_mcp_call_lead.sql)
+     and t.tablename not in ('calls', 'leads', 'call_pitch', 'call_registrazioni', 'products')
      and not exists (
        select 1 from pg_policies p
        where p.schemaname = 'public' and p.tablename = t.tablename
@@ -345,7 +347,7 @@ select is(
          and p.roles = array['authenticated']::name[]
      )),
   '',
-  'ogni tabella tranne il calendario e le tabelle dei progetti e del tempo ha la sua policy restrittiva _mai_da_oauth'
+  'ogni tabella tranne il calendario e le tabelle di progetti, tempo, call e lead ha la sua policy restrittiva _mai_da_oauth'
 );
 select is(
   (select count(*)::int from pg_policies
@@ -1149,6 +1151,8 @@ select is(
        'salva_sezione_contenuto', 'spunti_per_claude', 'mcp_chi_sono', 'pm_crea_progetto', 'pm_scegli_coach',
        'pm_imposta_assegnatari', 'pm_registra_tempo', 'pm_modifica_tempo', 'pm_avvia_timer', 'pm_ferma_timer',
        'pm_mio_tempo_per_task', 'pm_riepilogo_tempo', 'pm_tempo_per_persona', 'pm_timer_attivo')
+     -- the call tools (phase 2, 20261029090000) pass only for admin, setter, closer and business coach:
+     -- for this marketing token they are refused like the rest (102_mcp_call_lead.sql tests them by role)
      and (pg_temp.filtro('/rpc/' || p.proname, 'POST') <> '42501'
           or pg_temp.filtro('/rpc/' || p.proname, 'GET') <> '42501')),
   '',
@@ -1164,7 +1168,7 @@ select is(
   ],
   array['42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501', '42501',
         '42501', '42501', '42501'],
-  'token di Claude: le aree delle fasi successive restano chiuse, e niente si elimina dai progetti'
+  'token di Claude del marketing: call e lead (fase 2, non del suo ruolo) e le aree delle fasi successive restano chiuse, e niente si elimina dai progetti'
 );
 reset role;
 set local request.jwt.claims to '{}';
