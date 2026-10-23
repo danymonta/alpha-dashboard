@@ -91,6 +91,7 @@ export const VERSIONI: readonly Versione[] = [
     titolo: 'Il codice di accesso via email ha 8 cifre',
     riassunto: 'La pagina di accesso accetta il codice di 8 cifre che arriva via email: prima chiedeva 6 cifre e lo rifiutava.',
     intestazionePer: ['tutti'],
+    novita: [],
     correzioni: [
       {
         per: ['tutti'],
