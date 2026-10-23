@@ -502,6 +502,7 @@ describe('le parole della scheda di consenso', () => {
     expect(azioniConsenso(ADMIN)).toEqual(
       frase([
         CONSENSO.azioniCall.admin,
+        CONSENSO.azioniVendite.admin,
         ...CONSENSO.azioni,
         CONSENSO.azioneAdmin,
         ...CONSENSO.azioniProgetti,
@@ -512,10 +513,10 @@ describe('le parole della scheda di consenso', () => {
     // every role connects Claude since 22/10/2026: the setter has projects, his own time and (23/10/2026) his
     // calls and leads, not the calendar; the closer his calls and their outcome
     expect(azioniConsenso({ ruolo: 'setter', livello: 'employee' })).toEqual(
-      frase([CONSENSO.azioniCall.setter, ...CONSENSO.azioniProgetti]),
+      frase([CONSENSO.azioniCall.setter, CONSENSO.azioniVendite.setter, ...CONSENSO.azioniProgetti]),
     )
     expect(azioniConsenso({ ruolo: 'closer', livello: 'employee' })).toEqual(
-      frase([CONSENSO.azioniCall.closer, ...CONSENSO.azioniProgetti]),
+      frase([CONSENSO.azioniCall.closer, CONSENSO.azioniVendite.closer, ...CONSENSO.azioniProgetti]),
     )
     expect(azioniConsenso({ ruolo: 'coach', livello: 'manager' })).toEqual(frase([...CONSENSO.azioniProgetti, CONSENSO.azioneGestione]))
     // the business coach reads only (22/10/2026), whatever his level
@@ -527,6 +528,7 @@ describe('le parole della scheda di consenso', () => {
       CONSENSO.azioneGestione,
       CONSENSO.azioneTempoTeam,
       ...Object.values(CONSENSO.azioniCall),
+      ...Object.values(CONSENSO.azioniVendite),
     ]) {
       expect(voce).not.toMatch(/[;.,:]$/)
     }
@@ -551,9 +553,13 @@ describe('le parole della scheda di consenso', () => {
     expect(maiVistoPer(MARKETING)).toBe(CONSENSO.maiVisto)
     expect(maiVistoPer({ ruolo: 'coach' })).toBe(CONSENSO.maiVisto)
     expect(maiVistoPer(ADMIN)).toBe(CONSENSO.maiVistoCall)
-    expect(maiVistoPer({ ruolo: 'closer' })).toBe(CONSENSO.maiVistoCall)
+    expect(maiVistoPer({ ruolo: 'closer' })).toBe(CONSENSO.maiVistoCloser)
+    // phase 3 (23/10/2026): the closer never the other closers' sales or the clients' contacts, the setter
+    // never anybody else's money
+    expect(CONSENSO.maiVistoCloser).toMatch(/le vendite degli altri closer, i contatti dei clienti/)
+    expect(CONSENSO.maiVistoSetter).toMatch(/vendite e incassi di altri, contatti dei clienti/)
     expect(maiVistoPer({ ruolo: 'setter' })).toBe(CONSENSO.maiVistoSetter)
-    expect(CONSENSO.maiVistoSetter).toMatch(/importi, link di Fathom, performance/)
+    expect(CONSENSO.maiVistoSetter).toMatch(/importi proposti, link di Fathom, performance/)
     expect(maiVistoPer({ ruolo: 'business_coach' })).toBe(CONSENSO.maiVistoSolaLettura)
     for (const frase of [CONSENSO.maiVistoCall, CONSENSO.maiVistoSetter]) {
       expect(frase).toContain('le analisi di Claude sulle call')

@@ -3181,6 +3181,12 @@ isOneToOne: false
               "cliente_nuovo": boolean,"id_cliente": string,"id_vendita": string
             }[]
                            },
+"riapri_cliente":
+{ Args: { "p_client_id": string }; Returns: boolean
+                           },
+"riattiva_cliente":
+{ Args: { "p_client_id": string }; Returns: boolean
+                           },
 "riepilogo_contenuti_settimana":
 { Args: { "p_a": string,"p_da": string }; Returns: Json
                            },

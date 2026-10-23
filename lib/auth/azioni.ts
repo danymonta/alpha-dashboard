@@ -12,7 +12,19 @@ export async function negaSeNon(
   ruoli: readonly AppRole[],
   messaggio = 'Operazione riservata all’admin.',
 ): Promise<string | null> {
-  const profilo = await getProfilo()
+  return negaPer(await getProfilo(), ruoli, messaggio)
+}
+
+/**
+ * The same guard on a profile already read: the shared cores (lib/clienti,
+ * lib/vendite) pass the person behind the cookie session or behind Claude's
+ * token (Claude a 360 gradi, phase 3).
+ */
+export function negaPer(
+  profilo: { ruolo: AppRole; attivo: boolean } | null,
+  ruoli: readonly AppRole[],
+  messaggio = 'Operazione riservata all’admin.',
+): string | null {
   if (!profilo || !profilo.attivo) return 'Sessione scaduta. Rientra e riprova.'
   // the business coach reads and never writes (22/10/2026), whatever list an action passes
   if (solaLettura(profilo.ruolo)) return SOLA_LETTURA

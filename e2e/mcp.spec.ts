@@ -13,12 +13,15 @@ import {
   ID_CLOSER,
   ID_MARKETING,
   ID_SETTER,
+  PRODOTTO_3_MESI,
   creaCallDiProva,
+  creaVenditaDiProva,
   dbLocale,
   eliminaClientMcp,
   impostaProfilo,
   leggiContenuto,
   pulisciContenuti,
+  pulisciVendite,
   registraClientMcp,
 } from './db'
 import {
@@ -108,6 +111,23 @@ const STRUMENTI_CALL_CLOSER = [
   'stato_lead',
 ]
 const STRUMENTI_CALL_ADMIN = [...new Set([...STRUMENTI_CALL_SETTER, ...STRUMENTI_CALL_CLOSER])]
+/** Clients, sales, instalments and cash-ins (23/10/2026, phase 3). */
+const LETTURE_VENDITE = ['da_incassare', 'elenco_clienti', 'elenco_vendite', 'incassi', 'leggi_cliente', 'leggi_vendita', 'rinnovi']
+const STRUMENTI_VENDITE_ADMIN = [
+  ...LETTURE_VENDITE,
+  'aggiungi_rata',
+  'anteprima_interruzione',
+  'anteprima_rimborso',
+  'crea_cliente',
+  'interrompi_percorso',
+  'modifica_cliente',
+  'modifica_vendita',
+  'rata',
+  'registra_rimborso',
+  'registra_vendita',
+  'stato_cliente',
+]
+const STRUMENTI_VENDITE_CLOSER = ['da_incassare', 'elenco_vendite', 'leggi_vendita', 'rata', 'registra_vendita']
 
 test.describe.configure({ mode: 'serial' })
 
@@ -129,6 +149,8 @@ test.afterAll(async () => {
   await dbLocale().from('pm_task').delete().like('titolo', `${PREFISSO}%`)
   await dbLocale().from('pm_note').delete().like('testo', `${PREFISSO}%`)
   await pulisciLeadDiProva()
+  // the clients, sales and instalments of the money tests (phase 3), with the project a cash-in opened
+  await pulisciVendite(PREFISSO)
   if (clientId) await eliminaClientMcp(clientId)
 })
 
@@ -517,7 +539,7 @@ test('l’admin elimina da Claude solo con il Name esatto', async ({ browser }) 
   try {
     const { tools } = await mcp.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual(
-      [...STRUMENTI_TEAM, 'elimina_contenuto', ...STRUMENTI_GESTIONE, 'tempo_team', ...STRUMENTI_CALL_ADMIN].sort(),
+      [...STRUMENTI_TEAM, 'elimina_contenuto', ...STRUMENTI_GESTIONE, 'tempo_team', ...STRUMENTI_CALL_ADMIN, ...STRUMENTI_VENDITE_ADMIN].sort(),
     )
     const elimina = tools.find((t) => t.name === 'elimina_contenuto')
     expect(elimina?.annotations?.destructiveHint).toBe(true)
@@ -535,6 +557,58 @@ test('l’admin elimina da Claude solo con il Name esatto', async ({ browser }) 
     const giusto = await mcp.callTool({ name: 'elimina_contenuto', arguments: { id, name: `${nome} ` } })
     expect(giusto.isError, testoRisultato(giusto)).toBeFalsy()
     expect(await leggiContenuto(id)).toBeNull()
+
+    // Claude a 360 gradi, phase 3 (23/10/2026): a sale for a new client, then its first instalment cashed
+    const registrata = await mcp.callTool({
+      name: 'registra_vendita',
+      arguments: {
+        nome: `${PREFISSO}Cliente`,
+        cognome: 'Da Claude',
+        tipo: 'nuovo',
+        product_id: PRODOTTO_3_MESI,
+        valore_contratto: 900,
+        numero_rate: 3,
+        data_inizio: oggiRoma(),
+      },
+    })
+    expect(registrata.isError, testoRisultato(registrata)).toBeFalsy()
+    const vendita = datiRisultato<{ valuta: string; vendita: { sale_id: string; client_id: string; contratto: number }; rate: { payment_id: string; rata: number }[] }>(registrata)
+    expect(vendita.valuta).toBe('EUR')
+    expect(vendita.vendita.contratto).toBe(900)
+    expect(vendita.rate).toHaveLength(3)
+    const prima = vendita.rate.find((r) => r.rata === 1)!
+    const incasso = await mcp.callTool({ name: 'rata', arguments: { payment_id: prima.payment_id, azione: 'incassa', metodo: 'bonifico' } })
+    expect(incasso.isError, testoRisultato(incasso)).toBeFalsy()
+    const { data: pagata } = await dbLocale().from('payments').select('stato, importo_incassato, metodo').eq('id', prima.payment_id).single()
+    expect(pagata).toEqual({ stato: 'incassata', importo_incassato: 300, metodo: 'bonifico' })
+    // the audit writes the token's person, and the first cash-in opens the client's project, as in the app
+    const { data: registro } = await dbLocale()
+      .from('audit_log')
+      .select('utente_id')
+      .eq('tabella', 'payments')
+      .eq('record_id', prima.payment_id)
+      .eq('azione', 'update')
+    expect((registro ?? []).map((r) => r.utente_id)).toContain(ID_ADMIN)
+    const { data: progetto } = await dbLocale().from('pm_progetti').select('id').eq('client_id', vendita.vendita.client_id)
+    expect(progetto ?? []).toHaveLength(1)
+
+    // a refund only with the code of its preview
+    const senzaAnteprima = await mcp.callTool({
+      name: 'registra_rimborso',
+      arguments: { payment_id: prima.payment_id, importo: 50, data: oggiRoma(), codice_anteprima: '0000000000000000' },
+    })
+    expect(senzaAnteprima.isError).toBe(true)
+    expect((await dbLocale().from('payments').select('id').eq('sale_id', vendita.vendita.sale_id).eq('stato', 'rimborsata')).data).toHaveLength(0)
+
+    // straight on the Data API: nothing of the money is deleted, costs and commissions stay closed
+    const db = dataApiConToken(token.access_token)
+    expect((await db.from('payments').delete().eq('id', prima.payment_id)).error?.code).toBe('42501')
+    expect((await db.from('sales').delete().eq('id', vendita.vendita.sale_id)).error?.code).toBe('42501')
+    expect((await db.rpc('elimina_cliente', { p_client_id: vendita.vendita.client_id })).error?.code).toBe('42501')
+    for (const tabella of ['expenses', 'commission_rules', 'commission_payouts', 'audit_log'] as const) {
+      expect((await db.from(tabella).select('*')).error?.code, tabella).toBe('42501')
+    }
+    expect((await dbLocale().from('sales').select('id').eq('id', vendita.vendita.sale_id)).data).toHaveLength(1)
   } finally {
     await mcp.close()
     await page.context().close()
@@ -655,7 +729,7 @@ test('un account disattivato non collega Claude: torna a Claude con un rifiuto, 
     const mcp = await clientMcp(baseDi(page), marketing.token.access_token)
     try {
       const nomi = (await mcp.listTools()).tools.map((t) => t.name).sort()
-      expect(nomi).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_SETTER].sort())
+      expect(nomi).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_SETTER, 'miei_clienti'].sort())
     } finally {
       await mcp.close()
     }
@@ -768,11 +842,11 @@ test('il closer registra da Claude un esito Persa con il motivo e «non registra
   const callId = await creaCallDiProva(nomeLead, ID_CLOSER, 2)
   const page = await persona(browser, 'closer')
   try {
-    const token = await consentoCall(page, 'closer', CONSENSO.azioniCall.closer, CONSENSO.maiVistoCall)
+    const token = await consentoCall(page, 'closer', CONSENSO.azioniVendite.closer, CONSENSO.maiVistoCloser)
     const mcp = await clientMcp(baseDi(page), token.access_token)
     try {
       const { tools } = await mcp.listTools()
-      expect(tools.map((t) => t.name).sort()).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_CLOSER].sort())
+      expect(tools.map((t) => t.name).sort()).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_CLOSER, ...STRUMENTI_VENDITE_CLOSER].sort())
       expect(mcp.getInstructions()).toContain('mai inventarli')
 
       // the call to record, found as Claude finds it
@@ -828,13 +902,44 @@ test('il closer registra da Claude un esito Persa con il motivo e «non registra
     const { data: registrazione } = await dbLocale().from('call_registrazioni').select('stato').eq('call_id', callId).single()
     expect(registrazione?.stato).toBe('non_registrata')
 
-    // straight on the Data API: nothing deleted, the analyses and the money stay closed
+    // straight on the Data API: nothing deleted, the analyses and the clients table stay closed
     const db = dataApiConToken(token.access_token)
     expect((await db.from('calls').delete().eq('id', callId)).error?.code).toBe('42501')
-    for (const tabella of ['call_analisi', 'call_valutazioni', 'call_spunti_setter', 'sales', 'clients'] as const) {
+    for (const tabella of ['call_analisi', 'call_valutazioni', 'call_spunti_setter', 'clients', 'expenses'] as const) {
       expect((await db.from(tabella).select('*')).error?.code, tabella).toBe('42501')
     }
     expect((await dbLocale().from('calls').select('id').eq('id', callId)).data).toHaveLength(1)
+
+    // Claude a 360 gradi, phase 3 (23/10/2026): he cashes an instalment of his sale, never another closer's
+    const sua = await creaVenditaDiProva(`${PREFISSO}Cliente del closer`, ID_CLOSER)
+    const altrui = await creaVenditaDiProva(`${PREFISSO}Cliente dell admin`, ID_ADMIN)
+    const rataDi = async (sale: string) =>
+      (await dbLocale().from('payments').select('id').eq('sale_id', sale).eq('numero_rata', 1).single()).data!.id
+    const [rataSua, rataAltrui] = [await rataDi(sua), await rataDi(altrui)]
+    const soldi = await clientMcp(baseDi(page), token.access_token)
+    try {
+      const lette = datiRisultato<{ vendite: { sale_id: string }[] }>(await soldi.callTool({ name: 'elenco_vendite', arguments: { limite: 100 } }))
+      const ids = lette.vendite.map((v) => v.sale_id)
+      expect(ids).toContain(sua)
+      expect(ids).not.toContain(altrui)
+      const sola = await soldi.callTool({ name: 'leggi_vendita', arguments: { sale_id: sua } })
+      expect(testoRisultato(sola)).not.toMatch(/"metodo"|"note"|contratto_drive|email|telefono/)
+
+      const incassa = await soldi.callTool({ name: 'rata', arguments: { payment_id: rataSua, azione: 'incassa' } })
+      expect(incassa.isError, testoRisultato(incassa)).toBeFalsy()
+      const altro = await soldi.callTool({ name: 'rata', arguments: { payment_id: rataAltrui, azione: 'incassa' } })
+      expect(altro.isError).toBe(true)
+      const piano = await soldi.callTool({ name: 'rata', arguments: { payment_id: rataSua, azione: 'modifica', importo_previsto: 1 } })
+      expect(piano.isError).toBe(true)
+    } finally {
+      await soldi.close()
+    }
+    expect((await dbLocale().from('payments').select('stato').eq('id', rataSua).single()).data?.stato).toBe('incassata')
+    expect((await dbLocale().from('payments').select('stato').eq('id', rataAltrui).single()).data?.stato).toBe('prevista')
+    // a direct PATCH on another closer's instalment touches nothing
+    const patch = await db.from('payments').update({ stato: 'fallita' }).eq('id', rataAltrui).select('id')
+    expect(patch.data ?? []).toHaveLength(0)
+    expect((await dbLocale().from('payments').select('stato').eq('id', rataAltrui).single()).data?.stato).toBe('prevista')
   } finally {
     await page.context().close()
   }
@@ -846,12 +951,19 @@ test('il setter fissa una call da Claude e non scrive mai un esito, nemmeno con 
   // token the Data API never gives him the table of the calls (the link and the performance are in it)
   const page = await persona(browser, 'setter')
   try {
-    const token = await consentoCall(page, 'setter', CONSENSO.azioniCall.setter, CONSENSO.maiVistoSetter)
+    const token = await consentoCall(page, 'setter', CONSENSO.azioniVendite.setter, CONSENSO.maiVistoSetter)
     const mcp = await clientMcp(baseDi(page), token.access_token)
     let callId = ''
     try {
       const { tools } = await mcp.listTools()
-      expect(tools.map((t) => t.name).sort()).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_SETTER].sort())
+      expect(tools.map((t) => t.name).sort()).toEqual([...STRUMENTI_PROGETTI, ...STRUMENTI_CALL_SETTER, 'miei_clienti'].sort())
+
+      // phase 3 (23/10/2026): his clients and his commission, never contacts, method, notes or the percentage
+      const miei = await mcp.callTool({ name: 'miei_clienti', arguments: {} })
+      expect(miei.isError, testoRisultato(miei)).toBeFalsy()
+      const suoi = datiRisultato<{ vendite: { cliente: string }[] }>(miei)
+      expect(suoi.vendite.length).toBeGreaterThan(0)
+      expect(testoRisultato(miei)).not.toMatch(/percentuale|email|telefono|"metodo"|"note"/)
 
       const fissata = await mcp.callTool({
         name: 'fissa_call',
@@ -893,9 +1005,13 @@ test('il setter fissa una call da Claude e non scrive mai un esito, nemmeno con 
       .select('id')
     expect(patch.error?.code).toBe('42501')
     expect(patch.error?.message).toBe(FILTRO)
-    for (const tabella of ['calls', 'call_pitch', 'call_registrazioni', 'products'] as const) {
+    for (const tabella of ['calls', 'call_pitch', 'call_registrazioni', 'products', 'sales', 'payments', 'clients'] as const) {
       expect((await db.from(tabella).select('*')).error?.code, tabella).toBe('42501')
     }
+    for (const vista of ['v_vendite', 'v_rate', 'v_clienti'] as const) {
+      expect((await db.from(vista).select('*')).error?.code, vista).toBe('42501')
+    }
+    expect((await db.rpc('mie_vendite_setter')).error).toBeNull()
     expect((await db.rpc('dettagli_call', { p_call_id: callId, p_performance: 'ottima' })).error?.code).toBe('42501')
     const lette = await db.rpc('call_per_claude', { p_id: callId })
     expect(lette.error).toBeNull()
@@ -928,8 +1044,14 @@ test('il business coach legge call e lead da Claude e non scrive niente', async 
           'tempo_team',
           ...LETTURE_CALL,
           'prodotti',
+          ...LETTURE_VENDITE,
         ].sort(),
       )
+      // phase 3 (23/10/2026): clients and sales as the admin, in read only
+      const clienti = await mcp.callTool({ name: 'elenco_clienti', arguments: { vista: 'tutti' } })
+      expect(clienti.isError, testoRisultato(clienti)).toBeFalsy()
+      expect(datiRisultato<{ totale: number }>(clienti).totale).toBeGreaterThan(0)
+      await expect(mcp.callTool({ name: 'rata', arguments: { payment_id: randomUUID(), azione: 'incassa' } })).rejects.toThrow(/not found/)
       const elenco = datiRisultato<{ totale: number }>(
         await mcp.callTool({ name: 'elenco_call', arguments: { da: '2026-01-01', a: aggiungiGiorni(oggiRoma(), 60) } }),
       )
@@ -953,6 +1075,9 @@ test('il business coach legge call e lead da Claude e non scrive niente', async 
     expect(fissa.error?.message).toBe('Il business coach legge e basta: da Claude non si scrive niente.')
     expect((await db.from('calls').update({ note: 'Da Claude' }).eq('id', randomUUID())).error?.code).toBe('42501')
     expect((await db.from('leads').select('id')).error).toBeNull()
+    expect((await db.from('sales').select('id')).error).toBeNull()
+    expect((await db.rpc('segna_rata_incassata', { p_payment_id: randomUUID() })).error?.code).toBe('42501')
+    expect((await db.from('payments').update({ stato: 'fallita' }).eq('id', randomUUID())).error?.code).toBe('42501')
   } finally {
     await page.context().close()
   }

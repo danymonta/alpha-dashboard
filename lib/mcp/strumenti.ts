@@ -36,10 +36,13 @@ import {
   spuntiSchema,
 } from './schemi'
 import * as call from './call'
+import * as clienti from './clienti'
 import * as progetti from './progetti'
 import * as sc from './schemi-call'
 import * as sp from './schemi-progetti'
+import * as sv from './schemi-vendite'
 import { spuntiPerClaude } from './spunti'
+import * as vendite from './vendite'
 
 /**
  * The MCP tools: the content calendar (09/10/2026, admin, video editor and
@@ -74,14 +77,20 @@ export type Strumento = {
 const MARKETING: readonly RuoloMcp[] = RUOLI_MARKETING
 /** Projects and time: every role has the Projects area. */
 const TUTTI: readonly RuoloMcp[] = TUTTI_I_RUOLI
-/** The reads of the person's own: nobody else's, so not the business coach's. */
-const SOLO_PROPRI = new Set(['miei_task', 'mio_tempo'])
+/**
+ * The reads of the person's own (nobody else's), and the previews of a write
+ * (only who writes asks them): never the business coach's.
+ */
+const SOLO_PROPRI = new Set(['miei_task', 'mio_tempo', 'anteprima_interruzione', 'anteprima_rimborso'])
 /** Who creates and manages projects (pm_crea_progetto, pm_puo_gestire). */
 const GESTISCE: readonly LivelloPm[] = ['admin', 'manager']
 /** The call tools' roles (phase 2): the business coach reads through the admin's reads. */
 const CALL_TUTTI: readonly RuoloMcp[] = ['admin', 'setter', 'closer']
 const CALL_CLOSER: readonly RuoloMcp[] = ['admin', 'closer']
 const CALL_SETTER: readonly RuoloMcp[] = ['admin', 'setter']
+/** Clients, sales and instalments (phase 3): the business coach reads through the admin's reads. */
+const SOLO_ADMIN: readonly RuoloMcp[] = ['admin']
+const VENDITE: readonly RuoloMcp[] = ['admin', 'closer']
 
 function strumento<S extends z.ZodTypeAny>(definizione: {
   nome: string
@@ -241,6 +250,7 @@ export const STRUMENTI: readonly Strumento[] = [
   }),
   ...strumentiProgetti(),
   ...strumentiCall(),
+  ...strumentiVendite(),
 ]
 
 /**
@@ -638,6 +648,231 @@ function strumentiCall(): Strumento[] {
       idempotente: true,
       ruoli: CALL_TUTTI,
       esegui: call.statoLead,
+    }),
+  ]
+}
+
+/**
+ * Clients, sales, instalments and cash-ins (Claude a 360 gradi, phase 3,
+ * 23/10/2026): the admin, the closer on his own sales, the setter on his
+ * clients through his two functions, with the person's own permissions in the
+ * app; the business coach reads what the admin reads. Nothing here deletes;
+ * the totals come from SQL; a refund and the interruption of a path go
+ * through their preview first.
+ */
+function strumentiVendite(): Strumento[] {
+  return [
+    strumento({
+      nome: 'elenco_clienti',
+      titolo: 'Elenco dei clienti',
+      descrizione:
+        'I clienti come Clienti nell’app: uno per riga, sul percorso che finisce per ultimo, con id, stato, a che punto è il percorso (mese e settimana), contratto, pagato, da incassare e in ritardo, rate pagate, prossima rata, metodi di pagamento, LTV (l’incassato a vita), il link del contratto e della cartella Drive, e da quando è sospeso o chiuso. vista: attivi (predefinita), sospesi, chiusi, tutti; oppure stato; cerca per nome. Importi in euro calcolati dal gestionale, al massimo 100 clienti (50 se non dici altro).',
+      input: sv.elencoClientiSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: clienti.elencoClienti,
+    }),
+    strumento({
+      nome: 'leggi_cliente',
+      titolo: 'Leggi un cliente',
+      descrizione:
+        'Un cliente nel dettaglio, come la sua scheda: contatti, fonte, setter e closer, note, la cartella Drive, «Non rinnova», l’archivio e la sospensione, i totali (valore firmato, LTV, da incassare, in ritardo) e lo storico dei percorsi (Primo percorso, Rinnovo, Upsell) con ogni vendita, il suo contratto su Drive e le sue rate con payment_id. Importi in euro dal gestionale.',
+      input: sv.leggiClienteSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: clienti.leggiCliente,
+    }),
+    strumento({
+      nome: 'rinnovi',
+      titolo: 'Rinnovi',
+      descrizione:
+        'Come Rinnovi nell’app: chi finisce il percorso entro 30 o 60 giorni (mai i chiusi, gli archiviati o i sospesi), chi l’ha finito da meno di 90 giorni senza rinnovo, e chi non rinnova (chiusi dall’admin) con giorno e motivo.',
+      input: sv.rinnoviSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: clienti.rinnovi,
+    }),
+    strumento({
+      nome: 'elenco_vendite',
+      titolo: 'Elenco delle vendite',
+      descrizione:
+        'Le vendite che la persona vede (il closer quelle chiuse da lui, l’admin tutte), dalla più recente, con id, cliente, tipo, prodotto, data, percorso, setter, closer, contratto, incassato, da incassare, in ritardo, rate pagate e prossima scadenza. Filtri facoltativi: da e a (data di vendita), tipo, client_id, da_incassare; l’admin anche setter_id e closer_id. Importi in euro per vendita, al massimo 100 (30 se non dici altro), con il totale delle vendite trovate.',
+      input: sv.elencoVenditeSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: VENDITE,
+      esegui: vendite.elencoVendite,
+    }),
+    strumento({
+      nome: 'leggi_vendita',
+      titolo: 'Leggi una vendita',
+      descrizione:
+        'Una vendita nel dettaglio, come la sua pagina: cliente, tipo, prodotto, date del percorso, setter, closer, call, contratto, incassato e da incassare, e le rate con payment_id, scadenza, stato e incasso. All’admin anche metodo di pagamento, note e il link del contratto su Drive; al closer mai.',
+      input: sv.leggiVenditaSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: VENDITE,
+      esegui: vendite.leggiVendita,
+    }),
+    strumento({
+      nome: 'da_incassare',
+      titolo: 'Da incassare',
+      descrizione:
+        'Quanto resta da incassare, già sommato dal gestionale: all’admin per fascia (in ritardo, prossimi 30 giorni, oltre) con le rate in ritardo più vecchie (payment_id, cliente, scadenza, importo, giorni di ritardo); al closer il totale delle sue vendite, di cui in ritardo, nei prossimi 30 giorni e oltre.',
+      input: sv.daIncassareSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: VENDITE,
+      esegui: (_args, ctx) => vendite.daIncassare(ctx),
+    }),
+    strumento({
+      nome: 'incassi',
+      titolo: 'Rate e incassi',
+      descrizione:
+        'Le rate come Incassi nell’app, una per riga, con payment_id, cliente, vendita, rata, scadenza, stato (Prevista, In ritardo, Incassata, Fallita, Rimborsata), importo previsto e incasso. Filtri facoltativi: stato, in_ritardo, da e a (sulla scadenza; con stato incassata o rimborsata sul giorno dell’incasso), client_id. Al massimo 100 (50 se non dici altro), con il totale delle rate trovate.',
+      input: sv.incassiSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: vendite.incassi,
+    }),
+    strumento({
+      nome: 'miei_clienti',
+      titolo: 'I miei clienti',
+      descrizione:
+        'I clienti portati dal setter che ha collegato Claude, come I miei numeri › I tuoi clienti: per vendita cliente, prodotto, tipo, data, revenue, pagato in tutto, rate pagate e in ritardo, e la sua provvigione (a_te). Con cerca: le rate di quel cliente, ognuna con la provvigione del suo incasso. Con da e a: gli incassi di quel periodo e il totale (totale_periodo), già sommato dal gestionale. Mai i clienti di altri, i contatti, il metodo di pagamento, le note o la percentuale.',
+      input: sv.mieiClientiSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: ['setter'],
+      esegui: vendite.mieiClienti,
+    }),
+    strumento({
+      nome: 'anteprima_interruzione',
+      titolo: 'Anteprima: interrompi il percorso',
+      descrizione:
+        'Cosa farebbe «Interrompi il percorso» su una vendita, senza cambiare niente: l’ultimo giorno, le rate non pagate che se ne andrebbero (con togli_rate) e il contratto prima e dopo. Dà il codice_anteprima che serve a interrompi_percorso con gli stessi valori.',
+      input: sv.anteprimaInterruzioneSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: vendite.anteprimaInterruzione,
+    }),
+    strumento({
+      nome: 'anteprima_rimborso',
+      titolo: 'Anteprima: rimborso',
+      descrizione:
+        'Cosa farebbe un rimborso su una rata incassata, senza cambiare niente: quale rata, quanto, quando, e cosa cambia nel cash e nelle provvigioni. Dà il codice_anteprima che serve a registra_rimborso con gli stessi valori.',
+      input: sv.anteprimaRimborsoSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: vendite.anteprimaRimborso,
+    }),
+    strumento({
+      nome: 'crea_cliente',
+      titolo: 'Crea un cliente',
+      descrizione:
+        'Crea un cliente senza percorso (mai attivato), con nome e, se vuoi, cognome, email, telefono, handle Instagram, fonte, setter e closer (id da persone_del_team) e note. Un cliente con la sua prima vendita nasce invece da registra_vendita. Restituisce il client_id.',
+      input: sv.creaClienteSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: SOLO_ADMIN,
+      esegui: clienti.creaCliente,
+    }),
+    strumento({
+      nome: 'modifica_cliente',
+      titolo: 'Modifica un cliente',
+      descrizione:
+        'Cambia nome, cognome, email, telefono, handle Instagram, fonte, setter, closer o note di un cliente, come la matita della sua scheda. Passa solo quello che cambia; "" toglie un valore (il nome no). Le vendite tengono il loro setter e il loro closer.',
+      input: sv.modificaClienteSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: clienti.modificaCliente,
+    }),
+    strumento({
+      nome: 'stato_cliente',
+      titolo: 'Stato del cliente',
+      descrizione:
+        'I bottoni della scheda del cliente: non_rinnova («Non rinnova», da un giorno, di base oggi, con un motivo facoltativo), riapri (toglie la chiusura), archivia («Archivia come ex cliente», solo un cliente chiuso), togli_archivio, sospendi («Sospendi», da un giorno con un motivo facoltativo: percorso e rate non cambiano), riattiva (toglie la sospensione). Un nuovo percorso riapre e riattiva da solo.',
+      input: sv.statoClienteSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: clienti.statoCliente,
+    }),
+    strumento({
+      nome: 'registra_vendita',
+      titolo: 'Registra una vendita',
+      descrizione:
+        'Registra una vendita come «Nuova vendita» nell’app: dalla call chiusa (call_id: cliente, setter e closer vengono dalla call, il giorno è quello della call), per un cliente nuovo (nome e i suoi dati) o, solo l’admin, per un cliente che c’è già (client_id: rinnovo o upsell). Servono tipo, prodotto (product_id da prodotti, o prodotto_personalizzato con data_fine) e valore del contratto; rate mensili uguali (numero_rate) o il piano scritto a mano (rate: scadenza e importo di ognuna, la somma deve fare il contratto). L’inizio del percorso di base è una settimana dopo la vendita (un rinnovo: il giorno dopo la fine del percorso prima). Restituisce la vendita con le sue rate.',
+      input: sv.registraVenditaSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: VENDITE,
+      esegui: vendite.registraVendita,
+    }),
+    strumento({
+      nome: 'modifica_vendita',
+      titolo: 'Modifica una vendita',
+      descrizione:
+        'Corregge una vendita registrata, come la matita della sua pagina: tipo, prodotto (o percorso fuori catalogo), valore del contratto, date della vendita e del percorso, setter, closer, note. Passa solo quello che cambia; "" toglie setter, closer o note. Le rate restano come sono.',
+      input: sv.modificaVenditaSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: SOLO_ADMIN,
+      esegui: vendite.modificaVendita,
+    }),
+    strumento({
+      nome: 'interrompi_percorso',
+      titolo: 'Interrompi il percorso',
+      descrizione:
+        '«Interrompi il percorso» della scheda del cliente: la vendita finisce nell’ultimo giorno scelto e, con togli_rate, le rate non pagate dopo quel giorno se ne vanno e il contratto scende. Gli incassi già fatti non cambiano. Vuole il codice_anteprima di anteprima_interruzione con gli stessi valori: se nel frattempo qualcosa è cambiato non scrive niente.',
+      input: sv.interrompiPercorsoSchema,
+      lettura: false,
+      idempotente: false,
+      ruoli: SOLO_ADMIN,
+      esegui: vendite.interrompiPercorso,
+    }),
+    strumento({
+      nome: 'registra_rimborso',
+      titolo: 'Registra un rimborso',
+      descrizione:
+        'Registra il rimborso di una rata incassata: una riga a parte con l’importo negativo, nel cash del mese del rimborso, e la provvigione del setter torna indietro in quel mese. Vuole il codice_anteprima di anteprima_rimborso con gli stessi valori: se nel frattempo qualcosa è cambiato non scrive niente.',
+      input: sv.registraRimborsoSchema,
+      lettura: false,
+      idempotente: false,
+      ruoli: SOLO_ADMIN,
+      esegui: vendite.registraRimborso,
+    }),
+    strumento({
+      nome: 'rata',
+      titolo: 'Una rata',
+      descrizione:
+        'Le azioni di una rata, come nella pagina della vendita: incassa (di base oggi e l’importo previsto, con un metodo facoltativo), correggi_incasso (giorno, importo e metodo di un incasso già registrato), annulla_incasso (torna da incassare), fallita (una rata da incassare non pagata), modifica (solo l’admin: scadenza e importo di una rata ancora da incassare). Il closer solo sulle rate delle sue vendite, e mai modifica. Restituisce la rata.',
+      input: sv.rataSchema,
+      lettura: false,
+      idempotente: false,
+      ruoli: VENDITE,
+      esegui: vendite.rata,
+    }),
+    strumento({
+      nome: 'aggiungi_rata',
+      titolo: 'Aggiungi una rata',
+      descrizione:
+        'Aggiunge una rata a una vendita registrata, con scadenza e importo; le rate si rinumerano in ordine di scadenza. Da qui non si elimina nessuna rata.',
+      input: sv.aggiungiRataSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: SOLO_ADMIN,
+      esegui: vendite.aggiungiRata,
     }),
   ]
 }

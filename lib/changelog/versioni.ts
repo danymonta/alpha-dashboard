@@ -86,6 +86,40 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.55.0',
+    data: '2026-10-23',
+    titolo: 'Claude lavora anche su clienti, vendite e incassi',
+    riassunto:
+      'Claude collegato arriva a clienti, vendite, rate e incassi: tu leggi e scrivi tutto tranne le eliminazioni, il closer lavora sulle sue vendite, il setter legge i suoi clienti; ognuno con i permessi che ha nell’app.',
+    intestazionePer: ['setter', 'closer'],
+    intestazioneTeam: {
+      titolo: 'Claude lavora anche sulle tue vendite e sui tuoi clienti',
+      riassunto:
+        'Con Claude collegato ad Alpha Management lavori a parole anche sulle vendite e sui clienti che vedi nell’app, con gli stessi permessi.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Tu da Claude leggi i clienti (anche l’elenco con LTV, mese del percorso e rate), le vendite con le rate, gli incassi, quanto resta da incassare e i rinnovi, con la cartella Drive e il contratto come link. Scrivi un cliente (crea, modifica, «Non rinnova», riapri, archivia e togli dall’archivio, sospendi e riattiva), registri una vendita (anche dalla call chiusa o col piano scritto a mano), correggi una vendita e lavori sulle rate (incassa, correggi o annulla l’incasso, fallita, scadenza e importo, rata in più). Un rimborso e «Interrompi il percorso» passano prima dalla loro anteprima: Claude ti mostra cosa cambia e scrive solo se dici sì. I totali li calcola il gestionale, mai Claude. Da Claude non si elimina niente: né clienti, né vendite, né rate; cartella Drive e contratto non si scrivono. Costi, provvigioni, obiettivi, margine e Panoramica arrivano nell’ultima fase. Il business coach legge clienti e vendite come te e non scrive niente.',
+      },
+      {
+        per: ['closer'],
+        testo:
+          'Il closer, da Claude, legge le vendite che ha chiuso con le loro rate e quanto gli resta da incassare, registra la vendita della sua call chiusa (o di un cliente nuovo), e sulle rate delle sue vendite incassa, corregge e annulla l’incasso e segna fallite. Il piano rate, le correzioni della vendita e i rimborsi restano tuoi; i contatti dei clienti, il metodo di pagamento e le note non gli arrivano da Claude.',
+        testoTeam:
+          'Da Claude leggi le vendite che hai chiuso con le loro rate e quanto ti resta da incassare, registri la vendita della tua call chiusa (o di un cliente nuovo), e sulle rate delle tue vendite incassi, correggi e annulli l’incasso e segni le rate non pagate. Il piano rate e le correzioni della vendita li fa l’admin, come nell’app.',
+      },
+      {
+        per: ['setter'],
+        testo:
+          'Il setter, da Claude, legge i clienti che ha portato, quanto hanno pagato e la sua provvigione su ogni incasso, come in I miei numeri: mai i clienti di altri, i contatti, il metodo di pagamento, le note o la percentuale, e su clienti e vendite non scrive niente.',
+        testoTeam:
+          'Da Claude leggi i clienti che hai portato, quanto hanno pagato e la tua provvigione su ogni incasso, come in I miei numeri. I clienti degli altri e i contatti non arrivano a Claude.',
+      },
+    ],
+  },
+  {
     versione: '1.54.0',
     data: '2026-10-23',
     titolo: 'Claude lavora anche su call, lead ed esiti',
