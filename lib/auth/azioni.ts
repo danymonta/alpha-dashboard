@@ -36,3 +36,12 @@ export function negaPer(
 export function messaggioErrore(error: { code?: string; message: string }, fallback: string) {
   return error.code === '22023' || error.code === '42501' ? error.message : fallback
 }
+
+/**
+ * The function is not in the database yet (PostgREST PGRST202, Postgres
+ * 42883): the code is deployed before its migration is applied on the cloud
+ * project, so the app session falls back to the path it used before.
+ */
+export function funzioneMancante(error: { code?: string } | null | undefined) {
+  return error?.code === 'PGRST202' || error?.code === '42883'
+}

@@ -86,6 +86,29 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.55.1',
+    data: '2026-10-23',
+    titolo: 'La matita delle call e «Riapri» funzionano anche prima dell’aggiornamento del database',
+    riassunto:
+      'Finché il database non ha l’ultimo aggiornamento, la matita delle call del setter, «Riapri» e «Riattiva» sui clienti usano la strada di prima e funzionano lo stesso.',
+    intestazionePer: ['admin'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['setter'],
+        testo:
+          'Il setter che correggeva data, ora o closer di una sua call con la matita poteva ricevere «Call non trovata.»: ora si salva sempre.',
+        testoTeam:
+          'Correggere data, ora o closer di una tua call con la matita poteva dire «Call non trovata.»: ora si salva sempre.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          '«Riapri» su un cliente chiuso e «Riattiva» su un cliente sospeso non riuscivano finché il database non aveva l’ultimo aggiornamento: ora funzionano in tutti e due i casi, con lo stesso effetto.',
+      },
+    ],
+  },
+  {
     versione: '1.55.0',
     data: '2026-10-23',
     titolo: 'Claude lavora anche su clienti, vendite e incassi',
