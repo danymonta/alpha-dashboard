@@ -139,6 +139,25 @@ select is(
                  else p.qual = '(NOT ( SELECT da_client_oauth() AS da_client_oauth))'
                end
        )
+       -- costs, commissions, goals, invites and the setter's reports (20261031090000, phase 4 of 4): no
+       -- _mai_da_oauth, and exactly four restrictive policies, one per command; the delete one refuses
+       -- every OAuth token
+       when t.tablename in ('expenses', 'commission_rules', 'commission_payouts', 'obiettivi_mese', 'invites',
+                            'setter_daily_reports') then (
+         select coalesce(array_agg(p.policyname::text || ' ' || p.cmd order by p.policyname::text), '{}')
+         from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and (p.permissive = 'RESTRICTIVE' or p.policyname like '%_mai_da_oauth')
+       ) <> array[
+         t.tablename || '_claude_eliminazione DELETE', t.tablename || '_claude_inserimento INSERT',
+         t.tablename || '_claude_lettura SELECT', t.tablename || '_claude_modifica UPDATE'
+       ] or not exists (
+         select 1 from pg_policies p
+         where p.schemaname = 'public' and p.tablename = t.tablename
+           and p.policyname = t.tablename || '_claude_eliminazione'
+           and p.roles = array['authenticated']::name[]
+           and p.qual = '(NOT ( SELECT da_client_oauth() AS da_client_oauth))'
+       )
        else not exists (
          select 1 from pg_policies p
          where p.schemaname = 'public' and p.tablename = t.tablename
@@ -225,7 +244,10 @@ select is(
                        -- phase 3 (20261030090000): the money tables and their views
                        'clients', 'sales', 'payments', 'clienti_chiusure', 'clienti_sospensioni',
                        'clienti_cartelle', 'vendite_contratti', 'v_clienti', 'v_vendite', 'v_rate',
-                       'v_clienti_chiusi')
+                       'v_clienti_chiusi',
+                       -- phase 4 (20261031090000): costs, commissions, goals, invites, the setter's reports
+                       'expenses', 'commission_rules', 'commission_payouts', 'obiettivi_mese', 'invites',
+                       'setter_daily_reports', 'v_provvigioni_maturate')
      and not (
        p.proname in ('call_ha_follow_up', 'call_ha_vendita') and c.relname = 'calls'
        and p.prosecdef and p.prosrc like '%not public.da_client_oauth()%'
