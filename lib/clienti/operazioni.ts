@@ -3,7 +3,7 @@ import 'server-only'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
-import { messaggioErrore, negaPer } from '@/lib/auth/azioni'
+import { funzioneMancante, messaggioErrore, negaPer } from '@/lib/auth/azioni'
 import type { Contesto } from '@/lib/call/operazioni'
 import { oggiRoma } from '@/lib/date'
 import { clienteSchema } from '@/lib/validation/anagrafiche'
@@ -210,7 +210,11 @@ export async function riapriCliente(ctx: Contesto, input: unknown): Promise<Esit
   const negato = await nega(ctx)
   if (negato) return { ok: false, errore: negato }
 
-  const { error } = await ctx.db.rpc('riapri_cliente', { p_client_id: parsed.data.client_id })
+  let { error } = await ctx.db.rpc('riapri_cliente', { p_client_id: parsed.data.client_id })
+  if (funzioneMancante(error)) {
+    // 20261030090000 not applied yet: the admin's session deletes the closure as before
+    ;({ error } = await ctx.db.from('clienti_chiusure').delete().eq('client_id', parsed.data.client_id))
+  }
   if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non riaperto. Riprova.') }
 
   rivalidaStatoCliente(parsed.data.client_id)
@@ -263,7 +267,20 @@ export async function riattivaCliente(ctx: Contesto, input: unknown): Promise<Es
   if (negato) return { ok: false, errore: negato }
 
   // it says whether a hold was there: a delete that finds nothing raises nothing
-  const { data, error } = await ctx.db.rpc('riattiva_cliente', { p_client_id: parsed.data.client_id })
+  let { data, error }: { data: boolean | null; error: { code?: string; message: string } | null } = await ctx.db.rpc(
+    'riattiva_cliente',
+    { p_client_id: parsed.data.client_id },
+  )
+  if (funzioneMancante(error)) {
+    // 20261030090000 not applied yet: the admin's session deletes the hold as before
+    const tolta = await ctx.db
+      .from('clienti_sospensioni')
+      .delete()
+      .eq('client_id', parsed.data.client_id)
+      .select('client_id')
+    data = (tolta.data?.length ?? 0) > 0
+    error = tolta.error
+  }
   if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non riattivato. Riprova.') }
 
   rivalidaStatoCliente(parsed.data.client_id)

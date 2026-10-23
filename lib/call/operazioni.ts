@@ -3,7 +3,7 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
-import { messaggioErrore } from '@/lib/auth/azioni'
+import { funzioneMancante, messaggioErrore } from '@/lib/auth/azioni'
 import type { AppRole } from '@/lib/auth/roles'
 import { FOLLOW_UP } from '@/lib/call/follow-up'
 import { REGISTRAZIONE } from '@/lib/call/registrazione'
@@ -289,7 +289,11 @@ export async function modificaCall(ctx: Contesto, input: unknown): Promise<Esito
   // call_per_claude, where a setter's token of Claude reads the call too (never its link)
   let tipo = v.tipo
   if (profilo.ruolo === 'setter') {
-    const { data: attuale, error: erroreLettura } = await supabase.rpc('call_per_claude', { p_id: v.call_id }).maybeSingle()
+    let { data: attuale, error: erroreLettura } = await supabase.rpc('call_per_claude', { p_id: v.call_id }).maybeSingle()
+    if (funzioneMancante(erroreLettura)) {
+      // 20261029090000 not applied yet: the app session reads its own call as before
+      ;({ data: attuale, error: erroreLettura } = await supabase.from('calls').select('tipo').eq('id', v.call_id).maybeSingle())
+    }
     if (erroreLettura || !attuale) return { ok: false, errore: 'Call non trovata.' }
     tipo = attuale.tipo
   }
