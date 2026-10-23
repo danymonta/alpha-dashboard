@@ -86,6 +86,35 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.53.0',
+    data: '2026-10-22',
+    titolo: 'L’app anche in inglese, con la bandierina',
+    riassunto:
+      'In alto, accanto al sole e alla luna, la bandierina passa l’app dall’italiano all’inglese e ritorno; il business coach la trova già in inglese.',
+    intestazionePer: ['tutti'],
+    intestazioneTeam: {
+      titolo: 'L’app anche in inglese, con la bandierina',
+      riassunto: 'In alto, accanto al sole e alla luna, la bandierina passa l’app dall’italiano all’inglese e ritorno.',
+    },
+    novita: [
+      {
+        per: ['tutti'],
+        testo:
+          'La bandierina in alto (IT o EN, sul telefono e sul computer) cambia la lingua dell’app con un tocco; la stessa scelta sta in Profilo › Account › Lingua. Vale per questo dispositivo, finché non la cambi.',
+      },
+      {
+        per: ['tutti'],
+        testo:
+          'In inglese cambiano menu, titoli, bottoni, tabelle, filtri e messaggi; gli importi si leggono «€1,250.00» e le date «22 Oct 2026». Restano in italiano quello che scrivete voi, i testi di Claude, le email e Alfire.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il business coach entra già in inglese: Panoramica, Clienti, Vendite, Incassi, Rinnovi, Setter (con la cornice dell’Insight), Closer e le call, Provvigioni, Costi, Pipeline, Progetti e Tempo del team. I fogli che scrivono e le pagine che lui non apre restano in italiano per ora; se preferisce l’italiano, tocca la bandierina.',
+      },
+    ],
+  },
+  {
     versione: '1.52.0',
     data: '2026-10-22',
     titolo: 'Il business coach: vede tutto, in sola lettura',
