@@ -35,14 +35,17 @@ import {
   scriviSezioneSchema,
   spuntiSchema,
 } from './schemi'
+import * as call from './call'
 import * as progetti from './progetti'
+import * as sc from './schemi-call'
 import * as sp from './schemi-progetti'
 import { spuntiPerClaude } from './spunti'
 
 /**
  * The MCP tools: the content calendar (09/10/2026, admin, video editor and
- * marketing) and, since 22/10/2026 (Claude a 360 gradi, phase 1), projects,
- * lists, tasks, notes and time for every role, each with the person's own
+ * marketing), since 22/10/2026 (Claude a 360 gradi, phase 1) projects, lists,
+ * tasks, notes and time for every role, and since 23/10/2026 (phase 2) calls,
+ * leads and outcomes for admin, setter and closer, each with the person's own
  * permissions in the app. Name, title, description, input, annotations,
  * roles, project levels and handler. Descriptions are
  * in Italian with the exact Notion labels (built from lib/marketing/etichette.ts)
@@ -75,6 +78,10 @@ const TUTTI: readonly RuoloMcp[] = TUTTI_I_RUOLI
 const SOLO_PROPRI = new Set(['miei_task', 'mio_tempo'])
 /** Who creates and manages projects (pm_crea_progetto, pm_puo_gestire). */
 const GESTISCE: readonly LivelloPm[] = ['admin', 'manager']
+/** The call tools' roles (phase 2): the business coach reads through the admin's reads. */
+const CALL_TUTTI: readonly RuoloMcp[] = ['admin', 'setter', 'closer']
+const CALL_CLOSER: readonly RuoloMcp[] = ['admin', 'closer']
+const CALL_SETTER: readonly RuoloMcp[] = ['admin', 'setter']
 
 function strumento<S extends z.ZodTypeAny>(definizione: {
   nome: string
@@ -233,6 +240,7 @@ export const STRUMENTI: readonly Strumento[] = [
     esegui: eliminaContenutoPerClaude,
   }),
   ...strumentiProgetti(),
+  ...strumentiCall(),
 ]
 
 /**
@@ -496,6 +504,140 @@ function strumentiProgetti(): Strumento[] {
       idempotente: true,
       ruoli: TUTTI,
       esegui: progetti.fermaTimer,
+    }),
+  ]
+}
+
+
+/**
+ * Calls, leads and outcomes (Claude a 360 gradi, phase 2, 23/10/2026): admin,
+ * setter and closer, with the person's own permissions in the app; the
+ * business coach reads. Nothing here deletes, nothing reads Claude's analyses
+ * of the calls, Fathom's transcripts, sales or clients.
+ */
+function strumentiCall(): Strumento[] {
+  return [
+    strumento({
+      nome: 'elenco_call',
+      titolo: 'Elenco delle call',
+      descrizione:
+        'Le call che la persona vede nell’app (il setter quelle col suo nome, il closer quelle assegnate a lui, l’admin tutte), per giorno, con id, lead (nome, handle, stato, fonte), quando (giorno e ora di Roma), tipo, stato (Da fare, Svolta, No show, Cancellata, In attesa di conferma), esito, motivo di non chiusura, note del setter e del closer, setter, closer, spostamenti e call di follow-up. Al closer e all’admin anche registrazione di Fathom, performance, prodotto e importo proposto. Filtri facoltativi: da e a (AAAA-MM-GG; senza, da 7 giorni fa a 30 giorni avanti), stato, da_registrare (le call passate ancora senza esito), closer_id, setter_id, lead_id, cerca (nome o handle del lead). Al massimo 100 (50 se non dici altro), con il totale.',
+      input: sc.elencoCallSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: CALL_TUTTI,
+      esegui: call.elencoCall,
+    }),
+    strumento({
+      nome: 'leggi_call',
+      titolo: 'Leggi una call',
+      descrizione:
+        'Una call nel dettaglio, con le note intere, la call di partenza o la call di follow-up, quando è stata fissata e, al closer e all’admin, la registrazione di Fathom (o «Call non registrata»), se va ancora indicata, la performance, il prodotto e l’importo proposti. Mai l’analisi di Claude, la trascrizione o il riassunto di Fathom.',
+      input: sc.leggiCallSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: CALL_TUTTI,
+      esegui: call.leggiCall,
+    }),
+    strumento({
+      nome: 'elenco_lead',
+      titolo: 'Lead e pipeline',
+      descrizione:
+        'I lead che la persona vede (il setter i suoi, il closer quelli delle sue call, l’admin tutti), dal più recente, con id, nome, handle, stato nella pipeline (Call da fare, Follow-up, Cliente, Perso), fonte, setter e note, e quanti lead ci sono in ogni stato. Filtri facoltativi: stato, fonte, setter_id, cerca. Le call di un lead con elenco_call e lead_id.',
+      input: sc.elencoLeadSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: CALL_TUTTI,
+      esegui: call.elencoLead,
+    }),
+    strumento({
+      nome: 'prodotti',
+      titolo: 'Prodotti',
+      descrizione: 'I prodotti del catalogo, con id, nome e durata in mesi: servono per il prodotto proposto in dettagli_call.',
+      input: sc.senzaInputSchema,
+      lettura: true,
+      idempotente: true,
+      ruoli: CALL_CLOSER,
+      esegui: (_args, ctx) => call.prodotti(ctx),
+    }),
+    strumento({
+      nome: 'fissa_call',
+      titolo: 'Fissa una call',
+      descrizione:
+        'Fissa una discovery call, come «Nuova call» nell’app: crea il lead e la call insieme (con lo stesso handle il lead del setter si riusa). Servono nome del lead, fonte, giorno e ora (di Roma); handle facoltativo; closer_id facoltativo (un admin o un closer attivo, da persone_del_team; senza, come nell’app). Il setter fissa per sé, da 7 giorni fa a 6 mesi avanti; l’admin per sé o per un setter attivo (setter_id), anche una call già fatta, fino a un anno indietro. Restituisce la call.',
+      input: sc.fissaCallSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: CALL_SETTER,
+      esegui: call.fissaCall,
+    }),
+    strumento({
+      nome: 'registra_esito',
+      titolo: 'Registra l’esito',
+      descrizione:
+        'Registra come è andata una call, come il foglio dell’esito dell’app (il closer della call e l’admin). esito: chiusa; follow_up o persa (con qualificata e il motivo di non chiusura, obbligatori, e le note aggiuntive del closer facoltative; con follow_up, follow_up_data e follow_up_ora se la call di follow-up è già fissata, altrimenti il follow-up va avanti in chat); no_show; cancellata; riprogrammata (In attesa di conferma; con data e ora se il lead ha già confermato il nuovo giorno, e la call si sposta lì); programmata (annulla un esito sbagliato, la call torna da fare). Per chiusa, follow_up e persa delle call dal 16/10/2026 serve la registrazione: link_fathom, oppure non_registrata true. Una call svolta o un no show non si spostano. Restituisce la call.',
+      input: sc.registraEsitoSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: CALL_CLOSER,
+      esegui: call.registraEsito,
+    }),
+    strumento({
+      nome: 'sposta_call',
+      titolo: 'Sposta una call',
+      descrizione:
+        'Sposta una call a un nuovo giorno e ora, come «Sposta» nell’app: la stessa call, che torna da fare, con «Spostata dal …». Il setter solo una sua call ancora da fare, il closer le sue, l’admin tutte (anche nel passato); da oggi in avanti, al massimo 6 mesi. Una call svolta o un no show non si spostano.',
+      input: sc.spostaCallSchema,
+      lettura: false,
+      idempotente: false,
+      ruoli: CALL_TUTTI,
+      esegui: call.spostaCall,
+    }),
+    strumento({
+      nome: 'fissa_follow_up',
+      titolo: 'Fissa la call di follow-up',
+      descrizione:
+        'Fissa la call di follow-up di una call svolta finita in follow-up, come «Fissa la call di follow-up» nell’app (il closer della call e l’admin): una call nuova, collegata alla prima, con lo stesso lead, setter e closer, da fare nel suo giorno. Una sola per call, da oggi in avanti e dopo la call di partenza.',
+      input: sc.fissaFollowUpSchema,
+      lettura: false,
+      distruttivo: false,
+      idempotente: false,
+      ruoli: CALL_CLOSER,
+      esegui: call.fissaFollowUp,
+    }),
+    strumento({
+      nome: 'modifica_call',
+      titolo: 'Modifica una call',
+      descrizione:
+        'La matita della call nell’app: corregge giorno e ora sbagliati senza traccia (per spostarla c’è sposta_call), cambia il tipo (closer e admin), passa la call a un altro closer (setter e admin) e scrive le note del setter (setter e admin). Passa solo quello che cambia. Il setter corregge la data solo delle call ancora da fare.',
+      input: sc.modificaCallSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: CALL_TUTTI,
+      esegui: call.modificaCall,
+    }),
+    strumento({
+      nome: 'dettagli_call',
+      titolo: 'Dettagli della call',
+      descrizione:
+        '«Com’è andata» nella matita della call (il closer della call e l’admin): link della registrazione di Fathom, performance, prodotto proposto (id da prodotti), importo proposto in euro e note aggiuntive del closer. Passa solo quello che cambia; "" toglie un valore.',
+      input: sc.dettagliCallSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: CALL_CLOSER,
+      esegui: call.dettagliCall,
+    }),
+    strumento({
+      nome: 'stato_lead',
+      titolo: 'Cambia lo stato del lead',
+      descrizione:
+        'Sposta un lead nella pipeline, come il tocco nell’app: call_fissata (Call da fare), follow_up, cliente o perso. Il setter i suoi lead, il closer quelli delle sue call, l’admin tutti. Nessun automatismo: lo stato lo decide la persona.',
+      input: sc.statoLeadSchema,
+      lettura: false,
+      idempotente: true,
+      ruoli: CALL_TUTTI,
+      esegui: call.statoLead,
     }),
   ]
 }

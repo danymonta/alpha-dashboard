@@ -11,6 +11,7 @@ import { ICP, ICP_AGGIORNATO_IL } from '@/lib/marketing/icp'
 import { GUIDA_AGGIORNATA_IL } from '@/lib/marketing/punteggio/guida'
 import {
   FUORI_PORTATA,
+  FUORI_PORTATA_CALL,
   REGOLA_GUIDA,
   REGOLA_ICP,
   REGOLA_NIENTE_ELIMINAZIONI,
@@ -38,7 +39,12 @@ const SCRITTURE_PROGETTI = [
 ]
 // who manages projects (admin and manager of the projects)
 const GESTIONE = ['reparti_e_modelli', 'crea_progetto', 'modifica_progetto', 'aggiungi_membro', 'scegli_coach', 'crea_lista', 'modifica_lista']
-const LETTURE = [...LETTURE_CALENDARIO, ...LETTURE_PROGETTI, 'reparti_e_modelli', 'tempo_team']
+// calls, leads and outcomes (23/10/2026, phase 2): admin, setter and closer, each with the app's permissions
+const LETTURE_CALL = ['elenco_call', 'leggi_call', 'elenco_lead']
+const CALL_SETTER = [...LETTURE_CALL, 'fissa_call', 'sposta_call', 'modifica_call', 'stato_lead']
+const CALL_CLOSER = [...LETTURE_CALL, 'prodotti', 'registra_esito', 'fissa_follow_up', 'sposta_call', 'modifica_call', 'dettagli_call', 'stato_lead']
+const CALL_ADMIN = [...new Set([...CALL_SETTER, ...CALL_CLOSER])]
+const LETTURE = [...LETTURE_CALENDARIO, ...LETTURE_PROGETTI, 'reparti_e_modelli', 'tempo_team', ...LETTURE_CALL, 'prodotti']
 const PROGETTI = [...LETTURE_PROGETTI, ...SCRITTURE_PROGETTI]
 
 const ordinati = (nomi: string[]) => [...nomi].sort()
@@ -54,12 +60,27 @@ describe('gli strumenti per ruolo', () => {
 
   it('l’admin: anche elimina_contenuto, la gestione dei progetti e il tempo del team', () => {
     expect(ordinati(strumentiPer('admin').map((s) => s.nome))).toEqual(
-      ordinati([...LETTURE_CALENDARIO, ...SCRITTURE_CALENDARIO, 'elimina_contenuto', ...PROGETTI, ...GESTIONE, 'tempo_team']),
+      ordinati([...LETTURE_CALENDARIO, ...SCRITTURE_CALENDARIO, 'elimina_contenuto', ...PROGETTI, ...GESTIONE, 'tempo_team', ...CALL_ADMIN]),
     )
   })
 
-  it.each(['setter', 'closer', 'nutrizione', 'dev'])('%s (employee): i progetti e il suo tempo, mai il calendario', (ruolo) => {
+  it.each(['nutrizione', 'dev'])('%s (employee): i progetti e il suo tempo, mai il calendario né le call', (ruolo) => {
     expect(ordinati(strumentiPer(ruolo, 'employee').map((s) => s.nome))).toEqual(ordinati(PROGETTI))
+  })
+
+  it('il setter (23/10/2026): le sue call e i suoi lead come nell’app, mai esito, dettagli o follow-up', () => {
+    expect(ordinati(strumentiPer('setter', 'employee').map((s) => s.nome))).toEqual(ordinati([...PROGETTI, ...CALL_SETTER]))
+  })
+
+  it('il closer (23/10/2026): esito, follow-up, dettagli e matita sulle sue call, mai fissare call nuove', () => {
+    expect(ordinati(strumentiPer('closer', 'employee').map((s) => s.nome))).toEqual(ordinati([...PROGETTI, ...CALL_CLOSER]))
+  })
+
+  it('nessuno strumento delle call per coach, video editor, marketing, nutrizione e dev', () => {
+    for (const ruolo of ['coach', 'editor', 'marketing', 'nutrizione', 'dev']) {
+      const nomi = strumentiPer(ruolo, 'manager').map((s) => s.nome)
+      for (const nome of CALL_ADMIN) expect(nomi, `${ruolo} ${nome}`).not.toContain(nome)
+    }
   })
 
   it('il coach manager: anche la gestione dei progetti, mai il tempo del team', () => {
@@ -70,7 +91,7 @@ describe('gli strumenti per ruolo', () => {
     for (const livello of ['admin', 'manager', 'employee', null] as const) {
       const suoi = strumentiPer('business_coach', livello)
       expect(ordinati(suoi.map((s) => s.nome)), String(livello)).toEqual(
-        ordinati([...LETTURE_CALENDARIO, 'elenco_progetti', 'leggi_progetto', 'persone_del_team', 'reparti_e_modelli', 'tempo_team']),
+        ordinati([...LETTURE_CALENDARIO, 'elenco_progetti', 'leggi_progetto', 'persone_del_team', 'reparti_e_modelli', 'tempo_team', ...LETTURE_CALL, 'prodotti']),
       )
       for (const s of suoi) {
         expect(s.scrive, s.nome).toBe(false)
@@ -163,12 +184,32 @@ describe('come Claude vede gli strumenti', () => {
   })
 
   it('le istruzioni nominano il resto del gestionale solo per dire che non si raggiunge', () => {
-    for (const ruolo of ['admin', 'editor', 'marketing'] as const) {
+    for (const ruolo of ['editor', 'marketing', 'coach'] as const) {
       const istruzioni = istruzioniMcp(ruolo)
       expect(istruzioni).toContain(FUORI_PORTATA)
       const resto = istruzioni.replace(FUORI_PORTATA, '')
       expect(resto).not.toMatch(/\b(lead|call|clienti|soldi|messaggi diretti|vendite|incassi|provvigioni)\b/i)
     }
+    // who works on calls and leads (23/10/2026): the rest stays out, money and clients never in the rules
+    for (const ruolo of ['admin', 'setter', 'closer', 'business_coach'] as const) {
+      const istruzioni = istruzioniMcp(ruolo, 'employee')
+      expect(istruzioni, ruolo).toContain(FUORI_PORTATA_CALL)
+      const resto = istruzioni.replace(FUORI_PORTATA_CALL, '').replace(/la vendita si registra dall’app, non da qui/, '')
+      expect(resto, ruolo).not.toMatch(/\b(clienti|soldi|messaggi diretti|vendite|incassi|provvigioni)\b/i)
+    }
+  })
+
+  it('le istruzioni delle call: le regole del foglio dell’esito al closer e all’admin, mai al setter', () => {
+    for (const ruolo of ['admin', 'closer'] as const) {
+      const istruzioni = istruzioniMcp(ruolo, 'employee')
+      expect(istruzioni, ruolo).toContain('se la persona non li ha detti glieli chiedi, mai inventarli')
+      expect(istruzioni, ruolo).toContain('link della registrazione di Fathom')
+      expect(istruzioni, ruolo).toContain('né call, né lead')
+    }
+    const setter = istruzioniMcp('setter', 'employee')
+    expect(setter).toContain('L’esito, il motivo di non chiusura e le note aggiuntive li registra il closer')
+    expect(setter).not.toMatch(/registra_esito|dettagli_call|fissa_follow_up/)
+    expect(istruzioniMcp('marketing', 'employee')).not.toMatch(/elenco_call|fissa_call|registra_esito/)
   })
 
   it('la versione: ogni scrittura la cambia e la dà, e modifica_contenuto vuole l’ultima', () => {

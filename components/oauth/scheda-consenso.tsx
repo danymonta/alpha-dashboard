@@ -5,7 +5,7 @@ import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { LinkBottone } from '@/components/link-bottone'
 import { DecisioneConsenso } from '@/components/oauth/decisione-consenso'
 import { NOME_APP } from '@/lib/brand/nome'
-import { CONSENSO, avvisoPhishing, azioniConsenso, doveTorni, type ChiCollega, type DestinazioneClaude } from '@/lib/mcp/consenso'
+import { CONSENSO, avvisoPhishing, azioniConsenso, doveTorni, maiVistoPer, type ChiCollega, type DestinazioneClaude } from '@/lib/mcp/consenso'
 
 /*
  * The consent page's cards (Claude connected to Alpha Management, 09/10/2026).
@@ -120,7 +120,7 @@ export function SchedaConsenso({
       <p className="flex gap-2 text-sm">
         <EyeOff className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span>
-          <strong className="font-semibold">{CONSENSO.maiVistoInizio}</strong> {CONSENSO.maiVisto}
+          <strong className="font-semibold">{CONSENSO.maiVistoInizio}</strong> {maiVistoPer(chi)}
         </span>
       </p>
       <div className="space-y-2 text-sm text-muted-foreground">

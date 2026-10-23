@@ -148,20 +148,23 @@ describe('il client MCP dell’SDK contro /mcp', () => {
     const { tools } = await client.listTools()
     const elimina = tools.find((t) => t.name === 'elimina_contenuto')
     expect(elimina?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true })
-    // the calendar with elimina_contenuto, projects, their management and the team's time
-    expect(tools).toHaveLength(32)
-    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['crea_progetto', 'tempo_team']))
+    // the calendar with elimina_contenuto, projects, their management, the team's time and (23/10/2026) the 11 call tools
+    expect(tools).toHaveLength(43)
+    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['crea_progetto', 'tempo_team', 'registra_esito', 'fissa_call']))
   })
 
-  it('il setter (dal 22/10/2026): solo progetti, task, note e il suo tempo, e registra_tempo arriva al database con il suo token', async () => {
+  it('il setter (dal 22/10/2026): progetti, task, note, il suo tempo e (23/10/2026) le sue call, e registra_tempo arriva al database con il suo token', async () => {
     stato.ruolo = 'setter'
     rispondi = (c) => (c.nome === 'pm_registra_tempo' ? { data: '7a000000-0000-4000-8000-000000000001' } : { data: [], count: 0 })
     const client = await collega()
     const { tools } = await client.listTools()
     const nomi = tools.map((t) => t.name)
-    expect(nomi).toHaveLength(13)
+    expect(nomi).toHaveLength(20)
     expect(nomi.some((n) => n.includes('contenut'))).toBe(false)
     expect(nomi).not.toContain('tempo_team')
+    expect(nomi).toEqual(expect.arrayContaining(['elenco_call', 'fissa_call', 'sposta_call', 'stato_lead']))
+    expect(nomi).not.toContain('registra_esito')
+    expect(nomi).not.toContain('dettagli_call')
     expect(client.getInstructions()).not.toContain('📸 Instagram Posts DANYMONTA')
     const registra = await client.callTool({
       name: 'registra_tempo',
