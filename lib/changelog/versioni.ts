@@ -100,7 +100,7 @@ export const VERSIONI: readonly Versione[] = [
       {
         per: ['tutti'],
         testo:
-          'La bandierina in alto (IT o EN, sul telefono e sul computer) cambia la lingua dell’app con un tocco; la stessa scelta sta in Profilo › Account › Lingua. Vale per questo dispositivo, finché non la cambi.',
+          'La bandierina in alto (IT o EN, sul telefono e sul computer) cambia la lingua dell’app con un tocco; la stessa scelta sta in Profilo, sotto il tema. Vale per questo dispositivo, finché non la cambi.',
       },
       {
         per: ['tutti'],
