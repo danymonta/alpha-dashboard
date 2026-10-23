@@ -720,6 +720,7 @@ begin
   perform pg_temp.prova('pm_puo_vedere', format($q$ select public.pm_puo_vedere(%L)::text $q$, a.progetto_id));
   perform pg_temp.prova('promemoria_percorso_interrotto', format($q$ select public.promemoria_percorso_interrotto(%L)::text $q$, a.sale_id));
   perform pg_temp.prova('puo_usare_mcp', $q$ select public.puo_usare_mcp()::text $q$);
+  perform pg_temp.prova('recap_mese', $q$ select public.recap_mese('2026-10-01')::text $q$);
   perform pg_temp.prova('recap_sales', $q$ select public.recap_sales('2026-10-01', '2026-10-31')::text $q$);
   perform pg_temp.prova('segna_tutorial_visto', $q$ select public.segna_tutorial_visto()::text $q$);
   perform pg_temp.prova('unisci_profili', $q$ select public.unisci_profili('22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333')::text $q$);
@@ -827,6 +828,7 @@ select is(
     'promemoria_percorso_interrotto 42501',
     'provvigioni_per_vendita 42501',
     'puo_usare_mcp ok:false',
+    'recap_mese 42501',
     'recap_sales 42501',
     'registra_vendita 42501',
     'scollega_registrazione 42501',

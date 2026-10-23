@@ -1,21 +1,23 @@
-import { BarChart3 } from 'lucide-react'
+import { CalendarDays } from 'lucide-react'
 import type { Metadata } from 'next'
-import type { ReactNode } from 'react'
+import { cookies } from 'next/headers'
 
 import { LinkBottone } from '@/components/link-bottone'
-import { Funnel, type FaseFunnel } from '@/components/panoramica/funnel'
+import { SelettoreMese } from '@/components/pagina/selettore-mese'
 import { TileKpi } from '@/components/panoramica/tile-kpi'
-import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
-import { GraficoRecap, type PuntoGrafico, type SerieRecap } from '@/components/recap/grafico-recap'
+import { CalendarioRecap } from '@/components/recap/calendario-recap'
+import { RiepilogoRecap } from '@/components/recap/riepilogo-recap'
+import { SceltaVistaRecap } from '@/components/recap/scelta-vista-recap'
+import { TabellaRecap } from '@/components/recap/tabella-recap'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { RUOLI_RECAP } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
-import { oggiRoma } from '@/lib/date'
+import { oggiRoma, parseMese, primoDelMeseISO } from '@/lib/date'
 import { formato } from '@/lib/format'
 import { getLingua } from '@/lib/i18n/server'
 import { RECAP } from '@/lib/i18n/testi/recap'
-import { leggiPeriodo } from '@/lib/periodo'
-import { etichettaPunto, leggiRecap, recapVuoto, type PuntoRecap } from '@/lib/recap/recap'
+import { leggiRecapMese, meseVuoto } from '@/lib/recap/recap'
+import { COOKIE_VISTA_RECAP, vistaRecapIniziale } from '@/lib/recap/vista'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -24,72 +26,18 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: RECAP[await getLingua()].titolo }
 }
 
-function Scheda({ titolo, descrizione, children }: { titolo: string; descrizione?: string; children: ReactNode }) {
-  return (
-    <section className="min-w-0 rounded-xl bg-card p-4">
-      <div className="mb-4 min-w-0">
-        <h2 className="text-sm font-medium">{titolo}</h2>
-        {descrizione ? <p className="mt-0.5 text-xs text-muted-foreground">{descrizione}</p> : null}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-/** The table view of a chart: the same numbers, one row per point (CLAUDE.md section 11). */
-function TabellaSerie({
-  titolo,
-  etichette,
-  serie,
-  dati,
-  valore,
-  vediTabella,
-  colonnaPeriodo,
-}: {
-  titolo: string
-  etichette: string[]
-  serie: SerieRecap[]
-  dati: PuntoGrafico[]
-  valore: (n: number) => string
-  vediTabella: string
-  colonnaPeriodo: string
-}) {
-  return (
-    <details className="mt-2">
-      <summary className="flex min-h-11 cursor-pointer items-center text-sm text-muted-foreground">{vediTabella}</summary>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <caption className="sr-only">{titolo}</caption>
-          <thead className="text-xs text-muted-foreground">
-            <tr className="border-b border-border">
-              <th scope="col" className="py-2 text-left font-normal">{colonnaPeriodo}</th>
-              {serie.map((s) => (
-                <th key={s.chiave} scope="col" className="py-2 pl-3 text-right font-normal">{s.etichetta}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {dati.map((p, i) => (
-              <tr key={`${p.lunga}-${i}`}>
-                <th scope="row" className="py-2 text-left font-normal whitespace-nowrap">{etichette[i]}</th>
-                {serie.map((s) => (
-                  <td key={s.chiave} className="num py-2 pl-3 text-right whitespace-nowrap">{valore(Number(p[s.chiave]))}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </details>
-  )
+function primo(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v
 }
 
 /**
- * Recap vendite (1.58.0, Dany, 23/10/2026): the business coach's one page, and the admin's
- * view of it. Aggregates of the sales funnel only: DMs, conversations, calls, cash and
- * revenue of new clients, never a name, a client, costs, margin or commissions. Every
- * number, rate, delta, funnel stage and point of the series comes from recap_sales()
- * (SQL); here only formatting and layout.
+ * Recap vendite (1.58.0; by month and by day from 1.59.0, Dany 23/10/2026: «rifai la dashboard
+ * per Max… stile calendario dove si vede il mese cosa è successo ogni giorno… visualizzazione a
+ * calendario o a tabella»): the business coach's one page, and the admin's view of it. The tiles
+ * of the month against the month before, the month as a calendar (or as the Excel sheet) with
+ * every day's detail, and the ratio boxes of the sheet with the app's definitions. Team totals
+ * only: never a name, a client, costs, margin or commissions. Every number comes from
+ * recap_mese() (SQL); here only formatting and layout.
  */
 export default async function RecapPage({
   searchParams,
@@ -99,17 +47,27 @@ export default async function RecapPage({
   await requireRuolo(RUOLI_RECAP)
   const lingua = await getLingua()
   const t = RECAP[lingua]
-  const { formatEuro, formatMese, formatMeseBreve, formatNumero, formatPercentuale } = formato(lingua)
+  const { formatEuro, formatMese, formatNomeMese, formatNumero, formatPercentuale } = formato(lingua)
 
+  const parametri = await searchParams
   const oggi = oggiRoma()
-  const periodo = leggiPeriodo(await searchParams, oggi, lingua)
+  const meseCorrente = primoDelMeseISO(oggi)
+  // the current month and the past ones: the future has nothing to tell yet
+  const richiesto = parseMese(primo(parametri.mese))
+  const mese = richiesto !== null && richiesto <= meseCorrente ? richiesto : meseCorrente
+  const meseNelLink = richiesto !== null && richiesto <= meseCorrente ? mese.slice(0, 7) : null
+  const vistaNellUrl = primo(parametri.vista)
+  const vista = vistaRecapIniziale(vistaNellUrl, (await cookies()).get(COOKIE_VISTA_RECAP)?.value)
+
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc('recap_sales', { p_da: periodo.da, p_a: periodo.a })
+  const { data, error } = await supabase.rpc('recap_mese', { p_mese: mese })
   if (error || data === null) throw new Error(t.errore)
 
-  const r = leggiRecap(data)
+  const r = leggiRecapMese(data)
   const v = r.valori
-  const confronto = periodo.confronto
+  const confronto = t.confronto(formatNomeMese(r.precedenteDa))
+  // the day of the database decides what is past, today and future
+  const giornoDiOggi = r.oggi || oggi
 
   const intestazione = (
     <header className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
@@ -117,17 +75,23 @@ export default async function RecapPage({
         <h1 className="font-heading text-xl font-semibold md:text-2xl">{t.titolo}</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">{t.descrizione}</p>
       </div>
-      <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/recap" className="md:-mr-3" />
+      <SelettoreMese
+        mese={mese}
+        meseCorrente={meseCorrente}
+        percorso="/recap"
+        parametri={{ vista: vistaNellUrl ? vista : undefined }}
+        className="md:-mr-3"
+      />
     </header>
   )
 
-  if (recapVuoto(r)) {
+  if (meseVuoto(r)) {
     return (
       <div className="space-y-5">
         {intestazione}
         <StatoVuoto
-          Icona={BarChart3}
-          titolo={t.vuotoTitolo}
+          Icona={CalendarDays}
+          titolo={t.vuotoTitolo(formatMese(mese))}
           descrizione={t.vuotoDescrizione}
           azione={
             <LinkBottone href="/recap" variant="outline">
@@ -137,60 +101,6 @@ export default async function RecapPage({
         />
       </div>
     )
-  }
-
-  // the stages of funnel_periodo, with where they come from and the rates of the overview
-  const FONTE: Record<string, string> = {
-    'DM totali': t.dalReport,
-    Conversazioni: t.dalReport,
-    'Call prenotate': t.dalReport,
-    'Call svolte': t.dalleCall,
-    Chiuse: t.dalleCall,
-  }
-  const fasi: FaseFunnel[] = r.funnel.map((f) => ({
-    ...f,
-    fase: t.fasi[f.fase] ?? f.fase,
-    fonte: FONTE[f.fase],
-    tasso:
-      f.fase === 'Conversazioni'
-        ? { etichetta: t.tassoConv, spiegazione: t.tassoConvNota }
-        : f.fase === 'Call svolte'
-          ? { etichetta: t.showRateBreve, spiegazione: t.showRateNota, valore: v.show_rate }
-          : undefined,
-  }))
-
-  // the series: labels are formatted here, the values are SQL's
-  const mese = { breve: formatMeseBreve, lungo: formatMese }
-  const etichetta = (p: PuntoRecap) => etichettaPunto(p, r.granularita, lingua, mese, t.settimanaDal)
-  const punti = (chiavi: (keyof PuntoRecap)[]): PuntoGrafico[] =>
-    r.serie.map((p) => {
-      const e = etichetta(p)
-      return { breve: e.breve, lunga: e.lunga, ...Object.fromEntries(chiavi.map((k) => [k, Number(p[k])])) }
-    })
-  const lunghe = r.serie.map((p) => etichetta(p).lunga)
-  const quando = t.granularita[r.granularita]
-
-  const SERIE_DM: SerieRecap[] = [
-    { chiave: 'dm_outbound', etichetta: t.serieOutbound, colore: 'var(--chart-dm-outbound)' },
-    { chiave: 'dm_inbound', etichetta: t.serieInbound, colore: 'var(--chart-dm-inbound)' },
-    { chiave: 'follow_up', etichetta: t.serieFollowUp, colore: 'var(--chart-dm-follow-up)' },
-  ]
-  const SERIE_CALL: SerieRecap[] = [
-    { chiave: 'call_svolte', etichetta: t.serieSvolte, colore: 'var(--chart-call-svolte)' },
-    { chiave: 'chiuse', etichetta: t.serieChiuse, colore: 'var(--chart-nuovo)' },
-  ]
-  const SERIE_CASH: SerieRecap[] = [
-    { chiave: 'cash_nuovi_clienti', etichetta: t.serieCash, colore: 'var(--chart-nuovo)' },
-  ]
-  const datiDm = punti(['dm_outbound', 'dm_inbound', 'follow_up'])
-  const datiCall = punti(['call_svolte', 'chiuse'])
-  const datiCash = punti(['cash_nuovi_clienti'])
-  const numero = (n: number) => formatNumero(n)
-  const euro = (n: number) => formatEuro(n)
-  const comuni = {
-    etichette: lunghe,
-    vediTabella: t.vediTabella,
-    colonnaPeriodo: t.periodoColonna,
   }
 
   return (
@@ -258,23 +168,22 @@ export default async function RecapPage({
         />
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Scheda titolo={t.funnel} descrizione={t.funnelDescrizione}>
-          <Funnel fasi={fasi} />
-        </Scheda>
-        <Scheda titolo={t.graficoDm} descrizione={quando}>
-          <GraficoRecap dati={datiDm} serie={SERIE_DM} impilato />
-          <TabellaSerie titolo={t.graficoDm} serie={SERIE_DM} dati={datiDm} valore={numero} {...comuni} />
-        </Scheda>
-        <Scheda titolo={t.graficoCall} descrizione={quando}>
-          <GraficoRecap dati={datiCall} serie={SERIE_CALL} />
-          <TabellaSerie titolo={t.graficoCall} serie={SERIE_CALL} dati={datiCall} valore={numero} {...comuni} />
-        </Scheda>
-        <Scheda titolo={t.graficoCash} descrizione={quando}>
-          <GraficoRecap dati={datiCash} serie={SERIE_CASH} euro />
-          <TabellaSerie titolo={t.graficoCash} serie={SERIE_CASH} dati={datiCash} valore={euro} {...comuni} />
-        </Scheda>
+      <div className="flex justify-end">
+        <SceltaVistaRecap vista={vista} mese={meseNelLink} />
       </div>
+
+      {vista === 'tabella' ? (
+        <TabellaRecap giorni={r.giorni} totali={r.totali} oggi={giornoDiOggi} lingua={lingua} />
+      ) : (
+        <CalendarioRecap giorni={r.giorni} oggi={giornoDiOggi} />
+      )}
+
+      <RiepilogoRecap
+        corrente={r.riepilogo}
+        precedente={r.riepilogoPrecedente}
+        mesePrima={formatNomeMese(r.precedenteDa)}
+        lingua={lingua}
+      />
     </div>
   )
 }

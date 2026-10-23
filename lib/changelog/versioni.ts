@@ -86,6 +86,36 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.59.0',
+    data: '2026-10-23',
+    titolo: 'Il recap vendite a calendario, giorno per giorno',
+    riassunto:
+      'Il recap del business coach mostra un mese alla volta come un calendario, o come il foglio Excel, con il dettaglio di ogni giorno e i rapporti del foglio calcolati con le definizioni dell’app.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Il «Recap vendite» si legge per mese: in alto si sceglie il mese (quello in corso o uno passato) e le tessere si confrontano con il mese prima. Sotto, il mese come un calendario da lunedì a domenica: in ogni giorno i DM, le conversazioni, le call prenotate, le call svolte, le chiuse e il cash, con le parole e un’icona; un giorno senza niente lo dice, oggi è segnato e i giorni che devono ancora venire sono grigi. Dal telefono il calendario diventa l’elenco dei giorni con attività.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Un tocco su un giorno apre il suo dettaglio come una riga del foglio: il setting (outbound, inbound, follow up, DM totali, conversazioni, call proposte e prenotate) e il closing (call svolte, qualificate, no show, follow up, cancellate, in attesa di conferma, chiuse, cash della prima rata e revenue dei nuovi clienti), con show rate e close rate del giorno e le frecce per passare al giorno prima o dopo.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Con «Tabella» lo stesso mese è il foglio: un giorno per riga, setting a sinistra e closing a destra, il totale del mese in fondo. La vista scelta resta per la volta dopo.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'In fondo, «Riepilogo del mese» con i rapporti del foglio (DM su conversazioni, call proposte su prenotate, DM su call qualificate, DM per call prenotata, show rate, tasso di qualificazione, close rate, cash e revenue per DM, cash per call svolta, valore medio di un cliente nuovo, cash medio per chiusura), ognuno con il mese prima. Sono calcolati dal database con le definizioni dell’app, non con le formule rotte del foglio. I tre grafici di prima non ci sono più: li sostituisce il calendario.',
+      },
+    ],
+  },
+  {
     versione: '1.58.0',
     data: '2026-10-23',
     titolo: 'Il business coach ha solo il recap vendite',

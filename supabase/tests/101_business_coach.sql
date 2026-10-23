@@ -1,7 +1,7 @@
 -- The business coach (Dany, 23/10/2026, 1.58.0: «una versione per Max dove lui ha semplicemente una
 -- pagina… unicamente una dashboard sales per il mio business coach»; 20261101090000). Until 1.57.x he
 -- read what the admin reads (20261028090100); now the database gives him his own profile row and one
--- function, recap_sales(), and nothing else: no row of any other table or view, every read function of
+-- function, recap_sales() (and from 1.59.0 recap_mese(), the same numbers by month and by day), and nothing else: no row of any other table or view, every read function of
 -- the admin 42501, no write, no Claude. recap_sales answers him exactly the numbers of the Panoramica
 -- (metriche_periodo, metriche_setting, funnel_periodo called by the admin), aggregates only.
 -- Every table and view of public is counted as him, so a table added later is covered without editing
@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(53);
+select plan(72);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres). Seed: admin 1111, setter 2222, closer 3333, coach 4444, editor 5555,
@@ -505,6 +505,182 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
+-- 4b. recap_mese (1.59.0): the month by day, the totals of the Panoramica and of the Closer page
+-- ---------------------------------------------------------------------------
+create temp table mese_recap (persona text, dati jsonb) on commit drop;
+grant select, insert on mese_recap to authenticated;
+create temp table mese_admin (chiave text, dati jsonb) on commit drop;
+grant select, insert on mese_admin to authenticated;
+create temp table m on commit drop as
+select date_trunc('month', public.oggi())::date as da,
+       ((date_trunc('month', public.oggi()) + interval '1 month')::date - 1) as a,
+       (date_trunc('month', public.oggi()) - interval '1 month')::date as prec_da,
+       (date_trunc('month', public.oggi())::date - 1) as prec_a;
+grant select on m to authenticated;
+
+select pg_temp.web('11111111-1111-4111-8111-111111111111');
+insert into mese_recap select 'admin', public.recap_mese((select da from m) + 9);
+insert into mese_admin select 'metriche', to_jsonb(x) from public.metriche_periodo((select da from m), (select a from m)) x;
+insert into mese_admin select 'precedente', to_jsonb(x) from public.metriche_periodo((select prec_da from m), (select prec_a from m)) x;
+insert into mese_admin select 'setting', to_jsonb(s) from public.metriche_setting((select da from m), (select a from m)) s
+  where s.setter_id is null;
+insert into mese_admin select 'closer', to_jsonb(g) from public.giornate_closer((select da from m), (select a from m)) g
+  where g.data is null;
+insert into mese_admin select 'sales', public.recap_sales((select da from m), (select a from m));
+select pg_temp.web('bc000000-0000-4000-8000-000000000001');
+insert into mese_recap select 'bc', public.recap_mese((select da from m));
+reset role;
+set local request.jwt.claims to '{}';
+
+select is((select dati from mese_recap where persona = 'bc'), (select dati from mese_recap where persona = 'admin'),
+  'recap_mese: il business coach legge gli stessi numeri dell''admin, da qualunque giorno del mese');
+select is(
+  (select array[r.dati -> 'valori', r.dati -> 'precedenti', r.dati -> 'delta']
+   from mese_recap r where r.persona = 'bc'),
+  (select array[a.dati -> 'valori', a.dati -> 'precedenti', a.dati -> 'delta'] from mese_admin a where a.chiave = 'sales'),
+  'recap_mese: le tessere sono quelle di recap_sales sul mese intero'
+);
+select is(
+  (select array[jsonb_array_length(dati -> 'giorni')::text, dati -> 'giorni' -> 0 ->> 'giorno',
+                dati -> 'giorni' -> -1 ->> 'giorno', dati ->> 'da', dati ->> 'a', dati ->> 'precedente_da']
+   from mese_recap where persona = 'bc'),
+  (select array[((a - da) + 1)::text, da::text, a::text, da::text, a::text, prec_da::text] from m),
+  'recap_mese: ogni giorno del mese, dal primo all''ultimo, anche quelli senza niente'
+);
+select is(
+  (select coalesce(string_agg(k, ', ' order by k), '')
+   from mese_recap r,
+        unnest(array['dm_outbound', 'dm_inbound', 'follow_up', 'dm_totali', 'conversazioni', 'call_proposte',
+                     'call_prenotate', 'prenotate_inbound', 'prenotate_outbound', 'call_svolte', 'qualificate',
+                     'no_show', 'call_follow_up', 'cancellate', 'in_attesa', 'chiuse', 'cash', 'revenue']) k
+   where r.persona = 'bc'
+     and (select sum((g ->> k)::numeric) from jsonb_array_elements(r.dati -> 'giorni') g)
+         is distinct from (r.dati -> 'totali' ->> k)::numeric),
+  '',
+  'recap_mese: i giorni sommano ai totali del mese, voce per voce'
+);
+select is(
+  (select coalesce(string_agg(k, ', ' order by k), '')
+   from mese_recap r, mese_admin a,
+        unnest(array['dm_totali', 'conversazioni', 'call_proposte', 'call_prenotate', 'call_svolte', 'no_show',
+                     'qualificate', 'chiuse']) k
+   where r.persona = 'bc' and a.chiave = 'metriche'
+     and (r.dati -> 'totali' ->> k)::numeric is distinct from (a.dati ->> k)::numeric),
+  '',
+  'recap_mese: i totali del setting e delle call sono quelli di metriche_periodo (la Panoramica)'
+);
+select is(
+  (select coalesce(string_agg(k, ', ' order by k), '')
+   from mese_recap r, mese_admin a,
+        unnest(array['dm_outbound', 'dm_inbound', 'follow_up', 'prenotate_inbound', 'prenotate_outbound']) k
+   where r.persona = 'bc' and a.chiave = 'setting'
+     and (r.dati -> 'totali' ->> k)::numeric is distinct from (a.dati ->> k)::numeric),
+  '',
+  'recap_mese: outbound, inbound, follow up e le prenotate per fonte sono quelli di metriche_setting'
+);
+select is(
+  (select array[(r.dati -> 'totali' ->> 'call_svolte')::numeric, (r.dati -> 'totali' ->> 'qualificate')::numeric,
+                (r.dati -> 'totali' ->> 'no_show')::numeric, (r.dati -> 'totali' ->> 'call_follow_up')::numeric,
+                (r.dati -> 'totali' ->> 'cancellate')::numeric, (r.dati -> 'totali' ->> 'chiuse')::numeric,
+                (r.dati -> 'totali' ->> 'cash')::numeric, (r.dati -> 'totali' ->> 'revenue')::numeric]
+   from mese_recap r where r.persona = 'bc'),
+  (select array[coalesce((a.dati ->> 'call')::numeric, 0), coalesce((a.dati ->> 'qualificate')::numeric, 0),
+                coalesce((a.dati ->> 'no_show')::numeric, 0), coalesce((a.dati ->> 'follow_up')::numeric, 0),
+                coalesce((a.dati ->> 'cancellate')::numeric, 0), coalesce((a.dati ->> 'chiuse')::numeric, 0),
+                coalesce((a.dati ->> 'cash')::numeric, 0), coalesce((a.dati ->> 'revenue')::numeric, 0)]
+   from (select (select dati from mese_admin where chiave = 'closer') as dati) a),
+  'recap_mese: i totali del closing sono quelli di giornate_closer per tutti i closer (la pagina Closer)'
+);
+select is(
+  (select (r.dati -> 'totali' ->> 'revenue')::numeric from mese_recap r where r.persona = 'bc'),
+  (select (a.dati ->> 'revenue_nuovi')::numeric from mese_admin a where a.chiave = 'metriche'),
+  'recap_mese: la revenue dei giorni è la revenue dei nuovi clienti del mese'
+);
+select is(
+  (select coalesce(string_agg(k, ', ' order by k), '')
+   from mese_recap r, mese_admin a,
+        unnest(array['tasso_conversazione', 'tasso_prenotazione', 'dm_per_call', 'show_rate', 'tasso_qualificazione',
+                     'close_rate', 'close_rate_qualificate', 'chiuse', 'cash_nuovi_clienti', 'revenue_nuovi',
+                     'cash_per_dm', 'revenue_per_dm', 'cash_per_call_svolta', 'valore_medio_nuovo']) k
+   where r.persona = 'bc' and a.chiave = 'metriche'
+     and (r.dati -> 'riepilogo' ->> k)::numeric is distinct from (a.dati ->> k)::numeric),
+  '',
+  'recap_mese: il riepilogo è metriche_periodo (sezione 9)'
+);
+select is(
+  (select array[(r.dati -> 'riepilogo' ->> 'tasso_dm_qualificate')::numeric,
+                (r.dati -> 'riepilogo' ->> 'cash_medio_chiusura')::numeric]
+   from mese_recap r where r.persona = 'bc'),
+  (select array[public.rapporto((a.dati ->> 'qualificate')::numeric, (a.dati ->> 'dm_totali')::numeric),
+                public.rapporto((a.dati ->> 'cash_nuovi_clienti')::numeric, (a.dati ->> 'chiuse')::numeric)]
+   from mese_admin a where a.chiave = 'metriche'),
+  'recap_mese: DM → qualificate e cash medio per chiusura con rapporto() (null senza denominatore)'
+);
+select is(
+  (select coalesce(string_agg(k, ', ' order by k), '')
+   from mese_recap r, mese_admin a,
+        unnest(array['tasso_conversazione', 'tasso_prenotazione', 'show_rate', 'close_rate', 'cash_nuovi_clienti',
+                     'revenue_nuovi', 'valore_medio_nuovo']) k
+   where r.persona = 'bc' and a.chiave = 'precedente'
+     and (r.dati -> 'riepilogo_precedente' ->> k)::numeric is distinct from (a.dati ->> k)::numeric),
+  '',
+  'recap_mese: il riepilogo del mese prima è metriche_periodo del mese prima'
+);
+select is(
+  (select coalesce(string_agg(g ->> 'giorno', ', '), '')
+   from mese_recap r, jsonb_array_elements(r.dati -> 'giorni') g
+   where r.persona = 'bc'
+     and ((g ->> 'show_rate')::numeric is distinct from
+            public.rapporto((g ->> 'call_svolte')::numeric, (g ->> 'call_svolte')::numeric + (g ->> 'no_show')::numeric)
+          or (g ->> 'close_rate')::numeric is distinct from
+            public.rapporto((g ->> 'chiuse')::numeric, (g ->> 'call_svolte')::numeric))),
+  '',
+  'recap_mese: show rate e close rate di ogni giorno, null senza call'
+);
+select ok(
+  (select dati::text !~* '(nome|cliente|lead|setter_id|closer_id|margine|costi|provvigion|email)' from mese_recap where persona = 'bc'),
+  'recap_mese: solo totali del team, mai un nome, un cliente, un lead, costi, margine o provvigioni'
+);
+select pg_temp.web('bc000000-0000-4000-8000-000000000001');
+select ok(not public.legge_come_admin(), 'dopo recap_mese: legge_come_admin di nuovo no');
+select throws_ok($$ select public.recap_mese(null) $$, '22023', null, 'recap_mese: senza un mese 22023');
+reset role;
+set local request.jwt.claims to '{}';
+
+create temp table esiti_mese (persona text, esito text) on commit drop;
+grant select, insert on esiti_mese to authenticated;
+create or replace function pg_temp.prova_mese(p_persona text)
+returns void language plpgsql as $$
+begin
+  begin
+    perform public.recap_mese(public.oggi());
+    insert into pg_temp.esiti_mese values (p_persona, 'passa');
+  exception when others then
+    insert into pg_temp.esiti_mese values (p_persona, sqlstate);
+  end;
+end $$;
+select pg_temp.web('22222222-2222-4222-8222-222222222222');
+select pg_temp.prova_mese('setter');
+select pg_temp.web('33333333-3333-4333-8333-333333333333');
+select pg_temp.prova_mese('closer');
+select pg_temp.web('44444444-4444-4444-8444-444444444444');
+select pg_temp.prova_mese('coach');
+select pg_temp.web('55555555-5555-4555-8555-555555555555');
+select pg_temp.prova_mese('editor');
+select pg_temp.web('61616161-6161-4161-8161-616161616161');
+select pg_temp.prova_mese('marketing');
+reset role;
+set local request.jwt.claims to '{}';
+set local role authenticated;
+select pg_temp.prova_mese('nessuna sessione');
+reset role;
+select is(
+  (select array_agg(persona || ' ' || esito order by persona) from esiti_mese),
+  array['closer 42501', 'coach 42501', 'editor 42501', 'marketing 42501', 'nessuna sessione 42501', 'setter 42501'],
+  'recap_mese: gli altri ruoli e senza sessione 42501'
+);
+
+-- ---------------------------------------------------------------------------
 -- 5. Never a write
 -- ---------------------------------------------------------------------------
 create temp table scritture (tabella text, azione text, esito text) on commit drop;
@@ -625,6 +801,8 @@ select pg_temp.web('bc000000-0000-4000-8000-000000000001');
 select pg_temp.conta_tutto('spento');
 select throws_ok($$ select public.recap_sales(public.oggi() - 30, public.oggi()) $$, '42501', null,
   'disattivato: recap_sales 42501');
+select throws_ok($$ select public.recap_mese(public.oggi()) $$, '42501', null,
+  'disattivato: recap_mese 42501');
 reset role;
 set local request.jwt.claims to '{}';
 select is(
@@ -661,12 +839,16 @@ set local request.jwt.claims to '{}';
 select pg_temp.claude('bc000000-0000-4000-8000-000000000001', '9e000000-0000-4000-8000-000000000101');
 select throws_ok($$ select public.recap_sales(public.oggi() - 30, public.oggi()) $$, '42501', null,
   'token di Claude del business coach: recap_sales 42501');
+select throws_ok($$ select public.recap_mese(public.oggi()) $$, '42501', null,
+  'token di Claude del business coach: recap_mese 42501');
 reset role;
 set local request.jwt.claims to '{}';
 -- the admin's token too: the recap is a page of the app, never of Claude
 select pg_temp.claude('11111111-1111-4111-8111-111111111111', '9e000000-0000-4000-8000-000000000102', '/rpc/mcp_chi_sono', 'POST');
 select throws_ok($$ select public.recap_sales(public.oggi() - 30, public.oggi()) $$, '42501', null,
   'token di Claude dell''admin: recap_sales 42501');
+select throws_ok($$ select public.recap_mese(public.oggi()) $$, '42501', null,
+  'token di Claude dell''admin: recap_mese 42501');
 reset role;
 set local request.jwt.claims to '{}';
 -- after the filter tried, his token reads nothing

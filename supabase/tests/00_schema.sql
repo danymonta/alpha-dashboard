@@ -217,8 +217,9 @@ select results_eq(
        'pm_coach_del_cliente', 'pm_crea_progetto', 'pm_ferma_timer', 'pm_livello_corrente',
        'pm_membro', 'pm_puo_gestire', 'pm_puo_modificare_task', 'pm_puo_vedere',
        'promemoria_percorso_interrotto', 'puo_usare_mcp',
-       -- the sales recap (1.58.0): the active admin and business coach, never an OAuth token
-       'recap_sales',
+       -- the sales recap (1.58.0, by month and day from 1.59.0): the active admin and business coach,
+       -- never an OAuth token
+       'recap_mese', 'recap_sales',
        'segna_tutorial_visto', 'unisci_profili',
        'vede_marketing'
      ]::text[]) as x order by 1 $$,
