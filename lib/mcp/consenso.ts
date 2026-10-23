@@ -142,6 +142,8 @@ export const CONSENSO = {
   titoloNonDaClaude: 'Richiesta non riconosciuta',
   titoloInterrotto: 'Collegamento non riuscito',
   nonAmmesso: 'Il tuo account non è attivo: Claude si collega ad Alpha Management solo con un account attivo.',
+  // the business coach (1.58.0): his one page is the sales recap, no Claude
+  nonAmmessoRecap: 'Il tuo account non collega Claude: il recap vendite lo leggi nell’app.',
   nonDaClaude: 'Questa richiesta non arriva da Claude: non la seguo.',
   rifiutataNonDaClaude: 'Richiesta rifiutata. Non torno a quell’indirizzo: non è di Claude.',
   chiede: 'chiede di lavorare ad Alpha Management come',
@@ -190,16 +192,6 @@ export const CONSENSO = {
       'leggere i numeri dell’azienda come la Panoramica (cash, margine operativo, previsione di cassa, obiettivi), i costi, le provvigioni e il team, registrare e correggere costi e pagamenti di provvigioni, creare, chiudere e correggere le regole provvigionali e impostare gli obiettivi del mese',
     setter: 'leggere le tue provvigioni maturate e pagate, mese per mese',
   },
-  // the business coach (22/10/2026): reads only
-  azioniSolaLettura: [
-    'leggere il calendario dei contenuti (reel e caroselli) con i testi delle sezioni, il profilo del cliente ideale, la guida di Dany ai contenuti e gli ultimi spunti',
-    'leggere tutti i progetti, con liste, task, membri e note',
-    'leggere il tempo già dichiarato dal team, come in Tempo › Team',
-    'leggere tutte le call e tutti i lead',
-    'leggere clienti, vendite, rate e incassi, come l’admin',
-    'leggere i numeri dell’azienda, i costi, le provvigioni, gli obiettivi e il team, come l’admin',
-    'senza mai creare, cambiare o eliminare niente',
-  ],
   maiVistoInizio: 'Non vedrà mai',
   maiVisto:
     'soldi, clienti, lead, call, report del setter, messaggi diretti, il tempo degli altri né il resto del gestionale, e non eliminerà niente dei progetti.',
@@ -210,8 +202,6 @@ export const CONSENSO = {
     'le vendite degli altri closer, i contatti dei clienti, il metodo di pagamento, costi, provvigioni, margine, report del setter, le analisi di Claude sulle call, messaggi diretti, il tempo degli altri né il resto del gestionale, e non eliminerà niente: né vendite, né rate, né call, né lead, né progetti.',
   maiVistoSetter:
     'importi proposti, link di Fathom, performance delle call, vendite e incassi di altri, le provvigioni degli altri e la percentuale della tua regola, contatti dei clienti, costi, margine, report del setter, le analisi di Claude sulle call, messaggi diretti, il tempo degli altri né il resto del gestionale, e non eliminerà niente: né call, né lead, né progetti.',
-  maiVistoSolaLettura:
-    'report del setter, le analisi di Claude sulle call, messaggi diretti, i timer accesi degli altri, export e backup né il resto del gestionale.',
   team: 'Ogni modifica di Claude la vede il team nell’app, come se l’avessi fatta tu.',
   privacy:
     'I testi che Claude legge passano dal tuo account Claude (Anthropic): nelle impostazioni di privacy di Claude tieni spento l’uso delle chat per migliorare i modelli.',
@@ -251,7 +241,7 @@ export function azioniConsenso(chi: ChiCollega): string[] {
   const call = economics ? CONSENSO.azioniCall[chi.ruolo as 'admin' | 'setter' | 'closer'] : null
   const vendite = economics ? CONSENSO.azioniVendite[chi.ruolo as 'admin' | 'setter' | 'closer'] : null
   const numeri = chi.ruolo === 'admin' || chi.ruolo === 'setter' ? CONSENSO.azioniEconomics[chi.ruolo] : null
-  const voci: string[] = chi.ruolo === 'business_coach' ? [...CONSENSO.azioniSolaLettura] : [
+  const voci: string[] = [
     ...(call ? [call] : []),
     ...(vendite ? [vendite] : []),
     ...(numeri ? [numeri] : []),
@@ -269,7 +259,6 @@ export function azioniConsenso(chi: ChiCollega): string[] {
  * the admin, the closer and the setter the money they read in the app (phase 3, 23/10/2026).
  */
 export function maiVistoPer(chi: Pick<ChiCollega, 'ruolo'>): string {
-  if (chi.ruolo === 'business_coach') return CONSENSO.maiVistoSolaLettura
   if (chi.ruolo === 'setter') return CONSENSO.maiVistoSetter
   if (chi.ruolo === 'closer') return CONSENSO.maiVistoCloser
   if (chi.ruolo === 'admin') return CONSENSO.maiVistoCall
@@ -354,3 +343,8 @@ export const APP_COLLEGATE = {
   scollega: 'Scollega',
   conseguenza: 'Claude non potrà più leggere né scrivere niente a tuo nome finché non lo ricolleghi.',
 } as const
+
+/** Why this person does not connect Claude: the business coach sees only the sales recap (1.58.0). */
+export function testoNonAmmesso(ruolo: string): string {
+  return ruolo === 'business_coach' ? CONSENSO.nonAmmessoRecap : CONSENSO.nonAmmesso
+}

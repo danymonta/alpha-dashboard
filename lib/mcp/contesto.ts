@@ -5,8 +5,9 @@ import type { Database } from '@/lib/supabase/database.types'
 
 /**
  * The roles Claude acts with (the SQL mcp_ruolo()): since 22/10/2026 every
- * role, with an active account (Claude a 360 gradi, phase 1). What each one
- * reaches is the person's own permissions in the app.
+ * role, with an active account (Claude a 360 gradi, phase 1), except the
+ * business coach since 1.58.0 (RUOLI_MCP): he sees only the sales recap. What
+ * each one reaches is the person's own permissions in the app.
  */
 export type RuoloMcp = AppRole
 

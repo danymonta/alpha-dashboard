@@ -11,7 +11,7 @@ import { SceltaVista } from '@/components/pm/timeline/scelta-vista'
 import { ScheletroTimeline } from '@/components/pm/timeline/scheletro-timeline'
 import { TimelineDati } from '@/components/pm/timeline/timeline-dati'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { livelloPmEffettivo, solaLettura } from '@/lib/auth/roles'
+import { livelloPmEffettivo } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { getLingua } from '@/lib/i18n/server'
@@ -149,7 +149,7 @@ export default async function ProgettiPage({
     <div className="max-w-6xl space-y-6">
       <IntestazionePagina
         titolo={t.titolo}
-        descrizione={solaLettura(profilo.ruolo) ? t.descrizioneLettura : t.descrizione[livello]}
+        descrizione={t.descrizione[livello]}
         azione={
           livello === 'admin' || creatore ? (
             <div className="flex flex-wrap gap-2">

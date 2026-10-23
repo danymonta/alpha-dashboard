@@ -9,7 +9,6 @@ import { ContrattoVendita } from '@/components/cliente/contratto-vendita'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoRata } from '@/components/pagamento/stato-rata'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { leggeComeAdmin, puoScrivere } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma, stessoGiornoTraMesi } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -26,8 +25,7 @@ export default async function DettaglioVenditaPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  // the business coach reads it as the admin does, and never changes it (22/10/2026)
-  const profilo = await requireRuolo(['admin', 'closer', 'business_coach'])
+  const profilo = await requireRuolo(['admin', 'closer'])
   const { id } = await params
   const lingua = await getLingua()
   const t = VENDITE[lingua]
@@ -52,11 +50,9 @@ export default async function DettaglioVenditaPage({
     .eq('sale_id', id)
     .maybeSingle()
 
-  // the admin's reads (the business coach's too); `admin`: the admin's buttons, never the business coach's
-  const comeAdmin = leggeComeAdmin(profilo.ruolo)
-  const admin = comeAdmin && puoScrivere(profilo.ruolo)
+  const admin = profilo.ruolo === 'admin'
   // the edit sheet's lists: admin only, former collaborators stay where they already are
-  const [catalogo, persone, provvigione, contratto, picker] = comeAdmin
+  const [catalogo, persone, provvigione, contratto, picker] = admin
     ? await Promise.all([
         supabase.from('products').select('id, nome, attivo').order('nome'),
         supabase.from('profiles').select('id, nome, ruolo, attivo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
@@ -65,15 +61,15 @@ export default async function DettaglioVenditaPage({
         // the link to the signed contract (21/10/2026): admin only, never read for the closer
         supabase.from('vendite_contratti').select('url').eq('sale_id', id).maybeSingle(),
         // "Scegli da Drive": the Google Picker's public values; none = the typed link only
-        admin ? configPickerRichiesta() : null,
+        configPickerRichiesta(),
       ])
     : [null, null, null, null, null]
   if (contratto?.error) throw new Error(t.erroreContratto)
 
-  const tornaIndietro = comeAdmin ? '/sales' : '/my-sales'
+  const tornaIndietro = admin ? '/sales' : '/my-sales'
   const indietro = {
     href: tornaIndietro,
-    etichetta: comeAdmin ? t.titolo : t.leMieVendite,
+    etichetta: admin ? t.titolo : t.leMieVendite,
   }
 
   if (!vendita) {
@@ -108,7 +104,7 @@ export default async function DettaglioVenditaPage({
     [t.setter, vendita.setter?.nome ?? '–'],
   ]
   const quota = provvigione?.data?.[0]
-  if (comeAdmin && vendita.setter_id) {
+  if (admin && vendita.setter_id) {
     dettagli.push([
       t.provvigione,
       quota
@@ -220,15 +216,13 @@ export default async function DettaglioVenditaPage({
         ) : null}
       </dl>
 
-      {comeAdmin ? (
+      {admin ? (
         // one contract per sale: every path and every renewal has its own; only the admin sees it
-        // (and the business coach, who reads it and never changes it)
         <ContrattoVendita
           saleId={vendita.id}
           cliente={nomeCliente || t.questoCliente}
           url={contratto?.data?.url ?? null}
           picker={picker}
-          solaLettura={!admin}
         />
       ) : null}
 
@@ -271,7 +265,7 @@ export default async function DettaglioVenditaPage({
               </div>
               {/* fixed width from md up: amounts line up whatever the actions */}
               <div className="md:w-52 md:shrink-0">
-                {rata.stato !== 'rimborsata' && puoScrivere(profilo.ruolo) ? (
+                {rata.stato !== 'rimborsata' ? (
                   <RataAzioni
                     rata={rata}
                     admin={admin}

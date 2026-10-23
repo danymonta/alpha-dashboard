@@ -11,8 +11,6 @@ export const CLIENTI = bilingue(
     caricamentoScheda: 'Caricamento della scheda cliente',
     descrizioneAdmin:
       'Attivi, sospesi e chiusi con il loro percorso, il contratto, quanto hanno pagato e le rate da saldare. Lo stato si calcola dalle vendite; Sospeso e Chiuso li decidi tu dalla scheda del cliente («Sospendi», «Non rinnova»).',
-    descrizioneLettura:
-      'Attivi, sospesi e chiusi con il loro percorso, il contratto, quanto hanno pagato e le rate da saldare. Lo stato si calcola dalle vendite; Sospeso e Chiuso li decide l’admin.',
     viste: { attivi: 'Attivi', sospesi: 'Sospesi', chiusi: 'Chiusi', tutti: 'Tutti' },
     elencoClienti: 'Elenco dei clienti',
     clientiVista: (vista: string) => `Clienti ${vista.toLowerCase()}`,
@@ -107,8 +105,6 @@ export const CLIENTI = bilingue(
     nessunPercorso: 'Nessun percorso registrato',
     nessunPercorsoAdmin:
       'Con «Registra la prima vendita» parte lo storico: ogni rinnovo si aggiunge sopra e i periodi passati restano qui.',
-    nessunPercorsoLettura:
-      'Lo storico parte con la prima vendita: ogni rinnovo si aggiunge sopra e i periodi passati restano qui.',
     // the path history
     statoPercorso: { da_iniziare: 'Da iniziare', in_corso: 'In corso', concluso: 'Concluso', interrotto: 'Interrotto' },
     dalAl: (da: string, a: string) => `dal ${da} al ${a}`,
@@ -148,8 +144,6 @@ export const CLIENTI = bilingue(
     caricamentoScheda: 'Loading the client card',
     descrizioneAdmin:
       'Active, on hold and closed, with their programme, the contract, how much they paid and the instalments left. The status comes from the sales; On hold and Closed are decided by you on the client card («Suspend», «Not renewing»).',
-    descrizioneLettura:
-      'Active, on hold and closed, with their programme, the contract, how much they paid and the instalments left. The status comes from the sales; On hold and Closed are decided by the admin.',
     viste: { attivi: 'Active', sospesi: 'On hold', chiusi: 'Closed', tutti: 'All' },
     elencoClienti: 'Client list',
     clientiVista: (vista: string) => `Clients ${vista.toLowerCase()}`,
@@ -241,7 +235,6 @@ export const CLIENTI = bilingue(
     nessunPercorso: 'No programme recorded',
     nessunPercorsoAdmin:
       'With «Record the first sale» the history starts: each renewal is added on top and the past periods stay here.',
-    nessunPercorsoLettura: 'The history starts with the first sale: each renewal is added on top and the past periods stay here.',
     statoPercorso: { da_iniziare: 'Not started', in_corso: 'Running', concluso: 'Ended', interrotto: 'Stopped' },
     dalAl: (da: string, a: string) => `from ${da} to ${a}`,
     contratto: 'Contract',

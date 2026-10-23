@@ -7,7 +7,6 @@ export const RINNOVI = bilingue(
     errore: 'Impossibile caricare i rinnovi',
     descrizioneAdmin:
       'Chi finisce il percorso a breve e chi l’ha finito da poco: scrivigli e registra il rinnovo con un tocco. In fondo chi non rinnova.',
-    descrizioneLettura: 'Chi finisce il percorso a breve e chi l’ha finito da poco. In fondo chi non rinnova.',
     finitoFa: (data: string, giorni: number) => `finito il ${data}, ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'} fa`,
     finisceOggi: 'finisce oggi',
     finisceTra: (data: string, giorni: number) => `finisce il ${data}, tra ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}`,
@@ -41,7 +40,6 @@ export const RINNOVI = bilingue(
     errore: 'The renewals could not be loaded',
     descrizioneAdmin:
       'Who ends the programme soon and who ended it recently: write to them and record the renewal with one tap. At the bottom, who is not renewing.',
-    descrizioneLettura: 'Who ends the programme soon and who ended it recently. At the bottom, who is not renewing.',
     finitoFa: (data: string, giorni: number) => `ended on ${data}, ${giorni} ${giorni === 1 ? 'day' : 'days'} ago`,
     finisceOggi: 'ends today',
     finisceTra: (data: string, giorni: number) => `ends on ${data}, in ${giorni} ${giorni === 1 ? 'day' : 'days'}`,

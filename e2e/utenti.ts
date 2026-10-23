@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test'
 /**
  * Seed accounts created by supabase/seed.sql, supabase/seeds/10_progetti.sql
  * supabase/seeds/25_marketing.sql (marketing, 1.32.0) and supabase/seeds/26_business_coach.sql
- * (the business coach, 1.52.0). Local only.
+ * (the business coach, 1.52.0; from 1.58.0 he has the sales recap only). Local only.
  */
 export const UTENTI = {
   admin: { email: 'admin@alpha.test', nome: 'Dany Montagnolo' },
@@ -107,6 +107,8 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'impostazioni-chiavi', url: '/settings/chiavi' },
     { nome: 'impostazioni-instagram', url: '/settings/instagram' },
     { nome: 'impostazioni-fathom', url: '/settings/fathom' },
+    // the business coach's page, which the admin opens too (1.58.0)
+    { nome: 'recap', url: '/recap' },
     CHANGELOG,
     NOTIFICHE,
     { nome: 'notifica', url: `/notifiche/${NOTIFICA_RIEPILOGO_SEED}` },
@@ -152,35 +154,8 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
   editor: [MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO, ...CONTENUTI, CHANGELOG, PROFILO],
   // lands on the content calendar; Projects like the video editor (member of the reels project)
   marketing: [...CONTENUTI, MIEI_TASK, PROGETTI, ...schedeProgetto(PROGETTO_REEL), TEMPO, CHANGELOG, PROFILO],
-  // the business coach (1.52.0): every page the admin reads, in read only; no new call or sale, no keys,
-  // no export, no project templates, no time of his own (/tempo takes him to the team's)
-  business_coach: [
-    { nome: 'panoramica', url: '/' },
-    { nome: 'call', url: '/calls' },
-    { nome: 'pipeline', url: '/leads' },
-    { nome: 'vendite', url: '/sales' },
-    { nome: 'incassi', url: '/payments' },
-    { nome: 'clienti', url: '/clients' },
-    { nome: 'rinnovi', url: '/rinnovi' },
-    { nome: 'setting', url: '/setting' },
-    ...INSIGHT,
-    { nome: 'closer', url: '/setting/closer' },
-    { nome: 'closer-per-fonte', url: '/setting/closer?per=fonte' },
-    { nome: 'provvigioni', url: '/commissions' },
-    { nome: 'costi', url: '/expenses' },
-    ...CONTENUTI,
-    { nome: 'impostazioni', url: '/settings' },
-    { nome: 'team', url: '/settings/team' },
-    { nome: 'prodotti', url: '/settings/products' },
-    { nome: 'regole-provvigioni', url: '/settings/commissions' },
-    { nome: 'registro', url: '/settings/audit' },
-    CHANGELOG,
-    NOTIFICHE,
-    PROGETTI,
-    ...schedeProgetto(PROGETTO_PERCORSO_CLIENTE),
-    { nome: 'tempo-team', url: '/tempo/team' },
-    PROFILO,
-  ],
+  // the business coach (1.58.0): one page only, the sales recap
+  business_coach: [{ nome: 'recap', url: '/recap' }],
 }
 
 const IN_ATTESA_DELLO_STREAMING = new WeakSet<Page>()

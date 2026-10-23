@@ -1,4 +1,4 @@
-import { RUOLI_MARKETING_LETTURA } from '@/lib/auth/roles'
+import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { getProfilo } from '@/lib/auth/session'
 import { leggiDettaglioReel } from '@/lib/marketing/analisi/dettaglio'
 import { createClient } from '@/lib/supabase/server'
@@ -21,7 +21,7 @@ function risposta(corpo: unknown, status: number) {
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ media_id: string }> }) {
   const profilo = await getProfilo()
-  if (!profilo || !profilo.attivo || !RUOLI_MARKETING_LETTURA.includes(profilo.ruolo)) {
+  if (!profilo || !profilo.attivo || !RUOLI_MARKETING.includes(profilo.ruolo)) {
     return risposta({ errore: 'L’analisi dei reel è dell’area Marketing.' }, 403)
   }
   const { media_id } = await params

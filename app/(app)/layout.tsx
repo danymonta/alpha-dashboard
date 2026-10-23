@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 
 import { AppShell } from '@/components/shell/app-shell'
 import { alfireConfigurata } from '@/lib/alfire/config'
-import { haAreaDisponibile } from '@/lib/auth/roles'
+import { haAreaDisponibile, soloRecap } from '@/lib/auth/roles'
 import { requireProfilo, type Profilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { NESSUN_PROMEMORIA, type Promemoria } from '@/lib/nav'
@@ -95,6 +95,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   if (!haAreaDisponibile(profilo.ruolo)) {
     redirect('/nessuna-area')
+  }
+  // the business coach sees one page, the sales recap (Dany, 23/10/2026, 1.58.0): it lives outside
+  // this shell (app/(recap)), and every page of the app sends him there, whatever the address
+  if (soloRecap(profilo.ruolo)) {
+    redirect('/recap')
   }
 
   const [{ promemoria, letto }, notificheNonLette] = await Promise.all([contaPromemoria(profilo), contaNotifiche()])

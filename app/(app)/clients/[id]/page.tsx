@@ -12,7 +12,6 @@ import { LinkBottone } from '@/components/link-bottone'
 import { SenzaCoach } from '@/components/pm/stato-progetto'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -25,9 +24,7 @@ import { createClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 
 export default async function SchedaClientePage({ params }: { params: Promise<{ id: string }> }) {
-  // the admin, and the business coach in read only (22/10/2026)
-  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
-  const scrive = puoScrivere(profilo.ruolo)
+  await requireRuolo(['admin'])
   const lingua = await getLingua()
   const t = CLIENTI[lingua]
   const { formatData, formatEuro } = formato(lingua)
@@ -36,7 +33,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
   const oggi = oggiRoma()
 
   // "Scegli da Drive": the Google Picker's public values, read now; none = the typed link only
-  const picker = scrive ? await configPickerRichiesta() : null
+  const picker = await configPickerRichiesta()
   const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto, cartella, chiusura, sospensione] = await Promise.all([
     supabase
       .from('clients')
@@ -156,8 +153,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         titolo={nome}
         indietro={{ href: '/clients', etichetta: t.titolo }}
         azione={
-          // the business coach reads (22/10/2026): no button that records or closes
-          !scrive ? undefined : (valore.numero_vendite ?? 0) === 0 ? (
+          (valore.numero_vendite ?? 0) === 0 ? (
             // renewal and upsell need a first sale: without one, the only way is a "nuovo"
             <LinkBottone href={`/sales/new?cliente=${id}&tipo=nuovo`}>
               <Plus className="size-4" aria-hidden="true" />
@@ -215,11 +211,11 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       </div>
 
       {sospeso ? (
-        <SospensioneCliente clientId={id} cliente={nome} oggi={oggi} sospensione={sospeso} solaLettura={!scrive} />
+        <SospensioneCliente clientId={id} cliente={nome} oggi={oggi} sospensione={sospeso} />
       ) : null}
 
       {chiuso ? (
-        <ChiusuraCliente clientId={id} cliente={nome} oggi={oggi} minimo={ultimaFirma} chiusura={chiuso} solaLettura={!scrive} />
+        <ChiusuraCliente clientId={id} cliente={nome} oggi={oggi} minimo={ultimaFirma} chiusura={chiuso} />
       ) : null}
 
       {progetto.data ? (
@@ -249,35 +245,32 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         url={cartella.data?.url ?? null}
         chi="admin"
         picker={picker}
-        solaLettura={!scrive}
       />
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2 px-1">
           <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t.contatti}</h2>
-          {scrive ? (
-            <ModificaCliente
-              cliente={{
-                id: cliente.id,
-                nome: cliente.nome,
-                cognome: cliente.cognome,
-                email: cliente.email,
-                telefono: cliente.telefono,
-                instagram_handle: cliente.instagram_handle,
-                fonte: cliente.fonte,
-                setter_id: cliente.setter_id,
-                closer_id: cliente.closer_id,
-                note: cliente.note,
-              }}
-              // a former collaborator stays selectable where they already are
-              setters={(persone ?? [])
-                .filter((p) => (p.ruolo === 'setter' || p.ruolo === 'admin') && (p.attivo || p.id === cliente.setter_id))
-                .map(({ id, nome }) => ({ id, nome }))}
-              closers={(persone ?? [])
-                .filter((p) => (p.ruolo === 'admin' || p.ruolo === 'closer') && (p.attivo || p.id === cliente.closer_id))
-                .map(({ id, nome }) => ({ id, nome }))}
-            />
-          ) : null}
+          <ModificaCliente
+            cliente={{
+              id: cliente.id,
+              nome: cliente.nome,
+              cognome: cliente.cognome,
+              email: cliente.email,
+              telefono: cliente.telefono,
+              instagram_handle: cliente.instagram_handle,
+              fonte: cliente.fonte,
+              setter_id: cliente.setter_id,
+              closer_id: cliente.closer_id,
+              note: cliente.note,
+            }}
+            // a former collaborator stays selectable where they already are
+            setters={(persone ?? [])
+              .filter((p) => (p.ruolo === 'setter' || p.ruolo === 'admin') && (p.attivo || p.id === cliente.setter_id))
+              .map(({ id, nome }) => ({ id, nome }))}
+            closers={(persone ?? [])
+              .filter((p) => (p.ruolo === 'admin' || p.ruolo === 'closer') && (p.attivo || p.id === cliente.closer_id))
+              .map(({ id, nome }) => ({ id, nome }))}
+          />
         </div>
         <dl className="divide-y divide-border rounded-xl bg-card px-3">
           {contatti.map(([etichetta, v]) => (
@@ -300,13 +293,13 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
           {t.storico(percorsi.length)}
         </h2>
         {percorsi.length > 0 ? (
-          <StoricoPercorsi percorsi={percorsi} oggi={oggi} cliente={nome} picker={picker} solaLettura={!scrive} lingua={lingua} />
+          <StoricoPercorsi percorsi={percorsi} oggi={oggi} cliente={nome} picker={picker} lingua={lingua} />
         ) : (
           // the action is the header's "Registra la prima vendita": one link, not two
           <StatoVuoto
             Icona={History}
             titolo={t.nessunPercorso}
-            descrizione={scrive ? t.nessunPercorsoAdmin : t.nessunPercorsoLettura}
+            descrizione={t.nessunPercorsoAdmin}
           />
         )}
       </section>

@@ -179,12 +179,12 @@ export function SchedaRicollega({
 }
 
 /** Who may not connect Claude: why, and one way back that sends Claude a refusal. */
-export function SchedaNonAmmesso({ authorizationId }: { authorizationId: string }) {
+export function SchedaNonAmmesso({ authorizationId, testo }: { authorizationId: string; testo: string }) {
   return (
     <Scheda titolo={CONSENSO.titoloNonAmmesso}>
       <p className="flex items-start gap-2 text-sm">
         <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
-        {CONSENSO.nonAmmesso}
+        {testo}
       </p>
       <DecisioneConsenso
         authorizationId={authorizationId}

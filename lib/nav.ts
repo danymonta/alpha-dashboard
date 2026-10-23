@@ -13,6 +13,7 @@ import {
   MessagesSquare,
   Percent,
   Phone,
+  Presentation,
   Receipt,
   RefreshCw,
   Settings,
@@ -187,6 +188,8 @@ const NAV: Record<AppRole, NavRuolo> = {
         voci: [
           { href: '/expenses', etichetta: 'Costi', Icona: Banknote },
           { href: '/settings', etichetta: 'Impostazioni', Icona: Settings },
+          // what the business coach sees, his one page (1.58.0)
+          { href: '/recap', etichetta: 'Recap del business coach', Icona: Presentation },
           NOVITA,
         ],
       },
@@ -260,48 +263,9 @@ const NAV: Record<AppRole, NavRuolo> = {
   ),
   nutrizione: SOLO_PROGETTI,
   dev: SOLO_PROGETTI,
-  // the business coach (Dany, 22/10/2026: «veda tutto»): the admin's pages, read only. No number on
-  // any item (the reminders are of who has to act, section 17), no "I miei task" nor "Il mio tempo":
-  // he has no tasks and no time of his own; the team's time instead
-  business_coach: menu(
-    [
-      { titolo: null, voci: [{ href: '/', etichetta: 'Panoramica', Icona: LayoutDashboard, esatto: true }] },
-      {
-        titolo: 'Vendite',
-        voci: [
-          // every call, not "his": he is nobody's closer
-          { href: '/calls', etichetta: 'Call', Icona: Phone },
-          { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
-          { href: '/clients', etichetta: 'Clienti', Icona: Users },
-          { href: '/sales', etichetta: 'Vendite', Icona: Receipt },
-          { href: '/payments', etichetta: 'Incassi', Icona: Wallet },
-          { href: '/rinnovi', etichetta: 'Rinnovi', Icona: RefreshCw },
-        ],
-      },
-      {
-        titolo: 'Team',
-        voci: [
-          { href: '/setting', etichetta: 'Setter', Icona: MessagesSquare, esatto: true, attivaAnche: ['/insight'] },
-          CLOSER,
-          { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent },
-        ],
-      },
-      { titolo: 'Marketing', voci: VOCI_MARKETING },
-      {
-        titolo: 'Progetti',
-        voci: [PROGETTI, { href: '/tempo/team', etichetta: 'Tempo del team', Icona: Timer }],
-      },
-      {
-        titolo: 'Amministrazione',
-        voci: [
-          { href: '/expenses', etichetta: 'Costi', Icona: Banknote },
-          { href: '/settings', etichetta: 'Impostazioni', Icona: Settings },
-          NOVITA,
-        ],
-      },
-    ],
-    ['/', '/calls', '/setting', '/marketing/contenuti'],
-  ),
+  // the business coach (Dany, 23/10/2026, 1.58.0): no menu at all, his one page is the sales recap
+  // (/recap, outside the app shell; the (app) layout sends him there from every other page)
+  business_coach: menu([], []),
 }
 
 export function vociNav(ruolo: AppRole): NavRuolo {

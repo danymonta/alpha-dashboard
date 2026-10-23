@@ -14,7 +14,7 @@ import {
   type VoceModificabile,
 } from "@/components/pm/tempo/form-tempo";
 import { NavigazionePeriodo } from "@/components/pm/tempo/navigazione-periodo";
-import { livelloPmEffettivo, solaLettura } from "@/lib/auth/roles";
+import { livelloPmEffettivo } from "@/lib/auth/roles";
 import { requireProfilo } from "@/lib/auth/session";
 import { oggiRoma } from "@/lib/date";
 import { formatData } from "@/lib/format";
@@ -88,9 +88,7 @@ export default async function TempoProgettoPage({
   }
   if (!progetto.data) return null;
 
-  // the business coach reads every person's declared time, like the admin, and logs none (22/10/2026)
-  const leggeSolo = solaLettura(profilo.ruolo);
-  const puoGestire = gestisce.data === true || leggeSolo;
+  const puoGestire = gestisce.data === true;
   const adminPm =
     livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === "admin";
   const opzioniProgetti = [{ id: progetto.data.id, nome: progetto.data.nome }];
@@ -137,14 +135,12 @@ export default async function TempoProgettoPage({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <NavigazionePeriodo percorso={percorso} periodo={periodo} oggi={oggi} />
-        {leggeSolo ? null : (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Timer sul progetto
-            </span>
-            <AvviaTimer progettoId={id} titolo={progetto.data.nome} />
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            Timer sul progetto
+          </span>
+          <AvviaTimer progettoId={id} titolo={progetto.data.nome} />
+        </div>
       </div>
 
       {!puoGestire ? (
@@ -200,20 +196,16 @@ export default async function TempoProgettoPage({
               <p className="text-sm font-medium">
                 Nessun tempo registrato in questo periodo
               </p>
-              {leggeSolo ? null : (
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  Avvia il timer sul progetto o registra il tempo che hai già
-                  dedicato.
-                </p>
-              )}
-              {leggeSolo ? null : (
-                <a
-                  href="#registra-progetto"
-                  className="inline-flex min-h-11 items-center text-sm font-medium underline-offset-4 hover:underline"
-                >
-                  Registra tempo passato
-                </a>
-              )}
+              <p className="max-w-sm text-sm text-muted-foreground">
+                Avvia il timer sul progetto o registra il tempo che hai già
+                dedicato.
+              </p>
+              <a
+                href="#registra-progetto"
+                className="inline-flex min-h-11 items-center text-sm font-medium underline-offset-4 hover:underline"
+              >
+                Registra tempo passato
+              </a>
             </div>
           ) : (
             <ElencoTempo
@@ -222,7 +214,7 @@ export default async function TempoProgettoPage({
               oggi={oggi}
               azioni={(voce) => {
                 const completa = elenco.find((e) => e.id === voce.id)!;
-                if (leggeSolo || (!completa.mia && !adminPm)) return null;
+                if (!completa.mia && !adminPm) return null;
                 const descrizione = `il tempo di ${voce.titolo === "Tu" ? "te" : voce.titolo} del ${formatData(voce.data)}`;
                 return (
                   <>
@@ -242,26 +234,24 @@ export default async function TempoProgettoPage({
           )}
         </section>
 
-        {leggeSolo ? null : (
-          <section
-            id="registra-progetto"
-            aria-labelledby="titolo-registra-progetto"
-            className="scroll-mt-24 space-y-2"
+        <section
+          id="registra-progetto"
+          aria-labelledby="titolo-registra-progetto"
+          className="scroll-mt-24 space-y-2"
+        >
+          <h2
+            id="titolo-registra-progetto"
+            className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
           >
-            <h2
-              id="titolo-registra-progetto"
-              className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
-            >
-              Registra tempo passato
-            </h2>
-            <NuovoTempo
-              progetti={opzioniProgetti}
-              task={opzioniTask}
-              oggi={oggi}
-              progettoId={id}
-            />
-          </section>
-        )}
+            Registra tempo passato
+          </h2>
+          <NuovoTempo
+            progetti={opzioniProgetti}
+            task={opzioniTask}
+            oggi={oggi}
+            progettoId={id}
+          />
+        </section>
       </div>
     </div>
   );

@@ -36,8 +36,8 @@ const LEGGE: Record<AppRole, readonly Pubblico[]> = {
   marketing: ['marketing', 'progetti', 'tutti'],
   nutrizione: ['progetti', 'tutti'],
   dev: ['progetti', 'tutti'],
-  // the business coach reads what the admin reads (22/10/2026)
-  business_coach: ['admin', 'setter', 'closer', 'marketing', 'progetti', 'tutti'],
+  // the business coach reads nothing (1.58.0): his one page is the sales recap
+  business_coach: [],
 }
 
 function legge(ruolo: AppRole, per: readonly Pubblico[]): boolean {
@@ -240,8 +240,8 @@ describe('cosa legge ogni ruolo', () => {
     })
   })
 
-  it('il business coach legge il changelog come l’admin (22/10/2026)', () => {
-    expect(versioniPer('business_coach')).toEqual(versioniPer('admin'))
+  it('il business coach non legge il changelog (1.58.0): ha solo il recap vendite', () => {
+    expect(versioniPer('business_coach')).toEqual([])
   })
 
   it.each(COLLABORATORI)('%s legge solo le voci per lui, con le parole del team', (ruolo: AppRole) => {
@@ -365,8 +365,9 @@ describe('cosa legge ogni ruolo', () => {
     for (const voce of soloSetter) expect(delCloser.has(voce.testoTeam ?? voce.testo)).toBe(false)
   })
 
-  it('ogni ruolo raggiunge le novità da «Altro», mai dalla barra in basso', () => {
-    for (const ruolo of TUTTI_I_RUOLI) {
+  it('ogni ruolo raggiunge le novità da «Altro», mai dalla barra in basso (il business coach non ha menu)', () => {
+    expect(vociNav('business_coach').gruppi).toEqual([])
+    for (const ruolo of TUTTI_I_RUOLI.filter((r) => r !== 'business_coach')) {
       const { principali, altre } = vociNav(ruolo)
       expect(altre.map((v) => v.href), ruolo).toContain('/changelog')
       expect(principali.map((v) => v.href), ruolo).not.toContain('/changelog')

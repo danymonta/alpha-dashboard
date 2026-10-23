@@ -9,7 +9,6 @@ import { StatoRata } from '@/components/pagamento/stato-rata'
 import { BottoneWhatsApp } from '@/components/pagamento/whatsapp'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { IndicatoreLink, LinkRiga } from '@/components/shell/link-riga'
-import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -36,9 +35,7 @@ export default async function IncassiPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  // the admin, and the business coach in read only (22/10/2026): no cash-in, no message to the client
-  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
-  const scrive = puoScrivere(profilo.ruolo)
+  await requireRuolo(['admin'])
   const parametri = await searchParams
   const richiesta = Array.isArray(parametri.vista) ? parametri.vista[0] : parametri.vista
   const vista: Vista = richiesta && richiesta in VISTE ? (richiesta as Vista) : 'ritardo'
@@ -104,7 +101,7 @@ export default async function IncassiPage({
         descrizione={
           <>
             {t.descrizionePrima}
-            {scrive ? t.segna : ''} {t.descrizioneDopo}{' '}
+            {t.segna} {t.descrizioneDopo}{' '}
             <Link href="/sales" className="font-medium text-foreground underline underline-offset-4 hover:text-primary">
               {t.vendite}
             </Link>
@@ -254,7 +251,7 @@ export default async function IncassiPage({
               </div>
               {/* fixed width from md up: amounts line up whatever the actions */}
               <div className="flex items-center justify-end gap-2 md:w-64 md:shrink-0">
-                {r.stato === 'prevista' && scrive ? (
+                {r.stato === 'prevista' ? (
                   <BottoneWhatsApp
                     compatto
                     etichetta={`Scrivi a ${r.cliente} su WhatsApp per la rata ${r.numero_rata}`}
@@ -270,7 +267,7 @@ export default async function IncassiPage({
                     )}
                   />
                 ) : null}
-                {r.stato !== 'rimborsata' && scrive ? (
+                {r.stato !== 'rimborsata' ? (
                   <RataAzioni
                     rata={{
                       id: r.payment_id!,

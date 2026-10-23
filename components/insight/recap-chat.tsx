@@ -38,8 +38,6 @@ export type PropsRecapChat = {
   adesso: string
   /** admin only: shortcode → calendar content; {} for the setter */
   calendario: Record<string, ContenutoCalendario>
-  /** The business coach (22/10/2026): reads as the admin, never ticks «Fatto» nor opens the settings. */
-  solaLettura?: boolean
 }
 
 /**
@@ -54,13 +52,13 @@ export type PropsRecapChat = {
  */
 export function RecapChat(props: PropsRecapChat) {
   return (
-    <FattiProvider fonte={props.fonte} giorno={props.giorno} iniziali={props.fatti} perRuolo={props.solaLettura}>
+    <FattiProvider fonte={props.fonte} giorno={props.giorno} iniziali={props.fatti}>
       <Contenuto {...props} />
     </FattiProvider>
   )
 }
 
-function Contenuto({ recap, fonte, admin, adesso, calendario, giorno, solaLettura = false }: PropsRecapChat) {
+function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRecapChat) {
   const annuncia = useAnnuncia()
   const [filtro, setFiltro] = useState<ChiaveFiltro | null>(null)
   const tessere = useRef<Partial<Record<ChiaveFiltro, HTMLButtonElement | null>>>({})
@@ -167,7 +165,7 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno, solaLettur
       <Obiezioni voci={recap.objections} fonte={fonte} />
       <ContentRecapSezione content={recap.content} calendario={calendario} />
       {!filtro ? (
-        <EscluseRecap voci={recap.non_leads} escluse={recap.escluse} fonte={fonte} admin={admin && !solaLettura} />
+        <EscluseRecap voci={recap.non_leads} escluse={recap.escluse} fonte={fonte} admin={admin} />
       ) : null}
     </>
   )

@@ -142,7 +142,6 @@ function CardPercorso({
   principale,
   cliente,
   picker,
-  solaLettura,
   lingua,
 }: {
   percorso: Percorso
@@ -151,7 +150,6 @@ function CardPercorso({
   principale: string | undefined
   cliente: string
   picker: ConfigPicker | null
-  solaLettura: boolean
   lingua: Lingua
 }) {
   const t = CLIENTI[lingua]
@@ -202,7 +200,6 @@ function CardPercorso({
           url={p.contratto_url}
           picker={picker}
           variante="cella"
-          solaLettura={solaLettura}
         />
       </div>
 
@@ -235,7 +232,7 @@ function CardPercorso({
                 {/* phone: "Segna incassata" gets its own full row, a paid one keeps its menu inline;
                     fixed width from md up, so amounts line up whatever the actions */}
                 <div className={cn('md:w-52 md:shrink-0', daIncassare(rata) ? 'basis-full md:basis-auto' : 'shrink-0')}>
-                  {rata.stato !== 'rimborsata' && !solaLettura ? (
+                  {rata.stato !== 'rimborsata' ? (
                     <RataAzioni rata={rata} admin oggi={oggi} principale={rata.id === principale} />
                   ) : null}
                 </div>
@@ -250,7 +247,7 @@ function CardPercorso({
         className="flex min-h-11 items-center justify-between gap-2 border-t border-border px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <span>
-          {solaLettura ? t.apriVendita : t.apriVenditaModifica}
+          {t.apriVenditaModifica}
           <span className="sr-only"> ({etichetta})</span>
         </span>
         <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
@@ -269,7 +266,6 @@ export function StoricoPercorsi({
   oggi,
   cliente,
   picker = null,
-  solaLettura = false,
   lingua = 'it',
 }: {
   percorsi: Percorso[]
@@ -277,8 +273,6 @@ export function StoricoPercorsi({
   /** The client's name: the contract's sheet and buttons say whose it is. */
   cliente: string
   picker?: ConfigPicker | null
-  /** The business coach (22/10/2026): instalments and contracts to read, nothing to tap. */
-  solaLettura?: boolean
   lingua?: Lingua
 }) {
   const etichette = etichettePercorsi(percorsi, lingua)
@@ -299,7 +293,6 @@ export function StoricoPercorsi({
           principale={principale}
           cliente={cliente}
           picker={picker}
-          solaLettura={solaLettura}
           lingua={lingua}
         />
       ))}

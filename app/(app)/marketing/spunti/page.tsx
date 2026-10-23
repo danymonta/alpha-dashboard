@@ -6,7 +6,7 @@ import { ChiediSpunti } from '@/components/marketing/spunti/chiedi-spunti'
 import { IdeaSpuntiCard } from '@/components/marketing/spunti/idea-spunti'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { RUOLI_MARKETING_LETTURA } from '@/lib/auth/roles'
+import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -74,10 +74,9 @@ type RigaPerTe = {
 }
 
 export default async function SpuntiPage() {
-  // the business coach reads the brief and «Per te» like the admin (22/10/2026), never asks for one
-  const profilo = await requireRuolo(RUOLI_MARKETING_LETTURA)
-  const admin = profilo.ruolo === 'admin' || profilo.ruolo === 'business_coach'
-  const puoChiedere = profilo.ruolo === 'admin' || profilo.ruolo === 'marketing'
+  const profilo = await requireRuolo(RUOLI_MARKETING)
+  const admin = profilo.ruolo === 'admin'
+  const puoChiedere = admin || profilo.ruolo === 'marketing'
   const lingua = await getLingua()
   const t = MARKETING[lingua].spunti
   const { formatData, formatEuro, formatNumero, formatPercentuale } = formato(lingua)
@@ -136,7 +135,7 @@ export default async function SpuntiPage() {
           </p>
           {soloReel ? (
             <p role="status" className="text-sm text-muted-foreground" data-testid="spunti-solo-reel">
-              {profilo.ruolo === 'admin' ? (
+              {admin ? (
                 <>
                   {t.soloReelAdmin}{' '}
                   <Link href="/settings/instagram" className="underline underline-offset-4">

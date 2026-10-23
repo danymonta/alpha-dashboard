@@ -20,7 +20,6 @@ import { CommentiMarketing, type RigaCommento, type RigaMotivo } from '@/compone
 import { SchedeInsight } from '@/components/insight/schede-insight'
 import { ProposteInstagram } from '@/components/setter/proposte-instagram'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { puoScrivere, RUOLI_COME_ADMIN } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formato, type Formato } from '@/lib/format'
@@ -329,10 +328,7 @@ export default async function SettingPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  // the admin, and the business coach in read only (22/10/2026): no day to add or correct, and
-  // never the Instagram proposals of the setter's report (CLAUDE.md section 6: the closed version)
-  const profilo = await requireRuolo(RUOLI_COME_ADMIN)
-  const scrive = puoScrivere(profilo.ruolo)
+  await requireRuolo(['admin'])
   const oggi = oggiRoma()
   const parametri = await searchParams
   const lingua = await getLingua()
@@ -364,22 +360,22 @@ export default async function SettingPage({
     supabase.rpc('commenti_setter_periodo', { p_da: periodo.da, p_a: periodo.a, ...filtroSetter }),
     supabase.rpc('motivi_non_chiusura_periodo', { p_da: periodo.da, p_a: periodo.a, ...filtroSetter }),
     // the setters' days from Instagram still to decide: the admin decides them too (08/10/2026)
-    scrive ? daApprovare(supabase) : null,
+    daApprovare(supabase),
   ])
   if (metriche.error || report.error || giornate.error || persone.error || commenti.error || motivi.error) {
     throw new Error(t.errore)
   }
 
-  const aggiungi = scrive ? (
+  const aggiungi = (
     <AggiungiReport
       oggi={oggi}
       persone={[...persone.data].sort((a, b) => Number(a.ruolo !== 'setter') - Number(b.ruolo !== 'setter'))}
     />
-  ) : undefined
+  )
 
   const righe = metriche.data ?? []
   const correzione = (r: (typeof report.data)[number]) =>
-    !scrive ? null : (
+    (
       <ModificaReport
         data={r.data}
         setter={r.setter?.nome ?? 'Setter'}
@@ -457,7 +453,7 @@ export default async function SettingPage({
         <StatoVuoto
           Icona={TrendingUp}
           titolo={t.nessunReport(periodo.frase)}
-          descrizione={scrive ? t.nessunReportAdmin : t.nessunReportLettura}
+          descrizione={t.nessunReportAdmin}
         />
       ) : (
         <>

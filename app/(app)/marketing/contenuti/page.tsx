@@ -9,7 +9,7 @@ import { SezioneContenuti, UscitaDallaLista } from '@/components/marketing/sezio
 import { TabellaContenuti } from '@/components/marketing/tabella-contenuti'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { RUOLI_MARKETING_LETTURA, solaLettura } from '@/lib/auth/roles'
+import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { getLingua } from '@/lib/i18n/server'
 import { MARKETING } from '@/lib/i18n/testi/marketing'
@@ -42,12 +42,10 @@ export default async function PianoEditorialePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  // the business coach reads the plan (22/10/2026): every cell shows its value, none changes (useSolaLettura)
-  const profilo = await requireRuolo(RUOLI_MARKETING_LETTURA)
+  const profilo = await requireRuolo(RUOLI_MARKETING)
   const sp = await searchParams
   const lingua = await getLingua()
   const t = MARKETING[lingua].piano
-  const leggeSolo = solaLettura(profilo.ruolo)
   const richiesto = primo(sp[PARAMETRO_CONTENUTO])
   const contenutoId = isUuid(richiesto) ? richiesto : null
   const nuova = primo(sp[PARAMETRO_NUOVA])
@@ -91,7 +89,7 @@ export default async function PianoEditorialePage({
           <div className="space-y-4">
             <IntestazionePagina
               titolo={t.titolo}
-              descrizione={`${leggeSolo ? t.descrizioneLettura : t.descrizione}${lingua === 'en' ? ` ${t.inItaliano}` : ''}`}
+              descrizione={`${t.descrizione}${lingua === 'en' ? ` ${t.inItaliano}` : ''}`}
               azione={<NuovaRiga />}
             />
 
@@ -100,7 +98,7 @@ export default async function PianoEditorialePage({
                 <StatoVuoto
                   Icona={Clapperboard}
                   titolo={t.vuoto}
-                  descrizione={leggeSolo ? t.vuotoLettura : t.vuotoDescrizione}
+                  descrizione={t.vuotoDescrizione}
                   azione={<NuovaRiga variante="outline" />}
                 />
               </div>

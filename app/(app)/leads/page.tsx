@@ -5,7 +5,6 @@ import { StatoLeadArea, type Suggerimento } from '@/app/(app)/leads/stato-lead'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { solaLettura } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -87,9 +86,7 @@ export default async function PipelinePage({
 }: {
   searchParams: Promise<{ stato?: string; q?: string }>
 }) {
-  // the business coach reads every lead like the admin (22/10/2026), and changes none
-  const profilo = await requireRuolo(['admin', 'setter', 'closer', 'business_coach'])
-  const leggeSolo = solaLettura(profilo.ruolo)
+  const profilo = await requireRuolo(['admin', 'setter', 'closer'])
   const lingua = await getLingua()
   const t = PIPELINE[lingua]
   const { formatData } = formato(lingua)
@@ -140,7 +137,7 @@ export default async function PipelinePage({
     <div className="max-w-3xl space-y-5">
       <IntestazionePagina
         titolo={t.titolo}
-        descrizione={leggeSolo ? t.descrizioneLettura : t.descrizione}
+        descrizione={t.descrizione}
         azione={
           profilo.ruolo === 'setter' ? (
             <LinkBottone href="/calls/new">
@@ -196,7 +193,7 @@ export default async function PipelinePage({
         <StatoVuoto
           Icona={SquareKanban}
           titolo={ricerca ? t.nessunoPer(ricerca) : t.nessuno}
-          descrizione={profilo.ruolo === 'setter' ? t.vuotoSetter : leggeSolo ? t.vuotoLettura : t.vuotoAltri}
+          descrizione={profilo.ruolo === 'setter' ? t.vuotoSetter : t.vuotoAltri}
           azione={
             profilo.ruolo === 'setter' ? <LinkBottone href="/calls/new">{t.fissa}</LinkBottone> : undefined
           }
@@ -219,7 +216,7 @@ export default async function PipelinePage({
                     leadId={lead.id}
                     nome={lead.nome}
                     stato={lead.stato}
-                    suggerimento={leggeSolo ? null : suggerisci(lead.stato, ultima, profilo.ruolo as Ruolo, adesso, lingua)}
+                    suggerimento={suggerisci(lead.stato, ultima, profilo.ruolo as Ruolo, adesso, lingua)}
                     // the closer moves the status but does not rewrite the lead
                     dati={
                       profilo.ruolo === 'admin' || lead.setter_id === profilo.id
@@ -228,7 +225,6 @@ export default async function PipelinePage({
                     }
                     titolo={<h3 id={idTitolo} className="truncate text-sm font-medium">{lead.nome}</h3>}
                     eliminabile={profilo.ruolo === 'admin'}
-                    solaLettura={leggeSolo}
                     lingua={lingua}
                   >
                     <p className="truncate text-sm text-muted-foreground">{dettagli.join(' · ')}</p>

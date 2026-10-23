@@ -4,7 +4,6 @@ import { CAMPI_CALL_CLOSER, CAMPI_CALL_SETTER, SchedaCall, type CallVista } from
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { solaLettura } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { getLingua } from '@/lib/i18n/server'
@@ -38,16 +37,16 @@ function Sezione({
 }
 
 /** Data loading, kept out of the render: it reads the clock. */
-async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRiassegnare: boolean, tutte = false) {
+async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRiassegnare: boolean) {
   const supabase = await createClient()
   const adesso = Date.now()
-  // the business coach (22/10/2026): every closer's calls, as the admin reads them; nobody's "own"
-  const delCloser = <Q extends { eq: (colonna: 'closer_id', valore: string) => Q }>(q: Q): Q =>
-    tutte ? q : q.eq('closer_id', profiloId)
 
   const query =
     vista === 'closer'
-      ? delCloser(supabase.from('calls').select(CAMPI_CALL_CLOSER))
+      ? supabase
+          .from('calls')
+          .select(CAMPI_CALL_CLOSER)
+          .eq('closer_id', profiloId)
           // everything still open (one "In attesa di conferma" waits for its new day),
           // plus what was recorded in the last week
           .or(`stato.in.(programmata,riprogrammata),programmata_il.gte.${new Date(adesso - 7 * GIORNO_MS).toISOString()}`)
@@ -70,7 +69,10 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
     // too. The sale is looked for whatever closer it carries
     // (public.call_ha_vendita): the closer reads only the sales he closed.
     vista === 'closer'
-      ? delCloser(supabase.from('calls').select(CAMPI_CALL_CLOSER))
+      ? supabase
+          .from('calls')
+          .select(CAMPI_CALL_CLOSER)
+          .eq('closer_id', profiloId)
           .eq('esito', 'chiusa')
           .eq('importata', false)
           .eq('call_ha_vendita', false)
@@ -98,17 +100,14 @@ async function caricaCall(vista: 'setter' | 'closer', profiloId: string, puoRias
 }
 
 export default async function LeMieCallPage() {
-  // the business coach reads every call of the team (22/10/2026), the closer's card without its buttons
-  const profilo = await requireRuolo(['setter', 'closer', 'admin', 'business_coach'])
+  const profilo = await requireRuolo(['setter', 'closer', 'admin'])
   const lingua = await getLingua()
   const t = CALL[lingua]
-  const leggeSolo = solaLettura(profilo.ruolo)
   const vista = profilo.ruolo === 'setter' ? 'setter' : 'closer'
   const { calls, senzaVendita, closers, prodotti, adesso, oggi } = await caricaCall(
     vista,
     profilo.id,
-    profilo.ruolo !== 'closer' && !leggeSolo,
-    leggeSolo,
+    profilo.ruolo !== 'closer',
   )
 
   const passata = (c: CallVista) => new Date(c.programmata_il).getTime() < adesso
@@ -136,12 +135,8 @@ export default async function LeMieCallPage() {
     </LinkBottone>
   )
 
-  const intestazione = leggeSolo ? (
-    <IntestazionePagina
-      titolo={t.titoloLettura}
-      descrizione={t.descrizioneLettura}
-    />
-  ) : vista === 'closer' ? (
+  const intestazione =
+    vista === 'closer' ? (
       <IntestazionePagina
         titolo={t.titolo}
         descrizione={t.descrizioneCloser}
@@ -165,12 +160,6 @@ export default async function LeMieCallPage() {
             titolo={t.vuotoSetter}
             descrizione={t.vuotoSetterDescrizione}
             azione={<LinkBottone href="/calls/new">{t.fissa}</LinkBottone>}
-          />
-        ) : leggeSolo ? (
-          <StatoVuoto
-            Icona={PhoneOff}
-            titolo={t.vuotoCloser}
-            descrizione={t.vuotoLettura}
           />
         ) : (
           <StatoVuoto
@@ -204,7 +193,6 @@ export default async function LeMieCallPage() {
       admin={admin}
       mostraGiorno={mostraGiorno}
       eliminabile={admin}
-      solaLettura={leggeSolo}
       lingua={lingua}
     />
   )
@@ -256,7 +244,7 @@ export default async function LeMieCallPage() {
           {concluse.length > 0 ? (
             <Sezione
               titolo={t.ultimi7}
-              descrizione={leggeSolo ? undefined : t.ultimi7Descrizione}
+              descrizione={t.ultimi7Descrizione}
             >
               {concluse.map((c) => scheda(c))}
             </Sezione>

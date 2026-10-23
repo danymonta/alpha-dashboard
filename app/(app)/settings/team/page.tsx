@@ -4,11 +4,7 @@ import {
   RevocaInvito,
 } from "@/app/(app)/settings/team/team-client";
 import { IntestazionePagina } from "@/components/pagina/intestazione";
-import {
-  ETICHETTA_RUOLO,
-  puoScrivere,
-  RUOLI_COME_ADMIN,
-} from "@/lib/auth/roles";
+import { ETICHETTA_RUOLO } from "@/lib/auth/roles";
 import { requireRuolo } from "@/lib/auth/session";
 import { oggiRoma } from "@/lib/date";
 import { emailConfigurata } from "@/lib/email/invia";
@@ -22,9 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export default async function TeamPage() {
-  // the business coach reads the team (22/10/2026): no invite, no role change, no revoke
-  const io = await requireRuolo(RUOLI_COME_ADMIN);
-  const scrive = puoScrivere(io.ruolo);
+  const io = await requireRuolo(["admin"]);
   const lingua = await getLingua();
   const T = IMPOSTAZIONI[lingua];
   const t = T.team;
@@ -58,12 +52,12 @@ export default async function TeamPage() {
         titolo={T.sezioni.team[0]}
         descrizione={t.descrizione}
         azione={
-          scrive ? (
+          (
             <InvitaMembro
               urlLogin={urlLogin}
               emailAttiva={emailConfigurata()}
             />
-          ) : undefined
+          )
         }
       />
 
@@ -94,32 +88,23 @@ export default async function TeamPage() {
                   {m.email}
                 </p>
               </div>
-              {scrive ? (
-                <ControlliMembro
-                  profileId={m.id}
-                  nome={m.nome}
-                  ruolo={m.ruolo}
-                  livelloPm={m.livello_pm}
-                  attivo={m.attivo}
-                  sonoIo={m.id === io.id}
-                  altri={membri
-                    .filter((x) => x.id !== m.id)
-                    .map((x) => ({ id: x.id, nome: x.nome, email: x.email }))}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {etichettaRuolo[m.ruolo]}
-                  {m.attivo ? "" : t.disattivato}
-                </p>
-              )}
+              <ControlliMembro
+                profileId={m.id}
+                nome={m.nome}
+                ruolo={m.ruolo}
+                livelloPm={m.livello_pm}
+                attivo={m.attivo}
+                sonoIo={m.id === io.id}
+                altri={membri
+                  .filter((x) => x.id !== m.id)
+                  .map((x) => ({ id: x.id, nome: x.nome, email: x.email }))}
+              />
             </li>
           ))}
         </ul>
-        {scrive ? (
-          <p className="px-1 text-xs text-muted-foreground">
-            {t.nota}
-          </p>
-        ) : null}
+        <p className="px-1 text-xs text-muted-foreground">
+          {t.nota}
+        </p>
       </section>
 
       <section className="space-y-2">
@@ -150,9 +135,7 @@ export default async function TeamPage() {
                     )}
                   </p>
                 </div>
-                {scrive ? (
-                  <RevocaInvito email={i.email} urlLogin={urlLogin} />
-                ) : null}
+                <RevocaInvito email={i.email} urlLogin={urlLogin} />
               </li>
             ))}
           </ul>

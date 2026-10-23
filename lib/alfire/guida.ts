@@ -2,7 +2,7 @@
  * How the dashboard works, in short sections Alfire reads only when asked
  * (the free tier counts every token: the guide stays out of the system prompt).
  */
-import { haEconomics, haMarketing, solaLettura, type AppRole } from '@/lib/auth/roles'
+import { haEconomics, haMarketing, type AppRole } from '@/lib/auth/roles'
 
 /**
  * What Alfire does in chat, for who asks: each role reads its own part, never
@@ -33,21 +33,11 @@ const DA_UN_ALLEGATO: Record<AppRole, string> = {
   marketing: 'task e note di un progetto',
   nutrizione: 'task e note di un progetto',
   dev: 'task e note di un progetto',
-  business_coach: 'niente: legge e basta',
+  // the business coach has no Alfire (1.58.0): the route refuses him
+  business_coach: 'niente',
 }
 
 export function guidaAlfire(ruolo: AppRole): string {
-  // the business coach (22/10/2026): the admin's readings, no write at all
-  if (solaLettura(ruolo)) {
-    return [
-      'Cosa fa Alfire in chat (testo o voce) per il business coach: legge tutto quello che legge l’admin, come nelle pagine dell’app, e non scrive niente. Numeri del periodo, cash per mese, da incassare, clienti e rate, vendite, setting e cosa dicono i lead, provvigioni, costi, call, progetti e il tempo del team (solo quello già dichiarato, mai i timer accesi, nessuna classifica).',
-      'Registrare, correggere o eliminare non è del tuo account: lo fa l’admin dall’app.',
-      'Mai: team, inviti, ruoli, accessi, export, backup, chiavi, impostazioni.',
-      'Quando Alfire chiede quale (cliente, progetto, mese) le risposte compaiono come bottoni: un tocco risponde, oppure si scrive o si detta la risposta.',
-      'Col microfono il testo compare nella casella mentre parli: a fine vocale si rilegge, si corregge e si manda con Invio.',
-      'Con la graffetta si allegano fino a 3 file per messaggio (PDF, foto e screenshot, Word, Excel, CSV; 4 MB al massimo): Alfire li legge e risponde, senza registrare niente. I file non si salvano da nessuna parte: restano solo nella chat aperta.',
-    ].join(' ')
-  }
   return [
     'Cosa fa Alfire in chat (testo o voce), sempre dopo il tocco su "Conferma" nella scheda, che mostra la riga vera, prima → dopo, e cosa si porta dietro un’eliminazione (bottone rosso "Elimina").',
     ALFIRE_PER_RUOLO[ruolo],
@@ -170,10 +160,6 @@ const PER_RUOLO: Partial<Record<AppRole, Partial<Record<ArgomentoGuida, string>>
   },
 }
 
-/** The business coach (22/10/2026): what the admin reads, never a write. */
-const PERMESSI_BUSINESS_COACH =
-  'Permessi del business coach: legge tutto quello che legge l’admin, in sola lettura (Panoramica, call, pipeline, clienti, vendite, incassi, rinnovi, setter e Insight, closer, provvigioni, costi, contenuti, progetti, tempo del team, impostazioni e registro delle modifiche). Non scrive niente: nessun bottone che registra, corregge o elimina, nessun esito, nessun timer. Non vede come è stata condotta una call né i suggerimenti per i DM del setter (sono di una persona sola), le notifiche degli altri, le chiavi, né le proposte del report da Instagram del setter.'
-
 /** The Projects area's roles (coach, nutrition, development): no money, nothing that is not theirs. */
 const PERMESSI_PROGETTI =
   'Permessi: vedi i progetti di cui sei membro, con liste, task e note; lavori i task assegnati a te o creati da te, e chi gestisce un progetto li lavora tutti. Il tempo è il tuo: lo registri, lo correggi e lo leggi. Quello degli altri lo vede chi gestisce un progetto, nella scheda Tempo del progetto; Alfire non lo legge. Nei progetti di cui sei il coach vedi anche la cartella Drive: la apri, la colleghi, la cambi o la togli; gli altri membri del progetto non la vedono. Le altre aree del gestionale non sono del tuo ruolo.'
@@ -192,8 +178,10 @@ const PERMESSI_MARKETING =
 export function argomentiGuida(ruolo: AppRole): ArgomentoGuida[] {
   switch (ruolo) {
     case 'admin':
-    case 'business_coach':
       return ARGOMENTI_GUIDA
+    // no Alfire for the business coach (1.58.0): his one page is the sales recap
+    case 'business_coach':
+      return []
     case 'setter':
       return ['setting', 'call', 'provvigioni', 'progetti', 'alfire', 'permessi']
     case 'closer':
@@ -210,9 +198,8 @@ export function argomentiGuida(ruolo: AppRole): ArgomentoGuida[] {
 /** A topic's text for who asks: the Alfire topic says what this role does, the others what concerns that role. */
 export function testoGuida(argomento: ArgomentoGuida, ruolo: AppRole): string {
   if (argomento === 'alfire') return guidaAlfire(ruolo)
-  if (argomento === 'permessi' && solaLettura(ruolo)) return PERMESSI_BUSINESS_COACH
   if (argomento === 'permessi' && haMarketing(ruolo) && ruolo !== 'admin') return PERMESSI_MARKETING
   if (argomento === 'permessi' && !haEconomics(ruolo)) return PERMESSI_PROGETTI
-  if (argomento === 'progetti' && ruolo !== 'admin' && !solaLettura(ruolo)) return PROGETTI_TEAM
+  if (argomento === 'progetti' && ruolo !== 'admin') return PROGETTI_TEAM
   return PER_RUOLO[ruolo]?.[argomento] ?? GUIDA[argomento]
 }

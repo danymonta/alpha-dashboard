@@ -110,6 +110,7 @@ import {
   erroreVersoClaude,
   leggiDestinazione,
   maiVistoPer,
+  testoNonAmmesso,
   tipoErroreAutorizzazione,
 } from '@/lib/mcp/consenso'
 import { NON_VALIDA, consensoSchema, scollegaAppSchema } from '@/lib/validation/mcp'
@@ -520,8 +521,6 @@ describe('le parole della scheda di consenso', () => {
       frase([CONSENSO.azioniCall.closer, CONSENSO.azioniVendite.closer, ...CONSENSO.azioniProgetti]),
     )
     expect(azioniConsenso({ ruolo: 'coach', livello: 'manager' })).toEqual(frase([...CONSENSO.azioniProgetti, CONSENSO.azioneGestione]))
-    // the business coach reads only (22/10/2026), whatever his level
-    expect(azioniConsenso({ ruolo: 'business_coach', livello: 'manager' })).toEqual(frase([...CONSENSO.azioniSolaLettura]))
     for (const voce of [
       ...CONSENSO.azioni,
       CONSENSO.azioneAdmin,
@@ -566,11 +565,8 @@ describe('le parole della scheda di consenso', () => {
     expect(CONSENSO.maiVistoCall).toContain('non inviterà persone, non cambierà ruoli e non disattiverà nessuno')
     expect(CONSENSO.maiVistoCall).not.toMatch(/margine|Panoramica/)
     expect(CONSENSO.maiVistoCloser).toMatch(/costi, provvigioni, margine/)
-    expect(CONSENSO.maiVistoSolaLettura).not.toMatch(/costi|provvigioni|margine/)
-    expect(CONSENSO.azioniSolaLettura).toContain('leggere i numeri dell’azienda, i costi, le provvigioni, gli obiettivi e il team, come l’admin')
     expect(maiVistoPer({ ruolo: 'setter' })).toBe(CONSENSO.maiVistoSetter)
     expect(CONSENSO.maiVistoSetter).toMatch(/importi proposti, link di Fathom, performance/)
-    expect(maiVistoPer({ ruolo: 'business_coach' })).toBe(CONSENSO.maiVistoSolaLettura)
     for (const frase of [CONSENSO.maiVistoCall, CONSENSO.maiVistoSetter]) {
       expect(frase).toContain('le analisi di Claude sulle call')
       expect(frase).toContain('né call, né lead')
@@ -624,9 +620,20 @@ describe('le parole della scheda di consenso', () => {
   })
 
   it('chi non può (un account disattivato): il perché e «Torna a Claude», che rifiuta', () => {
-    const html = renderToStaticMarkup(createElement(SchedaNonAmmesso, { authorizationId: ID }))
+    const html = renderToStaticMarkup(createElement(SchedaNonAmmesso, { authorizationId: ID, testo: testoNonAmmesso('coach') }))
     expect(html).toContain('solo con un account attivo')
     expect(html).toContain(CONSENSO.tornaAClaude)
+    expect(html).toContain('value="rifiuta"')
+    expect(html).not.toContain('value="consenti"')
+  })
+
+  it('il business coach (1.58.0): non collega Claude, il recap vendite lo legge nell’app', () => {
+    expect(testoNonAmmesso('business_coach')).toBe(CONSENSO.nonAmmessoRecap)
+    expect(testoNonAmmesso('setter')).toBe(CONSENSO.nonAmmesso)
+    const html = renderToStaticMarkup(
+      createElement(SchedaNonAmmesso, { authorizationId: ID, testo: testoNonAmmesso('business_coach') }),
+    )
+    expect(html).toContain('il recap vendite lo leggi nell’app')
     expect(html).toContain('value="rifiuta"')
     expect(html).not.toContain('value="consenti"')
   })

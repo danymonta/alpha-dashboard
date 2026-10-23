@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 
 import { SchedeInsight } from '@/components/insight/schede-insight'
-import { leggeComeAdmin } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 
 /**
@@ -12,11 +11,10 @@ import { requireRuolo } from '@/lib/auth/session'
  * setter (the page checks it again).
  */
 export default async function LayoutInsight({ children }: { children: ReactNode }) {
-  // the business coach reads it as the admin does, a tab of his «Setter» (22/10/2026)
-  const profilo = await requireRuolo(['admin', 'setter', 'business_coach'])
+  const profilo = await requireRuolo(['admin', 'setter'])
   return (
     <div>
-      <SchedeInsight ruolo={leggeComeAdmin(profilo.ruolo) ? 'admin' : 'setter'} attiva="insight" />
+      <SchedeInsight ruolo={profilo.ruolo === 'admin' ? 'admin' : 'setter'} attiva="insight" />
       {children}
     </div>
   )

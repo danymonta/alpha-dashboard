@@ -11,10 +11,8 @@ export const MARKETING = bilingue(
       titolo: 'Piano editoriale',
       descrizione:
         'I reel e i caroselli dall’idea al post pubblicato. Ogni cella si cambia da sola; le etichette le crei e le colori tu.',
-      descrizioneLettura: 'I reel e i caroselli dall’idea al post pubblicato, in sola lettura.',
       vuoto: 'Nessun contenuto',
       vuotoDescrizione: 'Aggiungi la prima riga: poi scegli Reel Type, Format e Status dalle celle.',
-      vuotoLettura: 'Il piano si riempie quando il team aggiunge i contenuti.',
       vuotoFiltri: 'Nessun contenuto con questi filtri',
       vuotoFiltriDescrizione: 'Cambia i filtri o la ricerca, o toglili per vedere tutti i contenuti.',
       togliFiltri: 'Togli i filtri',
@@ -84,10 +82,8 @@ export const MARKETING = bilingue(
       titolo: 'Content plan',
       descrizione:
         'The reels and carousels from the idea to the published post. Every cell changes on its own; you create and colour the labels.',
-      descrizioneLettura: 'The reels and carousels from the idea to the published post, read only.',
       vuoto: 'No content',
       vuotoDescrizione: 'Add the first row: then choose Reel Type, Format and Status from the cells.',
-      vuotoLettura: 'The plan fills up when the team adds content.',
       vuotoFiltri: 'No content with these filters',
       vuotoFiltriDescrizione: 'Change the filters or the search, or remove them to see all the content.',
       togliFiltri: 'Remove the filters',

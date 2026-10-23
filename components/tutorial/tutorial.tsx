@@ -21,7 +21,7 @@ import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import type { AppRole } from '@/lib/auth/roles'
 import { TUTORIAL } from '@/lib/i18n/testi/tutorial'
-import { ATTESA_LETTURA_MS, FUNZIONE, percorsoPer, suPagina, type PassoTutorial } from '@/lib/tutorial/percorsi'
+import { ATTESA_LETTURA_MS, FUNZIONE, PERCORSI, suPagina, type PassoTutorial } from '@/lib/tutorial/percorsi'
 import { cn } from '@/lib/utils'
 
 type ContestoTutorial = {
@@ -151,7 +151,7 @@ function posizioneScheda(r: Riquadro | null, altezzaScheda: number): CSSProperti
 function Tour({ ruolo, anteprima, chiudi }: { ruolo: AppRole; anteprima: boolean; chiudi: () => void }) {
   const lingua = useLingua()
   const testi = TUTORIAL[lingua]
-  const passi = useMemo(() => percorsoPer(ruolo, lingua), [ruolo, lingua])
+  const passi = PERCORSI[ruolo]
   const [indice, setIndice] = useState(0)
   const passo: PassoTutorial = passi[indice]
   const [riquadro, setRiquadro] = useState<Riquadro | null>(null)

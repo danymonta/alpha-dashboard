@@ -5,7 +5,7 @@ import { OpzioniProvider } from '@/components/marketing/opzioni-contesto'
 import { AzioniContenuto, SchedaContenuto } from '@/components/marketing/scheda-contenuto'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { RUOLI_MARKETING_LETTURA } from '@/lib/auth/roles'
+import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
 import { leggiDettaglioContenuto } from '@/lib/marketing/dettaglio'
 import { leggiConteggiOpzioni, leggiOpzioni } from '@/lib/marketing/letture'
@@ -24,7 +24,7 @@ const INDIETRO = { href: '/marketing/contenuti', etichetta: 'Piano editoriale' }
  * Topic) as toggles; «Elimina» at its bottom, for the admin and marketing.
  */
 export default async function ContenutoPage({ params }: { params: Promise<{ id: string }> }) {
-  const profilo = await requireRuolo(RUOLI_MARKETING_LETTURA)
+  const profilo = await requireRuolo(RUOLI_MARKETING)
   const { id } = await params
   // the page, the panel and Claude read a content the same way (lib/marketing/letture.ts); a failed read throws to error.tsx
   const supabase = await createClient()

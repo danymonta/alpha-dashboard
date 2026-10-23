@@ -117,13 +117,11 @@ function RigaCliente({
   handle,
   oggi,
   picker,
-  solaLettura,
 }: {
   riga: RigaElenco
   handle: string | null
   oggi: string
   picker: ConfigPicker | null
-  solaLettura: boolean
 }) {
   const [aperto, setAperto] = useState(false)
   const id = useId()
@@ -199,7 +197,6 @@ function RigaCliente({
             url={riga.contratto_url}
             picker={picker}
             variante="cella"
-            solaLettura={solaLettura}
           />
         </Cella>
 
@@ -211,7 +208,6 @@ function RigaCliente({
             chi="admin"
             picker={picker}
             variante="cella"
-            solaLettura={solaLettura}
           />
         </Cella>
 
@@ -282,7 +278,6 @@ export function ElencoClienti({
   oggi,
   picker,
   etichetta,
-  solaLettura = false,
 }: {
   righe: RigaElenco[]
   /** Instagram handle by client id (the list function does not carry it). */
@@ -290,8 +285,6 @@ export function ElencoClienti({
   oggi: string
   picker: ConfigPicker | null
   etichetta: string
-  /** The business coach (22/10/2026): the links open, nothing changes them. */
-  solaLettura?: boolean
 }) {
   const colonne = CLIENTI[useLingua()].colonne
   return (
@@ -307,7 +300,7 @@ export function ElencoClienti({
       </div>
       <div className="space-y-2 xl:space-y-0">
         {righe.map((r) => (
-          <RigaCliente key={r.client_id} riga={r} handle={handle[r.client_id] ?? null} oggi={oggi} picker={picker} solaLettura={solaLettura} />
+          <RigaCliente key={r.client_id} riga={r} handle={handle[r.client_id] ?? null} oggi={oggi} picker={picker} />
         ))}
       </div>
     </div>

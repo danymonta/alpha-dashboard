@@ -36,7 +36,6 @@ export const PROGETTI = bilingue(
       manager: 'I progetti di cui fai parte. Puoi aprirne di nuovi.',
       employee: 'I progetti di cui fai parte.',
     },
-    descrizioneLettura: 'Tutti i progetti, divisi per reparto. In sola lettura.',
     repartiModelli: 'Reparti e modelli',
     filtra: 'Filtra i progetti',
     stato: 'Stato',
@@ -109,7 +108,6 @@ export const PROGETTI = bilingue(
       vuoto: 'Ancora nessuna nota',
       vuotoDescrizione:
         'Scrivi qui sopra cosa è successo oggi: una decisione, un feedback, una cosa da ricordare. Il team la ritrova sotto la sua data.',
-      vuotoLettura: 'Le note del team compaiono qui, sotto la loro data.',
       tu: 'Tu',
       collaboratore: 'Collaboratore',
       modificata: ' · modificata',
@@ -156,7 +154,6 @@ export const PROGETTI = bilingue(
       manager: 'The projects you are part of. You can open new ones.',
       employee: 'The projects you are part of.',
     },
-    descrizioneLettura: 'Every project, by department. Read only.',
     repartiModelli: 'Departments and templates',
     filtra: 'Filter the projects',
     stato: 'Status',
@@ -225,7 +222,6 @@ export const PROGETTI = bilingue(
       vuoto: 'No notes yet',
       vuotoDescrizione:
         'Write above what happened today: a decision, feedback, something to remember. The team finds it under its date.',
-      vuotoLettura: 'The team’s notes appear here, under their date.',
       tu: 'You',
       collaboratore: 'Team member',
       modificata: ' · edited',

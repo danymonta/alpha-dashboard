@@ -8,7 +8,6 @@ import { bilingue } from '@/lib/i18n/lingua'
 export const IMPOSTAZIONI = bilingue(
   {
     titolo: 'Impostazioni',
-    soloLettura: 'In sola lettura: le cambia l’admin.',
     changelog: 'il changelog: cosa cambia a ogni aggiornamento, per te e per il team.',
     gruppi: {
       team: 'Team e accessi',
@@ -54,8 +53,6 @@ export const IMPOSTAZIONI = bilingue(
       mesi: (n: number) => (n === 1 ? '1 mese' : `${n} mesi`),
       poi: ' poi ',
       rateUguali: ' · rate uguali',
-      inVendita: 'In vendita',
-      fuoriVendita: 'Fuori vendita',
     },
     // Regole provvigioni
     regole: {
@@ -90,7 +87,6 @@ export const IMPOSTAZIONI = bilingue(
   },
   {
     titolo: 'Settings',
-    soloLettura: 'Read only: the admin changes them.',
     changelog: 'the changelog: what changes with every update, for you and for the team.',
     gruppi: {
       team: 'Team and access',
@@ -134,8 +130,6 @@ export const IMPOSTAZIONI = bilingue(
       mesi: (n: number) => (n === 1 ? '1 month' : `${n} months`),
       poi: ' then ',
       rateUguali: ' · equal instalments',
-      inVendita: 'On sale',
-      fuoriVendita: 'Off sale',
     },
     regole: {
       errore: 'The rules could not be loaded',

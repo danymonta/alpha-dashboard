@@ -9,7 +9,6 @@ import { BadgeStatus } from '@/components/marketing/badge-status'
 import { useOpzioniToast, usePannello } from '@/components/marketing/contesto-pannello'
 import { Pillola } from '@/components/marketing/pillola'
 import { useUscitaDallaLista } from '@/components/marketing/sezione-contenuti'
-import { useSolaLettura } from '@/components/shell/sola-lettura'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,14 +43,7 @@ function isStatus(valore: unknown): valore is StatusContenuto {
  * router.refresh() after the action: its revalidatePath already brought the
  * page redrawn (1.33.0).
  */
-/** The Status with its menu; for a read-only account (useSolaLettura) the badge alone. */
-export function MenuStatus(props: Parameters<typeof MenuStatusModificabile>[0]) {
-  const solaLettura = useSolaLettura()
-  if (solaLettura) return <BadgeStatus stato={props.stato} className={props.className} />
-  return <MenuStatusModificabile {...props} />
-}
-
-function MenuStatusModificabile({
+export function MenuStatus({
   id,
   nome,
   stato,

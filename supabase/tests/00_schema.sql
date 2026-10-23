@@ -204,7 +204,7 @@ select results_eq(
        'insight_ruota_chiave', 'insight_stato',
        'instagram_imposta_token', 'instagram_togli_token', 'instagram_token_presente', 'is_admin',
        'lead_appartiene_al_setter',
-       -- the business coach (1.52.0): true for an active admin or business coach, read policies and read functions only
+       -- the admin's reads (1.52.0); the business coach only inside recap_sales (1.58.0): read functions only
        'legge_come_admin',
        -- the reel analysis (1.36.0): marketing_analisi_richiedi (admin and marketing), the limit and the
        -- switches (admin), the situation (admin, editor, marketing): each checks current_role() first
@@ -216,7 +216,10 @@ select results_eq(
        'mia_foto_google', 'mie_vendite_setter', 'miei_clienti', 'miei_numeri_periodo', 'pm_assegnato',
        'pm_coach_del_cliente', 'pm_crea_progetto', 'pm_ferma_timer', 'pm_livello_corrente',
        'pm_membro', 'pm_puo_gestire', 'pm_puo_modificare_task', 'pm_puo_vedere',
-       'promemoria_percorso_interrotto', 'puo_usare_mcp', 'segna_tutorial_visto', 'unisci_profili',
+       'promemoria_percorso_interrotto', 'puo_usare_mcp',
+       -- the sales recap (1.58.0): the active admin and business coach, never an OAuth token
+       'recap_sales',
+       'segna_tutorial_visto', 'unisci_profili',
        'vede_marketing'
      ]::text[]) as x order by 1 $$,
   'ogni funzione security definer raggiungibile è nella lista (e nel test 75 per i token di Claude)'

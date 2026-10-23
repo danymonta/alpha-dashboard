@@ -86,6 +86,31 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.58.0',
+    data: '2026-10-23',
+    titolo: 'Il business coach ha solo il recap vendite',
+    riassunto:
+      'Il business coach non vede più l’app: entra su una pagina sola, «Recap vendite», con DM, conversazioni, call, chiuse e cash dai nuovi clienti del periodo, il funnel e tre grafici. Tu la apri da Amministrazione.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Il business coach entra sul «Recap vendite» e non vede altro: niente menu, campanella, Alfire, timer, tutorial o Novità, e ogni altra pagina lo riporta lì. In alto restano il logo, la lingua, il tema ed Esci. La pagina ha il periodo con il confronto col periodo prima, le tessere (cash incassato dai nuovi clienti, revenue nuovi clienti, call chiuse con il close rate, call svolte con lo show rate, call prenotate, DM totali con outbound, inbound e follow up, conversazioni), il funnel e tre grafici con la loro tabella (DM, call svolte e chiuse, cash dai nuovi clienti), giorno per giorno, settimana per settimana o mese per mese secondo il periodo. Solo totali: mai un cliente, una persona, i costi, il margine o le provvigioni. Tutti i numeri li calcola il database, con le stesse funzioni della Panoramica.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Tu apri la stessa pagina da Amministrazione › «Recap del business coach», per vedere quello che vede lui, e torni all’app con «Torna all’app».',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Nel database il business coach non legge più niente oltre al suo profilo e al recap: niente clienti, vendite, call, progetti o contenuti, nessuna notifica, Claude collegato non si collega più con il suo account (la pagina di consenso glielo dice) e Alfire non è attiva per lui. Il suo ruolo in Team resta come prima.',
+      },
+    ],
+  },
+  {
     versione: '1.57.1',
     data: '2026-10-23',
     titolo: 'Il codice di accesso via email ha 8 cifre',

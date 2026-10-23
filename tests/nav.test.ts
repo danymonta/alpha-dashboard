@@ -225,8 +225,8 @@ describe('l’area Marketing: le tre pagine, ognuna una voce (1.38.0; «Pubblica
 
   it('solo admin, video editor e marketing hanno il gruppo «Marketing», con le tre voci nello stesso ordine', () => {
     const conMarketing = TUTTI_I_RUOLI.filter((ruolo) => tutte(ruolo).some((v) => v.href.startsWith('/marketing')))
-    // the business coach reads the area too, in read only (22/10/2026)
-    expect(conMarketing).toEqual(['admin', 'editor', 'marketing', 'business_coach'])
+    // the business coach has no menu at all (1.58.0): only the sales recap
+    expect(conMarketing).toEqual(['admin', 'editor', 'marketing'])
     for (const ruolo of conMarketing) {
       expect(gruppo(ruolo, 'Marketing').map((v) => [v.etichetta, v.href]), ruolo).toEqual(PAGINE)
       for (const v of gruppo(ruolo, 'Marketing')) {
@@ -297,7 +297,7 @@ describe('il menu a gruppi (1.38.0)', () => {
     marketing: ['Marketing', 'Progetti', 'Generale'],
     nutrizione: ['Progetti', 'Generale'],
     dev: ['Progetti', 'Generale'],
-    business_coach: [null, 'Vendite', 'Team', 'Marketing', 'Progetti', 'Amministrazione'],
+    business_coach: [],
   } as const
 
   it('i gruppi di ogni ruolo, nell’ordine della barra laterale', () => {
@@ -314,7 +314,8 @@ describe('il menu a gruppi (1.38.0)', () => {
     expect(per('Team')).toEqual(['Setter', 'Closer', 'Provvigioni'])
     expect(per('Marketing')).toEqual(['Piano editoriale', 'Pubblicati', 'Spunti'])
     expect(per('Progetti')).toEqual(['Progetti', 'I miei task', 'Tempo'])
-    expect(per('Amministrazione')).toEqual(['Costi', 'Impostazioni', 'Novità'])
+    // the admin opens the business coach's page too (1.58.0)
+    expect(per('Amministrazione')).toEqual(['Costi', 'Impostazioni', 'Recap del business coach', 'Novità'])
     expect(vociNav('admin').principali.map((v) => v.etichetta)).toEqual([
       'Panoramica',
       'Le mie call',
@@ -343,8 +344,8 @@ describe('il menu a gruppi (1.38.0)', () => {
     for (const ruolo of TUTTI_I_RUOLI) {
       const titoli = vociNav(ruolo).gruppi.map((g) => g.titolo)
       expect(new Set(titoli).size, ruolo).toBe(titoli.length)
-      // only the first group of the admin (and of the business coach, who reads his pages) has no title
-      expect(titoli.filter((t) => t === null).length, ruolo).toBe(ruolo === 'admin' || ruolo === 'business_coach' ? 1 : 0)
+      // only the first group of the admin has no title
+      expect(titoli.filter((t) => t === null).length, ruolo).toBe(ruolo === 'admin' ? 1 : 0)
     }
   })
 
@@ -366,8 +367,8 @@ describe('il menu a gruppi (1.38.0)', () => {
     }
   })
 
-  it('«Novità» ha il megafono per ogni ruolo', () => {
-    for (const ruolo of TUTTI_I_RUOLI) {
+  it('«Novità» ha il megafono per ogni ruolo con un menu', () => {
+    for (const ruolo of TUTTI_I_RUOLI.filter((r) => r !== 'business_coach')) {
       expect(voce(ruolo, 'Novità').Icona, ruolo).toBe(Megaphone)
     }
   })
@@ -409,42 +410,26 @@ describe('Insight 24h: una scheda, non una voce (1.38.0)', () => {
   })
 })
 
-describe('il business coach (22/10/2026): le pagine dell’admin, in sola lettura', () => {
-  const href = () => tutte('business_coach').map((v) => v.href)
-
-  it('arriva sulla Panoramica', () => {
-    expect(percorsoIniziale('business_coach')).toBe('/')
+describe('il business coach (1.58.0, 23/10/2026): una pagina sola, il recap vendite', () => {
+  it('arriva sul recap vendite', () => {
+    expect(percorsoIniziale('business_coach')).toBe('/recap')
   })
 
-  it('i suoi gruppi e le sue voci', () => {
-    const per = (titolo: string | null) =>
-      vociNav('business_coach').gruppi.find((g) => g.titolo === titolo)?.voci.map((v) => v.etichetta)
-    expect(per(null)).toEqual(['Panoramica'])
-    expect(per('Vendite')).toEqual(['Call', 'Pipeline', 'Clienti', 'Vendite', 'Incassi', 'Rinnovi'])
-    expect(per('Team')).toEqual(['Setter', 'Closer', 'Provvigioni'])
-    expect(per('Marketing')).toEqual(['Piano editoriale', 'Pubblicati', 'Spunti'])
-    expect(per('Progetti')).toEqual(['Progetti', 'Tempo del team'])
-    expect(per('Amministrazione')).toEqual(['Costi', 'Impostazioni', 'Novità'])
-    expect(vociNav('business_coach').principali.map((v) => v.href)).toEqual(['/', '/calls', '/setting', '/marketing/contenuti'])
+  it('nessun menu: niente barra laterale, barra in basso né «Altro»', () => {
+    const nav = vociNav('business_coach')
+    expect(nav.gruppi).toEqual([])
+    expect(nav.principali).toEqual([])
+    expect(nav.altre).toEqual([])
+    expect(nav.gruppiAltro).toEqual([])
   })
 
-  it('nessuna voce che scrive: niente Nuova call, Oggi, I miei task, Il mio tempo, Le mie vendite', () => {
-    for (const pagina of ['/calls/new', '/sales/new', '/today', '/task', '/tempo', '/my-sales', '/my-numbers']) {
-      expect(href(), pagina).not.toContain(pagina)
+  it('l’admin apre lo stesso recap da Amministrazione, mai nella barra in basso', () => {
+    const recap = voce('admin', 'Recap del business coach')
+    expect(recap.href).toBe('/recap')
+    expect(isAttiva('/recap', recap)).toBe(true)
+    expect(vociNav('admin').principali.map((v) => v.href)).not.toContain('/recap')
+    for (const ruolo of TUTTI_I_RUOLI.filter((r) => r !== 'admin')) {
+      expect(tutte(ruolo).map((v) => v.href), ruolo).not.toContain('/recap')
     }
-  })
-
-  it('nessun numero sulle voci: i promemoria sono di chi deve agire', () => {
-    for (const v of tutte('business_coach')) {
-      expect(v.esiti, v.etichetta).toBeUndefined()
-      expect(v.daApprovare, v.etichetta).toBeUndefined()
-      expect(v.commenti, v.etichetta).toBeUndefined()
-    }
-  })
-
-  it('«Setter» resta accesa sull’Insight, «Tempo del team» sulla sua pagina', () => {
-    expect(isAttiva('/insight', voce('business_coach', 'Setter'))).toBe(true)
-    expect(isAttiva('/tempo/team', voce('business_coach', 'Tempo del team'))).toBe(true)
-    expect(isAttiva('/tempo', voce('business_coach', 'Tempo del team'))).toBe(false)
   })
 })

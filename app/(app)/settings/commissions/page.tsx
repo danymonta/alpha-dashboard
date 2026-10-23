@@ -13,7 +13,6 @@ import {
 } from "@/app/(app)/settings/commissions/regole-client";
 import { IntestazionePagina } from "@/components/pagina/intestazione";
 import { StatoVuoto } from "@/components/stati/stato-vuoto";
-import { puoScrivere, RUOLI_COME_ADMIN } from "@/lib/auth/roles";
 import { requireRuolo } from "@/lib/auth/session";
 import { aggiungiMesi, oggiRoma, primoDelMeseISO } from "@/lib/date";
 import { formato } from "@/lib/format";
@@ -25,9 +24,7 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export default async function RegoleProvvigioniPage() {
-  // the business coach reads the rules (22/10/2026): no new rule, no change, no close
-  const profilo = await requireRuolo(RUOLI_COME_ADMIN);
-  const scrive = puoScrivere(profilo.ruolo);
+  await requireRuolo(["admin"]);
   const oggi = oggiRoma();
   const lingua = await getLingua();
   const T = IMPOSTAZIONI[lingua];
@@ -78,12 +75,12 @@ export default async function RegoleProvvigioniPage() {
         titolo={T.sezioni.commissions[0]}
         descrizione={t.descrizione}
         azione={
-          scrive ? (
+          (
             <NuovaRegola
               persone={persone}
               dataPredefinita={aggiungiMesi(primoDelMeseISO(oggi), 1)}
             />
-          ) : undefined
+          )
         }
       />
 
@@ -125,28 +122,26 @@ export default async function RegoleProvvigioniPage() {
                     r.valida_al ? formatData(r.valida_al) : null,
                   )}
                 </p>
-                {scrive ? (
-                  <div className="flex flex-wrap gap-2">
-                    <ModificaRegola
-                      regola={{
-                        id: r.id,
-                        // fraction -> points for the form (0.05 -> 5)
-                        percentuale: Math.round(r.percentuale * 10000) / 100,
-                        applica_a: r.applica_a,
-                        valida_dal: r.valida_dal,
-                        valida_al: r.valida_al,
-                      }}
+                <div className="flex flex-wrap gap-2">
+                  <ModificaRegola
+                    regola={{
+                      id: r.id,
+                      // fraction -> points for the form (0.05 -> 5)
+                      percentuale: Math.round(r.percentuale * 10000) / 100,
+                      applica_a: r.applica_a,
+                      valida_dal: r.valida_dal,
+                      valida_al: r.valida_al,
+                    }}
+                    etichetta={`${r.persona?.nome ?? "Regola"} · ${formatPercentuale(r.percentuale)}`}
+                  />
+                  {!r.valida_al && r.valida_dal <= oggi ? (
+                    <ChiudiRegola
+                      ruleId={r.id}
+                      oggi={oggi}
                       etichetta={`${r.persona?.nome ?? "Regola"} · ${formatPercentuale(r.percentuale)}`}
                     />
-                    {!r.valida_al && r.valida_dal <= oggi ? (
-                      <ChiudiRegola
-                        ruleId={r.id}
-                        oggi={oggi}
-                        etichetta={`${r.persona?.nome ?? "Regola"} · ${formatPercentuale(r.percentuale)}`}
-                      />
-                    ) : null}
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
               </li>
             );
           })}

@@ -720,6 +720,7 @@ begin
   perform pg_temp.prova('pm_puo_vedere', format($q$ select public.pm_puo_vedere(%L)::text $q$, a.progetto_id));
   perform pg_temp.prova('promemoria_percorso_interrotto', format($q$ select public.promemoria_percorso_interrotto(%L)::text $q$, a.sale_id));
   perform pg_temp.prova('puo_usare_mcp', $q$ select public.puo_usare_mcp()::text $q$);
+  perform pg_temp.prova('recap_sales', $q$ select public.recap_sales('2026-10-01', '2026-10-31')::text $q$);
   perform pg_temp.prova('segna_tutorial_visto', $q$ select public.segna_tutorial_visto()::text $q$);
   perform pg_temp.prova('unisci_profili', $q$ select public.unisci_profili('22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333')::text $q$);
   perform pg_temp.prova('vede_marketing', $q$ select public.vede_marketing()::text $q$);
@@ -826,6 +827,7 @@ select is(
     'promemoria_percorso_interrotto 42501',
     'provvigioni_per_vendita 42501',
     'puo_usare_mcp ok:false',
+    'recap_sales 42501',
     'registra_vendita 42501',
     'scollega_registrazione 42501',
     'segna_tutorial_visto 42501',
@@ -1158,7 +1160,7 @@ select is(
        'salva_sezione_contenuto', 'spunti_per_claude', 'mcp_chi_sono', 'pm_crea_progetto', 'pm_scegli_coach',
        'pm_imposta_assegnatari', 'pm_registra_tempo', 'pm_modifica_tempo', 'pm_avvia_timer', 'pm_ferma_timer',
        'pm_mio_tempo_per_task', 'pm_riepilogo_tempo', 'pm_tempo_per_persona', 'pm_timer_attivo')
-     -- the call tools (phase 2, 20261029090000) pass only for admin, setter, closer and business coach:
+     -- the call tools (phase 2, 20261029090000) pass only for admin, setter and closer:
      -- for this marketing token they are refused like the rest (102_mcp_call_lead.sql tests them by role)
      and (pg_temp.filtro('/rpc/' || p.proname, 'POST') <> '42501'
           or pg_temp.filtro('/rpc/' || p.proname, 'GET') <> '42501')),

@@ -1,5 +1,4 @@
 import { Timer } from 'lucide-react'
-import { redirect } from 'next/navigation'
 
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { AggiornaConTempo } from '@/components/pm/tempo/aggiorna-con-tempo'
@@ -14,7 +13,6 @@ import {
   type VoceModificabile,
 } from '@/components/pm/tempo/form-tempo'
 import { NavigazionePeriodo } from '@/components/pm/tempo/navigazione-periodo'
-import { solaLettura } from '@/lib/auth/roles'
 import { requireProfilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -33,8 +31,6 @@ type Parametri = { settimana?: string; da?: string; a?: string }
  */
 export default async function IlMioTempoPage({ searchParams }: { searchParams: Promise<Parametri> }) {
   const profilo = await requireProfilo()
-  // the business coach logs no time: he reads the team's (22/10/2026)
-  if (solaLettura(profilo.ruolo)) redirect('/tempo/team')
   const oggi = oggiRoma()
   const lingua = await getLingua()
   const testi = MIO_TEMPO[lingua]

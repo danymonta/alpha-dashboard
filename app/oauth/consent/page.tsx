@@ -15,6 +15,7 @@ import {
   MESSAGGI_AUTORIZZAZIONE,
   hostDi,
   leggiDestinazione,
+  testoNonAmmesso,
   tipoErroreAutorizzazione,
 } from '@/lib/mcp/consenso'
 import { createClient } from '@/lib/supabase/server'
@@ -73,7 +74,7 @@ export default async function ConsensoPage({
   if (errorePuo || puo !== true) {
     return (
       <PaginaConsenso>
-        <SchedaNonAmmesso authorizationId={id.data} />
+        <SchedaNonAmmesso authorizationId={id.data} testo={testoNonAmmesso(profilo.ruolo)} />
       </PaginaConsenso>
     )
   }

@@ -28,9 +28,9 @@ select has_column('public', 'instagram_contenuti_stato', 'permesso_insights', 'i
 select ok((select relrowsecurity from pg_class where oid = 'public.instagram_contenuti_misure'::regclass)
   and (select relrowsecurity from pg_class where oid = 'public.instagram_account_misure'::regclass), 'RLS attiva');
 select policies_are('public', 'instagram_contenuti_misure',
-  array['instagram_contenuti_misure_lettura', 'instagram_contenuti_misure_lettura_come_admin', 'instagram_contenuti_misure_mai_da_oauth'], 'le foto: solo la lettura');
+  array['instagram_contenuti_misure_lettura', 'instagram_contenuti_misure_mai_da_oauth'], 'le foto: solo la lettura');
 select policies_are('public', 'instagram_account_misure',
-  array['instagram_account_misure_lettura', 'instagram_account_misure_lettura_come_admin', 'instagram_account_misure_mai_da_oauth'], 'i follower: solo la lettura');
+  array['instagram_account_misure_lettura', 'instagram_account_misure_mai_da_oauth'], 'i follower: solo la lettura');
 select throws_ok(
   $$ insert into public.instagram_contenuti_misure (media_id, giorno, letto_il, eta_ore, skip_rate)
      values ('7900000000000001', public.oggi(), now(), 5, 1.5) $$,

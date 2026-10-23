@@ -77,7 +77,6 @@ export const PANORAMICA = bilingue(
     nd: 'n.d.',
     // the goals
     obiettiviDi: (mese: string) => `Obiettivi di ${mese}`,
-    nessunObiettivo: 'Nessun obiettivo per questo mese.',
     nessunObiettivoImposta:
       'Nessun obiettivo per questo mese. Imposta quanto vuoi incassare e quanti clienti nuovi vuoi chiudere: qui vedi a che punto sei.',
     cashIncassato: 'Cash incassato',
@@ -160,7 +159,6 @@ export const PANORAMICA = bilingue(
     tasseEscluse: 'Taxes excluded.',
     nd: 'n/a',
     obiettiviDi: (mese: string) => `Targets for ${mese}`,
-    nessunObiettivo: 'No targets for this month.',
     nessunObiettivoImposta:
       'No targets for this month. Set how much you want to collect and how many new clients you want to close: here you see where you stand.',
     cashIncassato: 'Cash collected',
