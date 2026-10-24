@@ -7,7 +7,7 @@ import { messaggioErrore } from '@/lib/auth/azioni'
 import { contenutoDaPost } from '@/lib/marketing/da-post'
 import { COLONNE_ELENCO, type ContenutoElenco } from '@/lib/marketing/elenco'
 import {
-  BOZZA_REEL,
+  bozzaIniziale,
   CAMPI,
   CAMPO_MODELLO,
   ORDINE_SEZIONI,
@@ -221,7 +221,7 @@ export async function creaContenuto(
     testi.push([campo, controllo.data])
   }
 
-  const bozza = parsed.data.tipo === 'reel' ? BOZZA_REEL : null
+  const bozza = bozzaIniziale(parsed.data.tipo)
   const { data, error } = await inserisci(db, parsed.data, bozza, origine)
   if (error) return { ok: false, errore: errore(error) }
 
@@ -497,6 +497,7 @@ export type OpzioniPost = {
 
 const NON_SALVATO_POST = 'Non salvato. Riprova.'
 const HA_GIA_UN_POST = 'Questo contenuto ha già un post: aprilo e cambia l’URL se è un altro.'
+const YOUTUBE_NON_SI_COLLEGA = 'Un video YouTube non si collega a un post di Instagram.'
 const ALTRO_POST = 'Questo contenuto ha già un altro post.'
 const POST_SPARITO = 'Questo post non c’è più: aggiorna da Instagram.'
 const POST_ELIMINATO = 'Questo post non è più su Instagram.'
@@ -548,7 +549,7 @@ export async function collegaPost(db: Db, input: unknown): Promise<EsitoCollega>
 
   const { data: contenuto, error: lettura } = await db
     .from('marketing_contenuti')
-    .select('id, stato, post_date, url')
+    .select('id, tipo, stato, post_date, url')
     .eq('id', id)
     .maybeSingle()
   if (lettura) return { ok: false, errore: NON_SALVATO_POST }
@@ -556,6 +557,7 @@ export async function collegaPost(db: Db, input: unknown): Promise<EsitoCollega>
     aggiorna()
     return { ok: false, errore: SPARITO }
   }
+  if (contenuto.tipo === 'youtube') return { ok: false, errore: YOUTUBE_NON_SI_COLLEGA }
   if (contenuto.url !== null) {
     aggiorna()
     return { ok: false, errore: HA_GIA_UN_POST }

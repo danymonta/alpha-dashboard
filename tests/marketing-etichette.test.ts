@@ -4,6 +4,7 @@ import {
   BOZZA_REEL,
   CAMPI,
   CAMPO_MODELLO,
+  COLONNE_PIANO,
   COLORE_STATUS,
   ETICHETTA_FORMAT,
   ETICHETTA_GRUPPO,
@@ -15,10 +16,15 @@ import {
   ORDINE_GRUPPI,
   ORDINE_SEZIONI,
   SEZIONI,
+  bozzaIniziale,
+  canaleDiTipo,
+  colonneDelCanale,
   gruppoDiStatus,
   sezioniVisibili,
   valoreDaEtichetta,
 } from '@/lib/marketing/etichette'
+import { tipiCompatibili } from '@/lib/marketing/abbinamento'
+import { filtriDaParametri, haFiltri, soloCanale } from '@/lib/marketing/filtri'
 import { Constants } from '@/lib/supabase/database.types'
 
 // Notion's "📸 Instagram Posts DANYMONTA", checked on 09/10/2026
@@ -95,8 +101,8 @@ describe('le etichette di Notion', () => {
     for (const g of ORDINE_GRUPPI) for (const s of GRUPPI_STATUS[g]) expect(gruppoDiStatus(s)).toBe(g)
   })
 
-  it('i modelli hanno i nomi dei template di Notion', () => {
-    expect(ETICHETTA_MODELLO).toEqual({ reel: 'Reel Topic', carousel: 'Carousel Topic' })
+  it('i modelli hanno i nomi dei template di Notion, più YouTube Video', () => {
+    expect(ETICHETTA_MODELLO).toEqual({ reel: 'Reel Topic', carousel: 'Carousel Topic', youtube: 'YouTube Video' })
     expect(CAMPO_MODELLO).toBe('Modello')
   })
 
@@ -161,5 +167,31 @@ describe('valoreDaEtichetta', () => {
     expect(valoreDaEtichetta(ETICHETTA_FORMAT, 'Show & Tell')).toBeNull()
     expect(valoreDaEtichetta(ETICHETTA_STATUS, 'Done')).toBeNull()
     expect(valoreDaEtichetta(ETICHETTA_STATUS, '  ')).toBeNull()
+  })
+})
+
+describe('YouTube nel Piano editoriale (24/10/2026)', () => {
+  it('un video YouTube non ha Format, ha tutte e quattro le sezioni e uno script iniziale', () => {
+    expect(colonneDelCanale('youtube')).not.toContain('formato')
+    expect(colonneDelCanale('reels')).toEqual(COLONNE_PIANO)
+    expect(COLONNE_PIANO).toContain('inspiration')
+    expect(sezioniVisibili('youtube', { messaggio: null, bozza: null, commenti: null, finale: null })).toEqual(ORDINE_SEZIONI)
+    expect(bozzaIniziale('youtube')).toMatch(/^Hook:/)
+    expect(bozzaIniziale('carousel')).toBeNull()
+    expect(canaleDiTipo('youtube')).toBe('youtube')
+    expect(canaleDiTipo('carousel')).toBe('reels')
+  })
+
+  it('un video YouTube non si abbina mai a un post di Instagram', () => {
+    for (const post of ['reel', 'carousel', 'foto'] as const) expect(tipiCompatibili(post, 'youtube')).toBe(false)
+    expect(tipiCompatibili('reel', 'reel')).toBe(true)
+  })
+
+  it('la scheda YouTube sta nell’indirizzo e «Togli i filtri» la tiene', () => {
+    const f = filtriDaParametri({ canale: 'youtube', q: 'trazioni' })
+    expect(f).toEqual({ canale: 'youtube', q: 'trazioni' })
+    expect(haFiltri({ canale: 'youtube' })).toBe(false)
+    expect(soloCanale(f)).toEqual({ canale: 'youtube' })
+    expect(filtriDaParametri({ canale: 'tiktok' })).toEqual({})
   })
 })

@@ -115,9 +115,9 @@ test('il marketing atterra sul Piano editoriale: in cima quello con la Post Date
   await expect(page.getByRole('group', { name: 'Vista dei contenuti' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Calendario' })).toHaveCount(0)
 
-  // on a desktop the section is wide enough for the table: seven columns, Inspiration and Audio are in the panel
+  // on a desktop the section is wide enough for the table: eight columns, Audio is in the panel
   const tabella = sezioneContenuti(page).getByRole('table')
-  await expect(tabella.getByRole('columnheader')).toHaveText(['Name', 'Reel Type', 'Format', 'Status', 'Post Date', 'URL', 'Views'])
+  await expect(tabella.getByRole('columnheader')).toHaveText(['Name', 'Reel Type', 'Format', 'Inspiration', 'Status', 'Post Date', 'URL', 'Views'])
   await expect(tabella.locator('tbody tr').first().getByRole('link').first()).toHaveText(primo)
 
   // the filters on one row: the search, Status, Reel Type, Format

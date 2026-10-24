@@ -3,7 +3,7 @@
 import type { MouseEvent } from 'react'
 
 import { classeNome } from '@/components/marketing/badge-status'
-import { CellaContenuto, EditorCella, ViewCount } from '@/components/marketing/cella-contenuto'
+import { CellaContenuto, CellaIspirazione, EditorCella, ViewCount } from '@/components/marketing/cella-contenuto'
 import { usePannello } from '@/components/marketing/contesto-pannello'
 import { LinkContenuto } from '@/components/marketing/link-contenuto'
 import { MenuStatus } from '@/components/marketing/menu-status'
@@ -12,7 +12,7 @@ import { useLingua } from '@/components/i18n/lingua-provider'
 import { formato } from '@/lib/format'
 import { MARKETING } from '@/lib/i18n/testi/marketing'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
-import { COLONNE_PIANO, INTESTAZIONE_PIANO } from '@/lib/marketing/etichette'
+import { INTESTAZIONE_PIANO, colonneDelCanale, type CanalePiano } from '@/lib/marketing/etichette'
 import { hrefContenuto } from '@/lib/marketing/pannello'
 import { cn } from '@/lib/utils'
 
@@ -74,7 +74,10 @@ export function CardContenuto({ riga }: { riga: RigaContenuto }) {
         <MenuStatus id={riga.id} nome={riga.nome} stato={riga.stato} />
         <EditorCella id={riga.id} nome={riga.nome} campo="post_date" valore={riga.post_date} aspetto="chip" />
         <SelectOpzioni id={riga.id} nome={riga.nome} campo="reel_type" valore={riga.reel_type} aspetto="chip" />
-        <SelectOpzioni id={riga.id} nome={riga.nome} campo="formato" valore={riga.formato} aspetto="chip" />
+        {riga.tipo === 'youtube' ? null : (
+          <SelectOpzioni id={riga.id} nome={riga.nome} campo="formato" valore={riga.formato} aspetto="chip" />
+        )}
+        <CellaIspirazione riga={riga} aspetto="chip" />
       </div>
     </li>
   )
@@ -92,7 +95,12 @@ export function ListaCard({ righe }: { righe: readonly RigaContenuto[] }) {
 
 const ALLINEA_DESTRA = new Set<string>(['view_count'])
 
-function RigaTabella({ riga }: { riga: RigaContenuto }) {
+/** The header of a column: on the YouTube tab, Reel Type is just «Type». */
+function intestazione(c: keyof typeof INTESTAZIONE_PIANO, canale: CanalePiano): string {
+  return canale === 'youtube' && c === 'reel_type' ? 'Type' : INTESTAZIONE_PIANO[c]
+}
+
+function RigaTabella({ riga, canale }: { riga: RigaContenuto; canale: CanalePiano }) {
   const pannello = usePannello()
 
   function clic(e: MouseEvent<HTMLTableRowElement>) {
@@ -111,14 +119,14 @@ function RigaTabella({ riga }: { riga: RigaContenuto }) {
       onClick={clic}
       className="group/riga cursor-pointer border-b border-border/70 last:border-0 hover:bg-accent/30"
     >
-      {COLONNE_PIANO.map((c) => (
+      {colonneDelCanale(canale).map((c) => (
         <td
           key={c}
           className={cn(
             'px-2 py-1 align-middle first:pl-3 last:pr-3',
             ALLINEA_DESTRA.has(c) ? 'text-right' : 'text-left',
             // the short values never shrink: the Name takes what is left
-            (c === 'reel_type' || c === 'formato' || c === 'stato' || c === 'post_date' || c === 'view_count') && 'whitespace-nowrap',
+            (c === 'reel_type' || c === 'formato' || c === 'inspiration' || c === 'stato' || c === 'post_date' || c === 'view_count') && 'whitespace-nowrap',
             // a pill is never cut: "Converting", "Raw Talking Head" and "To be recorded" fit their column
             c === 'reel_type' && 'min-w-32',
             c === 'formato' && 'min-w-44',
@@ -146,8 +154,11 @@ export function TabellaContenuti({
   righe,
   totale,
   limite,
+  canale = 'reels',
 }: {
   righe: readonly RigaContenuto[]
+  /** The tab: on «YouTube» there is no Format column. */
+  canale?: CanalePiano
   /** All the contents with these filters (count exact). */
   totale: number
   limite: number
@@ -159,10 +170,10 @@ export function TabellaContenuti({
       {/* the columns fit 960px of section; the inner scroll is a safety net, never the page */}
       <div className="hidden overflow-x-auto rounded-lg border border-border @min-[60rem]:block">
         <table className="w-full text-sm">
-          <caption className="sr-only">{t.caption}</caption>
+          <caption className="sr-only">{canale === 'youtube' ? t.captionYoutube : t.caption}</caption>
           <thead className="text-xs text-muted-foreground">
             <tr className="border-b border-border">
-              {COLONNE_PIANO.map((c) => (
+              {colonneDelCanale(canale).map((c) => (
                 <th
                   key={c}
                   scope="col"
@@ -172,14 +183,14 @@ export function TabellaContenuti({
                     c === 'nome' && 'w-full min-w-40',
                   )}
                 >
-                  {INTESTAZIONE_PIANO[c]}
+                  {intestazione(c, canale)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {righe.map((r) => (
-              <RigaTabella key={r.id} riga={r} />
+              <RigaTabella key={r.id} riga={r} canale={canale} />
             ))}
           </tbody>
         </table>

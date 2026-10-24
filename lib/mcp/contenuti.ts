@@ -3,7 +3,7 @@ import 'server-only'
 import { fineMese, oggiRoma } from '@/lib/date'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import {
-  BOZZA_REEL,
+  bozzaIniziale,
   CAMPI,
   ETICHETTA_GRUPPO,
   ETICHETTA_MODELLO,
@@ -102,11 +102,10 @@ export function misura(valore: unknown): number {
 export async function etichetteContenuti(ctx: ContestoMcp): Promise<EsitoStrumento> {
   // Reel Type and Format are the labels of the app, as they are now (names, codes and colours): read, never fixed
   const opzioni = await leggiOpzioni(ctx.db)
-  const modelli = (['reel', 'carousel'] as const satisfies readonly TipoContenuto[]).map((tipo) => ({
-    nome: ETICHETTA_MODELLO[tipo],
-    sezioni: SEZIONI[tipo],
-    ...(tipo === 'reel' ? { bozza_iniziale: BOZZA_REEL } : {}),
-  }))
+  const modelli = (['reel', 'carousel', 'youtube'] as const satisfies readonly TipoContenuto[]).map((tipo) => {
+    const bozza = bozzaIniziale(tipo)
+    return { nome: ETICHETTA_MODELLO[tipo], sezioni: SEZIONI[tipo], ...(bozza ? { bozza_iniziale: bozza } : {}) }
+  })
   return ok({
     proprieta: ORDINE_COLONNE.map((c) => CAMPI[c]),
     reel_type: opzioni.reel_type.map((o) => ({ nome: o.nome, codice: o.valore, colore: o.colore })),

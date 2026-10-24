@@ -18,7 +18,7 @@ import {
   gruppoDiStatus,
 } from '@/lib/marketing/etichette'
 import { MARKETING } from '@/lib/i18n/testi/marketing'
-import { haFiltri, parametriDaFiltri, type FiltriContenuti as Filtri } from '@/lib/marketing/filtri'
+import { haFiltri, parametriDaFiltri, soloCanale, type FiltriContenuti as Filtri } from '@/lib/marketing/filtri'
 import { cn } from '@/lib/utils'
 
 const PERCORSO = '/marketing/contenuti'
@@ -68,7 +68,7 @@ function SelectFiltro({
 
 /**
  * The filters of the Piano editoriale (21/10/2026), on one quiet row: the
- * search on Name, Status, Reel Type, Format and «Togli i filtri». All in the
+ * search on Name, Status, Reel Type, Format (not on the YouTube tab) and «Togli i filtri». All in the
  * URL (shareable, they survive a reload). No filter by default, as in
  * Notion. The labels of Reel Type and Format are the live ones, each with the
  * number of contents that use it. The search is a GET form: it works before
@@ -144,7 +144,7 @@ export function FiltriContenuti({
       </SelectFiltro>
       <SelectFiltro
         id="filtro-reel-type"
-        etichetta={CAMPI.reel_type}
+        etichetta={filtri.canale === 'youtube' ? 'Type' : CAMPI.reel_type}
         valore={filtri.reel_type ?? ''}
         inCorso={inCorso}
         onCambia={(v) => vai({ ...filtri, reel_type: v || undefined })}
@@ -156,24 +156,27 @@ export function FiltriContenuti({
           </option>
         ))}
       </SelectFiltro>
-      <SelectFiltro
-        id="filtro-format"
-        etichetta={CAMPI.formato}
-        valore={filtri.formato ?? ''}
-        inCorso={inCorso}
-        onCambia={(v) => vai({ ...filtri, formato: v || undefined })}
-      >
-        <option value="">{t.tutti}</option>
-        {opzioni.formato.map((o) => (
-          <option key={o.id} value={o.valore}>
-            {o.nome} ({conteggi.formato[o.valore] ?? 0})
-          </option>
-        ))}
-      </SelectFiltro>
+      {/* a YouTube video has no Format */}
+      {filtri.canale === 'youtube' ? null : (
+        <SelectFiltro
+          id="filtro-format"
+          etichetta={CAMPI.formato}
+          valore={filtri.formato ?? ''}
+          inCorso={inCorso}
+          onCambia={(v) => vai({ ...filtri, formato: v || undefined })}
+        >
+          <option value="">{t.tutti}</option>
+          {opzioni.formato.map((o) => (
+            <option key={o.id} value={o.valore}>
+              {o.nome} ({conteggi.formato[o.valore] ?? 0})
+            </option>
+          ))}
+        </SelectFiltro>
+      )}
 
       {haFiltri(filtri) ? (
         <Link
-          href={indirizzo({}, resto)}
+          href={indirizzo(soloCanale(filtri), resto)}
           scroll={false}
           className="col-span-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:col-span-1"
         >

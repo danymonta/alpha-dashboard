@@ -63,8 +63,8 @@ insert into public.marketing_contenuti (id, tipo, nome, stato, finale, created_b
 -- ---------------------------------------------------------------------------
 -- 1. Schema
 -- ---------------------------------------------------------------------------
-select enum_has_labels('public', 'contenuto_tipo', array['reel', 'carousel'],
-  'i due modelli di Notion: Reel Topic e Carousel Topic');
+select enum_has_labels('public', 'contenuto_tipo', array['reel', 'carousel', 'youtube'],
+  'i modelli: Reel Topic e Carousel Topic di Notion, e YouTube Video (24/10/2026)');
 -- Reel Type and Format are options in marketing_opzioni since 20261024090000 (test 95)
 select is(
   (select array_agg(valore order by ordine) from public.marketing_opzioni where campo = 'reel_type'

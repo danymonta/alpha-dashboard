@@ -29,6 +29,8 @@ export type GruppoStatus = 'to_do' | 'in_progress' | 'complete'
 export const ETICHETTA_MODELLO: Record<TipoContenuto, string> = {
   reel: 'Reel Topic',
   carousel: 'Carousel Topic',
+  // the videos of YouTube (Dany, 24/10/2026): not a Notion template, their own tab in the Piano editoriale
+  youtube: 'YouTube Video',
 }
 
 /** tipo is not a Notion property: in the app it is the "Modello" of the page. */
@@ -116,23 +118,45 @@ export const ORDINE_COLONNE = [
 
 /**
  * The columns of the Piano editoriale (Dany, 21/10/2026: «una grafica minimal
- * stile tabella Notion»): Inspiration and Audio leave the table and stay in the
- * content's panel. Notion's names, except the last: Views.
+ * stile tabella Notion»): Audio leaves the table and stays in the content's
+ * panel. Inspiration is back in the table (Dany, 24/10/2026: «il link della
+ * reference deve apparire già in tabella cliccabile»): a button that opens it.
+ * Notion's names, except the last: Views.
  */
 export const COLONNE_PIANO = [
   'nome',
   'reel_type',
   'formato',
+  'inspiration',
   'stato',
   'post_date',
   'url',
   'view_count',
 ] as const satisfies readonly CampoContenuto[]
 
+/**
+ * The tabs of the Piano editoriale (Dany, 24/10/2026: «una sezione separata per i video di youtube senza
+ * mischiarli con i reel»): «Reels» holds the Reel and Carousel Topics, «YouTube» the YouTube videos.
+ */
+export const CANALI_PIANO = ['reels', 'youtube'] as const
+export type CanalePiano = (typeof CANALI_PIANO)[number]
+
+export function canaleDiTipo(tipo: TipoContenuto): CanalePiano {
+  return tipo === 'youtube' ? 'youtube' : 'reels'
+}
+
+/** A YouTube video has no Format (Split, Reaction, B roll are the formats of a reel): the rest is the same. */
+export const COLONNE_YOUTUBE = COLONNE_PIANO.filter((c) => c !== 'formato')
+
+export function colonneDelCanale(canale: CanalePiano): readonly (typeof COLONNE_PIANO)[number][] {
+  return canale === 'youtube' ? COLONNE_YOUTUBE : COLONNE_PIANO
+}
+
 export const INTESTAZIONE_PIANO: Record<(typeof COLONNE_PIANO)[number], string> = {
   nome: CAMPI.nome,
   reel_type: CAMPI.reel_type,
   formato: CAMPI.formato,
+  inspiration: CAMPI.inspiration,
   stato: CAMPI.stato,
   post_date: CAMPI.post_date,
   url: CAMPI.url,
@@ -160,22 +184,36 @@ export const SEZIONI: Record<TipoContenuto, Record<SezioneContenuto, string>> = 
     commenti: 'Comments',
     finale: 'Caption',
   },
+  youtube: {
+    messaggio: 'Idea / Message',
+    bozza: 'Script',
+    commenti: 'Comments',
+    finale: 'Title & Description',
+  },
 }
 
 function haTesto(valore: string | null | undefined): boolean {
   return typeof valore === 'string' && valore.trim() !== ''
 }
 
-/** The sections a page shows: all four for a reel; a carousel's "Comments" only when it has text. */
+/** The sections a page shows: all four for a reel and a YouTube video; a carousel's "Comments" only when it has text. */
 export function sezioniVisibili(
   tipo: TipoContenuto,
   valori: Record<SezioneContenuto, string | null>,
 ): SezioneContenuto[] {
-  return ORDINE_SEZIONI.filter((s) => tipo === 'reel' || s !== 'commenti' || haTesto(valori.commenti))
+  return ORDINE_SEZIONI.filter((s) => tipo !== 'carousel' || s !== 'commenti' || haTesto(valori.commenti))
 }
 
 /** The rough draft a new Reel Topic starts with, as in Notion's template: one line each. */
 export const BOZZA_REEL = 'Hook:\nLine:\nLine:\n…\nCTA:'
+
+/** The script a new YouTube video starts with: the hook, the promise of the intro, the parts, the CTA. */
+export const BOZZA_YOUTUBE = 'Hook:\nIntro:\nParte 1:\nParte 2:\n…\nCTA:'
+
+/** The rough draft a new content starts with, by template: a Carousel Topic starts empty. */
+export function bozzaIniziale(tipo: TipoContenuto): string | null {
+  return tipo === 'reel' ? BOZZA_REEL : tipo === 'youtube' ? BOZZA_YOUTUBE : null
+}
 
 /**
  * The value of a Notion label: trimmed, the exact label first, then ignoring

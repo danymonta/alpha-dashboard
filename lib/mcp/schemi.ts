@@ -139,7 +139,7 @@ const sezioniNuove = z
 
 const contenutoNuovo = z
   .object({
-    modello: MODELLO.nullish().describe('Modello della pagina: Reel Topic (predefinito) o Carousel Topic.'),
+    modello: MODELLO.nullish().describe('Modello della pagina: Reel Topic (predefinito), Carousel Topic o YouTube Video (un video di YouTube, nella sua scheda del Piano editoriale).'),
     name: nome,
     status: STATUS.nullish().describe(`Status: ${elencoEtichette(ETICHETTE.status)}. Predefinito Not started.`),
     ...proprieta,
@@ -184,7 +184,7 @@ export const elencoContenutiSchema = z
     gruppo: GRUPPO.nullish().describe(`Un gruppo di Status: ${elencoEtichette(ETICHETTE.gruppo)}.`),
     reel_type: REEL_TYPE.nullish().describe(DESCRIZIONE_ETICHETTA(CAMPI.reel_type)),
     format: FORMAT.nullish().describe(DESCRIZIONE_ETICHETTA(CAMPI.formato)),
-    modello: MODELLO.nullish().describe('Modello: Reel Topic o Carousel Topic.'),
+    modello: MODELLO.nullish().describe('Modello: Reel Topic, Carousel Topic o YouTube Video.'),
     cerca: z
       .string({ invalid_type_error: 'Cerca: scrivi un pezzo del Name.' })
       .nullish()
@@ -276,7 +276,7 @@ export const modificaContenutoSchema = z
     campi: z
       .object({
         // Modello, Name and Status always have a value: never null
-        modello: MODELLO.optional().describe('Modello: Reel Topic o Carousel Topic.'),
+        modello: MODELLO.optional().describe('Modello: Reel Topic, Carousel Topic o YouTube Video.'),
         name: nome.optional(),
         status: STATUS.optional().describe(`Status: ${elencoEtichette(ETICHETTE.status)}.`),
         ...proprieta,
