@@ -65,7 +65,8 @@ export function contenutiFiltrati(db: Db, f: FiltriElenco, { head = false }: { h
   if (f.tipo) query = query.eq('tipo', f.tipo)
   // the tabs of the Piano editoriale: the YouTube videos apart from the reels and carousels
   if (f.canale === 'youtube') query = query.eq('tipo', 'youtube')
-  if (f.canale === 'reels') query = query.neq('tipo', 'youtube')
+  // the two templates by name, never «not youtube»: it reads even on a database without that value yet
+  if (f.canale === 'reels') query = query.in('tipo', ['reel', 'carousel'])
   if (f.q) query = query.regexIMatch('nome', patternRicerca(f.q))
   if (f.senzaData) query = query.is('post_date', null)
   if (f.da) query = query.gte('post_date', f.da)
