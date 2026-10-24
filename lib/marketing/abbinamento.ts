@@ -361,8 +361,9 @@ export function postDaAbbinare(
   }
 }
 
-/** A Reel Topic with a reel; a Carousel Topic with a carousel or a single photo. */
+/** A Reel Topic with a reel; a Carousel Topic with a carousel or a single photo; a YouTube video with nothing of Instagram. */
 export function tipiCompatibili(post: TipoPost, contenuto: TipoContenuto): boolean {
+  if (contenuto === 'youtube') return false
   return contenuto === 'reel' ? post === 'reel' : post === 'carousel' || post === 'foto'
 }
 

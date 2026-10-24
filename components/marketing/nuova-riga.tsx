@@ -34,7 +34,14 @@ export function consumaDaAprire(id: string): boolean {
  * row without a Post Date would sit at the bottom of the table, and its Name
  * editor opens. The rest of the row is edited in its cells.
  */
-export function NuovaRiga({ variante = 'primario' }: { variante?: 'primario' | 'outline' }) {
+export function NuovaRiga({
+  variante = 'primario',
+  tipo = 'reel',
+}: {
+  variante?: 'primario' | 'outline'
+  /** On the YouTube tab the row is born a YouTube Video (24/10/2026). */
+  tipo?: 'reel' | 'youtube'
+}) {
   const router = useRouter()
   const parametri = useSearchParams()
   const [inCorso, setInCorso] = useState(false)
@@ -43,7 +50,7 @@ export function NuovaRiga({ variante = 'primario' }: { variante?: 'primario' | '
     if (inCorso) return
     setInCorso(true)
     try {
-      const esito = await creaContenuto({ tipo: 'reel', nome: NOME_NUOVA_RIGA, stato: 'not_started' })
+      const esito = await creaContenuto({ tipo, nome: NOME_NUOVA_RIGA, stato: 'not_started' })
       if (!esito.ok) {
         toast.error(esito.errore)
         return

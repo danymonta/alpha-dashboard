@@ -86,6 +86,31 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.60.0',
+    data: '2026-10-24',
+    titolo: 'I video YouTube nel Piano editoriale, e le reference cliccabili',
+    riassunto:
+      'Il Piano editoriale ha due schede, «Reels» e «YouTube»: i video di YouTube stanno a parte, senza mischiarsi con i reel. E la reference di ogni contenuto si apre dalla tabella con un tocco.',
+    intestazionePer: ['marketing'],
+    novita: [
+      {
+        per: ['marketing'],
+        testo:
+          'In tabella c’è di nuovo la colonna «Inspiration»: se un contenuto ha la reference, «Apri» la apre in una nuova scheda con un tocco, senza mostrare il link; la matita accanto la cambia, e il «+» la aggiunge. Sul telefono «Apri» sta nella scheda del contenuto.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Sotto il titolo del Piano editoriale due schede: «Reels», con i reel e i caroselli di sempre, e «YouTube», per i video di YouTube. Un video YouTube ha Name, Type, Inspiration, Status, Post Date, URL e Views, senza Format, e nel pannello le sezioni Idea / Message, Script (che parte da Hook, Intro, le parti e la CTA), Comments e Title & Description. «Nuovo» dalla scheda YouTube crea un video YouTube.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Un video YouTube non si collega mai a un post di Instagram e non entra nelle analisi dei reel. Cambiando il Modello di un contenuto nel pannello, passa da una scheda all’altra.',
+      },
+    ],
+  },
+  {
     versione: '1.59.0',
     data: '2026-10-23',
     titolo: 'Il recap vendite a calendario, giorno per giorno',

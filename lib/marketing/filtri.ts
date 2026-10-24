@@ -14,6 +14,7 @@ import {
   ORDINE_GRUPPI,
   gruppoDiStatus,
   type GruppoStatus,
+  type CanalePiano,
   type StatusContenuto,
   type TipoContenuto,
 } from './etichette'
@@ -27,6 +28,11 @@ export type FiltriContenuti = {
   formato?: string
   tipo?: TipoContenuto
   q?: string
+  /**
+   * The tab of the Piano editoriale (24/10/2026): «youtube» the YouTube videos, «reels» the Reel and Carousel
+   * Topics. Not a filter: «Togli i filtri» keeps it. Absent: every content (Claude's list); the page always sets it.
+   */
+  canale?: CanalePiano
 }
 
 /** The search on Name: at most this many characters. */
@@ -52,6 +58,8 @@ export function filtriDaParametri(sp: Record<string, string | string[] | undefin
     formato: slug(primo(sp.formato)),
     tipo: tra(Constants.public.Enums.contenuto_tipo, primo(sp.tipo)),
     q: primo(sp.q)?.trim().slice(0, RICERCA_MAX) || undefined,
+    // «reels» is the tab without a parameter
+    canale: primo(sp.canale) === 'youtube' ? 'youtube' : undefined,
   }
   return senzaVuoti(filtri)
 }
@@ -83,11 +91,18 @@ export function parametriDaFiltri(f: FiltriContenuti): Record<string, string | u
     formato: f.formato,
     tipo: f.tipo,
     q: f.q || undefined,
+    canale: f.canale === 'youtube' ? 'youtube' : undefined,
   }
 }
 
+/** Some filter is set (the tab is not a filter). */
 export function haFiltri(f: FiltriContenuti): boolean {
-  return Object.values(parametriDaFiltri(f)).some((v) => v !== undefined)
+  return Object.values(parametriDaFiltri({ ...f, canale: undefined })).some((v) => v !== undefined)
+}
+
+/** The filters «Togli i filtri» leaves: the tab only. */
+export function soloCanale(f: FiltriContenuti): FiltriContenuti {
+  return f.canale === 'youtube' ? { canale: 'youtube' } : {}
 }
 
 /**

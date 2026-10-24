@@ -114,7 +114,7 @@ export function UscitaDallaLista({ filtri, children }: { filtri: FiltriContenuti
     titolo.current = t
   }, [])
 
-  const { gruppo, stato, reel_type, formato, tipo, q } = filtri
+  const { gruppo, stato, reel_type, formato, tipo, q, canale } = filtri
   const stati: readonly StatusContenuto[] | null = useMemo(() => statiFiltrati({ gruppo, stato }), [gruppo, stato])
   const esce = useCallback(
     (campo: CampoInCella | 'stato', valore: unknown) => {
@@ -126,14 +126,15 @@ export function UscitaDallaLista({ filtri, children }: { filtri: FiltriContenuti
         case 'formato':
           return Boolean(formato && valore !== formato)
         case 'tipo':
-          return Boolean(tipo && valore !== tipo)
+          // a Modello changed to or from YouTube Video moves the content to the other tab
+          return Boolean(tipo && valore !== tipo) || (valore === 'youtube') !== (canale === 'youtube')
         case 'nome':
           return Boolean(q && typeof valore === 'string' && !valore.toLowerCase().includes(q.toLowerCase()))
         default:
           return false
       }
     },
-    [stati, reel_type, formato, tipo, q],
+    [stati, reel_type, formato, tipo, q, canale],
   )
 
   const ricorda = useCallback(

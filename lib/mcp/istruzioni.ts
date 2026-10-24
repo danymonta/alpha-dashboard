@@ -17,6 +17,8 @@ const PROPRIETA = ORDINE_COLONNE.map((c) => CAMPI[c]).join(', ')
 const REEL = `${ETICHETTA_MODELLO.reel} (${[SEZIONI.reel.messaggio, SEZIONI.reel.bozza, SEZIONI.reel.commenti, SEZIONI.reel.finale].join(', ')})`
 // a Carousel Topic has no "Comments" in Notion's template (the column is shared, shown only with text)
 const CAROUSEL = `${ETICHETTA_MODELLO.carousel} (${[SEZIONI.carousel.messaggio, SEZIONI.carousel.bozza, SEZIONI.carousel.finale].join(', ')})`
+// the videos of YouTube (24/10/2026): their own tab, no Format, never linked to a post of Instagram
+const YOUTUBE = `${ETICHETTA_MODELLO.youtube} (${[SEZIONI.youtube.messaggio, SEZIONI.youtube.bozza, SEZIONI.youtube.commenti, SEZIONI.youtube.finale].join(', ')})`
 
 /**
  * Who the contents are for (Dany, 10/10/2026: «qualsiasi contenuto suggerito
@@ -123,7 +125,7 @@ export function istruzioniMcp(ruolo: RuoloMcp, livello?: LivelloPm | null): stri
   const calendario = marketing
     ? [
         `Il calendario dei contenuti Instagram (area Marketing) è la copia nell’app del database Notion «📸 Instagram Posts DANYMONTA», con le stesse proprietà e le stesse etichette in inglese: ${PROPRIETA}.`,
-        `Ogni contenuto nasce da un modello: ${REEL} o ${CAROUSEL}.`,
+        `Ogni contenuto nasce da un modello: ${REEL}, ${CAROUSEL} o, per un video di YouTube, ${YOUTUBE} (senza Format).`,
         REGOLA_ICP,
         REGOLA_GUIDA,
         REGOLA_SPUNTI,

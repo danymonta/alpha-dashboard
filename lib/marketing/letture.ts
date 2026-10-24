@@ -63,6 +63,9 @@ export function contenutiFiltrati(db: Db, f: FiltriElenco, { head = false }: { h
   if (f.reel_type) query = query.eq('reel_type', f.reel_type)
   if (f.formato) query = query.eq('formato', f.formato)
   if (f.tipo) query = query.eq('tipo', f.tipo)
+  // the tabs of the Piano editoriale: the YouTube videos apart from the reels and carousels
+  if (f.canale === 'youtube') query = query.eq('tipo', 'youtube')
+  if (f.canale === 'reels') query = query.neq('tipo', 'youtube')
   if (f.q) query = query.regexIMatch('nome', patternRicerca(f.q))
   if (f.senzaData) query = query.is('post_date', null)
   if (f.da) query = query.gte('post_date', f.da)

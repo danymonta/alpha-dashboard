@@ -28,7 +28,7 @@ import { LINK_MAX, NOME_MAX } from '@/lib/validation/contenuto'
 type Riga = ContenutoElenco
 
 /** The fields a small editor (a popover with one input) changes in the table and the cards. */
-export type CampoEditor = 'nome' | 'post_date' | 'url'
+export type CampoEditor = 'nome' | 'post_date' | 'url' | 'inspiration'
 
 /**
  * - "cella": a table cell (the value as text, "+" when empty);
@@ -56,8 +56,11 @@ function testoMostrato(campo: CampoEditor, valore: unknown, lingua: Lingua = 'it
 
 /** The accessible name starts with the words on screen (WCAG 2.5.3): «12/10/2026: cambia Post Date di «…»». */
 function nomeAccessibile(campo: CampoEditor, mostrato: string, nome: string, aspetto: AspettoEditor): string {
-  if (aspetto === 'matita') return `Modifica il Name di «${nome}»`
+  if (aspetto === 'matita') return campo === 'nome' ? `Modifica il Name di «${nome}»` : `Cambia ${etichettaCampo(campo)} di «${nome}»`
   const etichetta = etichettaCampo(campo)
+  if (campo === 'inspiration') {
+    return mostrato ? `${etichetta}: cambia il link di «${nome}»` : `Vuoto: aggiungi ${etichetta} di «${nome}»`
+  }
   if (campo === 'url') {
     return mostrato ? `${etichetta}: apri o cambia il link di «${nome}»` : `Vuoto: aggiungi ${etichetta} di «${nome}»`
   }
@@ -69,15 +72,18 @@ const TIPO_INPUT: Record<CampoEditor, { type?: string; inputMode?: 'numeric' | '
   nome: { maxLength: NOME_MAX },
   post_date: { type: 'date' },
   url: { type: 'url', inputMode: 'url', maxLength: LINK_MAX, placeholder: 'https://www.instagram.com/reel/…' },
+  inspiration: { type: 'url', inputMode: 'url', maxLength: LINK_MAX, placeholder: 'https://' },
 }
 
 const TOGLI: Partial<Record<CampoEditor, string>> = {
   post_date: 'Togli la data',
   url: 'Togli il link',
+  inspiration: 'Togli il link',
 }
 
 const APRI_LINK: Partial<Record<CampoEditor, string>> = {
   url: 'Apri il post',
+  inspiration: 'Apri l’ispirazione',
 }
 
 /**
@@ -183,7 +189,7 @@ export function EditorCella<C extends CampoEditor>({
   const contenuto: ReactNode =
     aspetto === 'matita' ? (
       <Pencil className="size-4" aria-hidden="true" />
-    ) : campo === 'url' ? (
+    ) : campo === 'url' || campo === 'inspiration' ? (
       mostrato ? (
         <ExternalLink className="size-4" aria-hidden="true" />
       ) : aspetto === 'chip' ? (
@@ -208,17 +214,17 @@ export function EditorCella<C extends CampoEditor>({
   const propsBottone = {
     type: 'button' as const,
     'data-cella': campo,
-    'data-etichetta': aspetto === 'matita' ? 'Name' : etichetta,
+    'data-etichetta': etichetta,
     'aria-label': nomeAccessibile(campo, visibile, nome, aspetto),
     'aria-busy': inCorso || undefined,
-    title: aspetto === 'matita' ? 'Rinomina' : undefined,
+    title: aspetto === 'matita' ? (campo === 'nome' ? 'Rinomina' : `Cambia ${etichetta}`) : undefined,
     className: cn(
       aspetto === 'chip'
         ? CLASSE_CHIP
         : aspetto === 'matita'
           ? 'relative z-10 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-popup-open:bg-accent aria-busy:opacity-70'
           : CLASSE_BOTTONE_CELLA,
-      campo === 'url' && aspetto === 'cella' && 'size-11 justify-center text-muted-foreground hover:text-foreground',
+      (campo === 'url' || campo === 'inspiration') && aspetto === 'cella' && 'size-11 justify-center text-muted-foreground hover:text-foreground',
       allineaDestra && 'ml-auto justify-end',
       className,
     ),
@@ -241,7 +247,7 @@ export function EditorCella<C extends CampoEditor>({
       <PopoverContent align={allineaDestra ? 'end' : 'start'} initialFocus={input} className="w-72 max-w-[calc(100vw-2rem)]">
         <form onSubmit={invia} noValidate className="space-y-2">
           <PopoverTitle render={<label htmlFor={idCampo} />} className="block text-sm font-medium">
-            {aspetto === 'matita' ? 'Name' : etichetta}
+            {etichetta}
           </PopoverTitle>
           {apriLink && typeof mostrato === 'string' && mostrato ? (
             <a
@@ -267,7 +273,7 @@ export function EditorCella<C extends CampoEditor>({
               if (campo !== 'post_date') e.currentTarget.select()
             }}
             autoComplete="off"
-            autoCapitalize={campo === 'url' ? 'none' : undefined}
+            autoCapitalize={campo === 'url' || campo === 'inspiration' ? 'none' : undefined}
             className="h-11"
             aria-invalid={errore ? true : undefined}
             aria-describedby={errore ? `${idCampo}-errore` : undefined}
@@ -336,6 +342,51 @@ export function CellaNome({ riga }: { riga: Riga }) {
 }
 
 /**
+ * Inspiration (Dany, 24/10/2026: «il link della reference deve apparire già in
+ * tabella cliccabile, basta anche un bottone senza mostrare il link»): with a
+ * link, one tap opens it in a new tab, and the pencil next to it changes it;
+ * empty, the «+» adds it. In a card (aspetto "chip") only the link, when there
+ * is one: the panel changes it.
+ */
+export function CellaIspirazione({ riga, aspetto = 'cella' }: { riga: Riga; aspetto?: 'cella' | 'chip' }) {
+  const link = riga.inspiration
+  if (!link) {
+    return aspetto === 'chip' ? null : <EditorCella id={riga.id} nome={riga.nome} campo="inspiration" valore={riga.inspiration} />
+  }
+  const apri = (
+    <a
+      href={link}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-ispirazione=""
+      aria-label={`Apri l’ispirazione di «${riga.nome}» (si apre in una nuova scheda)`}
+      title={link}
+      className={cn(
+        'relative z-10 inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm whitespace-nowrap text-foreground hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+        aspetto === 'cella' && '-ml-2',
+      )}
+    >
+      <ExternalLink className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      Apri
+    </a>
+  )
+  if (aspetto === 'chip') return apri
+  return (
+    <div className="flex items-center">
+      {apri}
+      <EditorCella
+        id={riga.id}
+        nome={riga.nome}
+        campo="inspiration"
+        valore={riga.inspiration}
+        aspetto="matita"
+        className="opacity-0 group-hover/riga:opacity-100 group-focus-within/riga:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100 pointer-coarse:opacity-100"
+      />
+    </div>
+  )
+}
+
+/**
  * The View Count as a number. When it comes from Instagram (the content is linked to a post whose views were read) a
  * small Instagram mark says so, with a title and a text for screen readers: «Da Instagram: si aggiorna da solo».
  */
@@ -362,6 +413,8 @@ export function CellaContenuto({ riga, colonna }: { riga: Riga; colonna: (typeof
       return <SelectOpzioni id={riga.id} nome={riga.nome} campo="reel_type" valore={riga.reel_type} />
     case 'formato':
       return <SelectOpzioni id={riga.id} nome={riga.nome} campo="formato" valore={riga.formato} />
+    case 'inspiration':
+      return <CellaIspirazione riga={riga} />
     case 'stato':
       return <MenuStatus id={riga.id} nome={riga.nome} stato={riga.stato} className="-ml-2" />
     case 'post_date':

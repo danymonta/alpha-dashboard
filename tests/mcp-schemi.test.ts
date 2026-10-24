@@ -99,7 +99,7 @@ describe('il JSON Schema di ogni strumento', () => {
 
     const campi = ((jsonDi(modificaContenutoSchema).properties as Json).campi as Json).properties as Json
     expect(enumDi(campi.status)).toEqual(Object.values(ETICHETTA_STATUS))
-    expect(enumDi(campi.modello)).toEqual(['Reel Topic', 'Carousel Topic'])
+    expect(enumDi(campi.modello)).toEqual(['Reel Topic', 'Carousel Topic', 'YouTube Video'])
 
     const voce = (((jsonDi(creaContenutiSchema).properties as Json).contenuti as Json).items as Json).properties as Json
     expect(enumDi(voce.reel_type)).toBeUndefined()
