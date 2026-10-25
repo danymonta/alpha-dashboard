@@ -27,6 +27,8 @@ import {
   ORDINE_GRUPPI,
   type StatusContenuto,
 } from '@/lib/marketing/etichette'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { CONTENUTO, traduciErroreContenuto } from '@/lib/i18n/testi/contenuto'
 import { cn } from '@/lib/utils'
 
 function isStatus(valore: unknown): valore is StatusContenuto {
@@ -61,6 +63,8 @@ export function MenuStatus({
   const pannello = usePannello()
   const opzioniToast = useOpzioniToast()
   const lista = useUscitaDallaLista()
+  const lingua = useLingua()
+  const t = CONTENUTO[lingua].status
   const [mostrato, setMostrato] = useState(stato)
   const [daServer, setDaServer] = useState(stato)
   const [inCorso, avvia] = useTransition()
@@ -87,13 +91,13 @@ export function MenuStatus({
       } catch {
         if (esce) lista?.dimentica()
         setMostrato(prima)
-        toast.error('Connessione assente. Riprova.', opzioniToast)
+        toast.error(t.connessione, opzioniToast)
         return
       }
       if (!esito.ok) {
         // a content gone meanwhile: the action redrew the page, the list hands the focus on
         setMostrato(prima)
-        toast.error(esito.errore, opzioniToast)
+        toast.error(traduciErroreContenuto(esito.errore, lingua), opzioniToast)
         return
       }
       pannello?.aggiornaCampo(id, 'stato', nuovo, esito.versione)
@@ -107,7 +111,7 @@ export function MenuStatus({
         render={
           <button
             type="button"
-            aria-label={`${ETICHETTA_STATUS[mostrato]}: cambia lo Status di ${nome}`}
+            aria-label={t.cambia(ETICHETTA_STATUS[mostrato], nome)}
             data-menu-status=""
             aria-busy={inCorso || undefined}
             className={cn(

@@ -10,12 +10,13 @@ import { AZIONE_TOAST } from '@/components/marketing/instagram/copertina-post'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { formatData } from '@/lib/format'
+import { useFormato, useLingua } from '@/components/i18n/lingua-provider'
+import { traduciErroreContenuto } from '@/lib/i18n/testi/contenuto'
+import { POST_INSTAGRAM } from '@/lib/i18n/testi/post-instagram'
 import { giorniTra, tipiCompatibili, type TipoPost } from '@/lib/marketing/abbinamento'
 import { ETICHETTA_MODELLO, ETICHETTA_STATUS, type StatusContenuto, type TipoContenuto } from '@/lib/marketing/etichette'
 import { etichettaCollega, giornoPost } from '@/lib/marketing/parole-post'
 
-const CONNESSIONE = 'Connessione assente. Riprova.'
 /** At most this many rows at once: the search finds the others. */
 const MOSTRATI_MAX = 50
 
@@ -57,6 +58,8 @@ function normalizza(testo: string): string {
  */
 export function useCollegaPost() {
   const opzioniToast = useOpzioniToast()
+  const lingua = useLingua()
+  const t = POST_INSTAGRAM[lingua].collega
   const [inVolo, setInVolo] = useState<string | null>(null)
 
   async function collega(post: { shortcode: string }, contenuto: { id: string; nome: string }): Promise<boolean> {
@@ -65,7 +68,7 @@ export function useCollegaPost() {
     try {
       const esito = await collegaPost({ shortcode: post.shortcode, contenuto_id: contenuto.id })
       if (!esito.ok) {
-        toast.error(esito.errore, opzioniToast)
+        toast.error(traduciErroreContenuto(esito.errore, lingua), opzioniToast)
         return false
       }
       const annulla = {
@@ -74,16 +77,16 @@ export function useCollegaPost() {
         prima: esito.stato !== esito.prima.stato ? esito.prima.stato : undefined,
         post_date: esito.prima.postDateScritta ? esito.post_date : undefined,
       }
-      toast.success(`Collegato a «${contenuto.nome}».`, {
+      toast.success(t.collegatoA(contenuto.nome), {
         ...opzioniToast,
-        description: esito.stato !== esito.prima.stato ? 'Ora è «Posted».' : undefined,
+        description: esito.stato !== esito.prima.stato ? t.oraPosted : undefined,
         duration: 6000,
         action: {
-          label: 'Annulla',
+          label: t.annulla,
           onClick: () => {
             void annullaCollega(annulla).then(
-              (r) => (r.ok ? toast.success('Collegamento annullato.', opzioniToast) : toast.error(r.errore, opzioniToast)),
-              () => toast.error(CONNESSIONE, opzioniToast),
+              (r) => (r.ok ? toast.success(t.annullato, opzioniToast) : toast.error(traduciErroreContenuto(r.errore, lingua), opzioniToast)),
+              () => toast.error(t.connessione, opzioniToast),
             )
           },
         },
@@ -91,7 +94,7 @@ export function useCollegaPost() {
       })
       return true
     } catch {
-      toast.error(CONNESSIONE, opzioniToast)
+      toast.error(t.connessione, opzioniToast)
       return false
     } finally {
       setInVolo(null)
@@ -119,6 +122,9 @@ export function ElencoPerCollegare({
 }) {
   const { contenuti } = useCollega()
   const { collega, inVolo } = useCollegaPost()
+  const lingua = useLingua()
+  const t = POST_INSTAGRAM[lingua].collega
+  const { formatData } = useFormato()
   const [cerca, setCerca] = useState('')
   const idCerca = useId()
   const campo = useRef<HTMLInputElement>(null)
@@ -139,7 +145,7 @@ export function ElencoPerCollegare({
     <div className="space-y-3" data-testid="elenco-per-collegare">
       <div className="space-y-1.5">
         <label htmlFor={idCerca} className="text-sm font-medium">
-          Cerca per Name
+          {t.cerca}
         </label>
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -157,25 +163,27 @@ export function ElencoPerCollegare({
       </div>
       <p className="text-xs text-muted-foreground" role="status">
         {ordinati.length === 0
-          ? `Nessun ${modello} senza post: crealo nel Piano editoriale, poi lo colleghi qui o incollando il link del post nel suo URL.`
+          ? t.nessunModello(modello)
           : trovati.length === 0
-            ? 'Nessun contenuto senza post con questo nome.'
+            ? t.nessunNome
             : trovati.length > MOSTRATI_MAX
-              ? `${MOSTRATI_MAX} di ${trovati.length}: scrivi il nome per trovare gli altri.`
+              ? t.parziali(MOSTRATI_MAX, trovati.length)
               : trovati.length === 1
-                ? '1 contenuto'
-                : `${trovati.length} contenuti`}
+                ? t.uno
+                : t.molti(trovati.length)}
       </p>
       {mostrati.length > 0 ? (
         <ul className="divide-y divide-border rounded-xl bg-card">
           {mostrati.map((c) => {
-            const etichetta = etichettaCollega(c.stato)
+            const etichetta = etichettaCollega(c.stato, lingua)
             return (
               <li key={c.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center" data-contenuto-libero={c.id}>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium break-words">{c.nome}</p>
+                  <p className="text-sm font-medium break-words" lang="it">
+                    {c.nome}
+                  </p>
                   <p className="num text-xs text-muted-foreground">
-                    {ETICHETTA_MODELLO[c.tipo]} · {c.post_date ? `Post Date ${formatData(c.post_date)}` : 'Senza Post Date'} ·{' '}
+                    {ETICHETTA_MODELLO[c.tipo]} · {c.post_date ? t.postDate(formatData(c.post_date)) : t.senzaPostDate} ·{' '}
                     {ETICHETTA_STATUS[c.stato]}
                   </p>
                 </div>
@@ -184,7 +192,7 @@ export function ElencoPerCollegare({
                   className="h-11 shrink-0"
                   disabled={inVolo !== null}
                   aria-busy={inVolo === post.shortcode || undefined}
-                  aria-label={`${etichetta} a «${c.nome}»`}
+                  aria-label={t.collegaA(etichetta, c.nome)}
                   onClick={() => {
                     void collega(post, c).then((riuscito) => {
                       if (riuscito) onFatto?.()
@@ -208,13 +216,15 @@ export function ElencoPerCollegare({
  * is linked (the toast has «Annulla», the table redraws with the link).
  */
 export function FoglioCollega({ post, onChiudi }: { post: PostPerCollegare | null; onChiudi: () => void }) {
+  const lingua = useLingua()
+  const t = POST_INSTAGRAM[lingua].collega
   return (
     <Sheet open={post !== null} onOpenChange={(aperto) => !aperto && onChiudi()}>
       <SheetContent side="right" className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md" data-testid="foglio-collega">
         <SheetHeader>
-          <SheetTitle>Collega al Piano editoriale</SheetTitle>
+          <SheetTitle>{t.titolo}</SheetTitle>
           <SheetDescription>
-            {post ? `Per il post del ${giornoPost(post.giorno)}: i contenuti del piano ancora senza post, i più vicini per data in cima.` : ''}
+            {post ? t.perIlPost(giornoPost(post.giorno, lingua)) : ''}
           </SheetDescription>
         </SheetHeader>
         <div className="px-4 pb-6">{post ? <ElencoPerCollegare key={post.shortcode} post={post} onFatto={onChiudi} /> : null}</div>

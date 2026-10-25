@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { aggiungiIdeaSpuntiAlCalendario } from '@/app/(app)/marketing/spunti/actions'
 import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
+import { traduciErroreReel } from '@/lib/i18n/testi/analisi-reel'
 import { MARKETING } from '@/lib/i18n/testi/marketing'
 import { ETICHETTA_FORMAT, ETICHETTA_REEL_TYPE } from '@/lib/marketing/etichette'
 import type { IdeaSpunto } from '@/lib/marketing/spunti/tipi'
@@ -25,16 +26,17 @@ export function IdeaSpuntiCard({
   giaNelCalendario: { id: string; nome: string } | null
 }) {
   const [aggiunta, setAggiunta] = useState<{ id: string; nome: string } | null>(giaNelCalendario)
-  const t = MARKETING[useLingua()].spunti
+  const lingua = useLingua()
+  const t = MARKETING[lingua].spunti
   const [inCorso, avvia] = useTransition()
 
   function aggiungi() {
     avvia(async () => {
       const r = await aggiungiIdeaSpuntiAlCalendario({ spunti_id: spuntiId, indice }).catch(() => null)
-      if (!r) return void toast.error('Connessione assente. Riprova.')
-      if (!r.ok) return void toast.error(r.errore)
+      if (!r) return void toast.error(t.connessione)
+      if (!r.ok) return void toast.error(traduciErroreReel(r.errore, lingua))
       setAggiunta({ id: r.id, nome: r.nome })
-      toast.success('Aggiunta al calendario', { description: r.nome })
+      toast.success(t.aggiunta, { description: r.nome })
     })
   }
 

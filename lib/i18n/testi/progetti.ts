@@ -1,4 +1,5 @@
-import { bilingue } from '@/lib/i18n/lingua'
+import { bilingue, type Lingua } from '@/lib/i18n/lingua'
+import { traduciErroreTempo } from '@/lib/i18n/testi/tempo'
 import {
   ETICHETTA_STATO_PROGETTO,
   ETICHETTA_STATO_TASK,
@@ -258,3 +259,123 @@ export const PROGETTI = bilingue(
     },
   },
 )
+
+/**
+ * The checks of the project schemas (lib/validation/progetti.ts, note.ts) and the answers of the
+ * project actions (lib/progetti/operazioni.ts, app/(app)/settings/progetti/actions.ts), in English,
+ * as traduciErroreTempo does for the time: the schemas and the actions stay as they are (Claude and
+ * Alfire read them in Italian). The database's own words stay Italian.
+ */
+const ERRORI_PROGETTI_EN: Record<string, string> = {
+  'Connessione assente. Riprova.': 'No connection. Try again.',
+  'Dati non validi.': 'Invalid data.',
+  'Sessione scaduta. Rientra e riprova.': 'Session expired. Sign in again and retry.',
+  'Operazione non riuscita. Riprova.': 'It did not work. Try again.',
+  'Operazione riservata a chi gestisce i progetti.': 'Only whoever manages the projects can do this.',
+  'Operazione riservata all’admin dei progetti.': 'Only the projects admin can do this.',
+  'Solo chi gestisce il progetto può farlo.': 'Only whoever manages the project can do this.',
+  'Non fai parte di questo progetto.': 'You are not part of this project.',
+  'C’è già.': 'It is already there.',
+  'Data non valida': 'Invalid date',
+  'Scegli il giorno': 'Choose the day',
+  'Scegli il reparto': 'Choose the department',
+  'Scegli la persona': 'Choose the person',
+  'Scegli lo stato': 'Choose the status',
+  'Scegli la priorità': 'Choose the priority',
+  'Scrivi il nome del progetto': 'Write the project’s name',
+  'Scrivi il nome della lista': 'Write the list’s name',
+  'Scrivi il titolo del task': 'Write the task’s title',
+  'Scrivi il titolo': 'Write the title',
+  'Scrivi il nome del reparto': 'Write the department’s name',
+  'Scrivi il nome del modello': 'Write the template’s name',
+  'Scrivi la nota': 'Write the note',
+  'Scrivi un numero': 'Write a number',
+  'Solo numeri interi': 'Whole numbers only',
+  'Solo giorni interi': 'Whole days only',
+  'Da 0 in su': 'From 0 up',
+  'Da 0 in su: 0 è il giorno di inizio del progetto': 'From 0 up: 0 is the project’s start day',
+  'Almeno un giorno': 'At least one day',
+  'Al massimo 3650 giorni': '3650 days at most',
+  'Al massimo 50 persone': '50 people at most',
+  'La fine viene dopo l’inizio': 'The end comes after the start',
+  'La scadenza viene dopo l’inizio': 'The due date comes after the start',
+  'Scrivi la stima come 45 min, 2 h o 1 h 30 min': 'Write the estimate as 45 min, 2 h or 1 h 30 min',
+  'Scrivi sia da che giorno sia quanti giorni, o togli le date': 'Write both from which day and how many days, or remove the dates',
+  'Un task non è sotto-task di sé stesso': 'A task is not a sub-task of itself',
+  'Progetto non valido': 'Invalid project',
+  'Progetto non valido.': 'Invalid project.',
+  'Task non valido': 'Invalid task',
+  'Task non valido.': 'Invalid task.',
+  'Lista non valida.': 'Invalid list.',
+  'Nota non valida': 'Invalid note',
+  'Reparto non valido.': 'Invalid department.',
+  'Modello non valido.': 'Invalid template.',
+  'Attività non valida.': 'Invalid task.',
+  'Progetto non creato. Riprova.': 'Project not created. Try again.',
+  'Progetto non salvato. Riprova.': 'Project not saved. Try again.',
+  'Progetto non eliminato. Riprova.': 'Project not deleted. Try again.',
+  'Task non aggiunto. Riprova.': 'Task not added. Try again.',
+  'Task non salvato. Riprova.': 'Task not saved. Try again.',
+  'Task non aggiornato. Riprova.': 'Task not updated. Try again.',
+  'Task non eliminato. Riprova.': 'Task not deleted. Try again.',
+  'Task non trovato: forse è stato eliminato.': 'Task not found: perhaps it was deleted.',
+  'Persone assegnate non salvate. Riprova.': 'Assignees not saved. Try again.',
+  'Puoi modificare solo i task assegnati a te o creati da te.': 'You can only edit the tasks assigned to you or created by you.',
+  'Puoi eliminare solo i task creati da te.': 'You can only delete the tasks you created.',
+  'Lista non creata. Riprova.': 'List not created. Try again.',
+  'Lista non salvata. Riprova.': 'List not saved. Try again.',
+  'Lista non eliminata. Riprova.': 'List not deleted. Try again.',
+  'Lista non trovata.': 'List not found.',
+  'Ordine non salvato. Riprova.': 'Order not saved. Try again.',
+  'Fa già parte del progetto.': 'Already part of the project.',
+  'Persona non aggiunta. Riprova.': 'Person not added. Try again.',
+  'Persona non tolta. Riprova.': 'Person not removed. Try again.',
+  'Coach non salvato. Riprova.': 'Coach not saved. Try again.',
+  'Questo cliente ha già il suo progetto: lo apri dalla scheda del cliente.':
+    'This client already has a project: open it from the client card.',
+  'Solo l’admin dei progetti elimina un progetto.': 'Only the projects admin deletes a project.',
+  'Nota non salvata. Riprova.': 'Note not saved. Try again.',
+  'Nota non aggiornata. Riprova.': 'Note not updated. Try again.',
+  'Nota non eliminata. Riprova.': 'Note not deleted. Try again.',
+  'Puoi modificare solo le tue note.': 'You can only edit your own notes.',
+  'Puoi eliminare solo le tue note.': 'You can only delete your own notes.',
+  'Solo chi fa parte del progetto scrive le note.': 'Only the project’s members write notes.',
+  'Esiste già un reparto con questo nome.': 'A department with this name already exists.',
+  'Il reparto ha ancora dei progetti: spostali in un altro reparto o eliminali prima.':
+    'The department still has projects: move them to another department or delete them first.',
+  'Reparto non creato. Riprova.': 'Department not created. Try again.',
+  'Reparto non salvato. Riprova.': 'Department not saved. Try again.',
+  'Reparto non eliminato. Riprova.': 'Department not deleted. Try again.',
+  'Modello non creato. Riprova.': 'Template not created. Try again.',
+  'Modello non salvato. Riprova.': 'Template not saved. Try again.',
+  'Modello non eliminato. Riprova.': 'Template not deleted. Try again.',
+  'Attività non salvata. Riprova.': 'Task not saved. Try again.',
+  'Attività non eliminata. Riprova.': 'Task not deleted. Try again.',
+}
+
+const SENZA_PERSONE = ' Il task è stato creato senza persone assegnate: assegnale modificandolo.'
+const AL_MASSIMO = /^Al massimo (\d+) caratteri$/
+const USCITO = /^(.+) non fa più parte del progetto: non è tra le persone assegnate\.$/
+const USCITI = /^(.+) non fanno più parte del progetto: non sono tra le persone assegnate\.$/
+
+/** A message of the project schemas or actions in the page's language; an unknown one stays as it came. */
+export function traduciErroreProgetti(testo: string | null | undefined, lingua: Lingua): string | undefined {
+  if (!testo) return undefined
+  if (lingua === 'it') return testo
+  const noto = ERRORI_PROGETTI_EN[testo]
+  if (noto) return noto
+  if (testo.endsWith(SENZA_PERSONE)) {
+    const prima = testo.slice(0, -SENZA_PERSONE.length)
+    return `${traduciErroreProgetti(prima, lingua) ?? prima} The task was created without assignees: assign them by editing it.`
+  }
+  const massimo = AL_MASSIMO.exec(testo)
+  if (massimo) return `${massimo[1]} characters at most`
+  const uno = USCITO.exec(testo)
+  if (uno) return `${uno[1] === 'Una persona scelta' ? 'One chosen person' : uno[1]} is no longer part of the project: not among the assignees.`
+  const piu = USCITI.exec(testo)
+  if (piu) {
+    const chi = piu[1]!.replace(/^(\d+) persone scelte$/, '$1 chosen people')
+    return `${chi} are no longer part of the project: not among the assignees.`
+  }
+  return traduciErroreTempo(testo, lingua)
+}

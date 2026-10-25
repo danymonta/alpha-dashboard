@@ -8,13 +8,13 @@ import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/co
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatData, formatEuro } from '@/lib/format'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { formato } from '@/lib/format'
+import { INTERROMPI } from '@/lib/i18n/testi/clienti-fogli'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
 import { cn } from '@/lib/utils'
 
-const SCELTE = [
-  { togli: false, titolo: 'Le tengo', testo: 'Le deve pagare comunque: restano da incassare.' },
-  { togli: true, titolo: 'Le tolgo', testo: 'Non le pagherà: spariscono e il contratto scende di tanto.' },
-] as const
+const TOGLI = [false, true] as const
 
 /**
  * "Interrompi il percorso": a client who stops early. The sale ends on the chosen
@@ -41,6 +41,10 @@ export function InterrompiPercorso({
   const [caricamento, avvia] = useTransition()
   const [inCorso, setInCorso] = useState(false)
   const { errore, setErrore, salva } = useSalvataggio()
+  const lingua = useLingua()
+  const t = INTERROMPI[lingua]
+  const { formatData, formatEuro } = formato(lingua)
+  const SCELTE = TOGLI.map((togli, i) => ({ togli, ...t.scelte[i] }))
 
   function aggiorna(prossimoGiorno: string, prossimoTogli: boolean) {
     setGiorno(prossimoGiorno)
@@ -62,7 +66,7 @@ export function InterrompiPercorso({
     setInCorso(true)
     const fatto = await salva(
       () => interrompiPercorso({ sale_id: vendita.id, ultimo_giorno: giorno, togli_rate: togli }),
-      'Percorso interrotto',
+      t.interrotto,
     )
     setInCorso(false)
     if (fatto) setAperto(false)
@@ -80,15 +84,20 @@ export function InterrompiPercorso({
       contenutoTrigger={
         <>
           <CircleStop className="size-4" aria-hidden="true" />
-          Interrompi il percorso
+          {t.titolo}
         </>
       }
-      titolo="Interrompi il percorso"
-      descrizione={`${cliente} smette prima. Il percorso finisce nel giorno che scegli: dal giorno dopo risulta Scaduto, e dopo 90 giorni Ex cliente. Gli incassi già fatti non cambiano.`}
+      titolo={t.titolo}
+      // the Italian words written here as Alfire reads them (lib/alfire/conseguenze.ts, tests/alfire-scritture.test.ts)
+      descrizione={
+        lingua === 'it'
+          ? `${cliente} smette prima. Il percorso finisce nel giorno che scegli: dal giorno dopo risulta Scaduto, e dopo 90 giorni Ex cliente. Gli incassi già fatti non cambiano.`
+          : t.descrizione(cliente)
+      }
     >
       <form onSubmit={conferma} noValidate className="space-y-5">
         <div className="space-y-1.5">
-          <Label htmlFor="ip-giorno">Ultimo giorno di percorso</Label>
+          <Label htmlFor="ip-giorno">{t.ultimoGiorno}</Label>
           <Input
             id="ip-giorno"
             type="date"
@@ -99,13 +108,13 @@ export function InterrompiPercorso({
             className="num h-11"
           />
           <p className="text-xs text-muted-foreground">
-            Il percorso andava dal <span className="num">{formatData(vendita.data_inizio)}</span> al{' '}
+            {t.andava} <span className="num">{formatData(vendita.data_inizio)}</span> {t.al}{' '}
             <span className="num">{formatData(vendita.data_fine)}</span>.
           </p>
         </div>
 
         <fieldset className="space-y-2">
-          <legend className="mb-2 text-sm font-medium">Le rate non ancora pagate dopo quel giorno</legend>
+          <legend className="mb-2 text-sm font-medium">{t.rate}</legend>
           {SCELTE.map((s) => (
             <label
               key={s.titolo}
@@ -132,27 +141,27 @@ export function InterrompiPercorso({
         {/* what the database says will happen, before anything happens */}
         <div className="rounded-lg bg-muted/40 p-3 text-sm" aria-live="polite" data-testid="anteprima-interruzione">
           {caricamento && !anteprima ? (
-            <p className="text-muted-foreground">Calcolo…</p>
+            <p className="text-muted-foreground">{t.calcolo}</p>
           ) : erroreAnteprima ? (
-            <p className="text-status-warning">{erroreAnteprima}</p>
+            <p className="text-status-warning">{traduciErrore(erroreAnteprima, lingua)}</p>
           ) : anteprima ? (
             anteprima.rate_tolte > 0 ? (
               <p>
-                Tolgo <span className="num font-medium">{anteprima.rate_tolte}</span>{' '}
-                {anteprima.rate_tolte === 1 ? 'rata' : 'rate'} (<span className="num">{formatEuro(anteprima.importo_tolto)}</span>):
-                il contratto passa da <span className="num">{formatEuro(anteprima.valore_prima)}</span> a{' '}
+                {t.tolgo} <span className="num font-medium">{anteprima.rate_tolte}</span>{' '}
+                {t.rata(anteprima.rate_tolte)} (<span className="num">{formatEuro(anteprima.importo_tolto)}</span>):
+                {' '}{t.passa} <span className="num">{formatEuro(anteprima.valore_prima)}</span> {t.a}{' '}
                 <span className="num font-medium">{formatEuro(anteprima.valore_dopo)}</span>.
               </p>
             ) : (
               <p>
-                Nessuna rata cambia: il contratto resta <span className="num">{formatEuro(anteprima.valore_prima)}</span>.
+                {t.nessunaCambia} <span className="num">{formatEuro(anteprima.valore_prima)}</span>.
               </p>
             )
           ) : null}
         </div>
 
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={inCorso}>Interrompi il percorso</BottoneSalva>
+        <ErroreModulo testo={traduciErrore(errore, lingua) ?? null} />
+        <BottoneSalva inCorso={inCorso}>{t.titolo}</BottoneSalva>
       </form>
     </FoglioModifica>
   )

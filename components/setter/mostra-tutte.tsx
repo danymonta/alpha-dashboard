@@ -4,6 +4,8 @@ import { ChevronDown } from 'lucide-react'
 import { useId, useRef, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MIEI_NUMERI } from '@/lib/i18n/testi/miei-numeri'
 import { cn } from '@/lib/utils'
 
 /**
@@ -15,6 +17,7 @@ export function MostraTutte({
   altri,
   totale,
   className,
+  lingua = 'it',
 }: {
   primi: ReactNode
   /** empty: no button */
@@ -22,7 +25,9 @@ export function MostraTutte({
   /** how many items the whole list has, for the button */
   totale: number
   className?: string
+  lingua?: Lingua
 }) {
+  const t = MIEI_NUMERI[lingua]
   const id = useId()
   const [aperta, setAperta] = useState(false)
   const bottone = useRef<HTMLButtonElement>(null)
@@ -49,10 +54,10 @@ export function MostraTutte({
         >
           {/* one span: the button's flex gap would split "(21)" */}
           {aperta ? (
-            'Mostra meno'
+            t.mostraMeno
           ) : (
             <span>
-              Mostra tutte (<span className="num">{totale}</span>)
+              {t.mostraTutte} (<span className="num">{totale}</span>)
             </span>
           )}
           <ChevronDown className={cn('size-4 transition-transform', aperta && 'rotate-180')} aria-hidden="true" />

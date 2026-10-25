@@ -4,6 +4,7 @@ import { LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useState, type ReactElement, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -13,6 +14,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { FORM } from '@/lib/i18n/testi/form'
+import { SHELL } from '@/lib/i18n/testi/shell'
 
 type EsitoAzione = { ok: true } | { ok: false; errore: string }
 
@@ -22,6 +25,7 @@ type EsitoAzione = { ok: true } | { ok: false; errore: string }
  */
 export function useSalvataggio() {
   const [errore, setErrore] = useState<string | null>(null)
+  const lingua = useLingua()
 
   async function salva(azione: () => Promise<EsitoAzione>, successo: string): Promise<boolean> {
     setErrore(null)
@@ -29,7 +33,7 @@ export function useSalvataggio() {
     try {
       esito = await azione()
     } catch {
-      setErrore('Connessione assente. Riprova.')
+      setErrore(SHELL[lingua].connessione)
       return false
     }
     if (!esito.ok) {
@@ -86,11 +90,12 @@ export function ErroreModulo({ testo }: { testo: string | null }) {
   )
 }
 
-export function BottoneSalva({ inCorso, children = 'Salva' }: { inCorso: boolean; children?: ReactNode }) {
+export function BottoneSalva({ inCorso, children }: { inCorso: boolean; children?: ReactNode }) {
+  const salva = FORM[useLingua()].salva
   return (
     <Button type="submit" className="h-11 w-full" disabled={inCorso}>
       {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-      {children}
+      {children ?? salva}
     </Button>
   )
 }

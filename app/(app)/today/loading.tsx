@@ -1,5 +1,7 @@
 import { SchedeInsight } from '@/components/insight/schede-insight'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { OGGI } from '@/lib/i18n/testi/oggi'
 
 // Same shape as the form: Messaggi (3 counters), Conversazioni (1 counter and,
 // under it, "Com'è andata la giornata": the two scales and the texts), Call
@@ -11,7 +13,8 @@ const GRUPPI = [
   { righe: 1, altezza: 'h-14' },
 ]
 
-export default function Loading() {
+export default async function Loading() {
+  const t = OGGI[await getLingua()]
   return (
     <div className="max-w-xl space-y-5" aria-busy="true">
       <SchedeInsight ruolo="setter" attiva="principale" />
@@ -39,7 +42,7 @@ export default function Loading() {
           ) : null}
         </div>
       ))}
-      <span className="sr-only">Caricamento del report</span>
+      <span className="sr-only">{t.caricamento}</span>
     </div>
   )
 }

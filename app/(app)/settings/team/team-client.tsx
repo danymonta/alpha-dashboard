@@ -25,6 +25,7 @@ import {
 } from "@/app/(app)/settings/team/actions";
 import { Elimina } from "@/components/form/elimina";
 import { ErroreCampo } from "@/components/form/errore-campo";
+import { useLingua } from "@/components/i18n/lingua-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -51,12 +52,23 @@ import {
   type AppRole,
   type LivelloPm,
 } from "@/lib/auth/roles";
+import type { Lingua } from "@/lib/i18n/lingua";
+import { traduciImpostazioni } from "@/lib/i18n/testi/impostazioni";
+import { SHELL } from "@/lib/i18n/testi/shell";
+import { TEAM } from "@/lib/i18n/testi/team";
 import {
   LIVELLI_PM,
   RUOLI,
   invitoSchema,
   type InvitoInput,
 } from "@/lib/validation/team";
+
+/** The roles and the projects levels in the page's language (Italian: the labels of always). */
+function etichette(lingua: Lingua) {
+  return lingua === "it"
+    ? { ruoli: ETICHETTA_RUOLO, livelli: ETICHETTA_LIVELLO_PM }
+    : { ruoli: SHELL[lingua].ruoli, livelli: SHELL[lingua].livelliPm };
+}
 
 const selectClassi =
   "h-11 rounded-lg border border-input bg-input/30 px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 md:text-sm";
@@ -66,28 +78,28 @@ function avvisaInvito(
   email: string,
   esito: EsitoInvito & { ok: true },
   urlLogin: string,
+  lingua: Lingua,
 ) {
+  const t = TEAM[lingua];
   const copia = {
-    label: "Copia il link",
+    label: t.copiaLink,
     onClick: () =>
       void navigator.clipboard
         ?.writeText(urlLogin)
-        .then(() => toast.success("Link copiato")),
+        .then(() => toast.success(t.linkCopiato)),
   };
   if (esito.email === "inviata") {
-    toast.success(`Invito inviato a ${email}`, {
-      description: "Riceverà un’email con il bottone per entrare con Google.",
+    toast.success(t.invitoInviato(email), {
+      description: t.invitoInviatoDescrizione,
     });
   } else if (esito.email === "errore") {
-    toast.warning(`Invito salvato, ma l’email a ${email} non è partita`, {
-      description:
-        "Mandagli tu il link: deve entrare con Google usando proprio questo indirizzo.",
+    toast.warning(t.emailNonPartita(email), {
+      description: t.emailNonPartitaDescrizione,
       action: copia,
     });
   } else {
-    toast.success(`Invito pronto per ${email}`, {
-      description:
-        "Mandagli il link: deve entrare con Google usando proprio questo indirizzo.",
+    toast.success(t.invitoPronto(email), {
+      description: t.invitoProntoDescrizione,
       action: copia,
     });
   }
@@ -102,6 +114,9 @@ export function InvitaMembro({
 }) {
   const [aperto, setAperto] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  const lingua = useLingua();
+  const t = TEAM[lingua];
+  const { ruoli } = etichette(lingua);
   const {
     register,
     handleSubmit,
@@ -118,14 +133,14 @@ export function InvitaMembro({
     try {
       esito = await invita(valori);
     } catch {
-      setErrore("Connessione assente. Riprova.");
+      setErrore(SHELL[lingua].connessione);
       return;
     }
     if (!esito.ok) {
-      setErrore(esito.errore);
+      setErrore(traduciImpostazioni(esito.errore, lingua));
       return;
     }
-    avvisaInvito(valori.email, esito, urlLogin);
+    avvisaInvito(valori.email, esito, urlLogin, lingua);
     setAperto(false);
     reset();
   });
@@ -140,20 +155,20 @@ export function InvitaMembro({
     >
       <SheetTrigger render={<Button type="button" className="h-11" />}>
         <UserPlus className="size-4" aria-hidden="true" />
-        Invita
+        {t.invita}
       </SheetTrigger>
       <SheetContent side="right" className="w-full sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>Invita nel team</SheetTitle>
+          <SheetTitle>{t.invitaTitolo}</SheetTitle>
           <SheetDescription>
             {emailAttiva
-              ? "Riceverà un’email di invito con il logo e il bottone per entrare con Google, usando l’indirizzo che scrivi qui."
-              : `L’email automatica non è ancora attiva: dopo l’invito mandagli tu il link ${urlLogin}. Entrerà con Google usando l’indirizzo che scrivi qui.`}
+              ? t.invitaDescrizioneEmail
+              : t.invitaDescrizioneLink(urlLogin)}
           </SheetDescription>
         </SheetHeader>
         <form onSubmit={invia} noValidate className="space-y-4 px-4 pb-6">
           <div className="space-y-1.5">
-            <Label htmlFor="i-email">Email Google</Label>
+            <Label htmlFor="i-email">{t.emailGoogle}</Label>
             <Input
               id="i-email"
               type="email"
@@ -164,11 +179,11 @@ export function InvitaMembro({
             />
             <ErroreCampo
               id="i-email-errore"
-              messaggio={errors.email?.message}
+              messaggio={traduciImpostazioni(errors.email?.message, lingua)}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="i-ruolo">Ruolo</Label>
+            <Label htmlFor="i-ruolo">{t.ruolo}</Label>
             <select
               id="i-ruolo"
               className={`${selectClassi} w-full`}
@@ -176,17 +191,11 @@ export function InvitaMembro({
             >
               {RUOLI.map((r) => (
                 <option key={r} value={r}>
-                  {ETICHETTA_RUOLO[r]}
+                  {ruoli[r]}
                 </option>
               ))}
             </select>
-            <p className="text-xs text-muted-foreground">
-              Admin, setter e closer vedono l’area Economics per il loro ruolo;
-              admin, video editor e marketing vedono il calendario dei contenuti
-              (Marketing); tutti vedono i Progetti di cui fanno parte. Il
-              business coach vede tutto quello che vede l’admin, in sola
-              lettura.
-            </p>
+            <p className="text-xs text-muted-foreground">{t.ruoloAiuto}</p>
           </div>
           {errore ? (
             <p
@@ -207,7 +216,7 @@ export function InvitaMembro({
                 aria-hidden="true"
               />
             ) : null}
-            {emailAttiva ? "Invia l’invito" : "Crea l’invito"}
+            {emailAttiva ? t.inviaInvito : t.creaInvito}
           </Button>
         </form>
       </SheetContent>
@@ -252,6 +261,9 @@ export function ControlliMembro({
   // kept after closing, so the dialog text does not change while it fades out
   const [conferma, setConferma] = useState<Conferma>({ tipo: "disattiva" });
   const [chiedi, setChiedi] = useState(false);
+  const lingua = useLingua();
+  const t = TEAM[lingua];
+  const { ruoli, livelli } = etichette(lingua);
 
   function apriConferma(c: Conferma) {
     setConferma(c);
@@ -268,15 +280,15 @@ export function ControlliMembro({
       const esito = await cambiaRuolo({ profile_id: profileId, ruolo: nuovo });
       if (!esito.ok) {
         setValore(precedente);
-        toast.error(esito.errore);
+        toast.error(traduciImpostazioni(esito.errore, lingua));
         return;
       }
       toast.success(
-        `${nome}: ora ${ETICHETTA_RUOLO[nuovo].toLowerCase()}`,
+        t.oraRuolo(nome, ruoli[nuovo].toLowerCase()),
         annullabile
           ? {
               action: {
-                label: "Annulla",
+                label: t.annulla,
                 onClick: () => applicaRuolo(precedente, nuovo, false),
               },
             }
@@ -298,15 +310,15 @@ export function ControlliMembro({
       });
       if (!esito.ok) {
         setLivello(precedente);
-        toast.error(esito.errore);
+        toast.error(traduciImpostazioni(esito.errore, lingua));
         return;
       }
       toast.success(
-        `${nome}: nei progetti ora ${ETICHETTA_LIVELLO_PM[nuovo].toLowerCase()}`,
+        t.oraLivello(nome, livelli[nuovo].toLowerCase()),
         annullabile
           ? {
               action: {
-                label: "Annulla",
+                label: t.annulla,
                 onClick: () => applicaLivello(precedente, nuovo, false),
               },
             }
@@ -319,12 +331,8 @@ export function ControlliMembro({
     avvia(async () => {
       const esito = await cambiaAttivo({ profile_id: profileId, attivo: v });
       if (esito.ok)
-        toast.success(
-          v
-            ? `${nome} riattivato`
-            : `${nome} disattivato: al prossimo accesso non entra più`,
-        );
-      else toast.error(esito.errore ?? "Operazione non riuscita.");
+        toast.success(v ? t.riattivato(nome) : t.disattivato(nome));
+      else toast.error(traduciImpostazioni(esito.errore ?? t.nonRiuscita, lingua));
     });
   }
 
@@ -346,7 +354,7 @@ export function ControlliMembro({
   return (
     <div className="flex flex-wrap items-center gap-3">
       <label className="sr-only" htmlFor={`ruolo-${profileId}`}>
-        Ruolo di {nome}
+        {t.ruoloDi(nome)}
       </label>
       <select
         id={`ruolo-${profileId}`}
@@ -366,12 +374,12 @@ export function ControlliMembro({
       >
         {RUOLI.map((r) => (
           <option key={r} value={r}>
-            {ETICHETTA_RUOLO[r]}
+            {ruoli[r]}
           </option>
         ))}
       </select>
       <label className="sr-only" htmlFor={`livello-pm-${profileId}`}>
-        Livello progetti di {nome}
+        {t.livelloDi(nome)}
       </label>
       <select
         id={`livello-pm-${profileId}`}
@@ -380,7 +388,7 @@ export function ControlliMembro({
         disabled={sonoIo || valore === "admin" || inCorso}
         title={
           valore === "admin"
-            ? "L’admin dell’app è sempre admin dei progetti"
+            ? t.adminSempre
             : undefined
         }
         className={selectClassi}
@@ -397,7 +405,7 @@ export function ControlliMembro({
       >
         {LIVELLI_PM.map((l) => (
           <option key={l} value={l}>
-            Progetti: {ETICHETTA_LIVELLO_PM[l]}
+            {t.progetti(livelli[l])}
           </option>
         ))}
       </select>
@@ -405,12 +413,12 @@ export function ControlliMembro({
         <Switch
           checked={attivo}
           disabled={sonoIo || inCorso}
-          aria-label={`${nome} attivo`}
+          aria-label={t.attivoDi(nome)}
           onCheckedChange={(v) =>
             v ? applicaAttivo(true) : apriConferma({ tipo: "disattiva" })
           }
         />
-        {attivo ? "Attivo" : "Disattivato"}
+        {attivo ? t.attivo : t.statoDisattivato}
       </label>
       {inCorso ? (
         <LoaderCircle
@@ -423,9 +431,9 @@ export function ControlliMembro({
           <UnisciProfilo profileId={profileId} nome={nome} altri={altri} />
           <Elimina
             variante="icona"
-            etichetta="Elimina dal team"
+            etichetta={t.eliminaDalTeam}
             cosa={nome}
-            fatto={`${nome} eliminato dal team`}
+            fatto={t.eliminato(nome)}
             anteprima={{ tipo: "persona", id: profileId }}
             azione={() => eliminaPersona({ profile_id: profileId })}
           />
@@ -442,17 +450,17 @@ export function ControlliMembro({
           <DialogHeader>
             <DialogTitle>
               {conferma.tipo === "disattiva"
-                ? `Disattivare ${nome}?`
+                ? t.domandaDisattiva(nome)
                 : conferma.tipo === "admin_pm"
-                  ? `Rendere ${nome} admin dei progetti?`
-                  : `Rendere ${nome} admin?`}
+                  ? t.domandaAdminPm(nome)
+                  : t.domandaAdmin(nome)}
             </DialogTitle>
             <DialogDescription>
               {conferma.tipo === "disattiva"
-                ? "Al prossimo accesso non entra più e non vede nessun dato. Puoi riattivarlo quando vuoi."
+                ? t.spiegaDisattiva
                 : conferma.tipo === "admin_pm"
-                  ? "Vedrà e gestirà tutti i progetti, i reparti e i modelli. I dati economici restano solo tuoi."
-                  : "Vedrà incassi, costi, margine e compensi di tutti."}
+                  ? t.spiegaAdminPm
+                  : t.spiegaAdmin}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -462,7 +470,7 @@ export function ControlliMembro({
               className="h-11"
               onClick={annulla}
             >
-              Annulla
+              {SHELL[lingua].annulla}
             </Button>
             <Button
               type="button"
@@ -473,10 +481,10 @@ export function ControlliMembro({
               onClick={confermaAzione}
             >
               {conferma.tipo === "disattiva"
-                ? "Disattiva"
+                ? t.disattiva
                 : conferma.tipo === "admin_pm"
-                  ? "Rendi admin dei progetti"
-                  : "Rendi admin"}
+                  ? t.rendiAdminPm
+                  : t.rendiAdmin}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -493,6 +501,8 @@ export function RevocaInvito({
   urlLogin: string;
 }) {
   const [inCorso, avvia] = useTransition();
+  const lingua = useLingua();
+  const t = TEAM[lingua];
   return (
     <div className="flex items-center">
       <Button
@@ -501,12 +511,12 @@ export function RevocaInvito({
         size="icon"
         className="size-11 text-muted-foreground"
         disabled={inCorso}
-        aria-label={`Rimanda l’invito a ${email}`}
+        aria-label={t.rimandaInvito(email)}
         onClick={() =>
           avvia(async () => {
             const esito = await reinviaInvito({ email });
-            if (esito.ok) avvisaInvito(email, esito, urlLogin);
-            else toast.error(esito.errore);
+            if (esito.ok) avvisaInvito(email, esito, urlLogin, lingua);
+            else toast.error(traduciImpostazioni(esito.errore, lingua));
           })
         }
       >
@@ -518,12 +528,10 @@ export function RevocaInvito({
       </Button>
       <Elimina
         variante="icona"
-        etichetta="Elimina l’invito a"
+        etichetta={t.eliminaInvitoA}
         cosa={email}
-        fatto={`Invito a ${email} eliminato`}
-        conseguenze={[
-          "Con questo indirizzo non si potrà più entrare, finché non lo inviti di nuovo.",
-        ]}
+        fatto={t.invitoEliminato(email)}
+        conseguenze={[t.invitoConseguenza]}
         azione={() => revocaInvito({ email })}
       />
     </div>
@@ -545,16 +553,18 @@ function UnisciProfilo({
   const [errore, setErrore] = useState<string | null>(null);
   const [inCorso, avvia] = useTransition();
   const scelto = altri.find((a) => a.id === destinazione);
+  const lingua = useLingua();
+  const t = TEAM[lingua];
 
   function conferma() {
     setErrore(null);
     avvia(async () => {
       const esito = await unisciProfili({ da: profileId, a: destinazione });
       if (!esito.ok) {
-        setErrore(esito.errore);
+        setErrore(traduciImpostazioni(esito.errore, lingua));
         return;
       }
-      toast.success(`${nome} unito a ${scelto?.nome}`);
+      toast.success(t.unito(nome, scelto?.nome ?? ""));
       setAperto(false);
     });
   }
@@ -566,8 +576,8 @@ function UnisciProfilo({
         variant="ghost"
         size="icon"
         className="size-11 text-muted-foreground"
-        aria-label={`Unisci ${nome} a un altro profilo`}
-        title="Unisci a un altro profilo"
+        aria-label={t.unisciNome(nome)}
+        title={t.unisciTitle}
         onClick={() => {
           setAperto(true);
           setDestinazione("");
@@ -579,24 +589,18 @@ function UnisciProfilo({
       <Dialog open={aperto} onOpenChange={(v) => !inCorso && setAperto(v)}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Unire {nome} a un altro profilo?</DialogTitle>
-            <DialogDescription>
-              Serve quando la stessa persona ha due profili, per esempio quello
-              provvisorio dell’import e quello vero dopo il primo accesso. Tutto
-              quello che è registrato a nome di {nome} (report, vendite,
-              provvigioni, progetti, tempo) passa al profilo che scegli; poi{" "}
-              {nome} sparisce. Non si può annullare.
-            </DialogDescription>
+            <DialogTitle>{t.unisciDomanda(nome)}</DialogTitle>
+            <DialogDescription>{t.unisciSpiegazione(nome)}</DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
-            <Label htmlFor={`unisci-${profileId}`}>Unisci a</Label>
+            <Label htmlFor={`unisci-${profileId}`}>{t.unisciA}</Label>
             <select
               id={`unisci-${profileId}`}
               className={`${selectClassi} w-full`}
               value={destinazione}
               onChange={(e) => setDestinazione(e.currentTarget.value)}
             >
-              <option value="">Scegli la persona</option>
+              <option value="">{t.scegliPersona}</option>
               {altri.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.nome} · {a.email}
@@ -617,7 +621,7 @@ function UnisciProfilo({
               disabled={inCorso}
               onClick={() => setAperto(false)}
             >
-              Annulla
+              {SHELL[lingua].annulla}
             </Button>
             <Button
               type="button"
@@ -633,7 +637,7 @@ function UnisciProfilo({
               ) : (
                 <GitMerge className="size-4" aria-hidden="true" />
               )}
-              Unisci
+              {t.unisci}
             </Button>
           </DialogFooter>
         </DialogContent>

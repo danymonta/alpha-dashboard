@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation'
 import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react'
 
 import { aggiornaDati } from '@/app/(app)/insight/actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { useAdessoMezzoMinuto } from '@/components/insight/orologio'
 import { Button } from '@/components/ui/button'
 import { formatOra } from '@/lib/date'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { INSIGHT_RECAP, traduciErroreInsight } from '@/lib/i18n/testi/insight-recap'
 import { LINK_CHIAVE_INSTAGRAM } from '@/lib/insight/link'
-import { AGGIORNA, AGGIORNA_SETTER, fasePasso, rigaFallita, rigaInCorso, rigaPianificatore } from '@/lib/insight/parole'
 import {
   esecuzioneInCorso,
   leggiStatoInsight,
@@ -20,7 +22,6 @@ import {
   type StatoInsightAdmin,
 } from '@/lib/insight/stato'
 import { createClient } from '@/lib/supabase/client'
-import { URL_PASSO_MANCANTE } from '@/lib/validation/insight'
 
 /** The run's state polled while it works (D11). */
 const OGNI_STATO_MS = 15_000
@@ -68,6 +69,7 @@ type Valore = {
   tokenScaduto: boolean
   adessoMs: number
   aggiorna: () => void
+  lingua: Lingua
 }
 
 const Contesto = createContext<Valore | null>(null)
@@ -98,6 +100,7 @@ function appenaPronta(prima: Stato | null, dopo: Stato | null): boolean {
 export function AggiornamentoInsight(props: Props) {
   const { admin, stato: statoServer, ultimoGeneratoIl, adesso, children } = props
   const router = useRouter()
+  const lingua = useLingua()
   const [stato, setStato] = useState<Stato | null>(statoServer)
   const [letto, setLetto] = useState<Stato | null>(statoServer)
   const [fatto, setFatto] = useState(false)
@@ -201,11 +204,11 @@ export function AggiornamentoInsight(props: Props) {
       try {
         esito = await aggiornaDati()
       } catch {
-        setErroreAzione(AGGIORNA.connessione)
+        setErroreAzione(INSIGHT_RECAP[lingua].aggiorna.connessione)
         return
       }
       if (!esito.ok) {
-        setErroreAzione(esito.errore)
+        setErroreAzione(traduciErroreInsight(esito.errore, lingua))
         return
       }
       // the action redraws the page with the run queued; read it now too, so the line starts at once
@@ -229,6 +232,7 @@ export function AggiornamentoInsight(props: Props) {
     tokenScaduto: props.admin ? props.tokenScaduto : false,
     adessoMs,
     aggiorna,
+    lingua,
   }
 
   return <Contesto.Provider value={valore}>{children}</Contesto.Provider>
@@ -242,8 +246,9 @@ function useAggiornamento(): Valore {
 
 /** «Aggiorna dati» (the admin and, from 1.50.0, the setter): the page's one primary button, full width on a phone. */
 export function BottoneAggiornaDati({ className }: { className?: string }) {
-  const { avvio, inCorso, configurato, aggiorna } = useAggiornamento()
-  const parola = avvio ? AGGIORNA.avvio : inCorso ? AGGIORNA.inCorso : AGGIORNA.bottone
+  const { avvio, inCorso, configurato, aggiorna, lingua } = useAggiornamento()
+  const t = INSIGHT_RECAP[lingua].aggiorna
+  const parola = avvio ? t.avvio : inCorso ? t.inCorso : t.bottone
   return (
     <Button
       type="button"
@@ -267,16 +272,18 @@ type Riga = { tono: 'ok' | 'errore' | 'neutro'; testo: string; link?: { href: st
 function rigaDi(v: Valore): Riga | null {
   const { admin, stato, inCorso, avvio, fatto, erroreAzione, configurato, urlValido, tokenScaduto, adessoMs } = v
   if (!admin) return rigaSetter(v)
+  const t = INSIGHT_RECAP[v.lingua]
+  const AGGIORNA = t.aggiorna
   if (avvio) return null
   if (inCorso && stato?.esecuzione) {
     const e = stato.esecuzione
     const minuti = Math.round((adessoMs - Date.parse(e.creata_il)) / 60_000)
-    return { tono: 'neutro', testo: rigaInCorso(Number.isFinite(minuti) ? minuti : 1, fasePasso(e.passo, e.blocchi_fatti, e.blocchi_totali)) }
+    return { tono: 'neutro', testo: t.rigaInCorso(Number.isFinite(minuti) ? minuti : 1, t.fasePasso(e.passo, e.blocchi_fatti, e.blocchi_totali)) }
   }
   if (fatto) return { tono: 'ok', testo: AGGIORNA.fatto }
   if (erroreAzione) return { tono: 'errore', testo: erroreAzione }
   if (!configurato) return { tono: 'errore', testo: AGGIORNA.chiaveMancante }
-  if (!urlValido) return { tono: 'errore', testo: URL_PASSO_MANCANTE }
+  if (!urlValido) return { tono: 'errore', testo: t.urlPassoMancante }
   if (tokenScaduto) {
     return {
       tono: 'errore',
@@ -286,12 +293,12 @@ function rigaDi(v: Valore): Riga | null {
   }
   if (stato?.esecuzione?.stato === 'fallita') {
     const errore = 'errore' in stato.esecuzione ? stato.esecuzione.errore : null
-    return { tono: 'errore', testo: rigaFallita(errore) }
+    return { tono: 'errore', testo: t.rigaFallita(errore) }
   }
   const tick = 'ultimo_tick_il' in (stato ?? {}) ? (stato as StatoInsightAdmin).ultimo_tick_il : null
   // a tick never seen yet is not a dead scheduler (as the Automazione box says it)
   if (stato && tick && pianificatoreFermo({ attivo: stato.attivo, ultimo_tick_il: tick }, new Date(adessoMs))) {
-    return { tono: 'errore', testo: rigaPianificatore(formatOra(tick)) }
+    return { tono: 'errore', testo: t.rigaPianificatore(formatOra(tick)) }
   }
   return null
 }
@@ -303,9 +310,11 @@ function rigaDi(v: Valore): Riga | null {
  */
 function rigaSetter(v: Valore): Riga | null {
   const { stato, inCorso, avvio, fatto, erroreAzione, configurato } = v
+  const t = INSIGHT_RECAP[v.lingua]
+  const AGGIORNA_SETTER = t.aggiornaSetter
   if (avvio) return null
   if (inCorso) return { tono: 'neutro', testo: AGGIORNA_SETTER.inCorso }
-  if (fatto) return { tono: 'ok', testo: AGGIORNA.fatto }
+  if (fatto) return { tono: 'ok', testo: t.aggiorna.fatto }
   if (erroreAzione) return { tono: 'errore', testo: erroreAzione }
   if (!configurato) return { tono: 'errore', testo: AGGIORNA_SETTER.nonAttivo }
   if (stato?.esecuzione?.stato === 'fallita') return { tono: 'errore', testo: AGGIORNA_SETTER.nonRiuscito }

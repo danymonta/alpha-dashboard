@@ -3,7 +3,8 @@
  * the numbers, the state of an analysis, the phrases of a post without
  * statistics. Client and server components read them, and the tests.
  */
-import { formatNumero } from '@/lib/format'
+import { formatNumero, formato } from '@/lib/format'
+import { LOCALE, type Lingua } from '@/lib/i18n/lingua'
 
 export type Verdetto = 'spingere' | 'mantenere' | 'cambiare'
 
@@ -14,15 +15,16 @@ export const ETICHETTA_VERDETTO: Record<Verdetto, string> = {
 }
 
 export const SENZA_STATISTICHE = 'Senza statistiche'
+export const SENZA_STATISTICHE_EN = 'No statistics'
 
 export function eVerdetto(v: unknown): v is Verdetto {
   return v === 'spingere' || v === 'mantenere' || v === 'cambiare'
 }
 
 /** «×1,4», «×0,7», «×12»: a ratio to the median, null when there is none. */
-export function formatRapporto(r: number | null | undefined): string | null {
+export function formatRapporto(r: number | null | undefined, lingua: Lingua = 'it'): string | null {
   if (r === null || r === undefined || !Number.isFinite(r)) return null
-  return `×${r.toLocaleString('it-IT', { maximumFractionDigits: 1, minimumFractionDigits: 0 })}`
+  return `×${r.toLocaleString(LOCALE[lingua], { maximumFractionDigits: 1, minimumFractionDigits: 0 })}`
 }
 
 /** «23%» from 0.2345 */
@@ -32,15 +34,15 @@ export function formatQuota(q: number | null | undefined): string | null {
 }
 
 /** «1,2%» from 0.0123: a rate with its decimal, for the small shares of saves and shares */
-export function formatTasso(q: number | null | undefined): string | null {
+export function formatTasso(q: number | null | undefined, lingua: Lingua = 'it'): string | null {
   if (q === null || q === undefined || !Number.isFinite(q)) return null
-  return `${(q * 100).toLocaleString('it-IT', { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%`
+  return `${(q * 100).toLocaleString(LOCALE[lingua], { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%`
 }
 
 /** «9,8 s» from milliseconds */
-export function formatSecondi(ms: number | null | undefined): string | null {
+export function formatSecondi(ms: number | null | undefined, lingua: Lingua = 'it'): string | null {
   if (ms === null || ms === undefined || !Number.isFinite(ms)) return null
-  return `${(ms / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} s`
+  return `${(ms / 1000).toLocaleString(LOCALE[lingua], { maximumFractionDigits: 1, minimumFractionDigits: 1 })} s`
 }
 
 /** «0:42» from seconds */
@@ -51,15 +53,27 @@ export function formatDurata(secondi: number | null | undefined): string | null 
 }
 
 /** «9,8 s · 23%» for the watch time and its share of the length */
-export function formatVisione(ms: number | null | undefined, quota: number | null | undefined): string {
-  const tempo = formatSecondi(ms)
+export function formatVisione(ms: number | null | undefined, quota: number | null | undefined, lingua: Lingua = 'it'): string {
+  const tempo = formatSecondi(ms, lingua)
   const q = formatQuota(quota)
-  if (!tempo) return 'n/d'
+  if (!tempo) return lingua === 'en' ? 'n/a' : 'n/d'
   return q ? `${tempo} · ${q}` : tempo
 }
 
 /** What the views column says: the number and, under it, «×1,4 della mediana». */
-export function viewsConConfronto(views: number | null | undefined, rapporto: number | null | undefined, confronto: string | null | undefined, etaConfronto: number | null | undefined) {
+export function viewsConConfronto(
+  views: number | null | undefined,
+  rapporto: number | null | undefined,
+  confronto: string | null | undefined,
+  etaConfronto: number | null | undefined,
+  lingua: Lingua = 'it',
+) {
+  if (lingua === 'en') {
+    const numeroEn = views === null || views === undefined ? null : formato('en').formatNumero(views)
+    const rEn = formatRapporto(rapporto, 'en')
+    const quandoEn = confronto === 'vita_intera' ? ' (over its whole life)' : etaConfronto ? ` at ${etaConfronto} days` : ''
+    return { numero: numeroEn, confronto: rEn ? `${rEn} of the median${quandoEn}` : null }
+  }
   const numero = views === null || views === undefined ? null : formatNumero(views)
   const r = formatRapporto(rapporto)
   const quando = confronto === 'vita_intera' ? ' (sulla vita intera)' : etaConfronto ? ` a ${etaConfronto} giorni` : ''
@@ -115,4 +129,33 @@ export function fraseStatoPost(stato: string | null | undefined, giornoLettura: 
 export function parolaPunteggio(totale: number | null | undefined, etichettaFascia: string | null | undefined): string {
   if (totale === null || totale === undefined || !etichettaFascia) return 'Non valutato'
   return `${totale} · ${etichettaFascia}`
+}
+
+// ---------------------------------------------------------------------------
+// English (1.53.0): the same words for the page in English.
+// ---------------------------------------------------------------------------
+
+/** «6 DM · 3 on target · 1 call», «some days not counted», or «not counted». */
+export function parolaLeadEn(r: Parameters<typeof parolaLead>[0]): string {
+  if (!r.lead_contati || r.dm_14g === null) return 'not counted'
+  const call = r.call_14g ?? 0
+  const base = `${r.dm_14g} DM · ${r.in_target_14g ?? 0} on target · ${call} ${call === 1 ? 'call' : 'calls'}`
+  return r.lead_completi === false ? `${base} · some days not counted` : base
+}
+
+/** Why a post has no statistics, in English. */
+export function fraseStatoPostEn(stato: string | null | undefined, parziali: boolean | null): string | null {
+  switch (stato) {
+    case 'prima_della_conversione':
+      return 'Instagram does not give the statistics of the posts published before the account became professional.'
+    case 'non_disponibili':
+    case 'da_leggere':
+      return 'Instagram does not have the numbers of this post yet: I try again tomorrow.'
+    case 'senza_permesso':
+      return 'Instagram’s statistics are not active yet.'
+    case 'lette':
+      return parziali ? 'Numbers of the first hours: Instagram completes them within 48 hours.' : null
+    default:
+      return null
+  }
 }

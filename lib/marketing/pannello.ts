@@ -4,7 +4,8 @@
  * in Vitest. The panel keeps its state in the address (?contenuto=<id>), so
  * the link can be shared and Back closes it.
  */
-import { formatData, formatNumero } from '@/lib/format'
+import { formatData, formatNumero, formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
 import { CAMPI, CAMPO_MODELLO, ETICHETTA_MODELLO, type TipoContenuto } from '@/lib/marketing/etichette'
 import { nomeDaValore, type Opzioni } from '@/lib/marketing/opzioni'
 import type { CampoInCella } from '@/lib/validation/contenuto'
@@ -88,8 +89,9 @@ export function piuRecente(a: string, b: string): string {
  * The short toast after a field is saved: "Reel Type: Education", "Post Date tolta", "Name salvato".
  * The name of a Reel Type or Format is the live label's (`opzioni`), the slug if the label is gone.
  */
-export function messaggioCampo(campo: CampoInCella, valore: unknown, opzioni?: Opzioni): string {
+export function messaggioCampo(campo: CampoInCella, valore: unknown, opzioni?: Opzioni, lingua: Lingua = 'it'): string {
   const vuoto = valore === null || valore === undefined || valore === ''
+  if (lingua === 'en') return messaggioCampoEn(campo, valore, vuoto, opzioni)
   switch (campo) {
     case 'tipo':
       return `${CAMPO_MODELLO}: ${ETICHETTA_MODELLO[valore as TipoContenuto] ?? String(valore)}`
@@ -109,5 +111,30 @@ export function messaggioCampo(campo: CampoInCella, valore: unknown, opzioni?: O
       return vuoto ? `${CAMPI.audio} tolto` : `${CAMPI.audio} salvato`
     case 'view_count':
       return vuoto ? `${CAMPI.view_count} tolto` : `${CAMPI.view_count}: ${formatNumero(Number(valore))}`
+  }
+}
+
+/** The same toast in English (1.53.0): «Reel Type: Education», «Post Date removed», «Name saved». */
+function messaggioCampoEn(campo: CampoInCella, valore: unknown, vuoto: boolean, opzioni?: Opzioni): string {
+  const f = formato('en')
+  switch (campo) {
+    case 'tipo':
+      return `Template: ${ETICHETTA_MODELLO[valore as TipoContenuto] ?? String(valore)}`
+    case 'nome':
+      return `${CAMPI.nome} saved`
+    case 'reel_type':
+      return vuoto ? `${CAMPI.reel_type} removed` : `${CAMPI.reel_type}: ${nomeDaValore(opzioni?.reel_type ?? [], String(valore))}`
+    case 'formato':
+      return vuoto ? `${CAMPI.formato} removed` : `${CAMPI.formato}: ${nomeDaValore(opzioni?.formato ?? [], String(valore))}`
+    case 'post_date':
+      return vuoto ? `${CAMPI.post_date} removed` : `${CAMPI.post_date}: ${f.formatData(String(valore))}`
+    case 'inspiration':
+      return vuoto ? `${CAMPI.inspiration} removed` : `${CAMPI.inspiration} saved`
+    case 'url':
+      return vuoto ? `${CAMPI.url} removed` : `${CAMPI.url} saved`
+    case 'audio':
+      return vuoto ? `${CAMPI.audio} removed` : `${CAMPI.audio} saved`
+    case 'view_count':
+      return vuoto ? `${CAMPI.view_count} removed` : `${CAMPI.view_count}: ${f.formatNumero(Number(valore))}`
   }
 }

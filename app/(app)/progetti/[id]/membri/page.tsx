@@ -45,7 +45,7 @@ export default async function MembriPage({ params }: { params: Promise<{ id: str
   const dentro = new Set(persone.map((p) => p.id))
   const aggiungibili = attivi
     .filter((p) => !dentro.has(p.id))
-    .map((p) => ({ id: p.id, nome: p.nome, ruolo: ETICHETTA_RUOLO[p.ruolo] }))
+    .map((p) => ({ id: p.id, nome: p.nome, ruolo: ruoli[p.ruolo] }))
 
   return (
     <div className="space-y-4">

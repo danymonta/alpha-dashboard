@@ -2,7 +2,9 @@
 
 import { Check } from 'lucide-react'
 
+import { useTesti } from '@/components/i18n/lingua-provider'
 import type { Proposte } from '@/lib/alfire/risposte'
+import { ALFIRE } from '@/lib/i18n/testi/alfire'
 import { cn } from '@/lib/utils'
 
 /**
@@ -29,14 +31,19 @@ export function RisposteProposte({
   scelta: string | null
   rispondi: (opzione: string) => void
 }) {
+  const t = useTesti(ALFIRE)
   const seguito = proposte.tipo === 'seguito'
   // follow-up questions nobody took are gone once the chat moved on
   if (seguito && !correnti && !scelta) return null
-  const etichetta = proposte.domanda?.trim() || (seguito ? 'Domande successive' : 'Risposte possibili')
+  const etichetta = proposte.domanda?.trim() || (seguito ? t.successive : t.possibili)
 
   return (
     <div className="space-y-2" data-testid="alfire-proposte" data-tipo={proposte.tipo}>
-      {domanda ? <p className="text-sm">{domanda}</p> : null}
+      {domanda ? (
+        <p className="text-sm" lang="it">
+          {domanda}
+        </p>
+      ) : null}
       <div role="group" aria-label={etichetta} className={seguito ? 'flex flex-col gap-2' : 'flex flex-wrap gap-2'}>
         {proposte.opzioni.map((opzione, i) => {
           const questa = scelta === opzione
@@ -60,8 +67,10 @@ export function RisposteProposte({
               )}
             >
               {questa ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}
-              <span className="min-w-0">{opzione}</span>
-              {questa ? <span className="sr-only">(la tua risposta)</span> : null}
+              <span className="min-w-0" lang="it">
+                {opzione}
+              </span>
+              {questa ? <span className="sr-only">{t.tuaRisposta}</span> : null}
             </button>
           )
         })}

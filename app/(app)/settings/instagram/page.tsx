@@ -19,9 +19,13 @@ import { quando } from '@/app/(app)/settings/instagram/quando'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { getLingua } from '@/lib/i18n/server'
+import { CHIAVI } from '@/lib/i18n/testi/chiavi'
+import { IMPOSTAZIONI, traduciImpostazioni } from '@/lib/i18n/testi/impostazioni'
+import { INSTAGRAM_IMPOSTAZIONI } from '@/lib/i18n/testi/instagram-impostazioni'
 import { insightConfigurato } from '@/lib/insight/config'
-import { fraseScadePresto, statoToken } from '@/lib/instagram/stato-token'
+import { statoToken } from '@/lib/instagram/stato-token'
 import { leggiPermesso, leggiSituazione } from '@/lib/marketing/analisi/elenco'
 import { trascrizioneAttiva } from '@/lib/marketing/trascrizione'
 import { leggiStatoInsightAdmin } from '@/lib/insight/stato'
@@ -38,7 +42,7 @@ function adessoMs() {
   return Date.now()
 }
 
-async function caricaInstagram() {
+async function caricaInstagram(t: (typeof INSTAGRAM_IMPOSTAZIONI)['it']['pagina']) {
   const supabase = await createClient()
   const [collegamento, token, esclusi, setter, post] = await Promise.all([
     supabase
@@ -58,7 +62,7 @@ async function caricaInstagram() {
       .maybeSingle(),
   ])
   if (collegamento.error || token.error || esclusi.error || setter.error || post.error) {
-    throw new Error('Impossibile caricare il collegamento di Instagram')
+    throw new Error(t.errore)
   }
 
   // the setter chosen earlier, if no longer an active setter: shown as he is,
@@ -67,7 +71,7 @@ async function caricaInstagram() {
   let persone = setter.data.map((p) => ({ id: p.id, nome: p.nome, attivo: true }))
   if (scelto && !persone.some((p) => p.id === scelto)) {
     const { data } = await supabase.from('profiles').select('id, nome').eq('id', scelto).maybeSingle()
-    persone = [...persone, { id: scelto, nome: data?.nome ?? 'Persona eliminata', attivo: false }]
+    persone = [...persone, { id: scelto, nome: data?.nome ?? t.personaEliminata, attivo: false }]
   }
 
   return {
@@ -95,7 +99,7 @@ type EsclusoMessenger = { utente_id: string; nome: string; motivo: string | null
  * (insight_chat_messenger, C14: insight_chat itself is read by no session),
  * and insight_stato() as the admin sees it.
  */
-async function caricaMessengerEInsight() {
+async function caricaMessengerEInsight(t: (typeof INSTAGRAM_IMPOSTAZIONI)['it']['pagina']) {
   const supabase = await createClient()
   const [collegamento, token, esclusi, chat, stato] = await Promise.all([
     supabase
@@ -109,7 +113,7 @@ async function caricaMessengerEInsight() {
     supabase.rpc('insight_stato'),
   ])
   if (collegamento.error || token.error || esclusi.error || chat.error || stato.error) {
-    throw new Error('Impossibile caricare Messenger e l’Insight')
+    throw new Error(t.erroreMessenger)
   }
   const righeChat: unknown[] = Array.isArray(chat.data) ? chat.data : []
   // the reel analysis (1.36.0): never stops the page, a read that fails is «non si legge adesso»
@@ -142,9 +146,14 @@ function Voce({ etichetta, children }: { etichetta: string; children: ReactNode 
 
 export default async function InstagramPage() {
   await requireRuolo(['admin'])
+  const lingua = await getLingua()
+  const t = INSTAGRAM_IMPOSTAZIONI[lingua].pagina
+  const K = CHIAVI[lingua]
+  const { formatData } = formato(lingua)
+  const tr = (testo: string) => traduciImpostazioni(testo, lingua)
   const [{ collegamento, tokenPresente, esclusi, persone, scelto, post }, insight] = await Promise.all([
-    caricaInstagram(),
-    caricaMessengerEInsight(),
+    caricaInstagram(t),
+    caricaMessengerEInsight(t),
   ])
   const { messenger, tokenMessenger, esclusiMessenger, chatMessenger, stato, situazione, permesso } = insight
   const adesso = adessoMs()
@@ -167,9 +176,9 @@ export default async function InstagramPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
-        indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
-        titolo="Instagram e Messenger"
-        descrizione="Ogni notte, dopo mezzanotte, i DM dell’account precompilano il report del giorno prima. Il setter lo conferma o lo corregge in Oggi, e puoi farlo anche tu nella pagina Setter: vale la prima scelta. I DM delle ultime 24 ore di Instagram e Messenger finiscono anche nell’Insight: Claude li analizza e il gestionale li tiene al massimo 30 giorni."
+        indietro={{ href: '/settings', etichetta: IMPOSTAZIONI[lingua].titolo }}
+        titolo={t.titolo}
+        descrizione={t.descrizione}
       />
 
       {tokenScaduto ? (
@@ -179,64 +188,62 @@ export default async function InstagramPage() {
           className="flex items-start gap-2 rounded-xl border border-status-critical/40 bg-status-critical/10 p-4 text-sm font-medium"
         >
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-critical" aria-hidden="true" />
-          Token Instagram scaduto: generane uno nuovo dal pannello Meta e incollalo qui.
+          {K.avvisoScaduto}
         </div>
       ) : null}
       {tokenScaduto ? (
         <p className="-mt-3 text-sm">
           <Link href="/settings/chiavi#instagram" className="underline underline-offset-4 hover:text-foreground">
-            Vai a Chiavi e collegamenti: il token si incolla lì, con la guida per generarlo.
+            {t.vaiAChiavi}
           </Link>
         </p>
       ) : null}
 
       <section aria-labelledby="titolo-collegamento" className="rounded-xl bg-card p-4" data-testid="instagram-stato">
         <h2 id="titolo-collegamento" className="text-sm font-medium">
-          Collegamento
+          {t.collegamento}
         </h2>
         <dl className="mt-1 divide-y divide-border">
-          <Voce etichetta="Account">
+          <Voce etichetta={K.account}>
             {collegamento?.account_username ? (
               <span className="font-medium">@{collegamento.account_username}</span>
             ) : (
-              <span className="text-muted-foreground">Si legge dal token al primo calcolo</span>
+              <span className="text-muted-foreground">{K.primoCalcolo}</span>
             )}
           </Voce>
-          <Voce etichetta="Token">
+          <Voce etichetta={t.token}>
             {!tokenPresente ? (
-              <span className="text-muted-foreground">Non collegato</span>
+              <span className="text-muted-foreground">{K.nonCollegato}</span>
             ) : tokenScaduto ? (
               <span className="inline-flex items-start gap-1.5 text-status-critical">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                {scadutoPerData
-                  ? `Scaduto${scadeGiorno ? ` il ${formatData(scadeGiorno)}` : ''}`
-                  : 'Non più valido: Instagram lo ha rifiutato'}
+                {scadutoPerData ? K.scaduto(scadeGiorno ? formatData(scadeGiorno) : null) : K.rifiutato}
               </span>
             ) : (
               <span className="inline-flex items-start gap-1.5">
                 <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
                 <span>
-                  Salvato{scadeGiorno ? `, scade il ${formatData(scadeGiorno)}` : ''}
+                  {K.salvato(scadeGiorno ? formatData(scadeGiorno) : null)}
                   {scadePresto && giorniAllaScadenza !== null ? (
                     <span className="block text-status-warning">
-                      {fraseScadePresto(giorniAllaScadenza)}: se non si rinnova da solo, incolla un token nuovo prima di allora.
+                      {K.rinnovaPrima(giorniAllaScadenza)}
                     </span>
                   ) : null}
                 </span>
               </span>
             )}
           </Voce>
-          <Voce etichetta="Ultimo calcolo">
+          <Voce etichetta={t.ultimoCalcolo}>
             {collegamento?.ultimo_calcolo_giorno && collegamento.ultimo_calcolo_il ? (
               <span className="num">
-                {formatData(collegamento.ultimo_calcolo_giorno)}, {chat === 1 ? '1 chat letta' : `${chat} chat lette`},{' '}
-                {quando(collegamento.ultimo_calcolo_il, oggi)}
+                {formatData(collegamento.ultimo_calcolo_giorno)}, {t.chatLette(chat)},{' '}
+                {quando(collegamento.ultimo_calcolo_il, oggi, lingua)}
               </span>
             ) : (
-              <span className="text-muted-foreground">Ancora nessuno</span>
+              <span className="text-muted-foreground">{t.ancoraNessuno}</span>
             )}
           </Voce>
-          <Voce etichetta="Post e reel">
+          <Voce etichetta={t.postEReel}>
             {post?.ultimo_errore && post.ultimo_giro_esito !== 'ok' ? (
               <span className="flex items-start gap-1.5 text-status-critical" data-testid="instagram-post-errore">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -244,35 +251,34 @@ export default async function InstagramPage() {
                   {post.ultimo_errore_il ? (
                     <span className="num inline-flex items-center gap-1 text-muted-foreground">
                       <Clock className="size-3.5" aria-hidden="true" />
-                      {quando(post.ultimo_errore_il, oggi)}:
+                      {quando(post.ultimo_errore_il, oggi, lingua)}:
                     </span>
                   ) : null}{' '}
-                  {post.ultimo_errore}{' '}
+                  {tr(post.ultimo_errore)}{' '}
                   <Link href="/marketing/pubblicati" className="text-foreground underline underline-offset-4">
-                    Pubblicati
+                    {t.pubblicati}
                   </Link>
                 </span>
               </span>
             ) : (
               <span>
-                Letti ogni notte per il calendario dei contenuti
+                {t.lettiOgniNotte}
                 {post?.ultimo_giro_il ? (
                   <span className="num">
                     {' '}
-                    (ultimo: {quando(post.ultimo_giro_il, oggi)}
-                    {post.ultimo_giro_letti !== null ? `, ${post.ultimo_giro_letti} post` : ''})
+                    {t.ultimaLettura(quando(post.ultimo_giro_il, oggi, lingua), post.ultimo_giro_letti)}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground"> (ancora nessuna lettura)</span>
+                  <span className="text-muted-foreground">{t.nessunaLettura}</span>
                 )}
                 .{' '}
                 <Link href="/marketing/pubblicati" className="underline underline-offset-4 hover:text-foreground">
-                  Pubblicati
+                  {t.pubblicati}
                 </Link>
               </span>
             )}
           </Voce>
-          <Voce etichetta="Ultimo errore">
+          <Voce etichetta={K.ultimoErrore}>
             {collegamento?.ultimo_errore ? (
               <span className="flex items-start gap-1.5 text-status-critical" data-testid="instagram-ultimo-errore">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -280,14 +286,14 @@ export default async function InstagramPage() {
                   {collegamento.ultimo_errore_il ? (
                     <span className="num inline-flex items-center gap-1 text-muted-foreground">
                       <Clock className="size-3.5" aria-hidden="true" />
-                      {quando(collegamento.ultimo_errore_il, oggi)}:
+                      {quando(collegamento.ultimo_errore_il, oggi, lingua)}:
                     </span>
                   ) : null}{' '}
-                  {collegamento.ultimo_errore}
+                  {tr(collegamento.ultimo_errore)}
                 </span>
               </span>
             ) : (
-              <span className="text-muted-foreground">Nessuno</span>
+              <span className="text-muted-foreground">{K.nessuno}</span>
             )}
           </Voce>
         </dl>
@@ -295,33 +301,31 @@ export default async function InstagramPage() {
 
       <section aria-labelledby="titolo-token" className="space-y-1 rounded-xl bg-card p-4">
         <h2 id="titolo-token" className="text-sm font-medium">
-          Token
+          {t.token}
         </h2>
         <p className="text-sm text-muted-foreground">
-          Il token di Instagram e il token della Pagina di Messenger si incollano, e si rigenerano quando scadono, in{' '}
+          {t.tokenDescrizione}{' '}
           <Link href="/settings/chiavi#instagram" className="underline underline-offset-4 hover:text-foreground">
-            Chiavi e collegamenti
+            {t.chiaviECollegamenti}
           </Link>
-          , con la guida passo passo.
+          {t.conGuida}
         </p>
       </section>
 
       <section aria-labelledby="titolo-setter" className="space-y-3 rounded-xl bg-card p-4">
         <div className="space-y-1">
           <h2 id="titolo-setter" className="text-sm font-medium">
-            Chi lavora i DM
+            {t.chiLavora}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            I numeri calcolati ogni notte vanno a questa persona da confermare.
-          </p>
+          <p className="text-sm text-muted-foreground">{t.chiLavoraDescrizione}</p>
         </div>
         {persone.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nel team non c’è un setter attivo: invitalo da{' '}
+            {t.nessunSetter}{' '}
             <Link href="/settings/team" className="underline underline-offset-4 hover:text-foreground">
-              Team
+              {t.team}
             </Link>
-            , poi sceglilo qui.
+            {t.poiSceglilo}
           </p>
         ) : (
           <SceltaSetterInstagram setterId={scelto} persone={persone} />
@@ -332,16 +336,13 @@ export default async function InstagramPage() {
       <section id="chat-escluse" aria-labelledby="titolo-esclusi" className="scroll-mt-4 space-y-3 rounded-xl bg-card p-4">
         <div className="space-y-1">
           <h2 id="titolo-esclusi" className="text-sm font-medium">
-            Chat escluse
+            {t.escluse}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Le chat Instagram con questi account (personale, team, clienti, amici) non contano mai nella proposta e non
-            entrano mai nell’Insight.
-          </p>
+          <p className="text-sm text-muted-foreground">{t.escluseDescrizione}</p>
         </div>
         {esclusi.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
-            Nessuna chat esclusa: contano tutte le chat dell’account.
+            {t.nessunaEsclusa}
           </p>
         ) : (
           <ul className="divide-y divide-border" data-testid="instagram-esclusi">
@@ -356,15 +357,14 @@ export default async function InstagramPage() {
       <section aria-labelledby="titolo-ricalcola" className="space-y-3 rounded-xl bg-card p-4">
         <div className="space-y-1">
           <h2 id="titolo-ricalcola" className="text-sm font-medium">
-            Ricalcola ieri
+            {t.ricalcola}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Rilegge i DM di ieri e rifà la proposta, per esempio dopo un token nuovo. I numeri qui non compaiono: la
-            proposta la trovi in{' '}
+            {t.ricalcolaDescrizione}{' '}
             <Link href="/setting#da-approvare" className="underline underline-offset-4 hover:text-foreground">
-              Setter › Tracciamento da approvare
+              {t.daApprovare}
             </Link>{' '}
-            e {setterScelto?.attivo ? setterScelto.nome : 'il setter scelto'} in Oggi: vale la prima scelta, tua o sua.
+            {t.eInOggi(setterScelto?.attivo ? setterScelto.nome : t.ilSetterScelto)}
           </p>
         </div>
         <RicalcolaIeri
@@ -372,11 +372,11 @@ export default async function InstagramPage() {
           setterNome={setterScelto?.attivo ? setterScelto.nome : null}
           nonPronto={
             !tokenPresente
-              ? 'Prima salva il token.'
+              ? t.primaToken
               : !setterScelto
-                ? 'Prima scegli chi lavora i DM.'
+                ? t.primaSetter
                 : !setterScelto.attivo
-                  ? 'Prima scegli un setter attivo per i DM.'
+                  ? t.primaSetterAttivo
                   : null
           }
         />
@@ -384,18 +384,13 @@ export default async function InstagramPage() {
 
       <section id="messenger" aria-labelledby="titolo-messenger" className="scroll-mt-4 space-y-2 rounded-xl bg-card p-4">
         <h2 id="titolo-messenger" className="text-sm font-medium">
-          Messenger
+          {t.messenger}
         </h2>
         <p className="text-sm text-muted-foreground">
-          {tokenMessenger
-            ? messenger?.pagina_nome
-              ? `Collegata: Pagina «${messenger.pagina_nome}».`
-              : 'Collegata.'
-            : 'Non collegata.'}{' '}
-          Il token della Pagina Facebook serve solo per leggere le chat Messenger nell’Insight, e non manda mai messaggi: lo
-          incolli in{' '}
+          {t.statoMessenger(tokenMessenger, messenger?.pagina_nome ?? null)}{' '}
+          {t.messengerDescrizione}{' '}
           <Link href="/settings/chiavi#messenger" className="underline underline-offset-4 hover:text-foreground">
-            Chiavi e collegamenti
+            {t.chiaviECollegamenti}
           </Link>
           .
         </p>
@@ -408,15 +403,13 @@ export default async function InstagramPage() {
       >
         <div className="space-y-1">
           <h2 id="titolo-esclusi-messenger" className="text-sm font-medium">
-            Chat Messenger escluse
+            {t.escluseMessenger}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Le chat Messenger con queste persone (clienti, amici, il team) non entrano mai nell’Insight.
-          </p>
+          <p className="text-sm text-muted-foreground">{t.escluseMessengerDescrizione}</p>
         </div>
         {esclusiMessenger.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
-            Nessuna chat Messenger esclusa.
+            {t.nessunaEsclusaMessenger}
           </p>
         ) : (
           <ul className="divide-y divide-border" data-testid="messenger-esclusi">
@@ -428,7 +421,7 @@ export default async function InstagramPage() {
         <NuovaEsclusioneMessenger chat={chatMessenger} />
       </section>
 
-      <BloccoInsight stato={stato} configurato={insightConfigurato()} adesso={adesso} oggi={oggi} />
+      <BloccoInsight stato={stato} configurato={insightConfigurato()} adesso={adesso} oggi={oggi} lingua={lingua} />
 
       <BloccoAnalisi
         situazione={situazione}
@@ -437,6 +430,7 @@ export default async function InstagramPage() {
         statisticheAttive={permesso === null ? null : permesso}
         adesso={adesso}
         oggi={oggi}
+        lingua={lingua}
       />
     </div>
   )

@@ -132,13 +132,13 @@ export default async function RegoleProvvigioniPage() {
                       valida_dal: r.valida_dal,
                       valida_al: r.valida_al,
                     }}
-                    etichetta={`${r.persona?.nome ?? "Regola"} · ${formatPercentuale(r.percentuale)}`}
+                    etichetta={`${r.persona?.nome ?? T.regoleForm.regola} · ${formatPercentuale(r.percentuale)}`}
                   />
                   {!r.valida_al && r.valida_dal <= oggi ? (
                     <ChiudiRegola
                       ruleId={r.id}
                       oggi={oggi}
-                      etichetta={`${r.persona?.nome ?? "Regola"} · ${formatPercentuale(r.percentuale)}`}
+                      etichetta={`${r.persona?.nome ?? T.regoleForm.regola} · ${formatPercentuale(r.percentuale)}`}
                     />
                   ) : null}
                 </div>

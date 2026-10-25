@@ -1,6 +1,9 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { NUOVA_CALL } from '@/lib/i18n/testi/esito'
 
-export default function Loading() {
+export default async function Loading() {
+  const t = NUOVA_CALL[await getLingua()]
   return (
     <div className="max-w-xl space-y-6" aria-busy="true">
       <div className="space-y-2">
@@ -19,7 +22,7 @@ export default function Loading() {
         <Skeleton className="h-11 rounded-lg" />
       </div>
       <Skeleton className="h-11 rounded-lg" />
-      <span className="sr-only">Caricamento del modulo</span>
+      <span className="sr-only">{t.caricamento}</span>
     </div>
   )
 }

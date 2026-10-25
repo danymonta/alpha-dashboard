@@ -18,14 +18,16 @@ import { SceltaRapida } from '@/components/form/scelta-rapida'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatImportoInput, formatMese } from '@/lib/format'
-import { ETICHETTA_METODO, METODI } from '@/lib/validation/incasso'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { formato, formatImportoInput } from '@/lib/format'
+import { PAGAMENTI_PROVVIGIONI } from '@/lib/i18n/testi/costi'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { METODI } from '@/lib/validation/incasso'
 import {
   modificaPagamentoProvvigioneSchema,
   type ModificaPagamentoProvvigioneInput,
 } from '@/lib/validation/provvigione'
-
-const OPZIONI_METODO = METODI.map((m) => ({ valore: m, etichetta: ETICHETTA_METODO[m] }))
 
 export function ModificaPagamento({
   pagamento,
@@ -40,6 +42,10 @@ export function ModificaPagamento({
   oggi: string
 }) {
   const [aperto, setAperto] = useState(false)
+  const lingua = useLingua()
+  const t = PAGAMENTI_PROVVIGIONI[lingua]
+  const { formatData, formatMese } = formato(lingua)
+  const OPZIONI_METODO = METODI.map((m) => ({ valore: m, etichetta: ETICHETTE[lingua].metodo[m] }))
   const [conferma, setConferma] = useState(false)
   const [eliminando, avvia] = useTransition()
   const { errore, setErrore, salva } = useSalvataggio()
@@ -54,12 +60,12 @@ export function ModificaPagamento({
   })
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => modificaPagamentoProvvigione(valori), 'Pagamento aggiornato')) setAperto(false)
+    if (await salva(() => modificaPagamentoProvvigione(valori), t.aggiornato)) setAperto(false)
   })
 
   function elimina() {
     avvia(async () => {
-      if (await salva(() => eliminaPagamentoProvvigione({ id: pagamento.id }), 'Pagamento eliminato')) setAperto(false)
+      if (await salva(() => eliminaPagamentoProvvigione({ id: pagamento.id }), t.eliminato)) setAperto(false)
       setConferma(false)
     })
   }
@@ -80,17 +86,17 @@ export function ModificaPagamento({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={`Modifica il pagamento a ${nome} del ${pagamento.pagato_il.split('-').reverse().join('/')}`}
+          aria-label={t.modificaNome(nome, lingua === 'it' ? pagamento.pagato_il.split('-').reverse().join('/') : formatData(pagamento.pagato_il))}
           className="size-11 shrink-0 text-muted-foreground"
         />
       }
       contenutoTrigger={<Pencil className="size-4" aria-hidden="true" />}
-      titolo={`Pagamento a ${nome}`}
-      descrizione="Il saldo delle provvigioni si ricalcola subito."
+      titolo={t.titoloModifica(nome)}
+      descrizione={t.descrizioneModifica}
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor={`mp-periodo-${pagamento.id}`}>Riferito a</Label>
+          <Label htmlFor={`mp-periodo-${pagamento.id}`}>{t.riferitoA}</Label>
           <select id={`mp-periodo-${pagamento.id}`} className={CLASSE_SELECT} {...register('periodo')}>
             {mesi.map((m) => (
               <option key={m} value={m}>
@@ -101,30 +107,30 @@ export function ModificaPagamento({
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
-            <Label htmlFor={`mp-data-${pagamento.id}`}>Pagato il</Label>
+            <Label htmlFor={`mp-data-${pagamento.id}`}>{t.pagatoIl}</Label>
             <Input id={`mp-data-${pagamento.id}`} type="date" max={oggi} className="num h-11" {...register('pagato_il')} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mp-importo-${pagamento.id}`}>Importo</Label>
+            <Label htmlFor={`mp-importo-${pagamento.id}`}>{t.importo}</Label>
             <Input id={`mp-importo-${pagamento.id}`} inputMode="decimal" className="num h-11 text-right" {...register('importo')} />
           </div>
         </div>
         <ErroreCampo
           id={`mp-errore-${pagamento.id}`}
-          messaggio={errors.periodo?.message ?? errors.pagato_il?.message ?? errors.importo?.message}
+          messaggio={traduciErrore(errors.periodo?.message ?? errors.pagato_il?.message ?? errors.importo?.message, lingua)}
         />
-        <SceltaRapida legenda="Metodo (facoltativo)" opzioni={OPZIONI_METODO} registrazione={register('metodo')} />
+        <SceltaRapida legenda={t.metodoFacoltativo} opzioni={OPZIONI_METODO} registrazione={register('metodo')} />
         <div className="space-y-1.5">
-          <Label htmlFor={`mp-note-${pagamento.id}`}>Note</Label>
+          <Label htmlFor={`mp-note-${pagamento.id}`}>{t.note}</Label>
           <Input id={`mp-note-${pagamento.id}`} className="h-11" {...register('note')} />
         </div>
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>Salva il pagamento</BottoneSalva>
+        <ErroreModulo testo={traduciErrore(errore, lingua) ?? null} />
+        <BottoneSalva inCorso={isSubmitting}>{t.salva}</BottoneSalva>
 
         {/* two taps on purpose: the first arms, the second deletes */}
         {conferma ? (
           <Button type="button" variant="destructive" className="h-11 w-full" disabled={eliminando} onClick={elimina}>
-            Conferma: elimina il pagamento
+            {t.conferma}
           </Button>
         ) : (
           <Button
@@ -134,7 +140,7 @@ export function ModificaPagamento({
             onClick={() => setConferma(true)}
           >
             <Trash2 className="size-4" aria-hidden="true" />
-            Elimina il pagamento
+            {t.elimina}
           </Button>
         )}
       </form>

@@ -9,16 +9,22 @@ import { toast } from 'sonner'
 
 import { aggiungiNota, eliminaNota, modificaNota } from '@/app/(app)/progetti/[id]/note/actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { traduciErroreProgetti } from '@/lib/i18n/testi/progetti'
+import { FOGLI_PROGETTO } from '@/lib/i18n/testi/progetto-fogli'
 import { autenticaRealtime, createClient } from '@/lib/supabase/client'
 import { MAX_NOTA, modificaNotaSchema, notaSchema, type ModificaNotaInput, type NotaInput } from '@/lib/validation/note'
 
 /** Composer: the text and its day (today unless changed). Cmd/Ctrl+Enter saves. */
 export function NuovaNota({ progettoId, oggi }: { progettoId: string; oggi: string }) {
+  const t = useTesti(FOGLI_PROGETTO)
+  const lingua = useLingua()
+  const tradotto = (messaggio: string | undefined) => traduciErroreProgetti(messaggio, lingua)
   const id = useId()
   const [errore, setErrore] = useState<string | null>(null)
   const {
@@ -37,38 +43,38 @@ export function NuovaNota({ progettoId, oggi }: { progettoId: string; oggi: stri
     try {
       esito = await aggiungiNota(valori)
     } catch {
-      setErrore('Connessione assente. Riprova.')
+      setErrore(tradotto('Connessione assente. Riprova.') ?? null)
       return
     }
     if (!esito.ok) {
-      setErrore(esito.errore)
+      setErrore(tradotto(esito.errore) ?? null)
       return
     }
-    toast.success('Nota aggiunta')
+    toast.success(t.notaAggiunta)
     // back to today: the next note is about today unless chosen otherwise (QA 28/09/2026)
     reset({ progetto_id: progettoId, data: oggi, testo: '' })
   })
 
   return (
-    <form onSubmit={invia} noValidate className="space-y-3 rounded-xl bg-card p-4" aria-label="Nuova nota">
+    <form onSubmit={invia} noValidate className="space-y-3 rounded-xl bg-card p-4" aria-label={t.nuovaNota}>
       <div className="space-y-1.5">
-        <Label htmlFor={`${id}-testo`}>Nuova nota</Label>
+        <Label htmlFor={`${id}-testo`}>{t.nuovaNota}</Label>
         <Textarea
           id={`${id}-testo`}
           rows={3}
           maxLength={MAX_NOTA}
-          placeholder="Cosa è successo, cosa è stato deciso, cosa resta da fare"
+          placeholder={t.notaSegnaposto}
           aria-describedby={errors.testo ? `${id}-testo-errore` : undefined}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void invia()
           }}
           {...register('testo')}
         />
-        <ErroreCampo id={`${id}-testo-errore`} messaggio={errors.testo?.message} />
+        <ErroreCampo id={`${id}-testo-errore`} messaggio={tradotto(errors.testo?.message)} />
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor={`${id}-data`}>Giorno</Label>
+          <Label htmlFor={`${id}-data`}>{t.giorno}</Label>
           <Input id={`${id}-data`} type="date" className="num h-11 w-44" {...register('data')} />
         </div>
         <Button type="submit" className="ml-auto h-11" disabled={isSubmitting}>
@@ -77,16 +83,19 @@ export function NuovaNota({ progettoId, oggi }: { progettoId: string; oggi: stri
           ) : (
             <Send className="size-4" aria-hidden="true" />
           )}
-          Aggiungi nota
+          {t.aggiungiNota}
         </Button>
       </div>
-      <ErroreCampo id={`${id}-data-errore`} messaggio={errors.data?.message} />
+      <ErroreCampo id={`${id}-data-errore`} messaggio={tradotto(errors.data?.message)} />
       <ErroreModulo testo={errore} />
     </form>
   )
 }
 
 export function ModificaNota({ nota }: { nota: { id: string; data: string; testo: string } }) {
+  const t = useTesti(FOGLI_PROGETTO)
+  const lingua = useLingua()
+  const tradotto = (messaggio: string | undefined) => traduciErroreProgetti(messaggio, lingua)
   const id = useId()
   const [aperto, setAperto] = useState(false)
   const { errore, setErrore, salva } = useSalvataggio()
@@ -101,7 +110,7 @@ export function ModificaNota({ nota }: { nota: { id: string; data: string; testo
   })
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => modificaNota(valori), 'Nota aggiornata')) setAperto(false)
+    if (await salva(() => modificaNota(valori), t.notaAggiornata)) setAperto(false)
   })
 
   return (
@@ -115,25 +124,25 @@ export function ModificaNota({ nota }: { nota: { id: string; data: string; testo
         }
       }}
       trigger={
-        <Button type="button" variant="ghost" size="icon" aria-label="Modifica la nota" className="size-11 shrink-0 text-muted-foreground" />
+        <Button type="button" variant="ghost" size="icon" aria-label={t.modificaNota} className="size-11 shrink-0 text-muted-foreground" />
       }
       contenutoTrigger={<Pencil className="size-4" aria-hidden="true" />}
-      titolo="Modifica la nota"
-      descrizione="Cambiando il giorno, la nota si sposta sotto la nuova data."
+      titolo={t.modificaNota}
+      descrizione={t.modificaNotaDescrizione}
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor={`${id}-testo`}>Testo</Label>
+          <Label htmlFor={`${id}-testo`}>{t.testo}</Label>
           <Textarea id={`${id}-testo`} rows={6} maxLength={MAX_NOTA} {...register('testo')} />
-          <ErroreCampo id={`${id}-testo-errore`} messaggio={errors.testo?.message} />
+          <ErroreCampo id={`${id}-testo-errore`} messaggio={tradotto(errors.testo?.message)} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`${id}-data`}>Giorno</Label>
+          <Label htmlFor={`${id}-data`}>{t.giorno}</Label>
           <Input id={`${id}-data`} type="date" className="num h-11" {...register('data')} />
-          <ErroreCampo id={`${id}-data-errore`} messaggio={errors.data?.message} />
+          <ErroreCampo id={`${id}-data-errore`} messaggio={tradotto(errors.data?.message)} />
         </div>
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>Salva la nota</BottoneSalva>
+        <ErroreModulo testo={tradotto(errore ?? undefined) ?? null} />
+        <BottoneSalva inCorso={isSubmitting}>{t.salvaNota}</BottoneSalva>
       </form>
     </FoglioModifica>
   )
@@ -141,6 +150,8 @@ export function ModificaNota({ nota }: { nota: { id: string; data: string; testo
 
 /** Two taps on purpose: the first arms, the second deletes. */
 export function EliminaNota({ id }: { id: string }) {
+  const t = useTesti(FOGLI_PROGETTO)
+  const lingua = useLingua()
   const [pronto, setPronto] = useState(false)
   const [inCorso, avvia] = useTransition()
 
@@ -151,7 +162,7 @@ export function EliminaNota({ id }: { id: string }) {
         variant="ghost"
         size="icon"
         className="size-11 text-muted-foreground"
-        aria-label="Elimina la nota"
+        aria-label={t.eliminaNota}
         onClick={() => setPronto(true)}
       >
         <Trash2 className="size-4" aria-hidden="true" />
@@ -171,16 +182,16 @@ export function EliminaNota({ id }: { id: string }) {
         avvia(async () => {
           try {
             const esito = await eliminaNota({ id })
-            if (esito.ok) toast.success('Nota eliminata')
-            else toast.error(esito.errore)
+            if (esito.ok) toast.success(t.notaEliminata)
+            else toast.error(traduciErroreProgetti(esito.errore, lingua))
           } catch {
-            toast.error('Connessione assente. Riprova.')
+            toast.error(traduciErroreProgetti('Connessione assente. Riprova.', lingua))
           }
           setPronto(false)
         })
       }
     >
-      Conferma
+      {t.conferma}
     </Button>
   )
 }

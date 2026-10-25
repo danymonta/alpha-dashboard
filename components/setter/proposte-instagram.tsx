@@ -21,12 +21,9 @@ import {
   EVENTO_PROPOSTA,
   EVENTO_PROPOSTA_FINE,
   NESSUNA_RISPOSTA,
-  PROPOSTA,
-  VOCI_PROPOSTA,
   commentoPropostaSchema,
   decisioneChiedeCommento,
   numeriDi,
-  paroleScheda,
   type ChiDecide,
   type CommentoProposta,
   type Decisione,
@@ -42,6 +39,7 @@ import {
   scartaPropostaInstagram,
   type EsitoProposta,
 } from '@/app/(app)/today/proposte-actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Stepper } from '@/components/numeri/stepper'
 import { DomandeObbligatorie } from '@/components/setter/commento-proposta'
 import { Button } from '@/components/ui/button'
@@ -53,9 +51,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { etichettaGiorno } from '@/lib/date'
-import { formatNumero } from '@/lib/format'
-import { COMMENTO_OBBLIGATORIO, testoScritto } from '@/lib/setting/commento'
+import { formato } from '@/lib/format'
+import { etichettaGiornoIn } from '@/lib/i18n/date'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { COMMENTO_GIORNATA } from '@/lib/i18n/testi/commento-giornata'
+import { giornoInFrase, traduciErroreSetting } from '@/lib/i18n/testi/oggi'
+import { DA_APPROVARE_IN, PROPOSTE, paroleSchedaIn, vociProposta } from '@/lib/i18n/testi/proposte'
+import { testoScritto } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 import { MASSIMO_GIORNALIERO } from '@/lib/validation/report'
 
@@ -149,6 +151,10 @@ export function ProposteInstagram({
   idTitoloPagina,
   totale,
 }: Props) {
+  const lingua = useLingua()
+  const tp = PROPOSTE[lingua]
+  const ta = DA_APPROVARE_IN[lingua]
+  const { formatNumero } = formato(lingua)
   const [decise, setDecise] = useState<ReadonlySet<string>>(() => new Set())
   const [annuncio, setAnnuncio] = useState('')
   // where the focus goes after the next render, once the decided card is gone
@@ -237,6 +243,7 @@ export function ProposteInstagram({
       onDecisa={decisa}
       onInUso={segnaInUso}
       onUscita={uscita}
+      lingua={lingua}
     />
   ))
 
@@ -260,12 +267,12 @@ export function ProposteInstagram({
             tabIndex={-1}
             className="text-xs font-medium tracking-wide text-muted-foreground uppercase outline-none"
           >
-            {rimaste > 0 ? `${DA_APPROVARE.titolo} (${formatNumero(rimaste)})` : DA_APPROVARE.titolo}
+            {rimaste > 0 ? ta.titoloConNumero(formatNumero(rimaste)) : ta.titolo}
           </h2>
-          {visibili.length > 0 ? <p className="text-sm text-muted-foreground">{DA_APPROVARE.descrizione}</p> : null}
+          {visibili.length > 0 ? <p className="text-sm text-muted-foreground">{ta.descrizione}</p> : null}
         </div>
         {errore ? (
-          <ErroreProposte testo={DA_APPROVARE.errore} />
+          <ErroreProposte testo={ta.errore} riprova={tp.riprova} />
         ) : visibili.length > 0 ? (
           <>
             {/* two columns only where a card keeps its room (about 440 px each): the
@@ -273,12 +280,12 @@ export function ProposteInstagram({
             <div className="grid items-start gap-3 @4xl:grid-cols-2" data-testid="proposte-instagram">
               {schede}
             </div>
-            {altre ? <p className="px-1 text-xs text-muted-foreground">{DA_APPROVARE.altre}</p> : null}
+            {altre ? <p className="px-1 text-xs text-muted-foreground">{ta.altre}</p> : null}
           </>
         ) : (
           <p className="flex min-h-11 items-center gap-2 rounded-xl border border-dashed border-border px-3 text-sm text-muted-foreground">
             <CircleCheck className="size-4 shrink-0 text-status-ok" aria-hidden="true" />
-            {DA_APPROVARE.finito}
+            {ta.finito}
           </p>
         )}
       </section>
@@ -289,19 +296,19 @@ export function ProposteInstagram({
     <>
       {stato}
 
-      {errore ? <ErroreProposte testo={PROPOSTA.errore} margine /> : null}
+      {errore ? <ErroreProposte testo={tp.errore} riprova={tp.riprova} margine /> : null}
 
       {!errore && visibili.length > 0 ? (
-        <section aria-label={PROPOSTA.regione} className="mb-4 space-y-3" data-testid="proposte-instagram">
+        <section aria-label={tp.regione} className="mb-4 space-y-3" data-testid="proposte-instagram">
           {schede}
-          {altre ? <p className="px-1 text-xs text-muted-foreground">{PROPOSTA.altre}</p> : null}
+          {altre ? <p className="px-1 text-xs text-muted-foreground">{tp.altre}</p> : null}
         </section>
       ) : null}
     </>
   )
 }
 
-function ErroreProposte({ testo, margine = false }: { testo: string; margine?: boolean }) {
+function ErroreProposte({ testo, riprova, margine = false }: { testo: string; riprova: string; margine?: boolean }) {
   const router = useRouter()
   const [inCorso, avvia] = useTransition()
   return (
@@ -325,7 +332,7 @@ function ErroreProposte({ testo, margine = false }: { testo: string; margine?: b
         onClick={() => avvia(() => router.refresh())}
       >
         {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-        {PROPOSTA.riprova}
+        {riprova}
       </Button>
     </div>
   )
@@ -371,6 +378,7 @@ function SchedaProposta({
   onDecisa,
   onInUso,
   onUscita,
+  lingua,
 }: {
   per: ChiDecide
   proposta: PropostaInstagram
@@ -391,7 +399,12 @@ function SchedaProposta({
   onInUso: (id: string, scheda: Scheda | null) => void
   /** Not on the page's list any more and closed: it goes now. */
   onUscita: (id: string) => void
+  lingua: Lingua
 }) {
+  const tp = PROPOSTE[lingua]
+  const tc = COMMENTO_GIORNATA[lingua].obbligatorio
+  const voci = vociProposta(lingua)
+  const { formatNumero } = formato(lingua)
   const router = useRouter()
   const idFoglio = useId()
   const [inCorso, avvia] = useTransition()
@@ -445,7 +458,7 @@ function SchedaProposta({
   useEffect(() => {
     if (fuori && !inUso) onUscita(proposta.id)
   }, [fuori, inUso, proposta.id, onUscita])
-  const parole = paroleScheda(proposta, oggi, per)
+  const parole = paroleSchedaIn(proposta, oggi, per, lingua)
   // the cards inside the admin's section sit under its h2
   const Titolo = per === 'admin' ? 'h3' : 'h2'
 
@@ -577,7 +590,7 @@ function SchedaProposta({
         // the day changed elsewhere (a decision of the admin, another device):
         // the form reads it again, and this card comes back with it
         ridaiIlForm()
-        setErrore(PROPOSTA.cambiatoPrima)
+        setErrore(tp.cambiatoPrima)
         return
       }
       if (salvati.includes(false)) {
@@ -585,7 +598,7 @@ function SchedaProposta({
         // From a sheet the form's Riprova is behind it, and the next tap on
         // the sheet's button saves the form first: the sheet's own words
         ridaiIlForm()
-        setErrore(tipo === 'correzione' || commentoDato ? PROPOSTA.salvaPrimaFoglio(etichettaInvio(tipo)) : PROPOSTA.salvaPrima)
+        setErrore(tipo === 'correzione' || commentoDato ? tp.salvaPrimaFoglio(etichettaInvio(tipo)) : tp.salvaPrima)
         return
       }
 
@@ -604,8 +617,10 @@ function SchedaProposta({
               : await confermaPropostaInstagram({ id, calcolato_il, valori: numeriCorretti, commento: commentoDato })
         }
       } catch {
-        esito = { ok: false, errore: 'Connessione assente. Riprova.' }
+        esito = { ok: false, errore: tp.connessione }
       }
+      // the fixed sentences of the actions in the page's language; the database's stay as written
+      if (!esito.ok) esito = { ...esito, errore: traduciErroreSetting(esito.errore, lingua) }
 
       if (!esito.ok) {
         ridaiIlForm(esito.commentoSalvato === true)
@@ -615,8 +630,8 @@ function SchedaProposta({
           esito.commentoSalvato === undefined
             ? undefined
             : esito.commentoSalvato
-              ? COMMENTO_OBBLIGATORIO.passo.salvato
-              : COMMENTO_OBBLIGATORIO.passo.nonSalvato
+              ? tc.passo.salvato
+              : tc.passo.nonSalvato
         toast.error(esito.errore, sulCommento ? { description: sulCommento } : undefined)
         if (esito.chiusa) {
           // decided elsewhere, or gone: the card leaves with the reason said
@@ -649,7 +664,7 @@ function SchedaProposta({
           // the setter's other day opens in "Oggi"; the admin has no "Oggi"
           action:
             per === 'setter' && tipo !== 'scarto' && proposta.data !== dataAperta
-              ? { label: PROPOSTA.apriGiorno, onClick: () => router.push(`/today?data=${proposta.data}`) }
+              ? { label: tp.apriGiorno, onClick: () => router.push(`/today?data=${proposta.data}`) }
               : undefined,
         })
       }
@@ -675,9 +690,9 @@ function SchedaProposta({
 
   /** The words of the decision's own button, on the card and at the end of the step. */
   function etichettaInvio(tipo: Decisione): string {
-    if (tipo === 'correzione') return PROPOSTA.confermaCorretti
+    if (tipo === 'correzione') return tp.confermaCorretti
     if (tipo === 'scarto') return parole.tieni
-    return suoi ? PROPOSTA.usaInstagram : PROPOSTA.conferma
+    return suoi ? tp.usaInstagram : tp.conferma
   }
 
   const iconaDi = (tipo: Decisione, Icona: typeof Check) =>
@@ -694,7 +709,7 @@ function SchedaProposta({
     </p>
   ) : null
 
-  const giorno = etichettaGiorno(proposta.data, oggi).toLowerCase()
+  const giorno = giornoInFrase(etichettaGiornoIn(proposta.data, oggi, lingua), lingua)
 
   /**
    * The step of the comment: the three answers, then the decision's own
@@ -716,13 +731,13 @@ function SchedaProposta({
           <div className="space-y-1">
             <button type="button" className={INDIETRO} onClick={tornaAiNumeri} disabled={occupato}>
               <ChevronLeft className="size-4" aria-hidden="true" />
-              {COMMENTO_OBBLIGATORIO.passo.indietro}
+              {tc.passo.indietro}
             </button>
             <h3 id={`${idFoglio}-passo`} className="font-heading text-sm font-medium">
-              {COMMENTO_OBBLIGATORIO.passo.titolo}
+              {tc.passo.titolo}
             </h3>
             <p id={`${idFoglio}-passo-spiegazione`} className="text-xs leading-snug text-muted-foreground">
-              {COMMENTO_OBBLIGATORIO.passo.descrizione(giorno)}
+              {tc.passo.descrizione(giorno)}
             </p>
           </div>
         ) : null}
@@ -746,7 +761,7 @@ function SchedaProposta({
         aria-describedby={titolo}
       >
         <PencilLine className="size-4" aria-hidden="true" />
-        {PROPOSTA.correggi}
+        {tp.correggi}
       </SheetTrigger>
 
       <SheetContent
@@ -771,7 +786,7 @@ function SchedaProposta({
             aria-describedby={`${idFoglio}-nota`}
           >
             <div className="divide-y divide-border rounded-xl bg-card px-3">
-              {VOCI_PROPOSTA.map(({ campo, etichetta }) => (
+              {voci.map(({ campo, etichetta }) => (
                 <div key={campo} className="pb-2">
                   <Stepper
                     etichetta={etichetta}
@@ -783,7 +798,7 @@ function SchedaProposta({
                   <p className="num text-xs leading-snug text-muted-foreground">
                     {suoi
                       ? parole.confrontoFoglio(formatNumero(proposta[campo]), formatNumero(suoi[campo]))
-                      : `${PROPOSTA.instagram} ${formatNumero(proposta[campo])}`}
+                      : `${tp.instagram} ${formatNumero(proposta[campo])}`}
                   </p>
                 </div>
               ))}
@@ -796,7 +811,7 @@ function SchedaProposta({
 
             <Button type="submit" className="h-11 w-full" disabled={occupato}>
               {iconaDi('correzione', Check)}
-              {PROPOSTA.confermaCorretti}
+              {tp.confermaCorretti}
             </Button>
           </form>
         )}
@@ -816,8 +831,8 @@ function SchedaProposta({
           data-testid="foglio-commento-proposta"
         >
           <SheetHeader ref={intestazionePasso} tabIndex={-1} className="outline-none">
-            <SheetTitle>{COMMENTO_OBBLIGATORIO.passo.titolo}</SheetTitle>
-            <SheetDescription>{COMMENTO_OBBLIGATORIO.passo.descrizione(giorno)}</SheetDescription>
+            <SheetTitle>{tc.passo.titolo}</SheetTitle>
+            <SheetDescription>{tc.passo.descrizione(giorno)}</SheetDescription>
           </SheetHeader>
           {passo?.tipo !== 'correzione' ? passoCommento : null}
         </SheetContent>
@@ -843,7 +858,7 @@ function SchedaProposta({
       </div>
 
       <dl className="mt-3 divide-y divide-border" data-testid="proposta-numeri">
-        {VOCI_PROPOSTA.map(({ campo, etichetta }) => (
+        {voci.map(({ campo, etichetta }) => (
           <div key={campo} className="flex min-h-10 items-center justify-between gap-3 py-1.5" data-campo={campo}>
             {/* a narrow card: the label goes on two lines, and the two numbers one under the other */}
             <dt className="min-w-0 text-sm break-words hyphens-auto">{etichetta}</dt>
@@ -857,7 +872,7 @@ function SchedaProposta({
                     {' · '}
                   </span>
                   <span className="whitespace-nowrap">
-                    {PROPOSTA.instagram}{' '}
+                    {tp.instagram}{' '}
                     <span className="num font-semibold">{formatNumero(proposta[campo])}</span>
                   </span>
                 </>
@@ -872,8 +887,8 @@ function SchedaProposta({
       <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
         <p>{parole.prenotate}</p>
         <p data-testid="proposta-chat">
-          {PROPOSTA.chatLette(proposta.chat_lette)}
-          {proposta.chat_incerte > 0 ? ` · ${PROPOSTA.chatIncerte(proposta.chat_incerte)}` : null}
+          {tp.chatLette(proposta.chat_lette)}
+          {proposta.chat_incerte > 0 ? ` · ${tp.chatIncerte(proposta.chat_incerte)}` : null}
         </p>
       </div>
 
@@ -890,7 +905,7 @@ function SchedaProposta({
               onClick={(e) => scegli('conferma', undefined, e.currentTarget)}
             >
               {iconaDi('conferma', Check)}
-              {PROPOSTA.usaInstagram}
+              {tp.usaInstagram}
             </Button>
             {/* "Tieni quelli di Massimiliano": a long first name goes on two lines, never out of the button */}
             <Button
@@ -916,7 +931,7 @@ function SchedaProposta({
               onClick={(e) => scegli('conferma', undefined, e.currentTarget)}
             >
               {iconaDi('conferma', Check)}
-              {PROPOSTA.conferma}
+              {tp.conferma}
             </Button>
             {correggi}
           </>

@@ -176,7 +176,7 @@ export default async function ProvvigioniPage() {
                       metodo: p.metodo,
                       note: p.note,
                     }}
-                    nome={persone.get(p.profile_id)?.nome ?? 'Collaboratore'}
+                    nome={persone.get(p.profile_id)?.nome ?? t.collaboratore}
                     mesi={[...new Set([...ultimi24, p.periodo])].sort().reverse()}
                     oggi={oggi}
                   />

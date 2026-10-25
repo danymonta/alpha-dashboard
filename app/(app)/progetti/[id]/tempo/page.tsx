@@ -17,7 +17,9 @@ import { NavigazionePeriodo } from "@/components/pm/tempo/navigazione-periodo";
 import { livelloPmEffettivo } from "@/lib/auth/roles";
 import { requireProfilo } from "@/lib/auth/session";
 import { oggiRoma } from "@/lib/date";
-import { formatData } from "@/lib/format";
+import { formato } from "@/lib/format";
+import { getLingua } from "@/lib/i18n/server";
+import { TEMPO_PROGETTO } from "@/lib/i18n/testi/tempo";
 import { createClient } from "@/lib/supabase/server";
 import { formatDurata, periodoTempo } from "@/lib/tempo";
 
@@ -46,7 +48,10 @@ export default async function TempoProgettoPage({
   if (!UUID.test(id)) return null;
 
   const oggi = oggiRoma();
-  const periodo = periodoTempo(await searchParams, oggi);
+  const lingua = await getLingua();
+  const t = TEMPO_PROGETTO[lingua];
+  const { formatData } = formato(lingua);
+  const periodo = periodoTempo(await searchParams, oggi, lingua);
   const percorso = `/progetti/${id}/tempo`;
   const supabase = await createClient();
 
@@ -84,7 +89,7 @@ export default async function TempoProgettoPage({
     voci.error ||
     riepilogo.error
   ) {
-    throw new Error("Impossibile caricare il tempo del progetto");
+    throw new Error(t.errore);
   }
   if (!progetto.data) return null;
 
@@ -119,8 +124,8 @@ export default async function TempoProgettoPage({
       nota: v.nota,
       titolo:
         v.profile_id === profilo.id
-          ? "Tu"
-          : (v.persona?.nome ?? "Collaboratore"),
+          ? t.tu
+          : (v.persona?.nome ?? t.collaboratore),
       dettaglio: v.task?.titolo ?? null,
       progetto_id: v.progetto_id,
       nomeProgetto: progetto.data!.nome,
@@ -134,25 +139,34 @@ export default async function TempoProgettoPage({
       <AggiornaConTempo />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <NavigazionePeriodo percorso={percorso} periodo={periodo} oggi={oggi} />
+        <NavigazionePeriodo
+          percorso={percorso}
+          periodo={periodo}
+          oggi={oggi}
+          lingua={lingua}
+        />
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">
-            Timer sul progetto
+            {t.timerSulProgetto}
           </span>
-          <AvviaTimer progettoId={id} titolo={progetto.data.nome} />
+          <AvviaTimer
+            progettoId={id}
+            titolo={progetto.data.nome}
+            lingua={lingua}
+          />
         </div>
       </div>
 
       {!puoGestire ? (
         <p className="text-sm text-muted-foreground">
-          Qui vedi il tempo che hai registrato tu su questo progetto.
+          {t.soloTuo}
         </p>
       ) : null}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="rounded-xl bg-card p-4" data-testid="totale-progetto">
           <p className="text-xs text-muted-foreground">
-            {puoGestire ? "Tempo sul progetto" : "Il tuo tempo"} ·{" "}
+            {puoGestire ? t.tempoSulProgetto : t.ilTuoTempo} ·{" "}
             {periodo.titolo.toLowerCase()}
           </p>
           <p className="num text-3xl font-semibold">{formatDurata(totale)}</p>
@@ -160,23 +174,27 @@ export default async function TempoProgettoPage({
 
         {puoGestire ? (
           <Riepilogo
-            titolo="Per persona"
+            titolo={t.perPersona}
+            vuoto={t.ancoraNiente}
             righe={perPersona.map((r) => ({
               chiave: r.profile_id ?? "nessuno",
               etichetta:
                 r.profile_id === profilo.id
-                  ? "Tu"
-                  : (r.persona ?? "Collaboratore"),
+                  ? t.tu
+                  : (r.persona ?? t.collaboratore),
               minuti: r.minuti,
             }))}
           />
         ) : null}
 
         <Riepilogo
-          titolo="Per attività"
+          titolo={t.perAttivita}
+          vuoto={t.ancoraNiente}
           righe={perTask.map((r) => ({
             chiave: r.task_id ?? "senza",
-            etichetta: r.task_id ? (r.task ?? "Attività") : "Senza attività",
+            etichetta: r.task_id
+              ? (r.task ?? t.attivita)
+              : t.senzaAttivita,
             minuti: r.minuti,
           }))}
         />
@@ -185,7 +203,7 @@ export default async function TempoProgettoPage({
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <section aria-labelledby="titolo-voci" className="space-y-2">
           <h2 id="titolo-voci" className="sr-only">
-            Tempo registrato, giorno per giorno
+            {t.giornoPerGiorno}
           </h2>
           {elenco.length === 0 ? (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">
@@ -193,18 +211,15 @@ export default async function TempoProgettoPage({
                 className="size-6 text-muted-foreground"
                 aria-hidden="true"
               />
-              <p className="text-sm font-medium">
-                Nessun tempo registrato in questo periodo
-              </p>
+              <p className="text-sm font-medium">{t.vuoto}</p>
               <p className="max-w-sm text-sm text-muted-foreground">
-                Avvia il timer sul progetto o registra il tempo che hai già
-                dedicato.
+                {t.vuotoDescrizione}
               </p>
               <a
                 href="#registra-progetto"
                 className="inline-flex min-h-11 items-center text-sm font-medium underline-offset-4 hover:underline"
               >
-                Registra tempo passato
+                {t.registraPassato}
               </a>
             </div>
           ) : (
@@ -212,10 +227,15 @@ export default async function TempoProgettoPage({
               voci={elenco}
               totaliGiorno={totaliGiorno}
               oggi={oggi}
+              lingua={lingua}
               azioni={(voce) => {
                 const completa = elenco.find((e) => e.id === voce.id)!;
                 if (!completa.mia && !adminPm) return null;
-                const descrizione = `il tempo di ${voce.titolo === "Tu" ? "te" : voce.titolo} del ${formatData(voce.data)}`;
+                const descrizione = t.descrizioneVoce(
+                  completa.mia,
+                  voce.titolo,
+                  formatData(voce.data),
+                );
                 return (
                   <>
                     <ModificaTempo
@@ -225,8 +245,13 @@ export default async function TempoProgettoPage({
                       oggi={oggi}
                       descrizione={descrizione}
                       progettoFisso
+                      lingua={lingua}
                     />
-                    <EliminaTempo id={voce.id} descrizione={descrizione} />
+                    <EliminaTempo
+                      id={voce.id}
+                      descrizione={descrizione}
+                      lingua={lingua}
+                    />
                   </>
                 );
               }}
@@ -243,13 +268,14 @@ export default async function TempoProgettoPage({
             id="titolo-registra-progetto"
             className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
           >
-            Registra tempo passato
+            {t.registraPassato}
           </h2>
           <NuovoTempo
             progetti={opzioniProgetti}
             task={opzioniTask}
             oggi={oggi}
             progettoId={id}
+            lingua={lingua}
           />
         </section>
       </div>
@@ -259,18 +285,18 @@ export default async function TempoProgettoPage({
 
 function Riepilogo({
   titolo,
+  vuoto,
   righe,
 }: {
   titolo: string;
+  vuoto: string;
   righe: { chiave: string; etichetta: string; minuti: number }[];
 }) {
   return (
     <div className="rounded-xl bg-card p-4">
       <p className="text-xs text-muted-foreground">{titolo}</p>
       {righe.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">
-          Ancora niente in questo periodo.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{vuoto}</p>
       ) : (
         <dl className="mt-2 space-y-1.5">
           {righe.map((r) => (

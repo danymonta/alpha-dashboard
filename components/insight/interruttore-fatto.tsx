@@ -2,9 +2,10 @@
 
 import { CircleCheck } from 'lucide-react'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { useFatti } from '@/components/insight/fatti'
 import { Switch } from '@/components/ui/switch'
-import { contaFatte, FATTO, nomeFatto } from '@/lib/insight/parole'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
 import { cn } from '@/lib/utils'
 
 /**
@@ -14,6 +15,8 @@ import { cn } from '@/lib/utils'
  */
 export function InterruttoreFatto({ chiave, chi }: { chiave: string; chi: string }) {
   const { fatto, segna, inErrore, solaLettura } = useFatti()
+  const t = INSIGHT_RECAP[useLingua()]
+  const FATTO = t.fatto
   const on = fatto(chiave)
   const errore = inErrore(chiave)
 
@@ -22,7 +25,7 @@ export function InterruttoreFatto({ chiave, chi }: { chiave: string; chi: string
       <Switch
         checked={on}
         disabled={solaLettura}
-        aria-label={nomeFatto(chi)}
+        aria-label={t.nomeFatto(chi)}
         onCheckedChange={(valore) => segna(chiave, valore, chi)}
         className="data-checked:bg-status-ok"
       />
@@ -44,6 +47,7 @@ export function InterruttoreFatto({ chiave, chi }: { chiave: string; chi: string
 /** «3/12 fatte» of a group (none: nothing; all: with the icon, ok tone). Never per person. */
 export function ConteggioFatte({ chiavi }: { chiavi: readonly string[] }) {
   const { fatto } = useFatti()
+  const t = INSIGHT_RECAP[useLingua()]
   const conChiave = chiavi.filter(Boolean)
   const fatte = conChiave.filter(fatto).length
   if (!fatte) return null
@@ -54,7 +58,7 @@ export function ConteggioFatte({ chiavi }: { chiavi: readonly string[] }) {
       className={cn('num inline-flex items-center gap-1 text-xs', tutte ? 'text-status-ok' : 'text-muted-foreground')}
     >
       {tutte ? <CircleCheck className="size-3.5" aria-hidden="true" /> : null}
-      {contaFatte(fatte, conChiave.length)}
+      {t.contaFatte(fatte, conChiave.length)}
     </span>
   )
 }

@@ -81,6 +81,7 @@ export const MARKETING = bilingue(
       perche: 'Perché:',
       nelCalendario: 'Nel calendario',
       apriContenuto: 'Apri il contenuto',
+      aggiunta: 'Aggiunta al calendario',
     },
   },
   {
@@ -158,6 +159,7 @@ export const MARKETING = bilingue(
       perche: 'Why:',
       nelCalendario: 'In the calendar',
       apriContenuto: 'Open the content',
+      aggiunta: 'Added to the calendar',
     },
   },
 )

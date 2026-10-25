@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { cambiaAttivoReparto, eliminaReparto, salvaReparto, spostaReparto } from '@/app/(app)/settings/progetti/actions'
 import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,8 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { eliminazioneBloccata, frasiAnteprima } from '@/lib/eliminazione'
+import { IMPOSTAZIONI_PROGETTI } from '@/lib/i18n/testi/impostazioni-progetti'
+import { traduciErroreProgetti } from '@/lib/i18n/testi/progetti'
 import { repartoSchema, type RepartoInput } from '@/lib/validation/progetti'
 
 type Reparto = {
@@ -29,6 +32,9 @@ type Reparto = {
 
 /** New department, or rename one: the same sheet. */
 export function RepartoForm({ reparto }: { reparto?: Reparto }) {
+  const t = useTesti(IMPOSTAZIONI_PROGETTI)
+  const lingua = useLingua()
+  const tradotto = (messaggio: string | undefined) => traduciErroreProgetti(messaggio, lingua)
   const [aperto, setAperto] = useState(false)
   const { errore, setErrore, salva } = useSalvataggio()
   const chiave = reparto?.id ?? 'nuovo'
@@ -47,7 +53,7 @@ export function RepartoForm({ reparto }: { reparto?: Reparto }) {
   } = useForm<RepartoInput>({ resolver: zodResolver(repartoSchema), defaultValues: iniziali })
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => salvaReparto(valori), reparto ? 'Reparto salvato' : 'Reparto creato')) {
+    if (await salva(() => salvaReparto(valori), reparto ? t.repartoSalvato : t.repartoCreato)) {
       setAperto(false)
       if (!reparto) reset(iniziali)
     }
@@ -70,7 +76,7 @@ export function RepartoForm({ reparto }: { reparto?: Reparto }) {
             variant="ghost"
             size="icon"
             className="size-11 shrink-0 text-muted-foreground"
-            aria-label={`Modifica ${reparto.nome}`}
+            aria-label={t.modifica(reparto.nome)}
           />
         ) : (
           <Button type="button" className="h-11" />
@@ -82,23 +88,23 @@ export function RepartoForm({ reparto }: { reparto?: Reparto }) {
         ) : (
           <>
             <Plus className="size-4" aria-hidden="true" />
-            Nuovo reparto
+            {t.nuovoReparto}
           </>
         )
       }
-      titolo={reparto ? 'Modifica il reparto' : 'Nuovo reparto'}
-      descrizione="I progetti sono divisi per reparto. Un reparto disattivato non riceve nuovi progetti."
+      titolo={reparto ? t.modificaReparto : t.nuovoReparto}
+      descrizione={t.repartoDescrizione}
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor={`r-nome-${chiave}`}>Nome</Label>
+          <Label htmlFor={`r-nome-${chiave}`}>{t.nome}</Label>
           <Input id={`r-nome-${chiave}`} className="h-11" placeholder="Fitness Coaching" {...register('nome')} />
-          <ErroreCampo id={`r-nome-errore-${chiave}`} messaggio={errors.nome?.message} />
+          <ErroreCampo id={`r-nome-errore-${chiave}`} messaggio={tradotto(errors.nome?.message)} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`r-descrizione-${chiave}`}>Descrizione</Label>
+          <Label htmlFor={`r-descrizione-${chiave}`}>{t.descrizioneCampo}</Label>
           <Textarea id={`r-descrizione-${chiave}`} rows={3} {...register('descrizione')} />
-          <ErroreCampo id={`r-descrizione-errore-${chiave}`} messaggio={errors.descrizione?.message} />
+          <ErroreCampo id={`r-descrizione-errore-${chiave}`} messaggio={tradotto(errors.descrizione?.message)} />
         </div>
         <Controller
           control={control}
@@ -106,26 +112,31 @@ export function RepartoForm({ reparto }: { reparto?: Reparto }) {
           render={({ field }) => (
             <label className="flex min-h-11 cursor-pointer items-start justify-between gap-4 rounded-lg border border-border p-3">
               <span className="space-y-0.5">
-                <span className="block text-sm font-medium">Progetti legati a un cliente</span>
-                <span className="block text-xs text-muted-foreground">
-                  Ogni progetto è il percorso di un cliente, come nel Fitness Coaching. Spento, il campo cliente non compare.
-                </span>
+                <span className="block text-sm font-medium">{t.conCliente}</span>
+                <span className="block text-xs text-muted-foreground">{t.conClienteAiuto}</span>
               </span>
-              <Switch checked={field.value ?? false} onCheckedChange={field.onChange} aria-label="Progetti legati a un cliente" />
+              <Switch checked={field.value ?? false} onCheckedChange={field.onChange} aria-label={t.conCliente} />
             </label>
           )}
         />
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>{reparto ? 'Salva il reparto' : 'Crea il reparto'}</BottoneSalva>
+        <ErroreModulo testo={tradotto(errore ?? undefined) ?? null} />
+        <BottoneSalva inCorso={isSubmitting}>{reparto ? t.salvaReparto : t.creaReparto}</BottoneSalva>
         {reparto ? (
           <div className="border-t border-border pt-4">
             <Elimina
-              etichetta="Elimina il reparto"
-              cosa={`il reparto ${reparto.nome}`}
-              fatto={`${reparto.nome} eliminato`}
-              conseguenze={frasiAnteprima('reparto', { progetti: reparto.progetti, modelli: reparto.modelli })}
+              etichetta={t.eliminaReparto}
+              cosa={t.ilReparto(reparto.nome)}
+              fatto={t.eliminato(reparto.nome)}
+              conseguenze={
+                lingua === 'it'
+                  ? frasiAnteprima('reparto', { progetti: reparto.progetti, modelli: reparto.modelli })
+                  : t.conseguenzeReparto(reparto.progetti, reparto.modelli)
+              }
               bloccata={eliminazioneBloccata('reparto', { progetti: reparto.progetti, modelli: reparto.modelli })}
-              azione={() => eliminaReparto({ id: reparto.id })}
+              azione={async () => {
+                const esito = await eliminaReparto({ id: reparto.id })
+                return esito.ok ? esito : { ...esito, errore: tradotto(esito.errore) ?? esito.errore }
+              }}
             />
           </div>
         ) : null}
@@ -135,32 +146,36 @@ export function RepartoForm({ reparto }: { reparto?: Reparto }) {
 }
 
 export function AttivoReparto({ id, nome, attivo }: { id: string; nome: string; attivo: boolean }) {
+  const t = useTesti(IMPOSTAZIONI_PROGETTI)
+  const lingua = useLingua()
   const [inCorso, avvia] = useTransition()
   return (
     <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-muted-foreground">
       <Switch
         checked={attivo}
         disabled={inCorso}
-        aria-label={`${nome} attivo`}
+        aria-label={t.attivoAria(nome)}
         onCheckedChange={(valore) =>
           avvia(async () => {
             const esito = await cambiaAttivoReparto({ id, attivo: valore })
-            if (esito.ok) toast.success(valore ? `${nome} di nuovo attivo` : `${nome} disattivato: niente nuovi progetti`)
-            else toast.error(esito.errore)
+            if (esito.ok) toast.success(valore ? t.diNuovoAttivo(nome) : t.disattivatoToast(nome))
+            else toast.error(traduciErroreProgetti(esito.errore, lingua))
           })
         }
       />
-      {attivo ? 'Attivo' : 'Disattivato'}
+      {attivo ? t.attivo : t.disattivato}
     </label>
   )
 }
 
 export function SpostaReparto({ id, nome, prima, ultima }: { id: string; nome: string; prima: boolean; ultima: boolean }) {
+  const t = useTesti(IMPOSTAZIONI_PROGETTI)
+  const lingua = useLingua()
   const [inCorso, avvia] = useTransition()
   function sposta(direzione: 'su' | 'giu') {
     avvia(async () => {
       const esito = await spostaReparto({ id, direzione })
-      if (!esito.ok) toast.error(esito.errore)
+      if (!esito.ok) toast.error(traduciErroreProgetti(esito.errore, lingua))
     })
   }
   return (
@@ -170,7 +185,7 @@ export function SpostaReparto({ id, nome, prima, ultima }: { id: string; nome: s
         variant="ghost"
         size="icon"
         className="size-11 text-muted-foreground"
-        aria-label={`Sposta su ${nome}`}
+        aria-label={t.spostaSu(nome)}
         disabled={prima || inCorso}
         onClick={() => sposta('su')}
       >
@@ -181,7 +196,7 @@ export function SpostaReparto({ id, nome, prima, ultima }: { id: string; nome: s
         variant="ghost"
         size="icon"
         className="size-11 text-muted-foreground"
-        aria-label={`Sposta giù ${nome}`}
+        aria-label={t.spostaGiu(nome)}
         disabled={ultima || inCorso}
         onClick={() => sposta('giu')}
       >

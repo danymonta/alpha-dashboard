@@ -7,10 +7,9 @@ import { toast } from 'sonner'
 
 import { rivalidaAnalisi } from '@/app/(app)/marketing/pubblicati/azioni-analisi'
 import { Button } from '@/components/ui/button'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { ANALISI_REEL, traduciErroreReel, usdIn } from '@/lib/i18n/testi/analisi-reel'
 import { COSTO_STIMATO_PER_REEL_USD } from '@/lib/marketing/analisi/costi'
-
-const CONNESSIONE = 'Connessione assente. Riprova.'
-const usd = (n: number) => `${n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
 
 /**
  * «Valuta i reel non valutati (N)» (1.39.0): one confirmation for the click of «Analizza» on the reels of the page
@@ -20,6 +19,8 @@ const usd = (n: number) => `${n.toLocaleString('it-IT', { minimumFractionDigits:
  */
 export function ValutaTutti({ mediaIds, restano, limiteGiorno }: { mediaIds: readonly string[]; restano: number; limiteGiorno: number }) {
   const router = useRouter()
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].valuta
   const [aperto, setAperto] = useState(false)
   const [inCorso, setInCorso] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
@@ -41,20 +42,17 @@ export function ValutaTutti({ mediaIds, restano, limiteGiorno }: { mediaIds: rea
       })
       const corpo = (await risposta.json().catch(() => null)) as { accodate?: number; saltate?: number; fermata?: string | null; errore?: string } | null
       if (risposta.status === 202 && corpo?.accodate) {
-        toast.success(
-          corpo.accodate === 1
-            ? 'Un reel in coda: Claude lo analizza e gli dà il punteggio, di solito servono pochi minuti.'
-            : `${corpo.accodate} reel in coda: Claude li prepara uno alla volta, ci vorrà un po’.`,
-        )
+        toast.success(corpo.accodate === 1 ? t.uno : t.molti(corpo.accodate))
         setAperto(false)
         await rivalidaAnalisi()
         router.refresh()
         apri.current?.focus()
         return
       }
-      setErrore(corpo?.fermata ?? corpo?.errore ?? 'Nessuna analisi è partita. Riprova.')
+      const motivo = corpo?.fermata ?? corpo?.errore
+      setErrore(motivo ? traduciErroreReel(motivo, lingua) : t.nessuna)
     } catch {
-      setErrore(CONNESSIONE)
+      setErrore(t.connessione)
     } finally {
       setInCorso(false)
     }
@@ -73,18 +71,22 @@ export function ValutaTutti({ mediaIds, restano, limiteGiorno }: { mediaIds: rea
         data-testid="valuta-tutti-apri"
       >
         <Sparkles className="size-4 text-[var(--brand-fire-flame)]" aria-hidden="true" />
-        Valuta i reel non valutati ({mediaIds.length})
+        {t.bottone(mediaIds.length)}
       </Button>
       {aperto ? (
-        <div className="basis-full space-y-3 rounded-xl bg-card p-4 text-sm" role="group" aria-label="Conferma della valutazione dei reel" data-testid="valuta-tutti-conferma">
+        <div className="basis-full space-y-3 rounded-xl bg-card p-4 text-sm" role="group" aria-label={t.aria} data-testid="valuta-tutti-conferma">
           {restano <= 0 ? (
-            <p>Le analisi di oggi sono finite: sono {limiteGiorno} al giorno per tutto il team. Riprova domani.</p>
+            <p>{t.finite(limiteGiorno)}</p>
           ) : (
             <p>
-              Claude analizzerà e darà il punteggio a <span className="num font-medium">{quanti}</span> reel, i più recenti tra quelli non valutati, per circa{' '}
-              <span className="num font-medium">{usd(quanti * COSTO_STIMATO_PER_REEL_USD)}</span> (è una stima: il costo vero lo conta il gestionale). Oggi restano{' '}
-              <span className="num">{restano}</span> richieste su {limiteGiorno} per tutto il team
-              {mediaIds.length > quanti ? `; gli altri ${mediaIds.length - quanti} restano per domani` : ''}.
+              {t.parte1}
+              <span className="num font-medium">{quanti}</span>
+              {t.parte2}
+              <span className="num font-medium">{usdIn(quanti * COSTO_STIMATO_PER_REEL_USD, lingua)}</span>
+              {t.parte3}
+              <span className="num">{restano}</span>
+              {t.parte4(limiteGiorno)}
+              {mediaIds.length > quanti ? t.altri(mediaIds.length - quanti) : ''}.
             </p>
           )}
           {errore ? (
@@ -96,7 +98,7 @@ export function ValutaTutti({ mediaIds, restano, limiteGiorno }: { mediaIds: rea
             {restano > 0 ? (
               <Button type="button" className="h-11" focusableWhenDisabled disabled={inCorso} aria-busy={inCorso} onClick={() => void conferma()} data-testid="valuta-tutti-conferma-bottone">
                 {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                {inCorso ? 'Chiedo a Claude…' : `Conferma e analizza ${quanti === 1 ? 'il reel' : `${quanti} reel`}`}
+                {inCorso ? t.chiedo : t.conferma(quanti)}
               </Button>
             ) : null}
             <Button
@@ -108,7 +110,7 @@ export function ValutaTutti({ mediaIds, restano, limiteGiorno }: { mediaIds: rea
                 apri.current?.focus()
               }}
             >
-              {restano > 0 ? 'Annulla' : 'Chiudi'}
+              {restano > 0 ? t.annulla : t.chiudi}
             </Button>
           </div>
         </div>

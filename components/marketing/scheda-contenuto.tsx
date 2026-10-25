@@ -21,7 +21,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SheetDescription, SheetTitle } from '@/components/ui/sheet'
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { Skeleton } from '@/components/ui/skeleton'
+import { CONTENUTO } from '@/lib/i18n/testi/contenuto'
 import { hrefAnalisiReel } from '@/lib/marketing/analisi/pannello'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { SEZIONI, sezioniVisibili, type SezioneContenuto as Sezione } from '@/lib/marketing/etichette'
@@ -43,14 +45,14 @@ function linkNotion(id: string): string {
 }
 
 /** «Copia il link»: the list with this content open, without filters, so anyone of the area lands on it. */
-async function copiaLink(id: string, opzioni: ExternalToast) {
+async function copiaLink(id: string, opzioni: ExternalToast, t: (typeof CONTENUTO)['it']['scheda']) {
   const link = linkCondivisibile(window.location.origin, id)
   try {
     await navigator.clipboard.writeText(link)
-    toast.success('Link copiato', opzioni)
+    toast.success(t.linkCopiato, opzioni)
   } catch {
     // no clipboard (permissions, an old browser): the link in words, to copy by hand
-    toast('Copia il link a mano', { ...opzioni, description: link })
+    toast(t.copiaAMano, { ...opzioni, description: link })
   }
 }
 
@@ -63,10 +65,11 @@ const CLASSE_ICONA =
  */
 function AltreAzioni({ contenuto, dove }: { contenuto: ContenutoScheda; dove: 'pannello' | 'pagina' }) {
   const opzioniToast = useOpzioniToast()
+  const t = useTesti(CONTENUTO).scheda
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<button type="button" aria-label={`Altre azioni su «${contenuto.nome}»`} title="Altre azioni" className={CLASSE_ICONA} />}
+        render={<button type="button" aria-label={t.altreAzioniDi(contenuto.nome)} title={t.altreAzioni} className={CLASSE_ICONA} />}
       >
         <Ellipsis className="size-4" aria-hidden="true" />
       </DropdownMenuTrigger>
@@ -74,12 +77,12 @@ function AltreAzioni({ contenuto, dove }: { contenuto: ContenutoScheda; dove: 'p
         {dove === 'pannello' ? (
           <DropdownMenuItem className="min-h-11 px-3" render={<Link href={hrefContenuto(contenuto.id)} />}>
             <Maximize2 className="size-4" aria-hidden="true" />
-            Apri a tutta pagina
+            {t.tuttaPagina}
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem className="min-h-11 px-3" onClick={() => void copiaLink(contenuto.id, opzioniToast)}>
+        <DropdownMenuItem className="min-h-11 px-3" onClick={() => void copiaLink(contenuto.id, opzioniToast, t)}>
           <Link2 className="size-4" aria-hidden="true" />
-          Copia il link
+          {t.copiaLink}
         </DropdownMenuItem>
         {contenuto.notion_page_id ? (
           <DropdownMenuItem
@@ -87,8 +90,8 @@ function AltreAzioni({ contenuto, dove }: { contenuto: ContenutoScheda; dove: 'p
             render={<a href={linkNotion(contenuto.notion_page_id)} target="_blank" rel="noopener noreferrer" />}
           >
             <ExternalLink className="size-4" aria-hidden="true" />
-            Apri in Notion
-            <span className="sr-only">(si apre in una nuova scheda)</span>
+            {t.apriNotion}
+            <span className="sr-only">{t.nuovaScheda}</span>
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
@@ -107,13 +110,14 @@ export function AzioniContenuto({ contenuto }: { contenuto: ContenutoScheda }) {
 }
 
 function ScheletroSezioni() {
+  const t = useTesti(CONTENUTO).scheda
   return (
     <div className="space-y-3" aria-busy="true">
       <Skeleton className="h-28 rounded-xl" />
       <Skeleton className="h-40 rounded-xl" />
       <Skeleton className="h-12 rounded-xl" />
       <Skeleton className="h-12 rounded-xl" />
-      <span className="sr-only">Caricamento dei testi del contenuto</span>
+      <span className="sr-only">{t.caricamentoTesti}</span>
     </div>
   )
 }
@@ -161,6 +165,7 @@ export function SchedaContenuto({
 }) {
   const { id, nome } = contenuto
   const titoli = SEZIONI[contenuto.tipo]
+  const t = useTesti(CONTENUTO).scheda
 
   const intestazione =
     dove === 'pannello' ? (
@@ -179,7 +184,7 @@ export function SchedaContenuto({
             <EditorCella id={id} nome={nome} campo="nome" valore={nome} aspetto="matita" />
           </div>
           <AltreAzioni contenuto={contenuto} dove="pannello" />
-          <button type="button" onClick={onChiudi} aria-label="Chiudi il contenuto" title="Chiudi" className={CLASSE_ICONA}>
+          <button type="button" onClick={onChiudi} aria-label={t.chiudiContenuto} title={t.chiudi} className={CLASSE_ICONA}>
             <XIcon className="size-4" aria-hidden="true" />
           </button>
         </div>
@@ -188,14 +193,14 @@ export function SchedaContenuto({
           {navigazione && navigazione.totale > 1 && navigazione.posizione !== null ? (
             <div className="ml-auto flex items-center">
               <span className="num mr-1 text-xs text-muted-foreground">
-                {navigazione.posizione} di {navigazione.totale}
+                {t.posizione(navigazione.posizione, navigazione.totale)}
               </span>
               {/* aria-disabled, never disabled: on the first and the last content the arrow just
                   pressed keeps the focus, which a disabled button would drop on <body> */}
               <button
                 type="button"
-                aria-label="Contenuto precedente"
-                title="Contenuto precedente"
+                aria-label={t.precedente}
+                title={t.precedente}
                 aria-disabled={!navigazione.precedente || undefined}
                 onClick={() => navigazione.precedente && navigazione.vai(navigazione.precedente)}
                 className={CLASSE_ICONA}
@@ -204,8 +209,8 @@ export function SchedaContenuto({
               </button>
               <button
                 type="button"
-                aria-label="Contenuto successivo"
-                title="Contenuto successivo"
+                aria-label={t.successivo}
+                title={t.successivo}
                 aria-disabled={!navigazione.successivo || undefined}
                 onClick={() => navigazione.successivo && navigazione.vai(navigazione.successivo)}
                 className={CLASSE_ICONA}
@@ -215,12 +220,12 @@ export function SchedaContenuto({
             </div>
           ) : null}
         </div>
-        <SheetDescription className="mt-0.5 text-xs">Ogni modifica si salva da sola.</SheetDescription>
+        <SheetDescription className="mt-0.5 text-xs">{t.salvaDaSola}</SheetDescription>
       </div>
     ) : (
       <div className="-mt-3 space-y-1">
         <MenuStatus id={id} nome={nome} stato={contenuto.stato} grande />
-        <p className="text-xs text-muted-foreground">Ogni modifica si salva da sola.</p>
+        <p className="text-xs text-muted-foreground">{t.salvaDaSola}</p>
       </div>
     )
 
@@ -240,9 +245,9 @@ export function SchedaContenuto({
           <p className="flex items-start gap-1.5 text-sm text-muted-foreground" data-testid="nato-da-idea">
             <Sparkles className="mt-0.5 size-4 shrink-0 text-[var(--brand-fire-flame)]" aria-hidden="true" />
             <span>
-              Nato da un’idea di Claude, dall’analisi di un reel.{' '}
+              {t.natoDaIdea}{' '}
               <Link href={hrefAnalisiReel(idea.media_id)} className="underline underline-offset-4 hover:text-foreground">
-                Apri nei Pubblicati
+                {t.apriPubblicati}
               </Link>
             </span>
           </p>
@@ -264,11 +269,11 @@ export function SchedaContenuto({
           <div role="alert" className="space-y-3 rounded-xl bg-card p-4">
             <p className="flex items-start gap-2 text-sm">
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-critical" aria-hidden="true" />
-              Il contenuto non si è caricato.
+              {t.nonCaricato}
             </p>
             <Button type="button" variant="outline" className="h-11" onClick={sezioni.riprova}>
               <RotateCw className="size-4" aria-hidden="true" />
-              Riprova
+              {t.riprova}
             </Button>
           </div>
         ) : (
@@ -292,16 +297,14 @@ export function SchedaContenuto({
         {puoEliminare ? (
           <div className="border-t border-border pt-4">
             <Elimina
-              etichetta="Elimina il contenuto"
-              cosa={`il contenuto «${nome}»`}
-              fatto="Contenuto eliminato"
+              etichetta={t.elimina}
+              cosa={t.eliminaCosa(nome)}
+              fatto={t.eliminato}
               conseguenze={[
-                'Si perdono anche il messaggio, gli script e i commenti.',
+                t.conseguenzaTesti,
                 // a post no longer on Instagram goes nowhere: it is not work any more
-                ...(instagram?.stato === 'collegato' && !instagram.post.eliminato
-                  ? ['Il post di Instagram collegato resta tra i Pubblicati, senza contenuto.']
-                  : []),
-                'Su Instagram e su Notion non cambia niente.',
+                ...(instagram?.stato === 'collegato' && !instagram.post.eliminato ? [t.conseguenzaPost] : []),
+                t.conseguenzaFuori,
               ]}
               azione={() => eliminaContenuto({ id })}
               {...(dove === 'pannello' ? { onFatto: onEliminato } : { dopo: '/marketing/contenuti' })}
@@ -309,7 +312,7 @@ export function SchedaContenuto({
           </div>
         ) : (
           <p className="border-t border-border pt-4 text-xs text-muted-foreground">
-            Un contenuto lo eliminano l’admin e il marketing: per toglierlo dal lavoro puoi segnarlo «Canceled».
+            {t.soloEliminano}
           </p>
         )}
       </div>

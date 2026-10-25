@@ -254,7 +254,7 @@ export default async function IncassiPage({
                 {r.stato === 'prevista' ? (
                   <BottoneWhatsApp
                     compatto
-                    etichetta={`Scrivi a ${r.cliente} su WhatsApp per la rata ${r.numero_rata}`}
+                    etichetta={t.whatsappRata(r.cliente ?? '', r.numero_rata!)}
                     href={linkWhatsApp(
                       r.client_id ? telefono.get(r.client_id) : null,
                       messaggioRata({

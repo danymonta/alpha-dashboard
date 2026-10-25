@@ -11,11 +11,16 @@ import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/co
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { MODIFICA_VENDITA } from '@/lib/i18n/testi/nuova-vendita'
 import { nuovaRataSchema, type NuovaRataInput } from '@/lib/validation/vendita'
 
 /** One more instalment on a recorded sale (admin): it takes its place by due date. */
 export function AggiungiRata({ saleId, scadenzaProposta }: { saleId: string; scadenzaProposta: string }) {
   const [aperto, setAperto] = useState(false)
+  const lingua = useLingua()
+  const t = MODIFICA_VENDITA[lingua]
   const { errore, setErrore, salva } = useSalvataggio()
   const {
     register,
@@ -28,7 +33,7 @@ export function AggiungiRata({ saleId, scadenzaProposta }: { saleId: string; sca
   })
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => aggiungiRata(valori), 'Rata aggiunta')) {
+    if (await salva(() => aggiungiRata(valori), t.rataAggiunta)) {
       setAperto(false)
       reset({ sale_id: saleId, scadenza: scadenzaProposta, importo: '' })
     }
@@ -45,26 +50,26 @@ export function AggiungiRata({ saleId, scadenzaProposta }: { saleId: string; sca
       contenutoTrigger={
         <>
           <Plus className="size-4" aria-hidden="true" />
-          Aggiungi rata
+          {t.aggiungiRata}
         </>
       }
-      titolo="Aggiungi una rata"
-      descrizione="Prende il suo posto in ordine di scadenza. Se il totale delle rate non torna più col contratto, la vendita lo segnala."
+      titolo={t.titoloRata}
+      descrizione={t.descrizioneRata}
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
-            <Label htmlFor="nr-scadenza">Scadenza</Label>
+            <Label htmlFor="nr-scadenza">{t.scadenza}</Label>
             <Input id="nr-scadenza" type="date" className="num h-11" {...register('scadenza')} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="nr-importo">Importo</Label>
+            <Label htmlFor="nr-importo">{t.importo}</Label>
             <Input id="nr-importo" inputMode="decimal" placeholder="0,00" className="num h-11 text-right" {...register('importo')} />
           </div>
         </div>
-        <ErroreCampo id="nr-errore" messaggio={errors.scadenza?.message ?? errors.importo?.message} />
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>Aggiungi la rata</BottoneSalva>
+        <ErroreCampo id="nr-errore" messaggio={traduciErrore(errors.scadenza?.message ?? errors.importo?.message, lingua)} />
+        <ErroreModulo testo={traduciErrore(errore, lingua) ?? null} />
+        <BottoneSalva inCorso={isSubmitting}>{t.aggiungiLaRata}</BottoneSalva>
       </form>
     </FoglioModifica>
   )

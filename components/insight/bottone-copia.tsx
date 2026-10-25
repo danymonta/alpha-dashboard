@@ -3,10 +3,11 @@
 import { Check, Copy, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { useAnnuncia } from '@/components/insight/annunci'
 import { Button } from '@/components/ui/button'
 import { copiaNegliAppunti } from '@/lib/appunti'
-import { COPIA } from '@/lib/insight/parole'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
 import { cn } from '@/lib/utils'
 
 type Esito = 'riposo' | 'copiato' | 'errore'
@@ -21,7 +22,7 @@ type Esito = 'riposo' | 'copiato' | 'errore'
  */
 export function BottoneCopia({
   testo,
-  etichetta = COPIA.copia,
+  etichetta,
   nome,
   className,
 }: {
@@ -36,6 +37,7 @@ export function BottoneCopia({
   const bottone = useRef<HTMLButtonElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const annuncia = useAnnuncia()
+  const COPIA = INSIGHT_RECAP[useLingua()].copia
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current)
@@ -52,9 +54,9 @@ export function BottoneCopia({
     })
   }
 
-  const parola = esito === 'copiato' ? COPIA.copiato : esito === 'errore' ? COPIA.nonRiuscita : etichetta
+  const parola = esito === 'copiato' ? COPIA.copiato : esito === 'errore' ? COPIA.nonRiuscita : (etichetta ?? COPIA.copia)
   // the name follows the visible word, the rest of it stays (what, whose): «Copiato: chat con @user»
-  const nomeAccessibile = esito === 'riposo' ? nome : `${parola}: ${nome.replace(/^Copia\s+/, '')}`
+  const nomeAccessibile = esito === 'riposo' ? nome : `${parola}: ${nome.replace(/^(?:Copia|Copy)\s+/, '')}`
 
   return (
     <Button

@@ -3,7 +3,9 @@
 import { Circle, CircleAlert, CircleCheck } from 'lucide-react'
 import { useId, useRef, type KeyboardEvent } from 'react'
 
-import { COMMENTO_OBBLIGATORIO, type Scala } from '@/lib/setting/commento'
+import { useTesti } from '@/components/i18n/lingua-provider'
+import { COMMENTO_GIORNATA } from '@/lib/i18n/testi/commento-giornata'
+import type { Scala } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -26,6 +28,7 @@ type Props = {
  */
 export function ScalaCommento({ scala, valore, onCambia, obbligatoria = false, errore = null, className }: Props) {
   const id = useId()
+  const obbligatoriaParola = useTesti(COMMENTO_GIORNATA).obbligatorio.obbligatoria
   const bottoni = useRef<(HTMLButtonElement | null)[]>([])
   const scelto = scala.opzioni.findIndex((o) => o.valore === valore)
   // roving tab stop: the selected option, or the first one
@@ -47,7 +50,7 @@ export function ScalaCommento({ scala, valore, onCambia, obbligatoria = false, e
         <p id={`${id}-domanda`} className="text-sm font-medium">
           {scala.domanda}
           {obbligatoria ? (
-            <span className="font-normal text-muted-foreground"> ({COMMENTO_OBBLIGATORIO.obbligatoria})</span>
+            <span className="font-normal text-muted-foreground"> ({obbligatoriaParola})</span>
           ) : null}
         </p>
         {scala.spiegazione ? (

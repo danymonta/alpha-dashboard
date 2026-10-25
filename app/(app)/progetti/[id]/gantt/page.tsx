@@ -5,6 +5,8 @@ import { GanttProgetto, type ListaVista, type TaskVista } from '@/components/pm/
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireProfilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
+import { getLingua } from '@/lib/i18n/server'
+import { GANTT } from '@/lib/i18n/testi/gantt'
 import { nomiAssegnatari } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
@@ -19,6 +21,7 @@ export default async function GanttPage({ params }: { params: Promise<{ id: stri
   // the layout shows "Progetto non trovato"
   if (!UUID.test(id)) return null
 
+  const t = GANTT[await getLingua()]
   const supabase = await createClient()
   const [liste, task] = await Promise.all([
     supabase
@@ -32,14 +35,14 @@ export default async function GanttPage({ params }: { params: Promise<{ id: stri
       .eq('progetto_id', id)
       .order('ordine'),
   ])
-  if (liste.error || task.error) throw new Error('Impossibile caricare il Gantt')
+  if (liste.error || task.error) throw new Error(t.errore)
 
   const idAssegnatari = [...new Set(task.data.flatMap((t) => t.assegnatari ?? []))]
   const { data: persone, error: errorePersone } =
     idAssegnatari.length > 0
       ? await supabase.from('profiles').select('id, nome').in('id', idAssegnatari)
       : { data: [], error: null }
-  if (errorePersone) throw new Error('Impossibile caricare il Gantt')
+  if (errorePersone) throw new Error(t.errore)
   const nomi = new Map(persone.map((p) => [p.id, p.nome]))
 
   // the views expose nullable columns: every row here comes from a real list or task
@@ -70,9 +73,9 @@ export default async function GanttPage({ params }: { params: Promise<{ id: stri
     return (
       <StatoVuoto
         Icona={ListTodo}
-        titolo="Ancora nessuna attività"
-        descrizione="Il Gantt si disegna dalle liste e dalle attività del progetto, con le loro date."
-        azione={<LinkBottone href={`/progetti/${id}/attivita`}>Vai alle attività</LinkBottone>}
+        titolo={t.vuoto}
+        descrizione={t.vuotoDescrizione}
+        azione={<LinkBottone href={`/progetti/${id}/attivita`}>{t.vaiAttivita}</LinkBottone>}
       />
     )
   }

@@ -1,12 +1,10 @@
 'use client'
 
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { StatoErrore } from '@/components/stati/stato-errore'
+import { INSTAGRAM_IMPOSTAZIONI } from '@/lib/i18n/testi/instagram-impostazioni'
 
 export default function Error({ reset }: { error: Error; reset: () => void }) {
-  return (
-    <StatoErrore
-      descrizione="Non siamo riusciti a caricare il collegamento di Instagram e Messenger. Riprova fra un momento."
-      riprova={reset}
-    />
-  )
+  const t = useTesti(INSTAGRAM_IMPOSTAZIONI).pagina
+  return <StatoErrore descrizione={t.erroreDescrizione} riprova={reset} />
 }

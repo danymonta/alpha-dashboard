@@ -4,9 +4,11 @@ import { LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useActionState } from 'react'
 
 import { accediConPassword, type StatoLogin } from '@/app/login/actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ACCESSO, traduciAccesso } from '@/lib/i18n/testi/accesso'
 
 const STATO_INIZIALE: StatoLogin = {}
 
@@ -17,6 +19,7 @@ const STATO_INIZIALE: StatoLogin = {}
 export function DevLoginForm({ da = '/' }: { da?: string }) {
   // da rides as a bound argument, not as a field: the page's only input[name="da"] stays the Google form's
   const [stato, azione, pending] = useActionState(accediConPassword.bind(null, da), STATO_INIZIALE)
+  const lingua = useLingua()
 
   return (
     <form action={azione} className="space-y-3" data-testid="dev-login">
@@ -51,7 +54,7 @@ export function DevLoginForm({ da = '/' }: { da?: string }) {
           className="flex items-center gap-2 text-sm text-status-critical"
         >
           <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-          {stato.errore}
+          {traduciAccesso(stato.errore, lingua)}
         </p>
       ) : null}
 
@@ -64,7 +67,7 @@ export function DevLoginForm({ da = '/' }: { da?: string }) {
         {pending ? (
           <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
         ) : null}
-        Entra
+        {ACCESSO[lingua].entra}
       </Button>
     </form>
   )

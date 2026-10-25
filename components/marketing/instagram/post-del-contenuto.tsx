@@ -17,11 +17,11 @@ import {
 import { ParlatoDelPost } from '@/components/marketing/instagram/parlato-post'
 import { PunteggioDelPost } from '@/components/marketing/instagram/punteggio-del-post'
 import { Button } from '@/components/ui/button'
+import { useFormato, useLingua } from '@/components/i18n/lingua-provider'
+import { traduciErroreContenuto } from '@/lib/i18n/testi/contenuto'
+import { POST_INSTAGRAM } from '@/lib/i18n/testi/post-instagram'
 import { motiviInParole, quandoPubblicato } from '@/lib/marketing/parole-post'
 import type { PostDelContenuto as DatiPost, PostInstagram } from '@/lib/marketing/post-del-contenuto'
-import { formatData } from '@/lib/format'
-
-const CONNESSIONE = 'Connessione assente. Riprova.'
 
 /**
  * «Post su Instagram», under the properties of a content, in the panel and on
@@ -59,6 +59,9 @@ export function PostDelContenuto({
   const router = useRouter()
   const pannello = usePannello()
   const opzioniToast = useOpzioniToast()
+  const lingua = useLingua()
+  const t = POST_INSTAGRAM[lingua].post
+  const { formatData } = useFormato()
   const titoloId = useId()
   const titolo = useRef<HTMLHeadingElement>(null)
   /** The button of the last tap, and whether the focus should leave it for the title. */
@@ -94,7 +97,7 @@ export function PostDelContenuto({
       <Riquadro titoloId={titoloId} titoloRef={titolo}>
         <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
           <Unlink className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Scollegato: non lo ripropongo per «{nome}».
+          {t.scollegato(nome)}
         </p>
       </Riquadro>
     )
@@ -105,9 +108,9 @@ export function PostDelContenuto({
       <Riquadro titoloId={titoloId} titoloRef={titolo}>
         <div role="alert" className="flex flex-wrap items-center gap-2 text-sm">
           <TriangleAlert className="size-4 shrink-0 text-status-critical" aria-hidden="true" />
-          <span>Il post di Instagram non si è caricato.</span>
+          <span>{t.nonCaricato}</span>
           <Button type="button" variant="outline" className="h-11" onClick={() => (onRiprova ? onRiprova() : router.refresh())}>
-            Riprova
+            {t.riprova}
           </Button>
         </div>
       </Riquadro>
@@ -124,28 +127,29 @@ export function PostDelContenuto({
       try {
         esito = await scollegaPost({ shortcode: post.shortcode, contenuto_id: contenutoId })
       } catch {
-        esito = { ok: false, errore: CONNESSIONE }
+        esito = { ok: false, errore: t.connessione }
       }
       if (!esito.ok) {
         setInVolo(null)
         setScollegatoDa(null)
         mostra(prima)
-        toast.error(esito.errore, opzioniToast)
+        toast.error(traduciErroreContenuto(esito.errore, lingua), opzioniToast)
         return
       }
       fuocoAlTitolo.current = true
       setInVolo(null)
       if (esito.versione) pannello?.aggiornaCampo(contenutoId, 'url', null, esito.versione)
-      toast.success(`Scollegato: non lo ripropongo per «${nome}».`, {
+      toast.success(t.scollegato(nome), {
         ...opzioniToast,
         duration: 6000,
         action: {
-          label: 'Annulla',
+          label: t.annulla,
           onClick: () => {
             // the sign «Collegato da solo», if the run made the link, comes back by itself (database)
             void annullaScollega({ shortcode: post.shortcode, contenuto_id: contenutoId }).then(
-              (r) => (r.ok ? toast.success('Post di nuovo collegato.', opzioniToast) : toast.error(r.errore, opzioniToast)),
-              () => toast.error(CONNESSIONE, opzioniToast),
+              (r) =>
+                r.ok ? toast.success(t.diNuovo, opzioniToast) : toast.error(traduciErroreContenuto(r.errore, lingua), opzioniToast),
+              () => toast.error(t.connessione, opzioniToast),
             )
           },
         },
@@ -161,19 +165,19 @@ export function PostDelContenuto({
       try {
         esito = await modificaCampoContenuto({ id: contenutoId, campo: 'post_date', valore: giorno, prima: postDate })
       } catch {
-        esito = { ok: false, errore: CONNESSIONE }
+        esito = { ok: false, errore: t.connessione }
       }
       if (!esito.ok) {
         setInVolo(null)
         if (esito.cambiato) pannello?.aggiornaCampo(contenutoId, 'post_date', esito.cambiato.valore, esito.cambiato.versione)
-        toast.error(esito.errore, opzioniToast)
+        toast.error(traduciErroreContenuto(esito.errore, lingua), opzioniToast)
         return
       }
       // the row of the two dates leaves: the focus goes to the title
       fuocoAlTitolo.current = true
       setInVolo(null)
       pannello?.aggiornaCampo(contenutoId, 'post_date', esito.valore, esito.versione)
-      toast.success(`Post Date: ${formatData(giorno)}`, opzioniToast)
+      toast.success(t.postDate(formatData(giorno)), opzioniToast)
     })
   }
 
@@ -186,23 +190,21 @@ export function PostDelContenuto({
           <CopertinaPost url={post.copertina_url} tipo={post.tipo} />
           <div className="min-w-0 flex-1 space-y-1.5">
             <p className="text-sm">
-              Pubblicato su Instagram <span className="num">{quandoPubblicato(post.pubblicato_il)}</span>
+              {t.pubblicato} <span className="num">{quandoPubblicato(post.pubblicato_il, lingua)}</span>
             </p>
             {post.eliminato ? (
               <p className="flex items-start gap-1.5 text-sm text-rosso-testo">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                Il post non è più su Instagram (eliminato o archiviato).
+                {t.eliminato}
               </p>
             ) : null}
             <DidascaliaEspandibile testo={post.didascalia} />
-            <PunteggioDelPost tipo={post.tipo} mediaId={post.media_id} punteggio={vista.punteggio} />
+            <PunteggioDelPost tipo={post.tipo} mediaId={post.media_id} punteggio={vista.punteggio} lingua={lingua} />
             {post.tipo === 'reel' ? <ParlatoDelPost mediaId={post.media_id} className="-ml-2" /> : null}
             {vista.daSolo ? (
               <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
                 <Link2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                {vista.motivi.length > 0
-                  ? `Collegato da solo: ${motiviInParole(vista.motivi, 'e')}.`
-                  : 'Collegato da solo.'}
+                {vista.motivi.length > 0 ? t.daSolo(motiviInParole(vista.motivi, 'e', lingua)) : t.daSoloSemplice}
               </p>
             ) : null}
           </div>
@@ -210,7 +212,7 @@ export function PostDelContenuto({
         {dataDiversa ? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-muted/50 px-3 py-2 text-sm">
             <span className="num">
-              {postDate ? `Post Date ${formatData(postDate)}, ` : 'Senza Post Date, '}su Instagram {formatData(post.giorno)}
+              {postDate ? t.dueDate(formatData(postDate), formatData(post.giorno)) : t.senzaPostDate(formatData(post.giorno))}
             </span>
             {puoModificare ? (
               <Button
@@ -229,7 +231,7 @@ export function PostDelContenuto({
                 ) : (
                   <CalendarCheck className="size-4" aria-hidden="true" />
                 )}
-                Usa la data di Instagram
+                {t.usaData}
               </Button>
             ) : null}
           </div>
@@ -243,7 +245,7 @@ export function PostDelContenuto({
               className="h-11 aria-disabled:opacity-70"
               disabled={inCorso}
               focusableWhenDisabled
-              aria-label={`Scollega il post da «${nome}»`}
+              aria-label={t.scollegaDa(nome)}
               onClick={(e) => {
                 ricordaTocco(e)
                 scollega(post)
@@ -254,7 +256,7 @@ export function PostDelContenuto({
               ) : (
                 <Unlink className="size-4" aria-hidden="true" />
               )}
-              Scollega
+              {t.scollega}
             </Button>
           ) : null}
         </div>
@@ -275,10 +277,11 @@ function Riquadro({
   titoloRef: Ref<HTMLHeadingElement>
   children: ReactNode
 }) {
+  const t = POST_INSTAGRAM[useLingua()].post
   return (
     <section aria-labelledby={titoloId} className="space-y-3 rounded-xl border border-border p-3">
       <h3 ref={titoloRef} id={titoloId} tabIndex={-1} className="text-sm font-medium outline-none">
-        Post su Instagram
+        {t.titolo}
       </h3>
       {children}
     </section>
@@ -288,11 +291,14 @@ function Riquadro({
 /** The first three lines, and «Mostra tutto» for a longer caption. */
 function DidascaliaEspandibile({ testo }: { testo: string | null }) {
   const [tutta, setTutta] = useState(false)
+  const t = POST_INSTAGRAM[useLingua()].post
   const lunga = Boolean(testo && (testo.split('\n').length > 3 || testo.length > 180))
   return (
     <div>
       {tutta && testo ? (
-        <p className="text-sm break-words whitespace-pre-line">{testo}</p>
+        <p className="text-sm break-words whitespace-pre-line" lang="it">
+          {testo}
+        </p>
       ) : (
         <Didascalia testo={testo} righe={3} />
       )}
@@ -304,7 +310,7 @@ function DidascaliaEspandibile({ testo }: { testo: string | null }) {
           aria-expanded={tutta}
           onClick={() => setTutta((v) => !v)}
         >
-          {tutta ? 'Mostra meno' : 'Mostra tutto'}
+          {tutta ? t.mostraMeno : t.mostraTutto}
         </Button>
       ) : null}
     </div>

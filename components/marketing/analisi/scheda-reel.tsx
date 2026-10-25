@@ -28,21 +28,26 @@ import { ElencoPerCollegare } from '@/components/marketing/pubblicati/collega'
 import { Button } from '@/components/ui/button'
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { formatNumero } from '@/lib/format'
+import { useFormato, useLingua } from '@/components/i18n/lingua-provider'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { ANALISI_REEL, traduciErroreReel, usdIn } from '@/lib/i18n/testi/analisi-reel'
+import { PUBBLICATI } from '@/lib/i18n/testi/pubblicati'
 import { COSTO_STIMATO_PER_REEL_USD } from '@/lib/marketing/analisi/costi'
 import { cosaFare, type StatoAnalisiCosaFare } from '@/lib/marketing/analisi/cosa-fare'
 import type { AnalisiLetta, DettaglioReel, LetturaLetta } from '@/lib/marketing/analisi/dettaglio'
 import type { RigaReel } from '@/lib/marketing/analisi/elenco'
-import { fraseFonti } from '@/lib/marketing/analisi/frasi'
+import { fraseFonti, fraseFontiEn } from '@/lib/marketing/analisi/frasi'
 import {
   fraseStatoPost,
+  fraseStatoPostEn,
   formatDurata,
   formatQuota,
   formatRapporto,
   formatTasso,
   formatVisione,
   parolaLead,
-  SENZA_STATISTICHE,
+  parolaLeadEn,
   viewsConConfronto,
 } from '@/lib/marketing/analisi/parole'
 import { eSchedaReel, PARAMETRO_SCHEDA, urlConScheda, type SchedaReel as NomeScheda } from '@/lib/marketing/analisi/pannello'
@@ -51,15 +56,29 @@ import { nomeDaDidascalia } from '@/lib/marketing/da-post'
 import { nomeDaValore, opzioneDaValore } from '@/lib/marketing/opzioni'
 import { quandoPubblicato } from '@/lib/marketing/parole-post'
 import { eReel, tipoDellaRiga } from '@/lib/marketing/pubblicati/parole'
-import { fasciaDaCodice, ETICHETTA_TIPO, intervalloFascia } from '@/lib/marketing/punteggio/tabelle'
+import { fasciaDaCodice, intervalloFascia } from '@/lib/marketing/punteggio/tabelle'
 import { cn } from '@/lib/utils'
 
-const CONNESSIONE = 'Connessione assente. Riprova.'
-const usd = (n: number) => `${n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
-
-export function titoloReel(r: Pick<RigaReel, 'nome' | 'didascalia_inizio' | 'giorno' | 'media_type' | 'reel'>): string {
+export function titoloReel(r: Pick<RigaReel, 'nome' | 'didascalia_inizio' | 'giorno' | 'media_type' | 'reel'>, lingua: Lingua = 'it'): string {
+  if (lingua === 'en') {
+    const t = PUBBLICATI.en
+    const tipo = t.tipoPost[eReel(r) ? 'reel' : tipoDellaRiga(r) === 'carousel' ? 'carousel' : 'foto']
+    return r.nome || nomeDaDidascalia(r.didascalia_inizio) || (r.giorno ? t.titoloPost(tipo, formato('en').formatData(r.giorno)) : tipo)
+  }
   const cosa = eReel(r) ? 'Reel' : tipoDellaRiga(r) === 'carousel' ? 'Carosello' : 'Foto'
   return r.nome || nomeDaDidascalia(r.didascalia_inizio) || (r.giorno ? `${cosa} del ${r.giorno.slice(8, 10)}/${r.giorno.slice(5, 7)}/${r.giorno.slice(0, 4)}` : cosa)
+}
+
+/** The verdict an analysis had then: its slug in Italian as always, its word in English. */
+function verdettoIn(verdetto: string, lingua: Lingua): string {
+  if (lingua === 'it') return verdetto
+  const parole: Record<string, string> = PUBBLICATI.en.verdetto
+  return parole[verdetto] ?? verdetto
+}
+
+/** A day of the analysis or of the score: «16/10/2026» as always in Italian, «16 Oct 2026» in English. */
+function giornoDi(istante: string, lingua: Lingua): string {
+  return lingua === 'it' ? new Date(istante).toLocaleDateString('it-IT') : formato(lingua).formatData(new Date(istante))
 }
 
 /** A titled part of a tab. The tab says the big thing; the title says what this part is. */
@@ -78,7 +97,7 @@ function Sezione({ id, titolo, children, nota }: { id: string; titolo: string; c
 function Elenco({ voci }: { voci: readonly string[] }) {
   if (voci.length === 0) return null
   return (
-    <ul className="list-disc space-y-1 pl-5 text-sm">
+    <ul className="list-disc space-y-1 pl-5 text-sm" lang="it">
       {voci.map((v, i) => (
         <li key={i} className="break-words">
           {v}
@@ -100,85 +119,95 @@ function Numero({ etichetta, valore, nota }: { etichetta: string; valore: string
 
 /** The numbers of the reel as the view gives them: the ratios and the verdict are SQL's, only said here. */
 function NumeriReel({ r }: { r: RigaReel }) {
-  const stato = fraseStatoPost(r.metriche_stato, r.metriche_il, r.numeri_parziali)
+  const lingua = useLingua()
+  const { formatNumero } = useFormato()
+  const t = ANALISI_REEL[lingua].numeri
+  const stato = lingua === 'it' ? fraseStatoPost(r.metriche_stato, r.metriche_il, r.numeri_parziali) : fraseStatoPostEn(r.metriche_stato, r.numeri_parziali)
   if (r.metriche_stato !== 'lette') {
     return (
       <div className="space-y-1" data-testid="reel-senza-statistiche">
-        <p className="text-sm font-medium">{SENZA_STATISTICHE}</p>
+        <p className="text-sm font-medium">{t.senzaStatistiche}</p>
         {stato ? <p className="text-sm text-muted-foreground">{stato}</p> : null}
         {r.like_count !== null || r.comments_count !== null ? (
           <p className="num text-sm text-muted-foreground">
-            {formatNumero(r.like_count ?? 0)} mi piace · {formatNumero(r.comments_count ?? 0)} commenti
+            {t.miPiaceCommenti(formatNumero(r.like_count ?? 0), formatNumero(r.comments_count ?? 0))}
           </p>
         ) : null}
       </div>
     )
   }
-  const v = viewsConConfronto(r.views, r.views_rapporto, r.confronto, r.eta_confronto)
-  const salvataggi = formatRapporto(r.salvataggi_rapporto)
+  const v = viewsConConfronto(r.views, r.views_rapporto, r.confronto, r.eta_confronto, lingua)
+  const salvataggi = formatRapporto(r.salvataggi_rapporto, lingua)
   return (
     <div className="space-y-2">
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <Numero etichetta="Views" valore={v.numero ?? 'n/d'} nota={v.confronto} />
-        <Numero etichetta="Reach" valore={r.reach === null ? 'n/d' : formatNumero(r.reach)} />
+        <Numero etichetta={t.views} valore={v.numero ?? t.nd} nota={v.confronto} />
+        <Numero etichetta={t.reach} valore={r.reach === null ? t.nd : formatNumero(r.reach)} />
         <Numero
-          etichetta="Salvataggi"
-          valore={r.saved === null ? 'n/d' : formatNumero(r.saved)}
-          nota={[formatTasso(r.tasso_salvataggi), salvataggi ? `${salvataggi} della mediana` : null].filter(Boolean).join(' · ') || null}
+          etichetta={t.salvataggi}
+          valore={r.saved === null ? t.nd : formatNumero(r.saved)}
+          nota={[formatTasso(r.tasso_salvataggi, lingua), salvataggi ? t.dellaMediana(salvataggi) : null].filter(Boolean).join(' · ') || null}
         />
         <Numero
-          etichetta="Condivisioni"
-          valore={r.shares === null ? 'n/d' : formatNumero(r.shares)}
-          nota={formatTasso(r.tasso_condivisioni)}
+          etichetta={t.condivisioni}
+          valore={r.shares === null ? t.nd : formatNumero(r.shares)}
+          nota={formatTasso(r.tasso_condivisioni, lingua)}
         />
-        <Numero etichetta="Visione media" valore={formatVisione(r.avg_watch_ms, r.quota_vista)} nota={r.skip_rate !== null ? `${formatQuota(r.skip_rate)} lo salta` : null} />
-        <Numero etichetta="Mi piace · commenti" valore={`${formatNumero(r.likes ?? r.like_count ?? 0)} · ${formatNumero(r.comments ?? r.comments_count ?? 0)}`} />
+        <Numero
+          etichetta={t.visione}
+          valore={formatVisione(r.avg_watch_ms, r.quota_vista, lingua)}
+          nota={r.skip_rate !== null ? t.loSalta(formatQuota(r.skip_rate) ?? '') : null}
+        />
+        <Numero etichetta={t.miPiace} valore={`${formatNumero(r.likes ?? r.like_count ?? 0)} · ${formatNumero(r.comments ?? r.comments_count ?? 0)}`} />
       </dl>
       {stato ? <p className="text-sm text-muted-foreground">{stato}</p> : null}
     </div>
   )
 }
 
-const PAROLE_FASCIA: Record<string, string> = { sopra: 'sopra la mediana', nella_media: 'nella media', sotto: 'sotto la mediana' }
-
 function Verdetto({ r }: { r: RigaReel }) {
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].verdetto
+  const fasce: Record<string, string> = t.fasce
   if (!r.verdetto_oggi) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        {r.eta_ore !== null && r.eta_ore < 72
-          ? 'Il verdetto arriva dopo 3 giorni dalla pubblicazione: prima i numeri sono troppo pochi.'
-          : 'Senza numeri o senza reel di confronto abbastanza (ne servono 8 dei 90 giorni prima) Claude non dà un verdetto.'}
-      </p>
-    )
+    return <p className="text-sm text-muted-foreground">{r.eta_ore !== null && r.eta_ore < 72 ? t.presto : t.senzaConfronto}</p>
   }
   return (
     <div className="space-y-1.5">
-      <BadgeVerdetto verdetto={r.verdetto_oggi} />
+      <BadgeVerdetto verdetto={r.verdetto_oggi} lingua={lingua} />
       <p className="text-sm text-muted-foreground">
-        Pubblico: {r.fascia_pubblico ? (PAROLE_FASCIA[r.fascia_pubblico] ?? r.fascia_pubblico) : 'n/d'}. Lead dai DM:{' '}
-        {r.fascia_lead ? (PAROLE_FASCIA[r.fascia_lead] ?? r.fascia_lead) : 'non ancora contati'}. Il verdetto lo decide il
-        gestionale dai numeri; Claude dice perché.
+        {t.riga(
+          r.fascia_pubblico ? (fasce[r.fascia_pubblico] ?? r.fascia_pubblico) : t.nd,
+          r.fascia_lead ? (fasce[r.fascia_lead] ?? r.fascia_lead) : t.nonContati,
+        )}
       </p>
     </div>
   )
 }
 
 function SchedaVisivaVista({ s }: { s: SchedaVisiva }) {
+  const t = ANALISI_REEL[useLingua()].vista
   return (
     <div className="space-y-3 text-sm">
-      <p className="break-words">{s.sintesi_visiva}</p>
+      <p className="break-words" lang="it">
+        {s.sintesi_visiva}
+      </p>
       <div>
-        <p className="font-medium">Gancio: {s.gancio.livello}</p>
+        <p className="font-medium">
+          {t.gancio} {s.gancio.livello}
+        </p>
         <p className="break-words text-muted-foreground">
           {s.gancio.cosa_si_vede}
           {s.gancio.parole ? ` «${s.gancio.parole}»` : ''}
-          {s.gancio.testo_a_schermo ? ` Testo: ${s.gancio.testo_a_schermo}.` : ''} {s.gancio.perche}
+          {s.gancio.testo_a_schermo ? ` ${t.testo} ${s.gancio.testo_a_schermo}.` : ''} {s.gancio.perche}
         </p>
-        <p className="break-words">Alternativa: {s.gancio.alternativa}</p>
+        <p className="break-words">
+          {t.alternativa} {s.gancio.alternativa}
+        </p>
       </div>
       {s.sequenza.length > 0 ? (
         <div>
-          <p className="font-medium">Sequenza</p>
+          <p className="font-medium">{t.sequenza}</p>
           <ol className="space-y-1">
             {s.sequenza.map((t, i) => (
               <li key={i} className="break-words">
@@ -193,30 +222,30 @@ function SchedaVisivaVista({ s }: { s: SchedaVisiva }) {
         </div>
       ) : null}
       <p className="break-words">
-        <span className="font-medium">Ritmo:</span> {s.ritmo.livello}. {s.ritmo.osservazione}
-        {s.ritmo.calo ? ` Cala${s.ritmo.calo.secondo !== null ? ` a ${formatDurata(s.ritmo.calo.secondo)}` : ''}: ${s.ritmo.calo.cosa}` : ''}
+        <span className="font-medium">{t.ritmo}</span> {s.ritmo.livello}. {s.ritmo.osservazione}
+        {s.ritmo.calo ? ` ${t.cala}${s.ritmo.calo.secondo !== null ? ` ${t.a} ${formatDurata(s.ritmo.calo.secondo)}` : ''}: ${s.ritmo.calo.cosa}` : ''}
       </p>
       <p className="break-words">
-        <span className="font-medium">Testo a schermo:</span> {s.testo_a_schermo.osservazione}
+        <span className="font-medium">{t.testoASchermo}</span> {s.testo_a_schermo.osservazione}
       </p>
       <p className="break-words">
-        <span className="font-medium">CTA:</span> {s.cta.presente ? `${s.cta.testo ?? 'presente'}. ` : 'assente. '}
-        {s.cta.osservazione} Proposta: {s.cta.proposta}
+        <span className="font-medium">{t.cta}</span> {s.cta.presente ? `${s.cta.testo ?? t.presente}. ` : `${t.assente} `}
+        {s.cta.osservazione} {t.proposta} {s.cta.proposta}
       </p>
       <p className="break-words">
-        <span className="font-medium">Produzione:</span> luce {s.produzione.luce}, audio {s.produzione.audio}.{' '}
+        <span className="font-medium">{t.produzione}</span> {t.luce} {s.produzione.luce}, {t.audio} {s.produzione.audio}.{' '}
         {s.produzione.inquadratura} {s.produzione.osservazione}
       </p>
       <p className="break-words">
-        <span className="font-medium">Per il cliente ideale:</span> aderenza {s.icp.aderenza}.
-        {s.icp.leve_usate.length ? ` Usa: ${s.icp.leve_usate.join(', ')}.` : ''}
-        {s.icp.leve_mancanti.length ? ` Manca: ${s.icp.leve_mancanti.join(', ')}.` : ''}
-        {s.icp.frase_del_cliente ? ` Frase da usare: «${s.icp.frase_del_cliente}».` : ''}
-        {s.icp.rischio ? ` Attenzione: ${s.icp.rischio}` : ''}
+        <span className="font-medium">{t.clienteIdeale}</span> {t.aderenza} {s.icp.aderenza}.
+        {s.icp.leve_usate.length ? ` ${t.usa} ${s.icp.leve_usate.join(', ')}.` : ''}
+        {s.icp.leve_mancanti.length ? ` ${t.manca} ${s.icp.leve_mancanti.join(', ')}.` : ''}
+        {s.icp.frase_del_cliente ? ` ${t.frase} «${s.icp.frase_del_cliente}».` : ''}
+        {s.icp.rischio ? ` ${t.attenzione} ${s.icp.rischio}` : ''}
       </p>
       {s.script ? (
         <p className="break-words">
-          <span className="font-medium">Lo script del calendario:</span> {s.script.segue === 'si' ? 'seguito' : s.script.segue === 'no' ? 'non seguito' : 'seguito in parte'}. {s.script.differenze}
+          <span className="font-medium">{t.script}</span> {s.script.segue === 'si' ? t.seguito : s.script.segue === 'no' ? t.nonSeguito : t.inParte}. {s.script.differenze}
         </p>
       ) : null}
     </div>
@@ -224,10 +253,11 @@ function SchedaVisivaVista({ s }: { s: SchedaVisiva }) {
 }
 
 function ParlatoVisto({ l }: { l: LetturaLetta | null }) {
+  const t = ANALISI_REEL[useLingua()].parlato
   const esito = l?.trascrizione_esito ?? null
   if (esito === 'pronta' && (l?.segmenti?.length || l?.trascrizione)) {
     return l.segmenti?.length ? (
-      <ol className="space-y-1.5 text-sm" data-testid="reel-parlato">
+      <ol className="space-y-1.5 text-sm" data-testid="reel-parlato" lang="it">
         {l.segmenti.map((s, i) => (
           <li key={i} className="flex gap-2">
             <span className="num w-10 shrink-0 text-muted-foreground">{formatDurata(s.da)}</span>
@@ -236,21 +266,21 @@ function ParlatoVisto({ l }: { l: LetturaLetta | null }) {
         ))}
       </ol>
     ) : (
-      <p className="text-sm break-words whitespace-pre-line" data-testid="reel-parlato">
+      <p className="text-sm break-words whitespace-pre-line" data-testid="reel-parlato" lang="it">
         {l.trascrizione}
       </p>
     )
   }
   const frase =
     esito === 'senza_parlato' || esito === 'senza_audio'
-      ? 'Nessun parlato: solo musica, rumore o silenzio.'
+      ? t.senzaParlato
       : esito === 'senza_video'
-        ? 'Instagram non dà il video di questo reel (di solito per la musica protetta): niente parlato.'
+        ? t.senzaVideo
         : esito === 'spenta'
-          ? 'La trascrizione è spenta: manca la chiave su Vercel.'
+          ? t.spenta
           : esito === 'fallita'
-            ? 'La trascrizione non è riuscita.'
-            : 'Non ancora letto: parte con «Analizza».'
+            ? t.fallita
+            : t.nonLetto
   return (
     <p className="text-sm text-muted-foreground" data-testid="reel-parlato-vuoto">
       {frase}
@@ -267,6 +297,9 @@ function ParlatoVisto({ l }: { l: LetturaLetta | null }) {
 function NelPiano({ d, puoScrivere, onFatto }: { d: DettaglioReel; puoScrivere: boolean; onFatto: () => void }) {
   const opzioniToast = useOpzioniToast()
   const { opzioni } = useOpzioni()
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].piano
+  const connessione = ANALISI_REEL[lingua].scheda.connessione
   const r = d.reel
   const [inVolo, setInVolo] = useState(false)
   const [cerca, setCerca] = useState(false)
@@ -277,25 +310,25 @@ function NelPiano({ d, puoScrivere, onFatto }: { d: DettaglioReel; puoScrivere: 
     try {
       const esito = await scollegaPost({ shortcode: r.shortcode, contenuto_id: contenuto.id })
       if (!esito.ok) {
-        toast.error(esito.errore, opzioniToast)
+        toast.error(traduciErroreReel(esito.errore, lingua), opzioniToast)
         return
       }
-      toast.success(`Scollegato da «${contenuto.nome}».`, {
+      toast.success(t.scollegato(contenuto.nome), {
         ...opzioniToast,
         duration: 6000,
         action: {
-          label: 'Annulla',
+          label: t.annulla,
           onClick: () => {
             // the sign «Collegato da solo», if the run made the link, comes back by itself (database)
             const coppia = { shortcode: r.shortcode as string, contenuto_id: contenuto.id }
             void annullaScollega(coppia).then(
               (x) => {
                 if (x.ok) {
-                  toast.success('Post di nuovo collegato.', opzioniToast)
+                  toast.success(t.diNuovo, opzioniToast)
                   onFatto()
-                } else toast.error(x.errore, opzioniToast)
+                } else toast.error(traduciErroreReel(x.errore, lingua), opzioniToast)
               },
-              () => toast.error(CONNESSIONE, opzioniToast),
+              () => toast.error(connessione, opzioniToast),
             )
           },
         },
@@ -303,7 +336,7 @@ function NelPiano({ d, puoScrivere, onFatto }: { d: DettaglioReel; puoScrivere: 
       })
       onFatto()
     } catch {
-      toast.error(CONNESSIONE, opzioniToast)
+      toast.error(connessione, opzioniToast)
     } finally {
       setInVolo(false)
     }
@@ -316,7 +349,7 @@ function NelPiano({ d, puoScrivere, onFatto }: { d: DettaglioReel; puoScrivere: 
     return (
       <div className="space-y-2" data-testid="nel-piano">
         <p className="text-sm break-words">
-          Collegato a{' '}
+          {t.collegatoA}{' '}
           <Link href={`/marketing/contenuti/${c.id}`} className="underline underline-offset-4">
             {c.nome}
           </Link>
@@ -335,44 +368,42 @@ function NelPiano({ d, puoScrivere, onFatto }: { d: DettaglioReel; puoScrivere: 
             focusableWhenDisabled
             disabled={inVolo}
             aria-busy={inVolo || undefined}
-            aria-label={`Scollega il post da «${c.nome}»`}
+            aria-label={t.scollegaDa(c.nome)}
             onClick={() => void scollega({ id: c.id, nome: c.nome })}
           >
             {inVolo ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Unlink className="size-4" aria-hidden="true" />}
-            Scollega
+            {t.scollega}
           </Button>
         ) : null}
       </div>
     )
   }
-  if (r.eliminato) return <p className="text-sm text-muted-foreground">Non più su Instagram: nessun collegamento da fare.</p>
+  if (r.eliminato) return <p className="text-sm text-muted-foreground">{t.nonPiu}</p>
   if (!r.shortcode || !r.giorno) return null
   const post = { shortcode: r.shortcode, giorno: r.giorno, tipo: tipoDellaRiga(r) }
   return (
     <div className="space-y-2" data-testid="nel-piano">
       <p className="text-sm text-muted-foreground">
-        Questo post non è nel Piano editoriale. Si lega da solo quando incolli il suo link nell’URL di un contenuto; qui puoi sceglierlo a mano.
+        {t.nonNelPiano}
       </p>
       {puoScrivere ? (
         cerca ? (
           <div className="space-y-2">
             <ElencoPerCollegare post={post} onFatto={onFatto} autoFocus />
             <Button type="button" variant="ghost" className="-ml-2 h-11" onClick={() => setCerca(false)}>
-              Chiudi la ricerca
+              {t.chiudiRicerca}
             </Button>
           </div>
         ) : (
           <Button type="button" variant="outline" className="h-11" onClick={() => setCerca(true)} data-testid="collega-dal-pannello">
             <Link2 className="size-4" aria-hidden="true" />
-            Collega a un contenuto
+            {t.collegaA}
           </Button>
         )
       ) : null}
     </div>
   )
 }
-
-const ETICHETTA_PRIORITA = { alta: 'Alta', media: 'Media', bassa: 'Bassa' } as const
 
 /**
  * The ideas of Claude's analysis (a new reel on the same subject, with its script), each with «Aggiungi al calendario».
@@ -395,6 +426,8 @@ function IdeeDellAnalisi({
 }) {
   const opzioniToast = useOpzioniToast()
   const { opzioni } = useOpzioni()
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].idee
   const [inVolo, setInVolo] = useState<number | null>(null)
   const [aggiunte, setAggiunte] = useState<Record<number, { id: string; nome: string }>>({})
 
@@ -404,14 +437,14 @@ function IdeeDellAnalisi({
     try {
       const esito = await aggiungiIdeaAlCalendario({ analisi_id: idAnalisi, indice })
       if (!esito.ok) {
-        toast.error(esito.errore, opzioniToast)
+        toast.error(traduciErroreReel(esito.errore, lingua), opzioniToast)
         return
       }
       setAggiunte((prima) => ({ ...prima, [indice]: { id: esito.id, nome: esito.nome } }))
-      toast.success(`«${esito.nome}» è nel calendario, da girare.`, opzioniToast)
+      toast.success(t.nelCalendario(esito.nome), opzioniToast)
       onFatto()
     } catch {
-      toast.error(CONNESSIONE, opzioniToast)
+      toast.error(ANALISI_REEL[lingua].scheda.connessione, opzioniToast)
     } finally {
       setInVolo(null)
     }
@@ -421,36 +454,38 @@ function IdeeDellAnalisi({
   return (
     <section className="space-y-2" aria-labelledby="idee-titolo" data-testid="reel-idee">
       <h4 id="idee-titolo" className="text-sm font-medium">
-        {conRifacimento ? 'Altre idee dallo stesso tema' : 'Idee per il calendario'}
+        {conRifacimento ? t.altre : t.perIlCalendario}
       </h4>
-      <p className="text-sm text-muted-foreground">
-        {conRifacimento
-          ? 'Reel nuovi che Claude propone sullo stesso tema: non sono il rifacimento di questo reel.'
-          : 'Reel nuovi che Claude propone a partire da questo.'}
-      </p>
+      <p className="text-sm text-muted-foreground">{conRifacimento ? t.altreNota : t.nota}</p>
       <ul className="space-y-3">
         {idee.map((idea, i) => {
           const fatta = aggiunte[i] ?? fatte.find((x) => x.indice === i)
           const faId = fatta ? ('contenuto_id' in fatta ? fatta.contenuto_id : fatta.id) : null
           return (
             <li key={i} className="space-y-1.5 rounded-lg bg-muted/40 p-3 text-sm" data-testid="reel-idea">
-              <p className="font-medium break-words">{idea.name}</p>
+              <p className="font-medium break-words" lang="it">
+                {idea.name}
+              </p>
               <p className="text-muted-foreground">
                 {nomeDaValore(opzioni.reel_type, idea.reel_type)}
                 {idea.format ? ` · ${nomeDaValore(opzioni.formato, idea.format)}` : ''}
               </p>
               <p className="break-words">
-                <span className="font-medium">Gancio:</span> {idea.gancio}
+                <span className="font-medium">{t.gancio}</span> <span lang="it">{idea.gancio}</span>
               </p>
-              <p className="break-words">{idea.messaggio}</p>
+              <p className="break-words" lang="it">
+                {idea.messaggio}
+              </p>
               <p className="break-words text-muted-foreground">
                 Hook: {idea.script.hook} {idea.script.righe.length ? `· ${idea.script.righe.join(' · ')}` : ''} · CTA: {idea.script.cta}
               </p>
-              <p className="break-words text-muted-foreground">Perché: {idea.perche}</p>
+              <p className="break-words text-muted-foreground">
+                {t.perche} <span lang="it">{idea.perche}</span>
+              </p>
               {faId ? (
                 <Link href={`/marketing/contenuti/${faId}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm underline underline-offset-4">
                   <CircleCheck className="size-4 text-status-ok" aria-hidden="true" />
-                  Già nel calendario
+                  {t.giaNel}
                 </Link>
               ) : puoScrivere ? (
                 <Button
@@ -464,7 +499,7 @@ function IdeeDellAnalisi({
                   data-testid="aggiungi-idea"
                 >
                   {inVolo === i ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarPlus className="size-4" aria-hidden="true" />}
-                  Aggiungi al calendario
+                  {t.aggiungi}
                   <span className="sr-only">: {idea.name}</span>
                 </Button>
               ) : null}
@@ -478,6 +513,9 @@ function IdeeDellAnalisi({
 
 /** «Perché»: the reasons, in the order they are read: Claude's summary, what worked, what to improve, the penalties, the criteria. */
 function Perche({ d }: { d: DettaglioReel }) {
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].perche
+  const ti = ANALISI_REEL[lingua].idee
   const analisi = d.analisi
   const c = analisi?.contenuto ?? null
   const p = d.punteggio?.punteggio ?? null
@@ -489,27 +527,34 @@ function Perche({ d }: { d: DettaglioReel }) {
       {c ? (
         <div className="space-y-2" data-testid="reel-analisi-pronta">
           <p className="num text-sm text-muted-foreground">
-            {analisi?.finita_il ? `Analisi del ${new Date(analisi.finita_il).toLocaleDateString('it-IT')}` : 'Analisi'}
-            {analisi?.eta_ore !== null && analisi?.eta_ore !== undefined ? `, a ${Math.round(analisi.eta_ore / 24)} giorni dalla pubblicazione` : ''}
-            {analisi?.verdetto ? ` · verdetto di allora: ${analisi.verdetto}` : ''}
+            {analisi?.finita_il ? t.analisiDel(giornoDi(analisi.finita_il, lingua)) : t.analisi}
+            {analisi?.eta_ore !== null && analisi?.eta_ore !== undefined ? t.aGiorni(Math.round(analisi.eta_ore / 24)) : ''}
+            {analisi?.verdetto ? t.verdettoAllora(verdettoIn(analisi.verdetto, lingua)) : ''}
           </p>
-          <p className="text-sm break-words">{c.sintesi}</p>
-          <p className="text-sm break-words text-muted-foreground">{c.perche_verdetto}</p>
+          <p className="text-sm break-words" lang="it">
+            {c.sintesi}
+          </p>
+          <p className="text-sm break-words text-muted-foreground" lang="it">
+            {c.perche_verdetto}
+          </p>
         </div>
       ) : null}
       {forza.length > 0 ? (
         <div className="space-y-1.5">
-          <h4 className="text-sm font-medium">Cosa ha funzionato</h4>
+          <h4 className="text-sm font-medium">{t.funzionato}</h4>
           <Elenco voci={forza} />
         </div>
       ) : null}
       {c && c.da_migliorare.length > 0 ? (
         <div className="space-y-1.5">
-          <h4 className="text-sm font-medium">Da migliorare</h4>
+          <h4 className="text-sm font-medium">{t.migliorare}</h4>
           <ul className="space-y-1.5 text-sm">
             {c.da_migliorare.map((m, i) => (
               <li key={i} className="break-words">
-                <span className="text-muted-foreground">{ETICHETTA_PRIORITA[m.priorita]}.</span> {m.cosa} <span className="text-muted-foreground">Come: {m.come}</span>
+                <span className="text-muted-foreground">{ti.priorita[m.priorita]}.</span> <span lang="it">{m.cosa}</span>{' '}
+                <span className="text-muted-foreground">
+                  {t.come} <span lang="it">{m.come}</span>
+                </span>
               </li>
             ))}
           </ul>
@@ -517,8 +562,10 @@ function Perche({ d }: { d: DettaglioReel }) {
       ) : null}
       {c?.dai_lead ? (
         <div className="space-y-1.5">
-          <h4 className="text-sm font-medium">Cosa dicono i lead</h4>
-          <p className="text-sm break-words">{c.dai_lead}</p>
+          <h4 className="text-sm font-medium">{t.lead}</h4>
+          <p className="text-sm break-words" lang="it">
+            {c.dai_lead}
+          </p>
         </div>
       ) : null}
       {p ? (
@@ -526,14 +573,15 @@ function Perche({ d }: { d: DettaglioReel }) {
           <PenalitaDelPunteggio p={p} />
           <CriteriDelPunteggio p={p} />
           <p className="num text-sm text-muted-foreground">
-            Valutato come {ETICHETTA_TIPO[p.tipo]}, {p.tipo_origine === 'dichiarato' ? 'dal Reel Type del calendario' : 'dedotto da Claude'}
+            {t.valutatoCome(t.tipi[p.tipo])}
+            {p.tipo_origine === 'dichiarato' ? t.dichiarato : t.dedotto}
             {p.motivo_classificazione ? `: ${p.motivo_classificazione}` : ''}
-            {d.punteggio?.finita_il ? ` · fatto il ${new Date(d.punteggio.finita_il).toLocaleDateString('it-IT')}` : ''}
-            {d.punteggio?.eta_ore !== null && d.punteggio?.eta_ore !== undefined ? `, a ${Math.round(d.punteggio.eta_ore / 24)} giorni dalla pubblicazione` : ''}. Somma dei
-            criteri {numero(p.totale_grezzo)}
-            {p.penalita_totali !== 0 ? `, penalità ${p.penalita_totali}` : ''}
+            {d.punteggio?.finita_il ? t.fattoIl(giornoDi(d.punteggio.finita_il, lingua)) : ''}
+            {d.punteggio?.eta_ore !== null && d.punteggio?.eta_ore !== undefined ? t.aGiorni(Math.round(d.punteggio.eta_ore / 24)) : ''}
+            {t.somma(numero(p.totale_grezzo, lingua))}
+            {p.penalita_totali !== 0 ? t.penalita(p.penalita_totali) : ''}
             {p.limiti_applicati.length > 0 ? `. ${p.limiti_applicati.join('. ')}` : ''}.
-            {fascia && intervallo ? ` Fascia della guida: ${fascia.etichetta} (${intervallo.da}-${intervallo.a}).` : ''}
+            {fascia && intervallo ? t.fascia(fascia.etichetta, intervallo.da, intervallo.a) : ''}
           </p>
         </>
       ) : null}
@@ -557,29 +605,31 @@ function NumeriTab({
   puoScrivere: boolean
   onFatto: () => void
 }) {
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].schedaNumeri
   return (
     <div className="space-y-5" data-testid="reel-tab-numeri">
-      <Sezione id="numeri" titolo="Come è andato">
+      <Sezione id="numeri" titolo={t.andato}>
         <NumeriReel r={r} />
       </Sezione>
       {eReel(r) ? (
-        <Sezione id="verdetto" titolo="Verdetto dei numeri">
+        <Sezione id="verdetto" titolo={t.verdetto}>
           <Verdetto r={r} />
         </Sezione>
       ) : null}
-      <Sezione id="lead" titolo="Lead dai DM" nota="Chi ha scritto in DM dopo questo reel: i primi 14 giorni, contati dall’Insight.">
+      <Sezione id="lead" titolo={t.lead} nota={t.leadNota}>
         <p className="num text-sm" data-testid="reel-lead-valore">
-          {parolaLead(r)}
+          {lingua === 'it' ? parolaLead(r) : parolaLeadEn(r)}
         </p>
       </Sezione>
       {d ? (
-        <Sezione id="calendario" titolo="Nel Piano editoriale">
+        <Sezione id="calendario" titolo={t.piano}>
           <NelPiano d={d} puoScrivere={puoScrivere} onFatto={onFatto} />
         </Sezione>
       ) : null}
       {lettura?.scheda ? (
         <details className="rounded-lg border border-border p-3" data-testid="reel-scheda-visiva">
-          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">Cosa ha visto Claude</summary>
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">{t.visto}</summary>
           <div className="pt-2">
             <SchedaVisivaVista s={lettura.scheda} />
           </div>
@@ -587,7 +637,7 @@ function NumeriTab({
       ) : null}
       {d ? (
         <details className="rounded-lg border border-border p-3" data-testid="reel-parlato-blocco">
-          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">Parlato</summary>
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">{t.parlato}</summary>
           <div className="pt-2">
             <ParlatoVisto l={lettura} />
           </div>
@@ -628,6 +678,8 @@ function BloccoCosaFare({
   onRileggi: () => void
   onVediRifacimento: () => void
 }) {
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].cosaFare
   const punteggio = dettaglio?.punteggio ?? null
   const p = punteggio?.punteggio ?? null
   const totale = p?.totale ?? r.punteggio_totale
@@ -640,7 +692,7 @@ function BloccoCosaFare({
     criteriSotto7: p ? p.criteri.filter((c) => c.voto < 7).length : null,
     statoAnalisi,
     eliminato: r.eliminato === true,
-  })
+  }, lingua)
   const Icona = fascia ? ICONA_FASCIA[fascia.codice] : null
   const colore = fascia ? COLORE_FASCIA[fascia.codice] : cf.tono === 'critico' ? 'text-status-critical' : 'text-foreground'
   const analisi = dettaglio?.analisi ?? null
@@ -664,7 +716,7 @@ function BloccoCosaFare({
       aria-busy={dettaglio === null}
     >
       <h3 id="cosa-fare-titolo" className="text-sm font-medium text-muted-foreground">
-        Cosa fare con questo reel
+        {t.titolo}
       </h3>
       <div className="flex items-start gap-4">
         {fascia && totale !== null && totale !== undefined ? (
@@ -672,7 +724,7 @@ function BloccoCosaFare({
             <p className="num text-5xl leading-none font-semibold text-gold" data-testid="punteggio-totale">
               {totale}
             </p>
-            <p className="num mt-1 text-xs text-muted-foreground">su 100</p>
+            <p className="num mt-1 text-xs text-muted-foreground">{t.su100}</p>
           </div>
         ) : null}
         <div className="min-w-0 space-y-1.5">
@@ -690,22 +742,22 @@ function BloccoCosaFare({
         <p className="flex items-start gap-2 text-sm" role="status" data-testid="reel-in-corso">
           <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin" aria-hidden="true" />
           <span>
-            {ultima?.stato === 'in_coda' ? 'In coda: parte a breve.' : r.lettura_stato === 'in_coda' || r.lettura_stato === 'in_corso' ? 'Claude sta guardando il reel…' : 'Claude la sta facendo…'}{' '}
-            Di solito servono pochi minuti; la pagina si aggiorna da sola.
+            {ultima?.stato === 'in_coda' ? t.inCoda : r.lettura_stato === 'in_coda' || r.lettura_stato === 'in_corso' ? t.guardando : t.facendo}{' '}
+            {t.pochiMinuti}
           </span>
         </p>
       ) : null}
       {ultima?.stato === 'fallita' ? (
         <p className="flex items-start gap-2 text-sm text-status-critical" role="alert" data-testid="reel-fallita">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {ultima.errore ?? 'L’analisi non è riuscita.'}
+          {ultima.errore ? traduciErroreReel(ultima.errore, lingua) : t.fallita}
         </p>
       ) : null}
 
       {p ? <ProblemiDaSistemare p={p} /> : null}
 
       {dettaglio === null ? (
-        <p className="text-sm text-muted-foreground">Carico il resto…</p>
+        <p className="text-sm text-muted-foreground">{t.caricoResto}</p>
       ) : p && punteggio ? (
         <>
           {cf.azione === 'aggiungi_rifacimento' && p.rifacimento.script_riscritto && puoScrivere ? (
@@ -713,7 +765,7 @@ function BloccoCosaFare({
           ) : null}
           {cf.azione === 'vedi_rifacimento' ? (
             <Button type="button" className="h-11 w-full sm:w-auto" onClick={onVediRifacimento} data-testid="vedi-rifacimento">
-              Vedi come ritoccarlo
+              {t.vediRitocco}
             </Button>
           ) : null}
         </>
@@ -722,24 +774,21 @@ function BloccoCosaFare({
           {nonRiuscito ? (
             <p className="flex items-start gap-2 text-sm text-status-warning" role="status" data-testid="punteggio-non-riuscito">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Il punteggio dell’ultima analisi non è riuscito. L’analisi c’è: la leggi in «Perché».
+              {t.punteggioNonRiuscito}
             </p>
           ) : analisi ? (
-            <p className="text-sm text-muted-foreground">Questo reel è stato analizzato prima del punteggio.</p>
+            <p className="text-sm text-muted-foreground">{t.primaDelPunteggio}</p>
           ) : null}
           {puoAnalizzare ? (
             <>
               <p className="text-sm text-muted-foreground" data-testid="reel-senza-analisi">
-                {analisi
-                  ? 'Premendo «Dai il punteggio» Claude rifà l’analisi e dà il punteggio.'
-                  : 'Premendo «Analizza» Claude guarda il video, ascolta il parlato, scrive l’analisi e dà il punteggio.'}{' '}
-                Servono pochi minuti; costo stimato circa {usd(COSTO_STIMATO_PER_REEL_USD)}.
+                {analisi ? t.premendoPunteggio : t.premendoAnalizza} {t.costo(usdIn(COSTO_STIMATO_PER_REEL_USD, lingua))}
               </p>
               <AnalizzaReel mediaId={r.media_id as string} etichetta={etichettaAnalizza} onFatto={onRileggi} variante="default" />
             </>
           ) : (
             <p className="text-sm text-muted-foreground" data-testid="reel-senza-permesso">
-              Le analisi le chiedono l’admin e il marketing: appena è pronta la leggi qui.
+              {t.senzaPermesso}
             </p>
           )}
         </div>
@@ -747,12 +796,12 @@ function BloccoCosaFare({
 
       {p && pubblicabile && r.media_id ? (
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border pt-3">
-          <p className="text-xs text-muted-foreground">Rifà lettura, analisi e punteggio: circa {usd(COSTO_STIMATO_PER_REEL_USD)}.</p>
+          <p className="text-xs text-muted-foreground">{t.rifa(usdIn(COSTO_STIMATO_PER_REEL_USD, lingua))}</p>
           <AnalizzaReel mediaId={r.media_id} etichetta="Analizza di nuovo" onFatto={onRileggi} variante="ghost" />
         </div>
       ) : null}
       {p && !puoAnalizzare ? (
-        <p className="border-t border-border pt-3 text-xs text-muted-foreground">Le analisi le chiedono l’admin e il marketing: tu le leggi qui.</p>
+        <p className="border-t border-border pt-3 text-xs text-muted-foreground">{t.tuLeLeggi}</p>
       ) : null}
     </section>
   )
@@ -783,6 +832,8 @@ export function SchedaReel({
   titoloRef: Ref<HTMLHeadingElement>
   onRileggi: () => void
 }) {
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].scheda
   const r = dettaglio?.reel ?? riga
   const tipo = tipoDellaRiga(r)
   // a carousel or a photo has numbers and a place in the plan, but no verdict, score or analysis (the guide scores reels)
@@ -793,8 +844,9 @@ export function SchedaReel({
   const inCorso = ultima?.stato === 'in_coda' || ultima?.stato === 'in_corso'
   const leggendo = r.lettura_stato === 'in_coda' || r.lettura_stato === 'in_corso'
   const inLavoro = inCorso || leggendo
+  const frasiFonti = lingua === 'it' ? fraseFonti : fraseFontiEn
   const fonti = lettura
-    ? fraseFonti({ fotogrammi: lettura.fotogrammi, video: (lettura.video as never) ?? null, trascrizione_esito: lettura.trascrizione_esito as never, fonte_visione: lettura.fonte_visione as never })
+    ? frasiFonti({ fotogrammi: lettura.fotogrammi, video: (lettura.video as never) ?? null, trascrizione_esito: lettura.trascrizione_esito as never, fonte_visione: lettura.fonte_visione as never })
     : null
   const statoAnalisi: StatoAnalisiCosaFare | null = inLavoro
     ? 'in_corso'
@@ -832,10 +884,10 @@ export function SchedaReel({
           <CopertinaPost url={r.copertina_url} tipo={tipo} className="h-14 w-[2.625rem]" />
           <div className="min-w-0 space-y-0.5">
             <SheetTitle ref={titoloRef} tabIndex={-1} className="line-clamp-2 text-base break-words outline-none">
-              {titoloReel(r)}
+              {titoloReel(r, lingua)}
             </SheetTitle>
             <SheetDescription className="num">
-              {r.pubblicato_il ? quandoPubblicato(r.pubblicato_il) : ''}
+              {r.pubblicato_il ? quandoPubblicato(r.pubblicato_il, lingua) : ''}
               {r.durata_ms ? ` · ${formatDurata(r.durata_ms / 1000)}` : ''}
             </SheetDescription>
             {r.permalink ? <ApriSuInstagram href={r.permalink} className="-ml-2" /> : null}
@@ -847,10 +899,10 @@ export function SchedaReel({
         {errore ? (
           <div role="alert" className="flex flex-wrap items-center gap-2 text-sm" data-testid="reel-errore">
             <TriangleAlert className="size-4 shrink-0 text-status-critical" aria-hidden="true" />
-            <span>Il dettaglio del post non si è caricato.</span>
+            <span>{t.nonCaricato}</span>
             <Button type="button" variant="outline" className="h-11" onClick={onRileggi}>
               <RotateCw className="size-4" aria-hidden="true" />
-              Riprova
+              {t.riprova}
             </Button>
           </div>
         ) : null}
@@ -870,7 +922,7 @@ export function SchedaReel({
 
         {dettaglio === null && !errore ? (
           <p className="text-sm text-muted-foreground" aria-busy="true">
-            Carico i numeri e l’analisi…
+            {t.carico}
           </p>
         ) : null}
 
@@ -878,10 +930,10 @@ export function SchedaReel({
           <div ref={schedeRef} className="scroll-mt-24">
             {schede.length > 1 ? (
               <Tabs value={attiva} onValueChange={(v) => eSchedaReel(v) && vaiA(v)}>
-                <TabsList variant="line" aria-label="Dettagli del reel" className="group-data-horizontal/tabs:h-11 w-full gap-0 rounded-none border-b border-border p-0">
+                <TabsList variant="line" aria-label={t.dettagli} className="group-data-horizontal/tabs:h-11 w-full gap-0 rounded-none border-b border-border p-0">
                   {schede.map((s) => (
                     <TabsTrigger key={s} value={s} className="h-11 flex-1 rounded-none text-sm" data-testid={`scheda-${s}`}>
-                      {s === 'rifare' ? 'Come rifarlo' : s === 'perche' ? 'Perché' : 'Numeri'}
+                      {s === 'rifare' ? t.rifare : s === 'perche' ? t.perche : t.numeri}
                     </TabsTrigger>
                   ))}
                 </TabsList>

@@ -3,20 +3,18 @@
 import { CircleAlert } from 'lucide-react'
 import { useId } from 'react'
 
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { ScalaCommento } from '@/components/setter/scala-commento'
 import { Textarea } from '@/components/ui/textarea'
 import {
   ANCORA_COMMENTO,
   CAMPI_OBBLIGATORI,
-  COMMENTO,
-  COMMENTO_OBBLIGATORIO,
-  SCALE_COMMENTO,
-  TESTI_COMMENTO,
   risposteMancanti,
   type CampoObbligatorio,
   type CampoScala,
   type CampoTesto,
 } from '@/lib/setting/commento'
+import { COMMENTO_GIORNATA } from '@/lib/i18n/testi/commento-giornata'
 import { cn } from '@/lib/utils'
 
 export type ValoriCommento = {
@@ -43,10 +41,12 @@ const HOVER = {
   manca: 'group-hover:bg-status-critical/10',
 } satisfies Record<StatoCommento, string>
 
-const PAROLE = {
-  da_completare: { testo: COMMENTO.daCompletare, spiegazione: COMMENTO.daCompletareSpiegazione },
-  manca: { testo: COMMENTO_OBBLIGATORIO.manca, spiegazione: COMMENTO_OBBLIGATORIO.mancaSpiegazione },
-} satisfies Record<StatoCommento, { testo: string; spiegazione: string }>
+function paroleDi(t: (typeof COMMENTO_GIORNATA)['it']): Record<StatoCommento, { testo: string; spiegazione: string }> {
+  return {
+    da_completare: { testo: t.commento.daCompletare, spiegazione: t.commento.daCompletareSpiegazione },
+    manca: { testo: t.obbligatorio.manca, spiegazione: t.obbligatorio.mancaSpiegazione },
+  }
+}
 
 /**
  * "Da completare" (a day before 08/10/2026: the two scales, asked) or "Manca
@@ -67,7 +67,7 @@ export function DaCompletare({
   stato?: StatoCommento
 }) {
   const id = useId()
-  const { testo, spiegazione } = PAROLE[stato]
+  const { testo, spiegazione } = paroleDi(useTesti(COMMENTO_GIORNATA))[stato]
   const classi = cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium', PILLOLA[stato])
   const contenuto = (
     <>
@@ -140,6 +140,7 @@ export function CommentoReport({
   variante = 'report',
 }: Props) {
   const id = useId()
+  const t = useTesti(COMMENTO_GIORNATA)
   const report = variante === 'report'
   const richiesta = report && obbligatorio
   // on a day to complete, each required answer still missing says so
@@ -160,56 +161,57 @@ export function CommentoReport({
           id={`${id}-titolo`}
           className={report ? 'text-xs font-medium tracking-wide text-muted-foreground uppercase' : 'text-sm font-medium'}
         >
-          {COMMENTO.titolo}
+          {t.commento.titolo}
         </h3>
         {stato ? <DaCompletare testId="da-completare-sezione" stato={stato} /> : null}
       </div>
       <p className={cn('text-xs leading-snug text-muted-foreground', report && 'px-1')}>
-        {!report ? COMMENTO.descrizioneAdmin : richiesta ? COMMENTO_OBBLIGATORIO.descrizione : COMMENTO.descrizione}
+        {!report ? t.commento.descrizioneAdmin : richiesta ? t.obbligatorio.descrizione : t.commento.descrizione}
       </p>
 
       <div className={cn('space-y-4', report && 'rounded-xl bg-card p-3')}>
-        {SCALE_COMMENTO.map((scala) => (
+        {t.scale.map((scala) => (
           <ScalaCommento
             key={scala.campo}
             scala={scala}
             valore={valori[scala.campo]}
             onCambia={(v) => onScala(scala.campo, v)}
             obbligatoria={obbligatoria(scala.campo)}
-            errore={mancanti.has(scala.campo) ? COMMENTO_OBBLIGATORIO.errore[scala.campo] : null}
+            errore={mancanti.has(scala.campo) ? t.obbligatorio.errore[scala.campo] : null}
           />
         ))}
       </div>
 
       <div className={cn('space-y-3', report && 'rounded-xl bg-card p-3')}>
-        {TESTI_COMMENTO.map((t) => {
-          const errore = t.campo === 'cosa_frenava' && mancanti.has(t.campo) ? COMMENTO_OBBLIGATORIO.errore.cosa_frenava : null
-          const richiesto = obbligatoria(t.campo)
+        {t.testi.map((testo) => {
+          const errore =
+            testo.campo === 'cosa_frenava' && mancanti.has(testo.campo) ? t.obbligatorio.errore.cosa_frenava : null
+          const richiesto = obbligatoria(testo.campo)
           return (
-            <div key={t.campo} className="space-y-1.5">
-              <label htmlFor={`${id}-${t.campo}`} className="block text-sm font-medium">
-                {t.domanda}{' '}
+            <div key={testo.campo} className="space-y-1.5">
+              <label htmlFor={`${id}-${testo.campo}`} className="block text-sm font-medium">
+                {testo.domanda}{' '}
                 <span className="font-normal text-muted-foreground">
-                  ({richiesto ? COMMENTO_OBBLIGATORIO.obbligatoria : COMMENTO.facoltativo})
+                  ({richiesto ? t.obbligatorio.obbligatoria : t.commento.facoltativo})
                 </span>
               </label>
               <Textarea
-                id={`${id}-${t.campo}`}
-                value={valori[t.campo] ?? ''}
-                onChange={(e) => onTesto(t.campo, e.currentTarget.value)}
+                id={`${id}-${testo.campo}`}
+                value={valori[testo.campo] ?? ''}
+                onChange={(e) => onTesto(testo.campo, e.currentTarget.value)}
                 onBlur={onFineTesto}
-                placeholder={t.placeholder}
-                maxLength={t.massimo}
+                placeholder={testo.placeholder}
+                maxLength={testo.massimo}
                 rows={2}
                 aria-required={richiesto || undefined}
                 aria-invalid={errore ? true : undefined}
-                aria-describedby={errore ? `${id}-${t.campo}-errore` : undefined}
+                aria-describedby={errore ? `${id}-${testo.campo}-errore` : undefined}
               />
               {errore ? (
                 <p
-                  id={`${id}-${t.campo}-errore`}
+                  id={`${id}-${testo.campo}-errore`}
                   className="flex items-start gap-1.5 text-xs text-status-critical"
-                  data-testid={`errore-${t.campo}`}
+                  data-testid={`errore-${testo.campo}`}
                 >
                   <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />
                   {errore}

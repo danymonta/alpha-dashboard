@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useEffect, useId, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { useTesti } from '@/components/i18n/lingua-provider'
+import { POST_INSTAGRAM } from '@/lib/i18n/testi/post-instagram'
 import { hrefAnalisiReel } from '@/lib/marketing/analisi/pannello'
 import { formatDurata } from '@/lib/marketing/analisi/parole'
 
@@ -15,12 +17,22 @@ type Stato =
   | { stato: 'errore' }
   | { stato: 'pronto'; esito: string | null; trascrizione: string | null; segmenti: Segmento[] | null }
 
-const FRASE_VUOTO: Record<string, string> = {
-  senza_parlato: 'Nessun parlato: solo musica, rumore o silenzio.',
-  senza_audio: 'Nessun parlato: solo musica, rumore o silenzio.',
-  senza_video: 'Instagram non dà il video di questo reel (di solito per la musica protetta): niente parlato.',
-  spenta: 'La trascrizione è spenta: manca la chiave su Vercel.',
-  fallita: 'La trascrizione non è riuscita.',
+type ParoleParlato = (typeof POST_INSTAGRAM)['it']['parlato']
+
+function fraseVuoto(esito: string | null, t: ParoleParlato): string | null {
+  switch (esito) {
+    case 'senza_parlato':
+    case 'senza_audio':
+      return t.senzaParlato
+    case 'senza_video':
+      return t.senzaVideo
+    case 'spenta':
+      return t.spenta
+    case 'fallita':
+      return t.fallita
+    default:
+      return null
+  }
 }
 
 /**
@@ -32,6 +44,7 @@ const FRASE_VUOTO: Record<string, string> = {
  */
 export function ParlatoDelPost({ mediaId, className }: { mediaId: string; className?: string }) {
   const id = useId()
+  const t = useTesti(POST_INSTAGRAM).parlato
   const [stato, setStato] = useState<Stato>({ stato: 'chiuso' })
   const [aperto, setAperto] = useState(false)
   const controllo = useRef<AbortController | null>(null)
@@ -78,26 +91,26 @@ export function ParlatoDelPost({ mediaId, className }: { mediaId: string; classN
         data-testid="parlato-apri"
       >
         <ChevronDown className={`size-4 transition-transform ${aperto ? 'rotate-180' : ''}`} aria-hidden="true" />
-        Parlato
+        {t.titolo}
       </Button>
       {aperto ? (
         <div id={id} className="space-y-2 pb-1 pl-2 text-sm" data-testid="parlato">
           {stato.stato === 'carico' ? (
             <p className="flex items-center gap-2 text-muted-foreground" aria-busy="true">
               <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-              Carico il parlato…
+              {t.carico}
             </p>
           ) : stato.stato === 'errore' ? (
             <p role="alert" className="flex flex-wrap items-center gap-2">
-              Il parlato non si è caricato.
+              {t.nonCaricato}
               <Button type="button" variant="outline" className="h-11" onClick={() => void carica()}>
-                Riprova
+                {t.riprova}
               </Button>
             </p>
           ) : stato.stato === 'pronto' ? (
             stato.esito === 'pronta' && (stato.segmenti?.length || stato.trascrizione) ? (
               stato.segmenti?.length ? (
-                <ol className="space-y-1.5">
+                <ol className="space-y-1.5" lang="it">
                   {stato.segmenti.map((s, i) => (
                     <li key={i} className="flex gap-2">
                       <span className="num w-10 shrink-0 text-muted-foreground">{formatDurata(s.da)}</span>
@@ -106,14 +119,16 @@ export function ParlatoDelPost({ mediaId, className }: { mediaId: string; classN
                   ))}
                 </ol>
               ) : (
-                <p className="break-words whitespace-pre-line">{stato.trascrizione}</p>
+                <p className="break-words whitespace-pre-line" lang="it">
+                  {stato.trascrizione}
+                </p>
               )
             ) : (
-              <p className="text-muted-foreground">{(stato.esito && FRASE_VUOTO[stato.esito]) || 'Ancora non letto: parte con «Analizza» nel pannello del reel, in Pubblicati.'}</p>
+              <p className="text-muted-foreground">{fraseVuoto(stato.esito, t) || t.nonLetto}</p>
             )
           ) : null}
           <Link href={hrefAnalisiReel(mediaId)} className="inline-flex min-h-11 items-center text-sm underline underline-offset-4">
-            Apri nei Pubblicati
+            {t.apriPubblicati}
           </Link>
         </div>
       ) : null}

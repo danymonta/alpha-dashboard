@@ -20,19 +20,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { formatImportoInput } from '@/lib/format'
+import { traduciErrore, tradotto } from '@/lib/i18n/testi/errori-economics'
+import { MODIFICA_CALL, NOTE_CALL } from '@/lib/i18n/testi/esito'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import { cn } from '@/lib/utils'
+import { MASSIMO_NOTE_CLOSER, MASSIMO_NOTE_SETTER } from '@/lib/setting/commento'
 import {
-  ESITO_DEL_CLOSER,
-  MASSIMO_NOTE_CLOSER,
-  MASSIMO_NOTE_SETTER,
-  MOTIVO_NON_CHIUSURA,
-  NOTE_CLOSER,
-  NOTE_SETTER,
-} from '@/lib/setting/commento'
-import {
-  ETICHETTA_PERFORMANCE,
-  ETICHETTA_TIPO_CALL,
   PERFORMANCE,
   TIPI_CALL,
   modificaCallSchema,
@@ -41,8 +36,6 @@ import {
   type TipoCall,
 } from '@/lib/validation/call'
 
-const OPZIONI_TIPO = TIPI_CALL.map((t) => ({ valore: t, etichetta: ETICHETTA_TIPO_CALL[t] }))
-const OPZIONI_PERFORMANCE = PERFORMANCE.map((p) => ({ valore: p, etichetta: ETICHETTA_PERFORMANCE[p] }))
 
 export type CallModificabile = {
   id: string
@@ -110,6 +103,16 @@ export function ModificaCall({
   eliminabile?: boolean
 }) {
   const [aperto, setAperto] = useState(false)
+  const lingua = useLingua()
+  const t = MODIFICA_CALL[lingua]
+  const {
+    motivo: MOTIVO_NON_CHIUSURA,
+    noteCloser: NOTE_CLOSER,
+    noteSetter: NOTE_SETTER,
+    esitoDelCloser: ESITO_DEL_CLOSER,
+  } = NOTE_CALL[lingua]
+  const OPZIONI_TIPO = TIPI_CALL.map((v) => ({ valore: v, etichetta: ETICHETTE[lingua].tipoCall[v] }))
+  const OPZIONI_PERFORMANCE = PERFORMANCE.map((p) => ({ valore: p, etichetta: ETICHETTE[lingua].performance[p] }))
   const { errore, setErrore, salva } = useSalvataggio()
   const {
     register,
@@ -122,7 +125,7 @@ export function ModificaCall({
   })
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => modificaCall(valori), 'Call aggiornata')) setAperto(false)
+    if (await salva(() => modificaCall(valori), t.aggiornata)) setAperto(false)
   })
 
   return (
@@ -140,21 +143,21 @@ export function ModificaCall({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={`Modifica la call con ${nomeLead}`}
+          aria-label={t.nome(nomeLead)}
           className="size-11 shrink-0 text-muted-foreground"
         />
       }
       contenutoTrigger={<Pencil className="size-4" aria-hidden="true" />}
-      titolo={`Call con ${nomeLead}`}
-      descrizione={`${conDettagli ? (sceltaTipo ? 'Tipo e note' : 'Le note') : 'Le tue note'} si correggono quando vuoi${
+      titolo={t.titolo(nomeLead)}
+      descrizione={`${conDettagli ? (sceltaTipo ? t.tipoENote : t.leNote) : t.leTueNote}${t.siCorreggono}${
         // read only: the reason sits under them; «Sposta» only where the card has it
-        quandoBloccato ? '' : `, data e ora se sono sbagliate${conSposta ? ': per spostare la call usa «Sposta»' : ''}`
-      }. ${conDettagli ? 'L’esito si registra dalla scheda.' : ESITO_DEL_CLOSER}`}
+        quandoBloccato ? '' : `${t.dataEOra}${conSposta ? t.perSpostare : ''}`
+      }. ${conDettagli ? t.esitoDallaScheda : ESITO_DEL_CLOSER}`}
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
-            <Label htmlFor={`mc-data-${call.id}`}>Data</Label>
+            <Label htmlFor={`mc-data-${call.id}`}>{t.data}</Label>
             <Input
               id={`mc-data-${call.id}`}
               type="date"
@@ -167,7 +170,7 @@ export function ModificaCall({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mc-ora-${call.id}`}>Ora</Label>
+            <Label htmlFor={`mc-ora-${call.id}`}>{t.ora}</Label>
             <Input
               id={`mc-ora-${call.id}`}
               type="time"
@@ -183,18 +186,18 @@ export function ModificaCall({
         </div>
         {quandoBloccato ? (
           <p id={`mc-quando-bloccato-${call.id}`} className="text-xs text-muted-foreground" data-testid="quando-bloccato">
-            {quandoBloccato}
+            {traduciErrore(quandoBloccato, lingua)}
           </p>
         ) : null}
-        <ErroreCampo id={`mc-quando-errore-${call.id}`} messaggio={errors.data?.message ?? errors.ora?.message} />
+        <ErroreCampo id={`mc-quando-errore-${call.id}`} messaggio={traduciErrore(errors.data?.message ?? errors.ora?.message, lingua)} />
 
         {sceltaTipo ? (
-          <SceltaRapida legenda="Tipo di call" opzioni={OPZIONI_TIPO} registrazione={register('tipo')} colonne={2} />
+          <SceltaRapida legenda={t.tipoCall} opzioni={OPZIONI_TIPO} registrazione={register('tipo')} colonne={2} />
         ) : null}
 
         {closers.length > 0 ? (
           <div className="space-y-1.5">
-            <Label htmlFor={`mc-closer-${call.id}`}>Closer</Label>
+            <Label htmlFor={`mc-closer-${call.id}`}>{t.closer}</Label>
             <select id={`mc-closer-${call.id}`} className={CLASSE_SELECT} {...register('closer_id')}>
               {closers.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -202,7 +205,7 @@ export function ModificaCall({
                 </option>
               ))}
             </select>
-            <ErroreCampo id={`mc-closer-errore-${call.id}`} messaggio={errors.closer_id?.message} />
+            <ErroreCampo id={`mc-closer-errore-${call.id}`} messaggio={traduciErrore(errors.closer_id?.message, lingua)} />
           </div>
         ) : null}
 
@@ -219,7 +222,7 @@ export function ModificaCall({
               aria-describedby={errors.note ? `mc-note-errore-${call.id}` : undefined}
               {...register('note')}
             />
-            <ErroreCampo id={`mc-note-errore-${call.id}`} messaggio={errors.note?.message} />
+            <ErroreCampo id={`mc-note-errore-${call.id}`} messaggio={traduciErrore(errors.note?.message, lingua)} />
           </div>
         ) : (
           // the closer reads what the setter wrote, never changes it
@@ -241,15 +244,15 @@ export function ModificaCall({
 
         {conDettagli ? (
           <fieldset className="space-y-4 border-t border-border pt-4">
-            <legend className="sr-only">Com’è andata la call</legend>
-            <p className="text-sm font-medium">Com’è andata</p>
+            <legend className="sr-only">{t.comEAndataLegenda}</legend>
+            <p className="text-sm font-medium">{t.comEAndata}</p>
             <SceltaRapida
-              legenda="Performance"
+              legenda={t.performance}
               opzioni={OPZIONI_PERFORMANCE}
               registrazione={register('dettagli.performance')}
             />
             <div className="space-y-1.5">
-              <Label htmlFor={`mc-link-${call.id}`}>Link alla registrazione</Label>
+              <Label htmlFor={`mc-link-${call.id}`}>{t.link}</Label>
               <Input
                 id={`mc-link-${call.id}`}
                 type="url"
@@ -261,14 +264,14 @@ export function ModificaCall({
               />
               <ErroreCampo
                 id={`mc-link-errore-${call.id}`}
-                messaggio={errors.dettagli?.link_registrazione?.message}
+                messaggio={traduciErrore(errors.dettagli?.link_registrazione?.message, lingua)}
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
-                <Label htmlFor={`mc-prodotto-${call.id}`}>Prodotto proposto</Label>
+                <Label htmlFor={`mc-prodotto-${call.id}`}>{t.prodotto}</Label>
                 <select id={`mc-prodotto-${call.id}`} className={CLASSE_SELECT} {...register('dettagli.prodotto_proposto_id')}>
-                  <option value="">Nessuno</option>
+                  <option value="">{t.nessuno}</option>
                   {prodotti.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nome}
@@ -277,7 +280,7 @@ export function ModificaCall({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor={`mc-importo-${call.id}`}>Importo proposto</Label>
+                <Label htmlFor={`mc-importo-${call.id}`}>{t.importo}</Label>
                 <Input
                   id={`mc-importo-${call.id}`}
                   inputMode="decimal"
@@ -289,7 +292,7 @@ export function ModificaCall({
             </div>
             <ErroreCampo
               id={`mc-importo-errore-${call.id}`}
-              messaggio={errors.dettagli?.importo_proposto?.message}
+              messaggio={traduciErrore(errors.dettagli?.importo_proposto?.message, lingua)}
             />
             <div className="space-y-1.5">
               <Label htmlFor={`mc-note-closer-${call.id}`}>
@@ -308,25 +311,30 @@ export function ModificaCall({
               />
               <ErroreCampo
                 id={`mc-note-closer-errore-${call.id}`}
-                messaggio={errors.dettagli?.note_closer?.message}
+                messaggio={traduciErrore(errors.dettagli?.note_closer?.message, lingua)}
               />
             </div>
           </fieldset>
         ) : null}
 
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>Salva la call</BottoneSalva>
+        <ErroreModulo testo={traduciErrore(errore, lingua) ?? null} />
+        <BottoneSalva inCorso={isSubmitting}>{t.salva}</BottoneSalva>
         {eliminabile ? (
           <div className="border-t border-border pt-4">
             <Elimina
-              etichetta="Elimina la call"
-              cosa={`la call con ${nomeLead}`}
-              fatto="Call eliminata"
-              conseguenze={[
-                'Il lead resta nella pipeline.',
-                'Se da questa call è nata una vendita, la vendita resta, senza la call collegata.',
-              ]}
-              azione={() => eliminaCall({ id: call.id })}
+              etichetta={t.elimina}
+              cosa={t.cosa(nomeLead)}
+              fatto={t.eliminata}
+              // the Italian words written here as Alfire reads them (lib/alfire/conseguenze.ts, tests/alfire-scritture.test.ts)
+              conseguenze={
+                lingua === 'it'
+                  ? [
+                      'Il lead resta nella pipeline.',
+                      'Se da questa call è nata una vendita, la vendita resta, senza la call collegata.',
+                    ]
+                  : [...t.conseguenze]
+              }
+              azione={async () => tradotto(await eliminaCall({ id: call.id }), lingua)}
             />
           </div>
         ) : null}
@@ -378,7 +386,7 @@ function SolaLettura({
     <div className="space-y-1" data-testid={testId}>
       <p className="text-sm font-medium">{titolo}</p>
       {/* a quote, not a field: nothing to type here */}
-      <blockquote className="border-l-2 border-border py-0.5 pl-3 text-sm break-words whitespace-pre-line">{testo}</blockquote>
+      <blockquote lang="it" className="border-l-2 border-border py-0.5 pl-3 text-sm break-words whitespace-pre-line">{testo}</blockquote>
       {spiegazione ? <p className="text-xs text-muted-foreground">{spiegazione}</p> : null}
     </div>
   )

@@ -5,10 +5,11 @@ import type { ReactNode } from 'react'
 import { InterruttoriAnalisi, LimiteSpesaAnalisi } from '@/app/(app)/settings/instagram/analisi-client'
 import { quando } from '@/app/(app)/settings/instagram/quando'
 import { buttonVariants } from '@/components/ui/button'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { formatDollari, traduciImpostazioni } from '@/lib/i18n/testi/impostazioni'
+import { INSTAGRAM_IMPOSTAZIONI } from '@/lib/i18n/testi/instagram-impostazioni'
 import type { Situazione } from '@/lib/marketing/analisi/elenco'
 import { cn } from '@/lib/utils'
-
-const dollari = new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function Voce({ etichetta, children }: { etichetta: string; children: ReactNode }) {
   return (
@@ -18,13 +19,6 @@ function Voce({ etichetta, children }: { etichetta: string; children: ReactNode 
     </div>
   )
 }
-
-const MODO = {
-  attive: 'Accese: di notte si trascrive il parlato dei reel nuovi, un reel alla volta, senza Claude.',
-  in_pausa_spesa: 'In pausa: il limite di spesa del mese è raggiunto. Le richieste a mano si fermano allo stesso modo.',
-  ferme_chiave: 'Ferme: manca la chiave di Claude su Vercel.',
-  spente: 'Spente: il parlato si trascrive solo quando qualcuno tocca «Analizza».',
-} as const
 
 /**
  * Impostazioni › Instagram e Messenger › «Analisi dei reel» (1.36.0, CLAUDE.md
@@ -39,6 +33,7 @@ export function BloccoAnalisi({
   statisticheAttive,
   adesso,
   oggi,
+  lingua = 'it',
 }: {
   situazione: Situazione | null
   claudeConfigurato: boolean
@@ -47,7 +42,9 @@ export function BloccoAnalisi({
   statisticheAttive: boolean | null
   adesso: number
   oggi: string
+  lingua?: Lingua
 }) {
+  const t = INSTAGRAM_IMPOSTAZIONI[lingua].analisi
   const s = situazione
   const tickFermo = s?.ultimo_tick_il ? adesso - Date.parse(s.ultimo_tick_il) > 15 * 60_000 : false
   return (
@@ -59,38 +56,32 @@ export function BloccoAnalisi({
     >
       <div className="space-y-1">
         <h2 id="titolo-analisi-reel" className="text-sm font-medium">
-          Analisi dei reel
+          {t.titolo}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Quando tocchi «Analizza» su un reel, Claude lo guarda (fotogrammi e parlato), lo confronta con la mediana dei
-          tuoi e dice cosa spingere, mantenere o cambiare, con qualche idea per il calendario, e gli dà un punteggio
-          con la guida di Dany. Claude non parte mai da solo, su nessun reel. Le statistiche dei post si leggono ogni
-          mattina e il parlato dei reel nuovi si trascrive di notte (senza Claude).
-        </p>
+        <p className="text-sm text-muted-foreground">{t.descrizione}</p>
       </div>
 
       {!claudeConfigurato ? (
         <p className="flex items-start gap-2 text-sm font-medium text-status-critical" data-testid="analisi-spente">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Analisi spente: manca ANTHROPIC_API_KEY su Vercel.
+          {t.spente}
         </p>
       ) : null}
       {!voceConfigurata ? (
         <p className="flex items-start gap-2 text-sm text-status-warning">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Il parlato dei reel non si trascrive: manca ALFIRE_API_KEY su Vercel. Claude vede solo i fotogrammi.
+          {t.senzaVoce}
         </p>
       ) : null}
       {statisticheAttive === false ? (
         <p className="flex items-start gap-2 text-sm text-status-warning" data-testid="analisi-permesso">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Instagram non dà ancora le statistiche dei post: genera un nuovo token dal pannello Meta con il permesso
-          «instagram_business_manage_insights» e incollalo qui sopra.
+          {t.permesso}
         </p>
       ) : null}
 
       <dl className="divide-y divide-border">
-        <Voce etichetta="Trascrizioni automatiche">
+        <Voce etichetta={t.trascrizioni}>
           {s ? (
             <span className="inline-flex items-start gap-1.5">
               {s.automatiche === 'attive' ? (
@@ -98,44 +89,44 @@ export function BloccoAnalisi({
               ) : (
                 <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
               )}
-              <span>{MODO[s.automatiche]}</span>
+              <span>{t.modo[s.automatiche]}</span>
             </span>
           ) : (
-            <span className="text-muted-foreground">Non si legge adesso.</span>
+            <span className="text-muted-foreground">{t.nonSiLegge}</span>
           )}
         </Voce>
-        <Voce etichetta="Spesa del mese">
+        <Voce etichetta={t.spesa}>
           {s && typeof s.costo_mese === 'number' && typeof s.costo_max === 'number' ? (
             <span className="num" data-testid="analisi-costo">
-              {dollari.format(s.costo_mese)} $ di {dollari.format(s.costo_max)} $
+              {t.costo(formatDollari(s.costo_mese, lingua), formatDollari(s.costo_max, lingua))}
             </span>
           ) : (
             <span className="text-muted-foreground">–</span>
           )}
         </Voce>
-        <Voce etichetta="In coda">
+        <Voce etichetta={t.inCoda}>
           <span className="num">{s ? s.in_coda : 0}</span>
         </Voce>
-        <Voce etichetta="Ultimo passo">
+        <Voce etichetta={t.ultimoPasso}>
           {s?.ultimo_passo_il ? (
             <span className="num inline-flex items-center gap-1">
               <Clock className="size-3.5 text-muted-foreground" aria-hidden="true" />
-              {quando(s.ultimo_passo_il, oggi)}
-              {s.ultimo_esito ? ` · ${s.ultimo_esito.replace(/_/g, ' ')}` : ''}
+              {quando(s.ultimo_passo_il, oggi, lingua)}
+              {s.ultimo_esito ? ` · ${t.esitoPasso(s.ultimo_esito)}` : ''}
             </span>
           ) : (
-            <span className="text-muted-foreground">Ancora nessuno</span>
+            <span className="text-muted-foreground">{t.ancoraNessuno}</span>
           )}
           {s?.ultimo_errore ? (
             <span className="mt-1 flex items-start gap-1.5 text-status-critical" data-testid="analisi-ultimo-errore">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {s.ultimo_errore}
+              {traduciImpostazioni(s.ultimo_errore, lingua)}
             </span>
           ) : null}
           {tickFermo ? (
             <span className="mt-1 flex items-start gap-1.5 text-status-warning">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Il pianificatore non risponde da più di 15 minuti: le analisi sono ferme.
+              {t.fermo}
             </span>
           ) : null}
         </Voce>
@@ -150,7 +141,7 @@ export function BloccoAnalisi({
 
       <Link href="/marketing/pubblicati" className={cn(buttonVariants({ variant: 'outline' }), 'h-11 w-full sm:w-auto')}>
         <Clapperboard className="size-4" aria-hidden="true" />
-        Apri i Pubblicati
+        {t.apriPubblicati}
       </Link>
     </section>
   )

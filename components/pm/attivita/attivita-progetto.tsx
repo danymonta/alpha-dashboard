@@ -11,7 +11,9 @@ import { RigaTask } from '@/components/pm/attivita/riga-task'
 import { BarraAvanzamento } from '@/components/pm/stato-progetto'
 import { LinkBottone } from '@/components/link-bottone'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { formatData } from '@/lib/format'
+import { useFormato, useTesti } from '@/components/i18n/lingua-provider'
+import type { Formato } from '@/lib/format'
+import { ATTIVITA } from '@/lib/i18n/testi/attivita'
 import {
   alberoTask,
   filtroAttivo,
@@ -22,10 +24,15 @@ import {
 } from '@/lib/progetti'
 import { cn } from '@/lib/utils'
 
-function periodo(inizio: string | null, fine: string | null): string | null {
+function periodo(
+  inizio: string | null,
+  fine: string | null,
+  t: (typeof ATTIVITA)['it'],
+  formatData: Formato['formatData'],
+): string | null {
   if (inizio && fine) return `${formatData(inizio)} → ${formatData(fine)}`
-  if (inizio) return `dal ${formatData(inizio)}`
-  if (fine) return `entro il ${formatData(fine)}`
+  if (inizio) return t.dal(formatData(inizio))
+  if (fine) return t.entroIl(formatData(fine))
   return null
 }
 
@@ -55,6 +62,7 @@ export function AttivitaProgetto({
   // tasks, read through RLS like the others, opens by itself; anything else is
   // a task gone or not mine to read. Read from the address as it is now, so a
   // closed sheet (?task dropped) and the same link tapped again both follow
+  const t = useTesti(ATTIVITA)
   const richiesto = useSearchParams().get('task')
   const taskDaAprire = richiesto !== null && tasks.some((t) => t.id === richiesto) ? richiesto : null
 
@@ -107,16 +115,16 @@ export function AttivitaProgetto({
   const avvisi = (
     <>
       {taskMancante ? (
-        <AvvisoLink testo="Il task che cercavi non c’è più, oppure non è tra quelli che puoi vedere." onChiudi={scordaLink} />
+        <AvvisoLink testo={t.taskMancante} onChiudi={scordaLink} />
       ) : null}
       {nascostoDaiFiltri ? (
         <AvvisoLink
-          testo="Il task che cercavi è nascosto dai filtri."
+          testo={t.taskNascosto}
           azione={
             // the empty state below has the button already
             vuotoConFiltri ? undefined : (
               <LinkBottone href={senzaFiltri} variant="outline">
-                Togli i filtri
+                {t.togliFiltri}
               </LinkBottone>
             )
           }
@@ -131,11 +139,11 @@ export function AttivitaProgetto({
         {avvisi}
         <StatoVuoto
           Icona={SearchX}
-          titolo="Nessun task con questi filtri"
-          descrizione={filtro.soloMiei ? 'Non hai task assegnati in questo stato.' : 'Nessun task in questo stato.'}
+          titolo={t.vuotoFiltri}
+          descrizione={filtro.soloMiei ? t.vuotoFiltriMiei : t.vuotoFiltriTutti}
           azione={
             <LinkBottone href={senzaFiltri} variant="outline">
-              Togli i filtri
+              {t.togliFiltri}
             </LinkBottone>
           }
         />
@@ -165,26 +173,22 @@ export function AttivitaProgetto({
           <section aria-labelledby="lista-senza" className="rounded-xl bg-card" data-testid="lista">
             <header className="border-b border-border p-3">
               <h2 id="lista-senza" className="text-sm font-medium">
-                {liste.length === 0 ? 'Task' : 'Senza lista'}
+                {liste.length === 0 ? t.task : t.senzaLista}
               </h2>
             </header>
             {senzaLista.length === 0 ? (
               <div className="p-3">
                 <StatoVuoto
                   Icona={ListChecks}
-                  titolo="Ancora nessun task"
-                  descrizione={
-                    gestisce
-                      ? 'Scrivi il primo qui sotto, oppure crea una lista per dividere il lavoro in fasi.'
-                      : 'Scrivi il primo qui sotto.'
-                  }
+                  titolo={t.vuoto}
+                  descrizione={gestisce ? t.vuotoGestisce : t.vuotoAltri}
                 />
               </div>
             ) : (
               <ElencoTask nodi={senzaLista} completatoDaAprire={posizione?.lista === '' ? posizione.nodo : null} />
             )}
             <div className="border-t border-border p-3">
-              <AggiuntaRapida progettoId={progettoId} etichetta="Nuovo task senza lista" />
+              <AggiuntaRapida progettoId={progettoId} etichetta={t.nuovoSenzaLista} />
             </div>
           </section>
         ) : null}
@@ -195,6 +199,7 @@ export function AttivitaProgetto({
 
 /** A short note above the lists about the task the link asked for. */
 function AvvisoLink({ testo, azione, onChiudi }: { testo: string; azione?: ReactNode; onChiudi?: () => void }) {
+  const t = useTesti(ATTIVITA)
   return (
     <div
       role="status"
@@ -208,7 +213,7 @@ function AvvisoLink({ testo, azione, onChiudi }: { testo: string; azione?: React
         <button
           type="button"
           onClick={onChiudi}
-          aria-label="Chiudi l’avviso"
+          aria-label={t.chiudiAvviso}
           className="flex size-11 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <X className="size-4" aria-hidden="true" />
@@ -240,6 +245,7 @@ function ElencoTask({
   /** The row of the task the link asked for: when it is a completed one, the group opens. */
   completatoDaAprire?: NodoTask<TaskVista> | null
 }) {
+  const t = useTesti(ATTIVITA)
   const idGruppo = useId()
   const daAprire = completatoDaAprire?.task.stato === 'completato' ? completatoDaAprire.task.id : null
   const [completatiAperti, setCompletatiAperti] = useState(daAprire !== null)
@@ -277,7 +283,7 @@ function ElencoTask({
           className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <Freccia aperta={completatiAperti} />
-          <span className="num">Completati ({completati.length})</span>
+          <span className="num">{t.completati(completati.length)}</span>
         </button>
         <ul id={idGruppo} hidden={!completatiAperti} className="divide-y divide-border border-t border-border">
           {completati.map((n) => (
@@ -309,8 +315,10 @@ function SezioneLista({
   /** The row of the task the link asked for, when it is in this list: the list opens, even a finished one. */
   nodoDaAprire: NodoTask<TaskVista> | null
 }) {
+  const t = useTesti(ATTIVITA)
+  const formato = useFormato()
   const conTaskDaAprire = nodoDaAprire !== null
-  const date = periodo(lista.data_inizio, lista.data_fine)
+  const date = periodo(lista.data_inizio, lista.data_fine, t, formato.formatData)
   // a finished list starts closed (not while filtering: the reader is looking for something)
   const finita = lista.task_totali > 0 && lista.task_completati === lista.task_totali
   const [aperta, setAperta] = useState(conTaskDaAprire || !(finita && ordinabile))
@@ -338,7 +346,11 @@ function SezioneLista({
               </button>
             </h2>
             {date ? <p className="num -mt-1.5 pl-5.5 text-xs text-muted-foreground">{date}</p> : null}
-            {lista.descrizione ? <p className="pl-5.5 text-xs text-muted-foreground">{lista.descrizione}</p> : null}
+            {lista.descrizione ? (
+              <p lang="it" className="pl-5.5 text-xs text-muted-foreground">
+                {lista.descrizione}
+              </p>
+            ) : null}
           </div>
           <BarraAvanzamento
             completati={lista.task_completati}
@@ -346,6 +358,7 @@ function SezioneLista({
             avanzamento={lista.avanzamento}
             inRitardo={lista.task_in_ritardo}
             className="max-w-xs pl-5.5"
+            lingua={formato.lingua}
           />
         </div>
         {gestisce ? (
@@ -354,12 +367,12 @@ function SezioneLista({
       </header>
       <div id={idContenuto} hidden={!aperta}>
         {nodi.length === 0 ? (
-          <p className="px-3 py-3 text-sm text-muted-foreground">Nessun task in questa lista.</p>
+          <p className="px-3 py-3 text-sm text-muted-foreground">{t.nessunoInLista}</p>
         ) : (
           <ElencoTask nodi={nodi} completatoDaAprire={nodoDaAprire} />
         )}
         <div className="border-t border-border p-3">
-          <AggiuntaRapida progettoId={progettoId} tasklistId={lista.id} etichetta={`Nuovo task in ${lista.nome}`} />
+          <AggiuntaRapida progettoId={progettoId} tasklistId={lista.id} etichetta={t.nuovoIn(lista.nome)} />
         </div>
       </div>
     </section>

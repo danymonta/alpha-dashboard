@@ -11,8 +11,9 @@ import { BottoneTesto, RiassuntoFathom, TrascrizioneFathom } from '@/components/
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useLingua } from '@/components/i18n/lingua-provider'
-import { REGISTRAZIONE } from '@/lib/call/registrazione'
 import { CALL } from '@/lib/i18n/testi/call'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { FATHOM_TESTI, REGISTRAZIONE_TESTI } from '@/lib/i18n/testi/esito'
 import type { RegistrazioneVista } from '@/lib/call/analisi/vista'
 import { normalizzaLink } from '@/lib/fathom/link'
 import type { SceltaRegistrazioneInput } from '@/lib/validation/registrazione'
@@ -40,8 +41,10 @@ export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolt
   const [inCorso, avvia] = useTransition()
   const [cerca, setCerca] = useState(false)
   const [conferma, setConferma] = useState(false)
-  // the line that is read follows the page's language; the sheet that writes stays Italian (1.53.0)
-  const t = CALL[useLingua()].registrazione
+  const lingua = useLingua()
+  const t = CALL[lingua].registrazione
+  const REGISTRAZIONE = REGISTRAZIONE_TESTI[lingua]
+  const f = FATHOM_TESTI[lingua]
 
   const nonRegistrata = registrazione?.stato === 'non_registrata'
   const trovata = Boolean(link && registrazione?.recording_id && registrazione.link_verificato === link)
@@ -53,8 +56,8 @@ export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolt
   function salva(scelta: SceltaRegistrazioneInput) {
     avvia(async () => {
       const esito = await collegaRegistrazione({ call_id: callId, scelta }).catch(() => null)
-      if (!esito) return void toast.error('Connessione assente. Riprova.')
-      if (!esito.ok) return void toast.error(esito.errore)
+      if (!esito) return void toast.error(traduciErrore('Connessione assente. Riprova.', lingua))
+      if (!esito.ok) return void toast.error(traduciErrore(esito.errore, lingua))
       setFoglio(false)
       toast.success(scelta.tipo === 'link' ? REGISTRAZIONE.toastCollegata : REGISTRAZIONE.toastNonRegistrata)
     })
@@ -68,9 +71,9 @@ export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolt
     setConferma(false)
     avvia(async () => {
       const esito = await scollegaRegistrazione({ call_id: callId }).catch(() => null)
-      if (!esito) return void toast.error('Connessione assente. Riprova.')
-      if (!esito.ok) return void toast.error(esito.errore)
-      toast.success('Registrazione scollegata.')
+      if (!esito) return void toast.error(traduciErrore('Connessione assente. Riprova.', lingua))
+      if (!esito.ok) return void toast.error(traduciErrore(esito.errore, lingua))
+      toast.success(f.scollegata)
     })
   }
 
@@ -89,7 +92,7 @@ export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolt
         // a write outside a server action: the whole app is redrawn by the server action (CLAUDE.md section 10)
         await rivalidaTutto()
       } else {
-        toast.warning(corpo.errore ?? REGISTRAZIONE.nonTrovata)
+        toast.warning(corpo.errore ? traduciErrore(corpo.errore, lingua) : REGISTRAZIONE.nonTrovata)
       }
     } catch {
       toast.warning(REGISTRAZIONE.erroreFathom)
@@ -147,7 +150,7 @@ export function RegistrazioneCall({ callId, nomeLead, link, registrazione, svolt
         </Button>
         {link || nonRegistrata ? (
           <Button type="button" variant="ghost" className="h-11 text-muted-foreground" disabled={inCorso} onClick={scollega} onBlur={() => setConferma(false)}>
-            {conferma ? 'Tocca ancora per scollegare' : REGISTRAZIONE.scheda.scollega}
+            {conferma ? f.toccaAncora : REGISTRAZIONE.scheda.scollega}
           </Button>
         ) : null}
       </div>

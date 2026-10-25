@@ -7,6 +7,8 @@ import { AttivoReparto, RepartoForm, SpostaReparto } from '@/components/pm/impos
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { Badge } from '@/components/ui/badge'
 import { requireLivelloPm } from '@/lib/auth/pm'
+import { getLingua } from '@/lib/i18n/server'
+import { IMPOSTAZIONI_PROGETTI } from '@/lib/i18n/testi/impostazioni-progetti'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +16,7 @@ export const dynamic = 'force-dynamic'
 /** Departments and templates of the Projects area: PM admin only. */
 export default async function ImpostazioniProgettiPage() {
   const { profilo } = await requireLivelloPm(['admin'])
+  const t = IMPOSTAZIONI_PROGETTI[await getLingua()]
   const supabase = await createClient()
 
   const [reparti, modelli] = await Promise.all([
@@ -28,7 +31,7 @@ export default async function ImpostazioniProgettiPage() {
       .order('attivo', { ascending: false })
       .order('nome'),
   ])
-  if (reparti.error || modelli.error) throw new Error('Impossibile caricare reparti e modelli')
+  if (reparti.error || modelli.error) throw new Error(t.errore)
 
   const nomeReparto = new Map(reparti.data.map((r) => [r.id, r.nome]))
   const opzioniReparto = reparti.data
@@ -45,25 +48,25 @@ export default async function ImpostazioniProgettiPage() {
       <IntestazionePagina
         indietro={
           profilo.ruolo === 'admin'
-            ? { href: '/settings', etichetta: 'Impostazioni' }
-            : { href: '/progetti', etichetta: 'Progetti' }
+            ? { href: '/settings', etichetta: t.impostazioni }
+            : { href: '/progetti', etichetta: t.progetti }
         }
-        titolo="Progetti"
-        descrizione="I reparti che dividono i progetti e i modelli con cui un progetto nasce già organizzato."
+        titolo={t.titolo}
+        descrizione={t.descrizione}
       />
 
       <section aria-labelledby="titolo-reparti" className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="titolo-reparti" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Reparti ({reparti.data.length})
+            {t.reparti(reparti.data.length)}
           </h2>
           <RepartoForm />
         </div>
         {reparti.data.length === 0 ? (
           <StatoVuoto
             Icona={FolderKanban}
-            titolo="Nessun reparto"
-            descrizione="Crea il primo reparto, ad esempio «Fitness Coaching»: i progetti si dividono per reparto."
+            titolo={t.nessunReparto}
+            descrizione={t.nessunRepartoDescrizione}
           />
         ) : (
           <ul className="divide-y divide-border rounded-xl bg-card" data-testid="reparti">
@@ -75,10 +78,10 @@ export default async function ImpostazioniProgettiPage() {
                   <div className="min-w-0 basis-full md:basis-0 md:flex-1">
                     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
                       {r.nome}
-                      {r.progetti_con_cliente ? <Badge variant="outline">Per clienti</Badge> : null}
+                      {r.progetti_con_cliente ? <Badge variant="outline">{t.perClienti}</Badge> : null}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      <span className="num">{progetti === 1 ? '1 progetto' : `${progetti} progetti`}</span>
+                      <span className="num">{t.progettiConto(progetti)}</span>
                       {r.descrizione ? ` · ${r.descrizione}` : ''}
                     </p>
                   </div>
@@ -106,24 +109,21 @@ export default async function ImpostazioniProgettiPage() {
       <section aria-labelledby="titolo-modelli" className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="titolo-modelli" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Modelli ({modelli.data.length})
+            {t.modelli(modelli.data.length)}
           </h2>
           <ModelloForm reparti={opzioniReparto} />
         </div>
         {senzaModelloClienti ? (
           <p className="flex items-start gap-2 rounded-xl bg-card px-3 py-2.5 text-sm" data-testid="senza-modello-clienti">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
-            <span>
-              Nessun modello per i nuovi clienti: il progetto di chi paga la prima rata nasce senza task. Apri un modello
-              di un reparto «Per clienti» e scegli «Per i nuovi clienti».
-            </span>
+            <span>{t.senzaModelloClienti}</span>
           </p>
         ) : null}
         {modelli.data.length === 0 ? (
           <StatoVuoto
             Icona={LayoutTemplate}
-            titolo="Nessun modello"
-            descrizione="Un modello apre un progetto con liste e attività già datate, come il percorso di un cliente."
+            titolo={t.nessunModello}
+            descrizione={t.nessunModelloDescrizione}
           />
         ) : (
           <ul className="divide-y divide-border rounded-xl bg-card" data-testid="modelli">
@@ -138,11 +138,11 @@ export default async function ImpostazioniProgettiPage() {
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
                         {m.nome}
-                        {m.per_nuovi_clienti ? <Badge variant="outline">Per i nuovi clienti</Badge> : null}
+                        {m.per_nuovi_clienti ? <Badge variant="outline">{t.perNuoviClienti}</Badge> : null}
                       </span>
                       <span className="block text-sm text-muted-foreground">
-                        {m.reparto_id ? (nomeReparto.get(m.reparto_id) ?? 'Reparto') : 'Tutti i reparti'} ·{' '}
-                        <span className="num">{voci === 1 ? '1 attività' : `${voci} attività`}</span>
+                        {m.reparto_id ? (nomeReparto.get(m.reparto_id) ?? t.reparto) : t.tuttiReparti} ·{' '}
+                        <span className="num">{t.attivitaConto(voci)}</span>
                       </span>
                     </span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />

@@ -6,6 +6,8 @@ import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { percorsoDiRitorno } from '@/lib/auth/origine'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, isDataISO, oggiRoma } from '@/lib/date'
+import { getLingua } from '@/lib/i18n/server'
+import { NUOVA_CALL } from '@/lib/i18n/testi/esito'
 import { createClient } from '@/lib/supabase/server'
 import { GIORNI_AVANTI_CALL, GIORNI_INDIETRO_CALL, GIORNI_INDIETRO_CALL_ADMIN } from '@/lib/validation/call'
 
@@ -20,6 +22,7 @@ function primo(valore: string | string[] | undefined): string | undefined {
 export default async function NuovaCallPage({ searchParams }: { searchParams: Promise<Parametri> }) {
   const profilo = await requireRuolo(['setter', 'admin'])
   const admin = profilo.ruolo === 'admin'
+  const t = NUOVA_CALL[await getLingua()]
   const oggi = oggiRoma()
   const parametri = await searchParams
 
@@ -41,7 +44,7 @@ export default async function NuovaCallPage({ searchParams }: { searchParams: Pr
     .in('ruolo', admin ? ['admin', 'closer', 'setter'] : ['admin', 'closer'])
     .order('created_at')
 
-  if (error) throw new Error('Impossibile caricare il team')
+  if (error) throw new Error(t.errore)
 
   // Admins first (the first admin is Dany, the default closer), then closers
   const closers = [
@@ -62,7 +65,7 @@ export default async function NuovaCallPage({ searchParams }: { searchParams: Pr
   // The admin books for himself ("Io", the default) or for an active setter
   const setters = admin
     ? [
-        { id: profilo.id, nome: 'Io' },
+        { id: profilo.id, nome: t.io },
         ...data.filter((p) => p.ruolo === 'setter').map(({ id, nome }) => ({ id, nome })),
       ]
     : null
@@ -73,25 +76,17 @@ export default async function NuovaCallPage({ searchParams }: { searchParams: Pr
   return (
     <div className="max-w-xl">
       <IntestazionePagina
-        titolo="Nuova call"
+        titolo={t.titolo}
         // opened from another page (the closer's day): the way back, where saving also lands
-        indietro={tornaA ? { href: tornaA, etichetta: 'Indietro' } : undefined}
-        descrizione={
-          admin
-            ? 'Fissa una discovery call, anche per un setter, o aggiungi una call già fatta: lead e call nascono insieme.'
-            : 'Fissa una discovery call: lead e call nascono insieme.'
-        }
+        indietro={tornaA ? { href: tornaA, etichetta: t.indietro } : undefined}
+        descrizione={admin ? t.descrizioneAdmin : t.descrizione}
       />
 
       {!closerPredefinito ? (
         <StatoVuoto
           Icona={UserX}
-          titolo="Nessun closer disponibile"
-          descrizione={
-            admin
-              ? 'Per fissare una call serve almeno un closer o un admin attivo. Sistemalo in Impostazioni › Team.'
-              : 'Per fissare una call serve almeno un closer o un admin attivo. Chiedi a Dany di sistemare il team.'
-          }
+          titolo={t.nessunCloser}
+          descrizione={admin ? t.nessunCloserAdmin : t.nessunCloserSetter}
         />
       ) : (
         <NuovaCallForm

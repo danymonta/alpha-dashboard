@@ -20,11 +20,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { fineDopoMesi, stessoGiornoTraMesi } from '@/lib/date'
-import { formatData, formatEuro, formatImportoInput } from '@/lib/format'
+import { formato, formatImportoInput } from '@/lib/format'
 import { parseImporto } from '@/lib/importi'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { NUOVA_VENDITA } from '@/lib/i18n/testi/nuova-vendita'
 import {
-  ETICHETTA_TIPO_VENDITA,
   OPZIONI_RATE,
   PERSONALIZZATO,
   TIPI_VENDITA,
@@ -83,12 +86,6 @@ type Props = {
   ritorno?: string | null
 }
 
-const TITOLO_REGISTRATA: Record<TipoVendita, string> = {
-  nuovo: 'Vendita registrata',
-  rinnovo: 'Rinnovo registrato',
-  upsell: 'Upsell registrato',
-}
-
 const RITARDO_ANTEPRIMA_MS = 350
 
 function Sezione({ titolo, children }: { titolo: string; children: React.ReactNode }) {
@@ -116,6 +113,11 @@ export function NuovaVenditaForm({
   ritorno = null,
 }: Props) {
   const router = useRouter()
+  const lingua = useLingua()
+  const t = NUOVA_VENDITA[lingua]
+  const { formatData, formatEuro } = formato(lingua)
+  const ETICHETTA_TIPO_VENDITA = ETICHETTE[lingua].tipoVendita
+  const tr = (testo: string | undefined) => traduciErrore(testo, lingua)
   const [erroreServer, setErroreServer] = useState<string | null>(null)
   const [venditaEsistente, setVenditaEsistente] = useState<string | null>(null)
   const [anteprima, setAnteprima] = useState<RataAnteprima[] | null>(anteprimaIniziale)
@@ -263,7 +265,7 @@ export function NuovaVenditaForm({
     try {
       esito = await registraVendita(valori)
     } catch {
-      setErroreServer('Connessione assente. Controlla la rete e riprova.')
+      setErroreServer(t.connessione)
       return
     }
 
@@ -277,22 +279,20 @@ export function NuovaVenditaForm({
     }
 
     const numero = valori.piano === 'personalizzato' ? valori.rate.length : valori.numero_rate
-    toast.success(TITOLO_REGISTRATA[valori.tipo], {
-      description: `${numero === 1 ? 'Pagamento unico' : `${numero} rate`} da incassare.`,
-    })
+    toast.success(t.registrata[valori.tipo], { description: t.daIncassare(numero) })
     router.push(ritorno ?? `/sales/${esito.idVendita}`)
   })
 
   return (
     <form onSubmit={invia} noValidate className="space-y-8">
-      <Sezione titolo="Cliente">
+      <Sezione titolo={t.cliente}>
         {clienteEsistente ? (
           <div className="space-y-2">
             <p className="flex min-h-11 items-center gap-2 rounded-xl bg-card px-3 text-sm">
               <UserCheck className="size-4 text-status-ok" aria-hidden="true" />
               <span>
                 {clienteEsistente.nome}{' '}
-                <span className="text-muted-foreground">· cliente già registrato</span>
+                <span className="text-muted-foreground">{t.giaRegistrato}</span>
               </span>
             </p>
             {percorsoPrecedente ? (
@@ -300,18 +300,22 @@ export function NuovaVenditaForm({
                 <History className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="space-y-0.5">
                   <p>
-                    <span className="text-muted-foreground">Percorso precedente: </span>
+                    <span className="text-muted-foreground">{t.percorsoPrecedente}</span>
                     <span className="num">
-                      {percorsoPrecedente.prodotto}, dal {formatData(percorsoPrecedente.data_inizio)} al{' '}
-                      {formatData(percorsoPrecedente.data_fine)}, {formatEuro(percorsoPrecedente.valore_contratto)}
+                      {t.percorsoDal(
+                        percorsoPrecedente.prodotto,
+                        formatData(percorsoPrecedente.data_inizio),
+                        formatData(percorsoPrecedente.data_fine),
+                        formatEuro(percorsoPrecedente.valore_contratto),
+                      )}
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {percorsoPrecedente.partenza === 'oggi_finito'
-                      ? 'È finito da più di un mese: il rinnovo parte da oggi. Cambia l’inizio se serve.'
+                      ? t.oggiFinito
                       : percorsoPrecedente.partenza === 'oggi_lontano'
-                        ? 'Finisce tra più di un anno: il rinnovo parte da oggi, e l’inizio può cadere al massimo un anno dopo la vendita.'
-                        : 'Il rinnovo parte il giorno dopo. Date, prodotto, contratto e rate restano modificabili.'}
+                        ? t.oggiLontano
+                        : t.giornoDopo}
                   </p>
                 </div>
               </div>
@@ -321,8 +325,8 @@ export function NuovaVenditaForm({
               <p className="flex items-center gap-2 px-1 text-sm" data-testid="setter-vendita">
                 <UserX className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span>
-                  {ETICHETTA_TIPO_VENDITA[tipo]}: nessun setter{' '}
-                  <span className="text-muted-foreground">· nessuna provvigione</span>
+                  {t.nessunSetter(ETICHETTA_TIPO_VENDITA[tipo])}{' '}
+                  <span className="text-muted-foreground">{t.nessunaProvvigione}</span>
                 </span>
               </p>
             ) : null}
@@ -331,7 +335,7 @@ export function NuovaVenditaForm({
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
-                <Label htmlFor="nome">Nome</Label>
+                <Label htmlFor="nome">{t.nome}</Label>
                 <Input
                   id="nome"
                   autoCapitalize="words"
@@ -342,7 +346,7 @@ export function NuovaVenditaForm({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cognome">Cognome</Label>
+                <Label htmlFor="cognome">{t.cognome}</Label>
                 <Input
                   id="cognome"
                   autoCapitalize="words"
@@ -351,11 +355,11 @@ export function NuovaVenditaForm({
                 />
               </div>
             </div>
-            <ErroreCampo id="nome-errore" messaggio={errors.nome?.message} />
+            <ErroreCampo id="nome-errore" messaggio={tr(errors.nome?.message)} />
 
             <div className="space-y-1.5">
               <Label htmlFor="email">
-                Email <span className="font-normal text-muted-foreground">(facoltativa)</span>
+                {t.email} <span className="font-normal text-muted-foreground">{t.facoltativa}</span>
               </Label>
               <Input
                 id="email"
@@ -367,13 +371,13 @@ export function NuovaVenditaForm({
                 aria-describedby="email-errore"
                 {...register('email')}
               />
-              <ErroreCampo id="email-errore" messaggio={errors.email?.message} />
+              <ErroreCampo id="email-errore" messaggio={tr(errors.email?.message)} />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <Label htmlFor="telefono">
-                  Telefono <span className="font-normal text-muted-foreground">(facolt.)</span>
+                  {t.telefono} <span className="font-normal text-muted-foreground">{t.facolt}</span>
                 </Label>
                 <Input
                   id="telefono"
@@ -385,7 +389,7 @@ export function NuovaVenditaForm({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="instagram_handle">Instagram</Label>
+                <Label htmlFor="instagram_handle">{t.instagram}</Label>
                 <Input
                   id="instagram_handle"
                   autoCapitalize="none"
@@ -399,29 +403,27 @@ export function NuovaVenditaForm({
             </div>
             <ErroreCampo
               id="contatti-errore"
-              messaggio={errors.telefono?.message ?? errors.instagram_handle?.message}
+              messaggio={tr(errors.telefono?.message ?? errors.instagram_handle?.message)}
             />
           </div>
         )}
       </Sezione>
 
-      <Sezione titolo="Vendita">
+      <Sezione titolo={t.vendita}>
         <SceltaRapida
-          legenda="Tipo"
+          legenda={t.tipo}
           opzioni={TIPI_VENDITA.map((t) => ({
             valore: t,
             etichetta: ETICHETTA_TIPO_VENDITA[t],
             disabilitata: !clienteEsistente && t !== 'nuovo',
           }))}
           registrazione={register('tipo')}
-          errore={errors.tipo?.message}
-          aiuto={
-            clienteEsistente ? undefined : 'Rinnovo e upsell si registrano su un cliente esistente.'
-          }
+          errore={tr(errors.tipo?.message)}
+          aiuto={clienteEsistente ? undefined : t.tipoAiuto}
         />
 
         <SceltaRapida
-          legenda="Prodotto"
+          legenda={t.prodotto}
           opzioni={[
             ...prodotti.map((p) => ({
               valore: p.id,
@@ -438,33 +440,33 @@ export function NuovaVenditaForm({
               valore: PERSONALIZZATO,
               etichetta: (
                 <>
-                  <span>Personalizzato</span>
-                  <span className="text-xs opacity-80">nome e durata tuoi</span>
+                  <span>{t.personalizzato}</span>
+                  <span className="text-xs opacity-80">{t.nomeEDurata}</span>
                 </>
               ),
             },
           ]}
           registrazione={register('product_id')}
-          errore={errors.product_id?.message}
+          errore={tr(errors.product_id?.message)}
           colonne={prodotti.length + 1 <= 3 ? 3 : 2}
-          aiuto="I prodotti del catalogo si gestiscono in Impostazioni › Prodotti."
+          aiuto={t.prodottiAiuto}
         />
 
         {personalizzato ? (
           <div className="space-y-4 rounded-xl bg-card p-3">
             <div className="space-y-1.5">
-              <Label htmlFor="prodotto_personalizzato">Cosa hai venduto</Label>
+              <Label htmlFor="prodotto_personalizzato">{t.cosaHaiVenduto}</Label>
               <Input
                 id="prodotto_personalizzato"
-                placeholder="Annuale, Percorso 9 mesi, Consulenza…"
+                placeholder={t.cosaHaiVendutoPlaceholder}
                 className="h-11"
                 aria-invalid={errors.prodotto_personalizzato ? true : undefined}
                 {...register('prodotto_personalizzato')}
               />
-              <ErroreCampo id="personalizzato-errore" messaggio={errors.prodotto_personalizzato?.message} />
+              <ErroreCampo id="personalizzato-errore" messaggio={tr(errors.prodotto_personalizzato?.message)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="data_fine">Fine del percorso</Label>
+              <Label htmlFor="data_fine">{t.fine}</Label>
               <Input
                 id="data_fine"
                 type="date"
@@ -472,7 +474,7 @@ export function NuovaVenditaForm({
                 aria-invalid={errors.data_fine ? true : undefined}
                 {...register('data_fine')}
               />
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Durata rapida">
+              <div className="flex flex-wrap gap-2" role="group" aria-label={t.durataRapida}>
                 {[3, 6, 9, 12].map((mesi) => (
                   <Button
                     key={mesi}
@@ -483,22 +485,21 @@ export function NuovaVenditaForm({
                       setValue('data_fine', fineDopoMesi(getValues('data_inizio') || oggi, mesi), { shouldValidate: true })
                     }
                   >
-                    {mesi} mesi
+                    {t.mesi(mesi)}
                   </Button>
                 ))}
               </div>
-              <ErroreCampo id="data-fine-errore" messaggio={errors.data_fine?.message} />
+              <ErroreCampo id="data-fine-errore" messaggio={tr(errors.data_fine?.message)} />
             </div>
           </div>
         ) : prodottoScelto && dataInizio ? (
           <p className="px-1 text-xs text-muted-foreground">
-            Il percorso finisce il {formatData(fineDopoMesi(dataInizio, prodottoScelto.durata_mesi))} ({prodottoScelto.durata_mesi}{' '}
-            mesi): si può cambiare dopo, dalla vendita.
+            {t.finisceIl(formatData(fineDopoMesi(dataInizio, prodottoScelto.durata_mesi)), prodottoScelto.durata_mesi)}
           </p>
         ) : null}
 
         <div className="space-y-1.5">
-          <Label htmlFor="valore_contratto">Valore del contratto</Label>
+          <Label htmlFor="valore_contratto">{t.valore}</Label>
           <div className="relative">
             <Input
               id="valore_contratto"
@@ -517,12 +518,12 @@ export function NuovaVenditaForm({
               €
             </span>
           </div>
-          <ErroreCampo id="valore-errore" messaggio={errors.valore_contratto?.message} />
+          <ErroreCampo id="valore-errore" messaggio={tr(errors.valore_contratto?.message)} />
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
-            <Label htmlFor="data_vendita">Data vendita</Label>
+            <Label htmlFor="data_vendita">{t.dataVendita}</Label>
             <Input
               id="data_vendita"
               type="date"
@@ -533,7 +534,7 @@ export function NuovaVenditaForm({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="data_inizio">Inizio percorso</Label>
+            <Label htmlFor="data_inizio">{t.inizio}</Label>
             <Input
               id="data_inizio"
               type="date"
@@ -547,28 +548,28 @@ export function NuovaVenditaForm({
         {/* a renewal says where it starts in the box above */}
         {percorsoPrecedente ? null : (
           <p id="inizio-aiuto" className="px-1 text-xs text-muted-foreground">
-            Il percorso di solito inizia una settimana dopo il pagamento: controlla la data.
+            {t.inizioAiuto}
           </p>
         )}
         <ErroreCampo
           id="date-errore"
-          messaggio={errors.data_vendita?.message ?? errors.data_inizio?.message}
+          messaggio={tr(errors.data_vendita?.message ?? errors.data_inizio?.message)}
         />
 
         <div className="space-y-1.5">
           <Label htmlFor="note">
-            Note <span className="font-normal text-muted-foreground">(facoltative)</span>
+            {t.note} <span className="font-normal text-muted-foreground">{t.facoltative}</span>
           </Label>
           <Textarea id="note" rows={2} maxLength={1000} {...register('note')} />
         </div>
       </Sezione>
 
-      <Sezione titolo="Piano rate">
+      <Sezione titolo={t.pianoRate}>
         <SceltaRapida
-          legenda="Come paga"
+          legenda={t.comePaga}
           opzioni={[
-            { valore: 'uguale', etichetta: 'Rate uguali' },
-            { valore: 'personalizzato', etichetta: 'Piano personalizzato' },
+            { valore: 'uguale', etichetta: t.rateUguali },
+            { valore: 'personalizzato', etichetta: t.pianoPersonalizzato },
           ]}
           registrazione={register('piano', {
             onChange: (e: { target: { value: string } }) => {
@@ -595,27 +596,27 @@ export function NuovaVenditaForm({
         ) : (
           <>
             <SceltaRapida
-              legenda="Numero di rate"
+              legenda={t.numeroRate}
               opzioni={OPZIONI_RATE.map((n) => ({ valore: String(n), etichetta: String(n) }))}
               registrazione={register('numero_rate')}
-              errore={errors.numero_rate?.message}
+              errore={tr(errors.numero_rate?.message)}
               colonne={6}
             />
         {anteprima && anteprima.length > 0 ? (
           <div aria-live="polite" className={calcolo ? 'opacity-60' : undefined}>
             <table className="w-full text-sm" data-testid="anteprima-rate">
-              <caption className="sr-only">Anteprima del piano rate</caption>
+              <caption className="sr-only">{t.anteprima}</caption>
               <thead className="text-xs text-muted-foreground">
                 <tr>
-                  <th scope="col" className="px-3 py-2 text-left font-normal">Rata</th>
-                  <th scope="col" className="px-3 py-2 text-left font-normal">Scadenza</th>
-                  <th scope="col" className="px-3 py-2 text-right font-normal">Importo</th>
+                  <th scope="col" className="px-3 py-2 text-left font-normal">{t.rata}</th>
+                  <th scope="col" className="px-3 py-2 text-left font-normal">{t.scadenza}</th>
+                  <th scope="col" className="px-3 py-2 text-right font-normal">{t.importo}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border rounded-xl bg-card">
                 {anteprima.map((r) => (
                   <tr key={r.numero_rata}>
-                    <td className="px-3 py-2.5">{r.numero_rata}ª</td>
+                    <td className="px-3 py-2.5">{t.ordinale(r.numero_rata)}</td>
                     <td className="px-3 py-2.5">{formatData(r.scadenza)}</td>
                     <td className="px-3 py-2.5 text-right">{formatEuro(r.importo)}</td>
                   </tr>
@@ -623,15 +624,12 @@ export function NuovaVenditaForm({
               </tbody>
             </table>
             <p className="mt-2 px-1 text-xs text-muted-foreground">
-              Rate mensili, l’ultima assorbe l’arrotondamento. Dopo la registrazione ogni rata si
-              può modificare.
+              {t.rateMensili}
             </p>
           </div>
         ) : (
           <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            {calcolo
-              ? 'Calcolo del piano…'
-              : 'Scegli prodotto, valore e numero di rate: il piano compare qui.'}
+            {calcolo ? t.calcolo : t.scegliPerPiano}
           </p>
         )}
           </>
@@ -645,11 +643,11 @@ export function NuovaVenditaForm({
         >
           <span className="flex items-start gap-2">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {erroreServer}
+            {tr(erroreServer ?? undefined)}
           </span>
           {venditaEsistente ? (
             <LinkBottone href={`/sales/${venditaEsistente}`} variant="outline">
-              Apri la vendita
+              {t.apriVendita}
             </LinkBottone>
           ) : null}
         </div>
@@ -657,7 +655,7 @@ export function NuovaVenditaForm({
 
       <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
         {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-        Registra vendita
+        {t.registra}
       </Button>
     </form>
   )

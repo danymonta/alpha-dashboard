@@ -6,8 +6,8 @@ import { toast } from 'sonner'
 
 import { useOpzioniToast } from '@/components/marketing/contesto-pannello'
 import { Button } from '@/components/ui/button'
-
-const CONNESSIONE = 'Connessione assente. Riprova.'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { ANALISI_REEL, traduciErroreReel } from '@/lib/i18n/testi/analisi-reel'
 
 /**
  * «Analizza», «Dai il punteggio» and «Analizza di nuovo»: admin and marketing. The three are the same
@@ -32,6 +32,8 @@ export function AnalizzaReel({
   variante?: 'default' | 'outline' | 'ghost'
 }) {
   const opzioniToast = useOpzioniToast()
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].analizza
   const [inCorso, setInCorso] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
 
@@ -47,14 +49,14 @@ export function AnalizzaReel({
         cache: 'no-store',
       })
       if (risposta.status === 202) {
-        toast.success('Analisi e punteggio in coda: Claude li prepara insieme, di solito servono pochi minuti.', opzioniToast)
+        toast.success(t.inCoda, opzioniToast)
         onFatto()
         return
       }
       const corpo = (await risposta.json().catch(() => null)) as { errore?: string } | null
-      setErrore(corpo?.errore ?? 'Analisi non partita. Riprova.')
+      setErrore(corpo?.errore ? traduciErroreReel(corpo.errore, lingua) : t.nonPartita)
     } catch {
-      setErrore(CONNESSIONE)
+      setErrore(t.connessione)
     } finally {
       setInCorso(false)
     }
@@ -78,7 +80,7 @@ export function AnalizzaReel({
         ) : (
           <Sparkles className="size-4 text-[var(--brand-fire-flame)]" aria-hidden="true" />
         )}
-        {inCorso ? 'Chiedo a Claude…' : etichetta}
+        {inCorso ? t.chiedo : t.etichette[etichetta]}
       </Button>
       {errore ? (
         <p role="alert" className="text-sm text-status-critical" data-testid="analizza-errore">

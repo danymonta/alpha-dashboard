@@ -1,3 +1,4 @@
+import type { Lingua } from '@/lib/i18n/lingua'
 import { fasciaDaCodice, type CodiceFascia } from '@/lib/marketing/punteggio/tabelle'
 
 /**
@@ -134,7 +135,8 @@ function senzaTitolo(frase: string, breve: string): string {
  * What to do with a reel, from its score band and its verdict. Without a score
  * the sentence is about the numbers and the next step is «Analizza».
  */
-export function cosaFare(i: IngressoCosaFare): CosaFare {
+export function cosaFare(i: IngressoCosaFare, lingua: Lingua = 'it'): CosaFare {
+  if (lingua === 'en') return cosaFareEn(i)
   const verdetto = comeVerdetto(i.verdetto)
   const giovane = i.giovane === true
   const fascia = fasciaDaCodice(i.fascia)
@@ -181,4 +183,94 @@ export function cosaFare(i: IngressoCosaFare): CosaFare {
 /** The band filter's labels: the action and the range of the score, «Rifallo da capo (0-49)». */
 export function etichettaFiltroFascia(codice: CodiceFascia, da: number, a: number): string {
   return `${BREVE_FASCIA[codice]} (${da}-${a})`
+}
+
+// ---------------------------------------------------------------------------
+// English (1.53.0): the same answer in the same shape, for the page in English.
+// ---------------------------------------------------------------------------
+
+/** The short form of every band, in English. */
+export const BREVE_FASCIA_EN: Record<CodiceFascia, string> = {
+  pubblicare: 'Fine as it is',
+  pubblicare_dopo_ritocchi: 'Redo it with a few touches',
+  rifare_le_parti_deboli: 'Redo the weak parts',
+  riscrivere: 'Rewrite it',
+  scartare: 'Redo it from scratch',
+}
+
+const NUMERI_EN = ['no criterion', 'one criterion', 'two criteria', 'three criteria', 'four criteria', 'five criteria', 'six criteria', 'seven criteria', 'eight criteria', 'nine criteria', 'ten criteria']
+
+function paroleCriteriEn(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n) || n < 0) return 'the criteria under 7'
+  return `${NUMERI_EN[Math.min(Math.round(n), 10)]} under 7`
+}
+
+function aperturaEn(fascia: CodiceFascia, criteriSotto7: number | null | undefined): string {
+  switch (fascia) {
+    case 'pubblicare':
+      return 'The content is ready, no need to redo it.'
+    case 'pubblicare_dopo_ritocchi':
+      return criteriSotto7 === 0
+        ? 'Redo it with a few touches: it is nearly there.'
+        : `Redo it with a few touches: ${paroleCriteriEn(criteriSotto7)}.`
+    case 'rifare_le_parti_deboli':
+      return 'Redo the weak parts: the hook and the two lowest criteria, the idea stays.'
+    case 'riscrivere':
+      return 'Rewrite it: the topic holds, the structure and the hook do not.'
+    case 'scartare':
+      return 'Redo it from scratch: the idea is not aligned with the stage, the ICP or the tone.'
+  }
+}
+
+function pubblicoEn(livello: Livello, verdetto: VerdettoCosaFare | null, giovane: boolean): string {
+  if (verdetto === 'spingere') {
+    return livello === 'alto' ? 'The audience rewarded it: push it.' : 'The audience rewarded it though: push it while you redo it.'
+  }
+  if (verdetto === 'mantenere') {
+    return livello === 'alto' ? 'The numbers are average: keep it as it is.' : 'The numbers are average: redone well it can do more.'
+  }
+  if (verdetto === 'cambiare') {
+    return livello === 'alto' ? 'But the numbers are below the median: the audience did not reward it.' : 'The numbers confirm it: below the median.'
+  }
+  return giovane ? 'Too early for the numbers: the verdict arrives after 3 days.' : 'The numbers have no verdict yet.'
+}
+
+function soloNumeriEn(verdetto: VerdettoCosaFare | null, giovane: boolean): string {
+  if (verdetto === 'spingere') return 'The numbers say the audience rewarded it.'
+  if (verdetto === 'mantenere') return 'The numbers are average.'
+  if (verdetto === 'cambiare') return 'The numbers are below the median.'
+  return giovane ? 'Too early for the numbers, but you can already ask for the score.' : 'The numbers have no verdict yet.'
+}
+
+function cosaFareEn(i: IngressoCosaFare): CosaFare {
+  const verdetto = comeVerdetto(i.verdetto)
+  const giovane = i.giovane === true
+  const fascia = fasciaDaCodice(i.fascia)
+
+  if (fascia) {
+    const codice = fascia.codice
+    const frase = `${aperturaEn(codice, i.criteriSotto7)} ${pubblicoEn(LIVELLO[codice], verdetto, giovane)}`
+    return {
+      chiave: codice,
+      breve: BREVE_FASCIA_EN[codice],
+      frase,
+      spiegazione: senzaTitolo(frase, BREVE_FASCIA_EN[codice]),
+      azione: FASCE_DA_RIFARE.includes(codice) ? 'aggiungi_rifacimento' : codice === 'pubblicare_dopo_ritocchi' ? 'vedi_rifacimento' : 'nessuna',
+      tono: TONO_FASCIA[codice],
+    }
+  }
+  if (i.eliminato) {
+    const testo = 'The reel is no longer on Instagram: nothing to do here.'
+    return { chiave: 'eliminato', breve: 'No longer on Instagram', frase: testo, spiegazione: testo, azione: 'nessuna', tono: 'neutro' }
+  }
+  if (i.statoAnalisi === 'in_coda' || i.statoAnalisi === 'in_corso') {
+    const testo = 'Claude is preparing the analysis and the score: they arrive together, usually in a few minutes.'
+    return { chiave: 'in_lavoro', breve: 'Claude is working on it', frase: testo, spiegazione: testo, azione: 'nessuna', tono: 'neutro' }
+  }
+  if (i.statoAnalisi === 'fallita') {
+    const testo = 'The last analysis did not work: you can try again.'
+    return { chiave: 'non_riuscita', breve: 'Analysis failed', frase: testo, spiegazione: testo, azione: 'analizza', tono: 'critico' }
+  }
+  const daValutare = `Claude has not scored this reel yet. ${soloNumeriEn(verdetto, giovane)}`
+  return { chiave: 'da_valutare', breve: 'To score', frase: daValutare, spiegazione: daValutare, azione: 'analizza', tono: 'neutro' }
 }

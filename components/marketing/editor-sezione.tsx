@@ -5,6 +5,8 @@ import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from
 
 import './editor-sezione.css'
 
+import { useTesti } from '@/components/i18n/lingua-provider'
+import { CONTENUTO } from '@/lib/i18n/testi/contenuto'
 import { estensioniEditor } from '@/lib/marketing/editor-markdown'
 
 export type ManigliaEditor = {
@@ -46,6 +48,7 @@ export default function EditorSezione({
   ref?: Ref<ManigliaEditor>
 }) {
   // the callbacks change at every render of the section: the editor reads the latest
+  const segnaposto = useTesti(CONTENUTO).sezione.segnaposto
   const richiami = useRef({ onCambia, onEsce, onEsc })
   useEffect(() => {
     richiami.current = { onCambia, onEsce, onEsc }
@@ -55,7 +58,7 @@ export default function EditorSezione({
     // the server renders the Markdown (the fallback): the editor only in the browser, no hydration mismatch
     immediatelyRender: false,
     shouldRerenderOnTransaction: false,
-    extensions: estensioniEditor('Scrivi qui…'),
+    extensions: estensioniEditor(segnaposto),
     content: testo ?? '',
     contentType: 'markdown',
     editorProps: {

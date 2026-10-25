@@ -34,6 +34,8 @@ export const RINNOVI = bilingue(
       'Quando un cliente non rinnova, «Non rinnova» nella sua scheda lo mette qui; se poi non ricompra, «Archivia» lo sposta tra gli ex clienti.',
     archiviati: 'Archiviati come ex clienti:',
     archiviatiDopo: '. Li trovi in Clienti, «Ex cliente», insieme agli altri ex clienti.',
+    whatsappRinnovo: (nome: string) => `Scrivi a ${nome} su WhatsApp per il rinnovo`,
+    whatsapp: (nome: string) => `Scrivi a ${nome} su WhatsApp`,
   },
   {
     titolo: 'Renewals',
@@ -67,5 +69,7 @@ export const RINNOVI = bilingue(
       'When a client does not renew, «Not renewing» on their card puts them here; if they do not buy again, «Archive» moves them among the former clients.',
     archiviati: 'Archived as former clients:',
     archiviatiDopo: '. You find them in Clients, «Former client», with the other former clients.',
+    whatsappRinnovo: (nome: string) => `Message ${nome} on WhatsApp about the renewal`,
+    whatsapp: (nome: string) => `Message ${nome} on WhatsApp`,
   },
 )

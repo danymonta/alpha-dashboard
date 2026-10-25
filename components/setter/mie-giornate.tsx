@@ -2,8 +2,11 @@ import { CalendarDays, ChevronDown } from 'lucide-react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { formatData, formatEuro, formatNumero } from '@/lib/format'
-import { LEGENDA_CLOSER, LEGENDA_SETTER, LEGENDA_SETTING, type VoceLegenda } from '@/lib/metriche/legenda'
+import { formato, type Formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { MIEI_NUMERI } from '@/lib/i18n/testi/miei-numeri'
+import { LEGENDA_SETTING, type VoceLegenda } from '@/lib/metriche/legenda'
+import { legende } from '@/lib/metriche/legenda-en'
 import type { Database } from '@/lib/supabase/database.types'
 import { cn } from '@/lib/utils'
 
@@ -22,75 +25,76 @@ type Colonna = {
   forte?: boolean
 }
 
-const S = LEGENDA_SETTING
-const C = LEGENDA_CLOSER
-const M = LEGENDA_SETTER
+type Brevi = (typeof MIEI_NUMERI)['it']['giornate']['brevi']
 
-// Source 1, the setter's daily report (what he writes in "Oggi"). The calls he
-// books are discovery calls; strategy_prenotate is history (colonneReport).
-const REPORT: Colonna[] = [
-  { campo: 'dm_outbound', breve: 'DM out', voce: S.dm_outbound },
-  { campo: 'dm_inbound', breve: 'DM in', voce: S.dm_inbound },
-  { campo: 'follow_up', breve: 'Follow up', voce: S.follow_up },
-  { campo: 'dm_totali', breve: 'DM totali', voce: S.dm_totali, forte: true },
-  { campo: 'conversazioni', breve: 'Conv.', voce: S.conversazioni },
-  { campo: 'call_proposte', breve: 'Call proposte', voce: S.call_proposte },
-  { campo: 'discovery_prenotate', breve: 'Disc. prenotate', voce: S.discovery_prenotate },
-]
+/** The columns of the two sources, in the page's language (the Italian ones are those of always). */
+function colonne(lingua: Lingua) {
+  const { setting: S, closer: C, setter: M } = legende(lingua)
+  const b: Brevi = MIEI_NUMERI[lingua].giornate.brevi
+  // Source 1, the setter's daily report (what he writes in "Oggi"). The calls he
+  // books are discovery calls; strategy_prenotate is history (colonneReport).
+  const report: Colonna[] = [
+    { campo: 'dm_outbound', breve: b.dm_outbound, voce: S.dm_outbound },
+    { campo: 'dm_inbound', breve: b.dm_inbound, voce: S.dm_inbound },
+    { campo: 'follow_up', breve: b.follow_up, voce: S.follow_up },
+    { campo: 'dm_totali', breve: b.dm_totali, voce: S.dm_totali, forte: true },
+    { campo: 'conversazioni', breve: b.conversazioni, voce: S.conversazioni },
+    { campo: 'call_proposte', breve: b.call_proposte, voce: S.call_proposte },
+    { campo: 'discovery_prenotate', breve: b.discovery_prenotate, voce: S.discovery_prenotate },
+  ]
+  // Source 2, the calls he booked as the app recorded them: bookings by booking
+  // day, the closer's results by call day, cash and revenue only of his clients.
+  // Names shared with the report say "(closer)" (LEGENDA_SETTER).
+  const call: Colonna[] = [
+    { campo: 'prenotate_inbound', breve: b.prenotate_inbound, voce: S.prenotate_inbound },
+    { campo: 'prenotate_outbound', breve: b.prenotate_outbound, voce: S.prenotate_outbound },
+    { campo: 'closer_call', breve: b.closer_call, voce: C.call },
+    { campo: 'closer_qualificate', breve: b.closer_qualificate, voce: M.closer_qualificate },
+    { campo: 'closer_no_show', breve: b.closer_no_show, voce: C.no_show },
+    { campo: 'closer_follow_up', breve: b.closer_follow_up, voce: M.closer_follow_up },
+    { campo: 'closer_cancellate', breve: b.closer_cancellate, voce: C.cancellate },
+    { campo: 'closer_chiuse', breve: b.closer_chiuse, voce: C.chiuse },
+    { campo: 'cash', breve: b.cash, voce: M.cash_miei_clienti, euro: true },
+    { campo: 'revenue', breve: b.revenue, voce: M.revenue_miei_clienti, euro: true },
+  ]
+  const strategy: Colonna = { campo: 'strategy_prenotate', breve: b.strategy_prenotate, voce: S.strategy_storico }
+  /** The one line of a closed day on the phone: two numbers of the report, three of the calls. */
+  const riassuntoReport: Colonna[] = [
+    { campo: 'dm_totali', breve: b.dm, voce: S.dm_totali },
+    { campo: 'discovery_prenotate', breve: b.prenotate, voce: S.discovery_prenotate },
+  ]
+  const riassuntoCall: Colonna[] = [
+    { campo: 'closer_call', breve: b.closer_call, voce: C.call },
+    { campo: 'closer_chiuse', breve: b.closer_chiuse, voce: C.chiuse },
+    { campo: 'cash', breve: b.cash, voce: M.cash_miei_clienti, euro: true },
+  ]
+  return { report, call, strategy, riassuntoReport, riassuntoCall }
+}
 
-// Source 2, the calls he booked as the app recorded them: bookings by booking
-// day, the closer's results by call day, cash and revenue only of his clients.
-// Names shared with the report say "(closer)" (LEGENDA_SETTER).
-const CALL: Colonna[] = [
-  { campo: 'prenotate_inbound', breve: 'Da inbound', voce: S.prenotate_inbound },
-  { campo: 'prenotate_outbound', breve: 'Da outbound', voce: S.prenotate_outbound },
-  { campo: 'closer_call', breve: 'Svolte', voce: C.call },
-  { campo: 'closer_qualificate', breve: 'Qualif. closer', voce: M.closer_qualificate },
-  { campo: 'closer_no_show', breve: 'No show', voce: C.no_show },
-  { campo: 'closer_follow_up', breve: 'Follow up closer', voce: M.closer_follow_up },
-  { campo: 'closer_cancellate', breve: 'Cancellate', voce: C.cancellate },
-  { campo: 'closer_chiuse', breve: 'Chiuse', voce: C.chiuse },
-  { campo: 'cash', breve: 'Cash', voce: M.cash_miei_clienti, euro: true },
-  { campo: 'revenue', breve: 'Revenue', voce: M.revenue_miei_clienti, euro: true },
-]
+type Colonne = ReturnType<typeof colonne>
 
 // old reports may hold strategy calls: a column of history, shown only when the period has any
 export const VOCE_STRATEGY_STORICO: VoceLegenda = LEGENDA_SETTING.strategy_storico
 
-const STRATEGY: Colonna = { campo: 'strategy_prenotate', breve: 'Strategy (storico)', voce: VOCE_STRATEGY_STORICO }
-
 /** The report's columns; the strategy one only in a period whose total has some. */
-function colonneReport(conStrategy: boolean): Colonna[] {
-  if (!conStrategy) return REPORT
-  const dopo = REPORT.findIndex((c) => c.campo === 'discovery_prenotate') + 1
-  return [...REPORT.slice(0, dopo), STRATEGY, ...REPORT.slice(dopo)]
+function colonneReport(c: Colonne, conStrategy: boolean): Colonna[] {
+  if (!conStrategy) return c.report
+  const dopo = c.report.findIndex((x) => x.campo === 'discovery_prenotate') + 1
+  return [...c.report.slice(0, dopo), c.strategy, ...c.report.slice(dopo)]
 }
-
-/** The one line of a closed day on the phone: two numbers of the report, three of the calls. */
-const RIASSUNTO_REPORT: Colonna[] = [
-  { campo: 'dm_totali', breve: 'DM', voce: S.dm_totali },
-  { campo: 'discovery_prenotate', breve: 'Prenot.', voce: S.discovery_prenotate },
-]
-const RIASSUNTO_CALL: Colonna[] = [
-  { campo: 'closer_call', breve: 'Svolte', voce: C.call },
-  { campo: 'closer_chiuse', breve: 'Chiuse', voce: C.chiuse },
-  { campo: 'cash', breve: 'Cash', voce: M.cash_miei_clienti, euro: true },
-]
 
 /** What the tables show, for the page's "Cosa significa ogni numero". */
-export const VOCI_GIORNATE = {
-  report: REPORT.map((c) => c.voce),
-  call: CALL.map((c) => c.voce),
+export function vociGiornate(lingua: Lingua) {
+  const c = colonne(lingua)
+  return { report: c.report.map((x) => x.voce), call: c.call.map((x) => x.voce), strategy: c.strategy.voce }
 }
 
-const TITOLO_REPORT = 'Il tuo report'
-const TITOLO_CALL = 'Le call col tuo nome'
-const DESCRIZIONE_CALL =
-  'Quelle che hai fissato e le loro call di follow-up, che fissa il closer. Da inbound e da outbound per giorno di prenotazione (solo quelle che hai fissato tu), le altre per giorno della call; cash e revenue per giorno della vendita, solo dei clienti nuovi che hai portato tu (prima rata e contratto).'
+/** What the tables show, in Italian. */
+export const VOCI_GIORNATE = vociGiornate('it')
 
 /** Amounts always with two decimals, on the phone too: a list is not a tile. */
-function valore(r: Riga, c: Colonna): string {
-  return c.euro ? formatEuro(r[c.campo]) : formatNumero(r[c.campo])
+function valore(r: Riga, c: Colonna, f: Formato): string {
+  return c.euro ? f.formatEuro(r[c.campo]) : f.formatNumero(r[c.campo])
 }
 
 function zero(r: Riga, c: Colonna): boolean {
@@ -105,6 +109,8 @@ function classeValore(r: Riga, c: Colonna): string {
 /** The DM totali column sits on a faint band, like the sum under a column. */
 const FASCIA_FORTE = 'bg-muted/60'
 
+type Testi = (typeof MIEI_NUMERI)['it']['giornate']
+
 /* ---------- phone: one closed line per day ---------- */
 
 /** Label and value rows of one source; a day card leaves out what is zero. */
@@ -114,12 +120,16 @@ function Blocco({
   colonne,
   riga,
   senzaZeri = false,
+  t,
+  f,
 }: {
   titolo: string
   nota?: string
   colonne: Colonna[]
   riga: Riga
   senzaZeri?: boolean
+  t: Testi
+  f: Formato
 }) {
   const visibili = senzaZeri ? colonne.filter((c) => !zero(riga, c)) : colonne
   return (
@@ -129,13 +139,13 @@ function Blocco({
         {nota ? <p className="text-xs text-muted-foreground">{nota}</p> : null}
       </div>
       {visibili.length === 0 ? (
-        <p className="py-1 text-xs text-muted-foreground">Tutto a zero</p>
+        <p className="py-1 text-xs text-muted-foreground">{t.tuttoZero}</p>
       ) : (
         <dl className="grid grid-cols-2 gap-x-6">
           {visibili.map((c) => (
             <div key={c.campo} className="flex items-baseline justify-between gap-2 py-1">
               <dt className={cn('text-xs', c.forte ? 'font-medium text-foreground' : 'text-muted-foreground')}>{c.voce.etichetta}</dt>
-              <dd className={cn(classeValore(riga, c), 'text-right text-sm')}>{valore(riga, c)}</dd>
+              <dd className={cn(classeValore(riga, c), 'text-right text-sm')}>{valore(riga, c, f)}</dd>
             </div>
           ))}
         </dl>
@@ -153,51 +163,65 @@ const SOMMARIO =
  */
 const GRIGLIA = 'grid grid-cols-[4.75rem_repeat(4,minmax(0,1fr))_4.75rem_1rem] items-center gap-x-1'
 
-function CellaRiassunto({ riga, c, separa = false }: { riga: Riga; c: Colonna; separa?: boolean }) {
+function CellaRiassunto({ riga, c, separa = false, f }: { riga: Riga; c: Colonna; separa?: boolean; f: Formato }) {
   return (
     <span className={cn(classeValore(riga, c), 'text-right text-sm whitespace-nowrap', separa && 'border-l border-border')}>
       <span className="sr-only">{c.voce.etichetta}: </span>
-      {valore(riga, c)}
+      {valore(riga, c, f)}
     </span>
   )
 }
 
-function Giornata({ riga, report }: { riga: Riga; report: Colonna[] }) {
-  const giorno = formatData(riga.data)
+function Giornata({ riga, report, col, t, f }: { riga: Riga; report: Colonna[]; col: Colonne; t: Testi; f: Formato }) {
+  const giorno = f.formatData(riga.data)
   return (
     <li aria-label={giorno} data-testid="giornata">
       <details className="group rounded-xl bg-card">
         <summary className={cn(SOMMARIO, GRIGLIA, 'min-h-11 px-3 py-2')}>
           <span className="num text-sm font-medium">{giorno}</span>
-          {RIASSUNTO_REPORT.map((c) => (
-            <CellaRiassunto key={c.campo} riga={riga} c={c} />
+          {col.riassuntoReport.map((c) => (
+            <CellaRiassunto key={c.campo} riga={riga} c={c} f={f} />
           ))}
-          {RIASSUNTO_CALL.map((c, i) => (
-            <CellaRiassunto key={c.campo} riga={riga} c={c} separa={i === 0} />
+          {col.riassuntoCall.map((c, i) => (
+            <CellaRiassunto key={c.campo} riga={riga} c={c} separa={i === 0} f={f} />
           ))}
           <ChevronDown className={CHEVRON} aria-hidden="true" />
         </summary>
         <div className="space-y-3 px-4 pt-1 pb-4">
-          <Blocco titolo={TITOLO_REPORT} colonne={report} riga={riga} senzaZeri />
-          <Blocco titolo={TITOLO_CALL} colonne={CALL} riga={riga} senzaZeri />
+          <Blocco titolo={t.titoloReport} colonne={report} riga={riga} senzaZeri t={t} f={f} />
+          <Blocco titolo={t.titoloCall} colonne={col.call} riga={riga} senzaZeri t={t} f={f} />
         </div>
       </details>
     </li>
   )
 }
 
-function GiornateTelefono({ giorni, totale, report }: { giorni: Riga[]; totale: Riga | undefined; report: Colonna[] }) {
+function GiornateTelefono({
+  giorni,
+  totale,
+  report,
+  col,
+  t,
+  f,
+}: {
+  giorni: Riga[]
+  totale: Riga | undefined
+  report: Colonna[]
+  col: Colonne
+  t: Testi
+  f: Formato
+}) {
   return (
     <div className="space-y-3 md:hidden">
       {totale ? (
         <details open className="group rounded-xl bg-card ring-1 ring-border" data-testid="giornata-totale">
           <summary className={cn(SOMMARIO, 'flex min-h-11 items-center justify-between gap-2 px-4 text-sm font-semibold')}>
-            Totale del periodo
+            {t.totalePeriodo}
             <ChevronDown className={CHEVRON} aria-hidden="true" />
           </summary>
           <div className="space-y-3 px-4 pt-1 pb-4">
-            <Blocco titolo={TITOLO_REPORT} colonne={report} riga={totale} />
-            <Blocco titolo={TITOLO_CALL} nota={DESCRIZIONE_CALL} colonne={CALL} riga={totale} />
+            <Blocco titolo={t.titoloReport} colonne={report} riga={totale} t={t} f={f} />
+            <Blocco titolo={t.titoloCall} nota={t.descrizioneCall} colonne={col.call} riga={totale} t={t} f={f} />
           </div>
         </details>
       ) : null}
@@ -206,26 +230,26 @@ function GiornateTelefono({ giorni, totale, report }: { giorni: Riga[]; totale: 
         {/* the header of the lines below: every line also says it to screen readers */}
         <div aria-hidden="true" className="px-3 pb-1 text-[11px] text-muted-foreground">
           <div className={GRIGLIA}>
-            <span className="col-span-2 col-start-2 text-center font-medium">Dal report</span>
-            <span className="col-span-3 col-start-4 border-l border-border text-center font-medium">Dalle call</span>
+            <span className="col-span-2 col-start-2 text-center font-medium">{t.dalReport}</span>
+            <span className="col-span-3 col-start-4 border-l border-border text-center font-medium">{t.dalleCall}</span>
           </div>
           <div className={GRIGLIA}>
-            <span>Giorno</span>
-            {RIASSUNTO_REPORT.map((c) => (
+            <span>{t.giorno}</span>
+            {col.riassuntoReport.map((c) => (
               <span key={c.campo} className="text-right">
                 {c.breve}
               </span>
             ))}
-            {RIASSUNTO_CALL.map((c, i) => (
+            {col.riassuntoCall.map((c, i) => (
               <span key={c.campo} className={cn('text-right', i === 0 && 'border-l border-border')}>
                 {c.breve}
               </span>
             ))}
           </div>
         </div>
-        <ul className="space-y-2" aria-label="Giorni del periodo">
+        <ul className="space-y-2" aria-label={t.giorniPeriodo}>
           {giorni.map((r) => (
-            <Giornata key={r.data} riga={r} report={report} />
+            <Giornata key={r.data} riga={r} report={report} col={col} t={t} f={f} />
           ))}
         </ul>
       </div>
@@ -235,10 +259,10 @@ function GiornateTelefono({ giorni, totale, report }: { giorni: Riga[]; totale: 
 
 /* ---------- desktop: one table per source ---------- */
 
-function Celle({ riga, colonne }: { riga: Riga; colonne: Colonna[] }) {
+function Celle({ riga, colonne, f }: { riga: Riga; colonne: Colonna[]; f: Formato }) {
   return colonne.map((c) => (
     <td key={c.campo} className={cn(classeValore(riga, c), 'px-1.5 py-2 text-right whitespace-nowrap last:pr-3', c.forte && FASCIA_FORTE)}>
-      {valore(riga, c)}
+      {valore(riga, c, f)}
     </td>
   ))
 }
@@ -251,6 +275,8 @@ function Tabella({
   colonne,
   giorni,
   totale,
+  t,
+  f,
 }: {
   id: string
   titolo: string
@@ -259,6 +285,8 @@ function Tabella({
   colonne: Colonna[]
   giorni: Riga[]
   totale: Riga | undefined
+  t: Testi
+  f: Formato
 }) {
   // a day where every number of this source is zero adds nothing here
   const righe = giorni.filter((r) => colonne.some((c) => !zero(r, c)))
@@ -286,7 +314,7 @@ function Tabella({
             <thead className="text-xs text-muted-foreground">
               <tr className="border-b border-border">
                 <th scope="col" className="sticky left-0 z-10 bg-card px-3 pt-2.5 pb-2 text-left align-bottom font-normal">
-                  Giorno
+                  {t.giorno}
                 </th>
                 {/* short headers like the Excel; the title says the full name */}
                 {colonne.map((c) => (
@@ -308,9 +336,9 @@ function Tabella({
               {righe.map((r) => (
                 <tr key={r.data} data-testid="giornata">
                   <th scope="row" className="num sticky left-0 z-10 bg-card px-3 py-2 text-left font-normal whitespace-nowrap">
-                    {formatData(r.data)}
+                    {f.formatData(r.data)}
                   </th>
-                  <Celle riga={r} colonne={colonne} />
+                  <Celle riga={r} colonne={colonne} f={f} />
                 </tr>
               ))}
             </tbody>
@@ -318,9 +346,9 @@ function Tabella({
               <tfoot className="border-t border-border font-semibold">
                 <tr data-testid="giornata-totale">
                   <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2.5 text-left whitespace-nowrap">
-                    Totale
+                    {t.totale}
                   </th>
-                  <Celle riga={totale} colonne={colonne} />
+                  <Celle riga={totale} colonne={colonne} f={f} />
                 </tr>
               </tfoot>
             ) : null}
@@ -337,51 +365,56 @@ function Tabella({
  * caller). The two sources never share a table. Every number and the total
  * row come from SQL; here rows are only shown or left out.
  */
-export function MieGiornate({ righe }: { righe: Riga[] }) {
+export function MieGiornate({ righe, lingua = 'it' }: { righe: Riga[]; lingua?: Lingua }) {
+  const t = MIEI_NUMERI[lingua].giornate
+  const f = formato(lingua)
+  const col = colonne(lingua)
   const totale = righe.find((r) => r.data === null)
   const giorni = righe.filter((r) => r.data !== null)
-  const report = colonneReport(Number(totale?.strategy_prenotate ?? 0) > 0)
+  const report = colonneReport(col, Number(totale?.strategy_prenotate ?? 0) > 0)
 
   return (
     <section aria-labelledby="titolo-mie-giornate" className="space-y-3" data-testid="mie-giornate">
       <div>
         <h2 id="titolo-mie-giornate" className="text-sm font-medium">
-          Giorno per giorno
+          {t.titolo}
         </h2>
-        <p className="text-xs text-muted-foreground">
-          Il tuo report e le call col tuo nome (quelle che hai fissato e le loro call di follow-up), un giorno alla volta. Compaiono solo i giorni con almeno un numero.
-        </p>
+        <p className="text-xs text-muted-foreground">{t.descrizione}</p>
       </div>
 
       {giorni.length === 0 ? (
         <StatoVuoto
           Icona={CalendarDays}
-          titolo="Nessuna giornata in questo periodo"
-          descrizione="Quando compili il report del giorno o una tua call viene svolta, qui trovi la giornata accanto ai risultati del closer."
-          azione={<LinkBottone href="/today">Compila oggi</LinkBottone>}
+          titolo={t.vuoto}
+          descrizione={t.vuotoDescrizione}
+          azione={<LinkBottone href="/today">{t.compilaOggi}</LinkBottone>}
         />
       ) : (
         <>
-          <GiornateTelefono giorni={giorni} totale={totale} report={report} />
+          <GiornateTelefono giorni={giorni} totale={totale} report={report} col={col} t={t} f={f} />
 
           <div className="hidden space-y-5 md:block">
             <Tabella
               id="tabella-report"
-              titolo={TITOLO_REPORT}
-              descrizione="I numeri che scrivi ogni giorno in «Oggi»."
-              vuoto="Nessun numero nel report in questo periodo."
+              titolo={t.titoloReport}
+              descrizione={t.descrizioneReport}
+              vuoto={t.vuotoReport}
               colonne={report}
               giorni={giorni}
               totale={totale}
+              t={t}
+              f={f}
             />
             <Tabella
               id="tabella-call"
-              titolo={TITOLO_CALL}
-              descrizione={DESCRIZIONE_CALL}
-              vuoto="Nessuna call col tuo nome in questo periodo."
-              colonne={CALL}
+              titolo={t.titoloCall}
+              descrizione={t.descrizioneCall}
+              vuoto={t.vuotoCall}
+              colonne={col.call}
               giorni={giorni}
               totale={totale}
+              t={t}
+              f={f}
             />
           </div>
         </>

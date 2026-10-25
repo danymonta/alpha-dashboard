@@ -5,8 +5,9 @@ import { Pillola } from '@/components/insight/pillola'
 import { ChiBreve } from '@/components/insight/sezioni'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { buttonVariants } from '@/components/ui/button'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
 import { urlSicuro } from '@/lib/insight/link'
-import { AGENDA } from '@/lib/insight/parole'
 import type { AgendaRecap as VoceAgenda, ShowUpRecap } from '@/lib/insight/recap'
 import { tonoAgenda, tonoEsito, type Tono } from '@/lib/insight/toni'
 import { cn } from '@/lib/utils'
@@ -42,8 +43,15 @@ function ChiCall({ voce }: { voce: { username: string; name: string; channel?: '
   )
 }
 
-function chiNome(voce: { username: string; name: string }): string {
-  return voce.username ? `@${voce.username}` : voce.name || 'il lead'
+type Testi = (typeof INSIGHT_RECAP)['it']
+
+function chiNome(voce: { username: string; name: string }, t: Testi): string {
+  return voce.username ? `@${voce.username}` : voce.name || t.agenda.ilLead
+}
+
+/** «oggi», «domani», «ieri» as the recap writes them, in the page's language; anything else as written. */
+function giornoAgenda(giorno: string, t: Testi): string {
+  return t.giorniAgenda[giorno] ?? giorno
 }
 
 function Ora({ ora, giorno }: { ora: string; giorno: string }) {
@@ -55,7 +63,7 @@ function Ora({ ora, giorno }: { ora: string; giorno: string }) {
   )
 }
 
-function Call({ voce }: { voce: VoceAgenda }) {
+function Call({ voce, t }: { voce: VoceAgenda; t: Testi }) {
   const tono = tonoAgenda(voce.status)
   // never in 1.35.0 (no Calendly or Meet link): the button renders only for a real Meet address
   const meet = urlSicuro(voce.meet_link, 'meet')
@@ -64,12 +72,12 @@ function Call({ voce }: { voce: VoceAgenda }) {
       data-testid="call-agenda"
       className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] md:p-4"
     >
-      <Ora ora={voce.time} giorno={voce.day} />
+      <Ora ora={voce.time} giorno={giornoAgenda(voce.day, t)} />
       <div className="grid min-w-0 gap-1.5">
         <ChiCall voce={voce} />
         {voce.status ? (
           <div className="flex flex-wrap gap-1.5">
-            <Pillola tono={tono} Icona={ICONA_AGENDA[tono]}>
+            <Pillola tono={tono} Icona={ICONA_AGENDA[tono]} lang="it">
               {voce.status}
             </Pillola>
           </div>
@@ -77,14 +85,14 @@ function Call({ voce }: { voce: VoceAgenda }) {
         {voce.da_ricontrollare ? (
           <p className="flex items-start gap-1.5 rounded-lg border border-status-warning/40 bg-status-warning/10 p-3 text-sm">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
-            <span className="[overflow-wrap:anywhere]">{voce.da_ricontrollare}</span>
+            <span lang="it" className="[overflow-wrap:anywhere]">{voce.da_ricontrollare}</span>
           </p>
         ) : null}
         {voce.suggested_message ? (
           <MessaggioCopiabile
-            eyebrow={AGENDA.promemoria}
+            eyebrow={t.agenda.promemoria}
             testo={voce.suggested_message}
-            nomeCopia={`Copia il promemoria per ${chiNome(voce)}`}
+            nomeCopia={t.copiaPromemoria(chiNome(voce, t))}
           />
         ) : null}
       </div>
@@ -96,23 +104,23 @@ function Call({ voce }: { voce: VoceAgenda }) {
           className={cn(buttonVariants({ variant: 'outline' }), 'col-start-2 h-11 justify-self-start gap-1.5 px-3 sm:col-start-auto')}
         >
           <Video className="size-4" aria-hidden="true" />
-          {AGENDA.meet}
-          <span className="sr-only">, apre Google Meet in una nuova scheda</span>
+          {t.agenda.meet}
+          <span className="sr-only">{t.meetNuovaScheda}</span>
         </a>
       ) : null}
     </li>
   )
 }
 
-function CallDiIeri({ voce }: { voce: ShowUpRecap }) {
-  const esito = voce.outcome || AGENDA.daVerificare
+function CallDiIeri({ voce, t }: { voce: ShowUpRecap; t: Testi }) {
+  const esito = voce.outcome || t.agenda.daVerificare
   const tono = tonoEsito(voce.outcome)
   return (
     <li
       data-testid="call-ieri"
       className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[4.5rem_minmax(0,1fr)] md:p-4"
     >
-      <Ora ora={voce.time} giorno={voce.day || 'ieri'} />
+      <Ora ora={voce.time} giorno={giornoAgenda(voce.day || 'ieri', t)} />
       <div className="grid min-w-0 gap-1.5">
         <ChiCall voce={voce} />
         <div className="flex flex-wrap gap-1.5">
@@ -120,12 +128,12 @@ function CallDiIeri({ voce }: { voce: ShowUpRecap }) {
             {esito}
           </Pillola>
         </div>
-        {voce.note ? <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">{voce.note}</p> : null}
+        {voce.note ? <p lang="it" className="text-sm text-muted-foreground [overflow-wrap:anywhere]">{voce.note}</p> : null}
         {voce.suggested_message ? (
           <MessaggioCopiabile
-            eyebrow={AGENDA.messaggio}
+            eyebrow={t.agenda.messaggio}
             testo={voce.suggested_message}
-            nomeCopia={`Copia il messaggio per ${chiNome(voce)}`}
+            nomeCopia={t.copiaMessaggioPer(chiNome(voce, t))}
           />
         ) : null}
       </div>
@@ -140,7 +148,17 @@ function CallDiIeri({ voce }: { voce: ShowUpRecap }) {
  * closer's outcomes, 1.35.0, D3): never notes, amounts or the closer, for the
  * admin and the setter alike. It reads the Instagram recap of the chosen day.
  */
-export function AgendaRecap({ agenda, showUp }: { agenda: readonly VoceAgenda[]; showUp: readonly ShowUpRecap[] }) {
+export function AgendaRecap({
+  agenda,
+  showUp,
+  lingua = 'it',
+}: {
+  agenda: readonly VoceAgenda[]
+  showUp: readonly ShowUpRecap[]
+  lingua?: Lingua
+}) {
+  const t = INSIGHT_RECAP[lingua]
+  const AGENDA = t.agenda
   if (!agenda.length && !showUp.length) {
     return <StatoVuoto Icona={CalendarX2} titolo={AGENDA.vuotoTitolo} descrizione={AGENDA.vuotoDescrizione} />
   }
@@ -152,7 +170,7 @@ export function AgendaRecap({ agenda, showUp }: { agenda: readonly VoceAgenda[];
       {agenda.length ? (
         <ul className="grid gap-2">
           {agenda.map((c, i) => (
-            <Call key={c.call_id || i} voce={c} />
+            <Call key={c.call_id || i} voce={c} t={t} />
           ))}
         </ul>
       ) : (
@@ -168,7 +186,7 @@ export function AgendaRecap({ agenda, showUp }: { agenda: readonly VoceAgenda[];
           </div>
           <ul className="grid gap-2">
             {showUp.map((c, i) => (
-              <CallDiIeri key={c.call_id || i} voce={c} />
+              <CallDiIeri key={c.call_id || i} voce={c} t={t} />
             ))}
           </ul>
         </>

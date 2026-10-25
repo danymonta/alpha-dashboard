@@ -7,7 +7,8 @@
  * the 2nd to the 5th covers four day columns).
  */
 import { aggiungiGiorni } from '@/lib/date'
-import { parseDataISO } from '@/lib/format'
+import { MESI_BREVI_EN, parseDataISO } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
 import { lunediDi } from '@/lib/tempo'
 
 export type ScalaGantt = 'settimane' | 'mesi'
@@ -134,7 +135,8 @@ export function geometria(forma: Forma, { da }: Intervallo, scala: ScalaGantt): 
 
 const meseBreve = new Intl.DateTimeFormat('it-IT', { month: 'short' })
 
-function nomeMese(iso: string): string {
+function nomeMese(iso: string, lingua: Lingua = 'it'): string {
+  if (lingua === 'en') return MESI_BREVI_EN[Number(iso.slice(5, 7)) - 1]!
   return meseBreve.format(parseDataISO(iso)).replace('.', '')
 }
 
@@ -144,14 +146,14 @@ export type Tacca = { data: string; x: number; etichetta: string }
  * Axis ticks: every Monday ("22 set") on the week scale, every 1st of the
  * month ("ott", January with the year: "gen 27") on the month scale.
  */
-export function tacche(intervallo: Intervallo, scala: ScalaGantt): Tacca[] {
+export function tacche(intervallo: Intervallo, scala: ScalaGantt, lingua: Lingua = 'it'): Tacca[] {
   const { da, a } = intervallo
   const risultato: Tacca[] = []
 
   if (scala === 'settimane') {
     let giorno = lunediDi(da) < da ? aggiungiGiorni(lunediDi(da), 7) : lunediDi(da)
     while (giorno <= a) {
-      risultato.push({ data: giorno, x: xDi(giorno, da, scala), etichetta: `${Number(giorno.slice(8, 10))} ${nomeMese(giorno)}` })
+      risultato.push({ data: giorno, x: xDi(giorno, da, scala), etichetta: `${Number(giorno.slice(8, 10))} ${nomeMese(giorno, lingua)}` })
       giorno = aggiungiGiorni(giorno, 7)
     }
     return risultato
@@ -159,7 +161,7 @@ export function tacche(intervallo: Intervallo, scala: ScalaGantt): Tacca[] {
 
   let primo = primoDelMese(da) < da ? meseSuccessivo(primoDelMese(da)) : primoDelMese(da)
   while (primo <= a) {
-    const etichetta = primo.slice(5, 7) === '01' ? `${nomeMese(primo)} ${primo.slice(2, 4)}` : nomeMese(primo)
+    const etichetta = primo.slice(5, 7) === '01' ? `${nomeMese(primo, lingua)} ${primo.slice(2, 4)}` : nomeMese(primo, lingua)
     risultato.push({ data: primo, x: xDi(primo, da, scala), etichetta })
     primo = meseSuccessivo(primo)
   }

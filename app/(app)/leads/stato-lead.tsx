@@ -35,19 +35,19 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { cn } from '@/lib/utils'
-import { ETICHETTA_FONTE, FONTI } from '@/lib/validation/call'
+import { FONTI } from '@/lib/validation/call'
 import type { Lingua } from '@/lib/i18n/lingua'
+import { traduciErrore, tradotto } from '@/lib/i18n/testi/errori-economics'
 import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { FOGLIO_LEAD } from '@/lib/i18n/testi/pipeline'
 import {
-  ETICHETTA_STATO_LEAD,
   STATI_LEAD,
   modificaLeadSchema,
   type ModificaLeadInput,
   type StatoLead,
 } from '@/lib/validation/lead'
-
-const OPZIONI_FONTE = FONTI.map((f) => ({ valore: f, etichetta: ETICHETTA_FONTE[f] }))
 
 const ASPETTO: Record<StatoLead, { Icona: LucideIcon; tono: string }> = {
   call_fissata: { Icona: CalendarClock, tono: 'text-foreground' },
@@ -62,7 +62,8 @@ export type Suggerimento =
   | { tipo: 'link'; testo: string; href: string; etichetta: string }
   | { tipo: 'info'; testo: string }
 
-function useAggiornaStato(leadId: string, nome: string, stato: StatoLead) {
+function useAggiornaStato(leadId: string, nome: string, stato: StatoLead, lingua: Lingua) {
+  const t = FOGLIO_LEAD[lingua]
   const [inCorso, avvia] = useTransition()
   const [mostrato, impostaMostrato] = useOptimistic(stato)
 
@@ -74,14 +75,14 @@ function useAggiornaStato(leadId: string, nome: string, stato: StatoLead) {
       try {
         esito = await aggiornaStatoLead({ lead_id: leadId, stato: nuovo })
       } catch {
-        toast.error('Connessione assente. Riprova.')
+        toast.error(t.connessione)
         return
       }
       if (esito.ok) {
-        toast.success(`${nome}: ${ETICHETTA_STATO_LEAD[nuovo].toLowerCase()}`)
+        toast.success(t.fatto(nome, ETICHETTE[lingua].statoLead[nuovo]))
         dopo?.()
       } else {
-        toast.error(esito.errore)
+        toast.error(traduciErrore(esito.errore, lingua))
       }
     })
   }
@@ -116,11 +117,12 @@ export function StatoLeadArea({
   titolo: ReactNode
   /** Admin: the lead can be deleted, with its calls. */
   eliminabile?: boolean
-  /** The page's language (1.53.0): the status read on the card; the sheet stays Italian. */
+  /** The page's language (1.53.0): the status read on the card and its sheet. */
   lingua?: Lingua
   children: ReactNode
 }) {
-  const { mostrato, inCorso, cambia } = useAggiornaStato(leadId, nome, stato)
+  const { mostrato, inCorso, cambia } = useAggiornaStato(leadId, nome, stato, lingua)
+  const t = FOGLIO_LEAD[lingua]
   const [aperto, setAperto] = useState(false)
   const [vista, setVista] = useState<'stato' | 'dati'>('stato')
   const { Icona, tono } = ASPETTO[mostrato]
@@ -153,7 +155,7 @@ export function StatoLeadArea({
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label={`Cambia stato di ${nome}`}
+                aria-label={t.cambiaStato(nome)}
                 className="-mt-3 -mr-1 size-11 shrink-0 text-muted-foreground"
               />
             }
@@ -164,12 +166,12 @@ export function StatoLeadArea({
             <SheetHeader>
               <SheetTitle>{nome}</SheetTitle>
               <SheetDescription>
-                {vista === 'stato' ? 'Stato nella pipeline, aggiornato a mano.' : 'Dati del lead: si correggono quando vuoi.'}
+                {vista === 'stato' ? t.descrizioneStato : t.descrizioneDati}
               </SheetDescription>
             </SheetHeader>
             {vista === 'stato' ? (
               <div className="space-y-3 px-4">
-                <div role="radiogroup" aria-label={`Stato di ${nome}`} className="grid grid-cols-2 gap-2">
+                <div role="radiogroup" aria-label={t.statoDi(nome)} className="grid grid-cols-2 gap-2">
                   {STATI_LEAD.map((s) => {
                     const { Icona: I, tono: t } = ASPETTO[s]
                     const scelto = s === mostrato
@@ -186,7 +188,7 @@ export function StatoLeadArea({
                         )}
                       >
                         <I className={cn('size-4', t)} aria-hidden="true" />
-                        {ETICHETTA_STATO_LEAD[s]}
+                        {ETICHETTE[lingua].statoLead[s]}
                       </button>
                     )
                   })}
@@ -194,7 +196,7 @@ export function StatoLeadArea({
                 {dati ? (
                   <Button type="button" variant="outline" className="h-11 w-full" onClick={() => setVista('dati')}>
                     <Pencil className="size-4" aria-hidden="true" />
-                    Modifica nome, handle e fonte
+                    {t.modificaDati}
                   </Button>
                 ) : null}
               </div>
@@ -206,17 +208,17 @@ export function StatoLeadArea({
                   onClick={() => setVista('stato')}
                 >
                   <ChevronLeft className="size-4" aria-hidden="true" />
-                  Stato
+                  {t.stato}
                 </button>
                 <FormLead id={leadId} dati={dati} onSalvato={() => setAperto(false)} />
                 {eliminabile ? (
                   <div className="border-t border-border pt-4">
                     <Elimina
-                      etichetta="Elimina il lead"
+                      etichetta={t.elimina}
                       cosa={nome}
-                      fatto="Lead eliminato"
+                      fatto={t.eliminato}
                       anteprima={{ tipo: 'lead', id: leadId }}
-                      azione={() => eliminaLead({ id: leadId })}
+                      azione={async () => tradotto(await eliminaLead({ id: leadId }), lingua)}
                     />
                   </div>
                 ) : null}
@@ -270,6 +272,10 @@ function FormLead({
   dati: Omit<ModificaLeadInput, 'id'>
   onSalvato: () => void
 }) {
+  const lingua = useLingua()
+  const t = FOGLIO_LEAD[lingua]
+  const OPZIONI_FONTE = FONTI.map((f) => ({ valore: f, etichetta: ETICHETTE[lingua].fonte[f] }))
+  const tr = (testo: string | undefined) => traduciErrore(testo, lingua)
   const { errore, salva } = useSalvataggio()
   const {
     register,
@@ -281,28 +287,28 @@ function FormLead({
   })
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => modificaLead(valori), 'Lead aggiornato')) onSalvato()
+    if (await salva(() => modificaLead(valori), t.aggiornato)) onSalvato()
   })
 
   return (
     <form onSubmit={invia} noValidate className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor={`l-nome-${id}`}>Nome</Label>
+        <Label htmlFor={`l-nome-${id}`}>{t.nome}</Label>
         <Input id={`l-nome-${id}`} className="h-11" aria-invalid={errors.nome ? true : undefined} {...register('nome')} />
-        <ErroreCampo id={`l-nome-errore-${id}`} messaggio={errors.nome?.message} />
+        <ErroreCampo id={`l-nome-errore-${id}`} messaggio={tr(errors.nome?.message)} />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor={`l-ig-${id}`}>Handle Instagram</Label>
+        <Label htmlFor={`l-ig-${id}`}>{t.handle}</Label>
         <Input id={`l-ig-${id}`} autoCapitalize="none" autoCorrect="off" className="h-11" {...register('instagram_handle')} />
-        <ErroreCampo id={`l-ig-errore-${id}`} messaggio={errors.instagram_handle?.message} />
+        <ErroreCampo id={`l-ig-errore-${id}`} messaggio={tr(errors.instagram_handle?.message)} />
       </div>
-      <SceltaRapida legenda="Fonte" opzioni={OPZIONI_FONTE} registrazione={register('fonte')} errore={errors.fonte?.message} />
+      <SceltaRapida legenda={t.fonte} opzioni={OPZIONI_FONTE} registrazione={register('fonte')} errore={tr(errors.fonte?.message)} />
       <div className="space-y-1.5">
-        <Label htmlFor={`l-note-${id}`}>Note</Label>
+        <Label htmlFor={`l-note-${id}`}>{t.note}</Label>
         <Textarea id={`l-note-${id}`} rows={3} {...register('note')} />
       </div>
-      <ErroreModulo testo={errore} />
-      <BottoneSalva inCorso={isSubmitting}>Salva il lead</BottoneSalva>
+      <ErroreModulo testo={tr(errore ?? undefined) ?? null} />
+      <BottoneSalva inCorso={isSubmitting}>{t.salva}</BottoneSalva>
     </form>
   )
 }

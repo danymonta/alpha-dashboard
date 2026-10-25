@@ -13,6 +13,7 @@ import {
 } from '@/components/marketing/contesto-pannello'
 import { SchedaContenuto, type StatoSezioni } from '@/components/marketing/scheda-contenuto'
 import { useUscitaDallaLista } from '@/components/marketing/sezione-contenuti'
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,6 +25,7 @@ import {
 } from '@/components/ui/dialog'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { CONTENUTO } from '@/lib/i18n/testi/contenuto'
 import type { DettaglioContenuto } from '@/lib/marketing/dettaglio'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { PARAMETRO_CONTENUTO, piuRecente, urlCon, urlSenza, vicini } from '@/lib/marketing/pannello'
@@ -116,6 +118,7 @@ export function PannelloContenuti({
   children: ReactNode
 }) {
   const uscita = useUscitaDallaLista()
+  const t = useTesti(CONTENUTO).pannello
   const richiesto = useSearchParams().get(PARAMETRO_CONTENUTO)
   const daIndirizzo = isUuid(richiesto) ? richiesto : null
 
@@ -411,7 +414,7 @@ export function PannelloContenuti({
       const nome = copieRef.current[id]?.nome ?? righeRef.current.get(id)?.nome ?? voci[id]?.dettaglio?.contenuto.nome
       if (nome && nav?.posizione) {
         setAnnuncio('')
-        window.setTimeout(() => setAnnuncio(`«${nome}», ${nav.posizione} di ${nav.totale}`), 50)
+        window.setTimeout(() => setAnnuncio(t.posizione(nome, nav.posizione ?? 0, nav.totale)), 50)
       }
     })
   }
@@ -490,14 +493,14 @@ export function PannelloContenuti({
                 <>
                   <SheetHeader>
                     <SheetTitle ref={titolo} tabIndex={-1} className="outline-none">
-                      Questo contenuto non c’è più
+                      {t.sparito}
                     </SheetTitle>
-                    <SheetDescription>Forse l’ha eliminato qualcuno del team.</SheetDescription>
+                    <SheetDescription>{t.sparitoDescrizione}</SheetDescription>
                   </SheetHeader>
                   <div className="flex flex-col items-start gap-3 px-4 pb-6">
                     <SearchX className="size-8 text-muted-foreground" aria-hidden="true" />
                     <Button type="button" variant="outline" className="h-11" onClick={() => chiudi()}>
-                      Chiudi
+                      {t.chiudi}
                     </Button>
                   </div>
                 </>
@@ -526,17 +529,17 @@ export function PannelloContenuti({
                 <>
                   <SheetHeader>
                     <SheetTitle ref={titolo} tabIndex={-1} className="outline-none">
-                      Contenuto
+                      {t.contenuto}
                     </SheetTitle>
                     <SheetDescription>
-                      {voce?.stato === 'errore' ? 'Il contenuto non si è caricato.' : 'Caricamento del contenuto…'}
+                      {voce?.stato === 'errore' ? t.nonCaricato : t.caricamento}
                     </SheetDescription>
                   </SheetHeader>
                   <div className="space-y-3 px-4 pb-6">
                     {voce?.stato === 'errore' ? (
                       <Button type="button" variant="outline" className="h-11" onClick={rileggi}>
                         <RotateCw className="size-4" aria-hidden="true" />
-                        Riprova
+                        {t.riprova}
                       </Button>
                     ) : (
                       <div className="space-y-3" aria-busy="true">
@@ -571,8 +574,8 @@ export function PannelloContenuti({
             }
           >
             <DialogHeader>
-              <DialogTitle>Hai un testo non salvato in «{domanda?.titolo}»: chiudere lo stesso?</DialogTitle>
-              <DialogDescription>Il testo che hai scritto non è ancora salvato.</DialogDescription>
+              <DialogTitle>{t.domanda(domanda?.titolo ?? '')}</DialogTitle>
+              <DialogDescription>{t.domandaDescrizione}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button
@@ -584,7 +587,7 @@ export function PannelloContenuti({
                   setDomanda(null)
                 }}
               >
-                Continua a scrivere
+                {t.continua}
               </Button>
               <Button
                 type="button"
@@ -598,7 +601,7 @@ export function PannelloContenuti({
                   poi?.()
                 }}
               >
-                Chiudi senza salvare
+                {t.chiudiSenza}
               </Button>
             </DialogFooter>
           </DialogContent>

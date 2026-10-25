@@ -11,10 +11,13 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { alfireConfigurata } from '@/lib/alfire/config'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { getLingua } from '@/lib/i18n/server'
+import { CHIAVI } from '@/lib/i18n/testi/chiavi'
+import { IMPOSTAZIONI, traduciImpostazioni } from '@/lib/i18n/testi/impostazioni'
 import { insightConfigurato } from '@/lib/insight/config'
 import { FRASI_ERRORE } from '@/lib/instagram/report'
-import { fraseScadePresto, statoToken } from '@/lib/instagram/stato-token'
+import { statoToken } from '@/lib/instagram/stato-token'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -78,6 +81,10 @@ function Scheda({
 
 export default async function ChiaviPage() {
   await requireRuolo(['admin'])
+  const lingua = await getLingua()
+  const T = CHIAVI[lingua]
+  const { formatData } = formato(lingua)
+  const tr = (testo: string) => traduciImpostazioni(testo, lingua)
   const supabase = await createClient()
   const [instagram, tokenIg, messenger, tokenMsg, fathom, fathomPresente] = await Promise.all([
     supabase
@@ -95,7 +102,7 @@ export default async function ChiaviPage() {
     supabase.rpc('fathom_chiave_presente'),
   ])
   if (instagram.error || tokenIg.error || messenger.error || tokenMsg.error || fathom.error || fathomPresente.error) {
-    throw new Error('Impossibile caricare le chiavi e i collegamenti')
+    throw new Error(T.errore)
   }
 
   const adesso = adessoMs()
@@ -118,18 +125,18 @@ export default async function ChiaviPage() {
 
   // what needs a hand, on top: an expired or about-to-expire token, a key that is missing
   const daSistemare: string[] = []
-  if (t.scaduto) daSistemare.push('Il token di Instagram è scaduto o non è più valido.')
+  if (t.scaduto) daSistemare.push(T.daSistemareScaduto)
   else if (t.scadePresto && t.giorniAllaScadenza !== null) {
-    daSistemare.push(`Il token di Instagram ${fraseScadePresto(t.giorniAllaScadenza).toLowerCase()}.`)
+    daSistemare.push(T.daSistemareScadePresto(t.giorniAllaScadenza))
   }
-  if (!claude) daSistemare.push('Manca la chiave di Claude su Vercel: Insight, analisi e Spunti sono spenti.')
+  if (!claude) daSistemare.push(T.daSistemareClaude)
 
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina
-        indietro={{ href: '/settings', etichetta: 'Impostazioni' }}
-        titolo="Chiavi e collegamenti"
-        descrizione="Tutto quello che l’app usa per parlare con Instagram, Messenger, Fathom, Claude e Groq: se ognuno funziona, quando scade e, in un pannello, come rigenerare la chiave. Le chiavi non tornano mai nella pagina e non vanno mai incollate in chat."
+        indietro={{ href: '/settings', etichetta: IMPOSTAZIONI[lingua].titolo }}
+        titolo={T.titolo}
+        descrizione={T.descrizione}
       />
 
       {t.scaduto ? (
@@ -139,7 +146,7 @@ export default async function ChiaviPage() {
           className="flex items-start gap-2 rounded-xl border border-status-critical/40 bg-status-critical/10 p-4 text-sm font-medium"
         >
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-critical" aria-hidden="true" />
-          Token Instagram scaduto: generane uno nuovo dal pannello Meta e incollalo qui.
+          {T.avvisoScaduto}
         </div>
       ) : null}
 
@@ -159,29 +166,27 @@ export default async function ChiaviPage() {
         titolo="Instagram"
         stato={
           !tokenPresente ? (
-            <Stato tono="spenta">Non collegato</Stato>
+            <Stato tono="spenta">{T.nonCollegato}</Stato>
           ) : t.scaduto ? (
             <Stato tono="errore">
-              {t.scadutoPerData
-                ? `Scaduto${scadeGiorno ? ` il ${formatData(scadeGiorno)}` : ''}`
-                : 'Non più valido: Instagram lo ha rifiutato'}
+              {t.scadutoPerData ? T.scaduto(scadeGiorno ? formatData(scadeGiorno) : null) : T.rifiutato}
             </Stato>
           ) : t.scadePresto && t.giorniAllaScadenza !== null ? (
-            <Stato tono="avviso">{fraseScadePresto(t.giorniAllaScadenza)}</Stato>
+            <Stato tono="avviso">{T.scadeTra(t.giorniAllaScadenza)}</Stato>
           ) : (
-            <Stato tono="ok">Salvato{scadeGiorno ? `, scade il ${formatData(scadeGiorno)}` : ''}</Stato>
+            <Stato tono="ok">{T.salvato(scadeGiorno ? formatData(scadeGiorno) : null)}</Stato>
           )
         }
       >
         <dl className="divide-y divide-border">
-          <Voce etichetta="Account">
+          <Voce etichetta={T.account}>
             {ig?.account_username ? (
               <span className="font-medium">@{ig.account_username}</span>
             ) : (
-              <span className="text-muted-foreground">Si legge dal token al primo calcolo</span>
+              <span className="text-muted-foreground">{T.primoCalcolo}</span>
             )}
           </Voce>
-          <Voce etichetta="Ultimo errore">
+          <Voce etichetta={T.ultimoErrore}>
             {ig?.ultimo_errore ? (
               <span className="flex items-start gap-1.5 text-status-critical">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -189,32 +194,31 @@ export default async function ChiaviPage() {
                   {ig.ultimo_errore_il ? (
                     <span className="num inline-flex items-center gap-1 text-muted-foreground">
                       <Clock className="size-3.5" aria-hidden="true" />
-                      {quando(ig.ultimo_errore_il, oggi)}:
+                      {quando(ig.ultimo_errore_il, oggi, lingua)}:
                     </span>
                   ) : null}{' '}
-                  {ig.ultimo_errore}
+                  {tr(ig.ultimo_errore)}
                 </span>
               </span>
             ) : (
-              <span className="text-muted-foreground">Nessuno</span>
+              <span className="text-muted-foreground">{T.nessuno}</span>
             )}
           </Voce>
         </dl>
         {t.scadePresto && t.giorniAllaScadenza !== null ? (
           <p className="text-sm text-status-warning">
-            {fraseScadePresto(t.giorniAllaScadenza)}: se non si rinnova da solo, incolla un token nuovo prima di allora.
+            {T.rinnovaPrima(t.giorniAllaScadenza)}
           </p>
         ) : null}
         <TokenInstagram presente={tokenPresente} scaduto={t.scaduto} scadeIl={scadeGiorno} />
         <p className="text-xs text-muted-foreground">
-          Si salva cifrato, non si mostra più e si rinnova da solo ogni settimana finché resta valido. Chi lavora i DM, le chat
-          escluse e «Ricalcola ieri» stanno in{' '}
+          {T.notaInstagram}{' '}
           <Link href="/settings/instagram" className="underline underline-offset-4 hover:text-foreground">
-            Instagram e Messenger
+            {T.instagramMessenger}
           </Link>
           .
         </p>
-        <GuidaChiave id="instagram" />
+        <GuidaChiave id="instagram" lingua={lingua} />
       </Scheda>
 
       <Scheda
@@ -222,46 +226,45 @@ export default async function ChiaviPage() {
         titolo="Messenger"
         stato={
           messengerPresente ? (
-            <Stato tono="ok">{msg?.pagina_nome ? `Collegata: Pagina «${msg.pagina_nome}»` : 'Collegata'}</Stato>
+            <Stato tono="ok">{T.collegata(msg?.pagina_nome ?? null)}</Stato>
           ) : (
-            <Stato tono="spenta">Non collegata</Stato>
+            <Stato tono="spenta">{T.nonCollegata}</Stato>
           )
         }
       >
         <p className="text-sm text-muted-foreground">
-          Il token della Pagina Facebook di Percorso Alpha. Serve solo per leggere le chat Messenger nell’Insight. Non manda mai
-          messaggi.
+          {T.descrizioneMessenger}
         </p>
         <dl className="divide-y divide-border" data-testid="messenger-stato">
-          <Voce etichetta="Pagina">
+          <Voce etichetta={T.pagina}>
             {messengerPresente ? (
               <span className="inline-flex items-start gap-1.5">
                 <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
                 <span>
-                  {msg?.pagina_nome ? `Collegata: Pagina «${msg.pagina_nome}»` : 'Collegata'}
+                  {T.collegata(msg?.pagina_nome ?? null)}
                   {msg?.token_aggiornato_il ? (
                     <span className="num block text-muted-foreground">
-                      Token salvato il {formatData(oggiRoma(new Date(msg.token_aggiornato_il)))}
+                      {T.tokenSalvatoIl(formatData(oggiRoma(new Date(msg.token_aggiornato_il))))}
                     </span>
                   ) : null}
                 </span>
               </span>
             ) : (
-              <span className="text-muted-foreground">Non collegata</span>
+              <span className="text-muted-foreground">{T.nonCollegata}</span>
             )}
           </Voce>
           {msg?.ultimo_errore ? (
-            <Voce etichetta="Ultimo errore">
+            <Voce etichetta={T.ultimoErrore}>
               <span className="flex items-start gap-1.5 text-status-critical" data-testid="messenger-ultimo-errore">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 <span>
                   {msg.ultimo_errore_il ? (
                     <span className="num inline-flex items-center gap-1 text-muted-foreground">
                       <Clock className="size-3.5" aria-hidden="true" />
-                      {quando(msg.ultimo_errore_il, oggi)}:
+                      {quando(msg.ultimo_errore_il, oggi, lingua)}:
                     </span>
                   ) : null}{' '}
-                  {msg.ultimo_errore}
+                  {tr(msg.ultimo_errore)}
                 </span>
               </span>
             </Voce>
@@ -269,13 +272,13 @@ export default async function ChiaviPage() {
         </dl>
         <TokenMessenger presente={messengerPresente} />
         <p className="text-xs text-muted-foreground">
-          Le chat Messenger da escludere si scelgono in{' '}
+          {T.notaMessenger}{' '}
           <Link href="/settings/instagram#chat-messenger-escluse" className="underline underline-offset-4 hover:text-foreground">
-            Instagram e Messenger
+            {T.instagramMessenger}
           </Link>
           .
         </p>
-        <GuidaChiave id="messenger" />
+        <GuidaChiave id="messenger" lingua={lingua} />
       </Scheda>
 
       <Scheda
@@ -283,16 +286,14 @@ export default async function ChiaviPage() {
         titolo="Fathom"
         stato={
           fa?.ultimo_errore ? (
-            <Stato tono="errore">Non risponde bene</Stato>
+            <Stato tono="errore">{T.fathomNonRisponde}</Stato>
           ) : fathomChiave ? (
             <Stato tono="ok" testId="fathom-stato">
-              Fathom è collegato
-              {fa?.chiave_aggiornata_il ? `: chiave salvata il ${formatData(fa.chiave_aggiornata_il)}` : ''}.
+              {T.fathomCollegato(fa?.chiave_aggiornata_il ? formatData(fa.chiave_aggiornata_il) : null)}
             </Stato>
           ) : (
             <Stato tono="spenta" testId="fathom-stato">
-              Non collegato: senza la chiave l’app non trova le registrazioni. Il link incollato nel foglio dell’esito si salva lo
-              stesso.
+              {T.fathomNonCollegato}
             </Stato>
           )
         }
@@ -300,62 +301,60 @@ export default async function ChiaviPage() {
         {fa?.ultimo_errore ? (
           <p role="alert" className="flex items-start gap-2 text-sm text-status-critical" data-testid="fathom-errore">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {fa.ultimo_errore}
+            {tr(fa.ultimo_errore)}
           </p>
         ) : null}
         <ChiaveFathom presente={fathomChiave} salvataIl={fa?.chiave_aggiornata_il ?? null} />
         <p className="text-xs text-muted-foreground">
-          L’app legge da Fathom solo la registrazione che corrisponde al link incollato dal closer, e la trascrizione quando la
-          apri o quando Claude analizza la call. Trascrizioni e riassunti non si conservano. Interruttori e limite di spesa delle
-          analisi stanno in{' '}
+          {T.notaFathom}{' '}
           <Link href="/settings/fathom" className="underline underline-offset-4 hover:text-foreground">
-            Fathom
+            {T.fathom}
           </Link>
           .
         </p>
-        <GuidaChiave id="fathom" />
+        <GuidaChiave id="fathom" lingua={lingua} />
       </Scheda>
 
       <Scheda
         id="anthropic"
-        titolo="Claude (Anthropic)"
+        titolo={T.guida.guide.anthropic.titolo}
         stato={
           claude ? (
             <Stato tono="ok" testId="chiave-anthropic">
-              Presente su Vercel
+              {T.presenteSuVercel}
             </Stato>
           ) : (
             <Stato tono="errore" testId="chiave-anthropic">
-              Manca ANTHROPIC_API_KEY su Vercel
+              {T.mancaAnthropic}
             </Stato>
           )
         }
       >
         <p className="text-sm text-muted-foreground">
-          La chiave sta su Vercel, non in questa app: qui si vede soltanto se c’è, mai il suo valore.
+          {T.staSuVercel}
         </p>
-        <GuidaChiave id="anthropic" />
+        <GuidaChiave id="anthropic" lingua={lingua} />
       </Scheda>
 
       <Scheda
         id="groq"
-        titolo="Groq (Alfire e voce)"
+        titolo={T.guida.guide.groq.titolo}
         stato={
           groq ? (
             <Stato tono="ok" testId="chiave-groq">
-              Presente su Vercel
+              {T.presenteSuVercel}
             </Stato>
           ) : (
             <Stato tono="errore" testId="chiave-groq">
-              Manca ALFIRE_API_KEY su Vercel
+              {T.mancaGroq}
             </Stato>
           )
         }
       >
         <p className="text-sm text-muted-foreground">
-          La chiave sta su Vercel, non in questa app: qui si vede soltanto se c’è, mai il suo valore.
+          {T.staSuVercel}
         </p>
-        <GuidaChiave id="groq" />
+        <GuidaChiave id="groq" lingua={lingua} />
       </Scheda>
     </div>
   )

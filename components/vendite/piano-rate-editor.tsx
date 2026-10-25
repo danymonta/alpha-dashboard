@@ -10,8 +10,11 @@ import { CLASSE_SELECT } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { stessoGiornoTraMesi } from '@/lib/date'
-import { formatEuro, formatImportoInput } from '@/lib/format'
+import { formato, formatImportoInput } from '@/lib/format'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { NUOVA_VENDITA, PIANO_RATE } from '@/lib/i18n/testi/nuova-vendita'
 import { parseImporto } from '@/lib/importi'
 import type { NuovaVenditaInput } from '@/lib/validation/vendita'
 
@@ -32,6 +35,10 @@ type Props = {
  * comes from the database; saving is refused until they match.
  */
 export function PianoRateEditor({ control, register, errors, valore, dataVendita }: Props) {
+  const lingua = useLingua()
+  const t = PIANO_RATE[lingua]
+  const ordinale = NUOVA_VENDITA[lingua].ordinale
+  const { formatEuro } = formato(lingua)
   const { fields, append, remove } = useFieldArray({ control, name: 'rate' })
   const rate = useWatch({ control, name: 'rate' }) ?? []
   const [totale, setTotale] = useState<TotalePiano | null>(null)
@@ -66,9 +73,9 @@ export function PianoRateEditor({ control, register, errors, valore, dataVendita
   function aggiungiBlocco() {
     const n = Number(quante)
     const importo = parseImporto(importoBlocco)
-    if (!Number.isInteger(n) || n < 1 || n > 24) return setErroreBlocco('Da 1 a 24 rate')
-    if (importo === null || importo <= 0) return setErroreBlocco('Scrivi l’importo di ogni rata, ad esempio 500')
-    if (!dal) return setErroreBlocco('Scegli la data della prima')
+    if (!Number.isInteger(n) || n < 1 || n > 24) return setErroreBlocco(t.da1a24)
+    if (importo === null || importo <= 0) return setErroreBlocco(t.scriviImporto)
+    if (!dal) return setErroreBlocco(t.scegliPrima)
     setErroreBlocco(null)
     append(Array.from({ length: n }, (_, i) => ({ scadenza: stessoGiornoTraMesi(dal, i), importo: formatImportoInput(importo) })))
     setDal(stessoGiornoTraMesi(dal, n))
@@ -80,22 +87,22 @@ export function PianoRateEditor({ control, register, errors, valore, dataVendita
   return (
     <div className="space-y-4" data-testid="piano-personalizzato">
       {fields.length > 0 ? (
-        <ol className="space-y-2" aria-label="Rate del piano">
+        <ol className="space-y-2" aria-label={t.rate}>
           {fields.map((f, i) => {
             const e = errors.rate?.[i]
             return (
               <li key={f.id} className="rounded-lg bg-card p-2">
                 <div className="flex items-end gap-2">
-                  <span className="num w-8 shrink-0 pb-3 text-center text-sm text-muted-foreground">{i + 1}ª</span>
+                  <span className="num w-8 shrink-0 pb-3 text-center text-sm text-muted-foreground">{ordinale(i + 1)}</span>
                   <div className="min-w-0 flex-1 space-y-1">
                     <Label htmlFor={`rata-${i}-scadenza`} className="text-xs text-muted-foreground">
-                      Scadenza
+                      {t.scadenza}
                     </Label>
                     <Input id={`rata-${i}-scadenza`} type="date" className="num h-11" {...register(`rate.${i}.scadenza`)} />
                   </div>
                   <div className="w-32 shrink-0 space-y-1">
                     <Label htmlFor={`rata-${i}-importo`} className="text-xs text-muted-foreground">
-                      Importo
+                      {t.importo}
                     </Label>
                     <Input
                       id={`rata-${i}-importo`}
@@ -110,23 +117,23 @@ export function PianoRateEditor({ control, register, errors, valore, dataVendita
                     variant="ghost"
                     size="icon"
                     className="size-11 shrink-0 text-muted-foreground"
-                    aria-label={`Togli la rata ${i + 1}`}
+                    aria-label={t.togli(i + 1)}
                     onClick={() => remove(i)}
                   >
                     <Trash2 className="size-4" aria-hidden="true" />
                   </Button>
                 </div>
-                <ErroreCampo id={`rata-${i}-errore`} messaggio={e?.scadenza?.message ?? e?.importo?.message} />
+                <ErroreCampo id={`rata-${i}-errore`} messaggio={traduciErrore(e?.scadenza?.message ?? e?.importo?.message, lingua)} />
               </li>
             )
           })}
         </ol>
       ) : (
         <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-          Nessuna rata ancora: aggiungile una alla volta o a gruppi qui sotto.
+          {t.nessuna}
         </p>
       )}
-      <ErroreCampo id="rate-errore" messaggio={erroreLista} />
+      <ErroreCampo id="rate-errore" messaggio={traduciErrore(erroreLista, lingua)} />
 
       <Button
         type="button"
@@ -135,15 +142,15 @@ export function PianoRateEditor({ control, register, errors, valore, dataVendita
         onClick={() => append({ scadenza: prossimaScadenza(), importo: '' })}
       >
         <Plus className="size-4" aria-hidden="true" />
-        Aggiungi una rata
+        {t.aggiungiUna}
       </Button>
 
       <fieldset className="space-y-3 rounded-xl border border-border p-3">
-        <legend className="px-1 text-sm font-medium">Aggiungi più rate uguali</legend>
+        <legend className="px-1 text-sm font-medium">{t.aggiungiPiu}</legend>
         <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-2 sm:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)]">
           <div className="space-y-1">
             <Label htmlFor="blocco-quante" className="text-xs text-muted-foreground">
-              Quante
+              {t.quante}
             </Label>
             <select id="blocco-quante" className={CLASSE_SELECT} value={quante} onChange={(e) => setQuante(e.currentTarget.value)}>
               {Array.from({ length: 12 }, (_, i) => String(i + 1)).map((n) => (
@@ -155,7 +162,7 @@ export function PianoRateEditor({ control, register, errors, valore, dataVendita
           </div>
           <div className="space-y-1">
             <Label htmlFor="blocco-importo" className="text-xs text-muted-foreground">
-              Importo di ogni rata (€)
+              {t.importoOgni}
             </Label>
             <Input
               id="blocco-importo"
@@ -168,7 +175,7 @@ export function PianoRateEditor({ control, register, errors, valore, dataVendita
           </div>
           <div className="col-span-2 space-y-1 sm:col-span-1">
             <Label htmlFor="blocco-dal" className="text-xs text-muted-foreground">
-              Una al mese dal
+              {t.unaAlMese}
             </Label>
             <Input id="blocco-dal" type="date" className="num h-11" value={dal} onChange={(e) => setDal(e.currentTarget.value)} />
           </div>
@@ -176,7 +183,7 @@ export function PianoRateEditor({ control, register, errors, valore, dataVendita
         <ErroreCampo id="blocco-errore" messaggio={erroreBlocco ?? undefined} />
         <Button type="button" variant="secondary" className="h-11 w-full" onClick={aggiungiBlocco}>
           <ListPlus className="size-4" aria-hidden="true" />
-          Aggiungi al piano
+          {t.aggiungiAlPiano}
         </Button>
       </fieldset>
 
@@ -193,12 +200,12 @@ export function PianoRateEditor({ control, register, errors, valore, dataVendita
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           )}
           <span className="num">
-            {totale.numero_rate} {totale.numero_rate === 1 ? 'rata' : 'rate'} · totale {formatEuro(totale.totale)}
+            {t.totale(totale.numero_rate, formatEuro(totale.totale))}
             {Number(totale.scarto) === 0
-              ? ' · torna col contratto'
+              ? t.torna
               : Number(totale.scarto) > 0
-                ? ` · mancano ${formatEuro(totale.scarto)} al valore del contratto`
-                : ` · ${formatEuro(-Number(totale.scarto))} oltre il valore del contratto`}
+                ? t.mancano(formatEuro(totale.scarto))
+                : t.oltre(formatEuro(-Number(totale.scarto)))}
           </span>
         </p>
       ) : null}

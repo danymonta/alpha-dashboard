@@ -3,8 +3,9 @@
 import { CalendarOff, CheckCircle2, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 
+import { useFormato, useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { formatData, formatPercentuale } from '@/lib/format'
+import type { Formato } from '@/lib/format'
 import {
   geometria,
   intervalloGantt,
@@ -18,7 +19,9 @@ import {
   type ScalaGantt,
   type TaskGantt,
 } from '@/lib/gantt'
-import { ETICHETTA_STATO_TASK, elencoNomi, type StatoTask } from '@/lib/progetti'
+import { GANTT } from '@/lib/i18n/testi/gantt'
+import { elencoNomiIn } from '@/lib/i18n/testi/task'
+import { type StatoTask } from '@/lib/progetti'
 import { cn } from '@/lib/utils'
 
 export type ListaVista = ListaGantt & {
@@ -37,6 +40,7 @@ export type TaskVista = TaskGantt & {
 }
 
 type Riga = RigaGantt<ListaVista, TaskVista>
+type Parole = (typeof GANTT)['it']
 
 /** Row height: the 44px touch target of each mark. */
 const RIGA = 44
@@ -60,16 +64,23 @@ function useStretto() {
   )
 }
 
-function testoDate(forma: Forma): string {
+function testoDate(forma: Forma, t: Parole, formatData: Formato['formatData']): string {
   if (forma.forma === 'barra') {
     return forma.inizio === forma.fine
-      ? `Il ${formatData(forma.inizio)}`
-      : `Dal ${formatData(forma.inizio)} al ${formatData(forma.fine)}`
+      ? t.il(formatData(forma.inizio))
+      : t.dalAl(formatData(forma.inizio), formatData(forma.fine))
   }
   if (forma.forma === 'rombo') {
-    return forma.quale === 'scadenza' ? `Scadenza ${formatData(forma.data)}` : `Inizio ${formatData(forma.data)}, senza scadenza`
+    return forma.quale === 'scadenza' ? t.scadenza(formatData(forma.data)) : t.inizioSenzaScadenza(formatData(forma.data))
   }
-  return 'Senza date'
+  return t.senzaDate
+}
+
+/** The dates of a mark in the page's language. */
+function useTestoDate(): (forma: Forma) => string {
+  const t = useTesti(GANTT)
+  const { formatData } = useFormato()
+  return (forma) => testoDate(forma, t, formatData)
 }
 
 function Segmenti<T extends string>({
@@ -107,15 +118,16 @@ function Segmenti<T extends string>({
 }
 
 function StatoTaskEtichetta({ task }: { task: TaskVista }) {
+  const t = useTesti(GANTT)
   return (
     <span className="inline-flex items-center gap-1">
       {task.stato === 'completato' ? <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" /> : null}
-      {ETICHETTA_STATO_TASK[task.stato]}
+      {t.statiTask[task.stato]}
       {task.in_ritardo ? (
         <span className="inline-flex items-center gap-1">
           {' · '}
           <TriangleAlert className="size-3.5 shrink-0 text-status-warning" aria-hidden="true" />
-          in ritardo
+          {t.inRitardo}
         </span>
       ) : null}
     </span>
@@ -124,8 +136,13 @@ function StatoTaskEtichetta({ task }: { task: TaskVista }) {
 
 /** Name of a row in the fixed column: icons, never colour alone. */
 function NomeRiga({ riga }: { riga: Riga }) {
+  const t = useTesti(GANTT)
   if (riga.tipo === 'gruppo') {
-    return <span className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">{riga.nome}</span>
+    return (
+      <span className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {riga.nome === GANTT.it.senzaLista ? t.senzaLista : riga.nome}
+      </span>
+    )
   }
   if (riga.tipo === 'lista') {
     return <span className="line-clamp-2 min-w-0 leading-tight font-medium break-words hyphens-auto">{riga.lista.nome}</span>
@@ -142,10 +159,10 @@ function NomeRiga({ riga }: { riga: Riga }) {
         {task.titolo}
       </span>
       {task.stato === 'completato' ? (
-        <CheckCircle2 className="size-3.5 shrink-0 text-muted-foreground" aria-label="Completata" role="img" />
+        <CheckCircle2 className="size-3.5 shrink-0 text-muted-foreground" aria-label={t.completata} role="img" />
       ) : null}
       {task.in_ritardo ? (
-        <TriangleAlert className="size-3.5 shrink-0 text-status-warning" aria-label="In ritardo" role="img" />
+        <TriangleAlert className="size-3.5 shrink-0 text-status-warning" aria-label={t.inRitardoMaiuscolo} role="img" />
       ) : null}
     </>
   )
@@ -162,22 +179,26 @@ function Dettaglio({ termine, children }: { termine: string; children: ReactNode
 
 /** Tooltip of a mark: opens on hover and on tap (a popover, so touch works). */
 function ContenutoTooltip({ riga, nomeLista }: { riga: Exclude<Riga, { tipo: 'gruppo' }>; nomeLista: string | null }) {
+  const t = useTesti(GANTT)
+  const lingua = useLingua()
+  const { formatPercentuale } = useFormato()
+  const testoDate = useTestoDate()
   if (riga.tipo === 'lista') {
     const { lista } = riga
     return (
       <>
         <div>
           <p className="font-medium">{lista.nome}</p>
-          <p className="text-xs text-muted-foreground">Lista (milestone)</p>
+          <p className="text-xs text-muted-foreground">{t.lista}</p>
         </div>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-          <Dettaglio termine="Date">
+          <Dettaglio termine={t.date}>
             {testoDate(riga.forma)}
-            {riga.derivata ? <span className="block text-muted-foreground">ricavate dalle sue attività</span> : null}
+            {riga.derivata ? <span className="block text-muted-foreground">{t.ricavate}</span> : null}
           </Dettaglio>
-          <Dettaglio termine="Avanzamento">
+          <Dettaglio termine={t.avanzamento}>
             <span className="num">
-              {lista.task_completati} di {lista.task_totali} completate
+              {t.completate(lista.task_completati, lista.task_totali)}
               {lista.avanzamento !== null ? ` (${formatPercentuale(lista.avanzamento)})` : ''}
             </span>
           </Dettaglio>
@@ -191,14 +212,16 @@ function ContenutoTooltip({ riga, nomeLista }: { riga: Exclude<Riga, { tipo: 'gr
     <>
       <div>
         <p className="font-medium">{task.titolo}</p>
-        <p className="text-xs text-muted-foreground">{nomeLista ? `Attività · ${nomeLista}` : 'Attività'}</p>
+        <p className="text-xs text-muted-foreground">{nomeLista ? t.attivitaDi(nomeLista) : t.attivita}</p>
       </div>
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-        <Dettaglio termine="Date">{testoDate(riga.forma)}</Dettaglio>
-        <Dettaglio termine="Stato">
+        <Dettaglio termine={t.date}>{testoDate(riga.forma)}</Dettaglio>
+        <Dettaglio termine={t.stato}>
           <StatoTaskEtichetta task={task} />
         </Dettaglio>
-        <Dettaglio termine="Assegnata a">{task.assegnatari.length > 0 ? elencoNomi(task.assegnatari) : 'Nessuno'}</Dettaglio>
+        <Dettaglio termine={t.assegnataA}>
+          {task.assegnatari.length > 0 ? elencoNomiIn(task.assegnatari, lingua) : t.nessuno}
+        </Dettaglio>
       </dl>
     </>
   )
@@ -215,6 +238,8 @@ function Segno({
   scala: ScalaGantt
   nomeLista: string | null
 }) {
+  const t = useTesti(GANTT)
+  const testoDate = useTestoDate()
   const g = geometria(riga.forma, intervallo, scala)
   if (g.forma === 'nessuna') return null
 
@@ -222,7 +247,8 @@ function Segno({
   const completata = riga.tipo === 'task' && riga.task.stato === 'completato'
   const inRitardo = riga.tipo === 'task' && riga.task.in_ritardo
   const titolo = lista ? riga.lista.nome : riga.task.titolo
-  const statoTesto = riga.tipo === 'task' ? `, ${ETICHETTA_STATO_TASK[riga.task.stato].toLowerCase()}${inRitardo ? ', in ritardo' : ''}` : ''
+  const statoTesto =
+    riga.tipo === 'task' ? `, ${t.statiTask[riga.task.stato].toLowerCase()}${inRitardo ? t.virgolaInRitardo : ''}` : ''
 
   // the hit area is centred on the mark and at least MIN_TOCCO wide
   const larghezzaSegno = g.forma === 'barra' ? g.larghezza : 12
@@ -285,31 +311,32 @@ function Segno({
 }
 
 function Legenda() {
+  const t = useTesti(GANTT)
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground" aria-label="Legenda">
+    <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground" aria-label={t.legenda}>
       <li className="flex items-center gap-1.5">
         <span aria-hidden="true" className="h-2 w-5 rounded-[3px] bg-gantt-lista" />
-        Lista (milestone)
+        {t.lista}
       </li>
       <li className="flex items-center gap-1.5">
         <span aria-hidden="true" className="h-3 w-5 rounded-[4px] bg-gantt-task" />
-        Attività
+        {t.attivita}
       </li>
       <li className="flex items-center gap-1.5">
         <span aria-hidden="true" className="mx-1 size-2.5 rotate-45 rounded-[2px] bg-gantt-task" />
-        Solo una data
+        {t.soloUnaData}
       </li>
       <li className="flex items-center gap-1.5">
         <CheckCircle2 className="size-3.5" aria-hidden="true" />
-        Completata
+        {t.completata}
       </li>
       <li className="flex items-center gap-1.5">
         <TriangleAlert className="size-3.5 text-status-warning" aria-hidden="true" />
-        In ritardo
+        {t.inRitardoMaiuscolo}
       </li>
       <li className="flex items-center gap-1.5">
         <span aria-hidden="true" className="h-3.5 border-l border-dashed border-foreground" />
-        Oggi
+        {t.oggi}
       </li>
     </ul>
   )
@@ -326,11 +353,14 @@ function Grafico({
   scala: ScalaGantt
   nomiListe: ReadonlyMap<string, string>
 }) {
+  const t = useTesti(GANTT)
+  const lingua = useLingua()
+  const { formatData } = useFormato()
   const scorrimento = useRef<HTMLDivElement>(null)
   const forme = righe.flatMap((r) => (r.tipo === 'gruppo' ? [] : [r.forma]))
   const intervallo = intervalloGantt(forme, oggi, scala)
   const larghezza = larghezzaAsse(intervallo, scala)
-  const listaTacche = tacche(intervallo, scala)
+  const listaTacche = tacche(intervallo, scala, lingua)
   const xDiOggi = xOggi(oggi, intervallo, scala)
   // left edge of the first late mark: it must be in sight when the chart opens
   const xRitardi = righe.flatMap((r) => {
@@ -355,13 +385,13 @@ function Grafico({
   return (
     <div
       role="figure"
-      aria-label={`Gantt del progetto, dal ${formatData(intervallo.da)} al ${formatData(intervallo.a)}`}
+      aria-label={t.grafico(formatData(intervallo.da), formatData(intervallo.a))}
       className="flex overflow-hidden rounded-xl border border-border bg-card"
       data-testid="gantt-grafico"
     >
       {/* fixed column of names: narrow on a phone, the axis needs the room */}
       <div className="w-28 shrink-0 border-r border-border sm:w-56">
-        <div className="flex h-12 items-center border-b border-border px-2 text-xs text-muted-foreground sm:px-3">Attività</div>
+        <div className="flex h-12 items-center border-b border-border px-2 text-xs text-muted-foreground sm:px-3">{t.attivita}</div>
         {righe.map((riga, i) => (
           <div
             key={riga.tipo === 'lista' ? `l-${riga.lista.id}` : riga.tipo === 'task' ? `t-${riga.task.id}` : `g-${i}`}
@@ -381,22 +411,22 @@ function Grafico({
         onScroll={(e) => setScorso(e.currentTarget.scrollLeft)}
         className="min-w-0 flex-1 overflow-x-auto focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         tabIndex={0}
-        aria-label="Linea del tempo: scorri in orizzontale"
+        aria-label={t.scorri}
       >
         {/* never narrower than the card: a short axis leaves no empty band on the right */}
         <div className="relative min-w-full" style={{ width: larghezza }}>
           <div className="relative h-12 border-b border-border" aria-hidden="true">
-            {listaTacche.map((t) => (
+            {listaTacche.map((tacca) => (
               <span
-                key={t.data}
+                key={tacca.data}
                 className={cn(
                   'num absolute top-1.5 pl-1.5 text-xs whitespace-nowrap text-muted-foreground',
                   // cut by the left edge of the scroll: no half labels
-                  t.x < scorso - 1 && 'invisible',
+                  tacca.x < scorso - 1 && 'invisible',
                 )}
-                style={{ left: t.x }}
+                style={{ left: tacca.x }}
               >
-                {t.etichetta}
+                {tacca.etichetta}
               </span>
             ))}
             {etichettaBordo ? (
@@ -408,14 +438,14 @@ function Grafico({
               className="absolute bottom-1 -translate-x-1/2 rounded-sm bg-background px-1.5 text-xs leading-5 font-medium text-foreground"
               style={{ left: xDiOggi }}
             >
-              Oggi
+              {t.oggi}
             </span>
           </div>
 
           <div className="relative" style={{ height: righe.length * RIGA }}>
             {/* recessive grid, one line per tick */}
-            {listaTacche.map((t) => (
-              <span key={t.data} aria-hidden="true" className="absolute inset-y-0 w-px bg-border" style={{ left: t.x }} />
+            {listaTacche.map((tacca) => (
+              <span key={tacca.data} aria-hidden="true" className="absolute inset-y-0 w-px bg-border" style={{ left: tacca.x }} />
             ))}
             {righe.map((riga, i) => (
               <div
@@ -458,9 +488,13 @@ function Tabella({
     | { tipo: 'gruppo'; nome: string }
     | { tipo: 'lista'; lista: ListaVista; forma: Forma; derivata: boolean }
     | { tipo: 'task'; task: TaskVista; forma: Forma; livello: 0 | 1 }
+  const t = useTesti(GANTT)
+  const lingua = useLingua()
+  const { formatData } = useFormato()
+  const testoDate = useTestoDate()
   const voci: Voce[] = [
     ...righe,
-    ...(senzaDate.length > 0 ? [{ tipo: 'gruppo' as const, nome: 'Senza date' }] : []),
+    ...(senzaDate.length > 0 ? [{ tipo: 'gruppo' as const, nome: t.senzaDate }] : []),
     ...senzaDate.map((task) => ({ tipo: 'task' as const, task, forma: { forma: 'nessuna' } as Forma, livello: 0 as const })),
   ]
 
@@ -479,15 +513,15 @@ function Tabella({
     <div data-testid="gantt-tabella">
       {/* from 768px: a real table */}
       <table className="hidden w-full text-sm md:table">
-        <caption className="sr-only">Liste e attività del progetto con le loro date</caption>
+        <caption className="sr-only">{t.didascalia}</caption>
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b border-border">
-            <th scope="col" className="py-2 pr-3 text-left font-normal">Attività</th>
-            <th scope="col" className="py-2 pr-3 text-left font-normal">Lista</th>
-            <th scope="col" className="py-2 pr-3 text-right font-normal">Inizio</th>
-            <th scope="col" className="py-2 pr-3 text-right font-normal">Fine o scadenza</th>
-            <th scope="col" className="py-2 pr-3 text-left font-normal">Stato</th>
-            <th scope="col" className="py-2 text-left font-normal">Assegnata a</th>
+            <th scope="col" className="py-2 pr-3 text-left font-normal">{t.attivita}</th>
+            <th scope="col" className="py-2 pr-3 text-left font-normal">{t.colonnaLista}</th>
+            <th scope="col" className="py-2 pr-3 text-right font-normal">{t.inizio}</th>
+            <th scope="col" className="py-2 pr-3 text-right font-normal">{t.fineOScadenza}</th>
+            <th scope="col" className="py-2 pr-3 text-left font-normal">{t.stato}</th>
+            <th scope="col" className="py-2 text-left font-normal">{t.assegnataA}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -495,17 +529,17 @@ function Tabella({
             v.tipo === 'gruppo' ? (
               <tr key={`g-${i}`}>
                 <th scope="rowgroup" colSpan={6} className="pt-4 pb-1 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  {v.nome}
+                  {v.nome === GANTT.it.senzaLista ? t.senzaLista : v.nome}
                 </th>
               </tr>
             ) : v.tipo === 'lista' ? (
               <tr key={`l-${v.lista.id}`} className="bg-muted/40">
                 <th scope="row" className="py-2 pr-3 pl-2 text-left font-medium">{v.lista.nome}</th>
-                <td className="py-2 pr-3 text-muted-foreground">Lista (milestone)</td>
+                <td className="py-2 pr-3 text-muted-foreground">{t.lista}</td>
                 <td className="num py-2 pr-3 text-right">{inizio(v.forma)}</td>
                 <td className="num py-2 pr-3 text-right">{fine(v.forma)}</td>
                 <td className="num py-2 pr-3" colSpan={2}>
-                  {v.lista.task_completati} di {v.lista.task_totali} completate
+                  {t.completate(v.lista.task_completati, v.lista.task_totali)}
                 </td>
               </tr>
             ) : (
@@ -519,7 +553,7 @@ function Tabella({
                 <td className="py-2 pr-3">
                   <StatoTaskEtichetta task={v.task} />
                 </td>
-                <td className="py-2">{v.task.assegnatari.length > 0 ? elencoNomi(v.task.assegnatari) : '–'}</td>
+                <td className="py-2">{v.task.assegnatari.length > 0 ? elencoNomiIn(v.task.assegnatari, lingua) : '–'}</td>
               </tr>
             ),
           )}
@@ -531,7 +565,7 @@ function Tabella({
         {voci.map((v, i) =>
           v.tipo === 'gruppo' ? (
             <li key={`g-${i}`} className="px-1 pt-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              {v.nome}
+              {v.nome === GANTT.it.senzaLista ? t.senzaLista : v.nome}
             </li>
           ) : (
             <li key={v.tipo === 'lista' ? `l-${v.lista.id}` : `t-${v.task.id}`} className="rounded-xl bg-card px-3 py-2.5">
@@ -541,11 +575,13 @@ function Tabella({
               <p className="num mt-0.5 text-xs text-muted-foreground">{testoDate(v.forma)}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {v.tipo === 'lista' ? (
-                  <>Lista (milestone) · {v.lista.task_completati} di {v.lista.task_totali} completate</>
+                  <>
+                    {t.lista} · {t.completate(v.lista.task_completati, v.lista.task_totali)}
+                  </>
                 ) : (
                   <>
                     <StatoTaskEtichetta task={v.task} />
-                    {v.task.assegnatari.length > 0 ? ` · ${elencoNomi(v.task.assegnatari)}` : ''}
+                    {v.task.assegnatari.length > 0 ? ` · ${elencoNomiIn(v.task.assegnatari, lingua)}` : ''}
                   </>
                 )}
               </p>
@@ -563,6 +599,7 @@ function Tabella({
  * entity (list, task), states are icons plus words, never colour alone.
  */
 export function GanttProgetto({ liste, task, oggi }: { liste: ListaVista[]; task: TaskVista[]; oggi: string }) {
+  const t = useTesti(GANTT)
   const [vista, setVista] = useState<'grafico' | 'tabella'>('grafico')
   const stretto = useStretto()
   // until the reader picks one: months on a phone, weeks elsewhere
@@ -575,22 +612,22 @@ export function GanttProgetto({ liste, task, oggi }: { liste: ListaVista[]; task
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Segmenti
-          etichetta="Vista"
+          etichetta={t.vista}
           valore={vista}
           onCambia={setVista}
           opzioni={[
-            { valore: 'grafico', etichetta: 'Grafico' },
-            { valore: 'tabella', etichetta: 'Tabella' },
+            { valore: 'grafico', etichetta: t.viste.grafico },
+            { valore: 'tabella', etichetta: t.viste.tabella },
           ]}
         />
         {vista === 'grafico' && righe.length > 0 ? (
           <Segmenti
-            etichetta="Scala"
+            etichetta={t.scala}
             valore={scala}
             onCambia={setScala}
             opzioni={[
-              { valore: 'settimane', etichetta: 'Settimane' },
-              { valore: 'mesi', etichetta: 'Mesi' },
+              { valore: 'settimane', etichetta: t.scale.settimane },
+              { valore: 'mesi', etichetta: t.scale.mesi },
             ]}
           />
         ) : null}
@@ -608,29 +645,27 @@ export function GanttProgetto({ liste, task, oggi }: { liste: ListaVista[]; task
           ) : (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">
               <CalendarOff className="size-6 text-muted-foreground" aria-hidden="true" />
-              <p className="text-sm font-medium">Nessuna attività ha delle date</p>
-              <p className="max-w-sm text-sm text-muted-foreground">
-                Dai un inizio o una scadenza alle attività per vederle sulla linea del tempo.
-              </p>
+              <p className="text-sm font-medium">{t.nessunaData}</p>
+              <p className="max-w-sm text-sm text-muted-foreground">{t.nessunaDataDescrizione}</p>
             </div>
           )}
 
           {senzaDate.length > 0 ? (
             <section aria-labelledby="gantt-senza-date" className="space-y-2" data-testid="gantt-senza-date">
               <h2 id="gantt-senza-date" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Senza date ({senzaDate.length})
+                {t.senzaDateN(senzaDate.length)}
               </h2>
               <ul className="divide-y divide-border rounded-xl bg-card">
-                {senzaDate.map((t) => (
-                  <li key={t.id} className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-0.5 px-3 py-2 text-sm">
+                {senzaDate.map((st) => (
+                  <li key={st.id} className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-0.5 px-3 py-2 text-sm">
                     <span className="min-w-0">
-                      {t.titolo}
-                      {t.tasklist_id && nomiListe.get(t.tasklist_id) ? (
-                        <span className="text-muted-foreground"> · {nomiListe.get(t.tasklist_id)}</span>
+                      {st.titolo}
+                      {st.tasklist_id && nomiListe.get(st.tasklist_id) ? (
+                        <span className="text-muted-foreground"> · {nomiListe.get(st.tasklist_id)}</span>
                       ) : null}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      <StatoTaskEtichetta task={t} />
+                      <StatoTaskEtichetta task={st} />
                     </span>
                   </li>
                 ))}

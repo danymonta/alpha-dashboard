@@ -29,8 +29,10 @@ import {
   googlePronto,
   type TokenDrive,
 } from '@/lib/google/drive-browser'
-import { ERRORI_DRIVE, fileScelto, type ConfigPicker } from '@/lib/google/picker'
+import { fileScelto, type ConfigPicker } from '@/lib/google/picker'
 import { CLIENTI } from '@/lib/i18n/testi/clienti'
+import { DRIVE, ERRORI_DRIVE_TESTI } from '@/lib/i18n/testi/clienti-fogli'
+import { traduciErrore, tradotto } from '@/lib/i18n/testi/errori-economics'
 import { cn } from '@/lib/utils'
 import { salvaContrattoSchema, type SalvaContrattoInput } from '@/lib/validation/contratto'
 
@@ -67,7 +69,9 @@ export function ContrattoVendita({
   variante?: 'scheda' | 'cella'
   className?: string
 }) {
-  const parole = CLIENTI[useLingua()]
+  const lingua = useLingua()
+  const parole = CLIENTI[lingua]
+  const d = DRIVE[lingua]
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [avviso, setAvviso] = useState<string | null>(null)
@@ -102,7 +106,7 @@ export function ContrattoVendita({
         // still loading: asking for the token now would open Google's window
         // after the tap, and the browser would block it as a popup
         await caricaGoogle()
-        setAvviso(ERRORI_DRIVE.pronto)
+        setAvviso(ERRORI_DRIVE_TESTI[lingua].pronto)
         return
       }
       if (!token.current || token.current.scadeAlle - Date.now() < 60_000) {
@@ -112,7 +116,7 @@ export function ContrattoVendita({
       setAperto(false)
       const scelta = await apriPicker(picker, token.current.valore, 'file')
       if (scelta.azione === 'annullata') {
-        setAvviso(ERRORI_DRIVE.nessun_file)
+        setAvviso(ERRORI_DRIVE_TESTI[lingua].nessun_file)
         setAperto(true)
         return
       }
@@ -129,7 +133,7 @@ export function ContrattoVendita({
         setAperto(true)
         return
       }
-      toast.success(url ? 'Link aggiornato' : 'Contratto collegato')
+      toast.success(url ? d.linkAggiornato : d.contrattoCollegato)
     } catch (e) {
       setErrore(e instanceof ErroreDrive ? e.message : 'Connessione assente. Riprova.')
       setAperto(true)
@@ -152,7 +156,7 @@ export function ContrattoVendita({
       setErrore(esito.errore)
       return
     }
-    toast.success(url ? 'Link aggiornato' : 'Contratto collegato')
+    toast.success(url ? d.linkAggiornato : d.contrattoCollegato)
     setAperto(false)
   })
 
@@ -221,7 +225,7 @@ export function ContrattoVendita({
                 variant="ghost"
                 size="icon"
                 className="size-11 shrink-0 text-muted-foreground"
-                aria-label={`Modifica il link del contratto di ${nome}`}
+                aria-label={d.modificaContrattoDi(nome)}
               />
             }
           >
@@ -234,21 +238,18 @@ export function ContrattoVendita({
                 type="button"
                 variant={cella ? 'ghost' : 'outline'}
                 className={cn('h-11 shrink-0', cella && 'px-2 text-muted-foreground hover:text-foreground')}
-                aria-label={`Aggiungi il link del contratto di ${nome}`}
+                aria-label={d.aggiungiContrattoDi(nome)}
               />
             }
           >
             <Plus className="size-4" aria-hidden="true" />
-            {cella ? 'Aggiungi' : 'Aggiungi il link'}
+            {cella ? d.aggiungi : d.aggiungiLink}
           </SheetTrigger>
         )}
         <SheetContent side="right" className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>Contratto</SheetTitle>
-            <SheetDescription>
-              Il link al contratto firmato di {nome} su Google Drive. Lo vedi solo tu: closer, setter e coach no. Ogni
-              percorso e ogni rinnovo ha il suo contratto.
-            </SheetDescription>
+            <SheetTitle>{d.contratto}</SheetTitle>
+            <SheetDescription>{d.descrizioneContratto(nome)}</SheetDescription>
           </SheetHeader>
           <form onSubmit={invia} noValidate className="space-y-4 px-4 pb-6">
             <input type="hidden" {...register('sale_id')} />
@@ -266,15 +267,13 @@ export function ContrattoVendita({
                   ) : (
                     <FileSearch className="size-4" aria-hidden="true" />
                   )}
-                  Scegli da Drive
+                  {d.scegliDaDrive}
                 </Button>
-                <p className="text-xs text-muted-foreground">
-                  Ti colleghi con Google e scegli il file: l’app vede solo i file che scegli tu.
-                </p>
+                <p className="text-xs text-muted-foreground">{d.scegliFile}</p>
               </div>
             ) : null}
             <div className="space-y-1.5">
-              <Label htmlFor={`ct-url-${saleId}`}>Link del contratto</Label>
+              <Label htmlFor={`ct-url-${saleId}`}>{d.linkContratto}</Label>
               <Input
                 id={`ct-url-${saleId}`}
                 type="url"
@@ -288,39 +287,40 @@ export function ContrattoVendita({
                 aria-describedby={errors.url ? `ct-url-errore-${saleId}` : `ct-url-aiuto-${saleId}`}
                 {...register('url')}
               />
-              <ErroreCampo id={`ct-url-errore-${saleId}`} messaggio={errors.url?.message} />
+              <ErroreCampo id={`ct-url-errore-${saleId}`} messaggio={traduciErrore(errors.url?.message, lingua)} />
               <p id={`ct-url-aiuto-${saleId}`} className="text-xs text-muted-foreground">
-                {picker ? 'Oppure incolla il link. ' : null}Su Drive: tasto destro sul file › Condividi › Copia link.
+                {picker ? d.oppure : null}
+                {d.suDriveFile}
               </p>
             </div>
             {avviso ? (
               <p role="status" className="flex items-start gap-2 text-sm text-muted-foreground">
                 <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                {avviso}
+                {traduciErrore(avviso, lingua)}
               </p>
             ) : null}
             {errore ? (
               <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                {errore}
+                {traduciErrore(errore, lingua)}
               </p>
             ) : null}
             {/* never held by the Drive flow: the pasted link always saves */}
             <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
               {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-              Salva
+              {d.salva}
             </Button>
             {url ? (
               <div className="border-t border-border pt-4">
                 <Elimina
-                  etichetta="Togli il link"
-                  cosa={`il link al contratto di ${nome}`}
-                  fatto="Link tolto"
-                  conseguenze={['Il file su Google Drive resta com’è: si toglie solo il link dall’app.']}
+                  etichetta={d.togli}
+                  cosa={d.cosaContratto(nome)}
+                  fatto={d.tolto}
+                  conseguenze={[d.restaFile]}
                   azione={async () => {
                     const esito = await togliContrattoVendita({ sale_id: saleId })
                     if (esito.ok) setAperto(false)
-                    return esito
+                    return tradotto(esito, lingua)
                   }}
                 />
               </div>

@@ -7,6 +7,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import { eliminaTask, modificaTask } from '@/app/(app)/progetti/[id]/actions'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { AggiuntaRapida } from '@/components/pm/attivita/aggiunta-rapida'
 import { puoEliminare, puoModificare, useAttivita, type TaskVista } from '@/components/pm/attivita/contesto'
 import { StatoTaskBadge } from '@/components/pm/attivita/meta-task'
@@ -18,7 +19,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ETICHETTA_PRIORITA, ETICHETTA_STATO_TASK, formatStima } from '@/lib/progetti'
+import { ATTIVITA } from '@/lib/i18n/testi/attivita'
+import { traduciErroreProgetti } from '@/lib/i18n/testi/progetti'
+import { formatStima } from '@/lib/progetti'
 import {
   PRIORITA,
   STATI_TASK,
@@ -30,8 +33,6 @@ import {
 // the read-only sheet disables everything through its fieldset: selects must look it too
 const SELECT = `${CLASSE_SELECT} disabled:cursor-not-allowed disabled:opacity-50`
 
-const OPZIONI_STATO = STATI_TASK.map((s) => ({ valore: s, etichetta: ETICHETTA_STATO_TASK[s] }))
-const OPZIONI_PRIORITA = PRIORITA.map((p) => ({ valore: p, etichetta: ETICHETTA_PRIORITA[p] }))
 
 /**
  * Every field of a task in a side sheet, opened from its title. Who may not
@@ -51,6 +52,7 @@ export function DettaglioTask({
   apriSubito?: boolean
   onChiuso?: () => void
 }) {
+  const t = useTesti(ATTIVITA)
   const [aperto, setAperto] = useState(false)
   // one frame later: the row scrolls into sight first, while the page can still scroll
   useEffect(() => {
@@ -67,7 +69,7 @@ export function DettaglioTask({
       }}
       trigger={trigger}
       contenutoTrigger={contenutoTrigger}
-      titolo={task.parent_id ? 'Sotto-task' : 'Task'}
+      titolo={task.parent_id ? t.sottoTask : 'Task'}
     >
       {/* saved or deleted from the sheet: closed like the X, ?task leaves the address */}
       <ModuloTask
@@ -82,6 +84,11 @@ export function DettaglioTask({
 }
 
 function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
+  const t = useTesti(ATTIVITA)
+  const lingua = useLingua()
+  const opzioniStato = STATI_TASK.map((s) => ({ valore: s, etichetta: t.statiTask[s] }))
+  const opzioniPriorita = PRIORITA.map((p) => ({ valore: p, etichetta: t.priorita[p] }))
+  const tradotto = (messaggio: string | undefined) => traduciErroreProgetti(messaggio, lingua)
   const a = useAttivita()
   const modificabile = puoModificare(a, task)
   const eliminabile = puoEliminare(a, task)
@@ -128,10 +135,10 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
       const esito = await modificaTask(valori)
       if (esito.ok) avviso = esito.avviso
       return esito
-    }, 'Task salvato')
+    }, t.taskSalvato)
     if (!salvato) return
     // saved without whoever left the project meanwhile: say who
-    if (avviso) toast.warning(avviso)
+    if (avviso) toast.warning(tradotto(avviso))
     chiudi()
   })
 
@@ -143,85 +150,83 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
           {!modificabile ? (
             <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
               <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Lo modifica chi gestisce il progetto, chi l’ha creato o una delle persone a cui è assegnato.
+              {t.bloccato}
             </p>
           ) : null}
 
           <div className="space-y-1.5">
-            <Label htmlFor={`t-titolo-${task.id}`}>Titolo</Label>
+            <Label htmlFor={`t-titolo-${task.id}`}>{t.titolo}</Label>
             <Input id={`t-titolo-${task.id}`} className="h-11" {...register('titolo')} />
-            <ErroreCampo id={`t-titolo-errore-${task.id}`} messaggio={errors.titolo?.message} />
+            <ErroreCampo id={`t-titolo-errore-${task.id}`} messaggio={tradotto(errors.titolo?.message)} />
           </div>
 
-          <SceltaRapida legenda="Stato" opzioni={OPZIONI_STATO} registrazione={register('stato')} colonne={2} />
-          <SceltaRapida legenda="Priorità" opzioni={OPZIONI_PRIORITA} registrazione={register('priorita')} />
+          <SceltaRapida legenda={t.stato} opzioni={opzioniStato} registrazione={register('stato')} colonne={2} />
+          <SceltaRapida legenda={t.prioritaLegenda} opzioni={opzioniPriorita} registrazione={register('priorita')} />
 
           {/* several people can share a task; read-only, the chips look disabled like the selects */}
           <div className="[&_label:has(:disabled)]:cursor-not-allowed [&_label:has(:disabled)]:opacity-50">
             <SceltaMultipla
-              legenda="Assegnato a"
+              legenda={t.assegnatoA}
               opzioni={a.membri.map((m) => ({ valore: m.id, etichetta: m.nome }))}
               registrazione={register('assegnatari')}
-              errore={errors.assegnatari?.message}
+              errore={tradotto(errors.assegnatari?.message)}
               colonne={2}
             />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Anche più di una persona, tra i membri del progetto. Nessuna scelta: senza assegnatario.
-            </p>
+            <p className="mt-1.5 text-xs text-muted-foreground">{t.anchePiuNessuna}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor={`t-inizio-${task.id}`}>Inizio</Label>
+              <Label htmlFor={`t-inizio-${task.id}`}>{t.inizio}</Label>
               <Input id={`t-inizio-${task.id}`} type="date" className="num h-11" {...register('data_inizio')} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={`t-scadenza-${task.id}`}>Scadenza</Label>
+              <Label htmlFor={`t-scadenza-${task.id}`}>{t.scadenza}</Label>
               <Input id={`t-scadenza-${task.id}`} type="date" className="num h-11" {...register('scadenza')} />
             </div>
           </div>
-          <ErroreCampo id={`t-date-errore-${task.id}`} messaggio={errors.data_inizio?.message ?? errors.scadenza?.message} />
+          <ErroreCampo id={`t-date-errore-${task.id}`} messaggio={tradotto(errors.data_inizio?.message ?? errors.scadenza?.message)} />
 
           <div className="space-y-1.5">
-            <Label htmlFor={`t-stima-${task.id}`}>Stima</Label>
+            <Label htmlFor={`t-stima-${task.id}`}>{t.stimaCampo}</Label>
             <Input
               id={`t-stima-${task.id}`}
               className="num h-11"
-              placeholder="45 min, 2 h, 1 h 30 min"
+              placeholder={t.stimaSegnaposto}
               autoComplete="off"
               {...register('stima_minuti')}
             />
-            <ErroreCampo id={`t-stima-errore-${task.id}`} messaggio={errors.stima_minuti?.message} />
+            <ErroreCampo id={`t-stima-errore-${task.id}`} messaggio={tradotto(errors.stima_minuti?.message)} />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor={`t-principale-${task.id}`}>Task principale</Label>
+            <Label htmlFor={`t-principale-${task.id}`}>{t.principale}</Label>
             <select
               id={`t-principale-${task.id}`}
               className={SELECT}
               disabled={figli.length > 0}
               {...register('parent_id')}
             >
-              <option value="">Nessuno: è un task principale</option>
-              {principali.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.titolo}
+              <option value="">{t.nessunoPrincipale}</option>
+              {principali.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.titolo}
                 </option>
               ))}
             </select>
             {figli.length > 0 ? (
-              <p className="text-xs text-muted-foreground">Ha dei sotto-task: resta un task principale.</p>
+              <p className="text-xs text-muted-foreground">{t.haSottoTask}</p>
             ) : null}
-            <ErroreCampo id={`t-principale-errore-${task.id}`} messaggio={errors.parent_id?.message} />
+            <ErroreCampo id={`t-principale-errore-${task.id}`} messaggio={tradotto(errors.parent_id?.message)} />
           </div>
 
           {principale ? (
-            <p className="text-xs text-muted-foreground">Un sotto-task sta nella lista del suo task principale.</p>
+            <p className="text-xs text-muted-foreground">{t.nellaLista}</p>
           ) : (
             <div className="space-y-1.5">
-              <Label htmlFor={`t-lista-${task.id}`}>Lista</Label>
+              <Label htmlFor={`t-lista-${task.id}`}>{t.lista}</Label>
               <select id={`t-lista-${task.id}`} className={SELECT} {...register('tasklist_id')}>
-                <option value="">Senza lista</option>
+                <option value="">{t.senzaLista}</option>
                 {a.liste.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.nome}
@@ -232,15 +237,15 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor={`t-descrizione-${task.id}`}>Descrizione</Label>
+            <Label htmlFor={`t-descrizione-${task.id}`}>{t.descrizione}</Label>
             <Textarea id={`t-descrizione-${task.id}`} rows={4} {...register('descrizione')} />
-            <ErroreCampo id={`t-descrizione-errore-${task.id}`} messaggio={errors.descrizione?.message} />
+            <ErroreCampo id={`t-descrizione-errore-${task.id}`} messaggio={tradotto(errors.descrizione?.message)} />
           </div>
 
           {modificabile ? (
             <>
-              <ErroreModulo testo={errore} />
-              <BottoneSalva inCorso={isSubmitting}>Salva il task</BottoneSalva>
+              <ErroreModulo testo={tradotto(errore ?? undefined) ?? null} />
+              <BottoneSalva inCorso={isSubmitting}>{t.salvaTask}</BottoneSalva>
             </>
           ) : null}
         </fieldset>
@@ -249,7 +254,7 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
       {task.parent_id === null ? (
         <section aria-labelledby={`sotto-${task.id}`} className="space-y-2 border-t border-border pt-4">
           <h3 id={`sotto-${task.id}`} className="text-sm font-medium">
-            Sotto-task <span className="num font-normal text-muted-foreground">{figli.length}</span>
+            {t.sottoTask} <span className="num font-normal text-muted-foreground">{figli.length}</span>
           </h3>
           {figli.length > 0 ? (
             <ul className="divide-y divide-border rounded-lg bg-muted/40">
@@ -257,7 +262,7 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
                 <li key={f.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                   <span className={f.stato === 'completato' ? 'text-muted-foreground line-through' : undefined}>{f.titolo}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    <StatoTaskBadge stato={f.stato} />
+                    <StatoTaskBadge stato={f.stato} lingua={lingua} />
                   </span>
                 </li>
               ))}
@@ -266,8 +271,8 @@ function ModuloTask({ task, chiudi }: { task: TaskVista; chiudi: () => void }) {
           <AggiuntaRapida
             progettoId={task.progetto_id}
             parentId={task.id}
-            etichetta={`Nuovo sotto-task di ${task.titolo}`}
-            segnaposto="Aggiungi un sotto-task"
+            etichetta={t.nuovoSottoTaskDi(task.titolo)}
+            segnaposto={t.aggiungiSottoTask}
           />
         </section>
       ) : null}
@@ -291,6 +296,8 @@ function EliminaTask({
   onEliminato: () => void
   onErrore: (testo: string | null) => void
 }) {
+  const t = useTesti(ATTIVITA)
+  const lingua = useLingua()
   const [pronto, setPronto] = useState(false)
   const [inCorso, avvia] = useTransition()
 
@@ -298,9 +305,7 @@ function EliminaTask({
     <div className="space-y-2 border-t border-border pt-4">
       {pronto ? (
         <p className="text-sm text-muted-foreground">
-          {figli > 0
-            ? `Se ne vanno anche i suoi ${figli === 1 ? 'sotto-task' : `${figli} sotto-task`}. Non si può annullare.`
-            : 'Non si può annullare.'}
+          {figli > 0 ? t.eliminaConFigli(figli) : t.nonAnnullabile}
         </p>
       ) : null}
       <Button
@@ -319,21 +324,21 @@ function EliminaTask({
             try {
               esito = await eliminaTask({ id })
             } catch {
-              onErrore('Connessione assente. Riprova.')
+              onErrore(traduciErroreProgetti('Connessione assente. Riprova.', lingua) ?? null)
               return
             }
             if (!esito.ok) {
-              onErrore(esito.errore)
+              onErrore(traduciErroreProgetti(esito.errore, lingua) ?? null)
               setPronto(false)
               return
             }
-            toast.success('Task eliminato')
+            toast.success(t.taskEliminato)
             onEliminato()
           })
         }}
       >
         <Trash2 className="size-4" aria-hidden="true" />
-        {pronto ? 'Conferma: elimina il task' : 'Elimina il task'}
+        {pronto ? t.confermaElimina : t.eliminaTask}
       </Button>
     </div>
   )

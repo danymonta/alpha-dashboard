@@ -15,6 +15,7 @@ import { formato } from '@/lib/format'
 import { configPickerRichiesta } from '@/lib/google/picker-server'
 import { getLingua } from '@/lib/i18n/server'
 import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { MODIFICA_VENDITA } from '@/lib/i18n/testi/nuova-vendita'
 import { VENDITE } from '@/lib/i18n/testi/vendite'
 import { createClient } from '@/lib/supabase/server'
 
@@ -126,7 +127,7 @@ export default async function DettaglioVenditaPage({
         azione={
           admin ? (
             <ModificaVendita
-              descrizione={`la vendita di ${nomeCliente || 'questo cliente'}`}
+              descrizione={MODIFICA_VENDITA[lingua].cosa(nomeCliente)}
               vendita={{
                 id: vendita.id,
                 tipo: vendita.tipo,

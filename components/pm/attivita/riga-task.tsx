@@ -4,11 +4,14 @@ import { useEffect, useOptimistic, useRef, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { completaTask } from '@/app/(app)/progetti/[id]/actions'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { puoModificare, useAttivita, type TaskVista } from '@/components/pm/attivita/contesto'
 import { DettaglioTask } from '@/components/pm/attivita/dettaglio-task'
 import { MetaTask } from '@/components/pm/attivita/meta-task'
 import { AvviaTimer } from '@/components/pm/tempo/avvia-timer'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ATTIVITA } from '@/lib/i18n/testi/attivita'
+import { traduciErroreProgetti } from '@/lib/i18n/testi/progetti'
 import { cn } from '@/lib/utils'
 
 /**
@@ -16,6 +19,8 @@ import { cn } from '@/lib/utils'
  * below says state, priority, assignee and due date. Sub-tasks nest under it.
  */
 export function RigaTask({ task, figli = [] }: { task: TaskVista; figli?: TaskVista[] }) {
+  const t = useTesti(ATTIVITA)
+  const lingua = useLingua()
   const a = useAttivita()
   const modificabile = puoModificare(a, task)
   // the task a link asked for (05/10/2026): in sight, marked, its sheet open
@@ -35,11 +40,11 @@ export function RigaTask({ task, figli = [] }: { task: TaskVista; figli?: TaskVi
       try {
         esito = await completaTask({ id: task.id, completato: valore })
       } catch {
-        toast.error('Connessione assente. Riprova.')
+        toast.error(traduciErroreProgetti('Connessione assente. Riprova.', lingua))
         return
       }
-      if (!esito.ok) toast.error(esito.errore)
-      else toast.success(valore ? 'Task completato' : 'Task riaperto')
+      if (!esito.ok) toast.error(traduciErroreProgetti(esito.errore, lingua))
+      else toast.success(valore ? t.taskCompletato : t.taskRiaperto)
     })
   }
 
@@ -67,7 +72,7 @@ export function RigaTask({ task, figli = [] }: { task: TaskVista; figli?: TaskVi
             className="size-5 data-disabled:cursor-not-allowed data-disabled:border-dashed data-disabled:opacity-60"
             disabled={!modificabile || inCorso}
             onCheckedChange={(v) => cambia(v)}
-            aria-label={completato ? `Riapri ${task.titolo}` : `Completa ${task.titolo}`}
+            aria-label={completato ? t.riapri(task.titolo) : t.completa(task.titolo)}
           />
         </label>
         <div className="min-w-0 flex-1 pb-2.5">
@@ -87,16 +92,16 @@ export function RigaTask({ task, figli = [] }: { task: TaskVista; figli?: TaskVi
             onChiuso={a.scordaLink}
           />
           <div className="-mt-1.5">
-            <MetaTask task={task} membri={a.membri} />
+            <MetaTask task={task} membri={a.membri} lingua={lingua} />
           </div>
         </div>
         {/* time is tracked by whoever works on it: every member, on open tasks */}
         {completato ? null : (
-          <AvviaTimer progettoId={task.progetto_id} taskId={task.id} titolo={task.titolo} className="shrink-0" />
+          <AvviaTimer progettoId={task.progetto_id} taskId={task.id} titolo={task.titolo} className="shrink-0" lingua={lingua} />
         )}
       </div>
       {figli.length > 0 ? (
-        <ul aria-label={`Sotto-task di ${task.titolo}`} className="mb-2 ml-11 border-l border-border pl-1">
+        <ul aria-label={t.sottoTaskDi(task.titolo)} className="mb-2 ml-11 border-l border-border pl-1">
           {figli.map((f) => (
             <RigaTask key={f.id} task={f} />
           ))}

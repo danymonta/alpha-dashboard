@@ -13,11 +13,14 @@ import { SceltaRapida } from '@/components/form/scelta-rapida'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { aggiungiGiorni, etichettaGiorno } from '@/lib/date'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { aggiungiGiorni } from '@/lib/date'
+import { etichettaGiornoIn } from '@/lib/i18n/date'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { ESITO, NUOVA_CALL } from '@/lib/i18n/testi/esito'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import { cn } from '@/lib/utils'
 import {
-  ETICHETTA_FONTE,
-  ETICHETTA_TIPO_CALL,
   FONTI,
   GIORNI_AVANTI_CALL,
   GIORNI_INDIETRO_CALL,
@@ -45,7 +48,6 @@ type Props = {
   tornaA?: string | null
 }
 
-const OPZIONI_FONTE = FONTI.map((f) => ({ valore: f, etichetta: ETICHETTA_FONTE[f] }))
 
 // One look for every option on this form: unselected ones are outlined, the
 // selected one is tinted with a bordeaux ring. The solid fill is only for
@@ -65,6 +67,11 @@ const SCELTE = cn(
 
 export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredefinito, setters = null, tornaA = null }: Props) {
   const router = useRouter()
+  const lingua = useLingua()
+  const t = NUOVA_CALL[lingua]
+  const giorni = ESITO[lingua]
+  const OPZIONI_FONTE = FONTI.map((f) => ({ valore: f, etichetta: ETICHETTE[lingua].fonte[f] }))
+  const tr = (testo: string | undefined) => traduciErrore(testo, lingua)
   // the admin also adds calls already done, up to a year back
   const admin = setters !== null
   const [erroreServer, setErroreServer] = useState<string | null>(null)
@@ -97,9 +104,9 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
   const dataScelta = useWatch({ control, name: 'data' })
   // the admin records calls already done too: yesterday is one tap away
   const scorciatoie = [
-    ...(admin ? [{ etichetta: 'Ieri', valore: aggiungiGiorni(oggi, -1) }] : []),
-    { etichetta: 'Oggi', valore: oggi },
-    { etichetta: 'Domani', valore: aggiungiGiorni(oggi, 1) },
+    ...(admin ? [{ etichetta: giorni.ieri, valore: aggiungiGiorni(oggi, -1) }] : []),
+    { etichetta: giorni.oggi, valore: oggi },
+    { etichetta: giorni.domani, valore: aggiungiGiorni(oggi, 1) },
   ]
 
   const invia = handleSubmit(async (valori) => {
@@ -109,7 +116,7 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
     try {
       esito = await fissaCall(valori)
     } catch {
-      setErroreServer('Connessione assente. Controlla la rete e riprova.')
+      setErroreServer(t.connessione)
       return
     }
 
@@ -122,12 +129,8 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
     }
 
     toast.success(
-      `${ETICHETTA_TIPO_CALL[valori.tipo]} call con ${valori.nome}: ${etichettaGiorno(valori.data, oggi).toLowerCase()} alle ${valori.ora}`,
-      {
-        description: esito.leadEsistente
-          ? 'Lead già presente: la call si aggiunge al suo storico.'
-          : 'Lead e call creati.',
-      },
+      t.fatta(ETICHETTE[lingua].tipoCall[valori.tipo], valori.nome, etichettaGiornoIn(valori.data, oggi, lingua).toLowerCase(), valori.ora),
+      { description: esito.leadEsistente ? t.leadEsistente : t.leadNuovo },
     )
     router.push(tornaA ?? esito.vaiA ?? '/calls')
   })
@@ -136,7 +139,7 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
     <form onSubmit={invia} noValidate className="space-y-6" data-tour="nuova-call">
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="nome">Nome del lead</Label>
+          <Label htmlFor="nome">{t.nome}</Label>
           <Input
             id="nome"
             autoComplete="off"
@@ -146,13 +149,13 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
             aria-describedby={errors.nome ? 'nome-errore' : undefined}
             {...register('nome')}
           />
-          <ErroreCampo id="nome-errore" messaggio={errors.nome?.message} />
+          <ErroreCampo id="nome-errore" messaggio={tr(errors.nome?.message)} />
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="instagram_handle">
-            Handle Instagram{' '}
-            <span className="font-normal text-muted-foreground">(facoltativo)</span>
+            {t.handle}{' '}
+            <span className="font-normal text-muted-foreground">{t.facoltativo}</span>
           </Label>
           <div className="relative">
             <span
@@ -175,24 +178,24 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
             />
           </div>
           <p id="handle-aiuto" className="text-xs text-muted-foreground">
-            Se il lead ha già una call, la nuova si aggiunge al suo storico.
+            {t.handleAiuto}
           </p>
-          <ErroreCampo id="handle-errore" messaggio={errors.instagram_handle?.message} />
+          <ErroreCampo id="handle-errore" messaggio={tr(errors.instagram_handle?.message)} />
         </div>
       </div>
 
       <div className={SCELTE}>
         <SceltaRapida
-          legenda="Fonte"
+          legenda={t.fonte}
           opzioni={OPZIONI_FONTE}
           registrazione={register('fonte')}
-          errore={errors.fonte?.message}
-          aiuto="Scegli da dove arriva il lead: serve a contare le call prenotate da inbound e da outbound."
+          errore={tr(errors.fonte?.message)}
+          aiuto={t.fonteAiuto}
         />
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="mb-2 text-sm font-medium">Quando</legend>
+        <legend className="mb-2 text-sm font-medium">{t.quando}</legend>
         <div className={cn('grid gap-2', admin ? 'grid-cols-3' : 'grid-cols-2')}>
           {scorciatoie.map(({ etichetta, valore }) => (
             <Button
@@ -210,7 +213,7 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
         <div className="grid grid-cols-[3fr_2fr] gap-2">
           <div className="space-y-1.5">
             <Label htmlFor="data" className="sr-only">
-              Data
+              {t.data}
             </Label>
             <Input
               id="data"
@@ -224,7 +227,7 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="ora" className="sr-only">
-              Ora
+              {t.ora}
             </Label>
             <Input
               id="ora"
@@ -235,17 +238,17 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
             />
           </div>
         </div>
-        <ErroreCampo id="data-errore" messaggio={errors.data?.message ?? errors.ora?.message} />
+        <ErroreCampo id="data-errore" messaggio={tr(errors.data?.message ?? errors.ora?.message)} />
       </fieldset>
 
       {setters ? (
         <div className={SCELTE}>
           <SceltaRapida
-            legenda="Setter"
+            legenda={t.setter}
             opzioni={setters.map((s) => ({ valore: s.id, etichetta: s.nome }))}
             registrazione={register('setter_id')}
-            errore={errors.setter_id?.message}
-            aiuto="Chi ha fissato la call: tu, o il setter che l’ha presa in DM. Il lead diventa suo."
+            errore={tr(errors.setter_id?.message)}
+            aiuto={t.setterAiuto}
             colonne={2}
           />
         </div>
@@ -253,10 +256,10 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
 
       <div className={SCELTE}>
         <SceltaRapida
-          legenda="Closer"
+          legenda={t.closer}
           opzioni={closers.map((c) => ({ valore: c.id, etichetta: c.nome }))}
           registrazione={register('closer_id')}
-          errore={errors.closer_id?.message}
+          errore={tr(errors.closer_id?.message)}
           colonne={2}
         />
       </div>
@@ -267,7 +270,7 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
           className="flex items-start gap-2 rounded-lg bg-status-critical/10 px-3 py-2.5 text-sm text-status-critical"
         >
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {erroreServer}
+          {tr(erroreServer ?? undefined)}
         </p>
       ) : null}
 
@@ -275,7 +278,7 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
         {isSubmitting ? (
           <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
         ) : null}
-        Fissa la call
+        {t.fissa}
       </Button>
     </form>
   )

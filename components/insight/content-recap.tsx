@@ -3,9 +3,10 @@ import type { ReactNode } from 'react'
 
 import { NelCalendario, type ContenutoCalendario } from '@/components/insight/arriva-da'
 import { Pillola } from '@/components/insight/pillola'
-import { formatNumero } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
 import { linkPost } from '@/lib/insight/link'
-import { CONTENT, periodoContent, rigaStorie } from '@/lib/insight/parole'
 import type { ContentRecap, PostRecap, TemaRecap } from '@/lib/insight/recap'
 import { tendenza, tonoVerdetto, type Tendenza, type Tono } from '@/lib/insight/toni'
 import { cn } from '@/lib/utils'
@@ -23,7 +24,14 @@ const ICONA_VERDETTO: Record<Tono, LucideIcon | undefined> = {
   neutro: undefined,
 }
 
-const numero = (v: number | null | undefined) => (v === null || v === undefined ? CONTENT.nd : formatNumero(v))
+type Testi = (typeof INSIGHT_RECAP)['it']
+type Content = Testi['content']
+
+function numeratore(lingua: Lingua) {
+  const nd = INSIGHT_RECAP[lingua].content.nd
+  const { formatNumero } = formato(lingua)
+  return (v: number | null | undefined) => (v === null || v === undefined ? nd : formatNumero(v))
+}
 
 const TH = 'px-3 py-2 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase'
 const TH_NUM = `${TH} text-right`
@@ -44,11 +52,16 @@ const TD_VERDETTO_POST = 'px-3 pb-2.5 pt-5 align-top'
 export function ContentRecapSezione({
   content,
   calendario,
+  lingua = 'it',
 }: {
   content: ContentRecap
   /** admin only: shortcode → calendar content */
   calendario: Record<string, ContenutoCalendario>
+  lingua?: Lingua
 }) {
+  const t = INSIGHT_RECAP[lingua]
+  const CONTENT = t.content
+  const numero = numeratore(lingua)
   const contenutoDi = (p: PostRecap) => (p.shortcode ? calendario[p.shortcode] : undefined) ?? null
   return (
     <section aria-labelledby="titolo-content" className="@container grid gap-3.5">
@@ -56,29 +69,29 @@ export function ContentRecapSezione({
         <h2 id="titolo-content" className="text-lg font-semibold">
           {CONTENT.titolo}
         </h2>
-        <span className="num text-xs text-muted-foreground">{periodoContent(content.period, content.based_on)}</span>
+        <span className="num text-xs text-muted-foreground">{t.periodoContent(content.period, content.based_on)}</span>
       </div>
 
-      {content.themes.length ? <Temi temi={content.themes} /> : null}
-      {content.posts.length ? <Post post={content.posts} contenutoDi={contenutoDi} /> : null}
+      {content.themes.length ? <Temi temi={content.themes} CONTENT={CONTENT} numero={numero} /> : null}
+      {content.posts.length ? <Post post={content.posts} contenutoDi={contenutoDi} CONTENT={CONTENT} numero={numero} t={t} lingua={lingua} /> : null}
       {content.storie && content.storie.dm > 0 ? (
-        <p className="num text-sm text-muted-foreground">{rigaStorie(content.storie.dm, content.storie.target)}</p>
+        <p className="num text-sm text-muted-foreground">{t.rigaStorie(content.storie.dm, content.storie.target)}</p>
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-3">
         <Riquadro titolo={CONTENT.mantieni}>
-          <Elenco voci={content.keep} />
+          <Elenco voci={content.keep} niente={CONTENT.niente} />
         </Riquadro>
         <Riquadro titolo={CONTENT.cambia}>
-          <Elenco voci={content.change} />
+          <Elenco voci={content.change} niente={CONTENT.niente} />
         </Riquadro>
         <Riquadro titolo={CONTENT.potenzia}>
-          <Elenco voci={content.boost} />
+          <Elenco voci={content.boost} niente={CONTENT.niente} />
         </Riquadro>
       </div>
       {content.setting_tips.length ? (
         <Riquadro titolo={CONTENT.neiDm}>
-          <Elenco voci={content.setting_tips} />
+          <Elenco voci={content.setting_tips} niente={CONTENT.niente} />
         </Riquadro>
       ) : null}
       {content.ideas.length ? (
@@ -86,8 +99,8 @@ export function ContentRecapSezione({
           <div className="grid">
             {content.ideas.map((idea, i) => (
               <div key={i} className="grid gap-0.5 border-t border-border py-2 first:border-t-0 first:pt-0">
-                <p className="font-semibold [overflow-wrap:anywhere]">{idea.hook}</p>
-                <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                <p lang="it" className="font-semibold [overflow-wrap:anywhere]">{idea.hook}</p>
+                <p lang="it" className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
                   {[idea.format, idea.why].filter(Boolean).join(' · ')}
                 </p>
               </div>
@@ -108,10 +121,10 @@ function Riquadro({ titolo, children }: { titolo: string; children: ReactNode })
   )
 }
 
-function Elenco({ voci }: { voci: readonly string[] }) {
-  if (!voci.length) return <p className="text-sm text-muted-foreground">{CONTENT.niente}</p>
+function Elenco({ voci, niente }: { voci: readonly string[]; niente: string }) {
+  if (!voci.length) return <p className="text-sm text-muted-foreground">{niente}</p>
   return (
-    <ul className="list-disc space-y-1.5 pl-5 text-sm">
+    <ul lang="it" className="list-disc space-y-1.5 pl-5 text-sm">
       {voci.map((v, i) => (
         <li key={i} className="[overflow-wrap:anywhere]">
           {v}
@@ -132,7 +145,15 @@ function Tendenza({ trend }: { trend: string }) {
   )
 }
 
-function Temi({ temi }: { temi: readonly TemaRecap[] }) {
+function Temi({
+  temi,
+  CONTENT,
+  numero,
+}: {
+  temi: readonly TemaRecap[]
+  CONTENT: Content
+  numero: (v: number | null | undefined) => string
+}) {
   return (
     <>
       <div className="hidden overflow-x-auto rounded-xl border border-border bg-card @2xl:block">
@@ -161,14 +182,14 @@ function Temi({ temi }: { temi: readonly TemaRecap[] }) {
               <tr key={i} className="border-b border-border last:border-b-0">
                 <td className={TD}>
                   <div className="grid gap-0.5">
-                    <span className="font-semibold [overflow-wrap:anywhere]">{t.theme}</span>
+                    <span lang="it" className="font-semibold [overflow-wrap:anywhere]">{t.theme}</span>
                     <Tendenza trend={t.trend} />
                   </div>
                 </td>
                 <td className={TD_NUM}>{numero(t.count)}</td>
                 <td className={TD_NUM}>{numero(t.target_count)}</td>
                 <td className={TD_NUM}>{numero(t.calls)}</td>
-                <td className={cn(TD, '[overflow-wrap:anywhere]')}>{t.insight}</td>
+                <td lang="it" className={cn(TD, '[overflow-wrap:anywhere]')}>{t.insight}</td>
               </tr>
             ))}
           </tbody>
@@ -177,12 +198,12 @@ function Temi({ temi }: { temi: readonly TemaRecap[] }) {
       <ul className="grid gap-2 @2xl:hidden">
         {temi.map((t, i) => (
           <li key={i} className="grid gap-1 rounded-xl border border-border bg-card p-3 text-sm">
-            <span className="font-semibold [overflow-wrap:anywhere]">{t.theme}</span>
+            <span lang="it" className="font-semibold [overflow-wrap:anywhere]">{t.theme}</span>
             <Tendenza trend={t.trend} />
             <span className="num text-xs text-muted-foreground">
               {CONTENT.chat} {numero(t.count)} · {CONTENT.inTarget} {numero(t.target_count)} · {CONTENT.call} {numero(t.calls)}
             </span>
-            {t.insight ? <p className="[overflow-wrap:anywhere]">{t.insight}</p> : null}
+            {t.insight ? <p lang="it" className="[overflow-wrap:anywhere]">{t.insight}</p> : null}
           </li>
         ))}
       </ul>
@@ -190,18 +211,28 @@ function Temi({ temi }: { temi: readonly TemaRecap[] }) {
   )
 }
 
-function Verdetto({ verdetto }: { verdetto: string | null }) {
+function Verdetto({ verdetto, nd }: { verdetto: string | null; nd: string }) {
   const tono = tonoVerdetto(verdetto)
   return (
     <Pillola tono={tono} Icona={ICONA_VERDETTO[tono]}>
-      {verdetto || CONTENT.nd}
+      {verdetto || nd}
     </Pillola>
   )
 }
 
-function TitoloPost({ post, contenuto }: { post: PostRecap; contenuto: ContenutoCalendario | null }) {
+function TitoloPost({
+  post,
+  contenuto,
+  t,
+  lingua,
+}: {
+  post: PostRecap
+  contenuto: ContenutoCalendario | null
+  t: Testi
+  lingua: Lingua
+}) {
   const link = linkPost(post.permalink, post.shortcode)
-  const hook = post.hook || CONTENT.contenutoPredefinito
+  const hook = post.hook || t.content.contenutoPredefinito
   return (
     <div className="grid min-w-0 gap-0.5">
       {link ? (
@@ -212,19 +243,33 @@ function TitoloPost({ post, contenuto }: { post: PostRecap; contenuto: Contenuto
           className="inline-flex min-h-11 items-center font-semibold underline decoration-border underline-offset-4 [overflow-wrap:anywhere] hover:decoration-foreground"
         >
           {hook}
-          <span className="sr-only"> (si apre Instagram in una nuova scheda)</span>
+          <span className="sr-only">{t.instagramNuovaScheda}</span>
         </a>
       ) : (
         <span className="inline-flex min-h-11 items-center font-semibold [overflow-wrap:anywhere]">{hook}</span>
       )}
       <span className="num text-xs text-muted-foreground">{[post.type, post.date].filter(Boolean).join(' · ')}</span>
-      {post.why ? <span className="text-[13px] [overflow-wrap:anywhere]">{post.why}</span> : null}
-      {contenuto ? <NelCalendario contenuto={contenuto} /> : null}
+      {post.why ? <span lang="it" className="text-[13px] [overflow-wrap:anywhere]">{post.why}</span> : null}
+      {contenuto ? <NelCalendario contenuto={contenuto} lingua={lingua} /> : null}
     </div>
   )
 }
 
-function Post({ post, contenutoDi }: { post: readonly PostRecap[]; contenutoDi: (p: PostRecap) => ContenutoCalendario | null }) {
+function Post({
+  post,
+  contenutoDi,
+  CONTENT,
+  numero,
+  t,
+  lingua,
+}: {
+  post: readonly PostRecap[]
+  contenutoDi: (p: PostRecap) => ContenutoCalendario | null
+  CONTENT: Content
+  numero: (v: number | null | undefined) => string
+  t: Testi
+  lingua: Lingua
+}) {
   return (
     <>
       <div className="hidden overflow-x-auto rounded-xl border border-border bg-card @3xl:block">
@@ -263,7 +308,7 @@ function Post({ post, contenutoDi }: { post: readonly PostRecap[]; contenutoDi: 
             {post.map((p, i) => (
               <tr key={p.shortcode ?? i} className="border-b border-border last:border-b-0">
                 <td className={cn(TD, 'max-w-[22rem]')}>
-                  <TitoloPost post={p} contenuto={contenutoDi(p)} />
+                  <TitoloPost post={p} contenuto={contenutoDi(p)} t={t} lingua={lingua} />
                 </td>
                 <td className={TD_NUM_POST}>{numero(p.views)}</td>
                 <td className={TD_NUM_POST}>{numero(p.saved)}</td>
@@ -272,7 +317,7 @@ function Post({ post, contenutoDi }: { post: readonly PostRecap[]; contenutoDi: 
                 <td className={TD_NUM_POST}>{numero(p.target)}</td>
                 <td className={TD_NUM_POST}>{numero(p.call)}</td>
                 <td className={TD_VERDETTO_POST}>
-                  <Verdetto verdetto={p.verdict} />
+                  <Verdetto verdetto={p.verdict} nd={CONTENT.nd} />
                 </td>
               </tr>
             ))}
@@ -282,7 +327,7 @@ function Post({ post, contenutoDi }: { post: readonly PostRecap[]; contenutoDi: 
       <ul className="grid gap-2 @3xl:hidden">
         {post.map((p, i) => (
           <li key={p.shortcode ?? i} className="grid gap-2 rounded-xl border border-border bg-card p-3 text-sm">
-            <TitoloPost post={p} contenuto={contenutoDi(p)} />
+            <TitoloPost post={p} contenuto={contenutoDi(p)} t={t} lingua={lingua} />
             <dl className="grid grid-cols-3 gap-2">
               {(
                 [
@@ -301,7 +346,7 @@ function Post({ post, contenutoDi }: { post: readonly PostRecap[]; contenutoDi: 
               ))}
             </dl>
             <div>
-              <Verdetto verdetto={p.verdict} />
+              <Verdetto verdetto={p.verdict} nd={CONTENT.nd} />
             </div>
           </li>
         ))}

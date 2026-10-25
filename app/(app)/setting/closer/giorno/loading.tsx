@@ -1,7 +1,10 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { GIORNATA_CLOSER } from '@/lib/i18n/testi/closer'
 
 /** The shape of "Compila la giornata": title, day switcher, the day's row, the calls. */
-export default function Loading() {
+export default async function Loading() {
+  const t = GIORNATA_CLOSER[await getLingua()]
   return (
     <div className="max-w-3xl space-y-5" aria-busy="true" aria-live="polite">
       <div className="space-y-2">
@@ -23,7 +26,7 @@ export default function Loading() {
           <Skeleton key={i} className="h-28 rounded-xl" />
         ))}
       </div>
-      <span className="sr-only">Caricamento della giornata</span>
+      <span className="sr-only">{t.caricamento}</span>
     </div>
   )
 }

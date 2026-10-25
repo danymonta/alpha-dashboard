@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 
 import { aggiungiMembro, togliMembro } from '@/app/(app)/progetti/[id]/actions'
 import { CLASSE_SELECT, ErroreModulo } from '@/components/form/foglio-modifica'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -18,6 +19,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { traduciErroreProgetti } from '@/lib/i18n/testi/progetti'
+import { FOGLI_PROGETTO } from '@/lib/i18n/testi/progetto-fogli'
 import { membroSchema, type MembroInput } from '@/lib/validation/progetti'
 
 /** Adds one active person to the project: a native select, one tap on a phone. */
@@ -28,6 +31,8 @@ export function AggiungiMembro({
   progettoId: string
   persone: readonly { id: string; nome: string; ruolo: string }[]
 }) {
+  const t = useTesti(FOGLI_PROGETTO)
+  const lingua = useLingua()
   const [errore, setErrore] = useState<string | null>(null)
   const {
     register,
@@ -40,7 +45,7 @@ export function AggiungiMembro({
   })
 
   if (persone.length === 0) {
-    return <p className="text-sm text-muted-foreground">Tutte le persone attive fanno già parte del progetto.</p>
+    return <p className="text-sm text-muted-foreground">{t.tuttiDentro}</p>
   }
 
   const invia = handleSubmit(async (valori) => {
@@ -49,23 +54,23 @@ export function AggiungiMembro({
     try {
       esito = await aggiungiMembro(valori)
     } catch {
-      setErrore('Connessione assente. Riprova.')
+      setErrore(traduciErroreProgetti('Connessione assente. Riprova.', lingua) ?? null)
       return
     }
     if (!esito.ok) {
-      setErrore(esito.errore)
+      setErrore(traduciErroreProgetti(esito.errore, lingua) ?? null)
       return
     }
-    toast.success(`${persone.find((p) => p.id === valori.profile_id)?.nome ?? 'Persona'} aggiunta al progetto`)
+    toast.success(t.aggiuntaAlProgetto(persone.find((p) => p.id === valori.profile_id)?.nome ?? t.persona))
     reset({ progetto_id: progettoId, profile_id: '' })
   })
 
   return (
-    <form onSubmit={invia} noValidate className="space-y-2 rounded-xl bg-card p-3" aria-label="Aggiungi una persona">
-      <Label htmlFor="membro-nuovo">Aggiungi una persona</Label>
+    <form onSubmit={invia} noValidate className="space-y-2 rounded-xl bg-card p-3" aria-label={t.aggiungiPersona}>
+      <Label htmlFor="membro-nuovo">{t.aggiungiPersona}</Label>
       <div className="flex gap-2">
         <select id="membro-nuovo" className={`${CLASSE_SELECT} min-w-0 flex-1`} {...register('profile_id')}>
-          <option value="">Scegli…</option>
+          <option value="">{t.scegli}</option>
           {persone.map((p) => (
             <option key={p.id} value={p.id}>
               {p.nome} ({p.ruolo})
@@ -78,12 +83,12 @@ export function AggiungiMembro({
           ) : (
             <UserPlus className="size-4" aria-hidden="true" />
           )}
-          Aggiungi
+          {t.aggiungi}
         </Button>
       </div>
       {errors.profile_id?.message ? (
         <p role="alert" className="text-sm text-status-critical">
-          {errors.profile_id.message}
+          {traduciErroreProgetti(errors.profile_id.message, lingua)}
         </p>
       ) : null}
       <ErroreModulo testo={errore} />
@@ -93,6 +98,8 @@ export function AggiungiMembro({
 
 /** Asks first: leaving the project also leaves their tasks without an assignee. */
 export function TogliMembro({ progettoId, profileId, nome }: { progettoId: string; profileId: string; nome: string }) {
+  const t = useTesti(FOGLI_PROGETTO)
+  const lingua = useLingua()
   const [conferma, setConferma] = useState(false)
   const [inCorso, avvia] = useTransition()
 
@@ -103,11 +110,11 @@ export function TogliMembro({ progettoId, profileId, nome }: { progettoId: strin
       try {
         esito = await togliMembro({ progetto_id: progettoId, profile_id: profileId })
       } catch {
-        toast.error('Connessione assente. Riprova.')
+        toast.error(traduciErroreProgetti('Connessione assente. Riprova.', lingua))
         return
       }
-      if (esito.ok) toast.success(`${nome} non fa più parte del progetto`)
-      else toast.error(esito.errore)
+      if (esito.ok) toast.success(t.nonFaPiuParte(nome))
+      else toast.error(traduciErroreProgetti(esito.errore, lingua))
     })
   }
 
@@ -118,7 +125,7 @@ export function TogliMembro({ progettoId, profileId, nome }: { progettoId: strin
         variant="ghost"
         size="icon"
         className="size-11 shrink-0 text-muted-foreground"
-        aria-label={`Togli ${nome} dal progetto`}
+        aria-label={t.togliDal(nome)}
         disabled={inCorso}
         onClick={() => setConferma(true)}
       >
@@ -131,18 +138,19 @@ export function TogliMembro({ progettoId, profileId, nome }: { progettoId: strin
       <Dialog open={conferma} onOpenChange={setConferma}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Togliere {nome} dal progetto?</DialogTitle>
+            <DialogTitle>{t.togliere(nome)}</DialogTitle>
             <DialogDescription>
-              Non vedrà più il progetto ed esce dai task a cui è assegnato: chi li condivide li tiene. Se ne era
-              responsabile o coach, il progetto resta senza responsabile o senza coach.
+              {lingua === 'it'
+                ? 'Non vedrà più il progetto ed esce dai task a cui è assegnato: chi li condivide li tiene. Se ne era responsabile o coach, il progetto resta senza responsabile o senza coach.'
+                : t.togliereDescrizione}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button type="button" variant="outline" className="h-11" onClick={() => setConferma(false)}>
-              Annulla
+              {t.annulla}
             </Button>
             <Button type="button" variant="destructive" className="h-11" onClick={togli}>
-              Togli dal progetto
+              {t.togliDalProgetto}
             </Button>
           </DialogFooter>
         </DialogContent>

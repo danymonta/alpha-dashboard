@@ -3,12 +3,13 @@
 import { ChevronRight, ExternalLink } from 'lucide-react'
 import { useId, useState } from 'react'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { BottoneCopia } from '@/components/insight/bottone-copia'
 import { buttonVariants } from '@/components/ui/button'
 import type { Fonte } from '@/lib/insight/canale'
 import { chiCopia, trascrizioneChat } from '@/lib/insight/copia-chat'
 import { LINK_INBOX_MESSENGER, linkChatInstagram } from '@/lib/insight/link'
-import { CHAT, COPIA, quantiMessaggi } from '@/lib/insight/parole'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
 import type { LeadRecap } from '@/lib/insight/recap'
 import { cn } from '@/lib/utils'
 
@@ -34,6 +35,8 @@ export function ChatLead({
 }) {
   const [aperta, setAperta] = useState(false)
   const id = useId()
+  const t = INSIGHT_RECAP[useLingua()]
+  const { chat: CHAT, copia: COPIA } = t
   const chi = chiCopia(lead, fonte)
   const messaggi = lead.minore_14 ? [] : lead.messages
   const link = fonte === 'messenger' ? LINK_INBOX_MESSENGER : linkChatInstagram(lead.username)
@@ -56,12 +59,12 @@ export function ChatLead({
               className={cn('size-4 motion-safe:transition-transform', aperta && 'rotate-90')}
               aria-hidden="true"
             />
-            {CHAT.leggi} <span className="num text-muted-foreground">{quantiMessaggi(messaggi.length)}</span>
+            {CHAT.leggi} <span className="num text-muted-foreground">{t.quantiMessaggi(messaggi.length)}</span>
           </button>
           <BottoneCopia
             testo={trascrizioneChat({ ...lead, messages: messaggi }, fonte)}
             etichetta={COPIA.copiaChat}
-            nome={`${COPIA.copiaChat} con ${chi}`}
+            nome={t.copiaChatCon(chi)}
           />
         </div>
       ) : null}
@@ -69,7 +72,7 @@ export function ChatLead({
         <div
           id={`chat-${id}`}
           role="region"
-          aria-label={`Chat con ${chi}`}
+          aria-label={t.chatCon(chi)}
           tabIndex={0}
           className="mt-2 flex max-h-[min(520px,70svh)] flex-col gap-2 overflow-y-auto overscroll-contain rounded-lg pr-1 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
@@ -88,7 +91,7 @@ export function ChatLead({
                   {nostro ? CHAT.percorsoAlpha : chi}
                   {m.time ? ` · ${m.time}` : ''}
                 </span>
-                {m.text}
+                <span lang="it">{m.text}</span>
               </div>
             )
           })}
@@ -104,7 +107,7 @@ export function ChatLead({
           >
             <ExternalLink className="size-4" aria-hidden="true" />
             {etichettaLink}
-            <span className="sr-only"> (si apre in una nuova scheda)</span>
+            <span className="sr-only">{t.nuovaScheda}</span>
           </a>
         </div>
       ) : null}

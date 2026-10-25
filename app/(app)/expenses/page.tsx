@@ -5,7 +5,7 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiMesi, oggiRoma } from '@/lib/date'
-import { formato, formatMese as formatMeseIt } from '@/lib/format'
+import { formato } from '@/lib/format'
 import { getLingua } from '@/lib/i18n/server'
 import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import { PROVVIGIONI } from '@/lib/i18n/testi/provvigioni'
@@ -56,7 +56,7 @@ export default async function CostiPage({
         <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/expenses" />
         {/* recurring costs are copied month to month: only a single whole month offers it */}
         {periodo.mese ? (
-          <CopiaRicorrenti mese={periodo.mese} meseSorgente={formatMeseIt(aggiungiMesi(periodo.mese, -1))} />
+          <CopiaRicorrenti mese={periodo.mese} meseSorgente={formatMese(aggiungiMesi(periodo.mese, -1))} />
         ) : null}
       </div>
 

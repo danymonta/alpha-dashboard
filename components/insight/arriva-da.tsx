@@ -2,8 +2,9 @@ import { CalendarDays, ExternalLink, Link2 } from 'lucide-react'
 import Link from 'next/link'
 
 import { buttonVariants } from '@/components/ui/button'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
 import { linkContenutoCalendario, linkPost } from '@/lib/insight/link'
-import { ARRIVA_DA, arrivaDa, viaOrigine } from '@/lib/insight/parole'
 import type { OrigineRecap } from '@/lib/insight/recap'
 import { cn } from '@/lib/utils'
 
@@ -21,18 +22,21 @@ export type ContenutoCalendario = { id: string; nome: string }
 export function ArrivaDa({
   origine,
   contenuto,
+  lingua = 'it',
 }: {
   origine: OrigineRecap
   /** admin only, when the post is linked to a content of the calendar */
   contenuto?: ContenutoCalendario | null
+  lingua?: Lingua
 }) {
+  const t = INSIGHT_RECAP[lingua]
   const post = linkPost(origine.permalink, origine.shortcode)
   // a story reply with no post behind it: one line, nothing to open
   if (origine.tipo === 'storia' && !post) {
     return (
       <p className="flex items-center gap-1.5 text-sm" data-testid="arriva-da">
         <Link2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        {ARRIVA_DA.storiaSenzaPost}
+        {t.arrivaDa.storiaSenzaPost}
       </p>
     )
   }
@@ -42,7 +46,7 @@ export function ArrivaDa({
       <p className="flex min-w-0 items-start gap-1.5">
         <Link2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span className="min-w-0 [overflow-wrap:anywhere]">
-          {arrivaDa(origine)} <span className="text-muted-foreground">· {viaOrigine(origine)}</span>
+          {t.arrivaDaPost(origine)} <span className="text-muted-foreground">· {t.viaOrigine(origine)}</span>
         </span>
       </p>
       {post ? (
@@ -53,17 +57,25 @@ export function ArrivaDa({
           className={cn(buttonVariants({ variant: 'outline' }), 'h-11 gap-1.5 px-3')}
         >
           <ExternalLink className="size-4" aria-hidden="true" />
-          {ARRIVA_DA.apriPost}
-          <span className="sr-only"> (si apre Instagram in una nuova scheda)</span>
+          {t.arrivaDa.apriPost}
+          <span className="sr-only">{t.instagramNuovaScheda}</span>
         </a>
       ) : null}
-      {contenuto ? <NelCalendario contenuto={contenuto} /> : null}
+      {contenuto ? <NelCalendario contenuto={contenuto} lingua={lingua} /> : null}
     </div>
   )
 }
 
 /** «Nel calendario: {Name}»: the content in its panel, in the Marketing area (admin). */
-export function NelCalendario({ contenuto, className }: { contenuto: ContenutoCalendario; className?: string }) {
+export function NelCalendario({
+  contenuto,
+  className,
+  lingua = 'it',
+}: {
+  contenuto: ContenutoCalendario
+  className?: string
+  lingua?: Lingua
+}) {
   return (
     <Link
       href={linkContenutoCalendario(contenuto.id)}
@@ -76,7 +88,7 @@ export function NelCalendario({ contenuto, className }: { contenuto: ContenutoCa
     >
       <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="min-w-0 [overflow-wrap:anywhere]">
-        {ARRIVA_DA.nelCalendario}: {contenuto.nome}
+        {INSIGHT_RECAP[lingua].arrivaDa.nelCalendario}: {contenuto.nome}
       </span>
     </Link>
   )

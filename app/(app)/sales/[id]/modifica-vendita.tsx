@@ -20,17 +20,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { formatImportoInput } from '@/lib/format'
+import { traduciErrore, tradotto } from '@/lib/i18n/testi/errori-economics'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { MODIFICA_VENDITA } from '@/lib/i18n/testi/nuova-vendita'
 import {
-  ETICHETTA_TIPO_VENDITA,
   PERSONALIZZATO,
   TIPI_VENDITA,
   modificaVenditaSchema,
   type ModificaVenditaInput,
   type TipoVendita,
 } from '@/lib/validation/vendita'
-
-const OPZIONI_TIPO = TIPI_VENDITA.map((t) => ({ valore: t, etichetta: ETICHETTA_TIPO_VENDITA[t] }))
 
 type Voce = { id: string; nome: string }
 
@@ -63,6 +64,10 @@ export function ModificaVendita({
   closers: Voce[]
 }) {
   const [aperto, setAperto] = useState(false)
+  const lingua = useLingua()
+  const t = MODIFICA_VENDITA[lingua]
+  const tr = (testo: string | undefined) => traduciErrore(testo, lingua)
+  const OPZIONI_TIPO = TIPI_VENDITA.map((v) => ({ valore: v, etichetta: ETICHETTE[lingua].tipoVendita[v] }))
   const { errore, setErrore, salva } = useSalvataggio()
   const {
     register,
@@ -86,7 +91,7 @@ export function ModificaVendita({
   const personalizzato = useWatch({ control, name: 'product_id' }) === PERSONALIZZATO
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => modificaVendita(valori), 'Vendita aggiornata')) setAperto(false)
+    if (await salva(() => modificaVendita(valori), t.aggiornata)) setAperto(false)
   })
 
   return (
@@ -103,39 +108,39 @@ export function ModificaVendita({
       contenutoTrigger={
         <>
           <Pencil className="size-4" aria-hidden="true" />
-          Modifica
+          {t.modifica}
         </>
       }
-      titolo="Modifica la vendita"
-      descrizione="Il piano rate non cambia da solo: le rate si correggono una per una qui sotto."
+      titolo={t.titolo}
+      descrizione={t.descrizione}
     >
       <form onSubmit={invia} noValidate className="space-y-4">
-        <SceltaRapida legenda="Tipo" opzioni={OPZIONI_TIPO} registrazione={register('tipo')} />
+        <SceltaRapida legenda={t.tipo} opzioni={OPZIONI_TIPO} registrazione={register('tipo')} />
 
         <div className="space-y-1.5">
-          <Label htmlFor="mv-prodotto">Prodotto</Label>
+          <Label htmlFor="mv-prodotto">{t.prodotto}</Label>
           <select id="mv-prodotto" className={CLASSE_SELECT} {...register('product_id')}>
-            {vendita.product_id || vendita.prodotto_personalizzato ? null : <option value="">Scegli il prodotto</option>}
+            {vendita.product_id || vendita.prodotto_personalizzato ? null : <option value="">{t.scegliProdotto}</option>}
             {prodotti.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nome}
               </option>
             ))}
-            <option value={PERSONALIZZATO}>Personalizzato…</option>
+            <option value={PERSONALIZZATO}>{t.personalizzato}</option>
           </select>
-          <ErroreCampo id="mv-prodotto-errore" messaggio={errors.product_id?.message} />
+          <ErroreCampo id="mv-prodotto-errore" messaggio={tr(errors.product_id?.message)} />
         </div>
 
         {personalizzato ? (
           <div className="space-y-1.5">
-            <Label htmlFor="mv-personalizzato">Cosa hai venduto</Label>
-            <Input id="mv-personalizzato" className="h-11" placeholder="Annuale, Percorso 9 mesi…" {...register('prodotto_personalizzato')} />
-            <ErroreCampo id="mv-personalizzato-errore" messaggio={errors.prodotto_personalizzato?.message} />
+            <Label htmlFor="mv-personalizzato">{t.cosaHaiVenduto}</Label>
+            <Input id="mv-personalizzato" className="h-11" placeholder={t.cosaPlaceholder} {...register('prodotto_personalizzato')} />
+            <ErroreCampo id="mv-personalizzato-errore" messaggio={tr(errors.prodotto_personalizzato?.message)} />
           </div>
         ) : null}
 
         <div className="space-y-1.5">
-          <Label htmlFor="mv-valore">Valore del contratto</Label>
+          <Label htmlFor="mv-valore">{t.valore}</Label>
           <Input
             id="mv-valore"
             inputMode="decimal"
@@ -143,33 +148,33 @@ export function ModificaVendita({
             aria-invalid={errors.valore_contratto ? true : undefined}
             {...register('valore_contratto')}
           />
-          <ErroreCampo id="mv-valore-errore" messaggio={errors.valore_contratto?.message} />
+          <ErroreCampo id="mv-valore-errore" messaggio={tr(errors.valore_contratto?.message)} />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="mv-data">Data vendita</Label>
+          <Label htmlFor="mv-data">{t.dataVendita}</Label>
           <Input id="mv-data" type="date" className="num h-11" {...register('data_vendita')} />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
-            <Label htmlFor="mv-inizio">Inizio percorso</Label>
+            <Label htmlFor="mv-inizio">{t.inizio}</Label>
             <Input id="mv-inizio" type="date" className="num h-11" {...register('data_inizio')} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="mv-fine">Fine percorso</Label>
+            <Label htmlFor="mv-fine">{t.fine}</Label>
             <Input id="mv-fine" type="date" className="num h-11" {...register('data_fine')} />
           </div>
         </div>
         <ErroreCampo
           id="mv-date-errore"
-          messaggio={errors.data_vendita?.message ?? errors.data_inizio?.message ?? errors.data_fine?.message}
+          messaggio={tr(errors.data_vendita?.message ?? errors.data_inizio?.message ?? errors.data_fine?.message)}
         />
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
-            <Label htmlFor="mv-setter">Setter</Label>
+            <Label htmlFor="mv-setter">{t.setter}</Label>
             <select id="mv-setter" className={CLASSE_SELECT} {...register('setter_id')}>
-              <option value="">Nessuno</option>
+              <option value="">{t.nessuno}</option>
               {setters.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nome}
@@ -178,9 +183,9 @@ export function ModificaVendita({
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="mv-closer">Closer</Label>
+            <Label htmlFor="mv-closer">{t.closer}</Label>
             <select id="mv-closer" className={CLASSE_SELECT} {...register('closer_id')}>
-              <option value="">Nessuno</option>
+              <option value="">{t.nessuno}</option>
               {closers.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nome}
@@ -190,24 +195,24 @@ export function ModificaVendita({
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Il setter della vendita decide la provvigione: cambiarlo sposta anche le provvigioni già maturate.
+          {t.setterAiuto}
         </p>
 
         <div className="space-y-1.5">
-          <Label htmlFor="mv-note">Note</Label>
+          <Label htmlFor="mv-note">{t.note}</Label>
           <Textarea id="mv-note" rows={2} {...register('note')} />
         </div>
 
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>Salva la vendita</BottoneSalva>
+        <ErroreModulo testo={tr(errore ?? undefined) ?? null} />
+        <BottoneSalva inCorso={isSubmitting}>{t.salva}</BottoneSalva>
 
         <div className="border-t border-border pt-4">
           <Elimina
-            etichetta="Elimina la vendita"
+            etichetta={t.elimina}
             cosa={descrizione}
-            fatto="Vendita eliminata"
+            fatto={t.eliminata}
             anteprima={{ tipo: 'vendita', id: vendita.id }}
-            azione={() => eliminaVendita({ id: vendita.id })}
+            azione={async () => tradotto(await eliminaVendita({ id: vendita.id }), lingua)}
             dopo="/sales"
           />
         </div>

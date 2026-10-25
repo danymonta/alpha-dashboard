@@ -19,7 +19,7 @@ import { insightConfigurato, UrlPassoNonValido, urlPasso } from '@/lib/insight/c
 import { LINK_CHIAVE_MESSENGER } from '@/lib/insight/link'
 import { getLingua } from '@/lib/i18n/server'
 import { INSIGHT } from '@/lib/i18n/testi/insight'
-import { AGGIORNA } from '@/lib/insight/parole'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
 import { formattaOraRecap, leggiDettagliRecap, leggiRecap, type RecapLetto } from '@/lib/insight/recap'
 import { leggiStatoInsight, leggiStatoInsightAdmin, type StatoInsight, type StatoInsightAdmin } from '@/lib/insight/stato'
 import { FRASI_ERRORE } from '@/lib/instagram/report'
@@ -166,7 +166,8 @@ export default async function InsightPage({
     }
   }
 
-  const t = INSIGHT[await getLingua()]
+  const lingua = await getLingua()
+  const t = INSIGHT[lingua]
   // «Aggiornato 08/10, 22:55 · ultime 24 ore», as lib/insight/parole.ts, in the page's language
   const quando = riga ? formattaOraRecap(recap?.generated_at || riga.generato_il).replace(' ', ', ') : ''
   const meta = [
@@ -193,7 +194,7 @@ export default async function InsightPage({
             Icona={MessageCircle}
             titolo={t.messengerTitolo}
             descrizione={admin ? t.messengerAdmin : t.messengerLettura}
-            azione={admin ? <LinkBottone href={LINK_CHIAVE_MESSENGER}>{AGGIORNA.apriImpostazioni}</LinkBottone> : undefined}
+            azione={admin ? <LinkBottone href={LINK_CHIAVE_MESSENGER}>{INSIGHT_RECAP[lingua].aggiorna.apriImpostazioni}</LinkBottone> : undefined}
           />
         )
       }
@@ -214,7 +215,7 @@ export default async function InsightPage({
         </p>
       )
     }
-    if (canale === 'agenda') return <AgendaRecap agenda={recap.agenda} showUp={recap.show_up} />
+    if (canale === 'agenda') return <AgendaRecap agenda={recap.agenda} showUp={recap.show_up} lingua={lingua} />
     return (
       <RecapChat
         key={`${fonte}-${giorno}`}
