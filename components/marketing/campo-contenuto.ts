@@ -7,6 +7,8 @@ import { modificaCampoContenuto, type EsitoCampo } from '@/app/(app)/marketing/c
 import { useOpzioniToast, usePannello } from '@/components/marketing/contesto-pannello'
 import { useOpzioni } from '@/components/marketing/opzioni-contesto'
 import { useUscitaDallaLista } from '@/components/marketing/sezione-contenuti'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { CONTENUTO, traduciErroreContenuto } from '@/lib/i18n/testi/contenuto'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { messaggioCampo } from '@/lib/marketing/pannello'
 import { campoContenutoSchema, type CampoContenutoInput, type CampoInCella } from '@/lib/validation/contenuto'
@@ -43,6 +45,7 @@ export function useCampoContenuto<C extends CampoInCella>({
   const opzioniToast = useOpzioniToast()
   const uscita = useUscitaDallaLista()
   const { opzioni } = useOpzioni()
+  const lingua = useLingua()
   const [mostrato, imposta] = useOptimistic<ValoreCampo<C>>(valore)
   const [inCorso, avvia] = useTransition()
   // while the save (and the redraw it brings) is in flight, the panel knows
@@ -69,18 +72,18 @@ export function useCampoContenuto<C extends CampoInCella>({
         esito = await modificaCampoContenuto({ id, campo, valore: nuovo, prima } as CampoContenutoInput)
       } catch {
         uscita?.dimentica()
-        toast.error('Connessione assente. Riprova.', opzioniToast)
+        toast.error(CONTENUTO[lingua].connessione, opzioniToast)
         return
       }
       if (esito.ok) {
         pannello?.aggiornaCampo(id, campo, esito.valore, esito.versione)
-        toast.success(messaggioCampo(campo, esito.valore, opzioni), opzioniToast)
+        toast.success(messaggioCampo(campo, esito.valore, opzioni, lingua), opzioniToast)
         return
       }
       if (esito.cambiato) pannello?.aggiornaCampo(id, campo, esito.cambiato.valore, esito.cambiato.versione)
       else uscita?.dimentica()
       if (esito.sparito) pannello?.segnaSparito(id)
-      toast.error(esito.errore, opzioniToast)
+      toast.error(traduciErroreContenuto(esito.errore, lingua), opzioniToast)
     })
     return null
   }

@@ -13,10 +13,11 @@ import { useOpzioni } from '@/components/marketing/opzioni-contesto'
 import { CampioneColore, Pillola } from '@/components/marketing/pillola'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { CONTENUTO, traduciErroreContenuto } from '@/lib/i18n/testi/contenuto'
 import { CAMPI } from '@/lib/marketing/etichette'
 import {
   COLORI_ETICHETTA,
-  NOME_COLORE,
   NOME_OPZIONE_MAX,
   nomeConfrontabile,
   opzioneDaValore,
@@ -69,6 +70,7 @@ export function SelectOpzioni<C extends CampoOpzione>({
 }) {
   const { mostrato, inCorso, salva } = useCampoContenuto({ id, nome, campo, valore })
   const { opzioni } = useOpzioni()
+  const t = CONTENUTO[useLingua()].opzioni
   const elenco = opzioni[campo]
   const [montato, setMontato] = useState(false)
   const [aperto, setAperto] = useState(false)
@@ -80,9 +82,7 @@ export function SelectOpzioni<C extends CampoOpzione>({
     type: 'button' as const,
     'data-cella': campo,
     'data-etichetta': etichetta,
-    'aria-label': scelta
-      ? `${scelta.nome}: cambia ${etichetta} di «${nome}»`
-      : `Vuoto: scegli ${etichetta} di «${nome}»`,
+    'aria-label': scelta ? t.scelta(scelta.nome, etichetta, nome) : t.vuotoScegli(etichetta, nome),
     'aria-busy': inCorso || undefined,
     'aria-haspopup': 'dialog' as const,
     className: cn(
@@ -98,7 +98,7 @@ export function SelectOpzioni<C extends CampoOpzione>({
       {etichetta}
     </span>
   ) : aspetto === 'campo' ? (
-    <span className="text-muted-foreground">Vuoto</span>
+    <span className="text-muted-foreground">{t.vuoto}</span>
   ) : (
     <PiuVuoto />
   )
@@ -187,6 +187,8 @@ function ElencoOpzioni({
 }) {
   const { opzioni, aggiungi } = useOpzioni()
   const opzioniToast = useOpzioniToast()
+  const lingua = useLingua()
+  const t = CONTENUTO[lingua].opzioni
   const elenco = opzioni[campo]
   const idBase = useId()
   const input = useRef<HTMLInputElement>(null)
@@ -225,7 +227,7 @@ function ElencoOpzioni({
       esito = await creaOpzione({ campo, nome: nomeNuovo })
     } catch {
       setCreando(false)
-      setErrore('Connessione assente. Riprova.')
+      setErrore(t.connessione)
       return
     }
     setCreando(false)
@@ -237,7 +239,7 @@ function ElencoOpzioni({
     aggiungi(esito.opzione)
     onChiudi()
     salva(esito.opzione.valore)
-    toast.success(`Etichetta «${esito.opzione.nome}» creata`, opzioniToast)
+    toast.success(t.creata(esito.opzione.nome), opzioniToast)
   }
 
   function tasti(e: KeyboardEvent<HTMLInputElement>) {
@@ -271,8 +273,8 @@ function ElencoOpzioni({
             <Pillola nome={scelta.nome} colore={scelta.colore} className="pr-1">
               <button
                 type="button"
-                aria-label={`Togli «${scelta.nome}»`}
-                title="Togli"
+                aria-label={t.togliDi(scelta.nome)}
+                title={t.togli}
                 onClick={() => scegli(null)}
                 className="-mr-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-sm hover:bg-foreground/15 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
               >
@@ -288,13 +290,13 @@ function ElencoOpzioni({
             aria-controls={`${idBase}-elenco`}
             aria-autocomplete="list"
             aria-activedescendant={attivo >= 0 && attivo < voci ? idVoce(attivo) : undefined}
-            aria-label={`Cerca o crea un’etichetta di ${CAMPI[campo]}`}
+            aria-label={t.cerca(CAMPI[campo])}
             value={testo}
             maxLength={NOME_OPZIONE_MAX + 20}
             autoComplete="off"
             autoCapitalize="none"
             enterKeyHint="done"
-            placeholder={scelta ? '' : 'Cerca o crea'}
+            placeholder={scelta ? '' : t.cercaSegnaposto}
             onChange={(e) => {
               setTesto(e.currentTarget.value)
               setErrore(null)
@@ -304,7 +306,7 @@ function ElencoOpzioni({
             className="h-9 min-w-24 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground md:text-sm"
           />
         </div>
-        <p className="px-1 text-xs text-muted-foreground">Scegli un’etichetta o creane una</p>
+        <p className="px-1 text-xs text-muted-foreground">{t.suggerimento}</p>
       </div>
 
       <div
@@ -332,8 +334,8 @@ function ElencoOpzioni({
             </div>
             <button
               type="button"
-              aria-label={`Modifica l’etichetta «${o.nome}»`}
-              title="Rinomina, colore, elimina"
+              aria-label={t.modificaEtichetta(o.nome)}
+              title={t.menuTitolo}
               data-opzione-menu={o.valore}
               onClick={() => onApriOpzione(o)}
               className={CLASSE_RIGA_ICONA}
@@ -363,13 +365,13 @@ function ElencoOpzioni({
               <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             )}
             <span className="min-w-0 truncate">
-              Crea <span className="font-medium">«{nomeNuovo}»</span>
+              {t.crea} <span className="font-medium">«{nomeNuovo}»</span>
             </span>
           </div>
         ) : null}
         {filtrate.length === 0 && !puoCreare ? (
           <p className="px-2 py-3 text-sm text-muted-foreground">
-            {elenco.length === 0 ? 'Nessuna etichetta: scrivi un nome per crearla.' : 'Nessuna etichetta con questo nome.'}
+            {elenco.length === 0 ? t.nessunaVuota : t.nessunaNome}
           </p>
         ) : null}
       </div>
@@ -377,7 +379,7 @@ function ElencoOpzioni({
       {errore ? (
         <p role="alert" className="flex items-start gap-2 border-t border-border px-3 py-2 text-sm text-status-critical">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {errore}
+          {traduciErroreContenuto(errore, lingua)}
         </p>
       ) : null}
     </div>
@@ -397,6 +399,8 @@ function MenuOpzione({
 }) {
   const { conteggi, puoEliminare, sostituisci, togli } = useOpzioni()
   const opzioniToast = useOpzioniToast()
+  const lingua = useLingua()
+  const t = CONTENUTO[lingua].opzioni
   const idCampo = useId()
   const input = useRef<HTMLInputElement>(null)
   const [nome, setNome] = useState(opzione.nome)
@@ -449,10 +453,10 @@ function MenuOpzione({
       }
       sostituisci(esito.opzione)
       setNome(esito.opzione.nome)
-      toast.success(`Etichetta rinominata in «${esito.opzione.nome}»`, opzioniToast)
+      toast.success(t.rinominata(esito.opzione.nome), opzioniToast)
       return true
     } catch {
-      setErrore('Connessione assente. Riprova.')
+      setErrore(t.connessione)
       return false
     } finally {
       setInCorso(false)
@@ -473,10 +477,10 @@ function MenuOpzione({
         return
       }
       sostituisci(esito.opzione)
-      toast.success(`Colore: ${NOME_COLORE[colore]}`, opzioniToast)
+      toast.success(t.colore(t.colori[colore]), opzioniToast)
     } catch {
       sostituisci(prima)
-      setErrore('Connessione assente. Riprova.')
+      setErrore(t.connessione)
     } finally {
       setInCorso(false)
     }
@@ -492,10 +496,10 @@ function MenuOpzione({
         return
       }
       togli(opzione)
-      toast.success(`Etichetta «${opzione.nome}» eliminata`, opzioniToast)
+      toast.success(t.eliminata(opzione.nome), opzioniToast)
       onEliminata()
     } catch {
-      setErrore('Connessione assente. Riprova.')
+      setErrore(t.connessione)
     } finally {
       setInCorso(false)
     }
@@ -506,8 +510,8 @@ function MenuOpzione({
       <div className="flex items-center gap-1">
         <button
           type="button"
-          aria-label="Torna all’elenco delle etichette"
-          title="Indietro"
+          aria-label={t.torna}
+          title={t.indietro}
           onClick={async () => {
             if (await rinomina()) onIndietro()
           }}
@@ -520,7 +524,7 @@ function MenuOpzione({
 
       <div className="space-y-1">
         <label htmlFor={idCampo} className="block px-1 text-xs text-muted-foreground">
-          Nome
+          {t.nome}
         </label>
         <input
           ref={input}
@@ -547,8 +551,8 @@ function MenuOpzione({
         />
       </div>
 
-      <div role="radiogroup" aria-label="Colore" className="space-y-0.5">
-        <p className="px-1 text-xs text-muted-foreground">Colore</p>
+      <div role="radiogroup" aria-label={t.coloreTitolo} className="space-y-0.5">
+        <p className="px-1 text-xs text-muted-foreground">{t.coloreTitolo}</p>
         {COLORI_ETICHETTA.map((c) => (
           <button
             key={c}
@@ -561,7 +565,7 @@ function MenuOpzione({
             className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-60"
           >
             <CampioneColore colore={c} />
-            <span>{NOME_COLORE[c]}</span>
+            <span>{t.colori[c]}</span>
             {opzione.colore === c ? <Check className="ml-auto size-4 text-muted-foreground" aria-hidden="true" /> : null}
           </button>
         ))}
@@ -570,27 +574,23 @@ function MenuOpzione({
       {errore ? (
         <p role="alert" className="flex items-start gap-2 px-1 text-sm text-status-critical">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {errore}
+          {traduciErroreContenuto(errore, lingua)}
         </p>
       ) : null}
 
       {puoEliminare ? (
         conferma ? (
-          <div role="group" aria-label="Conferma l’eliminazione" className="space-y-2 rounded-lg border border-border p-2">
+          <div role="group" aria-label={t.confermaAria} className="space-y-2 rounded-lg border border-border p-2">
             <p className="text-sm">
-              {usi === 0
-                ? `Nessun contenuto usa «${opzione.nome}»: si elimina l’etichetta.`
-                : usi === 1
-                  ? `1 contenuto usa «${opzione.nome}»: perde questa proprietà, il resto resta.`
-                  : `${usi} contenuti usano «${opzione.nome}»: perdono questa proprietà, il resto resta.`}
+              {usi === 0 ? t.usiNessuno(opzione.nome) : usi === 1 ? t.usiUno(opzione.nome) : t.usiMolti(usi, opzione.nome)}
             </p>
             <div className="flex gap-2">
               <Button type="button" variant="outline" className="h-11 flex-1" disabled={inCorso} onClick={() => setConferma(false)}>
-                Annulla
+                {t.annulla}
               </Button>
               <Button type="button" variant="destructive" className="h-11 flex-1" disabled={inCorso} onClick={() => void elimina()}>
                 {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                Elimina
+                {t.elimina}
               </Button>
             </div>
           </div>
@@ -602,7 +602,7 @@ function MenuOpzione({
             className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-sm text-status-critical hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             <Trash2 className="size-4" aria-hidden="true" />
-            Elimina l’etichetta
+            {t.eliminaEtichetta}
           </button>
         )
       ) : null}

@@ -12,12 +12,13 @@ import { RegistrazioneCall } from '@/components/call/registrazione-call'
 import { StatoCall } from '@/components/call/stato-call'
 import { LinkBottone } from '@/components/link-bottone'
 import { Badge } from '@/components/ui/badge'
-import { FOLLOW_UP, VENDITA_DA_REGISTRARE, chiedeVendita, quandoFollowUp } from '@/lib/call/follow-up'
+import { chiedeVendita } from '@/lib/call/follow-up'
 import { avvisoEsitoFermo, motivoQuandoBloccato } from '@/lib/call/spostamento'
 import { formatOra, oggiRoma } from '@/lib/date'
 import { etichettaGiornoBreveIn, etichettaGiornoIn, quandoBreveIn, quandoFollowUpIn } from '@/lib/i18n/date'
 import type { Lingua } from '@/lib/i18n/lingua'
 import { CALL } from '@/lib/i18n/testi/call'
+import { FOLLOW_UP_TESTI, VENDITA_TESTI } from '@/lib/i18n/testi/esito'
 import type { Database } from '@/lib/supabase/database.types'
 import { chiedeMotivo } from '@/lib/validation/esito'
 import { REGISTRAZIONE_OBBLIGATORIA_DAL } from '@/lib/validation/registrazione'
@@ -138,7 +139,7 @@ type Props = {
   eliminabile?: boolean
   /** Where the sale of a closed call returns after saving (an internal path, e.g. the closer's day). */
   tornaA?: string | null
-  /** The page's language (1.53.0): the card's lines; the sheets that write stay Italian. */
+  /** The page's language (1.53.0): the card's lines and, since the second pass, its sheets. */
   lingua?: Lingua
 }
 
@@ -164,8 +165,8 @@ export function SchedaCall({
   const stato = (
     <StatoCall stato={call.stato} esito={call.esito} qualificata={call.qualificata} passata={passata} lingua={lingua} />
   )
-  // the sheets that write stay Italian (1.53.0): they get the Italian description
-  const descrizione = CALL.it.descrizioneCall(t.tipo[call.tipo], etichettaGiornoIn(giorno, oggi, 'it'), ora)
+  const descrizione = t.descrizioneCall(t.tipo[call.tipo], etichettaGiornoIn(giorno, oggi, lingua), ora)
+  const VENDITA_DA_REGISTRARE = VENDITA_TESTI[lingua]
   const volte = call.volte_spostata ?? 0
   const traccia =
     call.spostata_dal && volte >= 1
@@ -315,9 +316,9 @@ export function SchedaCall({
                 }
                 followUp={
                   seguito
-                    ? quandoFollowUp(seguito.programmata_il, oggi)
+                    ? quandoFollowUpIn(seguito.programmata_il, oggi, lingua)
                     : diAltroCloser
-                      ? FOLLOW_UP.assegnataAltroCloser
+                      ? FOLLOW_UP_TESTI[lingua].assegnataAltroCloser
                       : null
                 }
               />
@@ -415,7 +416,7 @@ export function SchedaCall({
           {call.spunti?.spunti?.length ? <SpuntiDelSetter spunti={call.spunti.spunti} lingua={lingua} /> : null}
         </>
       ) : call.dalla_call ? (
-        <DallaCall dalla={call.dalla_call} spunti={call.spunti?.spunti ?? null} />
+        <DallaCall dalla={call.dalla_call} spunti={call.spunti?.spunti ?? null} lingua={lingua} />
       ) : null}
 
       {/* the closer reads what the setter wrote with the call's pencil */}
@@ -458,7 +459,7 @@ function SpuntiDelSetter({ spunti, lingua }: { spunti: string[]; lingua: Lingua 
   return (
     <div className="mt-1 pl-[4.25rem] text-sm" data-testid="spunti-per-te">
       <h5 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t.spuntiTitolo}</h5>
-      <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
+      <ul lang="it" className="mt-0.5 list-disc space-y-0.5 pl-5">
         {spunti.map((s, i) => (
           <li key={i}>{s}</li>
         ))}

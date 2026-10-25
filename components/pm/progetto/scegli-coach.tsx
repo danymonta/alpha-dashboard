@@ -7,9 +7,12 @@ import { toast } from 'sonner'
 
 import { scegliCoach } from '@/app/(app)/progetti/[id]/actions'
 import { ErroreModulo, FoglioModifica } from '@/components/form/foglio-modifica'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { SenzaCoach } from '@/components/pm/stato-progetto'
 import { StatoErrore } from '@/components/stati/stato-errore'
 import { Button } from '@/components/ui/button'
+import { traduciErroreProgetti } from '@/lib/i18n/testi/progetti'
+import { FOGLI_PROGETTO } from '@/lib/i18n/testi/progetto-fogli'
 import { cn } from '@/lib/utils'
 
 export type PersonaCoach = { id: string; nome: string; ruolo: string; coach: boolean }
@@ -39,6 +42,8 @@ export function ScegliCoach({
   /** The team or the tasks could not be read: never "nobody in the team". */
   elencoNonCaricato?: boolean
 }) {
+  const t = useTesti(FOGLI_PROGETTO)
+  const lingua = useLingua()
   const router = useRouter()
   const [aperto, setAperto] = useState(false)
   const [inCorso, setInCorso] = useState<string | null>(null)
@@ -55,10 +60,10 @@ export function ScegliCoach({
     }
     setInCorso(null)
     if (!esito.ok) {
-      setErrore(esito.errore)
+      setErrore(traduciErroreProgetti(esito.errore, lingua) ?? null)
       return
     }
-    toast.success(`${persona.nome} è il coach di ${cliente}`)
+    toast.success(t.coachDi(persona.nome, cliente))
     setAperto(false)
   }
 
@@ -75,25 +80,21 @@ export function ScegliCoach({
       trigger={<Button type="button" variant={coach ? 'ghost' : 'default'} className="h-11" />}
       contenutoTrigger={
         coach ? (
-          'Cambia coach'
+          t.cambiaCoach
         ) : (
           <>
             <UserRoundPlus className="size-4" aria-hidden="true" />
-            Scegli il coach
+            {t.scegliCoach}
           </>
         )
       }
-      titolo={coach ? 'Cambia il coach' : 'Scegli il coach'}
-      descrizione={
-        coach
-          ? `Il nuovo coach di ${cliente} entra nel progetto e prende i task di ${coach.nome} e quelli ancora senza nessuno: ci registra il tempo.`
-          : `Il coach di ${cliente} entra nel progetto e prende i task del cliente ancora senza nessuno: ci registra il tempo.`
-      }
+      titolo={coach ? t.cambiaIlCoach : t.scegliCoach}
+      descrizione={coach ? t.nuovoCoachDescrizione(cliente, coach.nome) : t.coachDescrizione(cliente)}
     >
       {elencoNonCaricato ? (
         <StatoErrore
-          titolo="Elenco non caricato"
-          descrizione="Non siamo riusciti a leggere le persone del team. Riprova fra un momento."
+          titolo={t.elencoNonCaricato}
+          descrizione={t.elencoNonCaricatoDescrizione}
           riprova={() => router.refresh()}
         />
       ) : (
@@ -102,16 +103,14 @@ export function ScegliCoach({
             {daRuolo.map((riga) => (
               <li key={riga}>{riga}</li>
             ))}
-            <li>I task a cui lavorano già altre persone restano a loro.</li>
-            {coach ? (
-              <li>{coach.nome} lascia i suoi task e resta nel team del progetto: toglilo da Membri se non ci lavora più.</li>
-            ) : null}
+            <li>{t.restanoAltri}</li>
+            {coach ? <li>{t.lasciaTask(coach.nome)}</li> : null}
           </ul>
 
-          <Elenco titolo="Coach" persone={coachDelTeam} coach={coach} inCorso={inCorso} onScegli={scegli} />
-          <Elenco titolo="Altre persone del team" persone={altri} coach={coach} inCorso={inCorso} onScegli={scegli} />
+          <Elenco titolo={t.coach} persone={coachDelTeam} coach={coach} inCorso={inCorso} onScegli={scegli} />
+          <Elenco titolo={t.altrePersone} persone={altri} coach={coach} inCorso={inCorso} onScegli={scegli} />
           {persone.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nessuna persona attiva nel team: invitala da Impostazioni › Team.</p>
+            <p className="text-sm text-muted-foreground">{t.nessunaPersona}</p>
           ) : null}
           <ErroreModulo testo={errore} />
         </div>
@@ -133,6 +132,7 @@ function Elenco({
   inCorso: string | null
   onScegli: (p: PersonaCoach) => void
 }) {
+  const t = useTesti(FOGLI_PROGETTO)
   if (persone.length === 0) return null
   return (
     <section className="space-y-2" aria-label={titolo}>
@@ -161,7 +161,7 @@ function Elenco({
                 ) : attuale ? (
                   <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                     <Check className="size-3.5" aria-hidden="true" />
-                    Coach attuale
+                    {t.coachAttuale}
                   </span>
                 ) : null}
               </button>

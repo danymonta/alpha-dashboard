@@ -10,6 +10,8 @@ import { useOpzioniToast, usePannello } from '@/components/marketing/contesto-pa
 import type { ManigliaEditor } from '@/components/marketing/editor-sezione'
 import { MarkdownContenuto } from '@/components/marketing/markdown-contenuto'
 import { Button } from '@/components/ui/button'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
+import { CONTENUTO, traduciErroreContenuto } from '@/lib/i18n/testi/contenuto'
 import type { SezioneContenuto as Campo } from '@/lib/marketing/etichette'
 import { ERRORE_SEZIONE_LUNGA, SEZIONE_MAX, lunghezza, normalizzaSezione } from '@/lib/validation/contenuto'
 
@@ -23,10 +25,11 @@ const ATTESA_SALVATAGGIO_MS = 1200
 
 /** The text as the page renders it: what shows until the editor is ready, and without JavaScript. */
 function Lettura({ testo }: { testo: string | null }) {
+  const t = useTesti(CONTENUTO).sezione
   return testo ? (
     <MarkdownContenuto testo={testo} />
   ) : (
-    <p className="text-sm text-muted-foreground">Vuota.</p>
+    <p className="text-sm text-muted-foreground">{t.vuota}</p>
   )
 }
 
@@ -68,6 +71,8 @@ export function SezioneContenuto({
 }) {
   const pannello = usePannello()
   const opzioniToast = useOpzioniToast()
+  const lingua = useLingua()
+  const t = CONTENUTO[lingua].sezione
   const idTitolo = useId()
   const idAiuto = useId()
   const editor = useRef<ManigliaEditor>(null)
@@ -138,7 +143,7 @@ export function SezioneContenuto({
       inVolo.current = false
       fine?.()
       setSporca(true)
-      setStato({ tipo: 'errore', messaggio: 'Connessione assente: il testo non è salvato.' })
+      setStato({ tipo: 'errore', messaggio: t.connessione })
       return
     }
     inVolo.current = false
@@ -165,18 +170,18 @@ export function SezioneContenuto({
       pannello?.aggiornaSezione(id, campo, esito.cambiata.attuale, esito.cambiata.impronta, esito.cambiata.versione)
       setIlMio(mio)
       setStato({ tipo: 'fermo' })
-      toast.error(esito.errore, opzioniToast)
+      toast.error(traduciErroreContenuto(esito.errore, lingua), opzioniToast)
       return
     }
     if (esito.sparito) {
       pannello?.segnaSparito(id)
-      toast.error(esito.errore, opzioniToast)
+      toast.error(traduciErroreContenuto(esito.errore, lingua), opzioniToast)
       return
     }
     inviate.current = numero - 1
     setSporca(true)
     setStato({ tipo: 'errore', messaggio: esito.errore })
-  }, [id, campo, inizioSalvataggio, pannello, opzioniToast])
+  }, [id, campo, inizioSalvataggio, pannello, opzioniToast, lingua, t.connessione])
 
   // leaving the page or the panel with a save waiting: it goes now (the latest salva, once, at unmount)
   useEffect(() => {
@@ -197,7 +202,7 @@ export function SezioneContenuto({
     if (ilMio === null) return
     try {
       await navigator.clipboard.writeText(ilMio)
-      toast.success('Testo copiato', opzioniToast)
+      toast.success(t.testoCopiato, opzioniToast)
     } catch {
       // no clipboard (permissions, an old browser): the text selected, ready for the system copy
       const el = copia.current
@@ -205,7 +210,7 @@ export function SezioneContenuto({
         el.focus()
         el.select()
       }
-      toast('Testo selezionato: copialo dal menu del telefono o con Ctrl+C.', opzioniToast)
+      toast(t.testoSelezionato, opzioniToast)
     }
   }
 
@@ -233,10 +238,10 @@ export function SezioneContenuto({
             {stato.tipo === 'salvo' ? (
               <span className="inline-flex items-center gap-1">
                 <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-                Salvo…
+                {t.salvo}
               </span>
             ) : stato.tipo === 'salvato' ? (
-              'Salvato'
+              t.salvato
             ) : null}
           </span>
         </summary>
@@ -257,18 +262,18 @@ export function SezioneContenuto({
           />
           {/* the shortcuts only while writing in this section: one line, not one under every toggle */}
           <p id={idAiuto} className="mt-1.5 hidden text-xs text-muted-foreground group-focus-within/sezione:block">
-            Si salva da solo. Ctrl/⌘+B grassetto, Ctrl/⌘+I corsivo, «- » elenco, «## » titolo.
+            {t.aiuto}
           </p>
           {errore ? (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <p id={`${idAiuto}-errore`} role="alert" className="flex items-start gap-2 text-sm text-status-critical">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                {errore}
+                {traduciErroreContenuto(errore, lingua)}
               </p>
               {errore !== ERRORE_SEZIONE_LUNGA ? (
                 <Button type="button" variant="outline" className="h-11" onClick={() => void salva()}>
                   <RotateCw className="size-4" aria-hidden="true" />
-                  Riprova
+                  {t.riprova}
                 </Button>
               ) : null}
             </div>
@@ -279,12 +284,12 @@ export function SezioneContenuto({
               <p className="flex items-start gap-2 text-sm">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
                 <span>
-                  <span className="font-medium">Il tuo testo</span>, non salvato: qui sopra c’è quello salvato da un’altra
-                  parte.
+                  <span className="font-medium">{t.ilTuo}</span>
+                  {t.ilTuoResto}
                 </span>
               </p>
               <label htmlFor={`${idTitolo}-mio`} className="sr-only">
-                Il tuo testo, non salvato
+                {t.ilTuoEtichetta}
               </label>
               <textarea
                 id={`${idTitolo}-mio`}
@@ -297,10 +302,10 @@ export function SezioneContenuto({
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" className="h-11" onClick={() => void copiaIlMio()}>
                   <Copy className="size-4" aria-hidden="true" />
-                  Copia il mio testo
+                  {t.copiaMio}
                 </Button>
                 <Button type="button" variant="ghost" className="h-11" onClick={() => setIlMio(null)}>
-                  Chiudi
+                  {t.chiudi}
                 </Button>
               </div>
             </div>

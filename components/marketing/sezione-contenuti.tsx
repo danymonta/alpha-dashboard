@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { CONTENUTO } from '@/lib/i18n/testi/contenuto'
 import type { StatusContenuto } from '@/lib/marketing/etichette'
 import { statiFiltrati, type FiltriContenuti } from '@/lib/marketing/filtri'
 import type { CampoInCella } from '@/lib/validation/contenuto'
@@ -62,20 +64,20 @@ function rigaVisibile(radice: ParentNode, id: string): HTMLElement | undefined {
   return righeVisibili(radice).find((r) => r.dataset.rigaContenuto === id)
 }
 
+type ParoleAnnunci = (typeof CONTENUTO)['it']['annunci']
+
 /** «Reel Type di «…»», «lo Status di «…»», «…»: where the focus landed, in words. */
-function doveSei(riga: HTMLElement, selettore: string): string {
-  const nome = riga.dataset.nomeContenuto ?? 'un altro contenuto'
-  if (selettore === '[data-menu-status]') return `ora sei sullo Status di «${nome}»`
+function doveSei(riga: HTMLElement, selettore: string, t: ParoleAnnunci): string {
+  const nome = riga.dataset.nomeContenuto ?? t.altro
+  if (selettore === '[data-menu-status]') return t.suStatus(nome)
   const cella = /data-cella="([^"]+)"/.exec(selettore)?.[1]
   const etichetta = cella ? riga.querySelector<HTMLElement>(selettore)?.dataset.etichetta : undefined
-  if (etichetta) return `ora sei su ${etichetta} di «${nome}»`
-  return `ora sei su «${nome}»`
+  if (etichetta) return t.suCampo(etichetta, nome)
+  return t.suNome(nome)
 }
 
-function frase(nome: string, motivo: MotivoUscita, dove: string): string {
-  return motivo === 'eliminato'
-    ? `«${nome}» eliminato: ${dove}.`
-    : `«${nome}» non è più nella lista con questi filtri: ${dove}.`
+function frase(nome: string, motivo: MotivoUscita, dove: string, t: ParoleAnnunci): string {
+  return motivo === 'eliminato' ? t.eliminato(nome, dove) : t.fuori(nome, dove)
 }
 
 /**
@@ -95,6 +97,7 @@ export function UscitaDallaLista({ filtri, children }: { filtri: FiltriContenuti
   const osservatore = useRef<MutationObserver | null>(null)
   const scadenza = useRef<number | undefined>(undefined)
   const [annuncio, setAnnuncio] = useState('')
+  const parole = CONTENUTO[useLingua()].annunci
 
   const annuncia = useCallback((testo: string) => {
     // emptied first, so the same words twice in a row are said again
@@ -174,14 +177,14 @@ export function UscitaDallaLista({ filtri, children }: { filtri: FiltriContenuti
             .find((x) => x.el !== null)
           if (r && trovato?.el) {
             trovato.el.focus()
-            annuncia(frase(nome, opzioni.motivo ?? 'filtri', doveSei(r, trovato.sel)))
+            annuncia(frase(nome, opzioni.motivo ?? 'filtri', doveSei(r, trovato.sel, parole), parole))
             return
           }
         }
         const t = titolo.current
         if (!t) return
         t.focus()
-        annuncia(frase(nome, opzioni.motivo ?? 'filtri', 'ora sei sul titolo «Piano editoriale»'))
+        annuncia(frase(nome, opzioni.motivo ?? 'filtri', parole.sulTitolo, parole))
       }
 
       // the redrawn list replaces the rows: the tapped one gone, the focus with it
@@ -194,7 +197,7 @@ export function UscitaDallaLista({ filtri, children }: { filtri: FiltriContenuti
       osservatore.current = o
       scadenza.current = window.setTimeout(dimentica, ATTESA_FOCUS_MS)
     },
-    [dimentica, annuncia],
+    [dimentica, annuncia, parole],
   )
 
   const destinazioneDopoPannello = useCallback(
@@ -209,18 +212,18 @@ export function UscitaDallaLista({ filtri, children }: { filtri: FiltriContenuti
           const r = rigaVisibile(radice, altro)
           const link = r?.querySelector<HTMLElement>('[data-apri-contenuto]')
           if (r && link) {
-            annuncia(frase(nome, motivo, doveSei(r, '[data-apri-contenuto]')))
+            annuncia(frase(nome, motivo, doveSei(r, '[data-apri-contenuto]', parole), parole))
             return link
           }
         }
       }
       if (titolo.current) {
-        annuncia(frase(nome, motivo, 'ora sei sul titolo «Piano editoriale»'))
+        annuncia(frase(nome, motivo, parole.sulTitolo, parole))
         return titolo.current
       }
       return null
     },
-    [annuncia],
+    [annuncia, parole],
   )
 
   const valore = useMemo(
@@ -248,6 +251,7 @@ export function SezioneContenuti({ children }: { children: ReactNode }) {
   const sezione = useRef<HTMLElement>(null)
   const titolo = useRef<HTMLHeadingElement>(null)
   const registra = uscita?.registraSezione
+  const titoloSezione = CONTENUTO[useLingua()].annunci.titolo
   useEffect(() => {
     registra?.(sezione.current, titolo.current)
     return () => registra?.(null, null)
@@ -261,7 +265,7 @@ export function SezioneContenuti({ children }: { children: ReactNode }) {
         tabIndex={-1}
         className="sr-only rounded-sm text-sm font-medium outline-none focus:not-sr-only focus:mb-2 focus:-ml-1 focus:inline-block focus:px-1 focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        Piano editoriale
+        {titoloSezione}
       </h2>
       {children}
     </section>

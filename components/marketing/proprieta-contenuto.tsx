@@ -6,10 +6,10 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode 
 import { useCampoContenuto } from '@/components/marketing/campo-contenuto'
 import { usePannello } from '@/components/marketing/contesto-pannello'
 import { SelectOpzioni } from '@/components/marketing/select-opzioni'
-import { formatNumero } from '@/lib/format'
+import { useFormato, useLingua, useTesti } from '@/components/i18n/lingua-provider'
+import { CONTENUTO, traduciErroreContenuto } from '@/lib/i18n/testi/contenuto'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
-import { CAMPI, CAMPO_MODELLO, ETICHETTA_MODELLO } from '@/lib/marketing/etichette'
-import { VIEW_COUNT_A_MANO, VIEW_COUNT_DA_INSTAGRAM } from '@/lib/marketing/pubblicati/parole'
+import { CAMPI, ETICHETTA_MODELLO } from '@/lib/marketing/etichette'
 import { cn } from '@/lib/utils'
 import { AUDIO_MAX, LINK_MAX } from '@/lib/validation/contenuto'
 
@@ -43,11 +43,12 @@ function RigaProprieta({ etichetta, idCampo, children }: { etichetta: string; id
 }
 
 function Errore({ id, testo }: { id: string; testo: string | null }) {
+  const lingua = useLingua()
   if (!testo) return null
   return (
     <p id={id} role="alert" className="mt-1 flex items-start gap-2 px-2.5 text-sm text-status-critical">
       <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      {testo}
+      {traduciErroreContenuto(testo, lingua)}
     </p>
   )
 }
@@ -67,8 +68,9 @@ function SelectModello({ riga }: { riga: Riga }) {
   const { mostrato, inCorso, salva } = useCampoContenuto({ id: riga.id, nome: riga.nome, campo: 'tipo', valore: riga.tipo })
   const idCampo = useId()
   const [errore, setErrore] = useState<string | null>(null)
+  const t = useTesti(CONTENUTO).proprieta
   return (
-    <RigaProprieta etichetta={CAMPO_MODELLO} idCampo={idCampo}>
+    <RigaProprieta etichetta={t.modello} idCampo={idCampo}>
       <div className="relative">
         <select
           id={idCampo}
@@ -104,7 +106,7 @@ function CampoEtichetta({ riga, campo }: { riga: Riga; campo: 'reel_type' | 'for
 
 type CampoInput = 'post_date' | 'audio' | 'inspiration' | 'url' | 'view_count'
 
-function testoDi(campo: CampoInput, valore: unknown): string {
+function testoDi(campo: CampoInput, valore: unknown, formatNumero: (n: number) => string): string {
   if (valore === null || valore === undefined) return ''
   if (campo === 'view_count') return formatNumero(Number(valore))
   return String(valore)
@@ -128,7 +130,9 @@ function InputCampo<C extends CampoInput>({
   const { mostrato, inCorso, salva } = useCampoContenuto({ id: riga.id, nome: riga.nome, campo, valore: riga[campo] })
   const pannello = usePannello()
   const idCampo = useId()
-  const salvato = testoDi(campo, mostrato)
+  const t = useTesti(CONTENUTO).proprieta
+  const { formatNumero } = useFormato()
+  const salvato = testoDi(campo, mostrato, formatNumero)
   const [bozza, setBozza] = useState(salvato)
   const [visto, setVisto] = useState(salvato)
   const [aFuoco, setAFuoco] = useState(false)
@@ -194,7 +198,7 @@ function InputCampo<C extends CampoInput>({
             type={campo === 'post_date' ? 'date' : campo === 'url' || campo === 'inspiration' ? 'url' : 'text'}
             inputMode={campo === 'view_count' ? 'numeric' : campo === 'url' || campo === 'inspiration' ? 'url' : undefined}
             maxLength={campo === 'audio' ? AUDIO_MAX : campo === 'url' || campo === 'inspiration' ? LINK_MAX : undefined}
-            placeholder={campo === 'url' ? 'https://www.instagram.com/reel/…' : campo === 'inspiration' ? 'https://' : 'Vuoto'}
+            placeholder={campo === 'url' ? 'https://www.instagram.com/reel/…' : campo === 'inspiration' ? 'https://' : t.vuoto}
             aria-busy={inCorso || undefined}
             aria-invalid={errore ? true : undefined}
             aria-describedby={descrizione}
@@ -223,8 +227,8 @@ function InputCampo<C extends CampoInput>({
             href={collegamento}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={campo === 'url' ? 'Apri il post' : 'Apri l’ispirazione'}
-            title={campo === 'url' ? 'Apri il post' : 'Apri l’ispirazione'}
+            aria-label={campo === 'url' ? t.apriPost : t.apriIspirazione}
+            title={campo === 'url' ? t.apriPost : t.apriIspirazione}
             className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             <ExternalLink className="size-4" aria-hidden="true" />
@@ -248,16 +252,18 @@ function InputCampo<C extends CampoInput>({
  * write on a number that comes from Instagram, so this is the screen saying it, not the only guard.
  */
 function CampoViewCount({ riga }: { riga: Riga }) {
+  const t = useTesti(CONTENUTO).proprieta
+  const { formatNumero } = useFormato()
   if (riga.view_count_da_instagram !== true || riga.view_count === null) {
-    return <InputCampo riga={riga} campo="view_count" aiuto={VIEW_COUNT_A_MANO} />
+    return <InputCampo riga={riga} campo="view_count" aiuto={t.viewCountAMano} />
   }
   return (
     <RigaProprieta etichetta={CAMPI.view_count}>
-      <p className="flex min-h-11 items-center gap-2 px-2.5 text-base md:text-sm" title={VIEW_COUNT_DA_INSTAGRAM} data-cella="view_count" data-sola-lettura="" data-testid="view-count-da-instagram">
+      <p className="flex min-h-11 items-center gap-2 px-2.5 text-base md:text-sm" title={t.viewCountDaInstagram} data-cella="view_count" data-sola-lettura="" data-testid="view-count-da-instagram">
         <span className="num">{formatNumero(riga.view_count)}</span>
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
           <RefreshCw className="size-3.5 shrink-0" aria-hidden="true" />
-          {VIEW_COUNT_DA_INSTAGRAM}
+          {t.viewCountDaInstagram}
         </span>
       </p>
     </RigaProprieta>
@@ -271,8 +277,9 @@ function CampoViewCount({ riga }: { riga: Riga }) {
  * pickers, never a popover above the keyboard.
  */
 export function ProprietaContenuto({ riga }: { riga: Riga }) {
+  const t = useTesti(CONTENUTO).proprieta
   return (
-    <section aria-label="Proprietà" className="rounded-xl bg-card px-2 py-2">
+    <section aria-label={t.titolo} className="rounded-xl bg-card px-2 py-2">
       <dl className="grid gap-x-6">
         <SelectModello riga={riga} />
         <CampoEtichetta riga={riga} campo="reel_type" />
@@ -280,7 +287,7 @@ export function ProprietaContenuto({ riga }: { riga: Riga }) {
         <InputCampo riga={riga} campo="post_date" />
         <InputCampo riga={riga} campo="audio" />
         <InputCampo riga={riga} campo="inspiration" />
-        <InputCampo riga={riga} campo="url" aiuto="Il link del post pubblicato, copiato dal browser." />
+        <InputCampo riga={riga} campo="url" aiuto={t.aiutoUrl} />
         <CampoViewCount riga={riga} />
       </dl>
     </section>

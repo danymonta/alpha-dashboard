@@ -5,10 +5,12 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { decidiPerformance } from '@/app/(app)/calls/actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
-import { ANALISI } from '@/lib/call/analisi/parole'
-import { CRITERI, GIUDIZI_CRITERIO } from '@/lib/call/analisi/icp-call'
-import { ETICHETTA_PERFORMANCE, LIVELLI_PERFORMANCE, type ValutazioneVista } from '@/lib/call/analisi/vista'
+import { LIVELLI_PERFORMANCE, type ValutazioneVista } from '@/lib/call/analisi/vista'
+import { ANALISI_TESTI, ANALISI_TOAST, CATEGORIE_CALL } from '@/lib/i18n/testi/analisi-call'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import type { Database } from '@/lib/supabase/database.types'
 
 type Livello = Database['public']['Enums']['call_performance']
@@ -23,6 +25,11 @@ type Props = { callId: string; valutazione: ValutazioneVista; performanceSalvata
 
 export function PerformanceCall({ callId, valutazione: v, performanceSalvata }: Props) {
   const [inCorso, avvia] = useTransition()
+  const lingua = useLingua()
+  const ANALISI = ANALISI_TESTI[lingua]
+  const toastT = ANALISI_TOAST[lingua]
+  const { CRITERI, GIUDIZI_CRITERIO } = CATEGORIE_CALL[lingua]
+  const ETICHETTA_PERFORMANCE = ETICHETTE[lingua].performance
   const [attuale, setAttuale] = useState<Livello | null>(performanceSalvata)
   const [cambia, setCambia] = useState(false)
   const proposta = v.livello_proposto
@@ -31,17 +38,17 @@ export function PerformanceCall({ callId, valutazione: v, performanceSalvata }: 
     const prima = attuale
     avvia(async () => {
       const r = await decidiPerformance({ call_id: callId, livello }).catch(() => null)
-      if (!r) return void toast.error('Connessione assente. Riprova.')
-      if (!r.ok) return void toast.error(r.errore)
+      if (!r) return void toast.error(traduciErrore('Connessione assente. Riprova.', lingua))
+      if (!r.ok) return void toast.error(traduciErrore(r.errore, lingua))
       setAttuale(livello)
       setCambia(false)
       toast.success(ANALISI.performance.fatto(ETICHETTA_PERFORMANCE[livello]), {
         action: {
-          label: 'Annulla',
+          label: toastT.annulla,
           onClick: () => {
             void decidiPerformance({ call_id: callId, livello: prima }).then((a) => {
               if (a.ok) setAttuale(prima)
-              else toast.error(a.errore)
+              else toast.error(traduciErrore(a.errore, lingua))
             })
           },
         },
@@ -67,7 +74,7 @@ export function PerformanceCall({ callId, valutazione: v, performanceSalvata }: 
           .join(' · ')}
       </p>
       {v.perche.length > 0 ? (
-        <ul className="list-disc space-y-0.5 pl-5">
+        <ul lang="it" className="list-disc space-y-0.5 pl-5">
           {v.perche.map((p, i) => (
             <li key={i}>{p}</li>
           ))}
@@ -95,7 +102,7 @@ export function PerformanceCall({ callId, valutazione: v, performanceSalvata }: 
         </Button>
       </div>
       {cambia ? (
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Scegli la performance">
+        <div className="flex flex-wrap gap-2" role="group" aria-label={toastT.scegli}>
           {LIVELLI_PERFORMANCE.map((l) => (
             <Button key={l} type="button" variant={attuale === l ? 'default' : 'outline'} className="h-11" disabled={inCorso} onClick={() => decidi(l)}>
               {ETICHETTA_PERFORMANCE[l]}
@@ -106,19 +113,19 @@ export function PerformanceCall({ callId, valutazione: v, performanceSalvata }: 
       {v.funzionato.length > 0 || v.da_provare.length > 0 ? (
         <details>
           <summary className="min-h-11 cursor-pointer py-2.5 text-muted-foreground">
-            {ANALISI.performance.funzionato} e {ANALISI.performance.daProvare.toLowerCase()}
+            {toastT.funzionatoEDaProvare(ANALISI.performance.funzionato, ANALISI.performance.daProvare)}
           </summary>
           <div className="space-y-2 pb-1">
             {v.funzionato.length > 0 ? (
               <div>
                 <h5 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{ANALISI.performance.funzionato}</h5>
-                <ul className="list-disc pl-5">{v.funzionato.map((f, i) => <li key={i}>{f}</li>)}</ul>
+                <ul lang="it" className="list-disc pl-5">{v.funzionato.map((f, i) => <li key={i}>{f}</li>)}</ul>
               </div>
             ) : null}
             {v.da_provare.length > 0 ? (
               <div>
                 <h5 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{ANALISI.performance.daProvare}</h5>
-                <ul className="list-disc pl-5">{v.da_provare.map((f, i) => <li key={i}>{f}</li>)}</ul>
+                <ul lang="it" className="list-disc pl-5">{v.da_provare.map((f, i) => <li key={i}>{f}</li>)}</ul>
               </div>
             ) : null}
           </div>

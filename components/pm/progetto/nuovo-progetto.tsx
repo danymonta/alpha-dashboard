@@ -9,12 +9,15 @@ import { toast } from 'sonner'
 
 import { creaProgetto } from '@/app/(app)/progetti/actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { BottoneSalva, CLASSE_SELECT, ErroreModulo, FoglioModifica } from '@/components/form/foglio-modifica'
 import { SceltaMultipla } from '@/components/form/scelta-multipla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { traduciErroreProgetti } from '@/lib/i18n/testi/progetti'
+import { FOGLI_PROGETTO } from '@/lib/i18n/testi/progetto-fogli'
 import { nuovoProgettoSchema, type NuovoProgettoInput } from '@/lib/validation/progetti'
 
 export type OpzioneReparto = { id: string; nome: string; progetti_con_cliente: boolean }
@@ -61,6 +64,9 @@ export function NuovoProgetto({
   oggi: string
   variante?: 'primario' | 'icona' | 'link'
 }) {
+  const t = useTesti(FOGLI_PROGETTO)
+  const lingua = useLingua()
+  const tradotto = (messaggio: string | undefined) => traduciErroreProgetti(messaggio, lingua)
   const router = useRouter()
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
@@ -100,14 +106,14 @@ export function NuovoProgetto({
     try {
       esito = await creaProgetto(valori)
     } catch {
-      setErrore('Connessione assente. Riprova.')
+      setErrore(tradotto('Connessione assente. Riprova.') ?? null)
       return
     }
     if (!esito.ok) {
-      setErrore(esito.errore)
+      setErrore(tradotto(esito.errore) ?? null)
       return
     }
-    toast.success('Progetto creato')
+    toast.success(t.progettoCreato)
     setAperto(false)
     reset(iniziali)
     // a new project is set up in its activities: lists and tasks come first
@@ -131,7 +137,7 @@ export function NuovoProgetto({
             variant="ghost"
             size="icon"
             className="size-11 text-muted-foreground"
-            aria-label={`Nuovo progetto in ${nomeReparto}`}
+            aria-label={t.nuovoIn(nomeReparto)}
           />
         ) : variante === 'link' ? (
           <button
@@ -147,21 +153,22 @@ export function NuovoProgetto({
           <Plus className="size-5" aria-hidden="true" />
         ) : variante === 'link' ? (
           <>
-            Crea il primo<span className="sr-only"> progetto in {nomeReparto}</span>
+            {t.creaIlPrimo}
+            <span className="sr-only">{t.creaIlPrimoSr(nomeReparto)}</span>
           </>
         ) : (
           <>
             <Plus className="size-4" aria-hidden="true" />
-            Nuovo progetto
+            {t.nuovoProgetto}
           </>
         )
       }
-      titolo="Nuovo progetto"
-      descrizione="Chi lo crea ne fa parte e ne è il responsabile. Le date dei task partono dall’inizio del progetto."
+      titolo={t.nuovoProgetto}
+      descrizione={t.nuovoDescrizione}
     >
       <form onSubmit={invia} noValidate className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor={`np-reparto-${chiave}`}>Reparto</Label>
+          <Label htmlFor={`np-reparto-${chiave}`}>{t.reparto}</Label>
           <select
             id={`np-reparto-${chiave}`}
             className={CLASSE_SELECT}
@@ -175,7 +182,7 @@ export function NuovoProgetto({
           >
             {repartoId ? null : (
               <option value="" disabled>
-                Scegli il reparto
+                {t.scegliReparto}
               </option>
             )}
             {reparti.map((r) => (
@@ -184,12 +191,12 @@ export function NuovoProgetto({
               </option>
             ))}
           </select>
-          <ErroreCampo id={`np-reparto-errore-${chiave}`} messaggio={errors.reparto_id?.message} />
+          <ErroreCampo id={`np-reparto-errore-${chiave}`} messaggio={tradotto(errors.reparto_id?.message)} />
         </div>
 
         {clienti && perClienti ? (
           <div className="space-y-1.5">
-            <Label htmlFor={`np-cliente-${chiave}`}>Cliente</Label>
+            <Label htmlFor={`np-cliente-${chiave}`}>{t.cliente}</Label>
             <select
               id={`np-cliente-${chiave}`}
               className={CLASSE_SELECT}
@@ -204,38 +211,34 @@ export function NuovoProgetto({
                 },
               })}
             >
-              <option value="">Nessun cliente</option>
+              <option value="">{t.nessunCliente}</option>
               {clienti.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.etichetta}
                 </option>
               ))}
             </select>
-            <p className="text-xs text-muted-foreground">
-              In questo reparto il progetto è il percorso del cliente: il nome si compila da solo e le date sono quelle
-              del suo percorso. Un cliente che paga ha già il suo progetto, quindi qui non compare. Solo tu vedi il
-              collegamento al cliente.
-            </p>
+            <p className="text-xs text-muted-foreground">{t.clienteAiuto}</p>
           </div>
         ) : null}
 
         <div className="space-y-1.5">
-          <Label htmlFor={`np-nome-${chiave}`}>Nome</Label>
+          <Label htmlFor={`np-nome-${chiave}`}>{t.nome}</Label>
           <Input
             id={`np-nome-${chiave}`}
             className="h-11"
-            placeholder={perClienti ? 'Nome Cognome del cliente' : 'Lancio funnel di gennaio'}
+            placeholder={perClienti ? t.nomeCliente : t.nomeEsempio}
             aria-describedby={errors.nome ? `np-nome-errore-${chiave}` : undefined}
             {...register('nome')}
           />
-          <ErroreCampo id={`np-nome-errore-${chiave}`} messaggio={errors.nome?.message} />
+          <ErroreCampo id={`np-nome-errore-${chiave}`} messaggio={tradotto(errors.nome?.message)} />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor={`np-modello-${chiave}`}>Modello</Label>
+          <Label htmlFor={`np-modello-${chiave}`}>{t.modello}</Label>
           {/* keyed on the department: its options change, and a fresh select shows the chosen template */}
           <select key={reparto} id={`np-modello-${chiave}`} className={CLASSE_SELECT} {...register('modello_id')}>
-            <option value="">Nessun modello</option>
+            <option value="">{t.nessunModello}</option>
             {opzioniModello.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.nome}
@@ -243,42 +246,40 @@ export function NuovoProgetto({
             ))}
           </select>
           <p className="text-xs text-muted-foreground">
-            {modelloScelto
-              ? `Apre il progetto con ${voci === 1 ? '1 attività' : `${voci} attività`} del modello.`
-              : 'Il progetto parte vuoto: liste e task li aggiungi tu.'}
+            {modelloScelto ? t.conModello(voci) : t.senzaModello}
           </p>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor={`np-descrizione-${chiave}`}>Descrizione</Label>
+          <Label htmlFor={`np-descrizione-${chiave}`}>{t.descrizione}</Label>
           <Textarea id={`np-descrizione-${chiave}`} rows={3} {...register('descrizione')} />
-          <ErroreCampo id={`np-descrizione-errore-${chiave}`} messaggio={errors.descrizione?.message} />
+          <ErroreCampo id={`np-descrizione-errore-${chiave}`} messaggio={tradotto(errors.descrizione?.message)} />
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
-            <Label htmlFor={`np-inizio-${chiave}`}>Inizio</Label>
+            <Label htmlFor={`np-inizio-${chiave}`}>{t.inizio}</Label>
             <Input id={`np-inizio-${chiave}`} type="date" className="num h-11" {...register('data_inizio')} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`np-fine-${chiave}`}>Fine</Label>
+            <Label htmlFor={`np-fine-${chiave}`}>{t.fine}</Label>
             <Input id={`np-fine-${chiave}`} type="date" className="num h-11" {...register('data_fine')} />
           </div>
         </div>
-        <ErroreCampo id={`np-date-errore-${chiave}`} messaggio={errors.data_inizio?.message ?? errors.data_fine?.message} />
+        <ErroreCampo id={`np-date-errore-${chiave}`} messaggio={tradotto(errors.data_inizio?.message ?? errors.data_fine?.message)} />
 
         {persone.length > 0 ? (
           <SceltaMultipla
-            legenda="Membri oltre a te"
+            legenda={t.membriOltre}
             opzioni={persone.map((p) => ({ valore: p.id, etichetta: p.nome }))}
             registrazione={register('membri')}
-            errore={errors.membri?.message}
+            errore={tradotto(errors.membri?.message)}
             colonne={2}
           />
         ) : null}
 
         <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>Crea il progetto</BottoneSalva>
+        <BottoneSalva inCorso={isSubmitting}>{t.creaProgetto}</BottoneSalva>
       </form>
     </FoglioModifica>
   )

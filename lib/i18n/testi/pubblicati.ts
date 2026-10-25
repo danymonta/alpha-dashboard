@@ -172,10 +172,10 @@ export const PUBBLICATI = bilingue(
     senzaDidascalie: 'Instagram does not give the captions: the caption search and the automatic link have less to go on.',
     situazione: {
       attive:
-        'Claude works only when you press «Analizza»: the analysis and the score start there. At night only the speech of new reels is transcribed.',
+        'Claude works only when you press «Analyse»: the analysis and the score start there. At night only the speech of new reels is transcribed.',
       in_pausa_spesa: 'The analyses are paused: the month’s spending limit is reached.',
       ferme_chiave: 'The analyses are stopped: Claude’s key is missing.',
-      spente: 'Claude works only when you press «Analizza»: the analysis and the score start there. The night transcriptions are off.',
+      spente: 'Claude works only when you press «Analyse»: the analysis and the score start there. The night transcriptions are off.',
     },
     inCoda: (n: number) => (n === 1 ? ' 1 job queued.' : ` ${n} jobs queued.`),
     ultimoLavoro: (quando: string) => `Last job ${quando}`,

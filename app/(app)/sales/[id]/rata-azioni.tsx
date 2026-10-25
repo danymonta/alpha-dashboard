@@ -30,11 +30,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import type { Database } from '@/lib/supabase/database.types'
-import { formatData, formatEuro, formatImportoInput } from '@/lib/format'
+import { formato, formatImportoInput } from '@/lib/format'
+import { traduciErrore, tradotto } from '@/lib/i18n/testi/errori-economics'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { RATA } from '@/lib/i18n/testi/nuova-vendita'
 import { cn } from '@/lib/utils'
 import {
-  ETICHETTA_METODO,
   METODI,
   modificaIncassoSchema,
   modificaRataSchema,
@@ -68,14 +71,18 @@ type Props = {
 
 type Vista = 'menu' | 'incasso' | 'modifica' | 'correggi' | 'rimborso'
 
-const OPZIONI_METODO = METODI.map((m) => ({ valore: m, etichetta: ETICHETTA_METODO[m] }))
+function useOpzioniMetodo() {
+  const etichette = useTesti(ETICHETTE).metodo
+  return METODI.map((m) => ({ valore: m, etichetta: etichette[m] }))
+}
 
 function Errore({ testo }: { testo: string | null }) {
+  const lingua = useLingua()
   if (!testo) return null
   return (
     <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
       <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      {testo}
+      {traduciErrore(testo, lingua)}
     </p>
   )
 }
@@ -86,8 +93,11 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
   const [vista, setVista] = useState<Vista>('menu')
   const [errore, setErrore] = useState<string | null>(null)
 
+  const lingua = useLingua()
+  const t = RATA[lingua]
+  const { formatData, formatEuro } = formato(lingua)
   const daIncassare = rata.stato === 'prevista' || rata.stato === 'fallita'
-  const etichetta = `Rata ${rata.numero_rata}`
+  const etichetta = t.rata(rata.numero_rata)
 
   function esegui(azione: () => Promise<EsitoRata>, successo: (e: EsitoRata & { ok: true }) => void) {
     setErrore(null)
@@ -97,12 +107,12 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
         esito = await azione()
       } catch {
         setErrore('Connessione assente. Riprova.')
-        toast.error('Connessione assente. Riprova.')
+        toast.error(traduciErrore('Connessione assente. Riprova.', lingua))
         return
       }
       if (!esito.ok) {
         setErrore(esito.errore)
-        toast.error(esito.errore)
+        toast.error(traduciErrore(esito.errore, lingua))
         return
       }
       successo(esito)
@@ -116,9 +126,9 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
     esegui(
       () => segnaIncassata({ payment_id: rata.id }),
       (e) =>
-        toast.success(`${etichetta} incassata · ${formatEuro(e.importo ?? rata.importo_previsto)}`, {
+        toast.success(t.incassata(etichetta, formatEuro(e.importo ?? rata.importo_previsto)), {
           action: {
-            label: 'Annulla',
+            label: t.annulla,
             onClick: () => void annullaIncasso({ payment_id: rata.id }),
           },
         }),
@@ -143,7 +153,7 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
               variant="outline"
               size="icon"
               className="size-11"
-              aria-label={`Altre azioni sulla ${etichetta.toLowerCase()}`}
+              aria-label={t.altreAzioni(etichetta)}
             />
           }
         >
@@ -156,7 +166,7 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
           <SheetHeader>
             <SheetTitle>{etichetta}</SheetTitle>
             <SheetDescription>
-              Scadenza {formatData(rata.scadenza)} · {formatEuro(rata.importo_incassato ?? rata.importo_previsto)}
+              {t.scadenzaRiga(formatData(rata.scadenza), formatEuro(rata.importo_incassato ?? rata.importo_previsto))}
             </SheetDescription>
           </SheetHeader>
 
@@ -171,7 +181,7 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
                 }}
               >
                 <ChevronLeft className="size-4" aria-hidden="true" />
-                Indietro
+                {t.indietro}
               </button>
             ) : null}
 
@@ -180,7 +190,7 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
                 {daIncassare ? (
                   <>
                     <Button type="button" variant="outline" className="h-12 justify-start" onClick={() => setVista('incasso')}>
-                      Incassata con data, importo o metodo diversi
+                      {t.incassataDiversa}
                     </Button>
                     {rata.stato === 'prevista' ? (
                       <Button
@@ -191,16 +201,16 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
                         onClick={() =>
                           esegui(
                             () => segnaFallita({ payment_id: rata.id }),
-                            () => toast.success(`${etichetta} segnata come fallita`),
+                            () => toast.success(t.fallita(etichetta)),
                           )
                         }
                       >
-                        Pagamento fallito
+                        {t.fallito}
                       </Button>
                     ) : null}
                     {admin && rata.stato === 'prevista' ? (
                       <Button type="button" variant="outline" className="h-12 justify-start" onClick={() => setVista('modifica')}>
-                        Modifica scadenza o importo
+                        {t.modifica}
                       </Button>
                     ) : null}
                     {rata.stato === 'fallita' ? (
@@ -212,11 +222,11 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
                         onClick={() =>
                           esegui(
                             () => annullaIncasso({ payment_id: rata.id }),
-                            () => toast.success(`${etichetta} di nuovo da incassare`),
+                            () => toast.success(t.daIncassare(etichetta)),
                           )
                         }
                       >
-                        Rimetti da incassare
+                        {t.rimetti}
                       </Button>
                     ) : null}
                   </>
@@ -224,7 +234,7 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
                   <>
                     {rata.stato === 'incassata' ? (
                       <Button type="button" variant="outline" className="h-12 justify-start" onClick={() => setVista('correggi')}>
-                        Correggi data, importo o metodo
+                        {t.correggi}
                       </Button>
                     ) : null}
                     <Button
@@ -235,30 +245,28 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
                       onClick={() =>
                         esegui(
                           () => annullaIncasso({ payment_id: rata.id }),
-                          () => toast.success(`Incasso della ${etichetta.toLowerCase()} annullato`),
+                          () => toast.success(t.incassoAnnullato(etichetta)),
                         )
                       }
                     >
-                      Annulla l’incasso
+                      {t.annullaIncasso}
                     </Button>
                     {admin ? (
                       <Button type="button" variant="outline" className="h-12 justify-start" onClick={() => setVista('rimborso')}>
-                        Registra un rimborso
+                        {t.rimborso}
                       </Button>
                     ) : null}
                   </>
                 )}
                 {admin ? (
                   <Elimina
-                    etichetta="Elimina la rata"
-                    cosa={`la ${etichetta.toLowerCase()}`}
-                    fatto={`${etichetta} eliminata`}
+                    etichetta={t.elimina}
+                    cosa={t.cosa(etichetta)}
+                    fatto={t.eliminata(etichetta)}
                     conseguenze={
-                      rata.stato === 'incassata'
-                        ? [`Il suo incasso (${formatEuro(rata.importo_incassato)}) esce dal cash e dalle provvigioni del mese.`]
-                        : ['Le altre rate si rinumerano in ordine di scadenza.']
+                      rata.stato === 'incassata' ? [t.escePrevisto(formatEuro(rata.importo_incassato))] : [t.rinumera]
                     }
-                    azione={() => eliminaRata({ payment_id: rata.id })}
+                    azione={async () => tradotto(await eliminaRata({ payment_id: rata.id }), lingua)}
                   />
                 ) : null}
               </div>
@@ -267,21 +275,21 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
             {vista === 'incasso' ? (
               <FormIncasso rata={rata} oggi={oggi} inCorso={inCorso} onInvia={(v) =>
                 esegui(() => segnaIncassata(v), (e) =>
-                  toast.success(`${etichetta} incassata · ${formatEuro(e.importo ?? 0)}`),
+                  toast.success(t.incassata(etichetta, formatEuro(e.importo ?? 0))),
                 )}
               />
             ) : null}
 
             {vista === 'modifica' ? (
               <FormModifica rata={rata} inCorso={inCorso} onInvia={(v) =>
-                esegui(() => modificaRata(v), () => toast.success(`${etichetta} aggiornata`))}
+                esegui(() => modificaRata(v), () => toast.success(t.aggiornata(etichetta)))}
               />
             ) : null}
 
             {vista === 'correggi' ? (
               <FormCorreggi rata={rata} oggi={oggi} inCorso={inCorso} onInvia={(v) =>
                 esegui(() => modificaIncasso(v), (e) =>
-                  toast.success(`Incasso corretto · ${formatEuro(e.importo ?? 0)}`),
+                  toast.success(t.corretto(formatEuro(e.importo ?? 0))),
                 )}
               />
             ) : null}
@@ -289,7 +297,7 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
             {vista === 'rimborso' ? (
               <FormRimborso rata={rata} oggi={oggi} inCorso={inCorso} onInvia={(v) =>
                 esegui(() => registraRimborso(v), (e) =>
-                  toast.success(`Rimborso registrato · ${formatEuro(e.importo ?? 0)}`),
+                  toast.success(t.rimborsato(formatEuro(e.importo ?? 0))),
                 )}
               />
             ) : null}
@@ -297,7 +305,7 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
             {inCorso ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
                 <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                Salvataggio…
+                {t.salvataggio}
               </p>
             ) : null}
             <Errore testo={errore} />
@@ -319,7 +327,7 @@ export function RataAzioni({ rata, admin, oggi, principale = false, className }:
           ) : (
             <CircleCheck className="size-4" aria-hidden="true" />
           )}
-          Segna incassata
+          {t.segnaIncassata}
         </Button>
       ) : null}
     </div>
@@ -337,6 +345,9 @@ function FormIncasso({
   inCorso: boolean
   onInvia: (v: SegnaIncassataInput) => void
 }) {
+  const lingua = useLingua()
+  const t = RATA[lingua]
+  const OPZIONI_METODO = useOpzioniMetodo()
   const { register, handleSubmit, formState: { errors } } = useForm<SegnaIncassataInput>({
     resolver: zodResolver(segnaIncassataSchema),
     defaultValues: {
@@ -355,18 +366,18 @@ function FormIncasso({
     >
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
-          <Label htmlFor={`incassato-${rata.id}`}>Incassata il</Label>
+          <Label htmlFor={`incassato-${rata.id}`}>{t.incassataIl}</Label>
           <Input id={`incassato-${rata.id}`} type="date" max={oggi} className="num h-11" {...register('incassato_il')} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`importo-${rata.id}`}>Importo</Label>
+          <Label htmlFor={`importo-${rata.id}`}>{t.importo}</Label>
           <Input id={`importo-${rata.id}`} inputMode="decimal" className="num h-11 text-right" {...register('importo')} />
         </div>
       </div>
-      <ErroreCampo id={`incasso-errore-${rata.id}`} messaggio={errors.incassato_il?.message ?? errors.importo?.message} />
-      <SceltaRapida legenda="Metodo (facoltativo)" opzioni={OPZIONI_METODO} registrazione={register('metodo')} />
+      <ErroreCampo id={`incasso-errore-${rata.id}`} messaggio={traduciErrore(errors.incassato_il?.message ?? errors.importo?.message, lingua)} />
+      <SceltaRapida legenda={t.metodo} opzioni={OPZIONI_METODO} registrazione={register('metodo')} />
       <Button type="submit" className="h-11 w-full" disabled={inCorso}>
-        Registra l’incasso
+        {t.registraIncasso}
       </Button>
     </form>
   )
@@ -383,6 +394,9 @@ function FormCorreggi({
   inCorso: boolean
   onInvia: (v: ModificaIncassoInput) => void
 }) {
+  const lingua = useLingua()
+  const t = RATA[lingua]
+  const OPZIONI_METODO = useOpzioniMetodo()
   const { register, handleSubmit, formState: { errors } } = useForm<ModificaIncassoInput>({
     resolver: zodResolver(modificaIncassoSchema),
     defaultValues: {
@@ -401,18 +415,18 @@ function FormCorreggi({
     >
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
-          <Label htmlFor={`correggi-data-${rata.id}`}>Incassata il</Label>
+          <Label htmlFor={`correggi-data-${rata.id}`}>{t.incassataIl}</Label>
           <Input id={`correggi-data-${rata.id}`} type="date" max={oggi} className="num h-11" {...register('incassato_il')} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`correggi-importo-${rata.id}`}>Importo incassato</Label>
+          <Label htmlFor={`correggi-importo-${rata.id}`}>{t.importoIncassato}</Label>
           <Input id={`correggi-importo-${rata.id}`} inputMode="decimal" className="num h-11 text-right" {...register('importo')} />
         </div>
       </div>
-      <ErroreCampo id={`correggi-errore-${rata.id}`} messaggio={errors.incassato_il?.message ?? errors.importo?.message} />
-      <SceltaRapida legenda="Metodo (facoltativo)" opzioni={OPZIONI_METODO} registrazione={register('metodo')} />
+      <ErroreCampo id={`correggi-errore-${rata.id}`} messaggio={traduciErrore(errors.incassato_il?.message ?? errors.importo?.message, lingua)} />
+      <SceltaRapida legenda={t.metodo} opzioni={OPZIONI_METODO} registrazione={register('metodo')} />
       <Button type="submit" className="h-11 w-full" disabled={inCorso}>
-        Salva la correzione
+        {t.salvaCorrezione}
       </Button>
     </form>
   )
@@ -427,6 +441,8 @@ function FormModifica({
   inCorso: boolean
   onInvia: (v: ModificaRataInput) => void
 }) {
+  const lingua = useLingua()
+  const t = RATA[lingua]
   const { register, handleSubmit, formState: { errors } } = useForm<ModificaRataInput>({
     resolver: zodResolver(modificaRataSchema),
     defaultValues: {
@@ -444,20 +460,18 @@ function FormModifica({
     >
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
-          <Label htmlFor={`scadenza-${rata.id}`}>Scadenza</Label>
+          <Label htmlFor={`scadenza-${rata.id}`}>{t.scadenza}</Label>
           <Input id={`scadenza-${rata.id}`} type="date" className="num h-11" {...register('scadenza')} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`previsto-${rata.id}`}>Importo previsto</Label>
+          <Label htmlFor={`previsto-${rata.id}`}>{t.importoPrevisto}</Label>
           <Input id={`previsto-${rata.id}`} inputMode="decimal" className="num h-11 text-right" {...register('importo_previsto')} />
         </div>
       </div>
-      <ErroreCampo id={`modifica-errore-${rata.id}`} messaggio={errors.scadenza?.message ?? errors.importo_previsto?.message} />
-      <p className="text-xs text-muted-foreground">
-        Se cambi un importo, il dettaglio segnala lo scarto dal valore del contratto.
-      </p>
+      <ErroreCampo id={`modifica-errore-${rata.id}`} messaggio={traduciErrore(errors.scadenza?.message ?? errors.importo_previsto?.message, lingua)} />
+      <p className="text-xs text-muted-foreground">{t.scarto}</p>
       <Button type="submit" className="h-11 w-full" disabled={inCorso}>
-        Salva la rata
+        {t.salvaRata}
       </Button>
     </form>
   )
@@ -474,6 +488,8 @@ function FormRimborso({
   inCorso: boolean
   onInvia: (v: RimborsoInput) => void
 }) {
+  const lingua = useLingua()
+  const t = RATA[lingua]
   const { register, handleSubmit, formState: { errors } } = useForm<RimborsoInput>({
     resolver: zodResolver(rimborsoSchema),
     defaultValues: {
@@ -492,24 +508,22 @@ function FormRimborso({
     >
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
-          <Label htmlFor={`rimborso-data-${rata.id}`}>Rimborsato il</Label>
+          <Label htmlFor={`rimborso-data-${rata.id}`}>{t.rimborsatoIl}</Label>
           <Input id={`rimborso-data-${rata.id}`} type="date" max={oggi} className="num h-11" {...register('data')} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`rimborso-importo-${rata.id}`}>Importo</Label>
+          <Label htmlFor={`rimborso-importo-${rata.id}`}>{t.importo}</Label>
           <Input id={`rimborso-importo-${rata.id}`} inputMode="decimal" className="num h-11 text-right" {...register('importo')} />
         </div>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor={`rimborso-note-${rata.id}`}>Motivo (facoltativo)</Label>
+        <Label htmlFor={`rimborso-note-${rata.id}`}>{t.motivo}</Label>
         <Input id={`rimborso-note-${rata.id}`} className="h-11" {...register('note')} />
       </div>
-      <ErroreCampo id={`rimborso-errore-${rata.id}`} messaggio={errors.data?.message ?? errors.importo?.message} />
-      <p className="text-xs text-muted-foreground">
-        Il rimborso resta nel mese in cui avviene: la rata originale conserva il suo incasso.
-      </p>
+      <ErroreCampo id={`rimborso-errore-${rata.id}`} messaggio={traduciErrore(errors.data?.message ?? errors.importo?.message, lingua)} />
+      <p className="text-xs text-muted-foreground">{t.rimborsoMese}</p>
       <Button type="submit" variant="destructive" className="h-11 w-full" disabled={inCorso}>
-        Registra il rimborso
+        {t.registraRimborso}
       </Button>
     </form>
   )

@@ -1,7 +1,10 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { CONTENUTO } from '@/lib/i18n/testi/contenuto'
 
 /** The shape of a content's page: header, Status, properties, the template's sections. */
-export default function Loading() {
+export default async function Loading() {
+  const t = CONTENUTO[await getLingua()].pagina
   return (
     <div className="max-w-3xl space-y-5" aria-busy="true" aria-live="polite">
       <div className="space-y-2">
@@ -26,7 +29,7 @@ export default function Loading() {
         <Skeleton className="h-12 rounded-xl" />
         <Skeleton className="h-12 rounded-xl" />
       </div>
-      <span className="sr-only">Caricamento del contenuto</span>
+      <span className="sr-only">{t.caricamento}</span>
     </div>
   )
 }

@@ -14,19 +14,29 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { formatImportoInput } from '@/lib/format'
+import { COSTI_FOGLI } from '@/lib/i18n/testi/costi'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import {
   CATEGORIE_COSTO,
-  ETICHETTA_CATEGORIA,
   costoSchema,
   modificaCostoSchema,
   type CostoInput,
   type ModificaCostoInput,
 } from '@/lib/validation/anagrafiche'
 
-const OPZIONI = CATEGORIE_COSTO.map((c) => ({ valore: c, etichetta: ETICHETTA_CATEGORIA[c] }))
+function useOpzioni() {
+  const etichette = useTesti(ETICHETTE).categoriaCosto
+  return CATEGORIE_COSTO.map((c) => ({ valore: c, etichetta: etichette[c] }))
+}
 
 export function NuovoCosto({ dataPredefinita, massima }: { dataPredefinita: string; massima: string }) {
+  const lingua = useLingua()
+  const t = COSTI_FOGLI[lingua]
+  const OPZIONI = useOpzioni()
+  const tr = (testo: string | undefined) => traduciErrore(testo, lingua)
   const [errore, setErrore] = useState<string | null>(null)
   const {
     register,
@@ -54,45 +64,45 @@ export function NuovoCosto({ dataPredefinita, massima }: { dataPredefinita: stri
       setErrore(esito.errore)
       return
     }
-    toast.success('Costo aggiunto')
+    toast.success(t.aggiunto)
     reset({ data: valori.data, categoria: valori.categoria, descrizione: '', importo: '', ricorrente: false })
   })
 
   return (
-    <form onSubmit={invia} noValidate className="space-y-4 rounded-xl bg-card p-4" aria-label="Nuovo costo">
-      <SceltaRapida legenda="Categoria" opzioni={OPZIONI} registrazione={register('categoria')} errore={errors.categoria?.message} />
+    <form onSubmit={invia} noValidate className="space-y-4 rounded-xl bg-card p-4" aria-label={t.nuovo}>
+      <SceltaRapida legenda={t.categoria} opzioni={OPZIONI} registrazione={register('categoria')} errore={tr(errors.categoria?.message)} />
       <div className="space-y-1.5">
-        <Label htmlFor="costo-descrizione">Descrizione</Label>
-        <Input id="costo-descrizione" className="h-11" placeholder="Compenso coach, hosting, campagna…" {...register('descrizione')} />
-        <ErroreCampo id="costo-descrizione-errore" messaggio={errors.descrizione?.message} />
+        <Label htmlFor="costo-descrizione">{t.descrizione}</Label>
+        <Input id="costo-descrizione" className="h-11" placeholder={t.placeholder} {...register('descrizione')} />
+        <ErroreCampo id="costo-descrizione-errore" messaggio={tr(errors.descrizione?.message)} />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
-          <Label htmlFor="costo-data">Data</Label>
+          <Label htmlFor="costo-data">{t.data}</Label>
           <Input id="costo-data" type="date" max={massima} className="num h-11" {...register('data')} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="costo-importo">Importo</Label>
+          <Label htmlFor="costo-importo">{t.importo}</Label>
           <Input id="costo-importo" inputMode="decimal" placeholder="0,00" className="num h-11 text-right" {...register('importo')} />
         </div>
       </div>
-      <ErroreCampo id="costo-errore" messaggio={errors.data?.message ?? errors.importo?.message} />
+      <ErroreCampo id="costo-errore" messaggio={tr(errors.data?.message ?? errors.importo?.message)} />
       <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm">
         <span>
-          Ricorrente
-          <span className="block text-xs text-muted-foreground">Si potrà copiare nel mese successivo con un tocco.</span>
+          {t.ricorrente}
+          <span className="block text-xs text-muted-foreground">{t.ricorrenteAiuto}</span>
         </span>
         <Switch checked={!!ricorrente} onCheckedChange={(v) => setValue('ricorrente', v)} />
       </label>
       {errore ? (
         <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {errore}
+          {tr(errore ?? undefined)}
         </p>
       ) : null}
       <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
         {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
-        Aggiungi costo
+        {t.aggiungi}
       </Button>
     </form>
   )
@@ -100,6 +110,8 @@ export function NuovoCosto({ dataPredefinita, massima }: { dataPredefinita: stri
 
 export function CopiaRicorrenti({ mese, meseSorgente }: { mese: string; meseSorgente: string }) {
   const [inCorso, avvia] = useTransition()
+  const lingua = useLingua()
+  const t = COSTI_FOGLI[lingua]
   return (
     <Button
       type="button"
@@ -109,14 +121,14 @@ export function CopiaRicorrenti({ mese, meseSorgente }: { mese: string; meseSorg
       onClick={() =>
         avvia(async () => {
           const esito = await copiaRicorrenti({ mese })
-          if (!esito.ok) toast.error(esito.errore)
-          else if (!esito.copiati) toast.info('Nessun costo da copiare: i ricorrenti ci sono già.')
-          else toast.success(esito.copiati === 1 ? '1 costo ricorrente copiato' : `${esito.copiati} costi ricorrenti copiati`)
+          if (!esito.ok) toast.error(traduciErrore(esito.errore, lingua))
+          else if (!esito.copiati) toast.info(t.nienteDaCopiare)
+          else toast.success(t.copiati(esito.copiati))
         })
       }
     >
       {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Copy className="size-4" aria-hidden="true" />}
-      Copia i ricorrenti di {meseSorgente}
+      {t.copia(meseSorgente)}
     </Button>
   )
 }
@@ -125,10 +137,12 @@ export function CopiaRicorrenti({ mese, meseSorgente }: { mese: string; meseSorg
 export function EliminaCosto({ id, descrizione }: { id: string; descrizione: string }) {
   const [pronto, setPronto] = useState(false)
   const [inCorso, avvia] = useTransition()
+  const lingua = useLingua()
+  const t = COSTI_FOGLI[lingua]
 
   if (!pronto) {
     return (
-      <Button type="button" variant="ghost" size="icon" className="size-11 text-muted-foreground" aria-label={`Elimina ${descrizione}`} onClick={() => setPronto(true)}>
+      <Button type="button" variant="ghost" size="icon" className="size-11 text-muted-foreground" aria-label={t.eliminaNome(descrizione)} onClick={() => setPronto(true)}>
         <Trash2 className="size-4" aria-hidden="true" />
       </Button>
     )
@@ -145,19 +159,23 @@ export function EliminaCosto({ id, descrizione }: { id: string; descrizione: str
       onClick={() =>
         avvia(async () => {
           const esito = await eliminaCosto({ id })
-          if (esito.ok) toast.success('Costo eliminato')
-          else toast.error(esito.errore)
+          if (esito.ok) toast.success(t.eliminato)
+          else toast.error(traduciErrore(esito.errore, lingua))
           setPronto(false)
         })
       }
     >
-      Conferma
+      {t.conferma}
     </Button>
   )
 }
 
 export function ModificaCosto({ costo, massima }: { costo: ModificaCostoInput; massima: string }) {
   const [aperto, setAperto] = useState(false)
+  const lingua = useLingua()
+  const t = COSTI_FOGLI[lingua]
+  const OPZIONI = useOpzioni()
+  const tr = (testo: string | undefined) => traduciErrore(testo, lingua)
   const { errore, setErrore, salva } = useSalvataggio()
   const {
     register,
@@ -173,7 +191,7 @@ export function ModificaCosto({ costo, massima }: { costo: ModificaCostoInput; m
   const ricorrente = useWatch({ control, name: 'ricorrente' })
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => modificaCosto(valori), 'Costo aggiornato')) setAperto(false)
+    if (await salva(() => modificaCosto(valori), t.aggiornato)) setAperto(false)
   })
 
   return (
@@ -191,38 +209,38 @@ export function ModificaCosto({ costo, massima }: { costo: ModificaCostoInput; m
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={`Modifica il costo ${costo.descrizione}`}
+          aria-label={t.modificaNome(costo.descrizione)}
           className="size-11 shrink-0 text-muted-foreground"
         />
       }
       contenutoTrigger={<Pencil className="size-4" aria-hidden="true" />}
-      titolo="Modifica il costo"
-      descrizione="Il margine del mese si ricalcola subito."
+      titolo={t.modificaTitolo}
+      descrizione={t.modificaDescrizione}
     >
       <form onSubmit={invia} noValidate className="space-y-4">
-        <SceltaRapida legenda="Categoria" opzioni={OPZIONI} registrazione={register('categoria')} errore={errors.categoria?.message} />
+        <SceltaRapida legenda={t.categoria} opzioni={OPZIONI} registrazione={register('categoria')} errore={tr(errors.categoria?.message)} />
         <div className="space-y-1.5">
-          <Label htmlFor={`mc-descrizione-${costo.id}`}>Descrizione</Label>
+          <Label htmlFor={`mc-descrizione-${costo.id}`}>{t.descrizione}</Label>
           <Input id={`mc-descrizione-${costo.id}`} className="h-11" {...register('descrizione')} />
-          <ErroreCampo id={`mc-descrizione-errore-${costo.id}`} messaggio={errors.descrizione?.message} />
+          <ErroreCampo id={`mc-descrizione-errore-${costo.id}`} messaggio={tr(errors.descrizione?.message)} />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
-            <Label htmlFor={`mc-data-${costo.id}`}>Data</Label>
+            <Label htmlFor={`mc-data-${costo.id}`}>{t.data}</Label>
             <Input id={`mc-data-${costo.id}`} type="date" max={massima} className="num h-11" {...register('data')} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`mc-importo-${costo.id}`}>Importo</Label>
+            <Label htmlFor={`mc-importo-${costo.id}`}>{t.importo}</Label>
             <Input id={`mc-importo-${costo.id}`} inputMode="decimal" className="num h-11 text-right" {...register('importo')} />
           </div>
         </div>
-        <ErroreCampo id={`mc-errore-${costo.id}`} messaggio={errors.data?.message ?? errors.importo?.message} />
+        <ErroreCampo id={`mc-errore-${costo.id}`} messaggio={tr(errors.data?.message ?? errors.importo?.message)} />
         <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm">
-          Ricorrente
+          {t.ricorrente}
           <Switch checked={!!ricorrente} onCheckedChange={(v) => setValue('ricorrente', v)} />
         </label>
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>Salva il costo</BottoneSalva>
+        <ErroreModulo testo={tr(errore ?? undefined) ?? null} />
+        <BottoneSalva inCorso={isSubmitting}>{t.salva}</BottoneSalva>
       </form>
     </FoglioModifica>
   )

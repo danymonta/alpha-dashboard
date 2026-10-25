@@ -40,6 +40,7 @@ export const INCASSI = bilingue(
     scadeIl: (data: string) => `scade il ${data}`,
     incassataIl: (data: string) => `incassata il ${data}`,
     giorniRitardo: (n: number) => `${n} giorni di ritardo`,
+    whatsappRata: (nome: string, rata: number) => `Scrivi a ${nome} su WhatsApp per la rata ${rata}`,
   },
   {
     titolo: 'Payments',
@@ -79,5 +80,6 @@ export const INCASSI = bilingue(
     scadeIl: (data: string) => `due on ${data}`,
     incassataIl: (data: string) => `collected on ${data}`,
     giorniRitardo: (n: number) => `${n} days late`,
+    whatsappRata: (nome: string, rata: number) => `Message ${nome} on WhatsApp about instalment ${rata}`,
   },
 )

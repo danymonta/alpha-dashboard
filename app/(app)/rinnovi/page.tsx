@@ -125,7 +125,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
         <div className="flex items-center gap-2">
           <BottoneWhatsApp
             compatto
-            etichetta={`Scrivi a ${nome} su WhatsApp per il rinnovo`}
+            etichetta={t.whatsappRinnovo(nome)}
             href={linkWhatsApp(
               c.client_id ? telefono.get(c.client_id) : null,
               messaggioRinnovo({ nome, data_fine: c.data_fine_ultima!, oggi }),
@@ -167,7 +167,7 @@ export default async function RinnoviPage({ searchParams }: { searchParams: Prom
           {c.data_fine_ultima ? (
             <BottoneWhatsApp
               compatto
-              etichetta={`Scrivi a ${nome} su WhatsApp`}
+              etichetta={t.whatsapp(nome)}
               href={linkWhatsApp(
                 c.client_id ? telefono.get(c.client_id) : null,
                 messaggioRinnovo({ nome, data_fine: c.data_fine_ultima, oggi }),

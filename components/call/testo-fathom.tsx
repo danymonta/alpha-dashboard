@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
-import { REGISTRAZIONE } from '@/lib/call/registrazione'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { conMinuto } from '@/lib/call/analisi/vista'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { FATHOM_TESTI, REGISTRAZIONE_TESTI } from '@/lib/i18n/testi/esito'
 
 /**
  * The transcript and Fathom's own summary of a call, read from Fathom when the sheet opens
@@ -20,8 +22,6 @@ import { conMinuto } from '@/lib/call/analisi/vista'
  */
 type Segmento = { t: string; s: number; chi: 'closer' | 'lead' | 'altro'; testo: string }
 type Stato<T> = { fase: 'carico' } | { fase: 'errore'; frase: string } | { fase: 'pronto'; dati: T }
-
-const CHI = { closer: 'Closer', lead: 'Lead', altro: 'Altro' } as const
 
 function useLettura<T>(callId: string, percorso: 'trascrizione' | 'riassunto', aperto: boolean): [Stato<T>, () => void] {
   // the reading belongs to the round that asked for it: a new round (Riprova) shows the skeleton until it answers
@@ -33,14 +33,14 @@ function useLettura<T>(callId: string, percorso: 'trascrizione' | 'riassunto', a
     fetch(`/api/call/${callId}/${percorso}`, { cache: 'no-store', signal: controllo.signal })
       .then(async (r) => {
         const corpo = (await r.json().catch(() => ({}))) as { errore?: string }
-        if (!r.ok) throw new Error(corpo.errore ?? 'Non si è caricata. Riprova.')
+        if (!r.ok) throw new Error(corpo.errore ?? FATHOM_TESTI.it.nonCaricata)
         setLettura({ giro, stato: { fase: 'pronto', dati: corpo as T } })
       })
       .catch((e: unknown) => {
         if (e instanceof DOMException && e.name === 'AbortError') return
         setLettura({
           giro,
-          stato: { fase: 'errore', frase: e instanceof Error && e.message ? e.message : 'Non si è caricata. Riprova.' },
+          stato: { fase: 'errore', frase: e instanceof Error && e.message ? e.message : FATHOM_TESTI.it.nonCaricata },
         })
       })
     return () => controllo.abort()
@@ -50,25 +50,28 @@ function useLettura<T>(callId: string, percorso: 'trascrizione' | 'riassunto', a
 }
 
 function Scheletro() {
+  const t = useTesti(FATHOM_TESTI)
   return (
     <div className="space-y-3 px-4" aria-busy="true">
       {Array.from({ length: 6 }).map((_, i) => (
         <Skeleton key={i} className="h-10 w-full" />
       ))}
-      <span className="sr-only">Leggo da Fathom…</span>
+      <span className="sr-only">{t.leggo}</span>
     </div>
   )
 }
 
 function Errore({ frase, riprova }: { frase: string; riprova: () => void }) {
+  const lingua = useLingua()
+  const t = FATHOM_TESTI[lingua]
   return (
     <div role="alert" className="mx-4 flex flex-col items-start gap-3 rounded-lg border border-border p-4 text-sm">
       <p className="flex items-start gap-2">
         <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-critical" aria-hidden="true" />
-        {frase}
+        {traduciErrore(frase, lingua)}
       </p>
       <Button type="button" variant="outline" className="h-11" onClick={riprova}>
-        Riprova
+        {t.riprova}
       </Button>
     </div>
   )
@@ -77,6 +80,9 @@ function Errore({ frase, riprova }: { frase: string; riprova: () => void }) {
 export function TrascrizioneFathom({ callId, aperto, onChiudi }: { callId: string; aperto: boolean; onChiudi: () => void }) {
   const [stato, riprova] = useLettura<{ segmenti: Segmento[]; link: string }>(callId, 'trascrizione', aperto)
   const [cerca, setCerca] = useState('')
+  const lingua = useLingua()
+  const t = FATHOM_TESTI[lingua]
+  const REGISTRAZIONE = REGISTRAZIONE_TESTI[lingua]
   const segmenti =
     stato.fase === 'pronto'
       ? stato.dati.segmenti.filter((s) => cerca.trim() === '' || s.testo.toLowerCase().includes(cerca.trim().toLowerCase()))
@@ -93,17 +99,18 @@ export function TrascrizioneFathom({ callId, aperto, onChiudi }: { callId: strin
         ) : stato.fase === 'errore' ? (
           <Errore frase={stato.frase} riprova={riprova} />
         ) : stato.dati.segmenti.length === 0 ? (
-          <p className="px-4 text-sm text-muted-foreground">Fathom non ha ancora la trascrizione di questa call.</p>
+          <p className="px-4 text-sm text-muted-foreground">{t.senzaTrascrizione}</p>
         ) : (
           <div className="space-y-3 px-4">
+            {lingua === 'en' ? <p className="text-xs text-muted-foreground">{t.inItaliano}</p> : null}
             <div className="relative">
               <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
                 type="search"
                 value={cerca}
                 onChange={(e) => setCerca(e.currentTarget.value)}
-                placeholder="Cerca nel testo"
-                aria-label="Cerca nella trascrizione"
+                placeholder={t.cerca}
+                aria-label={t.cercaNome}
                 className="h-11 pl-9"
               />
             </div>
@@ -115,16 +122,16 @@ export function TrascrizioneFathom({ callId, aperto, onChiudi }: { callId: strin
                     target="_blank"
                     rel="noopener noreferrer"
                     className="num flex min-h-11 shrink-0 items-start pt-2 text-muted-foreground underline underline-offset-4"
-                    aria-label={`Apri la registrazione al minuto ${s.t}`}
+                    aria-label={t.alMinuto(s.t)}
                   >
                     {s.t}
                   </a>
                   <p className="min-w-0 flex-1 py-2 break-words">
-                    <span className="font-medium">{CHI[s.chi]}</span>: {s.testo}
+                    <span className="font-medium">{t.chi[s.chi]}</span>: <span lang="it">{s.testo}</span>
                   </p>
                 </li>
               ))}
-              {segmenti.length === 0 ? <li className="text-sm text-muted-foreground">Nessun passaggio con queste parole.</li> : null}
+              {segmenti.length === 0 ? <li className="text-sm text-muted-foreground">{t.nessunPassaggio}</li> : null}
             </ol>
           </div>
         )}
@@ -135,6 +142,8 @@ export function TrascrizioneFathom({ callId, aperto, onChiudi }: { callId: strin
 
 export function RiassuntoFathom({ callId, aperto, onChiudi }: { callId: string; aperto: boolean; onChiudi: () => void }) {
   const [stato, riprova] = useLettura<{ testo: string }>(callId, 'riassunto', aperto)
+  const t = useTesti(FATHOM_TESTI)
+  const REGISTRAZIONE = useTesti(REGISTRAZIONE_TESTI)
   return (
     <Sheet open={aperto} onOpenChange={(v) => !v && onChiudi()}>
       <SheetContent side="bottom" className="mx-auto max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
@@ -147,7 +156,7 @@ export function RiassuntoFathom({ callId, aperto, onChiudi }: { callId: string; 
         ) : stato.fase === 'errore' ? (
           <Errore frase={stato.frase} riprova={riprova} />
         ) : stato.dati.testo.trim() === '' ? (
-          <p className="px-4 text-sm text-muted-foreground">Fathom non ha ancora il riassunto di questa call.</p>
+          <p className="px-4 text-sm text-muted-foreground">{t.senzaRiassunto}</p>
         ) : (
           <div className="px-4 text-sm leading-relaxed" data-testid="riassunto-fathom">
             <ReactMarkdown

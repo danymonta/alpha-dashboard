@@ -3,6 +3,8 @@
 import { Clapperboard, ExternalLink, GalleryHorizontal, Image as ImmagineIcona } from 'lucide-react'
 import { useState } from 'react'
 
+import { useTesti } from '@/components/i18n/lingua-provider'
+import { POST_INSTAGRAM } from '@/lib/i18n/testi/post-instagram'
 import type { TipoPost } from '@/lib/marketing/abbinamento'
 import { cn } from '@/lib/utils'
 
@@ -49,6 +51,7 @@ export function CopertinaPost({ url, tipo, className }: { url: string | null; ti
 
 /** «Apri su Instagram»: 44 px, a new tab, said to screen readers. */
 export function ApriSuInstagram({ href, className }: { href: string; className?: string }) {
+  const t = useTesti(POST_INSTAGRAM).copertina
   return (
     <a
       href={href}
@@ -60,17 +63,19 @@ export function ApriSuInstagram({ href, className }: { href: string; className?:
       )}
     >
       <ExternalLink className="size-4 shrink-0" aria-hidden="true" />
-      Apri su Instagram
-      <span className="sr-only">(si apre in una nuova scheda)</span>
+      {t.apriInstagram}
+      <span className="sr-only">{t.nuovaScheda}</span>
     </a>
   )
 }
 
 /** The first lines of a caption, or «Senza didascalia». */
 export function Didascalia({ testo, righe = 2, className }: { testo: string | null; righe?: 2 | 3; className?: string }) {
-  if (!testo) return <p className={cn('text-sm text-muted-foreground italic', className)}>Senza didascalia</p>
+  const t = useTesti(POST_INSTAGRAM).copertina
+  if (!testo) return <p className={cn('text-sm text-muted-foreground italic', className)}>{t.senzaDidascalia}</p>
   return (
     <p
+      lang="it"
       className={cn(
         'text-sm break-words whitespace-pre-line',
         righe === 2 ? 'line-clamp-2' : 'line-clamp-3',

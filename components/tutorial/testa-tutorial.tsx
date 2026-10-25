@@ -2,6 +2,7 @@
 
 import { GraduationCap } from 'lucide-react'
 
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { useTutorial } from '@/components/tutorial/tutorial'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,7 +14,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { TUTTI_I_RUOLI } from '@/lib/auth/roles'
-import { FUNZIONE, PERCORSI } from '@/lib/tutorial/percorsi'
+import { TUTORIAL } from '@/lib/i18n/testi/tutorial'
+import { PERCORSI } from '@/lib/tutorial/percorsi'
 import { cn } from '@/lib/utils'
 
 /**
@@ -30,6 +32,7 @@ export function TestaTutorial({
   className?: string
 }) {
   const { avvia } = useTutorial()
+  const t = useTesti(TUTORIAL)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -37,22 +40,22 @@ export function TestaTutorial({
           <Button
             type="button"
             variant={variant}
-            aria-label="Testa il tutorial"
+            aria-label={t.testa}
             data-tour="testa-tutorial"
             className={cn('h-11 gap-2', conEtichetta ? 'px-3' : 'w-11 px-0', className)}
           />
         }
       >
         <GraduationCap className="size-5 text-muted-foreground" aria-hidden="true" />
-        {conEtichetta ? <span className="text-sm font-medium">Testa il tutorial</span> : null}
+        {conEtichetta ? <span className="text-sm font-medium">{t.testa}</span> : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Tutorial di…</DropdownMenuLabel>
+          <DropdownMenuLabel>{t.tutorialDi}</DropdownMenuLabel>
           {/* a role without a tour (the business coach, 1.58.0) is not offered */}
           {TUTTI_I_RUOLI.filter((ruolo) => PERCORSI[ruolo].length > 0).map((ruolo) => (
             <DropdownMenuItem key={ruolo} className="min-h-11 px-3" onClick={() => avvia(ruolo)}>
-              {FUNZIONE[ruolo]}
+              {t.funzioni[ruolo]}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>

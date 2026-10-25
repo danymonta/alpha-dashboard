@@ -77,6 +77,10 @@ const ERRORI_EN: Record<string, string> = {
   'Scrivi il codice': 'Write the code',
   [`Il codice ha ${CIFRE_CODICE} cifre`]: `The code has ${CIFRE_CODICE} digits`,
   'Dati non validi.': 'Invalid data.',
+  // the dev login (local only)
+  'Login di sviluppo non disponibile.': 'Dev login not available.',
+  'Inserisci email e password.': 'Enter email and password.',
+  'Credenziali non valide.': 'Invalid credentials.',
 }
 
 /**

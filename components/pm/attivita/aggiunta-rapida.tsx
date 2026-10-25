@@ -7,10 +7,13 @@ import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import { aggiungiTask } from '@/app/(app)/progetti/[id]/actions'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { useAttivita } from '@/components/pm/attivita/contesto'
 import { SceltaMultipla } from '@/components/form/scelta-multipla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ATTIVITA } from '@/lib/i18n/testi/attivita'
+import { traduciErroreProgetti } from '@/lib/i18n/testi/progetti'
 import { cn } from '@/lib/utils'
 import { nuovoTaskSchema, type NuovoTaskInput } from '@/lib/validation/progetti'
 
@@ -24,7 +27,7 @@ export function AggiuntaRapida({
   tasklistId = null,
   parentId = null,
   etichetta,
-  segnaposto = 'Aggiungi un task',
+  segnaposto,
 }: {
   progettoId: string
   tasklistId?: string | null
@@ -33,6 +36,8 @@ export function AggiuntaRapida({
   etichetta: string
   segnaposto?: string
 }) {
+  const t = useTesti(ATTIVITA)
+  const lingua = useLingua()
   const id = useId()
   const { membri } = useAttivita()
   const [conPersone, setConPersone] = useState(false)
@@ -61,14 +66,14 @@ export function AggiuntaRapida({
     try {
       esito = await aggiungiTask(v)
     } catch {
-      setError('titolo', { message: 'Connessione assente. Riprova.' })
+      setError('titolo', { message: traduciErroreProgetti('Connessione assente. Riprova.', lingua) })
       return
     }
     if (!esito.ok) {
-      setError('titolo', { message: esito.errore })
+      setError('titolo', { message: traduciErroreProgetti(esito.errore, lingua) })
       return
     }
-    toast.success('Task aggiunto')
+    toast.success(t.taskAggiunto)
     reset(valori)
     setConPersone(false)
     setFocus('titolo')
@@ -83,7 +88,7 @@ export function AggiuntaRapida({
         <Input
           id={id}
           className="h-11 min-w-0 flex-1"
-          placeholder={segnaposto}
+          placeholder={segnaposto ?? t.aggiungiUnTask}
           autoComplete="off"
           aria-invalid={errors.titolo ? true : undefined}
           aria-describedby={errors.titolo ? `${id}-errore` : undefined}
@@ -95,7 +100,7 @@ export function AggiuntaRapida({
           className={cn('h-11 shrink-0 gap-1 px-3', quanti > 0 && 'border-primary')}
           aria-expanded={conPersone}
           aria-controls={`${id}-persone`}
-          aria-label={quanti > 0 ? `A chi assegnarlo: ${quanti === 1 ? '1 persona scelta' : `${quanti} persone scelte`}` : 'A chi assegnarlo'}
+          aria-label={quanti > 0 ? t.aChiScelti(quanti) : t.aChi}
           onClick={() => setConPersone((v) => !v)}
         >
           <UserPlus className="size-4" aria-hidden="true" />
@@ -111,24 +116,24 @@ export function AggiuntaRapida({
           ) : (
             <Plus className="size-4" aria-hidden="true" />
           )}
-          Aggiungi
+          {t.aggiungi}
         </Button>
       </div>
       {errors.titolo?.message ? (
         <p id={`${id}-errore`} role="alert" className="text-sm text-status-critical">
-          {errors.titolo.message}
+          {traduciErroreProgetti(errors.titolo.message, lingua)}
         </p>
       ) : null}
       {/* the checkboxes stay mounted while closed: the choice survives closing it */}
       <div id={`${id}-persone`} hidden={!conPersone}>
         <SceltaMultipla
-          legenda="Assegnato a"
+          legenda={t.assegnatoA}
           opzioni={membri.map((m) => ({ valore: m.id, etichetta: m.nome }))}
           registrazione={register('assegnatari')}
-          errore={errors.assegnatari?.message}
+          errore={traduciErroreProgetti(errors.assegnatari?.message, lingua)}
           colonne={2}
         />
-        <p className="mt-1.5 text-xs text-muted-foreground">Anche più di una persona, tra i membri del progetto.</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">{t.anchePiu}</p>
       </div>
     </form>
   )

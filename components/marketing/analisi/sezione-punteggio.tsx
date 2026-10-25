@@ -8,17 +8,19 @@ import { toast } from 'sonner'
 import { aggiungiRifacimentoAlCalendario } from '@/app/(app)/marketing/pubblicati/azioni-analisi'
 import { useOpzioniToast } from '@/components/marketing/contesto-pannello'
 import { Button } from '@/components/ui/button'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { copiaNegliAppunti } from '@/lib/appunti'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { ANALISI_REEL, traduciErroreReel } from '@/lib/i18n/testi/analisi-reel'
 import type { PunteggioLetto } from '@/lib/marketing/analisi/dettaglio'
 import type { CriterioValutato, PunteggioContenuto } from '@/lib/marketing/punteggio/tipi'
 import { cn } from '@/lib/utils'
 
-const CONNESSIONE = 'Connessione assente. Riprova.'
-
-export const numero = (n: number) => n.toLocaleString('it-IT', { maximumFractionDigits: 1 })
+export const numero = (n: number, lingua: Lingua = 'it') => n.toLocaleString(lingua === 'en' ? 'en-IE' : 'it-IT', { maximumFractionDigits: 1 })
 
 /** «Copia» next to a text of the redo: the clipboard is written from the tap itself (lib/appunti.ts). */
 export function Copia({ testo, nome }: { testo: string; nome: string }) {
+  const t = ANALISI_REEL[useLingua()].punteggio
   const [fatto, setFatto] = useState<'riposo' | 'copiato' | 'errore'>('riposo')
   const bottone = useRef<HTMLButtonElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -29,7 +31,7 @@ export function Copia({ testo, nome }: { testo: string; nome: string }) {
       timer.current = setTimeout(() => setFatto('riposo'), 1500)
     })
   }
-  const parola = fatto === 'copiato' ? 'Copiato' : fatto === 'errore' ? 'Copia non riuscita' : 'Copia'
+  const parola = fatto === 'copiato' ? t.copiato : fatto === 'errore' ? t.copiaFallita : t.copia
   return (
     <Button
       ref={bottone}
@@ -37,7 +39,7 @@ export function Copia({ testo, nome }: { testo: string; nome: string }) {
       variant="outline"
       className="h-11 min-w-11 shrink-0 gap-1.5 px-3"
       onClick={copia}
-      aria-label={fatto === 'riposo' ? `Copia ${nome}` : `${parola}: ${nome}`}
+      aria-label={fatto === 'riposo' ? t.copiaDi(nome) : t.esito(parola, nome)}
       data-esito={fatto}
     >
       {fatto === 'copiato' ? <Check className="size-4 text-status-ok" aria-hidden="true" /> : <Copy className="size-4" aria-hidden="true" />}
@@ -64,6 +66,8 @@ export function AggiungiRifacimento({
   className?: string
 }) {
   const opzioniToast = useOpzioniToast()
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].punteggio
   const [inVolo, setInVolo] = useState(false)
   const [aggiunto, setAggiunto] = useState<{ id: string; nome: string } | null>(null)
   const fatto = aggiunto ? { id: aggiunto.id } : nato ? { id: nato.contenuto_id } : null
@@ -74,14 +78,14 @@ export function AggiungiRifacimento({
     try {
       const esito = await aggiungiRifacimentoAlCalendario({ analisi_id: analisiId })
       if (!esito.ok) {
-        toast.error(esito.errore, opzioniToast)
+        toast.error(traduciErroreReel(esito.errore, lingua), opzioniToast)
         return
       }
       setAggiunto({ id: esito.id, nome: esito.nome })
-      toast.success(`«${esito.nome}» è nel calendario, da girare.`, opzioniToast)
+      toast.success(t.nelCalendario(esito.nome), opzioniToast)
       onFatto()
     } catch {
-      toast.error(CONNESSIONE, opzioniToast)
+      toast.error(t.connessione, opzioniToast)
     } finally {
       setInVolo(false)
     }
@@ -95,7 +99,7 @@ export function AggiungiRifacimento({
         data-testid="rifacimento-nel-calendario"
       >
         <CircleCheck className="size-4 text-status-ok" aria-hidden="true" />
-        Già nel calendario: apri il contenuto
+        {t.giaNel}
       </Link>
     )
   }
@@ -110,24 +114,27 @@ export function AggiungiRifacimento({
       data-testid="aggiungi-rifacimento"
     >
       {inVolo ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarPlus className="size-4" aria-hidden="true" />}
-      Aggiungi il rifacimento al calendario
+      {t.aggiungi}
     </Button>
   )
 }
 
 /** The first three things to fix, from the score's own priorities: the «what» (the «how» is in «Come rifarlo»). */
 export function ProblemiDaSistemare({ p }: { p: PunteggioContenuto }) {
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].punteggio
   const primi = p.problemi_prioritari.slice(0, 3)
   if (primi.length === 0) return null
   return (
     <div className="space-y-1.5">
-      <p className="text-sm font-medium">Da sistemare per primo</p>
+      <p className="text-sm font-medium">{t.perPrimo}</p>
       <ol className="space-y-1 text-sm" data-testid="punteggio-problemi">
         {primi.map((x) => (
           <li key={x.criterio} className="flex gap-2 break-words">
             <span className="num w-4 shrink-0 text-muted-foreground">{x.ordine}.</span>
             <span className="min-w-0">
-              {x.nome}: {x.problema} <span className="num text-muted-foreground">(fino a {numero(x.impatto_punti)} punti)</span>
+              {x.nome}: <span lang="it">{x.problema}</span>{' '}
+              <span className="num text-muted-foreground">{t.finoA(numero(x.impatto_punti, lingua))}</span>
             </span>
           </li>
         ))}
@@ -155,12 +162,13 @@ export function ComeRifarlo({
   onFatto: () => void
 }) {
   const r = p.rifacimento
+  const t = ANALISI_REEL[useLingua()].punteggio
   return (
     <div className="space-y-5" data-testid="punteggio-rifacimento">
       {r.istruzioni.length > 0 ? (
         <div className="space-y-1.5">
-          <h4 className="text-sm font-medium">Cosa cambiare, in ordine di impatto</h4>
-          <ol className="list-decimal space-y-1 pl-5 text-sm">
+          <h4 className="text-sm font-medium">{t.cambiare}</h4>
+          <ol className="list-decimal space-y-1 pl-5 text-sm" lang="it">
             {r.istruzioni.map((x, i) => (
               <li key={i} className="break-words">
                 {x}
@@ -171,8 +179,8 @@ export function ComeRifarlo({
       ) : null}
       {r.hook_alternativi.length > 0 ? (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium">Tre hook alternativi</h4>
-          <ul className="space-y-2">
+          <h4 className="text-sm font-medium">{t.hook}</h4>
+          <ul className="space-y-2" lang="it">
             {r.hook_alternativi.map((h, i) => (
               <li key={i} className="flex items-start justify-between gap-2 rounded-lg bg-muted/40 p-3 text-sm" data-testid="punteggio-hook">
                 <span className="min-w-0 flex-1 break-words">
@@ -182,7 +190,7 @@ export function ComeRifarlo({
                     {h.perche_funziona ? `. ${h.perche_funziona}` : ''}
                   </span>
                 </span>
-                <Copia testo={h.testo} nome={`l’hook: ${h.testo}`} />
+                <Copia testo={h.testo} nome={t.lHook(h.testo)} />
               </li>
             ))}
           </ul>
@@ -191,10 +199,10 @@ export function ComeRifarlo({
       {r.script_riscritto ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <h4 className="text-sm font-medium">Script riscritto</h4>
-            <Copia testo={r.script_riscritto} nome="lo script riscritto" />
+            <h4 className="text-sm font-medium">{t.script}</h4>
+            <Copia testo={r.script_riscritto} nome={t.loScript} />
           </div>
-          <p className="rounded-lg bg-muted/40 p-3 text-sm break-words whitespace-pre-line" data-testid="punteggio-script">
+          <p className="rounded-lg bg-muted/40 p-3 text-sm break-words whitespace-pre-line" data-testid="punteggio-script" lang="it">
             {r.script_riscritto}
           </p>
         </div>
@@ -202,14 +210,16 @@ export function ComeRifarlo({
       {r.caption_riscritta ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <h4 className="text-sm font-medium">Caption</h4>
-            <Copia testo={r.caption_riscritta} nome="la caption riscritta" />
+            <h4 className="text-sm font-medium">{t.caption}</h4>
+            <Copia testo={r.caption_riscritta} nome={t.laCaption} />
           </div>
-          <p className="rounded-lg bg-muted/40 p-3 text-sm break-words whitespace-pre-line">{r.caption_riscritta}</p>
+          <p className="rounded-lg bg-muted/40 p-3 text-sm break-words whitespace-pre-line" lang="it">
+            {r.caption_riscritta}
+          </p>
         </div>
       ) : null}
       <p className="num text-sm text-muted-foreground" data-testid="punteggio-atteso">
-        Punteggio atteso dopo il rifacimento: {r.punteggio_atteso} su 100.
+        {t.atteso(r.punteggio_atteso)}
       </p>
       {conAggiungi && r.script_riscritto ? <AggiungiRifacimento analisiId={analisiId} nato={nato} onFatto={onFatto} /> : null}
     </div>
@@ -217,31 +227,43 @@ export function ComeRifarlo({
 }
 
 function Criterio({ c }: { c: CriterioValutato }) {
+  const lingua = useLingua()
+  const t = ANALISI_REEL[lingua].punteggio
   const debole = c.voto < 7
   return (
     <li data-testid="punteggio-criterio" data-criterio={c.id}>
       <details open={debole} className="rounded-lg bg-muted/40 text-sm">
         <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 px-3">
           <span className="flex min-w-0 items-center gap-1.5 font-medium">
-            {debole ? <TriangleAlert className="size-4 shrink-0 text-status-warning" aria-label="Sotto 7" role="img" /> : null}
+            {debole ? <TriangleAlert className="size-4 shrink-0 text-status-warning" aria-label={t.sotto7} role="img" /> : null}
             <span className="min-w-0 wrap-break-word">{c.nome}</span>
           </span>
           <span className="num shrink-0">{c.voto}/10</span>
         </summary>
         <div className="space-y-1 px-3 pb-3">
           <p className="num text-muted-foreground">
-            Peso {c.peso} · {numero(c.punteggio)} punti
+            {t.peso(c.peso, numero(c.punteggio, lingua))}
           </p>
-          {c.tetto ? <p className="text-muted-foreground">Claude ha dato {c.voto_modello}: {c.tetto}.</p> : null}
+          {c.tetto ? <p className="text-muted-foreground">{t.haDato(c.voto_modello, c.tetto)}</p> : null}
           {c.citazione ? (
-            <p className="break-words">«{c.citazione}»</p>
+            <p className="break-words" lang="it">
+              «{c.citazione}»
+            </p>
           ) : c.citazione_trovata ? null : (
             <p className="text-muted-foreground" data-testid="citazione-non-trovata">
-              Citazione non trovata
+              {t.nonTrovata}
             </p>
           )}
-          {c.motivazione ? <p className="break-words">{c.motivazione}</p> : null}
-          {c.correzione ? <p className="break-words text-muted-foreground">Correzione: {c.correzione}</p> : null}
+          {c.motivazione ? (
+            <p className="break-words" lang="it">
+              {c.motivazione}
+            </p>
+          ) : null}
+          {c.correzione ? (
+            <p className="break-words text-muted-foreground">
+              {t.correzione} <span lang="it">{c.correzione}</span>
+            </p>
+          ) : null}
         </div>
       </details>
     </li>
@@ -251,16 +273,17 @@ function Criterio({ c }: { c: CriterioValutato }) {
 /** The criteria, the weakest first, those under 7 already open: what is worth reading is the first thing there. */
 export function CriteriDelPunteggio({ p }: { p: PunteggioContenuto }) {
   const ordinati = [...p.criteri].sort((a, b) => a.voto - b.voto)
+  const t = ANALISI_REEL[useLingua()].punteggio
   return (
     <div className="space-y-2" data-testid="punteggio-criteri">
-      <h4 className="text-sm font-medium">I criteri ({p.criteri.length}), dal più basso</h4>
+      <h4 className="text-sm font-medium">{t.criteri(p.criteri.length)}</h4>
       <ul className="space-y-2">
         {ordinati.map((c) => (
           <Criterio key={c.id} c={c} />
         ))}
       </ul>
       <p className="text-sm text-muted-foreground">
-        Hook: «{p.hook.testo}» ({p.hook.parole} parole).
+        {t.hookParole(p.hook.testo, p.hook.parole)}
         {p.confronto_benchmark ? ` ${p.confronto_benchmark}` : ''}
       </p>
     </div>
@@ -269,6 +292,7 @@ export function CriteriDelPunteggio({ p }: { p: PunteggioContenuto }) {
 
 /** The penalties with the line that caused each, and what the checks had to say about the score. */
 export function PenalitaDelPunteggio({ p }: { p: PunteggioContenuto }) {
+  const t = ANALISI_REEL[useLingua()].punteggio
   return (
     <>
       {p.segnalazioni.length > 0 ? (
@@ -283,7 +307,7 @@ export function PenalitaDelPunteggio({ p }: { p: PunteggioContenuto }) {
       ) : null}
       {p.penalita.length > 0 || p.altre_violazioni_formali.length > 0 ? (
         <div className="space-y-1.5">
-          <h4 className="text-sm font-medium">Penalità</h4>
+          <h4 className="text-sm font-medium">{t.penalita}</h4>
           <ul className="space-y-1.5 text-sm" data-testid="punteggio-penalita">
             {p.penalita.map((x) => (
               <li key={x.flag} className="break-words">
@@ -293,7 +317,7 @@ export function PenalitaDelPunteggio({ p }: { p: PunteggioContenuto }) {
             ))}
             {p.altre_violazioni_formali.map((x, i) => (
               <li key={`f${i}`} className="break-words">
-                Conformità formale: {x.descrizione}
+                {t.conformita} {x.descrizione}
                 {x.riga ? <span className="text-muted-foreground"> · «{x.riga}»</span> : null}
               </li>
             ))}

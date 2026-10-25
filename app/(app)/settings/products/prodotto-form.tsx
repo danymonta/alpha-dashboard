@@ -10,6 +10,7 @@ import { cambiaAttivoProdotto, eliminaProdotto, salvaProdotto } from '@/app/(app
 import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { CLASSE_SELECT } from '@/components/form/foglio-modifica'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,6 +24,8 @@ import {
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { formatImportoInput } from '@/lib/format'
+import { IMPOSTAZIONI, traduciImpostazioni } from '@/lib/i18n/testi/impostazioni'
+import { SHELL } from '@/lib/i18n/testi/shell'
 import { parseImporto } from '@/lib/importi'
 import { prodottoSchema, type PianoPredefinito, type ProdottoInput } from '@/lib/validation/anagrafiche'
 
@@ -38,6 +41,9 @@ type Prodotto = {
 export function ProdottoForm({ prodotto }: { prodotto?: Prodotto }) {
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
+  const lingua = useLingua()
+  const t = IMPOSTAZIONI[lingua].prodottoForm
+  const tr = (testo: string | undefined) => traduciImpostazioni(testo, lingua)
   const {
     register,
     control,
@@ -61,14 +67,14 @@ export function ProdottoForm({ prodotto }: { prodotto?: Prodotto }) {
     try {
       esito = await salvaProdotto(valori)
     } catch {
-      setErrore('Connessione assente. Riprova.')
+      setErrore(SHELL[lingua].connessione)
       return
     }
     if (!esito.ok) {
-      setErrore(esito.errore)
+      setErrore(traduciImpostazioni(esito.errore, lingua))
       return
     }
-    toast.success(prodotto ? 'Prodotto aggiornato' : 'Prodotto creato')
+    toast.success(prodotto ? t.aggiornato : t.creato)
     setAperto(false)
     if (!prodotto) reset()
   })
@@ -78,43 +84,43 @@ export function ProdottoForm({ prodotto }: { prodotto?: Prodotto }) {
       <SheetTrigger
         render={
           prodotto ? (
-            <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={`Modifica ${prodotto.nome}`} />
+            <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t.modifica(prodotto.nome)} />
           ) : (
             <Button type="button" className="h-11" />
           )
         }
       >
-        {prodotto ? <Pencil className="size-4" aria-hidden="true" /> : (<><Plus className="size-4" aria-hidden="true" />Nuovo prodotto</>)}
+        {prodotto ? <Pencil className="size-4" aria-hidden="true" /> : (<><Plus className="size-4" aria-hidden="true" />{t.nuovo}</>)}
       </SheetTrigger>
       <SheetContent side="right" className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>{prodotto ? prodotto.nome : 'Nuovo prodotto'}</SheetTitle>
-          <SheetDescription>Il prezzo di listino precompila il valore nelle nuove vendite.</SheetDescription>
+          <SheetTitle>{prodotto ? prodotto.nome : t.nuovo}</SheetTitle>
+          <SheetDescription>{t.descrizione}</SheetDescription>
         </SheetHeader>
         <form onSubmit={invia} noValidate className="space-y-4 px-4 pb-6">
           <div className="space-y-1.5">
-            <Label htmlFor="p-nome">Nome</Label>
+            <Label htmlFor="p-nome">{t.nome}</Label>
             <Input id="p-nome" className="h-11" placeholder="Percorso Alpha 3 mesi" {...register('nome')} />
-            <ErroreCampo id="p-nome-errore" messaggio={errors.nome?.message} />
+            <ErroreCampo id="p-nome-errore" messaggio={tr(errors.nome?.message)} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor="p-durata">Durata (mesi)</Label>
+              <Label htmlFor="p-durata">{t.durata}</Label>
               <Input id="p-durata" inputMode="numeric" className="num h-11" {...register('durata_mesi')} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="p-prezzo">Prezzo di listino</Label>
+              <Label htmlFor="p-prezzo">{t.prezzo}</Label>
               <Input id="p-prezzo" inputMode="decimal" className="num h-11 text-right" placeholder="0,00" {...register('prezzo_listino')} />
             </div>
           </div>
-          <ErroreCampo id="p-errore" messaggio={errors.durata_mesi?.message ?? errors.prezzo_listino?.message} />
+          <ErroreCampo id="p-errore" messaggio={tr(errors.durata_mesi?.message ?? errors.prezzo_listino?.message)} />
           <PianoPredefinitoEditor control={control} register={register} />
           <ErroreCampo
             id="p-piano-errore"
-            messaggio={
+            messaggio={tr(
               (errors.piano_predefinito as { message?: string } | undefined)?.message ??
-              errors.piano_predefinito?.find?.((e) => e)?.importo?.message
-            }
+                errors.piano_predefinito?.find?.((e) => e)?.importo?.message,
+            )}
           />
           {errore ? (
             <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
@@ -124,16 +130,19 @@ export function ProdottoForm({ prodotto }: { prodotto?: Prodotto }) {
           ) : null}
           <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
             {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-            Salva
+            {t.salva}
           </Button>
           {prodotto ? (
             <div className="border-t border-border pt-4">
               <Elimina
-                etichetta="Elimina il prodotto"
+                etichetta={t.elimina}
                 cosa={prodotto.nome}
-                fatto={`${prodotto.nome} eliminato`}
+                fatto={t.eliminato(prodotto.nome)}
                 anteprima={{ tipo: 'prodotto', id: prodotto.id }}
-                conseguenze={['Se vuoi solo non offrirlo più, mettilo fuori vendita: resta nello storico.']}
+                // the Italian sentence is written here too: tests/alfire-scritture.test.ts reads it from this file
+                conseguenze={[
+                  lingua === 'it' ? 'Se vuoi solo non offrirlo più, mettilo fuori vendita: resta nello storico.' : t.fuoriVenditaInvece,
+                ]}
                 azione={() => eliminaProdotto({ id: prodotto.id })}
               />
             </div>
@@ -160,12 +169,13 @@ function PianoPredefinitoEditor({
   const [quante, setQuante] = useState('3')
   const [importo, setImporto] = useState('')
   const [erroreBlocco, setErroreBlocco] = useState<string | null>(null)
+  const t = IMPOSTAZIONI[useLingua()].prodottoForm
   const prossimoMese = righe.length > 0 ? Math.max(...righe.map((r) => Number(r.mese ?? 0))) + 1 : 0
 
   function aggiungiBlocco() {
     const n = Number(quante)
     const valore = parseImporto(importo)
-    if (valore === null || valore <= 0) return setErroreBlocco('Scrivi l’importo di ogni rata, ad esempio 500')
+    if (valore === null || valore <= 0) return setErroreBlocco(t.importoOgniRata)
     setErroreBlocco(null)
     append(Array.from({ length: n }, (_, i) => ({ mese: prossimoMese + i, importo: formatImportoInput(valore) })) as never)
     setImporto('')
@@ -173,30 +183,27 @@ function PianoPredefinitoEditor({
 
   return (
     <fieldset className="space-y-3 rounded-xl border border-border p-3">
-      <legend className="px-1 text-sm font-medium">Piano di pagamento abituale (facoltativo)</legend>
-      <p className="text-xs text-muted-foreground">
-        Senza piano, in vendita si propongono rate mensili uguali. Con un piano, per esempio 3 rate da 500 € e poi 3 da 333,33 €,
-        la nuova vendita parte da qui e resta modificabile.
-      </p>
+      <legend className="px-1 text-sm font-medium">{t.pianoLegenda}</legend>
+      <p className="text-xs text-muted-foreground">{t.pianoAiuto}</p>
       {fields.length > 0 ? (
-        <ol className="space-y-2" aria-label="Rate del piano abituale">
+        <ol className="space-y-2" aria-label={t.ratePiano}>
           {fields.map((f, i) => (
             <li key={f.id} className="flex items-end gap-2">
               <div className="w-28 shrink-0 space-y-1">
                 <Label htmlFor={`pp-${i}-mese`} className="text-xs text-muted-foreground">
-                  Mese
+                  {t.mese}
                 </Label>
                 <select id={`pp-${i}-mese`} className={CLASSE_SELECT} {...register(`piano_predefinito.${i}.mese` as const)}>
                   {Array.from({ length: 37 }, (_, m) => (
                     <option key={m} value={m}>
-                      {m === 0 ? 'Alla firma' : `+${m} ${m === 1 ? 'mese' : 'mesi'}`}
+                      {m === 0 ? t.allaFirma : t.piuMesi(m)}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="min-w-0 flex-1 space-y-1">
                 <Label htmlFor={`pp-${i}-importo`} className="text-xs text-muted-foreground">
-                  Importo
+                  {t.importo}
                 </Label>
                 <Input
                   id={`pp-${i}-importo`}
@@ -210,7 +217,7 @@ function PianoPredefinitoEditor({
                 variant="ghost"
                 size="icon"
                 className="size-11 shrink-0 text-muted-foreground"
-                aria-label={`Togli la rata ${i + 1} del piano`}
+                aria-label={t.togliRata(i + 1)}
                 onClick={() => remove(i)}
               >
                 <Trash2 className="size-4" aria-hidden="true" />
@@ -222,7 +229,7 @@ function PianoPredefinitoEditor({
       <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-2">
         <div className="space-y-1">
           <Label htmlFor="pp-quante" className="text-xs text-muted-foreground">
-            Quante
+            {t.quante}
           </Label>
           <select id="pp-quante" className={CLASSE_SELECT} value={quante} onChange={(e) => setQuante(e.currentTarget.value)}>
             {Array.from({ length: 12 }, (_, i) => String(i + 1)).map((n) => (
@@ -234,7 +241,7 @@ function PianoPredefinitoEditor({
         </div>
         <div className="space-y-1">
           <Label htmlFor="pp-importo" className="text-xs text-muted-foreground">
-            Importo di ogni rata (€)
+            {t.importoRata}
           </Label>
           <Input
             id="pp-importo"
@@ -249,7 +256,7 @@ function PianoPredefinitoEditor({
       <ErroreCampo id="pp-blocco-errore" messaggio={erroreBlocco ?? undefined} />
       <Button type="button" variant="outline" className="h-11 w-full" onClick={aggiungiBlocco}>
         <ListPlus className="size-4" aria-hidden="true" />
-        Aggiungi al piano
+        {t.aggiungi}
       </Button>
     </fieldset>
   )
@@ -257,21 +264,23 @@ function PianoPredefinitoEditor({
 
 export function AttivoProdotto({ id, nome, attivo }: { id: string; nome: string; attivo: boolean }) {
   const [inCorso, avvia] = useTransition()
+  const lingua = useLingua()
+  const t = IMPOSTAZIONI[lingua].prodottoForm
   return (
     <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-muted-foreground">
       <Switch
         checked={attivo}
         disabled={inCorso}
-        aria-label={`${nome} in vendita`}
+        aria-label={t.inVenditaDi(nome)}
         onCheckedChange={(valore) =>
           avvia(async () => {
             const esito = await cambiaAttivoProdotto({ id, attivo: valore })
-            if (esito.ok) toast.success(valore ? `${nome} di nuovo in vendita` : `${nome} fuori vendita`)
-            else toast.error(esito.errore)
+            if (esito.ok) toast.success(valore ? t.diNuovoInVendita(nome) : t.messoFuoriVendita(nome))
+            else toast.error(traduciImpostazioni(esito.errore, lingua))
           })
         }
       />
-      {attivo ? 'In vendita' : 'Fuori vendita'}
+      {attivo ? t.inVendita : t.fuoriVendita}
     </label>
   )
 }

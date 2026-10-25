@@ -4,7 +4,9 @@ import type { ListaVista, TaskVista } from '@/components/pm/attivita/contesto'
 import { NuovaLista } from '@/components/pm/attivita/lista-form'
 import { FiltroInterruttore, FiltroSelect } from '@/components/pm/filtri'
 import { requireProfilo } from '@/lib/auth/session'
-import { FILTRI_STATO_TASK, isUuid, parseFiltroStatoTask } from '@/lib/progetti'
+import { getLingua } from '@/lib/i18n/server'
+import { ATTIVITA } from '@/lib/i18n/testi/attivita'
+import { isUuid, parseFiltroStatoTask } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -28,6 +30,7 @@ export default async function AttivitaPage({
   if (!isUuid(id)) return null
   const parametri = await searchParams
   const filtro = { stato: parseFiltroStatoTask(parametri.stato), soloMiei: parametri.miei === '1' }
+  const t = ATTIVITA[await getLingua()]
   const supabase = await createClient()
 
   const [progetto, gestisce, liste, tasks, membri] = await Promise.all([
@@ -53,7 +56,7 @@ export default async function AttivitaPage({
       .eq('progetto_id', id),
   ])
   if (progetto.error || gestisce.error || liste.error || tasks.error || membri.error) {
-    throw new Error('Impossibile caricare le attività del progetto')
+    throw new Error(t.errore)
   }
   if (!progetto.data) return null
 
@@ -72,22 +75,22 @@ export default async function AttivitaPage({
         <div
           className="grid basis-full grid-cols-2 items-end gap-2 sm:flex sm:flex-1 sm:basis-auto sm:flex-wrap"
           role="search"
-          aria-label="Filtra i task"
+          aria-label={t.filtra}
         >
           <FiltroInterruttore
             nome="miei"
             attivo={filtro.soloMiei}
-            etichetta="I miei task"
+            etichetta={t.mieiTask}
             parametri={parametriCorrenti}
             className="justify-center sm:justify-start"
           />
           <FiltroSelect
             id="filtro-stato-task"
-            etichetta="Stato"
+            etichetta={t.stato}
             nome="stato"
             valore={filtro.stato}
             predefinito="tutti"
-            opzioni={Object.entries(FILTRI_STATO_TASK).map(([valore, etichetta]) => ({ valore, etichetta }))}
+            opzioni={Object.entries(t.filtriStato).map(([valore, etichetta]) => ({ valore, etichetta }))}
             parametri={parametriCorrenti}
           />
         </div>

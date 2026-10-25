@@ -2,7 +2,9 @@
 
 import { useId, useState } from 'react'
 
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
+import { FORM } from '@/lib/i18n/testi/form'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -28,6 +30,7 @@ export function Stepper({
   className,
 }: Props) {
   const id = useId()
+  const t = useTesti(FORM)
   const [testo, setTesto] = useState<string | null>(null)
 
   const imposta = (n: number) => onCambia(Math.min(massimo, Math.max(0, n)))
@@ -53,7 +56,7 @@ export function Stepper({
           className="size-11 text-sm"
           onClick={() => imposta(valore - 1)}
           disabled={valore <= 0}
-          aria-label={`${etichetta}: meno 1`}
+          aria-label={t.meno1(etichetta)}
         >
           −1
         </Button>
@@ -87,7 +90,7 @@ export function Stepper({
           variant="secondary"
           className="size-11 text-sm"
           onClick={() => imposta(valore + 1)}
-          aria-label={`${etichetta}: più 1`}
+          aria-label={t.piu1(etichetta)}
         >
           +1
         </Button>
@@ -96,7 +99,7 @@ export function Stepper({
           variant="secondary"
           className="size-11 text-sm"
           onClick={() => imposta(valore + 5)}
-          aria-label={`${etichetta}: più 5`}
+          aria-label={t.piu5(etichetta)}
         >
           +5
         </Button>

@@ -5,7 +5,6 @@ import {
   CAMPI_PROPOSTA,
   COLONNE_PROPOSTA,
   PROPOSTE_MAX,
-  decisaDaUnAltro,
   firmaProposte,
   haNumeri,
   numeriDi,
@@ -21,8 +20,13 @@ import { GiorniSenzaCommento } from '@/components/setter/giorni-senza-commento'
 import { ProposteInstagram } from '@/components/setter/proposte-instagram'
 import { SchedeInsight } from '@/components/insight/schede-insight'
 import { requireRuolo } from '@/lib/auth/session'
-import { aggiungiGiorni, dataReportValida, etichettaGiorno, oggiRoma } from '@/lib/date'
-import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
+import { aggiungiGiorni, dataReportValida, oggiRoma } from '@/lib/date'
+import { etichettaGiornoIn } from '@/lib/i18n/date'
+import { getLingua } from '@/lib/i18n/server'
+import { OGGI } from '@/lib/i18n/testi/oggi'
+import { decisaDaUnAltroIn } from '@/lib/i18n/testi/proposte'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { legende } from '@/lib/metriche/legenda-en'
 import { giorniSenzaCommento } from '@/lib/setting/commenti-mancanti'
 import { createClient } from '@/lib/supabase/server'
 import { REPORT_VUOTO, valoriDaRiga, type ValoriReport } from '@/lib/validation/report'
@@ -30,7 +34,9 @@ import { REPORT_VUOTO, valoriDaRiga, type ValoriReport } from '@/lib/validation/
 export const dynamic = 'force-dynamic'
 
 // What the form asks, then what is computed from it and from "Nuova call"
-const VOCI_LEGENDA = [
+function vociLegenda(lingua: Lingua) {
+  const LEGENDA_SETTING = legende(lingua).setting
+  return [
   LEGENDA_SETTING.dm_outbound,
   LEGENDA_SETTING.dm_inbound,
   LEGENDA_SETTING.follow_up,
@@ -45,7 +51,8 @@ const VOCI_LEGENDA = [
   LEGENDA_SETTING.dm_per_call,
   LEGENDA_SETTING.prenotate_inbound,
   LEGENDA_SETTING.prenotate_outbound,
-]
+  ]
+}
 
 /** The page title: where the focus goes once the last proposal is decided. */
 const ID_TITOLO = 'titolo-giorno'
@@ -62,6 +69,8 @@ export default async function OggiPage({
   const profilo = await requireRuolo(['setter'])
   const oggi = oggiRoma()
   const data = dataReportValida((await searchParams).data, oggi)
+  const lingua = await getLingua()
+  const t = OGGI[lingua]
 
   const supabase = await createClient()
   const [{ data: report, error }, proposte, decisaDelGiorno, senzaCommento] = await Promise.all([
@@ -95,7 +104,7 @@ export default async function OggiPage({
     giorniSenzaCommento(supabase, profilo.id, oggi, data),
   ])
 
-  if (error) throw new Error('Impossibile caricare il report')
+  if (error) throw new Error(t.errore)
 
   const daDecidere = (proposte.data ?? []).slice(0, PROPOSTE_MAX)
   const { tuoi, risposte, errore: erroreTuoi } = await numeriDelSetter(
@@ -111,7 +120,7 @@ export default async function OggiPage({
   const commenti = Object.fromEntries(daDecidere.flatMap((p) => (risposte[p.data] ? [[p.id, risposte[p.data]]] : [])))
 
   // the open day's proposal decided by someone else (the admin): one plain line, never its numbers
-  const decisaDa = decisaDelGiorno.data ? decisaDaUnAltro(decisaDelGiorno.data, profilo.id) : null
+  const decisaDa = decisaDelGiorno.data ? decisaDaUnAltroIn(decisaDelGiorno.data, profilo.id, lingua) : null
 
   const iniziale: ValoriReport = report ? valoriDaRiga(report) : REPORT_VUOTO
 
@@ -135,28 +144,28 @@ export default async function OggiPage({
       <header className="mb-2 flex items-center justify-between gap-2">
         <NavGiorno
           href={hrefGiorno(precedente, oggi)}
-          etichetta="Giorno precedente"
+          etichetta={t.giornoPrecedente}
         >
           <ChevronLeft className="size-5" aria-hidden="true" />
         </NavGiorno>
 
         <div className="min-w-0 text-center">
           <h1 id={ID_TITOLO} tabIndex={-1} className="font-heading text-xl font-semibold outline-none">
-            {etichettaGiorno(data, oggi)}
+            {etichettaGiornoIn(data, oggi, lingua)}
           </h1>
           <SceltaGiorno data={data} oggi={oggi} />
         </div>
 
         <NavGiorno
           href={puoiAvanti ? hrefGiorno(successivo, oggi) : null}
-          etichetta="Giorno successivo"
+          etichetta={t.giornoSuccessivo}
         >
           <ChevronRight className="size-5" aria-hidden="true" />
         </NavGiorno>
       </header>
 
       {/* his other days from 08/10/2026 still without the comment of the day: his own reminder */}
-      {senzaCommento ? <GiorniSenzaCommento {...senzaCommento} oggi={oggi} /> : null}
+      {senzaCommento ? <GiorniSenzaCommento {...senzaCommento} oggi={oggi} lingua={lingua} /> : null}
 
       {decisaDa ? (
         <p
@@ -193,7 +202,7 @@ export default async function OggiPage({
       />
 
       <div className="mt-6">
-        <LegendaSezione voci={VOCI_LEGENDA} />
+        <LegendaSezione voci={vociLegenda(lingua)} />
       </div>
     </div>
   )

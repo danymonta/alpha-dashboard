@@ -1,6 +1,7 @@
 import { Ban, CircleCheck, CircleHelp, PenLine, RotateCcw, Wrench, type LucideIcon } from 'lucide-react'
 
-import { BREVE_FASCIA } from '@/lib/marketing/analisi/cosa-fare'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { BREVE_FASCIA, BREVE_FASCIA_EN } from '@/lib/marketing/analisi/cosa-fare'
 import { fasciaDaCodice, type CodiceFascia } from '@/lib/marketing/punteggio/tabelle'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +32,7 @@ export function BadgePunteggio({
   fascia,
   vuoto = 'Non valutato',
   senzaNumero = false,
+  lingua = 'it',
   className,
 }: {
   totale: number | null | undefined
@@ -38,6 +40,7 @@ export function BadgePunteggio({
   vuoto?: string
   /** only the words: where the number is already said large next to it */
   senzaNumero?: boolean
+  lingua?: Lingua
   className?: string
 }) {
   const f = fasciaDaCodice(fascia)
@@ -59,7 +62,7 @@ export function BadgePunteggio({
       {/* the words may wrap in a narrow cell (390 px): a score that pushes the page sideways is worse than two lines */}
       <span className="min-w-0 wrap-break-word">
         {senzaNumero ? null : <span className="num">{totale} · </span>}
-        {BREVE_FASCIA[f.codice]}
+        {(lingua === 'en' ? BREVE_FASCIA_EN : BREVE_FASCIA)[f.codice]}
       </span>
     </span>
   )

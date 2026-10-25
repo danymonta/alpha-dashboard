@@ -22,15 +22,19 @@ export function Pillola({
   Icona,
   children,
   className,
+  lang,
 }: {
   tono?: Tono
   Icona?: LucideIcon
   children: ReactNode
   className?: string
+  /** a pill of Claude's words: Italian whatever the page's language */
+  lang?: string
 }) {
   return (
     <span
       data-tono={tono}
+      lang={lang}
       className={cn(
         'inline-flex min-h-6 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium whitespace-normal [overflow-wrap:anywhere]',
         CLASSI_TONO[tono],

@@ -15,6 +15,7 @@ import { requireProfilo } from '@/lib/auth/session'
 import { formato } from '@/lib/format'
 import { getLingua } from '@/lib/i18n/server'
 import { PROGETTI } from '@/lib/i18n/testi/progetti'
+import { FOGLI_PROGETTO } from '@/lib/i18n/testi/progetto-fogli'
 import { configPickerRichiesta } from '@/lib/google/picker-server'
 import { compitiDiRuoloInParole, isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
@@ -136,7 +137,12 @@ export default async function LayoutProgetto({
   const numeri = avanzamento.data
 
   const personeCoach: PersonaCoach[] = (attivi.data ?? [])
-    .map((p) => ({ id: p.id, nome: p.nome, ruolo: ETICHETTA_RUOLO[p.ruolo], coach: p.ruolo === 'coach' }))
+    .map((p) => ({
+      id: p.id,
+      nome: p.nome,
+      ruolo: lingua === 'en' ? FOGLI_PROGETTO.en.compitiDiRuolo.ruoli[p.ruolo] : ETICHETTA_RUOLO[p.ruolo],
+      coach: p.ruolo === 'coach',
+    }))
     .sort((a, b) => Number(b.coach) - Number(a.coach) || a.nome.localeCompare(b.nome, 'it'))
   // the same choice pm_scegli_coach makes, in words (Alfire's card says the same)
   const elencoNonCaricato = Boolean(attivi.error || compitiDiRuolo.error)
@@ -145,6 +151,7 @@ export default async function LayoutProgetto({
     attivi.data ?? [],
     new Set(persone.map((p) => p.id)),
     progetto.coach_id,
+    FOGLI_PROGETTO[lingua].compitiDiRuolo,
   )
 
   return (

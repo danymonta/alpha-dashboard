@@ -4,16 +4,11 @@ import { CircleAlert } from 'lucide-react'
 import { useId } from 'react'
 
 import type { RisposteCommento } from '@/app/(app)/today/proposta-instagram'
+import { useTesti } from '@/components/i18n/lingua-provider'
 import { ScalaCommento } from '@/components/setter/scala-commento'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  COMMENTO_OBBLIGATORIO,
-  SCALE_COMMENTO,
-  TESTI_COMMENTO,
-  risposteMancanti,
-} from '@/lib/setting/commento'
-
-const COSA_FRENAVA = TESTI_COMMENTO[0]
+import { COMMENTO_GIORNATA } from '@/lib/i18n/testi/commento-giornata'
+import { risposteMancanti } from '@/lib/setting/commento'
 
 type Props = {
   valori: RisposteCommento
@@ -32,25 +27,27 @@ type Props = {
  */
 export function DomandeObbligatorie({ valori, onCambia, mostraErrori }: Props) {
   const id = useId()
+  const t = useTesti(COMMENTO_GIORNATA)
+  const COSA_FRENAVA = t.testi[0]
   const mancanti = new Set(mostraErrori ? risposteMancanti(valori) : [])
-  const erroreTesto = mancanti.has('cosa_frenava') ? COMMENTO_OBBLIGATORIO.errore.cosa_frenava : null
+  const erroreTesto = mancanti.has('cosa_frenava') ? t.obbligatorio.errore.cosa_frenava : null
 
   return (
     <div className="space-y-4 rounded-xl bg-card p-3" data-testid="commento-proposta">
-      {SCALE_COMMENTO.map((scala) => (
+      {t.scale.map((scala) => (
         <ScalaCommento
           key={scala.campo}
           scala={scala}
           valore={valori[scala.campo]}
           onCambia={(v) => onCambia({ ...valori, [scala.campo]: v })}
           obbligatoria
-          errore={mancanti.has(scala.campo) ? COMMENTO_OBBLIGATORIO.errore[scala.campo] : null}
+          errore={mancanti.has(scala.campo) ? t.obbligatorio.errore[scala.campo] : null}
         />
       ))}
       <div className="space-y-1.5">
         <label htmlFor={`${id}-cosa-frenava`} className="block text-sm font-medium">
           {COSA_FRENAVA.domanda}{' '}
-          <span className="font-normal text-muted-foreground">({COMMENTO_OBBLIGATORIO.obbligatoria})</span>
+          <span className="font-normal text-muted-foreground">({t.obbligatorio.obbligatoria})</span>
         </label>
         <Textarea
           id={`${id}-cosa-frenava`}

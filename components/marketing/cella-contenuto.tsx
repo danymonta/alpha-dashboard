@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/compone
 import { useLingua } from '@/components/i18n/lingua-provider'
 import { formato, formatData, formatNumero } from '@/lib/format'
 import type { Lingua } from '@/lib/i18n/lingua'
+import { CONTENUTO, traduciErroreContenuto } from '@/lib/i18n/testi/contenuto'
 import { MARKETING } from '@/lib/i18n/testi/marketing'
 import type { ContenutoElenco } from '@/lib/marketing/elenco'
 import { CAMPI, COLONNE_PIANO } from '@/lib/marketing/etichette'
@@ -54,18 +55,20 @@ function testoMostrato(campo: CampoEditor, valore: unknown, lingua: Lingua = 'it
   return String(valore)
 }
 
+type ParoleCella = (typeof CONTENUTO)['it']['cella']
+
 /** The accessible name starts with the words on screen (WCAG 2.5.3): «12/10/2026: cambia Post Date di «…»». */
-function nomeAccessibile(campo: CampoEditor, mostrato: string, nome: string, aspetto: AspettoEditor): string {
-  if (aspetto === 'matita') return campo === 'nome' ? `Modifica il Name di «${nome}»` : `Cambia ${etichettaCampo(campo)} di «${nome}»`
+function nomeAccessibile(campo: CampoEditor, mostrato: string, nome: string, aspetto: AspettoEditor, t: ParoleCella): string {
+  if (aspetto === 'matita') return campo === 'nome' ? t.matitaNome(nome) : t.matitaCampo(etichettaCampo(campo), nome)
   const etichetta = etichettaCampo(campo)
   if (campo === 'inspiration') {
-    return mostrato ? `${etichetta}: cambia il link di «${nome}»` : `Vuoto: aggiungi ${etichetta} di «${nome}»`
+    return mostrato ? t.linkCambia(etichetta, nome) : t.vuotoAggiungi(etichetta, nome)
   }
   if (campo === 'url') {
-    return mostrato ? `${etichetta}: apri o cambia il link di «${nome}»` : `Vuoto: aggiungi ${etichetta} di «${nome}»`
+    return mostrato ? t.linkApri(etichetta, nome) : t.vuotoAggiungi(etichetta, nome)
   }
-  if (!mostrato) return `Vuoto: ${campo === 'post_date' ? 'scegli' : 'scrivi'} ${etichetta} di «${nome}»`
-  return `${mostrato}: cambia ${etichetta} di «${nome}»`
+  if (!mostrato) return campo === 'post_date' ? t.vuotoScegli(etichetta, nome) : t.vuotoScrivi(etichetta, nome)
+  return t.valore(mostrato, etichetta, nome)
 }
 
 const TIPO_INPUT: Record<CampoEditor, { type?: string; inputMode?: 'numeric' | 'url'; maxLength?: number; placeholder?: string }> = {
@@ -75,15 +78,12 @@ const TIPO_INPUT: Record<CampoEditor, { type?: string; inputMode?: 'numeric' | '
   inspiration: { type: 'url', inputMode: 'url', maxLength: LINK_MAX, placeholder: 'https://' },
 }
 
-const TOGLI: Partial<Record<CampoEditor, string>> = {
-  post_date: 'Togli la data',
-  url: 'Togli il link',
-  inspiration: 'Togli il link',
+function togliDi(campo: CampoEditor, t: ParoleCella): string | undefined {
+  return campo === 'post_date' ? t.togliData : campo === 'url' || campo === 'inspiration' ? t.togliLink : undefined
 }
 
-const APRI_LINK: Partial<Record<CampoEditor, string>> = {
-  url: 'Apri il post',
-  inspiration: 'Apri l’ispirazione',
+function apriLinkDi(campo: CampoEditor, t: ParoleCella): string | undefined {
+  return campo === 'url' ? t.apriPost : campo === 'inspiration' ? t.apriIspirazione : undefined
 }
 
 /**
@@ -119,6 +119,8 @@ export function EditorCella<C extends CampoEditor>({
   className?: string
 }) {
   const { mostrato, inCorso, salva } = useCampoContenuto({ id, nome, campo, valore })
+  const lingua = useLingua()
+  const t = CONTENUTO[lingua].cella
   const [montato, setMontato] = useState(false)
   const [aperto, setAperto] = useState(false)
   const [bozza, setBozza] = useState('')
@@ -127,7 +129,7 @@ export function EditorCella<C extends CampoEditor>({
   const bottone = useRef<HTMLButtonElement>(null)
   const idCampo = useId()
   const etichetta = etichettaCampo(campo)
-  const visibile = testoMostrato(campo, mostrato)
+  const visibile = testoMostrato(campo, mostrato, lingua)
 
   function apri() {
     // a save in flight: the field waits for it (spec R13), the new value stays shown
@@ -215,9 +217,9 @@ export function EditorCella<C extends CampoEditor>({
     type: 'button' as const,
     'data-cella': campo,
     'data-etichetta': etichetta,
-    'aria-label': nomeAccessibile(campo, visibile, nome, aspetto),
+    'aria-label': nomeAccessibile(campo, visibile, nome, aspetto, t),
     'aria-busy': inCorso || undefined,
-    title: aspetto === 'matita' ? (campo === 'nome' ? 'Rinomina' : `Cambia ${etichetta}`) : undefined,
+    title: aspetto === 'matita' ? (campo === 'nome' ? t.rinomina : t.cambiaCampo(etichetta)) : undefined,
     className: cn(
       aspetto === 'chip'
         ? CLASSE_CHIP
@@ -239,8 +241,8 @@ export function EditorCella<C extends CampoEditor>({
     )
   }
 
-  const togli = TOGLI[campo]
-  const apriLink = APRI_LINK[campo]
+  const togli = togliDi(campo, t)
+  const apriLink = apriLinkDi(campo, t)
   return (
     <Popover open={aperto} onOpenChange={cambiaAperto}>
       <PopoverTrigger render={<button {...propsBottone} />}>{contenuto}</PopoverTrigger>
@@ -258,7 +260,7 @@ export function EditorCella<C extends CampoEditor>({
             >
               <ExternalLink className="size-4 shrink-0" aria-hidden="true" />
               {apriLink}
-              <span className="sr-only">(si apre in una nuova scheda)</span>
+              <span className="sr-only">{t.nuovaScheda}</span>
             </a>
           ) : null}
           <Input
@@ -282,12 +284,12 @@ export function EditorCella<C extends CampoEditor>({
           {errore ? (
             <p id={`${idCampo}-errore`} role="alert" className="flex items-start gap-2 text-sm text-status-critical">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {errore}
+              {traduciErroreContenuto(errore, lingua)}
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button type="submit" className="h-11 flex-1">
-              Salva
+              {t.salva}
             </Button>
             {togli && mostrato !== null && mostrato !== '' ? (
               <Button
@@ -349,6 +351,7 @@ export function CellaNome({ riga }: { riga: Riga }) {
  * is one: the panel changes it.
  */
 export function CellaIspirazione({ riga, aspetto = 'cella' }: { riga: Riga; aspetto?: 'cella' | 'chip' }) {
+  const t = CONTENUTO[useLingua()].cella
   const link = riga.inspiration
   if (!link) {
     return aspetto === 'chip' ? null : <EditorCella id={riga.id} nome={riga.nome} campo="inspiration" valore={riga.inspiration} />
@@ -359,7 +362,7 @@ export function CellaIspirazione({ riga, aspetto = 'cella' }: { riga: Riga; aspe
       target="_blank"
       rel="noopener noreferrer"
       data-ispirazione=""
-      aria-label={`Apri l’ispirazione di «${riga.nome}» (si apre in una nuova scheda)`}
+      aria-label={t.apriIspirazioneDi(riga.nome)}
       title={link}
       className={cn(
         'relative z-10 inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm whitespace-nowrap text-foreground hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
@@ -367,7 +370,7 @@ export function CellaIspirazione({ riga, aspetto = 'cella' }: { riga: Riga; aspe
       )}
     >
       <ExternalLink className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      Apri
+      {t.apri}
     </a>
   )
   if (aspetto === 'chip') return apri

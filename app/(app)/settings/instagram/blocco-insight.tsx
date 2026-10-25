@@ -4,9 +4,11 @@ import type { ReactNode } from 'react'
 
 import { quando } from '@/app/(app)/settings/instagram/quando'
 import { buttonVariants } from '@/components/ui/button'
-import { formatNumero, VUOTO } from '@/lib/format'
+import { formato, VUOTO } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { formatDollari, traduciImpostazioni } from '@/lib/i18n/testi/impostazioni'
+import { INSTAGRAM_IMPOSTAZIONI } from '@/lib/i18n/testi/instagram-impostazioni'
 import {
-  AVVISO_STATISTICHE,
   esecuzioneInCorso,
   haAvvisoStatistiche,
   pianificatoreFermo,
@@ -14,8 +16,6 @@ import {
   type StatoInsightAdmin,
 } from '@/lib/insight/stato'
 import { cn } from '@/lib/utils'
-
-const dollari = new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function Voce({ etichetta, children }: { etichetta: string; children: ReactNode }) {
   return (
@@ -31,10 +31,20 @@ function Voce({ etichetta, children }: { etichetta: string; children: ReactNode 
  * 0,94 $ di Claude»: the latest run, as insight_stato() gives it to the admin.
  * The cost is SQL's (insight_costo_usd, D19); the errors are fixed sentences.
  */
-function UltimoRecap({ esecuzione, oggi }: { esecuzione: EsecuzioneInsightAdmin | null; oggi: string }) {
-  if (!esecuzione) return <span className="text-muted-foreground">Ancora nessun recap</span>
+function UltimoRecap({
+  esecuzione,
+  oggi,
+  lingua,
+}: {
+  esecuzione: EsecuzioneInsightAdmin | null
+  oggi: string
+  lingua: Lingua
+}) {
+  const t = INSTAGRAM_IMPOSTAZIONI[lingua].insight
+  const { formatNumero } = formato(lingua)
+  if (!esecuzione) return <span className="text-muted-foreground">{t.nessunRecap}</span>
   if (esecuzioneInCorso({ esecuzione })) {
-    return <span className="num">Aggiornamento in corso, avviato {quando(esecuzione.creata_il, oggi)}</span>
+    return <span className="num">{t.inCorso(quando(esecuzione.creata_il, oggi, lingua))}</span>
   }
   const fine = esecuzione.finita_il ?? esecuzione.creata_il
   if (esecuzione.stato === 'fallita') {
@@ -42,34 +52,35 @@ function UltimoRecap({ esecuzione, oggi }: { esecuzione: EsecuzioneInsightAdmin 
       <span className="flex items-start gap-1.5 text-status-critical" data-testid="insight-ultimo-errore">
         <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
         <span>
-          <span className="num">Non riuscito {quando(fine, oggi)}</span>
-          {esecuzione.errore ? `: ${esecuzione.errore}` : '.'}
+          <span className="num">{t.nonRiuscito(quando(fine, oggi, lingua))}</span>
+          {esecuzione.errore ? `: ${traduciImpostazioni(esecuzione.errore, lingua)}` : '.'}
         </span>
       </span>
     )
   }
-  const parti = [quando(fine, oggi)]
+  const parti = [quando(fine, oggi, lingua)]
   if (esecuzione.chat_instagram !== null || esecuzione.chat_messenger !== null) {
     const chat = (esecuzione.chat_instagram ?? 0) + (esecuzione.chat_messenger ?? 0)
-    parti.push(`${formatNumero(chat)} chat`)
+    parti.push(t.chat(formatNumero(chat)))
   }
   if (esecuzione.chat_attribuite !== null) {
     const n = esecuzione.chat_attribuite
-    parti.push(`${formatNumero(n)} ${n === 1 ? 'lead attribuito' : 'lead attribuiti'} a un post`)
+    parti.push(t.attribuiti(n, formatNumero(n)))
   }
-  if (esecuzione.costo_usd !== null) parti.push(`${dollari.format(esecuzione.costo_usd)} $ di Claude`)
+  if (esecuzione.costo_usd !== null) parti.push(t.diClaude(formatDollari(esecuzione.costo_usd, lingua)))
   return <span className="num">{parti.join(' · ')}</span>
 }
 
 /** «Token in cache: 182.400 letti, 9.100 scritti»: the cached system prompt at work (D14). */
-function TokenInCache({ esecuzione }: { esecuzione: EsecuzioneInsightAdmin | null }) {
+function TokenInCache({ esecuzione, lingua }: { esecuzione: EsecuzioneInsightAdmin | null; lingua: Lingua }) {
+  const t = INSTAGRAM_IMPOSTAZIONI[lingua].insight
+  const { formatNumero } = formato(lingua)
   if (!esecuzione || (esecuzione.token_cache_letti === null && esecuzione.token_cache_scritti === null)) {
     return <span className="text-muted-foreground">{VUOTO}</span>
   }
   return (
     <span className="num">
-      {formatNumero(esecuzione.token_cache_letti ?? 0)} letti, {formatNumero(esecuzione.token_cache_scritti ?? 0)}{' '}
-      scritti
+      {t.cache(formatNumero(esecuzione.token_cache_letti ?? 0), formatNumero(esecuzione.token_cache_scritti ?? 0))}
     </span>
   )
 }
@@ -84,13 +95,16 @@ export function BloccoInsight({
   configurato,
   adesso,
   oggi,
+  lingua = 'it',
 }: {
   stato: StatoInsightAdmin | null
   configurato: boolean
   /** epoch ms of this render */
   adesso: number
   oggi: string
+  lingua?: Lingua
 }) {
+  const t = INSTAGRAM_IMPOSTAZIONI[lingua].insight
   const esecuzione = stato?.esecuzione ?? null
   const fermo = stato !== null && pianificatoreFermo(stato, new Date(adesso))
 
@@ -103,61 +117,57 @@ export function BloccoInsight({
     >
       <div className="space-y-1">
         <h2 id="titolo-insight" className="text-sm font-medium">
-          Insight ultime 24h
+          {t.titolo}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Il recap dei DM di Instagram e Messenger che Claude prepara ogni giorno. Le chat restano nel gestionale al
-          massimo 30 giorni.
-        </p>
+        <p className="text-sm text-muted-foreground">{t.descrizione}</p>
       </div>
 
       {!configurato ? (
         <p className="flex items-start gap-2 text-sm font-medium text-status-critical" data-testid="insight-spento">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Insight spento: manca ANTHROPIC_API_KEY su Vercel.
+          {t.spento}
         </p>
       ) : null}
       {haAvvisoStatistiche(stato) ? (
         <p className="flex items-start gap-2 text-sm text-status-warning" data-testid="insight-avviso-statistiche">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {AVVISO_STATISTICHE}
+          {t.avvisoStatistiche}
         </p>
       ) : null}
 
       <dl className="divide-y divide-border">
-        <Voce etichetta="Automazione">
+        <Voce etichetta={t.automazione}>
           {stato?.attivo ? (
             <span className="inline-flex items-start gap-1.5">
               <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
               <span>
-                Attiva: recap pronto ogni giorno alle <span className="num">{stato.ora}</span>.
+                {t.attiva} <span className="num">{stato.ora}</span>.
               </span>
             </span>
           ) : (
-            <span className="text-muted-foreground">Disattivata.</span>
+            <span className="text-muted-foreground">{t.disattivata}</span>
           )}{' '}
-          <span className="text-muted-foreground">Si cambia in cima all’Insight.</span>
+          <span className="text-muted-foreground">{t.siCambia}</span>
         </Voce>
-        <Voce etichetta="Ultimo recap">
-          <UltimoRecap esecuzione={esecuzione} oggi={oggi} />
+        <Voce etichetta={t.ultimoRecap}>
+          <UltimoRecap esecuzione={esecuzione} oggi={oggi} lingua={lingua} />
         </Voce>
-        <Voce etichetta="Token in cache">
-          <TokenInCache esecuzione={esecuzione} />
+        <Voce etichetta={t.tokenInCache}>
+          <TokenInCache esecuzione={esecuzione} lingua={lingua} />
         </Voce>
-        <Voce etichetta="Pianificatore">
+        <Voce etichetta={t.pianificatore}>
           {stato?.ultimo_tick_il ? (
             <span className="num inline-flex items-center gap-1">
               <Clock className="size-3.5 text-muted-foreground" aria-hidden="true" />
-              Ultimo controllo {quando(stato.ultimo_tick_il, oggi)}
+              {t.ultimoControllo(quando(stato.ultimo_tick_il, oggi, lingua))}
             </span>
           ) : (
-            <span className="text-muted-foreground">Nessun controllo finora</span>
+            <span className="text-muted-foreground">{t.nessunControllo}</span>
           )}
           {fermo ? (
             <span className="mt-1 flex items-start gap-1.5 text-status-warning" data-testid="insight-pianificatore-fermo">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Il pianificatore non risponde da più di 15 minuti: il recap automatico è fermo. Usa Aggiorna dati e avvisa
-              chi gestisce l’app.
+              {t.fermo}
             </span>
           ) : null}
         </Voce>
@@ -166,7 +176,7 @@ export function BloccoInsight({
       {/* the same sparkles as the link in Setter, Oggi and I miei numeri */}
       <Link href="/insight" className={cn(buttonVariants({ variant: 'outline' }), 'h-11 w-full sm:w-auto')}>
         <Sparkles className="size-4 text-[var(--brand-fire-flame)]" aria-hidden="true" />
-        Apri l’Insight
+        {t.apri}
       </Link>
     </section>
   )

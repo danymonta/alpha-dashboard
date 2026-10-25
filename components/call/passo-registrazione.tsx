@@ -7,8 +7,11 @@ import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { REGISTRAZIONE } from '@/lib/call/registrazione'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { formatOra, oggiRoma } from '@/lib/date'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { FATHOM_TESTI, REGISTRAZIONE_TESTI } from '@/lib/i18n/testi/esito'
 import { normalizzaLink } from '@/lib/fathom/link'
 import type { SceltaRegistrazioneInput } from '@/lib/validation/registrazione'
 
@@ -41,6 +44,8 @@ type Props = {
 
 export function PassoRegistrazione({ callId, disabilitato = false, valore, onScelta, oggi }: Props) {
   const id = useId()
+  const lingua = useLingua()
+  const REGISTRAZIONE = REGISTRAZIONE_TESTI[lingua]
   const [link, setLink] = useState(valore?.tipo === 'link' ? valore.url : '')
   const [fase, setFase] = useState<Fase>({ fase: 'libera' })
   const [errore, setErrore] = useState<string | null>(null)
@@ -63,9 +68,9 @@ export function PassoRegistrazione({ callId, disabilitato = false, valore, onSce
         body: JSON.stringify({ call_id: callId, url: link }),
       })
       risposta = (await r.json()) as Risposta
-      if (!r.ok) risposta = { esito: 'errore', errore: REGISTRAZIONE.erroreFathom }
+      if (!r.ok) risposta = { esito: 'errore', errore: REGISTRAZIONE_TESTI.it.erroreFathom }
     } catch {
-      risposta = { esito: 'errore', errore: REGISTRAZIONE.erroreFathom }
+      risposta = { esito: 'errore', errore: REGISTRAZIONE_TESTI.it.erroreFathom }
     }
     setFase({ fase: 'risposta', risposta, link: n.canonico })
   }
@@ -107,7 +112,7 @@ export function PassoRegistrazione({ callId, disabilitato = false, valore, onSce
           className="h-11 wrap-anywhere"
           disabled={disabilitato}
         />
-        <ErroreCampo id={`${id}-errore`} messaggio={errore ?? undefined} />
+        <ErroreCampo id={`${id}-errore`} messaggio={traduciErrore(errore, lingua)} />
       </div>
 
       {r === null ? (
@@ -126,7 +131,7 @@ export function PassoRegistrazione({ callId, disabilitato = false, valore, onSce
           {r.esito === 'trovata' ? (
             <p className="flex items-start gap-2 text-sm">
               <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
-              {REGISTRAZIONE.trovata(r.titolo, quandoDa(r.inizio, oggi), r.durata_minuti)}
+              {REGISTRAZIONE.trovata(r.titolo, quandoDa(r.inizio, oggi, lingua), r.durata_minuti)}
             </p>
           ) : (
             <p className="flex items-start gap-2 text-sm">
@@ -135,7 +140,7 @@ export function PassoRegistrazione({ callId, disabilitato = false, valore, onSce
               ) : (
                 <CircleX className="mt-0.5 size-4 shrink-0 text-status-critical" aria-hidden="true" />
               )}
-              {fraseNegativa(r)}
+              {fraseNegativa(r, lingua)}
             </p>
           )}
           {r.esito === 'link_non_valido' ? (
@@ -184,7 +189,8 @@ export function PassoRegistrazione({ callId, disabilitato = false, valore, onSce
   )
 }
 
-function fraseNegativa(r: Exclude<Risposta, { esito: 'trovata' }>): string {
+function fraseNegativa(r: Exclude<Risposta, { esito: 'trovata' }>, lingua: Lingua): string {
+  const REGISTRAZIONE = REGISTRAZIONE_TESTI[lingua]
   switch (r.esito) {
     case 'non_fathom':
       return REGISTRAZIONE.nonFathom
@@ -195,16 +201,17 @@ function fraseNegativa(r: Exclude<Risposta, { esito: 'trovata' }>): string {
     case 'errore':
       return REGISTRAZIONE.erroreFathom
     default:
-      return r.errore
+      return traduciErrore(r.errore, lingua)
   }
 }
 
 /** «oggi alle 18:03» / «14/10 alle 18:03» for the start of a recording. */
-function quandoDa(inizio: string | null, oggi: string): string {
-  if (!inizio) return 'senza orario'
+function quandoDa(inizio: string | null, oggi: string, lingua: Lingua): string {
+  const t = FATHOM_TESTI[lingua]
+  if (!inizio) return t.senzaOrario
   const giorno = oggiRoma(new Date(inizio))
   const ora = formatOra(inizio)
-  if (giorno === oggi) return `oggi alle ${ora}`
+  if (giorno === oggi) return t.oggiAlle(ora)
   const [, m, d] = giorno.split('-')
-  return `${d}/${m} alle ${ora}`
+  return t.alle(`${d}/${m}`, ora)
 }

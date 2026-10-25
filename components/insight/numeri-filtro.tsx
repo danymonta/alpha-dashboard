@@ -3,8 +3,9 @@
 import { Hourglass } from 'lucide-react'
 import type { RefObject } from 'react'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
 import { CHIAVI_FILTRO, FILTRI, type ChiaveFiltro } from '@/lib/insight/filtri'
-import { NUMERI } from '@/lib/insight/parole'
 import { cn } from '@/lib/utils'
 
 /**
@@ -25,6 +26,9 @@ export function NumeriFiltro({
   onScegli: (chiave: ChiaveFiltro) => void
   riferimenti: RefObject<Partial<Record<ChiaveFiltro, HTMLButtonElement | null>>>
 }) {
+  const t = INSIGHT_RECAP[useLingua()]
+  const parole = t.filtri as Record<ChiaveFiltro, { etichetta: string; titolo: string }>
+  const NUMERI = t.numeri
   return (
     <div className="grid gap-2">
       <div
@@ -63,7 +67,7 @@ export function NumeriFiltro({
                   premuto ? 'text-foreground' : 'text-muted-foreground',
                 )}
               >
-                {filtro.etichetta}
+                {parole[chiave].etichetta}
               </span>
             </button>
           )

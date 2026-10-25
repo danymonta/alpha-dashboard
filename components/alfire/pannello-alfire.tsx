@@ -13,6 +13,7 @@ import { Fiamma } from '@/components/alfire/fiamma'
 import { Markdown } from '@/components/alfire/markdown'
 import { RisposteProposte } from '@/components/alfire/proposte'
 import { useRegistratore } from '@/components/alfire/use-registratore'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import {
@@ -34,6 +35,8 @@ import {
   rispostaScelta,
 } from '@/lib/alfire/risposte'
 import { haEconomics, type AppRole } from '@/lib/auth/roles'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { ALFIRE, bottoneDistruttivo } from '@/lib/i18n/testi/alfire'
 import { cn } from '@/lib/utils'
 
 const SUGGERIMENTI: Record<'admin' | 'setter' | 'closer' | 'altro', string[]> = {
@@ -57,33 +60,9 @@ const SUGGERIMENTI: Record<'admin' | 'setter' | 'closer' | 'altro', string[]> = 
   altro: ['Quanto ho lavorato questa settimana?', 'Avvia il timer su un progetto', 'Quali task ho aperti?', 'Come registro il mio tempo?'],
 }
 
-const LETTURE: Record<string, string> = {
-  guida: 'la guida',
-  numeri_periodo: 'i numeri del periodo',
-  cash_per_mese: 'il cash per mese',
-  da_incassare: 'le rate da incassare',
-  cerca_clienti: 'i clienti',
-  rate_cliente: 'le rate del cliente',
-  vendite_periodo: 'le vendite',
-  metriche_setting: 'le metriche di setting',
-  provvigioni: 'le provvigioni',
-  costi_periodo: 'i costi',
-  miei_numeri: 'i tuoi numeri',
-  miei_clienti: 'i tuoi clienti',
-  mie_vendite: 'le tue vendite',
-  mie_giornate: 'la tua giornata',
-  giornate_closer: 'i numeri del closer',
-  call_periodo: 'le call',
-  progetti: 'i progetti',
-  progetto_dettaglio: 'il progetto',
-  miei_task: 'i tuoi task',
-  mio_tempo: 'il tuo tempo',
-  tempo_team: 'il tempo del team',
-  commenti_marketing: 'cosa dicono i lead',
-}
 
 /** "{"errore":"..."}" from our routes, or the stream's own message. */
-function testoErrore(error: Error | undefined): string {
+function testoErrore(error: Error | undefined, lingua: Lingua): string {
   if (!error) return ''
   try {
     const dati = JSON.parse(error.message) as { errore?: string }
@@ -91,7 +70,7 @@ function testoErrore(error: Error | undefined): string {
   } catch {
     // not JSON: already a sentence
   }
-  return error.message && error.message.length < 200 ? error.message : 'Alfire non ha risposto. Riprova.'
+  return error.message && error.message.length < 200 ? error.message : ALFIRE[lingua].nonRispondeErrore
 }
 
 function testoDelMessaggio(m: UIMessage): string {
@@ -298,6 +277,8 @@ function Pannello({
     }
   }, [messages])
 
+  const lingua = useLingua()
+  const t = ALFIRE[lingua]
   const economics = haEconomics(ruolo)
   const suggerimenti = SUGGERIMENTI[ruolo === 'admin' || ruolo === 'setter' || ruolo === 'closer' ? ruolo : 'altro']
 
@@ -308,7 +289,7 @@ function Pannello({
         <div className="min-w-0 flex-1">
           <SheetTitle>Alfire</SheetTitle>
           <SheetDescription>
-            {economics ? 'Chiedi dei numeri o fatti aiutare a registrare.' : 'Chiedi dei tuoi task o fatti aiutare a registrare il tempo.'}
+            {economics ? t.descrizioneEconomics : t.descrizioneAltro}
           </SheetDescription>
         </div>
         {messages.length > 0 ? (
@@ -317,7 +298,7 @@ function Pannello({
             variant="ghost"
             size="icon"
             className="size-11 text-muted-foreground"
-            aria-label="Nuova chat"
+            aria-label={t.nuovaChat}
             onClick={() => {
               stop()
               setMessages([])
@@ -337,12 +318,10 @@ function Pannello({
         ) : messages.length === 0 ? (
           <div className="space-y-4">
             <p className="text-sm">
-              Ciao {nome.split(' ')[0]}, sono Alfire.{' '}
-              {economics
-                ? 'Posso leggere i numeri della dashboard e i file che alleghi e, con la tua conferma, registrare al posto tuo.'
-                : 'Posso leggere i tuoi progetti, i tuoi task, il tuo tempo e i file che alleghi e, con la tua conferma, registrare al posto tuo.'}
+              {t.ciao(nome.split(' ')[0])}{' '}
+              {economics ? t.presentazioneEconomics : t.presentazioneAltro}
             </p>
-            <div className="flex flex-col gap-2" role="group" aria-label="Domande suggerite">
+            <div className="flex flex-col gap-2" role="group" aria-label={t.suggerite}>
               {suggerimenti.map((s) => (
                 <button
                   key={s}
@@ -350,6 +329,8 @@ function Pannello({
                   // while dictating nothing is sent: the send button waits for the stop too (and for a file being read)
                   disabled={inAscolto || inLettura}
                   onClick={() => invia(s)}
+                  // the questions are sent to Alfire as they are, in Italian: Alfire works in Italian
+                  lang="it"
                   className="min-h-11 rounded-lg border border-border px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                 >
                   {s}
@@ -378,16 +359,16 @@ function Pannello({
         {status === 'submitted' ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-            Alfire ci pensa…
+            {t.ciPensa}
           </p>
         ) : null}
 
         {rispostaMuta ? (
           // the model read the data and stopped without a word: say it, and offer to go on
           <div role="status" className="space-y-2 rounded-lg bg-muted p-3 text-sm" data-testid="alfire-muta">
-            <p className="text-muted-foreground">Alfire ha letto i dati ma si è fermato prima di rispondere.</p>
+            <p className="text-muted-foreground">{t.muta}</p>
             <Button type="button" variant="outline" className="h-11" onClick={() => void regenerate()}>
-              Riprova
+              {t.riprova}
             </Button>
           </div>
         ) : null}
@@ -396,10 +377,10 @@ function Pannello({
           <div role="alert" className="space-y-2 rounded-lg bg-status-critical/10 p-3 text-sm">
             <p className="flex items-start gap-2 text-status-critical">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {testoErrore(error)}
+              {testoErrore(error, lingua)}
             </p>
             <Button type="button" variant="outline" className="h-11" onClick={() => void regenerate()}>
-              Riprova
+              {t.riprova}
             </Button>
           </div>
         ) : null}
@@ -417,7 +398,7 @@ function Pannello({
           <p role="alert" className="mb-2 flex items-center gap-2 text-sm text-status-warning">
             <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
             <span className="flex-1">{erroreVoce}</span>
-            <button type="button" aria-label="Chiudi l’avviso" className="p-1" onClick={() => setErroreVoce(null)}>
+            <button type="button" aria-label={t.chiudiAvviso} className="p-1" onClick={() => setErroreVoce(null)}>
               <X className="size-4" aria-hidden="true" />
             </button>
           </p>
@@ -430,7 +411,7 @@ function Pannello({
                 <li key={m}>{m}</li>
               ))}
             </ul>
-            <button type="button" aria-label="Chiudi l’avviso" className="-my-1 p-1" onClick={() => setErroriAllegati([])}>
+            <button type="button" aria-label={t.chiudiAvviso} className="-my-1 p-1" onClick={() => setErroriAllegati([])}>
               <X className="size-4" aria-hidden="true" />
             </button>
           </div>
@@ -440,22 +421,22 @@ function Pannello({
           <p id="alfire-ascolto" className="mb-2 flex items-center gap-2 text-sm text-status-critical" role="status">
             <span className="size-2 shrink-0 rounded-full bg-status-critical" aria-hidden="true" />
             <span>
-              Ti ascolto: tocca il quadrato quando hai finito.
+              {t.ascolto}
               {registratore.inPausa ? (
                 // the partials stopped (a limit, repeated failures): the words are not lost
-                <span className="block text-muted-foreground">Testo in diretta in pausa: arriva tutto allo stop.</span>
+                <span className="block text-muted-foreground">{t.inPausa}</span>
               ) : null}
             </span>
           </p>
         ) : registratore.stato === 'trascrive' ? (
           <p className="mb-2 flex items-center gap-2 text-sm text-muted-foreground" role="status">
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-            Trascrivo il vocale…
+            {t.trascrivo}
           </p>
         ) : null}
         <div className="flex items-end gap-2">
           <label htmlFor="alfire-testo" className="sr-only">
-            Scrivi ad Alfire
+            {t.scrivi}
           </label>
           <textarea
             id="alfire-testo"
@@ -467,7 +448,7 @@ function Pannello({
             readOnly={inAscolto}
             aria-describedby={registratore.stato === 'registra' ? 'alfire-ascolto' : undefined}
             data-in-ascolto={inAscolto ? 'true' : undefined}
-            placeholder={configurata ? (inAscolto ? 'In ascolto…' : 'Chiedi ad Alfire…') : 'Alfire non è ancora attiva'}
+            placeholder={configurata ? (inAscolto ? t.inAscolto : t.chiedi) : t.nonAttiva}
             onChange={(e) => {
               seguiDettato.current = false
               setTesto(e.currentTarget.value)
@@ -505,7 +486,7 @@ function Pannello({
                 variant="outline"
                 size="icon"
                 className="size-11 shrink-0"
-                aria-label="Allega un file"
+                aria-label={t.allega}
                 // like the microphone: not while Alfire answers or while dictating
                 disabled={occupato || inAscolto || allegati.pieno}
                 onClick={() => sceltaFile.current?.click()}
@@ -520,7 +501,7 @@ function Pannello({
               variant={registratore.stato === 'registra' ? 'destructive' : 'outline'}
               size="icon"
               className="size-11 shrink-0"
-              aria-label={registratore.stato === 'registra' ? 'Ferma e trascrivi' : 'Parla con Alfire'}
+              aria-label={registratore.stato === 'registra' ? t.ferma : t.parla}
               aria-pressed={registratore.stato === 'registra'}
               // stopping is always possible, even while Alfire answers; one tap opens the microphone
               disabled={
@@ -543,7 +524,7 @@ function Pannello({
             </Button>
           ) : null}
           {occupato ? (
-            <Button type="button" size="icon" className="size-11 shrink-0" aria-label="Ferma la risposta" onClick={() => stop()}>
+            <Button type="button" size="icon" className="size-11 shrink-0" aria-label={t.fermaRisposta} onClick={() => stop()}>
               <Square className="size-4" aria-hidden="true" />
             </Button>
           ) : (
@@ -551,7 +532,7 @@ function Pannello({
               type="submit"
               size="icon"
               className="size-11 shrink-0"
-              aria-label="Invia"
+              aria-label={t.invia}
               disabled={!configurata || (testo.trim() === '' && pronti.length === 0) || inAscolto || inLettura}
             >
               <ArrowUp className="size-4" aria-hidden="true" />
@@ -564,16 +545,17 @@ function Pannello({
 }
 
 function NonConfigurata({ admin }: { admin: boolean }) {
+  const t = ALFIRE[useLingua()]
   return (
     <div className="space-y-2 rounded-xl bg-card p-4 text-sm">
-      <p className="font-medium">Alfire non è ancora attiva</p>
+      <p className="font-medium">{t.nonAttiva}</p>
       {admin ? (
         <p className="text-muted-foreground">
-          Manca la chiave del modello. Crea una chiave gratuita su console.groq.com e aggiungila su Vercel come variabile
-          segreta <code className="text-foreground">ALFIRE_API_KEY</code>, poi rifai il deploy.
+          {t.manca} <code className="text-foreground">ALFIRE_API_KEY</code>
+          {t.poiDeploy}
         </p>
       ) : (
-        <p className="text-muted-foreground">L’admin la sta configurando: presto potrai chattare qui.</p>
+        <p className="text-muted-foreground">{t.staConfigurando}</p>
       )}
     </div>
   )
@@ -600,6 +582,7 @@ function Messaggio({
   chiudi: () => void
   proposte: StatoRisposte
 }) {
+  const lingua = useLingua()
   if (messaggio.role === 'user') {
     const testo = testoDelMessaggio(messaggio)
     return (
@@ -623,7 +606,15 @@ function Messaggio({
     <div className="space-y-2">
       {messaggio.parts.map((p, i) => {
         if (p.type === 'text') {
-          return p.text.trim() ? <Markdown key={i} testo={p.text} chiudi={chiudi} /> : null
+          if (!p.text.trim()) return null
+          // Alfire answers in Italian: an English page says so to screen readers
+          return lingua === 'it' ? (
+            <Markdown key={i} testo={p.text} chiudi={chiudi} />
+          ) : (
+            <div key={i} lang="it">
+              <Markdown testo={p.text} chiudi={chiudi} />
+            </div>
+          )
         }
         if (!isToolUIPart(p)) return null
         const nome = getToolName(p)
@@ -653,9 +644,10 @@ function Proposte({ parte, messaggio, stato }: { parte: ParteStrumento; messaggi
 }
 
 function StatoLettura({ nome, stato }: { nome: string; stato: string }) {
-  const cosa = LETTURE[nome] ?? 'i dati'
+  const t = ALFIRE[useLingua()]
+  const cosa = t.letture[nome] ?? t.iDati
   if (stato === 'output-error') {
-    return <p className="text-xs text-status-warning">Non sono riuscita a leggere {cosa}.</p>
+    return <p className="text-xs text-status-warning">{t.nonRiuscitaLettura(cosa)}</p>
   }
   const finito = stato === 'output-available'
   return (
@@ -665,7 +657,7 @@ function StatoLettura({ nome, stato }: { nome: string; stato: string }) {
       ) : (
         <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
       )}
-      {finito ? `Ho letto ${cosa}` : `Leggo ${cosa}…`}
+      {finito ? t.hoLetto(cosa) : t.leggo(cosa)}
     </p>
   )
 }
@@ -673,9 +665,8 @@ function StatoLettura({ nome, stato }: { nome: string; stato: string }) {
 type ParteStrumento = Extract<UIMessage['parts'][number], { toolCallId: string }>
 
 /** Said by the card when the database could not be read at all. */
-const ANTEPRIMA_NON_LETTA: Anteprima = {
-  righe: ['Non riesco a leggere i dati attuali: controlla bene prima di confermare.'],
-  incompleta: true,
+function anteprimaNonLetta(lingua: Lingua): Anteprima {
+  return { righe: [ALFIRE[lingua].nonLetti], incompleta: true }
 }
 
 function SchedaScrittura({
@@ -689,6 +680,8 @@ function SchedaScrittura({
   approva: Chat['addToolApprovalResponse']
   chiudi: () => void
 }) {
+  const lingua = useLingua()
+  const t = ALFIRE[lingua]
   const input = useMemo(() => (parte.input ?? {}) as Record<string, unknown>, [parte.input])
   const approvazione =
     'approval' in parte
@@ -705,8 +698,8 @@ function SchedaScrittura({
     chiesta.current = true
     anteprimaAlfire(nome, input)
       .then(setAnteprima)
-      .catch(() => setAnteprima(ANTEPRIMA_NON_LETTA))
-  }, [daConfermare, nome, input])
+      .catch(() => setAnteprima(anteprimaNonLetta(lingua)))
+  }, [daConfermare, nome, input, lingua])
 
   // a target not found or not unique: the model gets the reason (with its hint) and asks the user which one;
   // the card shows the person's words only
@@ -723,7 +716,7 @@ function SchedaScrittura({
     return (
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-        Preparo l’operazione…
+        {t.preparo}
       </p>
     )
   }
@@ -739,17 +732,20 @@ function SchedaScrittura({
   return (
     <div className="space-y-3 rounded-xl border border-border bg-card p-3" data-testid="alfire-conferma">
       <div className="space-y-1">
-        <p className="text-sm font-medium">{titolo}</p>
+        {/* what Alfire writes on the card stays Italian */}
+        <p className="text-sm font-medium" lang="it">
+          {titolo}
+        </p>
         {dettagli.length > 0 ? (
           // notes are shown whole, with their line breaks
-          <ul className="space-y-0.5 text-sm break-words whitespace-pre-line text-muted-foreground">
+          <ul className="space-y-0.5 text-sm break-words whitespace-pre-line text-muted-foreground" lang="it">
             {dettagli.map((d) => (
               <li key={d}>{d}</li>
             ))}
           </ul>
         ) : null}
         {letta && letta.righe.length > 0 ? (
-          <ul className="space-y-0.5 text-sm break-words whitespace-pre-line" data-testid="alfire-anteprima">
+          <ul className="space-y-0.5 text-sm break-words whitespace-pre-line" data-testid="alfire-anteprima" lang="it">
             {letta.righe.map((d) => (
               <li key={d}>{d}</li>
             ))}
@@ -757,7 +753,7 @@ function SchedaScrittura({
         ) : daConfermare && !anteprima ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
             <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-            Controllo i dati…
+            {t.controllo}
           </p>
         ) : null}
       </div>
@@ -765,7 +761,7 @@ function SchedaScrittura({
       {parte.state === 'approval-requested' && approvazione && !approvazione.isAutomatic && !erroreAnteprima ? (
         <div className="grid grid-cols-2 gap-2">
           <Button type="button" variant="outline" className="h-11" onClick={() => void approva({ id: approvazione.id, approved: false })}>
-            Annulla
+            {t.annulla}
           </Button>
           <Button
             type="button"
@@ -774,34 +770,34 @@ function SchedaScrittura({
             disabled={inAttesa}
             onClick={() => void approva({ id: approvazione.id, approved: true })}
           >
-            {distruttiva ?? 'Conferma'}
+            {distruttiva ? bottoneDistruttivo(distruttiva, lingua) : t.conferma}
           </Button>
         </div>
       ) : parte.state === 'approval-responded' && approvazione?.approved === false ? (
-        <p className="text-sm text-muted-foreground">{approvazione.reason ? 'Serve una precisazione: te la chiedo.' : 'Annullato: non ho scritto niente.'}</p>
+        <p className="text-sm text-muted-foreground">{approvazione.reason ? t.precisazione : t.annullato}</p>
       ) : parte.state === 'approval-responded' || parte.state === 'input-available' ? (
         <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-          Lo faccio…
+          {t.loFaccio}
         </p>
       ) : parte.state === 'output-denied' ? (
         approvazione?.reason ? (
           <p className="flex items-start gap-1.5 text-sm text-status-warning">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            Non l’ho fatto: {motivoPerLaPersona(approvazione.reason)}
+            {t.nonFatto} <span lang="it">{motivoPerLaPersona(approvazione.reason)}</span>
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground">Annullato: non ho scritto niente.</p>
+          <p className="text-sm text-muted-foreground">{t.annullato}</p>
         )
       ) : erroreAnteprima && daConfermare ? (
         <p className="flex items-start gap-1.5 text-sm text-status-warning">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Non l’ho fatto: {erroreAnteprima}
+          {t.nonFatto} <span lang="it">{erroreAnteprima}</span>
         </p>
       ) : parte.state === 'output-error' ? (
         <p className="flex items-center gap-1.5 text-sm text-status-critical">
           <TriangleAlert className="size-4" aria-hidden="true" />
-          Non ci sono riuscita. Riprova.
+          {t.nonRiuscita}
         </p>
       ) : output?.errore ? (
         <p className="flex items-start gap-1.5 text-sm text-status-critical">
@@ -812,11 +808,11 @@ function SchedaScrittura({
         <div className="flex items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 text-sm text-status-ok">
             <Check className="size-4" aria-hidden="true" />
-            Fatto
+            {t.fatto}
           </p>
           {output.link ? (
             <Link href={output.link} onClick={chiudi} className="min-h-11 content-center px-2 text-sm font-medium underline underline-offset-4">
-              Apri
+              {t.apri}
             </Link>
           ) : null}
         </div>

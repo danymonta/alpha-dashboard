@@ -20,16 +20,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useLingua } from '@/components/i18n/lingua-provider'
-import { formatData, formato } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
 import { CLIENTI } from '@/lib/i18n/testi/clienti'
+import { CHIUSURA } from '@/lib/i18n/testi/clienti-fogli'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
 import { chiusuraClienteSchema, MOTIVO_CHIUSURA_MAX } from '@/lib/validation/chiusura'
-
-/** What closing a client does, before the confirmation. */
-const COSA_CAMBIA = [
-  'Risulta «Chiuso» in Clienti, anche se il percorso è ancora in corso: il coach continua fino alla fine.',
-  'Esce da «In scadenza» e «Da recuperare» e non ti arrivano più i promemoria del suo percorso: in Rinnovi lo trovi sotto «Non rinnovano».',
-  'Vendite, rate e incassi restano come sono. Se compra di nuovo torna da solo tra i clienti; puoi anche riaprirlo tu.',
-]
 
 type Chiusura = { chiuso_il: string; motivo: string | null; archiviato_il: string | null }
 
@@ -56,6 +52,9 @@ export function NonRinnova({
   chiusura?: Chiusura | null
 }) {
   const id = useId()
+  const lingua = useLingua()
+  const t = CHIUSURA[lingua]
+  const { formatData } = formato(lingua)
   const [aperto, setAperto] = useState(false)
   const [giorno, setGiorno] = useState(chiusura?.chiuso_il ?? oggi)
   const [motivo, setMotivo] = useState(chiusura?.motivo ?? '')
@@ -74,7 +73,7 @@ export function NonRinnova({
     }
     setErrori({})
     setInCorso(true)
-    const fatto = await salva(() => chiudiCliente(dati), chiusura ? 'Chiusura aggiornata' : 'Cliente chiuso')
+    const fatto = await salva(() => chiudiCliente(dati), chiusura ? t.aggiornata : t.chiuso)
     setInCorso(false)
     if (fatto) setAperto(false)
   }
@@ -97,7 +96,7 @@ export function NonRinnova({
             variant="ghost"
             size="icon"
             className="size-11 shrink-0 text-muted-foreground"
-            aria-label="Modifica giorno e motivo della chiusura"
+            aria-label={t.modificaNome}
           />
         ) : (
           <Button type="button" variant="outline" className="h-11" data-testid="non-rinnova" />
@@ -109,20 +108,16 @@ export function NonRinnova({
         ) : (
           <>
             <Archive className="size-4" aria-hidden="true" />
-            Non rinnova
+            {t.nonRinnova}
           </>
         )
       }
-      titolo="Non rinnova"
-      descrizione={
-        chiusura
-          ? `${cliente} è chiuso: correggi il giorno o il motivo.`
-          : `${cliente} non rinnova: lo chiudi e va tra i clienti chiusi, in una categoria a parte.`
-      }
+      titolo={t.nonRinnova}
+      descrizione={chiusura ? t.descrizioneChiuso(cliente) : t.descrizione(cliente)}
     >
       <form onSubmit={conferma} noValidate className="space-y-5">
         <div className="space-y-1.5">
-          <Label htmlFor={`${id}-giorno`}>Chiuso dal</Label>
+          <Label htmlFor={`${id}-giorno`}>{t.chiusoDal}</Label>
           <Input
             id={`${id}-giorno`}
             type="date"
@@ -138,19 +133,21 @@ export function NonRinnova({
             aria-describedby={errori.giorno ? `${id}-giorno-errore` : `${id}-giorno-aiuto`}
             className="num h-11"
           />
-          <ErroreCampo id={`${id}-giorno-errore`} messaggio={errori.giorno} />
+          <ErroreCampo id={`${id}-giorno-errore`} messaggio={traduciErrore(errori.giorno, lingua)} />
           <p id={`${id}-giorno-aiuto`} className="text-xs text-muted-foreground">
-            Di solito oggi; mai nel futuro
+            {t.diSolitoOggi}
             {chiusura?.archiviato_il ? (
               <>
                 {' '}
-                né dopo il <span className="num">{formatData(chiusura.archiviato_il)}</span>, quando l’hai archiviato
+                {t.neDopo} <span className="num">{formatData(chiusura.archiviato_il)}</span>
+                {t.quandoArchiviato}
               </>
             ) : null}
             {minimo ? (
               <>
                 {' '}
-                né prima del <span className="num">{formatData(minimo)}</span>, quando ha firmato l’ultimo percorso
+                {t.nePrima} <span className="num">{formatData(minimo)}</span>
+                {t.quandoFirmato}
               </>
             ) : null}
             .
@@ -159,7 +156,7 @@ export function NonRinnova({
 
         <div className="space-y-1.5">
           <Label htmlFor={`${id}-motivo`}>
-            Perché non rinnova <span className="font-normal text-muted-foreground">(facoltativo)</span>
+            {t.perche} <span className="font-normal text-muted-foreground">{t.facoltativo}</span>
           </Label>
           <Textarea
             id={`${id}-motivo`}
@@ -170,20 +167,20 @@ export function NonRinnova({
             }}
             maxLength={MOTIVO_CHIUSURA_MAX}
             rows={3}
-            placeholder="Es. ha raggiunto l’obiettivo, si allena da solo"
+            placeholder={t.placeholder}
             aria-invalid={errori.motivo ? true : undefined}
             aria-describedby={errori.motivo ? `${id}-motivo-errore` : `${id}-motivo-conta`}
             className="max-h-40"
           />
-          <ErroreCampo id={`${id}-motivo-errore`} messaggio={errori.motivo} />
+          <ErroreCampo id={`${id}-motivo-errore`} messaggio={traduciErrore(errori.motivo, lingua)} />
           <p id={`${id}-motivo-conta`} className="num text-right text-xs text-muted-foreground">
             {motivo.length}/{MOTIVO_CHIUSURA_MAX}
           </p>
         </div>
 
         {chiusura ? null : (
-          <ul className="space-y-1.5 rounded-lg bg-muted/40 p-3 text-sm" aria-label="Cosa cambia">
-            {COSA_CAMBIA.map((frase) => (
+          <ul className="space-y-1.5 rounded-lg bg-muted/40 p-3 text-sm" aria-label={t.cosaCambiaNome}>
+            {t.cosaCambia.map((frase) => (
               <li key={frase} className="flex gap-2">
                 <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 {frase}
@@ -192,8 +189,8 @@ export function NonRinnova({
           </ul>
         )}
 
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={inCorso}>{chiusura ? 'Salva' : 'Chiudi il cliente'}</BottoneSalva>
+        <ErroreModulo testo={traduciErrore(errore, lingua) ?? null} />
+        <BottoneSalva inCorso={inCorso}>{chiusura ? t.salva : t.chiudi}</BottoneSalva>
       </form>
     </FoglioModifica>
   )
@@ -204,6 +201,8 @@ export function NonRinnova({
  * A question first: the day and the reason of the closure are lost.
  */
 export function RiapriCliente({ clientId, cliente }: { clientId: string; cliente: string }) {
+  const lingua = useLingua()
+  const t = CHIUSURA[lingua]
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
@@ -222,7 +221,7 @@ export function RiapriCliente({ clientId, cliente }: { clientId: string; cliente
         setErrore(esito.errore)
         return
       }
-      toast.success('Cliente riaperto')
+      toast.success(t.riaperto)
       setAperto(false)
     })
   }
@@ -233,33 +232,29 @@ export function RiapriCliente({ clientId, cliente }: { clientId: string; cliente
         type="button"
         variant="outline"
         className="h-11 shrink-0"
-        aria-label={`Riapri ${cliente}`}
+        aria-label={t.riapriNome(cliente)}
         onClick={() => {
           setErrore(null)
           setAperto(true)
         }}
       >
         <ArchiveRestore className="size-4" aria-hidden="true" />
-        Riapri
+        {t.riapri}
       </Button>
       <Dialog open={aperto} onOpenChange={(v) => !inCorso && setAperto(v)}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Riaprire {cliente}?</DialogTitle>
-            <DialogDescription>
-              Torna con lo stato che dicono le date del suo percorso: di nuovo in «In scadenza» o «Da recuperare» se ci
-              rientra, con i promemoria del percorso ancora dovuti. Il giorno e il motivo della chiusura si tolgono, e
-              l’archivio se l’avevi archiviato.
-            </DialogDescription>
+            <DialogTitle>{t.riaprire(cliente)}</DialogTitle>
+            <DialogDescription>{t.riapriDescrizione}</DialogDescription>
           </DialogHeader>
           {errore ? (
             <p role="alert" className="text-sm text-status-critical">
-              {errore}
+              {traduciErrore(errore, lingua)}
             </p>
           ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={() => setAperto(false)}>
-              Annulla
+              {t.annulla}
             </Button>
             <Button type="button" className="h-11" disabled={inCorso} onClick={conferma}>
               {inCorso ? (
@@ -267,7 +262,7 @@ export function RiapriCliente({ clientId, cliente }: { clientId: string; cliente
               ) : (
                 <ArchiveRestore className="size-4" aria-hidden="true" />
               )}
-              Riapri
+              {t.riapri}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -290,33 +285,35 @@ async function chiama<T>(azione: () => Promise<T>): Promise<T | { ok: false; err
  * (the closure's version archiviaCliente returned), never one written again
  * elsewhere, even the same day.
  */
-async function togli(clientId: string, cliente: string, soloSeVersione?: string) {
+async function togli(clientId: string, cliente: string, lingua: Lingua, soloSeVersione?: string) {
+  const t = CHIUSURA[lingua]
   const esito = await chiama(() => togliDallArchivio({ client_id: clientId, solo_se_versione: soloSeVersione }))
   if (!esito.ok) {
-    toast.error(esito.errore)
+    toast.error(traduciErrore(esito.errore, lingua))
     return
   }
-  toast.success('Tolto dall’archivio', { description: `${cliente} è di nuovo tra i clienti chiusi.` })
+  toast.success(t.tolto, { description: t.toltoDescrizione(cliente) })
 }
 
 /** "Archivia come ex cliente": from today; one archived meanwhile keeps his day, without "Annulla". */
-async function archivia(clientId: string, cliente: string) {
+async function archivia(clientId: string, cliente: string, lingua: Lingua) {
+  const t = CHIUSURA[lingua]
   const esito = await chiama(() => archiviaCliente({ client_id: clientId }))
   if (!esito.ok) {
-    toast.error(esito.errore)
+    toast.error(traduciErrore(esito.errore, lingua))
     return
   }
   if (esito.gia) {
-    toast.info('Era già archiviato', {
-      description: `${cliente} è tra gli ex clienti dal ${formatData(esito.archiviato_il)}.`,
+    toast.info(t.giaArchiviato, {
+      description: t.giaArchiviatoDescrizione(cliente, formato(lingua).formatData(esito.archiviato_il)),
     })
     return
   }
   const versione = esito.versione
-  toast.success('Archiviato come ex cliente', {
-    description: `${cliente} è tra gli ex clienti: lo trovi in Clienti, filtro «Ex cliente».`,
+  toast.success(t.archiviato, {
+    description: t.archiviatoDescrizione(cliente),
     duration: 6000,
-    action: { label: 'Annulla', onClick: () => void togli(clientId, cliente, versione) },
+    action: { label: t.annulla, onClick: () => void togli(clientId, cliente, lingua, versione) },
     classNames: { actionButton: AZIONE_TOAST },
   })
 }
@@ -343,6 +340,7 @@ export function SezioneArchiviabile({ children, ...props }: React.ComponentProps
   const osservatore = useRef<MutationObserver | null>(null)
   const scadenza = useRef<number | undefined>(undefined)
   const [annuncio, setAnnuncio] = useState('')
+  const t = CHIUSURA[useLingua()]
 
   const smetti = useCallback(() => {
     osservatore.current?.disconnect()
@@ -359,17 +357,17 @@ export function SezioneArchiviabile({ children, ...props }: React.ComponentProps
     const archiviati = radice?.querySelector<HTMLElement>('[data-focus-archivio="archiviati"]') ?? null
     const titolo = radice?.querySelector<HTMLElement>('[data-focus-archivio="titolo"]') ?? null
     const [destinazione, dove] = bottone
-      ? [bottone, `ora sei su «Archivia» di ${prossima?.getAttribute('aria-label') ?? 'quello dopo'}`]
+      ? [bottone, t.suArchivia(prossima?.getAttribute('aria-label') ?? t.quelloDopo)]
       : archiviati
-        ? [archiviati, 'ora sei sul link agli archiviati']
-        : [titolo, 'ora sei sul titolo della sezione']
+        ? [archiviati, t.suLink]
+        : [titolo, t.suTitolo]
     if (!destinazione) return
     destinazione.focus()
-    const testo = `${cliente} non è più in «Non rinnovano»: ${dove}.`
+    const testo = t.uscito(cliente, dove)
     // emptied first, so the same words twice in a row are said again
     setAnnuncio('')
     window.setTimeout(() => setAnnuncio(testo), 50)
-  }, [])
+  }, [t])
 
   const ricorda = useCallback<RicordaFocus>(
     (bottone, cliente) => {
@@ -420,6 +418,8 @@ export function BottoneArchivio({
   breve?: boolean
 }) {
   const [inCorso, avvia] = useTransition()
+  const lingua = useLingua()
+  const t = CHIUSURA[lingua]
   // in a list the archived row leaves (Rinnovi): where the focus goes then
   const ricordaFocus = useContext(FocusDopoArchivio)
   const Icona = archiviato ? Undo2 : UserMinus
@@ -430,13 +430,13 @@ export function BottoneArchivio({
       className="h-11 shrink-0"
       // never disabled while the server answers: the focus stays on it
       aria-disabled={inCorso || undefined}
-      aria-label={breve && !archiviato ? `Archivia ${cliente} come ex cliente` : undefined}
+      aria-label={breve && !archiviato ? t.archiviaNome(cliente) : undefined}
       data-testid={archiviato ? 'togli-archivio' : 'archivia-cliente'}
       data-archivia={archiviato ? undefined : ''}
       onClick={(evento) => {
         if (inCorso) return
         if (!archiviato) ricordaFocus?.(evento.currentTarget, cliente)
-        avvia(() => (archiviato ? togli(clientId, cliente) : archivia(clientId, cliente)))
+        avvia(() => (archiviato ? togli(clientId, cliente, lingua) : archivia(clientId, cliente, lingua)))
       }}
     >
       {inCorso ? (
@@ -444,7 +444,7 @@ export function BottoneArchivio({
       ) : (
         <Icona className="size-4" aria-hidden="true" />
       )}
-      {archiviato ? 'Togli dall’archivio' : breve ? 'Archivia' : 'Archivia come ex cliente'}
+      {archiviato ? t.togliArchivio : breve ? t.archiviaBreve : t.archivia}
     </Button>
   )
 }
@@ -492,7 +492,7 @@ export function ChiusuraCliente({
             {t.nonRinnova} <span className="num">{formatData(chiusura.chiuso_il)}</span>
           </p>
           {chiusura.motivo ? (
-            <p className="mt-0.5 text-sm break-words whitespace-pre-line text-muted-foreground">{chiusura.motivo}</p>
+            <p lang="it" className="mt-0.5 text-sm break-words whitespace-pre-line text-muted-foreground">{chiusura.motivo}</p>
           ) : (
             <p className="mt-0.5 text-xs text-muted-foreground">{t.nessunMotivo}</p>
           )}

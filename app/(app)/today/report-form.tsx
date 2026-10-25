@@ -10,7 +10,6 @@ import {
   EVENTO_COMMENTO_GIORNO,
   EVENTO_PROPOSTA,
   EVENTO_PROPOSTA_FINE,
-  PROPOSTA,
   numeriDi,
   risposteDi,
   type DettaglioEventoCommento,
@@ -18,18 +17,22 @@ import {
   type DettaglioEventoPropostaFine,
 } from '@/app/(app)/today/proposta-instagram'
 import { leggiStatoGiorno } from '@/app/(app)/today/stato-giorno'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Stepper } from '@/components/numeri/stepper'
 import { ANCORA_COMMENTO, CommentoReport, DaCompletare, type StatoCommento } from '@/components/setter/commento-report'
 import { ricontaPromemoria } from '@/components/shell/esiti-da-registrare'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { etichettaGiorno, formatOra } from '@/lib/date'
-import { formatNumero } from '@/lib/format'
-import { LEGENDA_SETTING } from '@/lib/metriche/legenda'
+import { formatOra } from '@/lib/date'
+import { formato } from '@/lib/format'
+import { etichettaGiornoIn } from '@/lib/i18n/date'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { OGGI, giornoInFrase, gruppiReport, traduciErroreSetting } from '@/lib/i18n/testi/oggi'
+import { PROPOSTE } from '@/lib/i18n/testi/proposte'
+import { legende } from '@/lib/metriche/legenda-en'
 import { commentoMancante, commentoObbligatorio, statoCommento } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 import {
-  GRUPPI_REPORT,
   MASSIMO_GIORNALIERO,
   REPORT_VUOTO,
   chiaveValoriSalvati,
@@ -42,16 +45,8 @@ const RITARDO_NOTE_MS = 1000
 /** Saves without an answer kept in mind: more than this, the oldest go. */
 const INCERTE_MAX = 10
 
-const CONNESSIONE_ASSENTE = 'Connessione assente. Riprova.'
-
 /** The day changed elsewhere (a decision of the admin, another device) and is read again. */
-export const RILETTURA = {
-  toast:
-    'Il report di questo giorno è cambiato da un’altra parte: ricarico i numeri salvati. Rifai l’ultima modifica, se serve.',
-  barra: 'Ricarico i numeri salvati…',
-} as const
-
-const GRUPPI = GRUPPI_REPORT
+export const RILETTURA = OGGI.it.rilettura
 
 type Stato =
   | { tipo: 'nuovo' }
@@ -99,6 +94,14 @@ export function ReportForm({
   dmTotali: dmTotaliIniziale,
   creatoIl = null,
 }: Props) {
+  const lingua = useLingua()
+  const t = OGGI[lingua]
+  const CONNESSIONE_ASSENTE = t.connessioneAssente
+  const GRUPPI = gruppiReport(lingua)
+  const avviato = useCallback(
+    () => toast.success(t.avviato(giornoInFrase(etichettaGiornoIn(data, oggi, lingua), lingua))),
+    [t, data, oggi, lingua],
+  )
   const [valori, setValori] = useState<ValoriReport>(iniziale)
   // Only the database adds the DM up: the value of the last saved row
   const [dmTotali, setDmTotali] = useState(dmTotaliIniziale)
@@ -217,7 +220,7 @@ export function ReportForm({
       }
       ricaricaRef.current = true
       setRicarica(true)
-      toast.warning(RILETTURA.toast)
+      toast.warning(t.rilettura.toast)
       void leggiStatoGiorno(setterId, data).then((raggiunto) => {
         if (raggiunto) {
           rileggi('cambiato')
@@ -233,7 +236,7 @@ export function ReportForm({
         setRicarica(false)
       })
     },
-    [setterId, data, rileggi, mostra],
+    [setterId, data, rileggi, mostra, t, CONNESSIONE_ASSENTE],
   )
 
   /** Saves what is on screen now; a call during a save joins it. Never throws. */
@@ -272,7 +275,7 @@ export function ReportForm({
               { chiave, salvata: chiaveValoriSalvati(istantanea), creazione: versione.current === null },
             ].slice(-INCERTE_MAX)
             setStato({ tipo: 'errore', messaggio: CONNESSIONE_ASSENTE })
-            toast.error(`Report non salvato. ${CONNESSIONE_ASSENTE}`)
+            toast.error(t.reportNonSalvato(CONNESSIONE_ASSENTE))
             return false
           }
 
@@ -293,17 +296,16 @@ export function ReportForm({
                 versione.current = attuale.salvatoAlle
                 setDmTotali(attuale.dmTotali)
                 segnaSalvato(attuale.valori)
-                if (nostra.creazione) {
-                  toast.success(`Report di ${etichettaGiorno(data, oggi).toLowerCase()} avviato`)
-                }
+                if (nostra.creazione) avviato()
                 continue
               }
               // changed elsewhere: nothing written, the screen takes the saved day
               ricaricaDopoRifiuto(attuale)
               return false
             }
-            setStato({ tipo: 'errore', messaggio: esito.errore })
-            toast.error(`Report non salvato. ${esito.errore}`)
+            const messaggio = traduciErroreSetting(esito.errore, lingua)
+            setStato({ tipo: 'errore', messaggio })
+            toast.error(t.reportNonSalvato(messaggio))
             return false
           }
 
@@ -314,9 +316,7 @@ export function ReportForm({
           versione.current = esito.salvatoAlle
           setDmTotali(esito.dmTotali)
           segnaSalvato(istantanea)
-          if (esito.creato) {
-            toast.success(`Report di ${etichettaGiorno(data, oggi).toLowerCase()} avviato`)
-          }
+          if (esito.creato) avviato()
           if (JSON.stringify(valoriRef.current) === chiave) {
             setStato({ tipo: 'salvato', alle: esito.salvatoAlle })
           }
@@ -329,7 +329,7 @@ export function ReportForm({
     })()
     ciclo.current = giro
     return giro
-  }, [data, oggi, ricaricaDopoRifiuto, segnaSalvato])
+  }, [data, ricaricaDopoRifiuto, segnaSalvato, avviato, CONNESSIONE_ASSENTE, t, lingua])
 
   /**
    * The screen's save (a tap, a blur, leaving the page): never while a
@@ -500,9 +500,10 @@ export function ReportForm({
       <StatoSalvataggio
         stato={stato}
         sospeso={sospeso || ricarica}
-        motivoSospeso={ricarica ? RILETTURA.barra : PROPOSTA.sospeso}
+        motivoSospeso={ricarica ? t.rilettura.barra : PROPOSTE[lingua].sospeso}
         riprova={() => void salva()}
         daCompletare={daCompletare}
+        lingua={lingua}
       />
 
       {/* inert while a decision on this day's proposal is on its way, or while the
@@ -541,7 +542,7 @@ export function ReportForm({
               ))}
             </div>
             {gruppo.campi.some(([campo]) => campo === 'dm_outbound') ? (
-              <DmTotali valore={dmTotali} inAggiornamento={inSospeso} />
+              <DmTotali valore={dmTotali} inAggiornamento={inSospeso} lingua={lingua} />
             ) : null}
             {gruppo.nota ? (
               <p className="mt-1.5 px-1 text-xs text-muted-foreground">{gruppo.nota}</p>
@@ -568,15 +569,13 @@ export function ReportForm({
             id="gruppo-contenuto"
             className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
           >
-            Contenuto
+            {t.contenuto}
           </h2>
           <div className="rounded-xl bg-card px-3">
             <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 py-2">
               <span className="min-w-0">
-                <span className="block text-sm">Contenuto pubblicato</span>
-                <span className="block text-xs leading-snug text-muted-foreground">
-                  Se è uscito un contenuto sul profilo
-                </span>
+                <span className="block text-sm">{t.contenutoPubblicato}</span>
+                <span className="block text-xs leading-snug text-muted-foreground">{t.contenutoAiuto}</span>
               </span>
               <Switch
                 checked={valori.contenuto_pubblicato}
@@ -596,19 +595,19 @@ export function ReportForm({
  * The sum of the three counters above, read back from the saved row (a
  * generated column). Until the save lands it shows the last saved value, dimmed.
  */
-function DmTotali({ valore, inAggiornamento }: { valore: number | null; inAggiornamento: boolean }) {
+function DmTotali({ valore, inAggiornamento, lingua }: { valore: number | null; inAggiornamento: boolean; lingua: Lingua }) {
   return (
     <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 px-1" data-testid="dm-totali">
       <span className="text-sm">
-        {LEGENDA_SETTING.dm_totali.etichetta}:{' '}
+        {legende(lingua).setting.dm_totali.etichetta}:{' '}
         <span
           className={cn('num font-semibold transition-colors', inAggiornamento && 'text-muted-foreground')}
           data-testid="dm-totali-valore"
         >
-          {formatNumero(valore)}
+          {formato(lingua).formatNumero(valore)}
         </span>
       </span>
-      <span className="text-xs text-muted-foreground">= outbound + inbound + follow up</span>
+      <span className="text-xs text-muted-foreground">{OGGI[lingua].sommaDm}</span>
     </p>
   )
 }
@@ -619,6 +618,7 @@ function StatoSalvataggio({
   motivoSospeso,
   riprova,
   daCompletare,
+  lingua,
 }: {
   stato: Stato
   /**
@@ -631,7 +631,9 @@ function StatoSalvataggio({
   riprova: () => void
   /** The day's own reminder, in view while scrolling: never while an error needs the space */
   daCompletare: StatoCommento | null
+  lingua: Lingua
 }) {
+  const t = OGGI[lingua]
   // while a decision is on its way, only that: the form below takes nothing
   const mostra = sospeso ? null : stato.tipo
 
@@ -653,21 +655,21 @@ function StatoSalvataggio({
       {mostra === 'nuovo' ? (
         <p className="flex items-center gap-2 text-muted-foreground">
           <CircleDashed className="size-4 shrink-0" aria-hidden="true" />
-          Non ancora compilato. Si salva da solo al primo tocco.
+          {t.nonCompilato}
         </p>
       ) : null}
 
       {mostra === 'modificato' || mostra === 'salvataggio' ? (
         <p className="flex items-center gap-2 text-muted-foreground">
           <LoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden="true" />
-          Salvataggio…
+          {t.salvataggio}
         </p>
       ) : null}
 
       {!sospeso && stato.tipo === 'salvato' ? (
         <p className="flex shrink-0 items-center gap-2 whitespace-nowrap text-muted-foreground" data-testid="stato-salvato">
           <CircleCheck className="size-4 shrink-0 text-status-ok" aria-hidden="true" />
-          Salvato alle <span className="num text-foreground">{formatOra(stato.alle)}</span>
+          {t.salvatoAlle} <span className="num text-foreground">{formatOra(stato.alle)}</span>
         </p>
       ) : null}
 
@@ -675,10 +677,10 @@ function StatoSalvataggio({
         <>
           <p role="alert" className="flex items-center gap-2 text-status-critical">
             <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-            Non salvato. {stato.messaggio}
+            {t.nonSalvato(stato.messaggio)}
           </p>
           <Button type="button" variant="outline" className="h-11" onClick={riprova}>
-            Riprova
+            {t.riprova}
           </Button>
         </>
       ) : null}

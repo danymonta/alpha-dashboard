@@ -15,9 +15,10 @@ import {
 } from 'react'
 
 import { segnaFatto } from '@/app/(app)/insight/actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { useAnnuncia } from '@/components/insight/annunci'
 import type { Fonte } from '@/lib/insight/canale'
-import { annuncioNonSalvato, FATTO } from '@/lib/insight/parole'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
 import { autenticaRealtime, createClient } from '@/lib/supabase/client'
 
 type Contesto = {
@@ -79,6 +80,7 @@ export function FattiProvider({
   const [solaLettura, setSolaLettura] = useState(false)
   const [realtime, setRealtime] = useState<'connessione' | 'live' | 'offline'>('connessione')
   const annuncia = useAnnuncia()
+  const t = INSIGHT_RECAP[useLingua()]
   // our confirmed writes, with when they finished: a read started before must not undo them
   const scritte = useRef(new Map<string, { on: boolean; finita: number }>())
   const timerErrori = useRef(new Map<string, ReturnType<typeof setTimeout>>())
@@ -174,7 +176,7 @@ export function FattiProvider({
   const mostraErrore = useCallback(
     (chiave: string, chi: string) => {
       setErrori((prima) => new Set(prima).add(chiave))
-      annuncia(annuncioNonSalvato(chi))
+      annuncia(t.annuncioNonSalvato(chi))
       const vecchio = timerErrori.current.get(chiave)
       if (vecchio) clearTimeout(vecchio)
       timerErrori.current.set(
@@ -189,7 +191,7 @@ export function FattiProvider({
         }, ERRORE_MS),
       )
     },
-    [annuncia],
+    [annuncia, t],
   )
 
   const segna = useCallback(
@@ -248,13 +250,13 @@ export function FattiProvider({
           role="status"
           className="sticky top-16 z-20 rounded-lg border border-border bg-card px-3 py-2.5 text-sm shadow-md md:top-4"
         >
-          <strong>{FATTO.solaLetturaTitolo}</strong> {FATTO.solaLettura}
+          <strong>{t.fatto.solaLetturaTitolo}</strong> {t.fatto.solaLettura}
         </p>
       ) : null}
       {realtime === 'offline' ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="fatti-offline">
           <Info className="size-4 shrink-0" aria-hidden="true" />
-          {FATTO.realtimeGiu}
+          {t.fatto.realtimeGiu}
         </p>
       ) : null}
       {children}

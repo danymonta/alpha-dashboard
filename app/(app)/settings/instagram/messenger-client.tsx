@@ -12,14 +12,16 @@ import {
 } from '@/app/(app)/settings/instagram/actions'
 import { CasellaCancellaMessaggi } from '@/app/(app)/settings/instagram/instagram-client'
 import { Elimina } from '@/components/form/elimina'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { CLASSE_SELECT, ErroreModulo } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { traduciImpostazioni } from '@/lib/i18n/testi/impostazioni'
+import { INSTAGRAM_IMPOSTAZIONI } from '@/lib/i18n/testi/instagram-impostazioni'
+import { SHELL } from '@/lib/i18n/testi/shell'
 import { esclusioneMessengerSchema, MOTIVO_ESCLUSIONE_MAX } from '@/lib/validation/insight'
-
-const CONNESSIONE = 'Connessione assente. Riprova.'
 
 /**
  * The Page token for the Messenger chats of the Insight (1.35.0), the pattern
@@ -32,6 +34,8 @@ export function TokenMessenger({ presente }: { presente: boolean }) {
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
   const id = useId()
+  const lingua = useLingua()
+  const t = INSTAGRAM_IMPOSTAZIONI[lingua].messengerForm
 
   function invia(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -40,7 +44,7 @@ export function TokenMessenger({ presente }: { presente: boolean }) {
     if (campo.current) campo.current.value = ''
     setErrore(null)
     if (!incollato.trim()) {
-      setErrore('Incolla il token della Pagina copiato da Meta.')
+      setErrore(t.incolla)
       return
     }
     // in a FormData, never as a plain argument: the dev server logs those whole
@@ -51,25 +55,21 @@ export function TokenMessenger({ presente }: { presente: boolean }) {
       try {
         esito = await salvaTokenMessenger(dati)
       } catch {
-        setErrore(CONNESSIONE)
+        setErrore(SHELL[lingua].connessione)
         return
       }
       if (!esito.ok) {
-        setErrore(esito.errore)
+        setErrore(traduciImpostazioni(esito.errore, lingua))
         return
       }
-      toast.success(
-        esito.pagina
-          ? `Pagina «${esito.pagina}» collegata: le chat Messenger arrivano nell’Insight dal prossimo recap.`
-          : 'Pagina collegata: le chat Messenger arrivano nell’Insight dal prossimo recap.',
-      )
+      toast.success(t.collegata(esito.pagina))
     })
   }
 
   return (
     <form onSubmit={invia} noValidate className="space-y-3">
       <div className="space-y-1.5">
-        <Label htmlFor={`${id}-token`}>Token della Pagina</Label>
+        <Label htmlFor={`${id}-token`}>{t.tokenPagina}</Label>
         {/* no name: password managers do not take it for a login */}
         <Input
           ref={campo}
@@ -82,7 +82,7 @@ export function TokenMessenger({ presente }: { presente: boolean }) {
           data-1p-ignore="true"
           data-lpignore="true"
           aria-describedby={errore ? `${id}-errore` : undefined}
-          placeholder={presente ? 'Incolla qui per sostituirlo' : 'Incolla qui il token della Pagina'}
+          placeholder={presente ? t.sostituisci : t.incollaQui}
           className="h-11"
         />
       </div>
@@ -99,19 +99,16 @@ export function TokenMessenger({ presente }: { presente: boolean }) {
           ) : (
             <KeyRound className="size-4" aria-hidden="true" />
           )}
-          {inCorso ? 'Provo il token…' : 'Collega la Pagina'}
+          {inCorso ? t.provo : t.collega}
         </Button>
         {presente ? (
           <div className="sm:w-auto">
             <Elimina
-              cosa="il token della Pagina"
-              fatto="Token della Pagina tolto"
-              etichetta="Togli il token"
+              cosa={t.cosa}
+              fatto={t.tolto}
+              etichetta={t.togli}
               azione={togliTokenMessenger}
-              conseguenze={[
-                'Le chat Messenger non arrivano più nell’Insight finché non incolli un token nuovo.',
-                'Le chat Messenger escluse restano come sono.',
-              ]}
+              conseguenze={[...t.conseguenze]}
               disabilitato={inCorso}
             />
           </div>
@@ -131,6 +128,7 @@ export function RigaEsclusioneMessenger({
   nome: string
   motivo: string | null
 }) {
+  const t = INSTAGRAM_IMPOSTAZIONI[useLingua()].messengerForm
   return (
     <li className="flex items-center gap-2 py-1.5">
       <div className="min-w-0 flex-1">
@@ -139,10 +137,10 @@ export function RigaEsclusioneMessenger({
       </div>
       <Elimina
         variante="icona"
-        cosa={`l’esclusione di ${nome}`}
-        fatto={`${nome} non è più esclusa`}
+        cosa={t.cosaEsclusione(nome)}
+        fatto={t.nonPiu(nome)}
         azione={() => togliEsclusioneMessenger({ utente_id: utenteId })}
-        conseguenze={['La sua chat torna nell’Insight dal recap dopo.']}
+        conseguenze={[t.conseguenzaRiga]}
       />
     </li>
   )
@@ -164,12 +162,14 @@ export function NuovaEsclusioneMessenger({ chat }: { chat: ChatMessenger[] }) {
   const [erroreMotivo, setErroreMotivo] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
   const id = useId()
+  const lingua = useLingua()
+  const t = INSTAGRAM_IMPOSTAZIONI[lingua].messengerForm
 
   if (chat.length === 0) {
     return (
       // where the form would be, under the list: a line, not a second empty box
       <p className="border-t border-border pt-3 text-sm text-muted-foreground">
-        Nessuna chat Messenger da escludere: le chat compaiono qui dopo il primo recap con la Pagina collegata.
+        {t.nessunaDaEscludere}
       </p>
     )
   }
@@ -188,8 +188,8 @@ export function NuovaEsclusioneMessenger({ chat }: { chat: ChatMessenger[] }) {
     })
     if (!parsed.success) {
       for (const problema of parsed.error.issues) {
-        if (problema.path[0] === 'motivo') setErroreMotivo(problema.message)
-        else setErroreChat(problema.message)
+        if (problema.path[0] === 'motivo') setErroreMotivo(traduciImpostazioni(problema.message, lingua))
+        else setErroreChat(traduciImpostazioni(problema.message, lingua))
       }
       return
     }
@@ -198,15 +198,15 @@ export function NuovaEsclusioneMessenger({ chat }: { chat: ChatMessenger[] }) {
       try {
         esito = await escludiChatMessenger(parsed.data)
       } catch {
-        setErrore(CONNESSIONE)
+        setErrore(SHELL[lingua].connessione)
         return
       }
       if (!esito.ok) {
-        setErrore(esito.errore)
+        setErrore(traduciImpostazioni(esito.errore, lingua))
         return
       }
-      toast.success(esito.cancellati ? 'Chat esclusa e messaggi cancellati.' : `${parsed.data.nome} esclusa dall’Insight`)
-      if (esito.avviso) toast.warning(esito.avviso)
+      toast.success(esito.cancellati ? INSTAGRAM_IMPOSTAZIONI[lingua].esclusione.cancellati : t.esclusa(parsed.data.nome))
+      if (esito.avviso) toast.warning(traduciImpostazioni(esito.avviso, lingua))
       setScelta('')
       setMotivo('')
       setCancella(true)
@@ -214,10 +214,10 @@ export function NuovaEsclusioneMessenger({ chat }: { chat: ChatMessenger[] }) {
   }
 
   return (
-    <form onSubmit={invia} noValidate className="space-y-3 border-t border-border pt-3" aria-label="Escludi una chat Messenger">
+    <form onSubmit={invia} noValidate className="space-y-3 border-t border-border pt-3" aria-label={t.form}>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
         <div className="space-y-1.5">
-          <Label htmlFor={`${id}-chat`}>Chat</Label>
+          <Label htmlFor={`${id}-chat`}>{t.chat}</Label>
           <select
             id={`${id}-chat`}
             className={CLASSE_SELECT}
@@ -226,7 +226,7 @@ export function NuovaEsclusioneMessenger({ chat }: { chat: ChatMessenger[] }) {
             aria-invalid={erroreChat ? true : undefined}
             aria-describedby={erroreChat ? `${id}-errore-chat` : undefined}
           >
-            <option value="">Scegli una chat</option>
+            <option value="">{t.scegli}</option>
             {chat.map((c) => (
               <option key={c.utente_id} value={c.utente_id}>
                 {c.nome}
@@ -236,11 +236,11 @@ export function NuovaEsclusioneMessenger({ chat }: { chat: ChatMessenger[] }) {
           <ErroreCampo id={`${id}-errore-chat`} messaggio={erroreChat ?? undefined} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`${id}-motivo`}>Motivo (facoltativo)</Label>
+          <Label htmlFor={`${id}-motivo`}>{INSTAGRAM_IMPOSTAZIONI[lingua].esclusione.motivo}</Label>
           <Input
             id={`${id}-motivo`}
             maxLength={MOTIVO_ESCLUSIONE_MAX}
-            placeholder="Es. cliente, amico, account del team"
+            placeholder={INSTAGRAM_IMPOSTAZIONI[lingua].esclusione.esempioMotivo}
             value={motivo}
             onChange={(e) => setMotivo(e.currentTarget.value)}
             aria-invalid={erroreMotivo ? true : undefined}
@@ -258,7 +258,7 @@ export function NuovaEsclusioneMessenger({ chat }: { chat: ChatMessenger[] }) {
         ) : (
           <Plus className="size-4" aria-hidden="true" />
         )}
-        Escludi la chat
+        {INSTAGRAM_IMPOSTAZIONI[lingua].esclusione.escludi}
       </Button>
     </form>
   )

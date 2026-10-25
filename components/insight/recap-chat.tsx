@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { useAnnuncia } from '@/components/insight/annunci'
 import type { ContenutoCalendario } from '@/components/insight/arriva-da'
 import { ContentRecapSezione } from '@/components/insight/content-recap'
@@ -21,8 +22,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { annoDelRecap, attesaLead } from '@/lib/insight/attesa'
 import type { Fonte } from '@/lib/insight/canale'
-import { applicaFiltro, CHIAVI_FILTRO, contaFiltro, FILTRI, type ChiaveFiltro } from '@/lib/insight/filtri'
-import { ANNUNCIO_FILTRO_TOLTO, annuncioFiltro, LEADS, NUMERI, titoloNonLead } from '@/lib/insight/parole'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
+import { applicaFiltro, CHIAVI_FILTRO, contaFiltro, type ChiaveFiltro } from '@/lib/insight/filtri'
 import { ordinaPerPriorita } from '@/lib/insight/priorita'
 import type { RecapLetto } from '@/lib/insight/recap'
 
@@ -60,6 +61,9 @@ export function RecapChat(props: PropsRecapChat) {
 
 function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRecapChat) {
   const annuncia = useAnnuncia()
+  const lingua = useLingua()
+  const t = INSIGHT_RECAP[lingua]
+  const FILTRI = t.filtri as Record<ChiaveFiltro, { etichetta: string; titolo: string }>
   const [filtro, setFiltro] = useState<ChiaveFiltro | null>(null)
   const tessere = useRef<Partial<Record<ChiaveFiltro, HTMLButtonElement | null>>>({})
   const sezioneFiltrata = useRef<HTMLElement>(null)
@@ -99,13 +103,13 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
     }
     daScorrere.current = true
     setFiltro(chiave)
-    annuncia(annuncioFiltro(FILTRI[chiave].titolo, conteggi[chiave]))
+    annuncia(t.annuncioFiltro(FILTRI[chiave].titolo, conteggi[chiave]))
   }
 
   /** The filter off (its tile again, or «Mostra tutto»): the focus back on its tile, as the artifact. */
   function togli(chiave: ChiaveFiltro) {
     setFiltro(null)
-    annuncia(ANNUNCIO_FILTRO_TOLTO)
+    annuncia(t.annuncioFiltroTolto)
     const tessera = tessere.current[chiave]
     tessera?.focus({ preventScroll: true })
     tessera?.scrollIntoView({ block: 'nearest' })
@@ -133,17 +137,17 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
               {FILTRI[filtro].titolo} <span className="num text-sm font-normal text-muted-foreground">{conteggi[filtro]}</span>
             </h2>
             <Button type="button" variant="outline" className="h-11 px-3" onClick={() => togli(filtro)}>
-              {NUMERI.mostraTutto}
+              {t.numeri.mostraTutto}
             </Button>
           </div>
           {filtrate.length ? (
             <GruppiPriorita leads={filtrate} {...schede} />
           ) : (
-            <p className="text-sm text-muted-foreground">{NUMERI.nessunaInCategoria}</p>
+            <p className="text-sm text-muted-foreground">{t.numeri.nessunaInCategoria}</p>
           )}
           {filtro === 'tutte' && recap.non_leads.length ? (
             <div className="grid gap-2 rounded-xl border border-border bg-card p-4">
-              <h3 className="text-sm font-semibold tracking-wide uppercase">{titoloNonLead(recap.non_leads.length)}</h3>
+              <h3 className="text-sm font-semibold tracking-wide uppercase">{t.titoloNonLead(recap.non_leads.length)}</h3>
               <ElencoNonLead voci={recap.non_leads} fonte={fonte} />
             </div>
           ) : null}
@@ -151,19 +155,19 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
       ) : (
         <section aria-labelledby="titolo-priorita" className="grid gap-3.5">
           <h2 id="titolo-priorita" className="text-lg font-semibold">
-            {LEADS.titolo} <span className="num text-sm font-normal text-muted-foreground">{leads.length}</span>
+            {t.leads.titolo} <span className="num text-sm font-normal text-muted-foreground">{leads.length}</span>
           </h2>
           {leads.length ? (
             <GruppiPriorita leads={leads} {...schede} />
           ) : (
-            <p className="text-sm text-muted-foreground">{LEADS.vuoto}</p>
+            <p className="text-sm text-muted-foreground">{t.leads.vuoto}</p>
           )}
         </section>
       )}
 
       {!filtro ? <DaRiattivare voci={recap.reactivate} {...schede} /> : null}
       <Obiezioni voci={recap.objections} fonte={fonte} />
-      <ContentRecapSezione content={recap.content} calendario={calendario} />
+      <ContentRecapSezione content={recap.content} calendario={calendario} lingua={lingua} />
       {!filtro ? (
         <EscluseRecap voci={recap.non_leads} escluse={recap.escluse} fonte={fonte} admin={admin} />
       ) : null}

@@ -1,7 +1,11 @@
 /**
  * What a deletion takes with it, in words. The numbers come from
- * public.anteprima_eliminazione (SQL); this file only phrases them.
+ * public.anteprima_eliminazione (SQL); this file only phrases them, in Italian
+ * or, with the flag on English (1.62.0), in English. The amount cashed comes
+ * formatted by the SQL, in Italian: it is shown as it is.
  */
+import type { Lingua } from '@/lib/i18n/lingua'
+
 export type TipoEliminazione = 'persona' | 'cliente' | 'vendita' | 'lead' | 'prodotto' | 'reparto'
 
 type Dati = Record<string, number | string | null | undefined>
@@ -19,7 +23,8 @@ function conta(quanti: number, uno: string, tanti: string) {
   return `${quanti} ${quanti === 1 ? uno : tanti}`
 }
 
-export function frasiAnteprima(tipo: TipoEliminazione, dati: Dati): string[] {
+export function frasiAnteprima(tipo: TipoEliminazione, dati: Dati, lingua: Lingua = 'it'): string[] {
+  if (lingua === 'en') return frasiInglese(tipo, dati)
   const frasi: string[] = []
   switch (tipo) {
     case 'persona': {
@@ -77,6 +82,74 @@ export function frasiAnteprima(tipo: TipoEliminazione, dati: Dati): string[] {
         frasi.push(`Ha ancora ${conta(n(dati, 'progetti'), 'progetto', 'progetti')}: spostali in un altro reparto o eliminali prima.`)
       }
       if (n(dati, 'modelli') > 0) frasi.push(`Si eliminano anche ${conta(n(dati, 'modelli'), 'modello', 'modelli')}.`)
+      break
+  }
+  return frasi
+}
+
+function contaEn(quanti: number, uno: string, tanti: string) {
+  return `${quanti} ${quanti === 1 ? uno : tanti}`
+}
+
+/** The same sentences in English. */
+function frasiInglese(tipo: TipoEliminazione, dati: Dati): string[] {
+  const frasi: string[] = []
+  switch (tipo) {
+    case 'persona': {
+      const propri = [
+        n(dati, 'report') && contaEn(n(dati, 'report'), 'daily report', 'daily reports'),
+        n(dati, 'regole') && contaEn(n(dati, 'regole'), 'commission rule', 'commission rules'),
+        n(dati, 'pagamenti_provvigioni') &&
+          contaEn(n(dati, 'pagamenti_provvigioni'), 'commission payment', 'commission payments'),
+        n(dati, 'voci_tempo') && contaEn(n(dati, 'voci_tempo'), 'time entry', 'time entries'),
+        n(dati, 'note') && contaEn(n(dati, 'note'), 'project note', 'project notes'),
+      ].filter(Boolean)
+      if (propri.length > 0) frasi.push(`Also deleted: ${propri.join(', ')}.`)
+      const collegati = [
+        n(dati, 'vendite') && contaEn(n(dati, 'vendite'), 'sale', 'sales'),
+        n(dati, 'call') && contaEn(n(dati, 'call'), 'call', 'calls'),
+        n(dati, 'lead') && contaEn(n(dati, 'lead'), 'lead', 'leads'),
+      ].filter(Boolean)
+      if (collegati.length > 0) frasi.push(`These stay, without their name as setter or closer: ${collegati.join(', ')}.`)
+      if (n(dati, 'progetti') > 0) frasi.push(`They leave ${contaEn(n(dati, 'progetti'), 'project', 'projects')}.`)
+      frasi.push('They will not be able to log in again, unless invited again.')
+      break
+    }
+    case 'cliente':
+      if (n(dati, 'vendite') > 0) {
+        frasi.push(
+          `Also deleted: ${contaEn(n(dati, 'vendite'), 'sale', 'sales')} and ${contaEn(n(dati, 'rate'), 'instalment', 'instalments')}` +
+            (incassato(dati) ? `, with ${dati.incassato} already cashed.` : '.'),
+        )
+      }
+      frasi.push('The numbers of past months change accordingly.')
+      if (n(dati, 'cartella_drive') > 0) frasi.push('The link to their Drive folder goes too: the folder on Drive stays.')
+      if (n(dati, 'progetti') > 0) frasi.push('Their project in Projects stays, without the link to the client.')
+      break
+    case 'vendita':
+      frasi.push(
+        `Also deleted: ${contaEn(n(dati, 'rate'), 'instalment', 'instalments')}` +
+          (n(dati, 'rate_incassate') > 0
+            ? `, of which ${n(dati, 'rate_incassate')} cashed (${dati.incassato ?? '0,00 €'}).`
+            : '.'),
+      )
+      frasi.push('Cash, revenue and commissions of the months involved change accordingly.')
+      break
+    case 'lead':
+      if (n(dati, 'call') > 0) frasi.push(`Also deleted: ${contaEn(n(dati, 'call'), 'call', 'calls')}.`)
+      if (n(dati, 'clienti_collegati') > 0) frasi.push('The client born from this lead stays, with their sales.')
+      break
+    case 'prodotto':
+      if (n(dati, 'vendite') > 0) {
+        frasi.push(`${contaEn(n(dati, 'vendite'), 'sale keeps', 'sales keep')} the product's name.`)
+      }
+      if (n(dati, 'call') > 0) frasi.push(`${contaEn(n(dati, 'call'), 'call loses', 'calls lose')} the proposed product.`)
+      break
+    case 'reparto':
+      if (n(dati, 'progetti') > 0) {
+        frasi.push(`It still has ${contaEn(n(dati, 'progetti'), 'project', 'projects')}: move them to another department or delete them first.`)
+      }
+      if (n(dati, 'modelli') > 0) frasi.push(`Also deleted: ${contaEn(n(dati, 'modelli'), 'template', 'templates')}.`)
       break
   }
   return frasi

@@ -22,14 +22,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { useLingua } from '@/components/i18n/lingua-provider'
 import { formato } from '@/lib/format'
 import { CLIENTI } from '@/lib/i18n/testi/clienti'
+import { SOSPENSIONE } from '@/lib/i18n/testi/clienti-fogli'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
 import { MOTIVO_SOSPENSIONE_MAX, sospensioneClienteSchema } from '@/lib/validation/sospensione'
-
-/** What putting a client on hold does, before the confirmation. */
-const COSA_CAMBIA = [
-  'Risulta «Sospeso» in Clienti, in una scheda a parte: esce da «In scadenza» e dai rinnovi da chiamare, e non partono i promemoria del suo percorso.',
-  'Il percorso e le rate restano come sono: le date non si spostano e gli incassi continuano a contare.',
-  'Con «Riattiva» torna con lo stato che dicono le date; se compra di nuovo o lo chiudi con «Non rinnova», la sospensione finisce da sola.',
-]
 
 type Sospensione = { sospeso_il: string; motivo: string | null }
 
@@ -50,6 +45,8 @@ export function Sospendi({
   sospensione?: Sospensione | null
 }) {
   const id = useId()
+  const lingua = useLingua()
+  const t = SOSPENSIONE[lingua]
   const [aperto, setAperto] = useState(false)
   const [giorno, setGiorno] = useState(sospensione?.sospeso_il ?? oggi)
   const [motivo, setMotivo] = useState(sospensione?.motivo ?? '')
@@ -68,7 +65,7 @@ export function Sospendi({
     }
     setErrori({})
     setInCorso(true)
-    const fatto = await salva(() => sospendiCliente(dati), sospensione ? 'Sospensione aggiornata' : 'Cliente sospeso')
+    const fatto = await salva(() => sospendiCliente(dati), sospensione ? t.aggiornata : t.sospeso)
     setInCorso(false)
     if (fatto) setAperto(false)
   }
@@ -91,7 +88,7 @@ export function Sospendi({
             variant="ghost"
             size="icon"
             className="size-11 shrink-0 text-muted-foreground"
-            aria-label="Modifica giorno e motivo della sospensione"
+            aria-label={t.modificaNome}
             data-testid="modifica-sospensione"
           />
         ) : (
@@ -104,20 +101,16 @@ export function Sospendi({
         ) : (
           <>
             <CirclePause className="size-4" aria-hidden="true" />
-            Sospendi
+            {t.sospendi}
           </>
         )
       }
-      titolo="Sospendi"
-      descrizione={
-        sospensione
-          ? `${cliente} è sospeso: correggi il giorno o il motivo.`
-          : `${cliente} va in pausa: lo sospendi e lo trovi nella scheda «Sospesi» di Clienti.`
-      }
+      titolo={t.sospendi}
+      descrizione={sospensione ? t.descrizioneSospeso(cliente) : t.descrizione(cliente)}
     >
       <form onSubmit={conferma} noValidate className="space-y-5">
         <div className="space-y-1.5">
-          <Label htmlFor={`${id}-giorno`}>Sospeso dal</Label>
+          <Label htmlFor={`${id}-giorno`}>{t.sospesoDal}</Label>
           <Input
             id={`${id}-giorno`}
             type="date"
@@ -131,15 +124,15 @@ export function Sospendi({
             aria-describedby={errori.giorno ? `${id}-giorno-errore` : `${id}-giorno-aiuto`}
             className="num h-11 [color-scheme:dark]"
           />
-          <ErroreCampo id={`${id}-giorno-errore`} messaggio={errori.giorno} />
+          <ErroreCampo id={`${id}-giorno-errore`} messaggio={traduciErrore(errori.giorno, lingua)} />
           <p id={`${id}-giorno-aiuto`} className="text-xs text-muted-foreground">
-            Di solito oggi; mai nel futuro.
+            {t.diSolitoOggi}
           </p>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor={`${id}-motivo`}>
-            Perché lo sospendi <span className="font-normal text-muted-foreground">(facoltativo)</span>
+            {t.perche} <span className="font-normal text-muted-foreground">{t.facoltativo}</span>
           </Label>
           <Textarea
             id={`${id}-motivo`}
@@ -150,20 +143,20 @@ export function Sospendi({
             }}
             maxLength={MOTIVO_SOSPENSIONE_MAX}
             rows={3}
-            placeholder="Es. viaggio di lavoro, riprende tra due settimane"
+            placeholder={t.placeholder}
             aria-invalid={errori.motivo ? true : undefined}
             aria-describedby={errori.motivo ? `${id}-motivo-errore` : `${id}-motivo-conta`}
             className="max-h-40"
           />
-          <ErroreCampo id={`${id}-motivo-errore`} messaggio={errori.motivo} />
+          <ErroreCampo id={`${id}-motivo-errore`} messaggio={traduciErrore(errori.motivo, lingua)} />
           <p id={`${id}-motivo-conta`} className="num text-right text-xs text-muted-foreground">
             {motivo.length}/{MOTIVO_SOSPENSIONE_MAX}
           </p>
         </div>
 
         {sospensione ? null : (
-          <ul className="space-y-1.5 rounded-lg bg-muted/40 p-3 text-sm" aria-label="Cosa cambia">
-            {COSA_CAMBIA.map((frase) => (
+          <ul className="space-y-1.5 rounded-lg bg-muted/40 p-3 text-sm" aria-label={t.cosaCambiaNome}>
+            {t.cosaCambia.map((frase) => (
               <li key={frase} className="flex gap-2">
                 <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 {frase}
@@ -172,8 +165,8 @@ export function Sospendi({
           </ul>
         )}
 
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={inCorso}>{sospensione ? 'Salva' : 'Sospendi il cliente'}</BottoneSalva>
+        <ErroreModulo testo={traduciErrore(errore, lingua) ?? null} />
+        <BottoneSalva inCorso={inCorso}>{sospensione ? t.salva : t.sospendiCliente}</BottoneSalva>
       </form>
     </FoglioModifica>
   )
@@ -184,6 +177,8 @@ export function Sospendi({
  * A question first: the day and the reason of the hold are lost.
  */
 export function RiattivaCliente({ clientId, cliente }: { clientId: string; cliente: string }) {
+  const lingua = useLingua()
+  const t = SOSPENSIONE[lingua]
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
@@ -202,7 +197,7 @@ export function RiattivaCliente({ clientId, cliente }: { clientId: string; clien
         setErrore(esito.errore)
         return
       }
-      toast.success('Cliente riattivato')
+      toast.success(t.riattivato)
       setAperto(false)
     })
   }
@@ -213,7 +208,7 @@ export function RiattivaCliente({ clientId, cliente }: { clientId: string; clien
         type="button"
         variant="outline"
         className="h-11 shrink-0"
-        aria-label={`Riattiva ${cliente}`}
+        aria-label={t.riattivaNome(cliente)}
         data-testid="riattiva"
         onClick={() => {
           setErrore(null)
@@ -221,26 +216,22 @@ export function RiattivaCliente({ clientId, cliente }: { clientId: string; clien
         }}
       >
         <CirclePlay className="size-4" aria-hidden="true" />
-        Riattiva
+        {t.riattiva}
       </Button>
       <Dialog open={aperto} onOpenChange={(v) => !inCorso && setAperto(v)}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Riattivare {cliente}?</DialogTitle>
-            <DialogDescription>
-              Torna con lo stato che dicono le date del suo percorso (di nuovo in «In scadenza» se ci rientra, con i
-              promemoria ancora dovuti). Il giorno e il motivo della sospensione si tolgono; percorso, rate e incassi
-              restano come sono.
-            </DialogDescription>
+            <DialogTitle>{t.riattivare(cliente)}</DialogTitle>
+            <DialogDescription>{t.riattivaDescrizione}</DialogDescription>
           </DialogHeader>
           {errore ? (
             <p role="alert" className="text-sm text-status-critical">
-              {errore}
+              {traduciErrore(errore, lingua)}
             </p>
           ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={() => setAperto(false)}>
-              Annulla
+              {t.annulla}
             </Button>
             <Button type="button" className="h-11" disabled={inCorso} data-testid="conferma-riattiva" onClick={conferma}>
               {inCorso ? (
@@ -248,7 +239,7 @@ export function RiattivaCliente({ clientId, cliente }: { clientId: string; clien
               ) : (
                 <CirclePlay className="size-4" aria-hidden="true" />
               )}
-              Riattiva
+              {t.riattiva}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -282,7 +273,7 @@ export function SospensioneCliente({
       <div className="min-w-0 flex-1 py-1.5">
         <p className="text-sm font-medium">
           {t.sospesoDalRiga} <span className="num">{formatData(sospensione.sospeso_il)}</span>
-          {sospensione.motivo ? <span className="font-normal text-muted-foreground"> · {sospensione.motivo}</span> : null}
+          {sospensione.motivo ? <span lang="it" className="font-normal text-muted-foreground"> · {sospensione.motivo}</span> : null}
         </p>
         {sospensione.motivo ? null : <p className="mt-0.5 text-xs text-muted-foreground">{t.nessunMotivo}</p>}
       </div>

@@ -16,7 +16,9 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { FOLLOW_UP, quandoFollowUpDa } from '@/lib/call/follow-up'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { FOLLOW_UP_TESTI, quandoFollowUpDaIn } from '@/lib/i18n/testi/esito'
 import { spostamentoPredefinito } from '@/lib/call/spostamento'
 import { erroreGiornoFollowUp } from '@/lib/validation/call'
 
@@ -46,6 +48,7 @@ export function CampiFollowUp({
   setter: string | null
   errore?: string | null
 }) {
+  const FOLLOW_UP = FOLLOW_UP_TESTI[useLingua()]
   return (
     <>
       <CampiSpostamento
@@ -90,6 +93,8 @@ type Props = {
  */
 export function FissaFollowUp({ callId, idTitolo, nomeLead, descrizione, giorno, ora, oggi, admin, setter }: Props) {
   const id = useId()
+  const lingua = useLingua()
+  const FOLLOW_UP = FOLLOW_UP_TESTI[lingua]
   // the day after the call, at its time, never before tomorrow (as "Sposta")
   const iniziale = spostamentoPredefinito(giorno, ora, oggi)
   const [aperto, setAperto] = useState(false)
@@ -130,7 +135,7 @@ export function FissaFollowUp({ callId, idTitolo, nomeLead, descrizione, giorno,
         setErrore(esito.errore)
         return
       }
-      toast.success(FOLLOW_UP.fatto(nomeLead), { description: quandoFollowUpDa(data, oraScelta, oggi) })
+      toast.success(FOLLOW_UP.fatto(nomeLead), { description: quandoFollowUpDaIn(data, oraScelta, oggi, lingua) })
       setAperto(false)
       // «Follow-up in chat» becomes «Call di follow-up: …»: this button goes, the focus goes to the card's title
       riuscito()
@@ -185,7 +190,7 @@ export function FissaFollowUp({ callId, idTitolo, nomeLead, descrizione, giorno,
           {errore ? (
             <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {errore}
+              {traduciErrore(errore, lingua)}
             </p>
           ) : null}
 

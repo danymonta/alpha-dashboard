@@ -26,7 +26,7 @@ export function MessaggioCopiabile({
         <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{eyebrow}</span>
         <BottoneCopia testo={testo} nome={nomeCopia} />
       </div>
-      <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{testo}</p>
+      <p lang="it" className="whitespace-pre-wrap [overflow-wrap:anywhere]">{testo}</p>
     </div>
   )
 }

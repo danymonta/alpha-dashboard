@@ -11,8 +11,12 @@ import { FiltroSelect } from '@/components/pm/filtri'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, etichettaGiorno, isDataISO, oggiRoma } from '@/lib/date'
-import { formatData, formatEuro, formatNumero, parseDataISO } from '@/lib/format'
-import { LEGENDA_CLOSER, type VoceLegenda } from '@/lib/metriche/legenda'
+import { formato, GIORNI_EN, parseDataISO } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { getLingua } from '@/lib/i18n/server'
+import { GIORNATA_CLOSER } from '@/lib/i18n/testi/closer'
+import type { VoceLegenda } from '@/lib/metriche/legenda'
+import { legende } from '@/lib/metriche/legenda-en'
 import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
@@ -35,21 +39,31 @@ type Conti = {
 }
 
 // The day's row of Dany's Excel, CLOSER half, in its order: counts, then the money
-const COLONNE: readonly { campo: keyof Conti; voce: VoceLegenda; euro?: true }[] = [
-  { campo: 'call', voce: LEGENDA_CLOSER.call },
-  { campo: 'qualificate', voce: LEGENDA_CLOSER.qualificate },
-  { campo: 'no_show', voce: LEGENDA_CLOSER.no_show },
-  { campo: 'follow_up', voce: LEGENDA_CLOSER.follow_up },
-  { campo: 'cancellate', voce: LEGENDA_CLOSER.cancellate },
-  { campo: 'chiuse', voce: LEGENDA_CLOSER.chiuse },
-  { campo: 'cash', voce: LEGENDA_CLOSER.cash, euro: true },
-  { campo: 'revenue', voce: LEGENDA_CLOSER.revenue, euro: true },
-]
+function colonne(lingua: Lingua): readonly { campo: keyof Conti; voce: VoceLegenda; euro?: true }[] {
+  const LEGENDA_CLOSER = legende(lingua).closer
+  return [
+    { campo: 'call', voce: LEGENDA_CLOSER.call },
+    { campo: 'qualificate', voce: LEGENDA_CLOSER.qualificate },
+    { campo: 'no_show', voce: LEGENDA_CLOSER.no_show },
+    { campo: 'follow_up', voce: LEGENDA_CLOSER.follow_up },
+    { campo: 'cancellate', voce: LEGENDA_CLOSER.cancellate },
+    { campo: 'chiuse', voce: LEGENDA_CLOSER.chiuse },
+    { campo: 'cash', voce: LEGENDA_CLOSER.cash, euro: true },
+    { campo: 'revenue', voce: LEGENDA_CLOSER.revenue, euro: true },
+  ]
+}
+const COLONNE = colonne('it')
 
 const giornoSettimana = new Intl.DateTimeFormat('it-IT', { weekday: 'long' })
 
 /** "Oggi", "Ieri", "Domani", or the weekday ("Giovedì"): the full date sits next to it. */
-function nomeGiorno(data: string, oggi: string): string {
+function nomeGiorno(data: string, oggi: string, lingua: Lingua): string {
+  if (lingua === 'en') {
+    if (data === oggi) return 'Today'
+    if (data === aggiungiGiorni(oggi, -1)) return 'Yesterday'
+    if (data === aggiungiGiorni(oggi, 1)) return 'Tomorrow'
+    return GIORNI_EN[parseDataISO(data).getDay()]
+  }
   const relativo = etichettaGiorno(data, oggi)
   if (['Oggi', 'Ieri', 'Domani'].includes(relativo)) return relativo
   const nome = giornoSettimana.format(parseDataISO(data))
@@ -70,7 +84,7 @@ function hrefGiorno(data: string, oggi: string, closer: string | undefined): str
 }
 
 /** Data loading, kept out of the render: it reads the clock. */
-async function caricaGiornata(data: string, closerId: string, admin: boolean) {
+async function caricaGiornata(data: string, closerId: string, admin: boolean, errore: string) {
   const supabase = await createClient()
 
   // Rome is UTC+1 or +2: this window holds the whole Italian day, the filter below cuts it
@@ -86,7 +100,7 @@ async function caricaGiornata(data: string, closerId: string, admin: boolean) {
       .limit(200),
     supabase.from('products').select('id, nome').eq('attivo', true).order('nome'),
   ])
-  if (conti.error || chiamate.error || catalogo.error) throw new Error('Impossibile caricare la giornata')
+  if (conti.error || chiamate.error || catalogo.error) throw new Error(errore)
 
   // the day's numbers from SQL: the total row (data null) of a one-day period;
   // on a day where nothing happened its sums are null, read as zero
@@ -108,6 +122,10 @@ export default async function CompilaGiornataPage({ searchParams }: { searchPara
   const admin = profilo.ruolo === 'admin'
   const oggi = oggiRoma()
   const parametri = await searchParams
+  const lingua = await getLingua()
+  const t = GIORNATA_CLOSER[lingua]
+  const { formatData, formatEuro, formatNumero } = formato(lingua)
+  const voci = colonne(lingua)
 
   const richiesta = primo(parametri.data)
   const data = isDataISO(richiesta) ? richiesta : oggi
@@ -122,7 +140,7 @@ export default async function CompilaGiornataPage({ searchParams }: { searchPara
       .eq('attivo', true)
       .in('ruolo', ['admin', 'closer'])
       .order('created_at')
-    if (error) throw new Error('Impossibile caricare i closer')
+    if (error) throw new Error(t.erroreCloser)
     // admins first (Dany), then closers: the same order as "Nuova call"
     closers = [...persone.filter((p) => p.ruolo === 'admin'), ...persone.filter((p) => p.ruolo === 'closer')].map(
       ({ id, nome }) => ({ id, nome }),
@@ -134,7 +152,7 @@ export default async function CompilaGiornataPage({ searchParams }: { searchPara
     admin && isUuid(richiesto) && richiesto !== profilo.id && closers.some((c) => c.id === richiesto) ? richiesto : undefined
   const closerId = altroCloser ?? profilo.id
 
-  const { conti, calls, prodotti, adesso, puoRiassegnare } = await caricaGiornata(data, closerId, admin)
+  const { conti, calls, prodotti, adesso, puoRiassegnare } = await caricaGiornata(data, closerId, admin, t.errore)
 
   const precedente = aggiungiGiorni(data, -1)
   const successivo = aggiungiGiorni(data, 1)
@@ -149,31 +167,31 @@ export default async function CompilaGiornataPage({ searchParams }: { searchPara
   const aggiungi = admin ? (
     <LinkBottone href={nuovaCall}>
       <CalendarPlus className="size-4" aria-hidden="true" />
-      Aggiungi una call
+      {t.aggiungi}
     </LinkBottone>
   ) : null
 
   return (
     <div className="max-w-3xl space-y-5">
       <IntestazionePagina
-        titolo="Compila la giornata"
-        indietro={{ href: '/setting/closer', etichetta: admin ? 'Closer' : 'I miei numeri' }}
-        descrizione="Registra l’esito di ogni call del giorno: la riga del closer si compila da sola."
+        titolo={t.titolo}
+        indietro={{ href: '/setting/closer', etichetta: admin ? t.indietroAdmin : t.indietroCloser }}
+        descrizione={t.descrizione}
         azione={aggiungi}
       />
 
-      <nav className="flex items-center justify-between gap-2" aria-label="Cambia giorno">
-        <NavGiorno href={hrefGiorno(precedente, oggi, altroCloser)} etichetta="Giorno precedente">
+      <nav className="flex items-center justify-between gap-2" aria-label={t.cambiaGiorno}>
+        <NavGiorno href={hrefGiorno(precedente, oggi, altroCloser)} etichetta={t.giornoPrecedente}>
           <ChevronLeft className="size-5" aria-hidden="true" />
         </NavGiorno>
         <div className="min-w-0 text-center">
           <h2 className="font-heading text-lg font-semibold" data-testid="giorno">
-            {nomeGiorno(data, oggi)}
+            {nomeGiorno(data, oggi, lingua)}
             <span className="num ml-2 text-sm font-normal text-muted-foreground">{formatData(data)}</span>
           </h2>
-          <SceltaGiorno data={data} percorso={PERCORSO} closer={altroCloser} />
+          <SceltaGiorno data={data} percorso={PERCORSO} closer={altroCloser} testo={t.unAltroGiorno} etichetta={t.scegliGiorno} />
         </div>
-        <NavGiorno href={hrefGiorno(successivo, oggi, altroCloser)} etichetta="Giorno successivo">
+        <NavGiorno href={hrefGiorno(successivo, oggi, altroCloser)} etichetta={t.giornoSuccessivo}>
           <ChevronRight className="size-5" aria-hidden="true" />
         </NavGiorno>
       </nav>
@@ -181,22 +199,22 @@ export default async function CompilaGiornataPage({ searchParams }: { searchPara
       {closers.length > 1 ? (
         <FiltroSelect
           id="filtro-closer"
-          etichetta="Closer"
+          etichetta={t.closer}
           nome="closer"
           valore={closerId}
           predefinito={profilo.id}
-          opzioni={closers.map((c) => ({ valore: c.id, etichetta: c.id === profilo.id ? `${c.nome} (tu)` : c.nome }))}
+          opzioni={closers.map((c) => ({ valore: c.id, etichetta: c.id === profilo.id ? t.tu(c.nome) : c.nome }))}
           parametri={{ data: data === oggi ? undefined : data, closer: altroCloser }}
         />
       ) : null}
 
       <section aria-labelledby="riga-del-giorno" className="space-y-2">
         <h2 id="riga-del-giorno" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          La riga del giorno
+          {t.rigaDelGiorno}
         </h2>
         {/* 390px: counts three by three, the money two by two; wider, four by four, the money last */}
         <dl className="grid grid-cols-6 gap-x-3 gap-y-4 rounded-xl bg-card p-4 md:grid-cols-4" data-testid="riga-giorno">
-          {COLONNE.map((c) => (
+          {voci.map((c) => (
             <div
               key={c.campo}
               className={cn('min-w-0 md:col-span-1', c.euro ? 'col-span-3' : 'col-span-2')}
@@ -218,28 +236,23 @@ export default async function CompilaGiornataPage({ searchParams }: { searchPara
           ))}
         </dl>
         <p className="px-1 text-xs text-muted-foreground">
-          I numeri vengono dagli esiti registrati su ogni call qui sotto; cash e revenue dalla vendita che registri
-          quando una call è chiusa.
+          {t.notaRiga}
         </p>
       </section>
 
       <section aria-labelledby="call-del-giorno" className="space-y-2">
         <h2 id="call-del-giorno" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Le call del giorno ({calls.length})
+          {t.callDelGiorno(calls.length)}
         </h2>
         {calls.length === 0 ? (
           <StatoVuoto
             Icona={PhoneOff}
-            titolo="Nessuna call in questo giorno"
-            descrizione={
-              admin
-                ? 'Una call fatta che qui non c’è? Aggiungila: poi ne registri l’esito da qui.'
-                : 'Le call che ti assegnano compaiono qui, con l’esito da registrare.'
-            }
+            titolo={t.vuoto}
+            descrizione={admin ? t.vuotoAdmin : t.vuotoCloser}
             azione={
               aggiungi ?? (
                 <LinkBottone href="/calls" variant="outline">
-                  Vai alle mie call
+                  {t.vaiCall}
                 </LinkBottone>
               )
             }
@@ -260,13 +273,14 @@ export default async function CompilaGiornataPage({ searchParams }: { searchPara
                 eliminabile={admin}
                 // a call closed here: the sale is dated on this day and comes back here
                 tornaA={qui}
+                lingua={lingua}
               />
             ))}
           </div>
         )}
       </section>
 
-      <LegendaSezione voci={COLONNE.map((c) => c.voce)} />
+      <LegendaSezione voci={voci.map((c) => c.voce)} />
     </div>
   )
 }

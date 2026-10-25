@@ -10,7 +10,8 @@
  * of daylight saving time in between does not move them.
  */
 import { aggiungiGiorni } from '@/lib/date'
-import { formatData, formatMeseBreve } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
 import { formaDi, giorniTra, type Forma } from '@/lib/gantt'
 import type { StatoProgetto } from '@/lib/progetti'
 
@@ -100,17 +101,20 @@ export function senzaCoachDaSegnalare(
  * past, a client's path "finito il 04/10/2026" (nothing late about it, as on
  * the card), any other project "doveva finire il 04/10/2026".
  */
-export function testoFine(fine: FineProgetto, perCliente: boolean): string {
+export function testoFine(fine: FineProgetto, perCliente: boolean, lingua: Lingua = 'it'): string {
+  const { formatData } = formato(lingua)
+  const en = lingua === 'en'
   switch (fine.tipo) {
     case 'chiuso':
     case 'senza_fine':
       return ''
     case 'finito':
+      if (en) return perCliente ? `ended on ${formatData(fine.data)}` : `was due to end on ${formatData(fine.data)}`
       return perCliente ? `finito il ${formatData(fine.data)}` : `doveva finire il ${formatData(fine.data)}`
     default:
-      if (fine.giorni === 0) return 'finisce oggi'
-      if (fine.giorni === 1) return 'finisce domani'
-      return `tra ${fine.giorni} giorni`
+      if (fine.giorni === 0) return en ? 'ends today' : 'finisce oggi'
+      if (fine.giorni === 1) return en ? 'ends tomorrow' : 'finisce domani'
+      return en ? `in ${fine.giorni} days` : `tra ${fine.giorni} giorni`
   }
 }
 
@@ -310,7 +314,8 @@ export type TaccaTimeline = {
  * or every quarter ("ott–dic 26"). Positions in days from the start of the
  * window: the caller turns them into lengths.
  */
-export function taccheTimeline(intervallo: Intervallo, scala: ScalaTimeline): TaccaTimeline[] {
+export function taccheTimeline(intervallo: Intervallo, scala: ScalaTimeline, lingua: Lingua = 'it'): TaccaTimeline[] {
+  const { formatMeseBreve } = formato(lingua)
   const { da, a } = intervallo
   const passo = scala === 'trimestri' ? 3 : 1
   const risultato: TaccaTimeline[] = []

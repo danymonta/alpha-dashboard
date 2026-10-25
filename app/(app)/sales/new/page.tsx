@@ -13,13 +13,17 @@ import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { percorsoDiRitorno } from '@/lib/auth/origine'
 import { requireRuolo } from '@/lib/auth/session'
-import { GIORNI_VENDITA_VICINA, VENDITA_DA_REGISTRARE, dettaglioVendita } from '@/lib/call/follow-up'
+import { GIORNI_VENDITA_VICINA } from '@/lib/call/follow-up'
 import { aggiungiGiorni, oggiRoma, stessoGiornoTraMesi } from '@/lib/date'
-import { formatData, formatEuro, formatImportoInput } from '@/lib/format'
+import { formato, formatImportoInput } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { getLingua } from '@/lib/i18n/server'
+import { VENDITA_TESTI, dettaglioVenditaIn } from '@/lib/i18n/testi/esito'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { NUOVA_VENDITA } from '@/lib/i18n/testi/nuova-vendita'
 import { createClient } from '@/lib/supabase/server'
 import { leggiPianoPredefinito } from '@/lib/validation/anagrafiche'
 import {
-  ETICHETTA_TIPO_VENDITA,
   GIORNI_INIZIO_PRIMA,
   TIPI_VENDITA,
   inizioMassimo,
@@ -34,14 +38,16 @@ function Pagina({
   descrizione,
   indietro,
   children,
+  lingua,
 }: {
   descrizione?: string
   indietro: Indietro
   children: ReactNode
+  lingua: Lingua
 }) {
   return (
     <div className="max-w-xl space-y-6">
-      <IntestazionePagina titolo="Nuova vendita" descrizione={descrizione} indietro={indietro} />
+      <IntestazionePagina titolo={NUOVA_VENDITA[lingua].titolo} descrizione={descrizione} indietro={indietro} />
       {children}
     </div>
   )
@@ -52,24 +58,28 @@ function Impossibile({
   descrizione,
   azione,
   indietro,
+  lingua,
 }: {
   titolo: string
   descrizione: string
   azione: ReactNode
   indietro: Indietro
+  lingua: Lingua
 }) {
   return (
-    <Pagina indietro={indietro}>
+    <Pagina indietro={indietro} lingua={lingua}>
       <StatoVuoto Icona={SearchX} titolo={titolo} descrizione={descrizione} azione={azione} />
     </Pagina>
   )
 }
 
-const tornaAlleCall = (
-  <LinkBottone href="/calls" variant="outline">
-    Torna alle mie call
-  </LinkBottone>
-)
+function TornaAlleCall({ lingua }: { lingua: Lingua }) {
+  return (
+    <LinkBottone href="/calls" variant="outline">
+      {NUOVA_VENDITA[lingua].tornaAlleCall}
+    </LinkBottone>
+  )
+}
 
 type VenditaPassata = {
   tipo: TipoVendita
@@ -112,14 +122,19 @@ function VenditaGiaRegistrata({
   callId,
   nomeLead,
   hrefVendita,
+  lingua,
 }: {
   vendite: VenditaSimile[]
   admin: boolean
   callId: string
   nomeLead: string
   hrefVendita: string
+  lingua: Lingua
 }) {
   const idTitolo = 'vendita-gia-registrata'
+  const VENDITA_DA_REGISTRARE = VENDITA_TESTI[lingua]
+  const ETICHETTA_TIPO_VENDITA = ETICHETTE[lingua].tipoVendita
+  const { formatData, formatEuro } = formato(lingua)
   return (
     <section
       aria-labelledby={idTitolo}
@@ -133,7 +148,7 @@ function VenditaGiaRegistrata({
       <p className="text-sm text-muted-foreground">{VENDITA_DA_REGISTRARE.giaRegistrataTesto}</p>
       <ul className="space-y-2">
         {vendite.map((v) => {
-          const dettaglio = dettaglioVendita(ETICHETTA_TIPO_VENDITA[v.tipo], formatData(v.data_vendita), formatEuro(v.valore_contratto))
+          const dettaglio = dettaglioVenditaIn(ETICHETTA_TIPO_VENDITA[v.tipo], formatData(v.data_vendita), formatEuro(v.valore_contratto), lingua)
           return (
             <li key={v.sale_id} className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
@@ -176,18 +191,22 @@ export default async function NuovaVenditaPage({
 }) {
   const profilo = await requireRuolo(['closer', 'admin'])
   const { call: callId, cliente: clienteId, tipo, da } = await searchParams
+  const lingua = await getLingua()
+  const t = NUOVA_VENDITA[lingua]
+  const { formatData } = formato(lingua)
+  const tornaAlleCall = <TornaAlleCall lingua={lingua} />
   // "?da=": the page the call was closed from (the closer's day), only a path of this app
   const tornaA = percorsoDiRitorno(da)
   // back to where the sale starts from: that page, the closed call, the client's page, or the sales list
   const indietro: Indietro = tornaA
-    ? { href: tornaA, etichetta: 'Indietro' }
+    ? { href: tornaA, etichetta: t.indietro }
     : callId
-      ? { href: '/calls', etichetta: 'Le mie call' }
+      ? { href: '/calls', etichetta: t.leMieCall }
       : clienteId && profilo.ruolo === 'admin'
-        ? { href: `/clients/${clienteId}`, etichetta: 'Scheda cliente' }
+        ? { href: `/clients/${clienteId}`, etichetta: t.schedaCliente }
         : profilo.ruolo === 'admin'
-          ? { href: '/sales', etichetta: 'Vendite' }
-          : { href: '/my-sales', etichetta: 'Le mie vendite' }
+          ? { href: '/sales', etichetta: t.vendite }
+          : { href: '/my-sales', etichetta: t.leMieVendite }
   const supabase = await createClient()
   const nessuno = Promise.resolve({ data: null })
 
@@ -223,7 +242,7 @@ export default async function NuovaVenditaPage({
           .eq('client_id', clienteId)
       : nessuno,
   ])
-  if (erroreProdotti) throw new Error('Impossibile caricare i prodotti')
+  if (erroreProdotti) throw new Error(t.errore)
 
   const oggi = oggiRoma()
   let clienteEsistente: { id: string; nome: string } | null = null
@@ -243,8 +262,9 @@ export default async function NuovaVenditaPage({
       return (
         <Impossibile
           indietro={indietro}
-          titolo="Call non trovata"
-          descrizione="La call non esiste o non è assegnata a te."
+          lingua={lingua}
+          titolo={t.callNonTrovata}
+          descrizione={t.callNonTrovataDescrizione}
           azione={tornaAlleCall}
         />
       )
@@ -253,8 +273,9 @@ export default async function NuovaVenditaPage({
       return (
         <Impossibile
           indietro={indietro}
-          titolo="La call non risulta chiusa"
-          descrizione="Una vendita nasce da una call con esito «Chiusa». Registra prima l’esito."
+          lingua={lingua}
+          titolo={t.nonChiusa}
+          descrizione={t.nonChiusaDescrizione}
           azione={tornaAlleCall}
         />
       )
@@ -264,11 +285,10 @@ export default async function NuovaVenditaPage({
       return (
         <Impossibile
           indietro={indietro}
-          titolo="Vendita già registrata"
-          descrizione="Questa call ha già la sua vendita: aprila per vedere il piano rate."
-          azione={
-            <LinkBottone href={`/sales/${venditaEsistente.id}`}>Apri la vendita</LinkBottone>
-          }
+          lingua={lingua}
+          titolo={t.giaRegistrata}
+          descrizione={t.giaRegistrataDescrizione}
+          azione={<LinkBottone href={`/sales/${venditaEsistente.id}`}>{t.apriVendita}</LinkBottone>}
         />
       )
     }
@@ -288,7 +308,7 @@ export default async function NuovaVenditaPage({
     const dal = aggiungiGiorni(giornoCall, -GIORNI_VENDITA_VICINA)
     const al = aggiungiGiorni(giornoCall, GIORNI_VENDITA_VICINA)
     simili = (candidate.data ?? []).filter((v) => v.stesso_cliente && v.data_vendita >= dal && v.data_vendita <= al)
-    nomeLead = call.lead?.nome ?? 'Lead senza nome'
+    nomeLead = call.lead?.nome ?? t.leadSenzaNome
 
     if (cliente) {
       clienteEsistente = { id: cliente.id, nome: [cliente.nome, cliente.cognome].filter(Boolean).join(' ') }
@@ -304,9 +324,9 @@ export default async function NuovaVenditaPage({
     dataVenditaIniziale = giornoCall < oggi ? giornoCall : oggi
 
     riepilogo = [
-      ['Setter', call.setter?.nome ?? '–'],
-      ['Closer', call.closer?.nome ?? '–'],
-      ['Call del', formatData(giornoCall)],
+      [t.setter, call.setter?.nome ?? '–'],
+      [t.closer, call.closer?.nome ?? '–'],
+      [t.callDel, formatData(giornoCall)],
     ]
   } else if (clienteId) {
     const cliente = clienteScelto
@@ -314,8 +334,9 @@ export default async function NuovaVenditaPage({
       return (
         <Impossibile
           indietro={indietro}
-          titolo="Cliente non trovato"
-          descrizione="Il cliente non esiste o non è tra i tuoi."
+          lingua={lingua}
+          titolo={t.clienteNonTrovato}
+          descrizione={t.clienteNonTrovatoDescrizione}
           azione={tornaAlleCall}
         />
       )
@@ -371,12 +392,8 @@ export default async function NuovaVenditaPage({
 
   if (prodotti.length === 0) {
     return (
-      <Pagina indietro={indietro}>
-        <StatoVuoto
-          Icona={PackageX}
-          titolo="Nessun prodotto attivo"
-          descrizione="Serve almeno un prodotto attivo (ad esempio «Percorso Alpha 3 mesi») per registrare una vendita. Si gestiscono in Impostazioni."
-        />
+      <Pagina indietro={indietro} lingua={lingua}>
+        <StatoVuoto Icona={PackageX} titolo={t.nessunProdotto} descrizione={t.nessunProdottoDescrizione} />
       </Pagina>
     )
   }
@@ -397,7 +414,7 @@ export default async function NuovaVenditaPage({
         : 'nuovo'
 
   return (
-    <Pagina indietro={indietro} descrizione={callId ? 'Precompilata dalla call appena chiusa.' : undefined}>
+    <Pagina indietro={indietro} lingua={lingua} descrizione={callId ? t.precompilata : undefined}>
       {riepilogo.length > 0 ? (
         <dl className="divide-y divide-border rounded-xl bg-card px-3" data-testid="precompilata">
           {riepilogo.map(([etichetta, valore]) => (
@@ -415,6 +432,7 @@ export default async function NuovaVenditaPage({
           admin={profilo.ruolo === 'admin'}
           callId={callId}
           nomeLead={nomeLead}
+          lingua={lingua}
           hrefVendita={`/sales/new?${new URLSearchParams({ call: callId, ...(tornaA ? { da: tornaA } : {}) }).toString()}`}
         />
       ) : null}

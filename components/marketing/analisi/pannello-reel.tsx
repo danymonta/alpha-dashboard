@@ -11,6 +11,8 @@ import { NelPannello } from '@/components/marketing/contesto-pannello'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useTesti } from '@/components/i18n/lingua-provider'
+import { ANALISI_REEL } from '@/lib/i18n/testi/analisi-reel'
 import type { DettaglioReel } from '@/lib/marketing/analisi/dettaglio'
 import type { RigaReel } from '@/lib/marketing/analisi/elenco'
 import { PARAMETRO_REEL } from '@/lib/marketing/pubblicati/filtri'
@@ -78,6 +80,7 @@ export function PannelloReel({
   children: ReactNode
 }) {
   const router = useRouter()
+  const t = useTesti(ANALISI_REEL).pannello
   const richiesto = useSearchParams().get(PARAMETRO_REEL)
   const daIndirizzo = eMediaId(richiesto) ? richiesto : null
 
@@ -244,14 +247,14 @@ export function PannelloReel({
                   <SheetHeader className="relative">
                     <ChiudiPannello />
                     <SheetTitle ref={titolo} tabIndex={-1} className="outline-none">
-                      Questo reel non c’è più
+                      {t.sparito}
                     </SheetTitle>
-                    <SheetDescription>Forse non è più tra quelli letti da Instagram.</SheetDescription>
+                    <SheetDescription>{t.sparitoDescrizione}</SheetDescription>
                   </SheetHeader>
                   <div className="flex flex-col items-start gap-3 px-4 pb-6">
                     <SearchX className="size-8 text-muted-foreground" aria-hidden="true" />
                     <Button type="button" variant="outline" className="h-11" onClick={chiudi}>
-                      Chiudi
+                      {t.chiudi}
                     </Button>
                   </div>
                 </>
@@ -271,15 +274,15 @@ export function PannelloReel({
                   <SheetHeader className="relative">
                     <ChiudiPannello />
                     <SheetTitle ref={titolo} tabIndex={-1} className="outline-none">
-                      Reel
+                      {t.reel}
                     </SheetTitle>
-                    <SheetDescription>{voce?.stato === 'errore' ? 'Il reel non si è caricato.' : 'Caricamento del reel…'}</SheetDescription>
+                    <SheetDescription>{voce?.stato === 'errore' ? t.nonCaricato : t.caricamento}</SheetDescription>
                   </SheetHeader>
                   <div className="space-y-3 px-4 pb-6">
                     {voce?.stato === 'errore' ? (
                       <Button type="button" variant="outline" className="h-11" onClick={rileggi}>
                         <RotateCw className="size-4" aria-hidden="true" />
-                        Riprova
+                        {t.riprova}
                       </Button>
                     ) : (
                       <div className="space-y-3" aria-busy="true">

@@ -17,8 +17,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { SPOSTA, scorciatoieSpostamento, spostamentoPredefinito } from '@/lib/call/spostamento'
-import { aggiungiGiorni, etichettaGiorno } from '@/lib/date'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { spostamentoPredefinito } from '@/lib/call/spostamento'
+import { aggiungiGiorni } from '@/lib/date'
+import { etichettaGiornoIn } from '@/lib/i18n/date'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { ESITO, SPOSTA_TESTI, scorciatoieIn } from '@/lib/i18n/testi/esito'
 import { cn } from '@/lib/utils'
 import { GIORNI_AVANTI_CALL, GIORNI_INDIETRO_CALL_ADMIN, schemaSpostamento } from '@/lib/validation/call'
 
@@ -54,11 +58,13 @@ export function CampiSpostamento({
   errore?: string | null
 }) {
   const idErrore = `${id}-errore`
+  const lingua = useLingua()
+  const t = ESITO[lingua]
   return (
     <fieldset className="space-y-2">
       <legend className="mb-2 text-sm font-medium">{legenda}</legend>
       <div className={cn('grid gap-2', admin ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3')}>
-        {scorciatoieSpostamento(oggi, admin).map(({ etichetta, valore }) => (
+        {scorciatoieIn(oggi, admin, lingua).map(({ etichetta, valore }) => (
           <Button
             key={etichetta}
             type="button"
@@ -74,7 +80,7 @@ export function CampiSpostamento({
       <div className="grid grid-cols-[3fr_2fr] gap-2">
         <div className="space-y-1.5">
           <Label htmlFor={`${id}-data`} className="sr-only">
-            Giorno
+            {t.giorno}
           </Label>
           <Input
             id={`${id}-data`}
@@ -90,7 +96,7 @@ export function CampiSpostamento({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`${id}-ora`} className="sr-only">
-            Ora
+            {t.ora}
           </Label>
           <Input
             id={`${id}-ora`}
@@ -104,7 +110,7 @@ export function CampiSpostamento({
           />
         </div>
       </div>
-      <ErroreCampo id={idErrore} messaggio={errore ?? undefined} />
+      <ErroreCampo id={idErrore} messaggio={traduciErrore(errore, lingua)} />
     </fieldset>
   )
 }
@@ -132,6 +138,8 @@ type Props = {
  */
 export function SpostaCall({ callId, nomeLead, descrizione, giorno, ora, oggi, admin, inEvidenza = false }: Props) {
   const id = useId()
+  const lingua = useLingua()
+  const SPOSTA = SPOSTA_TESTI[lingua]
   const iniziale = spostamentoPredefinito(giorno, ora, oggi)
   const [aperto, setAperto] = useState(false)
   const [data, setData] = useState(iniziale.data)
@@ -155,7 +163,7 @@ export function SpostaCall({ callId, nomeLead, descrizione, giorno, ora, oggi, a
     const input = { call_id: callId, data, ora: oraScelta }
     const verifica = schemaSpostamento(admin).safeParse(input)
     if (!verifica.success) {
-      setErroreCampo(verifica.error.issues[0]?.message ?? 'Scegli il nuovo giorno')
+      setErroreCampo(verifica.error.issues[0]?.message ?? ESITO.it.scegliGiorno)
       return
     }
     avvia(async () => {
@@ -170,7 +178,7 @@ export function SpostaCall({ callId, nomeLead, descrizione, giorno, ora, oggi, a
         setErrore(esito.errore)
         return
       }
-      toast.success(SPOSTA.fatto(nomeLead), { description: `${etichettaGiorno(data, oggi)} alle ${oraScelta}` })
+      toast.success(SPOSTA.fatto(nomeLead), { description: ESITO[lingua].alle(etichettaGiornoIn(data, oggi, lingua), oraScelta) })
       setAperto(false)
     })
   }
@@ -223,7 +231,7 @@ export function SpostaCall({ callId, nomeLead, descrizione, giorno, ora, oggi, a
           {errore ? (
             <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {errore}
+              {traduciErrore(errore, lingua)}
             </p>
           ) : null}
 

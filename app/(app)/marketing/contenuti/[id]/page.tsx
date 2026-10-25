@@ -6,6 +6,9 @@ import { AzioniContenuto, SchedaContenuto } from '@/components/marketing/scheda-
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { RUOLI_MARKETING } from '@/lib/auth/roles'
+import { getLingua } from '@/lib/i18n/server'
+import { CONTENUTO } from '@/lib/i18n/testi/contenuto'
+import { MARKETING } from '@/lib/i18n/testi/marketing'
 import { requireRuolo } from '@/lib/auth/session'
 import { leggiDettaglioContenuto } from '@/lib/marketing/dettaglio'
 import { leggiConteggiOpzioni, leggiOpzioni } from '@/lib/marketing/letture'
@@ -14,7 +17,6 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-const INDIETRO = { href: '/marketing/contenuti', etichetta: 'Piano editoriale' }
 
 /**
  * A content's own page, as a Notion page: direct links, Cmd/Ctrl-click and
@@ -26,6 +28,9 @@ const INDIETRO = { href: '/marketing/contenuti', etichetta: 'Piano editoriale' }
 export default async function ContenutoPage({ params }: { params: Promise<{ id: string }> }) {
   const profilo = await requireRuolo(RUOLI_MARKETING)
   const { id } = await params
+  const lingua = await getLingua()
+  const t = CONTENUTO[lingua].pagina
+  const INDIETRO = { href: '/marketing/contenuti', etichetta: MARKETING[lingua].piano.titolo }
   // the page, the panel and Claude read a content the same way (lib/marketing/letture.ts); a failed read throws to error.tsx
   const supabase = await createClient()
   const [dettaglio, opzioni, conteggi] = await Promise.all([
@@ -38,14 +43,14 @@ export default async function ContenutoPage({ params }: { params: Promise<{ id: 
   if (!dettaglio) {
     return (
       <div className="max-w-3xl">
-        <IntestazionePagina titolo="Contenuto" indietro={INDIETRO} />
+        <IntestazionePagina titolo={t.contenuto} indietro={INDIETRO} />
         <StatoVuoto
           Icona={SearchX}
-          titolo="Questo contenuto non c’è più"
-          descrizione="Forse l’ha eliminato qualcuno del team."
+          titolo={t.sparito}
+          descrizione={t.sparitoDescrizione}
           azione={
             <LinkBottone href="/marketing/contenuti" variant="outline">
-              Torna al Piano editoriale
+              {t.torna}
             </LinkBottone>
           }
         />

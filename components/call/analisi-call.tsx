@@ -8,12 +8,11 @@ import { annullaMotivoProposto, usaMotivoProposto } from '@/app/(app)/calls/acti
 import { rivalidaTutto } from '@/app/actions/rivalida'
 import { Button } from '@/components/ui/button'
 import { useLingua } from '@/components/i18n/lingua-provider'
-import { ANALISI } from '@/lib/call/analisi/parole'
 import { CALL } from '@/lib/i18n/testi/call'
+import { ANALISI_TESTI, ANALISI_TOAST, CATEGORIE_CALL } from '@/lib/i18n/testi/analisi-call'
 import { CLOSER } from '@/lib/i18n/testi/closer'
-import {
-  CATEGORIE_OBIEZIONI, DESIDERI, GIA_PROVATO, MOMENTI, PAIN, etichetta,
-} from '@/lib/call/analisi/icp-call'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { etichetta } from '@/lib/call/analisi/icp-call'
 import { conMinuto, secondiDiMinuto, type AnalisiVista } from '@/lib/call/analisi/vista'
 import { formato } from '@/lib/format'
 import { formatOra } from '@/lib/date'
@@ -54,6 +53,9 @@ export function AnalisiCall({ callId, analisi, analizzabile, esito, motivoSalvat
   // the frame follows the page's language; what Claude wrote stays in Italian (1.53.0)
   const t = CALL[lingua].analisi
   const categorie = CLOSER[lingua].registrate.categorie as Record<string, string>
+  const ANALISI = ANALISI_TESTI[lingua]
+  const toastT = ANALISI_TOAST[lingua]
+  const { PAIN, DESIDERI, GIA_PROVATO, MOMENTI, CATEGORIE_OBIEZIONI } = CATEGORIE_CALL[lingua]
   const [inCorso, avvia] = useTransition()
   const [motivo, setMotivo] = useState<string | null>(motivoSalvato)
 
@@ -62,11 +64,11 @@ export function AnalisiCall({ callId, analisi, analizzabile, esito, motivoSalvat
       try {
         const r = await fetch(`/api/call/${callId}/analizza`, { method: 'POST', cache: 'no-store' })
         const corpo = (await r.json().catch(() => ({}))) as { errore?: string }
-        if (!r.ok) return void toast.error(corpo.errore ?? 'Analisi non partita. Riprova.')
-        toast.success('Claude analizza la call: arriva tra qualche minuto.')
+        if (!r.ok) return void toast.error(corpo.errore ? traduciErrore(corpo.errore, lingua) : toastT.nonPartita)
+        toast.success(toastT.partita)
         await rivalidaTutto()
       } catch {
-        toast.error('Connessione assente. Riprova.')
+        toast.error(traduciErrore('Connessione assente. Riprova.', lingua))
       }
     })
   }
@@ -76,16 +78,16 @@ export function AnalisiCall({ callId, analisi, analizzabile, esito, motivoSalvat
     if (!proposto) return
     avvia(async () => {
       const r = await usaMotivoProposto({ call_id: callId, motivo_mostrato: motivo }).catch(() => null)
-      if (!r) return void toast.error('Connessione assente. Riprova.')
-      if (!r.ok) return void toast.error(r.errore)
+      if (!r) return void toast.error(traduciErrore('Connessione assente. Riprova.', lingua))
+      if (!r.ok) return void toast.error(traduciErrore(r.errore, lingua))
       setMotivo(proposto)
       toast.success(ANALISI.motivoAggiornato, {
         action: {
-          label: 'Annulla',
+          label: toastT.annulla,
           onClick: () => {
             void annullaMotivoProposto({ call_id: callId, motivo_attuale: proposto, precedente: r.precedente }).then((a) => {
               if (a.ok) setMotivo(r.precedente)
-              else toast.error(a.errore)
+              else toast.error(traduciErrore(a.errore, lingua))
             })
           },
         },
@@ -122,7 +124,7 @@ export function AnalisiCall({ callId, analisi, analizzabile, esito, motivoSalvat
       <div className="mt-1 flex flex-wrap items-center justify-between gap-2 pl-[4.25rem]" data-testid="analisi-fallita">
         <p role="alert" className="flex items-start gap-1.5 text-sm">
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
-          {analisi.errore ?? t.nessuna}
+          {analisi.errore ? traduciErrore(analisi.errore, lingua) : t.nessuna}
         </p>
         {analizzabile ? (
           <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={chiedi}>
@@ -147,7 +149,7 @@ export function AnalisiCall({ callId, analisi, analizzabile, esito, motivoSalvat
       {propone ? (
         <div className="rounded-lg border border-border p-3" data-testid="motivo-proposto">
           <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{ANALISI.motivoProposto}</h4>
-          <p className="mt-1 text-sm break-words">{analisi.motivo_proposto}</p>
+          <p lang="it" className="mt-1 text-sm break-words">{analisi.motivo_proposto}</p>
           <Button type="button" variant="outline" className="mt-2 h-11" disabled={inCorso} onClick={usa}>
             {ANALISI.usaMotivo}
           </Button>
@@ -203,7 +205,7 @@ export function AnalisiCall({ callId, analisi, analizzabile, esito, motivoSalvat
                 ))}
               </div>
               {lead.frasi && lead.frasi.length > 0 ? (
-                <ul className="space-y-0.5 text-muted-foreground italic">
+                <ul lang="it" className="space-y-0.5 text-muted-foreground italic">
                   {lead.frasi.map((f, i) => (
                     <li key={i}>«{f}»</li>
                   ))}

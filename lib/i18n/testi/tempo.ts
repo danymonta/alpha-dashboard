@@ -368,3 +368,45 @@ export function traduciErroreTempo(testo: string | null | undefined, lingua: Lin
   }
   return testo
 }
+
+/** A project's Tempo tab (/progetti/[id]/tempo): who logged what on the project, as RLS shows it. */
+export const TEMPO_PROGETTO = bilingue(
+  {
+    errore: 'Impossibile caricare il tempo del progetto',
+    timerSulProgetto: 'Timer sul progetto',
+    soloTuo: 'Qui vedi il tempo che hai registrato tu su questo progetto.',
+    tempoSulProgetto: 'Tempo sul progetto',
+    ilTuoTempo: 'Il tuo tempo',
+    perPersona: 'Per persona',
+    perAttivita: 'Per attività',
+    tu: 'Tu',
+    collaboratore: 'Collaboratore',
+    attivita: 'Attività',
+    senzaAttivita: 'Senza attività',
+    giornoPerGiorno: 'Tempo registrato, giorno per giorno',
+    vuoto: 'Nessun tempo registrato in questo periodo',
+    vuotoDescrizione: 'Avvia il timer sul progetto o registra il tempo che hai già dedicato.',
+    registraPassato: 'Registra tempo passato',
+    ancoraNiente: 'Ancora niente in questo periodo.',
+    descrizioneVoce: (mia: boolean, nome: string, data: string) => `il tempo di ${mia ? 'te' : nome} del ${data}`,
+  },
+  {
+    errore: 'The project’s time could not be loaded',
+    timerSulProgetto: 'Timer on the project',
+    soloTuo: 'Here you see the time you logged on this project.',
+    tempoSulProgetto: 'Time on the project',
+    ilTuoTempo: 'Your time',
+    perPersona: 'By person',
+    perAttivita: 'By task',
+    tu: 'You',
+    collaboratore: 'Team member',
+    attivita: 'Task',
+    senzaAttivita: 'No task',
+    giornoPerGiorno: 'Time logged, day by day',
+    vuoto: 'No time logged in this period',
+    vuotoDescrizione: 'Start the timer on the project or log the time you have already spent.',
+    registraPassato: 'Log past time',
+    ancoraNiente: 'Nothing yet in this period.',
+    descrizioneVoce: (mia: boolean, nome: string, data: string) => (mia ? `your time of ${data}` : `${nome}’s time of ${data}`),
+  },
+)

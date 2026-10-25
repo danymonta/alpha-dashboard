@@ -17,9 +17,12 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
-import { VENDITA_DA_REGISTRARE, dettaglioVendita } from '@/lib/call/follow-up'
-import { formatData, formatEuro } from '@/lib/format'
-import { ETICHETTA_TIPO_VENDITA } from '@/lib/validation/vendita'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import { COLLEGA_VENDITA, VENDITA_TESTI, dettaglioVenditaIn } from '@/lib/i18n/testi/esito'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 
 type Stato =
   | { nome: 'carica' }
@@ -27,8 +30,9 @@ type Stato =
   | { nome: 'pronto'; vendite: VenditaDaCollegare[] }
 
 /** «Nuovo cliente del 07/10/2026, 1.500,00 €»: in the button's name, so two sales of one client stay apart. */
-function dettaglio(v: Pick<VenditaDaCollegare, 'tipo' | 'data_vendita' | 'valore_contratto'>): string {
-  return dettaglioVendita(ETICHETTA_TIPO_VENDITA[v.tipo], formatData(v.data_vendita), formatEuro(v.valore_contratto))
+function dettaglio(v: Pick<VenditaDaCollegare, 'tipo' | 'data_vendita' | 'valore_contratto'>, lingua: Lingua): string {
+  const { formatData, formatEuro } = formato(lingua)
+  return dettaglioVenditaIn(ETICHETTE[lingua].tipoVendita[v.tipo], formatData(v.data_vendita), formatEuro(v.valore_contratto), lingua)
 }
 
 type Props = {
@@ -54,6 +58,11 @@ export function CollegaVendita({ callId, idTitolo, nomeLead, hrefVendita }: Prop
   const [inCorso, setInCorso] = useState<string | null>(null)
   const [, avvia] = useTransition()
   const riuscito = useFocusSullaCall(idTitolo)
+  const lingua = useLingua()
+  const VENDITA_DA_REGISTRARE = VENDITA_TESTI[lingua]
+  const t = COLLEGA_VENDITA[lingua]
+  const { formatData, formatEuro } = formato(lingua)
+  const ETICHETTA_TIPO_VENDITA = ETICHETTE[lingua].tipoVendita
 
   function carica() {
     setStato({ nome: 'carica' })
@@ -139,11 +148,11 @@ export function CollegaVendita({ callId, idTitolo, nomeLead, hrefVendita }: Prop
             <div className="space-y-2">
               <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                {stato.messaggio}
+                {traduciErrore(stato.messaggio, lingua)}
               </p>
               <Button type="button" variant="outline" className="h-11 gap-1.5" onClick={carica}>
                 <RotateCw className="size-4" aria-hidden="true" />
-                Riprova
+                {t.riprova}
               </Button>
             </div>
           ) : stato.vendite.length === 0 ? (
@@ -171,7 +180,7 @@ export function CollegaVendita({ callId, idTitolo, nomeLead, hrefVendita }: Prop
                       {ETICHETTA_TIPO_VENDITA[v.tipo]} · {formatData(v.data_vendita)} ·{' '}
                       <span className="num">{formatEuro(v.valore_contratto)}</span>
                     </p>
-                    <p className="text-xs text-muted-foreground">{v.setter ? `Setter: ${v.setter}` : 'Senza setter'}</p>
+                    <p className="text-xs text-muted-foreground">{v.setter ? t.setter(v.setter) : t.senzaSetter}</p>
                     {v.stesso_cliente ? (
                       <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                         <UserCheck className="size-3.5 shrink-0" aria-hidden="true" />
@@ -182,7 +191,7 @@ export function CollegaVendita({ callId, idTitolo, nomeLead, hrefVendita }: Prop
                   <Button
                     type="button"
                     className="h-11 shrink-0 px-3"
-                    aria-label={VENDITA_DA_REGISTRARE.nomeBottoneCollega(v.cliente, dettaglio(v))}
+                    aria-label={VENDITA_DA_REGISTRARE.nomeBottoneCollega(v.cliente, dettaglio(v, lingua))}
                     disabled={inCorso !== null}
                     onClick={() => collega(v)}
                   >
@@ -201,7 +210,7 @@ export function CollegaVendita({ callId, idTitolo, nomeLead, hrefVendita }: Prop
           {errore ? (
             <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {errore}
+              {traduciErrore(errore, lingua)}
             </p>
           ) : null}
         </div>

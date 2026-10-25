@@ -144,7 +144,7 @@ export const ETICHETTE = bilingue(
       persa: 'Lost',
       no_show: 'No show',
       cancellata: 'Cancelled',
-      riprogrammata: 'Awaiting confirmation',
+      riprogrammata: 'Waiting for confirmation',
       programmata: 'To do',
       svolta: 'Held',
     },

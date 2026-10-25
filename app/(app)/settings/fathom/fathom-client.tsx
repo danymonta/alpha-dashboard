@@ -5,13 +5,15 @@ import { useId, useRef, useState, useTransition, type FormEvent } from 'react'
 import { toast } from 'sonner'
 
 import { impostaInterruttoriCall, impostaLimiteSpesaCall, salvaChiaveFathom, togliChiaveFathom } from '@/app/(app)/settings/fathom/actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatData } from '@/lib/format'
-
-const CONNESSIONE = 'Connessione assente. Riprova.'
+import { formato } from '@/lib/format'
+import { FATHOM } from '@/lib/i18n/testi/fathom'
+import { numeroDollari, traduciImpostazioni } from '@/lib/i18n/testi/impostazioni'
+import { SHELL } from '@/lib/i18n/testi/shell'
 
 /** The key: a password field that never keeps the value, sent as FormData, cleared at every send. */
 export function ChiaveFathom({ presente, salvataIl }: { presente: boolean; salvataIl: string | null }) {
@@ -21,6 +23,10 @@ export function ChiaveFathom({ presente, salvataIl }: { presente: boolean; salva
   const [prova, setProva] = useState<'risponde' | { errore: string } | null>(null)
   const [conferma, setConferma] = useState(false)
   const [inCorso, avvia] = useTransition()
+  const lingua = useLingua()
+  const t = FATHOM[lingua].chiave
+  const { formatData } = formato(lingua)
+  const CONNESSIONE = SHELL[lingua].connessione
 
   function invia(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -29,7 +35,7 @@ export function ChiaveFathom({ presente, salvataIl }: { presente: boolean; salva
     setErrore(null)
     setProva(null)
     if (!incollata.trim()) {
-      setErrore('Incolla la chiave copiata da Fathom.')
+      setErrore(t.incolla)
       return
     }
     const dati = new FormData()
@@ -43,11 +49,11 @@ export function ChiaveFathom({ presente, salvataIl }: { presente: boolean; salva
         return
       }
       if (!esito.ok) {
-        setErrore(esito.errore)
+        setErrore(traduciImpostazioni(esito.errore, lingua))
         return
       }
       setProva(esito.prova)
-      toast.success(esito.prova === 'risponde' ? 'Chiave salvata: Fathom risponde.' : 'Chiave salvata.')
+      toast.success(esito.prova === 'risponde' ? t.salvataRisponde : t.salvata)
     })
   }
 
@@ -60,8 +66,8 @@ export function ChiaveFathom({ presente, salvataIl }: { presente: boolean; salva
     avvia(async () => {
       try {
         const esito = await togliChiaveFathom()
-        if (!esito.ok) setErrore(esito.errore)
-        else toast.success('Chiave tolta.')
+        if (!esito.ok) setErrore(traduciImpostazioni(esito.errore, lingua))
+        else toast.success(t.tolta)
       } catch {
         setErrore(CONNESSIONE)
       }
@@ -73,23 +79,23 @@ export function ChiaveFathom({ presente, salvataIl }: { presente: boolean; salva
       {presente ? (
         <p role="status" className="flex items-start gap-2 text-sm" data-testid="fathom-chiave-salvata">
           <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
-          {salvataIl ? `Chiave salvata il ${formatData(salvataIl)}` : 'Chiave salvata'}
+          {t.salvataIl(salvataIl ? formatData(salvataIl) : null)}
         </p>
       ) : null}
       {prova === 'risponde' ? (
         <p role="status" className="flex items-start gap-2 text-sm" data-testid="fathom-prova">
           <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
-          Fathom risponde con questa chiave.
+          {t.risponde}
         </p>
       ) : prova ? (
         <p role="alert" className="flex items-start gap-2 text-sm text-status-critical" data-testid="fathom-prova">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {prova.errore}
+          {traduciImpostazioni(prova.errore, lingua)}
         </p>
       ) : null}
       <form onSubmit={invia} noValidate className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor={`${id}-chiave`}>{presente ? 'Chiave nuova' : 'Chiave API'}</Label>
+          <Label htmlFor={`${id}-chiave`}>{presente ? t.nuova : t.api}</Label>
           <Input
             ref={campo}
             id={`${id}-chiave`}
@@ -101,11 +107,11 @@ export function ChiaveFathom({ presente, salvataIl }: { presente: boolean; salva
             data-1p-ignore="true"
             data-lpignore="true"
             aria-describedby={`${id}-aiuto${errore ? ` ${id}-errore` : ''}`}
-            placeholder={presente ? 'Incolla qui per sostituirla' : 'Incolla qui la chiave'}
+            placeholder={presente ? t.sostituisci : t.incollaQui}
             className="h-11"
           />
           <p id={`${id}-aiuto`} className="text-xs text-muted-foreground">
-            Fathom › Impostazioni › API Access › Genera. Non incollarla in chat.
+            {t.aiuto}
           </p>
         </div>
         {errore ? (
@@ -117,11 +123,11 @@ export function ChiaveFathom({ presente, salvataIl }: { presente: boolean; salva
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button type="submit" className="h-11" disabled={inCorso}>
             {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-            Salva la chiave
+            {t.salva}
           </Button>
           {presente ? (
             <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={togli} onBlur={() => setConferma(false)}>
-              {conferma ? 'Tocca ancora: la ricerca delle registrazioni e l’analisi delle call nuove si fermano' : 'Togli la chiave'}
+              {conferma ? t.conferma : t.togli}
             </Button>
           ) : null}
         </div>
@@ -144,6 +150,8 @@ function Interruttore({
   testId: string
 }) {
   const id = useId()
+  const lingua = useLingua()
+  const t = FATHOM[lingua].analisi
   const [valore, setValore] = useState(acceso)
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
@@ -157,11 +165,11 @@ function Interruttore({
         const esito = await impostaInterruttoriCall({ [chiave]: nuovo })
         if (!esito.ok) {
           setValore(prima)
-          setErrore(esito.errore)
-        } else toast.success(`${titolo}: ${nuovo ? 'accese' : 'spente'}`)
+          setErrore(traduciImpostazioni(esito.errore, lingua))
+        } else toast.success(t.interruttore(titolo, nuovo))
       } catch {
         setValore(prima)
-        setErrore(CONNESSIONE)
+        setErrore(SHELL[lingua].connessione)
       }
     })
   }
@@ -189,13 +197,14 @@ function Interruttore({
 }
 
 export function InterruttoriCall({ analisi }: { analisi: boolean }) {
+  const t = FATHOM[useLingua()].analisi
   return (
     <div className="space-y-3">
       <Interruttore
         chiave="analisi"
         acceso={analisi}
-        titolo="Analisi delle call"
-        descrizione="Claude analizza ogni call registrata (svolta, con l’esito e il link di Fathom) pochi minuti dopo l’esito. Spente, partono solo con «Analizza»."
+        titolo={t.titolo}
+        descrizione={t.descrizione}
         testId="fathom-analisi"
       />
     </div>
@@ -204,7 +213,9 @@ export function InterruttoriCall({ analisi }: { analisi: boolean }) {
 
 export function LimiteSpesaCall({ valore }: { valore: number }) {
   const id = useId()
-  const [testo, setTesto] = useState(String(valore).replace('.', ','))
+  const lingua = useLingua()
+  const t = FATHOM[lingua].analisi
+  const [testo, setTesto] = useState(lingua === 'it' ? String(valore).replace('.', ',') : String(valore))
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
 
@@ -212,24 +223,24 @@ export function LimiteSpesaCall({ valore }: { valore: number }) {
     e.preventDefault()
     const numero = Number(testo.trim().replace(',', '.'))
     if (!Number.isFinite(numero) || numero < 0 || numero > 200) {
-      setErrore('Scegli un limite tra 0 e 200 $.')
+      setErrore(t.limiteNonValido)
       return
     }
     setErrore(null)
     avvia(async () => {
       try {
         const esito = await impostaLimiteSpesaCall({ usd: numero })
-        if (!esito.ok) setErrore(esito.errore)
-        else toast.success(`Limite di spesa: ${numero.toLocaleString('it-IT')} $ al mese`)
+        if (!esito.ok) setErrore(traduciImpostazioni(esito.errore, lingua))
+        else toast.success(t.limiteSalvato(numeroDollari(numero, lingua)))
       } catch {
-        setErrore(CONNESSIONE)
+        setErrore(SHELL[lingua].connessione)
       }
     })
   }
 
   return (
     <form onSubmit={salva} className="space-y-1.5" data-testid="fathom-limite">
-      <Label htmlFor={id}>Limite di spesa al mese ($)</Label>
+      <Label htmlFor={id}>{t.limite}</Label>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           id={id}
@@ -242,7 +253,7 @@ export function LimiteSpesaCall({ valore }: { valore: number }) {
         />
         <Button type="submit" variant="outline" className="h-11" disabled={inCorso}>
           {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-          Salva il limite
+          {t.salvaLimite}
         </Button>
       </div>
       {errore ? (

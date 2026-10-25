@@ -1,6 +1,6 @@
 import { bilingue } from '@/lib/i18n/lingua'
 
-/** The Pipeline (1.53.0). The sheet that changes a lead stays Italian for now. */
+/** The Pipeline (1.53.0); the sheet that changes a lead is FOGLIO_LEAD, below. */
 export const PIPELINE = bilingue(
   {
     titolo: 'Pipeline',
@@ -79,5 +79,45 @@ export const PIPELINE = bilingue(
       registraEsito: 'Record outcome',
       attesaCloser: 'Past call: the closer’s outcome is pending.',
     },
+  },
+)
+
+/** The lead's sheet on the pipeline card (leads/stato-lead.tsx): state, details, delete. */
+export const FOGLIO_LEAD = bilingue(
+  {
+    connessione: 'Connessione assente. Riprova.',
+    fatto: (nome: string, stato: string) => `${nome}: ${stato.toLowerCase()}`,
+    cambiaStato: (nome: string) => `Cambia stato di ${nome}`,
+    descrizioneStato: 'Stato nella pipeline, aggiornato a mano.',
+    descrizioneDati: 'Dati del lead: si correggono quando vuoi.',
+    statoDi: (nome: string) => `Stato di ${nome}`,
+    modificaDati: 'Modifica nome, handle e fonte',
+    stato: 'Stato',
+    elimina: 'Elimina il lead',
+    eliminato: 'Lead eliminato',
+    aggiornato: 'Lead aggiornato',
+    nome: 'Nome',
+    handle: 'Handle Instagram',
+    fonte: 'Fonte',
+    note: 'Note',
+    salva: 'Salva il lead',
+  },
+  {
+    connessione: 'No connection. Try again.',
+    fatto: (nome: string, stato: string) => `${nome}: ${stato.toLowerCase()}`,
+    cambiaStato: (nome: string) => `Change state of ${nome}`,
+    descrizioneStato: 'State in the pipeline, updated by hand.',
+    descrizioneDati: 'Lead details: they can be corrected whenever you want.',
+    statoDi: (nome: string) => `State of ${nome}`,
+    modificaDati: 'Edit name, handle and source',
+    stato: 'State',
+    elimina: 'Delete the lead',
+    eliminato: 'Lead deleted',
+    aggiornato: 'Lead updated',
+    nome: 'Name',
+    handle: 'Instagram handle',
+    fonte: 'Source',
+    note: 'Notes',
+    salva: 'Save the lead',
   },
 )

@@ -3,15 +3,18 @@
 import { Archive, CalendarClock, CalendarOff, CheckCircle2, ChevronRight, CirclePause, TriangleAlert, UserRoundX } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 
+import { useFormato, useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { LinkBottone } from '@/components/link-bottone'
 import { SenzaCoach, StatoProgettoBadge } from '@/components/pm/stato-progetto'
 import { LinkRiga } from '@/components/shell/link-riga'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { formatData, formatPercentuale } from '@/lib/format'
+import type { Formato } from '@/lib/format'
 import { organizzaGantt, type Forma, type ListaGantt, type RigaGantt, type TaskGantt } from '@/lib/gantt'
-import { ETICHETTA_STATO_PROGETTO, ETICHETTA_STATO_TASK, linkTask, type StatoProgetto, type StatoTask } from '@/lib/progetti'
+import { GANTT } from '@/lib/i18n/testi/gantt'
+import { PROGETTI } from '@/lib/i18n/testi/progetti'
+import { TIMELINE } from '@/lib/i18n/testi/timeline'
+import { linkTask, type StatoProgetto, type StatoTask } from '@/lib/progetti'
 import {
-  GIORNI_IN_SCADENZA,
   dividiPerFine,
   fineProgetto,
   formaProgetto,
@@ -115,16 +118,23 @@ function chiaveRiga(riga: Riga) {
   return chiaveFiglio(riga.voce.progetto.id, riga.figlio, riga.indice)
 }
 
-function testoDate(forma: Forma): string {
+function testoDate(forma: Forma, g: (typeof GANTT)['it'], formatData: Formato['formatData']): string {
   if (forma.forma === 'barra') {
     return forma.inizio === forma.fine
-      ? `Il ${formatData(forma.inizio)}`
-      : `Dal ${formatData(forma.inizio)} al ${formatData(forma.fine)}`
+      ? g.il(formatData(forma.inizio))
+      : g.dalAl(formatData(forma.inizio), formatData(forma.fine))
   }
   if (forma.forma === 'rombo') {
-    return forma.quale === 'scadenza' ? `Scadenza ${formatData(forma.data)}` : `Inizio ${formatData(forma.data)}, senza scadenza`
+    return forma.quale === 'scadenza' ? g.scadenza(formatData(forma.data)) : g.inizioSenzaScadenza(formatData(forma.data))
   }
-  return 'Senza date'
+  return g.senzaDate
+}
+
+/** The dates of a mark in the page's language. */
+function useTestoDate(): (forma: Forma) => string {
+  const g = useTesti(GANTT)
+  const { formatData } = useFormato()
+  return (forma) => testoDate(forma, g, formatData)
 }
 
 const ICONA_CHIUSO = { completato: CheckCircle2, archiviato: Archive } as const
@@ -137,6 +147,8 @@ const ICONA_CHIUSO = { completato: CheckCircle2, archiviato: Archive } as const
  * words for a paused, completed or archived one.
  */
 function FineInParole({ voce, className }: { voce: Pick<ProgettoSulGrafico, 'progetto' | 'fine'>; className?: string }) {
+  const t = useTesti(TIMELINE)
+  const lingua = useLingua()
   const { progetto, fine } = voce
   const base = cn('inline-flex min-w-0 max-w-full items-center gap-1 text-xs', className)
 
@@ -145,20 +157,20 @@ function FineInParole({ voce, className }: { voce: Pick<ProgettoSulGrafico, 'pro
     return (
       <span className={cn(base, 'text-muted-foreground')}>
         <Icona className={cn('size-3.5 shrink-0', progetto.stato === 'completato' && 'text-status-ok')} aria-hidden="true" />
-        <span className="truncate">{ETICHETTA_STATO_PROGETTO[progetto.stato]}</span>
+        <span className="truncate">{PROGETTI[lingua].statoProgetto[progetto.stato]}</span>
       </span>
     )
   }
   if (fine.tipo === 'senza_fine') {
-    return <span className={cn(base, 'text-muted-foreground')}>Senza data di fine</span>
+    return <span className={cn(base, 'text-muted-foreground')}>{t.senzaDataFine}</span>
   }
 
-  const testo = testoFine(fine, progetto.per_cliente)
+  const testo = testoFine(fine, progetto.per_cliente, lingua)
   if (progetto.stato === 'in_pausa') {
     return (
       <span className={cn(base, 'text-muted-foreground')}>
         <CirclePause className="size-3.5 shrink-0" aria-hidden="true" />
-        <span className="truncate">In pausa · {testo}</span>
+        <span className="truncate">{t.inPausa(testo)}</span>
       </span>
     )
   }
@@ -229,15 +241,21 @@ function Dettaglio({ termine, children }: { termine: string; children: ReactNode
 }
 
 function Avanzamento({ completati, totali, avanzamento }: { completati: number; totali: number; avanzamento: number | null }) {
-  if (totali === 0) return <>Nessuna attività</>
+  const t = useTesti(TIMELINE)
+  const { formatPercentuale } = useFormato()
+  if (totali === 0) return <>{t.nessunaAttivita}</>
   return (
     <span className="num">
-      {completati} di {totali} completate{avanzamento !== null ? ` (${formatPercentuale(avanzamento)})` : ''}
+      {t.completate(completati, totali)}
+      {avanzamento !== null ? ` (${formatPercentuale(avanzamento)})` : ''}
     </span>
   )
 }
 
 function TooltipProgetto({ voce }: { voce: ProgettoSulGrafico }) {
+  const t = useTesti(TIMELINE)
+  const lingua = useLingua()
+  const { formatData } = useFormato()
   const { progetto: p } = voce
   return (
     <>
@@ -245,47 +263,50 @@ function TooltipProgetto({ voce }: { voce: ProgettoSulGrafico }) {
         <p className="font-medium break-words">{p.nome}</p>
         <p className="text-xs text-muted-foreground">
           {voce.reparto}
-          {p.per_cliente ? ' · percorso del cliente' : ''}
+          {p.per_cliente ? t.percorsoCliente : ''}
         </p>
       </div>
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-        {p.cliente && p.cliente !== p.nome ? <Dettaglio termine="Cliente">{p.cliente}</Dettaglio> : null}
-        {p.per_cliente || p.coach ? <Dettaglio termine="Coach">{p.coach ?? <SenzaCoach />}</Dettaglio> : null}
-        <Dettaglio termine="Stato">
-          <StatoProgettoBadge stato={p.stato} className="text-popover-foreground" />
+        {p.cliente && p.cliente !== p.nome ? <Dettaglio termine={t.cliente}>{p.cliente}</Dettaglio> : null}
+        {p.per_cliente || p.coach ? (
+          <Dettaglio termine={t.coach}>{p.coach ?? <SenzaCoach lingua={lingua} />}</Dettaglio>
+        ) : null}
+        <Dettaglio termine={t.stato}>
+          <StatoProgettoBadge stato={p.stato} className="text-popover-foreground" lingua={lingua} />
         </Dettaglio>
-        <Dettaglio termine="Inizio">
-          <span className="num">{p.data_inizio ? formatData(p.data_inizio) : 'Senza data'}</span>
+        <Dettaglio termine={t.inizio}>
+          <span className="num">{p.data_inizio ? formatData(p.data_inizio) : t.senzaData}</span>
         </Dettaglio>
-        <Dettaglio termine="Fine">
+        <Dettaglio termine={t.fine}>
           <span className="num">{formatData(p.data_fine)}</span>
         </Dettaglio>
         {voce.fine.tipo !== 'chiuso' ? (
-          <Dettaglio termine="Alla fine">
+          <Dettaglio termine={t.allaFine}>
             <FineInParole voce={voce} />
           </Dettaglio>
         ) : null}
-        <Dettaglio termine="Attività">
+        <Dettaglio termine={t.attivita}>
           <Avanzamento completati={p.task_completati} totali={p.task_totali} avanzamento={p.avanzamento} />
         </Dettaglio>
       </dl>
       <LinkBottone href={`/progetti/${p.id}`} variant="outline" className="w-full">
-        Apri il progetto
+        {t.apri}
       </LinkBottone>
     </>
   )
 }
 
 function StatoTaskEtichetta({ task }: { task: TaskTimeline }) {
+  const g = useTesti(GANTT)
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       {task.stato === 'completato' ? <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" /> : null}
-      {ETICHETTA_STATO_TASK[task.stato]}
+      {g.statiTask[task.stato]}
       {task.in_ritardo ? (
         <span className="inline-flex items-center gap-1">
           {' · '}
           <TriangleAlert className="size-3.5 shrink-0 text-status-warning" aria-hidden="true" />
-          in ritardo
+          {g.inRitardo}
         </span>
       ) : null}
     </span>
@@ -293,23 +314,24 @@ function StatoTaskEtichetta({ task }: { task: TaskTimeline }) {
 }
 
 function TooltipFiglio({ figlio, progetto, nomeLista }: { figlio: Exclude<Figlio, { tipo: 'gruppo' }>; progetto: string; nomeLista: string | null }) {
+  const t = useTesti(TIMELINE)
+  const g = useTesti(GANTT)
+  const testoDate = useTestoDate()
   if (figlio.tipo === 'lista') {
     const { lista } = figlio
     return (
       <>
         <div>
           <p className="font-medium break-words">{lista.nome}</p>
-          <p className="text-xs text-muted-foreground">Lista (milestone) · {progetto}</p>
+          <p className="text-xs text-muted-foreground">{t.listaDi(progetto)}</p>
         </div>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-          <Dettaglio termine="Date">
+          <Dettaglio termine={t.date}>
             {testoDate(figlio.forma)}
-            {figlio.derivata ? <span className="block text-muted-foreground">ricavate dalle sue attività</span> : null}
+            {figlio.derivata ? <span className="block text-muted-foreground">{t.ricavate}</span> : null}
           </Dettaglio>
-          <Dettaglio termine="Avanzamento">
-            <span className="num">
-              {lista.task_completati} di {lista.task_totali} completate
-            </span>
+          <Dettaglio termine={t.avanzamento}>
+            <span className="num">{t.completate(lista.task_completati, lista.task_totali)}</span>
           </Dettaglio>
         </dl>
       </>
@@ -321,12 +343,12 @@ function TooltipFiglio({ figlio, progetto, nomeLista }: { figlio: Exclude<Figlio
       <div>
         <p className="font-medium break-words">{task.titolo}</p>
         <p className="text-xs text-muted-foreground">
-          {nomeLista ? `Attività · ${nomeLista}` : 'Attività'} · {progetto}
+          {nomeLista ? t.attivitaDi(nomeLista) : g.attivita} · {progetto}
         </p>
       </div>
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-        <Dettaglio termine="Date">{testoDate(figlio.forma)}</Dettaglio>
-        <Dettaglio termine="Stato">
+        <Dettaglio termine={t.date}>{testoDate(figlio.forma)}</Dettaglio>
+        <Dettaglio termine={t.stato}>
           <StatoTaskEtichetta task={task} />
         </Dettaglio>
       </dl>
@@ -415,15 +437,20 @@ function Segno({
 }
 
 function SegnoProgetto({ voce, intervallo }: { voce: ProgettoSulGrafico; intervallo: Intervallo }) {
+  const t = useTesti(TIMELINE)
+  const lingua = useLingua()
+  const { formatData } = useFormato()
+  const testoDate = useTestoDate()
   const { progetto: p, fine } = voce
   const faded = recessivo(p.stato)
-  const parole = fine.tipo === 'chiuso' ? ETICHETTA_STATO_PROGETTO[p.stato].toLowerCase() : testoFine(fine, p.per_cliente)
-  const statoParole = p.stato === 'in_pausa' ? 'in pausa, ' : ''
+  const parole =
+    fine.tipo === 'chiuso' ? PROGETTI[lingua].statoProgetto[p.stato].toLowerCase() : testoFine(fine, p.per_cliente, lingua)
+  const statoParole = p.stato === 'in_pausa' ? t.inPausaVirgola : ''
   return (
     <Segno
       forma={voce.forma}
       intervallo={intervallo}
-      etichetta={`${p.nome}: ${testoDate(voce.forma).toLowerCase()}, ${statoParole}${parole}${voce.senzaCoach ? ', senza coach' : ''}`}
+      etichetta={`${p.nome}: ${testoDate(voce.forma).toLowerCase()}, ${statoParole}${parole}${voce.senzaCoach ? t.senzaCoachVirgola : ''}`}
       testId="timeline-barra"
       classeBarra={cn('h-3 rounded-[4px] bg-gantt-progetto', faded && 'opacity-40')}
       classeRombo={cn('size-3 bg-gantt-progetto', faded && 'opacity-40')}
@@ -451,12 +478,14 @@ function SegnoFiglio({
   figlio: Exclude<Figlio, { tipo: 'gruppo' }>
   intervallo: Intervallo
 }) {
+  const g = useTesti(GANTT)
+  const testoDate = useTestoDate()
   const lista = figlio.tipo === 'lista'
   const completata = figlio.tipo === 'task' && figlio.task.stato === 'completato'
   const inRitardo = figlio.tipo === 'task' && figlio.task.in_ritardo
   const titolo = lista ? figlio.lista.nome : figlio.task.titolo
   const statoTesto =
-    figlio.tipo === 'task' ? `, ${ETICHETTA_STATO_TASK[figlio.task.stato].toLowerCase()}${inRitardo ? ', in ritardo' : ''}` : ''
+    figlio.tipo === 'task' ? `, ${g.statiTask[figlio.task.stato].toLowerCase()}${inRitardo ? g.virgolaInRitardo : ''}` : ''
   const nomeLista =
     figlio.tipo === 'task' ? (voce.progetto.liste.find((l) => l.id === figlio.task.tasklist_id)?.nome ?? null) : null
 
@@ -489,8 +518,14 @@ function SegnoFiglio({
 
 /** Name of a child row (a list or a task of the opened project): icons, never colour alone. */
 function NomeFiglio({ figlio }: { figlio: Figlio }) {
+  const t = useTesti(TIMELINE)
+  const g = useTesti(GANTT)
   if (figlio.tipo === 'gruppo') {
-    return <span className="truncate text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{figlio.nome}</span>
+    return (
+      <span className="truncate text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+        {figlio.nome === GANTT.it.senzaLista ? g.senzaLista : figlio.nome}
+      </span>
+    )
   }
   if (figlio.tipo === 'lista') {
     return <span className="line-clamp-2 min-w-0 text-xs leading-tight font-medium break-words">{figlio.lista.nome}</span>
@@ -504,26 +539,28 @@ function NomeFiglio({ figlio }: { figlio: Figlio }) {
         {task.titolo}
       </span>
       {task.stato === 'completato' ? (
-        <CheckCircle2 className="size-3.5 shrink-0 text-muted-foreground" aria-label="Completata" role="img" />
+        <CheckCircle2 className="size-3.5 shrink-0 text-muted-foreground" aria-label={t.completata} role="img" />
       ) : null}
       {task.in_ritardo ? (
-        <TriangleAlert className="size-3.5 shrink-0 text-status-warning" aria-label="In ritardo" role="img" />
+        <TriangleAlert className="size-3.5 shrink-0 text-status-warning" aria-label={t.inRitardo} role="img" />
       ) : null}
     </>
   )
 }
 
 function Legenda({ conFigli, conRecessivi, conSenzaCoach }: { conFigli: boolean; conRecessivi: boolean; conSenzaCoach: boolean }) {
+  const t = useTesti(TIMELINE)
+  const g = useTesti(GANTT)
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground" aria-label="Legenda">
+    <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground" aria-label={t.legenda}>
       <li className="flex items-center gap-1.5">
         <span aria-hidden="true" className="h-3 w-5 rounded-[4px] bg-gantt-progetto" />
-        Progetto
+        {t.progetto}
       </li>
       {conRecessivi ? (
         <li className="flex items-center gap-1.5">
           <span aria-hidden="true" className="h-3 w-5 rounded-[4px] bg-gantt-progetto opacity-40" />
-          In pausa, completato o archiviato
+          {t.recessivi}
         </li>
       ) : null}
       {/* lists and tasks only once a project is open: they are not on the chart before */}
@@ -531,27 +568,27 @@ function Legenda({ conFigli, conRecessivi, conSenzaCoach }: { conFigli: boolean;
         <>
           <li className="flex items-center gap-1.5">
             <span aria-hidden="true" className="h-2 w-5 rounded-[3px] bg-gantt-lista" />
-            Lista (milestone)
+            {t.lista}
           </li>
           <li className="flex items-center gap-1.5">
             <span aria-hidden="true" className="h-2.5 w-5 rounded-[3px] bg-gantt-task" />
-            Attività
+            {g.attivita}
           </li>
         </>
       ) : null}
       <li className="flex items-center gap-1.5">
         <CalendarClock className="size-3.5 text-status-warning" aria-hidden="true" />
-        Finisce entro {GIORNI_IN_SCADENZA} giorni
+        {t.entro}
       </li>
       {conSenzaCoach ? (
         <li className="flex items-center gap-1.5">
           <UserRoundX className="size-3.5 text-status-warning" aria-hidden="true" />
-          Percorso senza coach
+          {t.senzaCoach}
         </li>
       ) : null}
       <li className="flex items-center gap-1.5">
         <span aria-hidden="true" className="h-3.5 border-l border-dashed border-foreground" />
-        Oggi
+        {t.oggi}
       </li>
     </ul>
   )
@@ -588,11 +625,14 @@ function Grafico({
   scala: ScalaTimeline
   onApri: (id: string) => void
 }) {
+  const t = useTesti(TIMELINE)
+  const lingua = useLingua()
+  const { formatData } = useFormato()
   const scorrimento = useRef<HTMLDivElement>(null)
   const lineaOggi = useRef<HTMLSpanElement>(null)
   const intervallo = intervalloTimeline(forme, oggi, scala)
   const giorni = larghezzaTimeline(intervallo, 1)
-  const listaTacche = taccheTimeline(intervallo, scala)
+  const listaTacche = taccheTimeline(intervallo, scala, lingua)
   const giornoOggi = xOggiTimeline(oggi, intervallo, 1)
   // the project just opened, to bring its lists and tasks in sight
   const [daMostrare, setDaMostrare] = useState<{ id: string } | null>(null)
@@ -624,7 +664,7 @@ function Grafico({
   return (
     <div
       role="figure"
-      aria-label={`Timeline dei progetti, dal ${formatData(intervallo.da)} al ${formatData(intervallo.a)}`}
+      aria-label={t.grafico(formatData(intervallo.da), formatData(intervallo.a))}
       className="flex overflow-hidden rounded-xl border border-border bg-card"
       data-testid="timeline-grafico"
     >
@@ -655,7 +695,7 @@ function Grafico({
                   {/* the count is the list's: those without an end are below the chart */}
                   {riga.senzaFine > 0 ? (
                     <span className="num block truncate text-[11px] leading-tight text-muted-foreground">
-                      {riga.senzaFine} senza data di fine
+                      {t.senzaFineN(riga.senzaFine)}
                     </span>
                   ) : null}
                 </span>
@@ -689,7 +729,7 @@ function Grafico({
                   <button
                     type="button"
                     aria-expanded={riga.aperto}
-                    aria-label={`Liste e attività di ${p.nome}`}
+                    aria-label={t.listeDi(p.nome)}
                     onClick={() => {
                       onApri(p.id)
                       if (!riga.aperto) setDaMostrare({ id: p.id })
@@ -735,14 +775,14 @@ function Grafico({
         className="min-w-0 flex-1 overflow-x-auto focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         style={{ containerType: 'inline-size' }}
         tabIndex={0}
-        aria-label="Linea del tempo: scorri in orizzontale"
+        aria-label={t.scorri}
         data-testid="timeline-asse"
       >
         {/* never narrower than the card: a short axis leaves no empty band on the right */}
         <div className="relative min-w-full" style={asse}>
           {/* recessive grid, one hairline per tick, through every row */}
-          {listaTacche.map((t) => (
-            <span key={t.data} aria-hidden="true" className="absolute inset-y-0 w-px bg-border" style={{ left: lung(t.giorno) }} />
+          {listaTacche.map((tacca) => (
+            <span key={tacca.data} aria-hidden="true" className="absolute inset-y-0 w-px bg-border" style={{ left: lung(tacca.giorno) }} />
           ))}
 
           {righe.map((riga) => {
@@ -750,15 +790,15 @@ function Grafico({
               // each department repeats the axis: further down the page the months are still in sight
               return (
                 <div key={chiaveRiga(riga)} className="relative h-12 border-b border-border" aria-hidden="true">
-                  {listaTacche.map((t) => (
+                  {listaTacche.map((tacca) => (
                     // the period's name sticks to the left edge while the period is in view (CSS
                     // only, nothing on scroll); above the "Oggi" line, on the card's colour
-                    <div key={t.data} className="absolute inset-y-0" style={{ left: lung(t.giorno), width: lung(t.durata) }}>
+                    <div key={tacca.data} className="absolute inset-y-0" style={{ left: lung(tacca.giorno), width: lung(tacca.durata) }}>
                       <span
                         data-etichetta-periodo=""
                         className="num sticky left-0 z-[1] mt-1.5 ml-px inline-block bg-card px-1 text-xs whitespace-nowrap text-muted-foreground"
                       >
-                        {t.etichetta}
+                        {tacca.etichetta}
                       </span>
                     </div>
                   ))}
@@ -766,7 +806,7 @@ function Grafico({
                     className="absolute bottom-1 z-[1] -translate-x-1/2 rounded-sm bg-background px-1.5 text-xs leading-5 font-medium text-foreground"
                     style={{ left: lung(giornoOggi) }}
                   >
-                    Oggi
+                    {t.oggi}
                   </span>
                 </div>
               )
@@ -810,39 +850,47 @@ function Grafico({
 }
 
 function Coach({ progetto }: { progetto: ProgettoTimeline }) {
+  const lingua = useLingua()
   if (progetto.coach) return <>{progetto.coach}</>
-  if (progetto.per_cliente) return <SenzaCoach />
+  if (progetto.per_cliente) return <SenzaCoach lingua={lingua} />
   return <span className="text-muted-foreground">–</span>
 }
 
 function StatoSeNonAttivo({ stato }: { stato: StatoProgetto }) {
-  return stato === 'attivo' ? null : <StatoProgettoBadge stato={stato} className="mt-0.5" />
+  const lingua = useLingua()
+  return stato === 'attivo' ? null : <StatoProgettoBadge stato={stato} className="mt-0.5" lingua={lingua} />
 }
 
 /** "Dal 05/07/2026 al 04/10/2026", "Fine 04/10/2026", "Dal 05/08/2026, senza data di fine", "Senza date". */
-function periodo({ data_inizio, data_fine }: Pick<ProgettoTimeline, 'data_inizio' | 'data_fine'>): string {
-  if (data_inizio && data_fine) return `Dal ${formatData(data_inizio)} al ${formatData(data_fine)}`
-  if (data_fine) return `Fine ${formatData(data_fine)}`
-  if (data_inizio) return `Dal ${formatData(data_inizio)}, senza data di fine`
-  return 'Senza date'
+function periodo(
+  { data_inizio, data_fine }: Pick<ProgettoTimeline, 'data_inizio' | 'data_fine'>,
+  t: (typeof TIMELINE)['it'],
+  formatData: Formato['formatData'],
+): string {
+  if (data_inizio && data_fine) return t.dalAl(formatData(data_inizio), formatData(data_fine))
+  if (data_fine) return t.fineIl(formatData(data_fine))
+  if (data_inizio) return t.dalSenzaFine(formatData(data_inizio))
+  return t.senzaDate
 }
 
 /** The same projects as a table: the chart's twin, readable without hovering. */
 function Tabella({ voci }: { voci: Pick<ProgettoSulGrafico, 'progetto' | 'reparto' | 'fine'>[] }) {
+  const t = useTesti(TIMELINE)
+  const { formatData, formatPercentuale } = useFormato()
   return (
     <div data-testid="timeline-tabella">
       {/* from 768px: a real table */}
       <table className="hidden w-full text-sm md:table">
-        <caption className="sr-only">Progetti con inizio, fine e giorni alla fine, per reparto</caption>
+        <caption className="sr-only">{t.didascalia}</caption>
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b border-border">
-            <th scope="col" className="py-2 pr-3 text-left font-normal">Progetto</th>
-            <th scope="col" className="py-2 pr-3 text-left font-normal">Reparto</th>
-            <th scope="col" className="py-2 pr-3 text-right font-normal">Inizio</th>
-            <th scope="col" className="py-2 pr-3 text-right font-normal">Fine</th>
-            <th scope="col" className="py-2 pr-3 text-left font-normal">Giorni alla fine</th>
-            <th scope="col" className="py-2 pr-3 text-left font-normal">Coach</th>
-            <th scope="col" className="py-2 text-right font-normal">Avanzamento</th>
+            <th scope="col" className="py-2 pr-3 text-left font-normal">{t.progetto}</th>
+            <th scope="col" className="py-2 pr-3 text-left font-normal">{t.reparto}</th>
+            <th scope="col" className="py-2 pr-3 text-right font-normal">{t.inizio}</th>
+            <th scope="col" className="py-2 pr-3 text-right font-normal">{t.fine}</th>
+            <th scope="col" className="py-2 pr-3 text-left font-normal">{t.giorniAllaFine}</th>
+            <th scope="col" className="py-2 pr-3 text-left font-normal">{t.coach}</th>
+            <th scope="col" className="py-2 text-right font-normal">{t.avanzamento}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -865,8 +913,8 @@ function Tabella({ voci }: { voci: Pick<ProgettoSulGrafico, 'progetto' | 'repart
               </td>
               <td className="num py-2 text-right">
                 {v.progetto.task_totali === 0
-                  ? 'Nessun task'
-                  : `${v.progetto.task_completati} di ${v.progetto.task_totali} · ${formatPercentuale(v.progetto.avanzamento)}`}
+                  ? t.nessunTask
+                  : t.taskDi(v.progetto.task_completati, v.progetto.task_totali, formatPercentuale(v.progetto.avanzamento))}
               </td>
             </tr>
           ))}
@@ -886,18 +934,16 @@ function Tabella({ voci }: { voci: Pick<ProgettoSulGrafico, 'progetto' | 'repart
                 <StatoSeNonAttivo stato={v.progetto.stato} />
               </span>
               <span className="mt-0.5 block text-xs text-muted-foreground">{v.reparto}</span>
-              <span className="num mt-0.5 block text-xs text-muted-foreground">{periodo(v.progetto)}</span>
+              <span className="num mt-0.5 block text-xs text-muted-foreground">{periodo(v.progetto, t, formatData)}</span>
               <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
                 {v.fine.tipo === 'chiuso' || v.fine.tipo === 'senza_fine' ? null : <FineInParole voce={v} />}
                 {v.progetto.per_cliente || v.progetto.coach ? (
                   <span className="text-muted-foreground">
-                    Coach: <Coach progetto={v.progetto} />
+                    {t.coachDue} <Coach progetto={v.progetto} />
                   </span>
                 ) : null}
                 <span className="num text-muted-foreground">
-                  {v.progetto.task_totali === 0
-                    ? 'Nessun task'
-                    : `${v.progetto.task_completati} di ${v.progetto.task_totali} task`}
+                  {v.progetto.task_totali === 0 ? t.nessunTask : t.taskConto(v.progetto.task_completati, v.progetto.task_totali)}
                 </span>
               </span>
             </LinkRiga>
@@ -918,6 +964,8 @@ function Tabella({ voci }: { voci: Pick<ProgettoSulGrafico, 'progetto' | 'repart
  * never people: nobody is compared or ranked.
  */
 export function TimelineProgetti({ reparti, oggi }: { reparti: RepartoTimeline[]; oggi: string }) {
+  const t = useTesti(TIMELINE)
+  const lingua = useLingua()
   const [vista, setVista] = useState<'grafico' | 'tabella'>('grafico')
   // quarters first: the whole picture fits the width on a computer; months to zoom in
   const [scala, setScala] = useState<ScalaTimeline>('trimestri')
@@ -986,22 +1034,22 @@ export function TimelineProgetti({ reparti, oggi }: { reparti: RepartoTimeline[]
     <div className="space-y-4" data-testid="timeline-progetti">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Segmenti
-          etichetta="Vista della timeline"
+          etichetta={t.vista}
           valore={vista}
           onCambia={setVista}
           opzioni={[
-            { valore: 'grafico', etichetta: 'Grafico' },
-            { valore: 'tabella', etichetta: 'Tabella' },
+            { valore: 'grafico', etichetta: t.viste.grafico },
+            { valore: 'tabella', etichetta: t.viste.tabella },
           ]}
         />
         {vista === 'grafico' && sulGrafico.length > 0 ? (
           <Segmenti
-            etichetta="Scala"
+            etichetta={t.scala}
             valore={scala}
             onCambia={setScala}
             opzioni={[
-              { valore: 'mesi', etichetta: 'Mesi' },
-              { valore: 'trimestri', etichetta: 'Trimestri' },
+              { valore: 'mesi', etichetta: t.scale.mesi },
+              { valore: 'trimestri', etichetta: t.scale.trimestri },
             ]}
           />
         ) : null}
@@ -1019,17 +1067,15 @@ export function TimelineProgetti({ reparti, oggi }: { reparti: RepartoTimeline[]
           ) : (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">
               <CalendarOff className="size-6 text-muted-foreground" aria-hidden="true" />
-              <p className="text-sm font-medium">Nessun progetto ha una data di fine</p>
-              <p className="max-w-sm text-sm text-muted-foreground">
-                Dai inizio e fine ai progetti, dalla loro scheda, per vederli sulla linea del tempo.
-              </p>
+              <p className="text-sm font-medium">{t.vuoto}</p>
+              <p className="max-w-sm text-sm text-muted-foreground">{t.vuotoDescrizione}</p>
             </div>
           )}
 
           {senzaFine.length > 0 ? (
             <section aria-labelledby="timeline-senza-fine" className="space-y-2" data-testid="timeline-senza-fine">
               <h2 id="timeline-senza-fine" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Senza data di fine ({senzaFine.length})
+                {t.senzaFineTitolo(senzaFine.length)}
               </h2>
               <ul className="divide-y divide-border rounded-xl bg-card">
                 {senzaFine.map(({ progetto: p, reparto }) => (
@@ -1042,7 +1088,7 @@ export function TimelineProgetti({ reparti, oggi }: { reparti: RepartoTimeline[]
                         {p.nome}
                         <span className="text-muted-foreground"> · {reparto}</span>
                       </span>
-                      <StatoProgettoBadge stato={p.stato} />
+                      <StatoProgettoBadge stato={p.stato} lingua={lingua} />
                     </LinkRiga>
                   </li>
                 ))}

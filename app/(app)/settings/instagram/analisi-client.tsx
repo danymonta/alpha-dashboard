@@ -5,12 +5,14 @@ import { useId, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { impostaInterruttoriAnalisi, impostaLimiteSpesaAnalisi } from '@/app/(app)/settings/instagram/actions'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-
-const CONNESSIONE = 'Connessione assente. Riprova.'
+import { numeroDollari, traduciImpostazioni } from '@/lib/i18n/testi/impostazioni'
+import { INSTAGRAM_IMPOSTAZIONI } from '@/lib/i18n/testi/instagram-impostazioni'
+import { SHELL } from '@/lib/i18n/testi/shell'
 
 /**
  * «Limite di spesa al mese»: a number of dollars from 0 to 200, saved with the
@@ -19,7 +21,9 @@ const CONNESSIONE = 'Connessione assente. Riprova.'
  */
 export function LimiteSpesaAnalisi({ valore }: { valore: number }) {
   const id = useId()
-  const [testo, setTesto] = useState(String(valore).replace('.', ','))
+  const lingua = useLingua()
+  const t = INSTAGRAM_IMPOSTAZIONI[lingua].analisi
+  const [testo, setTesto] = useState(lingua === 'it' ? String(valore).replace('.', ',') : String(valore))
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
 
@@ -27,24 +31,24 @@ export function LimiteSpesaAnalisi({ valore }: { valore: number }) {
     e.preventDefault()
     const numero = Number(testo.trim().replace(',', '.'))
     if (!Number.isFinite(numero) || numero < 0 || numero > 200) {
-      setErrore('Scegli un limite tra 0 e 200 $.')
+      setErrore(t.limiteNonValido)
       return
     }
     setErrore(null)
     avvia(async () => {
       try {
         const esito = await impostaLimiteSpesaAnalisi({ usd: numero })
-        if (!esito.ok) setErrore(esito.errore)
-        else toast.success(`Limite di spesa: ${numero.toLocaleString('it-IT')} $ al mese`)
+        if (!esito.ok) setErrore(traduciImpostazioni(esito.errore, lingua))
+        else toast.success(t.limiteSalvato(numeroDollari(numero, lingua)))
       } catch {
-        setErrore(CONNESSIONE)
+        setErrore(SHELL[lingua].connessione)
       }
     })
   }
 
   return (
     <form onSubmit={salva} className="space-y-1.5" data-testid="analisi-limite">
-      <Label htmlFor={id}>Limite di spesa al mese ($)</Label>
+      <Label htmlFor={id}>{t.limite}</Label>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           id={id}
@@ -57,7 +61,7 @@ export function LimiteSpesaAnalisi({ valore }: { valore: number }) {
         />
         <Button type="submit" variant="outline" className="h-11" disabled={inCorso}>
           {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-          Salva il limite
+          {t.salvaLimite}
         </Button>
       </div>
       {errore ? (
@@ -84,6 +88,8 @@ function Interruttore({
   testId: string
 }) {
   const id = useId()
+  const lingua = useLingua()
+  const t = INSTAGRAM_IMPOSTAZIONI[lingua].analisi
   const [valore, setValore] = useState(acceso)
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
@@ -97,13 +103,13 @@ function Interruttore({
         const esito = await impostaInterruttoriAnalisi({ [chiave]: nuovo })
         if (!esito.ok) {
           setValore(prima)
-          setErrore(esito.errore)
+          setErrore(traduciImpostazioni(esito.errore, lingua))
         } else {
-          toast.success(`${titolo}: ${nuovo ? 'accese' : 'spente'}`)
+          toast.success(t.interruttore(titolo, nuovo))
         }
       } catch {
         setValore(prima)
-        setErrore(CONNESSIONE)
+        setErrore(SHELL[lingua].connessione)
       }
     })
   }
@@ -139,20 +145,21 @@ function Interruttore({
 }
 
 export function InterruttoriAnalisi({ automatiche, noteTeam }: { automatiche: boolean; noteTeam: boolean }) {
+  const t = INSTAGRAM_IMPOSTAZIONI[useLingua()].analisi
   return (
     <div className="space-y-3">
       <Interruttore
         chiave="automatiche"
         acceso={automatiche}
-        titolo="Trascrizioni automatiche (senza Claude)"
-        descrizione="Ogni notte si trascrive il parlato dei reel nuovi, con Whisper: nessuna chiamata a Claude. Claude lavora solo quando l’admin o il marketing toccano «Analizza» su un reel (analisi e punteggio insieme). Spente, la trascrizione parte con quel tocco."
+        titolo={t.automatiche}
+        descrizione={t.automaticheDescrizione}
         testId="analisi-automatiche"
       />
       <Interruttore
         chiave="note_team"
         acceso={noteTeam}
-        titolo="Note del team e temi delle call negli spunti e nelle analisi"
-        descrizione="Acceso, Claude riceve senza nomi le note di chi risponde ai DM, i motivi di non chiusura, i temi dei DM e, dalle call analizzate, obiezioni, domande e dubbi dei lead. Al video editor e al marketing arrivano solo come temi a parole. Spento, non li vede mai. Non rifà le analisi già pronte."
+        titolo={t.noteTeam}
+        descrizione={t.noteTeamDescrizione}
         testId="analisi-note-team"
       />
     </div>

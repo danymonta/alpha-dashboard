@@ -83,3 +83,24 @@ export function fraseFonti(l: FontiLettura | null): string {
   }
   return `Claude ha visto ${visti}. Trascrizione non disponibile.`
 }
+
+/** The same foot of the analysis in English (1.53.0). */
+export function fraseFontiEn(l: FontiLettura | null): string {
+  if (!l) return 'Transcript not available.'
+  if (l.fonte_visione === 'copertina' || l.video === 'senza_media_url') {
+    return 'Instagram does not give the video of this reel (usually because of protected music): Claude saw the cover, the caption and the script.'
+  }
+  if (l.video === 'troppo_grande' || l.video === 'non_scaricabile') {
+    return 'The video did not download: Claude saw the cover, the caption and the script.'
+  }
+  if (l.video === 'senza_estrattore') {
+    return 'The frames were not extracted this time: Claude saw the cover, the caption and the script.'
+  }
+  const n = l.fotogrammi ?? 0
+  const visti = n === 1 ? '1 frame' : `${n} frames`
+  if (l.trascrizione_esito === 'pronta') return `Claude saw ${visti} and listened to the speech.`
+  if (l.trascrizione_esito === 'senza_parlato' || l.trascrizione_esito === 'senza_audio') {
+    return 'No speech: Claude read the text on screen.'
+  }
+  return `Claude saw ${visti}. Transcript not available.`
+}

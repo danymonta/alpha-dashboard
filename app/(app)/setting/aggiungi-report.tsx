@@ -8,12 +8,15 @@ import { Controller, useForm, useWatch } from 'react-hook-form'
 import { aggiungiReport } from '@/app/(app)/setting/actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, CLASSE_SELECT, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { CommentoReport } from '@/components/setter/commento-report'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { GRUPPI_REPORT, MASSIMO_GIORNALIERO, REPORT_VUOTO, nuovoReportSchema, type NuovoReportInput } from '@/lib/validation/report'
+import { gruppiReport, traduciErroreSetting } from '@/lib/i18n/testi/oggi'
+import { SETTER } from '@/lib/i18n/testi/setter'
+import { MASSIMO_GIORNALIERO, REPORT_VUOTO, nuovoReportSchema, type NuovoReportInput } from '@/lib/validation/report'
 
 export type PersonaSetting = { id: string; nome: string }
 
@@ -22,6 +25,9 @@ export type PersonaSetting = { id: string; nome: string }
  * or for himself. The setter has the same on his "Oggi" page, day by day.
  */
 export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; oggi: string }) {
+  const lingua = useLingua()
+  const t = SETTER[lingua].foglio
+  const GRUPPI_REPORT = gruppiReport(lingua)
   const [aperto, setAperto] = useState(false)
   const { errore, setErrore, salva } = useSalvataggio()
   const iniziali: NuovoReportInput = { ...REPORT_VUOTO, setter_id: persone[0]?.id ?? '', data: oggi }
@@ -42,7 +48,11 @@ export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; o
   const attuali = { lead_in_target: leadInTarget, qualita_conversazioni: qualita, cosa_frenava: cosaFrenava, domande_contenuti: domande, note }
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => aggiungiReport(valori), 'Giornata aggiunta')) setAperto(false)
+    const azione = async () => {
+      const esito = await aggiungiReport(valori)
+      return esito.ok ? esito : { ...esito, errore: traduciErroreSetting(esito.errore, lingua) }
+    }
+    if (await salva(azione, t.giornataAggiunta)) setAperto(false)
   })
 
   const errorePrimo = GRUPPI_REPORT.flatMap((g) => g.campi).find(([campo]) => errors[campo])
@@ -59,16 +69,16 @@ export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; o
       contenutoTrigger={
         <>
           <Plus className="size-4" aria-hidden="true" />
-          Aggiungi giornata
+          {t.aggiungi}
         </>
       }
-      titolo="Aggiungi una giornata di setting"
-      descrizione="I numeri di un giorno (DM, conversazioni, call) e com’è andata. Se quel giorno c’è già, si corregge dalla tabella."
+      titolo={t.aggiungiTitolo}
+      descrizione={t.aggiungiDescrizione}
     >
       <form onSubmit={invia} noValidate className="space-y-5">
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
-            <Label htmlFor="ag-persona">Chi</Label>
+            <Label htmlFor="ag-persona">{t.chi}</Label>
             <select id="ag-persona" className={CLASSE_SELECT} {...register('setter_id')}>
               {persone.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -76,12 +86,12 @@ export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; o
                 </option>
               ))}
             </select>
-            <ErroreCampo id="ag-persona-errore" messaggio={errors.setter_id?.message} />
+            <ErroreCampo id="ag-persona-errore" messaggio={traduciErroreSetting(errors.setter_id?.message, lingua) ?? undefined} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="ag-data">Giorno</Label>
+            <Label htmlFor="ag-data">{t.giorno}</Label>
             <Input id="ag-data" type="date" max={oggi} className="num h-11" {...register('data')} />
-            <ErroreCampo id="ag-data-errore" messaggio={errors.data?.message} />
+            <ErroreCampo id="ag-data-errore" messaggio={traduciErroreSetting(errors.data?.message, lingua) ?? undefined} />
           </div>
         </div>
 
@@ -122,7 +132,7 @@ export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; o
         ))}
         <ErroreCampo
           id="ag-numeri-errore"
-          messaggio={errorePrimo ? `${errorePrimo[1]}: ${errors[errorePrimo[0]]?.message}` : undefined}
+          messaggio={errorePrimo ? `${errorePrimo[1]}: ${traduciErroreSetting(errors[errorePrimo[0]]?.message, lingua)}` : undefined}
         />
 
         <Controller
@@ -130,14 +140,14 @@ export function AggiungiReport({ persone, oggi }: { persone: PersonaSetting[]; o
           name="contenuto_pubblicato"
           render={({ field }) => (
             <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
-              Contenuto pubblicato
+              {t.contenutoPubblicato}
               <Switch checked={field.value} onCheckedChange={field.onChange} />
             </label>
           )}
         />
 
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>Salva la giornata</BottoneSalva>
+        <ErroreModulo testo={traduciErroreSetting(errore, lingua) ?? null} />
+        <BottoneSalva inCorso={isSubmitting}>{t.salvaGiornata}</BottoneSalva>
       </form>
     </FoglioModifica>
   )

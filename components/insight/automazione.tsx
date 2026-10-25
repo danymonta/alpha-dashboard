@@ -6,13 +6,16 @@ import { toast } from 'sonner'
 
 import { salvaAutomazione } from '@/app/(app)/insight/automazione-actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { ErroreModulo } from '@/components/form/foglio-modifica'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatOra, oggiRoma } from '@/lib/date'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { INSIGHT_RECAP, traduciErroreInsight } from '@/lib/i18n/testi/insight-recap'
 import { pianificatoreFermo } from '@/lib/insight/stato'
 import { automazioneSchema, PASSO_MINUTI_AUTOMAZIONE } from '@/lib/validation/insight'
 
@@ -34,8 +37,6 @@ export type PropsAutomazione = {
   /** ISO, the last tick of pg_cron (insight_stato) */
   ultimoTickIl: string | null
 }
-
-const CONNESSIONE = 'Connessione assente. Riprova.'
 
 // One clock per minute for the scheduler's warning: 0 on the server and
 // before the first tick, so the server's render and the first client render
@@ -73,9 +74,10 @@ function useAdesso() {
 }
 
 /** "dalle 18:40", or "dal 12/10/2026 alle 18:40" when it is not today (Rome). */
-function dalle(istante: string, oggi: string): string {
+function dalle(istante: string, oggi: string, lingua: Lingua): string {
+  const t = INSIGHT_RECAP[lingua].automazione
   const giorno = oggiRoma(new Date(istante))
-  return giorno === oggi ? `dalle ${formatOra(istante)}` : `dal ${formatData(giorno)} alle ${formatOra(istante)}`
+  return giorno === oggi ? t.dalle(formatOra(istante)) : t.dal(formato(lingua).formatData(giorno), formatOra(istante))
 }
 
 export function Automazione({ attiva, ora, configurato, ultimoTickIl }: PropsAutomazione) {
@@ -94,6 +96,8 @@ export function Automazione({ attiva, ora, configurato, ultimoTickIl }: PropsAut
   const [erroreOra, setErroreOra] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
   const id = useId()
+  const lingua = useLingua()
+  const t = INSIGHT_RECAP[lingua].automazione
 
   const istante = useAdesso()
   // a tick never seen yet is not a dead scheduler: the settings say «nessun controllo finora»
@@ -108,7 +112,7 @@ export function Automazione({ attiva, ora, configurato, ultimoTickIl }: PropsAut
     setErroreOra(null)
     const parsed = automazioneSchema.safeParse({ attiva: accesa, ora: orario })
     if (!parsed.success) {
-      setErroreOra(parsed.error.issues[0]?.message ?? 'Orario non valido.')
+      setErroreOra(traduciErroreInsight(parsed.error.issues[0]?.message ?? t.orarioNonValido, lingua))
       return
     }
     avvia(async () => {
@@ -116,14 +120,14 @@ export function Automazione({ attiva, ora, configurato, ultimoTickIl }: PropsAut
       try {
         esito = await salvaAutomazione(parsed.data)
       } catch {
-        setErrore(CONNESSIONE)
+        setErrore(t.connessione)
         return
       }
       if (!esito.ok) {
-        setErrore(esito.errore)
+        setErrore(traduciErroreInsight(esito.errore, lingua))
         return
       }
-      toast.success('Automazione salvata', esito.avviso ? { description: esito.avviso } : undefined)
+      toast.success(t.salvata, esito.avviso ? { description: traduciErroreInsight(esito.avviso, lingua) } : undefined)
     })
   }
 
@@ -134,7 +138,7 @@ export function Automazione({ attiva, ora, configurato, ultimoTickIl }: PropsAut
           className="size-4 shrink-0 text-muted-foreground group-open:rotate-90 motion-safe:transition-transform"
           aria-hidden="true"
         />
-        Automazione
+        {t.titolo}
       </summary>
       <form onSubmit={salva} noValidate className="space-y-3 pt-1 pb-3">
         <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
@@ -143,15 +147,15 @@ export function Automazione({ attiva, ora, configurato, ultimoTickIl }: PropsAut
             <Checkbox
               checked={accesa}
               onCheckedChange={(v) => setAccesa(v === true)}
-              aria-label="Recap automatico attivo"
+              aria-label={t.recapAttivo}
               className="size-5"
               disabled={inCorso}
             />
-            <span aria-hidden="true">Recap automatico attivo</span>
+            <span aria-hidden="true">{t.recapAttivo}</span>
           </label>
           <div className="flex min-h-11 items-center gap-3">
             <Label htmlFor={`${id}-ora`} className="text-sm font-normal">
-              Pronto alle
+              {t.prontoAlle}
             </Label>
             <Input
               id={`${id}-ora`}
@@ -167,7 +171,7 @@ export function Automazione({ attiva, ora, configurato, ultimoTickIl }: PropsAut
           </div>
           <Button type="submit" variant="outline" className="h-11 w-full sm:w-auto" disabled={inCorso}>
             {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-            {inCorso ? 'Salvataggio…' : 'Salva automazione'}
+            {inCorso ? t.salvataggio : t.salva}
           </Button>
         </div>
         <ErroreCampo id={`${id}-errore-ora`} messaggio={erroreOra ?? undefined} />
@@ -178,28 +182,27 @@ export function Automazione({ attiva, ora, configurato, ultimoTickIl }: PropsAut
             <p className="flex items-start gap-2">
               <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
               <span>
-                Attiva: recap pronto ogni giorno alle <span className="num">{ora}</span>.
+                {t.attivaPrima} <span className="num">{ora}</span>.
               </span>
             </p>
           ) : (
-            <p className="text-muted-foreground">Disattivata.</p>
+            <p className="text-muted-foreground">{t.disattivata}</p>
           )}
           {attiva && !configurato ? (
             <p className="flex items-start gap-2 text-status-warning">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Manca ANTHROPIC_API_KEY su Vercel: finché non c’è, il recap automatico non parte.
+              {t.mancaChiave}
             </p>
           ) : null}
           {fermo && ultimoTickIl ? (
             <p className="flex items-start gap-2 text-status-warning" data-testid="insight-pianificatore-fermo">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Il pianificatore non risponde {dalle(ultimoTickIl, oggiRoma(new Date(istante)))}: il recap automatico è
-              fermo. Usa Aggiorna dati e avvisa chi gestisce l’app.
+              {t.pianificatore(dalle(ultimoTickIl, oggiRoma(new Date(istante)), lingua))}
             </p>
           ) : null}
         </div>
         <p className="text-sm text-muted-foreground">
-          Gira sul server dell’app: il Mac può restare spento. Parte circa 15 minuti prima.
+          {t.gira}
         </p>
       </form>
     </details>

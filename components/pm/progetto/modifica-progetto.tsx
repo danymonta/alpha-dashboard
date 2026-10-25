@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 
 import { eliminaProgetto, modificaProgetto } from '@/app/(app)/progetti/[id]/actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { BottoneSalva, CLASSE_SELECT, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
 import { SceltaRapida } from '@/components/form/scelta-rapida'
 import type { OpzioneCliente, OpzionePersona } from '@/components/pm/progetto/nuovo-progetto'
@@ -24,10 +25,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ETICHETTA_STATO_PROGETTO, type StatoProgetto } from '@/lib/progetti'
+import { traduciErroreProgetti } from '@/lib/i18n/testi/progetti'
+import { FOGLI_PROGETTO } from '@/lib/i18n/testi/progetto-fogli'
+import type { StatoProgetto } from '@/lib/progetti'
 import { STATI_PROGETTO, modificaProgettoSchema, type ModificaProgettoInput } from '@/lib/validation/progetti'
-
-const OPZIONI_STATO = STATI_PROGETTO.map((s) => ({ valore: s, etichetta: ETICHETTA_STATO_PROGETTO[s] }))
 
 export type ProgettoModificabile = {
   id: string
@@ -59,6 +60,10 @@ export function ModificaProgetto({
   clienti: readonly OpzioneCliente[] | null
   eliminabile: boolean
 }) {
+  const t = useTesti(FOGLI_PROGETTO)
+  const lingua = useLingua()
+  const tradotto = (messaggio: string | undefined) => traduciErroreProgetti(messaggio, lingua)
+  const opzioniStato = STATI_PROGETTO.map((s) => ({ valore: s, etichetta: t.statiProgetto[s] }))
   const [aperto, setAperto] = useState(false)
   const { errore, setErrore, salva } = useSalvataggio()
   const iniziali: ModificaProgettoInput = {
@@ -86,7 +91,7 @@ export function ModificaProgetto({
   const perClienti = reparti.find((r) => r.id === reparto)?.progetti_con_cliente ?? false
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => modificaProgetto(valori), 'Progetto salvato')) setAperto(false)
+    if (await salva(() => modificaProgetto(valori), t.progettoSalvato)) setAperto(false)
   })
 
   return (
@@ -102,43 +107,43 @@ export function ModificaProgetto({
         <Button
           type="button"
           variant="ghost"
-          aria-label="Modifica"
+          aria-label={t.modifica}
           className="size-11 shrink-0 text-muted-foreground sm:w-auto sm:border-input sm:bg-input/30 sm:px-2.5 sm:text-foreground sm:hover:bg-input/50"
         />
       }
       contenutoTrigger={
         <>
           <Pencil className="size-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Modifica</span>
+          <span className="hidden sm:inline">{t.modifica}</span>
         </>
       }
-      titolo="Modifica il progetto"
-      descrizione="Nome, reparto, stato, date e responsabile. I task restano come sono."
+      titolo={t.modificaProgetto}
+      descrizione={t.modificaDescrizione}
     >
       <div className="space-y-6">
         <form onSubmit={invia} noValidate className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="mp-nome">Nome</Label>
+            <Label htmlFor="mp-nome">{t.nome}</Label>
             <Input id="mp-nome" className="h-11" {...register('nome')} />
-            <ErroreCampo id="mp-nome-errore" messaggio={errors.nome?.message} />
+            <ErroreCampo id="mp-nome-errore" messaggio={tradotto(errors.nome?.message)} />
           </div>
 
-          <SceltaRapida legenda="Stato" opzioni={OPZIONI_STATO} registrazione={register('stato')} colonne={2} />
+          <SceltaRapida legenda={t.stato} opzioni={opzioniStato} registrazione={register('stato')} colonne={2} />
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor="mp-inizio">Inizio</Label>
+              <Label htmlFor="mp-inizio">{t.inizio}</Label>
               <Input id="mp-inizio" type="date" className="num h-11" {...register('data_inizio')} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="mp-fine">Fine</Label>
+              <Label htmlFor="mp-fine">{t.fine}</Label>
               <Input id="mp-fine" type="date" className="num h-11" {...register('data_fine')} />
             </div>
           </div>
-          <ErroreCampo id="mp-date-errore" messaggio={errors.data_inizio?.message ?? errors.data_fine?.message} />
+          <ErroreCampo id="mp-date-errore" messaggio={tradotto(errors.data_inizio?.message ?? errors.data_fine?.message)} />
 
           <div className="space-y-1.5">
-            <Label htmlFor="mp-reparto">Reparto</Label>
+            <Label htmlFor="mp-reparto">{t.reparto}</Label>
             <select
               id="mp-reparto"
               className={CLASSE_SELECT}
@@ -156,45 +161,45 @@ export function ModificaProgetto({
                 </option>
               ))}
             </select>
-            <ErroreCampo id="mp-reparto-errore" messaggio={errors.reparto_id?.message} />
+            <ErroreCampo id="mp-reparto-errore" messaggio={tradotto(errors.reparto_id?.message)} />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="mp-responsabile">Responsabile</Label>
+            <Label htmlFor="mp-responsabile">{t.responsabile}</Label>
             <select id="mp-responsabile" className={CLASSE_SELECT} {...register('responsabile_id')}>
-              <option value="">Nessuno</option>
+              <option value="">{t.nessuno}</option>
               {membri.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.nome}
                 </option>
               ))}
             </select>
-            <p className="text-xs text-muted-foreground">Uno dei membri del progetto.</p>
+            <p className="text-xs text-muted-foreground">{t.unoDeiMembri}</p>
           </div>
 
           {clienti && perClienti ? (
             <div className="space-y-1.5">
-              <Label htmlFor="mp-cliente">Cliente</Label>
+              <Label htmlFor="mp-cliente">{t.cliente}</Label>
               <select id="mp-cliente" className={CLASSE_SELECT} {...register('client_id')}>
-                <option value="">Nessun cliente</option>
+                <option value="">{t.nessunCliente}</option>
                 {clienti.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.etichetta}
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-muted-foreground">Solo tu vedi il collegamento al cliente e ai suoi dati.</p>
+              <p className="text-xs text-muted-foreground">{t.soloTuCliente}</p>
             </div>
           ) : null}
 
           <div className="space-y-1.5">
-            <Label htmlFor="mp-descrizione">Descrizione</Label>
+            <Label htmlFor="mp-descrizione">{t.descrizione}</Label>
             <Textarea id="mp-descrizione" rows={3} {...register('descrizione')} />
-            <ErroreCampo id="mp-descrizione-errore" messaggio={errors.descrizione?.message} />
+            <ErroreCampo id="mp-descrizione-errore" messaggio={tradotto(errors.descrizione?.message)} />
           </div>
 
-          <ErroreModulo testo={errore} />
-          <BottoneSalva inCorso={isSubmitting}>Salva il progetto</BottoneSalva>
+          <ErroreModulo testo={tradotto(errore ?? undefined) ?? null} />
+          <BottoneSalva inCorso={isSubmitting}>{t.salvaProgetto}</BottoneSalva>
         </form>
 
         {eliminabile ? <EliminaProgetto id={progetto.id} nome={progetto.nome} /> : null}
@@ -204,6 +209,8 @@ export function ModificaProgetto({
 }
 
 function EliminaProgetto({ id, nome }: { id: string; nome: string }) {
+  const t = useTesti(FOGLI_PROGETTO)
+  const lingua = useLingua()
   const router = useRouter()
   const [conferma, setConferma] = useState(false)
   const [inCorso, avvia] = useTransition()
@@ -214,41 +221,43 @@ function EliminaProgetto({ id, nome }: { id: string; nome: string }) {
       try {
         esito = await eliminaProgetto({ id })
       } catch {
-        toast.error('Connessione assente. Riprova.')
+        toast.error(traduciErroreProgetti('Connessione assente. Riprova.', lingua))
         return
       }
       if (!esito.ok) {
-        toast.error(esito.errore)
+        toast.error(traduciErroreProgetti(esito.errore, lingua))
         return
       }
       setConferma(false)
-      toast.success(`Progetto ${nome} eliminato`)
+      toast.success(t.progettoEliminato(nome))
       router.push('/progetti')
     })
   }
 
   return (
     <div className="space-y-2 border-t border-border pt-4">
-      <p className="text-sm text-muted-foreground">Un progetto chiuso si archivia. Eliminarlo cancella tutto il suo lavoro.</p>
+      <p className="text-sm text-muted-foreground">{t.archivia}</p>
       <Button type="button" variant="outline" className="h-11 w-full" onClick={() => setConferma(true)}>
         <Trash2 className="size-4" aria-hidden="true" />
-        Elimina il progetto
+        {t.eliminaProgetto}
       </Button>
       <Dialog open={conferma} onOpenChange={(v) => { if (!inCorso) setConferma(v) }}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Eliminare {nome}?</DialogTitle>
+            <DialogTitle>{t.eliminare(nome)}</DialogTitle>
             <DialogDescription>
-              Se ne vanno liste, task, tempo registrato e note del progetto. Non si può annullare.
+              {lingua === 'it'
+                ? 'Se ne vanno liste, task, tempo registrato e note del progetto. Non si può annullare.'
+                : t.eliminareDescrizione}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button type="button" variant="outline" className="h-11" disabled={inCorso} onClick={() => setConferma(false)}>
-              Annulla
+              {t.annulla}
             </Button>
             <Button type="button" variant="destructive" className="h-11" disabled={inCorso} onClick={elimina}>
               {inCorso ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-              Elimina
+              {t.elimina}
             </Button>
           </DialogFooter>
         </DialogContent>

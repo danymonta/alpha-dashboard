@@ -5,9 +5,22 @@ import { ETICHETTA_STATO_TASK, elencoNomi } from '@/lib/progetti'
 const GRUPPI_IT = Object.fromEntries(GRUPPI.map((g) => [g.chiave, g.titolo])) as Record<ChiaveGruppo, string>
 
 /** «Anna and Marco», «Anna, Marco and Luca»: written out, so server and browser print the same letters. */
-function elencoInglese(nomi: readonly string[]): string {
+export function elencoInglese(nomi: readonly string[]): string {
   if (nomi.length <= 1) return nomi.join('')
   return `${nomi.slice(0, -1).join(', ')} and ${nomi[nomi.length - 1]}`
+}
+
+/** A list of names in the page's language: «Marco, Sara e Dany» or «Marco, Sara and Dany». */
+export function elencoNomiIn(nomi: readonly string[], lingua: Lingua): string {
+  return lingua === 'en' ? elencoInglese(nomi) : elencoNomi(nomi)
+}
+
+/** The task states in English, beside ETICHETTA_STATO_TASK (lib/progetti.ts). */
+export const ETICHETTA_STATO_TASK_EN: Record<keyof typeof ETICHETTA_STATO_TASK, string> = {
+  da_fare: 'To do',
+  in_corso: 'In progress',
+  in_revisione: 'In review',
+  completato: 'Completed',
 }
 
 /**

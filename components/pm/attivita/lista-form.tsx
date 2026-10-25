@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import { eliminaLista, salvaLista, spostaLista } from '@/app/(app)/progetti/[id]/actions'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import type { ListaVista } from '@/components/pm/attivita/contesto'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
@@ -30,9 +31,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
+import { ATTIVITA } from '@/lib/i18n/testi/attivita'
+import { traduciErroreProgetti } from '@/lib/i18n/testi/progetti'
 import { listaSchema, type ListaInput } from '@/lib/validation/progetti'
-
-const DESCRIZIONE = 'Una lista è una fase del progetto, con le sue date: onboarding, montaggio, pubblicazione.'
 
 function ModuloLista({
   progettoId,
@@ -43,6 +44,9 @@ function ModuloLista({
   lista?: ListaVista
   chiudi: () => void
 }) {
+  const t = useTesti(ATTIVITA)
+  const lingua = useLingua()
+  const tradotto = (messaggio: string | undefined) => traduciErroreProgetti(messaggio, lingua)
   const { errore, salva } = useSalvataggio()
   const chiave = lista?.id ?? 'nuova'
   const {
@@ -62,39 +66,40 @@ function ModuloLista({
   })
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => salvaLista(valori), lista ? 'Lista salvata' : 'Lista creata')) chiudi()
+    if (await salva(() => salvaLista(valori), lista ? t.listaSalvata : t.listaCreata)) chiudi()
   })
 
   return (
     <form onSubmit={invia} noValidate className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor={`l-nome-${chiave}`}>Nome della lista</Label>
-        <Input id={`l-nome-${chiave}`} className="h-11" placeholder="Onboarding" {...register('nome')} />
-        <ErroreCampo id={`l-nome-errore-${chiave}`} messaggio={errors.nome?.message} />
+        <Label htmlFor={`l-nome-${chiave}`}>{t.nomeLista}</Label>
+        <Input id={`l-nome-${chiave}`} className="h-11" placeholder={t.nomeListaSegnaposto} {...register('nome')} />
+        <ErroreCampo id={`l-nome-errore-${chiave}`} messaggio={tradotto(errors.nome?.message)} />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
-          <Label htmlFor={`l-inizio-${chiave}`}>Inizio</Label>
+          <Label htmlFor={`l-inizio-${chiave}`}>{t.inizio}</Label>
           <Input id={`l-inizio-${chiave}`} type="date" className="num h-11" {...register('data_inizio')} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`l-fine-${chiave}`}>Fine</Label>
+          <Label htmlFor={`l-fine-${chiave}`}>{t.fine}</Label>
           <Input id={`l-fine-${chiave}`} type="date" className="num h-11" {...register('data_fine')} />
         </div>
       </div>
-      <ErroreCampo id={`l-date-errore-${chiave}`} messaggio={errors.data_inizio?.message ?? errors.data_fine?.message} />
+      <ErroreCampo id={`l-date-errore-${chiave}`} messaggio={tradotto(errors.data_inizio?.message ?? errors.data_fine?.message)} />
       <div className="space-y-1.5">
-        <Label htmlFor={`l-descrizione-${chiave}`}>Descrizione</Label>
+        <Label htmlFor={`l-descrizione-${chiave}`}>{t.descrizione}</Label>
         <Textarea id={`l-descrizione-${chiave}`} rows={3} {...register('descrizione')} />
-        <ErroreCampo id={`l-descrizione-errore-${chiave}`} messaggio={errors.descrizione?.message} />
+        <ErroreCampo id={`l-descrizione-errore-${chiave}`} messaggio={tradotto(errors.descrizione?.message)} />
       </div>
-      <ErroreModulo testo={errore} />
-      <BottoneSalva inCorso={isSubmitting}>{lista ? 'Salva la lista' : 'Crea la lista'}</BottoneSalva>
+      <ErroreModulo testo={tradotto(errore ?? undefined) ?? null} />
+      <BottoneSalva inCorso={isSubmitting}>{lista ? t.salvaLista : t.creaLista}</BottoneSalva>
     </form>
   )
 }
 
 export function NuovaLista({ progettoId }: { progettoId: string }) {
+  const t = useTesti(ATTIVITA)
   const [aperto, setAperto] = useState(false)
   return (
     <FoglioModifica
@@ -104,11 +109,11 @@ export function NuovaLista({ progettoId }: { progettoId: string }) {
       contenutoTrigger={
         <>
           <ListPlus className="size-4" aria-hidden="true" />
-          Nuova lista
+          {t.nuovaLista}
         </>
       }
-      titolo="Nuova lista"
-      descrizione={DESCRIZIONE}
+      titolo={t.nuovaLista}
+      descrizione={t.descrizioneLista}
     >
       <ModuloLista progettoId={progettoId} chiudi={() => setAperto(false)} />
     </FoglioModifica>
@@ -130,6 +135,8 @@ export function MenuLista({
   prima: boolean
   ultima: boolean
 }) {
+  const t = useTesti(ATTIVITA)
+  const lingua = useLingua()
   const [modifica, setModifica] = useState(false)
   const [conferma, setConferma] = useState(false)
   const [inCorso, avvia] = useTransition()
@@ -137,8 +144,8 @@ export function MenuLista({
   function sposta(direzione: 'su' | 'giu') {
     avvia(async () => {
       const esito = await spostaLista({ id: lista.id, direzione })
-      if (esito.ok) toast.success(direzione === 'su' ? 'Lista spostata su' : 'Lista spostata giù')
-      else toast.error(esito.errore)
+      if (esito.ok) toast.success(direzione === 'su' ? t.spostataSu : t.spostataGiu)
+      else toast.error(traduciErroreProgetti(esito.errore, lingua))
     })
   }
 
@@ -146,8 +153,8 @@ export function MenuLista({
     setConferma(false)
     avvia(async () => {
       const esito = await eliminaLista({ id: lista.id })
-      if (esito.ok) toast.success(`Lista ${lista.nome} eliminata`)
-      else toast.error(esito.errore)
+      if (esito.ok) toast.success(t.listaEliminata(lista.nome))
+      else toast.error(traduciErroreProgetti(esito.errore, lingua))
     })
   }
 
@@ -161,7 +168,7 @@ export function MenuLista({
               variant="ghost"
               size="icon"
               className="size-11 shrink-0 text-muted-foreground"
-              aria-label={`Azioni sulla lista ${lista.nome}`}
+              aria-label={t.azioniLista(lista.nome)}
               disabled={inCorso}
             />
           }
@@ -171,20 +178,20 @@ export function MenuLista({
         <DropdownMenuContent align="end" className="w-auto min-w-48">
           <DropdownMenuItem className="min-h-11" onClick={() => setModifica(true)}>
             <Pencil aria-hidden="true" />
-            Modifica la lista
+            {t.modificaLista}
           </DropdownMenuItem>
           <DropdownMenuItem className="min-h-11" disabled={prima} onClick={() => sposta('su')}>
             <ArrowUp aria-hidden="true" />
-            Sposta su
+            {t.spostaSu}
           </DropdownMenuItem>
           <DropdownMenuItem className="min-h-11" disabled={ultima} onClick={() => sposta('giu')}>
             <ArrowDown aria-hidden="true" />
-            Sposta giù
+            {t.spostaGiu}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem className="min-h-11" variant="destructive" onClick={() => setConferma(true)}>
             <Trash2 aria-hidden="true" />
-            Elimina la lista
+            {t.eliminaLista}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -192,8 +199,8 @@ export function MenuLista({
       <Sheet open={modifica} onOpenChange={setModifica}>
         <SheetContent side="right" className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>Modifica la lista</SheetTitle>
-            <SheetDescription>{DESCRIZIONE}</SheetDescription>
+            <SheetTitle>{t.modificaLista}</SheetTitle>
+            <SheetDescription>{t.descrizioneLista}</SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-6">
             <ModuloLista progettoId={progettoId} lista={lista} chiudi={() => setModifica(false)} />
@@ -204,21 +211,21 @@ export function MenuLista({
       <Dialog open={conferma} onOpenChange={setConferma}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Eliminare la lista {lista.nome}?</DialogTitle>
+            <DialogTitle>{t.eliminareLista(lista.nome)}</DialogTitle>
             <DialogDescription>
               {lista.task_totali === 0
-                ? 'La lista è vuota. Non si può annullare.'
+                ? t.listaVuota
                 : lista.task_totali === 1
-                  ? 'Se ne va anche il suo task. Non si può annullare.'
-                  : `Se ne vanno anche i suoi ${lista.task_totali} task, sotto-task compresi. Non si può annullare.`}
+                  ? t.unTask
+                  : t.piuTask(lista.task_totali)}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button type="button" variant="outline" className="h-11" onClick={() => setConferma(false)}>
-              Annulla
+              {t.annulla}
             </Button>
             <Button type="button" variant="destructive" className="h-11" onClick={elimina}>
-              Elimina
+              {t.elimina}
             </Button>
           </DialogFooter>
         </DialogContent>

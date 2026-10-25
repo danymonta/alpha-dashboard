@@ -36,6 +36,27 @@ export const SETTER = bilingue(
     si: 'Sì',
     totale: 'Totale',
     tutti: 'Tutti',
+    // «Aggiungi giornata» and the correction of a day (the admin's sheets)
+    foglio: {
+      aggiungi: 'Aggiungi giornata',
+      aggiungiTitolo: 'Aggiungi una giornata di setting',
+      aggiungiDescrizione:
+        'I numeri di un giorno (DM, conversazioni, call) e com’è andata. Se quel giorno c’è già, si corregge dalla tabella.',
+      chi: 'Chi',
+      giorno: 'Giorno',
+      contenutoPubblicato: 'Contenuto pubblicato',
+      salvaGiornata: 'Salva la giornata',
+      giornataAggiunta: 'Giornata aggiunta',
+      correggiDi: (setter: string, data: string) => `Correggi il report di ${setter} del ${data}`,
+      titoloReport: (data: string) => `Report del ${data}`,
+      descrizioneReport: (setter: string) => `${setter}. La correzione aggiorna subito i numeri del mese.`,
+      salvaCorrezione: 'Salva la correzione',
+      reportCorretto: 'Report corretto',
+      elimina: 'Elimina il report',
+      cosaElimina: (setter: string, data: string) => `il report di ${setter} del ${data}`,
+      eliminato: 'Report eliminato',
+      conseguenza: 'Le metriche di setting del periodo si ricalcolano senza questo giorno.',
+    },
     // «Per il marketing»
     marketing: {
       titolo: 'Per il marketing: cosa dicono i lead',
@@ -129,6 +150,26 @@ export const SETTER = bilingue(
     si: 'Yes',
     totale: 'Total',
     tutti: 'All',
+    foglio: {
+      aggiungi: 'Add day',
+      aggiungiTitolo: 'Add a day of setting',
+      aggiungiDescrizione:
+        'The numbers of one day (DMs, conversations, calls) and how it went. If that day is already there, it is corrected from the table.',
+      chi: 'Who',
+      giorno: 'Day',
+      contenutoPubblicato: 'Content published',
+      salvaGiornata: 'Save the day',
+      giornataAggiunta: 'Day added',
+      correggiDi: (setter: string, data: string) => `Correct ${setter}’s report of ${data}`,
+      titoloReport: (data: string) => `Report of ${data}`,
+      descrizioneReport: (setter: string) => `${setter}. The correction updates the month’s numbers at once.`,
+      salvaCorrezione: 'Save the correction',
+      reportCorretto: 'Report corrected',
+      elimina: 'Delete the report',
+      cosaElimina: (setter: string, data: string) => `${setter}’s report of ${data}`,
+      eliminato: 'Report deleted',
+      conseguenza: 'The period’s setting metrics are worked out again without this day.',
+    },
     marketing: {
       titolo: 'For marketing: what the leads say',
       descrizione:

@@ -1,8 +1,10 @@
 import { CircleAlert } from 'lucide-react'
 import Link from 'next/link'
 
-import { etichettaGiornoBreve } from '@/lib/date'
-import { ANCORA_COMMENTO, COMMENTO_OBBLIGATORIO } from '@/lib/setting/commento'
+import { etichettaGiornoBreveIn } from '@/lib/i18n/date'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { COMMENTO_GIORNATA } from '@/lib/i18n/testi/commento-giornata'
+import { ANCORA_COMMENTO } from '@/lib/setting/commento'
 
 type Props = {
   /** His days without the comment, oldest first, at most GIORNI_SENZA_COMMENTO_MAX (the open one aside). */
@@ -10,6 +12,7 @@ type Props = {
   /** How many in all, the open one aside. */
   totale: number
   oggi: string
+  lingua?: Lingua
 }
 
 /**
@@ -20,7 +23,8 @@ type Props = {
  * never a list of a person for someone else (CLAUDE.md section 17). Nothing
  * when there is none. Icon and words, never color alone; links 44 px.
  */
-export function GiorniSenzaCommento({ giorni, totale, oggi }: Props) {
+export function GiorniSenzaCommento({ giorni, totale, oggi, lingua = 'it' }: Props) {
+  const t = COMMENTO_GIORNATA[lingua].obbligatorio
   if (giorni.length === 0) return null
   const altri = totale - giorni.length
   return (
@@ -31,7 +35,7 @@ export function GiorniSenzaCommento({ giorni, totale, oggi }: Props) {
     >
       <p id="giorni-senza-commento-titolo" className="flex items-center gap-2 font-medium">
         <CircleAlert className="size-4 shrink-0 text-status-critical" aria-hidden="true" />
-        {COMMENTO_OBBLIGATORIO.giorni}
+        {t.giorni}
       </p>
       <ul className="-mx-1 flex flex-wrap items-center">
         {giorni.map((giorno) => (
@@ -40,13 +44,13 @@ export function GiorniSenzaCommento({ giorni, totale, oggi }: Props) {
               href={`${giorno === oggi ? '/today' : `/today?data=${giorno}`}#${ANCORA_COMMENTO}`}
               className="num inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 underline underline-offset-4 outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              {etichettaGiornoBreve(giorno, oggi)}
+              {etichettaGiornoBreveIn(giorno, oggi, lingua)}
             </Link>
           </li>
         ))}
         {altri > 0 ? (
           <li className="px-1 text-muted-foreground" data-testid="giorni-senza-commento-altri">
-            {COMMENTO_OBBLIGATORIO.altri(altri)}
+            {t.altri(altri)}
           </li>
         ) : null}
       </ul>

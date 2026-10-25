@@ -86,6 +86,43 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.62.0',
+    data: '2026-10-25',
+    titolo: 'Tutta l’app in inglese',
+    riassunto:
+      'Con la bandierina su EN ora è in inglese tutta l’interfaccia, anche i fogli che scrivono, Oggi, i pannelli dei contenuti e dei reel, i progetti e le impostazioni.',
+    intestazionePer: ['tutti'],
+    novita: [
+      {
+        per: ['tutti'],
+        testo:
+          'Con la bandierina su EN sono in inglese anche i fogli che prima restavano in italiano: l’esito di una call con la registrazione, Sposta, la matita, la nuova call, la nuova vendita con il piano rate, gli incassi, le schede del cliente, le provvigioni e i costi, la domanda prima di eliminare, i messaggi d’errore più comuni.',
+        testoTeam:
+          'Con la bandierina su EN sono in inglese anche le pagine e i fogli che prima restavano in italiano, comprese le conferme prima di eliminare e i messaggi d’errore più comuni.',
+      },
+      {
+        per: ['setter'],
+        testo:
+          'In inglese anche Oggi (il report, il commento della giornata, le schede da Instagram), I miei numeri e la cornice dell’Insight; per l’admin anche «Tracciamento da approvare» e «Compila la giornata».',
+        testoTeam: 'In inglese anche Oggi, con il report, il commento della giornata e le schede da Instagram, I miei numeri e la cornice dell’Insight.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'In inglese anche il pannello e la pagina di un contenuto, con l’editor delle sezioni, il pannello di un reel con punteggio e analisi, «Collega» e «Aggiorna da Instagram». I testi scritti da Claude restano in italiano.',
+      },
+      {
+        per: ['progetti'],
+        testo: 'In inglese anche la timeline dei progetti, Attività, Gantt, la scheda Tempo, Note e Membri del progetto.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'In inglese anche tutte le Impostazioni: Chiavi e collegamenti con le guide, Instagram e Messenger, Fathom, Team, Prodotti, Regole provvigioni, Esporta, Progetti. Restano in italiano i dati scritti dalle persone, i testi di Claude, le email, le risposte di Alfire e la pagina privacy.',
+      },
+    ],
+  },
+  {
     versione: '1.61.0',
     data: '2026-10-25',
     titolo: 'Gli script si scrivono subito, come in Notion',

@@ -5,12 +5,14 @@ import { EtichettaConNota } from '@/components/metriche/nota'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { LinkLegenda } from '@/components/setter/link-legenda'
-import { MieGiornate, VOCE_STRATEGY_STORICO, VOCI_GIORNATE } from '@/components/setter/mie-giornate'
+import { MieGiornate, vociGiornate } from '@/components/setter/mie-giornate'
 import { MieiClienti } from '@/components/setter/miei-clienti'
 import { requireRuolo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
-import { formatEuro, formatNumero, formatPercentuale, formatRapporto } from '@/lib/format'
-import { LEGENDA_CLOSER, LEGENDA_SETTER, LEGENDA_SETTING, type VoceLegenda } from '@/lib/metriche/legenda'
+import { getFormato, getLingua } from '@/lib/i18n/server'
+import { MIEI_NUMERI } from '@/lib/i18n/testi/miei-numeri'
+import type { VoceLegenda } from '@/lib/metriche/legenda'
+import { legende } from '@/lib/metriche/legenda-en'
 import { leggiPeriodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
 
@@ -101,7 +103,10 @@ export default async function IMieiNumeriPage({
 }) {
   await requireRuolo(['setter'])
   const oggi = oggiRoma()
-  const periodo = leggiPeriodo(await searchParams, oggi)
+  const lingua = await getLingua()
+  const t = MIEI_NUMERI[lingua]
+  const { formatEuro, formatNumero, formatPercentuale, formatRapporto } = await getFormato()
+  const periodo = leggiPeriodo(await searchParams, oggi, lingua)
   const supabase = await createClient()
 
   // security definer, filtered on the caller: only this setter's totals and sales
@@ -110,11 +115,10 @@ export default async function IMieiNumeriPage({
     supabase.rpc('mie_vendite_setter'),
     supabase.rpc('giornate_setter', { p_da: periodo.da, p_a: periodo.a }),
   ])
-  if (error || !n || clienti.error || giornate.error) throw new Error('Impossibile caricare i tuoi numeri')
+  if (error || !n || clienti.error || giornate.error) throw new Error(t.errore)
 
-  const S = LEGENDA_SETTING
-  const C = LEGENDA_CLOSER
-  const M = LEGENDA_SETTER
+  const { setting: S, closer: C, setter: M } = legende(lingua)
+  const voci = vociGiornate(lingua)
 
   // Strategy calls are history (the setter books discovery calls), but old
   // reports may hold some: "Call prenotate" counts them, so say how many. The
@@ -138,7 +142,7 @@ export default async function IMieiNumeriPage({
       nota:
         strategyStorico > 0 ? (
           <>
-            di cui <span className="num">{formatNumero(strategyStorico)}</span> strategy dallo storico
+            {t.diCuiStrategy} <span className="num">{formatNumero(strategyStorico)}</span> {t.strategyStorico}
           </>
         ) : null,
     },
@@ -164,11 +168,11 @@ export default async function IMieiNumeriPage({
     ...dm.map((v) => v.etichetta),
     S.dm_totali,
     ...report.map((v) => v.etichetta),
-    ...VOCI_GIORNATE.report,
-    ...(strategyStorico > 0 ? [VOCE_STRATEGY_STORICO] : []),
+    ...voci.report,
+    ...(strategyStorico > 0 ? [voci.strategy] : []),
     ...prenotazioni.map((v) => v.etichetta),
     ...agenda.map((v) => v.etichetta),
-    ...VOCI_GIORNATE.call,
+    ...voci.call,
   ])
 
   return (
@@ -176,10 +180,10 @@ export default async function IMieiNumeriPage({
       {/* the day-by-day tables are wide like the Excel: only they leave the narrow column */}
       <div className="max-w-2xl space-y-5">
         <IntestazionePagina
-          titolo="I miei numeri"
+          titolo={t.titolo}
           descrizione={
             <>
-              Le tue metriche del periodo e le tue provvigioni.
+              {t.descrizione}
               <span className="mt-1.5 block">
                 <LinkLegenda idLegenda={ID_LEGENDA} />
               </span>
@@ -189,22 +193,21 @@ export default async function IMieiNumeriPage({
         <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/my-numbers" />
 
         <section className="rounded-xl bg-card p-4" data-testid="mie-provvigioni">
-          <p className="text-sm text-muted-foreground">Provvigioni maturate {periodo.frase}</p>
+          <p className="text-sm text-muted-foreground">{t.provvigioniMaturate(periodo.frase)}</p>
           <p className="text-5xl font-semibold tracking-tight text-gold">{formatEuro(n.provvigioni_maturate)}</p>
           <p className="mt-2 text-sm text-muted-foreground">
             {/* payouts refer to a month: a range counts every month it touches (miei_numeri_periodo) */}
-            {periodo.mese ? 'Pagate per questo mese' : 'Pagate per i mesi del periodo'}:{' '}
+            {periodo.mese ? t.pagateMese : t.pagatePeriodo}:{' '}
             <span className="num text-foreground">{formatEuro(n.provvigioni_pagate)}</span>
           </p>
           <p className="mt-3 text-xs text-muted-foreground">
-            Maturano quando il cliente paga, non alla firma: contano anche le rate pagate nei mesi dopo, e i rinnovi solo se la tua
-            regola provvigionale li prevede. Il dettaglio per cliente:{' '}
+            {t.maturano}{' '}
             {/* an inline link: its touch area grows to 44px without moving the text */}
             <a
               href="#titolo-miei-clienti"
               className="relative rounded-sm text-foreground underline underline-offset-4 after:absolute after:-inset-x-1 after:-inset-y-3.5 after:content-[''] hover:text-foreground/80 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
-              vedi i tuoi clienti
+              {t.vediClienti}
             </a>
             .
           </p>
@@ -212,9 +215,9 @@ export default async function IMieiNumeriPage({
 
         <Blocco
           id="miei-numeri-setting"
-          titolo="Setting"
-          fonte="Dal tuo report"
-          spiegazione="i numeri che scrivi ogni giorno in «Oggi»."
+          titolo={t.setting.titolo}
+          fonte={t.setting.fonte}
+          spiegazione={t.setting.spiegazione}
         >
           {/* the three kinds of DM, then their sum under a line, like a column addition */}
           <dl className="grid grid-cols-3 gap-3">
@@ -235,16 +238,16 @@ export default async function IMieiNumeriPage({
 
         <Blocco
           id="miei-numeri-call"
-          titolo="Le tue call"
-          fonte="Dalle call in agenda"
-          spiegazione="per giorno di prenotazione quelle che hai fissato con «Nuova call»; per giorno della call tutte quelle col tuo nome, anche le call di follow-up che fissa il closer, con l’esito registrato dal closer. Non si compilano a mano."
+          titolo={t.call.titolo}
+          fonte={t.call.fonte}
+          spiegazione={t.call.spiegazione}
         >
-          <Sottogruppo>Per giorno di prenotazione</Sottogruppo>
+          <Sottogruppo>{t.call.perPrenotazione}</Sottogruppo>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Numeri voci={prenotazioni} />
           </dl>
           <div className="mt-4 border-t border-border pt-4">
-            <Sottogruppo>Per giorno della call</Sottogruppo>
+            <Sottogruppo>{t.call.perCall}</Sottogruppo>
             <dl className="grid grid-cols-3 gap-3">
               <Numeri voci={agenda} />
             </dl>
@@ -253,10 +256,10 @@ export default async function IMieiNumeriPage({
       </div>
 
       {/* security definer, filtered on the caller: his report, his calls, his clients */}
-      <MieGiornate righe={giornate.data ?? []} />
+      <MieGiornate righe={giornate.data ?? []} lingua={lingua} />
 
       <div className="max-w-2xl space-y-5">
-        <MieiClienti righe={clienti.data ?? []} />
+        <MieiClienti righe={clienti.data ?? []} lingua={lingua} />
         {/* clear of the phone's top bar when the link at the top jumps here */}
         <div id={ID_LEGENDA} className="scroll-mt-24">
           <LegendaSezione voci={legenda} />

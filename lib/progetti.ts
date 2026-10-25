@@ -36,11 +36,25 @@ export const ETICHETTA_PRIORITA: Record<Priorita, string> = {
  * the project first, then by name), otherwise to the coach. The project page
  * and Alfire's card say the same.
  */
+export type ParoleCompitiDiRuolo = {
+  ruoli: Record<AppRole, string>
+  va: (titolo: string, nome: string, ruolo: string) => string
+  alCoach: (titolo: string, ruolo: string) => string
+}
+
+/** The Italian words of compitiDiRuoloInParole; the English ones live with the project sheets' dictionary. */
+export const PAROLE_COMPITI_DI_RUOLO: ParoleCompitiDiRuolo = {
+  ruoli: ETICHETTA_RUOLO,
+  va: (titolo, nome, ruolo) => `«${titolo}» va a ${nome} (${ruolo}).`,
+  alCoach: (titolo, ruolo) => `«${titolo}» va al coach: nel team nessuno ha il ruolo ${ruolo}.`,
+}
+
 export function compitiDiRuoloInParole(
   compiti: readonly { titolo: string; per_ruolo: AppRole | null; assegnatari: readonly string[] }[],
   attivi: readonly { id: string; nome: string; ruolo: AppRole }[],
   nelProgetto: ReadonlySet<string>,
   coachAttuale: string | null,
+  parole: ParoleCompitiDiRuolo = PAROLE_COMPITI_DI_RUOLO,
 ): string[] {
   return compiti.flatMap((t) => {
     if (!t.per_ruolo) return []
@@ -48,8 +62,8 @@ export function compitiDiRuoloInParole(
     const chi = attivi
       .filter((p) => p.ruolo === t.per_ruolo)
       .sort((a, b) => Number(nelProgetto.has(b.id)) - Number(nelProgetto.has(a.id)) || a.nome.localeCompare(b.nome, 'it'))[0]
-    const ruolo = ETICHETTA_RUOLO[t.per_ruolo]
-    return [chi ? `«${t.titolo}» va a ${chi.nome} (${ruolo}).` : `«${t.titolo}» va al coach: nel team nessuno ha il ruolo ${ruolo}.`]
+    const ruolo = parole.ruoli[t.per_ruolo]
+    return [chi ? parole.va(t.titolo, chi.nome, ruolo) : parole.alCoach(t.titolo, ruolo)]
   })
 }
 

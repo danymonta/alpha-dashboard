@@ -1,6 +1,9 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { getLingua } from '@/lib/i18n/server'
+import { NUOVA_VENDITA } from '@/lib/i18n/testi/nuova-vendita'
 
-export default function Loading() {
+export default async function Loading() {
+  const t = NUOVA_VENDITA[await getLingua()]
   return (
     <div className="max-w-xl space-y-6" aria-busy="true">
       <Skeleton className="h-7 w-44" />
@@ -16,7 +19,7 @@ export default function Loading() {
       </div>
       <Skeleton className="h-11 rounded-lg" />
       <Skeleton className="h-11 rounded-lg" />
-      <span className="sr-only">Caricamento del modulo di vendita</span>
+      <span className="sr-only">{t.caricamento}</span>
     </div>
   )
 }

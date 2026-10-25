@@ -9,14 +9,16 @@ import { correggiReport, eliminaReport } from '@/app/(app)/setting/actions'
 import { Elimina } from '@/components/form/elimina'
 import { ErroreCampo } from '@/components/form/errore-campo'
 import { BottoneSalva, ErroreModulo, FoglioModifica, useSalvataggio } from '@/components/form/foglio-modifica'
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { CommentoReport } from '@/components/setter/commento-report'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { formatData } from '@/lib/format'
+import { formato } from '@/lib/format'
+import { gruppiReport, traduciErroreSetting } from '@/lib/i18n/testi/oggi'
+import { SETTER } from '@/lib/i18n/testi/setter'
 import {
-  GRUPPI_REPORT,
   MASSIMO_GIORNALIERO,
   correzioneReportSchema,
   type CorrezioneReportInput,
@@ -32,6 +34,10 @@ export function ModificaReport({
   data: string
   setter: string
 }) {
+  const lingua = useLingua()
+  const t = SETTER[lingua].foglio
+  const GRUPPI_REPORT = gruppiReport(lingua)
+  const { formatData } = formato(lingua)
   const [aperto, setAperto] = useState(false)
   const { errore, setErrore, salva } = useSalvataggio()
   const {
@@ -54,7 +60,11 @@ export function ModificaReport({
   const attuali = { lead_in_target: leadInTarget, qualita_conversazioni: qualita, cosa_frenava: cosaFrenava, domande_contenuti: domande, note }
 
   const invia = handleSubmit(async (valori) => {
-    if (await salva(() => correggiReport(valori), 'Report corretto')) setAperto(false)
+    const azione = async () => {
+      const esito = await correggiReport(valori)
+      return esito.ok ? esito : { ...esito, errore: traduciErroreSetting(esito.errore, lingua) }
+    }
+    if (await salva(azione, t.reportCorretto)) setAperto(false)
   })
 
   const errorePrimo = GRUPPI_REPORT.flatMap((g) => g.campi).find(([campo]) => errors[campo])
@@ -74,13 +84,13 @@ export function ModificaReport({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={`Correggi il report di ${setter} del ${formatData(data)}`}
+          aria-label={t.correggiDi(setter, formatData(data))}
           className="size-11 shrink-0 text-muted-foreground"
         />
       }
       contenutoTrigger={<Pencil className="size-4" aria-hidden="true" />}
-      titolo={`Report del ${formatData(data)}`}
-      descrizione={`${setter}. La correzione aggiorna subito i numeri del mese.`}
+      titolo={t.titoloReport(formatData(data))}
+      descrizione={t.descrizioneReport(setter)}
     >
       <form onSubmit={invia} noValidate className="space-y-5">
         {GRUPPI_REPORT.map((gruppo) => (
@@ -120,7 +130,7 @@ export function ModificaReport({
         ))}
         <ErroreCampo
           id="r-numeri-errore"
-          messaggio={errorePrimo ? `${errorePrimo[1]}: ${errors[errorePrimo[0]]?.message}` : undefined}
+          messaggio={errorePrimo ? `${errorePrimo[1]}: ${traduciErroreSetting(errors[errorePrimo[0]]?.message, lingua)}` : undefined}
         />
 
         <Controller
@@ -128,21 +138,27 @@ export function ModificaReport({
           name="contenuto_pubblicato"
           render={({ field }) => (
             <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
-              Contenuto pubblicato
+              {t.contenutoPubblicato}
               <Switch checked={field.value} onCheckedChange={field.onChange} />
             </label>
           )}
         />
 
-        <ErroreModulo testo={errore} />
-        <BottoneSalva inCorso={isSubmitting}>Salva la correzione</BottoneSalva>
+        <ErroreModulo testo={traduciErroreSetting(errore, lingua) ?? null} />
+        <BottoneSalva inCorso={isSubmitting}>{t.salvaCorrezione}</BottoneSalva>
         <div className="border-t border-border pt-4">
           <Elimina
-            etichetta="Elimina il report"
-            cosa={`il report di ${setter} del ${formatData(data)}`}
-            fatto="Report eliminato"
-            conseguenze={['Le metriche di setting del periodo si ricalcolano senza questo giorno.']}
-            azione={() => eliminaReport({ id: report.id })}
+            etichetta={t.elimina}
+            cosa={t.cosaElimina(setter, formatData(data))}
+            fatto={t.eliminato}
+            // the Italian sentence stays written here: Alfire says the same (tests/alfire-scritture.test.ts reads this file)
+            conseguenze={[
+              lingua === 'it' ? 'Le metriche di setting del periodo si ricalcolano senza questo giorno.' : t.conseguenza,
+            ]}
+            azione={async () => {
+              const esito = await eliminaReport({ id: report.id })
+              return esito.ok ? esito : { ...esito, errore: traduciErroreSetting(esito.errore, lingua) }
+            }}
           />
         </div>
       </form>

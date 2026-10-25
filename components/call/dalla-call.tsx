@@ -1,8 +1,9 @@
 import { Sparkles } from 'lucide-react'
 
-import { ANALISI } from '@/lib/call/analisi/parole'
-import { CATEGORIE_OBIEZIONI, SAPEVA, etichetta } from '@/lib/call/analisi/icp-call'
+import { etichetta } from '@/lib/call/analisi/icp-call'
 import type { DallaCallVista } from '@/lib/call/analisi/vista'
+import type { Lingua } from '@/lib/i18n/lingua'
+import { ANALISI_TESTI, CATEGORIE_CALL } from '@/lib/i18n/testi/analisi-call'
 
 /**
  * «Dalla call» on the card of the call the setter booked (1.37.0, CLAUDE.md section 31): whether the
@@ -11,7 +12,17 @@ import type { DallaCallVista } from '@/lib/call/analisi/vista'
  * and the script, never about the setter as a person; no recording, no transcript, no performance,
  * no price, no health.
  */
-export function DallaCall({ dalla, spunti }: { dalla: DallaCallVista; spunti: string[] | null }) {
+export function DallaCall({
+  dalla,
+  spunti,
+  lingua = 'it',
+}: {
+  dalla: DallaCallVista
+  spunti: string[] | null
+  lingua?: Lingua
+}) {
+  const ANALISI = ANALISI_TESTI[lingua]
+  const { CATEGORIE_OBIEZIONI, SAPEVA } = CATEGORIE_CALL[lingua]
   const T = ANALISI.dallaCall
   const target = dalla.in_target === 'si' ? T.inTarget : dalla.in_target === 'no' ? T.nonInTarget : T.daVerificare
   const fermato = dalla.obiezioni.map((o) => etichetta(CATEGORIE_OBIEZIONI, o.categoria))
@@ -29,7 +40,7 @@ export function DallaCall({ dalla, spunti }: { dalla: DallaCallVista; spunti: st
       ) : null}
       {dalla.sorprese.length > 0 ? (
         <p>
-          <span className="text-muted-foreground">{T.sorprese}:</span> {dalla.sorprese.join('; ')}
+          <span className="text-muted-foreground">{T.sorprese}:</span> <span lang="it">{dalla.sorprese.join('; ')}</span>
         </p>
       ) : null}
       {fermato.length > 0 ? (
@@ -40,7 +51,7 @@ export function DallaCall({ dalla, spunti }: { dalla: DallaCallVista; spunti: st
       {spunti && spunti.length > 0 ? (
         <div data-testid="spunti-per-te">
           <h5 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{T.spunti}</h5>
-          <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
+          <ul lang="it" className="mt-0.5 list-disc space-y-0.5 pl-5">
             {spunti.map((s, i) => (
               <li key={i}>{s}</li>
             ))}

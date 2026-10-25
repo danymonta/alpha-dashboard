@@ -40,14 +40,23 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
-import { FOLLOW_UP, quandoFollowUpDa } from '@/lib/call/follow-up'
-import { REGISTRAZIONE } from '@/lib/call/registrazione'
-import { SPOSTA, spostamentoPredefinito } from '@/lib/call/spostamento'
-import { etichettaGiorno } from '@/lib/date'
-import { MASSIMO_MOTIVO, MASSIMO_NOTE_CLOSER, MOTIVO_NON_CHIUSURA, NOTE_CLOSER } from '@/lib/setting/commento'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { spostamentoPredefinito } from '@/lib/call/spostamento'
+import { etichettaGiornoIn } from '@/lib/i18n/date'
+import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
+import {
+  ESITO,
+  FOLLOW_UP_TESTI,
+  NOTE_CALL,
+  REGISTRAZIONE_TESTI,
+  SPOSTA_TESTI,
+  quandoFollowUpDaIn,
+} from '@/lib/i18n/testi/esito'
+import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { MASSIMO_MOTIVO, MASSIMO_NOTE_CLOSER } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 import { erroreGiornoFollowUp, schemaSpostamento } from '@/lib/validation/call'
-import { ETICHETTA_ESITO, esitoCallSchema, type EsitoCallInput, type SceltaEsito } from '@/lib/validation/esito'
+import { esitoCallSchema, type EsitoCallInput, type SceltaEsito } from '@/lib/validation/esito'
 import type { SceltaRegistrazioneInput } from '@/lib/validation/registrazione'
 
 type Props = {
@@ -162,6 +171,13 @@ export function RegistraEsito({
 }: Props) {
   const router = useRouter()
   const id = useId()
+  const lingua = useLingua()
+  const t = ESITO[lingua]
+  const FOLLOW_UP = FOLLOW_UP_TESTI[lingua]
+  const REGISTRAZIONE = REGISTRAZIONE_TESTI[lingua]
+  const SPOSTA = SPOSTA_TESTI[lingua]
+  const { motivo: MOTIVO_NON_CHIUSURA, noteCloser: NOTE_CLOSER } = NOTE_CALL[lingua]
+  const ETICHETTA_ESITO: Record<SceltaEsito, string> = { ...ETICHETTE[lingua].esito, riprogrammata: SPOSTA.attesa.etichetta }
   // the day after the call, at its time, never before tomorrow: the new date and the follow-up call
   const giornoDopo = spostamentoPredefinito(giorno, ora, oggi)
   const [aperto, setAperto] = useState(false)
@@ -237,14 +253,14 @@ export function RegistraEsito({
         input.esito === 'riprogrammata' && input.data && input.ora ? { data: input.data, ora: input.ora } : null
       const conFollowUp =
         input.esito === 'follow_up' && esito.followUp && input.follow_up_data && input.follow_up_ora
-          ? quandoFollowUpDa(input.follow_up_data, input.follow_up_ora, oggi)
+          ? quandoFollowUpDaIn(input.follow_up_data, input.follow_up_ora, oggi, lingua)
           : null
       const registrazioneInviata = 'registrazione' in input ? input.registrazione : undefined
       toast.success(spostata ? SPOSTA.fatto(nomeLead) : `${nomeLead}: ${ETICHETTA_ESITO[input.esito].toLowerCase()}`, {
         description: esito.vaiA
-          ? 'Ora registra la vendita.'
+          ? t.oraLaVendita
           : spostata
-            ? `${etichettaGiorno(spostata.data, oggi)} alle ${spostata.ora}`
+            ? t.alle(etichettaGiornoIn(spostata.data, oggi, lingua), spostata.ora)
             : conFollowUp
               ? FOLLOW_UP.diCall(conFollowUp)
               : registrazioneInviata && !esito.avvisoRegistrazione
@@ -254,11 +270,11 @@ export function RegistraEsito({
                 : undefined,
       })
       // the outcome is saved, the recording is not: said, never asked to repeat the outcome
-      if (esito.avvisoRegistrazione) toast.warning(esito.avvisoRegistrazione)
+      if (esito.avvisoRegistrazione) toast.warning(traduciErrore(esito.avvisoRegistrazione, lingua))
       // the outcome is saved, the follow-up call is not: say it, never ask to repeat the outcome;
       // the card's button only when booking it again can work (the call has none yet)
       if (esito.avviso) {
-        toast.warning(esito.avviso, esito.avvisoRiprova ? { description: FOLLOW_UP.riprova } : undefined)
+        toast.warning(traduciErrore(esito.avviso, lingua), esito.avvisoRiprova ? { description: FOLLOW_UP.riprova } : undefined)
       }
       apriChiudi(false)
       if (esito.vaiA) {
@@ -316,7 +332,7 @@ export function RegistraEsito({
     const input: EsitoCallInput = { call_id: callId, esito: 'riprogrammata', note_closer: note }
     const verifica = esitoCallSchema.safeParse(input)
     if (!verifica.success) {
-      setErrore(verifica.error.issues[0]?.message ?? 'Esito non valido.')
+      setErrore(verifica.error.issues[0]?.message ?? ESITO.it.esitoNonValido)
       return
     }
     salva(input)
@@ -327,7 +343,7 @@ export function RegistraEsito({
     const input: EsitoCallInput = { call_id: callId, esito: 'riprogrammata', data: nuovaData, ora: nuovaOra }
     const verifica = schemaSpostamento(admin).safeParse(input)
     if (!verifica.success) {
-      setErroreData(verifica.error.issues[0]?.message ?? 'Scegli il nuovo giorno')
+      setErroreData(verifica.error.issues[0]?.message ?? ESITO.it.scegliGiorno)
       return
     }
     salva(input)
@@ -352,7 +368,7 @@ export function RegistraEsito({
         setErroreMotivo(problema.message)
         campoMotivo.current?.focus()
       } else {
-        setErrore(problema?.message ?? 'Esito non valido.')
+        setErrore(problema?.message ?? ESITO.it.esitoNonValido)
       }
       return
     }
@@ -363,14 +379,14 @@ export function RegistraEsito({
 
   /** «Follow-up · call giovedì 08/10 alle 18:00» or «Follow-up in chat». */
   function riassuntoFollowUp(scelta: Exclude<SceltaFollowUp, 'gia'>): string {
-    return scelta === 'chat' ? FOLLOW_UP.inChat : FOLLOW_UP.sceltaCall(quandoFollowUpDa(scelta.data, scelta.ora, oggi))
+    return scelta === 'chat' ? FOLLOW_UP.inChat : FOLLOW_UP.sceltaCall(quandoFollowUpDaIn(scelta.data, scelta.ora, oggi, lingua))
   }
 
   /** What a step is about: announced when it takes the place of the button just tapped. */
   function titoloPasso(passo: Passo, scelta: SceltaFollowUp | null): string {
     switch (passo.nome) {
       case 'scelte':
-        return 'Esito della call'
+        return t.titolo
       case 'registrazione':
         return REGISTRAZIONE.titolo
       case 'nuovaData':
@@ -416,7 +432,7 @@ export function RegistraEsito({
       <>
         <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
           <ChevronLeft className="size-4 shrink-0" aria-hidden="true" />
-          {ETICHETTA_ESITO[esito]}: cambia esito
+          {t.cambia(ETICHETTA_ESITO[esito])}
         </button>
         {esito === 'follow_up' && sceltaFollowUp === 'gia' && followUp ? (
           <p className="flex items-start gap-1.5 text-sm" data-testid="follow-up-gia-fissata">
@@ -445,7 +461,7 @@ export function RegistraEsito({
           <VideoOff className="size-4 shrink-0" aria-hidden="true" />
         )}
         <span>
-          {registrazione.tipo === 'link' ? 'Registrazione: link di Fathom' : REGISTRAZIONE.nonRegistrata}: {REGISTRAZIONE.cambia}
+          {registrazione.tipo === 'link' ? t.registrazioneLink : REGISTRAZIONE.nonRegistrata}: {REGISTRAZIONE.cambia}
         </span>
       </button>
     )
@@ -463,7 +479,7 @@ export function RegistraEsito({
           />
         }
       >
-        {giaRegistrata ? 'Cambia esito' : futura ? 'Annulla o rimanda' : 'Registra esito'}
+        {giaRegistrata ? t.cambiaEsito : futura ? t.annullaORimanda : t.registra}
       </SheetTrigger>
 
       {/* never taller than the screen: with the texts filled (or the keyboard open) it scrolls */}
@@ -485,7 +501,7 @@ export function RegistraEsito({
             <>
               <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
                 <ChevronLeft className="size-4" aria-hidden="true" />
-                {ETICHETTA_ESITO[passo.esito]}: cambia esito
+                {t.cambia(ETICHETTA_ESITO[passo.esito])}
               </button>
               <h3 className="text-sm font-medium">{REGISTRAZIONE.titolo}</h3>
               <p className="text-sm text-muted-foreground">{REGISTRAZIONE.domanda}</p>
@@ -504,7 +520,7 @@ export function RegistraEsito({
             <>
               <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
                 <ChevronLeft className="size-4" aria-hidden="true" />
-                {SPOSTA.riprogrammata.scelta}: cambia esito
+                {t.cambia(SPOSTA.riprogrammata.scelta)}
               </button>
               <CampiSpostamento
                 id={`${id}-nuova-data`}
@@ -533,7 +549,7 @@ export function RegistraEsito({
             <>
               <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
                 <ChevronLeft className="size-4" aria-hidden="true" />
-                {SPOSTA.attesa.etichetta}: cambia esito
+                {t.cambia(SPOSTA.attesa.etichetta)}
               </button>
               <p className="text-sm text-muted-foreground">{SPOSTA.attesa.spiegazione}</p>
               <div className="space-y-1.5">
@@ -563,7 +579,7 @@ export function RegistraEsito({
             <>
               <button type="button" className={INDIETRO} onClick={() => vai({ nome: 'scelte' })}>
                 <ChevronLeft className="size-4" aria-hidden="true" />
-                {ETICHETTA_ESITO.follow_up}: cambia esito
+                {t.cambia(ETICHETTA_ESITO.follow_up)}
               </button>
               <fieldset>
                 <legend className="mb-2 text-sm font-medium">{FOLLOW_UP.domanda}</legend>
@@ -672,7 +688,7 @@ export function RegistraEsito({
               )}
               {ferma && giaRegistrata ? (
                 <p className="text-xs text-muted-foreground" data-testid="esito-fermo">
-                  {ferma}
+                  {traduciErrore(ferma, lingua)}
                 </p>
               ) : null}
               {giaRegistrata ? (
@@ -684,7 +700,7 @@ export function RegistraEsito({
                   onClick={() => salva({ call_id: callId, esito: 'programmata' })}
                 >
                   <RotateCcw className="size-4" aria-hidden="true" />
-                  Annulla l’esito, torna da fare
+                  {t.annullaEsito}
                 </Button>
               ) : null}
             </>
@@ -718,7 +734,7 @@ export function RegistraEsito({
                   placeholder={MOTIVO_NON_CHIUSURA.placeholder}
                   className="max-h-40"
                 />
-                <ErroreCampo id={`${id}-motivo-errore`} messaggio={erroreMotivo ?? undefined} />
+                <ErroreCampo id={`${id}-motivo-errore`} messaggio={traduciErrore(erroreMotivo, lingua)} />
               </div>
 
               <div className="space-y-1.5">
@@ -742,11 +758,11 @@ export function RegistraEsito({
               </div>
 
               <fieldset aria-describedby={`${id}-salva`}>
-                <legend className="mb-2 text-sm font-medium">Era qualificata?</legend>
+                <legend className="mb-2 text-sm font-medium">{t.qualificata}</legend>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { etichetta: 'Sì', valore: true },
-                    { etichetta: 'No', valore: false },
+                    { etichetta: t.si, valore: true },
+                    { etichetta: t.no, valore: false },
                   ].map(({ etichetta, valore }) => (
                     <Button
                       key={etichetta}
@@ -780,14 +796,14 @@ export function RegistraEsito({
           {inCorso ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
               <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-              Salvataggio…
+              {t.salvataggio}
             </p>
           ) : null}
 
           {errore ? (
             <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {errore}
+              {traduciErrore(errore, lingua)}
             </p>
           ) : null}
         </div>

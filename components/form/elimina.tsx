@@ -6,7 +6,7 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { anteprimaEliminazione } from '@/app/actions/eliminazione'
-import { useTesti } from '@/components/i18n/lingua-provider'
+import { useLingua, useTesti } from '@/components/i18n/lingua-provider'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -67,6 +67,7 @@ export function Elimina({
 }: Props) {
   const router = useRouter()
   const shell = useTesti(SHELL)
+  const lingua = useLingua()
   const t = shell.elimina
   const etichetta = etichettaData ?? t.etichetta
   const [aperto, setAperto] = useState(false)
@@ -91,7 +92,7 @@ export function Elimina({
         setErrore(esito.errore)
         return
       }
-      setFrasi([...frasiAnteprima(anteprima.tipo, esito.dati), ...conseguenze])
+      setFrasi([...frasiAnteprima(anteprima.tipo, esito.dati, lingua), ...conseguenze])
       setBloccata(eliminazioneBloccata(anteprima.tipo, esito.dati))
     })
   }

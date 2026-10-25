@@ -30,8 +30,10 @@ import {
   googlePronto,
   type TokenDrive,
 } from '@/lib/google/drive-browser'
-import { ERRORI_DRIVE, cartellaScelta, type ConfigPicker } from '@/lib/google/picker'
+import { cartellaScelta, type ConfigPicker } from '@/lib/google/picker'
 import { CLIENTI } from '@/lib/i18n/testi/clienti'
+import { DRIVE, ERRORI_DRIVE_TESTI } from '@/lib/i18n/testi/clienti-fogli'
+import { traduciErrore, tradotto } from '@/lib/i18n/testi/errori-economics'
 import { cn } from '@/lib/utils'
 import { cartellaDriveSchema, type CartellaDriveInput, type ChiCartella } from '@/lib/validation/cartella'
 
@@ -71,6 +73,7 @@ export function CartellaDrive({
 }) {
   const router = useRouter()
   const lingua = useLingua()
+  const d = DRIVE[lingua]
   const [aperto, setAperto] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [avviso, setAvviso] = useState<string | null>(null)
@@ -103,7 +106,7 @@ export function CartellaDrive({
         // still loading: asking for the token now would open Google's window
         // after the tap, and the browser would block it as a popup
         await caricaGoogle()
-        setAvviso(ERRORI_DRIVE.pronto)
+        setAvviso(ERRORI_DRIVE_TESTI[lingua].pronto)
         return
       }
       if (!token.current || token.current.scadeAlle - Date.now() < 60_000) {
@@ -113,7 +116,7 @@ export function CartellaDrive({
       setAperto(false)
       const scelta = await apriPicker(picker, token.current.valore)
       if (scelta.azione === 'annullata') {
-        setAvviso(ERRORI_DRIVE.nessuna)
+        setAvviso(ERRORI_DRIVE_TESTI[lingua].nessuna)
         setAperto(true)
         return
       }
@@ -130,7 +133,7 @@ export function CartellaDrive({
         setAperto(true)
         return
       }
-      toast.success(url ? 'Link aggiornato' : 'Cartella collegata')
+      toast.success(url ? d.linkAggiornato : d.cartellaCollegata)
     } catch (e) {
       setErrore(e instanceof ErroreDrive ? e.message : 'Connessione assente. Riprova.')
       setAperto(true)
@@ -153,7 +156,7 @@ export function CartellaDrive({
       setErrore(esito.errore)
       return
     }
-    toast.success(url ? 'Link aggiornato' : 'Cartella collegata')
+    toast.success(url ? d.linkAggiornato : d.cartellaCollegata)
     setAperto(false)
   })
 
@@ -165,12 +168,12 @@ export function CartellaDrive({
       >
         <TriangleAlert className="size-4 shrink-0 text-status-warning" aria-hidden="true" />
         <div role="alert" className="min-w-0 flex-1 py-1">
-          <span className="block text-sm font-medium">Cartella Drive</span>
-          <span className="block text-xs text-muted-foreground">Link non caricato: riprova fra un momento.</span>
+          <span className="block text-sm font-medium">{d.cartellaDrive}</span>
+          <span className="block text-xs text-muted-foreground">{d.nonCaricato}</span>
         </div>
         <Button type="button" variant="outline" className="h-11 shrink-0" onClick={() => router.refresh()}>
           <RotateCw className="size-4" aria-hidden="true" />
-          Riprova
+          {d.riprova}
         </Button>
       </div>
     )
@@ -238,7 +241,7 @@ export function CartellaDrive({
                 variant="ghost"
                 size="icon"
                 className="size-11 shrink-0 text-muted-foreground"
-                aria-label={cella ? `Modifica il link della cartella Drive di ${cliente}` : 'Modifica il link della cartella Drive'}
+                aria-label={cella ? d.modificaCartellaDi(cliente) : d.modificaCartella}
               />
             }
           >
@@ -251,22 +254,18 @@ export function CartellaDrive({
                 type="button"
                 variant={cella ? 'ghost' : 'outline'}
                 className={cn('h-11 shrink-0', cella && 'px-2 text-muted-foreground hover:text-foreground')}
-                aria-label={cella ? `Aggiungi il link della cartella Drive di ${cliente}` : undefined}
+                aria-label={cella ? d.aggiungiCartellaDi(cliente) : undefined}
               />
             }
           >
             <Plus className="size-4" aria-hidden="true" />
-            Aggiungi
+            {d.aggiungi}
           </SheetTrigger>
         )}
         <SheetContent side="right" className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>Cartella Drive</SheetTitle>
-            <SheetDescription>
-              {chi === 'admin'
-                ? `Il link alla cartella di ${cliente} su Google Drive. Lo vedete tu e il coach del suo progetto, se ne ha uno, che lo può anche cambiare: closer, setter e il resto del team no. Con il coach condividi su Drive solo una cartella senza fatture né contratti.`
-                : `Il link alla cartella di ${cliente} su Google Drive. Lo vedete tu e l’admin: il resto del team no.`}
-            </SheetDescription>
+            <SheetTitle>{d.cartellaDrive}</SheetTitle>
+            <SheetDescription>{chi === 'admin' ? d.descrizioneAdmin(cliente) : d.descrizioneCoach(cliente)}</SheetDescription>
           </SheetHeader>
           <form onSubmit={invia} noValidate className="space-y-4 px-4 pb-6">
             <input type="hidden" {...register('client_id')} />
@@ -284,16 +283,16 @@ export function CartellaDrive({
                   ) : (
                     <FolderSearch className="size-4" aria-hidden="true" />
                   )}
-                  Scegli da Drive
+                  {d.scegliDaDrive}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Ti colleghi con Google e scegli la cartella: l’app vede solo le cartelle che scegli tu.
-                  {chi === 'coach' ? ' Non la trovi? Chiedi all’admin di condividerla con il tuo account Google.' : null}
+                  {d.scegliCartella}
+                  {chi === 'coach' ? d.nonLaTrovi : null}
                 </p>
               </div>
             ) : null}
             <div className="space-y-1.5">
-              <Label htmlFor="cd-url">Link della cartella</Label>
+              <Label htmlFor="cd-url">{d.linkCartella}</Label>
               <Input
                 id="cd-url"
                 type="url"
@@ -307,41 +306,42 @@ export function CartellaDrive({
                 aria-describedby={errors.url ? 'cd-url-errore' : 'cd-url-aiuto'}
                 {...register('url')}
               />
-              <ErroreCampo id="cd-url-errore" messaggio={errors.url?.message} />
+              <ErroreCampo id="cd-url-errore" messaggio={traduciErrore(errors.url?.message, lingua)} />
               <p id="cd-url-aiuto" className="text-xs text-muted-foreground">
-                {picker ? 'Oppure incolla il link. ' : null}Su Drive: tasto destro sulla cartella › Condividi › Copia link.
+                {picker ? d.oppure : null}
+                {d.suDriveCartella}
                 {/* without the Picker the coach still learns who shares the folder with him */}
-                {!picker && chi === 'coach' ? ' Non la trovi su Drive? Chiedi all’admin di condividerla con il tuo account Google.' : null}
+                {!picker && chi === 'coach' ? d.nonLaTroviSuDrive : null}
               </p>
             </div>
             {avviso ? (
               <p role="status" className="flex items-start gap-2 text-sm text-muted-foreground">
                 <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                {avviso}
+                {traduciErrore(avviso, lingua)}
               </p>
             ) : null}
             {errore ? (
               <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                {errore}
+                {traduciErrore(errore, lingua)}
               </p>
             ) : null}
             {/* never held by the Drive flow: the pasted link always saves */}
             <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
               {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-              Salva
+              {d.salva}
             </Button>
             {url ? (
               <div className="border-t border-border pt-4">
                 <Elimina
-                  etichetta="Togli il link"
-                  cosa={`il link alla cartella Drive di ${cliente}`}
-                  fatto="Link tolto"
-                  conseguenze={['La cartella su Google Drive resta com’è: si toglie solo il link dall’app.']}
+                  etichetta={d.togli}
+                  cosa={d.cosaCartella(cliente)}
+                  fatto={d.tolto}
+                  conseguenze={[d.restaCartella]}
                   azione={async () => {
                     const esito = await togliCartellaDrive({ client_id: clientId })
                     if (esito.ok) setAperto(false)
-                    return esito
+                    return tradotto(esito, lingua)
                   }}
                 />
               </div>

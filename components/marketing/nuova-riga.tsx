@@ -7,6 +7,8 @@ import { toast } from 'sonner'
 
 import { creaContenuto } from '@/app/(app)/marketing/contenuti/actions'
 import { Button } from '@/components/ui/button'
+import { useLingua } from '@/components/i18n/lingua-provider'
+import { CONTENUTO, traduciErroreContenuto } from '@/lib/i18n/testi/contenuto'
 import { NOME_NUOVA_RIGA, PARAMETRO_CONTENUTO, PARAMETRO_NUOVA } from '@/lib/marketing/pannello'
 
 /**
@@ -44,6 +46,8 @@ export function NuovaRiga({
 }) {
   const router = useRouter()
   const parametri = useSearchParams()
+  const lingua = useLingua()
+  const t = CONTENUTO[lingua].nuova
   const [inCorso, setInCorso] = useState(false)
 
   async function crea() {
@@ -52,7 +56,7 @@ export function NuovaRiga({
     try {
       const esito = await creaContenuto({ tipo, nome: NOME_NUOVA_RIGA, stato: 'not_started' })
       if (!esito.ok) {
-        toast.error(esito.errore)
+        toast.error(traduciErroreContenuto(esito.errore, lingua))
         return
       }
       segnaDaAprire(esito.id)
@@ -61,9 +65,9 @@ export function NuovaRiga({
       cerca.delete(PARAMETRO_CONTENUTO)
       cerca.set(PARAMETRO_NUOVA, esito.id)
       router.replace(`/marketing/contenuti?${cerca.toString()}`, { scroll: false })
-      toast.success('Riga creata: scrivi il nome')
+      toast.success(t.creata)
     } catch {
-      toast.error('Connessione assente. Riprova.')
+      toast.error(t.connessione)
     } finally {
       setInCorso(false)
     }
@@ -79,7 +83,7 @@ export function NuovaRiga({
       onClick={() => void crea()}
     >
       <Plus className="size-4" aria-hidden="true" />
-      Nuovo
+      {t.nuovo}
     </Button>
   )
 }

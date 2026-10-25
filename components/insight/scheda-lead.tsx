@@ -15,20 +15,22 @@ import {
 } from 'lucide-react'
 import { useId } from 'react'
 
+import { useLingua } from '@/components/i18n/lingua-provider'
 import { ArrivaDa, type ContenutoCalendario } from '@/components/insight/arriva-da'
 import { ChatLead } from '@/components/insight/chat-lead'
 import { useFatti } from '@/components/insight/fatti'
 import { InterruttoreFatto } from '@/components/insight/interruttore-fatto'
 import { MessaggioCopiabile } from '@/components/insight/messaggio-copiabile'
 import { Pillola } from '@/components/insight/pillola'
+import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
+import type { Lingua } from '@/lib/i18n/lingua'
 import type { Attesa } from '@/lib/insight/attesa'
-import { etichettaSilenzio } from '@/lib/insight/attesa'
 import type { Fonte } from '@/lib/insight/canale'
 import { attendeRisposta } from '@/lib/insight/filtri'
 import { linkProfiloInstagram, usernameValido } from '@/lib/insight/link'
-import { eyebrowAlternativa, eyebrowMessaggio, LEADS, pillPriorita } from '@/lib/insight/parole'
+import { LEADS } from '@/lib/insight/parole'
 import { chiaveLead, type LeadRecap, type PrioritaLead } from '@/lib/insight/recap'
-import { etichettaTarget, tonoPriorita, tonoStato, tonoTarget } from '@/lib/insight/toni'
+import { tonoPriorita, tonoStato, tonoTarget } from '@/lib/insight/toni'
 import { cn } from '@/lib/utils'
 
 const ICONA_PRIORITA: Record<PrioritaLead, LucideIcon | undefined> = { alta: ArrowUp, media: Minus, bassa: undefined }
@@ -43,14 +45,16 @@ const BORDO_PRIORITA: Record<PrioritaLead, string> = {
 export type LeadScheda = LeadRecap & { days_silent?: number }
 
 /** How a card names its lead: «@user» on Instagram («@?» without one), the name on Messenger. */
-export function chiDelLead(lead: Pick<LeadRecap, 'username' | 'name'>, fonte: Fonte): string {
-  if (fonte === 'messenger') return lead.name || LEADS.lead
-  return lead.username ? `@${lead.username}` : lead.name || LEADS.senzaUsername
+export function chiDelLead(lead: Pick<LeadRecap, 'username' | 'name'>, fonte: Fonte, lingua: Lingua = 'it'): string {
+  const parole = INSIGHT_RECAP[lingua].leads
+  if (fonte === 'messenger') return lead.name || parole.lead
+  return lead.username ? `@${lead.username}` : lead.name || parole.senzaUsername
 }
 
 /** The lead's name as the artifact shows it: «@user · Nome» with the profile link, or the name on Messenger. */
 export function NomeLead({ lead, fonte }: { lead: Pick<LeadRecap, 'username' | 'name'>; fonte: Fonte }) {
-  if (fonte === 'messenger') return <>{lead.name || LEADS.lead}</>
+  const t = INSIGHT_RECAP[useLingua()]
+  if (fonte === 'messenger') return <>{lead.name || t.leads.lead}</>
   const profilo = linkProfiloInstagram(lead.username)
   const u = usernameValido(lead.username)
   return (
@@ -63,10 +67,10 @@ export function NomeLead({ lead, fonte }: { lead: Pick<LeadRecap, 'username' | '
           className="inline-flex min-h-11 items-center underline decoration-border underline-offset-4 hover:decoration-foreground"
         >
           @{u}
-          <span className="sr-only"> (profilo Instagram, si apre in una nuova scheda)</span>
+          <span className="sr-only">{t.profiloNuovaScheda}</span>
         </a>
       ) : (
-        <span>{lead.username ? `@${lead.username}` : LEADS.senzaUsername}</span>
+        <span>{lead.username ? `@${lead.username}` : t.leads.senzaUsername}</span>
       )}
       {lead.name ? <span className="text-base font-normal text-muted-foreground"> · {lead.name}</span> : null}
     </>
@@ -99,11 +103,13 @@ export function SchedaLead({
 }) {
   const { fatto } = useFatti()
   const id = useId()
+  const lingua = useLingua()
+  const t = INSIGHT_RECAP[lingua]
   const chiave = chiaveLead(lead)
-  const chi = chiDelLead(lead, fonte)
+  const chi = chiDelLead(lead, fonte, lingua)
   const fatta = chiave ? fatto(chiave) : false
-  const silenzio = etichettaSilenzio(lead.days_silent ?? 0)
-  const mossa = lead.analisi_mancante ? LEADS.mossaAnalisiMancante : lead.next_action
+  const silenzio = t.silenzio(lead.days_silent ?? 0)
+  const mossa = lead.analisi_mancante ? t.leads.mossaAnalisiMancante : lead.next_action
   const IconaPriorita = ICONA_PRIORITA[lead.priority]
   // the status the code writes on an under-14 card and on a placeholder is the pill of its own (with its icon): once
   const stato = lead.status.trim().toLowerCase()
@@ -134,31 +140,31 @@ export function SchedaLead({
         </h4>
         <div className="flex flex-wrap gap-1.5">
           <Pillola tono={tonoPriorita(lead.priority)} Icona={IconaPriorita}>
-            {pillPriorita(lead.priority)}
+            {t.pillPriorita(t.priorita[lead.priority] ?? lead.priority)}
           </Pillola>
           <Pillola tono={tonoTarget(lead.target)} Icona={ICONA_TARGET[lead.target]}>
-            {etichettaTarget(lead.target)}
+            {t.target[lead.target]}
           </Pillola>
           {lead.minore_14 ? (
             <Pillola tono="attenzione" Icona={ShieldAlert}>
-              {LEADS.minore}
+              {t.leads.minore}
             </Pillola>
           ) : null}
           {lead.analisi_mancante ? (
             <Pillola tono="neutro" Icona={CircleHelp}>
-              {LEADS.analisiMancante}
+              {t.leads.analisiMancante}
             </Pillola>
           ) : null}
-          {lead.stage ? <Pillola>{lead.stage}</Pillola> : null}
+          {lead.stage ? <Pillola lang="it">{lead.stage}</Pillola> : null}
           {mostraStato ? (
-            <Pillola tono={tonoDelloStato} Icona={tonoDelloStato === 'critico' ? Hourglass : undefined}>
+            <Pillola tono={tonoDelloStato} Icona={tonoDelloStato === 'critico' ? Hourglass : undefined} lang="it">
               {lead.status}
             </Pillola>
           ) : null}
           {attesa ? (
             <Pillola tono={attesa.calda ? 'critico' : 'attenzione'} Icona={Clock}>
               <span data-testid="attesa" className="num">
-                {attesa.etichetta}
+                {t.attesa(attesa.ore)}
               </span>
             </Pillola>
           ) : null}
@@ -167,23 +173,23 @@ export function SchedaLead({
               <span className="num">{silenzio}</span>
             </Pillola>
           ) : null}
-          {lead.flow ? <Pillola>{lead.flow}</Pillola> : null}
+          {lead.flow ? <Pillola lang="it">{lead.flow}</Pillola> : null}
           {lead.needs_dany ? (
             <Pillola tono="critico" Icona={Hand}>
-              {LEADS.pillServeDany}
+              {t.leads.pillServeDany}
             </Pillola>
           ) : null}
         </div>
       </div>
 
-      {lead.origine ? <ArrivaDa origine={lead.origine} contenuto={contenuto} /> : null}
+      {lead.origine ? <ArrivaDa origine={lead.origine} contenuto={contenuto} lingua={lingua} /> : null}
 
       {lead.age || lead.situation || lead.pain || mossa ? (
         <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
-          {lead.age ? <Voce etichetta={LEADS.eta} valore={lead.age} numerico /> : null}
-          {lead.situation ? <Voce etichetta={LEADS.situazione} valore={lead.situation} /> : null}
-          {lead.pain ? <Voce etichetta={LEADS.pain} valore={lead.pain} /> : null}
-          {mossa ? <Voce etichetta={LEADS.prossimaMossa} valore={mossa} forte /> : null}
+          {lead.age ? <Voce etichetta={t.leads.eta} valore={lead.age} numerico /> : null}
+          {lead.situation ? <Voce etichetta={t.leads.situazione} valore={lead.situation} italiano /> : null}
+          {lead.pain ? <Voce etichetta={t.leads.pain} valore={lead.pain} italiano /> : null}
+          {mossa ? <Voce etichetta={t.leads.prossimaMossa} valore={mossa} forte italiano={!lead.analisi_mancante} /> : null}
         </dl>
       ) : null}
 
@@ -191,9 +197,9 @@ export function SchedaLead({
         <div className="grid gap-1 rounded-lg border border-status-critical/40 bg-status-critical/10 p-3 text-sm">
           <span className="inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-rosso-testo uppercase">
             <TriangleAlert className="size-3.5" aria-hidden="true" />
-            {LEADS.serveDany}
+            {t.leads.serveDany}
           </span>
-          <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{lead.needs_dany}</p>
+          <p lang="it" className="whitespace-pre-wrap [overflow-wrap:anywhere]">{lead.needs_dany}</p>
         </div>
       ) : null}
 
@@ -201,24 +207,24 @@ export function SchedaLead({
         <p className="flex items-start gap-1.5 rounded-lg border border-status-warning/40 bg-status-warning/10 p-3 text-sm">
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
           <span className="[overflow-wrap:anywhere]">
-            {LEADS.daRicontrollare}: {lead.da_ricontrollare}
+            {t.leads.daRicontrollare}: <span lang="it">{lead.da_ricontrollare}</span>
           </span>
         </p>
       ) : null}
 
       {lead.suggested_message ? (
         <MessaggioCopiabile
-          eyebrow={eyebrowMessaggio(Boolean(lead.suggested_message_alt))}
+          eyebrow={t.eyebrowMessaggio(Boolean(lead.suggested_message_alt))}
           testo={lead.suggested_message}
-          nomeCopia={`Copia il messaggio suggerito per ${chi}`}
+          nomeCopia={t.copiaMessaggio(chi)}
           sullaCard={fatta}
         />
       ) : null}
       {lead.suggested_message_alt ? (
         <MessaggioCopiabile
-          eyebrow={eyebrowAlternativa(lead.alt_condition)}
+          eyebrow={t.eyebrowAlternativa(lead.alt_condition)}
           testo={lead.suggested_message_alt}
-          nomeCopia={`Copia il messaggio alternativo per ${chi}`}
+          nomeCopia={t.copiaAlternativo(chi)}
           sullaCard={fatta}
         />
       ) : null}
@@ -228,11 +234,26 @@ export function SchedaLead({
   )
 }
 
-function Voce({ etichetta, valore, numerico, forte }: { etichetta: string; valore: string; numerico?: boolean; forte?: boolean }) {
+function Voce({
+  etichetta,
+  valore,
+  numerico,
+  forte,
+  italiano,
+}: {
+  etichetta: string
+  valore: string
+  numerico?: boolean
+  forte?: boolean
+  /** written by Claude: Italian whatever the page's language */
+  italiano?: boolean
+}) {
   return (
     <>
       <dt className="text-xs tracking-wide text-muted-foreground uppercase sm:pt-0.5">{etichetta}</dt>
-      <dd className={cn('min-w-0 [overflow-wrap:anywhere]', numerico && 'num', forte && 'font-semibold')}>{valore}</dd>
+      <dd lang={italiano ? 'it' : undefined} className={cn('min-w-0 [overflow-wrap:anywhere]', numerico && 'num', forte && 'font-semibold')}>
+        {valore}
+      </dd>
     </>
   )
 }
