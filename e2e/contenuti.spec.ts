@@ -63,17 +63,27 @@ async function altraPersona(browser: Browser, ruolo: RuoloSeed) {
 }
 
 /**
- * "Modifica" on a section, then its text. The field takes the focus on the
- * next frame, with the caret at the end: typing before that frame would land
- * after the old text (a page in a second browser draws later).
+ * A section is always editable (24/10/2026): its toggle opened if closed, a tap in its text, the old text
+ * selected and replaced, line by line, then
+ * the field left, which saves it.
  */
 async function scriviSezione(radice: Page | Locator, titolo: string, testo: string, atteso?: string) {
-  await radice.getByRole('button', { name: `Modifica ${titolo}` }).click()
   const campo = radice.getByRole('textbox', { name: titolo, exact: true })
+  // an empty section is a closed toggle, as in Notion: a tap on its title opens it
+  const titoloSezione = radice.locator('summary').first()
+  if ((await titoloSezione.locator('xpath=..').getAttribute('open')) === null) await titoloSezione.click()
+  if (atteso !== undefined) await expect(campo).toHaveText(atteso)
+  await campo.click()
   await expect(campo).toBeFocused()
-  if (atteso !== undefined) await expect(campo).toHaveValue(atteso)
-  await campo.fill(testo)
-  await radice.getByRole('button', { name: 'Salva', exact: true }).click()
+  const pagina = campo.page()
+  await pagina.keyboard.press('ControlOrMeta+A')
+  const righe = testo.split('\n')
+  for (const [i, riga] of righe.entries()) {
+    // Shift+Enter: a line break in the same paragraph, saved as one «\n» (Enter starts a new paragraph)
+    if (i > 0) await pagina.keyboard.press('Shift+Enter')
+    await pagina.keyboard.type(riga)
+  }
+  await campo.blur()
 }
 
 /** The top of each word on screen: words on separate lines have different tops. */
@@ -201,9 +211,8 @@ test('«Nuovo»: la riga si rinomina sul posto; il Name apre il pannello con Hoo
   // a section written in place
   const finale = pannello.getByRole('region', { name: 'Script (Final)', exact: true })
   await scriviSezione(finale, 'Script (Final)', 'Hook: Allenati a casa.\nCTA: Scrivimi ALPHA.', '')
-  await expect(toast(page, 'Salvato')).toBeVisible()
+  await expect(finale.getByText('Salvato', { exact: true })).toBeVisible()
   await expect(finale.getByText(/Allenati a casa\./)).toBeVisible()
-  await expect(finale.getByRole('textbox')).toHaveCount(0)
 
   // a property, right after the person's own Status tap and section save: never a conflict
   await pannello.getByLabel('Audio').fill('Audio originale di prova')
@@ -275,8 +284,9 @@ test('due persone sulla stessa sezione: il secondo salvataggio non sovrascrive, 
   await editor.goto(`/marketing/contenuti/${id}`)
 
   // A saves first
-  await scriviSezione(page.getByRole('region', { name: 'Script (Final)', exact: true }), 'Script (Final)', 'La versione di Giulia')
-  await expect(toast(page, 'Salvato')).toBeVisible()
+  const sezioneA = page.getByRole('region', { name: 'Script (Final)', exact: true })
+  await scriviSezione(sezioneA, 'Script (Final)', 'La versione di Giulia')
+  await expect(sezioneA.getByText('Salvato', { exact: true })).toBeVisible()
 
   // B wrote from the text the page showed him: refused, Giulia's text shown, his to copy
   const sezioneB = editor.getByRole('region', { name: 'Script (Final)', exact: true })
@@ -289,7 +299,7 @@ test('due persone sulla stessa sezione: il secondo salvataggio non sovrascrive, 
 
   // editing again starts from the saved text, and goes through
   await scriviSezione(sezioneB, 'Script (Final)', 'La versione di Giulia, rivista da Sara', 'La versione di Giulia')
-  await expect(toast(editor, 'Salvato')).toBeVisible()
+  await expect(sezioneB.getByText('Salvato', { exact: true })).toBeVisible()
   await expect(sezioneB.getByRole('textbox', { name: 'Il tuo testo, non salvato' })).toHaveCount(0)
   expect((await leggiContenuto(id))?.finale).toBe('La versione di Giulia, rivista da Sara')
 
