@@ -322,7 +322,7 @@ test('precedente e successivo: titolo e annuncio cambiano, un solo Indietro chiu
   expect(page.url()).toBe(lista)
 })
 
-test('una sezione in modifica: Esc annulla e il pannello resta; un testo non salvato chiede prima di chiudere', async ({
+test('una sezione si scrive subito: Esc la lascia e la salva, il pannello resta; chiudendo il pannello il testo è salvato', async ({
   page,
 }) => {
   const nome = `${PREFISSO}bozza`
@@ -334,46 +334,33 @@ test('una sezione in modifica: Esc annulla e il pannello resta; un testo non sal
   // the panel opened: its title has the focus
   await expect(foglio.getByRole('heading', { name: nome })).toBeFocused()
 
-  // Esc in the textarea cancels the edit; the panel stays
-  await finale.getByRole('button', { name: 'Modifica Script (Final)' }).click()
+  // no «Modifica»: the text is a field already
+  await expect(finale.getByRole('button', { name: 'Modifica Script (Final)' })).toHaveCount(0)
   const campo = finale.getByRole('textbox', { name: 'Script (Final)', exact: true })
-  await expect(campo).toBeFocused()
-  await campo.fill('Un testo nuovo')
+  await expect(campo).toHaveText('Testo salvato')
+  await campo.click()
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.type('Un testo nuovo')
+  // Ctrl/⌘+B: bold, saved as Markdown
+  await page.keyboard.press('ControlOrMeta+B')
+  await page.keyboard.type(' forte')
   await page.keyboard.press('Escape')
-  await expect(campo).toHaveCount(0)
+  await expect(campo).not.toBeFocused()
   await expect(foglio).toBeVisible()
-  await expect(finale.getByText('Testo salvato')).toBeVisible()
+  await expect.poll(async () => (await leggiContenuto(id))?.finale).toBe('Un testo nuovo **forte**')
   // a second Esc closes the panel
   await page.keyboard.press('Escape')
   await expect(foglio).toBeHidden()
 
-  // a text not saved, then the X: the question
+  // written and the panel closed at once: the text is saved anyway
   await page.goto(`/marketing/contenuti?contenuto=${id}`)
   await expect(foglio.getByRole('heading', { name: nome })).toBeFocused()
-  await finale.getByRole('button', { name: 'Modifica Script (Final)' }).click()
-  await expect(campo).toBeFocused()
-  await campo.fill('Un testo da non perdere')
+  await campo.click()
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.type('Un testo da non perdere')
   await foglio.getByRole('button', { name: 'Chiudi il contenuto' }).click()
-  const domanda = page.getByRole('alertdialog', { name: 'Hai un testo non salvato in «Script (Final)»: chiudere lo stesso?' })
-  await expect(domanda).toBeVisible()
-  await expect(domanda.getByRole('button', { name: 'Continua a scrivere' })).toBeFocused()
-  await domanda.getByRole('button', { name: 'Continua a scrivere' }).click()
-  await expect(domanda).toBeHidden()
-  await expect(foglio).toBeVisible()
-  await expect(campo).toBeFocused()
-  await expect(campo).toHaveValue('Un testo da non perdere')
-
-  // a tap outside the panel asks the same
-  await page.mouse.click(100, 400)
-  await expect(domanda).toBeVisible()
-  await domanda.getByRole('button', { name: 'Continua a scrivere' }).click()
-  await expect(foglio).toBeVisible()
-  await expect(campo).toHaveValue('Un testo da non perdere')
-
-  await foglio.getByRole('button', { name: 'Chiudi il contenuto' }).click()
-  await domanda.getByRole('button', { name: 'Chiudi senza salvare' }).click()
   await expect(foglio).toBeHidden()
-  expect((await leggiContenuto(id))?.finale).toBe('Testo salvato')
+  await expect.poll(async () => (await leggiContenuto(id))?.finale).toBe('Un testo da non perdere')
 })
 
 test('le proprietà nel pannello si salvano da sole; Esc in un campo cambiato lo rimette e il pannello resta', async ({ page }) => {

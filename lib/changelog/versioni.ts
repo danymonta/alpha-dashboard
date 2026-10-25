@@ -86,6 +86,31 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.61.0',
+    data: '2026-10-25',
+    titolo: 'Gli script si scrivono subito, come in Notion',
+    riassunto:
+      'Le sezioni di un contenuto (messaggio, script, commenti, caption) sono sempre modificabili: niente più «Modifica» e «Salva», il testo si salva da solo e Ctrl+B mette il grassetto.',
+    intestazionePer: ['marketing'],
+    novita: [
+      {
+        per: ['marketing'],
+        testo:
+          'Nel pannello e nella pagina di un contenuto ogni sezione è già un campo: tocchi il testo e scrivi. Si salva da solo poco dopo l’ultimo tasto e quando esci dal campo; nel titolo della sezione vedi «Salvo…» e poi «Salvato».',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Si scrive come in Notion: Ctrl+B (⌘+B sul Mac) grassetto, Ctrl+I corsivo, «- » all’inizio della riga fa un elenco, «1. » un elenco numerato, «## » un titolo, Shift+Invio va a capo nello stesso paragrafo, Ctrl+Z annulla. Quello che vedi è già formattato: niente asterischi da scrivere a mano.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Esc esce dal campo e salva, il pannello resta aperto; chiudendo il pannello quello che hai scritto si salva comunque. Se intanto qualcun altro ha cambiato la stessa sezione, vedi il suo testo e il tuo resta sotto, da copiare, come prima.',
+      },
+    ],
+  },
+  {
     versione: '1.60.0',
     data: '2026-10-24',
     titolo: 'I video YouTube nel Piano editoriale, e le reference cliccabili',
