@@ -50,3 +50,44 @@ export function leggiRiunione(grezza: unknown): Riunione | null {
     durata_secondi: durata === null ? null : Math.min(durata, MAX_DURATA_S),
   }
 }
+
+/**
+ * A meeting as the matching of 1.65.0 reads it (lib/fathom/abbina.ts): the same
+ * fields plus the scheduled start and the names of the calendar invitees, with
+ * the part before the @ of their email. Only in memory, only to recognise the
+ * lead: never saved, never in a log.
+ */
+const InvitatoSchema = z.object({
+  name: z.union([z.string(), z.null()]).optional(),
+  email: z.union([z.string(), z.null()]).optional(),
+})
+const PerAbbinamentoSchema = RiunioneSchema.extend({
+  meeting_title: dataOnull,
+  scheduled_start_time: dataOnull,
+  calendar_invitees: z.union([z.array(z.unknown()), z.null()]).optional(),
+})
+
+export type RiunionePerAbbinamento = Riunione & {
+  /** title and invitees' names (and email local parts), for the lead's name */
+  nomi: string
+  /** the scheduled start, else the recording's start, else Fathom's created_at (ISO) */
+  quando: string | null
+}
+
+export function leggiRiunionePerAbbinamento(grezza: unknown): RiunionePerAbbinamento | null {
+  const base = leggiRiunione(grezza)
+  if (!base) return null
+  const letta = PerAbbinamentoSchema.safeParse(grezza)
+  if (!letta.success) return null
+  const r = letta.data
+  const invitati = (r.calendar_invitees ?? []).flatMap((i) => {
+    const x = InvitatoSchema.safeParse(i)
+    if (!x.success) return []
+    return [x.data.name ?? '', (x.data.email ?? '').split('@')[0] ?? '']
+  })
+  const nomi = [r.title ?? '', r.meeting_title ?? '', ...invitati].join(' ').slice(0, 2000)
+  const istante = [r.scheduled_start_time, r.recording_start_time, r.created_at]
+    .map((d) => (d ? Date.parse(d) : NaN))
+    .find((t) => Number.isFinite(t))
+  return { ...base, nomi, quando: istante === undefined ? null : new Date(istante).toISOString() }
+}

@@ -2609,6 +2609,9 @@ isOneToOne: false
 "fathom_chiave_presente":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"fathom_collega_trovata":
+{ Args: { "p_call_id": string,"p_durata": number,"p_inizio": string,"p_recording_id": number,"p_url": string }; Returns: string
+                           },
 "fathom_errore":
 { Args: { "p_testo": string }; Returns: string
                            },

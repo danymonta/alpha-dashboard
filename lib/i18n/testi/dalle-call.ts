@@ -9,7 +9,7 @@ export const DALLE_CALL = bilingue(
   {
     titolo: 'Dalle call',
     descrizione:
-      'Le obiezioni delle call di vendita diventano topic per stories e contenuti. Claude analizza da solo ogni call registrata: qui si leggono le sue analisi, senza costi in più.',
+      'Le obiezioni delle call di vendita diventano topic per stories e contenuti. Ogni sera l’app cerca su Fathom le call svolte senza registrazione e Claude le analizza da solo.',
     periodo: 'Periodo',
     giorni: (n: number) => `Ultimi ${n} giorni`,
     riepilogo: (analizzate: number, svolte: number) =>
@@ -22,16 +22,37 @@ export const DALLE_CALL = bilingue(
     perche: 'Perché',
     vuoto: 'Nessuna obiezione nel periodo',
     vuotoDescrizione:
-      'Le obiezioni arrivano dalle call registrate con Fathom e analizzate da Claude. Collega il link di Fathom quando registri l’esito di una call.',
+      'Le obiezioni arrivano dalle call registrate con Fathom e analizzate da Claude. Tocca «Cerca su Fathom e analizza» per le call svolte senza registrazione.',
     vaiCall: 'Vai a Le mie call',
     errore: 'Le analisi delle call non si sono caricate.',
     inItaliano: 'I testi delle analisi sono di Claude, in italiano.',
     caricamento: 'Carico i topic dalle call…',
+    cerca: 'Cerca su Fathom e analizza',
+    cercaInCorso: 'Cerco su Fathom…',
+    senzaRegistrazione: (n: number) =>
+      `${n} ${n === 1 ? 'call svolta' : 'call svolte'} senza registrazione nel periodo.`,
+    risultato: (collegate: number, cercate: number) =>
+      collegate === 0
+        ? `Nessuna registrazione trovata su Fathom per ${cercate} call.`
+        : `Trovate su Fathom ${collegate} call su ${cercate}: Claude le analizza una alla volta, arrivano qui tra qualche minuto.`,
+    nienteDaCercare: 'Ogni call svolta del periodo ha già la sua registrazione.',
+    parziale: 'Fathom ha molte riunioni nel periodo: le più vecchie le cerco con un altro tocco.',
+    erroreCerca: 'Fathom non ha risposto: riprova tra poco.',
+    nonCollegato: 'Fathom non è collegato: incolla la chiave in Impostazioni › Chiavi e collegamenti.',
+    connessione: 'Connessione assente. Riprova.',
+    nonPronto: 'Manca l’aggiornamento del database di questa versione: applica la migration 20261104090000_fathom_abbina.sql.',
+    inAnalisi: (n: number) =>
+      `Claude sta analizzando ${n} call: la pagina si aggiorna da sola.`,
+    analisiSpente: 'L’analisi delle call è spenta: accendila in Impostazioni › Fathom.',
+    limiteSpesa: 'Limite di spesa del mese raggiunto: le analisi ripartono il 1° del mese.',
+    impostazioni: 'Apri Impostazioni › Fathom',
+    soloLeTue:
+      'Si cercano le riunioni dell’account Fathom collegato, con il nome del lead e l’orario della call. Le call segnate «non registrata» restano fuori.',
   },
   {
     titolo: 'From calls',
     descrizione:
-      'The objections of the sales calls become topics for stories and content. Claude analyses every recorded call by itself: here you read its analyses, at no extra cost.',
+      'The objections of the sales calls become topics for stories and content. Every evening the app looks on Fathom for the held calls without a recording and Claude analyses them by itself.',
     periodo: 'Period',
     giorni: (n: number) => `Last ${n} days`,
     riepilogo: (analizzate: number, svolte: number) =>
@@ -44,11 +65,32 @@ export const DALLE_CALL = bilingue(
     perche: 'Why',
     vuoto: 'No objections in the period',
     vuotoDescrizione:
-      'Objections come from the calls recorded with Fathom and analysed by Claude. Link the Fathom recording when you log a call’s outcome.',
+      'Objections come from the calls recorded with Fathom and analysed by Claude. Tap «Find on Fathom and analyse» for the held calls without a recording.',
     vaiCall: 'Go to My calls',
     errore: 'The call analyses did not load.',
     inItaliano: 'The analyses are written by Claude, in Italian.',
     caricamento: 'Loading the topics from calls…',
+    cerca: 'Find on Fathom and analyse',
+    cercaInCorso: 'Searching Fathom…',
+    senzaRegistrazione: (n: number) =>
+      `${n} held ${n === 1 ? 'call' : 'calls'} without a recording in the period.`,
+    risultato: (collegate: number, cercate: number) =>
+      collegate === 0
+        ? `No recording found on Fathom for ${cercate} ${cercate === 1 ? 'call' : 'calls'}.`
+        : `Found ${collegate} of ${cercate} ${cercate === 1 ? 'call' : 'calls'} on Fathom: Claude analyses them one at a time, they arrive here in a few minutes.`,
+    nienteDaCercare: 'Every held call of the period already has its recording.',
+    parziale: 'Fathom has many meetings in the period: tap again for the older ones.',
+    erroreCerca: 'Fathom did not answer: try again shortly.',
+    nonCollegato: 'Fathom is not connected: paste the key in Settings › Keys and connections.',
+    connessione: 'No connection. Try again.',
+    nonPronto: 'The database update of this version is missing: apply the migration 20261104090000_fathom_abbina.sql.',
+    inAnalisi: (n: number) =>
+      `Claude is analysing ${n} ${n === 1 ? 'call' : 'calls'}: the page updates by itself.`,
+    analisiSpente: 'Call analysis is off: turn it on in Settings › Fathom.',
+    limiteSpesa: 'This month’s spending limit is reached: the analyses restart on the 1st.',
+    impostazioni: 'Open Settings › Fathom',
+    soloLeTue:
+      'It looks at the meetings of the connected Fathom account, by the lead’s name and the call’s time. Calls marked «not recorded» stay out.',
   },
 )
 

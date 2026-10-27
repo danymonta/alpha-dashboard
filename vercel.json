@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/contenuti-instagram",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/fathom",
+      "schedule": "45 21 * * *"
     }
   ]
 }
