@@ -228,7 +228,9 @@ describe('l’area Marketing: le tre pagine, ognuna una voce (1.38.0; «Pubblica
     // the business coach has no menu at all (1.58.0): only the sales recap
     expect(conMarketing).toEqual(['admin', 'editor', 'marketing'])
     for (const ruolo of conMarketing) {
-      expect(gruppo(ruolo, 'Marketing').map((v) => [v.etichetta, v.href]), ruolo).toEqual(PAGINE)
+      // «Dalle call» (27/10/2026) only for the admin: the call analyses are his
+      const attese = ruolo === 'admin' ? [...PAGINE, ['Dalle call', '/marketing/dalle-call']] : PAGINE
+      expect(gruppo(ruolo, 'Marketing').map((v) => [v.etichetta, v.href]), ruolo).toEqual(attese)
       for (const v of gruppo(ruolo, 'Marketing')) {
         // no badge at all: nobody has to link a post (CLAUDE.md section 17)
         expect(v.esiti || v.daApprovare || v.commenti, `${ruolo} → ${v.href}`).toBeFalsy()
@@ -312,7 +314,7 @@ describe('il menu a gruppi (1.38.0)', () => {
     expect(per(null)).toEqual(['Panoramica'])
     expect(per('Vendite')).toEqual(['Le mie call', 'Pipeline', 'Clienti', 'Vendite', 'Incassi', 'Rinnovi'])
     expect(per('Team')).toEqual(['Setter', 'Closer', 'Provvigioni'])
-    expect(per('Marketing')).toEqual(['Piano editoriale', 'Pubblicati', 'Spunti'])
+    expect(per('Marketing')).toEqual(['Piano editoriale', 'Pubblicati', 'Spunti', 'Dalle call'])
     expect(per('Progetti')).toEqual(['Progetti', 'I miei task', 'Tempo'])
     // the admin opens the business coach's page too (1.58.0)
     expect(per('Amministrazione')).toEqual(['Costi', 'Impostazioni', 'Recap del business coach', 'Novità'])

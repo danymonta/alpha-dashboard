@@ -8,6 +8,7 @@ import {
   Handshake,
   LayoutDashboard,
   Lightbulb,
+  MessageCircleWarning,
   ListChecks,
   Megaphone,
   MessagesSquare,
@@ -100,6 +101,8 @@ const CONTENUTI: VoceNav = { href: '/marketing/contenuti', etichetta: 'Piano edi
 const PUBBLICATI: VoceNav = { href: '/marketing/pubblicati', etichetta: 'Pubblicati', Icona: ChartNoAxesCombined }
 const SPUNTI: VoceNav = { href: '/marketing/spunti', etichetta: 'Spunti', Icona: Lightbulb }
 const VOCI_MARKETING: VoceNav[] = [CONTENUTI, PUBBLICATI, SPUNTI]
+// The objections of the sales calls as topics (27/10/2026): the admin only, the call analyses are his.
+const DALLE_CALL: VoceNav = { href: '/marketing/dalle-call', etichetta: 'Dalle call', Icona: MessageCircleWarning }
 
 // Setter and Closer, two items instead of the old "Setting" with two tabs
 // (Dany, 07/10/2026): the URLs stay, many links and Alfire use them. "Setter"
@@ -180,7 +183,7 @@ const NAV: Record<AppRole, NavRuolo> = {
         // closer's numbers (07/10/2026)
         voci: [SETTER, { ...CLOSER, esiti: true }, { href: '/commissions', etichetta: 'Provvigioni', Icona: Percent }],
       },
-      { titolo: 'Marketing', voci: VOCI_MARKETING },
+      { titolo: 'Marketing', voci: [...VOCI_MARKETING, DALLE_CALL] },
       // his own time and, in the "Team" tab, everyone's (29/09/2026)
       { titolo: 'Progetti', voci: [PROGETTI, MIEI_TASK, { ...TEMPO, etichetta: 'Tempo' }] },
       {
