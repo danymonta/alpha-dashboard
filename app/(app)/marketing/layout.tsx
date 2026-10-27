@@ -11,11 +11,11 @@ import { requireRuolo } from '@/lib/auth/session'
  * revalidates this layout.
  */
 export default async function LayoutMarketing({ children }: { children: ReactNode }) {
-  await requireRuolo(RUOLI_MARKETING)
+  const profilo = await requireRuolo(RUOLI_MARKETING)
 
   return (
     <div>
-      <SchedeMarketing />
+      <SchedeMarketing admin={profilo.ruolo === 'admin'} />
       {children}
     </div>
   )

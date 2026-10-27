@@ -12,13 +12,15 @@ import { MARKETING } from '@/lib/i18n/testi/marketing'
  * insights and Claude's reading of the reels, and (1.37.0) «Spunti», the brief. In the area's layout, so they stay
  * still between its pages. No tab carries a number.
  */
-export function SchedeMarketing() {
+export function SchedeMarketing({ admin = false }: { admin?: boolean }) {
   const pathname = usePathname()
   const t = MARKETING[useLingua()].schede
   const schede = [
     { href: '/marketing/contenuti', etichetta: t.piano },
     { href: '/marketing/pubblicati', etichetta: t.pubblicati },
     { href: '/marketing/spunti', etichetta: t.spunti },
+    // the objections of the calls (27/10/2026): the admin only
+    ...(admin ? [{ href: '/marketing/dalle-call', etichetta: t.dalleCall }] : []),
   ]
 
   return (

@@ -1,6 +1,7 @@
 import { CalendarClock, ChevronRight, TriangleAlert } from 'lucide-react'
+import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, Suspense, type ReactNode } from 'react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
@@ -10,6 +11,8 @@ import { ContoMargine } from '@/components/panoramica/conto-margine'
 import { Funnel } from '@/components/panoramica/funnel'
 import { GraficoCash } from '@/components/panoramica/grafico-cash'
 import { ObiettiviMese } from '@/components/panoramica/obiettivi'
+import { OcchioSoldi } from '@/components/panoramica/occhio-soldi'
+import { ScheletroStoriesOggi, StoriesOggi } from '@/components/panoramica/stories-oggi'
 import { TileKpi } from '@/components/panoramica/tile-kpi'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { requireRuolo } from '@/lib/auth/session'
@@ -17,10 +20,12 @@ import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
 import type { Lingua } from '@/lib/i18n/lingua'
 import { getLingua } from '@/lib/i18n/server'
+import { OCCHIO_SOLDI } from '@/lib/i18n/testi/dalle-call'
 import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import { PANORAMICA } from '@/lib/i18n/testi/panoramica'
 import type { VoceLegenda } from '@/lib/metriche/legenda'
 import { legende } from '@/lib/metriche/legenda-en'
+import { COOKIE_SOLDI, soldiNascosti } from '@/lib/panoramica/soldi'
 import { contieneData, leggiPeriodo } from '@/lib/periodo'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
@@ -201,6 +206,8 @@ export default async function PanoramicaPage({
     LEGENDA_PAGINA,
   } = costanti(lingua)
   const etichette = ETICHETTE[lingua]
+  // the money eye (27/10/2026): per device, read here so the numbers never flash before hiding
+  const nascosti = soldiNascosti((await cookies()).get(COOKIE_SOLDI)?.value)
 
   const oggi = oggiRoma()
   // a month (?mese=) or any range (?da=&a=); the comparison window comes with it
@@ -271,17 +278,27 @@ export default async function PanoramicaPage({
               <AggiornamentoLive lettaIl={lettaIl} />
             </div>
           ) : null}
-          <SelettorePeriodo
-            periodo={periodo}
-            oggi={oggi}
-            percorso="/"
-            // mobile: own row, left-aligned like every other page; desktop: right chevron on the right edge
-            className="col-span-2 md:ml-0 md:-mr-3"
-          />
+          <div className="col-span-2 flex flex-wrap items-center justify-between gap-2 md:contents">
+            <SelettorePeriodo
+              periodo={periodo}
+              oggi={oggi}
+              percorso="/"
+              // mobile: own row, left-aligned like every other page; desktop: right chevron on the right edge
+              className="md:ml-0 md:-mr-3"
+            />
+            <OcchioSoldi nascosti={nascosti} />
+          </div>
         </div>
       </header>
 
-      {/* 1. The answer in five seconds */}
+      {nascosti ? (
+        <p className="text-xs text-muted-foreground" data-testid="soldi-nascosti">
+          {OCCHIO_SOLDI[lingua].nascosti}
+        </p>
+      ) : null}
+
+      {/* 1. The answer in five seconds (hidden with the money eye) */}
+      {nascosti ? null : (
       <div className="grid gap-3 lg:grid-cols-[1.4fr_2fr]" data-testid="kpi">
         {hero ? (
           <TileKpi
@@ -339,8 +356,14 @@ export default async function PanoramicaPage({
           ))}
         </div>
       </div>
+      )}
 
-      {obiettivi.data ? (
+      {/* what to talk about in the stories today: never money */}
+      <Suspense fallback={<ScheletroStoriesOggi />}>
+        <StoriesOggi lingua={lingua} />
+      </Suspense>
+
+      {!nascosti && obiettivi.data ? (
         <ObiettiviMese
           a={{
             mese: obiettivi.data.mese,
@@ -378,7 +401,7 @@ export default async function PanoramicaPage({
                     ['Chiuse', LEGENDA_CLOSER.chiuse, formatNumero(team.data.chiuse)],
                   ],
                 ],
-                [
+                ...(nascosti ? [] : [[
                   t.dagliIncassi,
                   [
                     [
@@ -389,7 +412,7 @@ export default async function PanoramicaPage({
                       t.diCuiNuovi(formatEuro(team.data.cash_nuovi_clienti, { compatto: true })),
                     ],
                   ],
-                ],
+                ] satisfies [string, VoceOggi[]]]),
               ] satisfies [string, VoceOggi[]][]
             ).map(([fonte, voci], i) => (
               <div
@@ -423,6 +446,7 @@ export default async function PanoramicaPage({
       ) : null}
 
       {/* 3. The trend */}
+      {nascosti ? null : (
       <Scheda
         titolo={t.cashTitolo}
         descrizione={t.cashDescrizione}
@@ -478,6 +502,7 @@ export default async function PanoramicaPage({
           </p>
         )}
       </Scheda>
+      )}
 
       {/* 4. How the period is going */}
       <div className="grid gap-3 lg:grid-cols-2">
@@ -514,11 +539,19 @@ export default async function PanoramicaPage({
         >
           {/* one column next to the funnel: a label with its "i" never wraps */}
           <dl className="grid gap-x-6 divide-y divide-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-1 lg:divide-y">
-            <Voce etichetta={LEGENDA_SETTING.cash_per_dm} valore={formatEuro(m.cash_per_dm)} />
-            <Voce etichetta={LEGENDA_SETTING.revenue_per_dm} valore={formatEuro(m.revenue_per_dm)} />
+            {nascosti ? null : (
+              <>
+                <Voce etichetta={LEGENDA_SETTING.cash_per_dm} valore={formatEuro(m.cash_per_dm)} />
+                <Voce etichetta={LEGENDA_SETTING.revenue_per_dm} valore={formatEuro(m.revenue_per_dm)} />
+              </>
+            )}
             <Voce etichetta={LEGENDA_SETTING.dm_per_call} valore={formatRapporto(m.dm_per_call)} />
-            <Voce etichetta={LEGENDA_ECONOMICS.cash_per_call_svolta} valore={formatEuro(m.cash_per_call_svolta)} />
-            <Voce etichetta={LEGENDA_ECONOMICS.valore_medio_nuovo} valore={formatEuro(m.valore_medio_nuovo)} />
+            {nascosti ? null : (
+              <>
+                <Voce etichetta={LEGENDA_ECONOMICS.cash_per_call_svolta} valore={formatEuro(m.cash_per_call_svolta)} />
+                <Voce etichetta={LEGENDA_ECONOMICS.valore_medio_nuovo} valore={formatEuro(m.valore_medio_nuovo)} />
+              </>
+            )}
             <Voce etichetta={LEGENDA_CLOSER.show_rate} valore={formatPercentuale(m.show_rate)} />
             <Voce etichetta={LEGENDA_CLOSER.close_rate} valore={formatPercentuale(m.close_rate)} />
             <Voce etichetta={LEGENDA_CLOSER.close_rate_qualificate} valore={formatPercentuale(m.close_rate_qualificate)} />
@@ -533,6 +566,7 @@ export default async function PanoramicaPage({
 
       {/* 4b. Which channel brings the new clients: only the new clients of the
           period (metriche_per_fonte), never the instalments or the renewals */}
+      {nascosti ? null : (
       <Scheda
         titolo={t.fontiTitolo(periodo.frase)}
         descrizione={t.fontiDescrizione}
@@ -569,9 +603,11 @@ export default async function PanoramicaPage({
           <p className="text-sm text-muted-foreground">{t.nessunaFonte}</p>
         )}
       </Scheda>
+      )}
 
       {/* 5. What needs action */}
       <div className="grid gap-3 lg:grid-cols-2">
+        {nascosti ? null : (
         <Scheda
           titolo={t.daIncassare}
           azione={
@@ -631,6 +667,7 @@ export default async function PanoramicaPage({
             <p className="mt-4 text-sm text-muted-foreground">{t.nessunRitardo}</p>
           )}
         </Scheda>
+        )}
 
         <Scheda
           titolo={t.inScadenza}

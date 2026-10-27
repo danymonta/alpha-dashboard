@@ -6,7 +6,7 @@ import { bilingue } from '@/lib/i18n/lingua'
  */
 export const MARKETING = bilingue(
   {
-    schede: { aria: 'Sezioni del Marketing', piano: 'Piano editoriale', pubblicati: 'Pubblicati', spunti: 'Spunti' },
+    schede: { aria: 'Sezioni del Marketing', piano: 'Piano editoriale', pubblicati: 'Pubblicati', spunti: 'Spunti', dalleCall: 'Dalle call' },
     piano: {
       titolo: 'Piano editoriale',
       descrizione:
@@ -85,7 +85,7 @@ export const MARKETING = bilingue(
     },
   },
   {
-    schede: { aria: 'Marketing sections', piano: 'Content plan', pubblicati: 'Published', spunti: 'Ideas' },
+    schede: { aria: 'Marketing sections', piano: 'Content plan', pubblicati: 'Published', spunti: 'Ideas', dalleCall: 'From calls' },
     piano: {
       titolo: 'Content plan',
       descrizione:

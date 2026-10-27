@@ -86,6 +86,31 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.64.0',
+    data: '2026-10-27',
+    titolo: 'Di cosa parlare oggi, topic dalle call e soldi nascosti',
+    riassunto:
+      'In Panoramica un riquadro con gli spunti per le stories e un occhietto che nasconde i soldi; nel Marketing la scheda «Dalle call» trasforma le obiezioni in topic.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Panoramica: «Di cosa parlare oggi» mette insieme i temi dei DM dell’ultimo recap, le obiezioni più frequenti delle call degli ultimi 14 giorni con il loro topic per le stories e le prime idee degli ultimi Spunti. Nessuna richiesta nuova a Claude: usa quello che l’app ha già.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Panoramica: «Nascondi i soldi» toglie cash, revenue, margine, obiettivi, grafico, incassi e fonti; restano setting, call, funnel, rapporti, scadenze e gli spunti. La scelta resta su questo dispositivo finché non tocchi «Mostra i soldi».',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Marketing › «Dalle call»: le obiezioni delle call analizzate da Claude, dalla più frequente, ognuna con un topic per le stories, cosa dicono i lead, come è stata gestita bene e le idee di contenuto delle stesse call. Ultimi 14, 30 o 90 giorni. Solo per te.',
+      },
+    ],
+  },
+  {
     versione: '1.63.0',
     data: '2026-10-27',
     titolo: 'Insight: da rispondere, follow-up, in attesa',
