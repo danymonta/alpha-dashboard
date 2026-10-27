@@ -86,6 +86,21 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.63.0',
+    data: '2026-10-27',
+    titolo: 'Insight: da rispondere, follow-up, in attesa',
+    riassunto:
+      'Nell’Insight delle ultime 24h le chat si dividono in Da rispondere, Follow-up e In attesa, e in ogni divisione prima i lead più vicini alla call.',
+    intestazionePer: ['setter'],
+    novita: [
+      {
+        per: ['setter'],
+        testo:
+          'Nell’Insight, sopra le chat, quattro bottoni: Tutte, Da rispondere (il lead ha scritto per ultimo), Follow-up (abbiamo scritto noi e c’è un messaggio da mandare adesso, comprese le chat da riattivare) e In attesa (tocca al lead), ognuno col suo numero. In ogni divisione le chat stanno in gruppi per vicinanza alla call: A un passo dalla call, Call prenotata, In qualifica, Primi messaggi, Nurture o fuori target; dentro ogni gruppo prima la fase più avanti, poi i lead in target, la priorità e chi aspetta da più tempo.',
+      },
+    ],
+  },
+  {
     versione: '1.62.0',
     data: '2026-10-25',
     titolo: 'Tutta l’app in inglese',

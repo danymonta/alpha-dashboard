@@ -91,7 +91,7 @@ export function IntestazioneGruppo({
   )
 }
 
-type ContestoSchede = {
+export type ContestoSchede = {
   fonte: Fonte
   attesaDi: (lead: LeadScheda) => Attesa | null
   contenutoDi: (lead: LeadScheda) => ContenutoCalendario | null

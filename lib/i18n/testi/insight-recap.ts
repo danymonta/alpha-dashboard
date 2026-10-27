@@ -1,3 +1,4 @@
+import { CHIAVI_DIVISIONE, DIVISIONI, LIVELLI_VICINANZA, VICINANZA } from '@/lib/insight/divisioni'
 import { CHIAVI_FILTRO, FILTRI } from '@/lib/insight/filtri'
 import type { Fonte } from '@/lib/insight/canale'
 import { etichettaAttesa, etichettaSilenzio } from '@/lib/insight/attesa'
@@ -95,6 +96,18 @@ export const INSIGHT_RECAP = bilingue(
     riattivazione: Object.fromEntries(
       GRUPPI_RIATTIVAZIONE.map((g) => [String(g.passo), { titolo: g.titolo, descrizione: g.descrizione }]),
     ),
+    divisioni: Object.fromEntries(CHIAVI_DIVISIONE.map((k) => [k, DIVISIONI[k]])) as Record<
+      string,
+      { etichetta: string; titolo: string; descrizione: string }
+    >,
+    gruppoDivisioni: 'Dividi le chat',
+    suggerimentoDivisioni: 'In ogni divisione prima i lead più vicini alla call, poi chi aspetta da più tempo.',
+    annuncioDivisione: (titolo: string, n: number) => `${titolo}: ${n} chat.`,
+    nessunaDivisione: 'Nessuna chat qui.',
+    vicinanza: Object.fromEntries(LIVELLI_VICINANZA.map((k) => [k, VICINANZA[k]])) as Record<
+      string,
+      { titolo: string; descrizione: string }
+    >,
     fatto: FATTO,
     nomeFatto: (chi: string) => nomeFatto(chi),
     annuncioNonSalvato: (chi: string) => annuncioNonSalvato(chi),
@@ -243,6 +256,35 @@ export const INSIGHT_RECAP = bilingue(
       '1': { titolo: 'Silent for 2 days', descrizione: 'Pick the conversation up again' },
       '2': { titolo: 'Silent for 5 days', descrizione: 'Bring value' },
       '3': { titolo: 'Silent for 10 days', descrizione: 'Closing message' },
+    },
+    divisioni: {
+      tutte: { etichetta: 'All', titolo: 'Chats by priority', descrizione: 'All the chats, by priority.' },
+      rispondere: {
+        etichetta: 'To answer',
+        titolo: 'To answer',
+        descrizione: 'The lead wrote last and is waiting for a reply.',
+      },
+      follow_up: {
+        etichetta: 'Follow-up',
+        titolo: 'Follow-up',
+        descrizione: 'We wrote last and there is a message to send now, or the chat is to be revived.',
+      },
+      attesa: {
+        etichetta: 'Waiting',
+        titolo: 'Waiting',
+        descrizione: 'We wrote last: it is the lead’s turn, nothing to send now.',
+      },
+    },
+    gruppoDivisioni: 'Split the chats',
+    suggerimentoDivisioni: 'In each group the leads closest to the call come first, then whoever has waited longest.',
+    annuncioDivisione: (titolo: string, n: number) => `${titolo}: ${n} ${n === 1 ? 'chat' : 'chats'}.`,
+    nessunaDivisione: 'No chats here.',
+    vicinanza: {
+      vicina: { titolo: 'One step from the call', descrizione: 'Call proposed or Calendly sent' },
+      prenotata: { titolo: 'Call booked', descrizione: 'To bring to the call' },
+      qualifica: { titolo: 'Qualifying', descrizione: 'Goals, struggles, routine, urgency' },
+      apertura: { titolo: 'First messages', descrizione: 'Hook and value' },
+      lontana: { titolo: 'Nurture or off target', descrizione: 'Far from the call' },
     },
     fatto: {
       fatto: 'Done',
