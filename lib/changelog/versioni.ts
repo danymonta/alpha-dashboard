@@ -86,6 +86,26 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.65.0',
+    data: '2026-10-27',
+    titolo: 'Le call si analizzano da Fathom',
+    riassunto:
+      'Le call svolte senza link della registrazione l’app le cerca da sola su Fathom, le collega e le manda a Claude: «Dalle call» si riempie senza incollare niente.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Marketing › Dalle call: «Cerca su Fathom e analizza» trova su Fathom le registrazioni delle call svolte del periodo che non hanno un link, dal nome del lead e dall’orario della call, le collega e le mette in coda per l’analisi di Claude. La pagina dice quante call sono senza registrazione e quante Claude sta analizzando, e si aggiorna da sola.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Ogni sera l’app fa la stessa ricerca sulle call degli ultimi 7 giorni, così le analisi arrivano senza toccare niente. Le call segnate «non registrata» restano fuori, e un link scritto da una persona non si cambia mai. Le analisi restano dentro il limite di spesa del mese di Impostazioni › Fathom.',
+      },
+    ],
+  },
+  {
     versione: '1.64.0',
     data: '2026-10-27',
     titolo: 'Di cosa parlare oggi, topic dalle call e soldi nascosti',

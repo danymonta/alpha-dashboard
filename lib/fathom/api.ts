@@ -5,7 +5,13 @@ import { z } from 'zod/v4'
 import { baseFathom, FINESTRA_DOPO_MS, FINESTRA_PRIMA_MS, PAGINE_MAX_PER_LINK, SEGNO_CHIAVE_FINTA } from '@/lib/fathom/config'
 import { ErroreFathom } from '@/lib/fathom/frasi'
 import { stessoLink } from '@/lib/fathom/link'
-import { ElencoSchema, leggiRiunione, type Riunione } from '@/lib/fathom/riunione'
+import {
+  ElencoSchema,
+  leggiRiunione,
+  leggiRiunionePerAbbinamento,
+  type Riunione,
+  type RiunionePerAbbinamento,
+} from '@/lib/fathom/riunione'
 import { hostDiLoopback } from '@/lib/instagram/richieste'
 
 /**
@@ -94,6 +100,32 @@ export async function paginaRiunioni(
   if (!letto.success) throw new ErroreFathom('formato')
   const riunioni = letto.data.items.map(leggiRiunione).filter((r): r is Riunione => r !== null)
   return { riunioni, prossimo: letto.data.next_cursor ?? null }
+}
+
+/**
+ * The meetings of a period, for the matching of 1.65.0 (lib/fathom/abbina.ts):
+ * the same list, a page after another up to `pagineMax`, with the invitees'
+ * names kept in memory only. `completo` says whether the last page was reached.
+ */
+export async function riunioniDelPeriodo(
+  op: Opzioni & { dal: Date; al: Date; pagineMax: number; segnale?: AbortSignal },
+): Promise<{ riunioni: RiunionePerAbbinamento[]; completo: boolean; richieste: number }> {
+  const riunioni: RiunionePerAbbinamento[] = []
+  let cursore: string | null = null
+  for (let pagina = 0; pagina < op.pagineMax; pagina++) {
+    const q = new URLSearchParams({ created_after: op.dal.toISOString(), created_before: op.al.toISOString() })
+    if (cursore) q.set('cursor', cursore)
+    const corpo = await chiedi(op, '/meetings', q, TIMEOUT_ELENCO_MS, op.segnale)
+    const letto = ElencoSchema.safeParse(corpo)
+    if (!letto.success) throw new ErroreFathom('formato')
+    for (const grezza of letto.data.items) {
+      const r = leggiRiunionePerAbbinamento(grezza)
+      if (r) riunioni.push(r)
+    }
+    cursore = letto.data.next_cursor ?? null
+    if (!cursore) return { riunioni, completo: true, richieste: pagina + 1 }
+  }
+  return { riunioni, completo: false, richieste: op.pagineMax }
 }
 
 export type EsitoCercaLink =

@@ -1,7 +1,8 @@
-import { MessageCircleWarning } from 'lucide-react'
+import { LoaderCircle, MessageCircleWarning, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 
 import { LinkBottone } from '@/components/link-bottone'
+import { AggiornaMentreAnalizza, CercaFathom } from '@/components/marketing/dalle-call/cerca-fathom'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
@@ -36,17 +37,34 @@ export default async function DalleCallPage({
   const da = aggiungiGiorni(oggi, -(giorni - 1))
   const supabase = await createClient()
 
-  const [numeri, analisi] = await Promise.all([
+  const dal = `${da}T00:00:00+00:00`
+  const [numeri, analisi, inCorso, senza, situazione] = await Promise.all([
     supabase.rpc('call_numeri_periodo', { p_da: da, p_a: oggi, p_per: 'totale' }),
     supabase
       .from('call_analisi')
       .select('obiezioni, spunti_contenuto, calls!inner(programmata_il)')
       .eq('stato', 'pronta')
-      .gte('calls.programmata_il', `${da}T00:00:00+00:00`)
+      .gte('calls.programmata_il', dal)
       .order('analizzata_il', { ascending: false })
       .limit(300),
+    supabase
+      .from('call_analisi')
+      .select('call_id, calls!inner(programmata_il)', { count: 'exact', head: true })
+      .in('stato', ['in_coda', 'in_corso'])
+      .gte('calls.programmata_il', dal),
+    supabase
+      .from('calls')
+      .select('id', { count: 'exact', head: true })
+      .eq('stato', 'svolta')
+      .not('esito', 'is', null)
+      .is('link_registrazione', null)
+      .gte('programmata_il', dal),
+    supabase.rpc('call_lavori_situazione'),
   ])
   if (numeri.error || analisi.error) throw new Error(t.errore)
+  const inAnalisi = inCorso.count ?? 0
+  const senzaRegistrazione = senza.count ?? 0
+  const lavori = (situazione.data ?? {}) as { analisi_attive?: boolean; in_pausa_spesa?: boolean }
 
   const totale = (numeri.data ?? [])[0]
   const topic = topicDalleCall((analisi.data ?? []) as unknown as AnalisiPerTopic[], conteggiObiezioni(totale?.obiezioni))
@@ -74,18 +92,47 @@ export default async function DalleCallPage({
         ))}
       </nav>
 
-      {totale ? (
-        <p className="px-1 text-sm text-muted-foreground" data-testid="dalle-call-riepilogo">
-          {t.riepilogo(totale.analizzate ?? 0, totale.svolte ?? 0)}
-        </p>
-      ) : null}
+      <section className="space-y-3 rounded-xl bg-card p-4" aria-label={t.cerca} data-testid="dalle-call-fathom">
+        {totale ? (
+          <p className="text-sm font-medium" data-testid="dalle-call-riepilogo">
+            {t.riepilogo(totale.analizzate ?? 0, totale.svolte ?? 0)}
+          </p>
+        ) : null}
+        {senzaRegistrazione > 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="dalle-call-senza">
+            {t.senzaRegistrazione(senzaRegistrazione)}
+          </p>
+        ) : null}
+        {inAnalisi > 0 ? (
+          <p className="flex items-center gap-2 text-sm" role="status" data-testid="dalle-call-in-analisi">
+            <LoaderCircle className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />
+            {t.inAnalisi(inAnalisi)}
+          </p>
+        ) : null}
+        {lavori.analisi_attive === false || lavori.in_pausa_spesa ? (
+          <p className="flex items-start gap-2 text-sm">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
+            <span>
+              {lavori.analisi_attive === false ? t.analisiSpente : t.limiteSpesa}{' '}
+              <Link href="/settings/fathom" className="underline underline-offset-2">
+                {t.impostazioni}
+              </Link>
+            </span>
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          <CercaFathom giorni={giorni} />
+        </div>
+        <p className="text-xs text-muted-foreground">{t.soloLeTue}</p>
+        <AggiornaMentreAnalizza attive={inAnalisi > 0} />
+      </section>
 
       {topic.length === 0 ? (
         <StatoVuoto
           Icona={MessageCircleWarning}
           titolo={t.vuoto}
           descrizione={t.vuotoDescrizione}
-          azione={<LinkBottone href="/calls" variant="outline">{t.vaiCall}</LinkBottone>}
+          azione={inAnalisi > 0 ? undefined : <LinkBottone href="/calls" variant="outline">{t.vaiCall}</LinkBottone>}
         />
       ) : (
         <ol className="space-y-3" data-testid="topic-call">
