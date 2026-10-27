@@ -171,6 +171,34 @@ test.describe('the numbers that filter', () => {
     await expect(tessera(page, 'Call prenotate')).toBeFocused()
   })
 
+  test('the setter splits the chats: to answer, follow-up, waiting, closest to the call first', async ({ page }) => {
+    await apriInsight(page, 'setter')
+    const divisioni = page.getByRole('group', { name: 'Dividi le chat' })
+    const bottone = (nome: string) => divisioni.getByRole('button', { name: new RegExp(`^${nome}`) })
+    await expect(bottone('Tutte')).toHaveAttribute('aria-pressed', 'true')
+
+    // «Da rispondere» = the same leads as «Attendono risposta» (D8)
+    await bottone('Da rispondere').click()
+    await expect(bottone('Da rispondere')).toHaveAttribute('aria-pressed', 'true')
+    const rispondere = page.getByTestId('divisione-rispondere')
+    await expect(rispondere.getByRole('heading', { level: 2 })).toContainText('Da rispondere')
+    await expect(rispondere.getByRole('article')).toHaveCount(3)
+    await expect(page.getByTestId('da-riattivare')).toHaveCount(0)
+
+    // each division shows as many chats as its number says, grouped by closeness to the call
+    for (const [nome, chiave] of [['Follow-up', 'follow_up'], ['In attesa', 'attesa']] as const) {
+      await bottone(nome).click()
+      const numero = Number((await bottone(nome).locator('.num').innerText()).trim())
+      const sezione = page.getByTestId(`divisione-${chiave}`)
+      if (numero) await expect(sezione.getByRole('article')).toHaveCount(numero)
+      else await expect(sezione.getByText('Nessuna chat qui.')).toBeVisible()
+    }
+
+    await bottone('Tutte').click()
+    await expect(page.getByRole('heading', { level: 2, name: /Chat per priorità/ })).toBeVisible()
+    await expect(page.getByTestId('da-riattivare')).toBeVisible()
+  })
+
   test('the alert is red, with its hourglass, only above 0', async ({ page }) => {
     await apriInsight(page, 'admin', '/insight?canale=messenger')
     const oggiAttesa = tessera(page, 'Attendono risposta')

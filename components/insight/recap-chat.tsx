@@ -6,6 +6,7 @@ import { useLingua } from '@/components/i18n/lingua-provider'
 import { useAnnuncia } from '@/components/insight/annunci'
 import type { ContenutoCalendario } from '@/components/insight/arriva-da'
 import { ContentRecapSezione } from '@/components/insight/content-recap'
+import { GruppiDivisione, SceltaDivisione } from '@/components/insight/divisioni'
 import { FattiProvider } from '@/components/insight/fatti'
 import { NumeriFiltro } from '@/components/insight/numeri-filtro'
 import { useAdessoMinuto } from '@/components/insight/orologio'
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { annoDelRecap, attesaLead } from '@/lib/insight/attesa'
 import type { Fonte } from '@/lib/insight/canale'
 import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
+import { contaDivisioni, type ChiaveDivisione } from '@/lib/insight/divisioni'
 import { applicaFiltro, CHIAVI_FILTRO, contaFiltro, type ChiaveFiltro } from '@/lib/insight/filtri'
 import { ordinaPerPriorita } from '@/lib/insight/priorita'
 import type { RecapLetto } from '@/lib/insight/recap'
@@ -65,6 +67,7 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
   const t = INSIGHT_RECAP[lingua]
   const FILTRI = t.filtri as Record<ChiaveFiltro, { etichetta: string; titolo: string }>
   const [filtro, setFiltro] = useState<ChiaveFiltro | null>(null)
+  const [divisione, setDivisione] = useState<ChiaveDivisione>('tutte')
   const tessere = useRef<Partial<Record<ChiaveFiltro, HTMLButtonElement | null>>>({})
   const sezioneFiltrata = useRef<HTMLElement>(null)
   // set by a tap that turns a filter on: the effect scrolls to the filtered chats once they are there
@@ -83,11 +86,31 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
     [leads, recap.non_leads],
   )
 
+  const conteggiDivisioni = useMemo(() => contaDivisioni(leads, recap.reactivate), [leads, recap.reactivate])
+  const tutteLeChat = useMemo<LeadScheda[]>(() => [...leads, ...recap.reactivate], [leads, recap.reactivate])
+
   const attesaDi = useCallback((lead: LeadScheda) => attesaLead(lead, adessoMs, anno), [adessoMs, anno])
   const contenutoDi = useCallback(
     (lead: LeadScheda) => (lead.origine?.shortcode ? (calendario[lead.origine.shortcode] ?? null) : null),
     [calendario],
   )
+
+  /** The urgency inside a division: hours of waiting, else days of silence or hours since our last message. */
+  const urgenzaDi = useCallback(
+    (lead: LeadScheda) => {
+      const attesa = attesaLead(lead, adessoMs, anno)
+      if (attesa) return attesa.ore
+      if (lead.days_silent !== undefined) return lead.days_silent * 24
+      const ultimo = Date.parse(lead.last_message_at)
+      return Number.isNaN(ultimo) ? null : Math.max(0, (adessoMs - ultimo) / 3_600_000)
+    },
+    [adessoMs, anno],
+  )
+
+  function scegliDivisione(chiave: ChiaveDivisione) {
+    setDivisione(chiave)
+    annuncia(t.annuncioDivisione(t.divisioni[chiave]?.titolo ?? chiave, chiave === 'tutte' ? leads.length : conteggiDivisioni[chiave]))
+  }
 
   useEffect(() => {
     if (!filtro || !daScorrere.current) return
@@ -153,19 +176,34 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
           ) : null}
         </section>
       ) : (
-        <section aria-labelledby="titolo-priorita" className="grid gap-3.5">
-          <h2 id="titolo-priorita" className="text-lg font-semibold">
-            {t.leads.titolo} <span className="num text-sm font-normal text-muted-foreground">{leads.length}</span>
-          </h2>
-          {leads.length ? (
-            <GruppiPriorita leads={leads} {...schede} />
+        <>
+          {tutteLeChat.length ? (
+            <SceltaDivisione conteggi={conteggiDivisioni} attiva={divisione} onScegli={scegliDivisione} />
+          ) : null}
+          {divisione === 'tutte' ? (
+            <section aria-labelledby="titolo-priorita" className="grid gap-3.5">
+              <h2 id="titolo-priorita" className="text-lg font-semibold">
+                {t.leads.titolo} <span className="num text-sm font-normal text-muted-foreground">{leads.length}</span>
+              </h2>
+              {leads.length ? (
+                <GruppiPriorita leads={leads} {...schede} />
+              ) : (
+                <p className="text-sm text-muted-foreground">{t.leads.vuoto}</p>
+              )}
+            </section>
           ) : (
-            <p className="text-sm text-muted-foreground">{t.leads.vuoto}</p>
+            <section aria-labelledby="titolo-divisione" className="grid gap-3.5" data-testid={`divisione-${divisione}`}>
+              <h2 id="titolo-divisione" className="text-lg font-semibold">
+                {t.divisioni[divisione]?.titolo}{' '}
+                <span className="num text-sm font-normal text-muted-foreground">{conteggiDivisioni[divisione]}</span>
+              </h2>
+              <GruppiDivisione divisione={divisione} voci={tutteLeChat} urgenza={urgenzaDi} {...schede} />
+            </section>
           )}
-        </section>
+        </>
       )}
 
-      {!filtro ? <DaRiattivare voci={recap.reactivate} {...schede} /> : null}
+      {!filtro && divisione === 'tutte' ? <DaRiattivare voci={recap.reactivate} {...schede} /> : null}
       <Obiezioni voci={recap.objections} fonte={fonte} />
       <ContentRecapSezione content={recap.content} calendario={calendario} lingua={lingua} />
       {!filtro ? (
