@@ -86,6 +86,20 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.66.0',
+    data: '2026-10-29',
+    titolo: 'Pausa del timer',
+    riassunto: 'Il timer si mette in pausa e riprende: fermandolo salva solo il tempo in cui è andato.',
+    intestazionePer: ['progetti'],
+    novita: [
+      {
+        per: ['progetti'],
+        testo:
+          'Il timer ha «Pausa» e «Riprendi», in alto a destra e in Il mio tempo. In pausa il cronometro sta fermo e lo dice, anche sugli altri dispositivi; fermandolo si salvano solo i minuti in cui è andato, senza le pause. Una voce con delle pause ha la sola durata, senza la fascia oraria.',
+      },
+    ],
+  },
+  {
     versione: '1.65.0',
     data: '2026-10-27',
     titolo: 'Le call si analizzano da Fathom',

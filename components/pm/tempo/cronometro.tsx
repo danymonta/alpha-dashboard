@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react'
 
-import { formatCronometro } from '@/lib/tempo'
+import { formatCronometro, secondiDelTimer } from '@/lib/tempo'
 import { cn } from '@/lib/utils'
 
 // One shared clock for every running display: one interval, however many
@@ -40,10 +40,23 @@ function useAdesso() {
   )
 }
 
-/** "01:02:03" since `inizio`, ticking. "--:--:--" until the clock has started. */
-export function Cronometro({ inizio, className }: { inizio: string; className?: string }) {
+/**
+ * "01:02:03" since `inizio` without the pauses, ticking; standing still while
+ * paused (1.66.0). "--:--:--" until the clock has started.
+ */
+export function Cronometro({
+  inizio,
+  pausaDal = null,
+  pausaSecondi = 0,
+  className,
+}: {
+  inizio: string
+  pausaDal?: string | null
+  pausaSecondi?: number
+  className?: string
+}) {
   const ora = useAdesso()
-  const testo = ora === 0 ? '--:--:--' : formatCronometro((ora - new Date(inizio).getTime()) / 1000)
+  const testo = ora === 0 ? '--:--:--' : formatCronometro(secondiDelTimer({ inizio, pausaDal, pausaSecondi }, ora))
 
   return (
     <span className={cn('num', className)} data-testid="cronometro">

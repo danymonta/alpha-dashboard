@@ -1651,13 +1651,13 @@ isOneToOne: false
                   ]
                 },"pm_tempo": {
                   Row: {
-                    "created_at": string,"data": string,"fine": string | null,"id": string,"inizio": string | null,"minuti": number | null,"nota": string | null,"profile_id": string,"progetto_id": string,"task_id": string | null,"updated_at": string
+                    "created_at": string,"data": string,"fine": string | null,"id": string,"inizio": string | null,"minuti": number | null,"nota": string | null,"pausa_dal": string | null,"pausa_secondi": number,"profile_id": string,"progetto_id": string,"task_id": string | null,"updated_at": string
                   }
                   Insert: {
-                    "created_at"?: string,"data": string,"fine"?: string | null,"id"?: string,"inizio"?: string | null,"minuti"?: number | null,"nota"?: string | null,"profile_id"?: string,"progetto_id": string,"task_id"?: string | null,"updated_at"?: string
+                    "created_at"?: string,"data": string,"fine"?: string | null,"id"?: string,"inizio"?: string | null,"minuti"?: number | null,"nota"?: string | null,"pausa_dal"?: string | null,"pausa_secondi"?: number,"profile_id"?: string,"progetto_id": string,"task_id"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"data"?: string,"fine"?: string | null,"id"?: string,"inizio"?: string | null,"minuti"?: number | null,"nota"?: string | null,"profile_id"?: string,"progetto_id"?: string,"task_id"?: string | null,"updated_at"?: string
+                    "created_at"?: string,"data"?: string,"fine"?: string | null,"id"?: string,"inizio"?: string | null,"minuti"?: number | null,"nota"?: string | null,"pausa_dal"?: string | null,"pausa_secondi"?: number,"profile_id"?: string,"progetto_id"?: string,"task_id"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -3072,8 +3072,14 @@ isOneToOne: false
 "pm_fascia_tempo":
 { Args: { "p_alle": string,"p_dalle": string,"p_data": string }; Returns: Record<string, unknown>
                            },
+"pm_riprendi_timer":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "pm_ferma_timer":
 { Args: { "p_nota"?: string }; Returns: string
+                           },
+"pm_pausa_timer":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "pm_imposta_assegnatari":
 { Args: { "p_persone": (string)[],"p_task": string }; Returns: undefined
@@ -3141,7 +3147,7 @@ isOneToOne: false
                            },
 "pm_timer_attivo":
 { Args: Record<PropertyKey, never>; Returns: {
-              "id": string,"inizio": string,"nota": string,"progetto": string,"progetto_id": string,"task": string,"task_id": string
+              "id": string,"inizio": string,"nota": string,"pausa_dal": string,"pausa_secondi": number,"progetto": string,"progetto_id": string,"task": string,"task_id": string
             }[]
                            },
 "previsione_cassa":

@@ -393,7 +393,7 @@ export async function mioTempo(input: MioTempoInput, ctx: ContestoMcp): Promise<
     })),
     ...(soloTask.length > TASK_MIO_TEMPO ? { nota_task: `Qui i ${TASK_MIO_TEMPO} task con più tempo su ${soloTask.length}.` } : {}),
     timer_acceso: acceso
-      ? { progetto: acceso.progetto, task: acceso.task, dalle: acceso.inizio, nota: acceso.nota }
+      ? { progetto: acceso.progetto, task: acceso.task, dalle: acceso.inizio, nota: acceso.nota, in_pausa_dal: acceso.pausa_dal ?? null }
       : null,
     voci: elenco.map((v) => {
       const f = fasciaDellaVoce(v)

@@ -65,6 +65,54 @@ test.describe('Il mio tempo', () => {
     await expect(giorno.getByRole('heading')).toHaveText(`Oggi · ${formatData(oggiRoma())}`)
   })
 
+  test('la pausa del timer: il cronometro si ferma, riprende e i minuti salvati non contano le pause (1.66.0)', async ({ page }) => {
+    // 90 minutes ago, 10 minutes of pauses already ended, paused since 30 minutes: 50 minutes of work
+    await avviaTimerAltrove(ID_SETTER, progetto.id, 90, { daMinuti: 30, secondiFiniti: 600 })
+    await accedi(page, 'setter')
+    await page.goto('/tempo')
+    await attendiPagina(page)
+
+    const scheda = page.getByRole('region', { name: 'Timer in corso' })
+    await expect(scheda).toContainText(/Timer in pausa dalle \d\d:\d\d/)
+    const orologio = scheda.getByTestId('cronometro')
+    await expect(orologio).toHaveText(/^00:50:0\d$/)
+    const fermo = await orologio.innerText()
+    await page.waitForTimeout(2_000)
+    await expect(orologio).toHaveText(fermo)
+
+    // the indicator at the top right says it too
+    const indicatore = page.getByTestId('timer-attivo-desktop')
+    await expect(indicatore).toContainText('In pausa')
+    await expect(indicatore).toHaveAccessibleName(/^Timer in pausa su/)
+
+    const pausa = scheda.getByTestId('pausa-timer')
+    await expect(pausa).toHaveText('Riprendi')
+    await pausa.click()
+    await expect(page.getByText('Timer ripreso', { exact: true })).toBeVisible()
+    await expect(pausa).toHaveText('Pausa')
+    await expect(pausa).toBeFocused()
+    await expect(orologio).not.toHaveText(fermo, { timeout: 5_000 })
+
+    await pausa.click()
+    await expect(page.getByText('Timer in pausa', { exact: true })).toBeVisible()
+    await expect(pausa).toHaveText('Riprendi')
+
+    await scheda.getByRole('button', { name: 'Ferma il timer' }).click()
+    await expect(page.getByText(/^Timer fermato · 50 min$/)).toBeVisible()
+    await expect(indicatore).toHaveCount(0)
+
+    // only the minutes it ran, without a range
+    const voce = page.getByTestId(`giorno-${oggiRoma()}`).getByTestId('voce-tempo').filter({ hasText: progetto.nome })
+    await expect(voce).toContainText('50 min')
+    const { data } = await dbLocale()
+      .from('pm_tempo')
+      .select('minuti, inizio, fine, pausa_dal, pausa_secondi')
+      .eq('profile_id', ID_SETTER)
+      .eq('progetto_id', progetto.id)
+      .single()
+    expect(data).toEqual({ minuti: 50, inizio: null, fine: null, pausa_dal: null, pausa_secondi: 0 })
+  })
+
   test('sul telefono il timer avviato altrove compare in alto accanto ad Alfire e si ferma da lì', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await accedi(page, 'setter')

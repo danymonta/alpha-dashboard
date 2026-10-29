@@ -12,6 +12,10 @@ export type TimerAcceso = {
   task: string | null
   inizio: string
   nota: string | null
+  /** When it was paused, null while it runs (1.66.0). */
+  pausa_dal: string | null
+  /** Seconds of the pauses already ended. */
+  pausa_secondi: number
 }
 
 type StatoTimer = {
@@ -55,7 +59,7 @@ export function TimerProvider({ profiloId, children }: { profiloId: string; chil
       return
     }
     const riga = data?.[0]
-    setTimer(riga && riga.inizio ? { ...riga, inizio: riga.inizio } : null)
+    setTimer(riga && riga.inizio ? { ...riga, inizio: riga.inizio, pausa_dal: riga.pausa_dal ?? null, pausa_secondi: riga.pausa_secondi ?? 0 } : null)
     setStato('pronto')
   }, [])
 

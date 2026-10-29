@@ -1,11 +1,11 @@
 'use client'
 
-import { AlarmClock, LoaderCircle, Square } from 'lucide-react'
+import { AlarmClock, LoaderCircle, Pause, Play, Square } from 'lucide-react'
 import Link from 'next/link'
 import { useId, useState, useSyncExternalStore, useTransition, type FormEvent } from 'react'
 import { toast } from 'sonner'
 
-import { fermaTimer } from '@/app/(app)/tempo/actions'
+import { fermaTimer, pausaTimer, riprendiTimer } from '@/app/(app)/tempo/actions'
 import { useLingua } from '@/components/i18n/lingua-provider'
 import { Cronometro } from '@/components/pm/tempo/cronometro'
 import { useTimer, type TimerAcceso } from '@/components/pm/tempo/timer-provider'
@@ -124,6 +124,67 @@ export function FermaTimerForm({
 }
 
 /**
+ * Pause or resume the running timer (1.66.0): one button that changes its
+ * words, so the focus stays on it. The clock stands still while paused, and
+ * the minutes saved at the stop leave the pauses out (the database counts).
+ */
+export function PausaTimer({ timer, lingua = 'it' }: { timer: TimerAcceso; lingua?: Lingua }) {
+  const testi = MIO_TEMPO[lingua]
+  const t = testi.cronometro
+  const { ricarica } = useTimer()
+  const [errore, setErrore] = useState<string | null>(null)
+  const [inCorso, avvia] = useTransition()
+  const inPausa = Boolean(timer.pausa_dal)
+
+  function cambia() {
+    if (inCorso) return
+    setErrore(null)
+    avvia(async () => {
+      try {
+        const esito = inPausa ? await riprendiTimer() : await pausaTimer()
+        if (!esito.ok) {
+          setErrore(traduciErroreTempo(esito.errore, lingua) ?? null)
+          return
+        }
+        toast.success(inPausa ? t.ripreso : t.messoInPausa)
+      } catch {
+        setErrore(testi.form.connessione)
+      }
+      await ricarica()
+    })
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 w-full"
+        onClick={cambia}
+        // never disabled: a disabled button drops the focus, and it must stay on the button that changed words
+        aria-busy={inCorso || undefined}
+        aria-pressed={inPausa}
+        data-testid="pausa-timer"
+      >
+        {inCorso ? (
+          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+        ) : inPausa ? (
+          <Play className="size-4 fill-current" aria-hidden="true" />
+        ) : (
+          <Pause className="size-4 fill-current" aria-hidden="true" />
+        )}
+        {inPausa ? t.riprendi : t.pausa}
+      </Button>
+      {errore ? (
+        <p role="alert" className="text-sm text-status-critical">
+          {errore}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/**
  * The running timer, always in sight at the top right, next to Alfire, on
  * every page: an alarm clock, the time running and (desktop) what it is on.
  * A tap opens the stop, which asks for a note. Nothing when no timer runs.
@@ -144,14 +205,24 @@ export function TimerInCima({ compatto = false }: { compatto?: boolean }) {
           <Button
             type="button"
             variant="outline"
-            aria-label={t.inCorsoSu(descrizioneTimer(timer, lingua))}
+            aria-label={(timer.pausa_dal ? t.inPausaSu : t.inCorsoSu)(descrizioneTimer(timer, lingua))}
             data-testid={compatto ? 'timer-attivo-mobile' : 'timer-attivo-desktop'}
             className={cn('h-11 shrink-0 gap-2 border-primary/60', compatto ? 'px-2.5' : 'max-w-72 px-3')}
           />
         }
       >
-        <AlarmClock className="size-4 shrink-0 text-primary-light" aria-hidden="true" />
-        <Cronometro inizio={timer.inizio} className="text-sm font-semibold" />
+        {timer.pausa_dal ? (
+          <Pause className="size-4 shrink-0 fill-current text-status-warning" aria-hidden="true" />
+        ) : (
+          <AlarmClock className="size-4 shrink-0 text-primary-light" aria-hidden="true" />
+        )}
+        <Cronometro
+          inizio={timer.inizio}
+          pausaDal={timer.pausa_dal}
+          pausaSecondi={timer.pausa_secondi}
+          className="text-sm font-semibold"
+        />
+        {timer.pausa_dal && !compatto ? <span className="text-xs text-muted-foreground">{t.inPausa}</span> : null}
         {compatto ? null : <span className="min-w-0 truncate text-sm text-muted-foreground">{timer.task ?? timer.progetto}</span>}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-3 p-4">
@@ -163,7 +234,11 @@ export function TimerInCima({ compatto = false }: { compatto?: boolean }) {
               {t.ilMioTempo}
             </Link>
           </p>
+          {timer.pausa_dal ? (
+            <p className="mt-1 text-xs text-muted-foreground">{t.inPausaDalle(formatOra(timer.pausa_dal))}</p>
+          ) : null}
         </div>
+        <PausaTimer timer={timer} lingua={lingua} />
         {/* keyed on the timer: a new timer starts with its own note */}
         <FermaTimerForm
           key={timer.id}
