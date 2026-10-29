@@ -147,3 +147,16 @@ export function perGiorno<T extends { data: string }>(righe: readonly T[]): { da
     .sort(([x], [y]) => (x < y ? 1 : x > y ? -1 : 0))
     .map(([data, voci]) => ({ data, righe: voci }))
 }
+
+/**
+ * Seconds a running timer has run at `adesso` (ms), without its pauses (1.66.0):
+ * the ended pauses (`pausaSecondi`) and the one still open (`pausaDal`), whose
+ * clock stands still. Display only: the saved minutes come from the database.
+ */
+export function secondiDelTimer(
+  timer: { inizio: string; pausaDal?: string | null; pausaSecondi?: number | null },
+  adesso: number,
+): number {
+  const fine = timer.pausaDal ? Math.min(adesso, new Date(timer.pausaDal).getTime()) : adesso
+  return Math.max(0, (fine - new Date(timer.inizio).getTime()) / 1000 - (timer.pausaSecondi ?? 0))
+}

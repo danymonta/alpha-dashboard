@@ -9,7 +9,7 @@ import { CLASSE_SELECT } from '@/components/form/foglio-modifica'
 import { useLingua } from '@/components/i18n/lingua-provider'
 import { LinkBottone } from '@/components/link-bottone'
 import { Cronometro } from '@/components/pm/tempo/cronometro'
-import { FermaTimerForm, descrizioneTimer } from '@/components/pm/tempo/timer-attivo'
+import { FermaTimerForm, PausaTimer, descrizioneTimer } from '@/components/pm/tempo/timer-attivo'
 import { useTimer } from '@/components/pm/tempo/timer-provider'
 import type { OpzioneProgetto, OpzioneTask } from '@/components/pm/tempo/form-tempo'
 import { Button } from '@/components/ui/button'
@@ -68,8 +68,17 @@ export function CardTimer({
         <div>
           <p className="text-xs text-muted-foreground">{t.accesoAlle(formatOra(timer.inizio))}</p>
           <p className="mt-1 truncate text-sm font-medium">{descrizioneTimer(timer, lingua)}</p>
-          <Cronometro inizio={timer.inizio} className="mt-1 block text-4xl font-semibold tracking-tight" />
+          <Cronometro
+            inizio={timer.inizio}
+            pausaDal={timer.pausa_dal}
+            pausaSecondi={timer.pausa_secondi}
+            className="mt-1 block text-4xl font-semibold tracking-tight"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            {timer.pausa_dal ? t.inPausaDalle(formatOra(timer.pausa_dal)) : t.pausaNonContano}
+          </p>
         </div>
+        <PausaTimer timer={timer} lingua={lingua} />
         <FermaTimerForm key={timer.id} notaIniziale={timer.nota} lingua={lingua} />
       </section>
     )

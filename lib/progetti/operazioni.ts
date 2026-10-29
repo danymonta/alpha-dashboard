@@ -550,6 +550,30 @@ export async function fermaTimer(ctx: Contesto, input: unknown): Promise<EsitoFe
 }
 
 /**
+ * Pause and resume the caller's running timer (1.66.0): the minutes it saves
+ * are the time it ran, without the pauses; the database follows the clock
+ * (pm_pausa_timer, pm_riprendi_timer). Nothing to do (no timer, already
+ * paused or running, another device was first) is not an error.
+ */
+export async function pausaTimer(ctx: Contesto): Promise<EsitoVoce> {
+  const negato = await negaSessione(ctx)
+  if (negato) return { ok: false, errore: negato }
+  const { data: id, error } = await ctx.db.rpc('pm_pausa_timer')
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Timer non messo in pausa. Riprova.') }
+  aggiornaTempo()
+  return { ok: true, id: id ?? null }
+}
+
+export async function riprendiTimer(ctx: Contesto): Promise<EsitoVoce> {
+  const negato = await negaSessione(ctx)
+  if (negato) return { ok: false, errore: negato }
+  const { data: id, error } = await ctx.db.rpc('pm_riprendi_timer')
+  if (error) return { ok: false, errore: messaggioErrore(error, 'Timer non ripreso. Riprova.') }
+  aggiornaTempo()
+  return { ok: true, id: id ?? null }
+}
+
+/**
  * Time typed afterwards: minutes, or "Dalle"–"Alle" on its day. With a range
  * the database builds start and end in Europe/Rome and computes the minutes
  * (pm_registra_tempo).

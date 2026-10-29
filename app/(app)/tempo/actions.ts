@@ -23,6 +23,15 @@ export async function fermaTimer(input: unknown): Promise<EsitoFermo> {
   return operazioni.fermaTimer(await contestoApp(), input)
 }
 
+/** Pause and resume the running timer (1.66.0): its minutes leave out the pauses. */
+export async function pausaTimer(): Promise<EsitoVoce> {
+  return operazioni.pausaTimer(await contestoApp())
+}
+
+export async function riprendiTimer(): Promise<EsitoVoce> {
+  return operazioni.riprendiTimer(await contestoApp())
+}
+
 /** Time typed afterwards: minutes, or "Dalle"–"Alle" on its day (pm_registra_tempo). */
 export async function registraTempo(input: unknown): Promise<EsitoVoce> {
   return operazioni.registraTempo(await contestoApp(), input)

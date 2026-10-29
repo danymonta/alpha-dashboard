@@ -117,7 +117,13 @@ export async function creaProgettoDiProva(nome: string): Promise<ProgettoDiProva
 }
 
 /** A timer started "on another device": a running entry written straight to the database. */
-export async function avviaTimerAltrove(profileId: string, progettoId: string, minutiFa: number) {
+export async function avviaTimerAltrove(
+  profileId: string,
+  progettoId: string,
+  minutiFa: number,
+  /** Paused since that many minutes ago, with that many seconds of pauses already ended (1.66.0). */
+  pausa?: { daMinuti: number; secondiFiniti?: number },
+) {
   const db = dbLocale()
   // one running timer per person: stop any left over first
   await db.from('pm_tempo').delete().eq('profile_id', profileId).is('fine', null).not('inizio', 'is', null)
@@ -129,6 +135,12 @@ export async function avviaTimerAltrove(profileId: string, progettoId: string, m
         progetto_id: progettoId,
         data: oggiRoma(),
         inizio: new Date(Date.now() - minutiFa * 60_000).toISOString(),
+        ...(pausa
+          ? {
+              pausa_dal: new Date(Date.now() - pausa.daMinuti * 60_000).toISOString(),
+              pausa_secondi: pausa.secondiFiniti ?? 0,
+            }
+          : {}),
       })
       .select('id')
       .single(),
