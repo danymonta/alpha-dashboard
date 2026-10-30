@@ -18,7 +18,7 @@ import {
  * loaded from their official addresses.
  */
 
-type RispostaToken = { access_token?: string; expires_in?: number | string; error?: string }
+type RispostaToken = { access_token?: string; expires_in?: number | string; error?: string; scope?: string }
 type ClientToken = { requestAccessToken: (opzioni?: { prompt?: string }) => void }
 
 type Vista = {
@@ -108,6 +108,20 @@ function caricaScript(src: string, pronto: () => boolean): Promise<void> {
     script.set(src, promessa)
   }
   return promessa
+}
+
+/** Google Identity Services alone (the token client), without the Picker: «Promemoria su Calendar» (1.67.0). */
+export function identitaPronta(): boolean {
+  return Boolean(finestra().google?.accounts?.oauth2)
+}
+
+export function caricaIdentita(): Promise<void> {
+  return caricaScript(SCRIPT_GOOGLE.identita, identitaPronta)
+}
+
+/** The token client of Google Identity Services, once loaded: the calendar's own request (lib/google/calendar-browser.ts). */
+export function oauth2Google() {
+  return finestra().google?.accounts?.oauth2 ?? null
 }
 
 let pickerPronto: Promise<void> | null = null
