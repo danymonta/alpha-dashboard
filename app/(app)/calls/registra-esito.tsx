@@ -25,6 +25,7 @@ import { useEffect, useId, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { registraEsito } from '@/app/(app)/calls/actions'
+import { apriPromemoriaCalendar } from '@/app/(app)/calls/promemoria-calendar'
 import { CampiFollowUp } from '@/app/(app)/calls/follow-up'
 import { CampiSpostamento } from '@/app/(app)/calls/sposta-call'
 import { PassoRegistrazione } from '@/components/call/passo-registrazione'
@@ -43,6 +44,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useLingua } from '@/components/i18n/lingua-provider'
 import { spostamentoPredefinito } from '@/lib/call/spostamento'
 import { etichettaGiornoIn } from '@/lib/i18n/date'
+import { PROMEMORIA_CALENDAR_TESTI } from '@/lib/i18n/testi/promemoria-calendar'
 import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
 import {
   ESITO,
@@ -268,6 +270,11 @@ export function RegistraEsito({
                   ? REGISTRAZIONE.toastCollegata
                   : REGISTRAZIONE.toastNonRegistrata
                 : undefined,
+        // a follow-up by chat (29/10/2026): the reminder in Google Calendar, one tap from the toast
+        action:
+          input.esito === 'follow_up' && sceltaFollowUp === 'chat' && !esito.followUp
+            ? { label: PROMEMORIA_CALENDAR_TESTI[lingua].bottone, onClick: () => apriPromemoriaCalendar(callId) }
+            : undefined,
       })
       // the outcome is saved, the recording is not: said, never asked to repeat the outcome
       if (esito.avvisoRegistrazione) toast.warning(traduciErrore(esito.avvisoRegistrazione, lingua))

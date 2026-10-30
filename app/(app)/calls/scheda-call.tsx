@@ -3,6 +3,7 @@ import { CalendarCheck, CalendarClock, CircleAlert, MessageCircle, Receipt, Rota
 import { CollegaVendita } from '@/app/(app)/calls/collega-vendita'
 import { FissaFollowUp } from '@/app/(app)/calls/follow-up'
 import { ModificaCall } from '@/app/(app)/calls/modifica-call'
+import { PromemoriaCalendar } from '@/app/(app)/calls/promemoria-calendar'
 import { RegistraEsito } from '@/app/(app)/calls/registra-esito'
 import { SpostaCall } from '@/app/(app)/calls/sposta-call'
 import { AnalisiCall } from '@/components/call/analisi-call'
@@ -15,6 +16,8 @@ import { Badge } from '@/components/ui/badge'
 import { chiedeVendita } from '@/lib/call/follow-up'
 import { avvisoEsitoFermo, motivoQuandoBloccato } from '@/lib/call/spostamento'
 import { formatOra, oggiRoma } from '@/lib/date'
+import { publicEnv } from '@/lib/env'
+import { configCalendarRichiesta } from '@/lib/google/calendar-server'
 import { etichettaGiornoBreveIn, etichettaGiornoIn, quandoBreveIn, quandoFollowUpIn } from '@/lib/i18n/date'
 import type { Lingua } from '@/lib/i18n/lingua'
 import { CALL } from '@/lib/i18n/testi/call'
@@ -345,7 +348,18 @@ export function SchedaCall({
             {t.followUpInChat}
           </p>
           {vista === 'closer' ? (
-            <div className="ml-auto">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              {/* «Promemoria su Calendar» (29/10/2026): «Risentire …» in the Follow up calendar; never the setter */}
+              <PromemoriaCalendar
+                callId={call.id}
+                nomeLead={nome}
+                giornoCall={giorno}
+                oggi={oggi}
+                motivo={call.obiezione_principale ?? null}
+                linkFathom={call.link_registrazione ?? null}
+                linkCall={`${publicEnv.appUrl.replace(/\/+$/, '')}/calls`}
+                config={configCalendarRichiesta()}
+              />
               <FissaFollowUp
                 callId={call.id}
                 idTitolo={idTitolo}

@@ -86,6 +86,31 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.67.0',
+    data: '2026-10-30',
+    titolo: 'I follow-up in chat su Google Calendar',
+    riassunto:
+      'Sulle call finite in follow-up in chat «Promemoria su Calendar» mette «Risentire …» nel tuo calendario Follow up, con il motivo e il link della call.',
+    intestazionePer: ['closer'],
+    novita: [
+      {
+        per: ['closer'],
+        testo:
+          'Sulla scheda di una call finita in «Follow-up in chat», accanto a «Fissa la call di follow-up», c’è «Promemoria su Calendar»: scegli il giorno (domani, tra 3 giorni, tra una settimana, tra un mese, o un altro) e l’ora, e su Google Calendar compare un evento di 15 minuti «Risentire …», con una nota già scritta che puoi cambiare: il giorno della call, il motivo di non chiusura, la registrazione di Fathom e il link alle tue call. Lo trovi anche nel messaggio che compare dopo aver registrato un follow-up in chat.',
+      },
+      {
+        per: ['closer'],
+        testo:
+          'Quando il calendario Follow up è collegato, l’evento si scrive lì con un tocco (Google chiede una volta il permesso sul calendario); altrimenti si apre Google Calendar con l’evento già scritto, da controllare e salvare. Il gestionale non salva niente: il promemoria sta solo nel tuo calendario.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Per scrivere direttamente nel calendario Follow up: in Google Cloud attiva la Google Calendar API nel progetto del login, aggiungi il permesso sugli eventi del calendario alla schermata di consenso e su Vercel imposta GOOGLE_CALENDAR_FOLLOW_UP con l’ID del calendario, poi rifai il deploy. Senza, il bottone apre Google Calendar con l’evento già scritto.',
+      },
+    ],
+  },
+  {
     versione: '1.66.0',
     data: '2026-10-29',
     titolo: 'Pausa del timer',

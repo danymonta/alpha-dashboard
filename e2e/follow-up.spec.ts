@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import { FOLLOW_UP, VENDITA_DA_REGISTRARE, dettaglioVendita, quandoFollowUpDa } from '../lib/call/follow-up'
+import { PROMEMORIA_CALENDAR } from '../lib/call/promemoria-calendar'
 import { quandoBreve } from '../lib/call/spostamento'
 import { aggiungiGiorni, formatOra, oggiRoma } from '../lib/date'
 import { formatData, formatEuro } from '../lib/format'
@@ -245,6 +246,44 @@ test('a 390 px: «No, follow-up in chat» non fissa niente; poi «Fissa la call 
   expect(await senzaScrollLaterale()).toBe(true)
 })
 
+test('«Promemoria su Calendar» su un follow-up in chat: Risentire, domani alle 10:00, 15 minuti, con il motivo', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const oggi = oggiRoma()
+  const domani = aggiungiGiorni(oggi, 1).replaceAll('-', '')
+  const nome = nomeUnico('Calendar')
+  await callInFollowUp(nome, ID_CLOSER)
+
+  await accedi(page, 'closer')
+  await page.goto('/calls')
+  const card = primaCall(page, nome)
+  const bottone = card.getByRole('button', { name: PROMEMORIA_CALENDAR.nomeBottone(nome) })
+  await expect(bottone).toHaveText(PROMEMORIA_CALENDAR.bottone)
+  expect((await bottone.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  await bottone.click()
+
+  const foglio = page.getByRole('dialog')
+  await expect(foglio.getByRole('heading', { name: PROMEMORIA_CALENDAR.titoloFoglio(nome) })).toBeVisible()
+  await expect(foglio.getByLabel(PROMEMORIA_CALENDAR.titolo)).toHaveValue(PROMEMORIA_CALENDAR.titoloEvento(nome))
+  await expect(foglio.getByTestId('promemoria-nota')).toHaveValue(/Motivo di non chiusura: Ci pensa/)
+
+  // Google's prefilled page, never opened here: the link says what it would write (no Google in the tests)
+  const link = new URL((await foglio.getByTestId('promemoria-link-calendar').getAttribute('href'))!)
+  expect(link.hostname).toBe('calendar.google.com')
+  expect(link.searchParams.get('text')).toBe(PROMEMORIA_CALENDAR.titoloEvento(nome))
+  expect(link.searchParams.get('dates')).toBe(`${domani}T100000/${domani}T101500`)
+  expect(link.searchParams.get('ctz')).toBe('Europe/Rome')
+  expect(link.searchParams.get('details')).toContain('Ci pensa')
+
+  // a past day: the sheet says it, the link does not go
+  await foglio.getByLabel(PROMEMORIA_CALENDAR.giorno).fill(aggiungiGiorni(oggi, -1))
+  await expect(foglio.getByTestId('promemoria-link-calendar')).toHaveAttribute('aria-disabled', 'true')
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBe(true)
+})
+
 test('il setter della call vede la call di follow-up e le righe, mai i bottoni', async ({ page }) => {
   const oggi = oggiRoma()
   const domani = aggiungiGiorni(oggi, 1)
@@ -283,6 +322,7 @@ test('il setter della call vede la call di follow-up e le righe, mai i bottoni',
 
   // never the buttons: the follow-up call is booked by the closer, the sale is the closer's
   await expect(page.getByRole('button', { name: new RegExp(FOLLOW_UP.bottone) })).toHaveCount(0)
+  await expect(page.getByTestId('promemoria-calendar')).toHaveCount(0)
   await expect(page.getByRole('link', { name: new RegExp(VENDITA_DA_REGISTRARE.bottone) })).toHaveCount(0)
   await expect(page.getByTestId('vendita-da-registrare')).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Registra esito|Cambia esito/ })).toHaveCount(0)
