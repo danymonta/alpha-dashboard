@@ -51,6 +51,8 @@ on conflict (client_id, tipo, data_fine) do nothing;
 insert into public.notifiche (destinatario_id, tipo, canale, titolo, anteprima, corpo_html, email_inviata, chiave)
 values ('bc000000-0000-4000-8000-000000000001', 'backup', 'email', 'Backup 101', 'Riga 101', '<p>101</p>', false,
   'test-101/backup');
+-- a personal expense of the admin (1.68.0, 107_spese_personali.sql): never his
+insert into public.spese_personali (data, categoria, descrizione, importo) values ('2024-01-15', 'casa', 'Affitto 101', 700);
 
 -- An OAuth client and the business coach's session with it (75_mcp_oauth.sql)
 insert into auth.oauth_clients (id, client_name, registration_type, client_type, redirect_uris,
@@ -203,7 +205,7 @@ select is(
                        'leads', 'setter_daily_reports', 'call_pitch', 'audit_log', 'marketing_contenuti', 'pm_progetti',
                        'pm_task', 'pm_tempo', 'insight_recap', 'call_analisi', 'products', 'invites', 'notifiche',
                        'obiettivi_mese', 'clienti_cartelle', 'report_proposte_instagram', 'v_vendite', 'v_rate',
-                       'v_clienti', 'v_pubblicati')),
+                       'v_clienti', 'v_pubblicati', 'spese_personali')),
   '',
   'le tabelle principali hanno righe: 0 righe per lui vuol dire RLS'
 );

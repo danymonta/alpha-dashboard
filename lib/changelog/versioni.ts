@@ -86,6 +86,26 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.68.0',
+    data: '2026-10-31',
+    titolo: 'Spese personali',
+    riassunto:
+      'In Amministrazione, accanto a Costi, una sezione per le tue spese personali: separate dall’azienda, non entrano mai nel margine operativo.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Nuova voce «Spese personali» in Amministrazione, subito dopo «Costi»: registri casa e bollette, spesa, mangiare fuori, trasporti, salute, cura della persona, abbonamenti e altro, con data, importo e se si ripete ogni mese. Vedi il totale del periodo e quanto per categoria, correggi ed elimini ogni spesa, e «Copia le ricorrenti» porta nel mese quelle del mese prima.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Le spese personali restano fuori dai conti dell’azienda: Costi, margine operativo, Panoramica, riepilogo del venerdì, recap del business coach e i numeri che legge Claude non le vedono mai. Le vedi solo tu: nessun altro ruolo, né Claude collegato, né Alfire.',
+      },
+    ],
+  },
+  {
     versione: '1.67.0',
     data: '2026-10-30',
     titolo: 'I follow-up in chat su Google Calendar',

@@ -68,7 +68,7 @@ test('coach ed editor non hanno l’area Economics: le pagine Economics li ripor
   for (const ruolo of ['coach', 'editor'] as const) {
     await accedi(page, ruolo)
     await expect(page).toHaveURL('/task')
-    for (const pagina of ['/', '/sales', '/expenses', '/commissions']) {
+    for (const pagina of ['/', '/sales', '/expenses', '/spese-personali', '/commissions']) {
       await page.goto(pagina)
       await expect(page).toHaveURL('/task')
     }

@@ -112,6 +112,7 @@ test.describe('il business coach ha solo il recap vendite', () => {
       '/setting',
       '/commissions',
       '/expenses',
+      '/spese-personali',
       '/marketing/contenuti',
       '/progetti',
       '/tempo/team',

@@ -317,7 +317,7 @@ describe('il menu a gruppi (1.38.0)', () => {
     expect(per('Marketing')).toEqual(['Piano editoriale', 'Pubblicati', 'Spunti', 'Dalle call'])
     expect(per('Progetti')).toEqual(['Progetti', 'I miei task', 'Tempo'])
     // the admin opens the business coach's page too (1.58.0)
-    expect(per('Amministrazione')).toEqual(['Costi', 'Impostazioni', 'Recap del business coach', 'Novità'])
+    expect(per('Amministrazione')).toEqual(['Costi', 'Spese personali', 'Impostazioni', 'Recap del business coach', 'Novità'])
     expect(vociNav('admin').principali.map((v) => v.etichetta)).toEqual([
       'Panoramica',
       'Le mie call',

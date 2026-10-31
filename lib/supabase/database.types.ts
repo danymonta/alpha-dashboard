@@ -1921,6 +1921,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"spese_personali": {
+                  Row: {
+                    "categoria": string,"created_at": string,"created_by": string | null,"data": string,"descrizione": string,"id": string,"importo": number,"ricorrente": boolean,"updated_at": string
+                  }
+                  Insert: {
+                    "categoria": string,"created_at"?: string,"created_by"?: string | null,"data": string,"descrizione": string,"id"?: string,"importo": number,"ricorrente"?: boolean,"updated_at"?: string
+                  }
+                  Update: {
+                    "categoria"?: string,"created_at"?: string,"created_by"?: string | null,"data"?: string,"descrizione"?: string,"id"?: string,"importo"?: number,"ricorrente"?: boolean,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "spese_personali_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"vendite_contratti": {
                   Row: {
                     "created_at": string,"created_by": string | null,"sale_id": string,"updated_at": string,"url": string
@@ -2537,6 +2556,9 @@ isOneToOne: false
             }[]
                            },
 "copia_costi_ricorrenti":
+{ Args: { "p_mese": string }; Returns: number
+                           },
+"copia_spese_personali_ricorrenti":
 { Args: { "p_mese": string }; Returns: number
                            },
 "crea_opzione_marketing":
@@ -3217,6 +3239,11 @@ isOneToOne: false
                            },
 "riepilogo_settimana":
 { Args: { "p_a": string,"p_da": string }; Returns: Json
+                           },
+"riepilogo_spese_personali":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "categoria": string,"numero": number,"totale": number
+            }[]
                            },
 "riepilogo_tempo_team":
 { Args: { "p_a": string,"p_da": string }; Returns: Json
