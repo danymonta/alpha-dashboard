@@ -561,8 +561,9 @@ test.describe('dal telefono', () => {
     await expect(barra.getByRole('link').first()).toHaveAccessibleName('Piano editoriale')
     await senzaScrollLaterale(page)
 
-    // no view switch: one list of cards
-    await expect(page.getByRole('group', { name: 'Vista dei contenuti' })).toHaveCount(0)
+    // «Tabella | Calendario» (1.69.0): without a choice on this device, the table, as cards on the phone
+    const vista = page.getByRole('group', { name: 'Vista del Piano editoriale' })
+    await expect(vista.getByRole('link', { name: 'Tabella' })).toHaveAttribute('aria-current', 'page')
     const card = sezioneContenuti(page).locator(`li[data-nome-contenuto="${nome}"]`)
     await expect(card).toBeVisible()
     // Reel Type and Format are chips of the card with the label's colour, changed with one tap (1.33.0)
