@@ -82,8 +82,9 @@ function frase(nome: string, motivo: MotivoUscita, dove: string, t: ParoleAnnunc
 
 /**
  * The content list's focus keeper, at the root of the page (1.33.0): the
- * table, the cards, and the content panel above them all. A
- * change from a row (Status, Reel Type, a Name outside the search) or from the panel (a content
+ * table, the cards, the calendar, and the content panel above them all. A
+ * change from a row (Status, Reel Type, a Name outside the search, a Post Date
+ * that moves a card of the calendar to another day) or from the panel (a content
  * deleted, or out of the filters when it closes) can take the row out of the
  * page, and the focus would fall to <body>. From that tap the section is
  * watched, as "Non rinnovano" in Rinnovi: the focus goes to the same row in
@@ -91,7 +92,16 @@ function frase(nome: string, motivo: MotivoUscita, dove: string, t: ParoleAnnunc
  * before, else to the list's heading «Piano editoriale», and a polite status says
  * where. A focus the person already moved elsewhere is never taken back.
  */
-export function UscitaDallaLista({ filtri, children }: { filtri: FiltriContenuti; children: ReactNode }) {
+export function UscitaDallaLista({
+  filtri,
+  calendario = false,
+  children,
+}: {
+  filtri: FiltriContenuti
+  /** The calendar view (1.69.0): a Post Date moves the card to another day, or off the month. */
+  calendario?: boolean
+  children: ReactNode
+}) {
   const sezione = useRef<HTMLElement | null>(null)
   const titolo = useRef<HTMLElement | null>(null)
   const osservatore = useRef<MutationObserver | null>(null)
@@ -133,11 +143,14 @@ export function UscitaDallaLista({ filtri, children }: { filtri: FiltriContenuti
           return Boolean(tipo && valore !== tipo) || (valore === 'youtube') !== (canale === 'youtube')
         case 'nome':
           return Boolean(q && typeof valore === 'string' && !valore.toLowerCase().includes(q.toLowerCase()))
+        case 'post_date':
+          // the calendar: the card moves to its new day (or out of the month); the same content is found there
+          return calendario
         default:
           return false
       }
     },
-    [stati, reel_type, formato, tipo, q, canale],
+    [stati, reel_type, formato, tipo, q, canale, calendario],
   )
 
   const ricorda = useCallback(

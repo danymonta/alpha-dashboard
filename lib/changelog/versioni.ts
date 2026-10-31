@@ -86,6 +86,36 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.69.0',
+    data: '2026-10-31',
+    titolo: 'Il Piano editoriale anche a calendario',
+    riassunto:
+      'Sotto Reels e YouTube scegli «Tabella» o «Calendario»: il mese come in Notion, ogni contenuto nel suo giorno con lo Status colorato, da spostare trascinandolo.',
+    intestazionePer: ['marketing'],
+    novita: [
+      {
+        per: ['marketing'],
+        testo:
+          'Nel Piano editoriale torna il calendario: sotto le schede Reels e YouTube scegli «Tabella» o «Calendario», e il telefono o il computer si ricordano la scelta. Il mese va da lunedì a domenica, con oggi in evidenza, le frecce per il mese prima e dopo (anche i mesi avanti) e «Oggi». I filtri restano cambiando vista.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Ogni contenuto è una piccola scheda nel giorno della sua Post Date: il Name, lo Status come etichetta col colore di Notion, l’icona e il nome, e il Reel Type. Sopra il calendario la legenda degli Status con quanti contenuti ha il mese per ognuno: un tocco mostra solo quelli, un altro tocco toglie il filtro.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Trascini una scheda su un altro giorno e la Post Date cambia subito (se qualcuno l’ha cambiata nel frattempo, torna dov’era e te lo dice); il «+» su un giorno crea un contenuto con quella data e lo apre nel pannello. Un tocco sulla scheda apre il pannello, come dalla tabella. In fondo i contenuti senza data.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Sul telefono il mini mese ha un pallino colorato per ogni contenuto del giorno, col colore del suo Status (fino a tre, poi «+»), e sotto l’elenco dei giorni con i loro contenuti.',
+      },
+    ],
+  },
+  {
     versione: '1.68.0',
     data: '2026-10-31',
     titolo: 'Spese personali',

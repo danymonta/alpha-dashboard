@@ -1,7 +1,8 @@
 import 'server-only'
 
 import { COLONNE_ELENCO, type ContenutoElenco } from '@/lib/marketing/elenco'
-import { ORDINE_GRUPPI, type GruppoStatus } from '@/lib/marketing/etichette'
+import { ORDINE_STATUS } from '@/lib/marketing/calendario'
+import { ORDINE_GRUPPI, type GruppoStatus, type StatusContenuto } from '@/lib/marketing/etichette'
 import { filtriDelGruppo, patternRicerca, statiFiltrati, type FiltriContenuti } from '@/lib/marketing/filtri'
 import {
   CAMPI_OPZIONE,
@@ -111,6 +112,29 @@ export async function contaPerGruppo(db: Db, f: FiltriElenco): Promise<ConteggiP
   if (sbagliato) throw new LetturaNonRiuscita('Impossibile caricare i contenuti', sbagliato.code)
   const [tutti, to_do, in_progress, complete] = letti.map((l) => l.count ?? 0)
   return { tutti, to_do, in_progress, complete }
+}
+
+/**
+ * The legend of the calendar (1.69.0): how many contents of each Status with
+ * these filters, the Status filter left out (each entry of the legend is that
+ * filter, and the others must still say their number). Counted by the
+ * database, one head count per Status.
+ */
+export async function contaPerStatus(db: Db, f: FiltriElenco): Promise<Record<StatusContenuto, number>> {
+  const senzaStatus: FiltriElenco = { ...f, gruppo: undefined, stato: undefined }
+  const letti = await Promise.all(
+    ORDINE_STATUS.map((stato) => contenutiFiltrati(db, { ...senzaStatus, stato }, { head: true })),
+  )
+  const sbagliato = letti.find((l) => l.error)?.error
+  if (sbagliato) throw new LetturaNonRiuscita('Impossibile contare i contenuti', sbagliato.code)
+  return Object.fromEntries(ORDINE_STATUS.map((s, i) => [s, letti[i].count ?? 0])) as Record<StatusContenuto, number>
+}
+
+/** How many contents with these filters (a head count): is there anything at all, in the calendar view. */
+export async function contaContenuti(db: Db, f: FiltriElenco): Promise<number> {
+  const { count, error } = await contenutiFiltrati(db, f, { head: true })
+  if (error) throw new LetturaNonRiuscita('Impossibile contare i contenuti', error.code)
+  return count ?? 0
 }
 
 /** One content with its sections; null for an id that is not one, a deleted content or one RLS hides. */

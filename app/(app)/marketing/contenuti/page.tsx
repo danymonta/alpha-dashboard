@@ -1,10 +1,13 @@
 import { Clapperboard, SearchX } from 'lucide-react'
+import { cookies } from 'next/headers'
 
 import { LinkBottone } from '@/components/link-bottone'
+import { CalendarioContenuti } from '@/components/marketing/calendario-contenuti'
 import { FiltriContenuti } from '@/components/marketing/filtri-contenuti'
 import { NuovaRiga } from '@/components/marketing/nuova-riga'
 import { OpzioniProvider } from '@/components/marketing/opzioni-contesto'
 import { PannelloContenuti, type DettaglioIniziale } from '@/components/marketing/pannello-contenuto'
+import { SceltaVista } from '@/components/marketing/scelta-vista'
 import { SezioneContenuti, UscitaDallaLista } from '@/components/marketing/sezione-contenuti'
 import { TabellaContenuti } from '@/components/marketing/tabella-contenuti'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
@@ -12,14 +15,25 @@ import { SchedePagina } from '@/components/shell/schede-pagina'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { RUOLI_MARKETING } from '@/lib/auth/roles'
 import { requireRuolo } from '@/lib/auth/session'
+import { fineMese, oggiRoma, parseMese, primoDelMeseISO } from '@/lib/date'
 import { getLingua } from '@/lib/i18n/server'
 import { MARKETING } from '@/lib/i18n/testi/marketing'
+import { LIMITE_MESE, LIMITE_SENZA_DATA, intervalloGriglia, ordineCalendario } from '@/lib/marketing/calendario'
 import { leggiDettaglioContenuto } from '@/lib/marketing/dettaglio'
+import type { CanalePiano } from '@/lib/marketing/etichette'
 import { LIMITE_TABELLA } from '@/lib/marketing/elenco'
-import { filtriDaParametri, haFiltri, senzaOpzioniSparite } from '@/lib/marketing/filtri'
-import { leggiConteggiOpzioni, leggiElenco, leggiOpzioni, leggiProprietaContenuto } from '@/lib/marketing/letture'
+import { filtriDaParametri, haFiltri, parametriDaFiltri, senzaOpzioniSparite, soloCanale } from '@/lib/marketing/filtri'
+import {
+  contaContenuti,
+  contaPerStatus,
+  leggiConteggiOpzioni,
+  leggiElenco,
+  leggiOpzioni,
+  leggiProprietaContenuto,
+} from '@/lib/marketing/letture'
 import { PARAMETRO_CONTENUTO, PARAMETRO_NUOVA } from '@/lib/marketing/pannello'
 import { eliminaContenuti } from '@/lib/marketing/permessi'
+import { COOKIE_VISTA_CONTENUTI, hrefVista, vistaDaUrl, vistaIniziale } from '@/lib/marketing/vista'
 import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 
@@ -27,6 +41,13 @@ export const dynamic = 'force-dynamic'
 
 function primo(valore: string | string[] | undefined): string | undefined {
   return Array.isArray(valore) ? valore[0] : valore
+}
+
+function indirizzo(parametri: Record<string, string | undefined>): string {
+  const cerca = new URLSearchParams()
+  for (const [chiave, v] of Object.entries(parametri)) if (v) cerca.set(chiave, v)
+  const testo = cerca.toString()
+  return testo ? `/marketing/contenuti?${testo}` : '/marketing/contenuti'
 }
 
 /**
@@ -58,8 +79,18 @@ export default async function PianoEditorialePage({
   const [opzioni, conteggi] = await Promise.all([leggiOpzioni(supabase), leggiConteggiOpzioni(supabase)])
   const filtri = senzaOpzioniSparite(filtriDaParametri(sp), opzioni)
   // the tabs (24/10/2026): the YouTube videos apart from the reels and carousels
-  const canale = filtri.canale === 'youtube' ? 'youtube' : 'reels'
+  const canale: CanalePiano = filtri.canale === 'youtube' ? 'youtube' : 'reels'
   const youtube = canale === 'youtube'
+
+  // ?vista always wins; without it, the view this device chose last (a cookie), then the table (1.69.0)
+  const vistaNellUrl = vistaDaUrl(primo(sp.vista))
+  const vista = vistaIniziale(vistaNellUrl, (await cookies()).get(COOKIE_VISTA_CONTENUTI)?.value)
+  const calendario = vista === 'calendario'
+  const oggi = oggiRoma()
+  const meseNellUrl = parseMese(primo(sp.mese))
+  const mese = meseNellUrl ?? primoDelMeseISO(oggi)
+  const intervallo = intervalloGriglia(mese)
+  const filtriCanale = { ...filtri, canale }
 
   // the panel's content, in parallel with the list; a failed read is the panel's own error, never the page's
   const dettaglioPromessa: Promise<DettaglioIniziale> = contenutoId
@@ -68,23 +99,53 @@ export default async function PianoEditorialePage({
         () => ({ id: contenutoId, errore: true as const }),
       )
     : Promise.resolve(null)
-  const [elenco, dettaglio, rigaNuova] = await Promise.all([
-    leggiElenco(supabase, { ...filtri, canale }, LIMITE_TABELLA),
+  const [tabella, delMese, senzaDataLetti, conteggiStatus, quanti, dettaglio, rigaNuova] = await Promise.all([
+    calendario ? null : leggiElenco(supabase, filtriCanale, LIMITE_TABELLA),
+    // the calendar reads the grid's days (Monday before the 1st to Sunday after the end), day by day
+    calendario ? leggiElenco(supabase, { ...filtriCanale, ...intervallo }, LIMITE_MESE, 'giorni') : null,
+    calendario ? leggiElenco(supabase, { ...filtriCanale, senzaData: true }, LIMITE_SENZA_DATA) : null,
+    // the legend: the month's contents of each Status, counted by the database
+    calendario ? contaPerStatus(supabase, { ...filtriCanale, da: mese, a: fineMese(mese) }) : null,
+    // is there anything at all in this tab (the empty state of the page, not of the month)
+    calendario ? contaContenuti(supabase, { canale }) : null,
     dettaglioPromessa,
     // the row «Nuovo» just created comes first, whatever the filters: undated, it would sit at the bottom
     nuovaId ? leggiProprietaContenuto(supabase, nuovaId).catch(() => null) : Promise.resolve(null),
   ])
 
   const filtrato = haFiltri(filtri)
-  const righe = rigaNuova ? [rigaNuova, ...elenco.righe.filter((r) => r.id !== rigaNuova.id)] : elenco.righe
-  const nessunContenuto = !filtrato && elenco.totale === 0 && !rigaNuova
-  const hrefTogliFiltri = youtube ? '/marketing/contenuti?canale=youtube' : '/marketing/contenuti'
+  // the filters keep the view the address says (without one, the memory decides again) and the month
+  const resto = { vista: vistaNellUrl ?? undefined, mese: calendario && meseNellUrl ? meseNellUrl.slice(0, 7) : undefined }
+  const parametriFiltri = parametriDaFiltri(filtri)
+  const hrefTogliFiltri = indirizzo({ ...parametriDaFiltri(soloCanale(filtri)), ...resto })
+
+  // the table: the row «Nuovo» pinned at the top; the calendar: at the top of «Senza data» (it has none)
+  const righeTabella = tabella
+    ? rigaNuova
+      ? [rigaNuova, ...tabella.righe.filter((r) => r.id !== rigaNuova.id)]
+      : tabella.righe
+    : []
+  const nuovaSenzaData = rigaNuova && !rigaNuova.post_date ? rigaNuova : null
+  const righeSenzaData = senzaDataLetti
+    ? nuovaSenzaData
+      ? [nuovaSenzaData, ...senzaDataLetti.righe.filter((r) => r.id !== nuovaSenzaData.id)]
+      : senzaDataLetti.righe
+    : []
+  const righeMese = delMese?.righe ?? []
+  const totaleSenzaData = Math.max(senzaDataLetti?.totale ?? 0, righeSenzaData.length)
+
+  const nessunContenuto = calendario
+    ? !filtrato && (quanti ?? 0) === 0 && !rigaNuova
+    : !filtrato && (tabella?.totale ?? 0) === 0 && !rigaNuova
   // the rows on the page, in the order they show: «precedente» and «successivo» in the panel
-  const ordine = righe.map((r) => r.id)
+  const righe = calendario ? [...righeMese, ...righeSenzaData] : righeTabella
+  const ordine = calendario ? ordineCalendario(righeMese, righeSenzaData) : righe.map((r) => r.id)
+  // the tabs keep the view the address says and the calendar's month (the filters are the tab's own)
+  const restoSchede = { vista: vistaNellUrl ?? undefined, mese: resto.mese }
 
   return (
     <OpzioniProvider opzioni={opzioni} conteggi={conteggi} puoEliminare={eliminaContenuti(profilo.ruolo)}>
-      <UscitaDallaLista filtri={filtri}>
+      <UscitaDallaLista filtri={filtri} calendario={calendario}>
         <PannelloContenuti
           righe={righe}
           ordine={ordine}
@@ -101,8 +162,8 @@ export default async function PianoEditorialePage({
             <SchedePagina
               etichetta={t.canali}
               schede={[
-                { href: '/marketing/contenuti', etichetta: t.reels, attiva: !youtube },
-                { href: '/marketing/contenuti?canale=youtube', etichetta: t.youtube, attiva: youtube },
+                { href: indirizzo(restoSchede), etichetta: t.reels, attiva: !youtube },
+                { href: indirizzo({ canale: 'youtube', ...restoSchede }), etichetta: t.youtube, attiva: youtube },
               ]}
             />
 
@@ -117,10 +178,27 @@ export default async function PianoEditorialePage({
               </div>
             ) : (
               <>
-                <FiltriContenuti filtri={filtri} resto={{}} />
+                <SceltaVista vista={vista} parametri={{ ...parametriFiltri, ...resto }} />
+                <FiltriContenuti filtri={filtri} resto={resto} />
 
                 <SezioneContenuti>
-                  {righe.length === 0 ? (
+                  {calendario ? (
+                    <CalendarioContenuti
+                      mese={mese}
+                      oggi={oggi}
+                      righe={righeMese}
+                      senzaData={righeSenzaData}
+                      totaleSenzaData={totaleSenzaData}
+                      limiteSenzaData={LIMITE_SENZA_DATA}
+                      conteggiStatus={conteggiStatus!}
+                      statoFiltrato={filtri.stato ?? null}
+                      parametri={{ ...parametriFiltri, vista: vistaNellUrl ?? undefined }}
+                      filtrato={filtrato}
+                      hrefTogliFiltri={hrefTogliFiltri}
+                      hrefTabella={hrefVista('tabella', vista, { ...parametriFiltri, vista: vistaNellUrl ?? undefined })}
+                      canale={canale}
+                    />
+                  ) : righeTabella.length === 0 ? (
                     <StatoVuoto
                       Icona={SearchX}
                       titolo={t.vuotoFiltri}
@@ -132,7 +210,12 @@ export default async function PianoEditorialePage({
                       }
                     />
                   ) : (
-                    <TabellaContenuti righe={righe} totale={elenco.totale} limite={LIMITE_TABELLA} canale={canale} />
+                    <TabellaContenuti
+                      righe={righeTabella}
+                      totale={tabella?.totale ?? 0}
+                      limite={LIMITE_TABELLA}
+                      canale={canale}
+                    />
                   )}
                 </SezioneContenuti>
               </>
