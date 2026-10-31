@@ -14,6 +14,7 @@ import {
   MessagesSquare,
   Percent,
   Phone,
+  PiggyBank,
   Presentation,
   Receipt,
   RefreshCw,
@@ -190,6 +191,8 @@ const NAV: Record<AppRole, NavRuolo> = {
         titolo: 'Amministrazione',
         voci: [
           { href: '/expenses', etichetta: 'Costi', Icona: Banknote },
+          // his personal expenses, kept apart from the business: never in any metric (1.68.0)
+          { href: '/spese-personali', etichetta: 'Spese personali', Icona: PiggyBank },
           { href: '/settings', etichetta: 'Impostazioni', Icona: Settings },
           // what the business coach sees, his one page (1.58.0)
           { href: '/recap', etichetta: 'Recap del business coach', Icona: Presentation },

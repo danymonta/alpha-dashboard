@@ -96,6 +96,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'compila-giornata', url: '/setting/closer/giorno' },
     { nome: 'provvigioni', url: '/commissions' },
     { nome: 'costi', url: '/expenses' },
+    { nome: 'spese-personali', url: '/spese-personali' },
     ...CONTENUTI,
     { nome: 'impostazioni', url: '/settings' },
     { nome: 'team', url: '/settings/team' },

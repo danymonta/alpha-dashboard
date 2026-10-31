@@ -104,6 +104,8 @@ select c.id, 'rinnovo_1_mese', '2024-02-29', 'inviato' from public.clients c lim
 on conflict (client_id, tipo, data_fine) do nothing;
 insert into public.obiettivi_mese (mese, cash, nuovi_clienti) values ('2024-01-01', 10000, 5)
 on conflict (mese) do nothing;
+-- The admin's personal expenses (1.68.0, 107_spese_personali.sql): never marketing's nor the editor's
+insert into public.spese_personali (data, categoria, descrizione, importo) values ('2024-01-15', 'casa', 'Affitto 66', 700);
 -- The Instagram posts and their links with the calendar (1.33.0): allowed below,
 -- one row each so the check that marketing and the editor read them means something
 insert into public.marketing_contenuti (id, tipo, nome, stato, post_date) values
