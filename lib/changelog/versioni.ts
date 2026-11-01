@@ -86,6 +86,43 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.70.0',
+    data: '2026-11-01',
+    titolo: 'Evidenziatore e link cliccabili negli script',
+    riassunto:
+      'Nelle sezioni di un contenuto selezioni un testo e gli dai un colore o uno sfondo, come in Notion; i link si aprono da un piccolo menu sotto, come in Google Drive.',
+    intestazionePer: ['marketing'],
+    novita: [
+      {
+        per: ['marketing'],
+        testo:
+          'Selezioni un testo in una sezione (messaggio, script, commenti, caption) e sopra compare un piccolo menu: grassetto, corsivo, barrato, link e «Colore». «Colore» apre due gruppi, «Colore del testo» e «Sfondo», con i colori di Notion (grigio, marrone, arancione, giallo, verde, blu, viola, rosa, rosso); «Predefinito» toglie il colore. Si salva da solo come ogni modifica, e la pagina del contenuto mostra i colori anche in lettura.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'I link dentro le sezioni sono cliccabili: un clic mette il cursore nel link, così lo modifichi ancora, e sotto compare un piccolo riquadro con l’indirizzo, «Apri» (in una nuova scheda), «Copia», «Modifica» e «Togli il link». Ctrl/⌘ + clic apre subito il link; Ctrl/⌘ + K su un testo selezionato aggiunge o cambia il link. Un indirizzo scritto così com’è (https://… o www.…) diventa un link da solo e resta scritto così.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Dalla tastiera: Alt+F10 porta al menu che si vede, le frecce passano da un bottone all’altro, Esc torna al testo. Sul telefono i bottoni sono grandi abbastanza per il dito.',
+      },
+      {
+        per: ['marketing'],
+        testo:
+          'Claude collegato conserva i colori quando riscrive una sezione e non ne aggiunge di suoi; le analisi dei reel non li leggono.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['marketing'],
+        testo:
+          'Un indirizzo scritto senza parentesi in una sezione, toccando il testo, tornava salvato come [indirizzo](indirizzo) e con delle barre in mezzo (a\\_b): ora resta com’era.',
+      },
+    ],
+  },
+  {
     versione: '1.69.0',
     data: '2026-10-31',
     titolo: 'Il Piano editoriale anche a calendario',

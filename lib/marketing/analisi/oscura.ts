@@ -8,6 +8,7 @@
  * (dany, daniele, montagnolo, alpha, percorso) and never the common Italian
  * words that are also names (rosa, marino, sole, bello, costa…).
  */
+import { togliEvidenziatore } from '@/lib/marketing/evidenziatore'
 
 /** The words of the brand and the account: not a person to hide. */
 export const PAROLE_DEL_MARCHIO: ReadonlySet<string> = new Set(['dany', 'daniele', 'montagnolo', 'alpha', 'percorso', 'danymonta'])
@@ -71,11 +72,12 @@ export function sostituisciNomi(testo: string, parole: ReadonlySet<string>, sost
 /**
  * A text that goes to Claude: the names blanked («[lead]»), `@handles`
  * («@[account]»), emails and phone numbers («[contatto]»), amounts («[importo]») and links (out). A text that is not
- * there stays empty.
+ * there stays empty. The colours of the highlighter of a section (01/11/2026)
+ * go first, their text stays: a tag is not part of the script Claude reads.
  */
 export function oscura(testo: string | null | undefined, parole: ReadonlySet<string>): string {
   if (!testo) return ''
-  let t = testo.replace(RE_URL, ' ')
+  let t = togliEvidenziatore(testo).replace(RE_URL, ' ')
   t = t.replace(RE_EMAIL, '[contatto]')
   t = t.replace(RE_HANDLE, (_m, prima: string) => `${prima}@[account]`)
   t = t.replace(RE_IMPORTO, '[importo]')

@@ -5,8 +5,10 @@
  * -punto (the dot of the Status, at least 3:1). Each is light-dark(light, dark),
  * so it follows the color-scheme of the theme: on the dark theme a saturated
  * dark background with light text, like Notion's; on the light one a pastel
- * background with dark text of the same colour. Imported by pillola.tsx and
- * nowhere else; components never write a colour of their own.
+ * background with dark text of the same colour. Imported by pillola.tsx,
+ * tag-status.tsx and, for the highlighter of the sections (evidenziatore.css),
+ * by the section editor and the rendered section; components never write a
+ * colour of their own.
  */
 :root {
   --etichetta-default-bg: light-dark(#ebebe9, #3b3b3e);

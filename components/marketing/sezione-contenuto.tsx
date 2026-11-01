@@ -260,8 +260,12 @@ export function SezioneContenuto({
             }}
             riserva={<Lettura testo={dalServer.testo} />}
           />
-          {/* the shortcuts only while writing in this section: one line, not one under every toggle */}
-          <p id={idAiuto} className="mt-1.5 hidden text-xs text-muted-foreground group-focus-within/sezione:block">
+          {/* the shortcuts only while writing in this section: one line, not one under every toggle; with the finger
+              the colour menu opens below the selection, so there the line steps aside while the menu shows */}
+          <p
+            id={idAiuto}
+            className="mt-1.5 hidden text-xs text-muted-foreground group-focus-within/sezione:block pointer-coarse:group-has-[[data-menu-evidenziatore]]/sezione:invisible"
+          >
             {t.aiuto}
           </p>
           {errore ? (
