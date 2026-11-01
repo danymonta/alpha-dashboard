@@ -1,4 +1,5 @@
 import { CAMPI, ETICHETTA_MODELLO, ORDINE_COLONNE, SEZIONI } from '@/lib/marketing/etichette'
+import { COLORI_EVIDENZIATORE } from '@/lib/marketing/evidenziatore'
 
 import { RUOLI_MARKETING, type LivelloPm } from '@/lib/auth/roles'
 
@@ -41,6 +42,13 @@ export const REGOLA_GUIDA =
  */
 export const REGOLA_SPUNTI =
   'Gli ultimi spunti li dà spunti_contenuti: leggili prima di proporre idee nuove, non ripetere un’idea che c’è già nel calendario, e non cercare dietro i temi le persone da cui nascono.'
+
+/**
+ * The highlighter of the sections (01/11/2026): the colours a person gives a text in the app are small tags
+ * of the Markdown (lib/marketing/evidenziatore.ts). Claude keeps them when it rewrites a section and never
+ * invents them.
+ */
+export const REGOLA_EVIDENZIATORE = `Nei testi delle sezioni i tag <span data-colore="…"> e <mark data-sfondo="…"> sono i colori dell’evidenziatore che il team ha dato al testo, come in Notion (colori: ${COLORI_EVIDENZIATORE.join(', ')}): quando riscrivi una sezione conservali intorno alle stesse parole, se quelle parole restano; non aggiungerne di tuoi, non cambiarli e non usare altro HTML.`
 
 /** The sentence that names the rest of the app: the only one (a test checks it). */
 export const FUORI_PORTATA = 'lead, call, clienti, soldi e messaggi diretti non sono raggiungibili da qui'
@@ -130,6 +138,7 @@ export function istruzioniMcp(ruolo: RuoloMcp, livello?: LivelloPm | null): stri
         REGOLA_GUIDA,
         REGOLA_SPUNTI,
         'Prima di cambiare un contenuto leggi: elenco_contenuti per trovarlo, leggi_contenuto per i testi, la loro impronta e la versione; impronta e versione sono codici da ricopiare così come sono.',
+        REGOLA_EVIDENZIATORE,
         'Ogni scrittura cambia la versione e restituisce quella nuova insieme ai valori attuali, che possono contenere modifiche di altri (scrivi_sezione anche la nuova impronta della sezione): usale per la scrittura dopo su quel contenuto, partendo da quei valori.',
         'Se modifica_contenuto risponde «cambiato» con l’ultima versione che hai ricevuto, o scrivi_sezione «cambiata» con l’ultima impronta che hai ricevuto, qualcuno ha cambiato il contenuto nel frattempo: rileggi, unisci le modifiche, mostrale alla persona e riprova.',
         ruolo === 'admin'

@@ -28,6 +28,7 @@
  */
 import { giornoRoma } from '@/lib/setting/conteggio-dm'
 import type { StatusContenuto, TipoContenuto } from '@/lib/marketing/etichette'
+import { togliEvidenziatore } from '@/lib/marketing/evidenziatore'
 
 export type TipoPost = 'reel' | 'carousel' | 'foto'
 
@@ -259,11 +260,14 @@ export function gancio(testo: string | null | undefined): string | null {
  * other creators' reels.
  */
 export function fontiDelContenuto(c: Pick<ContenutoDaAbbinare, 'nome' | 'bozza' | 'finale' | 'messaggio'>): string[] {
-  const messaggio = c.messaggio ?? ''
+  // the colours of the highlighter are not words of the script (lib/marketing/evidenziatore.ts)
+  const messaggio = togliEvidenziatore(c.messaggio ?? '')
+  const finale = c.finale ? togliEvidenziatore(c.finale) : c.finale
+  const bozza = c.bozza ? togliEvidenziatore(c.bozza) : c.bozza
   const candidate = [
     nomeSenzaCodici(c.nome),
     primaCitazione(c.nome),
-    gancio(c.finale) ?? gancio(c.bozza) ?? gancio(messaggio.slice(0, SOGLIE.MESSAGGIO_GANCIO)),
+    gancio(finale) ?? gancio(bozza) ?? gancio(messaggio.slice(0, SOGLIE.MESSAGGIO_GANCIO)),
     primaCitazione(messaggio.slice(0, SOGLIE.MESSAGGIO_CITAZIONE)),
   ]
   const fonti: string[] = []

@@ -1,6 +1,6 @@
 {
   "name": "alpha-economics",
-  "version": "1.69.0",
+  "version": "1.70.0",
   "private": true,
   "engines": {
     "node": ">=22 <25"
@@ -32,7 +32,9 @@
     "@modelcontextprotocol/server": "2.3.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
+    "@tiptap/extension-bubble-menu": "3.31.4",
     "@tiptap/extension-hard-break": "3.31.4",
+    "@tiptap/extension-link": "3.31.4",
     "@tiptap/extension-table": "3.31.4",
     "@tiptap/extensions": "3.31.4",
     "@tiptap/markdown": "3.31.4",

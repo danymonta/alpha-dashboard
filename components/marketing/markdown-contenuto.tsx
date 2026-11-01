@@ -1,7 +1,11 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
+import './etichette.css'
+import './evidenziatore.css'
+
 import { remarkACapo } from '@/lib/marketing/a-capo'
+import { remarkEvidenziatore } from '@/lib/marketing/evidenziatore-remark'
 
 /**
  * A section of a content (script, caption, comments), written in Markdown as
@@ -11,13 +15,15 @@ import { remarkACapo } from '@/lib/marketing/a-capo'
  * never preserved whitespace, which would show the newlines between the
  * blocks of a list item as empty lines. Never an image: the browser would fetch it by itself; the
  * import leaves "[Immagine: è nella pagina su Notion]" in its place, and an
- * image someone writes shows its alt text. Links open in a new tab.
+ * image someone writes shows its alt text. Links open in a new tab. The
+ * colours of the highlighter (01/11/2026) are the only tags read: our exact
+ * span and mark (remarkEvidenziatore), never any other HTML, which stays text.
  */
 export function MarkdownContenuto({ testo }: { testo: string }) {
   return (
     <div className="text-sm leading-relaxed break-words">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkACapo]}
+        remarkPlugins={[remarkGfm, remarkACapo, remarkEvidenziatore]}
         components={{
           a: ({ href, children }) => (
             <a

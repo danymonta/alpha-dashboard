@@ -1,0 +1,63 @@
+/*
+ * The highlighter of the content sections (01/11/2026, lib/marketing/evidenziatore.ts):
+ * the colour of the text and the background, Notion's colours from the label
+ * tokens of etichette.css, never a colour of its own. Used by the editor
+ * (editor-sezione.tsx), by the page (markdown-contenuto.tsx) and by the swatches
+ * of the colour menu (menu-evidenziatore.tsx). Contrast, checked by
+ * tests/marketing-evidenziatore.test.ts (WCAG AA, 4.5:1):
+ * - a coloured text on the page: the -punto token on the dark theme (the -fg one
+ *   is almost white there, the colour would not show), the -fg one on the light;
+ * - a background: its -bg token with its own -fg text, like a pill;
+ * - a coloured text on a background: the colour's -fg token, which keeps 4.5:1
+ *   on every background but the yellow one on the dark theme, where the
+ *   background's own text wins.
+ */
+.ev-colore[data-colore='grigio'] { --ev-testo: var(--etichetta-gray-punto); --ev-testo-su-sfondo: var(--etichetta-gray-fg); }
+.light .ev-colore[data-colore='grigio'] { --ev-testo: var(--etichetta-gray-fg); }
+.ev-sfondo[data-sfondo='grigio'] { --ev-sfondo: var(--etichetta-gray-bg); --ev-sfondo-testo: var(--etichetta-gray-fg); }
+.ev-colore[data-colore='marrone'] { --ev-testo: var(--etichetta-brown-punto); --ev-testo-su-sfondo: var(--etichetta-brown-fg); }
+.light .ev-colore[data-colore='marrone'] { --ev-testo: var(--etichetta-brown-fg); }
+.ev-sfondo[data-sfondo='marrone'] { --ev-sfondo: var(--etichetta-brown-bg); --ev-sfondo-testo: var(--etichetta-brown-fg); }
+.ev-colore[data-colore='arancione'] { --ev-testo: var(--etichetta-orange-punto); --ev-testo-su-sfondo: var(--etichetta-orange-fg); }
+.light .ev-colore[data-colore='arancione'] { --ev-testo: var(--etichetta-orange-fg); }
+.ev-sfondo[data-sfondo='arancione'] { --ev-sfondo: var(--etichetta-orange-bg); --ev-sfondo-testo: var(--etichetta-orange-fg); }
+.ev-colore[data-colore='giallo'] { --ev-testo: var(--etichetta-yellow-punto); --ev-testo-su-sfondo: var(--etichetta-yellow-fg); }
+.light .ev-colore[data-colore='giallo'] { --ev-testo: var(--etichetta-yellow-fg); }
+.ev-sfondo[data-sfondo='giallo'] { --ev-sfondo: var(--etichetta-yellow-bg); --ev-sfondo-testo: var(--etichetta-yellow-fg); }
+.ev-colore[data-colore='verde'] { --ev-testo: var(--etichetta-green-punto); --ev-testo-su-sfondo: var(--etichetta-green-fg); }
+.light .ev-colore[data-colore='verde'] { --ev-testo: var(--etichetta-green-fg); }
+.ev-sfondo[data-sfondo='verde'] { --ev-sfondo: var(--etichetta-green-bg); --ev-sfondo-testo: var(--etichetta-green-fg); }
+.ev-colore[data-colore='blu'] { --ev-testo: var(--etichetta-blue-punto); --ev-testo-su-sfondo: var(--etichetta-blue-fg); }
+.light .ev-colore[data-colore='blu'] { --ev-testo: var(--etichetta-blue-fg); }
+.ev-sfondo[data-sfondo='blu'] { --ev-sfondo: var(--etichetta-blue-bg); --ev-sfondo-testo: var(--etichetta-blue-fg); }
+.ev-colore[data-colore='viola'] { --ev-testo: var(--etichetta-purple-punto); --ev-testo-su-sfondo: var(--etichetta-purple-fg); }
+.light .ev-colore[data-colore='viola'] { --ev-testo: var(--etichetta-purple-fg); }
+.ev-sfondo[data-sfondo='viola'] { --ev-sfondo: var(--etichetta-purple-bg); --ev-sfondo-testo: var(--etichetta-purple-fg); }
+.ev-colore[data-colore='rosa'] { --ev-testo: var(--etichetta-pink-punto); --ev-testo-su-sfondo: var(--etichetta-pink-fg); }
+.light .ev-colore[data-colore='rosa'] { --ev-testo: var(--etichetta-pink-fg); }
+.ev-sfondo[data-sfondo='rosa'] { --ev-sfondo: var(--etichetta-pink-bg); --ev-sfondo-testo: var(--etichetta-pink-fg); }
+.ev-colore[data-colore='rosso'] { --ev-testo: var(--etichetta-red-punto); --ev-testo-su-sfondo: var(--etichetta-red-fg); }
+.light .ev-colore[data-colore='rosso'] { --ev-testo: var(--etichetta-red-fg); }
+.ev-sfondo[data-sfondo='rosso'] { --ev-sfondo: var(--etichetta-red-bg); --ev-sfondo-testo: var(--etichetta-red-fg); }
+
+.ev-colore {
+  color: var(--ev-testo);
+}
+.ev-sfondo {
+  background-color: var(--ev-sfondo);
+  color: var(--ev-sfondo-testo);
+  border-radius: 0.1875rem;
+  padding: 0 0.125rem;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.ev-colore.ev-sfondo,
+.ev-colore .ev-sfondo,
+.ev-sfondo .ev-colore {
+  color: var(--ev-testo-su-sfondo);
+}
+:root:not(.light) .ev-colore.ev-sfondo[data-sfondo='giallo'],
+:root:not(.light) .ev-colore .ev-sfondo[data-sfondo='giallo'],
+:root:not(.light) .ev-sfondo[data-sfondo='giallo'] .ev-colore {
+  color: var(--ev-sfondo-testo);
+}

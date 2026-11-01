@@ -14,6 +14,7 @@ import {
   FUORI_PORTATA_ADMIN,
   FUORI_PORTATA_CALL,
   FUORI_PORTATA_SETTER,
+  REGOLA_EVIDENZIATORE,
   REGOLA_GUIDA,
   REGOLA_ICP,
   REGOLA_NIENTE_ELIMINAZIONI,
@@ -404,6 +405,20 @@ describe('come Claude vede gli strumenti', () => {
     // the text word for word, with its day: no database read, no arguments
     expect(await icp.esegui({}, {} as never)).toEqual({ ok: true, dati: { aggiornato_il: ICP_AGGIORNATO_IL, profilo: ICP } })
     expect(schemaMcp(icp.input)['~standard'].validate({ extra: 1 })).toMatchObject({ issues: [expect.anything()] })
+  })
+
+  it('le istruzioni: i tag dell’evidenziatore delle sezioni si conservano e non si inventano (01/11/2026)', () => {
+    for (const ruolo of ['admin', 'editor', 'marketing'] as const) {
+      const istruzioni = istruzioniMcp(ruolo)
+      expect(istruzioni).toContain(REGOLA_EVIDENZIATORE)
+      expect(istruzioni.indexOf(REGOLA_EVIDENZIATORE)).toBeGreaterThan(istruzioni.indexOf('Prima di cambiare un contenuto leggi'))
+    }
+    for (const ruolo of ['setter', 'closer', 'coach'] as const) expect(istruzioniMcp(ruolo, 'employee')).not.toContain(REGOLA_EVIDENZIATORE)
+    expect(REGOLA_EVIDENZIATORE).toContain('<span data-colore="…">')
+    expect(REGOLA_EVIDENZIATORE).toContain('<mark data-sfondo="…">')
+    expect(REGOLA_EVIDENZIATORE).toContain('rosso')
+    expect(REGOLA_EVIDENZIATORE).toContain('conservali')
+    expect(REGOLA_EVIDENZIATORE).toContain('non aggiungerne di tuoi')
   })
 
   it('le istruzioni: prima di proporre o creare contenuti si legge l’ICP e si scrive per quell’uomo', () => {
