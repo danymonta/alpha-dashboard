@@ -16,6 +16,8 @@ type Props = {
   delta: number | null
   confronto: string
   hero?: boolean
+  /** Inside another surface (the summary glass, 1.72.0): no card of its own. */
+  piatto?: boolean
   className?: string
   children?: ReactNode
 }
@@ -56,17 +58,20 @@ export async function DeltaKpi({
 }
 
 /** KPI tile: label (with what it counts), value, delta. */
-export function TileKpi({ etichetta, valore, delta, confronto, hero = false, className, children }: Props) {
+export function TileKpi({ etichetta, valore, delta, confronto, hero = false, piatto = false, className, children }: Props) {
   return (
-    <div className={cn('rounded-xl bg-card p-4', hero && 'md:p-5', className)} data-tour={hero ? 'kpi-cash' : undefined}>
+    <div
+      className={cn(piatto ? 'min-w-0' : 'rounded-xl bg-card p-4', hero && !piatto && 'md:p-5', className)}
+      data-tour={hero ? 'kpi-cash' : undefined}
+    >
       <p className="text-sm text-muted-foreground">
         {typeof etichetta === 'string' ? etichetta : <EtichettaConNota voce={etichetta} />}
       </p>
       <p
         className={cn(
           'mt-1 font-semibold tracking-tight',
-          // the one gold number of the screen
-          hero ? 'text-5xl text-gold md:text-6xl' : 'text-2xl md:text-3xl',
+          // the one gold number of the screen, lit from within (1.72.0)
+          hero ? 'glow-oro text-5xl text-gold md:text-6xl' : piatto ? 'text-xl sm:text-2xl' : 'text-2xl md:text-3xl',
         )}
       >
         {valore}

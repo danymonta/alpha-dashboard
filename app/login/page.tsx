@@ -5,7 +5,9 @@ import { AccessoCodice } from '@/app/login/accesso-codice'
 import { DevLoginForm } from '@/app/login/dev-login-form'
 import { GoogleButton } from '@/app/login/google-button'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
+import { SfondoBraci } from '@/components/brand/sfondo-braci'
 import { BottoneLingua } from '@/components/i18n/bottone-lingua'
+import { VetroLiquido } from '@/components/vetro/vetro-liquido'
 import { isDevLoginEnabled } from '@/lib/auth/dev-login'
 import { NOME_APP } from '@/lib/brand/nome'
 import { getLingua } from '@/lib/i18n/server'
@@ -34,6 +36,8 @@ export default async function LoginPage({
     // overflow-x-clip: the fire and the embers spill past the logo box on
     // purpose, never past the viewport (no horizontal scroll at 390px).
     <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-x-clip px-4 py-10 md:py-14">
+      {/* three.js embers (1.72.0): loaded after the first paint, never with «Riduci movimento» */}
+      <SfondoBraci />
       {/* the language before signing in (1.53.0): the same flag as the top bar */}
       <div className="absolute top-2 right-2">
         <BottoneLingua />
@@ -50,7 +54,8 @@ export default async function LoginPage({
           <p className="mt-3 text-xs text-muted-foreground">{t.riservato}</p>
         </header>
 
-        <div className="mt-8 space-y-6">
+        {/* the sign-in on liquid glass over the embers (frosted glass outside Chromium) */}
+        <VetroLiquido as="div" raggio={22} sfocatura={4} piega={0.6} className="mt-8 space-y-6 rounded-[22px] p-5 sm:p-6">
           {messaggio ? (
             <p
               role="alert"
@@ -81,7 +86,7 @@ export default async function LoginPage({
               <DevLoginForm da={da} />
             </section>
           ) : null}
-        </div>
+        </VetroLiquido>
       </div>
     </main>
   )

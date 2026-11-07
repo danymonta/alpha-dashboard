@@ -7,7 +7,9 @@ import { LinkBottone } from '@/components/link-bottone'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
 import { EtichettaConNota } from '@/components/metriche/nota'
 import { AggiornamentoLive } from '@/components/panoramica/aggiornamento-live'
+import { BarraParti } from '@/components/panoramica/barra-parti'
 import { ContoMargine } from '@/components/panoramica/conto-margine'
+import { DaFareOra } from '@/components/panoramica/da-fare-ora'
 import { Funnel } from '@/components/panoramica/funnel'
 import { GraficoCash } from '@/components/panoramica/grafico-cash'
 import { ObiettiviMese } from '@/components/panoramica/obiettivi'
@@ -15,6 +17,7 @@ import { OcchioSoldi } from '@/components/panoramica/occhio-soldi'
 import { ScheletroStoriesOggi, StoriesOggi } from '@/components/panoramica/stories-oggi'
 import { TileKpi } from '@/components/panoramica/tile-kpi'
 import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
+import { VetroLiquido } from '@/components/vetro/vetro-liquido'
 import { requireRuolo } from '@/lib/auth/session'
 import { aggiungiGiorni, oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -148,10 +151,10 @@ function Scheda({
   className?: string
 }) {
   return (
-    <section className={`rounded-xl bg-card p-4 ${className ?? ''}`}>
+    <section className={`rounded-xl bg-card p-4 md:p-5 ${className ?? ''}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-medium">{titolo}</h2>
+          <h2 className="text-base font-semibold">{titolo}</h2>
           {descrizione ? <p className="mt-0.5 text-xs text-muted-foreground">{descrizione}</p> : null}
         </div>
         {azione}
@@ -159,6 +162,11 @@ function Scheda({
       {children}
     </section>
   )
+}
+
+/** The title of a group of cards (1.72.0): the page reads in three parts. */
+function TitoloSezione({ children }: { children: ReactNode }) {
+  return <h2 className="pt-2 font-heading text-lg font-semibold tracking-tight">{children}</h2>
 }
 
 /** A label, or a legend entry whose label gets its "i". */
@@ -238,7 +246,8 @@ export default async function PanoramicaPage({
     // started or not, never a client closed with "Non rinnova" (or then archived as ex cliente)
     supabase
       .from('v_clienti')
-      .select('client_id, nome, cognome, data_fine_ultima')
+      // the count says how many in all (the box shows the first six)
+      .select('client_id, nome, cognome, data_fine_ultima', { count: 'exact' })
       .gte('data_fine_ultima', oggi)
       .lte('data_fine_ultima', aggiungiGiorni(oggi, 30))
       .not('stato', 'in', '(chiuso,ex_cliente,sospeso)')
@@ -267,7 +276,7 @@ export default async function PanoramicaPage({
     KPI[chiave]?.euro ? formatEuro(valore, { compatto: true }) : formatNumero(valore)
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Mobile: live status on the title row, period selector on its own row below. */}
       <header className="grid grid-cols-[auto_1fr] items-end gap-x-3 gap-y-2 md:flex md:flex-wrap md:justify-between">
         {/* the period is in the selector: no second copy under the title */}
@@ -297,27 +306,40 @@ export default async function PanoramicaPage({
         </p>
       ) : null}
 
-      {/* 1. The answer in five seconds (hidden with the money eye) */}
+      {/* 1. The answer in five seconds (1.72.0: one glass surface, read top to bottom):
+          how much came in and what it is made of, what is left after commissions and costs,
+          then revenue, new clients and renewals. Hidden with the money eye. */}
       {nascosti ? null : (
-      <div className="grid gap-3 lg:grid-cols-[1.4fr_2fr]" data-testid="kpi">
-        {hero ? (
-          <TileKpi
-            hero
-            etichetta={KPI[hero.chiave].voce}
-            valore={valoreKpi(hero.chiave, hero.valore)}
-            delta={hero.delta}
-            confronto={confronto}
-          >
-            {/* "quanto è nuovo e quanto è rinnovo": the four parts, from metriche_periodo;
-                new clients of the period apart from the instalments of the ones already in */}
-            <div className="mt-5 border-t border-border pt-4">
-              <p className="mb-2 text-xs font-medium text-muted-foreground">{t.diCui}</p>
-              {/* two by two: the labels are long; in a row the amounts line up at the bottom */}
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-3" data-testid="cash-per-tipo">
+      <VetroLiquido
+        as="section"
+        aria-label={t.riepilogo}
+        raggio={20}
+        sfocatura={14}
+        piega={0.3}
+        className="rounded-[20px] p-5 md:p-6"
+        data-testid="kpi"
+      >
+        <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr] lg:gap-8">
+          {hero ? (
+            <TileKpi
+              hero
+              piatto
+              etichetta={KPI[hero.chiave].voce}
+              valore={valoreKpi(hero.chiave, hero.valore)}
+              delta={hero.delta}
+              confronto={confronto}
+            >
+              {/* "quanto è nuovo e quanto è rinnovo": the four parts, from metriche_periodo,
+                  first as one bar (its widths only draw the SQL amounts), then named */}
+              <BarraParti
+                totale={Number(m.cash_incassato ?? 0)}
+                parti={PARTI_CASH.map(({ chiave, colore }) => ({ chiave, colore, valore: Number(m[chiave] ?? 0) }))}
+              />
+              <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3" data-testid="cash-per-tipo">
                 {PARTI_CASH.map(({ chiave, voce, colore }) => (
                   <div key={chiave} className="flex min-w-0 flex-col justify-between gap-0.5">
                     <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className={cn('size-2.5 shrink-0 rounded-[2px]', colore)} aria-hidden="true" />
+                      <span className={cn('size-2.5 shrink-0 rounded-full', colore)} aria-hidden="true" />
                       <EtichettaConNota voce={voce} className="min-w-0" />
                     </dt>
                     <dd className="num text-base font-semibold" data-testid={`parte-${chiave}`}>
@@ -326,14 +348,11 @@ export default async function PanoramicaPage({
                   </div>
                 ))}
               </dl>
-            </div>
-          </TileKpi>
-        ) : null}
-        {/* Mobile: margin block right under the hero. Desktop: top of the right column. */}
-        <div className="grid grid-cols-2 content-start gap-3 sm:grid-cols-3">
+            </TileKpi>
+          ) : null}
           {margine ? (
             <ContoMargine
-              className="col-span-2 sm:col-span-3"
+              className="rounded-none bg-transparent p-0 lg:border-l lg:border-border/70 lg:pl-8 max-lg:border-t max-lg:border-border/70 max-lg:pt-5"
               titolo={t.margineDi(periodo.frase)}
               cash={m.cash_incassato}
               provvigioni={m.provvigioni_maturate}
@@ -343,25 +362,67 @@ export default async function PanoramicaPage({
               confronto={confronto}
             />
           ) : null}
-          {altri.map((k, i) => (
-            <TileKpi
-              key={k.chiave}
-              // three tiles: on mobile the first takes a full row, no orphan cell
-              className={i === 0 && altri.length % 2 === 1 ? 'col-span-2 sm:col-span-1' : undefined}
-              etichetta={KPI[k.chiave].voce}
-              valore={valoreKpi(k.chiave, k.valore)}
-              delta={k.delta}
-              confronto={confronto}
-            />
-          ))}
         </div>
-      </div>
+        {altri.length > 0 ? (
+          <div className="mt-6 grid grid-cols-3 gap-3 border-t border-border/70 pt-5 sm:gap-6">
+            {altri.map((k) => (
+              <TileKpi
+                key={k.chiave}
+                piatto
+                etichetta={KPI[k.chiave].voce}
+                valore={valoreKpi(k.chiave, k.valore)}
+                delta={k.delta}
+                confronto={confronto}
+              />
+            ))}
+          </div>
+        ) : null}
+      </VetroLiquido>
       )}
 
-      {/* what to talk about in the stories today: never money */}
-      <Suspense fallback={<ScheletroStoriesOggi />}>
-        <StoriesOggi lingua={lingua} />
-      </Suspense>
+      {/* 1b. What needs a tap now: the late instalments, the programmes ending, today's calls */}
+      <DaFareOra
+        titolo={t.daFare}
+        voci={[
+          ...(nascosti
+            ? []
+            : [
+                {
+                  id: 'rate',
+                  href: '/payments?vista=ritardo',
+                  attenzione: (fasce.in_ritardo?.numero ?? 0) > 0,
+                  testo:
+                    (fasce.in_ritardo?.numero ?? 0) > 0
+                      ? t.rateInRitardo(fasce.in_ritardo?.numero ?? 0)
+                      : t.nessunaRataRitardo,
+                  dettaglio:
+                    (fasce.in_ritardo?.numero ?? 0) > 0 ? formatEuro(fasce.in_ritardo?.totale, { compatto: true }) : undefined,
+                  azione: t.vediIncassi,
+                },
+              ]),
+          {
+            id: 'scadenze',
+            href: '/rinnovi',
+            attenzione: (scadenze.count ?? 0) > 0,
+            testo: (scadenze.count ?? 0) > 0 ? t.clientiInScadenza(scadenze.count ?? 0) : t.nessunClienteInScadenza,
+            azione: t.vediRinnovi,
+          },
+          ...(team.data
+            ? [
+                {
+                  id: 'call',
+                  href: '/calls',
+                  attenzione: team.data.call_in_programma > 0,
+                  testo:
+                    team.data.call_in_programma > 0
+                      ? t.callDaFareOggi(team.data.call_in_programma)
+                      : t.nessunaCallOggi,
+                  azione: t.vediCall,
+                },
+              ]
+            : []),
+        ]}
+      />
 
       {!nascosti && obiettivi.data ? (
         <ObiettiviMese
@@ -445,7 +506,13 @@ export default async function PanoramicaPage({
         </Scheda>
       ) : null}
 
-      {/* 3. The trend */}
+      {/* what to talk about in the stories today: never money */}
+      <Suspense fallback={<ScheletroStoriesOggi />}>
+        <StoriesOggi lingua={lingua} />
+      </Suspense>
+
+      {/* 3. The trend and how the period is going */}
+      <TitoloSezione>{t.sezioneAndamento}</TitoloSezione>
       {nascosti ? null : (
       <Scheda
         titolo={t.cashTitolo}
@@ -606,6 +673,7 @@ export default async function PanoramicaPage({
       )}
 
       {/* 5. What needs action */}
+      <TitoloSezione>{t.sezioneDaGestire}</TitoloSezione>
       <div className="grid gap-3 lg:grid-cols-2">
         {nascosti ? null : (
         <Scheda

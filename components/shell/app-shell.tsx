@@ -65,7 +65,7 @@ export function AppShell({
         <TopBar ruolo={ruolo} nome={nome} foto={foto} />
         {/* with the sidebar shrunk the content really widens: max-w-5xl would eat the gain, so it grows to the
             screen (wide tables, like the Contenuti of Marketing, take the room through container queries) */}
-        <main className="mx-auto w-full max-w-5xl px-4 pt-4 pb-24 group-data-[sidebar=ridotta]/shell:md:max-w-[90rem] md:px-8 md:pt-8 md:pb-10">
+        <main className="mx-auto w-full max-w-5xl px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] group-data-[sidebar=ridotta]/shell:md:max-w-[90rem] md:px-8 md:pt-8 md:pb-10">
           <TransizionePagina>{children}</TransizionePagina>
         </main>
         <BottomBar ruolo={ruolo} />

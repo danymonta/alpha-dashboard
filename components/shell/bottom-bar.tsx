@@ -15,6 +15,7 @@ import { useLingua } from '@/components/i18n/lingua-provider'
 import { ConteggioPromemoria as Conteggio } from '@/components/shell/conteggio-esiti'
 import { usePromemoria } from '@/components/shell/esiti-da-registrare'
 import { LinkNav } from '@/components/shell/link-nav'
+import { VetroLiquido } from '@/components/vetro/vetro-liquido'
 import type { AppRole } from '@/lib/auth/roles'
 import { SHELL } from '@/lib/i18n/testi/shell'
 import {
@@ -28,7 +29,7 @@ import {
 } from '@/lib/nav'
 
 // the badge sits on the icon's top right corner, inside the 44px target
-const SUL_ICONA = 'absolute top-0.5 left-1/2 ml-1 ring-2 ring-sidebar'
+const SUL_ICONA = 'absolute top-0.5 left-1/2 ml-1 ring-2 ring-background'
 
 /** Mobile navigation: at most four items plus "Altro". Touch targets >= 44px. */
 export function BottomBar({ ruolo }: { ruolo: AppRole }) {
@@ -48,9 +49,14 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
   if (principali.length === 0) return null
 
   return (
-    <nav
+    // a floating pill of liquid glass (1.72.0): the page scrolls under it, above the home bar
+    <VetroLiquido
+      as="nav"
       aria-label={t.navigazione}
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden"
+      raggio={22}
+      sfocatura={10}
+      piega={0.45}
+      className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-30 overflow-hidden rounded-[22px] md:hidden"
     >
       <ul className="flex items-stretch">
         {principali.map((voce) => {
@@ -162,6 +168,6 @@ export function BottomBar({ ruolo }: { ruolo: AppRole }) {
           </li>
         ) : null}
       </ul>
-    </nav>
+    </VetroLiquido>
   )
 }
