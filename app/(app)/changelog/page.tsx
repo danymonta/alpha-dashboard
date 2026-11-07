@@ -1,5 +1,6 @@
 import { ChevronDown, Megaphone } from 'lucide-react'
 
+import { VetroLiquido } from '@/components/vetro/vetro-liquido'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -41,17 +42,25 @@ export default async function NovitaPage() {
       {lingua === 'en' ? <p className="text-sm text-muted-foreground">{t.inItaliano}</p> : null}
 
       {corrente ? (
-        <section aria-labelledby="versione-in-uso" className="rounded-xl bg-card p-4" data-testid="versione-corrente">
+        <VetroLiquido
+          as="section"
+          aria-labelledby="versione-in-uso"
+          raggio={12}
+          sfocatura={12}
+          piega={0.3}
+          className="rounded-xl p-4"
+          data-testid="versione-corrente"
+        >
           <h2 id="versione-in-uso" className="text-sm text-muted-foreground">
             {t.inUso}
           </h2>
           {/* the one gold element of the screen */}
-          <p className="num mt-1 text-4xl font-semibold tracking-tight text-gold">v{corrente.versione}</p>
+          <p className="num glow-oro mt-1 text-4xl font-semibold tracking-tight text-gold">v{corrente.versione}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             <span className="num">{formatData(corrente.data)}</span>
             {inUso ? <> · {inUso.titolo}</> : null}
           </p>
-        </section>
+        </VetroLiquido>
       ) : null}
 
       {versioni.length === 0 ? (

@@ -111,6 +111,7 @@ export default async function RecapPage({
       <div className="grid gap-3 lg:grid-cols-[1.4fr_2fr]" data-testid="recap-kpi">
         <TileKpi
           hero
+          vetro
           etichetta={{ etichetta: t.cash, spiegazione: t.cashNota }}
           valore={formatEuro(v.cash_nuovi_clienti, { compatto: true })}
           delta={r.delta.cash_nuovi_clienti}

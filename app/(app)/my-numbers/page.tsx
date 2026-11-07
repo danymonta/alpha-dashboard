@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { VetroLiquido } from '@/components/vetro/vetro-liquido'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
 import { EtichettaConNota } from '@/components/metriche/nota'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
@@ -192,9 +193,9 @@ export default async function IMieiNumeriPage({
         />
         <SelettorePeriodo periodo={periodo} oggi={oggi} percorso="/my-numbers" />
 
-        <section className="rounded-xl bg-card p-4" data-testid="mie-provvigioni">
+        <VetroLiquido as="section" raggio={12} sfocatura={12} piega={0.3} className="rounded-xl p-4" data-testid="mie-provvigioni">
           <p className="text-sm text-muted-foreground">{t.provvigioniMaturate(periodo.frase)}</p>
-          <p className="text-5xl font-semibold tracking-tight text-gold">{formatEuro(n.provvigioni_maturate)}</p>
+          <p className="glow-oro text-5xl font-semibold tracking-tight text-gold">{formatEuro(n.provvigioni_maturate)}</p>
           <p className="mt-2 text-sm text-muted-foreground">
             {/* payouts refer to a month: a range counts every month it touches (miei_numeri_periodo) */}
             {periodo.mese ? t.pagateMese : t.pagatePeriodo}:{' '}
@@ -211,7 +212,7 @@ export default async function IMieiNumeriPage({
             </a>
             .
           </p>
-        </section>
+        </VetroLiquido>
 
         <Blocco
           id="miei-numeri-setting"
