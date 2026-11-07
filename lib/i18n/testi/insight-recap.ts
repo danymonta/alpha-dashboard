@@ -104,6 +104,15 @@ export const INSIGHT_RECAP = bilingue(
     suggerimentoDivisioni: 'In ogni divisione prima i lead più vicini alla call, poi chi aspetta da più tempo.',
     annuncioDivisione: (titolo: string, n: number) => `${titolo}: ${n} chat.`,
     nessunaDivisione: 'Nessuna chat qui.',
+    cerca: {
+      etichetta: 'Cerca una persona',
+      segnaposto: 'Nome o @username',
+      togli: 'Togli la ricerca',
+      titolo: (q: string) => `Risultati per «${q}»`,
+      nessuno: (q: string) => `Nessuna chat con «${q}» in questo recap. Prova un altro giorno o l’altra scheda.`,
+      annuncio: (n: number) => (n === 1 ? '1 chat trovata.' : `${n} chat trovate.`),
+      nonLead: 'Non sono lead',
+    },
     vicinanza: Object.fromEntries(LIVELLI_VICINANZA.map((k) => [k, VICINANZA[k]])) as Record<
       string,
       { titolo: string; descrizione: string }
@@ -279,6 +288,15 @@ export const INSIGHT_RECAP = bilingue(
     suggerimentoDivisioni: 'In each group the leads closest to the call come first, then whoever has waited longest.',
     annuncioDivisione: (titolo: string, n: number) => `${titolo}: ${n} ${n === 1 ? 'chat' : 'chats'}.`,
     nessunaDivisione: 'No chats here.',
+    cerca: {
+      etichetta: 'Search a person',
+      segnaposto: 'Name or @username',
+      togli: 'Clear search',
+      titolo: (q: string) => `Results for “${q}”`,
+      nessuno: (q: string) => `No chat with “${q}” in this recap. Try another day or the other tab.`,
+      annuncio: (n: number) => (n === 1 ? '1 chat found.' : `${n} chats found.`),
+      nonLead: 'Not leads',
+    },
     vicinanza: {
       vicina: { titolo: 'One step from the call', descrizione: 'Call proposed or Calendly sent' },
       prenotata: { titolo: 'Call booked', descrizione: 'To bring to the call' },

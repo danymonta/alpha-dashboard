@@ -86,6 +86,20 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.71.0',
+    data: '2026-11-07',
+    titolo: 'Cerca una persona nell’Insight',
+    riassunto: 'Nell’Insight delle ultime 24h scrivi il nome o l’@username di chi ti ha scritto e trovi subito la sua chat.',
+    intestazionePer: ['setter'],
+    novita: [
+      {
+        per: ['setter'],
+        testo:
+          'In Insight 24h, sopra i numeri, c’è «Cerca una persona»: scrivi un pezzo del nome o dell’@username e sotto restano solo le sue chat, con la scheda completa (messaggio suggerito, «Copia», «Fatto»). Non contano maiuscole, accenti, la @ e i punti o i trattini bassi dell’username. Cerca nel recap che hai aperto: per un altro giorno o per Messenger cambi giorno o scheda. La X, Esc o «Togli la ricerca» tornano a tutte le chat.',
+      },
+    ],
+  },
+  {
     versione: '1.70.0',
     data: '2026-11-01',
     titolo: 'Evidenziatore e link cliccabili negli script',

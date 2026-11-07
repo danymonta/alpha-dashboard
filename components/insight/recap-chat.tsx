@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLingua } from '@/components/i18n/lingua-provider'
 import { useAnnuncia } from '@/components/insight/annunci'
 import type { ContenutoCalendario } from '@/components/insight/arriva-da'
+import { CercaPersona } from '@/components/insight/cerca-persona'
 import { ContentRecapSezione } from '@/components/insight/content-recap'
 import { GruppiDivisione, SceltaDivisione } from '@/components/insight/divisioni'
 import { FattiProvider } from '@/components/insight/fatti'
@@ -22,6 +23,7 @@ import {
 } from '@/components/insight/sezioni'
 import { Button } from '@/components/ui/button'
 import { annoDelRecap, attesaLead } from '@/lib/insight/attesa'
+import { cercaChat, paroleRicerca } from '@/lib/insight/cerca'
 import type { Fonte } from '@/lib/insight/canale'
 import { INSIGHT_RECAP } from '@/lib/i18n/testi/insight-recap'
 import { contaDivisioni, type ChiaveDivisione } from '@/lib/insight/divisioni'
@@ -68,6 +70,8 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
   const FILTRI = t.filtri as Record<ChiaveFiltro, { etichetta: string; titolo: string }>
   const [filtro, setFiltro] = useState<ChiaveFiltro | null>(null)
   const [divisione, setDivisione] = useState<ChiaveDivisione>('tutte')
+  // «Cerca una persona» (1.71.0): while there is a query, its results take the place of the list
+  const [cerca, setCerca] = useState('')
   const tessere = useRef<Partial<Record<ChiaveFiltro, HTMLButtonElement | null>>>({})
   const sezioneFiltrata = useRef<HTMLElement>(null)
   // set by a tap that turns a filter on: the effect scrolls to the filtered chats once they are there
@@ -107,6 +111,20 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
     [adessoMs, anno],
   )
 
+  const trovate = useMemo(
+    () => cercaChat(cerca, [leads, recap.reactivate], recap.non_leads),
+    [cerca, leads, recap.reactivate, recap.non_leads],
+  )
+  const cercando = paroleRicerca(cerca).length > 0
+  const quanteTrovate = trovate.leads.length + trovate.nonLeads.length
+
+  // the count is said once typing pauses, never at every letter
+  useEffect(() => {
+    if (!cercando) return
+    const id = window.setTimeout(() => annuncia(t.cerca.annuncio(quanteTrovate)), 700)
+    return () => window.clearTimeout(id)
+  }, [cercando, quanteTrovate, annuncia, t])
+
   function scegliDivisione(chiave: ChiaveDivisione) {
     setDivisione(chiave)
     annuncia(t.annuncioDivisione(t.divisioni[chiave]?.titolo ?? chiave, chiave === 'tutte' ? leads.length : conteggiDivisioni[chiave]))
@@ -125,6 +143,7 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
       return
     }
     daScorrere.current = true
+    setCerca('')
     setFiltro(chiave)
     annuncia(t.annuncioFiltro(FILTRI[chiave].titolo, conteggi[chiave]))
   }
@@ -146,9 +165,33 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
       <Verdetto testo={recap.headline} />
       {recap.stato === 'parziale' ? <AvvisoParziale admin={admin} avvisi={recap.avvisi} fonte={fonte} /> : null}
 
+      {tutteLeChat.length || recap.non_leads.length ? <CercaPersona valore={cerca} onCambia={setCerca} /> : null}
+
       <NumeriFiltro conteggi={conteggi} attivo={filtro} onScegli={scegli} riferimenti={tessere} />
 
-      {filtro ? (
+      {cercando ? (
+        <section aria-labelledby="titolo-ricerca" className="grid gap-3.5" data-testid="risultati-ricerca">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="titolo-ricerca" className="text-lg font-semibold [overflow-wrap:anywhere]">
+              {t.cerca.titolo(cerca.trim())}{' '}
+              <span className="num text-sm font-normal text-muted-foreground">{quanteTrovate}</span>
+            </h2>
+            <Button type="button" variant="outline" className="h-11 px-3" onClick={() => setCerca('')}>
+              {t.cerca.togli}
+            </Button>
+          </div>
+          {trovate.leads.length ? <GruppiPriorita leads={trovate.leads} {...schede} /> : null}
+          {trovate.nonLeads.length ? (
+            <div className="grid gap-2 rounded-xl border border-border bg-card p-4">
+              <h3 className="text-sm font-semibold tracking-wide uppercase">{t.cerca.nonLead}</h3>
+              <ElencoNonLead voci={trovate.nonLeads} fonte={fonte} />
+            </div>
+          ) : null}
+          {quanteTrovate === 0 ? (
+            <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">{t.cerca.nessuno(cerca.trim())}</p>
+          ) : null}
+        </section>
+      ) : filtro ? (
         <section
           ref={sezioneFiltrata}
           aria-labelledby="titolo-filtrate"
@@ -203,10 +246,10 @@ function Contenuto({ recap, fonte, admin, adesso, calendario, giorno }: PropsRec
         </>
       )}
 
-      {!filtro && divisione === 'tutte' ? <DaRiattivare voci={recap.reactivate} {...schede} /> : null}
+      {!cercando && !filtro && divisione === 'tutte' ? <DaRiattivare voci={recap.reactivate} {...schede} /> : null}
       <Obiezioni voci={recap.objections} fonte={fonte} />
       <ContentRecapSezione content={recap.content} calendario={calendario} lingua={lingua} />
-      {!filtro ? (
+      {!cercando && !filtro ? (
         <EscluseRecap voci={recap.non_leads} escluse={recap.escluse} fonte={fonte} admin={admin} />
       ) : null}
     </>
