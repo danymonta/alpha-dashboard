@@ -1,5 +1,6 @@
 import { SearchX, TriangleAlert } from 'lucide-react'
 
+import { VetroLiquido } from '@/components/vetro/vetro-liquido'
 import { RataAzioni } from '@/app/(app)/sales/[id]/rata-azioni'
 
 import { LinkBottone } from '@/components/link-bottone'
@@ -156,10 +157,10 @@ export default async function DettaglioVenditaPage({
         }
       />
 
-      <div className="rounded-xl bg-card p-4">
+      <VetroLiquido raggio={12} sfocatura={12} piega={0.3} className="rounded-xl p-4">
         <p className="text-xs text-muted-foreground">{t.valoreContratto}</p>
         {/* the one gold number of the screen */}
-        <p className="num text-3xl font-semibold text-gold">{formatEuro(vendita.valore_contratto)}</p>
+        <p className="num glow-oro text-3xl font-semibold text-gold">{formatEuro(vendita.valore_contratto)}</p>
         <p className="mt-1 text-sm text-muted-foreground">
           {vendita.numero_rate === 1 ? t.unico : t.rateMensili(vendita.numero_rate)}
         </p>
@@ -190,7 +191,7 @@ export default async function DettaglioVenditaPage({
             </div>
           </dl>
         ) : null}
-      </div>
+      </VetroLiquido>
 
       {riepilogo && Number(riepilogo.scarto_piano) !== 0 ? (
         <p

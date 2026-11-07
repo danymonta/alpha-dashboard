@@ -2,6 +2,7 @@ import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { EtichettaConNota } from '@/components/metriche/nota'
+import { VetroLiquido } from '@/components/vetro/vetro-liquido'
 import { formato } from '@/lib/format'
 import { getLingua } from '@/lib/i18n/server'
 import { PANORAMICA } from '@/lib/i18n/testi/panoramica'
@@ -18,6 +19,8 @@ type Props = {
   hero?: boolean
   /** Inside another surface (the summary glass, 1.72.0): no card of its own. */
   piatto?: boolean
+  /** The tile is the page's glass (1.73.0): one per page, on the hero. */
+  vetro?: boolean
   className?: string
   children?: ReactNode
 }
@@ -58,12 +61,19 @@ export async function DeltaKpi({
 }
 
 /** KPI tile: label (with what it counts), value, delta. */
-export function TileKpi({ etichetta, valore, delta, confronto, hero = false, piatto = false, className, children }: Props) {
-  return (
-    <div
-      className={cn(piatto ? 'min-w-0' : 'rounded-xl bg-card p-4', hero && !piatto && 'md:p-5', className)}
-      data-tour={hero ? 'kpi-cash' : undefined}
-    >
+export function TileKpi({
+  etichetta,
+  valore,
+  delta,
+  confronto,
+  hero = false,
+  piatto = false,
+  vetro = false,
+  className,
+  children,
+}: Props) {
+  const contenuto = (
+    <>
       <p className="text-sm text-muted-foreground">
         {typeof etichetta === 'string' ? etichetta : <EtichettaConNota voce={etichetta} />}
       </p>
@@ -78,6 +88,25 @@ export function TileKpi({ etichetta, valore, delta, confronto, hero = false, pia
       </p>
       <DeltaKpi delta={delta} confronto={confronto} className="mt-2" />
       {children}
+    </>
+  )
+  const tour = hero ? 'kpi-cash' : undefined
+  if (vetro && !piatto) {
+    return (
+      <VetroLiquido
+        raggio={12}
+        sfocatura={12}
+        piega={0.3}
+        className={cn('rounded-xl p-4', hero && 'md:p-5', className)}
+        data-tour={tour}
+      >
+        {contenuto}
+      </VetroLiquido>
+    )
+  }
+  return (
+    <div className={cn(piatto ? 'min-w-0' : 'rounded-xl bg-card p-4', hero && !piatto && 'md:p-5', className)} data-tour={tour}>
+      {contenuto}
     </div>
   )
 }

@@ -97,7 +97,7 @@ export default async function ProvvigioniPage() {
 
               <div className="rounded-lg bg-muted/40 p-3" data-testid={`saldo-${id}`}>
                 <p className="text-xs text-muted-foreground">{t.daPagare}</p>
-                <p className="num text-3xl font-semibold text-gold">{formatEuro(ultima?.saldo_progressivo)}</p>
+                <p className="num glow-oro text-3xl font-semibold text-gold">{formatEuro(ultima?.saldo_progressivo)}</p>
               </div>
 
               {/* below 768px: one card per month, no 4-column table */}

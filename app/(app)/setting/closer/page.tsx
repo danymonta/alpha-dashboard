@@ -1,5 +1,6 @@
 import { ChevronDown, ClipboardCheck, Phone } from 'lucide-react'
 
+import { VetroLiquido } from '@/components/vetro/vetro-liquido'
 import { DaRegistrare, caricaCallDaRegistrare } from '@/app/(app)/setting/closer/da-registrare'
 import { DalleRegistrazioni, leggiPer } from '@/app/(app)/setting/closer/dalle-registrazioni'
 import { LinkBottone } from '@/components/link-bottone'
@@ -333,19 +334,19 @@ export default async function CloserPage({
         <>
           <section aria-label={t.totali(periodo.frase)} className="space-y-3" data-testid="kpi-closer">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl bg-card p-4 md:p-5">
+              <VetroLiquido raggio={12} sfocatura={12} piega={0.3} className="rounded-xl p-4 md:p-5">
                 <p className="text-sm text-muted-foreground">
                   <EtichettaConNota voce={LEGENDA_CLOSER.cash} />
                 </p>
                 {/* the one gold number of the screen */}
-                <p className="num mt-1 text-4xl font-semibold tracking-tight text-gold md:text-5xl">
+                <p className="num glow-oro mt-1 text-4xl font-semibold tracking-tight text-gold md:text-5xl">
                   {formatEuro(totale.cash)}
                 </p>
                 {/* the closer's cash (20260929130000): first instalment of the new sales, on the sale day, refunds apart */}
                 <p className="mt-2 text-xs text-muted-foreground">
                   {t.cashNota(periodo.frase)}
                 </p>
-              </div>
+              </VetroLiquido>
               <div className="rounded-xl bg-card p-4 md:p-5">
                 <p className="text-sm text-muted-foreground">
                   <EtichettaConNota voce={LEGENDA_CLOSER.revenue} />

@@ -721,7 +721,7 @@ function BloccoCosaFare({
       <div className="flex items-start gap-4">
         {fascia && totale !== null && totale !== undefined ? (
           <div className="shrink-0 text-center" data-testid="punteggio-pronto">
-            <p className="num text-5xl leading-none font-semibold text-gold" data-testid="punteggio-totale">
+            <p className="num glow-oro text-5xl leading-none font-semibold text-gold" data-testid="punteggio-totale">
               {totale}
             </p>
             <p className="num mt-1 text-xs text-muted-foreground">{t.su100}</p>

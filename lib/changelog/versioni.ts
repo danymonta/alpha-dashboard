@@ -86,6 +86,26 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.73.0',
+    data: '2026-11-07',
+    titolo: 'Più luce e vetro in tutte le pagine',
+    riassunto:
+      'Le schede in cima alle pagine, i menu e le finestre sono di vetro, lo sfondo ha più luce e il numero più importante di ogni pagina si illumina.',
+    intestazionePer: ['tutti'],
+    novita: [
+      {
+        per: ['tutti'],
+        testo:
+          'Le schede in cima alle pagine (per esempio Numeri e Insight 24h, o le sezioni del Marketing) sono una pillola di vetro, con quella in cui sei accesa. I menu a tendina, le scelte da un elenco e le finestre di conferma sono di vetro: si intravede la pagina dietro.',
+      },
+      {
+        per: ['tutti'],
+        testo:
+          'Lo sfondo ha più luce e ogni scheda ha un riflesso leggero in alto. Il numero più importante della pagina ha una luce dorata, e la sua scheda è di vetro. Tutto è fermo, niente si muove vicino ai numeri; con «Riduci trasparenza» tornano superfici piene.',
+      },
+    ],
+  },
+  {
     versione: '1.72.0',
     data: '2026-11-07',
     titolo: 'Un aspetto più pulito, con vetro e luce',

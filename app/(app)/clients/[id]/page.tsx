@@ -1,6 +1,7 @@
 import { ChevronRight, FolderKanban, History, Plus, RefreshCw, SearchX, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 
+import { VetroLiquido } from '@/components/vetro/vetro-liquido'
 import { ChiusuraCliente, NonRinnova } from '@/app/(app)/clients/[id]/chiusura-cliente'
 import { InterrompiPercorso } from '@/app/(app)/clients/[id]/interrompi-percorso'
 import { ModificaCliente } from '@/app/(app)/clients/[id]/modifica-cliente'
@@ -179,12 +180,12 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
         }
       />
 
-      <div className="rounded-xl bg-card p-4">
+      <VetroLiquido raggio={12} sfocatura={12} piega={0.3} className="rounded-xl p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs text-muted-foreground">{t.valoreNelTempo}</p>
             {/* the one gold number of the screen: what this client has really paid */}
-            <p className="num text-3xl font-semibold text-gold">{formatEuro(valore.incassato)}</p>
+            <p className="num glow-oro text-3xl font-semibold text-gold">{formatEuro(valore.incassato)}</p>
           </div>
           <StatoClienteBadge stato={valore.stato!} lingua={lingua} />
         </div>
@@ -208,7 +209,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
             {t.inRitardoImporto(formatEuro(valore.in_ritardo))}
           </p>
         ) : null}
-      </div>
+      </VetroLiquido>
 
       {sospeso ? (
         <SospensioneCliente clientId={id} cliente={nome} oggi={oggi} sospensione={sospeso} />
