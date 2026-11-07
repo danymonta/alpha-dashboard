@@ -116,7 +116,7 @@ export function Sidebar({ ruolo, nome, foto }: Props) {
                         'relative flex min-h-11 items-center rounded-lg text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                         ridotta ? 'justify-center' : 'gap-3 px-3',
                         attiva
-                          ? 'bg-primary text-primary-foreground'
+                          ? 'bg-primary text-primary-foreground glow-primario'
                           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                       )}
                     >

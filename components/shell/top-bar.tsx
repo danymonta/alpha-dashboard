@@ -47,7 +47,7 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
   }, [])
 
   return (
-    <header ref={barra} className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+    <header ref={barra} className="sticky top-0 z-20 border-b border-border/60 bg-background/95 backdrop-blur-xl backdrop-saturate-150 md:bg-background/55">
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 md:hidden">
         <div className="flex min-w-0 items-center gap-3">
           <div className="palco-logo palco-logo-piccolo">

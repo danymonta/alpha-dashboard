@@ -86,6 +86,31 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.72.0',
+    data: '2026-11-07',
+    titolo: 'Un aspetto più pulito, con vetro e luce',
+    riassunto:
+      'L’accesso ha le braci del fuoco che salgono sullo sfondo, la barra in basso del telefono diventa una pillola di vetro e i colori principali hanno una luce leggera.',
+    intestazionePer: ['tutti'],
+    novita: [
+      {
+        per: ['tutti'],
+        testo:
+          'La pagina di accesso ha uno sfondo animato di braci che salgono, e il riquadro per entrare è di vetro: si vede il fuoco dietro. Si carica dopo la pagina, quindi l’accesso non rallenta; con «Riduci movimento» attivo sul telefono o sul computer resta lo sfondo fermo.',
+      },
+      {
+        per: ['tutti'],
+        testo:
+          'Sul telefono la barra in basso è una pillola di vetro sospesa, con la pagina che scorre sotto; sul computer la barra in alto è di vetro. Il bottone principale e la voce del menu in cui sei hanno una luce leggera. Con «Riduci trasparenza» tornano superfici piene.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'La Panoramica si legge dall’alto in basso in tre parti. In cima, in un unico riquadro: il cash incassato con una barra delle sue quattro parti, quanto ti resta dopo provvigioni e costi, poi revenue, nuovi clienti e rinnovi. Sotto, «Da fare adesso»: le rate in ritardo, i percorsi che finiscono entro 30 giorni e le call di oggi, ognuno con un tocco per aprire la pagina giusta. Poi «Come sta andando» (andamento, funnel, indicatori, fonti) e «Da gestire» (da incassare e in scadenza). I numeri sono gli stessi di prima.',
+      },
+    ],
+  },
+  {
     versione: '1.71.0',
     data: '2026-11-07',
     titolo: 'Cerca una persona nell’Insight',
