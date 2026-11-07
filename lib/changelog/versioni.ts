@@ -86,6 +86,24 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.74.0',
+    data: '2026-11-07',
+    titolo: 'Il tempo del team, settimana per settimana',
+    riassunto: 'Tempo › Team si apre sulla settimana in corso: quanto ha registrato il team da lunedì a oggi.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Tempo › Team parte dalla settimana in corso, da lunedì a oggi, con le frecce per passare da una settimana all’altra. Per lo storico tocchi il periodo: settimana scorsa, questo mese, mese scorso o un intervallo di date. Persona e progetto restano scelti quando cambi settimana.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Le schede «Il mio tempo» e «Team» hanno lo stesso aspetto di vetro delle altre pagine.',
+      },
+    ],
+  },
+  {
     versione: '1.73.0',
     data: '2026-11-07',
     titolo: 'Più luce e vetro in tutte le pagine',

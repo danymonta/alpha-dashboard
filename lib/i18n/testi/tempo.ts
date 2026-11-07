@@ -20,6 +20,8 @@ export const TEMPO = bilingue(
     togliFiltri: 'Togli i filtri',
     registrato: (progetto: string | undefined, periodo: string) =>
       `Tempo registrato${progetto ? ` su ${progetto}` : ''} · ${periodo}`,
+    finora: (lunedi: string) => `Finora: da lunedì ${lunedi} a oggi`,
+    storico: 'Per lo storico tocca il periodo: settimana scorsa, mese, o un intervallo di date.',
     voci: (n: string, uno: boolean) => `${n} ${uno ? 'voce' : 'voci'}`,
     progetti: (n: string, uno: boolean) => `${n} ${uno ? 'progetto' : 'progetti'}`,
     perPersona: 'Per persona',
@@ -60,6 +62,8 @@ export const TEMPO = bilingue(
     togliFiltri: 'Remove the filters',
     registrato: (progetto: string | undefined, periodo: string) =>
       `Time logged${progetto ? ` on ${progetto}` : ''} · ${periodo}`,
+    finora: (lunedi: string) => `So far: from Monday ${lunedi} to today`,
+    storico: 'For the history tap the period: last week, a month, or a date range.',
     voci: (n: string, uno: boolean) => `${n} ${uno ? 'entry' : 'entries'}`,
     progetti: (n: string, uno: boolean) => `${n} ${uno ? 'project' : 'projects'}`,
     perPersona: 'By person',

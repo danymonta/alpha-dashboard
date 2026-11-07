@@ -12,7 +12,7 @@ export default async function LayoutTempo({ children }: { children: ReactNode })
   if (profilo.ruolo !== 'admin') return children
 
   return (
-    <div className="space-y-5">
+    <div>
       <SchedeTempo />
       <div>{children}</div>
     </div>

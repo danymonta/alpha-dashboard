@@ -2,20 +2,20 @@ import { Timer } from 'lucide-react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
-import { SelettorePeriodo } from '@/components/pagina/selettore-periodo'
 import { FiltroSelect } from '@/components/pm/filtri'
+import { NavigazionePeriodo } from '@/components/pm/tempo/navigazione-periodo'
 import { CardPersona } from '@/components/pm/tempo-team/card-persona'
 import { raggruppaTempoTeam } from '@/components/pm/tempo-team/dati'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import { requireRuolo } from '@/lib/auth/session'
-import { oggiRoma } from '@/lib/date'
+import { fineMese, oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
+import type { Lingua } from '@/lib/i18n/lingua'
 import { getLingua } from '@/lib/i18n/server'
 import { TEMPO } from '@/lib/i18n/testi/tempo'
-import { hrefPeriodo, leggiPeriodo } from '@/lib/periodo'
 import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
-import { formatDurata } from '@/lib/tempo'
+import { formatDurata, periodoTempo, type PeriodoTempo } from '@/lib/tempo'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +23,34 @@ const PERCORSO = '/tempo/team'
 
 function primo(valore: string | string[] | undefined): string | undefined {
   return Array.isArray(valore) ? valore[0] : valore
+}
+
+/**
+ * The period of the page (07/11/2026, Dany: «ragioniamo a livello di week»): the
+ * current week by default, with the arrows of Il mio tempo; ?settimana= another
+ * week, ?da=&a= a range (the Monday email and Alfire link one). An old ?mese=
+ * link becomes that month as a range.
+ */
+function periodoDellaPagina(
+  parametri: Record<string, string | string[] | undefined>,
+  oggi: string,
+  lingua: Lingua,
+): PeriodoTempo {
+  const mese = primo(parametri.mese)
+  if (!parametri.da && !parametri.settimana && mese && /^\d{4}-(0[1-9]|1[0-2])$/.test(mese)) {
+    return periodoTempo({ da: `${mese}-01`, a: fineMese(`${mese}-01`) }, oggi, lingua)
+  }
+  return periodoTempo(
+    { settimana: primo(parametri.settimana), da: primo(parametri.da), a: primo(parametri.a) },
+    oggi,
+    lingua,
+  )
+}
+
+/** The URL parameters of a period: none for the current week. */
+function parametriDelPeriodo(periodo: PeriodoTempo): Record<string, string> {
+  if (periodo.tipo === 'libero') return { da: periodo.da, a: periodo.a }
+  return periodo.corrente ? {} : { settimana: periodo.da }
 }
 
 /**
@@ -41,8 +69,11 @@ export default async function TempoTeamPage({
   const parametri = await searchParams
   const lingua = await getLingua()
   const t = TEMPO[lingua]
-  const { formatNumero } = formato(lingua)
-  const periodo = leggiPeriodo(parametri, oggi, lingua)
+  const { formatNumero, formatData } = formato(lingua)
+  const periodo = periodoDellaPagina(parametri, oggi, lingua)
+  const parametriPeriodo = parametriDelPeriodo(periodo)
+  // the RPC never reads past today: a week still running counts up to now
+  const fine = periodo.a > oggi ? oggi : periodo.a
   const persona = isUuid(primo(parametri.persona)) ? primo(parametri.persona) : undefined
   const progetto = isUuid(primo(parametri.progetto)) ? primo(parametri.progetto) : undefined
   const supabase = await createClient()
@@ -52,7 +83,7 @@ export default async function TempoTeamPage({
   const [tempo, progetti, scelta] = await Promise.all([
     supabase.rpc('pm_tempo_per_persona', {
       p_da: periodo.da,
-      p_a: periodo.a,
+      p_a: fine,
       ...(progetto ? { p_progetto: progetto } : {}),
     }),
     supabase.from('pm_progetti').select('id, nome, stato').order('nome'),
@@ -91,7 +122,7 @@ export default async function TempoTeamPage({
 
       {/* 390px: the period, then one full-width row per filter, never a truncated name */}
       <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
-        <SelettorePeriodo periodo={periodo} oggi={oggi} percorso={PERCORSO} parametri={filtri} confronto={false} />
+        <NavigazionePeriodo percorso={PERCORSO} periodo={periodo} oggi={oggi} lingua={lingua} filtri={filtri} />
         <div className="grid gap-2 sm:flex sm:gap-3">
           <FiltroSelect
             id="filtro-persona"
@@ -100,7 +131,7 @@ export default async function TempoTeamPage({
             valore={persona ?? ''}
             predefinito=""
             opzioni={[{ valore: '', etichetta: t.tuttePersone }, ...opzioniPersone]}
-            parametri={{ ...periodo.parametri, ...filtri }}
+            parametri={{ ...parametriPeriodo, ...filtri }}
           />
           <FiltroSelect
             id="filtro-progetto"
@@ -109,10 +140,11 @@ export default async function TempoTeamPage({
             valore={progetto ?? ''}
             predefinito=""
             opzioni={[{ valore: '', etichetta: t.tuttiProgetti }, ...opzioniProgetti]}
-            parametri={{ ...periodo.parametri, ...filtri }}
+            parametri={{ ...parametriPeriodo, ...filtri }}
           />
         </div>
       </div>
+      <p className="-mt-2 text-xs text-muted-foreground">{t.storico}</p>
 
       {persone.length === 0 ? (
         <StatoVuoto
@@ -121,7 +153,14 @@ export default async function TempoTeamPage({
           descrizione={conFiltri ? t.vuotoFiltri : t.vuotoDescrizione}
           azione={
             conFiltri ? (
-              <LinkBottone href={hrefPeriodo(PERCORSO, periodo)} variant="outline">
+              <LinkBottone
+                href={
+                  Object.keys(parametriPeriodo).length
+                    ? `${PERCORSO}?${new URLSearchParams(parametriPeriodo).toString()}`
+                    : PERCORSO
+                }
+                variant="outline"
+              >
                 {t.togliFiltri}
               </LinkBottone>
             ) : null
@@ -133,10 +172,11 @@ export default async function TempoTeamPage({
           {persona ? null : (
             <div className="rounded-xl bg-card p-4" data-testid="totale-team">
               <p className="text-xs text-muted-foreground">
-                {t.registrato(nomeProgetto, periodo.etichetta)}
+                {t.registrato(nomeProgetto, periodo.tipo === 'settimana' ? periodo.titolo.toLowerCase() : periodo.etichetta)}
               </p>
               <p className="num text-3xl font-semibold">{formatDurata(team.minuti)}</p>
               <p className="num text-xs text-muted-foreground">
+                {periodo.tipo === 'settimana' && periodo.corrente ? `${t.finora(formatData(periodo.da))} · ` : null}
                 {t.voci(formatNumero(team.voci), team.voci === 1)}
               </p>
             </div>

@@ -41,11 +41,22 @@ function etichettaBreve(da: string, a: string, lingua: Lingua): string {
 
 type Scelta = { chiave: string; etichetta: string; href: string; attiva: boolean }
 
+type Filtri = Record<string, string | undefined>
+
+/** A link of the period that keeps the page's other filters (Tempo › Team: person and project). */
+function conFiltri(percorso: string, periodo: Record<string, string>, filtri: Filtri = {}): string {
+  const qs = new URLSearchParams()
+  for (const [k, v] of Object.entries(filtri)) if (v) qs.set(k, v)
+  for (const [k, v] of Object.entries(periodo)) qs.set(k, v)
+  const testo = qs.toString()
+  return testo ? `${percorso}?${testo}` : percorso
+}
+
 /**
  * The quick choices, as the same URL parameters the page already reads:
  * no parameter (this week), ?settimana= (any day of a week), ?da=&a= (a range).
  */
-function scelteRapide(percorso: string, periodo: PeriodoTempo, oggi: string, lingua: Lingua): Scelta[] {
+function scelteRapide(percorso: string, periodo: PeriodoTempo, oggi: string, lingua: Lingua, filtri?: Filtri): Scelta[] {
   const parole = MIO_TEMPO[lingua]
   const settimanaScorsa = aggiungiGiorni(lunediDi(oggi), -7)
   const primoDelMese = `${oggi.slice(0, 8)}01`
@@ -56,25 +67,25 @@ function scelteRapide(percorso: string, periodo: PeriodoTempo, oggi: string, lin
     {
       chiave: 'settimana',
       etichetta: parole.periodo.questaSettimana,
-      href: percorso,
+      href: conFiltri(percorso, {}, filtri),
       attiva: periodo.tipo === 'settimana' && periodo.corrente,
     },
     {
       chiave: 'settimana-scorsa',
       etichetta: parole.periodo.settimanaScorsa,
-      href: `${percorso}?settimana=${settimanaScorsa}`,
+      href: conFiltri(percorso, { settimana: settimanaScorsa }, filtri),
       attiva: periodo.tipo === 'settimana' && periodo.da === settimanaScorsa,
     },
     {
       chiave: 'mese',
       etichetta: parole.navigazione.questoMese,
-      href: `${percorso}?da=${primoDelMese}&a=${oggi}`,
+      href: conFiltri(percorso, { da: primoDelMese, a: oggi }, filtri),
       attiva: intervallo(primoDelMese, oggi),
     },
     {
       chiave: 'mese-scorso',
       etichetta: parole.navigazione.meseScorso,
-      href: `${percorso}?da=${primoMeseScorso}&a=${fineMeseScorso}`,
+      href: conFiltri(percorso, { da: primoMeseScorso, a: fineMeseScorso }, filtri),
       attiva: intervallo(primoMeseScorso, fineMeseScorso),
     },
   ]
@@ -91,11 +102,14 @@ export function NavigazionePeriodo({
   periodo,
   oggi,
   lingua = 'it',
+  filtri,
 }: {
   percorso: string
   periodo: PeriodoTempo
   oggi: string
   lingua?: Lingua
+  /** The page's other filters, kept by every link of the period. */
+  filtri?: Filtri
 }) {
   const t = MIO_TEMPO[lingua].navigazione
   const settimana = periodo.tipo === 'settimana'
@@ -103,7 +117,7 @@ export function NavigazionePeriodo({
     // -ml-3: the chevron glyph (not its 44px hit area) lines up with the content edge
     <nav aria-label={t.aria} className="-ml-3 flex items-center gap-1">
       {settimana && periodo.precedente ? (
-        <Link href={`${percorso}?settimana=${periodo.precedente}`} aria-label={t.precedente} className={FRECCIA}>
+        <Link href={conFiltri(percorso, { settimana: periodo.precedente }, filtri)} aria-label={t.precedente} className={FRECCIA}>
           <ChevronLeft className="size-5" aria-hidden="true" />
         </Link>
       ) : (
@@ -112,10 +126,10 @@ export function NavigazionePeriodo({
         </span>
       )}
 
-      <FoglioPeriodo percorso={percorso} periodo={periodo} oggi={oggi} lingua={lingua} />
+      <FoglioPeriodo percorso={percorso} periodo={periodo} oggi={oggi} lingua={lingua} filtri={filtri} />
 
       {settimana && periodo.successivo ? (
-        <Link href={`${percorso}?settimana=${periodo.successivo}`} aria-label={t.successiva} className={FRECCIA}>
+        <Link href={conFiltri(percorso, { settimana: periodo.successivo }, filtri)} aria-label={t.successiva} className={FRECCIA}>
           <ChevronRight className="size-5" aria-hidden="true" />
         </Link>
       ) : (
@@ -132,11 +146,13 @@ function FoglioPeriodo({
   periodo,
   oggi,
   lingua,
+  filtri,
 }: {
   percorso: string
   periodo: PeriodoTempo
   oggi: string
   lingua: Lingua
+  filtri?: Filtri
 }) {
   const t = MIO_TEMPO[lingua].navigazione
   const id = useId()
@@ -146,7 +162,7 @@ function FoglioPeriodo({
   const fineMassima = periodo.a > oggi ? oggi : periodo.a
   const [da, setDa] = useState(periodo.da)
   const [a, setA] = useState(fineMassima)
-  const scelte = scelteRapide(percorso, periodo, oggi, lingua)
+  const scelte = scelteRapide(percorso, periodo, oggi, lingua, filtri)
   const personalizzato = !scelte.some((s) => s.attiva)
   const etichetta = etichettaBreve(periodo.da, periodo.a, lingua)
 
@@ -154,7 +170,7 @@ function FoglioPeriodo({
     evento.preventDefault()
     // the sheet closes once the new period has rendered
     avvia(() => {
-      router.push(`${percorso}?da=${da}&a=${a}`)
+      router.push(conFiltri(percorso, { da, a }, filtri))
       setAperto(false)
     })
   }
