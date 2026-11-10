@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, UserCheck } from 'lucide-react'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 import {
   CAMPI_PROPOSTA,
@@ -16,6 +17,7 @@ import {
 import { ReportForm } from '@/app/(app)/today/report-form'
 import { SceltaGiorno } from '@/app/(app)/today/scelta-giorno'
 import { LegendaSezione } from '@/components/metriche/legenda-sezione'
+import { CalendlySenzaPrenotazione } from '@/components/setter/calendly-senza-prenotazione'
 import { GiorniSenzaCommento } from '@/components/setter/giorni-senza-commento'
 import { ProposteInstagram } from '@/components/setter/proposte-instagram'
 import { SchedeInsight } from '@/components/insight/schede-insight'
@@ -188,6 +190,13 @@ export default async function OggiPage({
         errore={!!proposte.error || erroreTuoi || !!decisaDelGiorno.error}
         idTitoloPagina={ID_TITOLO}
       />
+
+      {/* the leads that got the Calendly and did not book (1.75.0): his to-do of today, from the Insight */}
+      {data === oggi ? (
+        <Suspense fallback={null}>
+          <CalendlySenzaPrenotazione oggi={oggi} />
+        </Suspense>
+      ) : null}
 
       <ReportForm
         key={`${data}:${decisaDelGiorno.data?.deciso_il ?? ''}`}

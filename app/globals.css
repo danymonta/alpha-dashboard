@@ -72,6 +72,10 @@
   --status-ok: #4caf7a;
   --status-warning: #e0a43a;
   --status-critical: #e5484d;
+  /* Priority of a task on the board of I miei task (1.75.0): always with an icon and the word */
+  --priorita-alta: var(--status-critical);
+  --priorita-media: var(--chart-upsell);
+  --priorita-bassa: var(--muted-foreground);
 
   /* Brand moment only (login, intro, shell logo): the fire around the logo.
      Never used on data screens, never as a surface or a chart series.
@@ -265,6 +269,9 @@
   --color-status-ok: var(--status-ok);
   --color-status-warning: var(--status-warning);
   --color-status-critical: var(--status-critical);
+  --color-priorita-alta: var(--priorita-alta);
+  --color-priorita-media: var(--priorita-media);
+  --color-priorita-bassa: var(--priorita-bassa);
   --color-selezione: var(--selezione);
   --color-selezione-foreground: var(--selezione-foreground);
   --color-palco: var(--brand-palco);

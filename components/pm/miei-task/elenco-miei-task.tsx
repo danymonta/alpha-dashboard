@@ -1,28 +1,34 @@
 'use client'
 
 import { CircleCheck, ListChecks } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useOptimistic, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { completaTask } from '@/app/(app)/progetti/[id]/actions'
-import { useLingua } from '@/components/i18n/lingua-provider'
+import { aggiornaTaskRapido } from '@/app/(app)/task/actions'
+import { useFormato, useLingua } from '@/components/i18n/lingua-provider'
+import { BachecaMieiTask, type Ritocco } from '@/components/pm/miei-task/bacheca-miei-task'
+import type { ProgettoMio } from '@/components/pm/miei-task/nuovo-mio-task'
 import { LinkBottone } from '@/components/link-bottone'
 import { RigaCompletato } from '@/components/pm/miei-task/riga-completato'
 import { RigaMioTask } from '@/components/pm/miei-task/riga-mio-task'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
 import {
   COMPLETATI_RECENTI,
+  colonneBacheca,
   completatiDaMostrare,
   gruppoDi,
   raggruppa,
   righeAperte,
   scordaRiaperti,
   type MioTask,
+  type ChiaveGruppo,
   type MioTaskCompletato,
   type Tocco,
+  type VistaTask,
 } from '@/lib/miei-task'
 import type { Lingua } from '@/lib/i18n/lingua'
-import { MIEI_TASK, traduciErroreTask } from '@/lib/i18n/testi/task'
+import { BACHECA_TASK, MIEI_TASK, traduciErroreTask } from '@/lib/i18n/testi/task'
 
 type Props = {
   aperti: MioTask[]
@@ -33,6 +39,10 @@ type Props = {
   tutti: boolean
   /** Today in Europe/Rome, from the server. */
   oggi: string
+  /** Board (1.75.0, the default) or the list of groups. */
+  vista?: VistaTask
+  /** The projects I am a member of, for «Aggiungi un task» on the board. */
+  progetti?: ProgettoMio[]
 }
 
 /** Sonner draws its buttons 24px high: Annulla gets the 44px target. */
@@ -56,9 +66,16 @@ async function salva(id: string, completato: boolean, lingua: Lingua) {
  * "Riapri" sends a completed one back to its group. Every change is said to
  * screen readers in a polite live region, and the focus stays on the task.
  */
-export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, oggi }: Props) {
+export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, oggi, vista = 'elenco', progetti = [] }: Props) {
   const lingua = useLingua()
   const t = MIEI_TASK[lingua]
+  const tb = BACHECA_TASK[lingua]
+  const { formatData } = useFormato()
+  // a card moved or retagged on the board: shown at once, the server's answer redraws the page
+  const [ritocchi, ritoccaSubito] = useOptimistic<ReadonlyMap<string, Ritocco>, { id: string; ritocco: Ritocco }>(
+    new Map(),
+    (prima, { id, ritocco }) => new Map(prima).set(id, { ...prima.get(id), ...ritocco }),
+  )
   const [tocchi, setTocchi] = useState<ReadonlyMap<string, Tocco>>(() => new Map())
   const [annuncio, setAnnuncio] = useState('')
   // the task whose checkbox takes the focus as soon as it is on the page
@@ -158,11 +175,45 @@ export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, og
     toast.success(t.taskRiaperto, { description: task.titolo })
   }
 
-  const righe = righeAperte(aperti, tocchi)
+  /** A card dragged to a column, or retagged from its menu. */
+  function ritocca(task: MioTask, ritocco: Ritocco, colonna: ChiaveGruppo | null) {
+    startTransition(async () => {
+      ritoccaSubito({ id: task.id, ritocco })
+      let esito: Awaited<ReturnType<typeof aggiornaTaskRapido>>
+      try {
+        esito = await aggiornaTaskRapido({ id: task.id, ...ritocco })
+      } catch {
+        toast.error(t.connessione)
+        return
+      }
+      if (!esito.ok) {
+        toast.error(traduciErroreTask(esito.errore, lingua))
+        return
+      }
+      if (ritocco.priorita) {
+        toast.success(tb.prioritaCambiata(tb.priorita[ritocco.priorita]), { description: task.titolo })
+        return
+      }
+      const scadenza = ritocco.scadenza ?? null
+      const dove = colonna ?? gruppoDi(scadenza, oggi)
+      setAnnuncio(tb.annunci.spostato(task.titolo, t.gruppi[dove]))
+      toast.success(scadenza ? tb.scadenzaIl(formatData(scadenza)) : tb.scadenzaTolta, {
+        description: `${task.titolo} · ${t.gruppi[dove]}`,
+      })
+    })
+  }
+
+  const apertiRitoccati = ritocchi.size
+    ? aperti.map((task) => {
+        const r = ritocchi.get(task.id)
+        return r ? { ...task, ...r } : task
+      })
+    : aperti
+  const righe = righeAperte(apertiRitoccati, tocchi)
   const gruppi = raggruppa(righe, oggi)
   const visibili = completatiDaMostrare(completati, righe)
 
-  if (righe.length === 0 && totaleCompletati === 0) {
+  if (righe.length === 0 && totaleCompletati === 0 && (vista !== 'bacheca' || progetti.length === 0)) {
     return (
       <StatoVuoto
         Icona={ListChecks}
@@ -179,7 +230,17 @@ export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, og
         {annuncio}
       </p>
 
-      {righe.length === 0 ? (
+      {vista === 'bacheca' ? (
+        <BachecaMieiTask
+          colonne={colonneBacheca(righe, oggi)}
+          oggi={oggi}
+          progetti={progetti}
+          onCompleta={(task) => void completa(task)}
+          onRiapri={(task) => void riapriQui(task, false)}
+          onRitocca={ritocca}
+          onAggiunto={(titolo, colonna) => setAnnuncio(tb.annunci.aggiunto(titolo, t.gruppi[colonna]))}
+        />
+      ) : righe.length === 0 ? (
         <StatoVuoto
           Icona={CircleCheck}
           titolo={t.nienteDaFare}
@@ -211,7 +272,7 @@ export function ElencoMieiTask({ aperti, completati, totaleCompletati, tutti, og
         ))
       )}
 
-      <section aria-labelledby="gruppo-completati" data-testid="gruppo-completati" className="pt-2">
+      <section aria-labelledby="gruppo-completati" data-testid="gruppo-completati" className="max-w-3xl pt-2">
         <h2 id="gruppo-completati" className={TITOLO_GRUPPO}>
           {t.completati} <span className="num">({totaleCompletati})</span>
         </h2>

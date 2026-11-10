@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   COMPLETATI_RECENTI,
+  colonneBacheca,
   completatiDaMostrare,
+  confrontaBacheca,
+  cookieVistaTask,
+  scadenzaDellaColonna,
+  vistaTaskIniziale,
   etichettaCompletato,
   gruppoDi,
   mostraTuttiICompletati,
@@ -23,6 +28,7 @@ function task(n: number, campi: Partial<MioTask> = {}): MioTask {
     id: ID(n),
     titolo: `Task ${n}`,
     stato: 'da_fare',
+    priorita: 'media',
     scadenza: null,
     in_ritardo: false,
     progetto_id: ID(900),
@@ -163,5 +169,56 @@ describe('"I miei task": quando l’ho chiuso', () => {
     expect(mostraTuttiICompletati('tutti')).toBe(true)
     expect(mostraTuttiICompletati(undefined)).toBe(false)
     expect(mostraTuttiICompletati(['tutti'])).toBe(false)
+  })
+})
+
+describe('la bacheca dei miei task (1.75.0)', () => {
+  it('ha sempre le cinque colonne, anche vuote, nell’ordine della pagina', () => {
+    const colonne = colonneBacheca([{ task: task(1, { scadenza: OGGI }), completatoAdesso: false }], OGGI)
+    expect(colonne.map((c) => c.chiave)).toEqual(['ritardo', 'oggi', 'settimana', 'dopo', 'senza'])
+    expect(colonne.find((c) => c.chiave === 'oggi')!.righe).toHaveLength(1)
+    expect(colonne.find((c) => c.chiave === 'senza')!.righe).toHaveLength(0)
+  })
+
+  it('in ogni colonna mette prima l’alta priorità, poi la scadenza più vicina', () => {
+    const righe = [
+      task(1, { scadenza: '2026-10-07', priorita: 'bassa' }),
+      task(2, { scadenza: '2026-10-09', priorita: 'alta' }),
+      task(3, { scadenza: '2026-10-06', priorita: 'media' }),
+      task(4, { scadenza: '2026-10-08', priorita: 'alta' }),
+    ].map((t) => ({ task: t, completatoAdesso: false }))
+    const settimana = colonneBacheca(righe, OGGI).find((c) => c.chiave === 'settimana')!
+    expect(settimana.righe.map((r) => r.task.id)).toEqual([ID(4), ID(2), ID(3), ID(1)])
+    expect(confrontaBacheca(task(1, { priorita: 'alta' }), task(2, { priorita: 'bassa' }))).toBeLessThan(0)
+  })
+
+  it('non conta tra i da fare quelli spuntati adesso', () => {
+    const colonne = colonneBacheca(
+      [
+        { task: task(1), completatoAdesso: true },
+        { task: task(2), completatoAdesso: false },
+      ],
+      OGGI,
+    )
+    expect(colonne.find((c) => c.chiave === 'senza')!.daFare).toBe(1)
+  })
+
+  it('dà a ogni colonna la sua scadenza, e nessuna data passata', () => {
+    expect(scadenzaDellaColonna('oggi', OGGI)).toBe(OGGI)
+    expect(scadenzaDellaColonna('settimana', OGGI)).toBe('2026-10-06')
+    expect(scadenzaDellaColonna('dopo', OGGI)).toBe('2026-10-19')
+    expect(scadenzaDellaColonna('senza', OGGI)).toBeNull()
+    expect(scadenzaDellaColonna('ritardo', OGGI)).toBeUndefined()
+    // a card dropped on a column lands in that column
+    expect(gruppoDi(scadenzaDellaColonna('settimana', OGGI)!, OGGI)).toBe('settimana')
+    expect(gruppoDi(scadenzaDellaColonna('dopo', OGGI)!, OGGI)).toBe('dopo')
+  })
+
+  it('apre la bacheca, salvo l’indirizzo o la scelta ricordata', () => {
+    expect(vistaTaskIniziale(undefined, undefined)).toBe('bacheca')
+    expect(vistaTaskIniziale(undefined, 'elenco')).toBe('elenco')
+    expect(vistaTaskIniziale('bacheca', 'elenco')).toBe('bacheca')
+    expect(vistaTaskIniziale('altro', 'nulla')).toBe('bacheca')
+    expect(cookieVistaTask('elenco', true)).toBe('alpha_vista_task=elenco; Path=/task; Max-Age=31536000; SameSite=Lax; Secure')
   })
 })

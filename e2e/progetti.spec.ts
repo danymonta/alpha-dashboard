@@ -119,12 +119,12 @@ test('il manager assegna un task a due persone e lo trovano entrambe nei loro ta
   expect(await assegnatariDelTask(copertina!.id)).toEqual([ID_COACH, ID_EDITOR].sort())
 
   // both find it in "I miei task", with the name of the other person
-  await page.goto('/task')
+  await page.goto('/task?vista=elenco')
   await expect(page.getByRole('listitem', { name: 'Reel a quattro mani' })).toContainText('con Sara Editor')
 
   const editor = await (await browser.newContext()).newPage()
   await accedi(editor, 'editor')
-  await editor.goto('/task')
+  await editor.goto('/task?vista=elenco')
   const suo = editor.getByRole('listitem', { name: 'Reel a quattro mani' })
   await expect(suo).toContainText('con Marco Coach')
   // one of two people, she closes it

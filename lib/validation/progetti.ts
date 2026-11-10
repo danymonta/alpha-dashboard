@@ -122,6 +122,26 @@ export const nuovoTaskSchema = z.object({
   assegnatari: elencoId,
 })
 
+/**
+ * The board of I miei task (1.75.0): a task of mine added from a column, with
+ * its due date and priority; it is assigned to whoever adds it.
+ */
+export const nuovoMioTaskSchema = z.object({
+  progetto_id: z.string().uuid('Scegli il progetto'),
+  titolo: z.string().trim().min(1, 'Scrivi il titolo del task').max(200, 'Al massimo 200 caratteri'),
+  scadenza: dataFacoltativa,
+  priorita: z.enum(PRIORITA, { errorMap: () => ({ message: 'Scegli la priorità' }) }).default('media'),
+})
+
+/** A card moved or retagged on the board: only the due date, only the priority, or both. */
+export const taskRapidoSchema = z
+  .object({
+    id: z.string().uuid('Task non valido'),
+    scadenza: dataFacoltativa.optional(),
+    priorita: z.enum(PRIORITA, { errorMap: () => ({ message: 'Scegli la priorità' }) }).optional(),
+  })
+  .refine((v) => v.scadenza !== undefined || v.priorita !== undefined, 'Niente da cambiare')
+
 export const completaTaskSchema = z.object({ id: z.string().uuid(), completato: z.boolean() })
 
 const stima = z
@@ -230,6 +250,7 @@ export type MembroInput = z.input<typeof membroSchema>
 export type ListaInput = z.input<typeof listaSchema>
 export type NuovoTaskInput = z.input<typeof nuovoTaskSchema>
 export type ModificaTaskInput = z.input<typeof modificaTaskSchema>
+export type NuovoMioTaskInput = z.input<typeof nuovoMioTaskSchema>
 export type RepartoInput = z.input<typeof repartoSchema>
 export type ModelloInput = z.input<typeof modelloSchema>
 export type VoceModelloInput = z.input<typeof voceModelloSchema>

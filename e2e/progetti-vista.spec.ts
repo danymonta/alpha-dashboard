@@ -39,7 +39,7 @@ test('la vista scelta resta: dal menu torna la timeline, ?vista=elenco vince', a
   expect(ricordata!.expires * 1000 - Date.now()).toBeGreaterThan(360 * 86_400_000)
 
   // somewhere else, then Progetti from the menu: the timeline again
-  await page.goto('/task')
+  await page.goto('/task?vista=elenco')
   await page.getByRole('navigation', { name: 'Navigazione principale' }).getByRole('link', { name: 'Progetti' }).click()
   await expect(page).toHaveURL(/\/progetti$/)
   await attendiPagina(page)

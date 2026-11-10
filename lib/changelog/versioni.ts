@@ -86,6 +86,25 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.75.0',
+    data: '2026-11-10',
+    titolo: 'I miei task a bacheca',
+    riassunto: 'I tuoi task in colonne per scadenza, colorati per priorità: vedi subito cosa fare prima.',
+    intestazionePer: ['progetti'],
+    novita: [
+      {
+        per: ['progetti'],
+        testo:
+          'I miei task si apre a bacheca, come Trello: cinque colonne (In ritardo, Oggi, Prossimi 7 giorni, Più avanti, Senza scadenza) e ogni carta ha il colore e la parola della sua priorità, con le alte in cima. Trascini una carta su un’altra colonna per cambiarne la scadenza, oppure usi i tre puntini per la priorità, la colonna o una data precisa. «Aggiungi un task» in ogni colonna crea un task tuo con la scadenza già scritta. L’elenco di prima resta, con «Elenco» in alto.',
+      },
+      {
+        per: ['setter'],
+        testo:
+          'In Oggi, sopra il report, «Calendly mandato, call non prenotata»: dall’ultimo recap dell’Insight, chi ha ricevuto il link e non ha prenotato, da quanti giorni, con il follow-up suggerito da copiare e la chat da aprire. Spunti «Fatto» quando gli hai scritto: è la stessa spunta dell’Insight.',
+      },
+    ],
+  },
+  {
     versione: '1.74.0',
     data: '2026-11-07',
     titolo: 'Il tempo del team, settimana per settimana',

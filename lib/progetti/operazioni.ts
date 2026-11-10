@@ -16,8 +16,10 @@ import {
   modificaProgettoSchema,
   modificaTaskSchema,
   nuovoProgettoSchema,
+  nuovoMioTaskSchema,
   nuovoTaskSchema,
   spostaSchema,
+  taskRapidoSchema,
 } from '@/lib/validation/progetti'
 import {
   avviaTimerSchema,
@@ -437,6 +439,54 @@ export async function modificaTask(ctx: Contesto, input: unknown): Promise<Esito
         ? `${chi ?? 'Una persona scelta'} non fa più parte del progetto: non è tra le persone assegnate.`
         : `${chi ?? `${usciti.length} persone scelte`} non fanno più parte del progetto: non sono tra le persone assegnate.`,
   }
+}
+
+/**
+ * The board of I miei task (1.75.0): a task of mine, added from a column. The
+ * same insert as aggiungiTask, assigned to whoever adds it, then its due date
+ * and priority. All or nothing, as aggiungiTask.
+ */
+export async function aggiungiMioTask(ctx: Contesto, input: unknown): Promise<EsitoId> {
+  const parsed = nuovoMioTaskSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error) }
+  const chi = await ctx.chi()
+  if (!chi) return { ok: false, errore: 'Sessione scaduta. Rientra e riprova.' }
+  const v = parsed.data
+
+  const creato = await aggiungiTask(ctx, { progetto_id: v.progetto_id, titolo: v.titolo, assegnatari: [chi.id] })
+  if (!creato.ok) return creato
+  if (v.scadenza === null && v.priorita === 'media') return creato
+
+  const { error } = await ctx.db.from('pm_task').update({ scadenza: v.scadenza, priorita: v.priorita }).eq('id', creato.id)
+  if (error) {
+    revalidatePath('/task')
+    return { ok: false, errore: `${errore(error, 'Scadenza non salvata.')} Il task è stato creato: aprilo per mettere scadenza e priorità.` }
+  }
+  revalidatePath('/task')
+  return creato
+}
+
+/**
+ * A card moved to another column, or its priority changed (1.75.0): only
+ * those columns, under RLS, as the task sheet writes them. The database keeps
+ * the due date after the start (pm_task_date).
+ */
+export async function aggiornaTaskRapido(ctx: Contesto, input: unknown): Promise<Esito> {
+  const parsed = taskRapidoSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primoErrore(parsed.error) }
+  const negato = await negaPm(ctx)
+  if (negato) return { ok: false, errore: negato }
+
+  const { id, ...campi } = parsed.data
+  const { data, error } = await ctx.db.from('pm_task').update(campi).eq('id', id).select('progetto_id')
+  if (error) {
+    if (error.code === '23514') return { ok: false, errore: 'La scadenza viene dopo l’inizio del task: cambia l’inizio nel task.' }
+    return { ok: false, errore: errore(error, 'Task non aggiornato. Riprova.', TASK_NON_TUO) }
+  }
+  if (data.length === 0) return { ok: false, errore: TASK_NON_TUO }
+  aggiornaProgetto(data[0].progetto_id)
+  revalidatePath('/task')
+  return { ok: true }
 }
 
 /** The app only: never from Claude. */
