@@ -55,7 +55,7 @@ async function apriDaIMieiTask(page: Page) {
   // a few pages compiled on the first hit by the dev server
   test.setTimeout(120_000)
   await accedi(page, 'setter')
-  await page.goto('/task')
+  await page.goto('/task?vista=elenco')
   await attendiPagina(page)
 
   // an open task: the title is a link of its own, the project link stays
@@ -111,7 +111,7 @@ async function apriDaIMieiTask(page: Page) {
   await expect(page.getByRole('dialog', { name: 'Task' })).toHaveCount(0)
 
   // a completed task, in a finished list (closed by default): from Completati
-  await page.goto('/task')
+  await page.goto('/task?vista=elenco')
   await attendiPagina(page)
   const chiuso = page.getByTestId('mio-task-completato').filter({ hasText: progetto.nome })
   await expect(chiuso).toHaveCount(1)
@@ -143,7 +143,7 @@ test.describe('dal telefono', () => {
     if (error) throw error
 
     await accedi(page, 'setter')
-    await page.goto('/task')
+    await page.goto('/task?vista=elenco')
     await attendiPagina(page)
     const riga = page.getByTestId('mio-task').filter({ hasText: progetto.nome })
     await expect(riga).toHaveCount(1)
@@ -192,7 +192,7 @@ test.describe('dal telefono', () => {
     if (error) throw error
 
     await accedi(page, 'setter')
-    await page.goto('/task')
+    await page.goto('/task?vista=elenco')
     await attendiPagina(page)
     const riga = page.getByTestId('mio-task').filter({ hasText: progetto.nome })
     await expect(riga).toHaveCount(1)

@@ -43,7 +43,7 @@ async function spuntaRiapriERitrova(page: Page) {
   test.setTimeout(90_000)
   const risposta = { timeout: 20_000 }
   await accedi(page, 'setter')
-  await page.goto('/task')
+  await page.goto('/task?vista=elenco')
   await attendiPagina(page)
 
   const settimana = page.getByTestId('gruppo-settimana')
@@ -159,7 +159,7 @@ test('Completati: i 30 più recenti, poi "Mostra tutti" con il conteggio del dat
   expect(totale).toBeGreaterThanOrEqual(quanti)
 
   await accedi(page, 'setter')
-  await page.goto('/task')
+  await page.goto('/task?vista=elenco')
   await attendiPagina(page)
   const completati = page.getByTestId('gruppo-completati')
   await expect(completati.getByRole('heading', { level: 2 })).toHaveText(`Completati (${totale})`)
@@ -192,7 +192,7 @@ test('nessun task aperto: "Niente da fare", e sotto quelli chiusi', async ({ pag
   expect(aperti).toBe(0)
 
   await accedi(page, 'setter')
-  await page.goto('/task')
+  await page.goto('/task?vista=elenco')
   await attendiPagina(page)
   await expect(page.getByText('Niente da fare', { exact: true })).toBeVisible()
   await expect(page.getByTestId('mio-task')).toHaveCount(0)

@@ -6,13 +6,15 @@
  */
 import { aggiungiGiorni, formatOra, oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
-import type { StatoTask } from '@/lib/progetti'
+import type { Priorita, StatoTask } from '@/lib/progetti'
 
 /** An open task assigned to me (also to others: `con` says who). */
 export type MioTask = {
   id: string
   titolo: string
   stato: StatoTask
+  /** Alta, media, bassa: the colour and the order of a card on the board (1.75.0). */
+  priorita: Priorita
   scadenza: string | null
   in_ritardo: boolean
   progetto_id: string
@@ -182,4 +184,66 @@ export function etichettaCompletato(
   if (giorno === oggi) return parole.oggi(formatOra(istante))
   if (giorno === aggiungiGiorni(oggi, -1)) return parole.ieri(formatOra(istante))
   return parole.il(data(giorno))
+}
+
+// ---------------------------------------------------------------------------
+// The board (1.75.0, Dany, 10/11/2026: «stile Trello dove aggiungo i task, ci
+// sono le scadenze e visualmente so subito in base alla priorità e la data
+// cosa fare»): the same groups as columns, every column even when empty.
+// ---------------------------------------------------------------------------
+
+export type VistaTask = 'bacheca' | 'elenco'
+
+/** The view each person chose last: a cookie of this browser, one year, /task only. */
+export const COOKIE_VISTA_TASK = 'alpha_vista_task'
+const DURATA_COOKIE_VISTA_TASK = 60 * 60 * 24 * 365
+
+export function vistaTaskDaUrl(valore: unknown): VistaTask | null {
+  return valore === 'bacheca' || valore === 'elenco' ? valore : null
+}
+
+/** The address wins, then the remembered one, then the board. */
+export function vistaTaskIniziale(daUrl: unknown, ricordata: unknown): VistaTask {
+  return vistaTaskDaUrl(daUrl) ?? vistaTaskDaUrl(ricordata) ?? 'bacheca'
+}
+
+export function cookieVistaTask(vista: VistaTask, https: boolean): string {
+  return `${COOKIE_VISTA_TASK}=${vista}; Path=/task; Max-Age=${DURATA_COOKIE_VISTA_TASK}; SameSite=Lax${https ? '; Secure' : ''}`
+}
+
+const PESO_PRIORITA: Record<Priorita, number> = { alta: 0, media: 1, bassa: 2 }
+
+/** Inside a column: high priority first, then the nearest due date, then the page's order. */
+export function confrontaBacheca(a: MioTask, b: MioTask): number {
+  return PESO_PRIORITA[a.priorita] - PESO_PRIORITA[b.priorita] || confronta(a, b)
+}
+
+/** The five columns, in the page's order, each with its cards sorted for the board. */
+export function colonneBacheca(righe: readonly RigaAperta[], oggi: string): GruppoMieiTask[] {
+  return GRUPPI.map(({ chiave, titolo }) => {
+    const delGruppo = righe
+      .filter((r) => gruppoDi(r.task.scadenza, oggi) === chiave)
+      .sort((a, b) => confrontaBacheca(a.task, b.task))
+    return { chiave, titolo, righe: delGruppo, daFare: delGruppo.filter((r) => !r.completatoAdesso).length }
+  })
+}
+
+/**
+ * The due date a card gets when dropped on a column, or added there: today,
+ * tomorrow, in two weeks, none. "In ritardo" takes nothing: a date in the past
+ * is never chosen by moving a card. undefined = not a place to drop.
+ */
+export function scadenzaDellaColonna(chiave: ChiaveGruppo, oggi: string): string | null | undefined {
+  switch (chiave) {
+    case 'oggi':
+      return oggi
+    case 'settimana':
+      return aggiungiGiorni(oggi, 1)
+    case 'dopo':
+      return aggiungiGiorni(oggi, 14)
+    case 'senza':
+      return null
+    default:
+      return undefined
+  }
 }

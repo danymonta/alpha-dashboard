@@ -270,7 +270,7 @@ test('al rinnovo il progetto chiuso dal coach torna tra gli attivi col suo coach
   await expect(coach.getByRole('checkbox', { name: /^Riapri / })).toHaveCount(0)
 
   // and back in his tasks, every one assigned to him
-  await coach.goto('/task')
+  await coach.goto('/task?vista=elenco')
   await expect(coach.getByTestId('mio-task').filter({ hasText: `${nome} Rinnovo` })).toHaveCount(suoi.length)
   await expect(coach.getByRole('listitem', { name: 'Call di check' }).filter({ hasText: `${nome} Rinnovo` })).toBeVisible()
   await coach.context().close()

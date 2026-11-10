@@ -41,7 +41,7 @@ test.describe('progetti come in Zoho, ma semplici', () => {
 
   test('i miei task: quello che mi è assegnato, per scadenza; lo spunto da qui', async ({ page }) => {
     await accedi(page, 'setter')
-    await page.goto('/task')
+    await page.goto('/task?vista=elenco')
     await attendiPagina(page)
     const settimana = page.getByTestId('gruppo-settimana')
     const riga = settimana.getByRole('listitem', { name: 'Montaggio' })
