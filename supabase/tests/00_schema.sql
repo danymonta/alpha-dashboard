@@ -190,6 +190,10 @@ select results_eq(
      order by 1 $$,
   $$ select x collate "C" from unnest(array[
        'aggiorna_mio_profilo', 'aggiorna_stato_lead', 'aggiungi_rata', 'anteprima_eliminazione',
+       -- the calendar «Dany Discovery Call» (1.76.0): the admin links it; the booked calls of each day (admin,
+       -- the business coach inside recap_sales, the service role); «Setting e contatti» (admin)
+       'calendario_imposta_url', 'calendario_togli_url', 'calendario_url_presente', 'prenotate_per_giorno',
+       'setting_contatti',
        -- the calls of 1.37.0: the recording (admin and the call's closer), the analysis and its requests, the numbers
        -- (admin, closer), the planner's settings (admin), the performance (the call's closer, admin), the brief for Claude
        'call_analisi_richiedi', 'call_imposta_costo_max', 'call_imposta_interruttori', 'call_lavori_situazione',

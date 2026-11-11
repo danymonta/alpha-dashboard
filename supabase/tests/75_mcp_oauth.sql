@@ -467,6 +467,12 @@ on conflict (media_id) do nothing;
 insert into public.marketing_analisi (id, media_id, motivo, periodo_da, periodo_a)
 values ('75750000-0000-4000-8000-000000000275', '6600000000000001', 'richiesta', public.oggi() - 28, public.oggi() - 1)
 on conflict (id) do nothing;
+-- The calendar «Dany Discovery Call» (1.76.0), which the seed leaves empty
+insert into public.call_calendario (uid, creata_il, programmata_il, eta, budget_si)
+values ('evento-75@calendly.com', now() - interval '3 days', now() + interval '1 day', 30, true)
+on conflict (uid) do nothing;
+-- The admin's personal expenses (1.68.0), which the seed leaves empty
+insert into public.spese_personali (data, categoria, descrizione, importo) values ('2024-01-15', 'casa', 'Affitto 75', 700);
 
 create or replace function pg_temp.tabelle_vuote()
 returns text
@@ -658,6 +664,12 @@ begin
   perform pg_temp.prova('call_numeri_periodo', $q$ select count(*)::text from public.call_numeri_periodo('2026-10-01', '2026-10-31', 'totale', null) $q$);
   perform pg_temp.prova('collega_registrazione', format($q$ select public.collega_registrazione(%L, '{"tipo":"non_registrata"}')::text $q$, a.call_id));
   perform pg_temp.prova('decidi_performance', format($q$ select public.decidi_performance(%L, 'buona')::text $q$, a.call_id));
+  -- the calendar «Dany Discovery Call» (1.76.0): admin only, never an OAuth token
+  perform pg_temp.prova('calendario_imposta_url', $q$ select public.calendario_imposta_url('https://calendar.google.com/calendar/ical/x%40group.calendar.google.com/private-0123456789abcdef0123/basic.ics')::text $q$);
+  perform pg_temp.prova('calendario_togli_url', $q$ select public.calendario_togli_url()::text $q$);
+  perform pg_temp.prova('calendario_url_presente', $q$ select public.calendario_url_presente()::text $q$);
+  perform pg_temp.prova('prenotate_per_giorno', $q$ select count(*)::text from public.prenotate_per_giorno('2026-10-01', '2026-10-31') $q$);
+  perform pg_temp.prova('setting_contatti', $q$ select public.setting_contatti('2026-10-01', '2026-10-31')::text $q$);
   perform pg_temp.prova('fathom_chiave_presente', $q$ select public.fathom_chiave_presente()::text $q$);
   perform pg_temp.prova('fathom_imposta_chiave', $q$ select public.fathom_imposta_chiave('chiave-da-claude-0123456789abcdef')::text $q$);
   perform pg_temp.prova('fathom_togli_chiave', $q$ select public.fathom_togli_chiave()::text $q$);
@@ -754,6 +766,9 @@ select is(
     'aggiungi_rata 42501',
     'anteprima_eliminazione 42501',
     'avanzamento_obiettivi 42501',
+    'calendario_imposta_url 42501',
+    'calendario_togli_url 42501',
+    'calendario_url_presente 42501',
     'call_analisi_richiedi 42501',
     'call_ha_follow_up ok:null',
     'call_ha_vendita ok:null',
@@ -824,6 +839,7 @@ select is(
     'pm_puo_modificare_task ok:false',
     'pm_puo_vedere ok:false',
     'pm_tempo_per_persona 42501',
+    'prenotate_per_giorno 42501',
     'previsione_cassa 42501',
     'promemoria_percorso_interrotto 42501',
     'provvigioni_per_vendita 42501',
@@ -833,6 +849,7 @@ select is(
     'registra_vendita 42501',
     'scollega_registrazione 42501',
     'segna_tutorial_visto 42501',
+    'setting_contatti 42501',
     'spunti_per_claude ok:true',
     'unisci_profili 42501',
     'vede_marketing ok:true',

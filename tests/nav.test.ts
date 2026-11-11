@@ -56,6 +56,8 @@ describe('Setter e Closer al posto di Setting (07/10/2026)', () => {
     const setter = voce('admin', 'Setter')
     const closer = voce('admin', 'Closer')
     expect(isAttiva('/setting', setter)).toBe(true)
+    expect(isAttiva('/setting/contatti', setter)).toBe(true)
+    expect(isAttiva('/setting/contatti', closer)).toBe(false)
     expect(isAttiva('/setting/closer', setter)).toBe(false)
     expect(isAttiva('/setting/closer/giorno', setter)).toBe(false)
     expect(isAttiva('/setting', closer)).toBe(false)

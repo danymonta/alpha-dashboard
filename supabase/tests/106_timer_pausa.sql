@@ -97,7 +97,8 @@ select is(
 );
 select ok(
   (select inizio is null and fine is null and pausa_dal is null and pausa_secondi = 0 and nota = 'Montaggio'
-   and data = public.oggi()
+   -- the day of the start (two hours ago), which is yesterday between 00:00 and 02:00 in Rome
+   and data = ((clock_timestamp() - interval '2 hours') at time zone 'Europe/Rome')::date
    from public.pm_tempo where id = (select id from ids where chiave = 'lungo')),
   'e resta una voce con la sola durata, nel giorno dell''inizio'
 );

@@ -12,8 +12,8 @@ function testo(id: (typeof ORDINE_CHIAVI)[number]): string {
 }
 
 describe('le guide di Chiavi e collegamenti (1.38.0)', () => {
-  it('cinque chiavi, ognuna con la sua guida completa', () => {
-    expect(ORDINE_CHIAVI).toEqual(['instagram', 'messenger', 'fathom', 'anthropic', 'groq'])
+  it('sei chiavi, ognuna con la sua guida completa', () => {
+    expect(ORDINE_CHIAVI).toEqual(['instagram', 'messenger', 'fathom', 'calendario', 'anthropic', 'groq'])
     for (const id of ORDINE_CHIAVI) {
       const g = GUIDE_CHIAVI[id]
       expect(g.id).toBe(id)
@@ -45,6 +45,9 @@ describe('le guide di Chiavi e collegamenti (1.38.0)', () => {
   it('Messenger, Fathom, Claude e Groq: dove andare e dove incollare', () => {
     expect(testo('messenger')).toContain('Messenger › Impostazioni dell’API')
     expect(testo('fathom')).toContain('My Settings › API Access')
+    // the calendar (1.76.0): the secret address, never the public one
+    expect(testo('calendario')).toContain('Indirizzo segreto in formato iCal')
+    expect(testo('calendario')).toContain('Rendi disponibile pubblicamente')
     expect(testo('fathom')).toContain('Generate Api Key')
     expect(GUIDE_CHIAVI.fathom.passi.join(' ')).toContain('Non serve nessun webhook')
     expect(GUIDE_CHIAVI.fathom.comeCapireCheFunziona).toContain('Fathom risponde con questa chiave.')

@@ -9,6 +9,7 @@ export type Database = {
                   Row: {
                     "azione": Database["public"]['Enums']["audit_action"],"created_at": string,"dati_dopo": Json | null,"dati_prima": Json | null,"id": string,"record_id": string | null,"tabella": string,"utente_id": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "azione": Database["public"]['Enums']["audit_action"],"created_at"?: string,"dati_dopo"?: Json | null,"dati_prima"?: Json | null,"id"?: string,"record_id"?: string | null,"tabella": string,"utente_id"?: string | null
                   }
@@ -24,10 +25,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"calendario_collegamento": {
+                  Row: {
+                    "created_at": string,"dal": string | null,"eventi_letti": number | null,"id": boolean,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"ultimo_esito": string | null,"ultimo_sync_il": string | null,"updated_at": string,"updated_by": string | null,"url_aggiornato_il": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"dal"?: string | null,"eventi_letti"?: number | null,"id"?: boolean,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"ultimo_esito"?: string | null,"ultimo_sync_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null,"url_aggiornato_il"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"dal"?: string | null,"eventi_letti"?: number | null,"id"?: boolean,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"ultimo_esito"?: string | null,"ultimo_sync_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null,"url_aggiornato_il"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "calendario_collegamento_updated_by_fkey"
+      columns: ["updated_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"call_analisi": {
                   Row: {
                     "analizzata_il": string | null,"call_id": string,"categorie_obiezioni": (string)[],"convinto_da": Json | null,"created_at": string,"desideri": (string)[],"domande": Json | null,"errore": string | null,"esito_letto": string | null,"in_attesa_dal": string,"in_target": string | null,"iniziata_il": string | null,"lead": Json | null,"momenti": Json | null,"motivo": string,"motivo_proposto": string | null,"obiezioni": Json | null,"pain": (string)[],"prossimi_passi": Json | null,"prossimo_tentativo_il": string | null,"recording_id": number | null,"riassunto": string | null,"spunti_contenuto": Json | null,"stato": string,"tentativi": number,"updated_at": string,"versione_prompt": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "analizzata_il"?: string | null,"call_id": string,"categorie_obiezioni"?: (string)[],"convinto_da"?: Json | null,"created_at"?: string,"desideri"?: (string)[],"domande"?: Json | null,"errore"?: string | null,"esito_letto"?: string | null,"in_attesa_dal"?: string,"in_target"?: string | null,"iniziata_il"?: string | null,"lead"?: Json | null,"momenti"?: Json | null,"motivo"?: string,"motivo_proposto"?: string | null,"obiezioni"?: Json | null,"pain"?: (string)[],"prossimi_passi"?: Json | null,"prossimo_tentativo_il"?: string | null,"recording_id"?: number | null,"riassunto"?: string | null,"spunti_contenuto"?: Json | null,"stato"?: string,"tentativi"?: number,"updated_at"?: string,"versione_prompt"?: string | null
                   }
@@ -47,6 +69,7 @@ isOneToOne: true
                   Row: {
                     "analizzata_il": string,"call_id": string,"created_at": string,"in_target": string | null,"obiezioni": NonNullable<Json>,"sapeva": (string)[],"segnali": NonNullable<Json>,"sorprese": NonNullable<Json>,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "analizzata_il": string,"call_id": string,"created_at"?: string,"in_target"?: string | null,"obiezioni"?: NonNullable<Json>,"sapeva"?: (string)[],"segnali"?: NonNullable<Json>,"sorprese"?: NonNullable<Json>,"updated_at"?: string
                   }
@@ -62,10 +85,25 @@ isOneToOne: true
       referencedColumns: ["id"]
     }
                   ]
+                },"call_calendario": {
+                  Row: {
+                    "budget_si": boolean | null,"cancellata": boolean,"creata_il": string,"created_at": string,"di_vendita": boolean,"eta": number | null,"in_target": boolean | null,"programmata_il": string,"uid": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "budget_si"?: boolean | null,"cancellata"?: boolean,"creata_il": string,"created_at"?: string,"di_vendita"?: boolean,"eta"?: number | null,"in_target"?: never,"programmata_il": string,"uid": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "budget_si"?: boolean | null,"cancellata"?: boolean,"creata_il"?: string,"created_at"?: string,"di_vendita"?: boolean,"eta"?: number | null,"in_target"?: never,"programmata_il"?: string,"uid"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"call_lavori_stato": {
                   Row: {
                     "analisi_attive": boolean,"analisi_mese": number,"costo_max_mese": number,"costo_mese_usd": number,"created_at": string,"giorno_richieste": string | null,"id": boolean,"inviata_il": string | null,"lease_fino_al": string | null,"mese": string,"passo_cosa": string | null,"passo_id": string | null,"passo_rif": string | null,"richieste_oggi": number,"spunti_mese": number,"token_cache_letti": number,"token_cache_scritti": number,"token_input": number,"token_output": number,"ultimo_errore": string | null,"ultimo_esito": string | null,"ultimo_passo_il": string | null,"ultimo_tick_il": string | null,"updated_at": string,"url_passo": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "analisi_attive"?: boolean,"analisi_mese"?: number,"costo_max_mese"?: number,"costo_mese_usd"?: number,"created_at"?: string,"giorno_richieste"?: string | null,"id"?: boolean,"inviata_il"?: string | null,"lease_fino_al"?: string | null,"mese"?: string,"passo_cosa"?: string | null,"passo_id"?: string | null,"passo_rif"?: string | null,"richieste_oggi"?: number,"spunti_mese"?: number,"token_cache_letti"?: number,"token_cache_scritti"?: number,"token_input"?: number,"token_output"?: number,"ultimo_errore"?: string | null,"ultimo_esito"?: string | null,"ultimo_passo_il"?: string | null,"ultimo_tick_il"?: string | null,"updated_at"?: string,"url_passo"?: string | null
                   }
@@ -79,6 +117,7 @@ isOneToOne: true
                   Row: {
                     "call_id": string,"created_at": string,"created_by": string | null,"id": string,"importo_proposto": number,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "call_id": string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"importo_proposto": number,"updated_at"?: string
                   }
@@ -104,6 +143,7 @@ isOneToOne: false
                   Row: {
                     "call_id": string,"created_at": string,"created_by": string | null,"durata_secondi": number | null,"inizio_registrazione": string | null,"link_verificato": string | null,"recording_id": number | null,"stato": string,"updated_at": string,"verificata_il": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "call_id": string,"created_at"?: string,"created_by"?: string | null,"durata_secondi"?: number | null,"inizio_registrazione"?: string | null,"link_verificato"?: string | null,"recording_id"?: number | null,"stato": string,"updated_at"?: string,"verificata_il"?: string | null
                   }
@@ -129,6 +169,7 @@ isOneToOne: false
                   Row: {
                     "call_id": string,"created_at": string,"setter_id": string,"spunti": NonNullable<Json>,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "call_id": string,"created_at"?: string,"setter_id": string,"spunti"?: NonNullable<Json>,"updated_at"?: string
                   }
@@ -154,6 +195,7 @@ isOneToOne: false
                   Row: {
                     "call_id": string,"closer_id": string,"created_at": string,"criteri": NonNullable<Json>,"da_provare": NonNullable<Json>,"decisa_il": string | null,"decisa_livello": Database["public"]['Enums']["call_performance"] | null,"funzionato": NonNullable<Json>,"livello_proposto": Database["public"]['Enums']["call_performance"] | null,"perche": NonNullable<Json>,"quota_parlato": number | null,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "call_id": string,"closer_id": string,"created_at"?: string,"criteri": NonNullable<Json>,"da_provare"?: NonNullable<Json>,"decisa_il"?: string | null,"decisa_livello"?: Database["public"]['Enums']["call_performance"] | null,"funzionato"?: NonNullable<Json>,"livello_proposto"?: Database["public"]['Enums']["call_performance"] | null,"perche"?: NonNullable<Json>,"quota_parlato"?: number | null,"updated_at"?: string
                   }
@@ -179,6 +221,7 @@ isOneToOne: false
                   Row: {
                     "closer_id": string | null,"created_at": string,"created_by": string | null,"di_follow_up": boolean,"esito": Database["public"]['Enums']["call_outcome"] | null,"follow_up_di": string | null,"id": string,"importata": boolean,"lead_id": string,"link_registrazione": string | null,"note": string | null,"note_closer": string | null,"obiezione_principale": string | null,"performance": Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id": string | null,"programmata_il": string,"qualificata": boolean | null,"setter_id": string | null,"spostata_dal": string | null,"stato": Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at": string,"volte_spostata": number,"call_ha_follow_up": boolean | null,"call_ha_vendita": boolean | null
                   }
+                  ComputedFields: "call_ha_follow_up" | "call_ha_vendita"
                   Insert: {
                     "closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"di_follow_up"?: boolean,"esito"?: Database["public"]['Enums']["call_outcome"] | null,"follow_up_di"?: string | null,"id"?: string,"importata"?: boolean,"lead_id": string,"link_registrazione"?: string | null,"note"?: string | null,"note_closer"?: string | null,"obiezione_principale"?: string | null,"performance"?: Database["public"]['Enums']["call_performance"] | null,"prodotto_proposto_id"?: string | null,"programmata_il": string,"qualificata"?: boolean | null,"setter_id"?: string | null,"spostata_dal"?: string | null,"stato"?: Database["public"]['Enums']["call_status"],"tipo": Database["public"]['Enums']["call_type"],"updated_at"?: string,"volte_spostata"?: number
                   }
@@ -228,6 +271,7 @@ isOneToOne: false
                   Row: {
                     "client_id": string,"created_at": string,"created_by": string | null,"updated_at": string,"url": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "client_id": string,"created_at"?: string,"created_by"?: string | null,"updated_at"?: string,"url": string
                   }
@@ -265,6 +309,7 @@ isOneToOne: false
                   Row: {
                     "archiviato_il": string | null,"chiuso_il": string,"client_id": string,"created_at": string,"created_by": string | null,"motivo": string | null,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "archiviato_il"?: string | null,"chiuso_il": string,"client_id": string,"created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"updated_at"?: string
                   }
@@ -302,6 +347,7 @@ isOneToOne: false
                   Row: {
                     "client_id": string,"created_at": string,"created_by": string | null,"motivo": string | null,"sospeso_il": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "client_id": string,"created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"sospeso_il": string,"updated_at"?: string
                   }
@@ -339,6 +385,7 @@ isOneToOne: false
                   Row: {
                     "closer_id": string | null,"cognome": string | null,"created_at": string,"created_by": string | null,"email": string | null,"fonte": Database["public"]['Enums']["lead_source"] | null,"id": string,"instagram_handle": string | null,"lead_id": string | null,"nome": string,"note": string | null,"setter_id": string | null,"telefono": string | null,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "closer_id"?: string | null,"cognome"?: string | null,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"fonte"?: Database["public"]['Enums']["lead_source"] | null,"id"?: string,"instagram_handle"?: string | null,"lead_id"?: string | null,"nome": string,"note"?: string | null,"setter_id"?: string | null,"telefono"?: string | null,"updated_at"?: string
                   }
@@ -376,6 +423,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"created_by": string | null,"id": string,"importo": number,"metodo": Database["public"]['Enums']["payment_method"] | null,"note": string | null,"pagato_il": string,"periodo": string,"profile_id": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"created_by"?: string | null,"id"?: string,"importo": number,"metodo"?: Database["public"]['Enums']["payment_method"] | null,"note"?: string | null,"pagato_il": string,"periodo": string,"profile_id": string,"updated_at"?: string
                   }
@@ -401,6 +449,7 @@ isOneToOne: false
                   Row: {
                     "applica_a": (Database["public"]['Enums']["sale_type"])[],"created_at": string,"created_by": string | null,"id": string,"percentuale": number,"profile_id": string,"updated_at": string,"valida_al": string | null,"valida_dal": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "applica_a"?: (Database["public"]['Enums']["sale_type"])[],"created_at"?: string,"created_by"?: string | null,"id"?: string,"percentuale": number,"profile_id": string,"updated_at"?: string,"valida_al"?: string | null,"valida_dal": string
                   }
@@ -426,6 +475,7 @@ isOneToOne: false
                   Row: {
                     "categoria": Database["public"]['Enums']["expense_category"],"created_at": string,"created_by": string | null,"data": string,"descrizione": string,"id": string,"importo": number,"ricorrente": boolean,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "categoria": Database["public"]['Enums']["expense_category"],"created_at"?: string,"created_by"?: string | null,"data": string,"descrizione": string,"id"?: string,"importo": number,"ricorrente"?: boolean,"updated_at"?: string
                   }
@@ -445,6 +495,7 @@ isOneToOne: false
                   Row: {
                     "chiave_aggiornata_il": string | null,"created_at": string,"id": boolean,"ultima_prova_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"updated_at": string,"updated_by": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "chiave_aggiornata_il"?: string | null,"created_at"?: string,"id"?: boolean,"ultima_prova_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
                   }
@@ -464,6 +515,7 @@ isOneToOne: false
                   Row: {
                     "canale": Database["public"]['Enums']["insight_canale"],"chiavi": (string)[],"created_at": string,"errore": string | null,"esecuzione_id": string,"id": string,"indice": number,"risultato": Json | null,"servito_da_fallback": boolean,"stato": string,"tentativi": number,"tipo": string,"updated_at": string,"usage": Json | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "canale": Database["public"]['Enums']["insight_canale"],"chiavi"?: (string)[],"created_at"?: string,"errore"?: string | null,"esecuzione_id": string,"id"?: string,"indice": number,"risultato"?: Json | null,"servito_da_fallback"?: boolean,"stato"?: string,"tentativi"?: number,"tipo": string,"updated_at"?: string,"usage"?: Json | null
                   }
@@ -483,6 +535,7 @@ isOneToOne: false
                   Row: {
                     "aggiornata_il": string | null,"calendly_inviato_il": string | null,"canale": Database["public"]['Enums']["insight_canale"],"codici_condivisi": (string)[],"completa": boolean,"conversazione_id": string,"created_at": string,"id": string,"letta_da": string | null,"letta_il": string,"messaggi": NonNullable<Json>,"messaggi_letti": number,"minore_14": boolean,"nome": string | null,"non_lead": boolean,"origine_giorno": string | null,"origine_il": string | null,"origine_shortcode": string | null,"origine_tipo": string | null,"ultimo_da": string | null,"ultimo_il": string | null,"ultimo_target": string | null,"updated_at": string,"username": string | null,"utente_id": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "aggiornata_il"?: string | null,"calendly_inviato_il"?: string | null,"canale": Database["public"]['Enums']["insight_canale"],"codici_condivisi"?: (string)[],"completa"?: boolean,"conversazione_id": string,"created_at"?: string,"id"?: string,"letta_da"?: string | null,"letta_il"?: string,"messaggi"?: NonNullable<Json>,"messaggi_letti"?: number,"minore_14"?: boolean,"nome"?: string | null,"non_lead"?: boolean,"origine_giorno"?: string | null,"origine_il"?: string | null,"origine_shortcode"?: string | null,"origine_tipo"?: string | null,"ultimo_da"?: string | null,"ultimo_il"?: string | null,"ultimo_target"?: string | null,"updated_at"?: string,"username"?: string | null,"utente_id"?: string | null
                   }
@@ -502,6 +555,7 @@ isOneToOne: false
                   Row: {
                     "avvisi": (string)[],"blocchi_fatti": number | null,"blocchi_totali": number | null,"chat_attribuite": number | null,"chat_escluse": number | null,"chat_instagram": number | null,"chat_messenger": number | null,"contenuti": number | null,"contesto_app": Json | null,"costo_usd": number | null,"creata_il": string,"dettagli_recap": NonNullable<Json>,"errore": string | null,"finita_il": string | null,"giorno": string,"id": string,"iniziata_il": string | null,"inviata_il": string | null,"invocazioni": number,"lease_fino_al": string | null,"modello": string | null,"motivo": string,"passo": Database["public"]['Enums']["insight_passo"],"progresso": NonNullable<Json>,"richiesta_da": string | null,"servito_da_fallback": number,"stato": Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi": number,"token_cache_letti": number | null,"token_cache_scritti": number | null,"token_input": number | null,"token_output": number | null,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "avvisi"?: (string)[],"blocchi_fatti"?: number | null,"blocchi_totali"?: number | null,"chat_attribuite"?: number | null,"chat_escluse"?: number | null,"chat_instagram"?: number | null,"chat_messenger"?: number | null,"contenuti"?: number | null,"contesto_app"?: Json | null,"costo_usd"?: number | null,"creata_il"?: string,"dettagli_recap"?: NonNullable<Json>,"errore"?: string | null,"finita_il"?: string | null,"giorno": string,"id"?: string,"iniziata_il"?: string | null,"inviata_il"?: string | null,"invocazioni"?: number,"lease_fino_al"?: string | null,"modello"?: string | null,"motivo": string,"passo"?: Database["public"]['Enums']["insight_passo"],"progresso"?: NonNullable<Json>,"richiesta_da"?: string | null,"servito_da_fallback"?: number,"stato"?: Database["public"]['Enums']["insight_stato_esecuzione"],"tentativi"?: number,"token_cache_letti"?: number | null,"token_cache_scritti"?: number | null,"token_input"?: number | null,"token_output"?: number | null,"updated_at"?: string
                   }
@@ -521,6 +575,7 @@ isOneToOne: false
                   Row: {
                     "canale": Database["public"]['Enums']["insight_canale"],"chiave": string,"fatto": boolean,"giorno": string,"id": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "canale": Database["public"]['Enums']["insight_canale"],"chiave": string,"fatto": boolean,"giorno": string,"id"?: string
                   }
@@ -540,6 +595,7 @@ isOneToOne: false
                   Row: {
                     "anticipo_minuti": number,"attivo": boolean,"created_at": string,"id": boolean,"ora": string,"storico_dal": string | null,"ultimo_tick_il": string | null,"updated_at": string,"updated_by": string | null,"url_passo": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "anticipo_minuti"?: number,"attivo"?: boolean,"created_at"?: string,"id"?: boolean,"ora"?: string,"storico_dal"?: string | null,"ultimo_tick_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null,"url_passo"?: string | null
                   }
@@ -559,6 +615,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"follower": number | null,"letto_il": string,"lo_segui": boolean | null,"nome": string | null,"ti_segue": boolean | null,"updated_at": string,"username": string,"utente_id": string | null,"verificato": boolean | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"follower"?: number | null,"letto_il"?: string,"lo_segui"?: boolean | null,"nome"?: string | null,"ti_segue"?: boolean | null,"updated_at"?: string,"username": string,"utente_id"?: string | null,"verificato"?: boolean | null
                   }
@@ -572,6 +629,7 @@ isOneToOne: false
                   Row: {
                     "canale": Database["public"]['Enums']["insight_canale"],"created_at": string,"dati": NonNullable<Json>,"esecuzione_id": string | null,"generato_il": string,"giorno": string,"stato": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "canale": Database["public"]['Enums']["insight_canale"],"created_at"?: string,"dati": NonNullable<Json>,"esecuzione_id"?: string | null,"generato_il": string,"giorno": string,"stato": string,"updated_at"?: string
                   }
@@ -591,6 +649,7 @@ isOneToOne: false
                   Row: {
                     "canale": Database["public"]['Enums']["insight_canale"],"chiave": string,"created_at": string,"dati": NonNullable<Json>,"esecuzione_id": string,"giorno": string,"id": string,"impronta": string,"tipo": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "canale": Database["public"]['Enums']["insight_canale"],"chiave": string,"created_at"?: string,"dati": NonNullable<Json>,"esecuzione_id": string,"giorno": string,"id"?: string,"impronta": string,"tipo": string,"updated_at"?: string
                   }
@@ -610,6 +669,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"follower": number | null,"giorno": string,"letto_il": string,"media": number | null,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"follower"?: number | null,"giorno": string,"letto_il": string,"media"?: number | null,"updated_at"?: string
                   }
@@ -623,6 +683,7 @@ isOneToOne: false
                   Row: {
                     "account_id": string | null,"account_username": string | null,"created_at": string,"id": boolean,"setter_id": string | null,"token_aggiornato_il": string | null,"token_scade_il": string | null,"ultimo_calcolo_chat": number | null,"ultimo_calcolo_giorno": string | null,"ultimo_calcolo_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"updated_at": string,"updated_by": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "account_id"?: string | null,"account_username"?: string | null,"created_at"?: string,"id"?: boolean,"setter_id"?: string | null,"token_aggiornato_il"?: string | null,"token_scade_il"?: string | null,"ultimo_calcolo_chat"?: number | null,"ultimo_calcolo_giorno"?: string | null,"ultimo_calcolo_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
                   }
@@ -648,6 +709,7 @@ isOneToOne: false
                   Row: {
                     "audio_tipo": string | null,"avg_watch_ms": number | null,"comments": number | null,"comments_count": number | null,"copertina_url": string | null,"created_at": string,"didascalia": string | null,"durata_ms": number | null,"eliminato_il": string | null,"follows": number | null,"letto_il": string,"like_count": number | null,"likes": number | null,"media_id": string,"media_product_type": string | null,"media_type": string,"metriche_il": string | null,"metriche_stato": string,"permalink": string,"profile_visits": number | null,"pubblicato_il": string,"reach": number | null,"reel": boolean,"reposts": number | null,"saved": number | null,"shares": number | null,"shortcode": string,"skip_rate": number | null,"total_interactions": number | null,"updated_at": string,"video_disponibile": boolean | null,"view_total_ms": number | null,"views": number | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "audio_tipo"?: string | null,"avg_watch_ms"?: number | null,"comments"?: number | null,"comments_count"?: number | null,"copertina_url"?: string | null,"created_at"?: string,"didascalia"?: string | null,"durata_ms"?: number | null,"eliminato_il"?: string | null,"follows"?: number | null,"letto_il"?: string,"like_count"?: number | null,"likes"?: number | null,"media_id": string,"media_product_type"?: string | null,"media_type": string,"metriche_il"?: string | null,"metriche_stato"?: string,"permalink": string,"profile_visits"?: number | null,"pubblicato_il": string,"reach"?: number | null,"reel": boolean,"reposts"?: number | null,"saved"?: number | null,"shares"?: number | null,"shortcode": string,"skip_rate"?: number | null,"total_interactions"?: number | null,"updated_at"?: string,"video_disponibile"?: boolean | null,"view_total_ms"?: number | null,"views"?: number | null
                   }
@@ -661,6 +723,7 @@ isOneToOne: false
                   Row: {
                     "calcolato_il": string,"call_prenotate": number,"dm": number,"dm_certi": number,"giorno": string,"lead_in_target": number,"shortcode": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "calcolato_il"?: string,"call_prenotate": number,"dm": number,"dm_certi": number,"giorno": string,"lead_in_target": number,"shortcode": string
                   }
@@ -704,6 +767,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"giorno": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"giorno": string
                   }
@@ -717,6 +781,7 @@ isOneToOne: false
                   Row: {
                     "avg_watch_ms": number | null,"comments": number | null,"comments_count": number | null,"created_at": string,"eta_ore": number,"follows": number | null,"giorno": string,"letto_il": string,"like_count": number | null,"likes": number | null,"media_id": string,"profile_visits": number | null,"reach": number | null,"reposts": number | null,"saved": number | null,"shares": number | null,"skip_rate": number | null,"total_interactions": number | null,"updated_at": string,"views": number | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "avg_watch_ms"?: number | null,"comments"?: number | null,"comments_count"?: number | null,"created_at"?: string,"eta_ore": number,"follows"?: number | null,"giorno": string,"letto_il": string,"like_count"?: number | null,"likes"?: number | null,"media_id": string,"profile_visits"?: number | null,"reach"?: number | null,"reposts"?: number | null,"saved"?: number | null,"shares"?: number | null,"skip_rate"?: number | null,"total_interactions"?: number | null,"updated_at"?: string,"views"?: number | null
                   }
@@ -760,6 +825,7 @@ isOneToOne: false
                   Row: {
                     "account_username": string | null,"campi": string | null,"created_at": string,"giro_dal": string | null,"giro_id": string | null,"giro_motivo": string | null,"id": boolean,"metriche_errore": string | null,"metriche_esito": string | null,"metriche_fine_il": string | null,"metriche_gradini": Json | null,"metriche_letti": number | null,"permesso_insights": boolean | null,"permesso_insights_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"ultimo_giro_causa": string | null,"ultimo_giro_collegati": number | null,"ultimo_giro_esito": string | null,"ultimo_giro_il": string | null,"ultimo_giro_letti": number | null,"ultimo_giro_motivo": string | null,"ultimo_giro_proposti": number | null,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "account_username"?: string | null,"campi"?: string | null,"created_at"?: string,"giro_dal"?: string | null,"giro_id"?: string | null,"giro_motivo"?: string | null,"id"?: boolean,"metriche_errore"?: string | null,"metriche_esito"?: string | null,"metriche_fine_il"?: string | null,"metriche_gradini"?: Json | null,"metriche_letti"?: number | null,"permesso_insights"?: boolean | null,"permesso_insights_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"ultimo_giro_causa"?: string | null,"ultimo_giro_collegati"?: number | null,"ultimo_giro_esito"?: string | null,"ultimo_giro_il"?: string | null,"ultimo_giro_letti"?: number | null,"ultimo_giro_motivo"?: string | null,"ultimo_giro_proposti"?: number | null,"updated_at"?: string
                   }
@@ -773,6 +839,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"created_by": string | null,"motivo": string | null,"updated_at": string,"username": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"updated_at"?: string,"username": string
                   }
@@ -792,6 +859,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"errore": string | null,"fonte_visione": string | null,"fotogrammi": number | null,"gancio_parlato": string | null,"ha_audio": boolean | null,"iniziata_il": string | null,"lato_px": number | null,"letta_il": string | null,"media_id": string,"modello_trascrizione": string | null,"modello_visione": string | null,"motivo": string,"priorita": number,"prossimo_il": string | null,"richiesta": string,"ripresa_usata": boolean,"scheda": Json | null,"segmenti": Json | null,"stato": string,"tentativi": number,"trascrizione": string | null,"trascrizione_esito": string | null,"updated_at": string,"versione_prompt_visione": string | null,"video": string | null,"visione_esito": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"errore"?: string | null,"fonte_visione"?: string | null,"fotogrammi"?: number | null,"gancio_parlato"?: string | null,"ha_audio"?: boolean | null,"iniziata_il"?: string | null,"lato_px"?: number | null,"letta_il"?: string | null,"media_id": string,"modello_trascrizione"?: string | null,"modello_visione"?: string | null,"motivo": string,"priorita"?: number,"prossimo_il"?: string | null,"richiesta": string,"ripresa_usata"?: boolean,"scheda"?: Json | null,"segmenti"?: Json | null,"stato"?: string,"tentativi"?: number,"trascrizione"?: string | null,"trascrizione_esito"?: string | null,"updated_at"?: string,"versione_prompt_visione"?: string | null,"video"?: string | null,"visione_esito"?: string | null
                   }
@@ -835,6 +903,7 @@ isOneToOne: true
                   Row: {
                     "created_at": string,"email": string,"invitato_da": string | null,"revocato": boolean,"ruolo": Database["public"]['Enums']["app_role"],"updated_at": string,"usato_at": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"email": string,"invitato_da"?: string | null,"revocato"?: boolean,"ruolo": Database["public"]['Enums']["app_role"],"updated_at"?: string,"usato_at"?: string | null
                   }
@@ -854,6 +923,7 @@ isOneToOne: false
                   Row: {
                     "certo": boolean,"come": string,"created_at": string,"giorno": string,"lead_id": string,"shortcode": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "certo": boolean,"come": string,"created_at"?: string,"giorno": string,"lead_id": string,"shortcode"?: string | null
                   }
@@ -903,6 +973,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"created_by": string | null,"fonte": Database["public"]['Enums']["lead_source"],"id": string,"instagram_handle": string | null,"nome": string,"note": string | null,"setter_id": string | null,"stato": Database["public"]['Enums']["lead_status"],"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"created_by"?: string | null,"fonte"?: Database["public"]['Enums']["lead_source"],"id"?: string,"instagram_handle"?: string | null,"nome": string,"note"?: string | null,"setter_id"?: string | null,"stato"?: Database["public"]['Enums']["lead_status"],"updated_at"?: string
                   }
@@ -928,6 +999,7 @@ isOneToOne: false
                   Row: {
                     "calcolato_il": string,"contenuto_id": string,"esito": string,"giorni": number | null,"motivi": (string)[],"punteggio": number,"shortcode": string,"somiglianza": number
                   }
+                  ComputedFields: never
                   Insert: {
                     "calcolato_il"?: string,"contenuto_id": string,"esito": string,"giorni"?: number | null,"motivi"?: (string)[],"punteggio": number,"shortcode": string,"somiglianza": number
                   }
@@ -995,6 +1067,7 @@ isOneToOne: false
                   Row: {
                     "contenuto_id": string,"created_at": string,"shortcode": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "contenuto_id": string,"created_at"?: string,"shortcode": string
                   }
@@ -1032,6 +1105,7 @@ isOneToOne: false
                   Row: {
                     "contenuto": Json | null,"created_at": string,"errore": string | null,"eta_confronto": number | null,"eta_ore": number | null,"finita_il": string | null,"fonti": Json | null,"id": string,"iniziata_il": string | null,"media_id": string,"modello": string | null,"motivo": string,"numeri": Json | null,"periodo_a": string,"periodo_da": string,"prossimo_il": string | null,"punteggio": Json | null,"punteggio_fascia": string | null,"punteggio_tipo": string | null,"punteggio_totale": number | null,"stato": Database["public"]['Enums']["analisi_stato"],"tentativi": number,"updated_at": string,"verdetto": string | null,"versione_guida": string | null,"versione_prompt": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "contenuto"?: Json | null,"created_at"?: string,"errore"?: string | null,"eta_confronto"?: number | null,"eta_ore"?: number | null,"finita_il"?: string | null,"fonti"?: Json | null,"id"?: string,"iniziata_il"?: string | null,"media_id": string,"modello"?: string | null,"motivo": string,"numeri"?: Json | null,"periodo_a": string,"periodo_da": string,"prossimo_il"?: string | null,"punteggio"?: Json | null,"punteggio_fascia"?: string | null,"punteggio_tipo"?: string | null,"punteggio_totale"?: number | null,"stato"?: Database["public"]['Enums']["analisi_stato"],"tentativi"?: number,"updated_at"?: string,"verdetto"?: string | null,"versione_guida"?: string | null,"versione_prompt"?: string | null
                   }
@@ -1075,6 +1149,7 @@ isOneToOne: false
                   Row: {
                     "audio": string | null,"bozza": string | null,"commenti": string | null,"created_at": string,"created_by": string | null,"da_analisi": string | null,"da_idea": number | null,"da_spunti": string | null,"da_spunti_idea": number | null,"finale": string | null,"formato": string | null,"formato_campo": string,"id": string,"inspiration": string | null,"instagram_shortcode": string | null,"messaggio": string | null,"nome": string,"notion_page_id": string | null,"post_date": string | null,"reel_type": string | null,"reel_type_campo": string,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"],"updated_at": string,"url": string | null,"view_count": number | null,"view_count_da_instagram": boolean
                   }
+                  ComputedFields: never
                   Insert: {
                     "audio"?: string | null,"bozza"?: string | null,"commenti"?: string | null,"created_at"?: string,"created_by"?: string | null,"da_analisi"?: string | null,"da_idea"?: number | null,"da_spunti"?: string | null,"da_spunti_idea"?: number | null,"finale"?: string | null,"formato"?: string | null,"formato_campo"?: string,"id"?: string,"inspiration"?: string | null,"instagram_shortcode"?: never,"messaggio"?: string | null,"nome": string,"notion_page_id"?: string | null,"post_date"?: string | null,"reel_type"?: string | null,"reel_type_campo"?: string,"stato"?: Database["public"]['Enums']["contenuto_status"],"tipo"?: Database["public"]['Enums']["contenuto_tipo"],"updated_at"?: string,"url"?: string | null,"view_count"?: number | null,"view_count_da_instagram"?: boolean
                   }
@@ -1130,6 +1205,7 @@ isOneToOne: false
                   Row: {
                     "automatiche": boolean,"costo_max_mese": number,"costo_mese_usd": number,"created_at": string,"id": boolean,"inviata_il": string | null,"lease_fino_al": string | null,"mese": string,"note_team": boolean,"passo_cosa": string | null,"passo_id": string | null,"passo_rif": string | null,"secondi_audio": number,"token_cache_letti": number,"token_cache_scritti": number,"token_input": number,"token_output": number,"ultimo_errore": string | null,"ultimo_esito": string | null,"ultimo_passo_il": string | null,"ultimo_tick_il": string | null,"updated_at": string,"url_passo": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "automatiche"?: boolean,"costo_max_mese"?: number,"costo_mese_usd"?: number,"created_at"?: string,"id"?: boolean,"inviata_il"?: string | null,"lease_fino_al"?: string | null,"mese"?: string,"note_team"?: boolean,"passo_cosa"?: string | null,"passo_id"?: string | null,"passo_rif"?: string | null,"secondi_audio"?: number,"token_cache_letti"?: number,"token_cache_scritti"?: number,"token_input"?: number,"token_output"?: number,"ultimo_errore"?: string | null,"ultimo_esito"?: string | null,"ultimo_passo_il"?: string | null,"ultimo_tick_il"?: string | null,"updated_at"?: string,"url_passo"?: string | null
                   }
@@ -1143,6 +1219,7 @@ isOneToOne: false
                   Row: {
                     "campo": string,"colore": string,"created_at": string,"created_by": string | null,"id": string,"nome": string,"ordine": number,"updated_at": string,"valore": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "campo": string,"colore"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"nome": string,"ordine"?: number,"updated_at"?: string,"valore": string
                   }
@@ -1162,6 +1239,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"shortcode": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"shortcode": string
                   }
@@ -1205,6 +1283,7 @@ isOneToOne: true
                   Row: {
                     "contenuto": Json | null,"created_at": string,"errore": string | null,"finita_il": string | null,"fonti": Json | null,"id": string,"iniziata_il": string | null,"modello": string | null,"motivo": string,"periodo_a": string,"periodo_da": string,"prossimo_il": string | null,"stato": Database["public"]['Enums']["analisi_stato"],"tentativi": number,"updated_at": string,"versione_prompt": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "contenuto"?: Json | null,"created_at"?: string,"errore"?: string | null,"finita_il"?: string | null,"fonti"?: Json | null,"id"?: string,"iniziata_il"?: string | null,"modello"?: string | null,"motivo": string,"periodo_a": string,"periodo_da": string,"prossimo_il"?: string | null,"stato"?: Database["public"]['Enums']["analisi_stato"],"tentativi"?: number,"updated_at"?: string,"versione_prompt"?: string | null
                   }
@@ -1218,6 +1297,7 @@ isOneToOne: true
                   Row: {
                     "created_at": string,"id": boolean,"pagina_id": string | null,"pagina_nome": string | null,"token_aggiornato_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"updated_at": string,"updated_by": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"id"?: boolean,"pagina_id"?: string | null,"pagina_nome"?: string | null,"token_aggiornato_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
                   }
@@ -1237,6 +1317,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"created_by": string | null,"motivo": string | null,"nome": string,"updated_at": string,"utente_id": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"created_by"?: string | null,"motivo"?: string | null,"nome": string,"updated_at"?: string,"utente_id": string
                   }
@@ -1256,6 +1337,7 @@ isOneToOne: false
                   Row: {
                     "anteprima": string,"canale": string,"chiave": string,"corpo_html": string | null,"created_at": string,"destinatario_id": string,"dettagli": Json | null,"email_inviata": boolean,"id": string,"letta_il": string | null,"link": string | null,"tipo": string,"titolo": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "anteprima"?: string,"canale"?: string,"chiave": string,"corpo_html"?: string | null,"created_at"?: string,"destinatario_id": string,"dettagli"?: Json | null,"email_inviata"?: boolean,"id"?: string,"letta_il"?: string | null,"link"?: string | null,"tipo": string,"titolo": string
                   }
@@ -1275,6 +1357,7 @@ isOneToOne: false
                   Row: {
                     "chiave": string,"emessa_il": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "chiave": string,"emessa_il"?: string
                   }
@@ -1288,6 +1371,7 @@ isOneToOne: false
                   Row: {
                     "cash": number | null,"created_at": string,"created_by": string | null,"mese": string,"nuovi_clienti": number | null,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "cash"?: number | null,"created_at"?: string,"created_by"?: string | null,"mese": string,"nuovi_clienti"?: number | null,"updated_at"?: string
                   }
@@ -1307,6 +1391,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"created_by": string | null,"id": string,"importo_incassato": number | null,"importo_previsto": number,"incassato_il": string | null,"metodo": Database["public"]['Enums']["payment_method"] | null,"note": string | null,"numero_rata": number,"sale_id": string,"scadenza": string,"stato": Database["public"]['Enums']["payment_status"],"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"created_by"?: string | null,"id"?: string,"importo_incassato"?: number | null,"importo_previsto": number,"incassato_il"?: string | null,"metodo"?: Database["public"]['Enums']["payment_method"] | null,"note"?: string | null,"numero_rata": number,"sale_id": string,"scadenza": string,"stato"?: Database["public"]['Enums']["payment_status"],"updated_at"?: string
                   }
@@ -1344,6 +1429,7 @@ isOneToOne: false
                   Row: {
                     "aggiunto_da": string | null,"created_at": string,"id": string,"profile_id": string,"progetto_id": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "aggiunto_da"?: string | null,"created_at"?: string,"id"?: string,"profile_id": string,"progetto_id": string,"updated_at"?: string
                   }
@@ -1381,6 +1467,7 @@ isOneToOne: false
                   Row: {
                     "attivo": boolean,"created_at": string,"created_by": string | null,"descrizione": string | null,"id": string,"nome": string,"per_nuovi_clienti": boolean,"reparto_id": string | null,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"per_nuovi_clienti"?: boolean,"reparto_id"?: string | null,"updated_at"?: string
                   }
@@ -1406,6 +1493,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"descrizione": string | null,"durata_giorni": number | null,"id": string,"inizio_giorni": number | null,"modello_id": string,"ordine": number,"per_ruolo": Database["public"]['Enums']["app_role"] | null,"tasklist": string | null,"titolo": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number | null,"id"?: string,"inizio_giorni"?: number | null,"modello_id": string,"ordine"?: number,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"tasklist"?: string | null,"titolo": string,"updated_at"?: string
                   }
@@ -1425,6 +1513,7 @@ isOneToOne: false
                   Row: {
                     "autore_id": string,"created_at": string,"data": string,"id": string,"progetto_id": string,"testo": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "autore_id"?: string,"created_at"?: string,"data"?: string,"id"?: string,"progetto_id": string,"testo": string,"updated_at"?: string
                   }
@@ -1456,6 +1545,7 @@ isOneToOne: false
                   Row: {
                     "client_id": string | null,"coach_id": string | null,"created_at": string,"created_by": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"nome": string,"reparto_id": string,"responsabile_id": string | null,"stato": Database["public"]['Enums']["pm_stato_progetto"],"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "client_id"?: string | null,"coach_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"reparto_id": string,"responsabile_id"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_progetto"],"updated_at"?: string
                   }
@@ -1511,6 +1601,7 @@ isOneToOne: false
                   Row: {
                     "attivo": boolean,"created_at": string,"created_by": string | null,"descrizione": string | null,"id": string,"nome": string,"ordine": number,"progetti_con_cliente": boolean,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"ordine"?: number,"progetti_con_cliente"?: boolean,"updated_at"?: string
                   }
@@ -1530,6 +1621,7 @@ isOneToOne: false
                   Row: {
                     "completato_il": string | null,"created_at": string,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"ordine": number,"parent_id": string | null,"per_ruolo": Database["public"]['Enums']["app_role"] | null,"priorita": Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza": string | null,"stato": Database["public"]['Enums']["pm_stato_task"],"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo": string,"updated_at"?: string
                   }
@@ -1585,6 +1677,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"created_by": string | null,"profile_id": string,"task_id": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"created_by"?: string | null,"profile_id": string,"task_id": string,"updated_at"?: string
                   }
@@ -1622,6 +1715,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"created_by": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"nome": string,"ordine": number,"progetto_id": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"created_by"?: string | null,"data_fine"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"ordine"?: number,"progetto_id": string,"updated_at"?: string
                   }
@@ -1653,6 +1747,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"data": string,"fine": string | null,"id": string,"inizio": string | null,"minuti": number | null,"nota": string | null,"pausa_dal": string | null,"pausa_secondi": number,"profile_id": string,"progetto_id": string,"task_id": string | null,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"data": string,"fine"?: string | null,"id"?: string,"inizio"?: string | null,"minuti"?: number | null,"nota"?: string | null,"pausa_dal"?: string | null,"pausa_secondi"?: number,"profile_id"?: string,"progetto_id": string,"task_id"?: string | null,"updated_at"?: string
                   }
@@ -1696,6 +1791,7 @@ isOneToOne: false
                   Row: {
                     "attivo": boolean,"created_at": string,"created_by": string | null,"durata_mesi": number,"id": string,"nome": string,"piano_predefinito": Json | null,"prezzo_listino": number,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"durata_mesi": number,"id"?: string,"nome": string,"piano_predefinito"?: Json | null,"prezzo_listino": number,"updated_at"?: string
                   }
@@ -1715,6 +1811,7 @@ isOneToOne: false
                   Row: {
                     "attivo": boolean,"created_at": string,"email": string,"foto_url": string | null,"id": string,"livello_pm": Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"tutorial_visto": boolean,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "attivo"?: boolean,"created_at"?: string,"email": string,"foto_url"?: string | null,"id": string,"livello_pm"?: Database["public"]['Enums']["pm_livello"],"nome": string,"ruolo": Database["public"]['Enums']["app_role"],"tutorial_visto"?: boolean,"updated_at"?: string
                   }
@@ -1728,6 +1825,7 @@ isOneToOne: false
                   Row: {
                     "client_id": string,"created_at": string,"created_by": string | null,"data_fine": string,"esito": Database["public"]['Enums']["promemoria_esito"],"id": string,"sale_id": string | null,"tipo": Database["public"]['Enums']["promemoria_tipo"],"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "client_id": string,"created_at"?: string,"created_by"?: string | null,"data_fine": string,"esito": Database["public"]['Enums']["promemoria_esito"],"id"?: string,"sale_id"?: string | null,"tipo": Database["public"]['Enums']["promemoria_tipo"],"updated_at"?: string
                   }
@@ -1783,6 +1881,7 @@ isOneToOne: false
                   Row: {
                     "notificata_il": string,"payment_id": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "notificata_il"?: string,"payment_id": string
                   }
@@ -1814,6 +1913,7 @@ isOneToOne: true
                   Row: {
                     "calcolato_il": string,"call_proposte": number,"chat_incerte": number,"chat_lette": number,"conversazioni": number,"corretta": boolean,"created_at": string,"data": string,"deciso_da": string | null,"deciso_il": string | null,"discovery_prenotate": number,"dm_inbound": number,"dm_outbound": number,"follow_up": number,"id": string,"setter_id": string,"stato": Database["public"]['Enums']["proposta_stato"],"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "calcolato_il"?: string,"call_proposte"?: number,"chat_incerte"?: number,"chat_lette"?: number,"conversazioni"?: number,"corretta"?: boolean,"created_at"?: string,"data": string,"deciso_da"?: string | null,"deciso_il"?: string | null,"discovery_prenotate"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"follow_up"?: number,"id"?: string,"setter_id": string,"stato"?: Database["public"]['Enums']["proposta_stato"],"updated_at"?: string
                   }
@@ -1839,6 +1939,7 @@ isOneToOne: false
                   Row: {
                     "call_id": string | null,"client_id": string,"closer_id": string | null,"created_at": string,"created_by": string | null,"data_fine": string,"data_inizio": string,"data_vendita": string,"id": string,"note": string | null,"numero_rate": number,"prodotto_personalizzato": string | null,"product_id": string | null,"setter_id": string | null,"tipo": Database["public"]['Enums']["sale_type"],"updated_at": string,"valore_contratto": number
                   }
+                  ComputedFields: never
                   Insert: {
                     "call_id"?: string | null,"client_id": string,"closer_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_fine": string,"data_inizio": string,"data_vendita": string,"id"?: string,"note"?: string | null,"numero_rate"?: number,"prodotto_personalizzato"?: string | null,"product_id"?: string | null,"setter_id"?: string | null,"tipo": Database["public"]['Enums']["sale_type"],"updated_at"?: string,"valore_contratto": number
                   }
@@ -1900,6 +2001,7 @@ isOneToOne: false
                   Row: {
                     "call_proposte": number,"call_qualificate": number,"contenuto_pubblicato": boolean,"conversazioni": number,"cosa_frenava": string | null,"created_at": string,"created_by": string | null,"data": string,"discovery_prenotate": number,"discovery_svolte": number,"dm_inbound": number,"dm_outbound": number,"dm_totali": number | null,"domande_contenuti": string | null,"follow_up": number,"id": string,"lead_in_target": Database["public"]['Enums']["quota_in_target"] | null,"note": string | null,"qualita_conversazioni": Database["public"]['Enums']["qualita_conversazioni"] | null,"setter_id": string,"strategy_prenotate": number,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "call_proposte"?: number,"call_qualificate"?: number,"contenuto_pubblicato"?: boolean,"conversazioni"?: number,"cosa_frenava"?: string | null,"created_at"?: string,"created_by"?: string | null,"data": string,"discovery_prenotate"?: number,"discovery_svolte"?: number,"dm_inbound"?: number,"dm_outbound"?: number,"dm_totali"?: never,"domande_contenuti"?: string | null,"follow_up"?: number,"id"?: string,"lead_in_target"?: Database["public"]['Enums']["quota_in_target"] | null,"note"?: string | null,"qualita_conversazioni"?: Database["public"]['Enums']["qualita_conversazioni"] | null,"setter_id": string,"strategy_prenotate"?: number,"updated_at"?: string
                   }
@@ -1925,6 +2027,7 @@ isOneToOne: false
                   Row: {
                     "categoria": string,"created_at": string,"created_by": string | null,"data": string,"descrizione": string,"id": string,"importo": number,"ricorrente": boolean,"updated_at": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "categoria": string,"created_at"?: string,"created_by"?: string | null,"data": string,"descrizione": string,"id"?: string,"importo": number,"ricorrente"?: boolean,"updated_at"?: string
                   }
@@ -1944,6 +2047,7 @@ isOneToOne: false
                   Row: {
                     "created_at": string,"created_by": string | null,"sale_id": string,"updated_at": string,"url": string
                   }
+                  ComputedFields: never
                   Insert: {
                     "created_at"?: string,"created_by"?: string | null,"sale_id": string,"updated_at"?: string,"url": string
                   }
@@ -1982,22 +2086,25 @@ isOneToOne: true
           Views: {
             "v_analisi_reel": {
                   Row: {
-                    "analisi_errore": string | null,"analisi_eta_confronto": number | null,"analisi_eta_ore": number | null,"analisi_finita_il": string | null,"analisi_id": string | null,"analisi_motivo": string | null,"analisi_stato": Database["public"]['Enums']["analisi_stato"] | null,"analisi_verdetto": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"classificazione_formato": string | null,"classificazione_reel_type": string | null,"comments": number | null,"comments_count": number | null,"confronto": string | null,"contenuto_id": string | null,"copertina_url": string | null,"didascalia_inizio": string | null,"dm": number | null,"dm_14g": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_confronto": number | null,"eta_ore": number | null,"fascia_lead": string | null,"fascia_pubblico": string | null,"fonte_visione": string | null,"formato": string | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_in_target": number | null,"lettura_errore": string | null,"lettura_richiesta": string | null,"lettura_stato": string | null,"lettura_video": string | null,"like_count": number | null,"likes": number | null,"media_id": string | null,"media_type": string | null,"metriche_il": string | null,"metriche_stato": string | null,"nome": string | null,"numeri_parziali": boolean | null,"permalink": string | null,"pubblicato_il": string | null,"punteggio_fascia": string | null,"punteggio_tipo": string | null,"punteggio_totale": number | null,"quota_vista": number | null,"reach": number | null,"reel_type": string | null,"salvataggi_rapporto": number | null,"saved": number | null,"shares": number | null,"shortcode": string | null,"skip_rate": number | null,"stato_collegamento": string | null,"status": Database["public"]['Enums']["contenuto_status"] | null,"tasso_condivisioni": number | null,"tasso_salvataggi": number | null,"trascrizione_esito": string | null,"verdetto_oggi": string | null,"video_disponibile": boolean | null,"views": number | null,"views_3g": number | null,"views_7g": number | null,"views_all_eta": number | null,"views_confronto": number | null,"views_rapporto": number | null,"visione_esito": string | null,"visione_media_s": number | null,"visione_su_durata": number | null
+                    "analisi_errore": string | null,"analisi_eta_confronto": number | null,"analisi_eta_ore": number | null,"analisi_finita_il": string | null,"analisi_id": string | null,"analisi_motivo": string | null,"analisi_stato": Database["public"]['Enums']["analisi_stato"] | null,"analisi_verdetto": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"classificazione_formato": string | null,"classificazione_reel_type": string | null,"comments": number | null,"comments_count": number | null,"confronto": string | null,"contenuto_id": string | null,"copertina_url": string | null,"didascalia_inizio": string | null,"dm": number | null,"dm_14g": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_confronto": number | null,"eta_ore": number | null,"fascia_lead": string | null,"fascia_pubblico": string | null,"fonte_visione": string | null,"formato": string | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_in_target": number | null,"lettura_errore": string | null,"lettura_richiesta": string | null,"lettura_stato": string | null,"lettura_video": string | null,"like_count": number | null,"likes": number | null,"media_id": string,"media_type": string,"metriche_il": string | null,"metriche_stato": string,"nome": string | null,"numeri_parziali": boolean | null,"permalink": string,"pubblicato_il": string,"punteggio_fascia": string | null,"punteggio_tipo": string | null,"punteggio_totale": number | null,"quota_vista": number | null,"reach": number | null,"reel_type": string | null,"salvataggi_rapporto": number | null,"saved": number | null,"shares": number | null,"shortcode": string,"skip_rate": number | null,"stato_collegamento": string | null,"status": Database["public"]['Enums']["contenuto_status"] | null,"tasso_condivisioni": number | null,"tasso_salvataggi": number | null,"trascrizione_esito": string | null,"verdetto_oggi": string | null,"video_disponibile": boolean | null,"views": number | null,"views_3g": number | null,"views_7g": number | null,"views_all_eta": number | null,"views_confronto": number | null,"views_rapporto": number | null,"visione_esito": string | null,"visione_media_s": number | null,"visione_su_durata": number | null
                   }
+                  ComputedFields: never
                   Relationships: [
                     
                   ]
                 },"v_client_status": {
                   Row: {
-                    "client_id": string | null,"cognome": string | null,"data_fine_ultima": string | null,"nome": string | null,"numero_vendite": number | null,"stato": Database["public"]['Enums']["client_status"] | null
+                    "client_id": string,"cognome": string | null,"data_fine_ultima": string | null,"nome": string,"numero_vendite": number | null,"stato": Database["public"]['Enums']["client_status"] | null
                   }
+                  ComputedFields: never
                   Relationships: [
                     
                   ]
                 },"v_clienti": {
                   Row: {
-                    "client_id": string | null,"closer_id": string | null,"cognome": string | null,"created_at": string | null,"da_incassare": number | null,"data_fine_ultima": string | null,"fonte": Database["public"]['Enums']["lead_source"] | null,"in_ritardo": number | null,"incassato": number | null,"instagram_handle": string | null,"nome": string | null,"numero_vendite": number | null,"setter_id": string | null,"stato": Database["public"]['Enums']["client_status"] | null,"ultima_vendita": string | null,"valore_firmato": number | null
+                    "client_id": string,"closer_id": string | null,"cognome": string | null,"created_at": string,"da_incassare": number | null,"data_fine_ultima": string | null,"fonte": Database["public"]['Enums']["lead_source"] | null,"in_ritardo": number | null,"incassato": number | null,"instagram_handle": string | null,"nome": string,"numero_vendite": number | null,"setter_id": string | null,"stato": Database["public"]['Enums']["client_status"] | null,"ultima_vendita": string | null,"valore_firmato": number | null
                   }
+                  ComputedFields: never
                   Relationships: [
                     {
       foreignKeyName: "clients_closer_id_fkey"
@@ -2015,8 +2122,9 @@ isOneToOne: false
                   ]
                 },"v_clienti_chiusi": {
                   Row: {
-                    "archiviato_il": string | null,"chiuso_il": string | null,"client_id": string | null,"created_at": string | null,"motivo": string | null
+                    "archiviato_il": string | null,"chiuso_il": string,"client_id": string,"created_at": string,"motivo": string | null
                   }
+                  ComputedFields: never
                   Insert: {
                            "archiviato_il"?: string | null,"chiuso_il"?: string | null,"client_id"?: string | null,"created_at"?: string | null,"motivo"?: string | null
                          }
@@ -2048,27 +2156,31 @@ isOneToOne: true
                   Row: {
                     "quanti": number | null,"tasso_condivisioni_mediana": number | null,"tasso_condivisioni_quanti": number | null,"tasso_salvataggi_mediana": number | null,"tasso_salvataggi_quanti": number | null,"tipo": string | null,"views_3g_mediana": number | null,"views_3g_quanti": number | null,"views_mediana": number | null,"views_quanti": number | null,"visione_su_durata_mediana": number | null,"visione_su_durata_quanti": number | null
                   }
+                  ComputedFields: never
                   Relationships: [
                     
                   ]
                 },"v_instagram_numeri": {
                   Row: {
-                    "audio_tipo": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"comments": number | null,"comments_count": number | null,"copertina_url": string | null,"dm": number | null,"dm_14g": number | null,"dm_7g": number | null,"dm_ogni_mille_views": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_ore": number | null,"follows": number | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_giorni": number | null,"lead_giorni_contati": number | null,"lead_in_target": number | null,"like_count": number | null,"likes": number | null,"media_id": string | null,"media_product_type": string | null,"media_type": string | null,"metriche_il": string | null,"metriche_stato": string | null,"numeri_parziali": boolean | null,"permalink": string | null,"profile_visits": number | null,"pubblicato_il": string | null,"reach": number | null,"reach_3g": number | null,"reel": boolean | null,"reposts": number | null,"saved": number | null,"saved_3g": number | null,"shares": number | null,"shares_3g": number | null,"shortcode": string | null,"skip_rate": number | null,"tasso_condivisioni": number | null,"tasso_interazioni": number | null,"tasso_salvataggi": number | null,"total_interactions": number | null,"video_disponibile": boolean | null,"views": number | null,"views_30g": number | null,"views_3g": number | null,"views_7g": number | null,"views_per_account": number | null,"visione_su_durata": number | null
+                    "audio_tipo": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"comments": number | null,"comments_count": number | null,"copertina_url": string | null,"dm": number | null,"dm_14g": number | null,"dm_7g": number | null,"dm_ogni_mille_views": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_ore": number | null,"follows": number | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_giorni": number | null,"lead_giorni_contati": number | null,"lead_in_target": number | null,"like_count": number | null,"likes": number | null,"media_id": string,"media_product_type": string | null,"media_type": string,"metriche_il": string | null,"metriche_stato": string,"numeri_parziali": boolean | null,"permalink": string,"profile_visits": number | null,"pubblicato_il": string,"reach": number | null,"reach_3g": number | null,"reel": boolean,"reposts": number | null,"saved": number | null,"saved_3g": number | null,"shares": number | null,"shares_3g": number | null,"shortcode": string,"skip_rate": number | null,"tasso_condivisioni": number | null,"tasso_interazioni": number | null,"tasso_salvataggi": number | null,"total_interactions": number | null,"video_disponibile": boolean | null,"views": number | null,"views_30g": number | null,"views_3g": number | null,"views_7g": number | null,"views_per_account": number | null,"visione_su_durata": number | null
                   }
+                  ComputedFields: never
                   Relationships: [
                     
                   ]
                 },"v_instagram_post": {
                   Row: {
-                    "collegato_da_solo": boolean | null,"contenuto_id": string | null,"contenuto_nome": string | null,"contenuto_post_date": string | null,"contenuto_stato": Database["public"]['Enums']["contenuto_status"] | null,"copertina_url": string | null,"didascalia": string | null,"eliminato_il": string | null,"giorno": string | null,"media_id": string | null,"media_type": string | null,"motivi_collegamento": (string)[] | null,"permalink": string | null,"pubblicato_il": string | null,"reel": boolean | null,"shortcode": string | null,"stato_collegamento": string | null
+                    "collegato_da_solo": boolean | null,"contenuto_id": string | null,"contenuto_nome": string | null,"contenuto_post_date": string | null,"contenuto_stato": Database["public"]['Enums']["contenuto_status"] | null,"copertina_url": string | null,"didascalia": string | null,"eliminato_il": string | null,"giorno": string | null,"media_id": string,"media_type": string,"motivi_collegamento": (string)[] | null,"permalink": string,"pubblicato_il": string,"reel": boolean,"shortcode": string,"stato_collegamento": string | null
                   }
+                  ComputedFields: never
                   Relationships: [
                     
                   ]
                 },"v_marketing_proposte": {
                   Row: {
-                    "calcolato_il": string | null,"contenuto_id": string | null,"giorni": number | null,"motivi": (string)[] | null,"nome": string | null,"post_date": string | null,"punteggio": number | null,"shortcode": string | null,"somiglianza": number | null,"stato": Database["public"]['Enums']["contenuto_status"] | null,"tipo": Database["public"]['Enums']["contenuto_tipo"] | null
+                    "calcolato_il": string,"contenuto_id": string,"giorni": number | null,"motivi": (string)[],"nome": string,"post_date": string | null,"punteggio": number,"shortcode": string,"somiglianza": number,"stato": Database["public"]['Enums']["contenuto_status"],"tipo": Database["public"]['Enums']["contenuto_tipo"]
                   }
+                  ComputedFields: never
                   Relationships: [
                     {
       foreignKeyName: "marketing_abbinamenti_contenuto_id_fkey"
@@ -2128,8 +2240,9 @@ isOneToOne: false
                   ]
                 },"v_pm_progetti": {
                   Row: {
-                    "avanzamento": number | null,"client_id": string | null,"coach_id": string | null,"created_at": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"nome": string | null,"reparto_id": string | null,"responsabile_id": string | null,"scaduto": boolean | null,"sono_membro": boolean | null,"stato": Database["public"]['Enums']["pm_stato_progetto"] | null,"task_completati": number | null,"task_in_ritardo": number | null,"task_totali": number | null
+                    "avanzamento": number | null,"client_id": string | null,"coach_id": string | null,"created_at": string,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"nome": string,"reparto_id": string,"responsabile_id": string | null,"scaduto": boolean | null,"sono_membro": boolean | null,"stato": Database["public"]['Enums']["pm_stato_progetto"],"task_completati": number | null,"task_in_ritardo": number | null,"task_totali": number | null
                   }
+                  ComputedFields: never
                   Relationships: [
                     {
       foreignKeyName: "pm_progetti_client_id_fkey"
@@ -2171,8 +2284,9 @@ isOneToOne: false
                   ]
                 },"v_pm_task": {
                   Row: {
-                    "assegnatari": (string)[] | null,"completato_il": string | null,"created_at": string | null,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"in_ritardo": boolean | null,"ordine": number | null,"parent_id": string | null,"priorita": Database["public"]['Enums']["pm_priorita"] | null,"progetto_id": string | null,"scadenza": string | null,"sotto_task_completati": number | null,"sotto_task_totali": number | null,"stato": Database["public"]['Enums']["pm_stato_task"] | null,"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string | null,"updated_at": string | null
+                    "assegnatari": (string)[] | null,"completato_il": string | null,"created_at": string,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"in_ritardo": boolean | null,"ordine": number,"parent_id": string | null,"priorita": Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza": string | null,"sotto_task_completati": number | null,"sotto_task_totali": number | null,"stato": Database["public"]['Enums']["pm_stato_task"],"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string,"updated_at": string
                   }
+                  ComputedFields: never
                   Relationships: [
                     {
       foreignKeyName: "pm_task_created_by_fkey"
@@ -2220,8 +2334,9 @@ isOneToOne: false
                   ]
                 },"v_pm_tasklist": {
                   Row: {
-                    "avanzamento": number | null,"created_at": string | null,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string | null,"nome": string | null,"ordine": number | null,"progetto_id": string | null,"task_completati": number | null,"task_in_ritardo": number | null,"task_totali": number | null
+                    "avanzamento": number | null,"created_at": string,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"nome": string,"ordine": number,"progetto_id": string,"task_completati": number | null,"task_in_ritardo": number | null,"task_totali": number | null
                   }
+                  ComputedFields: never
                   Relationships: [
                     {
       foreignKeyName: "pm_tasklist_progetto_id_fkey"
@@ -2239,8 +2354,9 @@ isOneToOne: false
                   ]
                 },"v_provvigioni_maturate": {
                   Row: {
-                    "importo_incassato": number | null,"incassato_il": string | null,"mese": string | null,"payment_id": string | null,"percentuale": number | null,"profile_id": string | null,"provvigione": number | null,"sale_id": string | null,"tipo": Database["public"]['Enums']["sale_type"] | null
+                    "importo_incassato": number | null,"incassato_il": string | null,"mese": string | null,"payment_id": string,"percentuale": number,"profile_id": string | null,"provvigione": number | null,"sale_id": string,"tipo": Database["public"]['Enums']["sale_type"]
                   }
+                  ComputedFields: never
                   Relationships: [
                     {
       foreignKeyName: "sales_setter_id_fkey"
@@ -2252,15 +2368,17 @@ isOneToOne: false
                   ]
                 },"v_pubblicati": {
                   Row: {
-                    "analisi_errore": string | null,"analisi_eta_confronto": number | null,"analisi_eta_ore": number | null,"analisi_finita_il": string | null,"analisi_id": string | null,"analisi_motivo": string | null,"analisi_stato": Database["public"]['Enums']["analisi_stato"] | null,"analisi_verdetto": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"classificazione_formato": string | null,"classificazione_reel_type": string | null,"comments": number | null,"comments_count": number | null,"confronto": string | null,"contenuto_id": string | null,"copertina_url": string | null,"didascalia": string | null,"didascalia_inizio": string | null,"dm": number | null,"dm_14g": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_confronto": number | null,"eta_ore": number | null,"fascia_lead": string | null,"fascia_pubblico": string | null,"fonte_visione": string | null,"formato": string | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_in_target": number | null,"lettura_errore": string | null,"lettura_richiesta": string | null,"lettura_stato": string | null,"lettura_video": string | null,"like_count": number | null,"likes": number | null,"media_id": string | null,"media_type": string | null,"metriche_il": string | null,"metriche_stato": string | null,"nome": string | null,"numeri_parziali": boolean | null,"permalink": string | null,"pubblicato_il": string | null,"punteggio_fascia": string | null,"punteggio_tipo": string | null,"punteggio_totale": number | null,"quota_vista": number | null,"reach": number | null,"reel": boolean | null,"reel_type": string | null,"salvataggi_rapporto": number | null,"saved": number | null,"shares": number | null,"shortcode": string | null,"skip_rate": number | null,"status": Database["public"]['Enums']["contenuto_status"] | null,"tasso_condivisioni": number | null,"tasso_salvataggi": number | null,"trascrizione_esito": string | null,"verdetto_oggi": string | null,"video_disponibile": boolean | null,"view_count": number | null,"view_count_da_instagram": boolean | null,"views": number | null,"views_3g": number | null,"views_7g": number | null,"views_all_eta": number | null,"views_confronto": number | null,"views_rapporto": number | null,"visione_esito": string | null,"visione_media_s": number | null,"visione_su_durata": number | null
+                    "analisi_errore": string | null,"analisi_eta_confronto": number | null,"analisi_eta_ore": number | null,"analisi_finita_il": string | null,"analisi_id": string | null,"analisi_motivo": string | null,"analisi_stato": Database["public"]['Enums']["analisi_stato"] | null,"analisi_verdetto": string | null,"avg_watch_ms": number | null,"call_14g": number | null,"call_prenotate": number | null,"classificazione_formato": string | null,"classificazione_reel_type": string | null,"comments": number | null,"comments_count": number | null,"confronto": string | null,"contenuto_id": string | null,"copertina_url": string | null,"didascalia": string | null,"didascalia_inizio": string | null,"dm": number | null,"dm_14g": number | null,"durata_ms": number | null,"eliminato": boolean | null,"eta_confronto": number | null,"eta_ore": number | null,"fascia_lead": string | null,"fascia_pubblico": string | null,"fonte_visione": string | null,"formato": string | null,"giorno": string | null,"in_target_14g": number | null,"lead_completi": boolean | null,"lead_contati": boolean | null,"lead_in_target": number | null,"lettura_errore": string | null,"lettura_richiesta": string | null,"lettura_stato": string | null,"lettura_video": string | null,"like_count": number | null,"likes": number | null,"media_id": string,"media_type": string,"metriche_il": string | null,"metriche_stato": string,"nome": string | null,"numeri_parziali": boolean | null,"permalink": string,"pubblicato_il": string,"punteggio_fascia": string | null,"punteggio_tipo": string | null,"punteggio_totale": number | null,"quota_vista": number | null,"reach": number | null,"reel": boolean,"reel_type": string | null,"salvataggi_rapporto": number | null,"saved": number | null,"shares": number | null,"shortcode": string,"skip_rate": number | null,"status": Database["public"]['Enums']["contenuto_status"] | null,"tasso_condivisioni": number | null,"tasso_salvataggi": number | null,"trascrizione_esito": string | null,"verdetto_oggi": string | null,"video_disponibile": boolean | null,"view_count": number | null,"view_count_da_instagram": boolean | null,"views": number | null,"views_3g": number | null,"views_7g": number | null,"views_all_eta": number | null,"views_confronto": number | null,"views_rapporto": number | null,"visione_esito": string | null,"visione_media_s": number | null,"visione_su_durata": number | null
                   }
+                  ComputedFields: never
                   Relationships: [
                     
                   ]
                 },"v_rate": {
                   Row: {
-                    "client_id": string | null,"cliente": string | null,"closer_id": string | null,"giorni_ritardo": number | null,"importo_incassato": number | null,"importo_previsto": number | null,"in_ritardo": boolean | null,"incassato_il": string | null,"metodo": Database["public"]['Enums']["payment_method"] | null,"numero_rata": number | null,"payment_id": string | null,"sale_id": string | null,"scadenza": string | null,"setter_id": string | null,"stato": Database["public"]['Enums']["payment_status"] | null,"tipo": Database["public"]['Enums']["sale_type"] | null
+                    "client_id": string,"cliente": string | null,"closer_id": string | null,"giorni_ritardo": number | null,"importo_incassato": number | null,"importo_previsto": number,"in_ritardo": boolean | null,"incassato_il": string | null,"metodo": Database["public"]['Enums']["payment_method"] | null,"numero_rata": number,"payment_id": string,"sale_id": string,"scadenza": string,"setter_id": string | null,"stato": Database["public"]['Enums']["payment_status"],"tipo": Database["public"]['Enums']["sale_type"]
                   }
+                  ComputedFields: never
                   Relationships: [
                     {
       foreignKeyName: "payments_sale_id_fkey"
@@ -2314,8 +2432,9 @@ isOneToOne: false
                   ]
                 },"v_vendite": {
                   Row: {
-                    "call_id": string | null,"client_id": string | null,"closer_id": string | null,"da_incassare": number | null,"data_fine": string | null,"data_inizio": string | null,"data_vendita": string | null,"in_ritardo": number | null,"incassato": number | null,"numero_rate": number | null,"product_id": string | null,"prossima_scadenza": string | null,"rate_in_ritardo": number | null,"rate_incassate": number | null,"rate_totali": number | null,"sale_id": string | null,"scarto_piano": number | null,"setter_id": string | null,"tipo": Database["public"]['Enums']["sale_type"] | null,"totale_piano": number | null,"valore_contratto": number | null
+                    "call_id": string | null,"client_id": string,"closer_id": string | null,"da_incassare": number | null,"data_fine": string,"data_inizio": string,"data_vendita": string,"in_ritardo": number | null,"incassato": number | null,"numero_rate": number,"product_id": string | null,"prossima_scadenza": string | null,"rate_in_ritardo": number | null,"rate_incassate": number | null,"rate_totali": number | null,"sale_id": string,"scarto_piano": number | null,"setter_id": string | null,"tipo": Database["public"]['Enums']["sale_type"],"totale_piano": number | null,"valore_contratto": number
                   }
+                  ComputedFields: never
                   Relationships: [
                     {
       foreignKeyName: "sales_call_id_fkey"
@@ -2409,6 +2528,24 @@ isOneToOne: false
 "backup_completo":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"calendario_imposta_url":
+{ Args: { "p_url": string }; Returns: string
+                           },
+"calendario_salva":
+{ Args: { "p_eventi": Json }; Returns: number
+                           },
+"calendario_segna_errore":
+{ Args: { "p_errore": string }; Returns: undefined
+                           },
+"calendario_togli_url":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"calendario_url":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"calendario_url_presente":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "call_analisi_fallita":
 { Args: { "p_call": string,"p_conta"?: boolean,"p_errore": string,"p_passo": string,"p_riprova_tra"?: string,"p_stato": string }; Returns: undefined
                            },
@@ -2437,10 +2574,10 @@ isOneToOne: false
 { Args: { "p_call": string }; Returns: Json
                            },
 "call_ha_follow_up":
-{ Args: { "c": Database["public"]['Tables']["calls"]['Row'] }; Returns: boolean
+{ Args: { "c": Omit<Database["public"]['Tables']["calls"]['Row'], Database["public"]['Tables']["calls"]['ComputedFields']> }; Returns: boolean
                            },
 "call_ha_vendita":
-{ Args: { "c": Database["public"]['Tables']["calls"]['Row'] }; Returns: boolean
+{ Args: { "c": Omit<Database["public"]['Tables']["calls"]['Row'], Database["public"]['Tables']["calls"]['ComputedFields']> }; Returns: boolean
                            },
 "call_imposta_costo_max":
 { Args: { "p_usd": number }; Returns: undefined
@@ -3094,14 +3231,8 @@ isOneToOne: false
 "pm_fascia_tempo":
 { Args: { "p_alle": string,"p_dalle": string,"p_data": string }; Returns: Record<string, unknown>
                            },
-"pm_riprendi_timer":
-{ Args: Record<PropertyKey, never>; Returns: string
-                           },
 "pm_ferma_timer":
 { Args: { "p_nota"?: string }; Returns: string
-                           },
-"pm_pausa_timer":
-{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "pm_imposta_assegnatari":
 { Args: { "p_persone": (string)[],"p_task": string }; Returns: undefined
@@ -3127,6 +3258,9 @@ isOneToOne: false
 { Args: { "p_progetto": string }; Returns: {
               "completati": number,"da_fare": number,"in_corso": number,"in_revisione": number,"in_ritardo": number,"in_scadenza_7_giorni": number,"minuti_totali": number,"minuti_ultimi_7_giorni": number,"senza_assegnatario": number
             }[]
+                           },
+"pm_pausa_timer":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "pm_periodo_percorso":
 { Args: { "p_client_id": string }; Returns: Record<string, unknown>
@@ -3154,6 +3288,9 @@ isOneToOne: false
 "pm_riordina_reparti":
 { Args: { "p_ids": (string)[] }; Returns: number
                            },
+"pm_riprendi_timer":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "pm_scegli_coach":
 { Args: { "p_coach": string,"p_progetto": string }; Returns: undefined
                            },
@@ -3170,6 +3307,16 @@ isOneToOne: false
 "pm_timer_attivo":
 { Args: Record<PropertyKey, never>; Returns: {
               "id": string,"inizio": string,"nota": string,"pausa_dal": string,"pausa_secondi": number,"progetto": string,"progetto_id": string,"task": string,"task_id": string
+            }[]
+                           },
+"prenotate_giorni_interne":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "da_calendario": boolean,"giorno": string,"in_target": number,"prenotate": number,"senza_dati": number
+            }[]
+                           },
+"prenotate_per_giorno":
+{ Args: { "p_a": string,"p_da": string }; Returns: {
+              "da_calendario": boolean,"giorno": string,"in_target": number,"prenotate": number,"senza_dati": number
             }[]
                            },
 "previsione_cassa":
@@ -3267,6 +3414,12 @@ isOneToOne: false
                            },
 "segna_tutorial_visto":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"setting_contatti":
+{ Args: { "p_a": string,"p_da": string }; Returns: Json
+                           },
+"setting_contatti_valori":
+{ Args: { "p_a": string,"p_da": string }; Returns: Json
                            },
 "sposta_call":
 { Args: { "p_call_id": string,"p_data": string,"p_ora": string }; Returns: undefined
