@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { inviaBackup } from '@/lib/backup/invia'
+import { sincronizzaCalendario } from '@/lib/calendario/leggi'
 import { settimanaDeiContenuti } from '@/lib/email/contenuti-settimana'
 import { inviaContenutiSettimana } from '@/lib/email/contenuti-settimana-invio'
 import { lunediDellaSettimana, oggiRoma } from '@/lib/date'
@@ -64,6 +65,10 @@ export async function GET(request: NextRequest) {
 
   const esito: Record<string, unknown> = { ok: true }
   if (!emailConfigurata()) esito.email = 'non configurata'
+
+  // The calendar «Dany Discovery Call» before the counts (1.76.0): the Friday summary says the calls
+  // booked up to now. A reading that fails is written for the admin and stops nothing.
+  esito.calendario = (await sincronizzaCalendario(admin)).esito
 
   // The alerts first: they are quick and need no Resend. One that fails is logged and stops nothing.
   try {

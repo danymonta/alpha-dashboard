@@ -86,6 +86,36 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.76.0',
+    data: '2026-11-11',
+    titolo: 'Le call prenotate vere, dal calendario',
+    riassunto:
+      'Le call prenotate si contano da sole dal calendario «Dany Discovery Call», con chi è in target, e Setter ha la scheda «Contatti»: dai DM alla call chiusa.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Le call prenotate vengono dal tuo calendario «Dany Discovery Call»: il gestionale lo legge ogni mattina e ogni sera e conta le call di vendita nel giorno in cui sono state prenotate (onboarding, checkpoint e follow-up no). Valgono ovunque: Panoramica, funnel, DM per call, pagina Setter, recap di Max, email del venerdì e Claude. I giorni prima del calendario restano quelli dei report.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'In target, dal modulo di Calendly: almeno 25 anni e «Sì» al budget. Le prenotazioni di prima della domanda sul budget contano solo l’età. Del calendario si salvano solo quando è stata prenotata ogni call, quando si tiene, se è cancellata, l’età e la risposta sul budget: mai nomi, Instagram, entrate o risposte scritte.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Setter › Contatti: DM outbound, inbound e follow-up, conversazioni, call proposte, prenotate, in target, svolte e chiuse, col confronto col periodo prima; i rapporti (DM per call prenotata, prenotate su proposte, quota in target, show rate, close rate); il funnel e la tabella giorno per giorno. «Copia il riepilogo» copia i numeri del periodo in un testo da mandare, «Aggiorna dal calendario» rilegge subito.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il calendario si collega in Impostazioni › Chiavi e collegamenti › Google Calendar: incolli l’«Indirizzo segreto in formato iCal», che resta nel Vault. L’indirizzo pubblico si rifiuta: il calendario resta privato.',
+      },
+    ],
+  },
+  {
     versione: '1.75.0',
     data: '2026-11-10',
     titolo: 'I miei task a bacheca',

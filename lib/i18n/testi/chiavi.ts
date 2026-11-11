@@ -59,6 +59,20 @@ const GUIDE_EN: Record<ChiaveId, GuidaChiave> = {
     seScade:
       'If the key is revoked or no longer valid, the state shows the last error. The link pasted in the outcome sheet is saved all the same, but without a key no recordings are found and no calls are analysed. Generate a new one and paste it again.',
   },
+  calendario: {
+    id: 'calendario',
+    titolo: 'Google Calendar (sales calls)',
+    aCosaServe: 'It counts the sales calls booked every day from the calendar «Dany Discovery Call», with who is in target (25+ and «Yes» to the budget of the Calendly form). The booked calls of the whole dashboard come from there.',
+    passi: [
+      'Open Google Calendar on the computer and tap the gear › Settings.',
+      'On the left, in «Settings for my calendars», choose «Dany Discovery Call».',
+      'In «Access permissions for events» check that «Make available to public» is off: the calendar has the leads’ ages, incomes and names.',
+      'Scroll down to «Integrate calendar» and copy the «Secret address in iCal format» (it ends with basic.ics and contains «private-»). Not the public address.',
+    ],
+    doveIncollarla: 'In the «Secret iCal address» field below, then «Save the address». It is saved in the Vault and never shown again.',
+    comeCapireCheFunziona: 'The app reads the calendar right away and says how many calls it read. In Setter › Contacts appears «Calendar read» with the time; it reads it again every morning and every evening, and there you have «Refresh from the calendar».',
+    seScade: 'The secret address does not expire. If you reset it in Google (or Google stops giving it) the reading fails and the error shows here: the booked calls stay the ones already read. Copy the new address and paste it again.',
+  },
   anthropic: {
     id: 'anthropic',
     titolo: 'Claude (Anthropic)',
@@ -103,7 +117,7 @@ export const CHIAVI = bilingue(
     erroreDescrizione: 'Non siamo riusciti a caricare le chiavi e i collegamenti. Riprova fra un momento.',
     titolo: 'Chiavi e collegamenti',
     descrizione:
-      'Tutto quello che l’app usa per parlare con Instagram, Messenger, Fathom, Claude e Groq: se ognuno funziona, quando scade e, in un pannello, come rigenerare la chiave. Le chiavi non tornano mai nella pagina e non vanno mai incollate in chat.',
+      'Tutto quello che l’app usa per parlare con Instagram, Messenger, Fathom, Google Calendar, Claude e Groq: se ognuno funziona, quando scade e, in un pannello, come rigenerare la chiave. Le chiavi non tornano mai nella pagina e non vanno mai incollate in chat.',
     daSistemareScaduto: 'Il token di Instagram è scaduto o non è più valido.',
     daSistemareScadePresto: (giorni: number) => `Il token di Instagram ${fraseScadePresto(giorni).toLowerCase()}.`,
     daSistemareClaude: 'Manca la chiave di Claude su Vercel: Insight, analisi e Spunti sono spenti.',
@@ -161,7 +175,7 @@ export const CHIAVI = bilingue(
     erroreDescrizione: 'We could not load the keys and connections. Try again in a moment.',
     titolo: 'Keys and connections',
     descrizione:
-      'Everything the app uses to talk to Instagram, Messenger, Fathom, Claude and Groq: whether each one works, when it expires and, in a panel, how to renew the key. Keys never come back to the page and must never be pasted in a chat.',
+      'Everything the app uses to talk to Instagram, Messenger, Fathom, Google Calendar, Claude and Groq: whether each one works, when it expires and, in a panel, how to renew the key. Keys never come back to the page and must never be pasted in a chat.',
     daSistemareScaduto: 'The Instagram token has expired or is no longer valid.',
     daSistemareScadePresto: (giorni: number) => `The Instagram token expires in ${giorni === 1 ? '1 day' : `${giorni} days`}.`,
     daSistemareClaude: 'Claude’s key is missing on Vercel: Insight, analyses and Ideas are off.',

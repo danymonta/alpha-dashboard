@@ -116,7 +116,8 @@ const SETTER: VoceNav = {
   etichetta: 'Setter',
   Icona: MessagesSquare,
   esatto: true,
-  attivaAnche: ['/insight'],
+  // its tabs: «Contatti» (1.76.0) and «Insight 24h»
+  attivaAnche: ['/setting/contatti', '/insight'],
   daApprovare: true,
 }
 const CLOSER: VoceNav = { href: '/setting/closer', etichetta: 'Closer', Icona: Handshake }

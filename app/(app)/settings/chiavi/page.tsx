@@ -6,6 +6,7 @@ import { ChiaveFathom } from '@/app/(app)/settings/fathom/fathom-client'
 import { TokenInstagram } from '@/app/(app)/settings/instagram/instagram-client'
 import { TokenMessenger } from '@/app/(app)/settings/instagram/messenger-client'
 import { quando } from '@/app/(app)/settings/instagram/quando'
+import { IndirizzoCalendario } from '@/components/calendario/indirizzo-calendario'
 import { GuidaChiave } from '@/components/impostazioni/guida-chiave'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { alfireConfigurata } from '@/lib/alfire/config'
@@ -14,6 +15,7 @@ import { oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
 import { getLingua } from '@/lib/i18n/server'
 import { CHIAVI } from '@/lib/i18n/testi/chiavi'
+import { INDIRIZZO_CALENDARIO, traduciErroreCalendario } from '@/lib/i18n/testi/contatti'
 import { IMPOSTAZIONI, traduciImpostazioni } from '@/lib/i18n/testi/impostazioni'
 import { insightConfigurato } from '@/lib/insight/config'
 import { FRASI_ERRORE } from '@/lib/instagram/report'
@@ -86,7 +88,7 @@ export default async function ChiaviPage() {
   const { formatData } = formato(lingua)
   const tr = (testo: string) => traduciImpostazioni(testo, lingua)
   const supabase = await createClient()
-  const [instagram, tokenIg, messenger, tokenMsg, fathom, fathomPresente] = await Promise.all([
+  const [instagram, tokenIg, messenger, tokenMsg, fathom, fathomPresente, calendario, calendarioPresente] = await Promise.all([
     supabase
       .from('instagram_collegamento')
       .select('account_username, token_scade_il, token_aggiornato_il, ultimo_errore, ultimo_errore_il')
@@ -100,8 +102,20 @@ export default async function ChiaviPage() {
     supabase.rpc('messenger_token_presente'),
     supabase.from('fathom_collegamento').select('chiave_aggiornata_il, ultima_prova_il, ultimo_errore, ultimo_errore_il').maybeSingle(),
     supabase.rpc('fathom_chiave_presente'),
+    // the calendar «Dany Discovery Call» (1.76.0): whether the address is there, never its value
+    supabase.from('calendario_collegamento').select('url_aggiornato_il, ultimo_sync_il, ultimo_esito, ultimo_errore, eventi_letti').maybeSingle(),
+    supabase.rpc('calendario_url_presente'),
   ])
-  if (instagram.error || tokenIg.error || messenger.error || tokenMsg.error || fathom.error || fathomPresente.error) {
+  if (
+    instagram.error ||
+    tokenIg.error ||
+    messenger.error ||
+    tokenMsg.error ||
+    fathom.error ||
+    fathomPresente.error ||
+    calendario.error ||
+    calendarioPresente.error
+  ) {
     throw new Error(T.errore)
   }
 
@@ -120,6 +134,9 @@ export default async function ChiaviPage() {
   const msg = messenger.data
   const fathomChiave = fathomPresente.data === true
   const fa = fathom.data
+  const cal = calendario.data
+  const calPresente = calendarioPresente.data === true
+  const TC = INDIRIZZO_CALENDARIO[lingua]
   const claude = insightConfigurato()
   const groq = alfireConfigurata()
 
@@ -313,6 +330,44 @@ export default async function ChiaviPage() {
           .
         </p>
         <GuidaChiave id="fathom" lingua={lingua} />
+      </Scheda>
+
+      <Scheda
+        id="calendario"
+        titolo={TC.titolo}
+        stato={
+          cal?.ultimo_esito === 'fallito' ? (
+            <Stato tono="errore" testId="calendario-stato">
+              {TC.nonRisponde}
+            </Stato>
+          ) : calPresente ? (
+            <Stato tono="ok" testId="calendario-stato">
+              {TC.collegato(cal?.url_aggiornato_il ? formatData(cal.url_aggiornato_il) : null)}
+            </Stato>
+          ) : (
+            <Stato tono="spenta" testId="calendario-stato">
+              {TC.nonCollegato}
+            </Stato>
+          )
+        }
+      >
+        {cal?.ultimo_esito === 'fallito' && cal.ultimo_errore ? (
+          <p role="alert" className="flex items-start gap-2 text-sm text-status-critical" data-testid="calendario-errore">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            {traduciErroreCalendario(cal.ultimo_errore, lingua)}
+          </p>
+        ) : calPresente && cal?.ultimo_esito === 'ok' && cal.ultimo_sync_il ? (
+          <p className="text-sm text-muted-foreground">{TC.letto(quando(cal.ultimo_sync_il, oggi, lingua), cal.eventi_letti ?? 0)}</p>
+        ) : null}
+        <IndirizzoCalendario presente={calPresente} />
+        <p className="text-xs text-muted-foreground">
+          {TC.nota}{' '}
+          <Link href="/setting/contatti" className="underline underline-offset-4 hover:text-foreground">
+            {TC.contatti}
+          </Link>
+          .
+        </p>
+        <GuidaChiave id="calendario" lingua={lingua} />
       </Scheda>
 
       <Scheda

@@ -5,7 +5,7 @@
  * expires. Words only: no key, no value, no address of a person. A key is
  * never pasted in a chat (CLAUDE.md section 5): the guide of each says so.
  */
-export type ChiaveId = 'instagram' | 'messenger' | 'fathom' | 'anthropic' | 'groq'
+export type ChiaveId = 'instagram' | 'messenger' | 'fathom' | 'calendario' | 'anthropic' | 'groq'
 
 export type GuidaChiave = {
   id: ChiaveId
@@ -68,6 +68,20 @@ export const GUIDE_CHIAVI: Record<ChiaveId, GuidaChiave> = {
     comeCapireCheFunziona: 'L’app prova la chiave subito e scrive «Fathom risponde con questa chiave.». Nello stato compare «Fathom è collegato» con il giorno in cui è stata salvata.',
     seScade: 'Se la chiave viene revocata o non vale più, lo stato mostra l’ultimo errore. Il link incollato nel foglio dell’esito si salva lo stesso, ma senza chiave non si trovano le registrazioni né si analizzano le call. Generane una nuova e incollala di nuovo.',
   },
+  calendario: {
+    id: 'calendario',
+    titolo: 'Google Calendar (call di vendita)',
+    aCosaServe: 'Conta le call di vendita prenotate ogni giorno dal calendario «Dany Discovery Call», con chi è in target (25+ anni e «Sì» al budget del modulo Calendly). Da lì vengono le call prenotate di tutta la dashboard.',
+    passi: [
+      'Apri Google Calendar dal computer e tocca l’ingranaggio › Impostazioni.',
+      'A sinistra, in «Impostazioni dei miei calendari», scegli «Dany Discovery Call».',
+      'In «Autorizzazioni di accesso agli eventi» controlla che «Rendi disponibile pubblicamente» sia spento: il calendario ha età, entrate e nomi dei lead.',
+      'Scendi fino a «Integra il calendario» e copia l’«Indirizzo segreto in formato iCal» (finisce con basic.ics e contiene «private-»). Non l’indirizzo pubblico.',
+    ],
+    doveIncollarla: 'Nel campo «Indirizzo segreto iCal» qui sotto, poi «Salva l’indirizzo». Si salva nel Vault e non si mostra più.',
+    comeCapireCheFunziona: 'L’app legge il calendario subito e dice quante call ha letto. In Setter › Contatti compare «Calendario letto» con l’ora; ogni mattina e ogni sera si rilegge da solo, e lì c’è «Aggiorna dal calendario».',
+    seScade: 'L’indirizzo segreto non scade. Se lo reimposti in Google (o Google smette di darlo) la lettura fallisce e qui compare l’errore: le prenotate restano quelle già lette. Copia l’indirizzo nuovo e incollalo di nuovo.',
+  },
   anthropic: {
     id: 'anthropic',
     titolo: 'Claude (Anthropic)',
@@ -99,4 +113,4 @@ export const GUIDE_CHIAVI: Record<ChiaveId, GuidaChiave> = {
   },
 }
 
-export const ORDINE_CHIAVI: ChiaveId[] = ['instagram', 'messenger', 'fathom', 'anthropic', 'groq']
+export const ORDINE_CHIAVI: ChiaveId[] = ['instagram', 'messenger', 'fathom', 'calendario', 'anthropic', 'groq']
