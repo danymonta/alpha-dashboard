@@ -754,6 +754,20 @@ begin
   perform pg_temp.prova('registra_vendita', format($q$ select public.registra_vendita(%L, 'nuovo', public.oggi(), public.oggi(), 900, 1,
     null, null, 'Cliente', 'Da Claude', null, null, null, null, null, null, null)::text $q$, a.product_id));
   perform pg_temp.prova('vendite_da_collegare', format($q$ select count(*)::text from public.vendite_da_collegare(%L) $q$, a.call_id));
+  -- the guided onboarding (1.77.0): security invoker, admin only, and never an OAuth token (an explicit
+  -- guard on da_client_oauth(): 110_onboarding_avvio_gate.sql calls them inside an approved request too);
+  -- onboarding_incaricato is false for every token. Invite and client are the seed's (60_onboarding.sql)
+  perform pg_temp.prova('avvia_onboarding', format($q$ select public.avvia_onboarding(%L, null, null,
+    '11111111-1111-4111-8111-111111111111', null, null)::text $q$, a.sale_id));
+  perform pg_temp.prova('nuovo_cliente', $q$ select public.nuovo_cliente('{"nome":"Da Claude"}'::jsonb, '{}'::jsonb)::text $q$);
+  perform pg_temp.prova('onboarding_conferma_pagamento', $q$ select public.onboarding_conferma_pagamento('0b0a0000-0000-4000-8000-000000000021')::text $q$);
+  perform pg_temp.prova('onboarding_consenso_genitore', $q$ select public.onboarding_consenso_genitore('0b0a0000-0000-4000-8000-000000000021', null)::text $q$);
+  perform pg_temp.prova('onboarding_imposta_incarichi', $q$ select public.onboarding_imposta_incarichi('0b0a0000-0000-4000-8000-000000000001',
+    null, null, '11111111-1111-4111-8111-111111111111')::text $q$);
+  perform pg_temp.prova('onboarding_incaricato', $q$ select public.onboarding_incaricato('0b0a0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('onboarding_revoca', $q$ select public.onboarding_revoca('0b0a0000-0000-4000-8000-000000000021', 'Da Claude')::text $q$);
+  perform pg_temp.prova('onboarding_riattiva', $q$ select public.onboarding_riattiva('0b0a0000-0000-4000-8000-000000000021')::text $q$);
+  perform pg_temp.prova('onboarding_rigenera_link', $q$ select public.onboarding_rigenera_link('0b0a0000-0000-4000-8000-000000000021')::text $q$);
 end $$;
 reset role;
 set local request.jwt.claims to '{}';
@@ -766,6 +780,7 @@ select is(
     'aggiungi_rata 42501',
     'anteprima_eliminazione 42501',
     'avanzamento_obiettivi 42501',
+    'avvia_onboarding 42501',
     'calendario_imposta_url 42501',
     'calendario_togli_url 42501',
     'calendario_url_presente 42501',
@@ -829,6 +844,14 @@ select is(
     'miei_clienti ok:0',
     'miei_numeri_periodo 42501',
     'motivi_non_chiusura_periodo 42501',
+    'nuovo_cliente 42501',
+    'onboarding_conferma_pagamento 42501',
+    'onboarding_consenso_genitore 42501',
+    'onboarding_imposta_incarichi 42501',
+    'onboarding_incaricato ok:false',
+    'onboarding_revoca 42501',
+    'onboarding_riattiva 42501',
+    'onboarding_rigenera_link 42501',
     'pm_assegnato ok:false',
     'pm_coach_del_cliente ok:false',
     'pm_crea_progetto 42501',

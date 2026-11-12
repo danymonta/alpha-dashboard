@@ -8,6 +8,7 @@ import {
   KeyRound,
   ReceiptText,
   RefreshCw,
+  Rocket,
   Timer,
   ShieldAlert,
   type LucideIcon,
@@ -28,6 +29,7 @@ const ICONE: Record<TipoNotifica, LucideIcon> = {
   chiave_rifiutata: ShieldAlert,
   proposta_da_approvare: ClipboardCheck,
   spesa_claude: Gauge,
+  onboarding_pagamento: Rocket,
 }
 
 /** The icon of a kind of notification, in a square: the kind is also written next to it, never the icon alone. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { TUTTI_I_RUOLI, percorsoIniziale } from '@/lib/auth/roles'
-import { Megaphone, Sparkles } from 'lucide-react'
+import { Megaphone, Rocket, Sparkles } from 'lucide-react'
 
 import {
   esitiDellaVoce,
@@ -314,7 +314,8 @@ describe('il menu a gruppi (1.38.0)', () => {
     const per = (titolo: string | null) =>
       vociNav('admin').gruppi.find((g) => g.titolo === titolo)?.voci.map((v) => v.etichetta)
     expect(per(null)).toEqual(['Panoramica'])
-    expect(per('Vendite')).toEqual(['Le mie call', 'Pipeline', 'Clienti', 'Vendite', 'Incassi', 'Rinnovi'])
+    // «Onboarding» right after «Clienti» (1.77.0)
+    expect(per('Vendite')).toEqual(['Le mie call', 'Pipeline', 'Clienti', 'Onboarding', 'Vendite', 'Incassi', 'Rinnovi'])
     expect(per('Team')).toEqual(['Setter', 'Closer', 'Provvigioni'])
     expect(per('Marketing')).toEqual(['Piano editoriale', 'Pubblicati', 'Spunti', 'Dalle call'])
     expect(per('Progetti')).toEqual(['Progetti', 'I miei task', 'Tempo'])
@@ -435,5 +436,48 @@ describe('il business coach (1.58.0, 23/10/2026): una pagina sola, il recap vend
     for (const ruolo of TUTTI_I_RUOLI.filter((r) => r !== 'admin')) {
       expect(tutte(ruolo).map((v) => v.href), ruolo).not.toContain('/recap')
     }
+  })
+})
+
+describe('Onboarding (1.77.0, 12/11/2026): la sezione dei clienti nuovi, solo dell’admin', () => {
+  it('l’admin la trova in «Vendite», subito dopo «Clienti», con il razzo', () => {
+    const vendite = gruppo('admin', 'Vendite').map((v) => v.href)
+    expect(vendite.indexOf('/onboarding')).toBe(vendite.indexOf('/clients') + 1)
+    const onboarding = voce('admin', 'Onboarding')
+    expect(onboarding.href).toBe('/onboarding')
+    expect(onboarding.Icona).toBe(Rocket)
+  })
+
+  it('mai nella barra in basso: sul telefono sta in «Altro», sotto «Vendite»', () => {
+    const { principali, gruppiAltro } = vociNav('admin')
+    expect(principali.map((v) => v.href)).not.toContain('/onboarding')
+    expect(gruppiAltro.find((g) => g.titolo === 'Vendite')?.voci.map((v) => v.href)).toContain('/onboarding')
+  })
+
+  it('si accende sulla lista, sul wizard e sulla scheda di un cliente, e solo lì', () => {
+    const onboarding = voce('admin', 'Onboarding')
+    expect(isAttiva('/onboarding', onboarding)).toBe(true)
+    expect(isAttiva('/onboarding/nuovo', onboarding)).toBe(true)
+    expect(isAttiva('/onboarding/0b0a0000-0000-4000-8000-000000000001', onboarding)).toBe(true)
+    expect(isAttiva('/onboardingx', onboarding)).toBe(false)
+    expect(isAttiva('/clients', onboarding)).toBe(false)
+    // «Clienti» does not light on it
+    expect(isAttiva('/onboarding', voce('admin', 'Clienti'))).toBe(false)
+  })
+
+  it('nessun altro ruolo ha la voce: setter, closer, coach e gli altri non la vedono', () => {
+    for (const ruolo of TUTTI_I_RUOLI.filter((r) => r !== 'admin')) {
+      expect(tutte(ruolo).map((v) => v.href), ruolo).not.toContain('/onboarding')
+      expect(tutte(ruolo).map((v) => v.etichetta), ruolo).not.toContain('Onboarding')
+    }
+  })
+
+  it('non porta nessun numero: né esiti, né giornate, né commenti', () => {
+    const onboarding = voce('admin', 'Onboarding')
+    expect(promemoriaDellaVoce(onboarding, { esiti: 3, daApprovare: 2, commenti: 1 })).toEqual({
+      esiti: 0,
+      daApprovare: 0,
+      commenti: 0,
+    })
   })
 })

@@ -12,7 +12,7 @@ const schema = z.object({
 })
 
 export type EsitoAnteprima =
-  | { ok: true; dati: Record<string, number | string | null> }
+  | { ok: true; dati: Record<string, number | string | boolean | null> }
   | { ok: false; errore: string }
 
 /** Counts of what a deletion takes with it, from public.anteprima_eliminazione (admin only). */
@@ -25,5 +25,5 @@ export async function anteprimaEliminazione(tipo: TipoEliminazione, id: string):
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('anteprima_eliminazione', { p_tipo: parsed.data.tipo, p_id: parsed.data.id })
   if (error) return { ok: false, errore: 'Anteprima non disponibile. Riprova.' }
-  return { ok: true, dati: (data ?? {}) as Record<string, number | string | null> }
+  return { ok: true, dati: (data ?? {}) as Record<string, number | string | boolean | null> }
 }

@@ -27,6 +27,18 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * The templates «Nuovo progetto» offers: the active ones, never the onboarding's (1.77.0: the wizard
+ * «Nuovo cliente» adds its list to the client's own project; a project opened from it by hand would only
+ * copy its tasks). Before that release's migration the column is not there (42703): the list of before.
+ */
+async function modelliPerNuovoProgetto(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const attivi = () =>
+    supabase.from('pm_modelli').select('id, nome, reparto_id, voci:pm_modelli_voci(count)').eq('attivo', true)
+  const senzaOnboarding = await attivi().eq('per_onboarding', false).order('nome')
+  return senzaOnboarding.error?.code === '42703' ? attivi().order('nome') : senzaOnboarding
+}
+
 export default async function ProgettiPage({
   searchParams,
 }: {
@@ -61,9 +73,7 @@ export default async function ProgettiPage({
   const [reparti, progetti, modelli, persone, clienti, collegati] = await Promise.all([
     supabase.from('pm_reparti').select('id, nome, descrizione, attivo, progetti_con_cliente').order('ordine').order('nome'),
     query,
-    creatore
-      ? supabase.from('pm_modelli').select('id, nome, reparto_id, voci:pm_modelli_voci(count)').eq('attivo', true).order('nome')
-      : Promise.resolve({ data: [], error: null }),
+    creatore ? modelliPerNuovoProgetto(supabase) : Promise.resolve({ data: [], error: null }),
     creatore
       ? supabase.from('profiles').select('id, nome').eq('attivo', true).neq('id', profilo.id).order('nome')
       : Promise.resolve({ data: [], error: null }),

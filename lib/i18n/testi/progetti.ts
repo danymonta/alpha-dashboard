@@ -351,6 +351,11 @@ const ERRORI_PROGETTI_EN: Record<string, string> = {
   'Modello non eliminato. Riprova.': 'Template not deleted. Try again.',
   'Attività non salvata. Riprova.': 'Task not saved. Try again.',
   'Attività non eliminata. Riprova.': 'Task not deleted. Try again.',
+  // the template of the onboarding (1.77.0): renamed, never deleted
+  'Il modello dell’onboarding non si elimina: il wizard «Nuovo cliente» apre la sua lista nel progetto di ogni cliente.':
+    'The onboarding template cannot be deleted: the «New client» wizard opens its list in every client’s project.',
+  'Le attività dell’onboarding non si eliminano: il percorso le riconosce dalla loro chiave. Puoi cambiarne il titolo.':
+    'The onboarding tasks cannot be deleted: the path recognises them by their key. You can change their title.',
 }
 
 const SENZA_PERSONE = ' Il task è stato creato senza persone assegnate: assegnale modificandolo.'

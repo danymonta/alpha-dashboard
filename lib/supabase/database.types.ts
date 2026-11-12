@@ -381,6 +381,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"clienti_telegram": {
+                  Row: {
+                    "client_id": string,"community_approvata_il": string | null,"community_richiesta_il": string | null,"created_at": string,"gruppo_privato_url": string | null,"presentato_il": string | null,"presentazione_controllata_il": string | null,"updated_at": string,"username": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"community_approvata_il"?: string | null,"community_richiesta_il"?: string | null,"created_at"?: string,"gruppo_privato_url"?: string | null,"presentato_il"?: string | null,"presentazione_controllata_il"?: string | null,"updated_at"?: string,"username"?: string | null
+                  }
+                  Update: {
+                    "client_id"?: string,"community_approvata_il"?: string | null,"community_richiesta_il"?: string | null,"created_at"?: string,"gruppo_privato_url"?: string | null,"presentato_il"?: string | null,"presentazione_controllata_il"?: string | null,"updated_at"?: string,"username"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "clienti_telegram_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_telegram_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_telegram_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    }
+                  ]
                 },"clients": {
                   Row: {
                     "closer_id": string | null,"cognome": string | null,"created_at": string,"created_by": string | null,"email": string | null,"fonte": Database["public"]['Enums']["lead_source"] | null,"id": string,"instagram_handle": string | null,"lead_id": string | null,"nome": string,"note": string | null,"setter_id": string | null,"telefono": string | null,"updated_at": string
@@ -1387,6 +1419,334 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"onboarding_eventi": {
+                  Row: {
+                    "attore": string,"autore_id": string | null,"client_id": string,"created_at": string,"dettagli": NonNullable<Json>,"id": string,"tipo": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attore": string,"autore_id"?: string | null,"client_id": string,"created_at"?: string,"dettagli"?: NonNullable<Json>,"id"?: string,"tipo": string
+                  }
+                  Update: {
+                    "attore"?: string,"autore_id"?: string | null,"client_id"?: string,"created_at"?: string,"dettagli"?: NonNullable<Json>,"id"?: string,"tipo"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_eventi_autore_id_fkey"
+      columns: ["autore_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_eventi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_eventi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_eventi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    }
+                  ]
+                },"onboarding_impostazioni": {
+                  Row: {
+                    "aperto_ai_clienti": boolean,"coach_predefinito_id": string | null,"created_at": string,"giorni_call": number,"giorni_programma": number,"giorni_test": number,"giorni_validita_link": number,"id": boolean,"link_community": string | null,"responsabile_predefinito_id": string | null,"revisore_predefinito_id": string | null,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "aperto_ai_clienti"?: boolean,"coach_predefinito_id"?: string | null,"created_at"?: string,"giorni_call"?: number,"giorni_programma"?: number,"giorni_test"?: number,"giorni_validita_link"?: number,"id"?: boolean,"link_community"?: string | null,"responsabile_predefinito_id"?: string | null,"revisore_predefinito_id"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "aperto_ai_clienti"?: boolean,"coach_predefinito_id"?: string | null,"created_at"?: string,"giorni_call"?: number,"giorni_programma"?: number,"giorni_test"?: number,"giorni_validita_link"?: number,"id"?: boolean,"link_community"?: string | null,"responsabile_predefinito_id"?: string | null,"revisore_predefinito_id"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_impostazioni_coach_predefinito_id_fkey"
+      columns: ["coach_predefinito_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_impostazioni_responsabile_predefinito_id_fkey"
+      columns: ["responsabile_predefinito_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_impostazioni_revisore_predefinito_id_fkey"
+      columns: ["revisore_predefinito_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_impostazioni_updated_by_fkey"
+      columns: ["updated_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"onboarding_incarichi": {
+                  Row: {
+                    "client_id": string,"coach_id": string | null,"created_at": string,"responsabile_id": string | null,"revisore_id": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"coach_id"?: string | null,"created_at"?: string,"responsabile_id"?: string | null,"revisore_id"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "client_id"?: string,"coach_id"?: string | null,"created_at"?: string,"responsabile_id"?: string | null,"revisore_id"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_incarichi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_incarichi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_incarichi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_incarichi_coach_id_fkey"
+      columns: ["coach_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_incarichi_responsabile_id_fkey"
+      columns: ["responsabile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_incarichi_revisore_id_fkey"
+      columns: ["revisore_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"onboarding_inviti": {
+                  Row: {
+                    "attivato_da": string | null,"attivato_il": string | null,"call_id": string | null,"client_id": string,"consenso_genitore_il": string | null,"consenso_genitore_nota": string | null,"created_at": string,"created_by": string | null,"email": string | null,"id": string,"minorenne": boolean,"revocato_il": string | null,"revocato_motivo": string | null,"sale_id": string | null,"scade_il": string | null,"slug": string,"stato": string,"token_hash": string,"updated_at": string,"usato_il": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attivato_da"?: string | null,"attivato_il"?: string | null,"call_id"?: string | null,"client_id": string,"consenso_genitore_il"?: string | null,"consenso_genitore_nota"?: string | null,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"id"?: string,"minorenne"?: boolean,"revocato_il"?: string | null,"revocato_motivo"?: string | null,"sale_id"?: string | null,"scade_il"?: string | null,"slug": string,"stato"?: string,"token_hash": string,"updated_at"?: string,"usato_il"?: string | null
+                  }
+                  Update: {
+                    "attivato_da"?: string | null,"attivato_il"?: string | null,"call_id"?: string | null,"client_id"?: string,"consenso_genitore_il"?: string | null,"consenso_genitore_nota"?: string | null,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"id"?: string,"minorenne"?: boolean,"revocato_il"?: string | null,"revocato_motivo"?: string | null,"sale_id"?: string | null,"scade_il"?: string | null,"slug"?: string,"stato"?: string,"token_hash"?: string,"updated_at"?: string,"usato_il"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_inviti_call_id_fkey"
+      columns: ["call_id"]
+isOneToOne: false
+      referencedRelation: "calls"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_inviti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_inviti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_inviti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_inviti_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_inviti_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "sales"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_inviti_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_provvigioni_maturate"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "onboarding_inviti_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_vendite"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "onboarding_inviti_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_vendite_senza_onboarding"
+      referencedColumns: ["sale_id"]
+    }
+                  ]
+                },"onboarding_inviti_token": {
+                  Row: {
+                    "created_at": string,"invito_id": string,"token": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"invito_id": string,"token": string
+                  }
+                  Update: {
+                    "created_at"?: string,"invito_id"?: string,"token"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_inviti_token_invito_id_fkey"
+      columns: ["invito_id"]
+isOneToOne: true
+      referencedRelation: "onboarding_inviti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_inviti_token_invito_id_fkey"
+      columns: ["invito_id"]
+isOneToOne: true
+      referencedRelation: "v_onboarding"
+      referencedColumns: ["invito_id"]
+    }
+                  ]
+                },"onboarding_passi": {
+                  Row: {
+                    "client_id": string,"completato_il": string | null,"created_at": string,"dati": NonNullable<Json>,"iniziato_il": string | null,"inviato_il": string | null,"nota": string | null,"passo": string,"stato": string,"updated_at": string,"versione": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"completato_il"?: string | null,"created_at"?: string,"dati"?: NonNullable<Json>,"iniziato_il"?: string | null,"inviato_il"?: string | null,"nota"?: string | null,"passo": string,"stato"?: string,"updated_at"?: string,"versione": number
+                  }
+                  Update: {
+                    "client_id"?: string,"completato_il"?: string | null,"created_at"?: string,"dati"?: NonNullable<Json>,"iniziato_il"?: string | null,"inviato_il"?: string | null,"nota"?: string | null,"passo"?: string,"stato"?: string,"updated_at"?: string,"versione"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_passi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_passi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_passi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_passi_versione_passo_fkey"
+      columns: ["versione","passo"]
+isOneToOne: false
+      referencedRelation: "onboarding_passi_def"
+      referencedColumns: ["versione","chiave"]
+    }
+                  ]
+                },"onboarding_passi_def": {
+                  Row: {
+                    "attore": string,"chiave": string,"nodo": string,"ordine": number,"richiede_verifica": boolean,"sblocca_dopo": (string)[],"tipo": string,"titolo": string,"versione": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attore": string,"chiave": string,"nodo": string,"ordine": number,"richiede_verifica"?: boolean,"sblocca_dopo"?: (string)[],"tipo": string,"titolo": string,"versione": number
+                  }
+                  Update: {
+                    "attore"?: string,"chiave"?: string,"nodo"?: string,"ordine"?: number,"richiede_verifica"?: boolean,"sblocca_dopo"?: (string)[],"tipo"?: string,"titolo"?: string,"versione"?: number
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"onboarding_percorsi": {
+                  Row: {
+                    "client_id": string,"completato_il": string | null,"created_at": string,"giorno_zero": string | null,"sale_id": string | null,"stato": string,"updated_at": string,"versione_flusso": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"completato_il"?: string | null,"created_at"?: string,"giorno_zero"?: string | null,"sale_id"?: string | null,"stato"?: string,"updated_at"?: string,"versione_flusso"?: number
+                  }
+                  Update: {
+                    "client_id"?: string,"completato_il"?: string | null,"created_at"?: string,"giorno_zero"?: string | null,"sale_id"?: string | null,"stato"?: string,"updated_at"?: string,"versione_flusso"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_percorsi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_percorsi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_percorsi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_percorsi_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "sales"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_percorsi_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_provvigioni_maturate"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "onboarding_percorsi_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_vendite"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "onboarding_percorsi_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_vendite_senza_onboarding"
+      referencedColumns: ["sale_id"]
+    }
+                  ]
                 },"payments": {
                   Row: {
                     "created_at": string,"created_by": string | null,"id": string,"importo_incassato": number | null,"importo_previsto": number,"incassato_il": string | null,"metodo": Database["public"]['Enums']["payment_method"] | null,"note": string | null,"numero_rata": number,"sale_id": string,"scadenza": string,"stato": Database["public"]['Enums']["payment_status"],"updated_at": string
@@ -1422,6 +1782,12 @@ isOneToOne: false
       columns: ["sale_id"]
 isOneToOne: false
       referencedRelation: "v_vendite"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "payments_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_vendite_senza_onboarding"
       referencedColumns: ["sale_id"]
     }
                   ]
@@ -1459,20 +1825,26 @@ isOneToOne: false
       foreignKeyName: "pm_membri_progetto_id_fkey"
       columns: ["progetto_id"]
 isOneToOne: false
+      referencedRelation: "v_onboarding"
+      referencedColumns: ["progetto_id"]
+    },{
+      foreignKeyName: "pm_membri_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
       referencedRelation: "v_pm_progetti"
       referencedColumns: ["id"]
     }
                   ]
                 },"pm_modelli": {
                   Row: {
-                    "attivo": boolean,"created_at": string,"created_by": string | null,"descrizione": string | null,"id": string,"nome": string,"per_nuovi_clienti": boolean,"reparto_id": string | null,"updated_at": string
+                    "attivo": boolean,"created_at": string,"created_by": string | null,"descrizione": string | null,"id": string,"nome": string,"per_nuovi_clienti": boolean,"per_onboarding": boolean,"reparto_id": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"per_nuovi_clienti"?: boolean,"reparto_id"?: string | null,"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome": string,"per_nuovi_clienti"?: boolean,"per_onboarding"?: boolean,"reparto_id"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"per_nuovi_clienti"?: boolean,"reparto_id"?: string | null,"updated_at"?: string
+                    "attivo"?: boolean,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"id"?: string,"nome"?: string,"per_nuovi_clienti"?: boolean,"per_onboarding"?: boolean,"reparto_id"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1491,14 +1863,14 @@ isOneToOne: false
                   ]
                 },"pm_modelli_voci": {
                   Row: {
-                    "created_at": string,"descrizione": string | null,"durata_giorni": number | null,"id": string,"inizio_giorni": number | null,"modello_id": string,"ordine": number,"per_ruolo": Database["public"]['Enums']["app_role"] | null,"tasklist": string | null,"titolo": string,"updated_at": string
+                    "chiave_onboarding": string | null,"created_at": string,"descrizione": string | null,"durata_giorni": number | null,"id": string,"inizio_giorni": number | null,"modello_id": string,"ordine": number,"per_incarico": string | null,"per_ruolo": Database["public"]['Enums']["app_role"] | null,"tasklist": string | null,"titolo": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number | null,"id"?: string,"inizio_giorni"?: number | null,"modello_id": string,"ordine"?: number,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"tasklist"?: string | null,"titolo": string,"updated_at"?: string
+                    "chiave_onboarding"?: string | null,"created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number | null,"id"?: string,"inizio_giorni"?: number | null,"modello_id": string,"ordine"?: number,"per_incarico"?: string | null,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"tasklist"?: string | null,"titolo": string,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number | null,"id"?: string,"inizio_giorni"?: number | null,"modello_id"?: string,"ordine"?: number,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"tasklist"?: string | null,"titolo"?: string,"updated_at"?: string
+                    "chiave_onboarding"?: string | null,"created_at"?: string,"descrizione"?: string | null,"durata_giorni"?: number | null,"id"?: string,"inizio_giorni"?: number | null,"modello_id"?: string,"ordine"?: number,"per_incarico"?: string | null,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"tasklist"?: string | null,"titolo"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1533,6 +1905,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "pm_progetti"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_note_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_onboarding"
+      referencedColumns: ["progetto_id"]
     },{
       foreignKeyName: "pm_note_progetto_id_fkey"
       columns: ["progetto_id"]
@@ -1619,14 +1997,14 @@ isOneToOne: false
                   ]
                 },"pm_task": {
                   Row: {
-                    "completato_il": string | null,"created_at": string,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"ordine": number,"parent_id": string | null,"per_ruolo": Database["public"]['Enums']["app_role"] | null,"priorita": Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza": string | null,"stato": Database["public"]['Enums']["pm_stato_task"],"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string,"updated_at": string
+                    "chiave_onboarding": string | null,"completato_il": string | null,"created_at": string,"created_by": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"ordine": number,"parent_id": string | null,"per_incarico": string | null,"per_ruolo": Database["public"]['Enums']["app_role"] | null,"priorita": Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza": string | null,"stato": Database["public"]['Enums']["pm_stato_task"],"stima_minuti": number | null,"tasklist_id": string | null,"titolo": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo": string,"updated_at"?: string
+                    "chiave_onboarding"?: string | null,"completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"per_incarico"?: string | null,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id": string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo": string,"updated_at"?: string
                   }
                   Update: {
-                    "completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id"?: string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo"?: string,"updated_at"?: string
+                    "chiave_onboarding"?: string | null,"completato_il"?: string | null,"created_at"?: string,"created_by"?: string | null,"data_inizio"?: string | null,"descrizione"?: string | null,"id"?: string,"ordine"?: number,"parent_id"?: string | null,"per_incarico"?: string | null,"per_ruolo"?: Database["public"]['Enums']["app_role"] | null,"priorita"?: Database["public"]['Enums']["pm_priorita"],"progetto_id"?: string,"scadenza"?: string | null,"stato"?: Database["public"]['Enums']["pm_stato_task"],"stima_minuti"?: number | null,"tasklist_id"?: string | null,"titolo"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1653,6 +2031,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "pm_progetti"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_task_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_onboarding"
+      referencedColumns: ["progetto_id"]
     },{
       foreignKeyName: "pm_task_progetto_id_fkey"
       columns: ["progetto_id"]
@@ -1739,6 +2123,12 @@ isOneToOne: false
       foreignKeyName: "pm_tasklist_progetto_id_fkey"
       columns: ["progetto_id"]
 isOneToOne: false
+      referencedRelation: "v_onboarding"
+      referencedColumns: ["progetto_id"]
+    },{
+      foreignKeyName: "pm_tasklist_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
       referencedRelation: "v_pm_progetti"
       referencedColumns: ["id"]
     }
@@ -1767,6 +2157,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "pm_progetti"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_tempo_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_onboarding"
+      referencedColumns: ["progetto_id"]
     },{
       foreignKeyName: "pm_tempo_progetto_id_fkey"
       columns: ["progetto_id"]
@@ -1874,6 +2270,12 @@ isOneToOne: false
       columns: ["sale_id"]
 isOneToOne: false
       referencedRelation: "v_vendite"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "promemoria_percorso_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_vendite_senza_onboarding"
       referencedColumns: ["sale_id"]
     }
                   ]
@@ -2079,6 +2481,12 @@ isOneToOne: true
 isOneToOne: true
       referencedRelation: "v_vendite"
       referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "vendite_contratti_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: true
+      referencedRelation: "v_vendite_senza_onboarding"
+      referencedColumns: ["sale_id"]
     }
                   ]
                 }
@@ -2238,6 +2646,50 @@ isOneToOne: false
       referencedColumns: ["shortcode"]
     }
                   ]
+                },"v_onboarding": {
+                  Row: {
+                    "attivato_da": string | null,"attivato_il": string | null,"client_id": string,"coach_id": string | null,"coach_nome": string | null,"cognome": string | null,"completato_il": string | null,"consenso_genitore_il": string | null,"created_at": string,"giorno_zero": string | null,"invito_id": string | null,"invito_stato": string | null,"minorenne": boolean | null,"nome": string,"passo_attore": string | null,"passo_corrente": string | null,"passo_stato": string | null,"passo_titolo": string | null,"percorso_stato": string,"progetto_id": string | null,"responsabile_id": string | null,"responsabile_nome": string | null,"revisore_id": string | null,"revisore_nome": string | null,"revocato_il": string | null,"revocato_motivo": string | null,"sale_id": string | null,"scade_il": string | null,"slug": string | null,"usato_il": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_incarichi_coach_id_fkey"
+      columns: ["coach_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_incarichi_responsabile_id_fkey"
+      columns: ["responsabile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_incarichi_revisore_id_fkey"
+      columns: ["revisore_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_percorsi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_percorsi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_percorsi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    }
+                  ]
                 },"v_pm_progetti": {
                   Row: {
                     "avanzamento": number | null,"client_id": string | null,"coach_id": string | null,"created_at": string,"data_fine": string | null,"data_inizio": string | null,"descrizione": string | null,"id": string,"nome": string,"reparto_id": string,"responsabile_id": string | null,"scaduto": boolean | null,"sono_membro": boolean | null,"stato": Database["public"]['Enums']["pm_stato_progetto"],"task_completati": number | null,"task_in_ritardo": number | null,"task_totali": number | null
@@ -2316,6 +2768,12 @@ isOneToOne: false
       foreignKeyName: "pm_task_progetto_id_fkey"
       columns: ["progetto_id"]
 isOneToOne: false
+      referencedRelation: "v_onboarding"
+      referencedColumns: ["progetto_id"]
+    },{
+      foreignKeyName: "pm_task_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
       referencedRelation: "v_pm_progetti"
       referencedColumns: ["id"]
     },{
@@ -2344,6 +2802,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "pm_progetti"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pm_tasklist_progetto_id_fkey"
+      columns: ["progetto_id"]
+isOneToOne: false
+      referencedRelation: "v_onboarding"
+      referencedColumns: ["progetto_id"]
     },{
       foreignKeyName: "pm_tasklist_progetto_id_fkey"
       columns: ["progetto_id"]
@@ -2397,6 +2861,12 @@ isOneToOne: false
       columns: ["sale_id"]
 isOneToOne: false
       referencedRelation: "v_vendite"
+      referencedColumns: ["sale_id"]
+    },{
+      foreignKeyName: "payments_sale_id_fkey"
+      columns: ["sale_id"]
+isOneToOne: false
+      referencedRelation: "v_vendite_senza_onboarding"
       referencedColumns: ["sale_id"]
     },{
       foreignKeyName: "sales_client_id_fkey"
@@ -2480,6 +2950,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"v_vendite_senza_onboarding": {
+                  Row: {
+                    "call_id": string | null,"client_id": string,"cognome": string | null,"created_at": string,"data_fine": string,"data_inizio": string,"data_vendita": string,"nome": string,"prodotto": string | null,"sale_id": string
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "sales_call_id_fkey"
+      columns: ["call_id"]
+isOneToOne: false
+      referencedRelation: "calls"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "sales_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "sales_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "sales_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    }
+                  ]
                 }
           }
           Functions: {
@@ -2524,6 +3026,9 @@ isOneToOne: false
 { Args: { "p_mese": string }; Returns: {
               "cash": number,"mese": string,"nuovi": number,"obiettivo_cash": number,"obiettivo_nuovi": number,"quota_cash": number,"quota_nuovi": number
             }[]
+                           },
+"avvia_onboarding":
+{ Args: { "p_coach": string,"p_contatti": Json,"p_minorenne"?: boolean,"p_responsabile": string,"p_revisore": string,"p_sale_id": string,"p_telegram": string }; Returns: Json
                            },
 "backup_completo":
 { Args: Record<PropertyKey, never>; Returns: Json
@@ -3183,6 +3688,9 @@ isOneToOne: false
 "nuova_regola_provvigione":
 { Args: { "p_applica_a": (Database["public"]['Enums']["sale_type"])[],"p_percentuale": number,"p_profile_id": string,"p_valida_dal": string }; Returns: string
                            },
+"nuovo_cliente":
+{ Args: { "p_onboarding": Json,"p_vendita": Json }; Returns: Json
+                           },
 "oggi":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
@@ -3190,6 +3698,45 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: {
               "call_in_programma": number,"call_prenotate": number,"call_svolte": number,"cash_incassato": number,"cash_nuovi_clienti": number,"chiuse": number,"conversazioni": number,"dm_totali": number,"report_compilati": number
             }[]
+                           },
+"onboarding_altro_percorso_pagato":
+{ Args: { "p_client_id": string,"p_sale_id": string }; Returns: boolean
+                           },
+"onboarding_apri_progetto":
+{ Args: { "p_client_id": string }; Returns: string
+                           },
+"onboarding_assegna_incarichi":
+{ Args: { "p_client_id": string }; Returns: undefined
+                           },
+"onboarding_conferma_pagamento":
+{ Args: { "p_invito": string }; Returns: Json
+                           },
+"onboarding_consenso_genitore":
+{ Args: { "p_invito": string,"p_nota": string }; Returns: Json
+                           },
+"onboarding_evento":
+{ Args: { "p_client_id": string,"p_dettagli": Json,"p_team"?: boolean,"p_tipo": string }; Returns: undefined
+                           },
+"onboarding_imposta_incarichi":
+{ Args: { "p_client_id": string,"p_coach": string,"p_responsabile": string,"p_revisore": string }; Returns: Json
+                           },
+"onboarding_incaricato":
+{ Args: { "p_client_id": string }; Returns: boolean
+                           },
+"onboarding_incassato_netto":
+{ Args: { "p_sale_id": string }; Returns: number
+                           },
+"onboarding_revoca":
+{ Args: { "p_invito": string,"p_motivo": string }; Returns: Json
+                           },
+"onboarding_riattiva":
+{ Args: { "p_invito": string }; Returns: Json
+                           },
+"onboarding_rigenera_link":
+{ Args: { "p_invito": string }; Returns: Json
+                           },
+"onboarding_slug":
+{ Args: { "p_cognome": string,"p_nome": string }; Returns: string
                            },
 "periodo_precedente":
 { Args: { "p_a": string,"p_da": string }; Returns: {

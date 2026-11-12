@@ -18,6 +18,7 @@ import {
   Presentation,
   Receipt,
   RefreshCw,
+  Rocket,
   Settings,
   SquareKanban,
   Timer,
@@ -174,6 +175,8 @@ const NAV: Record<AppRole, NavRuolo> = {
           { href: '/calls', etichetta: 'Le mie call', Icona: Phone, esiti: true },
           { href: '/leads', etichetta: 'Pipeline', Icona: SquareKanban },
           { href: '/clients', etichetta: 'Clienti', Icona: Users },
+          // the guided onboarding of the new clients (1.77.0): the admin only, never in the bottom bar
+          { href: '/onboarding', etichetta: 'Onboarding', Icona: Rocket },
           { href: '/sales', etichetta: 'Vendite', Icona: Receipt },
           { href: '/payments', etichetta: 'Incassi', Icona: Wallet },
           { href: '/rinnovi', etichetta: 'Rinnovi', Icona: RefreshCw },

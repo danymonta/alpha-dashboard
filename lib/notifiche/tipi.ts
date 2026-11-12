@@ -11,6 +11,8 @@ export const TIPI_EMAIL = ['riepilogo_settimana', 'tempo_team', 'contenuti_setti
 /**
  * The in-app alerts (1.42.0, Dany 19/10/2026: «rate in ritardo, token di Instagram in scadenza, giornate di Loris
  * da approvare, spesa di Claude vicina al limite» · «si tutte»): they exist only in the app, no email.
+ * From 1.77.0 also «onboarding_pagamento»: the payment of a new client is confirmed and his onboarding link is
+ * active (written by the trigger of public.onboarding_inviti, never an amount).
  */
 export const TIPI_AVVISO = [
   'rate_in_ritardo',
@@ -18,6 +20,7 @@ export const TIPI_AVVISO = [
   'chiave_rifiutata',
   'proposta_da_approvare',
   'spesa_claude',
+  'onboarding_pagamento',
 ] as const
 export const TIPI_NOTIFICA = [...TIPI_EMAIL, ...TIPI_AVVISO] as const
 export type TipoNotifica = (typeof TIPI_NOTIFICA)[number]
@@ -40,6 +43,7 @@ export const ETICHETTA_TIPO: Record<TipoNotifica, string> = {
   chiave_rifiutata: 'Chiave da rifare',
   proposta_da_approvare: 'Da approvare',
   spesa_claude: 'Spesa di Claude',
+  onboarding_pagamento: 'Onboarding',
 }
 
 /** Same bounds as the checks of the table (20261021090000_notifiche.sql, 20261022090000_notifiche_avvisi.sql). */
@@ -81,6 +85,7 @@ export function etichettaLink(link: string | null, lingua: Lingua = 'it'): strin
   const t = NOTIFICHE[lingua].link
   if (link === '/') return t.panoramica
   if (link.startsWith('/clients/')) return t.cliente
+  if (link === '/onboarding' || link.startsWith('/onboarding/')) return t.onboarding
   if (link.startsWith('/tempo/team')) return t.tempoTeam
   if (link.startsWith('/marketing/pubblicati')) return t.pubblicati
   if (link.startsWith('/settings/export')) return t.esporta
