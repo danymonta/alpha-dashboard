@@ -86,6 +86,21 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.77.2',
+    data: '2026-11-13',
+    titolo: 'Claude collegato: niente più collegamenti appesi',
+    riassunto: 'Claude non tiene più aperto ogni minuto un canale di avvisi che il gestionale non usa.',
+    intestazionePer: ['admin'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo:
+          'Con Claude aperto, ogni minuto una sua richiesta al gestionale restava appesa 60 secondi in attesa di avvisi che non arrivano mai, e consumava il tempo del piano di Vercel. Ora il gestionale dice subito a Claude che non manda avvisi: gli strumenti funzionano come prima.',
+      },
+    ],
+  },
+  {
     versione: '1.77.1',
     data: '2026-11-13',
     titolo: 'Insight: l’aggiornamento non gira più a vuoto',
