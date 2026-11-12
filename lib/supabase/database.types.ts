@@ -267,6 +267,52 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"clienti_accesso_limiti": {
+                  Row: {
+                    "chiave": string,"dal": string,"errori": number,"invii": number,"ultimo_invio_il": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "chiave": string,"dal"?: string,"errori"?: number,"invii"?: number,"ultimo_invio_il"?: string | null
+                  }
+                  Update: {
+                    "chiave"?: string,"dal"?: string,"errori"?: number,"invii"?: number,"ultimo_invio_il"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"clienti_account": {
+                  Row: {
+                    "chiuso_il": string | null,"client_id": string,"created_at": string,"registrato_il": string,"stato": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "chiuso_il"?: string | null,"client_id": string,"created_at"?: string,"registrato_il"?: string,"stato"?: string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "chiuso_il"?: string | null,"client_id"?: string,"created_at"?: string,"registrato_il"?: string,"stato"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "clienti_account_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_account_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_account_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    }
+                  ]
                 },"clienti_cartelle": {
                   Row: {
                     "client_id": string,"created_at": string,"created_by": string | null,"updated_at": string,"url": string
@@ -342,6 +388,64 @@ isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
     }
+                  ]
+                },"clienti_consensi": {
+                  Row: {
+                    "client_id": string,"dato_il": string,"id": string,"revocato_da": string | null,"revocato_il": string | null,"tipo": string,"versione": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"dato_il"?: string,"id"?: string,"revocato_da"?: string | null,"revocato_il"?: string | null,"tipo": string,"versione": string
+                  }
+                  Update: {
+                    "client_id"?: string,"dato_il"?: string,"id"?: string,"revocato_da"?: string | null,"revocato_il"?: string | null,"tipo"?: string,"versione"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "clienti_consensi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_consensi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_consensi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_consensi_revocato_da_fkey"
+      columns: ["revocato_da"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_consensi_tipo_versione_fkey"
+      columns: ["tipo","versione"]
+isOneToOne: false
+      referencedRelation: "clienti_consensi_testi"
+      referencedColumns: ["tipo","versione"]
+    }
+                  ]
+                },"clienti_consensi_testi": {
+                  Row: {
+                    "created_at": string,"in_vigore": boolean,"testo_sha256": string,"tipo": string,"versione": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"in_vigore"?: boolean,"testo_sha256": string,"tipo": string,"versione": string
+                  }
+                  Update: {
+                    "created_at"?: string,"in_vigore"?: boolean,"testo_sha256"?: string,"tipo"?: string,"versione"?: string
+                  }
+                  Relationships: [
+                    
                   ]
                 },"clienti_sospensioni": {
                   Row: {
@@ -501,6 +605,26 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
+    }
+                  ]
+                },"contenuti_blocchi": {
+                  Row: {
+                    "corpo": string | null,"created_at": string,"id": string,"obbligatorio": boolean,"ordine": number,"pagina": string,"passo": string | null,"pubblicato": boolean,"tipo": string,"titolo": string | null,"updated_at": string,"url": string | null,"versione_flusso": number,"youtube_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "corpo"?: string | null,"created_at"?: string,"id"?: string,"obbligatorio"?: boolean,"ordine": number,"pagina": string,"passo"?: string | null,"pubblicato"?: boolean,"tipo": string,"titolo"?: string | null,"updated_at"?: string,"url"?: string | null,"versione_flusso"?: number,"youtube_id"?: string | null
+                  }
+                  Update: {
+                    "corpo"?: string | null,"created_at"?: string,"id"?: string,"obbligatorio"?: boolean,"ordine"?: number,"pagina"?: string,"passo"?: string | null,"pubblicato"?: boolean,"tipo"?: string,"titolo"?: string | null,"updated_at"?: string,"url"?: string | null,"versione_flusso"?: number,"youtube_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "contenuti_blocchi_versione_flusso_passo_fkey"
+      columns: ["versione_flusso","passo"]
+isOneToOne: false
+      referencedRelation: "onboarding_passi_def"
+      referencedColumns: ["versione","chiave"]
     }
                   ]
                 },"expenses": {
@@ -1547,14 +1671,14 @@ isOneToOne: false
                   ]
                 },"onboarding_inviti": {
                   Row: {
-                    "attivato_da": string | null,"attivato_il": string | null,"call_id": string | null,"client_id": string,"consenso_genitore_il": string | null,"consenso_genitore_nota": string | null,"created_at": string,"created_by": string | null,"email": string | null,"id": string,"minorenne": boolean,"revocato_il": string | null,"revocato_motivo": string | null,"sale_id": string | null,"scade_il": string | null,"slug": string,"stato": string,"token_hash": string,"updated_at": string,"usato_il": string | null
+                    "attivato_da": string | null,"attivato_il": string | null,"call_id": string | null,"client_id": string,"consenso_genitore_il": string | null,"consenso_genitore_nota": string | null,"created_at": string,"created_by": string | null,"email": string | null,"id": string,"minorenne": boolean,"prova": boolean,"revocato_il": string | null,"revocato_motivo": string | null,"sale_id": string | null,"scade_il": string | null,"slug": string,"stato": string,"token_hash": string,"updated_at": string,"usato_il": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "attivato_da"?: string | null,"attivato_il"?: string | null,"call_id"?: string | null,"client_id": string,"consenso_genitore_il"?: string | null,"consenso_genitore_nota"?: string | null,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"id"?: string,"minorenne"?: boolean,"revocato_il"?: string | null,"revocato_motivo"?: string | null,"sale_id"?: string | null,"scade_il"?: string | null,"slug": string,"stato"?: string,"token_hash": string,"updated_at"?: string,"usato_il"?: string | null
+                    "attivato_da"?: string | null,"attivato_il"?: string | null,"call_id"?: string | null,"client_id": string,"consenso_genitore_il"?: string | null,"consenso_genitore_nota"?: string | null,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"id"?: string,"minorenne"?: boolean,"prova"?: boolean,"revocato_il"?: string | null,"revocato_motivo"?: string | null,"sale_id"?: string | null,"scade_il"?: string | null,"slug": string,"stato"?: string,"token_hash": string,"updated_at"?: string,"usato_il"?: string | null
                   }
                   Update: {
-                    "attivato_da"?: string | null,"attivato_il"?: string | null,"call_id"?: string | null,"client_id"?: string,"consenso_genitore_il"?: string | null,"consenso_genitore_nota"?: string | null,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"id"?: string,"minorenne"?: boolean,"revocato_il"?: string | null,"revocato_motivo"?: string | null,"sale_id"?: string | null,"scade_il"?: string | null,"slug"?: string,"stato"?: string,"token_hash"?: string,"updated_at"?: string,"usato_il"?: string | null
+                    "attivato_da"?: string | null,"attivato_il"?: string | null,"call_id"?: string | null,"client_id"?: string,"consenso_genitore_il"?: string | null,"consenso_genitore_nota"?: string | null,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"id"?: string,"minorenne"?: boolean,"prova"?: boolean,"revocato_il"?: string | null,"revocato_motivo"?: string | null,"sale_id"?: string | null,"scade_il"?: string | null,"slug"?: string,"stato"?: string,"token_hash"?: string,"updated_at"?: string,"usato_il"?: string | null
                   }
                   Relationships: [
                     {
@@ -1679,14 +1803,14 @@ isOneToOne: false
                   ]
                 },"onboarding_passi_def": {
                   Row: {
-                    "attore": string,"chiave": string,"nodo": string,"ordine": number,"richiede_verifica": boolean,"sblocca_dopo": (string)[],"tipo": string,"titolo": string,"versione": number
+                    "attore": string,"chiave": string,"nodo": string,"ordine": number,"richiede_verifica": boolean,"sblocca_dopo": (string)[],"sblocco": string,"tipo": string,"titolo": string,"versione": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "attore": string,"chiave": string,"nodo": string,"ordine": number,"richiede_verifica"?: boolean,"sblocca_dopo"?: (string)[],"tipo": string,"titolo": string,"versione": number
+                    "attore": string,"chiave": string,"nodo": string,"ordine": number,"richiede_verifica"?: boolean,"sblocca_dopo"?: (string)[],"sblocco"?: string,"tipo": string,"titolo": string,"versione": number
                   }
                   Update: {
-                    "attore"?: string,"chiave"?: string,"nodo"?: string,"ordine"?: number,"richiede_verifica"?: boolean,"sblocca_dopo"?: (string)[],"tipo"?: string,"titolo"?: string,"versione"?: number
+                    "attore"?: string,"chiave"?: string,"nodo"?: string,"ordine"?: number,"richiede_verifica"?: boolean,"sblocca_dopo"?: (string)[],"sblocco"?: string,"tipo"?: string,"titolo"?: string,"versione"?: number
                   }
                   Relationships: [
                     
@@ -1745,6 +1869,70 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_vendite_senza_onboarding"
       referencedColumns: ["sale_id"]
+    }
+                  ]
+                },"onboarding_registrazioni": {
+                  Row: {
+                    "chiave_hash": string,"chiave_scade_il": string,"codice_hash": string | null,"codice_scade_il": string | null,"created_at": string,"email": string | null,"email_provate": (string)[],"errori": number,"invii": number,"invii_dal": string | null,"invito_id": string,"updated_at": string,"utente_id": string,"verificato_il": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "chiave_hash": string,"chiave_scade_il": string,"codice_hash"?: string | null,"codice_scade_il"?: string | null,"created_at"?: string,"email"?: string | null,"email_provate"?: (string)[],"errori"?: number,"invii"?: number,"invii_dal"?: string | null,"invito_id": string,"updated_at"?: string,"utente_id"?: string,"verificato_il"?: string | null
+                  }
+                  Update: {
+                    "chiave_hash"?: string,"chiave_scade_il"?: string,"codice_hash"?: string | null,"codice_scade_il"?: string | null,"created_at"?: string,"email"?: string | null,"email_provate"?: (string)[],"errori"?: number,"invii"?: number,"invii_dal"?: string | null,"invito_id"?: string,"updated_at"?: string,"utente_id"?: string,"verificato_il"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_registrazioni_invito_id_fkey"
+      columns: ["invito_id"]
+isOneToOne: true
+      referencedRelation: "onboarding_inviti"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_registrazioni_invito_id_fkey"
+      columns: ["invito_id"]
+isOneToOne: true
+      referencedRelation: "v_onboarding"
+      referencedColumns: ["invito_id"]
+    }
+                  ]
+                },"onboarding_video_visti": {
+                  Row: {
+                    "blocco_id": string | null,"client_id": string,"created_at": string,"durata": number,"id": string,"percentuale": number | null,"updated_at": string,"visti": unknown,"visto_il": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "blocco_id"?: string | null,"client_id": string,"created_at"?: string,"durata": number,"id"?: string,"percentuale"?: never,"updated_at"?: string,"visti": unknown,"visto_il"?: string | null
+                  }
+                  Update: {
+                    "blocco_id"?: string | null,"client_id"?: string,"created_at"?: string,"durata"?: number,"id"?: string,"percentuale"?: never,"updated_at"?: string,"visti"?: unknown,"visto_il"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_video_visti_blocco_id_fkey"
+      columns: ["blocco_id"]
+isOneToOne: false
+      referencedRelation: "contenuti_blocchi"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_video_visti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_video_visti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_video_visti_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
     }
                   ]
                 },"payments": {
@@ -2648,7 +2836,7 @@ isOneToOne: false
                   ]
                 },"v_onboarding": {
                   Row: {
-                    "attivato_da": string | null,"attivato_il": string | null,"client_id": string,"coach_id": string | null,"coach_nome": string | null,"cognome": string | null,"completato_il": string | null,"consenso_genitore_il": string | null,"created_at": string,"giorno_zero": string | null,"invito_id": string | null,"invito_stato": string | null,"minorenne": boolean | null,"nome": string,"pagamento_confermato": boolean | null,"passo_attore": string | null,"passo_corrente": string | null,"passo_stato": string | null,"passo_titolo": string | null,"percorso_stato": string,"progetto_id": string | null,"responsabile_id": string | null,"responsabile_nome": string | null,"revisore_id": string | null,"revisore_nome": string | null,"revocato_il": string | null,"revocato_motivo": string | null,"sale_id": string | null,"scade_il": string | null,"slug": string | null,"usato_il": string | null
+                    "account_stato": string | null,"attivato_da": string | null,"attivato_il": string | null,"client_id": string,"coach_id": string | null,"coach_nome": string | null,"cognome": string | null,"completato_il": string | null,"consenso_genitore_il": string | null,"created_at": string,"giorno_zero": string | null,"invito_id": string | null,"invito_stato": string | null,"minorenne": boolean | null,"nome": string,"pagamento_confermato": boolean | null,"passo_attore": string | null,"passo_corrente": string | null,"passo_stato": string | null,"passo_titolo": string | null,"percorso_stato": string,"progetto_id": string | null,"prova": boolean | null,"registrato_il": string | null,"responsabile_id": string | null,"responsabile_nome": string | null,"revisore_id": string | null,"revisore_nome": string | null,"revocato_il": string | null,"revocato_motivo": string | null,"sale_id": string | null,"scade_il": string | null,"slug": string | null,"usato_il": string | null
                   }
                   ComputedFields: never
                   Relationships: [
@@ -3139,6 +3327,17 @@ isOneToOne: false
 "chiudi_regola_provvigione":
 { Args: { "p_rule_id": string,"p_valida_al": string }; Returns: undefined
                            },
+"cliente_accesso_conta":
+{ Args: { "p_email": string,"p_tipo": string }; Returns: boolean
+                           },
+"cliente_accesso_per_email":
+{ Args: { "p_email": string }; Returns: {
+              "nome": string,"stato": string,"user_id": string
+            }[]
+                           },
+"cliente_corrente":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "clienti_elenco":
 { Args: { "p_stati"?: (Database["public"]['Enums']["client_status"])[] }; Returns: {
               "cartella_url": string,"chiuso_il": string,"client_id": string,"cognome": string,"contratto_url": string,"da_incassare": number,"data_fine": string,"data_inizio": string,"in_ritardo": number,"incassato": number,"ltv": number,"mese": number,"mesi_totali": number,"metodi": (string)[],"nome": string,"numero_percorso": number,"prodotto": string,"prossima_scadenza": string,"prossimo_importo": number,"rate": Json,"rate_incassate": number,"rate_totali": number,"sale_id": string,"settimana": number,"settimane_totali": number,"sospeso_il": string,"stato": Database["public"]['Enums']["client_status"],"tipo": Database["public"]['Enums']["sale_type"],"valore_contratto": number
@@ -3192,6 +3391,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"consenso_dai":
+{ Args: { "p_tipo": string,"p_versione": string }; Returns: Json
+                           },
 "conteggi_opzioni_marketing":
 { Args: Record<PropertyKey, never>; Returns: {
               "campo": string,"n": number,"valore": string
@@ -3263,6 +3465,12 @@ isOneToOne: false
                            },
 "elimina_rata":
 { Args: { "p_payment_id": string }; Returns: undefined
+                           },
+"email_del_team":
+{ Args: { "p_email": string }; Returns: boolean
+                           },
+"email_di_cliente":
+{ Args: { "p_email": string,"p_escluso"?: string }; Returns: boolean
                            },
 "euro_testo":
 { Args: { "p_importo": number }; Returns: string
@@ -3714,6 +3922,9 @@ isOneToOne: false
 "onboarding_consenso_genitore":
 { Args: { "p_invito": string,"p_nota": string }; Returns: Json
                            },
+"onboarding_elimina":
+{ Args: { "p_client_id": string }; Returns: Json
+                           },
 "onboarding_evento":
 { Args: { "p_client_id": string,"p_dettagli": Json,"p_team"?: boolean,"p_tipo": string }; Returns: undefined
                            },
@@ -3726,6 +3937,33 @@ isOneToOne: false
 "onboarding_incassato_netto":
 { Args: { "p_sale_id": string }; Returns: number
                            },
+"onboarding_invito_apribile":
+{ Args: { "p_invito": string }; Returns: boolean
+                           },
+"onboarding_join_apri":
+{ Args: { "p_chiave_hash": string,"p_slug"?: string,"p_token_hash": string }; Returns: Json
+                           },
+"onboarding_join_codice":
+{ Args: { "p_chiave_hash": string,"p_codice_hash": string,"p_email": string }; Returns: Json
+                           },
+"onboarding_join_leggi":
+{ Args: { "p_slug"?: string,"p_token_hash": string }; Returns: Json
+                           },
+"onboarding_join_stato":
+{ Args: { "p_chiave_hash": string }; Returns: Json
+                           },
+"onboarding_join_verifica":
+{ Args: { "p_chiave_hash": string,"p_codice": string }; Returns: Json
+                           },
+"onboarding_nome_cliente":
+{ Args: { "p_client_id": string }; Returns: string
+                           },
+"onboarding_pulizia":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"onboarding_registra_cliente":
+{ Args: { "p_invito": string,"p_user_id": string }; Returns: undefined
+                           },
 "onboarding_revoca":
 { Args: { "p_invito": string,"p_motivo": string }; Returns: Json
                            },
@@ -3735,8 +3973,29 @@ isOneToOne: false
 "onboarding_rigenera_link":
 { Args: { "p_invito": string }; Returns: Json
                            },
+"onboarding_sblocca":
+{ Args: { "p_client_id": string }; Returns: number
+                           },
+"onboarding_scrivi_consenso":
+{ Args: { "p_client_id": string,"p_tipo": string,"p_versione": string }; Returns: string
+                           },
+"onboarding_segna_prova":
+{ Args: { "p_invito": string,"p_prova": boolean }; Returns: Json
+                           },
 "onboarding_slug":
 { Args: { "p_cognome": string,"p_nome": string }; Returns: string
+                           },
+"onboarding_stima":
+{ Args: { "p_client_id": string }; Returns: Json
+                           },
+"onboarding_ultimo_passo_servito":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"percorso_avanza":
+{ Args: { "p_azione": string,"p_dati"?: Json,"p_passo": string }; Returns: Json
+                           },
+"percorso_cliente":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "periodo_precedente":
 { Args: { "p_a": string,"p_da": string }; Returns: {
@@ -3993,6 +4252,9 @@ isOneToOne: false
                            },
 "verifica_piano":
 { Args: { "p_rate": Json,"p_valore": number }; Returns: undefined
+                           },
+"video_progresso":
+{ Args: { "p_blocco": string,"p_consegna": string,"p_durata": number,"p_intervalli": (unknown)[] }; Returns: Json
                            }
           }
           Enums: {
