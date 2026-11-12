@@ -1,60 +1,80 @@
 import { z } from 'zod'
 
-import { LINK_INCOMPLETO, normalizzaLink } from '@/lib/fathom/link'
-import { REGISTRAZIONE } from '@/lib/call/registrazione'
+import { separaJoin } from '@/lib/onboarding/link'
 
 /**
- * The recording of a held call (Dany, 16/10/2026, CLAUDE.md section 31): the link of
- * its Fathom recording is required for the outcomes of a held call (closed,
- * follow-up, lost), with one way out, «Call non registrata». The same schema binds
- * the outcome sheet, the server action and Alfire.
+ * The client's way in (release B1a, docs/onboarding/rilascio-b.md, «Autenticazione»): the
+ * personal link /join/<slug>-<token>, the registration with an 8 digit code of ours, the
+ * return through /entra with Supabase's code. The same schemas bind the forms and the
+ * server actions; the words are the client's (Italian only, lib/percorso/testi.ts).
  */
 
-/** The day the link became required, on the day of the call (Europe/Rome): calls before are not asked. */
-export const REGISTRAZIONE_OBBLIGATORIA_DAL = '2026-10-16'
+/** Digits of both codes: the registration's (ours) and the return's (Supabase's Email OTP Length). */
+export const CIFRE_CODICE_CLIENTE = 8
 
-/** The pasted link, cleaned: https, no query, the form every other copy of it shares. */
-export const linkRegistrazione = z
-  .string({ required_error: LINK_INCOMPLETO, invalid_type_error: LINK_INCOMPLETO })
+/** How long the registration code lasts (onboarding_join_codice: 15 minutes). */
+export const VALIDITA_CODICE_REGISTRAZIONE_MINUTI = 15
+
+/** How long the code of /entra lasts: Supabase's otp_expiry. */
+export const VALIDITA_CODICE_ENTRA_MINUTI = 60
+
+/** Seconds before «Invia di nuovo» lights up again. */
+export const ATTESA_NUOVO_CODICE_CLIENTE_S = 60
+
+export const ERRORI_REGISTRAZIONE = {
+  email: 'Scrivi un’email valida, ad esempio nome@dominio.it',
+  emailVuota: 'Scrivi la tua email',
+  codice: `Il codice ha ${CIFRE_CODICE_CLIENTE} cifre`,
+  codiceVuoto: 'Scrivi il codice',
+  segmento: 'Link non valido',
+} as const
+
+/** The address the client types: the same rules as the team's, with the client's words. */
+export const emailClienteSchema = z
+  .string({ required_error: ERRORI_REGISTRAZIONE.emailVuota })
   .trim()
-  .min(1, LINK_INCOMPLETO)
-  .max(500, REGISTRAZIONE.linkTroppoLungo)
-  .transform((v, ctx) => {
-    const n = normalizzaLink(v)
-    if (!n.ok) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: n.errore })
-      return z.NEVER
-    }
-    return n.canonico
-  })
+  .toLowerCase()
+  .min(1, ERRORI_REGISTRAZIONE.emailVuota)
+  .max(320, ERRORI_REGISTRAZIONE.email)
+  .email(ERRORI_REGISTRAZIONE.email)
 
-export const sceltaRegistrazioneSchema = z.discriminatedUnion('tipo', [
-  z.object({ tipo: z.literal('link'), url: linkRegistrazione }),
-  z.object({ tipo: z.literal('non_registrata') }),
-])
+/** «1234 5678», «1234-5678» and spaces around are the same code; then exactly 8 digits. */
+export const codiceClienteSchema = z
+  .string({ required_error: ERRORI_REGISTRAZIONE.codiceVuoto })
+  .transform((v) => v.replace(/[\s-]/g, ''))
+  .pipe(
+    z
+      .string()
+      .min(1, ERRORI_REGISTRAZIONE.codiceVuoto)
+      .regex(new RegExp(`^\\d{${CIFRE_CODICE_CLIENTE}}$`), ERRORI_REGISTRAZIONE.codice),
+  )
 
-export type SceltaRegistrazione = z.output<typeof sceltaRegistrazioneSchema>
-export type SceltaRegistrazioneInput = z.input<typeof sceltaRegistrazioneSchema>
+/** The last segment of /join/<slug>-<token>: separaJoin must read it. */
+export const segmentoJoinSchema = z
+  .string()
+  .max(200, ERRORI_REGISTRAZIONE.segmento)
+  .refine((s) => separaJoin(s) !== null, ERRORI_REGISTRAZIONE.segmento)
 
-/** The outcomes of a held call, the ones that ask for the recording. */
-export const ESITI_CHE_CHIEDONO_LA_REGISTRAZIONE = ['chiusa', 'follow_up', 'persa'] as const
+/** «Continua» on the page of the link. */
+export const apriInvitoSchema = z.object({ segmento: segmentoJoinSchema })
 
-export function chiedeRegistrazione(esito: string | null | undefined): boolean {
-  return esito === 'chiusa' || esito === 'follow_up' || esito === 'persa'
-}
+/** «Inviami il codice» on /join/registrati. */
+export const codiceRegistrazioneSchema = z.object({ email: emailClienteSchema })
 
-/**
- * Null when nothing is missing. `giorno` is the day of the call (Europe/Rome,
- * YYYY-MM-DD); `haRegistrazione` is true when the call already has a link or a
- * «not recorded»: «Cambia esito» does not ask again, nor does a call from before
- * the day the link became required.
- */
-export function registrazioneMancante(
-  esito: string | null | undefined,
-  scelta: unknown,
-  call: { giorno: string; haRegistrazione: boolean },
-): string | null {
-  if (!chiedeRegistrazione(esito)) return null
-  if (call.haRegistrazione || call.giorno < REGISTRAZIONE_OBBLIGATORIA_DAL) return null
-  return sceltaRegistrazioneSchema.safeParse(scelta).success ? null : REGISTRAZIONE.manca
+/** The code of the registration. */
+export const verificaRegistrazioneSchema = z.object({ codice: codiceClienteSchema })
+
+/** /entra: the address, then the code. */
+export const chiediCodiceClienteSchema = z.object({ email: emailClienteSchema })
+export const verificaCodiceClienteSchema = z.object({ email: emailClienteSchema, codice: codiceClienteSchema })
+
+/** The forms (one field each step). */
+export const formEmailClienteSchema = z.object({ email: emailClienteSchema })
+export const formCodiceClienteSchema = z.object({ codice: codiceClienteSchema })
+export type FormEmailClienteInput = z.input<typeof formEmailClienteSchema>
+export type FormCodiceClienteInput = z.input<typeof formCodiceClienteSchema>
+
+/** «1234 5678»: the code as the email writes it, easier to read. */
+export function codiceLeggibile(codice: string): string {
+  return /^\d{8}$/.test(codice) ? `${codice.slice(0, 4)} ${codice.slice(4)}` : codice
 }
