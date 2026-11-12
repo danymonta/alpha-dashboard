@@ -49,7 +49,45 @@ async function servi(richiesta: Request): Promise<Response> {
   if (!accesso.ok) return accesso.risposta
   const troppe = superaLimiteRichieste(accesso.sessione)
   if (troppe) return troppe
+  const ascolto = await rifiutaAscolto(richiesta)
+  if (ascolto) return ascolto
   return gestoreMcp().fetch(richiesta, { authInfo: accesso.authInfo })
+}
+
+/**
+ * subscriptions/listen (protocol 2026-07-28) opens a stream that waits for
+ * change notifications. This server has none (its tools follow the role and
+ * never change while a connection lives, listChanged false), and on Vercel the
+ * stream stayed open until the function was cut at 60 seconds, then the client
+ * opened another one (13/11/2026: one every minute, all day). It is answered
+ * at once with «method not found», which the SDK's client takes as no
+ * subscription. Only a small JSON body is read, from a copy: the SDK reads
+ * the request itself.
+ */
+async function rifiutaAscolto(richiesta: Request): Promise<Response | null> {
+  if (richiesta.method !== 'POST') return null
+  if (!(richiesta.headers.get('content-type') ?? '').includes('application/json')) return null
+  const lunghezza = Number(richiesta.headers.get('content-length') ?? '0')
+  if (lunghezza > 4096) return null
+  let messaggio: unknown
+  try {
+    messaggio = JSON.parse(await richiesta.clone().text())
+  } catch {
+    return null
+  }
+  if (
+    messaggio === null ||
+    typeof messaggio !== 'object' ||
+    Array.isArray(messaggio) ||
+    (messaggio as { method?: unknown }).method !== 'subscriptions/listen'
+  ) {
+    return null
+  }
+  const id = (messaggio as { id?: unknown }).id
+  return Response.json(
+    { jsonrpc: '2.0', id: typeof id === 'string' || typeof id === 'number' ? id : null, error: { code: -32601, message: 'Method not found' } },
+    { status: 200, headers: { 'Cache-Control': 'no-store' } },
+  )
 }
 
 export async function GET(richiesta: Request) {
