@@ -86,6 +86,36 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.77.0',
+    data: '2026-11-12',
+    titolo: 'Nuovo cliente: l’onboarding parte con un tocco',
+    riassunto:
+      'Da una call chiusa o dal menu, «Nuovo cliente» crea in un colpo cliente, vendita, progetto con i task di onboarding, il team incaricato e il link personale, che si attiva solo a pagamento confermato.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Vendite › Onboarding › «Nuovo cliente»: tre schermate (cliente, vendita, team) e una conferma. In una sola operazione nascono il cliente, la vendita col piano rate, il progetto del percorso con i dieci task di onboarding e il link personale del cliente. Coach, revisore e responsabile entrano nel progetto e ricevono i loro task solo quando il pagamento è confermato: prima non vedono niente. Dopo una call chiusa arrivi lì con i dati del lead già scritti; «Registra solo la vendita» resta come seconda strada.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il link del cliente resta fermo finché non c’è il pagamento: si attiva da solo alla prima rata incassata, o con «Conferma pagamento» se l’incasso lo registri dopo. Un rimborso totale, una vendita eliminata o spostata su un altro cliente lo revocano; lo puoi revocare, riattivare e rigenerare a mano. Per un minorenne resta fermo finché non registri il consenso di un genitore.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'La pagina Onboarding divide i clienti in chi tocca a noi, chi tocca al cliente, chi è in attesa di pagamento o di registrazione e chi è fermo con il link revocato o scaduto, ed elenca le vendite nuove ancora senza onboarding, con «Avvia onboarding». La scheda di ogni cliente ha lo stato del link, il team incaricato, Telegram, gli step del percorso e il registro di cosa è successo.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Impostazioni › Onboarding: coach, revisore e responsabile predefiniti, il link della community e per quanti giorni vale un link. L’area che vedrà il cliente (la timeline con gli step, il questionario, la prenotazione della call) arriva col prossimo rilascio: fino ad allora il link non si manda, e la pagina lo dice.',
+      },
+    ],
+  },
+  {
     versione: '1.76.0',
     data: '2026-11-11',
     titolo: 'Le call prenotate vere, dal calendario',

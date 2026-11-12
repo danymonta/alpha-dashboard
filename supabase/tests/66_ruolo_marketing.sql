@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(43);
+select plan(44);
 
 -- ---------------------------------------------------------------------------
 -- 1. The role, and an invite that uses it
@@ -181,6 +181,18 @@ select is(
    where (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from public.%I', t), false, true, '')))[1]::text::integer = 0),
   '{}'::text[],
   'ogni tabella dell''Insight ha righe: 0 righe qui sotto vuol dire RLS'
+);
+
+-- The guided onboarding (1.77.0, 109_onboarding_dati.sql): invites, paths, steps, log, people in charge and
+-- Telegram are the admin's (and, of a path, the people in charge's): never marketing's nor the editor's.
+-- The seed (60_onboarding.sql) leaves rows in every one of them
+select is(
+  (select coalesce(array_agg(t order by t), '{}') from unnest(array[
+     'onboarding_impostazioni', 'onboarding_incarichi', 'onboarding_inviti', 'onboarding_inviti_token',
+     'onboarding_percorsi', 'onboarding_passi_def', 'onboarding_passi', 'onboarding_eventi', 'clienti_telegram']) as t
+   where (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from public.%I', t), false, true, '')))[1]::text::integer = 0),
+  '{}'::text[],
+  'ogni tabella dell''onboarding ha righe: 0 righe qui sotto vuol dire RLS'
 );
 
 create temp table righe_viste (persona text, relazione text, righe bigint, errore text) on commit drop;

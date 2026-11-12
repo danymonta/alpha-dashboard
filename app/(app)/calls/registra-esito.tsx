@@ -55,6 +55,7 @@ import {
   quandoFollowUpDaIn,
 } from '@/lib/i18n/testi/esito'
 import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { ONBOARDING } from '@/lib/i18n/testi/onboarding'
 import { MASSIMO_MOTIVO, MASSIMO_NOTE_CLOSER } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 import { erroreGiornoFollowUp, schemaSpostamento } from '@/lib/validation/call'
@@ -260,7 +261,10 @@ export function RegistraEsito({
       const registrazioneInviata = 'registrazione' in input ? input.registrazione : undefined
       toast.success(spostata ? SPOSTA.fatto(nomeLead) : `${nomeLead}: ${ETICHETTA_ESITO[input.esito].toLowerCase()}`, {
         description: esito.vaiA
-          ? t.oraLaVendita
+          ? // the admin goes on to the wizard «Nuovo cliente» (1.77.0), the closer to the sale
+            admin
+            ? ONBOARDING[lingua].agganci.oraIlCliente
+            : t.oraLaVendita
           : spostata
             ? t.alle(etichettaGiornoIn(spostata.data, oggi, lingua), spostata.ora)
             : conFollowUp
@@ -285,8 +289,15 @@ export function RegistraEsito({
       }
       apriChiudi(false)
       if (esito.vaiA) {
-        // the sale comes back to the page the call was closed from
-        router.push(tornaA ? `${esito.vaiA}&${new URLSearchParams({ da: tornaA }).toString()}` : esito.vaiA)
+        if (admin) {
+          // the admin starts the whole onboarding from the closed call (1.77.0): client, sale, team and link;
+          // «Registra solo la vendita» is on the wizard's first screen, and the page the call was closed from
+          // (the closer's day) is one tap away on its last one
+          router.push(`/onboarding/nuovo?${new URLSearchParams({ call: callId, ...(tornaA ? { da: tornaA } : {}) }).toString()}`)
+        } else {
+          // the sale comes back to the page the call was closed from
+          router.push(tornaA ? `${esito.vaiA}&${new URLSearchParams({ da: tornaA }).toString()}` : esito.vaiA)
+        }
       }
     })
   }

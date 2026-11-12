@@ -7,6 +7,7 @@ import { LinkBottone } from '@/components/link-bottone'
 import { AggiungiRata } from '@/app/(app)/sales/[id]/aggiungi-rata'
 import { ModificaVendita } from '@/app/(app)/sales/[id]/modifica-vendita'
 import { ContrattoVendita } from '@/components/cliente/contratto-vendita'
+import { AggancioOnboarding } from '@/components/onboarding/aggancio'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoRata } from '@/components/pagamento/stato-rata'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -18,6 +19,7 @@ import { getLingua } from '@/lib/i18n/server'
 import { ETICHETTE } from '@/lib/i18n/testi/etichette'
 import { MODIFICA_VENDITA } from '@/lib/i18n/testi/nuova-vendita'
 import { VENDITE } from '@/lib/i18n/testi/vendite'
+import { leggiAggancio } from '@/lib/onboarding/letture'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -38,7 +40,7 @@ export default async function DettaglioVenditaPage({
   const { data: vendita } = await supabase
     .from('sales')
     .select(
-      'id, tipo, product_id, prodotto_personalizzato, setter_id, closer_id, data_vendita, data_inizio, data_fine, valore_contratto, numero_rate, note, cliente:clients(nome, cognome, instagram_handle), prodotto:products(nome), setter:profiles!sales_setter_id_fkey(nome), closer:profiles!sales_closer_id_fkey(nome), rate:payments(id, numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato, metodo)',
+      'id, tipo, client_id, product_id, prodotto_personalizzato, setter_id, closer_id, data_vendita, data_inizio, data_fine, valore_contratto, numero_rate, note, cliente:clients(nome, cognome, instagram_handle), prodotto:products(nome), setter:profiles!sales_setter_id_fkey(nome), closer:profiles!sales_closer_id_fkey(nome), rate:payments(id, numero_rata, scadenza, importo_previsto, stato, incassato_il, importo_incassato, metodo)',
     )
     .eq('id', id)
     .order('numero_rata', { referencedTable: 'payments' })
@@ -54,7 +56,7 @@ export default async function DettaglioVenditaPage({
 
   const admin = profilo.ruolo === 'admin'
   // the edit sheet's lists: admin only, former collaborators stay where they already are
-  const [catalogo, persone, provvigione, contratto, picker] = admin
+  const [catalogo, persone, provvigione, contratto, picker, onboarding] = admin
     ? await Promise.all([
         supabase.from('products').select('id, nome, attivo').order('nome'),
         supabase.from('profiles').select('id, nome, ruolo, attivo').in('ruolo', ['admin', 'setter', 'closer']).order('nome'),
@@ -64,8 +66,10 @@ export default async function DettaglioVenditaPage({
         supabase.from('vendite_contratti').select('url').eq('sale_id', id).maybeSingle(),
         // "Scegli da Drive": the Google Picker's public values; none = the typed link only
         configPickerRichiesta(),
+        // the guided onboarding of a new client (1.77.0), admin only; null if it cannot be read
+        vendita?.tipo === 'nuovo' ? leggiAggancio(supabase, vendita.client_id) : null,
       ])
-    : [null, null, null, null, null]
+    : [null, null, null, null, null, null]
   if (contratto?.error) throw new Error(t.erroreContratto)
 
   const tornaIndietro = admin ? '/sales' : '/my-sales'
@@ -217,6 +221,16 @@ export default async function DettaglioVenditaPage({
           </div>
         ) : null}
       </dl>
+
+      {onboarding ? (
+        // «Avvia onboarding» only on a path not over yet; a started one is one tap away
+        <AggancioOnboarding
+          riga={onboarding.riga}
+          aperto={onboarding.aperto}
+          hrefAvvia={vendita.data_fine >= oggi ? `/onboarding/nuovo?vendita=${vendita.id}` : null}
+          lingua={lingua}
+        />
+      ) : null}
 
       {admin ? (
         // one contract per sale: every path and every renewal has its own; only the admin sees it

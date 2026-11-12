@@ -1396,7 +1396,7 @@ describe('ogni scrittura chiama l’azione del form con i dati giusti', () => {
   it('progetto: creare con reparto, modello e membri per nome', async () => {
     const righe = mondo()
     righe.pm_reparti = [{ id: 'rep-video', nome: 'Contenuti e Video', attivo: true }]
-    righe.pm_modelli = [{ id: 'mod-reel', nome: 'Reel mensile', attivo: true }]
+    righe.pm_modelli = [{ id: 'mod-reel', nome: 'Reel mensile', attivo: true, per_onboarding: false }]
     a.creaProgetto.mockResolvedValueOnce({ ok: true, id: PROGETTO })
     const esito = await esegui(strumenti('coach', 'manager', righe), 'progetto', {
       azione: 'crea',

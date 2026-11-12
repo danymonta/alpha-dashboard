@@ -16,6 +16,25 @@ export type EsitoModello = { ok: true; id: string } | { ok: false; errore: strin
 const SOLO_ADMIN = ['admin'] as const
 const NEGATO = 'Operazione riservata all’admin dei progetti.'
 
+/**
+ * The template of the onboarding (1.77.0): the wizard «Nuovo cliente» adds its list to the client's
+ * project and recognises every task by its key (pm_modelli_voci.chiave_onboarding). The template and
+ * its keyed tasks are renamed and reworded here, never deleted: the database has no guard on them.
+ */
+const MODELLO_ONBOARDING =
+  'Il modello dell’onboarding non si elimina: il wizard «Nuovo cliente» apre la sua lista nel progetto di ogni cliente.'
+const VOCE_ONBOARDING =
+  'Le attività dell’onboarding non si eliminano: il percorso le riconosce dalla loro chiave. Puoi cambiarne il titolo.'
+/** An activity added here would have no key and never reach a client; switching it off would change nothing. */
+const MODELLO_ONBOARDING_CHIUSO =
+  'Il modello dell’onboarding è chiuso: non si aggiungono attività, non si spegne e non è quello dei nuovi clienti. Puoi cambiare il titolo delle sue attività.'
+
+/** Whether a template is the onboarding's (read under the admin's RLS). */
+async function diOnboarding(supabase: Awaited<ReturnType<typeof createClient>>, id: string): Promise<boolean> {
+  const { data } = await supabase.from('pm_modelli').select('per_onboarding').eq('id', id).maybeSingle()
+  return data?.per_onboarding === true
+}
+
 function errore(error: { code?: string; message: string }, fallback: string) {
   if (error.code === '23505') return 'Esiste già un reparto con questo nome.'
   if (error.code === '23503') return 'Il reparto ha ancora dei progetti: spostali in un altro reparto o eliminali prima.'
@@ -131,6 +150,9 @@ export async function salvaModello(input: unknown): Promise<EsitoModello> {
 
   const { id, ...campi } = parsed.data
   const supabase = await createClient()
+  if (id && campi.per_nuovi_clienti && (await diOnboarding(supabase, id))) {
+    return { ok: false, errore: MODELLO_ONBOARDING_CHIUSO }
+  }
   if (id) {
     const { data, error } = await supabase.from('pm_modelli').update(campi).eq('id', id).select('id')
     if (error) return { ok: false, errore: errore(error, 'Modello non salvato. Riprova.') }
@@ -159,6 +181,7 @@ export async function cambiaAttivoModello(input: unknown): Promise<Esito> {
   if (negato) return { ok: false, errore: negato }
 
   const supabase = await createClient()
+  if (await diOnboarding(supabase, parsed.data.id)) return { ok: false, errore: MODELLO_ONBOARDING_CHIUSO }
   const { data, error } = await supabase
     .from('pm_modelli')
     .update({ attivo: parsed.data.attivo })
@@ -179,6 +202,10 @@ export async function eliminaModello(input: unknown): Promise<Esito> {
   if (negato) return { ok: false, errore: negato }
 
   const supabase = await createClient()
+  // before 1.77.0's migration the column is not there: the read answers nothing and the deletion goes as before
+  const { data: modello } = await supabase.from('pm_modelli').select('per_onboarding').eq('id', parsed.data.id).maybeSingle()
+  if (modello?.per_onboarding) return { ok: false, errore: MODELLO_ONBOARDING }
+
   const { data, error } = await supabase.from('pm_modelli').delete().eq('id', parsed.data.id).select('id')
   if (error) return { ok: false, errore: errore(error, 'Modello non eliminato. Riprova.') }
   if (data.length === 0) return { ok: false, errore: NEGATO }
@@ -195,6 +222,7 @@ export async function salvaVoce(input: unknown): Promise<Esito> {
 
   const { id, ...campi } = parsed.data
   const supabase = await createClient()
+  if (!id && (await diOnboarding(supabase, campi.modello_id))) return { ok: false, errore: MODELLO_ONBOARDING_CHIUSO }
   const { data, error } = id
     ? await supabase.from('pm_modelli_voci').update(campi).eq('id', id).select('id')
     : await supabase.from('pm_modelli_voci').insert(campi).select('id')
@@ -212,6 +240,9 @@ export async function eliminaVoce(input: unknown): Promise<Esito> {
   if (negato) return { ok: false, errore: negato }
 
   const supabase = await createClient()
+  const { data: voce } = await supabase.from('pm_modelli_voci').select('chiave_onboarding').eq('id', parsed.data.id).maybeSingle()
+  if (voce?.chiave_onboarding) return { ok: false, errore: VOCE_ONBOARDING }
+
   const { data, error } = await supabase.from('pm_modelli_voci').delete().eq('id', parsed.data.id).select('modello_id')
   if (error) return { ok: false, errore: errore(error, 'Attività non eliminata. Riprova.') }
   if (data.length === 0) return { ok: false, errore: NEGATO }

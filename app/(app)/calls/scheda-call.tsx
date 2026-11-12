@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarClock, CircleAlert, MessageCircle, Receipt, RotateCw } from 'lucide-react'
+import { CalendarCheck, CalendarClock, CircleAlert, MessageCircle, Receipt, RotateCw, UserRoundPlus } from 'lucide-react'
 
 import { CollegaVendita } from '@/app/(app)/calls/collega-vendita'
 import { FissaFollowUp } from '@/app/(app)/calls/follow-up'
@@ -22,6 +22,7 @@ import { etichettaGiornoBreveIn, etichettaGiornoIn, quandoBreveIn, quandoFollowU
 import type { Lingua } from '@/lib/i18n/lingua'
 import { CALL } from '@/lib/i18n/testi/call'
 import { FOLLOW_UP_TESTI, VENDITA_TESTI } from '@/lib/i18n/testi/esito'
+import { ONBOARDING } from '@/lib/i18n/testi/onboarding'
 import type { Database } from '@/lib/supabase/database.types'
 import { chiedeMotivo } from '@/lib/validation/esito'
 import { REGISTRAZIONE_OBBLIGATORIA_DAL } from '@/lib/validation/registrazione'
@@ -170,6 +171,7 @@ export function SchedaCall({
   )
   const descrizione = t.descrizioneCall(t.tipo[call.tipo], etichettaGiornoIn(giorno, oggi, lingua), ora)
   const VENDITA_DA_REGISTRARE = VENDITA_TESTI[lingua]
+  const AGGANCI_ONBOARDING = ONBOARDING[lingua].agganci
   const volte = call.volte_spostata ?? 0
   const traccia =
     call.spostata_dal && volte >= 1
@@ -206,6 +208,7 @@ export function SchedaCall({
   // the net under "Chiusa" → sale: the call's closer and the admin; the setter never reads sales
   const venditaDaRegistrare = vista === 'closer' && chiedeVendita(call)
   const hrefVendita = `/sales/new?${new URLSearchParams({ call: call.id, ...(tornaA ? { da: tornaA } : {}) }).toString()}`
+  const hrefNuovoCliente = `/onboarding/nuovo?${new URLSearchParams({ call: call.id, ...(tornaA ? { da: tornaA } : {}) }).toString()}`
 
   const dettagli = [
     t.tipo[call.tipo],
@@ -385,14 +388,38 @@ export function SchedaCall({
               {t.venditaDaRegistrare}
             </p>
             <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-              {/* a sale registered without the call: the admin ties it, never a second sale */}
               {admin ? (
-                <CollegaVendita callId={call.id} idTitolo={idTitolo} nomeLead={nome} hrefVendita={hrefVendita} />
-              ) : null}
-              <LinkBottone href={hrefVendita} className="gap-1.5 px-3" aria-label={VENDITA_DA_REGISTRARE.nomeBottone(nome)}>
-                <Receipt className="size-4" aria-hidden="true" />
-                {VENDITA_DA_REGISTRARE.bottone}
-              </LinkBottone>
+                // the admin starts the whole onboarding from the closed call (1.77.0): client, sale, team and link
+                // together; the sale alone stays one tap away (a renewal or an upsell closed in a call)
+                <>
+                  <LinkBottone
+                    href={hrefNuovoCliente}
+                    className="gap-1.5 px-3"
+                    aria-label={`${AGGANCI_ONBOARDING.nuovoCliente}: ${nome}`}
+                    data-testid="nuovo-cliente-dalla-call"
+                  >
+                    <UserRoundPlus className="size-4" aria-hidden="true" />
+                    {AGGANCI_ONBOARDING.nuovoCliente}
+                  </LinkBottone>
+                  <LinkBottone
+                    href={hrefVendita}
+                    variant="outline"
+                    className="gap-1.5 px-3"
+                    aria-label={`${AGGANCI_ONBOARDING.soloVendita}: ${nome}`}
+                    data-testid="solo-vendita-dalla-call"
+                  >
+                    <Receipt className="size-4" aria-hidden="true" />
+                    {AGGANCI_ONBOARDING.soloVendita}
+                  </LinkBottone>
+                  {/* a sale registered without the call: the admin ties it, never a second sale */}
+                  <CollegaVendita callId={call.id} idTitolo={idTitolo} nomeLead={nome} hrefVendita={hrefVendita} />
+                </>
+              ) : (
+                <LinkBottone href={hrefVendita} className="gap-1.5 px-3" aria-label={VENDITA_DA_REGISTRARE.nomeBottone(nome)}>
+                  <Receipt className="size-4" aria-hidden="true" />
+                  {VENDITA_DA_REGISTRARE.bottone}
+                </LinkBottone>
+              )}
             </div>
           </div>
           {/* the closer does not tie a sale: he asks the admin, never a second sale */}

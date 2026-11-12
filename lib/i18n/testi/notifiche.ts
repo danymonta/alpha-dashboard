@@ -13,7 +13,7 @@ export const NOTIFICHE = bilingue(
     inItaliano: 'Le email dell’app sono in italiano.',
     vuotoTitolo: 'Nessuna notifica',
     vuotoAdmin:
-      'Qui compaiono il riepilogo della settimana, il backup, i promemoria dei clienti e gli avvisi (rate in ritardo, chiavi in scadenza, tracciamenti da approvare, spesa di Claude), appena ci sono.',
+      'Qui compaiono il riepilogo della settimana, il backup, i promemoria dei clienti e gli avvisi (rate in ritardo, chiavi in scadenza, tracciamenti da approvare, spesa di Claude, pagamenti confermati dei clienti in onboarding), appena ci sono.',
     vuotoTeam: 'Per ora le notifiche arrivano solo all’admin. Se qualcosa dell’app ti riguarda, lo trovi qui.',
     daLeggere: (n: number) => `${n} da leggere`,
     tuttoLetto: 'Hai letto tutto',
@@ -50,10 +50,12 @@ export const NOTIFICHE = bilingue(
       chiave_rifiutata: 'Chiave da rifare',
       proposta_da_approvare: 'Da approvare',
       spesa_claude: 'Spesa di Claude',
+      onboarding_pagamento: 'Onboarding',
     } satisfies Record<TipoNotifica, string>,
     link: {
       panoramica: 'Apri la Panoramica',
       cliente: 'Apri la scheda del cliente',
+      onboarding: 'Apri l’onboarding',
       tempoTeam: 'Apri Tempo › Team',
       pubblicati: 'Apri Pubblicati',
       esporta: 'Apri Esporta',
@@ -72,7 +74,7 @@ export const NOTIFICHE = bilingue(
     inItaliano: 'The app’s emails are in Italian.',
     vuotoTitolo: 'No notifications',
     vuotoAdmin:
-      'The weekly summary, the backup, the client reminders and the alerts (late instalments, expiring keys, days to approve, Claude spending) appear here as soon as they come.',
+      'The weekly summary, the backup, the client reminders and the alerts (late instalments, expiring keys, days to approve, Claude spending, confirmed payments of clients in onboarding) appear here as soon as they come.',
     vuotoTeam: 'For now notifications go to the admin only. If something in the app concerns you, you find it here.',
     daLeggere: (n: number) => `${n} unread`,
     tuttoLetto: 'All read',
@@ -109,10 +111,12 @@ export const NOTIFICHE = bilingue(
       chiave_rifiutata: 'Key to renew',
       proposta_da_approvare: 'To approve',
       spesa_claude: 'Claude spending',
+      onboarding_pagamento: 'Onboarding',
     },
     link: {
       panoramica: 'Open the Overview',
       cliente: 'Open the client card',
+      onboarding: 'Open the onboarding',
       tempoTeam: 'Open Time › Team',
       pubblicati: 'Open Published',
       esporta: 'Open Export',

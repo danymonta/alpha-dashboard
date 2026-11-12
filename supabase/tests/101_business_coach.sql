@@ -205,7 +205,10 @@ select is(
                        'leads', 'setter_daily_reports', 'call_pitch', 'audit_log', 'marketing_contenuti', 'pm_progetti',
                        'pm_task', 'pm_tempo', 'insight_recap', 'call_analisi', 'products', 'invites', 'notifiche',
                        'obiettivi_mese', 'clienti_cartelle', 'report_proposte_instagram', 'v_vendite', 'v_rate',
-                       'v_clienti', 'v_pubblicati', 'spese_personali')),
+                       'v_clienti', 'v_pubblicati', 'spese_personali',
+                       -- the guided onboarding (1.77.0): the seed's two clients (60_onboarding.sql)
+                       'onboarding_inviti', 'onboarding_inviti_token', 'onboarding_percorsi', 'onboarding_passi',
+                       'onboarding_eventi', 'onboarding_incarichi', 'onboarding_impostazioni', 'clienti_telegram')),
   '',
   'le tabelle principali hanno righe: 0 righe per lui vuol dire RLS'
 );

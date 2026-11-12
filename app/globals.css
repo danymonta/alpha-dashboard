@@ -635,6 +635,95 @@ input::-webkit-datetime-edit-minute-field:focus {
   }
 }
 
+/* The wizard «Nuovo cliente» (1.77.0, app/(app)/onboarding/nuovo) ------------------
+   A screen takes the place of the one before with a short slide and fade, forwards
+   from the right and backwards from the left: transform and opacity only, 240 ms.
+   No fill forwards: at the end the element is itself again (no stacking context left
+   behind). The pieces of a screen that arrive one after the other (.wizard-sale) and
+   the mark of a finished step (.wizard-spunta) are the same idea, smaller. The rule
+   of reduced motion below stops them all. */
+@keyframes wizard-avanti {
+  from {
+    opacity: 0;
+    transform: translate3d(1.25rem, 0, 0);
+  }
+}
+
+@keyframes wizard-indietro {
+  from {
+    opacity: 0;
+    transform: translate3d(-1.25rem, 0, 0);
+  }
+}
+
+@keyframes wizard-sale {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.625rem, 0);
+  }
+}
+
+@keyframes wizard-spunta {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes wizard-anello {
+  from {
+    opacity: 0.55;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+.wizard-avanti {
+  animation: wizard-avanti 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.wizard-indietro {
+  animation: wizard-indietro 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.wizard-sale > * {
+  animation: wizard-sale 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.wizard-sale > :nth-child(2) {
+  animation-delay: 60ms;
+}
+.wizard-sale > :nth-child(3) {
+  animation-delay: 120ms;
+}
+.wizard-sale > :nth-child(4) {
+  animation-delay: 180ms;
+}
+.wizard-sale > :nth-child(5) {
+  animation-delay: 240ms;
+}
+.wizard-sale > :nth-child(n + 6) {
+  animation-delay: 300ms;
+}
+
+.wizard-spunta {
+  animation: wizard-spunta 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* the two rings around the mark of the last screen: twice, then they are gone */
+.wizard-anello {
+  opacity: 0;
+  animation: wizard-anello 1400ms cubic-bezier(0.22, 1, 0.36, 1) 2;
+}
+.wizard-anello-secondo {
+  animation-delay: 350ms;
+}
+
 /* Light theme, the finishing touches (21/10/2026) ---------------------------------
    What tokens alone do not give. Plain rules, outside the layers, so they win over the
    utility classes of the components; they all start with .light: the dark theme gets none
@@ -718,5 +807,10 @@ input::-webkit-datetime-edit-minute-field:focus {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+  /* the wizard's pieces arrive together, not one after the other */
+  .wizard-sale > *,
+  .wizard-anello {
+    animation-delay: 0ms !important;
   }
 }

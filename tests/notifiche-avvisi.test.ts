@@ -52,6 +52,20 @@ describe('i tipi di notifica', () => {
     expect(etichettaLink('/settings/fathom')).toBe('Apri le impostazioni di Fathom')
     // a settings page is not the setter page
     expect(etichettaLink('/settings/team')).toBe('Apri')
+    // the payment of a new client confirmed (1.77.0): the card of his onboarding
+    expect(etichettaLink('/onboarding/0b0a0000-0000-4000-8000-000000000001')).toBe('Apri l’onboarding')
+    expect(etichettaLink('/onboarding/0b0a0000-0000-4000-8000-000000000001', 'en')).toBe('Open the onboarding')
+    expect(etichettaLink('/onboarding')).toBe('Apri l’onboarding')
+    expect(etichettaLink('/onboardingx')).toBe('Apri')
+  })
+
+  it('«onboarding_pagamento» è un avviso solo nell’app, con le sue parole (1.77.0)', () => {
+    expect(TIPI_AVVISO).toContain('onboarding_pagamento')
+    expect(TIPI_EMAIL as readonly string[]).not.toContain('onboarding_pagamento')
+    expect(ETICHETTA_TIPO.onboarding_pagamento).toBe('Onboarding')
+    expect(linkInterno('/onboarding/0b0a0000-0000-4000-8000-000000000001')).toBe(
+      '/onboarding/0b0a0000-0000-4000-8000-000000000001',
+    )
   })
 
   it('i link che usano sono percorsi interni validi', () => {

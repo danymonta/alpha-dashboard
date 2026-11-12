@@ -191,6 +191,11 @@ test('giornata: una call chiusa su un giorno passato porta la vendita su quel gi
   await page.getByRole('dialog', { name: lead }).getByRole('button', { name: 'Chiusa' }).click()
   await nonRegistrata(page.getByRole('dialog'))
 
+  // the admin lands on the wizard «Nuovo cliente» (1.77.0), with the way back to the day; the sale alone
+  // is one tap away, and it is the one this test follows
+  await expect(page).toHaveURL(new RegExp(`/onboarding/nuovo\\?call=${callId}&da=`))
+  await page.getByTestId('solo-vendita').click()
+
   // the prefilled sale: dated on the call's day, with the way back to the day;
   // the path usually starts a week after the payment (02/10/2026)
   await expect(page).toHaveURL(new RegExp(`/sales/new\\?call=${callId}&da=`))

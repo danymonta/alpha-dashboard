@@ -8,7 +8,8 @@ import type { Lingua } from '@/lib/i18n/lingua'
 
 export type TipoEliminazione = 'persona' | 'cliente' | 'vendita' | 'lead' | 'prodotto' | 'reparto'
 
-type Dati = Record<string, number | string | null | undefined>
+// the SQL sends counts, the cashed amount as text and, for the onboarding, a boolean
+type Dati = Record<string, number | string | boolean | null | undefined>
 
 function n(dati: Dati, chiave: string): number {
   return Number(dati[chiave] ?? 0)
@@ -57,6 +58,8 @@ export function frasiAnteprima(tipo: TipoEliminazione, dati: Dati, lingua: Lingu
       frasi.push('I numeri dei mesi passati cambiano di conseguenza.')
       if (n(dati, 'cartella_drive') > 0) frasi.push('Si toglie anche il link alla sua cartella Drive: la cartella su Drive resta.')
       if (n(dati, 'progetti') > 0) frasi.push('Il suo progetto in Progetti resta, senza il collegamento al cliente.')
+      // 1.77.0: the invite, the path, the steps, the log and Telegram go with the client
+      if (n(dati, 'onboarding') > 0) frasi.push('Si elimina anche il suo onboarding: link, passi e registro.')
       break
     case 'vendita':
       frasi.push(
@@ -125,6 +128,7 @@ function frasiInglese(tipo: TipoEliminazione, dati: Dati): string[] {
       frasi.push('The numbers of past months change accordingly.')
       if (n(dati, 'cartella_drive') > 0) frasi.push('The link to their Drive folder goes too: the folder on Drive stays.')
       if (n(dati, 'progetti') > 0) frasi.push('Their project in Projects stays, without the link to the client.')
+      if (n(dati, 'onboarding') > 0) frasi.push('Their onboarding goes too: link, steps and log.')
       break
     case 'vendita':
       frasi.push(

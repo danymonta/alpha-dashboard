@@ -30,6 +30,7 @@ export const IMPOSTAZIONI_PROGETTI = bilingue(
     nessunModello: 'Nessun modello',
     nessunModelloDescrizione: 'Un modello apre un progetto con liste e attività già datate, come il percorso di un cliente.',
     perNuoviClienti: 'Per i nuovi clienti',
+    perOnboarding: 'Onboarding',
     reparto: 'Reparto',
     tuttiReparti: 'Tutti i reparti',
     attivitaConto: (n: number) => contaIt(n, 'attività', 'attività'),
@@ -41,6 +42,8 @@ export const IMPOSTAZIONI_PROGETTI = bilingue(
     tornaModelli: 'Torna ai modelli',
     repartoDisattivato: 'Reparto disattivato',
     attivitaTitolo: (n: number) => `Attività (${n})`,
+    modelloOnboarding:
+      'Questo modello si apre da solo nel progetto di ogni cliente che avvia l’onboarding: è chiuso. Non si aggiungono attività, non si spegne e non è quello dei nuovi clienti; puoi cambiare il titolo e la descrizione delle sue attività.',
     modelloNuoviClienti:
       'Ogni cliente che paga la prima rata ha un progetto con queste attività. Cambiarle vale per i prossimi clienti: i progetti già aperti restano come sono. Il modello resta attivo finché è quello dei nuovi clienti.',
     giornoZero:
@@ -146,6 +149,7 @@ export const IMPOSTAZIONI_PROGETTI = bilingue(
     nessunModello: 'No templates',
     nessunModelloDescrizione: 'A template opens a project with lists and tasks already dated, like a client’s programme.',
     perNuoviClienti: 'For new clients',
+    perOnboarding: 'Onboarding',
     reparto: 'Department',
     tuttiReparti: 'All departments',
     attivitaConto: (n: number) => contaEn(n, 'task', 'tasks'),
@@ -156,6 +160,8 @@ export const IMPOSTAZIONI_PROGETTI = bilingue(
     tornaModelli: 'Back to the templates',
     repartoDisattivato: 'Department disabled',
     attivitaTitolo: (n: number) => `Tasks (${n})`,
+    modelloOnboarding:
+      'This template opens by itself in the project of every client who starts the onboarding: it is closed. No tasks are added, it is not switched off and it is not the one for new clients; you can change the title and the description of its tasks.',
     modelloNuoviClienti:
       'Every client who pays the first instalment has a project with these tasks. Changing them applies to the next clients: projects already open stay as they are. The template stays active while it is the one for new clients.',
     giornoZero:

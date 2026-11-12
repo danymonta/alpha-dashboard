@@ -14,6 +14,11 @@ type Props = {
   errore?: string
   aiuto?: string
   colonne?: 2 | 3 | 6
+  /**
+   * The value the form holds, when it may be a number (a radio's value is always a string, and
+   * react-hook-form ticks a radio only when the two are the same): the button shows it chosen.
+   */
+  scelto?: string
 }
 
 /**
@@ -27,6 +32,7 @@ export function SceltaRapida({
   errore,
   aiuto,
   colonne = 3,
+  scelto,
 }: Props) {
   const id = useId()
 
@@ -50,6 +56,7 @@ export function SceltaRapida({
               className="sr-only"
               disabled={opzione.disabilitata}
               {...registrazione}
+              {...(scelto === undefined ? {} : { checked: opzione.valore === scelto })}
             />
             {opzione.etichetta}
           </label>

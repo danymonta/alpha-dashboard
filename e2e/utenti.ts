@@ -32,6 +32,9 @@ export const NOTIFICA_RIEPILOGO_SEED = 'dd000001-0000-4000-8000-000000000001'
 export const NOTIFICA_PROMEMORIA_SEED = 'dd000001-0000-4000-8000-000000000002'
 export const NOTIFICA_BACKUP_SEED = 'dd000001-0000-4000-8000-000000000003'
 
+/** A seed client in onboarding, waiting for the payment (supabase/seeds/60_onboarding.sql, 1.77.0). */
+export const CLIENTE_ONBOARDING_SEED = '0b0a0000-0000-4000-8000-000000000001'
+
 /** Every tab of one project, for the screenshots. */
 function schedeProgetto(id: string) {
   return [
@@ -86,6 +89,10 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'vendite', url: '/sales' },
     { nome: 'incassi', url: '/payments' },
     { nome: 'clienti', url: '/clients' },
+    // 1.77.0: the guided onboarding (the team's side), on supabase/seeds/60_onboarding.sql
+    { nome: 'onboarding', url: '/onboarding' },
+    { nome: 'onboarding-nuovo', url: '/onboarding/nuovo' },
+    { nome: 'onboarding-scheda', url: `/onboarding/${CLIENTE_ONBOARDING_SEED}` },
     { nome: 'rinnovi', url: '/rinnovi' },
     { nome: 'setting', url: '/setting' },
     ...INSIGHT,
@@ -108,6 +115,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'impostazioni-chiavi', url: '/settings/chiavi' },
     { nome: 'impostazioni-instagram', url: '/settings/instagram' },
     { nome: 'impostazioni-fathom', url: '/settings/fathom' },
+    { nome: 'impostazioni-onboarding', url: '/settings/onboarding' },
     // the business coach's page, which the admin opens too (1.58.0)
     { nome: 'recap', url: '/recap' },
     CHANGELOG,
