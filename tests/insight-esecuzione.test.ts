@@ -135,6 +135,34 @@ describe('un giro intero contro Meta e Claude finti', () => {
   }
   const dip = (): DipendenzePasso => ({ graph: { base: grafo, attendi: subito } })
 
+  it('Meta che non dà mai le chat in tempo non fa girare la lettura all’infinito: dopo pochi giri il recap arriva con l’avviso (12/11/2026)', async () => {
+    await fetch(`${grafo}/__modo?scenario=insight`)
+    const archivio = archivioDelGiro()
+    const id = archivio.creaEsecuzione(oggiRoma())
+    // the messages of every chat arrive after the step's time for Meta
+    const lenta: typeof fetch = async (url, init) => {
+      if (/\/igc_finto_|\/t_finto_|\/messages/.test(String(url))) await new Promise((r) => setTimeout(r, 1_500))
+      return fetch(url, init)
+    }
+    const conLentezza: DipendenzePasso = { graph: { base: grafo, attendi: subito, fetch: lenta } }
+    let letture = 0
+    for (let i = 0; i < 20; i++) {
+      const preso = archivio.prendiPasso(id)
+      if (!preso) break
+      if (preso.passo === 'lettura') letture++
+      // the reading has 0,8 seconds for Meta (MARGINE_META_MS is 30 seconds), the other steps their time
+      const entro = Date.now() + (preso.passo === 'lettura' ? 30_800 : 240_000)
+      await eseguiPasso({ db: null as never, esecuzione: id, ...preso, entro }, { cliente: () => client, ...conLentezza, archivio })
+      const e = archivio.esecuzioni.get(id)
+      if (e?.stato === 'pronta' || e?.stato === 'fallita') break
+    }
+    const fine = archivio.esecuzioni.get(id)!
+    expect(fine.stato).toBe('pronta')
+    // at most GIRI_MAX_LETTURA + 1 invocations of the reading, never 40
+    expect(letture).toBeLessThanOrEqual(5)
+    expect(letture).toBeGreaterThan(1)
+  }, 60_000)
+
   it('legge, analizza, unisce: recap, chat, conteggi e statistiche', async () => {
     await fetch(`${grafo}/__modo?scenario=insight`)
     const archivio = archivioDelGiro()

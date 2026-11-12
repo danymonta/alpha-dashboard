@@ -86,6 +86,22 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.77.1',
+    data: '2026-11-13',
+    titolo: 'Insight: l’aggiornamento non gira più a vuoto',
+    riassunto:
+      'Quando Instagram è lenta a dare le chat, l’aggiornamento dell’Insight non ricomincia più da capo all’infinito: chiude con quello che ha letto e lo dice.',
+    intestazionePer: ['setter'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['setter'],
+        testo:
+          'Dal 12/11 l’aggiornamento dell’Insight si fermava con «il server non ha completato i passi»: la lettura delle chat ripartiva da capo ogni pochi minuti senza tenere il lavoro fatto, finché si arrendeva. Ora tiene il lavoro fatto e, se Instagram non dà tutto in tempo, dopo pochi giri prepara il recap con le chat lette e un avviso su quelle mancanti.',
+      },
+    ],
+  },
+  {
     versione: '1.77.0',
     data: '2026-11-12',
     titolo: 'Nuovo cliente: l’onboarding parte con un tocco',
