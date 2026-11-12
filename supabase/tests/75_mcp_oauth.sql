@@ -473,6 +473,11 @@ values ('evento-75@calendly.com', now() - interval '3 days', now() + interval '1
 on conflict (uid) do nothing;
 -- The admin's personal expenses (1.68.0), which the seed leaves empty
 insert into public.spese_personali (data, categoria, descrizione, importo) values ('2024-01-15', 'casa', 'Affitto 75', 700);
+-- The client's area (1.78.0): a registration in progress and the limits of /entra, which the seed leaves empty
+insert into public.onboarding_registrazioni (invito_id, chiave_hash, chiave_scade_il)
+values ('0b0a0000-0000-4000-8000-000000000021', repeat('7', 64), now() + interval '30 minutes')
+on conflict (invito_id) do nothing;
+insert into public.clienti_accesso_limiti (chiave, invii) values ('tutti', 1) on conflict (chiave) do nothing;
 
 create or replace function pg_temp.tabelle_vuote()
 returns text
@@ -768,6 +773,14 @@ begin
   perform pg_temp.prova('onboarding_revoca', $q$ select public.onboarding_revoca('0b0a0000-0000-4000-8000-000000000021', 'Da Claude')::text $q$);
   perform pg_temp.prova('onboarding_riattiva', $q$ select public.onboarding_riattiva('0b0a0000-0000-4000-8000-000000000021')::text $q$);
   perform pg_temp.prova('onboarding_rigenera_link', $q$ select public.onboarding_rigenera_link('0b0a0000-0000-4000-8000-000000000021')::text $q$);
+  -- the client's area (1.78.0): the client's functions start from cliente_corrente(), null for every OAuth
+  -- token; the admin's two (security invoker) refuse it explicitly
+  perform pg_temp.prova('onboarding_segna_prova', $q$ select public.onboarding_segna_prova('0b0a0000-0000-4000-8000-000000000021', true)::text $q$);
+  perform pg_temp.prova('onboarding_elimina', $q$ select public.onboarding_elimina('0b0a0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('percorso_cliente', $q$ select public.percorso_cliente()::text $q$);
+  perform pg_temp.prova('percorso_avanza', $q$ select public.percorso_avanza('benvenuto', 'completa', '{}')::text $q$);
+  perform pg_temp.prova('consenso_dai', $q$ select public.consenso_dai('salute', '2026-11-12')::text $q$);
+  perform pg_temp.prova('video_progresso', $q$ select public.video_progresso(gen_random_uuid(), null, 100, array[int4range(0, 10)])::text $q$);
 end $$;
 reset role;
 set local request.jwt.claims to '{}';
@@ -794,6 +807,7 @@ select is(
     'cash_mensile 42501',
     'collega_registrazione 42501',
     'commenti_setter_periodo 42501',
+    'consenso_dai 42501',
     'current_role ok:null',
     'da_incassare_closer 42501',
     'decidi_performance 42501',
@@ -847,11 +861,15 @@ select is(
     'nuovo_cliente 42501',
     'onboarding_conferma_pagamento 42501',
     'onboarding_consenso_genitore 42501',
+    'onboarding_elimina 42501',
     'onboarding_imposta_incarichi 42501',
     'onboarding_incaricato ok:false',
     'onboarding_revoca 42501',
     'onboarding_riattiva 42501',
     'onboarding_rigenera_link 42501',
+    'onboarding_segna_prova 42501',
+    'percorso_avanza 42501',
+    'percorso_cliente 42501',
     'pm_assegnato ok:false',
     'pm_coach_del_cliente ok:false',
     'pm_crea_progetto 42501',
@@ -876,7 +894,8 @@ select is(
     'spunti_per_claude ok:true',
     'unisci_profili 42501',
     'vede_marketing ok:true',
-    'vendite_da_collegare 42501'
+    'vendite_da_collegare 42501',
+    'video_progresso 42501'
   ],
   'token di Claude dell''admin: ogni funzione rifiuta, o non risponde niente, o parla solo di chi chiama'
 );

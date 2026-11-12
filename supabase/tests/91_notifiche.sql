@@ -5,7 +5,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(43);
+select plan(45);
 
 create function pg_temp.righe(p_sql text) returns integer language plpgsql as $$
 declare n integer;
@@ -205,6 +205,20 @@ select is((select count(*)::int from cron.job where jobname = 'notifiche-pulizia
   'il lavoro notturno di pg_cron c''è');
 select ok(not (public.backup_completo() ? 'notifiche'), 'il backup non legge le notifiche');
 select ok(public.backup_completo() ? 'clients', 'ma legge ancora le altre tabelle');
+
+-- ---------------------------------------------------------------------------
+-- 6. The notices of the clients of the onboarding (1.78.0): an app-only kind, to the admins
+-- ---------------------------------------------------------------------------
+select is(
+  public.notifiche_avviso_admin('onboarding_cliente', 'Mario Rossi si è registrato al percorso',
+    'Il suo accesso al percorso è attivo.', null, '/onboarding/x', 'test91/onboarding_cliente'),
+  (select count(*)::int from public.profiles where ruolo = 'admin' and attivo),
+  'il tipo onboarding_cliente si scrive, per ogni admin attivo'
+);
+select is(
+  (select array_agg(distinct canale) from public.notifiche where chiave = 'test91/onboarding_cliente'),
+  array['app'], 'solo nell''app'
+);
 
 select * from finish();
 rollback;

@@ -166,7 +166,8 @@ select policies_are('public', 'onboarding_incarichi', array[
 ], 'incarichi: l''admin scrive, l''incaricato legge la sua riga');
 select policies_are('public', 'onboarding_inviti', array[
   'onboarding_inviti_admin_lettura', 'onboarding_inviti_admin_inserimento', 'onboarding_inviti_admin_modifica',
-  'onboarding_inviti_mai_da_oauth'
+  -- 1.78.0: the admin deletes an invite only through onboarding_elimina (its trigger refuses the rest)
+  'onboarding_inviti_admin_eliminazione', 'onboarding_inviti_mai_da_oauth'
 ], 'inviti: solo l''admin');
 select policies_are('public', 'onboarding_inviti_token', array[
   'onboarding_inviti_token_admin_lettura', 'onboarding_inviti_token_admin_inserimento', 'onboarding_inviti_token_mai_da_oauth'

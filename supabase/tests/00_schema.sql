@@ -200,7 +200,10 @@ select results_eq(
        'call_numeri_periodo', 'collega_registrazione', 'decidi_performance',
        'fathom_chiave_presente', 'fathom_imposta_chiave', 'fathom_togli_chiave',
        'marketing_spunti_richiedi', 'scollega_registrazione', 'spunti_per_claude',
-       'call_ha_follow_up', 'call_ha_vendita', 'current_role', 'elimina_call', 'elimina_cliente',
+       'call_ha_follow_up', 'call_ha_vendita',
+       -- the client's area (1.78.0): each one starts from cliente_corrente(), null for an OAuth token (42501)
+       'consenso_dai',
+       'current_role', 'elimina_call', 'elimina_cliente',
        'elimina_lead', 'elimina_persona', 'elimina_prodotto', 'elimina_rata', 'fissa_follow_up',
        'giornate_closer', 'giornate_setter', 'incassi_clienti_setter', 'inserisci_piano',
        -- the Insight (1.35.0): admin, or insight_puo_leggere() for insight_stato, checked first
@@ -220,6 +223,7 @@ select results_eq(
        -- the onboarding (1.77.0): whether the caller is in charge of a registered client; false for Claude's token
        'onboarding_incaricato',
        'mia_foto_google', 'mie_vendite_setter', 'miei_clienti', 'miei_numeri_periodo', 'pm_assegnato',
+       'percorso_avanza', 'percorso_cliente',
        'pm_coach_del_cliente', 'pm_crea_progetto', 'pm_ferma_timer', 'pm_livello_corrente',
        'pm_membro', 'pm_puo_gestire', 'pm_puo_modificare_task', 'pm_puo_vedere',
        'promemoria_percorso_interrotto', 'puo_usare_mcp',
@@ -227,7 +231,7 @@ select results_eq(
        -- never an OAuth token
        'recap_mese', 'recap_sales',
        'segna_tutorial_visto', 'unisci_profili',
-       'vede_marketing'
+       'vede_marketing', 'video_progresso'
      ]::text[]) as x order by 1 $$,
   'ogni funzione security definer raggiungibile è nella lista (e nel test 75 per i token di Claude)'
 );
