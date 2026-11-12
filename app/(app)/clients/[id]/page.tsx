@@ -8,6 +8,7 @@ import { ModificaCliente } from '@/app/(app)/clients/[id]/modifica-cliente'
 import { Sospendi, SospensioneCliente } from '@/app/(app)/clients/[id]/sospensione-cliente'
 import { StoricoPercorsi, type Percorso } from '@/app/(app)/clients/[id]/storico-percorsi'
 import { CartellaDrive } from '@/components/cliente/cartella-drive'
+import { AggancioOnboarding } from '@/components/onboarding/aggancio'
 import { StatoClienteBadge } from '@/components/cliente/stato-cliente'
 import { LinkBottone } from '@/components/link-bottone'
 import { SenzaCoach } from '@/components/pm/stato-progetto'
@@ -20,6 +21,7 @@ import { configPickerRichiesta } from '@/lib/google/picker-server'
 import { getLingua } from '@/lib/i18n/server'
 import { CLIENTI } from '@/lib/i18n/testi/clienti'
 import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { leggiAggancio } from '@/lib/onboarding/letture'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -35,7 +37,7 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
 
   // "Scegli da Drive": the Google Picker's public values, read now; none = the typed link only
   const picker = await configPickerRichiesta()
-  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto, cartella, chiusura, sospensione] = await Promise.all([
+  const [{ data: cliente }, { data: valore }, vendite, importi, { data: persone }, progetto, cartella, chiusura, sospensione, onboarding] = await Promise.all([
     supabase
       .from('clients')
       .select('id, nome, cognome, email, telefono, instagram_handle, fonte, note, created_at, setter_id, closer_id, setter:profiles!clients_setter_id_fkey(nome), closer:profiles!clients_closer_id_fkey(nome)')
@@ -73,6 +75,8 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
     supabase.from('v_clienti_chiusi').select('chiuso_il, motivo, archiviato_il').eq('client_id', id).maybeSingle(),
     // "Sospendi" (21/10/2026): the day and the reason; the database ends it when he is closed or buys again
     supabase.from('clienti_sospensioni').select('sospeso_il, motivo').eq('client_id', id).maybeSingle(),
+    // the guided onboarding (1.77.0): his card if it was started; null if it cannot be read (the hook is not shown)
+    leggiAggancio(supabase, id),
   ])
   if (vendite.error || importi.error || progetto.error || cartella.error || chiusura.error || sospensione.error) {
     throw new Error(t.erroreStorico)
@@ -137,6 +141,9 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
       : null
   // on hold: only while the status says so (a closed client is not on hold)
   const sospeso = valore.stato === 'sospeso' && sospensione.data ? sospensione.data : null
+
+  // «Avvia onboarding» (1.77.0): only for a «nuovo» path not over yet, when no onboarding was ever started
+  const daAvviare = percorsi.some((p) => p.tipo === 'nuovo' && p.data_fine >= oggi)
 
   const contatti: [string, string][] = [
     [t.email, cliente.email ?? '–'],
@@ -217,6 +224,15 @@ export default async function SchedaClientePage({ params }: { params: Promise<{ 
 
       {chiuso ? (
         <ChiusuraCliente clientId={id} cliente={nome} oggi={oggi} minimo={ultimaFirma} chiusura={chiuso} />
+      ) : null}
+
+      {onboarding ? (
+        <AggancioOnboarding
+          riga={onboarding.riga}
+          aperto={onboarding.aperto}
+          hrefAvvia={daAvviare ? `/onboarding/nuovo?cliente=${id}` : null}
+          lingua={lingua}
+        />
       ) : null}
 
       {progetto.data ? (

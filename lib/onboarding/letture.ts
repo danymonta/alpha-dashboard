@@ -151,6 +151,22 @@ export async function leggiOnboardingDelCliente(db: Db, clientId: string): Promi
   return data
 }
 
+/** What the hooks on the client's card and on his sale's page need: his onboarding, if any, and the switch. */
+export type AggancioLetto = { riga: RigaOnboarding | null; aperto: boolean }
+
+/**
+ * The read of those hooks. Never a reason for the page around them to fail: null when it
+ * could not be read, and then the hook is not shown (never «Avvia onboarding» by mistake).
+ */
+export async function leggiAggancio(db: Db, clientId: string): Promise<AggancioLetto | null> {
+  try {
+    const [riga, impostazioni] = await Promise.all([leggiOnboardingDelCliente(db, clientId), leggiImpostazioni(db)])
+    return { riga, aperto: impostazioni.aperto_ai_clienti }
+  } catch {
+    return null
+  }
+}
+
 // ---------------------------------------------------------------------------
 // The card of a client in onboarding
 // ---------------------------------------------------------------------------

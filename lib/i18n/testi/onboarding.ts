@@ -96,6 +96,7 @@ export const ONBOARDING = bilingue(
       passi: { cliente: 'Cliente', vendita: 'Vendita', team: 'Team', riepilogo: 'Riepilogo' },
       passoDi: (n: number, totale: number, titolo: string) => `Passo ${n} di ${totale}: ${titolo}`,
       passoFatto: (titolo: string) => `${titolo}: fatto`,
+      indicatore: 'Passi del wizard',
       avanti: 'Avanti',
       indietro: 'Indietro',
       vaiAlRiepilogo: 'Vai al riepilogo',
@@ -130,6 +131,10 @@ export const ONBOARDING = bilingue(
         simileTitolo: 'Questa vendita sembra già registrata',
         simileTesto:
           'C’è una vendita senza call di un cliente con lo stesso nome: se è questa, avvia l’onboarding da lì invece di registrarne una seconda.',
+        simileAvvia: 'Avvia da questa',
+        simileNomeAvvia: (cliente: string, giorno: string) => `Avvia l’onboarding dalla vendita di ${cliente} del ${giorno}`,
+        simileRiga: (tipo: string, giorno: string) => `${tipo}, vendita del ${giorno}`,
+        pianoRate: 'Piano rate',
       },
       team: {
         titolo: 'Team',
@@ -149,6 +154,9 @@ export const ONBOARDING = bilingue(
         inizio: 'Inizio del percorso',
         fine: 'Fine del percorso',
         minorenne: 'Minorenne: serve il consenso di un genitore',
+        nonIndicato: 'Non indicato',
+        pagamento: 'Pagamento',
+        pianoAMano: (n: number) => (n === 1 ? 'Piano scritto a mano, una rata' : `Piano scritto a mano, ${n} rate`),
         cosaSuccede: 'Cosa succede alla conferma',
         effetti: [
           'Il cliente viene creato o aggiornato.',
@@ -172,6 +180,7 @@ export const ONBOARDING = bilingue(
         mandaLink: 'Manda il link al cliente nel suo gruppo privato Telegram.',
         registraIncasso: 'Registra l’incasso',
         altroCliente: 'Avvia un altro cliente',
+        tornaIndietro: 'Torna dove eri',
       },
       impossibile: {
         call_non_trovata: {
@@ -224,6 +233,7 @@ export const ONBOARDING = bilingue(
     link: {
       titolo: 'Link di onboarding',
       stato: 'Stato',
+      azioni: 'Azioni sul link',
       attivatoIl: (giorno: string) => `Attivato il ${giorno}`,
       attivatoDa: {
         pagamento: 'con il pagamento registrato',
@@ -502,6 +512,7 @@ export const ONBOARDING = bilingue(
       passi: { cliente: 'Client', vendita: 'Sale', team: 'Team', riepilogo: 'Summary' },
       passoDi: (n: number, totale: number, titolo: string) => `Step ${n} of ${totale}: ${titolo}`,
       passoFatto: (titolo: string) => `${titolo}: done`,
+      indicatore: 'Wizard steps',
       avanti: 'Next',
       indietro: 'Back',
       vaiAlRiepilogo: 'Go to the summary',
@@ -536,6 +547,10 @@ export const ONBOARDING = bilingue(
         simileTitolo: 'This sale looks already recorded',
         simileTesto:
           'There is a sale without a call of a client with the same name: if it is this one, start the onboarding from there instead of recording a second one.',
+        simileAvvia: 'Start from this one',
+        simileNomeAvvia: (cliente: string, giorno: string) => `Start the onboarding from the sale of ${cliente} of ${giorno}`,
+        simileRiga: (tipo: string, giorno: string) => `${tipo}, sale of ${giorno}`,
+        pianoRate: 'Instalment plan',
       },
       team: {
         titolo: 'Team',
@@ -555,6 +570,9 @@ export const ONBOARDING = bilingue(
         inizio: 'Start of the path',
         fine: 'End of the path',
         minorenne: 'Minor: a parent’s consent is needed',
+        nonIndicato: 'Not given',
+        pagamento: 'Payment',
+        pianoAMano: (n: number) => (n === 1 ? 'Plan written by hand, one instalment' : `Plan written by hand, ${n} instalments`),
         cosaSuccede: 'What happens on confirmation',
         effetti: [
           'The client is created or updated.',
@@ -578,6 +596,7 @@ export const ONBOARDING = bilingue(
         mandaLink: 'Send the link to the client in their private Telegram group.',
         registraIncasso: 'Record the payment',
         altroCliente: 'Start another client',
+        tornaIndietro: 'Back to where you were',
       },
       impossibile: {
         call_non_trovata: {
@@ -630,6 +649,7 @@ export const ONBOARDING = bilingue(
     link: {
       titolo: 'Onboarding link',
       stato: 'State',
+      azioni: 'Actions on the link',
       attivatoIl: (giorno: string) => `Activated on ${giorno}`,
       attivatoDa: {
         pagamento: 'with the payment recorded',

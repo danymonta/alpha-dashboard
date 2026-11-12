@@ -29,6 +29,7 @@ export const IMPOSTAZIONI = bilingue(
       export: ['Esporta CSV', 'Vendite, incassi e costi del mese per la commercialista.'],
       audit: ['Registro modifiche', 'Chi ha cambiato un importo, un ruolo o una regola, e quando.'],
       progetti: ['Progetti', 'Reparti e modelli con cui nascono i progetti.'],
+      onboarding: ['Onboarding', 'Incarichi predefiniti, community e durata del link.'],
     },
     // Team
     team: {
@@ -191,6 +192,7 @@ export const IMPOSTAZIONI = bilingue(
       export: ['Export CSV', 'Sales, payments and expenses of the month for the accountant.'],
       audit: ['Change log', 'Who changed an amount, a role or a rule, and when.'],
       progetti: ['Projects', 'Departments and templates projects are born with.'],
+      onboarding: ['Onboarding', 'Default people, community and link duration.'],
     },
     team: {
       errore: 'The team could not be loaded',

@@ -10,8 +10,9 @@ test.use({ viewport: { width: 390, height: 844 } })
 // the Economics roles, those of the Marketing area (the content calendar, 1.32.0) and the business coach (1.52.0)
 for (const ruolo of ['admin', 'setter', 'closer', 'editor', 'marketing', 'business_coach'] as RuoloSeed[]) {
   test(`nessun errore in console: ${ruolo}`, async ({ page }) => {
-    // one test walks every page of the role: the admin has twenty
-    test.setTimeout(120_000)
+    // one test walks every page of the role: the admin has over sixty (the onboarding's from 1.77.0),
+    // and a dev server compiles each one on its first hit
+    test.setTimeout(180_000)
     const errori: string[] = []
     page.on('console', (m) => {
       // the email of a notification (1.41.0) is shown in a sandboxed iframe with no scripts, on purpose:

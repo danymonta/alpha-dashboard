@@ -285,8 +285,15 @@ export function RegistraEsito({
       }
       apriChiudi(false)
       if (esito.vaiA) {
-        // the sale comes back to the page the call was closed from
-        router.push(tornaA ? `${esito.vaiA}&${new URLSearchParams({ da: tornaA }).toString()}` : esito.vaiA)
+        if (admin) {
+          // the admin starts the whole onboarding from the closed call (1.77.0): client, sale, team and link;
+          // «Registra solo la vendita» is on the wizard's first screen, and the page the call was closed from
+          // (the closer's day) is one tap away on its last one
+          router.push(`/onboarding/nuovo?${new URLSearchParams({ call: callId, ...(tornaA ? { da: tornaA } : {}) }).toString()}`)
+        } else {
+          // the sale comes back to the page the call was closed from
+          router.push(tornaA ? `${esito.vaiA}&${new URLSearchParams({ da: tornaA }).toString()}` : esito.vaiA)
+        }
       }
     })
   }

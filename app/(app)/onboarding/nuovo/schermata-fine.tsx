@@ -9,6 +9,7 @@ import {
   Receipt,
   Rocket,
   ShieldAlert,
+  Undo2,
   UserRoundPlus,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -43,6 +44,8 @@ export type DatiFine = {
   minorenne: boolean
   /** onboarding_impostazioni.aperto_ai_clienti: «Copia link» and the ready message only with it. */
   aperto: boolean
+  /** The page the wizard was opened from (the closer's day): one tap back, when there is one. */
+  ritorno?: string | null
   /** The titles of the wizard's steps, for the indicator (all done). */
   passi: readonly { chiave: string; titolo: string }[]
 }
@@ -227,6 +230,12 @@ export function SchermataFine({ dati, onAltroCliente }: { dati: DatiFine; onAltr
             <LinkBottone href={`/progetti/${lette.progettoId}`} variant="outline" data-testid="apri-progetto">
               <FolderKanban className="size-4" aria-hidden="true" />
               {t.apriProgetto}
+            </LinkBottone>
+          ) : null}
+          {dati.ritorno ? (
+            <LinkBottone href={dati.ritorno} variant="outline" data-testid="torna-indietro">
+              <Undo2 className="size-4" aria-hidden="true" />
+              {f.tornaIndietro}
             </LinkBottone>
           ) : null}
           <Button

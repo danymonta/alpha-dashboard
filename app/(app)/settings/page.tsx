@@ -7,6 +7,7 @@ import {
   MessagesSquare,
   Package,
   Percent,
+  Rocket,
   Users,
   Video,
   type LucideIcon,
@@ -105,6 +106,12 @@ const GRUPPI: { gruppo: keyof Testi["gruppi"]; sezioni: Sezione[] }[] = [
         href: "/settings/progetti",
         chiave: "progetti",
         Icona: FolderKanban,
+      },
+      // 1.77.0: the people the wizard «Nuovo cliente» proposes, the community, the link's days
+      {
+        href: "/settings/onboarding",
+        chiave: "onboarding",
+        Icona: Rocket,
       },
     ],
   },
