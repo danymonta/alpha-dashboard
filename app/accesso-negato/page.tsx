@@ -25,7 +25,7 @@ export default async function AccessoNegatoPage({ searchParams }: { searchParams
     <main lang="it" className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm space-y-6 text-center">
         <div className="palco-logo mx-auto w-fit">
-          <LogoFuoco dimensione="piccolo" decorativo />
+          <LogoFuoco dimensione="compatto" decorativo />
         </div>
         <div className="space-y-3">
           <ShieldAlert className="mx-auto size-8 text-muted-foreground" aria-hidden="true" />

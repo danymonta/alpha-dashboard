@@ -74,7 +74,7 @@ export function leggiPercorso(valore: unknown): Percorso | null {
     .map((n) => ({
       chiave: stringa(n.chiave) ?? '',
       ordine: typeof n.ordine === 'number' ? n.ordine : 0,
-      stato: n.stato === 'completato' || n.stato === 'attuale' ? n.stato : ('futuro' as const),
+      stato: (n.stato === 'completato' || n.stato === 'attuale' ? n.stato : 'futuro') as NodoPercorso['stato'],
       completatoIl: stringa(n.completato_il),
     }))
     .filter((n) => n.chiave !== '')

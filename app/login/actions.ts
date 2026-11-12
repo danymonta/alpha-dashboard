@@ -3,17 +3,19 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { after } from 'next/server'
 
 import { messaggioCodice, messaggioRichiesta, PAROLE_ACCESSO, esitoRichiestaCodice, esitoVerificaCodice } from '@/lib/auth/accesso'
 import { isDevLoginEnabled } from '@/lib/auth/dev-login'
 import {
-  destinazioneDopoLogin,
+  indirizzoRifiuto,
   sessioneVecchia,
   togliSessioneVecchia,
   verificaDopoLogin,
 } from '@/lib/auth/dopo-login'
 import { COOKIE_DOPO_LOGIN, destinazioneSicura } from '@/lib/auth/origine'
 import { origineCorrente } from '@/lib/auth/origine-server'
+import { TEMPO_LOGIN_MS, attendiFinoA, richiestaCodiceCliente } from '@/lib/percorso/accesso'
 import { createClient } from '@/lib/supabase/server'
 import { richiestaCodiceSchema, verificaCodiceSchema } from '@/lib/validation/accesso'
 
@@ -89,24 +91,20 @@ export type EsitoAccessoCodice = { ok: true } | { ok: false; errore: string }
 export type EsitoVerificaCodice = { ok: true; vai: string } | { ok: false; errore: string }
 
 /**
- * An answer takes at least this long: with an address that has an account the
- * email is really sent (slow), with one that has none nothing happens (fast),
- * and the difference in time would tell them apart.
- */
-const RISPOSTA_MINIMA_MS = 1200
-
-async function almenoFinoA(inizio: number) {
-  const resta = RISPOSTA_MINIMA_MS - (Date.now() - inizio)
-  if (resta > 0) await new Promise((r) => setTimeout(r, resta))
-}
-
-/**
- * Sends the sign-in email (a link and a 6 digit code) to an address that
+ * Sends the sign-in email (a link and an 8 digit code) to an address that
  * already has an account. The invite gate stays where it was: shouldCreateUser
  * is false, so Supabase never creates a user here (the trigger on auth.users
  * would refuse a stranger anyway). The answer is the same for an address with
  * an account, one without and one deactivated; a deactivated person is
  * stopped after the sign-in, as with Google (verificaDopoLogin).
+ *
+ * A client of the path (release B1a) never receives the team's email: the same read for
+ * every address (cliente_accesso_per_email) says whether it is a client's, and then the
+ * client's email with the code goes after the answer (after(), the road of /entra). The
+ * answer comes at a fixed time, 2 seconds from the start, for every outcome: the team's
+ * road waits for Supabase at most until then (beyond, the neutral sentence, and the request
+ * finishes in after()); the limit per IP and the service not reachable are told only when
+ * they come before.
  */
 export async function richiediCodice(input: unknown): Promise<EsitoAccessoCodice> {
   const inizio = Date.now()
@@ -127,23 +125,45 @@ export async function richiediCodice(input: unknown): Promise<EsitoAccessoCodice
     maxAge: 60 * 60,
   })
 
-  const supabase = await createClient({ ignoraSessione: true })
-  let errore: Awaited<ReturnType<typeof supabase.auth.signInWithOtp>>['error']
+  // a client's address: the client's email, never the team's
+  let cliente: Awaited<ReturnType<typeof richiestaCodiceCliente>>
   try {
-    ;({ error: errore } = await supabase.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false },
-    }))
+    cliente = await richiestaCodiceCliente(email, (lavoro) => after(lavoro))
   } catch {
-    await almenoFinoA(inizio)
-    return { ok: false, errore: PAROLE_ACCESSO.connessione }
+    console.error('[login] lettura dell’account del cliente non riuscita')
+    await attendiFinoA(inizio, TEMPO_LOGIN_MS)
+    return { ok: false, errore: PAROLE_ACCESSO.nonDisponibile }
+  }
+  if (cliente !== 'nessuno') {
+    await attendiFinoA(inizio, TEMPO_LOGIN_MS)
+    return { ok: true }
   }
 
-  // the cause goes to the logs without the address; the person gets the same words either way
-  if (errore) console.error('[login] codice non inviato:', errore.code, errore.status)
+  const supabase = await createClient({ ignoraSessione: true })
+  const richiesta = supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } }).then(
+    ({ error }) => ({ fatto: true as const, errore: error, rete: false }),
+    () => ({ fatto: true as const, errore: null, rete: true }),
+  )
+  const scadenza = new Promise<{ fatto: false }>((r) =>
+    setTimeout(() => r({ fatto: false }), Math.max(0, TEMPO_LOGIN_MS - (Date.now() - inizio))),
+  )
+  const primo = await Promise.race([richiesta, scadenza])
 
-  const esito = esitoRichiestaCodice(errore)
-  await almenoFinoA(inizio)
+  if (!primo.fatto) {
+    // Supabase is slow: the neutral sentence now, the request finishes after the answer
+    after(async () => {
+      const finale = await richiesta
+      if (finale.errore) console.error('[login] codice non inviato:', finale.errore.code, finale.errore.status)
+    })
+    return { ok: true }
+  }
+
+  await attendiFinoA(inizio, TEMPO_LOGIN_MS)
+  if (primo.rete) return { ok: false, errore: PAROLE_ACCESSO.connessione }
+  // the cause goes to the logs without the address; the person gets the same words either way
+  if (primo.errore) console.error('[login] codice non inviato:', primo.errore.code, primo.errore.status)
+
+  const esito = esitoRichiestaCodice(primo.errore)
   return esito === 'inviata' ? { ok: true } : { ok: false, errore: messaggioRichiesta(esito) }
 }
 
@@ -179,11 +199,11 @@ export async function verificaCodice(input: unknown): Promise<EsitoVerificaCodic
   togliSessioneVecchia(cookieStore, vecchia)
   cookieStore.delete(COOKIE_DOPO_LOGIN)
 
-  // profile there and active: the same check as Google and the link
-  const esito = await verificaDopoLogin(supabase, cookieStore)
+  // profile there and active, or a client's account: the same check as Google and the link
+  const esito = await verificaDopoLogin(supabase, cookieStore, da)
   if (!esito.ok) {
-    return { ok: true, vai: `/login?errore=${esito.motivo}` }
+    return { ok: true, vai: indirizzoRifiuto(esito.motivo) }
   }
 
-  return { ok: true, vai: destinazioneDopoLogin(da, esito.ruolo) }
+  return { ok: true, vai: esito.vai }
 }

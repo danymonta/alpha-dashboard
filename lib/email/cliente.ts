@@ -6,7 +6,7 @@
  * Hex colours only here, as in the other emails: an email cannot read the app's tokens.
  */
 import { TESTI_EMAIL_CLIENTE as T } from '@/lib/percorso/testi'
-import { codiceLeggibile } from '@/lib/validation/registrazione'
+import { codiceLeggibile } from '@/lib/validation/registrazione-cliente'
 
 const BORDEAUX = '#7A1F2B'
 const TESTO = '#1C1C1E'

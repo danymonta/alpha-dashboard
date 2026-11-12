@@ -30,6 +30,8 @@ export const ACCESSO = bilingue(
     cambiaEmail: 'Cambia email',
     inviaDiNuovo: 'Invia di nuovo',
     ambienteLocale: 'Ambiente locale: accesso rapido con gli utenti di prova.',
+    // 1.78.0: the clients of the path come in from /entra
+    cliente: 'Sei un cliente del Percorso Alpha? Entra da qui',
   },
   {
     parole: {
@@ -65,6 +67,7 @@ export const ACCESSO = bilingue(
     cambiaEmail: 'Change email',
     inviaDiNuovo: 'Send again',
     ambienteLocale: 'Local environment: quick sign-in with the test users.',
+    cliente: 'Are you a client of Percorso Alpha? Sign in here',
 
   },
 )
