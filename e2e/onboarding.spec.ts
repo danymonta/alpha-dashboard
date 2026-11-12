@@ -307,6 +307,13 @@ test('dalla call chiusa l’admin arriva al wizard con i dati del lead; la sola 
   const { data: vendite } = await dbLocale().from('sales').select('id, call_id').eq('client_id', clientId)
   expect(vendite).toHaveLength(1)
   expect(vendite![0].call_id).toBe(callId)
+
+  // the address says the wizard is done: a reload opens the way to his card, never an empty wizard
+  await expect(page).toHaveURL(`/onboarding/nuovo?avviato=${clientId}`)
+  await page.reload()
+  const avviato = page.getByTestId('wizard-avviato')
+  await expect(avviato).toBeVisible()
+  await expect(avviato.locator(`a[href="/onboarding/${clientId}"]`)).toBeVisible()
 })
 
 test('il setter non ha la voce Onboarding e le sue pagine lo rimandano', async ({ page }) => {

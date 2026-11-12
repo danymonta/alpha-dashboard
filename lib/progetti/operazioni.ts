@@ -118,6 +118,14 @@ export async function creaProgetto(ctx: Contesto, input: unknown): Promise<Esito
   if (negato) return { ok: false, errore: negato }
 
   const v = parsed.data
+  // the onboarding template opens with the link of a client (avvia_onboarding), never from «Nuovo
+  // progetto»: from here its tasks would be born without their key. Every road passes from here.
+  if (v.modello_id) {
+    const { data: modello } = await ctx.db.from('pm_modelli').select('per_onboarding').eq('id', v.modello_id).maybeSingle()
+    if (modello?.per_onboarding) {
+      return { ok: false, errore: 'Il modello «Onboarding cliente» si apre da solo con l’onboarding di un cliente.' }
+    }
+  }
   const { data, error } = await ctx.db.rpc('pm_crea_progetto', {
     p_reparto_id: v.reparto_id,
     p_nome: v.nome,

@@ -62,14 +62,18 @@ function primo(parsed: { error: z.ZodError }): string {
   return parsed.error.issues[0]?.message ?? E.nonValidi
 }
 
+/** Postgres' own words: a write refused by RLS, a privilege or a check inside the functions. */
+const PAROLE_DI_POSTGRES = /^(new row|permission denied|null value|duplicate key|insert or update|update or delete)|violates|constraint/i
+
 /**
  * The functions of the onboarding raise 22023 and 42501 with a message already worded for
- * people (and registra_vendita, inside the wizard, its 23514). Only for the functions: a
- * write on a table refused by RLS or by a check has the same codes and Postgres' own
- * English words, so those answer with the fallback.
+ * people (and registra_vendita, inside the wizard, its 23514). The same codes come from a write
+ * refused by RLS, a privilege or a check, with Postgres' own English words: those answer with
+ * the fallback.
  */
 function messaggio(error: ErroreDb, fallback: string): string {
-  return error.code === '22023' || error.code === '42501' || error.code === '23514' ? error.message : fallback
+  const nostro = error.code === '22023' || error.code === '42501' || error.code === '23514'
+  return nostro && !PAROLE_DI_POSTGRES.test(error.message) ? error.message : fallback
 }
 
 /** The pages that show an onboarding, its link or its project. */
@@ -172,7 +176,9 @@ export async function nuovoCliente(ctx: Contesto, input: unknown): Promise<Esito
       rate: v.piano === 'personalizzato' ? v.rate.map((r) => ({ scadenza: r.scadenza, importo: r.importo })) : null,
     }),
     p_onboarding: {
-      ...senzaVuoti({ coach: team.coach, revisore: team.revisore, telegram: cliente.telegram }),
+      ...senzaVuoti({ coach: team.coach, revisore: team.revisore }),
+      // always given: an emptied username is taken away (null would leave it as it is)
+      telegram: cliente.telegram ?? '',
       responsabile: team.responsabile,
       contatti: contatti(cliente),
       minorenne: cliente.minorenne,
@@ -231,7 +237,8 @@ export async function avviaOnboarding(ctx: Contesto, input: unknown): Promise<Es
     p_revisore: team.revisore as string,
     p_responsabile: team.responsabile,
     p_contatti: contatti(cliente),
-    p_telegram: cliente.telegram as string,
+    // an emptied username is taken away (null would leave it as it is)
+    p_telegram: cliente.telegram ?? '',
     p_minorenne: cliente.minorenne,
   })
   if (error) {

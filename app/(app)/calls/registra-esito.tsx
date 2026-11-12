@@ -55,6 +55,7 @@ import {
   quandoFollowUpDaIn,
 } from '@/lib/i18n/testi/esito'
 import { ETICHETTE } from '@/lib/i18n/testi/etichette'
+import { ONBOARDING } from '@/lib/i18n/testi/onboarding'
 import { MASSIMO_MOTIVO, MASSIMO_NOTE_CLOSER } from '@/lib/setting/commento'
 import { cn } from '@/lib/utils'
 import { erroreGiornoFollowUp, schemaSpostamento } from '@/lib/validation/call'
@@ -260,7 +261,10 @@ export function RegistraEsito({
       const registrazioneInviata = 'registrazione' in input ? input.registrazione : undefined
       toast.success(spostata ? SPOSTA.fatto(nomeLead) : `${nomeLead}: ${ETICHETTA_ESITO[input.esito].toLowerCase()}`, {
         description: esito.vaiA
-          ? t.oraLaVendita
+          ? // the admin goes on to the wizard «Nuovo cliente» (1.77.0), the closer to the sale
+            admin
+            ? ONBOARDING[lingua].agganci.oraIlCliente
+            : t.oraLaVendita
           : spostata
             ? t.alle(etichettaGiornoIn(spostata.data, oggi, lingua), spostata.ora)
             : conFollowUp

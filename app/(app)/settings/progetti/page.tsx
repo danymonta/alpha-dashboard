@@ -27,7 +27,7 @@ export default async function ImpostazioniProgettiPage() {
       .order('nome'),
     supabase
       .from('pm_modelli')
-      .select('id, nome, descrizione, attivo, reparto_id, per_nuovi_clienti, voci:pm_modelli_voci(count)')
+      .select('id, nome, descrizione, attivo, reparto_id, per_nuovi_clienti, per_onboarding, voci:pm_modelli_voci(count)')
       .order('attivo', { ascending: false })
       .order('nome'),
   ])
@@ -139,6 +139,7 @@ export default async function ImpostazioniProgettiPage() {
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
                         {m.nome}
                         {m.per_nuovi_clienti ? <Badge variant="outline">{t.perNuoviClienti}</Badge> : null}
+                        {m.per_onboarding ? <Badge variant="outline">{t.perOnboarding}</Badge> : null}
                       </span>
                       <span className="block text-sm text-muted-foreground">
                         {m.reparto_id ? (nomeReparto.get(m.reparto_id) ?? t.reparto) : t.tuttiReparti} ·{' '}
@@ -147,7 +148,10 @@ export default async function ImpostazioniProgettiPage() {
                     </span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   </Link>
-                  <AttivoModello id={m.id} nome={m.nome} attivo={m.attivo} perNuoviClienti={m.per_nuovi_clienti} />
+                  {/* the onboarding's template is closed: never switched off */}
+                  {m.per_onboarding ? null : (
+                    <AttivoModello id={m.id} nome={m.nome} attivo={m.attivo} perNuoviClienti={m.per_nuovi_clienti} />
+                  )}
                 </li>
               )
             })}

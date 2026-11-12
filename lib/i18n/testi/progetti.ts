@@ -356,6 +356,10 @@ const ERRORI_PROGETTI_EN: Record<string, string> = {
     'The onboarding template cannot be deleted: the «New client» wizard opens its list in every client’s project.',
   'Le attività dell’onboarding non si eliminano: il percorso le riconosce dalla loro chiave. Puoi cambiarne il titolo.':
     'The onboarding tasks cannot be deleted: the path recognises them by their key. You can change their title.',
+  'Il modello dell’onboarding è chiuso: non si aggiungono attività, non si spegne e non è quello dei nuovi clienti. Puoi cambiare il titolo delle sue attività.':
+    'The onboarding template is closed: no tasks are added, it is not switched off and it is not the one for new clients. You can change the title of its tasks.',
+  'Il modello «Onboarding cliente» si apre da solo con l’onboarding di un cliente.':
+    'The «Onboarding cliente» template opens by itself with the onboarding of a client.',
 }
 
 const SENZA_PERSONE = ' Il task è stato creato senza persone assegnate: assegnale modificandolo.'

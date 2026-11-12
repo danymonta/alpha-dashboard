@@ -40,6 +40,8 @@ type Modello = {
   descrizione: string | null
   reparto_id: string | null
   per_nuovi_clienti?: boolean
+  /** The onboarding's template (1.77.0): closed, never the one for new clients, never deleted. */
+  per_onboarding?: boolean
 }
 
 /**
@@ -69,7 +71,7 @@ export function ModelloForm({ modello, reparti }: { modello?: Modello; reparti: 
   } = useForm<ModelloInput>({ resolver: zodResolver(modelloSchema), defaultValues: iniziali })
   const repartoScelto = useWatch({ control, name: 'reparto_id' })
   // only a department that works on clients holds the template for new clients
-  const perClienti = reparti.some((r) => r.id === repartoScelto && r.progetti_con_cliente)
+  const perClienti = !modello?.per_onboarding && reparti.some((r) => r.id === repartoScelto && r.progetti_con_cliente)
 
   const invia = handleSubmit(async (valori) => {
     setErrore(null)
@@ -156,7 +158,7 @@ export function ModelloForm({ modello, reparti }: { modello?: Modello; reparti: 
         ) : null}
         <ErroreModulo testo={tradotto(errore ?? undefined) ?? null} />
         <BottoneSalva inCorso={isSubmitting}>{modello ? t.salvaModello : t.creaModello}</BottoneSalva>
-        {modello ? (
+        {modello && !modello.per_onboarding ? (
           <div className="border-t border-border pt-4">
             <Elimina
               etichetta={t.eliminaModello}

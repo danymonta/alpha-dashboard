@@ -215,7 +215,12 @@ function progetto(ctx: Contesto): Definizione {
     if (isErrore(rep)) return rep
     let modello: { id: string; nome: string } | null = null
     if (v.modello) {
-      const { data: modelli } = await supabase.from('pm_modelli').select('id, nome').eq('attivo', true)
+      const { data: modelli } = await supabase
+        .from('pm_modelli')
+        .select('id, nome')
+        .eq('attivo', true)
+        // the onboarding template opens with the link of a client, never from «Nuovo progetto»
+        .eq('per_onboarding', false)
       const m = trova(modelli ?? [], v.modello)
       if (!m || m === 'ambiguo') return errore(`Modello non trovato. Modelli: ${(modelli ?? []).map((x) => x.nome).join(', ')}`)
       modello = m

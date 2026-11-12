@@ -9,7 +9,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(121);
+select plan(130);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres). Seed: admin 1111, setter 2222, closer 3333, coach 4444, editor 5555,
@@ -253,7 +253,7 @@ select is(
   'il percorso in attesa, con i nove step bloccati'
 );
 select is(
-  (select row(p.nome, p.stato, p.responsabile_id = '11111111-1111-4111-8111-111111111111', p.coach_id is null,
+  (select row(p.nome, p.stato, p.responsabile_id is null, p.coach_id is null,
               (select array_agg(m.profile_id order by m.profile_id) from public.pm_membri m where m.progetto_id = p.id),
               (select count(*) from public.pm_task t where t.progetto_id = p.id),
               (select count(*) from public.pm_task t where t.progetto_id = p.id and t.chiave_onboarding is not null),
@@ -262,8 +262,8 @@ select is(
               (select array_agg(l.nome || case when l.created_by is null then '' else ' con autore' end)
                from public.pm_tasklist l where l.progetto_id = p.id))::text
    from public.pm_progetti p where p.id = pg_temp.progetto('Avvio')),
-  '("Avvio Centodieci",attivo,t,t,{11111111-1111-4111-8111-111111111111},18,10,0,0,{Onboarding})',
-  'il progetto del cliente: il responsabile è l''unico membro, i 10 task dell''onboarding nella lista «Onboarding», senza autore né assegnatari; coach e revisore non ci sono ancora'
+  '("Avvio Centodieci",attivo,t,t,,18,10,0,0,{Onboarding})',
+  'il progetto del cliente: nessun membro né responsabile, i 10 task dell''onboarding nella lista «Onboarding», senza autore né assegnatari: prima del pagamento nessun incaricato lo vede'
 );
 select is(pg_temp.eventi('Avvio'), array['avviato team con nome'], 'nel registro l''avvio, col nome dell''admin');
 select is(
@@ -729,14 +729,85 @@ select is(
   (select row(p.responsabile_id, p.coach_id is null,
               (select count(*) from public.pm_membri m where m.progetto_id = p.id and m.profile_id = '99999999-9999-4999-8999-99999999a110'))::text
    from public.pm_progetti p where p.id = pg_temp.progetto('Avvio')),
-  '(22222222-2222-4222-8222-222222222222,t,0)',
-  'prima del pagamento cambia solo il responsabile del progetto: il coach non c''è ancora'
+  '(,t,0)',
+  'prima del pagamento il progetto non cambia: né il responsabile né il coach'
 );
 select throws_ok(
   $$ select public.onboarding_imposta_incarichi((select client_id from public.sales
        where client_id not in (select client_id from public.onboarding_percorsi) limit 1), null, null,
        '11111111-1111-4111-8111-111111111111') $$,
   '22023', 'Questo cliente non ha un onboarding.', 'solo per un cliente in onboarding'
+);
+
+-- the coach who is also the responsible: before the payment he does not see the project, which would tell
+-- him the client has not paid; with the payment he does
+select pg_temp.nuovo('CoachResp', p_responsabile => '44444444-4444-4444-8444-444444444444');
+select pg_temp.web('44444444-4444-4444-8444-444444444444');
+select is(
+  (select count(*)::int from public.pm_progetti where client_id = pg_temp.cliente('CoachResp'))
+    + (select count(*)::int from public.onboarding_incarichi where client_id = pg_temp.cliente('CoachResp')),
+  0, 'il coach responsabile, prima del pagamento, non vede né il progetto né il suo incarico'
+);
+select pg_temp.web('11111111-1111-4111-8111-111111111111');
+select pg_temp.incassa('CoachResp');
+select pg_temp.web('44444444-4444-4444-8444-444444444444');
+select is(
+  (select count(*)::int from public.pm_progetti where client_id = pg_temp.cliente('CoachResp')), 1,
+  'col pagamento entra nel progetto'
+);
+select pg_temp.web('11111111-1111-4111-8111-111111111111');
+
+-- revoked, the coach changed, reactivated: the tasks go to the new coach only
+select pg_temp.nuovo('CambioCoach');
+select public.onboarding_conferma_pagamento(pg_temp.invito('CambioCoach'));
+select public.onboarding_revoca(pg_temp.invito('CambioCoach'), null);
+select public.onboarding_imposta_incarichi(pg_temp.cliente('CambioCoach'), '55555555-5555-4555-8555-555555555555',
+  '33333333-3333-4333-8333-333333333333', '11111111-1111-4111-8111-111111111111');
+select public.onboarding_riattiva(pg_temp.invito('CambioCoach'));
+select is(
+  (pg_temp.assegnati('CambioCoach'))[2], 'coach 7 task: Sara Editor',
+  'riattivato dopo il cambio, i task del coach sono solo del nuovo: quello di prima li lascia'
+);
+
+-- a project archived by hand stays archived while the people change before the payment; the payment opens it
+select pg_temp.nuovo('Archiviato');
+reset role;
+set local request.jwt.claims to '{}';
+update public.pm_progetti set stato = 'archiviato' where id = pg_temp.progetto('Archiviato');
+select pg_temp.web('11111111-1111-4111-8111-111111111111');
+select public.onboarding_imposta_incarichi(pg_temp.cliente('Archiviato'), null, null, '22222222-2222-4222-8222-222222222222');
+select is(
+  (select stato from public.pm_progetti where id = pg_temp.progetto('Archiviato')), 'archiviato',
+  'cambiare gli incarichi prima del pagamento non riapre un progetto archiviato'
+);
+
+-- never a direct write on the link, not even by the admin: only his functions, with the log
+select throws_ok(
+  $$ update public.onboarding_inviti set stato = 'attivo', attivato_da = 'pagamento' where id = pg_temp.invito('Archiviato') $$,
+  '42501', 'Il link si cambia solo dalle azioni dell''onboarding.',
+  'l''admin non attiva un link con un update diretto'
+);
+select throws_ok(
+  $$ update public.onboarding_inviti set minorenne = true where id = pg_temp.invito('Archiviato') $$,
+  '42501', null, 'né cambia minorenne, vendita o cliente: colonne che una sessione non scrive'
+);
+select public.onboarding_conferma_pagamento(pg_temp.invito('Archiviato'));
+select is(
+  (select stato from public.pm_progetti where id = pg_temp.progetto('Archiviato')), 'attivo',
+  'il pagamento confermato lo riapre'
+);
+
+-- an emptied Telegram username is taken away
+insert into casi (nome, sale_id, client_id)
+select 'Telegram', r.id_vendita, r.id_cliente
+from public.registra_vendita((select id from prodotto), 'nuovo', public.oggi(), public.oggi() + 7, 900, 1,
+  p_nome => 'Telegram', p_cognome => 'Centodieci') r;
+insert into public.clienti_telegram (client_id, username) values (pg_temp.cliente('Telegram'), 'vecchio_110');
+select public.avvia_onboarding(pg_temp.vendita('Telegram'), null, null, '11111111-1111-4111-8111-111111111111',
+  null, '', false);
+select is(
+  (select username from public.clienti_telegram where client_id = pg_temp.cliente('Telegram')), null,
+  'uno username svuotato si toglie'
 );
 
 -- a person merged into another, then deleted: the incarichi follow, nothing fails
@@ -872,7 +943,12 @@ select is(
   array['true', 'false'],
   'la domanda prima di eliminare un cliente dice se ha un onboarding'
 );
+insert into appunti values ('progetto_revoca', pg_temp.progetto('Revoca')::text);
 select lives_ok($$ select public.elimina_cliente(pg_temp.cliente('Revoca')) $$, 'un cliente in onboarding si elimina');
+select is(
+  (select stato from public.pm_progetti where id = (select valore from appunti where chiave = 'progetto_revoca')::uuid),
+  'attivo', 'il suo progetto resta com''era, senza cliente: non si archivia'
+);
 reset role;
 set local request.jwt.claims to '{}';
 select is(

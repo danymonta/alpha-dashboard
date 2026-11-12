@@ -8,7 +8,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(66);
+select plan(68);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres). Seed: admin 1111, setter 2222, closer 3333, coach 4444, editor 5555,
@@ -187,8 +187,9 @@ select policies_are('public', 'clienti_telegram', array[
   'clienti_telegram_admin', 'clienti_telegram_coach_lettura', 'clienti_telegram_mai_da_oauth'
 ], 'Telegram: l''admin tutto, il coach incaricato legge');
 select ok(
-  (select not p.prosecdef from pg_proc p where p.oid = 'public.onboarding_incaricato(uuid)'::regprocedure),
-  'onboarding_incaricato è security invoker'
+  (select p.prosecdef and 'search_path=""' = any(p.proconfig)
+   from pg_proc p where p.oid = 'public.onboarding_incaricato(uuid)'::regprocedure),
+  'onboarding_incaricato è security definer con search_path vuoto (le policy di incarichi e percorsi la chiamano)'
 );
 select is(
   (select coalesce(string_agg(p.proname::text, ', ' order by p.proname::text), '')
@@ -244,8 +245,15 @@ select is(
   'uno solo, nel reparto di «Percorso cliente»'
 );
 select throws_ok(
-  $$ update public.pm_modelli set per_onboarding = true where per_nuovi_clienti $$, '23505', null,
+  $$ update public.pm_modelli set per_onboarding = true
+     where not per_onboarding and not per_nuovi_clienti and id = (select min(id::text)::uuid from public.pm_modelli
+                                                                   where not per_onboarding and not per_nuovi_clienti) $$,
+  '23505', null,
   'un solo modello di onboarding'
+);
+select throws_ok(
+  $$ update public.pm_modelli set per_nuovi_clienti = true where per_onboarding $$, '23514', null,
+  'il modello di onboarding non è mai quello dei nuovi clienti'
 );
 
 -- The invite written by hand (as the seed does) started the path, and Telegram is saved clean
@@ -378,16 +386,11 @@ reset role;
 -- ---------------------------------------------------------------------------
 select pg_temp.web('44444444-4444-4444-8444-444444444444');
 select is(
-  pg_temp.vede(),
-  'onboarding_incarichi ' || (select count(*) from public.onboarding_incarichi),
-  'il coach incaricato, prima della registrazione, legge solo le righe dei suoi incarichi'
+  pg_temp.vede(), '',
+  'il coach incaricato, prima della registrazione, non legge niente: nemmeno la riga del suo incarico (senza il progetto direbbe «non ha ancora pagato»)'
 );
-select is(
-  (select bool_and('44444444-4444-4444-8444-444444444444' in (coach_id, revisore_id, responsabile_id))
-   from public.onboarding_incarichi),
-  true, 'e sono solo le sue'
-);
-select ok(public.onboarding_incaricato('c1090000-0000-4000-8000-000000000001'), 'onboarding_incaricato: sì per il suo cliente');
+select ok(not public.onboarding_incaricato('c1090000-0000-4000-8000-000000000001'),
+  'onboarding_incaricato: no finché il cliente non si registra');
 select is(
   pg_temp.righe($$ update public.onboarding_incarichi set revisore_id = '44444444-4444-4444-8444-444444444444' $$)
     + pg_temp.righe($$ update public.clienti_telegram set username = 'cambiato_dal_coach' $$),
@@ -395,8 +398,8 @@ select is(
 );
 select pg_temp.web('33333333-3333-4333-8333-333333333333');
 select is(
-  pg_temp.vede(), 'onboarding_incarichi 1',
-  'il closer, che qui è il revisore, legge solo la sua riga: mai l''invito, cioè lo stato del pagamento'
+  pg_temp.vede(), '',
+  'il closer, che qui è il revisore, prima della registrazione non legge niente: mai l''invito, cioè lo stato del pagamento'
 );
 
 -- the client registers (release B): the path is in corso
@@ -408,9 +411,14 @@ where client_id = 'c1090000-0000-4000-8000-000000000001';
 select pg_temp.web('44444444-4444-4444-8444-444444444444');
 select is(
   pg_temp.vede(),
-  'onboarding_incarichi ' || (select count(*) from public.onboarding_incarichi)
-    || ', onboarding_percorsi 1, onboarding_passi 9, clienti_telegram 1',
-  'dalla registrazione il coach legge il percorso, i suoi step e Telegram: mai inviti, token, eventi o impostazioni'
+  'onboarding_incarichi 1, onboarding_percorsi 1, onboarding_passi 9, clienti_telegram 1',
+  'dalla registrazione il coach legge il suo incarico, il percorso, i suoi step e Telegram: mai inviti, token, eventi o impostazioni'
+);
+select ok(public.onboarding_incaricato('c1090000-0000-4000-8000-000000000001'), 'onboarding_incaricato: sì per il suo cliente');
+select is(
+  (select bool_and('44444444-4444-4444-8444-444444444444' in (coach_id, revisore_id, responsabile_id))
+   from public.onboarding_incarichi),
+  true, 'e la riga è la sua'
 );
 select pg_temp.web('33333333-3333-4333-8333-333333333333');
 select is(
@@ -465,7 +473,7 @@ select ok(not public.onboarding_incaricato('c1090000-0000-4000-8000-000000000001
   'onboarding_incaricato: mai per un token, nemmeno del responsabile');
 select is(
   pg_temp.righe($$ update public.onboarding_impostazioni set giorni_validita_link = 30 $$)
-    + pg_temp.righe($$ update public.onboarding_inviti set slug = 'da-claude' $$)
+    + pg_temp.righe($$ update public.onboarding_inviti set consenso_genitore_nota = 'da-claude' $$)
     + pg_temp.righe($$ update public.clienti_telegram set username = 'da_claude' $$),
   0, 'e non scrive niente: impostazioni, inviti, Telegram'
 );

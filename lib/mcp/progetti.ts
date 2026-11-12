@@ -274,7 +274,13 @@ export async function personeDelTeam(ctx: ContestoMcp): Promise<EsitoStrumento> 
 export async function repartiEModelli(ctx: ContestoMcp): Promise<EsitoStrumento> {
   const [reparti, modelli] = await Promise.all([
     ctx.db.from('pm_reparti').select('id, nome, progetti_con_cliente').eq('attivo', true).order('ordine'),
-    ctx.db.from('pm_modelli').select('id, nome, descrizione, reparto_id').eq('attivo', true).order('nome'),
+    ctx.db
+      .from('pm_modelli')
+      .select('id, nome, descrizione, reparto_id')
+      .eq('attivo', true)
+      // the onboarding template opens with the link of a client, never from «Nuovo progetto»
+      .eq('per_onboarding', false)
+      .order('nome'),
   ])
   return ok({
     reparti: controlla(reparti).map((r) => ({

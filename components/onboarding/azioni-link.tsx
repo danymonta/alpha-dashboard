@@ -266,10 +266,11 @@ export function RevocaLink({ invitoId, cliente }: { invitoId: string; cliente: s
 
   return (
     <>
+      {/* rare and destructive: quiet and apart from the primary action; the red button is the dialog's */}
       <Button
         type="button"
-        variant="destructive"
-        className="h-11"
+        variant="ghost"
+        className="ml-auto h-11 text-rosso-testo hover:text-rosso-testo"
         data-testid="revoca-link"
         onClick={() => {
           setErrore(null)

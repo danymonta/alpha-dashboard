@@ -23,6 +23,7 @@ export type LinkDellaScheda = Pick<
   | 'revocato_motivo'
   | 'minorenne'
   | 'consenso_genitore_il'
+  | 'pagamento_confermato'
 >
 
 /**
@@ -69,6 +70,8 @@ export function RiquadroLink({
   else if (riga.invito_stato === 'attivo' && riga.scade_il) fatti.push({ chiave: 'scade', testo: l.scadeIl(giorno(riga.scade_il)) })
   else if (riga.invito_stato === 'attivo') fatti.push({ chiave: 'senza-scadenza', testo: l.senzaScadenza(giorni) })
   if (riga.usato_il) fatti.push({ chiave: 'usato', testo: l.usatoIl(giorno(riga.usato_il)) })
+  // the payment is there and the link still waits: only the parent's consent is missing
+  if (riga.pagamento_confermato) fatti.push({ chiave: 'pagamento-confermato', testo: l.pagamentoConfermatoConsenso })
   if (riga.invito_stato === 'revocato' && riga.revocato_il) {
     fatti.push({ chiave: 'revocato', testo: l.revocatoIl(giorno(riga.revocato_il)) })
     if (riga.revocato_motivo?.trim()) {

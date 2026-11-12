@@ -2648,7 +2648,7 @@ isOneToOne: false
                   ]
                 },"v_onboarding": {
                   Row: {
-                    "attivato_da": string | null,"attivato_il": string | null,"client_id": string,"coach_id": string | null,"coach_nome": string | null,"cognome": string | null,"completato_il": string | null,"consenso_genitore_il": string | null,"created_at": string,"giorno_zero": string | null,"invito_id": string | null,"invito_stato": string | null,"minorenne": boolean | null,"nome": string,"passo_attore": string | null,"passo_corrente": string | null,"passo_stato": string | null,"passo_titolo": string | null,"percorso_stato": string,"progetto_id": string | null,"responsabile_id": string | null,"responsabile_nome": string | null,"revisore_id": string | null,"revisore_nome": string | null,"revocato_il": string | null,"revocato_motivo": string | null,"sale_id": string | null,"scade_il": string | null,"slug": string | null,"usato_il": string | null
+                    "attivato_da": string | null,"attivato_il": string | null,"client_id": string,"coach_id": string | null,"coach_nome": string | null,"cognome": string | null,"completato_il": string | null,"consenso_genitore_il": string | null,"created_at": string,"giorno_zero": string | null,"invito_id": string | null,"invito_stato": string | null,"minorenne": boolean | null,"nome": string,"pagamento_confermato": boolean | null,"passo_attore": string | null,"passo_corrente": string | null,"passo_stato": string | null,"passo_titolo": string | null,"percorso_stato": string,"progetto_id": string | null,"responsabile_id": string | null,"responsabile_nome": string | null,"revisore_id": string | null,"revisore_nome": string | null,"revocato_il": string | null,"revocato_motivo": string | null,"sale_id": string | null,"scade_il": string | null,"slug": string | null,"usato_il": string | null
                   }
                   ComputedFields: never
                   Relationships: [
@@ -3703,10 +3703,10 @@ isOneToOne: false
 { Args: { "p_client_id": string,"p_sale_id": string }; Returns: boolean
                            },
 "onboarding_apri_progetto":
-{ Args: { "p_client_id": string }; Returns: string
+{ Args: { "p_client_id": string,"p_riapri"?: boolean }; Returns: string
                            },
 "onboarding_assegna_incarichi":
-{ Args: { "p_client_id": string }; Returns: undefined
+{ Args: { "p_client_id": string,"p_riapri"?: boolean }; Returns: undefined
                            },
 "onboarding_conferma_pagamento":
 { Args: { "p_invito": string }; Returns: Json

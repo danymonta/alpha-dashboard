@@ -1,4 +1,4 @@
-import { PackageX, SearchX } from 'lucide-react'
+import { PackageX, Rocket, SearchX } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { SoloSeFermo } from '@/app/(app)/onboarding/nuovo/palco'
@@ -14,6 +14,7 @@ import { NUOVA_VENDITA } from '@/lib/i18n/testi/nuova-vendita'
 import { ONBOARDING } from '@/lib/i18n/testi/onboarding'
 import { LetturaNonRiuscita, leggiImpostazioni, leggiIngressoWizard, leggiPersone } from '@/lib/onboarding/letture'
 import { incarichiPredefiniti } from '@/lib/onboarding/stati'
+import { isUuid } from '@/lib/progetti'
 import { createClient } from '@/lib/supabase/server'
 import { leggiPianoPredefinito } from '@/lib/validation/anagrafiche'
 
@@ -29,10 +30,11 @@ export const dynamic = 'force-dynamic'
 export default async function NuovoClientePage({
   searchParams,
 }: {
-  searchParams: Promise<{ call?: string; vendita?: string; cliente?: string; da?: string }>
+  searchParams: Promise<{ call?: string; vendita?: string; cliente?: string; da?: string; avviato?: string }>
 }) {
   const profilo = await requireRuolo(['admin'])
-  const { call, vendita, cliente, da } = await searchParams
+  const { call, vendita, cliente, da, avviato } = await searchParams
+
   // «?da=»: the page the call was closed from (the closer's day), only a path of this app
   const tornaA = percorsoDiRitorno(da)
   const lingua = await getLingua()
@@ -53,6 +55,33 @@ export default async function NuovoClientePage({
   if (erroreProdotti) throw new LetturaNonRiuscita('Onboarding: i prodotti non si leggono', erroreProdotti.code)
 
   const indietro = { href: '/onboarding', etichetta: t.titolo }
+
+  // the wizard is done (its last screen wrote `?avviato=` in the address): after a reload, or Back and
+  // Forward, the way to the client's card, never an empty wizard that would start him a second time.
+  // Never a redirect: the actions of the last screen redraw this same address under it.
+  if (avviato && isUuid(avviato)) {
+    const parole = t.wizard.impossibile.gia_avviato
+    return (
+      <SoloSeFermo>
+        <div className="max-w-xl space-y-6" data-testid="wizard-avviato">
+          <IntestazionePagina titolo={t.wizard.titolo} indietro={indietro} />
+          <StatoVuoto
+            Icona={Rocket}
+            titolo={parole.titolo}
+            descrizione={parole.descrizione}
+            azione={
+              <div className="flex flex-wrap justify-center gap-2">
+                <LinkBottone href={`/onboarding/${avviato}`}>{t.apriOnboarding}</LinkBottone>
+                <LinkBottone href="/onboarding/nuovo" variant="outline">
+                  {t.nuovoCliente}
+                </LinkBottone>
+              </div>
+            }
+          />
+        </div>
+      </SoloSeFermo>
+    )
+  }
 
   if (ingresso.modo === 'impossibile') {
     const parole = t.wizard.impossibile[ingresso.motivo]

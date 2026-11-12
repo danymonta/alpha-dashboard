@@ -1,4 +1,4 @@
-import { ListChecks, SearchX, UserRoundCheck } from 'lucide-react'
+import { ListChecks, Lock, SearchX, UserRoundCheck } from 'lucide-react'
 
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
@@ -47,11 +47,11 @@ export default async function ModelloPage({ params }: { params: Promise<{ id: st
   if (!isUuid(id)) return nonTrovato
 
   const [modello, reparti, voci] = await Promise.all([
-    supabase.from('pm_modelli').select('id, nome, descrizione, reparto_id, attivo, per_nuovi_clienti').eq('id', id).maybeSingle(),
+    supabase.from('pm_modelli').select('id, nome, descrizione, reparto_id, attivo, per_nuovi_clienti, per_onboarding').eq('id', id).maybeSingle(),
     supabase.from('pm_reparti').select('id, nome, progetti_con_cliente').eq('attivo', true).order('ordine'),
     supabase
       .from('pm_modelli_voci')
-      .select('id, tasklist, titolo, descrizione, ordine, inizio_giorni, durata_giorni, per_ruolo')
+      .select('id, tasklist, titolo, descrizione, ordine, inizio_giorni, durata_giorni, per_ruolo, chiave_onboarding')
       .eq('modello_id', id)
       .order('ordine')
       .order('created_at'),
@@ -87,7 +87,10 @@ export default async function ModelloPage({ params }: { params: Promise<{ id: st
           .join(' · ')}
         azione={
           <div className="flex flex-wrap items-center gap-2">
-            <AttivoModello id={m.id} nome={m.nome} attivo={m.attivo} perNuoviClienti={m.per_nuovi_clienti} />
+            {/* the onboarding's template is closed: never switched off */}
+            {m.per_onboarding ? null : (
+              <AttivoModello id={m.id} nome={m.nome} attivo={m.attivo} perNuoviClienti={m.per_nuovi_clienti} />
+            )}
             <ModelloForm modello={m} reparti={reparti.data} />
           </div>
         }
@@ -98,14 +101,23 @@ export default async function ModelloPage({ params }: { params: Promise<{ id: st
           <h2 id="titolo-voci" className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {t.attivitaTitolo(voci.data.length)}
           </h2>
-          <VoceForm
-            modelloId={m.id}
-            liste={nomiListe}
-            ordineSuccessivo={ordineSuccessivo}
-            conDatePredefinite={conDatePredefinite}
-            perClienti={perClienti}
-          />
+          {/* an activity added to the onboarding's template would have no key: it would never reach a client */}
+          {m.per_onboarding ? null : (
+            <VoceForm
+              modelloId={m.id}
+              liste={nomiListe}
+              ordineSuccessivo={ordineSuccessivo}
+              conDatePredefinite={conDatePredefinite}
+              perClienti={perClienti}
+            />
+          )}
         </div>
+        {m.per_onboarding ? (
+          <p className="flex items-start gap-2 rounded-xl bg-card px-3 py-2.5 text-sm" data-testid="modello-onboarding">
+            <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span>{t.modelloOnboarding}</span>
+          </p>
+        ) : null}
         {m.per_nuovi_clienti ? (
           <p className="flex items-start gap-2 rounded-xl bg-card px-3 py-2.5 text-sm" data-testid="modello-nuovi-clienti">
             <UserRoundCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -147,7 +159,7 @@ export default async function ModelloPage({ params }: { params: Promise<{ id: st
                       ordineSuccessivo={ordineSuccessivo}
                       perClienti={perClienti}
                     />
-                    <EliminaVoce id={v.id} titolo={v.titolo} />
+                    {v.chiave_onboarding ? null : <EliminaVoce id={v.id} titolo={v.titolo} />}
                   </li>
                 ))}
               </ul>

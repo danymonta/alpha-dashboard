@@ -6,10 +6,11 @@
 -- 2. The template «Onboarding cliente»: 10 tasks in one list «Onboarding», without dates (the due dates
 --    come with release B).
 -- 3. onboarding_apri_progetto(client): the client's project, opened when missing, with the list
---    «Onboarding» and its tasks added once; the responsible is the project's. No grants.
--- 4. onboarding_assegna_incarichi(client): coach and reviewer join the project, the coach becomes the
---    project's coach, every task goes to the person of its incarico. Called when the link turns active,
---    never at the start: before the payment coach and reviewer do not see the project. No grants.
+--    «Onboarding» and its tasks added once; nobody joins. No grants.
+-- 4. onboarding_assegna_incarichi(client): coach, reviewer and responsible join the project, the
+--    responsible becomes the project's, the coach the project's coach, every task goes to the person of
+--    its incarico. Called when the link turns active,
+--    never at the start: before the payment nobody in charge sees the project. No grants.
 -- 5. pm_scegli_coach never touches a task with an incarico; pm_apri_progetto_cliente never reopens an
 --    onboarding task at a renewal.
 -- 6. anteprima_eliminazione('cliente') says whether the client has an onboarding.
@@ -22,6 +23,9 @@
 -- 1. Columns
 -- ---------------------------------------------------------------------------
 alter table public.pm_modelli add column per_onboarding boolean not null default false;
+-- the onboarding template is never the one for new clients: its tasks would be copied twice, without their key
+alter table public.pm_modelli add constraint pm_modelli_onboarding_non_nuovi_clienti
+  check (not (per_onboarding and per_nuovi_clienti));
 create unique index pm_modelli_uno_per_onboarding on public.pm_modelli (per_onboarding) where per_onboarding;
 
 comment on column public.pm_modelli.per_onboarding is
@@ -139,7 +143,7 @@ $$;
 --    each task; tasks and list without an author (they are the app's), like the
 --    ones pm_crea_progetto_cliente makes. No grants: only the triggers call it.
 -- ---------------------------------------------------------------------------
-create function public.onboarding_apri_progetto(p_client_id uuid)
+create function public.onboarding_apri_progetto(p_client_id uuid, p_riapri boolean default false)
 returns uuid
 language plpgsql
 security definer
@@ -148,7 +152,6 @@ as $$
 declare
   v_progetto uuid;
   v_modello uuid;
-  v_responsabile uuid;
   v_lista record;
   v_id_lista uuid;
   v_claims text := current_setting('request.jwt.claims', true);
@@ -165,18 +168,18 @@ begin
   end if;
 
   select m.id into v_modello from public.pm_modelli m where m.per_onboarding;
-  select i.responsabile_id into v_responsabile
-  from public.onboarding_incarichi i
-  where i.client_id = p_client_id;
 
   -- no session while the app writes: no author on lists and tasks, the guards of the tasks let it pass
   perform set_config('request.jwt.claims', '', true);
   perform set_config('request.jwt.claim.sub', '', true);
 
-  -- a project archived by a deleted sale is in use again
-  update public.pm_progetti p
-  set stato = 'attivo'
-  where p.id = v_progetto and p.stato = 'archiviato';
+  -- only when the link turns active (the payment, a reactivation): an archived project is in use again.
+  -- Never at the start nor when the people change: before the payment nothing moves on the project.
+  if p_riapri then
+    update public.pm_progetti p
+    set stato = 'attivo'
+    where p.id = v_progetto and p.stato = 'archiviato';
+  end if;
 
   if v_modello is not null then
     for v_lista in
@@ -229,17 +232,8 @@ begin
     on conflict (progetto_id, chiave_onboarding) where chiave_onboarding is not null do nothing;
   end if;
 
-  -- the responsible of the onboarding is the project's (a member, as the guard of pm_progetti wants)
-  if v_responsabile is not null then
-    insert into public.pm_membri (progetto_id, profile_id, aggiunto_da)
-    values (v_progetto, v_responsabile, null)
-    on conflict (progetto_id, profile_id) do nothing;
-
-    update public.pm_progetti p
-    set responsabile_id = v_responsabile
-    where p.id = v_progetto and p.responsabile_id is distinct from v_responsabile;
-  end if;
-
+  -- nobody joins here: people and the responsible of the project arrive with the payment
+  -- (onboarding_assegna_incarichi), so before it nobody in charge sees the project change
   perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
   perform set_config('request.jwt.claim.sub', coalesce(v_sub, ''), true);
 
@@ -247,10 +241,10 @@ begin
 end;
 $$;
 
-comment on function public.onboarding_apri_progetto(uuid) is
-  'The client''s project for the onboarding: opened when missing (pm_crea_progetto_cliente), with the tasks of the template «Onboarding cliente» added once per key, without author nor assignees; the responsible of onboarding_incarichi becomes a member and the project''s responsible. No grants.';
+comment on function public.onboarding_apri_progetto(uuid, boolean) is
+  'The client''s project for the onboarding: opened when missing (pm_crea_progetto_cliente), with the tasks of the template «Onboarding cliente» added once per key, without author nor assignees; nobody joins. With p_riapri (the link turning active) an archived project is active again. No grants.';
 
-revoke all on function public.onboarding_apri_progetto(uuid) from public, anon, authenticated;
+revoke all on function public.onboarding_apri_progetto(uuid, boolean) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 4. The people in charge on the project and on its tasks. Called when the link
@@ -258,10 +252,11 @@ revoke all on function public.onboarding_apri_progetto(uuid) from public, anon, 
 --    and reviewer join, the coach becomes the project's coach exactly as with
 --    «Scegli il coach» (the tasks without an incarico still without anybody, and
 --    the ones of the previous coach, go to him; a task of a role to a person with
---    that role), every task with an incarico goes to its person. An empty
---    incarico leaves its tasks as they are. No grants.
+--    that role), every task with an incarico goes to its person and only to
+--    her (an empty incarico leaves its tasks without anybody), the responsible
+--    becomes the project's. No grants.
 -- ---------------------------------------------------------------------------
-create function public.onboarding_assegna_incarichi(p_client_id uuid)
+create function public.onboarding_assegna_incarichi(p_client_id uuid, p_riapri boolean default false)
 returns void
 language plpgsql
 security definer
@@ -279,7 +274,7 @@ declare
   v_sub text := current_setting('request.jwt.claim.sub', true);
 begin
   -- the project, its list and its responsible (idempotent)
-  v_progetto := public.onboarding_apri_progetto(p_client_id);
+  v_progetto := public.onboarding_apri_progetto(p_client_id, p_riapri);
   if v_progetto is null then
     return;
   end if;
@@ -300,6 +295,13 @@ begin
   select v_progetto, x.id, null
   from (select distinct u as id from unnest(array[v_coach, v_revisore, v_responsabile]) as u where u is not null) x
   on conflict (progetto_id, profile_id) do nothing;
+
+  -- the responsible of the onboarding is the project's (a member, as the guard of pm_progetti wants)
+  if v_responsabile is not null then
+    update public.pm_progetti p
+    set responsabile_id = v_responsabile
+    where p.id = v_progetto and p.responsabile_id is distinct from v_responsabile;
+  end if;
 
   -- the project's coach follows the incarico (never the other way round)
   select p.coach_id into v_vecchio from public.pm_progetti p where p.id = v_progetto;
@@ -348,7 +350,20 @@ begin
     where p.id = v_progetto and p.coach_id is distinct from v_coach;
   end if;
 
-  -- every onboarding task to the person of its incarico
+  -- every onboarding task to the person of its incarico, and only to her: whoever held the incarico
+  -- before (even while the link was revoked) leaves it, and stays in the project with the time worked;
+  -- an empty incarico leaves its tasks without anybody
+  delete from public.pm_task_assegnatari a
+  using public.pm_task t
+  where a.task_id = t.id
+    and t.progetto_id = v_progetto
+    and t.per_incarico is not null
+    and a.profile_id is distinct from case t.per_incarico
+                                        when 'coach' then v_coach
+                                        when 'revisore' then v_revisore
+                                        else v_responsabile
+                                      end;
+
   insert into public.pm_task_assegnatari (task_id, profile_id, created_by)
   select t.id, x.chi, null
   from public.pm_task t
@@ -367,10 +382,10 @@ begin
 end;
 $$;
 
-comment on function public.onboarding_assegna_incarichi(uuid) is
-  'Aligns the client''s project to onboarding_incarichi: the people join, the coach becomes the project''s coach (with the tasks «Scegli il coach» would give him), every task with an incarico goes to its person; an empty incarico leaves its tasks alone. Called when the link turns active and when the incarichi change while it is. No grants.';
+comment on function public.onboarding_assegna_incarichi(uuid, boolean) is
+  'Aligns the client''s project to onboarding_incarichi: the people join, the coach becomes the project''s coach (with the tasks «Scegli il coach» would give him), every task with an incarico goes to its person and only to her (an empty incarico leaves its tasks without anybody), the responsible becomes the project''s; with p_riapri an archived project is active again. Called when the link turns active and when the incarichi change while it is. No grants.';
 
-revoke all on function public.onboarding_assegna_incarichi(uuid) from public, anon, authenticated;
+revoke all on function public.onboarding_assegna_incarichi(uuid, boolean) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 5. «Scegli il coach» never touches a task with an incarico: the body of

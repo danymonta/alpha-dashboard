@@ -66,6 +66,7 @@ export const ONBOARDING = bilingue(
         noi: 'Tocca a noi',
         cliente: 'Tocca al cliente',
         attesa: 'In attesa di pagamento o di registrazione',
+        fermi: 'Fermi: link revocato o scaduto',
         conclusi: 'Conclusi',
       },
       conteggio: (titolo: string, n: number) => `${titolo} (${n})`,
@@ -86,6 +87,7 @@ export const ONBOARDING = bilingue(
       inizio: (giorno: string) => `Inizio il ${giorno}`,
       senzaProdotto: 'Prodotto non indicato',
       nomeAvvia: (cliente: string) => `Avvia onboarding per ${cliente}`,
+      mostraTutte: (n: number) => `Mostra le altre (${n})`,
     },
 
     wizard: {
@@ -223,6 +225,7 @@ export const ONBOARDING = bilingue(
       nessuno: 'Nessuno',
       io: (nome: string) => `${nome} (tu)`,
       nonAttivo: (nome: string) => `${nome} (non più attivo)`,
+      sostituisci: (nome: string) => `${nome} non è più attivo: scegli chi lo sostituisce.`,
       nota: 'Coach e revisore vedono il progetto del cliente da quando il link si attiva.',
       modifica: 'Modifica il team',
       salva: 'Salva il team',
@@ -249,6 +252,7 @@ export const ONBOARDING = bilingue(
       minorenne: 'Cliente minorenne',
       consensoIl: (giorno: string) => `Consenso del genitore registrato il ${giorno}`,
       consensoManca: 'Manca il consenso di un genitore: il link resta fermo.',
+      pagamentoConfermatoConsenso: 'Pagamento confermato: manca il consenso del genitore.',
       nonAperto: 'L’area clienti non è ancora aperta: il link si potrà mandare dal prossimo rilascio.',
       indirizzo: 'Indirizzo del link',
       copiaLink: 'Copia link',
@@ -407,6 +411,7 @@ export const ONBOARDING = bilingue(
       stato: (stato: string) => `Onboarding: ${stato}`,
       nonAvviato: 'Onboarding non avviato',
       nonAvviatoNota: 'Questa vendita a un nuovo cliente non ha ancora il suo onboarding.',
+      oraIlCliente: 'Ora avvia l’onboarding del cliente.',
     },
 
     impostazioni: {
@@ -482,6 +487,7 @@ export const ONBOARDING = bilingue(
         noi: 'Our turn',
         cliente: 'The client’s turn',
         attesa: 'Waiting for payment or sign-up',
+        fermi: 'On hold: link revoked or expired',
         conclusi: 'Completed',
       },
       conteggio: (titolo: string, n: number) => `${titolo} (${n})`,
@@ -502,6 +508,7 @@ export const ONBOARDING = bilingue(
       inizio: (giorno: string) => `Starts on ${giorno}`,
       senzaProdotto: 'Product not given',
       nomeAvvia: (cliente: string) => `Start onboarding for ${cliente}`,
+      mostraTutte: (n: number) => `Show the others (${n})`,
     },
 
     wizard: {
@@ -639,6 +646,7 @@ export const ONBOARDING = bilingue(
       nessuno: 'Nobody',
       io: (nome: string) => `${nome} (you)`,
       nonAttivo: (nome: string) => `${nome} (no longer active)`,
+      sostituisci: (nome: string) => `${nome} is no longer active: choose who takes over.`,
       nota: 'Coach and reviewer see the client’s project from when the link turns active.',
       modifica: 'Edit the team',
       salva: 'Save the team',
@@ -664,6 +672,7 @@ export const ONBOARDING = bilingue(
       minorenne: 'Minor client',
       consensoIl: (giorno: string) => `Parent’s consent recorded on ${giorno}`,
       consensoManca: 'A parent’s consent is missing: the link stays on hold.',
+      pagamentoConfermatoConsenso: 'Payment confirmed: the parent’s consent is missing.',
       nonAperto: 'The client area is not open yet: the link can be sent from the next release.',
       indirizzo: 'Link address',
       copiaLink: 'Copy link',
@@ -818,6 +827,7 @@ export const ONBOARDING = bilingue(
       stato: (stato: string) => `Onboarding: ${stato}`,
       nonAvviato: 'Onboarding not started',
       nonAvviatoNota: 'This sale to a new client does not have its onboarding yet.',
+      oraIlCliente: 'Now start the client’s onboarding.',
     },
 
     impostazioni: {
@@ -906,6 +916,11 @@ const ERRORI_EN: Record<string, string> = {
   'La vendita non è di questo cliente': 'The sale does not belong to this client',
   'Un invito nasce in attesa di pagamento': 'A link is created waiting for the payment',
   'Un invito non cambia cliente': 'A link never changes client',
+  "Un invito non cambia da minorenne a maggiorenne: si decide all'avvio":
+    'A link never changes between minor and adult: it is decided at the start',
+  'Un invito non cambia vendita': 'A link never changes sale',
+  "Il link si cambia solo dalle azioni dell'onboarding.": 'The link changes only through the onboarding actions.',
+  "Solo l'admin elimina": 'Only the admin deletes',
   "Scegli il responsabile dell'onboarding.": 'Choose the person responsible for the onboarding.',
   'Coach, revisore e responsabile devono essere persone attive del team.':
     'Coach, reviewer and responsible must be active people of the team.',

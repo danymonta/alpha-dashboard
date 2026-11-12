@@ -87,18 +87,20 @@ export function dettaglioStato(stato: StatoOnboarding, lingua: Lingua = 'it'): s
   return ONBOARDING[lingua].statiDettaglio[stato]
 }
 
-/** The three groups of the list, and the finished ones, which the list keeps apart. */
-export const GRUPPI_LISTA = ['noi', 'cliente', 'attesa'] as const
+/** The groups of the list (the stopped ones after the waiting), and the finished ones, which the list keeps apart. */
+export const GRUPPI_LISTA = ['noi', 'cliente', 'attesa', 'fermi'] as const
 export type GruppoLista = (typeof GRUPPI_LISTA)[number] | 'conclusi'
 
 /**
  * Whose turn it is. While the client follows the steps: ours when the current step is the
  * team's, or waits for the team to check it; the client's otherwise. Everything before the
- * registration (payment, consent, a revoked or expired link, a path on hold) waits.
+ * registration (payment, consent, an active link) waits; a revoked or expired link, or a path
+ * on hold, is stopped: it waits for nothing until the admin moves it.
  */
 export function gruppoOnboarding(riga: StatoRiga): GruppoLista {
   if (riga.percorso_stato === 'completato') return 'conclusi'
-  if (riga.percorso_stato !== 'in_corso' || riga.invito_stato === 'revocato') return 'attesa'
+  if (riga.invito_stato === 'revocato' || riga.invito_stato === 'scaduto' || riga.percorso_stato === 'sospeso') return 'fermi'
+  if (riga.percorso_stato !== 'in_corso') return 'attesa'
   if (riga.passo_attore === 'cliente' && riga.passo_stato !== 'inviato' && riga.passo_stato !== 'in_attesa_team') {
     return 'cliente'
   }
@@ -107,7 +109,7 @@ export function gruppoOnboarding(riga: StatoRiga): GruppoLista {
 
 /** The rows of the list by group, in the order they came (the most recent first). */
 export function perGruppo<T extends StatoRiga>(righe: readonly T[]): Record<GruppoLista, T[]> {
-  const gruppi: Record<GruppoLista, T[]> = { noi: [], cliente: [], attesa: [], conclusi: [] }
+  const gruppi: Record<GruppoLista, T[]> = { noi: [], cliente: [], attesa: [], fermi: [], conclusi: [] }
   for (const riga of righe) gruppi[gruppoOnboarding(riga)].push(riga)
   return gruppi
 }
@@ -151,11 +153,15 @@ export type AzioniLink = {
  * (20261108090200), so a button never leads to a refusal. «Copia link» and the ready
  * message appear only once the client area is open.
  */
-export function azioniLink(riga: StatoRiga, aperto: boolean): AzioniLink {
+export function azioniLink(
+  riga: StatoRiga & { pagamento_confermato?: RigaOnboarding['pagamento_confermato'] },
+  aperto: boolean,
+): AzioniLink {
   const stato = riga.invito_stato
   const invito = riga.invito_id != null && stato != null
   return {
-    confermaPagamento: invito && stato === 'in_attesa_pagamento',
+    // a minor whose payment is there already waits only for the consent: confirming again would change nothing
+    confermaPagamento: invito && stato === 'in_attesa_pagamento' && riga.pagamento_confermato !== true,
     consensoGenitore: invito && riga.minorenne === true && !riga.consenso_genitore_il && stato !== 'revocato',
     rigenera: invito && stato !== 'usato',
     revoca: invito && stato !== 'revocato',

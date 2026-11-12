@@ -208,6 +208,7 @@ export function SchedaCall({
   // the net under "Chiusa" → sale: the call's closer and the admin; the setter never reads sales
   const venditaDaRegistrare = vista === 'closer' && chiedeVendita(call)
   const hrefVendita = `/sales/new?${new URLSearchParams({ call: call.id, ...(tornaA ? { da: tornaA } : {}) }).toString()}`
+  const hrefNuovoCliente = `/onboarding/nuovo?${new URLSearchParams({ call: call.id, ...(tornaA ? { da: tornaA } : {}) }).toString()}`
 
   const dettagli = [
     t.tipo[call.tipo],
@@ -392,7 +393,7 @@ export function SchedaCall({
                 // together; the sale alone stays one tap away (a renewal or an upsell closed in a call)
                 <>
                   <LinkBottone
-                    href={`/onboarding/nuovo?call=${call.id}`}
+                    href={hrefNuovoCliente}
                     className="gap-1.5 px-3"
                     aria-label={`${AGGANCI_ONBOARDING.nuovoCliente}: ${nome}`}
                     data-testid="nuovo-cliente-dalla-call"

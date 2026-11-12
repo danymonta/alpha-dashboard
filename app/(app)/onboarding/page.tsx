@@ -22,6 +22,9 @@ import {
 } from '@/lib/onboarding/stati'
 import { createClient } from '@/lib/supabase/server'
 
+/** The new sales without onboarding in view; the others one tap away. */
+const SENZA_IN_VISTA = 5
+
 export const dynamic = 'force-dynamic'
 
 /**
@@ -92,6 +95,33 @@ export default async function OnboardingPage() {
     )
   }
 
+  // the new sales without onboarding: one compact line each, the five most recent in view
+  const primeSenza = elenco.senza.slice(0, SENZA_IN_VISTA)
+  const altreSenza = elenco.senza.slice(SENZA_IN_VISTA)
+  function rigaSenza(v: (typeof elenco.senza)[number]) {
+    const nome = nomeCliente(v, lingua)
+    const sotto = [v.prodotto ?? t.senzaOnboarding.senzaProdotto, v.data_vendita ? formatData(v.data_vendita) : null]
+      .filter(Boolean)
+      .join(' · ')
+    return (
+      <li key={v.sale_id} className="flex items-center justify-between gap-3 rounded-xl bg-card py-1 pr-1 pl-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{nome}</p>
+          <p className="num truncate text-xs text-muted-foreground">{sotto}</p>
+        </div>
+        <LinkBottone
+          href={`/onboarding/nuovo?vendita=${v.sale_id}`}
+          variant="ghost"
+          className="shrink-0 px-3"
+          aria-label={t.senzaOnboarding.nomeAvvia(nome)}
+        >
+          <Rocket className="size-4" aria-hidden="true" />
+          {t.avviaOnboarding}
+        </LinkBottone>
+      </li>
+    )
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <IntestazionePagina titolo={t.titolo} descrizione={t.descrizione} azione={nuovoCliente} />
@@ -120,34 +150,17 @@ export default async function OnboardingPage() {
             </h2>
             <p className="text-sm text-muted-foreground">{t.senzaOnboarding.descrizione}</p>
           </div>
-          <ul className="space-y-2">
-            {elenco.senza.map((v) => {
-              const nome = nomeCliente(v, lingua)
-              return (
-                <li
-                  key={v.sale_id}
-                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl bg-card px-3 py-2.5"
-                >
-                  <div className="min-w-0 flex-1 basis-40 space-y-0.5">
-                    <p className="truncate text-sm font-medium">{nome}</p>
-                    <p className="truncate text-xs text-muted-foreground">{v.prodotto ?? t.senzaOnboarding.senzaProdotto}</p>
-                    {v.data_vendita ? (
-                      <p className="num text-xs text-muted-foreground">{t.senzaOnboarding.venditaDel(formatData(v.data_vendita))}</p>
-                    ) : null}
-                  </div>
-                  <LinkBottone
-                    href={`/onboarding/nuovo?vendita=${v.sale_id}`}
-                    variant="outline"
-                    className="px-3"
-                    aria-label={t.senzaOnboarding.nomeAvvia(nome)}
-                  >
-                    <Rocket className="size-4" aria-hidden="true" />
-                    {t.avviaOnboarding}
-                  </LinkBottone>
-                </li>
-              )
-            })}
-          </ul>
+          <ul className="space-y-1.5">{primeSenza.map(rigaSenza)}</ul>
+          {altreSenza.length > 0 ? (
+            // the most recent ones first; the others one tap away, so the clients to start now stay in view
+            <details className="group space-y-1.5" data-testid="senza-onboarding-altre">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-lg px-1 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+                <ChevronRight className="size-4 transition-transform group-open:rotate-90" aria-hidden="true" />
+                {t.senzaOnboarding.mostraTutte(altreSenza.length)}
+              </summary>
+              <ul className="space-y-1.5">{altreSenza.map(rigaSenza)}</ul>
+            </details>
+          ) : null}
           {elenco.senzaTotale > elenco.senza.length ? (
             <p className="px-1 text-xs text-muted-foreground">{t.lista.massimo(SENZA_ONBOARDING_MAX)}</p>
           ) : null}

@@ -67,6 +67,21 @@ export function TeamScheda({
       setErrori(trovati)
       return
     }
+    // a person in charge who is no longer active: the database refuses her, so the field says it first
+    const fuori: ErroriIncarichi = {}
+    for (const incarico of INCARICHI) {
+      const scelto = valori[incarico]
+      const via = scelto ? nonAttivi.find((p) => p.id === scelto) : undefined
+      if (via) fuori[incarico] = t.sostituisci(via.nome)
+    }
+    if (Object.keys(fuori).length > 0) {
+      setErrori(fuori)
+      requestAnimationFrame(() => {
+        const primo = INCARICHI.find((i) => fuori[i])
+        if (primo) document.getElementById(`${id}-incarichi-${primo}`)?.focus()
+      })
+      return
+    }
     setErrori({})
     setInCorso(true)
     const ok = await salva(
@@ -115,6 +130,7 @@ export function TeamScheda({
               io={io}
               errori={errori}
               nonAttivi={nonAttivi}
+              idBase={`${id}-incarichi`}
             />
             <ErroreModulo testo={errore ? traduciErroreOnboarding(errore, lingua) : null} />
             <BottoneSalva inCorso={inCorso}>{t.salva}</BottoneSalva>

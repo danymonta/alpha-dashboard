@@ -11,8 +11,9 @@ import { SchermataFine, type DatiFine } from '@/app/(app)/onboarding/nuovo/scher
  * Opened from a call or from a sale, that page now says «Onboarding già avviato», because
  * it is. The last screen («Onboarding avviato per …») must not depend on what the server
  * draws underneath: once the wizard is done the stage shows it instead of the page, until
- * the admin leaves or starts another client. A reload shows the page of the address (the
- * way to the client's card): nothing is ever started twice.
+ * the admin leaves or starts another client. The address says it too (`?avviato=<client>`,
+ * written without a navigation): a reload, or Back and Forward, opens the client's card,
+ * never an empty wizard that would start him twice.
  */
 
 type Palco = {
@@ -42,6 +43,11 @@ export function PalcoWizard({ children }: { children: ReactNode }) {
   const mostra = useCallback((dati: DatiFine) => {
     setFine(dati)
     setInCorso(false)
+    try {
+      window.history.replaceState(window.history.state, '', `/onboarding/nuovo?avviato=${dati.idCliente}`)
+    } catch {
+      // a browser that refuses: the stage still shows the last screen
+    }
   }, [])
   const azzera = useCallback(() => setFine(null), [])
 

@@ -155,6 +155,26 @@ begin
   if new.client_id is distinct from old.client_id then
     raise exception 'Un invito non cambia cliente' using errcode = '22023';
   end if;
+  if new.minorenne is distinct from old.minorenne then
+    raise exception 'Un invito non cambia da minorenne a maggiorenne: si decide all''avvio' using errcode = '22023';
+  end if;
+  -- only the trigger of a sale moved to another client lets go of it; never onto another sale
+  if new.sale_id is distinct from old.sale_id and new.sale_id is not null then
+    raise exception 'Un invito non cambia vendita' using errcode = '22023';
+  end if;
+  -- a session changes the link only through the admin's functions (they raise alpha.onboarding_admin);
+  -- the triggers of payments and sales run one level deeper. Never a direct PATCH: it would skip the
+  -- log with its author, the consent of a parent and the rules of the payment.
+  if (select auth.uid()) is not null
+     and pg_trigger_depth() = 1
+     and coalesce(current_setting('alpha.onboarding_admin', true), '') <> 'on'
+     and row(new.stato, new.attivato_da, new.attivato_il, new.token_hash, new.revocato_motivo,
+             new.consenso_genitore_il, new.consenso_genitore_nota, new.scade_il, new.usato_il, new.sale_id)
+         is distinct from
+         row(old.stato, old.attivato_da, old.attivato_il, old.token_hash, old.revocato_motivo,
+             old.consenso_genitore_il, old.consenso_genitore_nota, old.scade_il, old.usato_il, old.sale_id) then
+    raise exception 'Il link si cambia solo dalle azioni dell''onboarding.' using errcode = '42501';
+  end if;
 
   select x.aperto_ai_clienti, x.giorni_validita_link into v_aperto, v_giorni
   from public.onboarding_impostazioni x;
@@ -306,7 +326,7 @@ begin
 
     if new.stato in ('attivo', 'usato') then
       begin
-        perform public.onboarding_assegna_incarichi(new.client_id);
+        perform public.onboarding_assegna_incarichi(new.client_id, true);
       exception when others then
         raise warning 'Onboarding: incarichi del cliente % non allineati al progetto: %', new.client_id, sqlerrm;
       end;
@@ -315,7 +335,7 @@ begin
   elsif new.stato = 'attivo' then
     -- coach and reviewer see the project from now on; never at the cost of the activation
     begin
-      perform public.onboarding_assegna_incarichi(new.client_id);
+      perform public.onboarding_assegna_incarichi(new.client_id, true);
     exception when others then
       raise warning 'Onboarding: incarichi del cliente % non allineati al progetto: %', new.client_id, sqlerrm;
     end;
@@ -371,30 +391,10 @@ begin
     limit 1;
 
     if v_stato in ('attivo', 'usato') then
-      -- whoever held an incarico before leaves its tasks (and stays in the project, with the time worked)
-      if tg_op = 'UPDATE' then
-        delete from public.pm_task_assegnatari a
-        using public.pm_task t, public.pm_progetti p
-        where a.task_id = t.id
-          and t.progetto_id = p.id
-          and p.client_id = new.client_id
-          and t.per_incarico is not null
-          and a.profile_id = case t.per_incarico
-                               when 'coach' then old.coach_id
-                               when 'revisore' then old.revisore_id
-                               else old.responsabile_id
-                             end
-          and a.profile_id is distinct from case t.per_incarico
-                                              when 'coach' then new.coach_id
-                                              when 'revisore' then new.revisore_id
-                                              else new.responsabile_id
-                                            end;
-      end if;
+      -- people, responsible and tasks follow the incarichi (whoever held one before leaves its tasks)
       perform public.onboarding_assegna_incarichi(new.client_id);
-    elsif v_stato = 'in_attesa_pagamento' then
-      -- before the payment only the responsible is on the project
-      perform public.onboarding_apri_progetto(new.client_id);
     end if;
+    -- before the payment nothing moves on the project: the people arrive with the activation
   exception when others then
     -- the admin who changes the people sees the error; a person deleted or merged never fails for this
     if coalesce(current_setting('alpha.onboarding_admin', true), '') = 'on' then
@@ -492,6 +492,13 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- the client itself deleted (elimina_cliente, or the cascade of a client deleted): its invites go with
+  -- it, and the project stays as it is, without a client
+  if coalesce(current_setting('alpha.elimina_cliente', true), '') = old.client_id::text
+     or not exists (select 1 from public.clients c where c.id = old.client_id) then
+    return old;
+  end if;
+
   begin
     if exists (select 1 from public.onboarding_inviti i where i.sale_id = old.id)
        and not public.onboarding_altro_percorso_pagato(old.client_id, old.id) then
@@ -515,6 +522,25 @@ revoke all on function public.onboarding_vendita_eliminata() from public, anon, 
 create trigger sales_onboarding_eliminata
   before delete on public.sales
   for each row execute function public.onboarding_vendita_eliminata();
+
+-- elimina_cliente: the body of 20260928150000, plus the sign that tells the trigger above the sales go with
+-- their client (it deletes them before the client, so the client still exists while they go)
+create or replace function public.elimina_cliente(p_client_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Solo l''admin elimina' using errcode = '42501';
+  end if;
+  perform set_config('alpha.elimina_cliente', p_client_id::text, true);
+  delete from public.sales where client_id = p_client_id;   -- instalments go with them
+  delete from public.clients where id = p_client_id;
+  perform set_config('alpha.elimina_cliente', '', true);
+end;
+$$;
 
 -- The sale moved to another client: the link not used yet is revoked and let go of the sale
 create function public.onboarding_vendita_spostata()
@@ -642,7 +668,11 @@ begin
     where c.id = v_cliente;
   end if;
 
-  if v_telegram is not null then
+  -- p_telegram null leaves the username as it is; an empty one takes it away
+  if p_telegram is not null and v_telegram is null then
+    update public.clienti_telegram t set username = null
+    where t.client_id = v_cliente and t.username is not null;
+  elsif v_telegram is not null then
     if v_telegram !~ '^[a-z0-9_]{5,32}$' then
       raise exception 'Username Telegram non valido: da 5 a 32 caratteri tra lettere, numeri e trattino basso.'
         using errcode = '22023';
@@ -851,9 +881,11 @@ begin
     raise exception 'La nota è troppo lunga: al massimo 300 caratteri.' using errcode = '22023';
   end if;
 
+  perform set_config('alpha.onboarding_admin', 'on', true);
   update public.onboarding_inviti i
   set consenso_genitore_il = now(), consenso_genitore_nota = v_nota
   where i.id = p_invito;
+  perform set_config('alpha.onboarding_admin', '', true);
 
   insert into public.onboarding_eventi (client_id, tipo, attore, autore_id, dettagli)
   values (v.client_id, 'consenso_genitore', 'team', (select auth.uid()), jsonb_build_object('invito_id', v.id));
@@ -1164,7 +1196,25 @@ select
   inc.responsabile_id,
   ps.nome as responsabile_nome,
   pg.id as progetto_id,
-  p.created_at
+  p.created_at,
+  -- a link still waiting although the payment is there (cashed, or confirmed by hand): a minor waiting
+  -- for the consent of a parent. The same rule onboarding_consenso_genitore follows to activate it.
+  (
+    i.stato = 'in_attesa_pagamento'
+    and (
+      coalesce((
+        select sum(pay.importo_incassato) filter (where pay.stato in ('incassata', 'rimborsata'))
+        from public.payments pay where pay.sale_id = i.sale_id
+      ), 0) > 0
+      or exists (
+        select 1 from public.onboarding_eventi e
+        where e.client_id = i.client_id
+          and e.tipo = 'in_attesa_consenso'
+          and e.dettagli ->> 'invito_id' = i.id::text
+          and e.dettagli ->> 'modo' = 'manuale'
+      )
+    )
+  ) as pagamento_confermato
 from public.onboarding_percorsi p
 join public.clients c on c.id = p.client_id
 -- the living invite of the client, else the most recent one
@@ -1192,7 +1242,7 @@ left join public.pm_progetti pg on pg.client_id = p.client_id
 where (select public.is_admin()) and not (select public.da_client_oauth());
 
 comment on view public.v_onboarding is
-  'One row per client with an onboarding: the client, the state of the link (scaduto when its days are over), the state of the path, the current step and who it is up to, the people in charge, the project. Admin only.';
+  'One row per client with an onboarding: the client, the state of the link (scaduto when its days are over), the state of the path, the current step and who it is up to, the people in charge, the project, whether the payment is there while the link still waits (a minor without consent). Admin only.';
 
 revoke all on public.v_onboarding from anon, authenticated;
 grant select on public.v_onboarding to authenticated;

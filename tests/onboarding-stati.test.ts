@@ -116,14 +116,22 @@ describe('lo stato in parole', () => {
   })
 })
 
-describe('i tre gruppi della lista', () => {
-  it('prima della registrazione tutto aspetta: pagamento, consenso, link attivo, revocato, scaduto', () => {
+describe('i gruppi della lista', () => {
+  it('prima della registrazione aspetta: pagamento, consenso, link attivo', () => {
     expect(gruppoOnboarding(riga())).toBe('attesa')
     expect(gruppoOnboarding(riga({ minorenne: true }))).toBe('attesa')
     expect(gruppoOnboarding(riga({ invito_stato: 'attivo' }))).toBe('attesa')
-    expect(gruppoOnboarding(riga({ invito_stato: 'scaduto' }))).toBe('attesa')
-    expect(gruppoOnboarding(riga({ invito_stato: 'revocato', percorso_stato: 'sospeso' }))).toBe('attesa')
-    expect(gruppoOnboarding(riga({ invito_stato: 'usato', percorso_stato: 'sospeso' }))).toBe('attesa')
+  })
+
+  it('un link revocato o scaduto, o un percorso sospeso, è fermo: non aspetta il pagamento', () => {
+    expect(gruppoOnboarding(riga({ invito_stato: 'scaduto' }))).toBe('fermi')
+    expect(gruppoOnboarding(riga({ invito_stato: 'revocato', percorso_stato: 'sospeso' }))).toBe('fermi')
+    expect(gruppoOnboarding(riga({ invito_stato: 'usato', percorso_stato: 'sospeso' }))).toBe('fermi')
+  })
+
+  it('«Conferma pagamento» non si offre a un minorenne il cui pagamento c’è già', () => {
+    expect(azioniLink({ ...riga({ minorenne: true }), pagamento_confermato: true }, false).confermaPagamento).toBe(false)
+    expect(azioniLink({ ...riga({ minorenne: true }), pagamento_confermato: false }, false).confermaPagamento).toBe(true)
   })
 
   it('in corso: tocca al cliente quando il passo è suo, a noi quando è del team o aspetta una verifica', () => {
@@ -139,7 +147,7 @@ describe('i tre gruppi della lista', () => {
 
   it('i completati stanno a parte', () => {
     expect(gruppoOnboarding(riga({ invito_stato: 'usato', percorso_stato: 'completato' }))).toBe('conclusi')
-    expect([...GRUPPI_LISTA]).toEqual(['noi', 'cliente', 'attesa'])
+    expect([...GRUPPI_LISTA]).toEqual(['noi', 'cliente', 'attesa', 'fermi'])
   })
 
   it('le righe si dividono senza perdersi e senza cambiare ordine', () => {
@@ -155,7 +163,7 @@ describe('i tre gruppi della lista', () => {
     expect(gruppi.noi.map((r) => r.n)).toEqual([2])
     expect(gruppi.cliente.map((r) => r.n)).toEqual([4])
     expect(gruppi.conclusi.map((r) => r.n)).toEqual([5])
-    expect(perGruppo([])).toEqual({ noi: [], cliente: [], attesa: [], conclusi: [] })
+    expect(perGruppo([])).toEqual({ noi: [], cliente: [], attesa: [], fermi: [], conclusi: [] })
   })
 
   it('i titoli dei gruppi sono quelli del disegno', () => {

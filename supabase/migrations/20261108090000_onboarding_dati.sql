@@ -96,14 +96,6 @@ create policy onboarding_incarichi_admin_inserimento on public.onboarding_incari
 create policy onboarding_incarichi_admin_modifica on public.onboarding_incarichi
   for update to authenticated
   using ((select public.is_admin())) with check ((select public.is_admin()));
--- the person in charge, with an active account and a place in the Projects area (pm_livello_corrente()
--- is null without a session, for a deactivated account and for the business coach)
-create policy onboarding_incarichi_incaricato_lettura on public.onboarding_incarichi
-  for select to authenticated
-  using (
-    (select auth.uid()) in (coach_id, revisore_id, responsabile_id)
-    and (select public.pm_livello_corrente()) is not null
-  );
 create policy onboarding_incarichi_mai_da_oauth on public.onboarding_incarichi
   as restrictive for all to authenticated
   using (not (select public.da_client_oauth())) with check (not (select public.da_client_oauth()));
@@ -112,31 +104,45 @@ revoke all on public.onboarding_incarichi from anon;
 revoke all on public.onboarding_incarichi from authenticated;
 grant select, insert, update on public.onboarding_incarichi to authenticated;
 
--- True when the caller is coach, reviewer or responsible of the client, with an active account, and the
--- request is not Claude's. Security invoker: it reads onboarding_incarichi through the caller's own RLS
--- (the row of a person in charge is theirs to read), so it grants nothing by itself.
+-- True when the caller is coach, reviewer or responsible of the client, with an active account and a place
+-- in the Projects area (pm_livello_corrente() is null without a session, for a deactivated account and for
+-- the business coach), the request is not Claude's, and the client's path is past the wait: in corso,
+-- completed, or suspended after the registration. Security definer: it reads onboarding_incarichi and
+-- onboarding_percorsi without RLS (their policies call it), and it answers only about the caller.
 create function public.onboarding_incaricato(p_client_id uuid)
 returns boolean
-language sql
+language plpgsql
 stable
-security invoker
+security definer
 set search_path = ''
 as $$
-  select not public.da_client_oauth()
+begin
+  -- plpgsql: the body is resolved when called, after onboarding_percorsi exists
+  return not public.da_client_oauth()
     and public.pm_livello_corrente() is not null
     and exists (
       select 1
       from public.onboarding_incarichi i
+      join public.onboarding_percorsi p on p.client_id = i.client_id
       where i.client_id = p_client_id
         and (select auth.uid()) in (i.coach_id, i.revisore_id, i.responsabile_id)
+        and (p.stato in ('in_corso', 'completato') or (p.stato = 'sospeso' and p.giorno_zero is not null))
     );
+end;
 $$;
 
 comment on function public.onboarding_incaricato(uuid) is
-  'True when the caller is coach, reviewer or responsible of this client in the onboarding, with an active account; never for an OAuth token. Security invoker.';
+  'True when the caller is coach, reviewer or responsible of this client in the onboarding, with an active account, and the client has registered (path in corso, completed, or suspended after the registration); never for an OAuth token. Security definer: it reads incarichi and paths without RLS and answers only about the caller.';
 
 revoke all on function public.onboarding_incaricato(uuid) from public, anon;
 grant execute on function public.onboarding_incaricato(uuid) to authenticated;
+
+-- the person in charge reads their own row only once the client has registered (in corso, completed, or
+-- paused after it), never while the path waits: a row of an incarico without its project would say «not
+-- paid yet». onboarding_incaricato is security definer, so the policy never reads itself.
+create policy onboarding_incarichi_incaricato_lettura on public.onboarding_incarichi
+  for select to authenticated
+  using ((select auth.uid()) in (coach_id, revisore_id, responsabile_id) and public.onboarding_incaricato(client_id));
 
 -- ---------------------------------------------------------------------------
 -- 3. The personal link
@@ -197,7 +203,11 @@ create policy onboarding_inviti_mai_da_oauth on public.onboarding_inviti
 
 revoke all on public.onboarding_inviti from anon;
 revoke all on public.onboarding_inviti from authenticated;
-grant select, insert, update on public.onboarding_inviti to authenticated;
+grant select, insert on public.onboarding_inviti to authenticated;
+-- only the columns the admin's functions write: client, sale, minor, dates of the link and the rest are
+-- the triggers' (onboarding_inviti_coerenza refuses even these outside the functions)
+grant update (stato, attivato_da, token_hash, revocato_motivo, consenso_genitore_il, consenso_genitore_nota)
+  on public.onboarding_inviti to authenticated;
 
 -- The token in clear, until the invite is used: the admin copies the link from here. Out of the backup.
 create table public.onboarding_inviti_token (

@@ -32,6 +32,7 @@ export function CampiIncarichi({
   errori = {},
   responsabileObbligatorio = true,
   nonAttivi = [],
+  idBase,
 }: {
   valori: ValoriIncarichi
   onChange: (incarico: Incarico, valore: string) => void
@@ -43,8 +44,11 @@ export function CampiIncarichi({
   responsabileObbligatorio?: boolean
   /** People still in charge who are no longer active: shown, so the select says who is there now. */
   nonAttivi?: readonly PersonaTeam[]
+  /** A predictable base for the ids of the selects (`${idBase}-coach`…), to bring the focus to one. */
+  idBase?: string
 }) {
-  const id = useId()
+  const generato = useId()
+  const id = idBase ?? generato
   const lingua = useLingua()
   const t = ONBOARDING[lingua].incarichi
   const aiuto: Record<Incarico, string> = {

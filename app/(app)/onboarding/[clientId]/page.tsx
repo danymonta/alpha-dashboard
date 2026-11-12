@@ -106,30 +106,35 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
         }
       />
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="min-w-0 space-y-4">
-          <RiquadroLink
-            riga={{
-              invito_id: riga.invito_id,
-              invito_stato: riga.invito_stato,
-              attivato_il: riga.attivato_il,
-              attivato_da: riga.attivato_da,
-              scade_il: riga.scade_il,
-              usato_il: riga.usato_il,
-              revocato_il: riga.revocato_il,
-              revocato_motivo: riga.revocato_motivo,
-              minorenne: riga.minorenne,
-              consenso_genitore_il: riga.consenso_genitore_il,
-            }}
-            stato={stato}
-            azioni={azioniLink(riga, aperto)}
-            aperto={aperto}
-            giorni={impostazioni.giorni_validita_link}
-            link={scheda.link}
-            cliente={nome}
-          />
+      {/* on the phone one column in the order the admin needs: link, team, Telegram, then steps, log and
+          links (the two columns become one, `contents`, and each box takes its place with `order`) */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
+        <div className="min-w-0 max-lg:contents lg:space-y-4">
+          <div className="max-lg:order-1">
+            <RiquadroLink
+              riga={{
+                invito_id: riga.invito_id,
+                invito_stato: riga.invito_stato,
+                attivato_il: riga.attivato_il,
+                attivato_da: riga.attivato_da,
+                scade_il: riga.scade_il,
+                usato_il: riga.usato_il,
+                revocato_il: riga.revocato_il,
+                revocato_motivo: riga.revocato_motivo,
+                minorenne: riga.minorenne,
+                consenso_genitore_il: riga.consenso_genitore_il,
+                pagamento_confermato: riga.pagamento_confermato,
+              }}
+              stato={stato}
+              azioni={azioniLink(riga, aperto)}
+              aperto={aperto}
+              giorni={impostazioni.giorni_validita_link}
+              link={scheda.link}
+              cliente={nome}
+            />
+          </div>
 
-          <section aria-labelledby="passi-titolo" className="rounded-xl bg-card p-3" data-testid="riquadro-passi">
+          <section aria-labelledby="passi-titolo" className="rounded-xl bg-card p-3 max-lg:order-4" data-testid="riquadro-passi">
             <div className="space-y-0.5 py-1.5">
               <h2 id="passi-titolo" className="flex items-center gap-1.5 text-sm font-medium">
                 <ListChecks className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -178,7 +183,7 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
             )}
           </section>
 
-          <section aria-labelledby="registro-titolo" className="rounded-xl bg-card p-3" data-testid="riquadro-registro">
+          <section aria-labelledby="registro-titolo" className="rounded-xl bg-card p-3 max-lg:order-5" data-testid="riquadro-registro">
             <div className="space-y-0.5 py-1.5">
               <h2 id="registro-titolo" className="flex items-center gap-1.5 text-sm font-medium">
                 <ScrollText className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -214,26 +219,34 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
           </section>
         </div>
 
-        <div className="min-w-0 space-y-4">
-          <TeamScheda
-            clientId={clientId}
-            incarichi={{
-              coach: { id: riga.coach_id, nome: riga.coach_nome },
-              revisore: { id: riga.revisore_id, nome: riga.revisore_nome },
-              responsabile: { id: riga.responsabile_id, nome: riga.responsabile_nome },
-            }}
-            persone={persone.map(({ id, nome: n }) => ({ id, nome: n }))}
-            io={profilo.id}
-            linkAttivo={riga.invito_stato === 'attivo' || riga.invito_stato === 'usato'}
-          />
+        <div className="min-w-0 max-lg:contents lg:space-y-4">
+          <div className="max-lg:order-2">
+            <TeamScheda
+              clientId={clientId}
+              incarichi={{
+                coach: { id: riga.coach_id, nome: riga.coach_nome },
+                revisore: { id: riga.revisore_id, nome: riga.revisore_nome },
+                responsabile: { id: riga.responsabile_id, nome: riga.responsabile_nome },
+              }}
+              persone={persone.map(({ id, nome: n }) => ({ id, nome: n }))}
+              io={profilo.id}
+              linkAttivo={riga.invito_stato === 'attivo' || riga.invito_stato === 'usato'}
+            />
+          </div>
 
-          <TelegramScheda
-            clientId={clientId}
-            username={scheda.telegram?.username ?? null}
-            gruppo={scheda.telegram?.gruppo_privato_url ?? null}
-          />
+          <div className="max-lg:order-3">
+            <TelegramScheda
+              clientId={clientId}
+              username={scheda.telegram?.username ?? null}
+              gruppo={scheda.telegram?.gruppo_privato_url ?? null}
+            />
+          </div>
 
-          <nav aria-labelledby="collegamenti-titolo" className="rounded-xl bg-card p-3" data-testid="riquadro-collegamenti">
+          <nav
+            aria-labelledby="collegamenti-titolo"
+            className="rounded-xl bg-card p-3 max-lg:order-6"
+            data-testid="riquadro-collegamenti"
+          >
             <h2 id="collegamenti-titolo" className="flex min-h-11 items-center text-sm font-medium">
               {t.scheda.collegamenti}
             </h2>

@@ -368,7 +368,10 @@ export function CampiPianoRate({
     getValues,
     formState: { errors },
   } = form
-  const [piano, valoreTesto, dataVendita] = useWatch({ control, name: ['piano', 'valore_contratto', 'data_vendita'] })
+  const [piano, valoreTesto, dataVendita, numeroRate] = useWatch({
+    control,
+    name: ['piano', 'valore_contratto', 'data_vendita', 'numero_rate'],
+  })
   const valoreNumero = typeof valoreTesto === 'number' ? valoreTesto : parseImporto(valoreTesto ?? '')
 
   return (
@@ -407,6 +410,8 @@ export function CampiPianoRate({
             legenda={t.numeroRate}
             opzioni={OPZIONI_RATE.map((n) => ({ valore: String(n), etichetta: String(n) }))}
             registrazione={register('numero_rate')}
+            // the form starts from the number 1: the button «1» shows it chosen
+            scelto={numeroRate == null ? undefined : String(numeroRate)}
             errore={tr(errors.numero_rate?.message)}
             colonne={6}
           />

@@ -217,6 +217,8 @@ select results_eq(
        'mcp_chi_sono', 'mcp_client', 'mcp_filtro_richiesta', 'mcp_ruolo',
        -- Messenger for the Insight (1.35.0): the admin only
        'messenger_imposta_token', 'messenger_togli_token', 'messenger_token_presente',
+       -- the onboarding (1.77.0): whether the caller is in charge of a registered client; false for Claude's token
+       'onboarding_incaricato',
        'mia_foto_google', 'mie_vendite_setter', 'miei_clienti', 'miei_numeri_periodo', 'pm_assegnato',
        'pm_coach_del_cliente', 'pm_crea_progetto', 'pm_ferma_timer', 'pm_livello_corrente',
        'pm_membro', 'pm_puo_gestire', 'pm_puo_modificare_task', 'pm_puo_vedere',

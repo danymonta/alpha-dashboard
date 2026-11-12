@@ -50,6 +50,7 @@ import { nomeDiBattesimo } from '@/lib/onboarding/link'
 import { nomeCliente, type IncarichiProposti, type PersonaTeam } from '@/lib/onboarding/stati'
 import {
   clienteOnboardingSchema,
+  INCARICHI,
   teamOnboardingSchema,
   type CampiWizard,
   type ClienteOnboarding,
@@ -202,6 +203,7 @@ export function WizardNuovoCliente({
   const [venditaEsistente, setVenditaEsistente] = useState<string | null>(null)
   const [inviando, setInviando] = useState(false)
   const titolo = useRef<HTMLHeadingElement>(null)
+  const cima = useRef<HTMLDivElement>(null)
   const primaVolta = useRef(true)
 
   const formCliente = useForm<ClienteOnboardingInput, unknown, ClienteOnboarding>({
@@ -241,13 +243,15 @@ export function WizardNuovoCliente({
   const minorenne = useWatch({ control: formCliente.control, name: 'minorenne' }) === true
   const sporco = formCliente.formState.isDirty || formVendita.formState.isDirty || teamToccato
 
-  // a screen takes the place of the one before: the focus goes to its title (never on the first paint)
+  // a screen takes the place of the one before: the steps come back into view (never under the top bar),
+  // then the focus goes to its title without scrolling again (never on the first paint)
   useEffect(() => {
     if (primaVolta.current) {
       primaVolta.current = false
       return
     }
-    titolo.current?.focus()
+    if (cima.current && cima.current.getBoundingClientRect().top < 80) cima.current.scrollIntoView({ block: 'start' })
+    titolo.current?.focus({ preventScroll: true })
   }, [schermata])
 
   // a reload or a closed tab with something written asks first; the browser says it in its own words
@@ -329,6 +333,9 @@ export function WizardNuovoCliente({
           errori[campo] ??= issue.message
         }
         setErroriTeam(errori)
+        // as the other screens: the focus on the first wrong field
+        const primo = INCARICHI.find((i) => errori[i])
+        if (primo) requestAnimationFrame(() => document.getElementById(`${id}-team-${primo}`)?.focus())
         return
       }
       setErroriTeam({})
@@ -489,6 +496,7 @@ export function WizardNuovoCliente({
               autoComplete="off"
               className="h-11"
               aria-invalid={erroriCliente.cognome ? true : undefined}
+              aria-describedby={erroriCliente.cognome ? `${id}-cognome-errore` : undefined}
               {...reg('cognome')}
             />
           </Campo>
@@ -671,6 +679,7 @@ export function WizardNuovoCliente({
           persone={persone}
           io={io}
           errori={erroriTeam}
+          idBase={`${id}-team`}
         />
         <p className="rounded-xl bg-card px-3 py-2.5 text-sm text-muted-foreground">{t.incarichi.nota}</p>
       </div>
@@ -681,6 +690,7 @@ export function WizardNuovoCliente({
     const r = w.riepilogo
     const c = formCliente.getValues()
     const vuoto = <span className="text-muted-foreground">{r.nonIndicato}</span>
+    const nessuno = <span className="text-muted-foreground">{t.incarichi.nessuno}</span>
     const testo = (valore: string | null | undefined) => (valore?.trim() ? valore.trim() : vuoto)
 
     let vendita: ReactNode
@@ -749,8 +759,9 @@ export function WizardNuovoCliente({
         {vendita}
 
         <Riquadro titolo={r.team} modifica={r.modifica(w.passi.team)} onModifica={() => vai('team')}>
-          <Riga etichetta={t.incarichi.coach}>{team.coach ? nomePersona(team.coach) : vuoto}</Riga>
-          <Riga etichetta={t.incarichi.revisore}>{team.revisore ? nomePersona(team.revisore) : vuoto}</Riga>
+          {/* nobody in charge reads «Nessuno», as in the select and on the card */}
+          <Riga etichetta={t.incarichi.coach}>{team.coach ? nomePersona(team.coach) : nessuno}</Riga>
+          <Riga etichetta={t.incarichi.revisore}>{team.revisore ? nomePersona(team.revisore) : nessuno}</Riga>
           <Riga etichetta={t.incarichi.responsabile}>{nomePersona(team.responsabile)}</Riga>
         </Riquadro>
 
@@ -795,7 +806,10 @@ export function WizardNuovoCliente({
         <p className="text-sm text-muted-foreground">{avvia ? w.descrizioneAvvia : w.descrizione}</p>
       </div>
 
-      <IndicatorePassi passi={passiIndicatore} completo={schermata === 'riepilogo'} />
+      {/* scroll-mt: below the top bar of the phone, when a new screen brings it back into view */}
+      <div ref={cima} className="scroll-mt-20">
+        <IndicatorePassi passi={passiIndicatore} completo={schermata === 'riepilogo'} />
+      </div>
 
       <form
         noValidate
