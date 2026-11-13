@@ -69,6 +69,14 @@ export const CONTENUTI_MAX = 50
 export const GIORNI_POST_ORIGINE = 180
 /** No request to Meta starts this close to the step's end (a request lasts up to 20 s, and is retried). */
 export const MARGINE_META_MS = 30_000
+/**
+ * The reading never loops forever (12/11/2026: 40 invocations of the reading,
+ * each spending its whole time on Meta and starting over). From the third
+ * invocation the listing leaves the history out; from the fifth, whatever Meta
+ * did not give in time is left out with its warning and the run goes on.
+ */
+export const GIRI_SENZA_STORICO = 2
+export const GIRI_MAX_LETTURA = 4
 /** The chats read are saved by tens. */
 const SALVA_OGNI = 10
 
@@ -109,6 +117,10 @@ const schemaLettura = z.object({
   origini: z.boolean().default(false),
   attribuite: z.number().int().nonnegative().default(0),
   avvisi: z.array(z.string()).default([]),
+  /** the invocations of the reading step so far (GIRI_MAX_LETTURA) */
+  giri: z.number().int().nonnegative().default(0),
+  /** the posts whose statistics this run already saved: a resumed step skips them */
+  statistiche_fatte: z.array(z.string()).default([]),
 })
 
 export type ProgressoCanale = z.infer<typeof schemaCanale>
@@ -242,6 +254,11 @@ async function elenca<C extends { id: string; updated_time?: string }>(
   op: { archivio: Archivio; adesso: Date; storico: Date | null },
   lettura: ProgressoLettura,
 ): Promise<void> {
+  // the listing did not end twice: the history waits for another run
+  if (op.storico && lettura.giri > GIRI_SENZA_STORICO) {
+    op = { ...op, storico: null }
+    p.storico_incompleto = true
+  }
   const recenti = await l.recenti()
   const ultime = await l.dal(new Date(op.adesso.getTime() - ORE_DEL_GIORNO * ORA_MS))
   if (ultime.troncato && l.canale === 'instagram') avvisa(lettura, 'chat_troppe')
@@ -356,8 +373,14 @@ function fallimento(motivo: MotivoFallimento | 'account'): EsitoLettura {
 export async function leggiConArchivio(op: OpLettura & { archivio: Archivio }): Promise<EsitoLettura> {
   const { archivio, adesso, esecuzione } = op
   const p = progressoLettura(op.progresso)
+  p.giri++
+  const ultimoGiro = p.giri > GIRI_MAX_LETTURA
   const entroMeta = op.entro - MARGINE_META_MS
   const avvio = Date.now()
+  const fermo = (fase: string) => {
+    console.info('[insight] lettura', `giro ${p.giri}`, `tempo finito in ${fase}`, `${Math.round((Date.now() - avvio) / 1000)}s`)
+    return incompleta(p)
+  }
   try {
     // 1. the token (read only), the account, the excluded chats
     const token = await archivio.tokenInstagram()
@@ -404,18 +427,26 @@ export async function leggiConArchivio(op: OpLettura & { archivio: Archivio }): 
     ])
     if (ig.status === 'rejected') throw ig.reason
     if (fb.status === 'rejected') throw fb.reason
-    if (ig.value === 'tempo' || fb.value === 'tempo' || finito(entroMeta)) return incompleta(p)
+    if (ig.value === 'tempo' || fb.value === 'tempo' || finito(entroMeta)) {
+      if (!ultimoGiro) return fermo('chat')
+      chiudiCanale(p, 'instagram')
+      chiudiCanale(p, 'messenger')
+    }
 
-    // 4. the profiles
+    // 4. the profiles (the last round leaves the missing ones for the next run)
     if (!p.profili) {
-      if ((await leggiProfili({ graph, archivio, p, adesso, esecuzione, entroMeta })) === 'tempo') return incompleta(p)
+      const esito = ultimoGiro && finito(entroMeta) ? 'tempo' : await leggiProfili({ graph, archivio, p, adesso, esecuzione, entroMeta })
+      if (esito === 'tempo' && !ultimoGiro) return fermo('profili')
       p.profili = true
     }
 
-    // 5. Dany's posts and their statistics
+    // 5. Dany's posts and their statistics (the last round keeps the ones already saved)
     if (!p.contenuti) {
-      const esito = await leggiContenuti({ contenuti, archivio, p, adesso })
-      if (esito === 'tempo') return incompleta(p)
+      const esito = ultimoGiro && finito(entroMeta) ? 'tempo' : await leggiContenuti({ contenuti, archivio, p, adesso })
+      if (esito === 'tempo') {
+        if (!ultimoGiro) return fermo('contenuti')
+        avvisa(p, 'contenuti_non_letti')
+      }
       p.contenuti = true
     }
 
@@ -476,6 +507,26 @@ function motivoFallimento(motivo: MotivoInsight): MotivoFallimento {
     default:
       return 'database'
   }
+}
+
+/**
+ * The last round of the reading: a channel Meta did not give in time ends with
+ * what it has. The chats left to read count as not read, with the channel's
+ * warning; a listing that never ended leaves the channel out, said by its
+ * warning (Messenger never stops the run, as always).
+ */
+function chiudiCanale(p: ProgressoLettura, canale: CanaleInsight) {
+  const pc = p[canale]
+  if (pc.finito) return
+  if (pc.da_leggere.length > 0) {
+    pc.fallite += pc.da_leggere.length
+    avvisa(p, canale === 'instagram' ? 'chat_non_lette' : 'messenger_chat_non_lette')
+  }
+  if (!pc.elencato) avvisa(p, canale === 'instagram' ? 'instagram_limitato' : 'messenger_non_letto')
+  pc.storico_incompleto = true
+  pc.da_leggere = []
+  pc.finito = true
+  if (canale === 'messenger' && pc.stato === undefined) pc.stato = 'errore'
 }
 
 function incompleta(p: ProgressoLettura): EsitoLettura {
@@ -634,7 +685,8 @@ async function leggiContenuti(op: {
   if (elenco.media.length > 0) await op.archivio.salvaElenco(elenco.media)
   op.p.media = elenco.media.length
 
-  const recenti: MediaLetto[] = elenco.media.filter((m) => Date.parse(m.pubblicato_il) >= dal.getTime())
+  const fatte = new Set(op.p.statistiche_fatte)
+  const recenti: MediaLetto[] = elenco.media.filter((m) => Date.parse(m.pubblicato_il) >= dal.getTime() && !fatte.has(m.media_id))
   let tempo = false
   let fermo = false
   let fatale: unknown = null
@@ -645,6 +697,7 @@ async function leggiContenuti(op: {
       const statistiche = await op.contenuti.insights(m)
       if (statistiche.stato === 'senza_permesso') senzaPermesso = true
       await op.archivio.salvaStatistiche(m.media_id, statistiche)
+      op.p.statistiche_fatte.push(m.media_id)
     } catch (e) {
       if (e instanceof ErroreInstagram && e.tipo === 'tempo') tempo = true
       else if (e instanceof ErroreInstagram && e.tipo === 'token') fatale ??= e

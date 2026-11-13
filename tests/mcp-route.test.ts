@@ -188,6 +188,17 @@ describe('il client MCP dell’SDK contro /mcp', () => {
     expect(JSON.parse(testoDi(elenco))).toMatchObject({ totale: 0, mostrati: 0, contenuti: [] })
   })
 
+  it('protocollo 2026-07-28: subscriptions/listen non resta aperto, e i tool non annunciano cambi (13/11/2026)', async () => {
+    const client = await collega({ versionNegotiation: { mode: { pin: '2026-07-28' } } })
+    expect(client.getServerCapabilities()?.tools?.listChanged).toBe(false)
+    const inizio = Date.now()
+    await expect(client.listen({ toolsListChanged: true } as never)).rejects.toBeTruthy()
+    expect(Date.now() - inizio).toBeLessThan(5_000)
+    // the connection keeps working
+    const { tools } = await client.listTools()
+    expect(tools).toHaveLength(23)
+  })
+
   it('elenco_contenuti e crea_contenuti passano dall’SDK fino al database, con le etichette', async () => {
     rispondi = (c) => {
       if (ha(c, 'insert')) return { data: { id: NUOVO, updated_at: '2026-10-09T09:00:00+00:00' } }
@@ -307,6 +318,12 @@ describe('/mcp come lo chiama Claude, a mano (2025-11-25, senza stato)', () => {
         { nome: 'Workshop', codice: 'workshop', colore: 'green' },
       ],
     })
+  })
+
+  it('subscriptions/listen: risposta subito con «method not found», mai uno stream che resta aperto', async () => {
+    const r = await post({ jsonrpc: '2.0', id: 7, method: 'subscriptions/listen', params: {} })
+    expect(r.status).toBe(200)
+    expect(await r.json()).toEqual({ jsonrpc: '2.0', id: 7, error: { code: -32601, message: 'Method not found' } })
   })
 
   it('senza text/event-stream in Accept: 406', async () => {

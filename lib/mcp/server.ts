@@ -68,7 +68,14 @@ export function creaServerMcp(authInfo: AuthInfo | undefined): McpServer {
   const ctx: ContestoMcp = { db: clientConToken(authInfo.token), ruolo, livello, persona, sessione }
   const server = new McpServer(
     { name: 'alpha-management', title: 'Alpha Management', version: VERSIONE_CORRENTE?.versione ?? '1.0.0' },
-    { instructions: istruzioniMcp(ruolo, livello), maxToolInputElements: LIMITI_MCP.elementiInput },
+    {
+      instructions: istruzioniMcp(ruolo, livello),
+      maxToolInputElements: LIMITI_MCP.elementiInput,
+      // the tools of a connection never change while it lives (they follow the
+      // role, read at every request): nothing to listen for (13/11/2026, the
+      // subscriptions/listen streams held open until Vercel cut them at 60 s)
+      capabilities: { tools: { listChanged: false } },
+    },
   )
   for (const s of strumentiPer(ruolo, livello)) {
     server.registerTool(
