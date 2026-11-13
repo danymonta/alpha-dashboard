@@ -49,7 +49,6 @@ export default async function QuestionarioPage() {
     <Questionario
       risposteIniziali={q.risposte}
       versioneIniziale={q.versione}
-      schermataIniziale={q.schermata}
       allegatiIniziali={q.allegati}
     />
   )

@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-
+import { lavoraFoglioDopo } from '@/lib/percorso/foglio-lavoro'
 import * as percorso from '@/lib/percorso/operazioni'
 import type { EsitoConsenso, EsitoInvia, EsitoPercorso, EsitoSalva, EsitoTogli } from '@/lib/percorso/operazioni'
 import { togliFileQuestionario } from '@/lib/percorso/pulizia'
@@ -51,10 +51,17 @@ export async function salvaQuestionario(dati: FormData): Promise<EsitoSalva> {
   return percorso.salvaQuestionario(await createClient(), input)
 }
 
-/** «Invia il questionario»: the step done, the next one open. */
+/**
+ * «Invia il questionario»: the step done, the next one open. After the answer (1.82.0) the row
+ * goes to Dany's Google sheet with the service role (lib/percorso/foglio-lavoro.ts): the client
+ * never waits for Google, and a failure retries from the queue.
+ */
 export async function inviaQuestionario(input: unknown): Promise<EsitoInvia> {
   const esito = await percorso.inviaQuestionario(await createClient(), input)
   revalidatePath('/percorso', 'layout')
+  if (esito.ok && esito.esito === 'inviato') {
+    lavoraFoglioDopo()
+  }
   return esito
 }
 

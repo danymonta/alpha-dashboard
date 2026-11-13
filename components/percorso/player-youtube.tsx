@@ -3,6 +3,7 @@
 import { CircleCheck, ExternalLink, LoaderCircle, Play, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { useBackendPercorso } from '@/components/percorso/backend-percorso'
 import { Button } from '@/components/ui/button'
 import { TESTI_PERCORSO as T } from '@/lib/percorso/testi'
 import {
@@ -63,6 +64,7 @@ export function PlayerYoutube({
   registra?: boolean
   onVisto?: () => void
 }) {
+  const { video: inviaVideo } = useBackendPercorso()
   const [fase, setFase] = useState<Fase>('riposo')
   const [src, setSrc] = useState<string | null>(null)
   const [percentuale, setPercentuale] = useState(percentualeIniziale)
@@ -102,6 +104,17 @@ export function PlayerYoutube({
       if (intervalli.length === 0) return
       daInviare.current = []
       const chi = consegnaId ? { consegna: consegnaId } : { blocco: bloccoId }
+      // the admin's test of the path (components/percorso/backend-percorso.tsx): the seconds stay in its memory
+      if (inviaVideo) {
+        void inviaVideo({ ...chi, durata: Math.max(1, Math.round(d)), intervalli })
+          .then((r) => {
+            percentualeRef.current = Math.max(percentualeRef.current, r.percentuale)
+            setPercentuale(percentualeRef.current)
+            if (r.visto) segnaVisto()
+          })
+          .catch(() => daInviare.current.push(...intervalli))
+        return
+      }
       const corpo = JSON.stringify({ ...chi, durata: Math.max(1, Math.round(d)), intervalli })
       void fetch('/api/percorso/video', {
         method: 'POST',
@@ -128,7 +141,7 @@ export function PlayerYoutube({
           daInviare.current.push(...intervalli)
         })
     },
-    [bloccoId, consegnaId, registra, segnaVisto],
+    [bloccoId, consegnaId, inviaVideo, registra, segnaVisto],
   )
   useEffect(() => {
     inviaRef.current = invia

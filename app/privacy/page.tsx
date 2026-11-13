@@ -325,12 +325,18 @@ const SEZIONI: Sezione[] = [
             pagine.
           </li>
           <li>
-            <strong className="font-semibold">Chi li legge.</strong> Il titolare e il coach che ti segue. Non vanno a
+            <strong className="font-semibold">Chi li legge.</strong> Il titolare e i coach di Percorso Alpha. Non vanno a
             nessuna intelligenza artificiale, né nelle email, nelle notifiche o nel backup che mandiamo per email.
           </li>
           <li>
+            <strong className="font-semibold">La copia sul foglio Google.</strong> Quando invii il questionario, una copia
+            delle tue risposte (senza i file) va in un foglio Google di Percorso Alpha, come archivio. Lo leggono le stesse
+            persone. Google (Google Ireland e Google LLC) lo conserva per noi e può trattarlo anche fuori dall’Unione
+            europea, con le garanzie del GDPR. Se revochi il consenso cancelliamo anche quella riga.
+          </li>
+          <li>
             <strong className="font-semibold">Dove stanno.</strong> Nel database e nello spazio dei file di Supabase,
-            nell’Unione europea (Francoforte).
+            nell’Unione europea (Francoforte), e la copia delle risposte nel foglio Google.
           </li>
           <li>
             <strong className="font-semibold">Per quanto tempo.</strong> Per tutto il rapporto con te, anche dopo la fine

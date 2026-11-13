@@ -86,6 +86,41 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.82.0',
+    data: '2026-11-13',
+    titolo: 'Onboarding: il questionario come il tuo modulo, e il backup sul foglio',
+    riassunto:
+      'Il questionario del cliente ha le domande, l’ordine e gli esempi del tuo Google Form, una domanda per schermata come Typeform. Ogni questionario inviato diventa una riga del foglio «questionario-e-mappatura-allievi», come faceva il modulo.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Il questionario del cliente è il tuo «Modulo Onboarding Coaching Online» parola per parola: lo stesso ordine, il testo di benvenuto, gli esempi sotto «organizzazione della giornata» e «successo», l’opzione «Altre sostanze», e tutte le domande obbligatorie tranne le note. I file che il modulo chiedeva su Telegram si caricano lì.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Una domanda per schermata, come Typeform: grande, con la barra dell’avanzamento, «OK» o Invio per andare avanti, le scelte con un tocco e il riepilogo di quello che manca prima di inviare. Si salva da solo come prima.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Backup sul foglio Google: ogni questionario inviato diventa una riga di «questionario-e-mappatura-allievi», scheda «Risposte del modulo», nelle colonne del modulo (A-AC). Le colonne di pagamento, rinnovo, somma e note restano tue: l’app non le tocca. Se il cliente revoca il consenso la riga si cancella. Si collega in Impostazioni › Chiavi e collegamenti › Google Sheets, con la chiave di un service account.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il consenso sui dati di salute ha una versione nuova che dice del foglio Google: chi ha accettato la versione di prima la accetta di nuovo prima di compilare.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          '«Prova il percorso», in Onboarding e nella scheda «Area clienti»: fai tutto l’onboarding come lo vede un cliente, con le stesse pagine, dal link e dal codice fino al razzo, senza creare niente. Le azioni del team le simuli da una barra in alto, «Vai allo step» ti porta subito a un passo, e nessuna email parte: il testo dell’email «Tocca a te» te lo dice la barra.',
+      },
+    ],
+  },
+  {
     versione: '1.81.0',
     data: '2026-11-13',
     titolo: 'Onboarding: il percorso fino al lancio',

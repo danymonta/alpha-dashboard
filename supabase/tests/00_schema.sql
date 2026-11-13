@@ -202,6 +202,8 @@ select results_eq(
        'call_analisi_richiedi', 'call_imposta_costo_max', 'call_imposta_interruttori', 'call_lavori_situazione',
        'call_numeri_periodo', 'collega_registrazione', 'decidi_performance',
        'fathom_chiave_presente', 'fathom_imposta_chiave', 'fathom_togli_chiave',
+       -- the Google service account of the onboarding sheet (1.82.0): the admin only, never an OAuth token
+       'google_chiave_presente', 'google_imposta_chiave', 'google_togli_chiave',
        'marketing_spunti_richiedi', 'scollega_registrazione', 'spunti_per_claude',
        'call_ha_follow_up', 'call_ha_vendita',
        -- the client's area (1.79.0): each one starts from cliente_corrente(), null for an OAuth token (42501)

@@ -4,7 +4,7 @@ import { FileText, ImageIcon, LoaderCircle, Paperclip, TriangleAlert, X } from '
 import { useId, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
-import { togliAllegato } from '@/app/(cliente)/percorso/actions'
+import { useBackendPercorso } from '@/components/percorso/backend-percorso'
 import { dimensioneInParole, type AllegatoCliente } from '@/lib/percorso/allegati'
 import type { AllegatoDomanda } from '@/lib/percorso/questionario'
 import { TESTI_QUESTIONARIO } from '@/lib/percorso/testi'
@@ -161,6 +161,7 @@ export function AllegatiDomanda({
   /** The answer no longer asks for these files: they show with their X, nothing new is added. */
   soloTogli?: boolean
 }) {
+  const { togliAllegato, caricaAllegato } = useBackendPercorso()
   const id = useId()
   const input = useRef<HTMLInputElement | null>(null)
   const [inCarico, setInCarico] = useState<string | null>(null)
@@ -181,7 +182,7 @@ export function AllegatiDomanda({
       }
       setInCarico(nomeFilePulito(file.name))
       try {
-        const nuovo = await carica(allegato.campo, file)
+        const nuovo = await (caricaAllegato ?? carica)(allegato.campo, file)
         quanti++
         onCambia((prima) => [...prima.filter((x) => x.id !== nuovo.id), nuovo])
         toast.success(T.caricato)

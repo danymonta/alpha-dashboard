@@ -13,7 +13,7 @@ import { z } from 'zod'
 export const MINUTI_GIORNO = ['20_30', '30_40', '40_60', '60_90', '90_120'] as const
 export const LIVELLI_ATTIVITA = ['sedentario', 'attivo', 'molto_attivo'] as const
 export const SI_NO = ['si', 'no'] as const
-export const CATTIVE_ABITUDINI = ['fumo', 'alcol', 'motivazione', 'stimolanti', 'sonno'] as const
+export const CATTIVE_ABITUDINI = ['alcol', 'fumo', 'altre_sostanze', 'sonno', 'stimolanti', 'motivazione'] as const
 export const ESERCIZI_MASSIMALI = ['piegamenti', 'trazioni', 'dip'] as const
 export const NON_LO_SO = 'non_lo_so' as const
 
@@ -49,36 +49,38 @@ export const CHIAVI_TESTO = [
 ] as const
 
 /** How a required question counts as answered (the same kinds as onboarding_risposte_mancanti). */
-type ModoRisposta = 'testo' | 'valore' | 'altezza_peso' | 'massimali'
+type ModoRisposta = 'testo' | 'valore' | 'altezza_peso' | 'massimali' | 'abitudini'
 
 /**
- * The required questions in the order of the questionnaire (cattive_abitudini and note are
- * optional), with how they count as answered: the order the page goes to the first missing.
+ * The required questions in the order of Dany's form (only note is optional; cattive_abitudini
+ * is answered with at least one choice or a text in «Altro», 1.82.0), with how they count as
+ * answered: the order the page goes to the first missing.
  */
 export const OBBLIGATORIE: readonly (readonly [string, ModoRisposta])[] = [
-  ['nome_cognome', 'testo'],
   ['email', 'testo'],
   ['telefono', 'testo'],
+  ['nome_cognome', 'testo'],
   ['altezza_peso', 'altezza_peso'],
   ['data_nascita', 'testo'],
+  ['obiettivo_principale', 'testo'],
   ['occupazione', 'testo'],
   ['storia_allenamento', 'testo'],
+  ['livello_attivita', 'valore'],
+  ['importanza_tecnica', 'testo'],
+  ['seguito_alimentazione', 'valore'],
+  ['conoscenza_alimentazione', 'testo'],
   ['giorni_settimana', 'valore'],
   ['minuti_giorno', 'valore'],
+  ['ore_sonno', 'testo'],
+  ['organizzazione_giornata', 'testo'],
   ['infortuni', 'testo'],
+  ['cattive_abitudini', 'abitudini'],
+  ['successo', 'testo'],
+  ['perche_noi', 'testo'],
+  ['obiettivi_3_6_mesi', 'testo'],
   ['attrezzatura', 'testo'],
   ['massimali', 'massimali'],
   ['esercizi_difficolta', 'testo'],
-  ['importanza_tecnica', 'testo'],
-  ['ore_sonno', 'testo'],
-  ['livello_attivita', 'valore'],
-  ['organizzazione_giornata', 'testo'],
-  ['seguito_alimentazione', 'valore'],
-  ['conoscenza_alimentazione', 'testo'],
-  ['obiettivo_principale', 'testo'],
-  ['perche_noi', 'testo'],
-  ['obiettivi_3_6_mesi', 'testo'],
-  ['successo', 'testo'],
   ['pronto', 'valore'],
 ]
 
@@ -199,6 +201,10 @@ export function risposteMancanti(risposte: Risposte | Record<string, unknown> | 
       case 'massimali': {
         const o = (v ?? {}) as Record<string, unknown>
         return !ESERCIZI_MASSIMALI.every((e) => presente(o[e]))
+      }
+      case 'abitudini': {
+        const o = (v ?? {}) as Record<string, unknown>
+        return !((Array.isArray(o.scelte) && o.scelte.length > 0) || testoScritto(o.altro))
       }
     }
   }).map(([chiave]) => chiave)

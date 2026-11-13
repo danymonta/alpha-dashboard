@@ -17,7 +17,7 @@ import {
 import { useEffect, useId, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
-import { avanzaPasso } from '@/app/(cliente)/percorso/actions'
+import { useBackendPercorso } from '@/components/percorso/backend-percorso'
 import { BloccoCliente, ListaBlocchi } from '@/components/percorso/blocchi'
 import { MarkdownCliente } from '@/components/percorso/markdown-cliente'
 import { AzionePasso, Spunta } from '@/components/percorso/passi'
@@ -98,6 +98,7 @@ function Errore({ testo }: { testo: string | null }) {
 
 /** One write of the client outside the one primary action (the username, an item ticked). */
 function useInvio() {
+  const { avanzaPasso } = useBackendPercorso()
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
   function invia(invio: AvanzaPasso, dopo?: () => void) {

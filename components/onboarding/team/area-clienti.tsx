@@ -1,11 +1,12 @@
 'use client'
 
-import { LoaderCircle, Lock, LockOpen, TriangleAlert } from 'lucide-react'
+import { FlaskConical, LoaderCircle, Lock, LockOpen, TriangleAlert } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { apriAreaClienti, chiudiAreaClienti, type EsitoArea } from '@/app/(app)/onboarding/actions'
 import { useLingua } from '@/components/i18n/lingua-provider'
+import { LinkBottone } from '@/components/link-bottone'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -16,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ONBOARDING, ONBOARDING_TEAM, traduciErroreOnboarding } from '@/lib/i18n/testi/onboarding'
+import { PROVA } from '@/lib/i18n/testi/prova'
 import { problemiApertura, traduciProblemi } from '@/lib/onboarding/area'
 
 /**
@@ -122,6 +124,11 @@ export function AreaClienti({
         {aperto ? <Lock className="size-4" aria-hidden="true" /> : <LockOpen className="size-4" aria-hidden="true" />}
         {aperto ? t.chiudi : t.apri}
       </Button>
+      {/* before opening (and after): the whole path as a client sees it, nothing written */}
+      <LinkBottone href="/prova-onboarding" variant="outline" className="gap-2 sm:ml-2" data-testid="area-prova">
+        <FlaskConical className="size-4" aria-hidden="true" />
+        {PROVA[lingua].bottone}
+      </LinkBottone>
 
       <Dialog open={dialogo} onOpenChange={(v) => !inCorso && (v ? setDialogo(true) : chiudiDialogo())}>
         <DialogContent showCloseButton={false} data-testid="area-clienti-foglio">

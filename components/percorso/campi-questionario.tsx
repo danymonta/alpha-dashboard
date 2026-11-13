@@ -31,14 +31,15 @@ import { cn } from '@/lib/utils'
 
 export const idCampo = (chiave: string) => `campo-${chiave}`
 export const idErrore = (chiave: string) => `errore-${chiave}`
+export const idTitoloDomanda = (chiave: string) => `titolo-${chiave}`
 const idAiuto = (chiave: string) => `aiuto-${chiave}`
 
 /** The line under a field: the icon and the words, never the colour alone. */
 export function ErroreCampo({ id, testo }: { id: string; testo: string | null }) {
   if (!testo) return null
   return (
-    <p id={id} className="flex items-start gap-1.5 text-sm font-medium text-status-critical" data-errore>
-      <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+    <p id={id} className="flex items-start gap-2 text-base font-medium text-status-critical" data-errore role="alert">
+      <TriangleAlert className="mt-1 size-4 shrink-0" aria-hidden="true" />
       {testo}
     </p>
   )
@@ -49,7 +50,7 @@ function descritto(chiave: string, aiuto: boolean, errore: boolean): string | un
   return id || undefined
 }
 
-const CLASSE_INPUT = 'h-12 rounded-xl bg-background/60 px-3.5 text-base md:text-base'
+const CLASSE_INPUT = 'h-14 rounded-xl bg-background/60 px-4 text-lg md:text-lg'
 
 /** «170» → 170; «61,5» → 61.5; null when it is not a number. */
 function numeroDa(testo: string): number | null {
@@ -72,57 +73,64 @@ type PropsCampo = {
   onErroreFormato: (errore: string | null) => void
 }
 
-/** A whole question: the text, the line of help, the field, the error, and what goes with it. */
+/**
+ * A whole question, shown alone on its screen: the text as the heading of the screen (it
+ * receives the focus where the field does not), the line of help, the field, the error, and
+ * what goes with it. A single field is named by the heading itself (a label inside it); a
+ * group of choices by a fieldset that points to it.
+ */
 export function BloccoDomanda({
   domanda: d,
-  numero,
   children,
   errore,
   extra,
 }: {
   domanda: Domanda
-  numero: number
   children: ReactNode
   errore: string | null
   extra?: ReactNode
 }) {
   const gruppo = d.tipo === 'scelta' || d.tipo === 'massimali' || d.tipo === 'abitudini' || d.tipo === 'altezza_peso'
+  const idTitolo = idTitoloDomanda(d.chiave)
+  const testo = gruppo ? d.testo : <label htmlFor={idCampo(d.chiave)}>{d.testo}</label>
   const intestazione = (
-    <>
-      <span className="num mr-1.5 text-muted-foreground" aria-hidden="true">
-        {numero}.
-      </span>
-      {d.testo}
-      {d.facoltativa ? <span className="ml-1.5 text-sm font-normal text-muted-foreground">{T.facoltativa}</span> : null}
-    </>
+    <h1
+      id={idTitolo}
+      tabIndex={-1}
+      className="font-heading text-[1.65rem] leading-tight font-semibold tracking-tight text-balance outline-none sm:text-4xl sm:leading-tight"
+    >
+      {testo}
+      {d.facoltativa ? <span className="ml-2 text-base font-normal text-muted-foreground">{T.facoltativa}</span> : null}
+    </h1>
   )
-  const testoAiuto = d.aiuto ? (
-    <p id={idAiuto(d.chiave)} className="text-sm leading-relaxed text-muted-foreground">
+  const aiuto = d.aiuto ? (
+    <p id={idAiuto(d.chiave)} className="text-base leading-relaxed text-muted-foreground">
       {d.aiuto}
     </p>
   ) : null
+  const campo = (
+    <>
+      {children}
+      <ErroreCampo id={idErrore(d.chiave)} testo={errore} />
+    </>
+  )
 
   return (
-    <div className="space-y-3 scroll-mt-24" data-domanda={d.chiave} data-errore-domanda={errore ? true : undefined}>
+    <div className="space-y-5" data-domanda={d.chiave} data-errore-domanda={errore ? true : undefined}>
+      <div className="space-y-2.5">
+        {intestazione}
+        {aiuto}
+      </div>
       {gruppo ? (
         <fieldset
-          className="space-y-3"
+          className="space-y-4"
+          aria-labelledby={idTitolo}
           aria-describedby={descritto(d.chiave, Boolean(d.aiuto), Boolean(errore))}
         >
-          <legend className="mb-1 text-[1.05rem] leading-snug font-semibold">{intestazione}</legend>
-          {testoAiuto}
-          {children}
-          <ErroreCampo id={idErrore(d.chiave)} testo={errore} />
+          {campo}
         </fieldset>
       ) : (
-        <>
-          <label htmlFor={idCampo(d.chiave)} className="block text-[1.05rem] leading-snug font-semibold">
-            {intestazione}
-          </label>
-          {testoAiuto}
-          {children}
-          <ErroreCampo id={idErrore(d.chiave)} testo={errore} />
-        </>
+        <div className="space-y-3">{campo}</div>
       )}
       {extra}
     </div>
@@ -146,7 +154,7 @@ export function CampoTesto({ domanda: d, valore, onCambia, errore }: PropsCampo)
         <Textarea
           {...comune}
           rows={3}
-          className="min-h-28 rounded-xl bg-background/60 px-3.5 py-3 text-base leading-relaxed md:text-base"
+          className="min-h-32 rounded-xl bg-background/60 px-4 py-3.5 text-lg leading-relaxed md:text-lg"
           onChange={(e) => onCambia(e.target.value === '' ? null : e.target.value)}
         />
       ) : (
@@ -356,6 +364,7 @@ function Scelta({
   dettaglio,
   id,
   compatta,
+  tasto,
 }: {
   tipo: 'radio' | 'checkbox'
   nome: string
@@ -366,11 +375,13 @@ function Scelta({
   dettaglio?: string
   id?: string
   compatta?: boolean
+  /** The key that picks it, shown only where there is a keyboard (a fine pointer). */
+  tasto?: string
 }) {
   return (
     <label
       className={cn(
-        'relative flex min-h-12 cursor-pointer gap-3 rounded-xl border px-4 py-3 transition-colors motion-reduce:transition-none',
+        'relative flex min-h-14 cursor-pointer gap-3 rounded-xl border px-4 py-3 text-[1.05rem] transition-colors motion-reduce:transition-none',
         dettaglio ? 'items-start' : 'items-center',
         'has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50',
         scelta
@@ -410,6 +421,14 @@ function Scelta({
         <span className={cn('block', !compatta && 'font-medium')}>{etichetta}</span>
         {dettaglio ? <span className="mt-0.5 block text-sm leading-snug text-muted-foreground">{dettaglio}</span> : null}
       </span>
+      {tasto && !compatta ? (
+        <kbd
+          aria-hidden="true"
+          className="num ml-auto hidden size-6 shrink-0 items-center justify-center self-center rounded-md border border-border bg-background/70 text-xs font-semibold text-muted-foreground [@media(pointer:fine)]:inline-flex"
+        >
+          {tasto}
+        </kbd>
+      ) : null}
     </label>
   )
 }
@@ -421,8 +440,8 @@ export function CampoScelta({ domanda: d, valore, onCambia }: PropsCampo) {
   return (
     <div
       className={cn(
-        compatta ? 'grid max-w-md grid-cols-4 gap-2 sm:grid-cols-7' : 'grid gap-2.5',
-        !compatta && d.opzioni.length <= 2 && 'sm:grid-cols-2 sm:max-w-md',
+        compatta ? 'grid max-w-md grid-cols-4 gap-2.5 sm:grid-cols-7' : 'grid gap-3',
+        !compatta && d.opzioni.length <= 2 && 'sm:max-w-md',
       )}
     >
       {d.opzioni.map((o, i) => (
@@ -434,6 +453,7 @@ export function CampoScelta({ domanda: d, valore, onCambia }: PropsCampo) {
           valore={o.valore}
           scelta={attuale === o.valore}
           compatta={compatta}
+          tasto={String.fromCharCode(65 + i)}
           etichetta={o.etichetta}
           dettaglio={o.dettaglio}
           onScegli={(s) => {
@@ -511,7 +531,7 @@ export function CampoMassimali({ domanda: d, valore, onCambia, errore, onErroreF
                 controlla(testi, prossimi)
               }}
               className={cn(
-                'flex h-12 w-34 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-medium whitespace-nowrap transition-colors motion-reduce:transition-none',
+                'flex h-14 w-34 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-medium whitespace-nowrap transition-colors motion-reduce:transition-none',
                 'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                 premuto ? 'border-primary bg-primary/12 glow-primario' : 'border-border bg-background/50 hover:bg-accent/60',
               )}
@@ -539,7 +559,7 @@ export function CampoAbitudini({ domanda: d, valore, onCambia }: PropsCampo) {
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-2.5">
+      <div className="grid gap-3">
         {d.opzioni.map((op, i) => (
           <Scelta
             key={op.valore}
@@ -547,6 +567,7 @@ export function CampoAbitudini({ domanda: d, valore, onCambia }: PropsCampo) {
             tipo="checkbox"
             nome={d.chiave}
             valore={op.valore}
+            tasto={String.fromCharCode(65 + i)}
             scelta={scelte.has(op.valore)}
             etichetta={op.etichetta}
             onScegli={(s) => {
@@ -559,7 +580,7 @@ export function CampoAbitudini({ domanda: d, valore, onCambia }: PropsCampo) {
         ))}
       </div>
       <div className="space-y-1.5">
-        <label htmlFor={`${idCampo(d.chiave)}-altro`} className="block text-sm font-medium text-muted-foreground">
+        <label htmlFor={`${idCampo(d.chiave)}-altro`} className="block text-base font-medium text-muted-foreground">
           {d.altro}
         </label>
         <Textarea
@@ -567,7 +588,7 @@ export function CampoAbitudini({ domanda: d, valore, onCambia }: PropsCampo) {
           value={altro}
           maxLength={TESTO_MAX}
           rows={2}
-          className="min-h-20 rounded-xl bg-background/60 px-3.5 py-3 text-base leading-relaxed md:text-base"
+          className="min-h-24 rounded-xl bg-background/60 px-4 py-3.5 text-lg leading-relaxed md:text-lg"
           onChange={(e) => scrivi(scelte, e.target.value)}
         />
       </div>

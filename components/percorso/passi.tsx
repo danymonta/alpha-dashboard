@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
-import { avanzaPasso } from '@/app/(cliente)/percorso/actions'
+import { useBackendPercorso } from '@/components/percorso/backend-percorso'
 import { ListaBlocchi } from '@/components/percorso/blocchi'
 import { MarkdownCliente } from '@/components/percorso/markdown-cliente'
 import { TeamCliente } from '@/components/percorso/team-cliente'
@@ -46,6 +46,7 @@ export function AzionePasso({
   bordo?: boolean
   icona?: React.ReactNode
 }) {
+  const { avanzaPasso } = useBackendPercorso()
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
 
@@ -291,6 +292,7 @@ export function PassoRegole({
  * by itself. «Riprendi» once the client has started it.
  */
 export function PassoQuestionario({ passo, nome }: { passo: PassoPercorso; nome: string }) {
+  const { indirizzi } = useBackendPercorso()
   const iniziato = passo.stato === 'in_corso'
   return (
     <div className="space-y-6">
@@ -299,7 +301,7 @@ export function PassoQuestionario({ passo, nome }: { passo: PassoPercorso; nome:
       ) : null}
       <div className="space-y-3 border-t border-border/70 pt-5">
         <Link
-          href="/percorso/questionario"
+          href={indirizzi.questionario}
           className="glow-primario inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:w-auto sm:min-w-64 motion-reduce:transition-none"
           data-testid="azione-passo"
         >

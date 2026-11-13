@@ -123,8 +123,12 @@ describe('le risposte: le stesse regole di onboarding_risposte_valide', () => {
     expect(risposteComplete({ ...COMPLETO, data_nascita: '2010-06-01' })).toBe(true)
     expect(risposteComplete({ ...COMPLETO, data_nascita: '1950-06-01' })).toBe(true)
   })
-  it('cattive abitudini e note restano facoltative', () => {
-    expect(risposteComplete(senza(COMPLETO, 'cattive_abitudini', 'note'))).toBe(true)
+  it('solo le note restano facoltative; le cattive abitudini vogliono una scelta o «Altro» (1.82.0)', () => {
+    expect(risposteComplete(senza(COMPLETO, 'note'))).toBe(true)
+    expect(risposteMancanti(senza(COMPLETO, 'cattive_abitudini'))).toEqual(['cattive_abitudini'])
+    expect(risposteMancanti({ ...COMPLETO, cattive_abitudini: { scelte: [], altro: '  ' } })).toEqual(['cattive_abitudini'])
+    expect(risposteMancanti({ ...COMPLETO, cattive_abitudini: { scelte: [], altro: 'Troppi dolci' } })).toEqual([])
+    expect(risposteMancanti({ ...COMPLETO, cattive_abitudini: { scelte: ['altre_sostanze'] } })).toEqual([])
   })
   it('le domande che mancano, nell’ordine del questionario', () => {
     expect(risposteMancanti({ ...senza(COMPLETO, 'massimali'), telefono: '   ', pronto: null })).toEqual([
@@ -144,36 +148,40 @@ describe('le risposte: le stesse regole di onboarding_risposte_valide', () => {
 })
 
 describe('le domande del modulo Google', () => {
-  it('le 26 domande, nell’ordine del modulo, in 4 schermate', () => {
+  it('le 26 domande, nell’ordine esatto del modulo, in 4 sezioni (1.82.0)', () => {
     expect(DOMANDE).toHaveLength(26)
-    expect(SCHERMATE.map((s) => s.titolo)).toEqual(['Chi sei', 'Allenamento', 'Stile di vita', 'Obiettivi'])
-    expect(domandeDi(1).map((d) => d.chiave)).toEqual(['nome_cognome', 'email', 'telefono', 'altezza_peso', 'data_nascita', 'occupazione'])
-    expect(domandeDi(2).map((d) => d.chiave)).toEqual([
+    expect(SCHERMATE.map((s) => s.titolo)).toEqual(['Chi sei', 'Allenamento e alimentazione', 'La tua giornata', 'Obiettivi e punto di partenza'])
+    expect(DOMANDE.map((d) => d.chiave)).toEqual([
+      'email',
+      'telefono',
+      'nome_cognome',
+      'altezza_peso',
+      'data_nascita',
+      'obiettivo_principale',
+      'occupazione',
       'storia_allenamento',
+      'livello_attivita',
+      'importanza_tecnica',
+      'seguito_alimentazione',
+      'conoscenza_alimentazione',
       'giorni_settimana',
       'minuti_giorno',
+      'ore_sonno',
+      'organizzazione_giornata',
       'infortuni',
+      'cattive_abitudini',
+      'successo',
+      'perche_noi',
+      'obiettivi_3_6_mesi',
       'attrezzatura',
       'massimali',
       'esercizi_difficolta',
-      'importanza_tecnica',
-    ])
-    expect(domandeDi(3).map((d) => d.chiave)).toEqual([
-      'ore_sonno',
-      'livello_attivita',
-      'organizzazione_giornata',
-      'seguito_alimentazione',
-      'conoscenza_alimentazione',
-      'cattive_abitudini',
-    ])
-    expect(domandeDi(4).map((d) => d.chiave)).toEqual([
-      'obiettivo_principale',
-      'perche_noi',
-      'obiettivi_3_6_mesi',
-      'successo',
-      'pronto',
       'note',
+      'pronto',
     ])
+    expect(domandeDi(3).map((d) => d.chiave)).toEqual(['ore_sonno', 'organizzazione_giornata', 'infortuni', 'cattive_abitudini'])
+    // the required order is the order of the questions, without note
+    expect(OBBLIGATORIE.map(([k]) => k)).toEqual(DOMANDE.map((d) => d.chiave).filter((k) => k !== 'note'))
   })
 
   it('i testi delle domande sono quelli del modulo, con i refusi corretti', () => {
@@ -212,11 +220,12 @@ describe('le domande del modulo Google', () => {
     ])
     expect(opzioni('cattive_abitudini').map((o) => o.valore)).toEqual([...CATTIVE_ABITUDINI])
     expect(opzioni('cattive_abitudini').map((o) => o.etichetta)).toEqual([
-      'Fumo',
       'Bere alcol',
-      'Scarsa motivazione e autostima',
-      'Abuso di stimolanti (caffeina, redbull, monster)',
+      'Fumo',
+      'Altre sostanze',
       'Dormire meno di 6 ore a notte',
+      'Abuso di stimolanti (caffeina, redbull, monster)',
+      'Scarsa motivazione e autostima',
     ])
     expect(opzioni('pronto').map((o) => o.etichetta)).toEqual(['Sì', 'No'])
     expect(opzioni('seguito_alimentazione').map((o) => o.etichetta)).toEqual(['Sì', 'No'])
@@ -234,7 +243,7 @@ describe('le domande del modulo Google', () => {
 
   it('la prima schermata con una risposta che manca', () => {
     expect(schermataDi(['pronto'])).toBe(4)
-    expect(schermataDi(['massimali', 'pronto'])).toBe(2)
+    expect(schermataDi(['infortuni', 'pronto'])).toBe(3)
     expect(schermataDi([])).toBeNull()
   })
 

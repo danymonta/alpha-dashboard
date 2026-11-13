@@ -7,6 +7,7 @@ import { TokenInstagram } from '@/app/(app)/settings/instagram/instagram-client'
 import { TokenMessenger } from '@/app/(app)/settings/instagram/messenger-client'
 import { quando } from '@/app/(app)/settings/instagram/quando'
 import { IndirizzoCalendario } from '@/components/calendario/indirizzo-calendario'
+import { FoglioGoogle } from '@/components/impostazioni/foglio-google'
 import { GuidaChiave } from '@/components/impostazioni/guida-chiave'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { alfireConfigurata } from '@/lib/alfire/config'
@@ -16,6 +17,7 @@ import { formato } from '@/lib/format'
 import { getLingua } from '@/lib/i18n/server'
 import { CHIAVI } from '@/lib/i18n/testi/chiavi'
 import { INDIRIZZO_CALENDARIO, traduciErroreCalendario } from '@/lib/i18n/testi/contatti'
+import { FOGLIO_GOOGLE, traduciErroreFoglio } from '@/lib/i18n/testi/foglio'
 import { IMPOSTAZIONI, traduciImpostazioni } from '@/lib/i18n/testi/impostazioni'
 import { insightConfigurato } from '@/lib/insight/config'
 import { FRASI_ERRORE } from '@/lib/instagram/report'
@@ -88,7 +90,21 @@ export default async function ChiaviPage() {
   const { formatData } = formato(lingua)
   const tr = (testo: string) => traduciImpostazioni(testo, lingua)
   const supabase = await createClient()
-  const [instagram, tokenIg, messenger, tokenMsg, fathom, fathomPresente, calendario, calendarioPresente] = await Promise.all([
+  const [
+    instagram,
+    tokenIg,
+    messenger,
+    tokenMsg,
+    fathom,
+    fathomPresente,
+    calendario,
+    calendarioPresente,
+    google,
+    googlePresente,
+    impostazioniFoglio,
+    righeScritte,
+    righeInAttesa,
+  ] = await Promise.all([
     supabase
       .from('instagram_collegamento')
       .select('account_username, token_scade_il, token_aggiornato_il, ultimo_errore, ultimo_errore_il')
@@ -105,6 +121,15 @@ export default async function ChiaviPage() {
     // the calendar «Dany Discovery Call» (1.76.0): whether the address is there, never its value
     supabase.from('calendario_collegamento').select('url_aggiornato_il, ultimo_sync_il, ultimo_esito, ultimo_errore, eventi_letti').maybeSingle(),
     supabase.rpc('calendario_url_presente'),
+    // the Google sheet of the onboarding questionnaires (1.82.0): whether the key is there, never its value
+    supabase.from('google_collegamento').select('account_email, ultima_scrittura_il, ultimo_errore').maybeSingle(),
+    supabase.rpc('google_chiave_presente'),
+    supabase.from('onboarding_impostazioni').select('foglio_id, foglio_scheda').maybeSingle(),
+    supabase.from('onboarding_foglio').select('client_id', { count: 'exact', head: true }).eq('stato', 'scritta'),
+    supabase
+      .from('onboarding_foglio')
+      .select('client_id', { count: 'exact', head: true })
+      .in('stato', ['da_scrivere', 'da_svuotare']),
   ])
   if (
     instagram.error ||
@@ -114,7 +139,12 @@ export default async function ChiaviPage() {
     fathom.error ||
     fathomPresente.error ||
     calendario.error ||
-    calendarioPresente.error
+    calendarioPresente.error ||
+    google.error ||
+    googlePresente.error ||
+    impostazioniFoglio.error ||
+    righeScritte.error ||
+    righeInAttesa.error
   ) {
     throw new Error(T.errore)
   }
@@ -137,6 +167,9 @@ export default async function ChiaviPage() {
   const cal = calendario.data
   const calPresente = calendarioPresente.data === true
   const TC = INDIRIZZO_CALENDARIO[lingua]
+  const TG = FOGLIO_GOOGLE[lingua]
+  const go = google.data
+  const goPresente = googlePresente.data === true
   const claude = insightConfigurato()
   const groq = alfireConfigurata()
 
@@ -368,6 +401,45 @@ export default async function ChiaviPage() {
           .
         </p>
         <GuidaChiave id="calendario" lingua={lingua} />
+      </Scheda>
+
+      <Scheda
+        id="google"
+        titolo={TG.titolo}
+        stato={
+          goPresente && go?.ultimo_errore ? (
+            <Stato tono="errore" testId="google-stato">
+              {TG.errore}
+            </Stato>
+          ) : goPresente && go?.account_email ? (
+            <Stato tono="ok" testId="google-stato">
+              {TG.collegato(go.account_email)}
+            </Stato>
+          ) : (
+            <Stato tono="spenta" testId="google-stato">
+              {TG.nonCollegato}
+            </Stato>
+          )
+        }
+      >
+        {go?.ultimo_errore ? (
+          <p role="alert" className="flex items-start gap-2 text-sm text-status-critical" data-testid="google-errore">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            {traduciErroreFoglio(go.ultimo_errore, lingua)}
+          </p>
+        ) : null}
+        <p className="text-sm text-muted-foreground" data-testid="google-righe">
+          {TG.righe(righeScritte.count ?? 0, righeInAttesa.count ?? 0)}
+          {go?.ultima_scrittura_il ? ` ${TG.ultima(quando(go.ultima_scrittura_il, oggi, lingua))}` : ''}
+        </p>
+        <FoglioGoogle
+          presente={goPresente}
+          email={goPresente ? (go?.account_email ?? null) : null}
+          foglioId={impostazioniFoglio.data?.foglio_id ?? ''}
+          scheda={impostazioniFoglio.data?.foglio_scheda ?? ''}
+        />
+        <p className="text-xs text-muted-foreground">{TG.nota}</p>
+        <GuidaChiave id="google" lingua={lingua} />
       </Scheda>
 
       <Scheda

@@ -4,6 +4,7 @@ import { getProfilo } from '@/lib/auth/session'
 import * as onboarding from '@/lib/onboarding/operazioni'
 import * as team from '@/lib/onboarding/operazioni-team'
 import type { Esito, EsitoAvvio, EsitoLink } from '@/lib/onboarding/operazioni'
+import { lavoraFoglioDopo } from '@/lib/percorso/foglio-lavoro'
 import { createClient } from '@/lib/supabase/server'
 
 export type { Esito, EsitoAvvio, EsitoLink } from '@/lib/onboarding/operazioni'
@@ -79,9 +80,17 @@ export async function eliminaOnboarding(input: unknown): Promise<Esito> {
   return onboarding.eliminaOnboarding(await nucleo(), input)
 }
 
-/** «Registra la revoca» of the consent on health data (1.80.0): answers and files deleted. */
+/**
+ * «Registra la revoca» of the consent on health data (1.80.0): answers and files deleted. From
+ * 1.82.0 the row on the Google sheet is cleared too, after the answer, with the service role
+ * (the queue retries a failure).
+ */
 export async function revocaConsenso(input: unknown): Promise<Esito> {
-  return onboarding.revocaConsenso(await nucleo(), input)
+  const esito = await onboarding.revocaConsenso(await nucleo(), input)
+  if (esito.ok) {
+    lavoraFoglioDopo()
+  }
+  return esito
 }
 
 // ---------------------------------------------------------------------------

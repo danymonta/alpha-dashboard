@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
-import { daiConsenso } from '@/app/(cliente)/percorso/actions'
+import { useBackendPercorso } from '@/components/percorso/backend-percorso'
 import { versioneInParole } from '@/components/percorso/passi'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -21,6 +21,7 @@ function Consenso({ consenso }: { consenso: ConsensoCliente }) {
   const locale = consenso.tipo === 'salute' ? CONSENSI_IN_VIGORE.salute : null
   const testo = locale && locale.versione === consenso.versioneInVigore ? locale : null
   const inVigore = consenso.versione === consenso.versioneInVigore && consenso.datoIl
+  const { daiConsenso } = useBackendPercorso()
   const [spunta, setSpunta] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
@@ -112,9 +113,10 @@ function Consenso({ consenso }: { consenso: ConsensoCliente }) {
  * changed since the client accepted it asks again (consenso_dai).
  */
 export function ConsensiCliente({ consensi, emailTitolare }: { consensi: readonly ConsensoCliente[]; emailTitolare: string }) {
+  const { indirizzi } = useBackendPercorso()
   return (
     <div className="space-y-6 pt-4 sm:pt-8">
-      <Link href="/percorso" className={cn(buttonVariants({ variant: 'ghost' }), '-ml-3 h-11 gap-2 text-muted-foreground')}>
+      <Link href={indirizzi.percorso} className={cn(buttonVariants({ variant: 'ghost' }), '-ml-3 h-11 gap-2 text-muted-foreground')}>
         <ArrowLeft className="size-4" aria-hidden="true" />
         {T.tornaPercorso}
       </Link>
