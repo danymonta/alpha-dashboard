@@ -474,6 +474,29 @@ body::before {
   }
 }
 
+/* The client's home base (1.83.0): the cards come in one after the other, the ember under the cover
+   breathes. Only opacity and transform; still with «Riduci movimento». */
+@keyframes campo-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes campo-brace {
+  50% {
+    opacity: 0.4;
+    transform: scale(1.08);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .campo-entra {
+    animation: campo-entra 360ms cubic-bezier(0.22, 1, 0.36, 1) var(--ritardo-campo, 0ms) backwards;
+  }
+  .campo-brace {
+    animation: campo-brace 6s ease-in-out infinite;
+  }
+}
+
 /* Brand moment ---------------------------------------------------------------
    CLAUDE.md section 11, "Momento di brand": login, intro after login, shell
    logo. Keyframes only: components apply them through motion-safe: utilities,

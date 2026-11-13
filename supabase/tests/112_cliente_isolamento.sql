@@ -205,7 +205,8 @@ reset role;
 select pg_temp.come('0b0b0000-0000-4000-8000-000000000031');
 -- his own functions answer about him: 113_percorso_cliente.sql checks them
 do $$ begin perform pg_temp.chiama_tutto('attivo', array['percorso_cliente', 'percorso_avanza', 'consenso_dai', 'video_progresso',
-  'questionario_cliente', 'questionario_salva', 'questionario_invia', 'allegato_prepara', 'allegato_togli']); end $$;
+  'questionario_cliente', 'questionario_salva', 'questionario_invia', 'allegato_prepara', 'allegato_togli',
+  'campo_base_cliente', 'aula_lezione_completa', 'aula_video_progresso']); end $$;
 reset role;
 set local request.jwt.claims to '{}';
 select is(
@@ -222,7 +223,8 @@ select is(
    from funzioni
    where persona = 'sospeso' and funzione in ('percorso_cliente', 'percorso_avanza', 'consenso_dai', 'video_progresso',
                                               'questionario_cliente', 'questionario_salva', 'questionario_invia',
-                                              'allegato_prepara', 'allegato_togli')
+                                              'allegato_prepara', 'allegato_togli',
+                                              'campo_base_cliente', 'aula_lezione_completa', 'aula_video_progresso')
      and esito <> '42501'),
   '', 'un cliente sospeso: le sue funzioni rispondono 42501'
 );

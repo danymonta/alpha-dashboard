@@ -10,6 +10,7 @@ import {
   ERRORI_PERCORSO,
   avanzaPassoSchema,
   consensoSchema,
+  completaLezioneSchema,
   progressoVideoSchema,
 } from '@/lib/validation/percorso'
 import {
@@ -81,16 +82,32 @@ export async function progressoVideo(db: Db, input: unknown): Promise<EsitoVideo
   const parsed = progressoVideoSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: ERRORI_PERCORSO.video }
   const v = parsed.data
-  const { data, error } = await db.rpc('video_progresso', {
-    p_blocco: (v.blocco ?? null) as string,
-    p_consegna: (v.consegna ?? null) as string,
-    p_durata: v.durata,
-    p_intervalli: v.intervalli.map(([da, a]) => `[${da},${a})`),
-  })
+  const intervalli = v.intervalli.map(([da, a]) => `[${da},${a})`)
+  // a video lesson of the Aula (1.83.0) has its own function, with the same rules
+  const { data, error } = v.lezione
+    ? await db.rpc('aula_video_progresso', { p_lezione: v.lezione, p_durata: v.durata, p_intervalli: intervalli })
+    : await db.rpc('video_progresso', {
+        p_blocco: (v.blocco ?? null) as string,
+        p_consegna: (v.consegna ?? null) as string,
+        p_durata: v.durata,
+        p_intervalli: intervalli,
+      })
   if (error) return { ok: false, ...messaggio(error) }
   const r = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : {}
   const percentuale = typeof r.percentuale === 'number' ? r.percentuale : Number(r.percentuale ?? 0)
   return { ok: true, percentuale: Number.isFinite(percentuale) ? percentuale : 0, visto: r.visto === true }
+}
+
+/** «Segna come completata» on a lesson of the Aula (1.83.0): aula_lezione_completa, the client's own. */
+export type EsitoLezione = { ok: true; completataIl: string | null } | { ok: false; errore: string; accesso?: true }
+
+export async function completaLezione(db: Db, input: unknown): Promise<EsitoLezione> {
+  const parsed = completaLezioneSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: ERRORI_PERCORSO.nonValidi }
+  const { data, error } = await db.rpc('aula_lezione_completa', { p_lezione: parsed.data.lezione })
+  if (error) return { ok: false, ...messaggio(error) }
+  const r = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : {}
+  return { ok: true, completataIl: typeof r.completata_il === 'string' ? r.completata_il : null }
 }
 
 // ---------------------------------------------------------------------------

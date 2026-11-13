@@ -495,6 +495,10 @@ on conflict (id) do nothing;
 -- The onboarding sheet (1.82.0): the queue of the seed's active client, which the seed leaves empty
 insert into public.onboarding_foglio (client_id) values ('0b0b0000-0000-4000-8000-000000000001')
 on conflict (client_id) do nothing;
+-- The client's home base (1.83.0): a lesson done by the seed's active client, which the seed leaves without
+insert into public.aula_progressi (client_id, lezione_id, completata_il)
+values ('0b0b0000-0000-4000-8000-000000000001', 'cc000000-0000-4000-8000-000000000002', now())
+on conflict do nothing;
 
 create or replace function pg_temp.tabelle_vuote()
 returns text
@@ -828,6 +832,16 @@ begin
   perform pg_temp.prova('onboarding_programma_consegnato', $q$ select public.onboarding_programma_consegnato('0b0b0000-0000-4000-8000-000000000001',
     now() + interval '30 days')::text $q$);
   perform pg_temp.prova('onboarding_community', $q$ select public.onboarding_community('0b0b0000-0000-4000-8000-000000000001', 'approvata')::text $q$);
+  -- the client's home base (1.83.0): the client's start from cliente_corrente(), the team's from campo_base_vede
+  perform pg_temp.prova('campo_base_cliente', $q$ select public.campo_base_cliente()::text $q$);
+  perform pg_temp.prova('aula_lezione_completa', $q$ select public.aula_lezione_completa('cc000000-0000-4000-8000-000000000002')::text $q$);
+  perform pg_temp.prova('aula_video_progresso', $q$ select public.aula_video_progresso('cc000000-0000-4000-8000-000000000001', 100,
+    array[int4range(0, 10)])::text $q$);
+  perform pg_temp.prova('campo_base_vede', $q$ select public.campo_base_vede('0b0b0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('campo_base_team', $q$ select public.campo_base_team('0b0b0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('checkup_salva', $q$ select public.checkup_salva('0b0b0000-0000-4000-8000-000000000001', null,
+    '{"giorno": "2026-11-10"}')::text $q$);
+  perform pg_temp.prova('checkup_elimina', $q$ select public.checkup_elimina('cb000000-0000-4000-8000-000000000001')::text $q$);
   perform pg_temp.prova('onboarding_sblocca_passo', $q$ select public.onboarding_sblocca_passo('0b0b0000-0000-4000-8000-000000000001',
     'prenotazione', 'Da Claude')::text $q$);
   perform pg_temp.prova('onboarding_riavvia', $q$ select public.onboarding_riavvia('0b0b0000-0000-4000-8000-000000000001', 'Da Claude')::text $q$);
@@ -844,6 +858,8 @@ select is(
     'allegato_prepara 42501',
     'allegato_togli 42501',
     'anteprima_eliminazione 42501',
+    'aula_lezione_completa 42501',
+    'aula_video_progresso 42501',
     'avanzamento_obiettivi 42501',
     'avvia_onboarding 42501',
     'calendario_imposta_url 42501',
@@ -856,7 +872,12 @@ select is(
     'call_imposta_interruttori 42501',
     'call_lavori_situazione 42501',
     'call_numeri_periodo 42501',
+    'campo_base_cliente 42501',
+    'campo_base_team 42501',
+    'campo_base_vede ok:false',
     'cash_mensile 42501',
+    'checkup_elimina 42501',
+    'checkup_salva 42501',
     'collega_registrazione 42501',
     'commenti_setter_periodo 42501',
     'consenso_dai 42501',

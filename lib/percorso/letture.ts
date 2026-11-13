@@ -6,6 +6,7 @@ import { leggiBlocchi, type BloccoPercorso } from '@/lib/percorso/blocchi'
 import { primoPassoDelCliente } from '@/lib/percorso/nodi'
 import { leggiStima, type Stima } from '@/lib/percorso/stima'
 import { leggiAllegati, type AllegatoCliente } from '@/lib/percorso/allegati'
+import { leggiCampoBase, type CampoBase } from '@/lib/percorso/campo-base'
 import type { Database } from '@/lib/supabase/database.types'
 import { risposteValide, type NumeroSchermata, type Risposte } from '@/lib/validation/questionario'
 
@@ -323,4 +324,20 @@ export async function leggiQuestionarioCliente(db: SupabaseClient<Database>): Pr
       allegati: leggiAllegati(v.allegati),
     },
   }
+}
+
+// ---------------------------------------------------------------------------
+// The home base (1.83.0): campo_base_cliente() with the client's own session
+// ---------------------------------------------------------------------------
+export type EsitoCampoBase = { ok: true; campo: CampoBase } | { ok: false; motivo: 'accesso' | 'errore' }
+
+export async function leggiCampoBaseCliente(db: SupabaseClient<Database>): Promise<EsitoCampoBase> {
+  const { data, error } = await db.rpc('campo_base_cliente')
+  if (error) {
+    if (error.code === '42501') return { ok: false, motivo: 'accesso' }
+    console.error('[percorso] campo base non letto:', error.code)
+    return { ok: false, motivo: 'errore' }
+  }
+  const campo = leggiCampoBase(data)
+  return campo ? { ok: true, campo } : { ok: false, motivo: 'errore' }
 }

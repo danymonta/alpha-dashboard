@@ -190,6 +190,10 @@ select results_eq(
      order by 1 $$,
   $$ select x collate "C" from unnest(array[
        'aggiorna_mio_profilo', 'aggiorna_stato_lead', 'aggiungi_rata', 'anteprima_eliminazione',
+       -- the client's home base (1.83.0): the client's (cliente_corrente(), 42501 for an OAuth token) and the
+       -- team's (campo_base_vede: false for an OAuth token, so 42501)
+       'aula_lezione_completa', 'aula_video_progresso', 'campo_base_cliente', 'campo_base_team', 'campo_base_vede',
+       'checkup_elimina', 'checkup_salva',
        -- the questionnaire (1.80.0): the client's functions, each starting from cliente_corrente() (42501 for
        -- an OAuth token); allegato_conferma and onboarding_allegati_da_togliere are the service role's only
        'allegato_prepara', 'allegato_togli', 'questionario_cliente', 'questionario_invia', 'questionario_salva',

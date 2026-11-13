@@ -9,6 +9,16 @@ import { ScheletroPercorso } from '@/components/percorso/scheletro-percorso'
 import { useTesti } from '@/components/i18n/lingua-provider'
 import { fraseToccaATe } from '@/lib/email/cliente'
 import { PROVA } from '@/lib/i18n/testi/prova'
+import type { CampoBase } from '@/lib/percorso/campo-base'
+import {
+  campoDiProva,
+  completaLezioneProva,
+  segnaVideoLezioniProva,
+  videoLezioneProva,
+  type AulaProva,
+  type DatiCampoProva,
+} from '@/lib/percorso/campo-prova'
+import { oggiRoma } from '@/lib/date'
 import type { Percorso } from '@/lib/percorso/letture'
 import {
   AVVISO_DELL_AZIONE,
@@ -48,6 +58,7 @@ export const INDIRIZZI_PROVA = {
 
 export const CHIAVE_VISTO_PROVA = 'alpha_percorso_visto_prova'
 const CHIAVE_STATO = 'alpha_prova_percorso'
+const CHIAVE_AULA = 'alpha_prova_aula'
 /** The code of the test registration: shown on the bar, never sent. */
 export const CODICE_PROVA = '12345678'
 
@@ -57,6 +68,8 @@ type ContestoProva = {
   dati: DatiProva
   stato: StatoProva
   percorso: Percorso
+  /** The home base of the fake client (1.83.0). */
+  campo: CampoBase
   fase: Fase
   setFase: (f: Fase) => void
   codiceInviato: boolean
@@ -97,8 +110,27 @@ function salva(firma: string, stato: StatoProva) {
   }
 }
 
+function leggiAula(): AulaProva {
+  try {
+    const grezzo = window.sessionStorage.getItem(CHIAVE_AULA)
+    const v = grezzo ? (JSON.parse(grezzo) as unknown) : null
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as AulaProva) : {}
+  } catch {
+    return {}
+  }
+}
+
+function salvaAula(aula: AulaProva) {
+  try {
+    window.sessionStorage.setItem(CHIAVE_AULA, JSON.stringify(aula))
+  } catch {
+    // a private window: the Aula starts again at the next reload
+  }
+}
+
 function dimentica() {
   try {
+    window.sessionStorage.removeItem(CHIAVE_AULA)
     window.sessionStorage.removeItem(CHIAVE_STATO)
     window.localStorage.removeItem(CHIAVE_VISTO_PROVA)
   } catch {
@@ -114,7 +146,7 @@ function nessunaIscrizione() {
  * The state lives only in the browser (the memory of the tab, the clock of the admin): the server
  * draws the skeleton and the test starts once the page is in the browser, never a mismatch.
  */
-export function ProvaProvider({ dati, children }: { dati: DatiProva; children: ReactNode }) {
+export function ProvaProvider({ dati, campo, children }: { dati: DatiProva; campo: DatiCampoProva; children: ReactNode }) {
   const nelBrowser = useSyncExternalStore(
     nessunaIscrizione,
     () => true,
@@ -127,10 +159,14 @@ export function ProvaProvider({ dati, children }: { dati: DatiProva; children: R
       </div>
     )
   }
-  return <ProvaNelBrowser dati={dati}>{children}</ProvaNelBrowser>
+  return (
+    <ProvaNelBrowser dati={dati} datiCampo={campo}>
+      {children}
+    </ProvaNelBrowser>
+  )
 }
 
-function ProvaNelBrowser({ dati, children }: { dati: DatiProva; children: ReactNode }) {
+function ProvaNelBrowser({ dati, datiCampo, children }: { dati: DatiProva; datiCampo: DatiCampoProva; children: ReactNode }) {
   const t = useTesti(PROVA)
   const router = useRouter()
   const firma = useMemo(() => firmaDi(dati), [dati])
@@ -140,6 +176,15 @@ function ProvaNelBrowser({ dati, children }: { dati: DatiProva; children: ReactN
   const [fase, setFase] = useState<Fase>('link')
   const [codiceInviato, setCodiceInviato] = useState(false)
   const ref = useRef<StatoProva>(iniziale)
+  const [aula, setAulaGrezza] = useState<AulaProva>(() => leggiAula())
+  const aulaRef = useRef<AulaProva>(aula)
+  const setAula = useCallback((nuova: AulaProva) => {
+    aulaRef.current = nuova
+    setAulaGrezza(nuova)
+    salvaAula(nuova)
+  }, [])
+  // launched: the programme watched (the Aula's modules open after it)
+  const lanciato = () => percorsoDi(dati, ref.current, new Date()).lanciato
 
   const setStato = useCallback(
     (nuovo: StatoProva) => {
@@ -196,7 +241,25 @@ function ProvaNelBrowser({ dati, children }: { dati: DatiProva; children: ReactN
         setStato(e.stato)
         return { ok: true, allegati: e.stato.allegati }
       },
+      async completaLezione(input) {
+        const e = completaLezioneProva(datiCampo, aulaRef.current, input.lezione, lanciato(), ora())
+        if (!e.ok) return e
+        setAula(e.aula)
+        return { ok: true, completataIl: e.completataIl }
+      },
       async video(corpo) {
+        if (corpo.lezione) {
+          const v = videoLezioneProva(
+            datiCampo,
+            aulaRef.current,
+            { lezione: corpo.lezione, durata: corpo.durata, intervalli: corpo.intervalli },
+            lanciato(),
+            ora(),
+          )
+          if (!v.ok) throw new Error(v.errore)
+          setAula(v.aula)
+          return { percentuale: v.percentuale, visto: v.visto }
+        }
         const e = progressoVideo(dati, attuale(), corpo, ora())
         if (!e.ok) throw new Error(e.errore)
         setStato(e.stato.stato)
@@ -233,7 +296,8 @@ function ProvaNelBrowser({ dati, children }: { dati: DatiProva; children: ReactN
       indirizzi: INDIRIZZI_PROVA,
       chiaveVisto: CHIAVE_VISTO_PROVA,
     }
-  }, [dati, router, setStato])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- lanciato reads the ref, never a stale state
+  }, [dati, datiCampo, router, setStato, setAula])
 
   const team = useCallback(
     (azione: AzioneTeam) => {
@@ -254,8 +318,9 @@ function ProvaNelBrowser({ dati, children }: { dati: DatiProva; children: ReactN
   const segnaVideo = useCallback(() => {
     const s = ref.current
     setStato(segnaVideoVisti(dati, s))
+    setAula(segnaVideoLezioniProva(datiCampo, aulaRef.current, percorsoDi(dati, s, new Date()).lanciato, new Date()))
     toast.success(t.videoSegnato)
-  }, [dati, setStato, t])
+  }, [dati, datiCampo, setStato, setAula, t])
 
   const vai = useCallback(
     (meta: Meta) => {
@@ -271,15 +336,25 @@ function ProvaNelBrowser({ dati, children }: { dati: DatiProva; children: ReactN
     setFase('link')
     setCodiceInviato(false)
     setStato(statoIniziale(dati, new Date()))
+    setAula({})
     toast.success(t.ricominciato)
     router.push(INDIRIZZI_PROVA.percorso)
-  }, [dati, router, setStato, t])
+  }, [dati, router, setStato, setAula, t])
 
   const percorso = useMemo(() => percorsoDi(dati, stato, new Date()), [dati, stato])
+  const campo = useMemo(
+    () =>
+      campoDiProva(datiCampo, aula, {
+        lanciato: percorso.lanciato,
+        nome: dati.nomeCompleto.split(' ')[0] ?? '',
+        giornoCheckup: oggiRoma(),
+      }),
+    [datiCampo, aula, percorso.lanciato, dati.nomeCompleto],
+  )
 
   return (
     <Contesto.Provider
-      value={{ dati, stato, percorso, fase, setFase, codiceInviato, team, segnaVideo, vai, ricomincia }}
+      value={{ dati, stato, percorso, campo, fase, setFase, codiceInviato, team, segnaVideo, vai, ricomincia }}
     >
       <BackendPercorsoProvider valore={backend}>{children}</BackendPercorsoProvider>
     </Contesto.Provider>

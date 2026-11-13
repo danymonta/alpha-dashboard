@@ -2,14 +2,14 @@
 
 import { CorniceCliente } from './cornice-cliente'
 import { useProva } from '@/components/percorso/prova/prova-provider'
-import { VistaPercorso } from '@/components/percorso/vista-percorso'
+import { CampoBaseCliente } from '@/components/percorso/campo-base/campo-base'
 
-/** The client's path, from the memory of the test: the same VistaPercorso of /percorso. */
+/** The client's home base, from the memory of the test: the same CampoBaseCliente of /percorso (1.83.0). */
 export default function PaginaProva() {
-  const { percorso } = useProva()
+  const { percorso, campo } = useProva()
   return (
     <CorniceCliente>
-      <VistaPercorso percorso={percorso} />
+      <CampoBaseCliente percorso={percorso} campo={campo} />
     </CorniceCliente>
   )
 }

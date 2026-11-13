@@ -3,11 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { lavoraFoglioDopo } from '@/lib/percorso/foglio-lavoro'
 import * as percorso from '@/lib/percorso/operazioni'
-import type { EsitoConsenso, EsitoInvia, EsitoPercorso, EsitoSalva, EsitoTogli } from '@/lib/percorso/operazioni'
+import type { EsitoConsenso, EsitoInvia, EsitoLezione, EsitoPercorso, EsitoSalva, EsitoTogli } from '@/lib/percorso/operazioni'
 import { togliFileQuestionario } from '@/lib/percorso/pulizia'
 import { createClient } from '@/lib/supabase/server'
 
-export type { EsitoConsenso, EsitoInvia, EsitoPercorso, EsitoSalva, EsitoTogli } from '@/lib/percorso/operazioni'
+export type { EsitoConsenso, EsitoInvia, EsitoLezione, EsitoPercorso, EsitoSalva, EsitoTogli } from '@/lib/percorso/operazioni'
 
 /**
  * The client's writes from the area /percorso (release B1a): the core
@@ -19,6 +19,13 @@ export type { EsitoConsenso, EsitoInvia, EsitoPercorso, EsitoSalva, EsitoTogli }
 /** A step completed with its action: «Ho guardato il video», «Accetto e vado avanti». */
 export async function avanzaPasso(input: unknown): Promise<EsitoPercorso> {
   const esito = await percorso.avanzaPasso(await createClient(), input)
+  revalidatePath('/percorso', 'layout')
+  return esito
+}
+
+/** «Segna come completata» on a lesson of the Aula (1.83.0). */
+export async function completaLezione(input: unknown): Promise<EsitoLezione> {
+  const esito = await percorso.completaLezione(await createClient(), input)
   revalidatePath('/percorso', 'layout')
   return esito
 }

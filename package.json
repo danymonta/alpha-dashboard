@@ -1,6 +1,6 @@
 {
   "name": "alpha-economics",
-  "version": "1.82.0",
+  "version": "1.83.0",
   "private": true,
   "engines": {
     "node": ">=22 <25"
@@ -21,7 +21,8 @@
     "db:test": "supabase test db",
     "import:excel": "tsx --env-file=.env.local scripts/import-excel.ts",
     "import:contenuti": "tsx scripts/import-contenuti-notion.ts",
-    "backup:sql": "tsx scripts/backup-in-sql.ts"
+    "backup:sql": "tsx scripts/backup-in-sql.ts",
+    "import:checkup": "tsx scripts/import-checkup-notion.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.57",

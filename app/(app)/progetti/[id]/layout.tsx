@@ -70,7 +70,7 @@ export default async function LayoutProgetto({
   const adminPm = livelloPmEffettivo(profilo.ruolo, profilo.livello_pm) === 'admin'
   // the client's Drive folder (05/10/2026): the admin and the project's coach only; RLS reads it
   const chiCartella = chiVedeLaCartella(profilo, progetto)
-  const [gestisce, avanzamento, membri, cliente, clienti, collegati, reparti, cartella, picker] = await Promise.all([
+  const [gestisce, avanzamento, membri, cliente, clienti, collegati, reparti, cartella, picker, vedePercorso] = await Promise.all([
     supabase.rpc('pm_puo_gestire', { p_progetto: progetto.id }),
     // progress and late tasks: computed by the view, only read here
     supabase
@@ -99,6 +99,10 @@ export default async function LayoutProgetto({
       : Promise.resolve({ data: null, error: null }),
     // "Scegli da Drive": the Picker's public values reach only who may link the folder
     chiCartella ? configPickerRichiesta() : Promise.resolve(null),
+    // the client's home base (1.83.0): the admin, the team of his onboarding, the coach of this project
+    progetto.client_id
+      ? supabase.rpc('campo_base_vede', { p_client_id: progetto.client_id })
+      : Promise.resolve({ data: false, error: null }),
   ])
 
   const conProgetto = new Set((collegati.data ?? []).map((p) => p.client_id))
@@ -245,7 +249,7 @@ export default async function LayoutProgetto({
           />
         ) : null}
       </header>
-      <SchedeProgetto id={progetto.id} etichette={t.schede} />
+      <SchedeProgetto id={progetto.id} etichette={t.schede} conPercorso={vedePercorso.data === true} />
       {children}
     </div>
   )

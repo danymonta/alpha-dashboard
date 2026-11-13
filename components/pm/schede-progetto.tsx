@@ -12,12 +12,17 @@ const SCHEDE = [
   { percorso: '/tempo', chiave: 'tempo' },
   { percorso: '/note', chiave: 'note' },
   { percorso: '/membri', chiave: 'membri' },
+  // the client's home base (1.83.0): only for the admin and the team of the client
+  { percorso: '/percorso', chiave: 'percorso' },
 ] as const
 
 type Etichette = Record<(typeof SCHEDE)[number]['chiave'] | 'aria', string>
 
-/** Tabs of a project. Each tab is its own route, so each part loads on its own. */
-export function SchedeProgetto({ id, etichette }: { id: string; etichette: Etichette }) {
+/**
+ * Tabs of a project. Each tab is its own route, so each part loads on its own. «Percorso del
+ * cliente» (1.83.0) only when the server says the reader is the client's team (`conPercorso`).
+ */
+export function SchedeProgetto({ id, etichette, conPercorso = false }: { id: string; etichette: Etichette; conPercorso?: boolean }) {
   const pathname = usePathname()
   const base = `/progetti/${id}`
 
@@ -30,7 +35,7 @@ export function SchedeProgetto({ id, etichette }: { id: string; etichette: Etich
       {/* the fade is a mask on the tabs only: the sticky background stays opaque */}
       <StrisciaScorrevole attivo={pathname} className="px-4 md:px-0">
         <ul className="flex gap-1">
-          {SCHEDE.map(({ percorso, chiave }) => {
+          {SCHEDE.filter((s) => s.chiave !== 'percorso' || conPercorso).map(({ percorso, chiave }) => {
             const href = `${base}${percorso}`
             const attiva = percorso === '' ? pathname === base : pathname.startsWith(href)
             return (

@@ -25,6 +25,84 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"aula_lezioni": {
+                  Row: {
+                    "corpo": string | null,"created_at": string,"id": string,"modulo_id": string,"obbligatoria": boolean,"ordine": number,"pubblicata": boolean,"tipo": string,"titolo": string,"updated_at": string,"url": string | null,"youtube_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "corpo"?: string | null,"created_at"?: string,"id"?: string,"modulo_id": string,"obbligatoria"?: boolean,"ordine"?: number,"pubblicata"?: boolean,"tipo": string,"titolo": string,"updated_at"?: string,"url"?: string | null,"youtube_id"?: string | null
+                  }
+                  Update: {
+                    "corpo"?: string | null,"created_at"?: string,"id"?: string,"modulo_id"?: string,"obbligatoria"?: boolean,"ordine"?: number,"pubblicata"?: boolean,"tipo"?: string,"titolo"?: string,"updated_at"?: string,"url"?: string | null,"youtube_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "aula_lezioni_modulo_id_fkey"
+      columns: ["modulo_id"]
+isOneToOne: false
+      referencedRelation: "aula_moduli"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"aula_moduli": {
+                  Row: {
+                    "copertina_url": string | null,"created_at": string,"created_by": string | null,"descrizione": string | null,"durante_onboarding": boolean,"icona": string,"id": string,"ordine": number,"stato": string,"titolo": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "copertina_url"?: string | null,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"durante_onboarding"?: boolean,"icona"?: string,"id"?: string,"ordine"?: number,"stato"?: string,"titolo": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "copertina_url"?: string | null,"created_at"?: string,"created_by"?: string | null,"descrizione"?: string | null,"durante_onboarding"?: boolean,"icona"?: string,"id"?: string,"ordine"?: number,"stato"?: string,"titolo"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "aula_moduli_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"aula_progressi": {
+                  Row: {
+                    "client_id": string,"completata_il": string | null,"created_at": string,"durata": number | null,"lezione_id": string,"updated_at": string,"visti": unknown
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"completata_il"?: string | null,"created_at"?: string,"durata"?: number | null,"lezione_id": string,"updated_at"?: string,"visti"?: unknown
+                  }
+                  Update: {
+                    "client_id"?: string,"completata_il"?: string | null,"created_at"?: string,"durata"?: number | null,"lezione_id"?: string,"updated_at"?: string,"visti"?: unknown
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "aula_progressi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "aula_progressi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "aula_progressi_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "aula_progressi_lezione_id_fkey"
+      columns: ["lezione_id"]
+isOneToOne: false
+      referencedRelation: "aula_lezioni"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"calendario_collegamento": {
                   Row: {
                     "created_at": string,"dal": string | null,"eventi_letti": number | null,"id": boolean,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"ultimo_esito": string | null,"ultimo_sync_il": string | null,"updated_at": string,"updated_by": string | null,"url_aggiornato_il": string | null
@@ -390,6 +468,82 @@ isOneToOne: true
     },{
       foreignKeyName: "clienti_cartelle_created_by_fkey"
       columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"clienti_checkup": {
+                  Row: {
+                    "argomento": string | null,"call_id": string | null,"client_id": string,"coach_id": string | null,"compiti": NonNullable<Json>,"created_at": string,"created_by": string | null,"fathom_url": string | null,"giorno": string,"id": string,"notion_rif": string | null,"resoconto": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "argomento"?: string | null,"call_id"?: string | null,"client_id": string,"coach_id"?: string | null,"compiti"?: NonNullable<Json>,"created_at"?: string,"created_by"?: string | null,"fathom_url"?: string | null,"giorno": string,"id"?: string,"notion_rif"?: string | null,"resoconto"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "argomento"?: string | null,"call_id"?: string | null,"client_id"?: string,"coach_id"?: string | null,"compiti"?: NonNullable<Json>,"created_at"?: string,"created_by"?: string | null,"fathom_url"?: string | null,"giorno"?: string,"id"?: string,"notion_rif"?: string | null,"resoconto"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "clienti_checkup_call_id_fkey"
+      columns: ["call_id"]
+isOneToOne: false
+      referencedRelation: "clienti_call"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_checkup_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_checkup_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_checkup_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "clienti_checkup_coach_id_fkey"
+      columns: ["coach_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_checkup_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"clienti_checkup_appunti": {
+                  Row: {
+                    "checkup_id": string,"created_at": string,"testo": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "checkup_id": string,"created_at"?: string,"testo": string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "checkup_id"?: string,"created_at"?: string,"testo"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "clienti_checkup_appunti_checkup_id_fkey"
+      columns: ["checkup_id"]
+isOneToOne: true
+      referencedRelation: "clienti_checkup"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "clienti_checkup_appunti_updated_by_fkey"
+      columns: ["updated_by"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -3426,6 +3580,33 @@ isOneToOne: false
               "numero_rate": number,"scarto": number,"totale": number
             }[]
                            },
+"aula_lezione_aperta":
+{ Args: { "p_cliente": string,"p_lezione": string }; Returns: {
+              "corpo": string | null,
+"created_at": string,
+"id": string,
+"modulo_id": string,
+"obbligatoria": boolean,
+"ordine": number,
+"pubblicata": boolean,
+"tipo": string,
+"titolo": string,
+"updated_at": string,
+"url": string | null,
+"youtube_id": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "aula_lezioni"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"aula_lezione_completa":
+{ Args: { "p_lezione": string }; Returns: Json
+                           },
+"aula_video_progresso":
+{ Args: { "p_durata": number,"p_intervalli": (unknown)[],"p_lezione": string }; Returns: Json
+                           },
 "avanzamento_obiettivi":
 { Args: { "p_mese": string }; Returns: {
               "cash": number,"mese": string,"nuovi": number,"obiettivo_cash": number,"obiettivo_nuovi": number,"quota_cash": number,"quota_nuovi": number
@@ -3535,10 +3716,37 @@ isOneToOne: false
 "call_tick":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"campo_base_cliente":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"campo_base_di":
+{ Args: { "p_client_id": string,"p_team": boolean }; Returns: Json
+                           },
+"campo_base_guardia":
+{ Args: { "p_client_id": string }; Returns: undefined
+                           },
+"campo_base_in_pausa":
+{ Args: { "p_client_id": string }; Returns: boolean
+                           },
+"campo_base_team":
+{ Args: { "p_client_id": string }; Returns: Json
+                           },
+"campo_base_vede":
+{ Args: { "p_client_id": string }; Returns: boolean
+                           },
 "cash_mensile":
 { Args: { "p_fino"?: string,"p_mesi"?: number }; Returns: {
               "mese": string,"nuovi_clienti": number,"rate_precedenti": number,"rinnovo": number,"totale": number,"upsell": number
             }[]
+                           },
+"checkup_compiti_validi":
+{ Args: { "p": Json }; Returns: boolean
+                           },
+"checkup_elimina":
+{ Args: { "p_id": string }; Returns: boolean
+                           },
+"checkup_salva":
+{ Args: { "p_client_id": string,"p_dati": Json,"p_id": string }; Returns: Json
                            },
 "chiudi_regola_provvigione":
 { Args: { "p_rule_id": string,"p_valida_al": string }; Returns: undefined
