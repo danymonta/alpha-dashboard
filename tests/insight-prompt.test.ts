@@ -66,6 +66,11 @@ describe('the system prompt', () => {
 
   it('the sources have their headings', () => {
     for (const titolo of ['RUOLO', 'FLOW OUTBOUND', 'CONTROLLO FINALE', 'ADATTAMENTO AL RECAP AUTOMATICO']) expect(PLAYBOOK.testo).toContain(titolo)
+    // the instructions of 13/11/2026: only adults, never a price in a DM, the pectus reel
+    expect(PLAYBOOK.testo).toContain('seguo direttamente solo ragazzi maggiorenni')
+    expect(PLAYBOOK.testo).toContain('https://www.instagram.com/reel/Dd35dA-Cd-q/')
+    expect(PLAYBOOK.testo).not.toMatch(/100 euro/u)
+    expect(PLAYBOOK.testo).not.toMatch(/[\u2013\u2014]/u)
     expect(SETTING_TRAINING.testo.length).toBeGreaterThan(10_000)
     expect(M14.testo.length).toBeGreaterThan(10_000)
     expect(ICP_PERCORSO_ALPHA).toContain('Segnali in DM e in call')
@@ -92,7 +97,7 @@ describe('the system prompt', () => {
   })
 
   it('has a version', () => {
-    expect(VERSIONE_PROMPT).toMatch(/^2026-10-\d{2}\.\d+$/u)
+    expect(VERSIONE_PROMPT).toMatch(/^\d{4}-\d{2}-\d{2}\.\d+$/u)
   })
 })
 
