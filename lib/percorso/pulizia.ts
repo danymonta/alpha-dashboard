@@ -124,9 +124,10 @@ export async function togliFileQuestionario(percorsi: readonly string[], admin?:
 export type EsitoPuliziaFile = { file: number; righe: number; errori: number }
 
 /**
- * The evening: the rows da_cancellare created before today and the objects of the bucket with no
- * row (onboarding_allegati_da_togliere, service role), removed from Storage, then their rows.
- * A row goes only after its object went.
+ * The evening: the objects of every row da_cancellare and of the bucket with no row
+ * (onboarding_allegati_da_togliere, service role), removed from Storage, then the rows created
+ * before today (today's stay, solo_oggetto, for the daily limit). A row goes only after its
+ * object went; today's object goes anyway, because a signed upload URL outlives «togli».
  */
 export async function pulisciFileQuestionario(admin: Admin): Promise<EsitoPuliziaFile> {
   const esito: EsitoPuliziaFile = { file: 0, righe: 0, errori: 0 }
@@ -146,7 +147,10 @@ export async function pulisciFileQuestionario(admin: Admin): Promise<EsitoPulizi
       continue
     }
     esito.file += blocco.length
-    const ids = blocco.map((r) => r.id).filter((id): id is string => typeof id === 'string')
+    const ids = blocco
+      .filter((r) => !r.solo_oggetto)
+      .map((r) => r.id)
+      .filter((id): id is string => typeof id === 'string')
     if (ids.length === 0) continue
     const { error: errRighe, count } = await admin
       .from('onboarding_allegati')

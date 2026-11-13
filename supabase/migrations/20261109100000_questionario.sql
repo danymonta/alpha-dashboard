@@ -675,8 +675,13 @@ begin
     raise exception 'Hai già caricato 3 file qui: togline uno per aggiungerne un altro.' using errcode = '22023';
   end if;
 
-  -- every row created today (Rome), in any state: the loop prepare, upload, remove does not fill the Storage
-  select count(*), coalesce(sum(a.byte), 0) into v_oggi, v_byte_oggi
+  -- every row created today (Rome), in any state: the loop prepare, upload, remove does not fill the Storage.
+  -- A row not confirmed counts the larger of what it declared and what is in the bucket for its path.
+  select count(*), coalesce(sum(greatest(a.byte::bigint, coalesce((
+           select (o.metadata ->> 'size')::bigint
+           from storage.objects o
+           where o.bucket_id = 'onboarding-allegati' and o.name = a.percorso), 0))), 0)
+  into v_oggi, v_byte_oggi
   from public.onboarding_allegati a
   where a.client_id = v_cliente and (a.created_at at time zone 'Europe/Rome')::date = public.oggi();
   if v_oggi >= 20 or v_byte_oggi + p_byte > 104857600 then
@@ -726,12 +731,13 @@ begin
     raise exception 'Questo file non c''è più.' using errcode = '22023';
   end if;
 
-  return jsonb_build_object('id', p_id, 'allegati', public.onboarding_allegati_cliente(v_cliente));
+  return jsonb_build_object('id', p_id, 'percorso', v_cliente::text || '/' || p_id::text,
+                            'allegati', public.onboarding_allegati_cliente(v_cliente));
 end;
 $$;
 
 comment on function public.allegato_togli(uuid) is
-  'The client removes a file of the questionnaire before sending it: the row becomes da_cancellare (the evening cron removes the object). Returns { id, allegati }. Only the caller''s own client (else 42501).';
+  'The client removes a file of the questionnaire before sending it: the row becomes da_cancellare (the server action removes the object now, the evening cron again). Returns { id, percorso, allegati }. Only the caller''s own client (else 42501).';
 
 revoke all on function public.allegato_togli(uuid) from public, anon;
 grant execute on function public.allegato_togli(uuid) to authenticated;
@@ -749,6 +755,7 @@ as $$
 declare
   a public.onboarding_allegati;
   v_byte bigint;
+  v_mime text;
 begin
   select * into a
   from public.onboarding_allegati x
@@ -758,7 +765,14 @@ begin
     raise exception 'Il file non è arrivato: riprova.' using errcode = '22023';
   end if;
 
-  select (o.metadata ->> 'size')::bigint into v_byte
+  -- the questionnaire sent, or the consent revoked, in the meantime: the file is no longer welcome
+  if exists (select 1 from public.onboarding_questionari q where q.client_id = p_client_id and q.inviato_il is not null)
+     or not public.onboarding_consenso_salute(p_client_id) then
+    update public.onboarding_allegati x set stato = 'da_cancellare' where x.id = a.id;
+    return jsonb_build_object('esito', 'chiuso', 'messaggio', 'Il questionario è già stato inviato.');
+  end if;
+
+  select (o.metadata ->> 'size')::bigint, o.metadata ->> 'mimetype' into v_byte, v_mime
   from storage.objects o
   where o.bucket_id = 'onboarding-allegati' and o.name = a.percorso;
 
@@ -766,14 +780,17 @@ begin
     update public.onboarding_allegati x set stato = 'da_cancellare' where x.id = a.id;
     return jsonb_build_object('esito', 'non_arrivato', 'messaggio', 'Il file non è arrivato: riprova.');
   end if;
-  if p_tipo_letto is null or p_tipo_letto <> a.tipo then
+  -- the size declared, the type read from the first bytes and the Content-Type of the upload (the one
+  -- the storage serves the file with) all equal to the row: a polyglot declared as a photo and served
+  -- as a PDF, or a bigger file on a small declaration, never becomes a file of the questionnaire
+  if v_byte <> a.byte or p_tipo_letto is null or p_tipo_letto <> a.tipo or v_mime is distinct from a.tipo then
     update public.onboarding_allegati x set stato = 'da_cancellare' where x.id = a.id;
     return jsonb_build_object('esito', 'non_valido',
       'messaggio', 'File non valido: puoi caricare foto (JPG, PNG, WebP) o PDF fino a 10 MB.');
   end if;
 
   update public.onboarding_allegati x
-  set stato = 'caricato', caricato_il = now(), byte = v_byte::integer
+  set stato = 'caricato', caricato_il = now()
   where x.id = a.id
   returning * into a;
 
@@ -783,7 +800,7 @@ end;
 $$;
 
 comment on function public.allegato_conferma(uuid, uuid, text) is
-  'The route confirms an upload: the row of that client in_caricamento (22023 «Il file non è arrivato: riprova.» otherwise), the object in the bucket with an admitted size, the type read from its first bytes equal to the one of the row. Returns { esito: caricato, id, campo, nome_file, tipo, byte }, or { esito: non_arrivato | non_valido, messaggio } with the row da_cancellare. Service role only.';
+  'The route confirms an upload: the row of that client in_caricamento (22023 «Il file non è arrivato: riprova.» otherwise), the questionnaire not sent and the consent in force, the object in the bucket with the size the row declared, the type read from its first bytes and the Content-Type of the upload equal to the one of the row. Returns { esito: caricato, id, campo, nome_file, tipo, byte }, or { esito: chiuso | non_arrivato | non_valido, messaggio } with the row da_cancellare. Service role only.';
 
 revoke all on function public.allegato_conferma(uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.allegato_conferma(uuid, uuid, text) to service_role;
@@ -839,8 +856,9 @@ begin
 
   -- the answers go; the files are to delete (the server action removes them now, the evening cron the rest)
   delete from public.onboarding_questionari q where q.client_id = new.client_id;
-  update public.onboarding_allegati a set stato = 'da_cancellare'
-  where a.client_id = new.client_id and a.stato <> 'da_cancellare';
+  -- the names of the files go too (a name can say something about health): the rows wait for the cron
+  update public.onboarding_allegati a set stato = 'da_cancellare', nome_file = 'file tolto'
+  where a.client_id = new.client_id;
 
   -- regole and questionario open again; what depends on them and is not done is locked again
   select p.versione_flusso into v_versione from public.onboarding_percorsi p where p.client_id = new.client_id;
@@ -880,7 +898,6 @@ security invoker
 set search_path = ''
 as $$
 declare
-  v_motivo text := nullif(btrim(p_motivo), '');
   v_consenso uuid;
   v_percorsi jsonb;
 begin
@@ -890,11 +907,10 @@ begin
   if p_tipo is distinct from 'salute' then
     raise exception 'Consenso non valido' using errcode = '22023';
   end if;
-  if v_motivo is null then
-    raise exception 'Scrivi il motivo della revoca.' using errcode = '22023';
-  end if;
-  if char_length(v_motivo) > 300 then
-    raise exception 'Il motivo è troppo lungo: al massimo 300 caratteri.' using errcode = '22023';
+  -- how the client asked, from a closed list: never a free text, that could say something about health
+  -- and would reach the log and the backup
+  if p_motivo is null or p_motivo not in ('telegram', 'email', 'di_persona', 'altro') then
+    raise exception 'Scegli come il cliente ha chiesto la revoca.' using errcode = '22023';
   end if;
 
   select c.id into v_consenso
@@ -913,7 +929,7 @@ begin
 
   insert into public.onboarding_eventi (client_id, tipo, attore, autore_id, dettagli)
   values (p_client_id, 'consenso_revocato', 'team', (select auth.uid()),
-          jsonb_build_object('tipo', p_tipo, 'motivo', v_motivo));
+          jsonb_build_object('tipo', p_tipo, 'come', p_motivo));
 
   select coalesce(jsonb_agg(a.percorso order by a.created_at), '[]'::jsonb) into v_percorsi
   from public.onboarding_allegati a
@@ -924,7 +940,7 @@ end;
 $$;
 
 comment on function public.onboarding_revoca_consenso(uuid, text, text) is
-  'The admin registers the revocation of the health consent the client asked for, with a reason (300 characters at most): revocato_il and revocato_da, the answers of the questionnaire deleted, the files da_cancellare, regole and questionario available again (and what depends on them, not done, locked). Returns { client_id, tipo, percorsi } (the files the server action removes now). Admin only, never an OAuth token. Security invoker.';
+  'The admin registers the revocation of the health consent the client asked for, with how he asked (telegram, email, di_persona, altro: a closed list, never a free text in the log): revocato_il and revocato_da, the answers of the questionnaire deleted, the files da_cancellare, regole and questionario available again (and what depends on them, not done, locked). Returns { client_id, tipo, percorsi } (the files the server action removes now). Admin only, never an OAuth token. Security invoker.';
 
 revoke all on function public.onboarding_revoca_consenso(uuid, text, text) from public, anon;
 grant execute on function public.onboarding_revoca_consenso(uuid, text, text) to authenticated;
@@ -932,29 +948,30 @@ grant execute on function public.onboarding_revoca_consenso(uuid, text, text) to
 -- ---------------------------------------------------------------------------
 -- 7. The files the evening cron removes from Storage
 -- ---------------------------------------------------------------------------
--- The rows da_cancellare created before today (Rome): today's stay until tomorrow, so that the daily limit
--- of allegato_prepara counts them; and the objects of the bucket without a row (a client deleted, a row
--- already gone). The cron removes the objects with the API of Storage, then the rows (id not null).
+-- Every row da_cancellare and the objects of the bucket without a row (a client deleted, a row already gone).
+-- The object goes every evening, also for today's rows: a signed upload URL stays valid for two hours after
+-- «togli» or a revocation, and a file put there afterwards must not wait another day. The row of today stays
+-- (solo_oggetto) so that the daily limit of allegato_prepara counts it; the rows of before go after their
+-- object. The cron removes the objects with the API of Storage, then the rows (id not null, not solo_oggetto).
 create function public.onboarding_allegati_da_togliere()
-returns table (id uuid, percorso text)
+returns table (id uuid, percorso text, solo_oggetto boolean)
 language sql
 stable
 security definer
 set search_path = ''
 as $$
-  select a.id, a.percorso
+  select a.id, a.percorso, (a.created_at at time zone 'Europe/Rome')::date >= public.oggi()
   from public.onboarding_allegati a
   where a.stato = 'da_cancellare'
-    and (a.created_at at time zone 'Europe/Rome')::date < public.oggi()
   union all
-  select null::uuid, o.name
+  select null::uuid, o.name, false
   from storage.objects o
   where o.bucket_id = 'onboarding-allegati'
     and not exists (select 1 from public.onboarding_allegati a where a.percorso = o.name);
 $$;
 
 comment on function public.onboarding_allegati_da_togliere() is
-  'The files the evening cron removes from the bucket onboarding-allegati: { id, percorso } of the rows da_cancellare created before today (Rome; today''s count in the daily limit), and { null, percorso } of the objects without a row. Service role only.';
+  'The files the evening cron removes from the bucket onboarding-allegati: { id, percorso, solo_oggetto } of every row da_cancellare (solo_oggetto for today''s rows, Rome: the object goes, the row stays for the daily limit), and { null, percorso, false } of the objects without a row. Service role only.';
 
 revoke all on function public.onboarding_allegati_da_togliere() from public, anon, authenticated;
 grant execute on function public.onboarding_allegati_da_togliere() to service_role;

@@ -9,7 +9,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(101);
+select plan(105);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres)
@@ -269,6 +269,8 @@ select is(
 -- ---------------------------------------------------------------------------
 -- 3. The files
 -- ---------------------------------------------------------------------------
+-- hermetic: the seed client may have files of a manual try; inside the transaction they go
+delete from public.onboarding_allegati where client_id = '0b0b0000-0000-4000-8000-000000000001';
 select pg_temp.web('0b0b0000-0000-4000-8000-000000000031');
 select throws_ok($$ select public.allegato_prepara('attrezzatura', 'pagina.html', 'text/html', 1000) $$, '22023',
   'File non valido: puoi caricare foto (JPG, PNG, WebP) o PDF fino a 10 MB.', 'un HTML no');
@@ -321,6 +323,19 @@ set local request.jwt.claims to '{}';
 insert into storage.objects (bucket_id, name, metadata)
 values ('onboarding-allegati', pg_temp.nota('a1') ->> 'percorso', '{"size": 1000, "mimetype": "image/jpeg"}'),
        ('onboarding-allegati', pg_temp.nota('a2') ->> 'percorso', '{"size": 1000, "mimetype": "image/png"}');
+-- three rows written here (the limits of the day are full): a polyglot, a bigger upload, nothing uploaded
+insert into public.onboarding_allegati (id, client_id, campo, percorso, nome_file, tipo, byte)
+values ('0b0b0000-0000-4000-8000-0000000000a1', '0b0b0000-0000-4000-8000-000000000001', 'piano_alimentare',
+        '0b0b0000-0000-4000-8000-000000000001/0b0b0000-0000-4000-8000-0000000000a1', 'poliglotta.png', 'image/png', 1000),
+       ('0b0b0000-0000-4000-8000-0000000000a2', '0b0b0000-0000-4000-8000-000000000001', 'piano_alimentare',
+        '0b0b0000-0000-4000-8000-000000000001/0b0b0000-0000-4000-8000-0000000000a2', 'piccola.jpg', 'image/jpeg', 1000),
+       ('0b0b0000-0000-4000-8000-0000000000a3', '0b0b0000-0000-4000-8000-000000000001', 'piano_alimentare',
+        '0b0b0000-0000-4000-8000-000000000001/0b0b0000-0000-4000-8000-0000000000a3', 'assente.jpg', 'image/jpeg', 1000);
+insert into storage.objects (bucket_id, name, metadata)
+values ('onboarding-allegati', '0b0b0000-0000-4000-8000-000000000001/0b0b0000-0000-4000-8000-0000000000a1',
+        '{"size": 1000, "mimetype": "application/pdf"}'),
+       ('onboarding-allegati', '0b0b0000-0000-4000-8000-000000000001/0b0b0000-0000-4000-8000-0000000000a2',
+        '{"size": 5000, "mimetype": "image/jpeg"}');
 set local role service_role;
 select throws_ok(format($$ select public.allegato_conferma(%L, %L, 'image/jpeg') $$, pg_temp.cliente('Carla'), pg_temp.nota('a1') ->> 'id'),
   '22023', 'Il file non è arrivato: riprova.', 'il file di un altro cliente no');
@@ -335,8 +350,20 @@ select is(
   'non_valido', 'una firma diversa dal tipo dichiarato: rifiutato'
 );
 select is(
-  public.allegato_conferma(pg_temp.cliente('Carla'), (pg_temp.nota('file_carla') ->> 'id')::uuid, 'application/pdf') ->> 'esito',
+  public.allegato_conferma('0b0b0000-0000-4000-8000-000000000001', '0b0b0000-0000-4000-8000-0000000000a1', 'image/png') ->> 'esito',
+  'non_valido', 'firma PNG ma caricato come PDF (un poliglotta): rifiutato'
+);
+select is(
+  public.allegato_conferma('0b0b0000-0000-4000-8000-000000000001', '0b0b0000-0000-4000-8000-0000000000a2', 'image/jpeg') ->> 'esito',
+  'non_valido', 'caricato più grande di quello dichiarato: rifiutato'
+);
+select is(
+  public.allegato_conferma('0b0b0000-0000-4000-8000-000000000001', '0b0b0000-0000-4000-8000-0000000000a3', 'image/jpeg') ->> 'esito',
   'non_arrivato', 'nessun oggetto nel bucket: rifiutato'
+);
+select is(
+  public.allegato_conferma(pg_temp.cliente('Carla'), (pg_temp.nota('file_carla') ->> 'id')::uuid, 'application/pdf') ->> 'esito',
+  'chiuso', 'un file preparato prima dell''invio non si conferma dopo'
 );
 reset role;
 select is(
@@ -353,9 +380,9 @@ reset role;
 set local request.jwt.claims to '{}';
 set local role service_role;
 select is(
-  (select count(*)::int from public.onboarding_allegati_da_togliere() d
+  (select array_agg(d.solo_oggetto) from public.onboarding_allegati_da_togliere() d
    where d.percorso in (pg_temp.nota('a2') ->> 'percorso', pg_temp.nota('a3') ->> 'percorso')),
-  0, 'i file da cancellare di oggi restano fino a domani (il limite del giorno li conta)'
+  array[true, true], 'i file da cancellare di oggi: l''oggetto va ogni sera, la riga resta fino a domani (il limite del giorno la conta)'
 );
 reset role;
 update public.onboarding_allegati set created_at = now() - interval '2 days' where id = (pg_temp.nota('a2') ->> 'id')::uuid;
@@ -363,8 +390,10 @@ insert into storage.objects (bucket_id, name, metadata)
 values ('onboarding-allegati', pg_temp.cliente('Dario') || '/0b0b0000-0000-4000-8000-0000000000ee', '{"size": 10}');
 set local role service_role;
 select is(
-  (select array_agg(coalesce(d.id::text, 'senza riga') order by d.id is null) from public.onboarding_allegati_da_togliere() d),
-  array[pg_temp.nota('a2') ->> 'id', 'senza riga'], 'il cron toglie i file da cancellare dei giorni prima e gli oggetti senza riga'
+  (select array_agg(coalesce(d.id::text, 'senza riga') order by d.id is null) from public.onboarding_allegati_da_togliere() d
+   where not d.solo_oggetto
+     and d.percorso in (pg_temp.nota('a2') ->> 'percorso', pg_temp.cliente('Dario') || '/0b0b0000-0000-4000-8000-0000000000ee')),
+  array[pg_temp.nota('a2') ->> 'id', 'senza riga'], 'il cron toglie righe e file da cancellare dei giorni prima e gli oggetti senza riga'
 );
 reset role;
 select pg_temp.web('0b0b0000-0000-4000-8000-000000000031');
@@ -408,25 +437,25 @@ set local request.jwt.claims to '{}';
 -- 5. The revocation of the consent
 -- ---------------------------------------------------------------------------
 select pg_temp.web('22222222-2222-4222-8222-222222222222');
-select throws_ok(format($$ select public.onboarding_revoca_consenso(%L, 'salute', 'Richiesta') $$, pg_temp.cliente('Carla')),
+select throws_ok(format($$ select public.onboarding_revoca_consenso(%L, 'salute', 'telegram') $$, pg_temp.cliente('Carla')),
   '42501', null, 'il setter no');
 reset role;
 set local request.jwt.claims to '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","client_id":"9c000000-0000-4000-8000-000000000114","session_id":"9e114000-0000-4000-8000-000000000001"}';
 select set_config('alpha.mcp_filtro', 'on', true);
 set local role authenticated;
-select throws_ok(format($$ select public.onboarding_revoca_consenso(%L, 'salute', 'Richiesta') $$, pg_temp.cliente('Carla')),
+select throws_ok(format($$ select public.onboarding_revoca_consenso(%L, 'salute', 'telegram') $$, pg_temp.cliente('Carla')),
   '42501', null, 'il token di Claude dell''admin no');
 reset role;
 select set_config('alpha.mcp_filtro', '', true);
 select pg_temp.web('11111111-1111-4111-8111-111111111111');
 select throws_ok(format($$ update public.clienti_consensi set revocato_il = now() where client_id = %L $$, pg_temp.cliente('Carla')),
   '42501', 'Un consenso si revoca solo con «Registra la revoca».', 'un PATCH diretto dell''admin no');
-select throws_ok(format($$ select public.onboarding_revoca_consenso(%L, 'salute', '  ') $$, pg_temp.cliente('Carla')),
-  '22023', 'Scrivi il motivo della revoca.', 'senza motivo no');
-insert into appunti values ('revoca', public.onboarding_revoca_consenso(pg_temp.cliente('Carla'), 'salute', 'Richiesta del cliente su Telegram'));
+select throws_ok(format($$ select public.onboarding_revoca_consenso(%L, 'salute', 'si è operato') $$, pg_temp.cliente('Carla')),
+  '22023', 'Scegli come il cliente ha chiesto la revoca.', 'un testo libero no: solo come l''ha chiesto');
+insert into appunti values ('revoca', public.onboarding_revoca_consenso(pg_temp.cliente('Carla'), 'salute', 'telegram'));
 select is(pg_temp.nota('revoca') -> 'percorsi', jsonb_build_array(pg_temp.nota('file_carla') ->> 'percorso'),
   'restituisce i percorsi dei file, che la server action toglie subito');
-select throws_ok(format($$ select public.onboarding_revoca_consenso(%L, 'salute', 'Di nuovo') $$, pg_temp.cliente('Carla')),
+select throws_ok(format($$ select public.onboarding_revoca_consenso(%L, 'salute', 'email') $$, pg_temp.cliente('Carla')),
   '22023', 'Questo cliente non ha un consenso da revocare.', 'una seconda revoca no');
 reset role;
 set local request.jwt.claims to '{}';
@@ -447,9 +476,14 @@ select is(
   array['fatto', 'disponibile', 'disponibile', 'bloccato'], 'regole e questionario di nuovo da fare, il resto bloccato'
 );
 select is(
-  (select e.autore_id::text || ' ' || (e.dettagli ->> 'tipo') from public.onboarding_eventi e
+  (select e.autore_id::text || ' ' || (e.dettagli ->> 'tipo') || ' ' || (e.dettagli ->> 'come') || ' ' || (e.dettagli ? 'motivo')::text
+   from public.onboarding_eventi e
    where e.client_id = pg_temp.cliente('Carla') and e.tipo = 'consenso_revocato'),
-  '11111111-1111-4111-8111-111111111111 salute', 'il registro, con l''autore'
+  '11111111-1111-4111-8111-111111111111 salute telegram false', 'il registro, con l''autore e come l''ha chiesto: mai un testo libero'
+);
+select is(
+  (select array_agg(distinct nome_file) from public.onboarding_allegati where client_id = pg_temp.cliente('Carla')),
+  array['file tolto'], 'i nomi dei file se ne vanno con la revoca'
 );
 select pg_temp.web(pg_temp.utente('Carla'));
 select throws_ok($$ select public.questionario_salva('{}', 1, 0) $$, '22023',

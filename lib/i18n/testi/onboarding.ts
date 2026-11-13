@@ -495,16 +495,20 @@ export const ONBOARDING = bilingue(
       revocaTitolo: 'Registra la revoca',
       revocaAiuto:
         'Quando il cliente chiede di revocare il consenso sui dati della salute: si cancellano le risposte del questionario e i file, e il cliente torna alle regole.',
-      revocaMotivo: 'Motivo della revoca',
-      revocaMotivoAiuto: 'Per esempio: richiesta del cliente su Telegram del 12/11.',
+      revocaCome: 'Come l’ha chiesto il cliente',
+      revocaComeAiuto: 'Nel registro resta solo questo: nessun testo, perché qui non si scrive niente sulla salute.',
+      canaliRevoca: {
+        telegram: 'Su Telegram',
+        email: 'Per email',
+        di_persona: 'Di persona o in call',
+        altro: 'In un altro modo',
+      } as Record<string, string>,
       revocaAvanti: 'Continua',
       revocaConferma: 'Sì, revoca e cancella',
       revocaAnnulla: 'Annulla',
       revocaDomanda: 'Confermi la revoca? Le risposte del questionario e i file si cancellano subito e non si recuperano.',
       revocaFatta: 'Revoca registrata: risposte e file cancellati',
       revocaNonFatta: 'Revoca non registrata. Riprova.',
-      motivoObbligatorio: 'Scrivi il motivo della revoca.',
-      motivoLungo: 'Al massimo 300 caratteri.',
     },
 
     /** Impostazioni › Onboarding › Contenuti (1.78.0): the minimal CMS. */
@@ -1029,16 +1033,20 @@ export const ONBOARDING = bilingue(
       revocaTitolo: 'Record the withdrawal',
       revocaAiuto:
         'When the client asks to withdraw consent on health data: the questionnaire answers and the files are deleted, and the client goes back to the rules.',
-      revocaMotivo: 'Reason for the withdrawal',
-      revocaMotivoAiuto: 'For example: the client asked on Telegram on 12/11.',
+      revocaCome: 'How the client asked',
+      revocaComeAiuto: 'Only this stays in the log: no text, because nothing about health is written here.',
+      canaliRevoca: {
+        telegram: 'On Telegram',
+        email: 'By email',
+        di_persona: 'In person or on a call',
+        altro: 'Some other way',
+      } as Record<string, string>,
       revocaAvanti: 'Continue',
       revocaConferma: 'Yes, withdraw and delete',
       revocaAnnulla: 'Cancel',
       revocaDomanda: 'Confirm the withdrawal? The questionnaire answers and the files are deleted now and cannot be recovered.',
       revocaFatta: 'Withdrawal recorded: answers and files deleted',
       revocaNonFatta: 'Withdrawal not recorded. Try again.',
-      motivoObbligatorio: 'Write the reason for the withdrawal.',
-      motivoLungo: '300 characters at most.',
     },
 
     contenuti: {
@@ -1119,6 +1127,7 @@ const ERRORI_EN: Record<string, string> = {
   [E.revocaConsensoNonFatta]: 'Withdrawal not recorded. Try again.',
   'Questo cliente non ha un consenso da revocare.': 'This client has no consent to withdraw.',
   'Questo consenso è già revocato.': 'This consent is already withdrawn.',
+  [E.canaleRevoca]: 'Choose how the client asked for the withdrawal.',
   [E.controlla]: 'Check the highlighted fields.',
   [E.nonValidi]: 'Invalid data.',
   [E.nome]: 'Write the client’s first name',

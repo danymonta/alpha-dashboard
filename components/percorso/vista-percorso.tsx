@@ -82,7 +82,8 @@ function Riepilogo({ nodo, passi, nome }: { nodo: NodoPercorso; passi: readonly 
       {passi.map((p) => (
         <section key={p.chiave} className="space-y-4" data-testid={`riepilogo-${p.chiave}`}>
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <h3 className="font-heading text-lg font-semibold tracking-tight">{p.titolo}</h3>
+            {/* one step only: the title of the panel already says it */}
+            {passi.length > 1 ? <h3 className="font-heading text-lg font-semibold tracking-tight">{p.titolo}</h3> : null}
             {giornoDi(p.completatoIl) ? (
               <p className="flex items-center gap-1.5 text-sm text-status-ok">
                 <CircleCheck className="size-4" aria-hidden="true" />
@@ -90,7 +91,12 @@ function Riepilogo({ nodo, passi, nome }: { nodo: NodoPercorso; passi: readonly 
               </p>
             ) : null}
           </div>
-          {p.blocchi && p.blocchi.length > 0 ? <ListaBlocchi blocchi={p.blocchi} nome={nome} modo="rileggi" titoloPasso={p.titolo} /> : null}
+          {p.chiave === 'questionario' ? (
+            // the introduction asks to answer: once sent, a fixed line says where the answers went
+            <p className="text-[0.95rem] leading-relaxed text-muted-foreground">{T.riepilogoQuestionario}</p>
+          ) : p.blocchi && p.blocchi.length > 0 ? (
+            <ListaBlocchi blocchi={p.blocchi} nome={nome} modo="rileggi" titoloPasso={p.titolo} />
+          ) : null}
         </section>
       ))}
       {passi.length === 0 && giornoDi(nodo.completatoIl) ? (

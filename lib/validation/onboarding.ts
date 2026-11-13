@@ -73,6 +73,7 @@ export const ERRORI_ONBOARDING = {
   motivo: 'Scrivi il motivo della revoca',
   motivoLungo: 'Il motivo è troppo lungo: al massimo 300 caratteri.',
   revocaConsensoNonFatta: 'Revoca non registrata. Riprova.',
+  canaleRevoca: 'Scegli come il cliente ha chiesto la revoca.',
   giorni: 'I giorni di validità del link vanno da 1 a 90',
   nonAvviato: 'Onboarding non avviato. Riprova.',
   nonConfermato: 'Pagamento non confermato. Riprova.',
@@ -293,18 +294,21 @@ export const consensoGenitoreSchema = z.object({
   nota: z.string().trim().max(LIMITI_ONBOARDING.nota, ERRORI_ONBOARDING.nota).nullish().transform(vuotoANull),
 })
 
-/** «Revoca» always says why: the reason stays in the log. */
-/** «Registra la revoca» of the consent on health data (1.79.0): the client and the reason. */
+/** How a client asked to revoke the consent on health data: a closed list, the same as the SQL. */
+export const CANALI_REVOCA = ['telegram', 'email', 'di_persona', 'altro'] as const
+export type CanaleRevoca = (typeof CANALI_REVOCA)[number]
+
+/**
+ * «Registra la revoca» of the consent on health data (1.79.0): the client and how he asked,
+ * never a free text (it would reach the log and the backup, and could say something about health).
+ */
 export const revocaConsensoSchema = z.object({
   client_id: z.string().uuid(ERRORI_ONBOARDING.cliente),
   tipo: z.literal('salute'),
-  motivo: z
-    .string({ required_error: ERRORI_ONBOARDING.motivo, invalid_type_error: ERRORI_ONBOARDING.motivo })
-    .trim()
-    .min(1, ERRORI_ONBOARDING.motivo)
-    .max(LIMITI_ONBOARDING.motivo, ERRORI_ONBOARDING.motivoLungo),
+  motivo: z.enum(CANALI_REVOCA, { errorMap: () => ({ message: ERRORI_ONBOARDING.canaleRevoca }) }),
 })
 
+/** «Revoca» always says why: the reason stays in the log. */
 export const revocaSchema = z.object({
   invito_id: z.string().uuid(ERRORI_ONBOARDING.invito),
   motivo: z

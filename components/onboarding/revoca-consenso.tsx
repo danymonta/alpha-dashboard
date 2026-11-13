@@ -16,14 +16,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { ONBOARDING, traduciErroreOnboarding } from '@/lib/i18n/testi/onboarding'
-import { LIMITI_ONBOARDING, revocaConsensoSchema } from '@/lib/validation/onboarding'
+import { CANALI_REVOCA, revocaConsensoSchema, type CanaleRevoca } from '@/lib/validation/onboarding'
 
 /**
  * «Registra la revoca» of the consent on health data (release B1b), when the client asks the
- * team: the reason first (it stays in the log), then a second tap on a second question.
+ * team: how he asked first (a closed list: the log never holds a free text), then a second
+ * tap on a second question.
  * Nothing is revoked on the first one. The answers of the questionnaire and the files are
  * deleted and the client goes back to the rules (onboarding_revoca_consenso).
  */
@@ -33,7 +32,7 @@ export function RevocaConsenso({ clientId, cliente }: { clientId: string; client
   const t = ONBOARDING[lingua]
   const c = t.cliente
   const [aperto, setAperto] = useState(false)
-  const [motivo, setMotivo] = useState('')
+  const [motivo, setMotivo] = useState<CanaleRevoca | null>(null)
   const [erroreMotivo, setErroreMotivo] = useState<string | null>(null)
   const [sicuro, setSicuro] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
@@ -60,7 +59,7 @@ export function RevocaConsenso({ clientId, cliente }: { clientId: string; client
     setErrore(null)
     avvia(async () => {
       try {
-        const esito = await revocaConsenso({ client_id: clientId, tipo: 'salute', motivo })
+        const esito = await revocaConsenso({ client_id: clientId, tipo: 'salute', motivo: valido.data.motivo })
         if (!esito.ok) {
           setErrore(traduciErroreOnboarding(esito.errore, lingua))
           return
@@ -71,7 +70,7 @@ export function RevocaConsenso({ clientId, cliente }: { clientId: string; client
       }
       toast.success(c.revocaFatta)
       chiudi()
-      setMotivo('')
+      setMotivo(null)
     })
   }
 
@@ -99,27 +98,39 @@ export function RevocaConsenso({ clientId, cliente }: { clientId: string; client
               <span className="font-medium text-foreground">{cliente}.</span> {c.revocaAiuto}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${id}-motivo`}>{c.revocaMotivo}</Label>
-            <Textarea
-              id={`${id}-motivo`}
-              rows={3}
-              maxLength={LIMITI_ONBOARDING.motivo}
-              value={motivo}
-              onChange={(e) => {
-                setMotivo(e.target.value)
-                setSicuro(false)
-                setErroreMotivo(null)
-              }}
-              aria-required="true"
-              aria-invalid={erroreMotivo ? true : undefined}
-              aria-describedby={erroreMotivo ? `${id}-motivo-errore` : `${id}-motivo-aiuto`}
-            />
+          <fieldset
+            className="space-y-2"
+            aria-invalid={erroreMotivo ? true : undefined}
+            aria-describedby={erroreMotivo ? `${id}-motivo-errore` : `${id}-motivo-aiuto`}
+          >
+            <legend className="mb-1 text-sm font-medium">{c.revocaCome}</legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {CANALI_REVOCA.map((canale) => (
+                <label
+                  key={canale}
+                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-selezione has-[:checked]:text-selezione-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
+                >
+                  <input
+                    type="radio"
+                    name={`${id}-motivo`}
+                    value={canale}
+                    checked={motivo === canale}
+                    className="size-4 accent-primary"
+                    onChange={() => {
+                      setMotivo(canale)
+                      setSicuro(false)
+                      setErroreMotivo(null)
+                    }}
+                  />
+                  {c.canaliRevoca[canale]}
+                </label>
+              ))}
+            </div>
             <ErroreCampo id={`${id}-motivo-errore`} messaggio={erroreMotivo ?? undefined} />
             <p id={`${id}-motivo-aiuto`} className="text-xs text-muted-foreground">
-              {c.revocaMotivoAiuto}
+              {c.revocaComeAiuto}
             </p>
-          </div>
+          </fieldset>
           {sicuro ? (
             <p role="status" className="flex items-start gap-2 text-sm text-status-warning" data-testid="revoca-consenso-seconda">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

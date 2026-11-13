@@ -153,10 +153,13 @@ export function AllegatiDomanda({
   allegato,
   allegati,
   onCambia,
+  soloTogli = false,
 }: {
   allegato: AllegatoDomanda
   allegati: readonly AllegatoCliente[]
   onCambia: (aggiorna: (prima: readonly AllegatoCliente[]) => AllegatoCliente[]) => void
+  /** The answer no longer asks for these files: they show with their X, nothing new is added. */
+  soloTogli?: boolean
 }) {
   const id = useId()
   const input = useRef<HTMLInputElement | null>(null)
@@ -268,7 +271,9 @@ export function AllegatiDomanda({
         ) : null}
       </div>
 
-      {pieno ? (
+      {soloTogli ? (
+        <p className="text-sm text-muted-foreground">{T.nonServono}</p>
+      ) : pieno ? (
         <p className="text-sm text-muted-foreground">{T.pieno}</p>
       ) : (
         <>

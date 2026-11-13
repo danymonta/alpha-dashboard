@@ -107,7 +107,10 @@ export type EsitoInvia =
   | { ok: true; esito: 'cambiato'; risposte: Risposte; versione: number }
   | { ok: false; errore: string; accesso?: true; mancanti?: string[] }
 
-export type EsitoTogli = { ok: true; allegati: AllegatoCliente[] } | { ok: false; errore: string; accesso?: true }
+/** percorso: the object to remove now, for the server action; never sent to the browser. */
+export type EsitoTogli =
+  | { ok: true; allegati: AllegatoCliente[]; percorso?: string | null }
+  | { ok: false; errore: string; accesso?: true }
 
 export type EsitoPrepara = { ok: true; id: string; percorso: string } | { ok: false; errore: string; accesso?: true }
 
@@ -179,7 +182,12 @@ export async function togliAllegato(db: Db, input: unknown): Promise<EsitoTogli>
   if (!parsed.success) return { ok: false, errore: ERRORI_QUESTIONARIO.richiesta }
   const { data, error } = await db.rpc('allegato_togli', { p_id: parsed.data.id })
   if (error) return { ok: false, ...messaggio(error) }
-  return { ok: true, allegati: leggiAllegati(record(data).allegati) }
+  const r = record(data)
+  return {
+    ok: true,
+    allegati: leggiAllegati(r.allegati),
+    percorso: typeof r.percorso === 'string' ? r.percorso : null,
+  }
 }
 
 /** The row of a file to upload (allegato_prepara, with the client's session): its id and its path. */

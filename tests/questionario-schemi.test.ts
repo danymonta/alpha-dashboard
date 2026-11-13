@@ -204,6 +204,12 @@ describe('le domande del modulo Google', () => {
     ])
     expect(opzioni('livello_attivita').map((o) => o.valore)).toEqual([...LIVELLI_ATTIVITA])
     expect(opzioni('livello_attivita').map((o) => o.etichetta)).toEqual(['Sedentario', 'Attivo', 'Molto attivo'])
+    // label and detail together are the option of the form, word for word
+    expect(opzioni('livello_attivita').map((o) => `${o.etichetta} ${o.dettaglio}`)).toEqual([
+      'Sedentario (meno di 2h a settimana di esercizio fisico e/o meno di 10.000 passi al giorno)',
+      'Attivo (meno di 5h a settimana di attività fisica e/o circa 10.000 passi al giorno)',
+      'Molto attivo (più di 5h a settimana di esercizio fisico) ps: escluse le attività lavorative di routine',
+    ])
     expect(opzioni('cattive_abitudini').map((o) => o.valore)).toEqual([...CATTIVE_ABITUDINI])
     expect(opzioni('cattive_abitudini').map((o) => o.etichetta)).toEqual([
       'Fumo',

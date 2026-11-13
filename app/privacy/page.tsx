@@ -32,7 +32,7 @@ const TITOLARE: {
 }
 
 /** Change both together when the text changes. */
-const ULTIMO_AGGIORNAMENTO = { iso: '2026-10-22', testo: '22 ottobre 2026' }
+const ULTIMO_AGGIORNAMENTO = { iso: '2026-11-13', testo: '13 novembre 2026' }
 
 const TITOLO = 'Informativa privacy · Percorso Alpha'
 const DESCRIZIONE =
@@ -288,6 +288,65 @@ const SEZIONI: Sezione[] = [
           . Per le statistiche delle pagine, Meta e Percorso Alpha sono contitolari nei termini dell’accordo che Meta
           prevede per chi amministra una pagina.
         </p>
+      </>
+    ),
+  },
+  {
+    id: 'clienti-del-percorso',
+    titolo: 'Clienti del percorso',
+    contenuto: (
+      <>
+        <p>
+          Quando inizi il percorso ti mandiamo un link personale per entrare nella tua area. Questo è quello che trattiamo
+          lì, e perché.
+        </p>
+        <Elenco>
+          <li>
+            <strong className="font-semibold">L’account.</strong> Entri con la tua email e un codice che ti mandiamo per
+            email, senza password. Le email le invia per noi Resend (Stati Uniti), che riceve il tuo indirizzo e il testo
+            del messaggio con il codice.
+          </li>
+          <li>
+            <strong className="font-semibold">Il questionario iniziale.</strong> Le tue risposte: dati di contatto, età,
+            altezza e peso, allenamento, sonno, alimentazione, abitudini, infortuni o problemi fisici e i tuoi obiettivi.
+            Alcune sono <strong className="font-semibold">dati sulla salute</strong>: li trattiamo solo con il tuo
+            consenso esplicito (art. 9, paragrafo 2, lettera a, del GDPR), che dai prima di compilare, in una versione del
+            testo che registriamo con la data.
+          </li>
+          <li>
+            <strong className="font-semibold">I file.</strong> Le foto o i PDF che carichi con il questionario
+            (attrezzatura, vecchia scheda, piano alimentare). Stanno in uno spazio privato: si aprono solo con un
+            indirizzo che dura un minuto, creato per chi può leggerli. Le foto del fisico non vanno qui.
+          </li>
+          <li>
+            <strong className="font-semibold">I video guardati.</strong> Per i video del percorso contiamo i secondi che
+            hai visto, per sapere quando un passo è fatto. Il video arriva da youtube-nocookie.com solo quando lo fai
+            partire: in quel momento YouTube riceve il tuo indirizzo IP. Nessuno script di YouTube gira nelle nostre
+            pagine.
+          </li>
+          <li>
+            <strong className="font-semibold">Chi li legge.</strong> Il titolare e il coach che ti segue. Non vanno a
+            nessuna intelligenza artificiale, né nelle email, nelle notifiche o nel backup che mandiamo per email.
+          </li>
+          <li>
+            <strong className="font-semibold">Dove stanno.</strong> Nel database e nello spazio dei file di Supabase,
+            nell’Unione europea (Francoforte).
+          </li>
+          <li>
+            <strong className="font-semibold">Per quanto tempo.</strong> Per tutto il rapporto con te, anche dopo la fine
+            del percorso. Li cancelliamo quando ce lo chiedi o quando revochi il consenso. L’accesso alla tua area si chiude
+            12 mesi dopo la fine dell’ultimo percorso.
+          </li>
+          <li>
+            <strong className="font-semibold">Revocare il consenso.</strong> Puoi revocarlo quando vuoi scrivendo al tuo
+            coach o a <Email />: cancelliamo subito le risposte del questionario e i file. La revoca non cambia quello che
+            è stato fatto prima. Nella tua area, alla pagina «I tuoi consensi», trovi il testo che hai accettato e la data.
+          </li>
+          <li>
+            <strong className="font-semibold">Minori.</strong> Se chi inizia il percorso è minorenne, prima di dargli
+            l’accesso registriamo il consenso di un genitore.
+          </li>
+        </Elenco>
       </>
     ),
   },

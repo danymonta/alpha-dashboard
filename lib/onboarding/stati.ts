@@ -228,10 +228,10 @@ export function eventoInParole(evento: EventoRegistro, lingua: Lingua = 'it'): s
       return t.consensoDato
     case 'passo_completato':
       return typeof d.passo === 'string' ? t.passoCompletato(titoloPasso(d.passo, null, lingua)) : t.altro
-    // release B1b (1.79.0): the reason the admin wrote, never an answer
+    // release B1b (1.79.0): how the client asked, from a closed list; never a free text, never an answer
     case 'consenso_revocato': {
-      const motivo = typeof d.motivo === 'string' ? d.motivo.trim() : ''
-      return motivo ? t.conMotivo(t.consensoRevocato, motivo) : t.consensoRevocato
+      const come = typeof d.come === 'string' ? ONBOARDING[lingua].cliente.canaliRevoca[d.come] : undefined
+      return come ? t.conMotivo(t.consensoRevocato, come) : t.consensoRevocato
     }
     default:
       return t.altro

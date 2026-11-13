@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 
 import * as percorso from '@/lib/percorso/operazioni'
 import type { EsitoConsenso, EsitoInvia, EsitoPercorso, EsitoSalva, EsitoTogli } from '@/lib/percorso/operazioni'
+import { togliFileQuestionario } from '@/lib/percorso/pulizia'
 import { createClient } from '@/lib/supabase/server'
 
 export type { EsitoConsenso, EsitoInvia, EsitoPercorso, EsitoSalva, EsitoTogli } from '@/lib/percorso/operazioni'
@@ -57,7 +58,14 @@ export async function inviaQuestionario(input: unknown): Promise<EsitoInvia> {
   return esito
 }
 
-/** A file of the questionnaire removed before sending (the evening cron removes the object). */
+/**
+ * A file of the questionnaire removed before sending: the row da_cancellare, the object removed
+ * now with the path the database gave (the evening cron removes it again, since a signed upload
+ * URL outlives the removal). The path never goes back to the browser.
+ */
 export async function togliAllegato(input: unknown): Promise<EsitoTogli> {
-  return percorso.togliAllegato(await createClient(), input)
+  const esito = await percorso.togliAllegato(await createClient(), input)
+  if (!esito.ok) return esito
+  if (esito.percorso) await togliFileQuestionario([esito.percorso])
+  return { ok: true, allegati: esito.allegati }
 }

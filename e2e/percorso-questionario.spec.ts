@@ -276,13 +276,13 @@ test('il questionario del modulo: salvataggio, ripresa, file, invio; poi l’adm
 
   await pa.getByTestId('revoca-consenso').click()
   await pa.getByTestId('revoca-consenso-si').click()
-  await expect(pa.getByText('Scrivi il motivo della revoca')).toBeVisible()
-  await pa.getByLabel('Motivo della revoca').fill('Richiesta del cliente su Telegram')
+  await expect(pa.getByText('Scegli come il cliente ha chiesto la revoca.')).toBeVisible()
+  await pa.getByRole('radio', { name: 'Su Telegram' }).check()
   await pa.getByTestId('revoca-consenso-si').click()
   await expect(pa.getByTestId('revoca-consenso-seconda')).toBeVisible()
   await pa.getByTestId('revoca-consenso-si').click()
   await expect(pa.getByText('Revoca registrata: risposte e file cancellati')).toBeVisible()
-  await expect(pa.locator('[data-evento="consenso_revocato"]')).toContainText('Richiesta del cliente su Telegram')
+  await expect(pa.locator('[data-evento="consenso_revocato"]')).toContainText('Su Telegram')
   await admin.close()
 
   const { count: risposte } = await db.from('onboarding_questionari').select('client_id', { count: 'exact', head: true }).eq('client_id', clientId)

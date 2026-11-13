@@ -3988,7 +3988,7 @@ isOneToOne: false
                            },
 "onboarding_allegati_da_togliere":
 { Args: Record<PropertyKey, never>; Returns: {
-              "id": string,"percorso": string
+              "id": string,"percorso": string,"solo_oggetto": boolean
             }[]
                            },
 "onboarding_altro_percorso_pagato":

@@ -187,11 +187,13 @@ export function CampoEmail({ domanda: d, valore, onCambia, errore, onErroreForma
         const t = e.target.value
         setTesto(t)
         const pulito = t.trim()
+        // a value still being typed never replaces the last valid one: leaving the page halfway
+        // through a correction keeps the email the questionnaire had (the error says it on leaving)
         if (pulito === '') onCambia(null)
         else if (EMAIL.test(pulito)) {
           onCambia(pulito)
           onErroreFormato(null)
-        } else onCambia(null)
+        }
       }}
       onBlur={() => {
         const pulito = testo.trim()
@@ -267,12 +269,15 @@ function NumeroConUnita({
           className={cn(CLASSE_INPUT, 'num pr-12')}
           aria-invalid={invalido ? true : undefined}
           aria-describedby={descrizione}
+          placeholder={disabilitato ? '–' : undefined}
           onChange={(e) => onTesto(e.target.value)}
           onBlur={onBlur}
         />
-        <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-sm text-muted-foreground" aria-hidden="true">
-          {unita}
-        </span>
+        {disabilitato ? null : (
+          <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-sm text-muted-foreground" aria-hidden="true">
+            {unita}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -365,10 +370,15 @@ function Scelta({
   return (
     <label
       className={cn(
-        'relative flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors motion-reduce:transition-none',
+        'relative flex min-h-12 cursor-pointer gap-3 rounded-xl border px-4 py-3 transition-colors motion-reduce:transition-none',
+        dettaglio ? 'items-start' : 'items-center',
         'has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50',
-        scelta ? 'border-primary bg-primary/12 glow-primario' : 'border-border bg-background/50 hover:bg-accent/60',
-        compatta && 'justify-center px-0',
+        scelta
+          ? compatta
+            ? 'border-primary bg-primary text-primary-foreground glow-primario'
+            : 'border-primary bg-primary/12 glow-primario'
+          : 'border-border bg-background/50 hover:bg-accent/60',
+        compatta && 'min-w-11 justify-center px-0',
       )}
     >
       <input
@@ -385,14 +395,18 @@ function Scelta({
           className={cn(
             'flex size-5 shrink-0 items-center justify-center border-2 transition-colors motion-reduce:transition-none',
             tipo === 'radio' ? 'rounded-full' : 'rounded-md',
+            dettaglio && 'mt-0.5',
             scelta ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/60',
           )}
           aria-hidden="true"
         >
           {scelta ? <Check className="size-3.5" strokeWidth={3} /> : null}
         </span>
+      ) : scelta ? (
+        // the compact choice says it is the chosen one with a check too, never with the colour alone
+        <Check className="absolute top-1 right-1 size-3" strokeWidth={3} aria-hidden="true" />
       ) : null}
-      <span className={cn('min-w-0', compatta && 'num text-base font-semibold')}>
+      <span className={cn('min-w-0', compatta && 'num text-base font-semibold', compatta && scelta && 'font-bold')}>
         <span className={cn('block', !compatta && 'font-medium')}>{etichetta}</span>
         {dettaglio ? <span className="mt-0.5 block text-sm leading-snug text-muted-foreground">{dettaglio}</span> : null}
       </span>
@@ -406,7 +420,10 @@ export function CampoScelta({ domanda: d, valore, onCambia }: PropsCampo) {
   const compatta = d.numerica === true
   return (
     <div
-      className={cn(compatta ? 'grid max-w-md grid-cols-7 gap-2' : 'grid gap-2.5', !compatta && d.opzioni.length <= 2 && 'sm:grid-cols-2 sm:max-w-md')}
+      className={cn(
+        compatta ? 'grid max-w-md grid-cols-4 gap-2 sm:grid-cols-7' : 'grid gap-2.5',
+        !compatta && d.opzioni.length <= 2 && 'sm:grid-cols-2 sm:max-w-md',
+      )}
     >
       {d.opzioni.map((o, i) => (
         <Scelta
@@ -494,12 +511,12 @@ export function CampoMassimali({ domanda: d, valore, onCambia, errore, onErroreF
                 controlla(testi, prossimi)
               }}
               className={cn(
-                'flex h-12 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-medium whitespace-nowrap transition-colors motion-reduce:transition-none',
+                'flex h-12 w-34 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-medium whitespace-nowrap transition-colors motion-reduce:transition-none',
                 'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                 premuto ? 'border-primary bg-primary/12 glow-primario' : 'border-border bg-background/50 hover:bg-accent/60',
               )}
             >
-              {premuto ? <Check className="size-4" aria-hidden="true" /> : null}
+              <Check className={cn('size-4 shrink-0', !premuto && 'invisible')} aria-hidden="true" />
               {T.nonLoSo}
             </button>
           </div>

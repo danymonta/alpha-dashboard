@@ -14,8 +14,9 @@ const SECONDI_INDIRIZZO = 60
  * A file of a client's questionnaire, opened by the team (release B1b): the row read with
  * the session of whoever asks, under RLS (the admin; B2 the coach in charge through his own
  * function), then a signed address of 60 seconds made with the service role and a redirect.
- * A PDF is downloaded, never opened inline. Never a public address, never the path in the
- * page.
+ * Every file is downloaded (Content-Disposition: attachment), never opened inline in our
+ * origin's tab: a polyglot that slipped past the checks never runs as a page. Never a public
+ * address, never the path in the page.
  */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const parsed = allegatoIdSchema.safeParse({ id: (await params).id })
@@ -29,7 +30,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const supabase = await createClient()
   const { data: riga, error } = await supabase
     .from('onboarding_allegati')
-    .select('percorso, nome_file, tipo')
+    .select('percorso, nome_file')
     .eq('id', parsed.data.id)
     .eq('stato', 'caricato')
     .maybeSingle()
@@ -38,7 +39,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   const { data, error: errFirma } = await createAdminClient()
     .storage.from(BUCKET)
-    .createSignedUrl(riga.percorso, SECONDI_INDIRIZZO, riga.tipo === 'application/pdf' ? { download: riga.nome_file } : undefined)
+    .createSignedUrl(riga.percorso, SECONDI_INDIRIZZO, { download: riga.nome_file })
   if (errFirma || !data?.signedUrl) {
     return NextResponse.json({ errore: 'Il file non si apre: riprova.' }, { status: 503, headers: SENZA_CACHE })
   }

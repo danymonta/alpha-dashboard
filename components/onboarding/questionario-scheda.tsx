@@ -1,4 +1,4 @@
-import { ClipboardList, Download, ExternalLink, FileText, ImageIcon } from 'lucide-react'
+import { ChevronDown, ClipboardList, Download, FileText, ImageIcon } from 'lucide-react'
 
 import { oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
@@ -13,7 +13,7 @@ import { SCHERMATE, domandeDi, rispostaInParole } from '@/lib/percorso/questiona
  * the form, read only, and the files he uploaded. Health data: the admin only (RLS; B2 the
  * coach in charge through his own function). The questions and the answers stay in Italian
  * in both languages (they are the client's data, marked lang="it"). A file opens through
- * /api/onboarding/allegati/[id]: a signed address of 60 seconds, a PDF downloaded.
+ * /api/onboarding/allegati/[id]: a signed address of 60 seconds, always downloaded.
  */
 export function QuestionarioScheda({
   lingua,
@@ -53,11 +53,16 @@ export function QuestionarioScheda({
           <div lang="it" className="space-y-1">
             {SCHERMATE.map((s) => (
               <details key={s.numero} className="group rounded-lg border border-border/70" open={s.numero === 1}>
-                <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 px-3 text-sm font-medium">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
                   <span>
                     <span className="num mr-1.5 text-muted-foreground">{s.numero}.</span>
                     {s.titolo}
                   </span>
+                  {/* display:flex hides the marker of the browser: the chevron says it opens */}
+                  <ChevronDown
+                    className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                    aria-hidden="true"
+                  />
                 </summary>
                 <dl className="divide-y divide-border/70 border-t border-border/70">
                   {domandeDi(s.numero).map((d) => {
@@ -91,9 +96,7 @@ export function QuestionarioScheda({
                 <li key={a.id}>
                   <a
                     href={`/api/onboarding/allegati/${a.id}`}
-                    target={isPdf ? undefined : '_blank'}
-                    rel="noopener noreferrer"
-                    aria-label={isPdf ? t.scaricaFile(a.nome_file) : t.apriFile(a.nome_file)}
+                    aria-label={t.scaricaFile(a.nome_file)}
                     className="flex min-h-11 items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                     data-allegato-admin={a.id}
                   >
@@ -104,11 +107,7 @@ export function QuestionarioScheda({
                         {[t.campiAllegato[a.campo] ?? a.campo, isPdf ? t.filePdf : t.fileFoto, dimensioneInParole(a.byte)].join(' · ')}
                       </span>
                     </span>
-                    {isPdf ? (
-                      <Download className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    ) : (
-                      <ExternalLink className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    )}
+                    <Download className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   </a>
                 </li>
               )

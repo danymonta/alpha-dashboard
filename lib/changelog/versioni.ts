@@ -86,6 +86,41 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.79.0',
+    data: '2026-11-13',
+    titolo: 'Onboarding: il questionario del cliente',
+    riassunto:
+      'Il terzo passo del percorso è il questionario, con le domande del tuo modulo Google: il cliente lo compila in quattro parti, carica i file e lo invia; tu leggi tutto nella sua scheda. L’area clienti resta chiusa: lo provi con un cliente di prova.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Il questionario iniziale nell’area del cliente: le domande e le opzioni del «Modulo Onboarding Coaching Online», in quattro parti (Chi sei, Allenamento, Stile di vita, Obiettivi). Si salva da solo e si riprende anche da un altro telefono; nome ed email arrivano dalla scheda del cliente. Per ora lo vede solo un cliente di prova.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Con il questionario il cliente carica foto o PDF della sua attrezzatura, della vecchia scheda e del piano alimentare: stanno in uno spazio privato, si controllano dai primi byte e tu li scarichi dalla sua scheda con un indirizzo che dura un minuto.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Nella scheda di onboarding il riquadro «Questionario», con le risposte nelle quattro parti e i file. Una notifica ti avvisa quando un cliente lo invia, senza le risposte.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          '«Registra la revoca» nei consensi, quando un cliente chiede di revocare il consenso sui dati di salute: scegli come l’ha chiesto, confermi due volte e si cancellano subito le risposte e i file; il cliente torna alle regole. Le risposte e i file restano per tutto il rapporto con il cliente e se ne vanno con lui o con la revoca, mai nel backup per email.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'L’informativa privacy ha la sezione «Clienti del percorso»: l’account, il questionario e i dati di salute con il consenso, i file, i video guardati, chi li legge, quanto restano e come si revoca il consenso.',
+      },
+    ],
+  },
+  {
     versione: '1.78.0',
     data: '2026-11-13',
     titolo: 'Onboarding: l’accesso dei clienti, per ora di prova',

@@ -266,7 +266,12 @@ export function Questionario({
   async function invia() {
     if (invio) return
     setAvviso(null)
-    const locali = risposteMancanti(soloValide(risposteRef.current as Record<string, unknown>))
+    // a missing answer, or a field that still shows a value that does not hold (an email being corrected):
+    // both stop the sending, in the order of the form
+    const conFormato = Object.keys(formato).filter((k) => formato[k])
+    const locali = [...new Set([...risposteMancanti(soloValide(risposteRef.current as Record<string, unknown>)), ...conFormato])].sort(
+      (a, b) => (NUMERI.get(a) ?? 0) - (NUMERI.get(b) ?? 0),
+    )
     if (locali.length > 0) {
       mostraMancanti(locali)
       return
@@ -306,6 +311,9 @@ export function Questionario({
   const info = SCHERMATE.find((s) => s.numero === schermata)!
   const totale = SCHERMATE.length
   const mancantiPerSchermata = (n: NumeroSchermata) => domandeDi(n).filter((d) => mancanti.has(d.chiave)).length
+  // a part is done when its answers are all there, never because it comes before the open one
+  const daRispondere = new Set<string>(risposteMancanti(soloValide(risposte as Record<string, unknown>)))
+  const completa = (n: NumeroSchermata) => domandeDi(n).every((d) => !daRispondere.has(d.chiave))
   const mancantiQui = mancantiPerSchermata(schermata)
 
   return (
@@ -331,24 +339,27 @@ export function Questionario({
           {SCHERMATE.map((s) => {
             const attuale = s.numero === schermata
             const conMancanti = mancantiPerSchermata(s.numero) > 0
+            const fatta = completa(s.numero)
             return (
               <li key={s.numero}>
                 <button
                   type="button"
                   onClick={() => (attuale ? undefined : vaiA(s.numero))}
                   aria-current={attuale ? 'step' : undefined}
-                  aria-label={`${s.titolo}, ${T.parte(s.numero, totale)}${conMancanti ? `, ${T.mancano}` : ''}`}
+                  aria-label={`${s.titolo}, ${T.parte(s.numero, totale)}${conMancanti ? `, ${T.mancano}` : fatta ? `, ${T.parteCompleta}` : ''}`}
                   className={cn(
                     'group flex min-h-11 w-full flex-col items-start gap-1.5 rounded-lg px-1 pt-1.5 pb-1 text-left',
                     'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                   )}
                 >
+                  {/* the open part is taller, a done one is filled, a part with missing answers has a red outline
+                      and the warning: the colour of the open part stays, and no state is said by colour alone */}
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'h-1.5 w-full rounded-full transition-colors motion-reduce:transition-none',
-                      attuale ? 'bg-primary glow-primario' : s.numero < schermata ? 'bg-primary/55' : 'bg-muted',
-                      conMancanti && 'bg-status-critical',
+                      'w-full rounded-full transition-colors motion-reduce:transition-none',
+                      attuale ? 'h-2.5 bg-primary glow-primario' : fatta ? 'h-1.5 bg-primary/55' : 'h-1.5 bg-muted',
+                      conMancanti && 'outline-2 outline-offset-2 outline-status-critical',
                     )}
                   />
                   <span
@@ -358,7 +369,11 @@ export function Questionario({
                       attuale ? 'font-semibold text-foreground' : 'text-muted-foreground group-hover:text-foreground',
                     )}
                   >
-                    {conMancanti ? <TriangleAlert className="size-3.5 shrink-0 text-status-critical" /> : null}
+                    {conMancanti ? (
+                      <TriangleAlert className="size-3.5 shrink-0 text-status-critical" />
+                    ) : fatta && !attuale ? (
+                      <Check className="size-3.5 shrink-0 text-status-ok" />
+                    ) : null}
                     <span className="truncate max-sm:hidden">{s.titolo}</span>
                     <span className="num sm:hidden">{s.numero}</span>
                   </span>
@@ -407,7 +422,10 @@ export function Questionario({
             const valore = risposte[d.chiave]
             const errore = formato[d.chiave] ?? (mancanti.has(d.chiave) ? erroreMancante(d) : null)
             const allegato = d.allegato
-            const mostraAllegati = allegato && (!allegato.quando || String(valore ?? '') === allegato.quando)
+            const fileDelCampo = allegato ? allegati.filter((a) => a.campo === allegato.campo) : []
+            // the files already there stay in sight, with their X, even when the answer no longer asks for them
+            const richiesti = Boolean(allegato) && (!allegato?.quando || String(valore ?? '') === allegato.quando)
+            const mostraAllegati = allegato && (richiesti || fileDelCampo.length > 0)
             return (
               <BloccoDomanda
                 key={d.chiave}
@@ -418,7 +436,8 @@ export function Questionario({
                   mostraAllegati && allegato ? (
                     <AllegatiDomanda
                       allegato={allegato}
-                      allegati={allegati.filter((a) => a.campo === allegato.campo)}
+                      allegati={fileDelCampo}
+                      soloTogli={!richiesti}
                       onCambia={(aggiorna) =>
                         setAllegati((prima) => [
                           ...prima.filter((a) => a.campo !== allegato.campo),

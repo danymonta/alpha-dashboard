@@ -14,7 +14,10 @@ import {
  * «Modulo Onboarding Coaching Online», with its words and its options, in the order of the
  * form, in 4 screens (docs/onboarding/rilascio-b.md, «Codice»). One entry per question: key,
  * text of the form, kind, options, screen. Typing mistakes of the form corrected: «Sedetario»,
- * «abidutini», «Quanto ore». The keys and the values are the ones of lib/validation and of
+ * «abidutini», «Quanto ore». The examples the form gives for «successo» and «organizzazione
+ * della giornata» are not in the contract: none is invented here (to take from the form, with
+ * Dany). The lines of help under a few questions (telephone, injuries, maximums) are of the
+ * interface, not of the form. The keys and the values are the ones of lib/validation and of
  * onboarding_risposte_valide; a word changes here. No rule on the age (Dany, 12/11/2026).
  */
 
@@ -72,18 +75,19 @@ const ETICHETTE_MINUTI: Record<(typeof MINUTI_GIORNO)[number], string> = {
   '90_120': '90-120 minuti',
 }
 
+// the options of the form as they are: the label, then the words in brackets of the form, lowercase
 const ETICHETTE_ATTIVITA: Record<(typeof LIVELLI_ATTIVITA)[number], { etichetta: string; dettaglio: string }> = {
   sedentario: {
     etichetta: 'Sedentario',
-    dettaglio: 'Meno di 2h a settimana di esercizio fisico e/o meno di 10.000 passi al giorno',
+    dettaglio: '(meno di 2h a settimana di esercizio fisico e/o meno di 10.000 passi al giorno)',
   },
   attivo: {
     etichetta: 'Attivo',
-    dettaglio: 'Meno di 5h a settimana di attività fisica e/o circa 10.000 passi al giorno',
+    dettaglio: '(meno di 5h a settimana di attività fisica e/o circa 10.000 passi al giorno)',
   },
   molto_attivo: {
     etichetta: 'Molto attivo',
-    dettaglio: 'Più di 5h a settimana di esercizio fisico. Ps: escluse le attività lavorative di routine',
+    dettaglio: '(più di 5h a settimana di esercizio fisico) ps: escluse le attività lavorative di routine',
   },
 }
 
@@ -220,7 +224,6 @@ export const DOMANDE: readonly Domanda[] = [
     lungo: true,
     testo:
       'Organizzi la tua giornata solitamente? Se sì, come strutturi i tuoi impegni principali (lavoro/studio, pasti, allenamento, sonno)?',
-    aiuto: 'Per esempio: sveglia alle 7, lavoro dalle 9 alle 18, pranzo alle 13, allenamento la sera, a letto alle 23.',
   },
   {
     chiave: 'seguito_alimentazione',
@@ -281,7 +284,6 @@ export const DOMANDE: readonly Domanda[] = [
     tipo: 'testo',
     lungo: true,
     testo: 'Cosa vorrebbe dire per te avere successo con questo programma di allenamento?',
-    aiuto: 'Per esempio: fare la prima trazione, vedermi meglio allo specchio, allenarmi con costanza.',
   },
   {
     chiave: 'pronto',
