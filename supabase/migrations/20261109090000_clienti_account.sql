@@ -1,4 +1,4 @@
--- Guided onboarding, release B1a (1.78.0, «Accesso»): the client's account and its registration
+-- Guided onboarding, release B1a (1.79.0, «Accesso»): the client's account and its registration
 -- (docs/onboarding/rilascio-b.md, «Schema di B1a», 1). Dany said to go ahead on 12/11/2026.
 --
 -- * clienti_account: the user of a client, without a row in profiles. The client reads only its own row.
@@ -40,7 +40,7 @@ create table public.clienti_account (
 );
 
 comment on table public.clienti_account is
-  'The sign-in user of a client of the guided onboarding (1.78.0): no row in profiles. Active, suspended (a revoked link) or closed (12 months after the end of the last path). The admin reads all, the user only their own row; written by the triggers on auth.users and on the invite and by onboarding_pulizia, never by a session.';
+  'The sign-in user of a client of the guided onboarding (1.79.0): no row in profiles. Active, suspended (a revoked link) or closed (12 months after the end of the last path). The admin reads all, the user only their own row; written by the triggers on auth.users and on the invite and by onboarding_pulizia, never by a session.';
 
 create trigger clienti_account_set_updated_at before update on public.clienti_account
   for each row execute function public.set_updated_at();

@@ -22,7 +22,7 @@ import {
 } from '@/lib/validation/onboarding-team'
 
 /**
- * The team's work on an onboarding (release B2, 1.80.0, docs/onboarding/rilascio-b.md,
+ * The team's work on an onboarding (release B2, 1.81.0, docs/onboarding/rilascio-b.md,
  * «Funzioni del team»): the coach in charge, the responsible (the community only) and the
  * admin. The caller's client (the cookie session), never the service role for the writes:
  * the functions in SQL decide who may (onboarding_guardia_team, 42501 for anybody else and

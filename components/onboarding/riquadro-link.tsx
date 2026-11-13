@@ -147,7 +147,7 @@ export function RiquadroLink({
         </p>
       ) : null}
 
-      {/* «Cliente di prova» (1.78.0): a link not used yet */}
+      {/* «Cliente di prova» (1.79.0): a link not used yet */}
       {azioni.prova && riga.invito_id ? <ProvaCliente invitoId={riga.invito_id} prova={riga.prova === true} /> : null}
 
       {haAzioni && riga.invito_id ? (

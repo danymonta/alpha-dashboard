@@ -399,7 +399,7 @@ export async function salvaImpostazioni(ctx: Contesto, input: unknown): Promise<
 }
 
 // ---------------------------------------------------------------------------
-// Release B1a (1.78.0): the test client and «Elimina onboarding»
+// Release B1a (1.79.0): the test client and «Elimina onboarding»
 // ---------------------------------------------------------------------------
 const segnaProvaSchema = z.object({ invito_id: z.string().uuid(E.invito), prova: z.boolean() })
 const eliminaOnboardingSchema = z.object({ client_id: z.string().uuid(E.cliente) })
@@ -450,7 +450,7 @@ export async function eliminaOnboarding(ctx: Contesto, input: unknown): Promise<
 }
 
 /**
- * «Registra la revoca» of the consent on health data (1.79.0, onboarding_revoca_consenso,
+ * «Registra la revoca» of the consent on health data (1.80.0, onboarding_revoca_consenso,
  * security invoker, admin only): the answers of the questionnaire deleted, the files to delete,
  * the client back to the rules. The files go from Storage now (Storage is not cleaned from SQL),
  * with the service role and only the paths the function returned; a removal that fails never

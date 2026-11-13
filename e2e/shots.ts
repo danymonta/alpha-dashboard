@@ -57,7 +57,7 @@ for (const ruolo of RUOLI) {
   })
 }
 
-// the client's area (1.78.0): the test client of the seed, waiting for the team
+// the client's area (1.79.0): the test client of the seed, waiting for the team
 test('screenshot cliente', async ({ page }) => {
   const larghezza = page.viewportSize()?.width ?? 0
   const scorrimentoOrizzontale: string[] = []

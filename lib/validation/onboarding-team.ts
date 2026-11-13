@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { isDataISO } from '@/lib/date'
 
 /**
- * The team's work on an onboarding (release B2, 1.80.0, docs/onboarding/rilascio-b.md,
+ * The team's work on an onboarding (release B2, 1.81.0, docs/onboarding/rilascio-b.md,
  * «Funzioni del team»): the schemas of the actions of the coach in charge, of the responsible
  * (the community only) and of the admin. The same schema in the sheet and in the server
  * action; the functions in SQL check again and decide who may (onboarding_guardia_team).

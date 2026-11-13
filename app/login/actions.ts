@@ -87,7 +87,7 @@ export async function accediConPassword(
   }
 
   revalidatePath('/', 'layout')
-  // a client of the seed (1.78.0) goes straight to his area: a redirect to / answered by the
+  // a client of the seed (1.79.0) goes straight to his area: a redirect to / answered by the
   // proxy with /percorso would leave / in the address bar
   if (data?.user?.app_metadata?.tipo === 'cliente') redirect('/percorso')
   // back where the person was going, as after Google (the consent page of Claude's

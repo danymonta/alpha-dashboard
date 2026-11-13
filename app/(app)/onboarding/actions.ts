@@ -69,23 +69,23 @@ export async function salvaImpostazioni(input: unknown): Promise<Esito> {
   return onboarding.salvaImpostazioni(await nucleo(), input)
 }
 
-/** «Cliente di prova» (1.78.0): the link works with the client area closed. */
+/** «Cliente di prova» (1.79.0): the link works with the client area closed. */
 export async function segnaProva(input: unknown): Promise<EsitoLink> {
   return onboarding.segnaProva(await nucleo(), input)
 }
 
-/** «Elimina onboarding» (1.78.0): only before the client registers. */
+/** «Elimina onboarding» (1.79.0): only before the client registers. */
 export async function eliminaOnboarding(input: unknown): Promise<Esito> {
   return onboarding.eliminaOnboarding(await nucleo(), input)
 }
 
-/** «Registra la revoca» of the consent on health data (1.79.0): answers and files deleted. */
+/** «Registra la revoca» of the consent on health data (1.80.0): answers and files deleted. */
 export async function revocaConsenso(input: unknown): Promise<Esito> {
   return onboarding.revocaConsenso(await nucleo(), input)
 }
 
 // ---------------------------------------------------------------------------
-// Release B2 (1.80.0): the team's work, the coach in charge, the responsible and the admin
+// Release B2 (1.81.0): the team's work, the coach in charge, the responsible and the admin
 // (lib/onboarding/operazioni-team.ts). The functions in SQL decide who may.
 // ---------------------------------------------------------------------------
 export type { EsitoArea, EsitoTeam } from '@/lib/onboarding/operazioni-team'

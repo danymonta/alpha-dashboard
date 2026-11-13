@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Impostazioni › Onboarding (1.77.0): the people the wizard proposes, the community's
- * link and the days a link lasts. Release B2 (1.80.0): the booking page, the email
+ * link and the days a link lasts. Release B2 (1.81.0): the booking page, the email
  * «Tocca a te» and the switch «Area clienti», which opens and closes only through its two
  * functions (with their checks).
  */

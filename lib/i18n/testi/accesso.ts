@@ -30,7 +30,7 @@ export const ACCESSO = bilingue(
     cambiaEmail: 'Cambia email',
     inviaDiNuovo: 'Invia di nuovo',
     ambienteLocale: 'Ambiente locale: accesso rapido con gli utenti di prova.',
-    // 1.78.0: the clients of the path come in from /entra
+    // 1.79.0: the clients of the path come in from /entra
     cliente: 'Sei un cliente del Percorso Alpha? Entra da qui',
   },
   {

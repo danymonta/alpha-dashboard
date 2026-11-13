@@ -17,7 +17,7 @@ import { destinazioneSicura } from '@/lib/auth/origine'
  * The MCP endpoint and its OAuth metadata: Claude calls them without cookies
  * and must get 401, not a redirect to /login (the route checks the bearer
  * token itself). /oauth/consent stays behind the session.
- * The client's way in (1.78.0): the personal link, /entra and the page that says why a
+ * The client's way in (1.79.0): the personal link, /entra and the page that says why a
  * session has no way in.
  */
 export const PERCORSI_PUBBLICI = [

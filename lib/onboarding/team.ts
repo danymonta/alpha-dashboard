@@ -5,7 +5,7 @@ import type { Coda, RigaIncaricato } from '@/lib/onboarding/code'
 import { LetturaNonRiuscita } from '@/lib/onboarding/letture'
 
 /**
- * How the people in charge read their clients (release B2, 1.80.0,
+ * How the people in charge read their clients (release B2, 1.81.0,
  * docs/onboarding/rilascio-b.md, «Letture degli incaricati»): only from the two functions,
  * with the session of whoever reads, never a table of the client and never the service role.
  * The admin reads the same functions for the team's queues and actions on his own pages.

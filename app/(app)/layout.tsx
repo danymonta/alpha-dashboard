@@ -92,7 +92,7 @@ async function contaNotifiche(): Promise<number> {
 }
 
 /**
- * The item «Onboarding» for the people in charge (release B2, 1.80.0): one head count under
+ * The item «Onboarding» for the people in charge (release B2, 1.81.0): one head count under
  * RLS on onboarding_incarichi, which gives a coach, reviewer or responsible his rows only from
  * the client's registration on. The admin has the item anyway; 0 when the query fails.
  */

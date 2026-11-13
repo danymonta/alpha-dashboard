@@ -176,7 +176,7 @@ select ok(pg_temp.conta('profiles') >= 6, 'e i profili del team (nomi per i memb
 select is(pg_temp.altre_aree(), '', 'admin: report, registro, Insight e notifiche restano chiusi (soldi e costi sono delle fasi 3 e 4)');
 
 select pg_temp.claude('44444444-4444-4444-8444-444444444444', '9e000000-0000-4000-8000-000000000004');
--- 4 of 10_progetti.sql and the project of the client he follows in the onboarding (62_percorso_team.sql, 1.80.0)
+-- 4 of 10_progetti.sql and the project of the client he follows in the onboarding (62_percorso_team.sql, 1.81.0)
 select is(pg_temp.conta('pm_progetti'), 5::bigint, 'il coach legge solo i 5 progetti di cui è membro');
 select is(pg_temp.conta('v_pm_progetti'), 5::bigint, 'anche dalla vista');
 select is(

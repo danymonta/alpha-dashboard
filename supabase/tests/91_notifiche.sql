@@ -207,7 +207,7 @@ select ok(not (public.backup_completo() ? 'notifiche'), 'il backup non legge le 
 select ok(public.backup_completo() ? 'clients', 'ma legge ancora le altre tabelle');
 
 -- ---------------------------------------------------------------------------
--- 6. The notices of the clients of the onboarding (1.78.0): an app-only kind, to the admins
+-- 6. The notices of the clients of the onboarding (1.79.0): an app-only kind, to the admins
 -- ---------------------------------------------------------------------------
 select is(
   public.notifiche_avviso_admin('onboarding_cliente', 'Mario Rossi si è registrato al percorso',

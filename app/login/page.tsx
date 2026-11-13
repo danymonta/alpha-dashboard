@@ -89,7 +89,7 @@ export default async function LoginPage({
           ) : null}
         </VetroLiquido>
 
-        {/* the clients of the path (1.78.0) have their own door, with a code and no Google */}
+        {/* the clients of the path (1.79.0) have their own door, with a code and no Google */}
         <p className="mt-6 text-center text-sm">
           <Link href="/entra" className="inline-flex min-h-11 items-center text-muted-foreground underline underline-offset-4 hover:text-foreground">
             {t.cliente}

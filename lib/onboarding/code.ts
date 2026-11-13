@@ -1,5 +1,5 @@
 /**
- * The onboarding as the people in charge read it (release B2, 1.80.0,
+ * The onboarding as the people in charge read it (release B2, 1.81.0,
  * docs/onboarding/rilascio-b.md, «Letture degli incaricati»): the groups of their list and
  * the queues on top of it. Pure: every row comes from public.onboarding_incaricati_elenco(),
  * which decides the group and gives each person only the queues of his incarico (the reviewer

@@ -1,6 +1,8 @@
 import { CalendarPlus, PhoneOff } from 'lucide-react'
+import { Suspense } from 'react'
 
 import { CAMPI_CALL_CLOSER, CAMPI_CALL_SETTER, SchedaCall, type CallVista } from '@/app/(app)/calls/scheda-call'
+import { PrenotateCalendly, ScheletroPrenotate } from '@/components/calendario/prenotate-calendly'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -135,6 +137,13 @@ export default async function LeMieCallPage() {
     </LinkBottone>
   )
 
+  // the calendar «Dany Discovery Call» next to the app (Dany, 13/11/2026): admin only, never waited for
+  const prenotate = admin ? (
+    <Suspense fallback={<ScheletroPrenotate lingua={lingua} />}>
+      <PrenotateCalendly da="/calls" />
+    </Suspense>
+  ) : null
+
   const intestazione =
     vista === 'closer' ? (
       <IntestazionePagina
@@ -152,8 +161,9 @@ export default async function LeMieCallPage() {
 
   if (calls.length === 0 && senzaVendita.length === 0) {
     return (
-      <div className="max-w-2xl">
+      <div className="max-w-2xl space-y-6">
         {intestazione}
+        {prenotate}
         {vista === 'setter' ? (
           <StatoVuoto
             Icona={CalendarPlus}
@@ -200,6 +210,7 @@ export default async function LeMieCallPage() {
   return (
     <div className="max-w-2xl space-y-6">
       {intestazione}
+      {prenotate}
 
       {vista === 'closer' ? (
         <>

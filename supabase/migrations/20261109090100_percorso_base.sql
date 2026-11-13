@@ -1,4 +1,4 @@
--- Guided onboarding, release B1a (1.78.0): contents, consents and videos of the client's path
+-- Guided onboarding, release B1a (1.79.0): contents, consents and videos of the client's path
 -- (docs/onboarding/rilascio-b.md, «Schema di B1a», 2).
 --
 -- * onboarding_passi_def.sblocco: obiettivo and programma are opened by the team, never by the automatic unlock.
@@ -50,7 +50,7 @@ create table public.contenuti_blocchi (
 create index contenuti_blocchi_passo_idx on public.contenuti_blocchi (versione_flusso, pagina, passo, ordine);
 
 comment on table public.contenuti_blocchi is
-  'The minimal CMS (1.78.0): the blocks of the client''s pages (a step of a version of the flow, or the page after the launch), in order. The admin writes them; the client receives the published ones only from percorso_cliente(), and only for the steps it has unlocked.';
+  'The minimal CMS (1.79.0): the blocks of the client''s pages (a step of a version of the flow, or the page after the launch), in order. The admin writes them; the client receives the published ones only from percorso_cliente(), and only for the steps it has unlocked.';
 
 create trigger contenuti_blocchi_set_updated_at before update on public.contenuti_blocchi
   for each row execute function public.set_updated_at();
@@ -291,7 +291,7 @@ begin
           exists (select 1 from public.onboarding_inviti where client_id = p_id)
           or exists (select 1 from public.onboarding_percorsi where client_id = p_id)
         ),
-        -- and the client's access to the path (1.78.0)
+        -- and the client's access to the path (1.79.0)
         'accesso_cliente', exists (select 1 from public.clienti_account where client_id = p_id)
       );
     when 'onboarding' then

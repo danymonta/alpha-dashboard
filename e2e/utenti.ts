@@ -36,7 +36,7 @@ export const NOTIFICA_BACKUP_SEED = 'dd000001-0000-4000-8000-000000000003'
 export const CLIENTE_ONBOARDING_SEED = '0b0a0000-0000-4000-8000-000000000001'
 
 /**
- * The test client of the client's area (supabase/seeds/61_percorso.sql, 1.78.0): registered
+ * The test client of the client's area (supabase/seeds/61_percorso.sql, 1.79.0): registered
  * through the client's branch of the trigger, with a password for the development login only.
  * Not in UTENTI: he has no role and no profile. His pages are the ones of /percorso.
  */

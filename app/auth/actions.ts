@@ -12,7 +12,7 @@ export async function esci(): Promise<void> {
   redirect('/login')
 }
 
-/** «Esci» of the client's area (1.78.0): this browser only, then the client's door. */
+/** «Esci» of the client's area (1.79.0): this browser only, then the client's door. */
 export async function esciCliente(): Promise<void> {
   const supabase = await createClient()
   await supabase.auth.signOut({ scope: 'local' })

@@ -77,7 +77,7 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
   const tema = temaDaCookie((await cookies()).get(COOKIE_TEMA)?.value)
   // the language of this device (cookie «alpha_lingua»), or of the role without one (1.53.0)
   const lingua = await getLingua()
-  // the client's pages have a Content-Security-Policy with a nonce (1.78.0): the first-paint script carries it
+  // the client's pages have a Content-Security-Policy with a nonce (1.79.0): the first-paint script carries it
   const nonce = (await headers()).get('x-nonce') ?? undefined
   return (
     // suppressHydrationWarning: the first-paint script may add «light» to the class for «Sistema»

@@ -969,7 +969,7 @@ select ok(
 );
 
 -- ---------------------------------------------------------------------------
--- 16. The test invite (1.78.0, 20261109090000_clienti_account.sql) and the token in clear gone at the use
+-- 16. The test invite (1.79.0, 20261109090000_clienti_account.sql) and the token in clear gone at the use
 -- ---------------------------------------------------------------------------
 select pg_temp.web('11111111-1111-4111-8111-111111111111');
 select pg_temp.nuovo('Prova');

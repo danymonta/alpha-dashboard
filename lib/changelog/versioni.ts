@@ -86,7 +86,7 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
-    versione: '1.80.0',
+    versione: '1.81.0',
     data: '2026-11-13',
     titolo: 'Onboarding: il percorso fino al lancio',
     riassunto:
@@ -131,7 +131,7 @@ export const VERSIONI: readonly Versione[] = [
     ],
   },
   {
-    versione: '1.79.0',
+    versione: '1.80.0',
     data: '2026-11-13',
     titolo: 'Onboarding: il questionario del cliente',
     riassunto:
@@ -166,7 +166,7 @@ export const VERSIONI: readonly Versione[] = [
     ],
   },
   {
-    versione: '1.78.0',
+    versione: '1.79.0',
     data: '2026-11-13',
     titolo: 'Onboarding: l’accesso dei clienti, per ora di prova',
     riassunto:
@@ -202,6 +202,43 @@ export const VERSIONI: readonly Versione[] = [
         per: ['admin'],
         testo:
           'L’accesso con il codice via email è più protetto: un limite per ogni connessione e per ogni indirizzo, uguale per il team e per i clienti, e la risposta non dice mai di chi è un indirizzo. Per te e per il team l’accesso funziona come prima.',
+      },
+    ],
+  },
+  {
+    versione: '1.78.0',
+    data: '2026-11-13',
+    titolo: 'Le call del calendario entrano nella pipeline con un tocco',
+    riassunto:
+      'In «Le mie call» e in Pipeline vedi le call prenotate su Calendly nei prossimi 30 giorni che nel gestionale non ci sono ancora, e le aggiungi con un tocco.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'In cima a «Le mie call» e a Pipeline, «Prenotate su Calendly, non ancora nel gestionale»: le call di vendita del calendario «Dany Discovery Call» dei prossimi 30 giorni senza una call nel gestionale, con nome, handle Instagram, giorno e ora, età e risposta sul budget del modulo. «Aggiungi alla pipeline» apre Nuova call già compilata: scegli la fonte e salvi. Nomi e risposte si leggono dal calendario quando apri la pagina e non si salvano; se tutto coincide, una riga lo dice.',
+      },
+    ],
+    correzioni: [],
+  },
+  {
+    versione: '1.77.3',
+    data: '2026-11-13',
+    titolo: 'Insight: messaggi con le nuove istruzioni setter',
+    riassunto:
+      'I messaggi che l’Insight suggerisce per i DM seguono le istruzioni setter aggiornate di Dany: aperture diverse per chi arriva dai video sul petto scavato, domanda di permesso prima del mini-audit, reel sul pectus, mai una cifra in DM e solo maggiorenni.',
+    intestazionePer: ['setter'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['setter'],
+        testo:
+          'Il messaggio pronto da inviare segue le istruzioni setter aggiornate: dopo l’obiettivo la domanda di permesso prima delle altre domande, la risposta al prezzo con il template «Ti rispondo onestamente», il reframe sui no gentili, il reel sul petto scavato a chi chiede che esercizi fare, mai un orario proposto o accettato in DM.',
+      },
+      {
+        per: ['setter'],
+        testo:
+          'Seguiamo solo maggiorenni: a un lead sotto i 18 anni l’Insight propone solo l’uscita calorosa verso i contenuti gratuiti, mai una call, il Calendly o una cifra. Se un messaggio ne proponesse una, non viene mostrato e la scheda dice di scriverlo a mano. Nell’agenda, una call con un minorenne non ha più il promemoria: la decide Dany.',
       },
     ],
   },

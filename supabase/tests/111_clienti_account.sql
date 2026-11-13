@@ -1,4 +1,4 @@
--- Guided onboarding, release B1a (1.78.0, 20261109090000_clienti_account.sql): the client's account.
+-- Guided onboarding, release B1a (1.79.0, 20261109090000_clienti_account.sql): the client's account.
 -- The client's branch of handle_new_user (only a user born with the id a verified registration reserved;
 -- any condition missing is 42501 and never the team's branch), the team's branch as it was, the addresses
 -- of team and clients that never cross (invites, email changes), no password for a client, every row of the

@@ -13,7 +13,7 @@ export const TIPI_EMAIL = ['riepilogo_settimana', 'tempo_team', 'contenuti_setti
  * da approvare, spesa di Claude vicina al limite» · «si tutte»): they exist only in the app, no email.
  * From 1.77.0 also «onboarding_pagamento»: the payment of a new client is confirmed and his onboarding link is
  * active (written by the trigger of public.onboarding_inviti, never an amount).
- * From 1.78.0 «onboarding_cliente»: a client of the path registered, used an email different from the
+ * From 1.79.0 «onboarding_cliente»: a client of the path registered, used an email different from the
  * card's, paid with the access suspended, or his sale moved to another client (20261109090000_clienti_account.sql).
  */
 export const TIPI_AVVISO = [

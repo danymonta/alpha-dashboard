@@ -1,4 +1,4 @@
--- Guided onboarding, release B1b (1.79.0): the questionnaire (docs/onboarding/rilascio-b.md, «Schema di B1b»).
+-- Guided onboarding, release B1b (1.80.0): the questionnaire (docs/onboarding/rilascio-b.md, «Schema di B1b»).
 --
 -- * onboarding_questionari: the answers of the client (health data). The admin reads them; nobody writes them
 --   from a session: only the client's functions below. Outside the backup (already named by B1a).
@@ -276,7 +276,7 @@ create table public.onboarding_questionari (
 );
 
 comment on table public.onboarding_questionari is
-  'The answers of a client''s onboarding questionnaire (1.79.0): health data, with the consent of the client. The admin reads them; written only by the client''s functions; outside the backup; kept as long as the client exists, deleted with him or at the revocation of the consent.';
+  'The answers of a client''s onboarding questionnaire (1.80.0): health data, with the consent of the client. The admin reads them; written only by the client''s functions; outside the backup; kept as long as the client exists, deleted with him or at the revocation of the consent.';
 
 create trigger onboarding_questionari_set_updated_at before update on public.onboarding_questionari
   for each row execute function public.set_updated_at();
@@ -1020,9 +1020,9 @@ begin
           exists (select 1 from public.onboarding_inviti where client_id = p_id)
           or exists (select 1 from public.onboarding_percorsi where client_id = p_id)
         ),
-        -- and the client's access to the path (1.78.0)
+        -- and the client's access to the path (1.79.0)
         'accesso_cliente', exists (select 1 from public.clienti_account where client_id = p_id),
-        -- and the questionnaire with its files (1.79.0)
+        -- and the questionnaire with its files (1.80.0)
         'questionario', (
           exists (select 1 from public.onboarding_questionari where client_id = p_id)
           or exists (select 1 from public.onboarding_allegati where client_id = p_id and stato <> 'da_cancellare')

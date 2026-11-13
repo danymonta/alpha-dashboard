@@ -1,7 +1,7 @@
--- Demo data for the client's area of the guided onboarding (1.78.0, docs/onboarding/rilascio-b.md, B1a):
+-- Demo data for the client's area of the guided onboarding (1.79.0, docs/onboarding/rilascio-b.md, B1a):
 -- two invented clients with a test invite, each registered through the client's branch of
 -- handle_new_user exactly as /join does it (a verified registration with the reserved id). Davide Ferri
--- has done the welcome and the rules and is half way through the questionnaire (1.79.0); Luca Marini did the
+-- has done the welcome and the rules and is half way through the questionnaire (1.80.0); Luca Marini did the
 -- welcome and the rules, then his link was revoked, so his account is suspended. Two sign-in accounts for
 -- the development login (password alpha1234: an insert, the trigger of the passwords looks at updates only):
 --   davide.ferri@example.test  active client
@@ -110,7 +110,7 @@ begin
     if r.revocato then
       update public.onboarding_inviti set stato = 'revocato', revocato_motivo = 'Prova del seed' where id = r.invito;
     else
-      -- the questionnaire half done (1.79.0): the first screen and part of the second, invented answers
+      -- the questionnaire half done (1.80.0): the first screen and part of the second, invented answers
       insert into public.onboarding_questionari (client_id, risposte, versione, schermata, created_at)
       values (r.cliente, jsonb_build_object(
                 'nome_cognome', r.nome || ' ' || r.cognome,

@@ -111,7 +111,7 @@ test('benvenuto col video visto, regole e consenso, poi il questionario: a 390 p
   await expect(azione).toBeEnabled()
   await azione.click()
 
-  // B1b (1.79.0): the questionnaire opens right after the rules (the waiting panel comes after it, percorso-questionario.spec.ts)
+  // B1b (1.80.0): the questionnaire opens right after the rules (the waiting panel comes after it, percorso-questionario.spec.ts)
   await expect(pannello).toHaveAttribute('data-vista', 'passo:questionario')
   await expect(page.getByRole('heading', { level: 2, name: 'Questionario iniziale' })).toBeFocused()
   await expect(pannello.getByRole('link', { name: 'Compila il questionario' })).toBeVisible()

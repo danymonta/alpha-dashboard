@@ -473,17 +473,17 @@ values ('evento-75@calendly.com', now() - interval '3 days', now() + interval '1
 on conflict (uid) do nothing;
 -- The admin's personal expenses (1.68.0), which the seed leaves empty
 insert into public.spese_personali (data, categoria, descrizione, importo) values ('2024-01-15', 'casa', 'Affitto 75', 700);
--- The client's area (1.78.0): a registration in progress and the limits of /entra, which the seed leaves empty
+-- The client's area (1.79.0): a registration in progress and the limits of /entra, which the seed leaves empty
 insert into public.onboarding_registrazioni (invito_id, chiave_hash, chiave_scade_il)
 values ('0b0a0000-0000-4000-8000-000000000021', repeat('7', 64), now() + interval '30 minutes')
 on conflict (invito_id) do nothing;
 insert into public.clienti_accesso_limiti (chiave, invii) values ('tutti', 1) on conflict (chiave) do nothing;
--- The questionnaire (1.79.0): a file of the seed's active client, which the seed leaves without files
+-- The questionnaire (1.80.0): a file of the seed's active client, which the seed leaves without files
 insert into public.onboarding_allegati (id, client_id, campo, percorso, nome_file, tipo, byte)
 values ('75750000-0000-4000-8000-000000000276', '0b0b0000-0000-4000-8000-000000000001', 'attrezzatura',
         '0b0b0000-0000-4000-8000-000000000001/75750000-0000-4000-8000-000000000276', 'sbarra.jpg', 'image/jpeg', 1000)
 on conflict (id) do nothing;
--- The work of the team (1.80.0): an onboarding call and a delivery of the seed's active client
+-- The work of the team (1.81.0): an onboarding call and a delivery of the seed's active client
 insert into public.clienti_call (id, client_id, tipo, inizio, stato)
 values ('75750000-0000-4000-8000-000000000277', '0b0b0000-0000-4000-8000-000000000001', 'checkpoint',
         now() + interval '30 days', 'prenotata')
@@ -787,7 +787,7 @@ begin
   perform pg_temp.prova('onboarding_revoca', $q$ select public.onboarding_revoca('0b0a0000-0000-4000-8000-000000000021', 'Da Claude')::text $q$);
   perform pg_temp.prova('onboarding_riattiva', $q$ select public.onboarding_riattiva('0b0a0000-0000-4000-8000-000000000021')::text $q$);
   perform pg_temp.prova('onboarding_rigenera_link', $q$ select public.onboarding_rigenera_link('0b0a0000-0000-4000-8000-000000000021')::text $q$);
-  -- the client's area (1.78.0): the client's functions start from cliente_corrente(), null for every OAuth
+  -- the client's area (1.79.0): the client's functions start from cliente_corrente(), null for every OAuth
   -- token; the admin's two (security invoker) refuse it explicitly
   perform pg_temp.prova('onboarding_segna_prova', $q$ select public.onboarding_segna_prova('0b0a0000-0000-4000-8000-000000000021', true)::text $q$);
   perform pg_temp.prova('onboarding_elimina', $q$ select public.onboarding_elimina('0b0a0000-0000-4000-8000-000000000001')::text $q$);
@@ -795,7 +795,7 @@ begin
   perform pg_temp.prova('percorso_avanza', $q$ select public.percorso_avanza('benvenuto', 'completa', '{}')::text $q$);
   perform pg_temp.prova('consenso_dai', $q$ select public.consenso_dai('salute', '2026-11-12')::text $q$);
   perform pg_temp.prova('video_progresso', $q$ select public.video_progresso(gen_random_uuid(), null, 100, array[int4range(0, 10)])::text $q$);
-  -- the questionnaire (1.79.0): the client's functions start from cliente_corrente(); the admin's revocation
+  -- the questionnaire (1.80.0): the client's functions start from cliente_corrente(); the admin's revocation
   -- (security invoker) refuses an OAuth token explicitly
   perform pg_temp.prova('questionario_cliente', $q$ select public.questionario_cliente()::text $q$);
   perform pg_temp.prova('questionario_salva', $q$ select public.questionario_salva('{}'::jsonb, 1, 0)::text $q$);
@@ -804,7 +804,7 @@ begin
   perform pg_temp.prova('allegato_togli', $q$ select public.allegato_togli('75750000-0000-4000-8000-000000000276')::text $q$);
   perform pg_temp.prova('onboarding_revoca_consenso', $q$ select public.onboarding_revoca_consenso('0b0b0000-0000-4000-8000-000000000001',
     'salute', 'Da Claude')::text $q$);
-  -- the work of the team (1.80.0): the reads of the people in charge and the actions of the coach and of the
+  -- the work of the team (1.81.0): the reads of the people in charge and the actions of the coach and of the
   -- admin refuse an OAuth token first, the admin's too
   perform pg_temp.prova('onboarding_incaricati_elenco', $q$ select count(*)::text from public.onboarding_incaricati_elenco() $q$);
   perform pg_temp.prova('onboarding_incaricato_attivo', $q$ select public.onboarding_incaricato_attivo('0b0b0000-0000-4000-8000-000000000001')::text $q$);

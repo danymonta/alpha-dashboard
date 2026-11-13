@@ -190,7 +190,7 @@ select results_eq(
      order by 1 $$,
   $$ select x collate "C" from unnest(array[
        'aggiorna_mio_profilo', 'aggiorna_stato_lead', 'aggiungi_rata', 'anteprima_eliminazione',
-       -- the questionnaire (1.79.0): the client's functions, each starting from cliente_corrente() (42501 for
+       -- the questionnaire (1.80.0): the client's functions, each starting from cliente_corrente() (42501 for
        -- an OAuth token); allegato_conferma and onboarding_allegati_da_togliere are the service role's only
        'allegato_prepara', 'allegato_togli', 'questionario_cliente', 'questionario_invia', 'questionario_salva',
        -- the calendar «Dany Discovery Call» (1.76.0): the admin links it; the booked calls of each day (admin,
@@ -204,7 +204,7 @@ select results_eq(
        'fathom_chiave_presente', 'fathom_imposta_chiave', 'fathom_togli_chiave',
        'marketing_spunti_richiedi', 'scollega_registrazione', 'spunti_per_claude',
        'call_ha_follow_up', 'call_ha_vendita',
-       -- the client's area (1.78.0): each one starts from cliente_corrente(), null for an OAuth token (42501)
+       -- the client's area (1.79.0): each one starts from cliente_corrente(), null for an OAuth token (42501)
        'consenso_dai',
        'current_role', 'elimina_call', 'elimina_cliente',
        'elimina_lead', 'elimina_persona', 'elimina_prodotto', 'elimina_rata', 'fissa_follow_up',
@@ -225,7 +225,7 @@ select results_eq(
        'messenger_imposta_token', 'messenger_togli_token', 'messenger_token_presente',
        -- the onboarding (1.77.0): whether the caller is in charge of a registered client; false for Claude's token
        'onboarding_incaricato',
-       -- the work of the team on the onboarding (1.80.0): the reads of the people in charge and the actions of the
+       -- the work of the team on the onboarding (1.81.0): the reads of the people in charge and the actions of the
        -- coach in charge (the responsible for the community) and of the admin; each refuses an OAuth token first
        'onboarding_allegato_apri', 'onboarding_call_conferma', 'onboarding_call_esito', 'onboarding_community',
        'onboarding_consegna_aggiungi', 'onboarding_consegna_togli', 'onboarding_incaricati_elenco',

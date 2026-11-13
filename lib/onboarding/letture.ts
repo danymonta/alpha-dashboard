@@ -254,13 +254,13 @@ export type SchedaOnboarding = {
    * With the area closed the token is not even read.
    */
   link: LinkScheda | null
-  /** The consents the client gave (1.78.0), the most recent first. */
+  /** The consents the client gave (1.79.0), the most recent first. */
   consensi: ConsensoScheda[]
-  /** The videos of the CMS the client watched (1.78.0): title, percentage and when it reached 90%. */
+  /** The videos of the CMS the client watched (1.79.0): title, percentage and when it reached 90%. */
   video: VideoScheda[]
-  /** The questionnaire (1.79.0): health data, read only by the admin (RLS). */
+  /** The questionnaire (1.80.0): health data, read only by the admin (RLS). */
   questionario: QuestionarioScheda | null
-  /** Its files uploaded (1.79.0): opened through /api/onboarding/allegati/[id], never by their path. */
+  /** Its files uploaded (1.80.0): opened through /api/onboarding/allegati/[id], never by their path. */
   allegati: AllegatoScheda[]
 }
 
@@ -357,7 +357,7 @@ export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboa
 
   const r = riga.data
   let link: LinkScheda | null = null
-  // a test link (1.78.0) can be copied with the area closed
+  // a test link (1.79.0) can be copied with the area closed
   if ((impostazioni.aperto_ai_clienti || r.prova === true) && r.invito_id && r.slug && r.invito_stato === 'attivo') {
     const { data: token, error } = await db
       .from('onboarding_inviti_token')

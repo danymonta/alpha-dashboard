@@ -42,13 +42,13 @@ export async function eliminaCliente(input: unknown): Promise<Esito> {
   if (negato) return { ok: false, errore: negato }
 
   const supabase = await createClient()
-  // the client's access to the path (1.78.0): its user, read before the account goes with the client
+  // the client's access to the path (1.79.0): its user, read before the account goes with the client
   const { data: account } = await supabase
     .from('clienti_account')
     .select('user_id')
     .eq('client_id', parsed.data.id)
     .maybeSingle()
-  // and the files of his questionnaire (1.79.0): read before they go with the client
+  // and the files of his questionnaire (1.80.0): read before they go with the client
   const { data: file } = await supabase.from('onboarding_allegati').select('percorso').eq('client_id', parsed.data.id)
   const { error } = await supabase.rpc('elimina_cliente', { p_client_id: parsed.data.id })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non eliminato. Riprova.') }

@@ -60,15 +60,15 @@ export function frasiAnteprima(tipo: TipoEliminazione, dati: Dati, lingua: Lingu
       if (n(dati, 'progetti') > 0) frasi.push('Il suo progetto in Progetti resta, senza il collegamento al cliente.')
       // 1.77.0: the invite, the path, the steps, the log and Telegram go with the client
       if (n(dati, 'onboarding') > 0) frasi.push('Si elimina anche il suo onboarding: link, passi e registro.')
-      // 1.78.0: the client's access to the path (its user goes too)
+      // 1.79.0: the client's access to the path (its user goes too)
       if (n(dati, 'accesso_cliente') > 0 && n(dati, 'questionario') > 0) {
-        // 1.79.0: the questionnaire and its files, with the access
+        // 1.80.0: the questionnaire and its files, with the access
         frasi.push('Si perdono anche il suo accesso al percorso, il questionario e i file caricati.')
       } else if (n(dati, 'accesso_cliente') > 0) frasi.push('Si perde anche il suo accesso al percorso.')
       else if (n(dati, 'questionario') > 0) frasi.push('Si perdono anche il questionario e i file caricati.')
       break
     case 'onboarding':
-      // «Elimina onboarding» (1.78.0): only before the client registers
+      // «Elimina onboarding» (1.79.0): only before the client registers
       {
         const task = n(dati, 'task_onboarding')
         frasi.push(
@@ -194,6 +194,6 @@ function frasiInglese(tipo: TipoEliminazione, dati: Dati): string[] {
 
 /** A department with projects cannot be deleted: the preview says so before trying. */
 export function eliminazioneBloccata(tipo: TipoEliminazione, dati: Dati): boolean {
-  // an onboarding whose client has registered stops with «Revoca», never with a tap (1.78.0)
+  // an onboarding whose client has registered stops with «Revoca», never with a tap (1.79.0)
   return (tipo === 'reparto' && n(dati, 'progetti') > 0) || (tipo === 'onboarding' && n(dati, 'accesso_cliente') > 0)
 }

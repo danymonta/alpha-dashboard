@@ -1,4 +1,4 @@
--- Guided onboarding, release B1b (1.79.0, 20261109100000_questionario.sql): the questionnaire. The rule of the
+-- Guided onboarding, release B1b (1.80.0, 20261109100000_questionario.sql): the questionnaire. The rule of the
 -- answers (the keys and the options of Dany's Google form, no rule on the age; the same examples as the Vitest
 -- of lib/validation/questionario.ts), the client's functions (step, consent, version, «cambiato», the sending
 -- with the missing keys), the files (3 per field, 20 preparations and 100 MB a day counting every state, the
@@ -236,14 +236,14 @@ select throws_ok($$ select public.questionario_salva('{}', 1, 3) $$, '22023', 'I
 select throws_ok($$ select public.questionario_cliente() $$, '22023', 'Il questionario è già stato inviato.', 'né si legge da qui');
 select throws_ok(format($$ select public.allegato_togli(%L) $$, pg_temp.nota('file_carla') ->> 'id'), '22023',
   'Il questionario è già stato inviato.', 'né si toglie un file');
-select is(public.percorso_cliente() ->> 'in_attesa', 'false', 'dopo il questionario: la prenotazione (dalla 1.80.0)');
+select is(public.percorso_cliente() ->> 'in_attesa', 'false', 'dopo il questionario: la prenotazione (dalla 1.81.0)');
 reset role;
 set local request.jwt.claims to '{}';
 select is(
   array[pg_temp.passo(pg_temp.cliente('Carla'), 'questionario'), pg_temp.passo(pg_temp.cliente('Carla'), 'prenotazione')],
-  array['fatto', 'disponibile'], 'lo step è fatto e la prenotazione si apre: dalla 1.80.0 il percorso è servito fino in fondo'
+  array['fatto', 'disponibile'], 'lo step è fatto e la prenotazione si apre: dalla 1.81.0 il percorso è servito fino in fondo'
 );
-select is(public.onboarding_ultimo_passo_servito(), null, 'nessun ultimo step servito: tutti (1.80.0)');
+select is(public.onboarding_ultimo_passo_servito(), null, 'nessun ultimo step servito: tutti (1.81.0)');
 select ok(
   (select inviato_il is not null from public.onboarding_questionari where client_id = pg_temp.cliente('Carla')),
   'inviato_il scritto'

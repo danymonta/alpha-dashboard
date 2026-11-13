@@ -38,7 +38,7 @@ export const dynamic = 'force-dynamic'
  * then the «nuovo» sales registered without their onboarding. The admin's views answer no
  * row to anyone else. Never an amount, never a list by collaborator.
  *
- * Release B2 (1.80.0): the same page for the people in charge (coach, reviewer,
+ * Release B2 (1.81.0): the same page for the people in charge (coach, reviewer,
  * responsible), who read only their registered clients from onboarding_incaricati_elenco()
  * (ListaIncaricati), and, for the admin too, the team's queues on top.
  */

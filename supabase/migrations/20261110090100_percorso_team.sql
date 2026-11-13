@@ -1,4 +1,4 @@
--- Guided onboarding, release B2 (1.80.0, «Il percorso fino al lancio»): the rest of the path and the work of
+-- Guided onboarding, release B2 (1.81.0, «Il percorso fino al lancio»): the rest of the path and the work of
 -- the team (docs/onboarding/rilascio-b.md, «Schema di B2», migration 6).
 --
 -- * onboarding_ultimo_passo_servito() is null: the path is served to the end.

@@ -209,10 +209,10 @@ select is(
                        -- the guided onboarding (1.77.0): the seed's two clients (60_onboarding.sql)
                        'onboarding_inviti', 'onboarding_inviti_token', 'onboarding_percorsi', 'onboarding_passi',
                        'onboarding_eventi', 'onboarding_incarichi', 'onboarding_impostazioni', 'clienti_telegram',
-                       -- the client's area (1.78.0, 61_percorso.sql)
+                       -- the client's area (1.79.0, 61_percorso.sql)
                        'clienti_account', 'contenuti_blocchi', 'clienti_consensi_testi', 'clienti_consensi',
                        'onboarding_video_visti',
-                       -- the questionnaire (1.79.0, 61_percorso.sql)
+                       -- the questionnaire (1.80.0, 61_percorso.sql)
                        'onboarding_questionari')),
   '',
   'le tabelle principali hanno righe: 0 righe per lui vuol dire RLS'

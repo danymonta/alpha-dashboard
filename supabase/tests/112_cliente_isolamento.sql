@@ -1,9 +1,9 @@
--- Guided onboarding, release B1a (1.78.0): a client is an authenticated user without a profile, so every
+-- Guided onboarding, release B1a (1.79.0): a client is an authenticated user without a profile, so every
 -- policy and every function of the team must close for him. Checked here, as an active client, a suspended
 -- client and a user with neither a profile nor an account (the seed's clients, 61_percorso.sql): every table
 -- and view of public counted from the catalog (zero rows, but his own row of clienti_account), every write
 -- refused, every security definer function the team reaches called with null arguments (an error, null or
--- nothing, never a row of somebody else), the buckets «avatari» and «onboarding-allegati» (1.79.0) closed, no
+-- nothing, never a row of somebody else), the buckets «avatari» and «onboarding-allegati» (1.80.0) closed, no
 -- table of the onboarding in Realtime, and cliente_corrente() null for an OAuth token of a client.
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -242,7 +242,7 @@ select throws_ok(
   '42501', null, 'il cliente non carica un file in avatari, nemmeno nella sua cartella'
 );
 select is((select count(*)::int from storage.objects where bucket_id = 'avatari'), 0, 'e non elenca niente');
--- the bucket of the questionnaire (1.79.0): private, no policy, every read and write is a URL the server signs
+-- the bucket of the questionnaire (1.80.0): private, no policy, every read and write is a URL the server signs
 select throws_ok(
   $$ insert into storage.objects (bucket_id, name)
      values ('onboarding-allegati', '0b0b0000-0000-4000-8000-000000000001/0b0b0000-0000-4000-8000-0000000000aa') $$,

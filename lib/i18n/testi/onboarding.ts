@@ -390,7 +390,7 @@ export const ONBOARDING = bilingue(
         consensoDato: 'Il cliente ha dato il consenso sui dati della salute',
         passoCompletato: (passo: string) => `Il cliente ha completato «${passo}»`,
         consensoRevocato: 'Revocato il consenso sui dati della salute: risposte e file cancellati',
-        // release B2 (1.80.0): the team's work and the client's steps sent
+        // release B2 (1.81.0): the team's work and the client's steps sent
         passoInviato: (passo: string) => `Il cliente ha inviato «${passo}»`,
         callConfermata: 'Call di onboarding confermata',
         callSvolta: 'Call svolta',
@@ -460,7 +460,7 @@ export const ONBOARDING = bilingue(
       contenutiAiuto: 'I testi, i video e le regole che il cliente legge nella sua area.',
     },
 
-    /** Release B1a (1.78.0): the client's side seen by the admin on the card. */
+    /** Release B1a (1.79.0): the client's side seen by the admin on the card. */
     cliente: {
       accessoTitolo: 'Accesso del cliente',
       accessoDescrizione: 'L’account con cui il cliente entra nella sua area.',
@@ -491,7 +491,7 @@ export const ONBOARDING = bilingue(
       eliminaCosa: (nome: string) => `l’onboarding di ${nome}`,
       eliminaFatto: 'Onboarding eliminato',
       eliminaRegistrato: 'Il cliente si è già registrato: per fermare l’onboarding usa «Revoca».',
-      // release B1b (1.79.0): the questionnaire and the revocation of the consent
+      // release B1b (1.80.0): the questionnaire and the revocation of the consent
       questionarioTitolo: 'Questionario',
       questionarioDescrizione: 'Le risposte del cliente, in sola lettura: contengono dati sulla salute.',
       questionarioVuoto: 'Il cliente non ha ancora cominciato il questionario.',
@@ -529,7 +529,7 @@ export const ONBOARDING = bilingue(
       revocaNonFatta: 'Revoca non registrata. Riprova.',
     },
 
-    /** Impostazioni › Onboarding › Contenuti (1.78.0): the minimal CMS. */
+    /** Impostazioni › Onboarding › Contenuti (1.79.0): the minimal CMS. */
     contenuti: {
       titolo: 'Contenuti del percorso',
       descrizione: 'I blocchi che il cliente legge in ogni passo: testi, video, regole e pulsanti. Il cliente li vede solo in italiano.',
@@ -950,7 +950,7 @@ export const ONBOARDING = bilingue(
         consensoDato: 'The client gave consent on health data',
         passoCompletato: (passo: string) => `The client completed «${passo}»`,
         consensoRevocato: 'Health data consent withdrawn: answers and files deleted',
-        // release B2 (1.80.0): the team's work and the client's steps sent
+        // release B2 (1.81.0): the team's work and the client's steps sent
         passoInviato: (passo: string) => `The client sent «${passo}»`,
         callConfermata: 'Onboarding call confirmed',
         callSvolta: 'Call held',
@@ -1235,7 +1235,7 @@ const ERRORI_EN: Record<string, string> = {
   "Gli incarichi li sceglie l'admin": 'The people in charge are chosen by the admin',
   'Questo cliente non ha un onboarding.': 'This client has no onboarding.',
   "Il token non corrisponde all'invito": 'The token does not match the link',
-  // 1.78.0 (20261109090000, 20261109090200)
+  // 1.79.0 (20261109090000, 20261109090200)
   "Il cliente di prova lo segna l'admin": 'The test client is marked by the admin',
   'Scegli se è un cliente di prova': 'Choose whether it is a test client',
   'Il cliente è già registrato.': 'The client is already registered.',
@@ -1243,7 +1243,7 @@ const ERRORI_EN: Record<string, string> = {
   "Il cliente si è già registrato: per fermare l'onboarding usa «Revoca».":
     'The client has already registered: to stop the onboarding use «Revoke».',
   'Un onboarding si elimina solo con «Elimina onboarding».': 'An onboarding is deleted only with «Delete onboarding».',
-  // release B2 (1.80.0): the team's schemas and core (lib/validation/onboarding-team.ts)
+  // release B2 (1.81.0): the team's schemas and core (lib/validation/onboarding-team.ts)
   [ET.call]: 'Invalid call.',
   [ET.consegna]: 'Invalid delivery.',
   [ET.giorno]: 'Choose the day',
@@ -1334,7 +1334,7 @@ export function traduciErroreOnboarding(testo: string | null | undefined, lingua
 }
 
 /**
- * Release B2 (1.80.0): the team's work on the onboarding. The coach in charge, the
+ * Release B2 (1.81.0): the team's work on the onboarding. The coach in charge, the
  * reviewer and the responsible see their clients from the registration on, read from
  * functions (onboarding_incaricati_elenco, onboarding_scheda_incaricato): never the link,
  * the payment or the log. The queues on top of the list, the cards of the actions and the

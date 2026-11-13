@@ -1,4 +1,4 @@
--- Guided onboarding, release B2 (1.80.0, «Il percorso fino al lancio»): the data
+-- Guided onboarding, release B2 (1.81.0, «Il percorso fino al lancio»): the data
 -- (docs/onboarding/rilascio-b.md, «Schema di B2», migration 5).
 --
 -- * clienti_call: the onboarding call and the checkpoints of a client. Outside the sales metrics (decision 6):
@@ -38,7 +38,7 @@ create unique index clienti_call_una_onboarding on public.clienti_call (client_i
 create index clienti_call_client_idx on public.clienti_call (client_id, tipo, inizio);
 
 comment on table public.clienti_call is
-  'The onboarding call and the checkpoints of a client (1.80.0): outside the sales metrics. The admin reads them; the people in charge only from the onboarding functions; written only by the functions of the client and of the team.';
+  'The onboarding call and the checkpoints of a client (1.81.0): outside the sales metrics. The admin reads them; the people in charge only from the onboarding functions; written only by the functions of the client and of the team.';
 
 create trigger clienti_call_set_updated_at before update on public.clienti_call
   for each row execute function public.set_updated_at();
@@ -76,7 +76,7 @@ create table public.clienti_consegne (
 create index clienti_consegne_client_idx on public.clienti_consegne (client_id, created_at);
 
 comment on table public.clienti_consegne is
-  'The materials of a single client (1.80.0, step 12): a YouTube video, a shared PDF, a link; never a file. The admin reads them; the people in charge only from the onboarding functions; written only by the functions of the team.';
+  'The materials of a single client (1.81.0, step 12): a YouTube video, a shared PDF, a link; never a file. The admin reads them; the people in charge only from the onboarding functions; written only by the functions of the team.';
 
 alter table public.clienti_consegne enable row level security;
 
@@ -161,4 +161,4 @@ create unique index onboarding_video_visti_consegna on public.onboarding_video_v
   where consegna_id is not null;
 
 comment on column public.onboarding_video_visti.consegna_id is
-  'The delivery of the coach the seconds belong to (1.80.0); exactly one of blocco_id and consegna_id.';
+  'The delivery of the coach the seconds belong to (1.81.0); exactly one of blocco_id and consegna_id.';

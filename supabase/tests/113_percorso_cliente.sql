@@ -1,4 +1,4 @@
--- Guided onboarding, release B1a (1.78.0, 20261109090100_percorso_base.sql and 20261109090200_percorso_funzioni.sql):
+-- Guided onboarding, release B1a (1.79.0, 20261109090100_percorso_base.sql and 20261109090200_percorso_funzioni.sql):
 -- the client's page (only his own data, the content only of the unlocked steps, never the fields of the team,
 -- the team without emails, the estimate never negative, the wait after the rules), the unlock (never past the
 -- last step served, never a step of the team), percorso_avanza (a closed list), the videos, the consent, the
@@ -273,7 +273,7 @@ select is(
 update public.onboarding_passi set stato = 'fatto' where client_id = pg_temp.cliente('Anna') and passo in ('questionario', 'prenotazione', 'call');
 select public.onboarding_sblocca(pg_temp.cliente('Anna'));
 select is(pg_temp.passo('Anna', 'obiettivo'), 'bloccato', 'con la call fatta e il task dell''obiettivo aperto, l''obiettivo resta bloccato');
-select is(pg_temp.passo('Anna', 'community'), 'disponibile', 'la community sì: dalla 1.80.0 il percorso è servito fino in fondo');
+select is(pg_temp.passo('Anna', 'community'), 'disponibile', 'la community sì: dalla 1.81.0 il percorso è servito fino in fondo');
 select ok(
   (select array_agg(chiave order by chiave) = array['obiettivo', 'programma'] from public.onboarding_passi_def where versione = 1 and sblocco = 'team'),
   'gli step del team: obiettivo e programma'
@@ -284,7 +284,7 @@ select ok(
 -- ---------------------------------------------------------------------------
 select pg_temp.web('0b0b0000-0000-4000-8000-000000000031');
 select is(public.percorso_cliente() -> 'cliente' ->> 'nome', 'Davide', 'il cliente del seed legge solo il suo percorso');
-select is(public.percorso_cliente() ->> 'in_attesa', 'false', 'ed è a metà del questionario (1.79.0), non in attesa');
+select is(public.percorso_cliente() ->> 'in_attesa', 'false', 'ed è a metà del questionario (1.80.0), non in attesa');
 reset role;
 
 -- ---------------------------------------------------------------------------

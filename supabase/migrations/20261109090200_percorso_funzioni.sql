@@ -1,4 +1,4 @@
--- Guided onboarding, release B1a (1.78.0): the functions of the client and «Elimina onboarding»
+-- Guided onboarding, release B1a (1.79.0): the functions of the client and «Elimina onboarding»
 -- (docs/onboarding/rilascio-b.md, «Schema di B1a», 3 and 4).
 --
 -- * cliente_corrente(): the client_id of the caller's active account; null for an OAuth token, for a person

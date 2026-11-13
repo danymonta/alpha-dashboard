@@ -190,9 +190,9 @@ select is(
   (select coalesce(array_agg(t order by t), '{}') from unnest(array[
      'onboarding_impostazioni', 'onboarding_incarichi', 'onboarding_inviti', 'onboarding_inviti_token',
      'onboarding_percorsi', 'onboarding_passi_def', 'onboarding_passi', 'onboarding_eventi', 'clienti_telegram',
-     -- the client's area (1.78.0, 61_percorso.sql): accounts, CMS, consents, videos seen
+     -- the client's area (1.79.0, 61_percorso.sql): accounts, CMS, consents, videos seen
      'clienti_account', 'contenuti_blocchi', 'clienti_consensi_testi', 'clienti_consensi', 'onboarding_video_visti',
-     -- the questionnaire (1.79.0, 61_percorso.sql): the active client's answers half done
+     -- the questionnaire (1.80.0, 61_percorso.sql): the active client's answers half done
      'onboarding_questionari']) as t
    where (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from public.%I', t), false, true, '')))[1]::text::integer = 0),
   '{}'::text[],

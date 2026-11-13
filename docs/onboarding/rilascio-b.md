@@ -1,4 +1,4 @@
-# Onboarding · Rilascio B (1.78.0, 1.79.0 e 1.80.0): disegno tecnico
+# Onboarding · Rilascio B (1.79.0, 1.80.0 e 1.81.0): disegno tecnico
 
 Contesto: `docs/onboarding/specifica-v7.md` (la richiesta di Dany), `docs/onboarding/piano.md` (il piano approvato il 12/11/2026 con le scelte consigliate), `docs/onboarding/rilascio-a.md` (il rilascio A, in produzione con la 1.77.0). Questo file è il contratto del rilascio B, il primo rilascio ai clienti. Dove dice una cosa diversa dal piano, vale questo file. `CLAUDE.md` resta la fonte di verità per convenzioni, sicurezza e test.
 
@@ -8,7 +8,7 @@ B tocca l'autenticazione: Dany ha detto di procedere il 12/11/2026. Prove tecnic
 
 B è diviso in tre rilasci che si consegnano, si provano e si possono fermare da soli. `aperto_ai_clienti` resta spento fino alla fine di B2: prima di allora entra solo un **cliente di prova** (sotto).
 
-| | **B1a · 1.78.0 · Accesso** | **B1b · 1.79.0 · Questionario** | **B2 · 1.80.0 · Il percorso fino al lancio** |
+| | **B1a · 1.79.0 · Accesso** | **B1b · 1.80.0 · Questionario** | **B2 · 1.81.0 · Il percorso fino al lancio** |
 |---|---|---|---|
 | Autenticazione | trigger su `auth.users` (ramo del cliente, email, password), `/join`, `/entra`, `destinazioneUtente`, proxy con la CSP, `requireCliente`, codici via Resend | niente di nuovo | niente di nuovo |
 | Dati | `clienti_account`, registrazioni, limiti, `contenuti_blocchi`, consensi, video visti, pulizia degli account | questionario (le domande del modulo Google di Dany), allegati, bucket privato, revoca del consenso | `clienti_call`, `clienti_consegne`, impostazioni nuove, letture degli incaricati da funzioni |
@@ -22,7 +22,7 @@ B è diviso in tre rilasci che si consegnano, si provano e si possono fermare da
 
 **Cliente di prova (B1a, B1b e B2 prima dell'apertura).** Colonna nuova `onboarding_inviti.prova` (sotto). Solo un invito di prova funziona con l'area chiusa: `/join` lo apre, il trigger su `auth.users` lo accetta, la scheda mostra «Copia link» e i suoi giorni di validità partono. L'admin lo segna dalla scheda di onboarding con «Cliente di prova» (un interruttore, con la riga «Il link funziona anche con l'area clienti chiusa. Usalo solo con un cliente inventato, poi eliminalo da Clienti.»). Ogni altro invito, con l'area chiusa, mostra a `/join` la pagina «Il tuo accesso non è ancora attivo».
 
-## Cosa consegna B1a (1.78.0)
+## Cosa consegna B1a (1.79.0)
 
 1. `/join/<slug>-<token>`: la pagina del link personale, una per stato; «Continua» apre la registrazione senza il token nell'indirizzo.
 2. Registrazione con email e codice di 8 cifre mandato con Resend, con le nostre parole e nessun link; l'utente nasce solo dopo il codice giusto, con l'id riservato, e il suo account cliente nasce nella stessa transazione.
@@ -36,7 +36,7 @@ B è diviso in tre rilasci che si consegnano, si provano e si possono fermare da
 10. Pulizia notturna di registrazioni, limiti, token e account; utenti orfani tolti dal cron della sera.
 11. «Elimina onboarding» nella scheda di onboarding dell'admin, per un onboarding avviato per prova o per errore, finché il cliente non si è registrato (Dany, 12/11/2026: «rimuovi questo, era un test che ho fatto»). Sotto, «Funzioni dell'admin».
 
-## Cosa consegna B1b (1.79.0)
+## Cosa consegna B1b (1.80.0)
 
 1. Step 3: questionario in 4 schermate con salvataggio automatico, ripresa da un altro dispositivo, allegati nel bucket privato controllati sui primi byte.
 2. Le domande sono quelle del modulo Google «Modulo Onboarding Coaching Online» di Dany, con le sue parole e le sue opzioni (Dany, 12/11/2026: «il questionario deve essere come le domande… le opzioni vanno prese tutte da qui»). Nessun controllo sull'età (Dany: «se entra nel percorso può avere anche 17 anni, non è rilevante»).
@@ -44,7 +44,7 @@ B è diviso in tre rilasci che si consegnano, si provano e si possono fermare da
 4. Notifiche agli admin: questionario inviato.
 5. Sezione 15 di `CLAUDE.md` riscritta per i dati sulla salute; `/privacy` aggiornata; conservazione e pulizia dei dati sulla salute e dei file.
 
-## Cosa consegna B2 (1.80.0)
+## Cosa consegna B2 (1.81.0)
 
 1. Step 4 manuale: «Apri il calendario», poi «Ho prenotato» con giorno e ora; il coach (o l'admin) conferma con il link Meet; nasce la riga di `clienti_call`.
 2. Step 6: username Telegram, «Entra nella community», «Ho inviato la richiesta», template di presentazione con «Copia», «Mi sono presentato»; code del team «Richieste di accesso» e «Presentazioni da controllare».
@@ -504,7 +504,7 @@ Pagine fuori da ogni gruppo con layout di sessione, in `app/join/`, nessuna riso
 - Admin, B1a: `app/(app)/onboarding/[clientId]/` aggiunge i riquadri «Accesso del cliente» (registrato il, stato dell'account), «Consensi» (tipo, versione, data), «Video visti» (titolo e percentuale); «Cliente di prova» nel riquadro Link; «Copia link» con l'area aperta **o** con l'invito di prova. `app/(app)/settings/onboarding/contenuti/` (`page`, `loading`, `error`): i blocchi per step e per pagina, con il modulo (tipo, titolo, testo, video, link, obbligatorio, pubblicato, ordine) e l'anteprima disegnata dagli stessi componenti dell'area cliente; un blocco con «[Da scrivere» ha l'avviso. Testi del team in `lib/i18n/testi/onboarding.ts` (italiano e inglese). B1b: il riquadro «Questionario» (le 4 schermate in sola lettura, gli allegati), «Registra la revoca» nei Consensi (come l'ha chiesto il cliente e seconda conferma). Nessun «Consenso del genitore» qui: nel questionario non c'è nessuna regola sull'età; resta quello del rilascio A sull'invito segnato minorenne.
 - B2: `app/(app)/onboarding/` per gli incaricati (stessa pagina: chi non è admin vede la lista da `onboarding_incaricati_elenco()` nei gruppi «Tocca a te», «Tocca al cliente», «In pausa», «Completati», e la scheda da `onboarding_scheda_incaricato`; mai inviti, pagamento, registro o pulsanti dell'admin); code in cima alla lista (admin e incaricati, ognuno le sue): «Call da confermare», «Call da segnare», «Richieste di accesso alla community», «Presentazioni da controllare», «Test da confermare», «Programma da consegnare», «Preparazione incompleta». `lib/nav.ts`: la voce «Onboarding» anche a chi ha almeno un incarico su un cliente registrato (una count `head` sotto RLS su `onboarding_incarichi` nel layout, che A gli fa leggere solo da quando il cliente si è registrato), mai nella barra in basso. Avviso al cliente: la server action, dopo la funzione, legge l'email del cliente col `service_role` (mai mandata al browser del coach) e manda «Tocca a te» con `Idempotency-Key`; se non parte o `avvisa_cliente_email` è spento, il toast offre «Copia il messaggio per Telegram».
 - `package.json` (B2): `motion` **14.7.1** (pubblicata il 27/10/2026), versione esatta, importata solo da `components/percorso/` con `motion/react` e caricata dopo il primo disegno; nella tabella della sezione 4 di `CLAUDE.md`.
-- `lib/changelog/versioni.ts`: 1.78.0, 1.79.0 e 1.80.0 con voci `admin` (B2 anche `progetti` per il lavoro del coach sui task), mai pagamento o gate; `package.json`; `CLAUDE.md` (sotto).
+- `lib/changelog/versioni.ts`: 1.79.0, 1.80.0 e 1.81.0 con voci `admin` (B2 anche `progetti` per il lavoro del coach sui task), mai pagamento o gate; `package.json`; `CLAUDE.md` (sotto).
 
 ## Interfaccia del cliente
 
@@ -523,7 +523,7 @@ Gruppo `app/(cliente)/`: `layout.tsx` (`requireCliente`, `lang="it"`, nessuna sh
 
 ## Sezione 15 di `CLAUDE.md` riscritta (B1b)
 
-Il punto **GDPR** diventa: dati dei clienti ridotti al minimo; regione EU. **Dati sulla salute** (dal 1.79.0, decisione 1 del piano): solo le risposte del questionario dell'onboarding (`onboarding_questionari`) e i file caricati con lui (bucket privato `onboarding-allegati`), con il consenso esplicito del cliente in una versione registrata (`clienti_consensi`); li legge l'admin e, dalla 1.80.0, il coach incaricato da una funzione dedicata; mai nel backup via email, in un'email, una notifica, il registro, i log, Alfire, Claude collegato, Groq o Anthropic; conservati finché il cliente esiste e cancellati con lui o alla revoca del consenso; un backup di questi dati c'è solo con Supabase Pro. Le foto del fisico restano su Coach Plus. Il resto (le call) resta com'è. Più: la riga del backup che dice le tabelle escluse (già da B1a), `onboarding-pulizia` tra i job di `pg_cron`, la pulizia dei file e degli utenti orfani nel cron della sera.
+Il punto **GDPR** diventa: dati dei clienti ridotti al minimo; regione EU. **Dati sulla salute** (dal 1.80.0, decisione 1 del piano): solo le risposte del questionario dell'onboarding (`onboarding_questionari`) e i file caricati con lui (bucket privato `onboarding-allegati`), con il consenso esplicito del cliente in una versione registrata (`clienti_consensi`); li legge l'admin e, dalla 1.81.0, il coach incaricato da una funzione dedicata; mai nel backup via email, in un'email, una notifica, il registro, i log, Alfire, Claude collegato, Groq o Anthropic; conservati finché il cliente esiste e cancellati con lui o alla revoca del consenso; un backup di questi dati c'è solo con Supabase Pro. Le foto del fisico restano su Coach Plus. Il resto (le call) resta com'è. Più: la riga del backup che dice le tabelle escluse (già da B1a), `onboarding-pulizia` tra i job di `pg_cron`, la pulizia dei file e degli utenti orfani nel cron della sera.
 
 ## `/privacy` (B1b)
 
@@ -577,7 +577,7 @@ B1a: sezioni 3 (l'area cliente), 5 (`E2E_EMAIL_MAILPIT`), 6 (il cliente nella ta
 14. La vista degli incaricati è la stessa pagina `/onboarding`, con la voce del menu per chi ha almeno un incarico su un cliente registrato.
 15. Un cliente può cambiare la propria email da Supabase Auth (con la conferma su tutte e due le caselle), ma mai verso l'email di un collaboratore, di un invito del team o di un altro cliente (trigger); la scheda si riallinea solo alla registrazione.
 16. La pagina di prenotazione è la stessa dei checkpoint, un indirizzo in Impostazioni (decisione 13).
-17. B diviso in tre rilasci (1.78.0 accesso, 1.79.0 questionario, 1.80.0 il resto) invece di due.
+17. B diviso in tre rilasci (1.79.0 accesso, 1.80.0 questionario, 1.81.0 il resto) invece di due.
 18. Un account sospeso dopo un rimborso **non** torna attivo da solo con un nuovo pagamento: gli admin ricevono una notifica e decidono con «Riattiva». Il piano 4.3 diceva il contrario; così vale la regola di A sui link revocati.
 19. Un account diventa `chiuso` 12 mesi dopo la fine dell'ultimo percorso, senza cancellare questionario e file; da chiuso non rientra più (un nuovo onboarding fa un nuovo account).
 20. Nessun cliente ha una password: un trigger la rifiuta, oltre a `secure_password_change`.
@@ -591,19 +591,19 @@ B1a: sezioni 3 (l'area cliente), 5 (`E2E_EMAIL_MAILPIT`), 6 (il cliente nella ta
 **Prima di B1a (in produzione).**
 1. Supabase › Authentication › Sign In / Providers › Email: dimmi se «Confirm email» è acceso (piano, sezione 2) e lascia acceso il provider Email (serve ai codici del team e dei clienti); Secure email change acceso, **Secure password change acceso**, manual linking spento.
 2. Resend: dominio di `EMAIL_MITTENTE` verificato. Senza, nessun cliente riceve il codice.
-3. Applica in ordine `20261109090000_clienti_account.sql`, `20261109090100_percorso_base.sql`, `20261109090200_percorso_funzioni.sql`, poi il deploy della 1.78.0. Controllo: `select jobname from cron.job` mostra `onboarding-pulizia`.
+3. Applica in ordine `20261109090000_clienti_account.sql`, `20261109090100_percorso_base.sql`, `20261109090200_percorso_funzioni.sql`, poi il deploy della 1.79.0. Controllo: `select jobname from cron.job` mostra `onboarding-pulizia`.
 4. Impostazioni › Onboarding › Contenuti: sostituisci ogni «[Da scrivere: …]» di benvenuto e regole e l'id del video di benvenuto (YouTube, «Non in elenco»).
 5. Prova con un cliente inventato e un'email tua diversa da quella del team: «Nuovo cliente», «Cliente di prova», «Conferma pagamento», «Copia link». Da un telefono: apri il link, registrati, guarda il video fino in fondo (la percentuale deve salire), accetta regole e consenso, poi l'attesa. Esci e rientra da `/entra`. Prova anche `/login` con quella email: deve arrivare la mail del cliente.
 
 **Prima di B1b.**
 6. Fai vedere il testo del consenso sulla salute e la nuova `/privacy` a chi segue la parte legale.
-7. Applica `20261109100000_questionario.sql`, poi il deploy della 1.79.0. Controllo: Storage ha il bucket privato `onboarding-allegati`.
+7. Applica `20261109100000_questionario.sql`, poi il deploy della 1.80.0. Controllo: Storage ha il bucket privato `onboarding-allegati`.
 8. Con lo stesso cliente di prova: compila e invia il questionario con una foto dell'attrezzatura; nella scheda leggi risposte e foto. Poi elimina il cliente da Clienti: la domanda dice accesso e questionario.
 
 **Prima di aprire l'area (fine B2).**
 9. Supabase Pro (backup dei questionari) e Vercel Pro (uso commerciale): piano, decisione 8.
 10. Impostazioni › Onboarding: link della community, indirizzo della pagina di prenotazione, incarichi predefiniti; i contenuti di prenotazione, community, obiettivo, test, programma e dopo il lancio.
-11. Applica `20261110090000_percorso_call_consegne.sql` e `20261110090100_percorso_team.sql`, poi il deploy della 1.80.0.
+11. Applica `20261110090000_percorso_call_consegne.sql` e `20261110090100_percorso_team.sql`, poi il deploy della 1.81.0.
 12. Prova tutto il flusso con il cliente di prova, Ivan come coach e Lorenzo come revisore: Ivan vede il cliente in Onboarding, conferma la call, la segna svolta, spunta l'obiettivo, conferma i test, consegna il programma; Lorenzo vede «Test da rivedere».
 13. Impostazioni › Onboarding › «Area clienti» › «Apri ai clienti». Da qui «Copia link» c'è per tutti e i 14 giorni partono.
 
@@ -634,5 +634,5 @@ Fedeltà:
 20. Limite di verifiche di Supabase per IP (media): accolto, come il rilievo 1.
 21. «Preparazione incompleta» e «In pausa» mancanti (media): accolto, in B2.
 22. Ricetta del seed (media): accolto. Sei passi scritti, idempotente sull'`utente_id` fisso.
-23. B1 troppo grande (media): accolto. B1 diviso in B1a (1.78.0, accesso) e B1b (1.79.0, questionario e dati sulla salute); B2 diventa 1.80.0.
+23. B1 troppo grande (media): accolto. B1 diviso in B1a (1.79.0, accesso) e B1b (1.80.0, questionario e dati sulla salute); B2 diventa 1.81.0.
 24. Dipendenze tra B1 e B2 da indovinare (bassa): accolto. Funzioni ricreate dalla migration 6 elencate, recupero delle scadenze, spunte del test in `onboarding_passi.dati`, blocchi con `id` e senza i campi di gestione.

@@ -32,7 +32,7 @@ import {
 import { impostazioniOnboardingSchema } from '@/lib/validation/onboarding'
 
 /*
- * The team's side of release B2 (1.80.0): the list of the people in charge (groups and
+ * The team's side of release B2 (1.81.0): the list of the people in charge (groups and
  * queues), the item of the menu for whoever has an incarico, the email «Tocca a te», the
  * schemas of the actions and the database's words in English.
  */

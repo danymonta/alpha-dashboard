@@ -23,9 +23,9 @@ export type StatoRiga = Pick<
   | 'passo_attore'
   | 'passo_stato'
 > & {
-  /** A test link (1.78.0): it works with the client area closed. Optional: the rows of before have none. */
+  /** A test link (1.79.0): it works with the client area closed. Optional: the rows of before have none. */
   prova?: boolean | null
-  /** The client's account (1.78.0): with one, the client has registered. Optional: the rows of before have none. */
+  /** The client's account (1.79.0): with one, the client has registered. Optional: the rows of before have none. */
   account_stato?: string | null
 }
 
@@ -59,7 +59,7 @@ export function statoOnboarding(riga: StatoRiga, aperto: boolean): StatoOnboardi
     case 'in_attesa_pagamento':
       return riga.minorenne && !riga.consenso_genitore_il ? 'in_attesa_consenso' : 'in_attesa_pagamento'
     case 'attivo':
-      // a test link (1.78.0) can be used with the area closed: it waits for the registration
+      // a test link (1.79.0) can be used with the area closed: it waits for the registration
       return aperto || riga.prova === true ? 'in_attesa_registrazione' : 'pronto'
     case 'usato':
       return riga.percorso_stato === 'sospeso' ? 'sospeso' : 'in_corso'
@@ -152,7 +152,7 @@ export type AzioniLink = {
   riattiva: boolean
   /** «Copia link» and «Copia il messaggio»: only with the client area open (or a test link) and a link the client can use. */
   copia: boolean
-  /** «Cliente di prova» (1.78.0): a link not used yet. */
+  /** «Cliente di prova» (1.79.0): a link not used yet. */
   prova: boolean
 }
 
@@ -217,7 +217,7 @@ export function eventoInParole(evento: EventoRegistro, lingua: Lingua = 'it'): s
       return t.consensoGenitore
     case 'incarichi_modificati':
       return t.incarichiModificati
-    // release B1a (1.78.0): the client's own steps, never his answers
+    // release B1a (1.79.0): the client's own steps, never his answers
     case 'registrato':
       return t.registrato
     case 'email_cambiata':
@@ -228,12 +228,12 @@ export function eventoInParole(evento: EventoRegistro, lingua: Lingua = 'it'): s
       return t.consensoDato
     case 'passo_completato':
       return typeof d.passo === 'string' ? t.passoCompletato(titoloPasso(d.passo, null, lingua)) : t.altro
-    // release B1b (1.79.0): how the client asked, from a closed list; never a free text, never an answer
+    // release B1b (1.80.0): how the client asked, from a closed list; never a free text, never an answer
     case 'consenso_revocato': {
       const come = typeof d.come === 'string' ? ONBOARDING[lingua].cliente.canaliRevoca[d.come] : undefined
       return come ? t.conMotivo(t.consensoRevocato, come) : t.consensoRevocato
     }
-    // release B2 (1.80.0): the team's work; never a Meet link. The reasons of «Sblocca» and «Riavvia» are the
+    // release B2 (1.81.0): the team's work; never a Meet link. The reasons of «Sblocca» and «Riavvia» are the
     // words of the person who wrote them: the log is the admin's only
     case 'passo_inviato':
       return typeof d.passo === 'string' ? t.passoInviato(titoloPasso(d.passo, null, lingua)) : t.altro

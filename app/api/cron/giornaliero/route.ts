@@ -39,7 +39,7 @@ const TEMPO_PROMEMORIA_MS = 50_000
  *   public.riepilogo_contenuti_settimana);
  * - on Mondays, the weekly backup and, after it, last week's team time by email
  *   to the same admins (Dany, 21/10/2026; settimanaPrecedente, public.riepilogo_tempo_team);
- * - the users of the clients without an account (1.78.0, lib/percorso/pulizia.ts);
+ * - the users of the clients without an account (1.79.0, lib/percorso/pulizia.ts);
  * - the path reminders ("Call dei 3 mesi", "Call di rinnovo"), one email each,
  *   to the same admins (04/10/2026), last because they can wait a day.
  * Every one of these emails is also saved for the admins in the app
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     esito.avvisi = 'non riusciti'
   }
 
-  // The users of deleted clients (1.78.0): Auth is not cleaned from SQL. A failure stops nothing.
+  // The users of deleted clients (1.79.0): Auth is not cleaned from SQL. A failure stops nothing.
   try {
     esito.utenti_clienti = await pulisciUtentiOrfani(admin)
   } catch (e) {
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
     esito.utenti_clienti = 'non riuscita'
   }
 
-  // The files of the questionnaire to delete (1.79.0): Storage is not cleaned from SQL. Stops nothing.
+  // The files of the questionnaire to delete (1.80.0): Storage is not cleaned from SQL. Stops nothing.
   try {
     esito.file_questionario = await pulisciFileQuestionario(admin)
   } catch (e) {

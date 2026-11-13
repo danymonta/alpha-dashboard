@@ -86,7 +86,7 @@ export const ERRORI_ONBOARDING = {
   telegramNonSalvato: 'Telegram non aggiornato. Riprova.',
   impostazioniNonSalvate: 'Impostazioni non salvate. Riprova.',
   risposta: 'L’onboarding è avviato, ma la risposta non si legge: apri la sezione Onboarding.',
-  // 1.78.0
+  // 1.79.0
   provaNonSalvata: 'Cliente di prova non aggiornato. Riprova.',
   nonEliminato: 'Onboarding non eliminato. Riprova.',
 } as const
@@ -300,7 +300,7 @@ export const CANALI_REVOCA = ['telegram', 'email', 'di_persona', 'altro'] as con
 export type CanaleRevoca = (typeof CANALI_REVOCA)[number]
 
 /**
- * «Registra la revoca» of the consent on health data (1.79.0): the client and how he asked,
+ * «Registra la revoca» of the consent on health data (1.80.0): the client and how he asked,
  * never a free text (it would reach the log and the backup, and could say something about health).
  */
 export const revocaConsensoSchema = z.object({
@@ -344,7 +344,7 @@ export const impostazioniOnboardingSchema = z.object({
   revisore_predefinito_id: personaFacoltativa,
   responsabile_predefinito_id: personaFacoltativa,
   link_community: linkTelegram,
-  // release B2 (1.80.0): the booking page of the onboarding call, and the email «Tocca a te»
+  // release B2 (1.81.0): the booking page of the onboarding call, and the email «Tocca a te»
   link_prenotazione: linkPrenotazione,
   avvisa_cliente_email: z.boolean().default(true),
   giorni_validita_link: z.coerce

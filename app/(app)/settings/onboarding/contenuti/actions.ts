@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export type { Esito, EsitoBlocco } from '@/lib/onboarding/contenuti'
 
-/** Impostazioni › Onboarding › Contenuti (1.78.0): the admin's session, under RLS. */
+/** Impostazioni › Onboarding › Contenuti (1.79.0): the admin's session, under RLS. */
 async function nucleo() {
   return { db: await createClient(), chi: getProfilo }
 }

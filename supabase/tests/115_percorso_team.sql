@@ -1,4 +1,4 @@
--- Guided onboarding, release B2 (1.80.0, 20261110090000_percorso_call_consegne.sql and
+-- Guided onboarding, release B2 (1.81.0, 20261110090000_percorso_call_consegne.sql and
 -- 20261110090100_percorso_team.sql): the path to the launch and the work of the team. The booking by hand and
 -- its confirmation, the outcomes of the call, the community and the queues, the task that opens the goal (in
 -- both orders), the due dates of the tasks, the test week and the programme, the deliveries and the compulsory

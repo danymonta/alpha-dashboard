@@ -1,7 +1,9 @@
 import { CalendarPlus, Search, SquareKanban } from 'lucide-react'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 import { StatoLeadArea, type Suggerimento } from '@/app/(app)/leads/stato-lead'
+import { PrenotateCalendly, ScheletroPrenotate } from '@/components/calendario/prenotate-calendly'
 import { LinkBottone } from '@/components/link-bottone'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
@@ -147,6 +149,13 @@ export default async function PipelinePage({
           ) : undefined
         }
       />
+
+      {/* the calendar «Dany Discovery Call» next to the pipeline (Dany, 13/11/2026): admin only, never waited for */}
+      {profilo.ruolo === 'admin' ? (
+        <Suspense fallback={<ScheletroPrenotate lingua={lingua} />}>
+          <PrenotateCalendly da="/leads" />
+        </Suspense>
+      ) : null}
 
       <nav aria-label={t.filtra} className="flex flex-wrap gap-2">
         {filtri.map((f) => {

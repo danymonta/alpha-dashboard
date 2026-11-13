@@ -278,7 +278,7 @@ const NAV: Record<AppRole, NavRuolo> = {
   business_coach: menu([], []),
 }
 
-// The guided onboarding for the people in charge (release B2, 1.80.0): the item of the admin, given to
+// The guided onboarding for the people in charge (release B2, 1.81.0): the item of the admin, given to
 // whoever has an incarico (coach, reviewer, responsible) on a registered client. In the group «Progetti»,
 // which every role has, never in the bottom bar.
 const ONBOARDING_INCARICATI: VoceNav = { href: '/onboarding', etichetta: 'Onboarding', Icona: Rocket }

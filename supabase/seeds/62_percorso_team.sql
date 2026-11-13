@@ -1,4 +1,4 @@
--- Demo data for the work of the team on the onboarding (1.80.0, docs/onboarding/rilascio-b.md, B2): a third
+-- Demo data for the work of the team on the onboarding (1.81.0, docs/onboarding/rilascio-b.md, B2): a third
 -- invented client, registered like the ones of 61_percorso.sql, who has done the welcome, the rules and the
 -- questionnaire (invented answers, no real health data) and has booked his onboarding call by hand for the day
 -- after tomorrow: the call waits for the coach's confirmation. Marco Coach is his coach in the onboarding (the
