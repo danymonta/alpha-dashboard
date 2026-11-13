@@ -37,6 +37,13 @@ type Props = {
   oggi: string
   /** The day the form opens on (?data=, e.g. from the closer's day). */
   dataIniziale?: string
+  /**
+   * Starting values from a calendar booking (?ora=, ?nome=, ?handle=, «Aggiungi alla pipeline»):
+   * already checked by the page, and checked again by the schema on save.
+   */
+  oraIniziale?: string
+  nomeIniziale?: string
+  handleIniziale?: string
   closers: Persona[]
   closerPredefinito: string
   /**
@@ -65,7 +72,17 @@ const SCELTE = cn(
   '[&_label:has(:checked:focus-visible)]:ring-3 [&_label:has(:checked:focus-visible)]:ring-ring/50',
 )
 
-export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredefinito, setters = null, tornaA = null }: Props) {
+export function NuovaCallForm({
+  oggi,
+  dataIniziale = oggi,
+  oraIniziale = '',
+  nomeIniziale = '',
+  handleIniziale = '',
+  closers,
+  closerPredefinito,
+  setters = null,
+  tornaA = null,
+}: Props) {
   const router = useRouter()
   const lingua = useLingua()
   const t = NUOVA_CALL[lingua]
@@ -86,8 +103,8 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
   } = useForm<NuovaCallInput, unknown, NuovaCall>({
     resolver: zodResolver(admin ? nuovaCallAdminSchema : nuovaCallSchema),
     defaultValues: {
-      nome: '',
-      instagram_handle: '',
+      nome: nomeIniziale,
+      instagram_handle: handleIniziale,
       // fonte has no default: the bookings by source (prenotate da inbound e da
       // outbound) are counted from it, so the setter always picks it.
 
@@ -95,7 +112,7 @@ export function NuovaCallForm({ oggi, dataIniziale = oggi, closers, closerPredef
       // leads (Dany, 29/09/2026). Not a choice on screen, the server still checks it.
       tipo: 'discovery',
       data: dataIniziale,
-      ora: '',
+      ora: oraIniziale,
       closer_id: closerPredefinito,
       setter_id: setters?.[0]?.id ?? null,
     },

@@ -36,6 +36,16 @@ export default async function NuovaCallPage({ searchParams }: { searchParams: Pr
       ? richiesta
       : oggi
 
+  // "?ora=", "?nome=", "?handle=": a booking of the calendar «Dany Discovery Call» to add
+  // («Aggiungi alla pipeline», 13/11/2026). Only starting values: a wrong one is dropped, the
+  // form checks everything again, and the source is never filled in (Dany picks it every time).
+  const oraRichiesta = primo(parametri.ora)
+  const oraIniziale = oraRichiesta && /^([01]\d|2[0-3]):[0-5]\d$/.test(oraRichiesta) ? oraRichiesta : ''
+  const nomeRichiesto = primo(parametri.nome)?.replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/\s+/g, ' ').trim() ?? ''
+  const nomeIniziale = nomeRichiesto.length >= 2 && nomeRichiesto.length <= 120 ? nomeRichiesto : ''
+  const handleRichiesto = primo(parametri.handle)?.trim().replace(/^@+/, '').toLowerCase() ?? ''
+  const handleIniziale = /^[a-z0-9._]{1,30}$/.test(handleRichiesto) ? handleRichiesto : ''
+
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('profiles')
@@ -92,6 +102,9 @@ export default async function NuovaCallPage({ searchParams }: { searchParams: Pr
         <NuovaCallForm
           oggi={oggi}
           dataIniziale={dataIniziale}
+          oraIniziale={oraIniziale}
+          nomeIniziale={nomeIniziale}
+          handleIniziale={handleIniziale}
           closers={closers}
           closerPredefinito={closerPredefinito}
           setters={setters}

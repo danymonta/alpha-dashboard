@@ -5,6 +5,8 @@
  * one row per event out, with only what the counts need. Never a name, an
  * Instagram handle, an income or an answer in words: the age and the budget
  * answer become a number and a yes or no, the rest of the description is dropped.
+ * The one exception is prenotazioniDaIcal (below): name and handle of the bookings
+ * still to add to the app, shown to the admin and never saved.
  */
 
 export type EventoCalendario = {
@@ -93,9 +95,9 @@ export function budgetDaRisposta(testo: string | null): boolean | null {
 const DOMANDA_ETA = /quanti anni hai\s*\??/iu
 const DOMANDA_BUDGET = /hai almeno [^:\n]*(investire|al mese)[^:\n]*/iu
 
-/** Every VEVENT of the file, with its UID; the others (a malformed one, one without dates) are skipped. */
-export function eventiDaIcal(testo: string): EventoCalendario[] {
-  const eventi: EventoCalendario[] = []
+/** The properties of every VEVENT of the file, in order. */
+function blocchiVevent(testo: string): Proprieta[][] {
+  const blocchi: Proprieta[][] = []
   let corrente: Proprieta[] | null = null
   for (const riga of righe(testo)) {
     if (riga === 'BEGIN:VEVENT') {
@@ -103,10 +105,7 @@ export function eventiDaIcal(testo: string): EventoCalendario[] {
       continue
     }
     if (riga === 'END:VEVENT') {
-      if (corrente) {
-        const e = evento(corrente)
-        if (e) eventi.push(e)
-      }
+      if (corrente) blocchi.push(corrente)
       corrente = null
       continue
     }
@@ -114,6 +113,16 @@ export function eventiDaIcal(testo: string): EventoCalendario[] {
       const p = proprieta(riga)
       if (p) corrente.push(p)
     }
+  }
+  return blocchi
+}
+
+/** Every VEVENT of the file, with its UID; the others (a malformed one, one without dates) are skipped. */
+export function eventiDaIcal(testo: string): EventoCalendario[] {
+  const eventi: EventoCalendario[] = []
+  for (const props of blocchiVevent(testo)) {
+    const e = evento(props)
+    if (e) eventi.push(e)
   }
   return eventi
 }
@@ -144,4 +153,129 @@ function evento(props: Proprieta[]): EventoCalendario | null {
     eta: etaDaRisposta(risposta(descrizione, DOMANDA_ETA)),
     budget_si: budgetDaRisposta(risposta(descrizione, DOMANDA_BUDGET)),
   }
+}
+
+/**
+ * A booking still to be put in the app (1.78.0, Dany, 13/11/2026: «collegato al calendar anche per la
+ * pipeline e le chiamate che avrò a breve»). Unlike EventoCalendario it carries the name and the Instagram
+ * handle the lead wrote in the Calendly form: they are read from the calendar while the admin's page renders
+ * and shown to him, never saved (call_calendario has no names, CLAUDE.md section 33).
+ */
+export type PrenotazioneCalendario = {
+  uid: string
+  /** Local date and time 'YYYY-MM-DDTHH:MM:SS', in `tz`. */
+  inizio: string
+  tz: string
+  /** From the title, without Dany's part; null when nothing usable is left. */
+  nome: string | null
+  /** From «Nome su Instagram?», lowercase and without @; null when it is not a valid handle. */
+  handle: string | null
+  eta: number | null
+  budget_si: boolean | null
+}
+
+/** «… and Daniele Montagnolo», «… & Dany Discovery Call», «… and Dany - Discovery Call»: Dany's half of a title. */
+const PARTE_DI_DANY = /\s*(?:\band\b|&|\+|\/|\s-\s|\be\b)\s*(?:daniele(?:\s+montagnolo)?|dany)(?![a-zà-ÿ])[\s\S]*$/iu
+
+/** The lead's name from a Calendly title; the whole title when the pattern does not fit. */
+export function nomeDaTitolo(titolo: string): string | null {
+  const intero = titolo.replace(/\s+/g, ' ').trim()
+  const senzaDany = intero.replace(PARTE_DI_DANY, '').trim()
+  const nome = senzaDany.length >= 2 ? senzaDany : intero
+  return nome.length >= 2 ? nome.slice(0, 120).trim() : null
+}
+
+const HANDLE = /^[a-z0-9._]{1,30}$/
+
+/** «Chicco_codenotti_», «@chicco», «instagram.com/chicco/» → «chicco_codenotti_»; anything else null. */
+export function handleDaRisposta(testo: string | null): string | null {
+  if (!testo) return null
+  const pulito = testo
+    .trim()
+    .toLowerCase()
+    .replace(/^(?:https?:\/\/)?(?:www\.)?instagram\.com\//, '')
+    .replace(/[/?#].*$/, '')
+    .replace(/^@+/, '')
+  return HANDLE.test(pulito) ? pulito : null
+}
+
+const DOMANDA_INSTAGRAM = /nome su instagram[^:\n]*/iu
+
+/**
+ * The sales calls still on the calendar, with the lead's name and handle: one per UID, never a cancelled one,
+ * never an onboarding, a checkpoint or a follow-up, never a recurring series.
+ */
+export function prenotazioniDaIcal(testo: string): PrenotazioneCalendario[] {
+  const visti = new Set<string>()
+  const prenotazioni: PrenotazioneCalendario[] = []
+  for (const props of blocchiVevent(testo)) {
+    const e = evento(props)
+    if (!e || e.cancellata || !e.di_vendita || visti.has(e.uid)) continue
+    visti.add(e.uid)
+    const una = (nome: string) => props.find((p) => p.nome === nome)
+    const titolo = testoIcal(una('SUMMARY')?.valore ?? '')
+    const descrizione = testoIcal(una('DESCRIPTION')?.valore ?? '')
+    prenotazioni.push({
+      uid: e.uid,
+      inizio: e.inizio,
+      tz: e.tz,
+      nome: nomeDaTitolo(titolo),
+      handle: handleDaRisposta(risposta(descrizione, DOMANDA_INSTAGRAM)),
+      eta: e.eta,
+      budget_si: e.budget_si,
+    })
+  }
+  return prenotazioni
+}
+
+const orologi = new Map<string, Intl.DateTimeFormat | null>()
+
+function orologio(tz: string): Intl.DateTimeFormat | null {
+  if (!orologi.has(tz)) {
+    try {
+      orologi.set(
+        tz,
+        new Intl.DateTimeFormat('en-GB', {
+          timeZone: tz,
+          hourCycle: 'h23',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }),
+      )
+    } catch {
+      orologi.set(tz, null)
+    }
+  }
+  return orologi.get(tz) ?? null
+}
+
+/** Minutes the zone is ahead of UTC at an instant. */
+function scarto(ms: number, fmt: Intl.DateTimeFormat): number {
+  const p = Object.fromEntries(fmt.formatToParts(new Date(ms)).map((x) => [x.type, Number(x.value)]))
+  const comeUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second)
+  return Math.round((comeUtc - Math.floor(ms / 1000) * 1000) / 60_000)
+}
+
+/**
+ * The instant (ISO UTC) of a local 'YYYY-MM-DDTHH:MM:SS' in an IANA zone, as the database reads it
+ * (calendario_salva: `inizio::timestamp at time zone tz`, UTC for an unknown zone).
+ */
+export function istanteDa(locale: string, tz: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/.exec(locale)
+  if (!m) return null
+  const [, a, me, g, h, mi, s] = m.map(Number)
+  const comeUtc = Date.UTC(a, me - 1, g, h, mi, s)
+  if (Number.isNaN(comeUtc)) return null
+  const fmt = tz === 'UTC' ? null : orologio(tz)
+  if (!fmt) return new Date(comeUtc).toISOString()
+  // the offset before and after any change of that night
+  const prima = scarto(comeUtc - 12 * 3_600_000, fmt)
+  const dopo = scarto(comeUtc + 12 * 3_600_000, fmt)
+  const conDopo = comeUtc - dopo * 60_000
+  if (scarto(conDopo, fmt) === dopo) return new Date(conDopo).toISOString()
+  return new Date(comeUtc - prima * 60_000).toISOString()
 }

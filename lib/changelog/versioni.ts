@@ -86,6 +86,22 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.78.0',
+    data: '2026-11-13',
+    titolo: 'Le call del calendario entrano nella pipeline con un tocco',
+    riassunto:
+      'In «Le mie call» e in Pipeline vedi le call prenotate su Calendly nei prossimi 30 giorni che nel gestionale non ci sono ancora, e le aggiungi con un tocco.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'In cima a «Le mie call» e a Pipeline, «Prenotate su Calendly, non ancora nel gestionale»: le call di vendita del calendario «Dany Discovery Call» dei prossimi 30 giorni senza una call nel gestionale, con nome, handle Instagram, giorno e ora, età e risposta sul budget del modulo. «Aggiungi alla pipeline» apre Nuova call già compilata: scegli la fonte e salvi. Nomi e risposte si leggono dal calendario quando apri la pagina e non si salvano; se tutto coincide, una riga lo dice.',
+      },
+    ],
+    correzioni: [],
+  },
+  {
     versione: '1.77.3',
     data: '2026-11-13',
     titolo: 'Insight: messaggi con le nuove istruzioni setter',

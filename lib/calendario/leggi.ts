@@ -49,11 +49,18 @@ export function indirizzoDaLeggere(indirizzo: string): string | null {
   return INDIRIZZO_SEGRETO.test(indirizzo) ? indirizzo : null
 }
 
-async function scarica(url: string): Promise<{ testo: string } | { tipo: TipoErroreCalendario }> {
+/**
+ * Downloads the .ics (shared by the nightly reading and by the admin's «Prenotate su Calendly» section,
+ * lib/calendario/prenotate.ts, which waits less). Never throws; the address never reaches a log.
+ */
+export async function scaricaIcal(
+  url: string,
+  tempoMs: number = TEMPO_MS,
+): Promise<{ testo: string } | { tipo: TipoErroreCalendario }> {
   let risposta: Response
   try {
     risposta = await fetch(url, {
-      signal: AbortSignal.timeout(TEMPO_MS),
+      signal: AbortSignal.timeout(tempoMs),
       redirect: 'error',
       cache: 'no-store',
       headers: { accept: 'text/calendar' },
@@ -94,7 +101,7 @@ export async function sincronizzaCalendario(db: SupabaseClient<Database>): Promi
   const url = typeof indirizzo === 'string' ? indirizzoDaLeggere(indirizzo.trim()) : indirizzoDaLeggere('')
   if (!url) return errore(indirizzo ? 'indirizzo' : 'non_collegato')
 
-  const file = await scarica(url)
+  const file = await scaricaIcal(url)
   if ('tipo' in file) return errore(file.tipo)
   const eventi = eventiDaIcal(file.testo)
   // a calendar that gave no event at all is not a reason to empty the counts
