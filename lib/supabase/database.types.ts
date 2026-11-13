@@ -749,6 +749,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"google_collegamento": {
+                  Row: {
+                    "account_email": string | null,"chiave_aggiornata_il": string | null,"created_at": string,"id": boolean,"ultima_scrittura_il": string | null,"ultimo_errore": string | null,"ultimo_errore_il": string | null,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "account_email"?: string | null,"chiave_aggiornata_il"?: string | null,"created_at"?: string,"id"?: boolean,"ultima_scrittura_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "account_email"?: string | null,"chiave_aggiornata_il"?: string | null,"created_at"?: string,"id"?: boolean,"ultima_scrittura_il"?: string | null,"ultimo_errore"?: string | null,"ultimo_errore_il"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "google_collegamento_updated_by_fkey"
+      columns: ["updated_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"insight_blocchi": {
                   Row: {
                     "canale": Database["public"]['Enums']["insight_canale"],"chiavi": (string)[],"created_at": string,"errore": string | null,"esecuzione_id": string,"id": string,"indice": number,"risultato": Json | null,"servito_da_fallback": boolean,"stato": string,"tentativi": number,"tipo": string,"updated_at": string,"usage": Json | null
@@ -1695,16 +1715,48 @@ isOneToOne: false
       referencedColumns: ["client_id"]
     }
                   ]
-                },"onboarding_impostazioni": {
+                },"onboarding_foglio": {
                   Row: {
-                    "aperto_ai_clienti": boolean,"avvisa_cliente_email": boolean,"coach_predefinito_id": string | null,"created_at": string,"giorni_call": number,"giorni_programma": number,"giorni_test": number,"giorni_validita_link": number,"id": boolean,"link_community": string | null,"link_prenotazione": string | null,"responsabile_predefinito_id": string | null,"revisore_predefinito_id": string | null,"updated_at": string,"updated_by": string | null
+                    "client_id": string,"created_at": string,"errore": string | null,"preso_il": string | null,"prossimo_il": string,"rif": string,"riga": number | null,"scritta_il": string | null,"stato": string,"svuotata_il": string | null,"tentativi": number,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "aperto_ai_clienti"?: boolean,"avvisa_cliente_email"?: boolean,"coach_predefinito_id"?: string | null,"created_at"?: string,"giorni_call"?: number,"giorni_programma"?: number,"giorni_test"?: number,"giorni_validita_link"?: number,"id"?: boolean,"link_community"?: string | null,"link_prenotazione"?: string | null,"responsabile_predefinito_id"?: string | null,"revisore_predefinito_id"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                    "client_id": string,"created_at"?: string,"errore"?: string | null,"preso_il"?: string | null,"prossimo_il"?: string,"rif"?: string,"riga"?: number | null,"scritta_il"?: string | null,"stato"?: string,"svuotata_il"?: string | null,"tentativi"?: number,"updated_at"?: string
                   }
                   Update: {
-                    "aperto_ai_clienti"?: boolean,"avvisa_cliente_email"?: boolean,"coach_predefinito_id"?: string | null,"created_at"?: string,"giorni_call"?: number,"giorni_programma"?: number,"giorni_test"?: number,"giorni_validita_link"?: number,"id"?: boolean,"link_community"?: string | null,"link_prenotazione"?: string | null,"responsabile_predefinito_id"?: string | null,"revisore_predefinito_id"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                    "client_id"?: string,"created_at"?: string,"errore"?: string | null,"preso_il"?: string | null,"prossimo_il"?: string,"rif"?: string,"riga"?: number | null,"scritta_il"?: string | null,"stato"?: string,"svuotata_il"?: string | null,"tentativi"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_foglio_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_foglio_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_foglio_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    }
+                  ]
+                },"onboarding_impostazioni": {
+                  Row: {
+                    "aperto_ai_clienti": boolean,"avvisa_cliente_email": boolean,"coach_predefinito_id": string | null,"created_at": string,"foglio_id": string,"foglio_scheda": string,"giorni_call": number,"giorni_programma": number,"giorni_test": number,"giorni_validita_link": number,"id": boolean,"link_community": string | null,"link_prenotazione": string | null,"responsabile_predefinito_id": string | null,"revisore_predefinito_id": string | null,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "aperto_ai_clienti"?: boolean,"avvisa_cliente_email"?: boolean,"coach_predefinito_id"?: string | null,"created_at"?: string,"foglio_id"?: string,"foglio_scheda"?: string,"giorni_call"?: number,"giorni_programma"?: number,"giorni_test"?: number,"giorni_validita_link"?: number,"id"?: boolean,"link_community"?: string | null,"link_prenotazione"?: string | null,"responsabile_predefinito_id"?: string | null,"revisore_predefinito_id"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "aperto_ai_clienti"?: boolean,"avvisa_cliente_email"?: boolean,"coach_predefinito_id"?: string | null,"created_at"?: string,"foglio_id"?: string,"foglio_scheda"?: string,"giorni_call"?: number,"giorni_programma"?: number,"giorni_test"?: number,"giorni_validita_link"?: number,"id"?: boolean,"link_community"?: string | null,"link_prenotazione"?: string | null,"responsabile_predefinito_id"?: string | null,"revisore_predefinito_id"?: string | null,"updated_at"?: string,"updated_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -3694,6 +3746,21 @@ isOneToOne: false
               "call_proposte": number,"call_qualificate": number,"cash": number,"closer_call": number,"closer_cancellate": number,"closer_chiuse": number,"closer_follow_up": number,"closer_no_show": number,"closer_qualificate": number,"conversazioni": number,"data": string,"discovery_prenotate": number,"discovery_svolte": number,"dm_inbound": number,"dm_outbound": number,"dm_totali": number,"follow_up": number,"prenotate_inbound": number,"prenotate_outbound": number,"revenue": number,"strategy_prenotate": number
             }[]
                            },
+"google_chiave":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"google_chiave_presente":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"google_imposta_chiave":
+{ Args: { "p_json": string }; Returns: string
+                           },
+"google_segna_errore":
+{ Args: { "p_errore": string }; Returns: undefined
+                           },
+"google_togli_chiave":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "incassi_clienti_setter":
 { Args: { "p_a": string,"p_da": string }; Returns: {
               "clienti": number,"incassato": number,"numero_incassi": number,"numero_rimborsi": number,"provvigione": number,"rimborsato": number
@@ -4146,6 +4213,12 @@ isOneToOne: false
                            },
 "onboarding_evento":
 { Args: { "p_client_id": string,"p_dettagli": Json,"p_team"?: boolean,"p_tipo": string }; Returns: undefined
+                           },
+"onboarding_foglio_esito":
+{ Args: { "p_azione": string,"p_client": string,"p_errore": string,"p_rif": string,"p_riga": number }; Returns: undefined
+                           },
+"onboarding_foglio_prendi":
+{ Args: { "p_client"?: string,"p_limite"?: number }; Returns: Json
                            },
 "onboarding_guardia_team":
 { Args: { "p_client_id": string,"p_responsabile": boolean }; Returns: string

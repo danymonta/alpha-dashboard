@@ -5,7 +5,7 @@
  * expires. Words only: no key, no value, no address of a person. A key is
  * never pasted in a chat (CLAUDE.md section 5): the guide of each says so.
  */
-export type ChiaveId = 'instagram' | 'messenger' | 'fathom' | 'calendario' | 'anthropic' | 'groq'
+export type ChiaveId = 'instagram' | 'messenger' | 'fathom' | 'calendario' | 'google' | 'anthropic' | 'groq'
 
 export type GuidaChiave = {
   id: ChiaveId
@@ -82,6 +82,21 @@ export const GUIDE_CHIAVI: Record<ChiaveId, GuidaChiave> = {
     comeCapireCheFunziona: 'L’app legge il calendario subito e dice quante call ha letto. In Setter › Contatti compare «Calendario letto» con l’ora; ogni mattina e ogni sera si rilegge da solo, e lì c’è «Aggiorna dal calendario».',
     seScade: 'L’indirizzo segreto non scade. Se lo reimposti in Google (o Google smette di darlo) la lettura fallisce e qui compare l’errore: le prenotate restano quelle già lette. Copia l’indirizzo nuovo e incollalo di nuovo.',
   },
+  google: {
+    id: 'google',
+    titolo: 'Google Sheets (questionari dell’onboarding)',
+    aCosaServe: 'Scrive una riga sul foglio «questionario-e-mappatura-allievi», scheda «Risposte del modulo», per ogni questionario che un cliente invia, con le stesse colonne del vecchio Google Form; la cancella se il cliente revoca il consenso. È il backup delle risposte.',
+    passi: [
+      'Apri console.cloud.google.com dal computer e scegli il progetto del login con Google (lo stesso di «Scegli da Drive»).',
+      'API e servizi › Libreria: cerca «Google Sheets API» e tocca «Abilita».',
+      'IAM e amministrazione › Account di servizio › «Crea account di servizio»: nome «alpha-foglio», nessun ruolo, poi «Fine».',
+      'Apri l’account appena creato › scheda «Chiavi» › «Aggiungi chiave» › «Crea nuova chiave» › JSON › «Crea»: il computer scarica un file .json.',
+      'Copia l’indirizzo dell’account (finisce con iam.gserviceaccount.com), apri il foglio «questionario-e-mappatura-allievi» › «Condividi», incollalo come Editor e togli la spunta «Invia notifica».',
+    ],
+    doveIncollarla: 'Qui sotto, in «File della chiave»: scegli il file .json scaricato e tocca «Salva la chiave». Si salva nel Vault e non si mostra più; poi cancella il file dal computer.',
+    comeCapireCheFunziona: 'L’app prova subito la chiave e il foglio e scrive «Google risponde e il foglio è condiviso». Qui sotto vedi quante righe sono scritte e quante aspettano; «Scrivi ora sul foglio» manda subito quelle in attesa.',
+    seScade: 'La chiave non scade, ma si può revocare in Google Cloud. Se Google la rifiuta o il foglio non è più condiviso, qui compare l’errore e le righe restano in coda: si scrivono da sole appena la chiave o la condivisione tornano a posto.',
+  },
   anthropic: {
     id: 'anthropic',
     titolo: 'Claude (Anthropic)',
@@ -113,4 +128,4 @@ export const GUIDE_CHIAVI: Record<ChiaveId, GuidaChiave> = {
   },
 }
 
-export const ORDINE_CHIAVI: ChiaveId[] = ['instagram', 'messenger', 'fathom', 'calendario', 'anthropic', 'groq']
+export const ORDINE_CHIAVI: ChiaveId[] = ['instagram', 'messenger', 'fathom', 'calendario', 'google', 'anthropic', 'groq']

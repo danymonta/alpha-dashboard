@@ -492,6 +492,9 @@ insert into public.clienti_consegne (id, client_id, tipo, titolo, url)
 values ('75750000-0000-4000-8000-000000000278', '0b0b0000-0000-4000-8000-000000000001', 'link', 'Lista della spesa 75',
         'https://example.test/lista-75')
 on conflict (id) do nothing;
+-- The onboarding sheet (1.82.0): the queue of the seed's active client, which the seed leaves empty
+insert into public.onboarding_foglio (client_id) values ('0b0b0000-0000-4000-8000-000000000001')
+on conflict (client_id) do nothing;
 
 create or replace function pg_temp.tabelle_vuote()
 returns text
@@ -692,6 +695,10 @@ begin
   perform pg_temp.prova('fathom_chiave_presente', $q$ select public.fathom_chiave_presente()::text $q$);
   perform pg_temp.prova('fathom_imposta_chiave', $q$ select public.fathom_imposta_chiave('chiave-da-claude-0123456789abcdef')::text $q$);
   perform pg_temp.prova('fathom_togli_chiave', $q$ select public.fathom_togli_chiave()::text $q$);
+  -- the Google service account of the onboarding sheet (1.82.0): admin only, never an OAuth token
+  perform pg_temp.prova('google_chiave_presente', $q$ select public.google_chiave_presente()::text $q$);
+  perform pg_temp.prova('google_imposta_chiave', $q$ select public.google_imposta_chiave('{}')::text $q$);
+  perform pg_temp.prova('google_togli_chiave', $q$ select public.google_togli_chiave()::text $q$);
   perform pg_temp.prova('marketing_spunti_richiedi', $q$ select public.marketing_spunti_richiedi()::text $q$);
   perform pg_temp.prova('scollega_registrazione', format($q$ select public.scollega_registrazione(%L)::text $q$, a.call_id));
   perform pg_temp.prova('spunti_per_claude', $q$ select ((public.spunti_per_claude() ->> 'periodo_a') is not null)::text $q$);
@@ -793,7 +800,7 @@ begin
   perform pg_temp.prova('onboarding_elimina', $q$ select public.onboarding_elimina('0b0a0000-0000-4000-8000-000000000001')::text $q$);
   perform pg_temp.prova('percorso_cliente', $q$ select public.percorso_cliente()::text $q$);
   perform pg_temp.prova('percorso_avanza', $q$ select public.percorso_avanza('benvenuto', 'completa', '{}')::text $q$);
-  perform pg_temp.prova('consenso_dai', $q$ select public.consenso_dai('salute', '2026-11-12')::text $q$);
+  perform pg_temp.prova('consenso_dai', $q$ select public.consenso_dai('salute', '2026-11-13')::text $q$);
   perform pg_temp.prova('video_progresso', $q$ select public.video_progresso(gen_random_uuid(), null, 100, array[int4range(0, 10)])::text $q$);
   -- the questionnaire (1.80.0): the client's functions start from cliente_corrente(); the admin's revocation
   -- (security invoker) refuses an OAuth token explicitly
@@ -869,6 +876,9 @@ select is(
     'fissa_follow_up 42501',
     'giornate_closer 42501',
     'giornate_setter 42501',
+    'google_chiave_presente 42501',
+    'google_imposta_chiave 42501',
+    'google_togli_chiave 42501',
     'incassi_clienti_setter 42501',
     'inserisci_piano 42501',
     'insight_chat_messenger 42501',

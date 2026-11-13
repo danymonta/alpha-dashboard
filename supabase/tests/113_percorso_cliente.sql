@@ -157,7 +157,7 @@ select is(
 select is((select (valore -> 'stima' ->> 'data')::date from appunti where chiave = 'pagina'), public.oggi() + 12, 'la data stimata');
 select is((select valore ->> 'in_attesa' from appunti where chiave = 'pagina'), 'false', 'non in attesa: c''è un passo da fare');
 select is(
-  (select valore -> 'consensi' -> 0 ->> 'versione_in_vigore' from appunti where chiave = 'pagina'), '2026-11-12',
+  (select valore -> 'consensi' -> 0 ->> 'versione_in_vigore' from appunti where chiave = 'pagina'), '2026-11-13',
   'la versione in vigore del consenso'
 );
 
@@ -234,7 +234,7 @@ insert into appunti values ('regole', (select jsonb_agg(b.id) from public.conten
 select pg_temp.web(pg_temp.utente('Anna'));
 select throws_ok(
   $$ select public.percorso_avanza('regole', 'accetta', jsonb_build_object(
-       'regole', (select valore - 0 from appunti where chiave = 'regole'), 'consenso_salute', '2026-11-12')) $$,
+       'regole', (select valore - 0 from appunti where chiave = 'regole'), 'consenso_salute', '2026-11-13')) $$,
   '22023', 'Spunta tutte le regole per andare avanti.', 'una regola non spuntata no'
 );
 select throws_ok(
@@ -243,7 +243,7 @@ select throws_ok(
   '22023', 'Il testo del consenso è cambiato: rileggilo e accettalo di nuovo.', 'una versione del consenso non in vigore no'
 );
 insert into appunti values ('dopo_regole', public.percorso_avanza('regole', 'accetta', jsonb_build_object(
-  'regole', (select valore from appunti where chiave = 'regole'), 'consenso_salute', '2026-11-12')));
+  'regole', (select valore from appunti where chiave = 'regole'), 'consenso_salute', '2026-11-13')));
 select is((select valore ->> 'in_attesa' from appunti where chiave = 'dopo_regole'), 'false',
   'dopo le regole: niente attesa, c''è il questionario (B1b)');
 select is(pg_temp.mio_passo('questionario'), 'disponibile', 'il questionario si apre: è l''ultimo step servito');
@@ -252,14 +252,14 @@ select is((select valore -> 'stima' ->> 'cose_da_fare' from appunti where chiave
 select is(
   (select valore -> 'nodi' -> 0 ->> 'stato' from appunti where chiave = 'dopo_regole'), 'completato', 'il nodo Benvenuto è completato'
 );
-select is(public.consenso_dai('salute', '2026-11-12') ->> 'versione', '2026-11-12', 'consenso_dai: lo stesso consenso, nessun doppione');
+select is(public.consenso_dai('salute', '2026-11-13') ->> 'versione', '2026-11-13', 'consenso_dai: lo stesso consenso, nessun doppione');
 select throws_ok($$ select public.consenso_dai('salute', '2025-01-01') $$, '22023', null, 'una versione vecchia no');
-select throws_ok($$ select public.consenso_dai('wins', '2026-11-12') $$, '22023', null, 'un tipo che non c''è no');
+select throws_ok($$ select public.consenso_dai('wins', '2026-11-13') $$, '22023', null, 'un tipo che non c''è no');
 reset role;
 set local request.jwt.claims to '{}';
 select is(
   (select row(count(*), min(versione))::text from public.clienti_consensi where client_id = pg_temp.cliente('Anna') and revocato_il is null),
-  '(1,2026-11-12)', 'un solo consenso vivo, con la sua versione'
+  '(1,2026-11-13)', 'un solo consenso vivo, con la sua versione'
 );
 select is(
   (select array_agg(e.tipo || ':' || e.attore order by e.created_at) from public.onboarding_eventi e

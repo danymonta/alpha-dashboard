@@ -13,7 +13,7 @@ function testo(id: (typeof ORDINE_CHIAVI)[number]): string {
 
 describe('le guide di Chiavi e collegamenti (1.38.0)', () => {
   it('sei chiavi, ognuna con la sua guida completa', () => {
-    expect(ORDINE_CHIAVI).toEqual(['instagram', 'messenger', 'fathom', 'calendario', 'anthropic', 'groq'])
+    expect(ORDINE_CHIAVI).toEqual(['instagram', 'messenger', 'fathom', 'calendario', 'google', 'anthropic', 'groq'])
     for (const id of ORDINE_CHIAVI) {
       const g = GUIDE_CHIAVI[id]
       expect(g.id).toBe(id)

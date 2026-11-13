@@ -10,14 +10,14 @@ import {
 } from '@/lib/validation/questionario'
 
 /**
- * The questionnaire of the onboarding (release B1b): the questions of Dany's Google form
- * «Modulo Onboarding Coaching Online», with its words and its options, in the order of the
- * form, in 4 screens (docs/onboarding/rilascio-b.md, «Codice»). One entry per question: key,
- * text of the form, kind, options, screen. Typing mistakes of the form corrected: «Sedetario»,
- * «abidutini», «Quanto ore». The examples the form gives for «successo» and «organizzazione
- * della giornata» are not in the contract: none is invented here (to take from the form, with
- * Dany). The lines of help under a few questions (telephone, injuries, maximums) are of the
- * interface, not of the form. The keys and the values are the ones of lib/validation and of
+ * The questionnaire of the onboarding (release B1b, aligned to the form on 13/11/2026, 1.82.0):
+ * the questions of Dany's Google form «Modulo Onboarding Coaching Online», with its words, its
+ * options and its examples, in the exact order of the form, shown one at a time and grouped in
+ * 4 sections for the progress. One entry per question: key, text of the form, kind, options,
+ * section. Typing mistakes of the form corrected: «Sedetario», «abidutini», «Quanto ore». Every
+ * question is required except «note», as in the form. The words in brackets of the form that
+ * said «mandami … su Telegram» are an upload here. The lines of help under telephone, injuries
+ * and maximums are of the interface, not of the form. The keys and the values are the ones of lib/validation and of
  * onboarding_risposte_valide; a word changes here. No rule on the age (Dany, 12/11/2026).
  */
 
@@ -25,10 +25,20 @@ export type Schermata = { numero: NumeroSchermata; titolo: string; sotto: string
 
 export const SCHERMATE: readonly Schermata[] = [
   { numero: 1, titolo: 'Chi sei', sotto: 'Qualche dato su di te, per conoscerti.' },
-  { numero: 2, titolo: 'Allenamento', sotto: 'Da dove parti, quanto tempo hai e cosa hai a disposizione.' },
-  { numero: 3, titolo: 'Stile di vita', sotto: 'Sonno, attività, alimentazione e abitudini.' },
-  { numero: 4, titolo: 'Obiettivi', sotto: 'Dove vuoi arrivare e perché.' },
+  { numero: 2, titolo: 'Allenamento e alimentazione', sotto: 'Da dove parti, come ti alleni e come mangi.' },
+  { numero: 3, titolo: 'La tua giornata', sotto: 'Sonno, impegni, infortuni e abitudini.' },
+  { numero: 4, titolo: 'Obiettivi e punto di partenza', sotto: 'Dove vuoi arrivare e con cosa parti.' },
 ]
+
+/** The words at the top of Dany's form (without its emoji, never one in the client's area). */
+export const INTRO_QUESTIONARIO = {
+  titolo: 'Onboarding Percorso Alpha',
+  paragrafi: [
+    'Benvenuto! Questo è il Questionario di ONBOARDING per iniziare il Percorso Alpha.',
+    'Ti chiedo di rispondere in modo specifico e approfondito senza dare niente per scontato a tutte le domande: questo permette di massimizzare al meglio i risultati nel breve, medio, lungo termine.',
+    'Sono sicuro che faremo un ottimo lavoro insieme. Si inizia a fare sul serio.',
+  ],
+} as const
 
 export type Opzione = { valore: string; etichetta: string; dettaglio?: string }
 
@@ -92,11 +102,12 @@ const ETICHETTE_ATTIVITA: Record<(typeof LIVELLI_ATTIVITA)[number], { etichetta:
 }
 
 const ETICHETTE_ABITUDINI: Record<(typeof CATTIVE_ABITUDINI)[number], string> = {
-  fumo: 'Fumo',
   alcol: 'Bere alcol',
-  motivazione: 'Scarsa motivazione e autostima',
-  stimolanti: 'Abuso di stimolanti (caffeina, redbull, monster)',
+  fumo: 'Fumo',
+  altre_sostanze: 'Altre sostanze',
   sonno: 'Dormire meno di 6 ore a notte',
+  stimolanti: 'Abuso di stimolanti (caffeina, redbull, monster)',
+  motivazione: 'Scarsa motivazione e autostima',
 }
 
 export const ETICHETTE_ESERCIZI: Record<(typeof ESERCIZI_MASSIMALI)[number], string> = {
@@ -112,14 +123,7 @@ const SI_NO_OPZIONI: readonly Opzione[] = [
 
 export const DOMANDE: readonly Domanda[] = [
   // 1 · Chi sei
-  {
-    chiave: 'nome_cognome',
-    schermata: 1,
-    tipo: 'testo',
-    testo: 'Nome e Cognome',
-    autocomplete: 'name',
-  },
-  { chiave: 'email', schermata: 1, tipo: 'email', testo: 'Indirizzo email' },
+  { chiave: 'email', schermata: 1, tipo: 'email', testo: 'Email' },
   {
     chiave: 'telefono',
     schermata: 1,
@@ -129,22 +133,60 @@ export const DOMANDE: readonly Domanda[] = [
     autocomplete: 'tel',
     inputMode: 'tel',
   },
+  { chiave: 'nome_cognome', schermata: 1, tipo: 'testo', testo: 'Nome e Cognome', autocomplete: 'name' },
   { chiave: 'altezza_peso', schermata: 1, tipo: 'altezza_peso', testo: 'Altezza / Peso (a digiuno)' },
   { chiave: 'data_nascita', schermata: 1, tipo: 'data', testo: 'Data di nascita' },
   {
-    chiave: 'occupazione',
+    chiave: 'obiettivo_principale',
     schermata: 1,
     tipo: 'testo',
-    testo: 'Occupazione (che lavoro fai, studente etc..)',
+    lungo: true,
+    testo: 'Il tuo obiettivo N°1 (Più specifico sei e meglio è)',
   },
+  { chiave: 'occupazione', schermata: 1, tipo: 'testo', testo: 'Occupazione (che lavoro fai, studente etc..)' },
 
-  // 2 · Allenamento
+  // 2 · Allenamento e alimentazione
   {
     chiave: 'storia_allenamento',
     schermata: 2,
     tipo: 'testo',
     lungo: true,
     testo: 'Da quanto tempo ti alleni (e in quali sport)',
+  },
+  {
+    chiave: 'livello_attivita',
+    schermata: 2,
+    tipo: 'scelta',
+    testo: 'Qual è il tuo livello attuale di attività fisica?',
+    opzioni: LIVELLI_ATTIVITA.map((l) => ({ valore: l, ...ETICHETTE_ATTIVITA[l] })),
+  },
+  {
+    chiave: 'importanza_tecnica',
+    schermata: 2,
+    tipo: 'testo',
+    lungo: true,
+    testo: 'Quanto reputi importante la tecnica nei tuoi allenamenti?',
+  },
+  {
+    chiave: 'seguito_alimentazione',
+    schermata: 2,
+    tipo: 'scelta',
+    testo: 'Sei seguito sul piano alimentare?',
+    aiuto: 'Se sì, carica qui sotto il tuo piano alimentare attuale.',
+    opzioni: SI_NO_OPZIONI,
+    allegato: {
+      campo: 'piano_alimentare',
+      etichetta: 'Il tuo piano alimentare',
+      aiuto: 'Caricalo come foto o PDF.',
+      quando: 'si',
+    },
+  },
+  {
+    chiave: 'conoscenza_alimentazione',
+    schermata: 2,
+    tipo: 'testo',
+    lungo: true,
+    testo: 'Hai idea di come si mangia bene?',
   },
   {
     chiave: 'giorni_settimana',
@@ -161,62 +203,9 @@ export const DOMANDE: readonly Domanda[] = [
     testo: 'Quanto tempo puoi dedicare all’allenamento per ogni giorno che hai indicato?',
     opzioni: MINUTI_GIORNO.map((m) => ({ valore: m, etichetta: ETICHETTE_MINUTI[m] })),
   },
-  {
-    chiave: 'infortuni',
-    schermata: 2,
-    tipo: 'testo',
-    lungo: true,
-    testo: 'Hai infortuni / problematiche fisiche particolari da indicare?',
-    aiuto: 'Se non ne hai, scrivi «Nessuno».',
-  },
-  {
-    chiave: 'attrezzatura',
-    schermata: 2,
-    tipo: 'testo',
-    lungo: true,
-    testo: 'Di quale attrezzatura disponi per fare esercizio? Esempio: sbarra, elastici, manubri, anelli, parallele etc..',
-    allegato: {
-      campo: 'attrezzatura',
-      etichetta: 'Le foto della tua attrezzatura',
-      aiuto: 'Facoltative: una foto per attrezzo aiuta il tuo coach.',
-    },
-  },
-  {
-    chiave: 'massimali',
-    schermata: 2,
-    tipo: 'massimali',
-    testo: 'Massimo numero di ripetizioni nei seguenti esercizi: piegamenti, trazioni, dip',
-    aiuto: 'Il numero di ripetizioni di fila, fatte bene. Se non l’hai mai provato, tocca «Non lo so».',
-  },
-  {
-    chiave: 'esercizi_difficolta',
-    schermata: 2,
-    tipo: 'testo',
-    lungo: true,
-    testo: 'Esercizi su cui hai maggiore difficoltà ed esercizi su cui invece hai minore difficoltà',
-    allegato: {
-      campo: 'vecchia_scheda',
-      etichetta: 'La tua vecchia scheda',
-      aiuto: 'Facoltativa: se ne hai una, caricala come foto o PDF.',
-    },
-  },
-  {
-    chiave: 'importanza_tecnica',
-    schermata: 2,
-    tipo: 'testo',
-    lungo: true,
-    testo: 'Quanto reputi importante la tecnica nei tuoi allenamenti?',
-  },
 
-  // 3 · Stile di vita
+  // 3 · La tua giornata
   { chiave: 'ore_sonno', schermata: 3, tipo: 'testo', testo: 'Quante ore dormi al giorno circa?' },
-  {
-    chiave: 'livello_attivita',
-    schermata: 3,
-    tipo: 'scelta',
-    testo: 'Qual è il tuo livello attuale di attività fisica?',
-    opzioni: LIVELLI_ATTIVITA.map((l) => ({ valore: l, ...ETICHETTE_ATTIVITA[l] })),
-  },
   {
     chiave: 'organizzazione_giornata',
     schermata: 3,
@@ -224,45 +213,35 @@ export const DOMANDE: readonly Domanda[] = [
     lungo: true,
     testo:
       'Organizzi la tua giornata solitamente? Se sì, come strutturi i tuoi impegni principali (lavoro/studio, pasti, allenamento, sonno)?',
+    aiuto: 'Ad esempio: «Mi sveglio alle 7, lavoro 9-18, ceno alle 20, mi alleno dopo cena».',
   },
   {
-    chiave: 'seguito_alimentazione',
-    schermata: 3,
-    tipo: 'scelta',
-    testo: 'Sei seguito sul piano alimentare?',
-    opzioni: SI_NO_OPZIONI,
-    allegato: {
-      campo: 'piano_alimentare',
-      etichetta: 'Il tuo piano alimentare',
-      aiuto: 'Se ce l’hai, caricalo come foto o PDF.',
-      quando: 'si',
-    },
-  },
-  {
-    chiave: 'conoscenza_alimentazione',
+    chiave: 'infortuni',
     schermata: 3,
     tipo: 'testo',
     lungo: true,
-    testo: 'Hai idea di come si mangia bene?',
+    testo: 'Hai infortuni / problematiche fisiche particolari da indicare?',
+    aiuto: 'Se non ne hai, scrivi «Nessuno».',
   },
   {
     chiave: 'cattive_abitudini',
     schermata: 3,
     tipo: 'abitudini',
-    facoltativa: true,
     testo: 'Quali cattive abitudini hai di quelle elencate qui sotto?',
-    aiuto: 'Tocca tutte quelle che ti riguardano.',
+    aiuto: 'Altrimenti scrivi tu sotto quello che ritieni più rilevante. Tocca tutte quelle che ti riguardano.',
     opzioni: CATTIVE_ABITUDINI.map((a) => ({ valore: a, etichetta: ETICHETTE_ABITUDINI[a] })),
-    altro: 'Altrimenti scrivi tu quello che ritieni più rilevante',
+    altro: 'Altro',
   },
 
-  // 4 · Obiettivi
+  // 4 · Obiettivi e punto di partenza
   {
-    chiave: 'obiettivo_principale',
+    chiave: 'successo',
     schermata: 4,
     tipo: 'testo',
     lungo: true,
-    testo: 'Il tuo obiettivo N°1 (Più specifico sei e meglio è)',
+    testo: 'Cosa vorrebbe dire per te avere successo con questo programma di allenamento?',
+    aiuto:
+      '(aumentando di massa muscolare, perdendo grasso, migliorando la tua definizione muscolare, costruendo un fisico più sicuro, migliorare la tua disciplina, essere la migliore versione di te stesso)',
   },
   {
     chiave: 'perche_noi',
@@ -279,18 +258,37 @@ export const DOMANDE: readonly Domanda[] = [
     testo: 'Cosa ti piacerebbe ottenere nei prossimi 3-6 mesi? (obiettivi di forza specifici, risultati estetici specifici, etc)',
   },
   {
-    chiave: 'successo',
+    chiave: 'attrezzatura',
     schermata: 4,
     tipo: 'testo',
     lungo: true,
-    testo: 'Cosa vorrebbe dire per te avere successo con questo programma di allenamento?',
+    testo: 'Di quale attrezzatura disponi per fare esercizio?',
+    aiuto: 'Esempio: sbarra, elastici, manubri, anelli, parallele etc..',
+    allegato: {
+      campo: 'attrezzatura',
+      etichetta: 'Le foto della tua attrezzatura',
+      aiuto: 'Una foto per attrezzo aiuta il tuo coach.',
+    },
   },
   {
-    chiave: 'pronto',
+    chiave: 'massimali',
     schermata: 4,
-    tipo: 'scelta',
-    testo: 'Ti senti pronto e motivato?',
-    opzioni: SI_NO_OPZIONI,
+    tipo: 'massimali',
+    testo: 'Massimo numero di ripetizioni nei seguenti esercizi: piegamenti, trazioni, dip',
+    aiuto: 'Il numero di ripetizioni di fila, fatte bene. Se non l’hai mai provato, tocca «Non lo so».',
+  },
+  {
+    chiave: 'esercizi_difficolta',
+    schermata: 4,
+    tipo: 'testo',
+    lungo: true,
+    testo: 'Esercizi su cui hai maggiore difficoltà ed esercizi su cui invece hai minore difficoltà',
+    aiuto: 'Se hai già una vecchia scheda che facevi prima, caricala qui sotto.',
+    allegato: {
+      campo: 'vecchia_scheda',
+      etichetta: 'La tua vecchia scheda',
+      aiuto: 'Caricala come foto o PDF.',
+    },
   },
   {
     chiave: 'note',
@@ -300,6 +298,13 @@ export const DOMANDE: readonly Domanda[] = [
     facoltativa: true,
     testo:
       'Vuoi aggiungere qualcosa di rilevante sulla tua situazione, sul tuo stile di vita o sulla tua motivazione che pensi possa aiutarmi a seguirti al meglio?',
+  },
+  {
+    chiave: 'pronto',
+    schermata: 4,
+    tipo: 'scelta',
+    testo: 'Ti senti pronto e motivato?',
+    opzioni: SI_NO_OPZIONI,
   },
 ]
 

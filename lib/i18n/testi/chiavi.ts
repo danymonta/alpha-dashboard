@@ -73,6 +73,21 @@ const GUIDE_EN: Record<ChiaveId, GuidaChiave> = {
     comeCapireCheFunziona: 'The app reads the calendar right away and says how many calls it read. In Setter › Contacts appears «Calendar read» with the time; it reads it again every morning and every evening, and there you have «Refresh from the calendar».',
     seScade: 'The secret address does not expire. If you reset it in Google (or Google stops giving it) the reading fails and the error shows here: the booked calls stay the ones already read. Copy the new address and paste it again.',
   },
+  google: {
+    id: 'google',
+    titolo: 'Google Sheets (onboarding questionnaires)',
+    aCosaServe: 'It writes a row on the sheet «questionario-e-mappatura-allievi», tab «Risposte del modulo», for every questionnaire a client sends, with the same columns as the old Google Form; it clears it if the client withdraws the consent. It is the backup of the answers.',
+    passi: [
+      'Open console.cloud.google.com on the computer and choose the project of the Google login (the same as «Choose from Drive»).',
+      'APIs & Services › Library: search «Google Sheets API» and tap «Enable».',
+      'IAM & Admin › Service accounts › «Create service account»: name «alpha-foglio», no role, then «Done».',
+      'Open the account just created › «Keys» tab › «Add key» › «Create new key» › JSON › «Create»: the computer downloads a .json file.',
+      'Copy the address of the account (it ends with iam.gserviceaccount.com), open the sheet «questionario-e-mappatura-allievi» › «Share», paste it as Editor and untick «Notify people».',
+    ],
+    doveIncollarla: 'Below, in «Key file»: choose the downloaded .json file and tap «Save the key». It is saved in the Vault and never shown again; then delete the file from the computer.',
+    comeCapireCheFunziona: 'The app tries the key and the sheet right away and writes «Google answers and the sheet is shared». Below you see how many rows are written and how many are waiting; «Write to the sheet now» sends the waiting ones at once.',
+    seScade: 'The key does not expire, but it can be revoked in Google Cloud. If Google refuses it or the sheet is no longer shared, the error shows here and the rows stay in the queue: they are written by themselves as soon as the key or the sharing are fixed.',
+  },
   anthropic: {
     id: 'anthropic',
     titolo: 'Claude (Anthropic)',

@@ -2,7 +2,7 @@ import { deflateSync, crc32 } from 'node:zlib'
 
 import { expect, test, type Browser, type Page } from '@playwright/test'
 
-import { DOMANDE, SCHERMATE } from '../lib/percorso/questionario'
+import { DOMANDE, INTRO_QUESTIONARIO, type Domanda } from '../lib/percorso/questionario'
 import { ID_ADMIN, dbLocale } from './db'
 import { attivaDiProva, creaOnboardingDiProva, emailDiProva, pulisciClientiPercorso, registraCliente } from './percorso-db'
 import { PASSWORD_SEED, accedi, attendiStreaming } from './utenti'
@@ -86,6 +86,78 @@ async function aspettaSalvato(page: Page) {
   await expect(page.getByTestId('stato-salvataggio')).toContainText(/Salvato alle \d{2}:\d{2}/)
 }
 
+const N = DOMANDE.length
+
+/** What a client writes for every question of the form (the email and the name come from the card). */
+const RISPOSTE: Record<string, string> = {
+  telefono: '+39 333 000 0099',
+  obiettivo_principale: 'La prima trazione',
+  occupazione: 'Studente',
+  storia_allenamento: 'Calcio da ragazzo',
+  importanza_tecnica: 'Molto',
+  conoscenza_alimentazione: 'Abbastanza',
+  ore_sonno: 'Sette',
+  organizzazione_giornata: 'Scuola la mattina',
+  infortuni: 'Nessuno',
+  successo: 'Allenarmi con costanza',
+  perche_noi: 'I video',
+  obiettivi_3_6_mesi: 'Cinque trazioni',
+  attrezzatura: 'Una sbarra',
+  esercizi_difficolta: 'Le trazioni',
+}
+const SCELTE: Record<string, string> = {
+  livello_attivita: 'Attivo',
+  seguito_alimentazione: 'No',
+  giorni_settimana: '3',
+  minuti_giorno: '40-60 minuti',
+  pronto: 'Sì',
+}
+
+const titolo = (page: Page) => page.getByTestId('schermata-questionario').getByRole('heading', { level: 1 })
+const campo = (chiave: string) => `#campo-${chiave}`
+
+/** The question on the screen is the one number `i` (from 0): its words, its counter, its options. */
+async function siVedeLaDomanda(page: Page, i: number) {
+  const d = DOMANDE[i]!
+  await expect(page.getByTestId('indicatore')).toHaveText(`${i + 1} di ${N}`)
+  await expect(titolo(page)).toContainText(d.testo)
+  await expect(page.locator(`[data-domanda="${d.chiave}"]`)).toBeVisible()
+  if ('opzioni' in d) {
+    for (const o of d.opzioni) await expect(page.locator(`[data-domanda="${d.chiave}"]`).getByText(o.etichetta, { exact: true })).toBeVisible()
+  }
+  await expect(page.getByTestId('progresso')).toHaveAttribute('aria-valuenow', String(i + 1))
+}
+
+/** The answer of a question, then the way out of it (OK or the beat of a single choice). */
+async function rispondi(page: Page, d: Domanda) {
+  const blocco = page.locator(`[data-domanda="${d.chiave}"]`)
+  switch (d.tipo) {
+    case 'email':
+    case 'data':
+      if (d.tipo === 'data') await page.locator(campo(d.chiave)).fill('2009-04-10')
+      break
+    case 'testo':
+      if (RISPOSTE[d.chiave]) await page.locator(campo(d.chiave)).fill(RISPOSTE[d.chiave]!)
+      break
+    case 'altezza_peso':
+      await page.locator(campo(d.chiave)).fill('175')
+      await page.locator(`${campo(d.chiave)}-peso`).fill('72,5')
+      break
+    case 'scelta':
+      await blocco.getByText(SCELTE[d.chiave]!, { exact: true }).click()
+      return // a single choice goes on by itself
+    case 'massimali':
+      await page.locator(campo(d.chiave)).fill('12')
+      await page.getByRole('button', { name: 'Non lo so: Trazioni' }).click()
+      await page.locator(`${campo(d.chiave)}-dip`).fill('4')
+      break
+    case 'abitudini':
+      await blocco.getByText('Dormire meno di 6 ore a notte').click()
+      break
+  }
+  await page.getByTestId('avanti').click()
+}
+
 /** React holds the fields: a fill before the hydration would be lost or mixed with the text there. */
 async function pronto(page: Page) {
   await expect(page.getByTestId('questionario')).toHaveAttribute('data-pronto', 'true')
@@ -112,57 +184,75 @@ test('il questionario del modulo: salvataggio, ripresa, file, invio; poi l’adm
   await pannello.getByRole('link', { name: 'Compila il questionario' }).click()
   await expect(page).toHaveURL(/\/percorso\/questionario/)
   await pronto(page)
-  await expect(page.getByTestId('indicatore')).toHaveText('1 di 4')
 
-  // the questions of the form, screen by screen, with their words
-  for (const s of SCHERMATE) {
-    await page.goto(`/percorso/questionario?schermata=${s.numero}`)
-    await expect(page.getByRole('heading', { level: 2, name: s.titolo })).toBeVisible()
-    const chiavi = await page.locator('[data-domanda]').evaluateAll((el) => el.map((e) => e.getAttribute('data-domanda')))
-    expect(chiavi).toEqual(DOMANDE.filter((d) => d.schermata === s.numero).map((d) => d.chiave))
-    for (const d of DOMANDE.filter((x) => x.schermata === s.numero)) {
-      await expect(page.locator(`[data-domanda="${d.chiave}"]`)).toContainText(d.testo)
-      if ('opzioni' in d) {
-        for (const o of d.opzioni) await expect(page.locator(`[data-domanda="${d.chiave}"]`).getByText(o.etichetta, { exact: true })).toBeVisible()
-      }
-    }
-    await senzaScrollDiLato(page, `schermata ${s.numero}`)
+  // the introduction of the form, first and only once: «Inizia»
+  await expect(titolo(page)).toHaveText(INTRO_QUESTIONARIO.titolo)
+  for (const p of INTRO_QUESTIONARIO.paragrafi) await expect(page.getByTestId('intro-questionario')).toContainText(p)
+  await expect(page.getByTestId('progresso')).toHaveAttribute('aria-valuenow', '0')
+  await senzaScrollDiLato(page, 'introduzione')
+  await page.getByTestId('inizia').click()
+
+  // question 1: the email from the card; a required one empty says so and the focus stays
+  await siVedeLaDomanda(page, 0)
+  await expect(page.locator(campo('email'))).toHaveValue(email)
+  await page.getByTestId('avanti').click()
+  await siVedeLaDomanda(page, 1)
+  await page.getByTestId('avanti').click()
+  await expect(page.locator('[data-domanda="telefono"]')).toContainText('Scrivi la tua risposta.')
+  await expect(page.locator(campo('telefono'))).toHaveAttribute('aria-invalid', 'true')
+  await expect(page.getByTestId('indicatore')).toHaveText(`2 di ${N}`)
+  await expect(page.locator(campo('telefono'))).toBeFocused()
+  // Invio goes on, from the keyboard
+  await page.locator(campo('telefono')).fill(RISPOSTE.telefono!)
+  await expect(page.locator('[data-domanda="telefono"] [data-errore]')).toHaveCount(0)
+  await page.keyboard.press('Enter')
+  await siVedeLaDomanda(page, 2)
+  await expect(page.locator(campo('nome_cognome'))).toHaveValue(`${nome} Incassi`)
+  await senzaScrollDiLato(page, 'domanda 3')
+  await page.getByTestId('avanti').click()
+
+  // height and weight: the wrong weight says so on leaving the field; Invio goes from one field to the other
+  await siVedeLaDomanda(page, 3)
+  await page.locator(campo('altezza_peso')).fill('175')
+  await page.keyboard.press('Enter')
+  await expect(page.locator(`${campo('altezza_peso')}-peso`)).toBeFocused()
+  await page.locator(`${campo('altezza_peso')}-peso`).fill('300')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('[data-domanda="altezza_peso"]')).toContainText('Scrivi il peso in kg, da 35 a 250')
+  await expect(page.getByTestId('indicatore')).toHaveText(`4 di ${N}`)
+  await page.locator(`${campo('altezza_peso')}-peso`).fill('72,5')
+  await expect(page.locator('[data-domanda="altezza_peso"] [data-errore]')).toHaveCount(0)
+  await page.keyboard.press('Enter')
+
+  // a long answer: Maiusc + Invio is a new line, Invio goes on
+  await siVedeLaDomanda(page, 4)
+  await page.locator(campo('data_nascita')).fill('2009-04-10')
+  await page.keyboard.press('Enter')
+  await siVedeLaDomanda(page, 5)
+  await page.locator(campo('obiettivo_principale')).fill('La prima')
+  await page.keyboard.press('Shift+Enter')
+  await page.keyboard.type('trazione')
+  await expect(page.locator(campo('obiettivo_principale'))).toHaveValue('La prima\ntrazione')
+  await expect(page.getByTestId('indicatore')).toHaveText(`6 di ${N}`)
+  await page.keyboard.press('Enter')
+
+  // every other question up to the equipment: its words, its options, the answer, the way on
+  for (let i = 6; i < DOMANDE.findIndex((d) => d.chiave === 'attrezzatura'); i++) {
+    await siVedeLaDomanda(page, i)
+    await senzaScrollDiLato(page, `domanda ${i + 1}`)
+    await rispondi(page, DOMANDE[i]!)
   }
 
-  // screen 1: name and email already written from the card
-  await page.goto('/percorso/questionario?schermata=1')
-  await pronto(page)
-  await expect(page.getByLabel('Nome e Cognome')).toHaveValue(`${nome} Incassi`)
-  await expect(page.getByLabel('Indirizzo email')).toHaveValue(email)
-  await page.getByLabel(/Numero di telefono/).fill('+39 333 000 0099')
-  await page.getByLabel('Altezza', { exact: true }).fill('175')
-  await page.getByLabel('Peso', { exact: true }).fill('300')
-  await page.getByLabel('Peso', { exact: true }).blur()
-  await expect(page.locator('[data-domanda="altezza_peso"]')).toContainText('Scrivi il peso in kg, da 35 a 250')
-  await page.getByLabel('Peso', { exact: true }).fill('72,5')
-  await expect(page.locator('[data-domanda="altezza_peso"] [data-errore]')).toHaveCount(0)
-  await page.getByLabel('Data di nascita').fill('2009-04-10')
-  await page.getByLabel(/Occupazione/).fill('Studente')
-  await aspettaSalvato(page)
-
-  // screen 2, with a photo of the equipment
-  await page.getByTestId('avanti').click()
-  await expect(page.getByTestId('indicatore')).toHaveText('2 di 4')
-  await expect(page.getByRole('heading', { level: 2, name: 'Allenamento' })).toBeFocused()
-  await page.getByLabel(/Da quanto tempo/).fill('Calcio da ragazzo')
-  await page.locator('[data-domanda="giorni_settimana"]').getByText('3', { exact: true }).click()
-  await page.locator('[data-domanda="minuti_giorno"]').getByText('40-60 minuti').click()
-  await page.getByLabel(/Hai infortuni/).fill('Nessuno')
-  await page.getByLabel(/Di quale attrezzatura/).fill('Una sbarra')
-  await page.getByLabel('Piegamenti', { exact: true }).fill('12')
-  await page.getByRole('button', { name: 'Non lo so: Trazioni' }).click()
-  await page.getByLabel('Dip', { exact: true }).fill('4')
-  await page.getByLabel(/Esercizi su cui/).fill('Le trazioni')
-  await page.getByLabel(/Quanto reputi/).fill('Molto')
+  // the equipment, with a photo
+  const iAttrezzatura = DOMANDE.findIndex((d) => d.chiave === 'attrezzatura')
+  await siVedeLaDomanda(page, iAttrezzatura)
+  await page.locator(campo('attrezzatura')).fill(RISPOSTE.attrezzatura!)
   await page.getByTestId('file-attrezzatura').setInputFiles({ name: 'sbarra.png', mimeType: 'image/png', buffer: png() })
   const file = page.locator('[data-allegati="attrezzatura"] [data-allegato]')
   await expect(file).toHaveCount(1, { timeout: 20_000 })
   await expect(file).toContainText('sbarra.jpg')
+  await page.getByTestId('avanti').click()
+  await siVedeLaDomanda(page, iAttrezzatura + 1)
   await aspettaSalvato(page)
 
   // the file is in the bucket, confirmed on its first bytes, never public
@@ -191,47 +281,49 @@ test('il questionario del modulo: salvataggio, ripresa, file, invio; poi l’adm
   const { data: scartato } = await db.from('onboarding_allegati').select('stato').eq('id', rifiuto.id).single()
   expect(scartato?.stato).toBe('da_cancellare')
 
-  // another device: the same answers, from the screen where the client was
+  // another device: the same answers, from the first question left (the maximums), with the file
   const altro = await contestoCliente(browser, email, 1440)
   await altro.page.goto('/percorso/questionario')
   await pronto(altro.page)
-  await expect(altro.page.getByTestId('indicatore')).toHaveText('2 di 4')
-  await expect(altro.page.getByLabel(/Da quanto tempo/)).toHaveValue('Calcio da ragazzo')
+  await expect(altro.page.getByTestId('intro-questionario')).toHaveCount(0)
+  await siVedeLaDomanda(altro.page, DOMANDE.findIndex((d) => d.chiave === 'massimali'))
+  await altro.page.goto('/percorso/questionario?domanda=infortuni')
+  await pronto(altro.page)
+  await expect(altro.page.locator(campo('infortuni'))).toHaveValue('Nessuno')
+  await altro.page.goto('/percorso/questionario?domanda=attrezzatura')
+  await pronto(altro.page)
   await expect(altro.page.locator('[data-allegati="attrezzatura"] [data-allegato]')).toHaveCount(1)
   // it saves too: the first device is now one version behind
-  await altro.page.getByLabel(/Quanto reputi/).fill('Moltissimo')
+  await altro.page.goto('/percorso/questionario?domanda=infortuni')
+  await pronto(altro.page)
+  await altro.page.locator(campo('infortuni')).fill('Nessuno, ma una spalla')
   await aspettaSalvato(altro.page)
   await altro.contesto.close()
 
   // the first device writes over an older version: it reloads the answers of the other one
-  await page.getByLabel(/Esercizi su cui/).fill('Le trazioni e i dip')
+  await page.locator(campo('massimali')).fill('9')
   await expect(page.getByText('Il questionario è cambiato da un altro dispositivo: ricarico le tue risposte.')).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByLabel(/Quanto reputi/)).toHaveValue('Moltissimo')
-
-  // the last screen with the third empty: the sending goes to the first missing answer
-  await page.goto('/percorso/questionario?schermata=4')
+  await expect(page.locator(campo('massimali'))).toHaveValue('')
+  await page.goto('/percorso/questionario?domanda=infortuni')
   await pronto(page)
-  await page.getByLabel(/Il tuo obiettivo/).fill('La prima trazione')
-  await page.getByLabel(/Cosa ti ha spinto/).fill('I video')
-  await page.getByLabel(/Cosa ti piacerebbe/).fill('Cinque trazioni')
-  await page.getByLabel(/Cosa vorrebbe dire/).fill('Allenarmi con costanza')
-  await page.locator('[data-domanda="pronto"]').getByText('Sì', { exact: true }).click()
-  await page.getByTestId('invia-questionario').click()
-  await expect(page.getByTestId('indicatore')).toHaveText('3 di 4')
-  await expect(page.getByText('Qui mancano 5 risposte.')).toBeVisible()
-  await expect(page.getByLabel(/Quante ore dormi/)).toBeFocused()
-  await expect(page.locator('[data-domanda="ore_sonno"]')).toContainText('Scrivi la tua risposta.')
-  await expect(page.getByLabel(/Quante ore dormi/)).toHaveAttribute('aria-invalid', 'true')
-  await senzaScrollDiLato(page, 'schermata con gli errori')
+  await expect(page.locator(campo('infortuni'))).toHaveValue('Nessuno, ma una spalla')
+  await page.goto('/percorso/questionario?domanda=massimali')
+  await pronto(page)
 
-  await page.getByLabel(/Quante ore dormi/).fill('Sette')
-  await expect(page.locator('[data-domanda="ore_sonno"] [data-errore]')).toHaveCount(0)
-  await page.locator('[data-domanda="livello_attivita"]').getByText('Attivo', { exact: true }).click()
-  await page.getByLabel(/Organizzi la tua giornata/).fill('Scuola la mattina')
-  await page.locator('[data-domanda="seguito_alimentazione"]').getByText('No', { exact: true }).click()
-  await page.getByLabel(/Hai idea/).fill('Abbastanza')
-  await page.locator('[data-domanda="cattive_abitudini"]').getByText('Dormire meno di 6 ore a notte').click()
-  await page.getByTestId('avanti').click()
+  // the last questions, then the recap with nothing missing and the sending
+  for (let i = DOMANDE.findIndex((d) => d.chiave === 'massimali'); i < N; i++) {
+    await siVedeLaDomanda(page, i)
+    if (DOMANDE[i]!.chiave === 'note') {
+      await expect(titolo(page)).toContainText('(facoltativa)')
+      await page.getByTestId('avanti').click() // optional: it goes on empty
+      continue
+    }
+    await rispondi(page, DOMANDE[i]!)
+  }
+  await expect(page.getByTestId('recap-questionario')).toBeVisible()
+  await expect(titolo(page)).toHaveText('Hai risposto a tutto')
+  await expect(page.getByTestId('progresso')).toHaveAttribute('aria-valuenow', String(N))
+  await senzaScrollDiLato(page, 'recap')
   await page.getByTestId('invia-questionario').click()
   await expect(page.getByText('Questionario inviato').first()).toBeVisible({ timeout: 20_000 })
   await expect(page).toHaveURL(/\/percorso$/)
@@ -252,6 +344,7 @@ test('il questionario del modulo: salvataggio, ripresa, file, invio; poi l’adm
     giorni_settimana: 3,
     minuti_giorno: '40_60',
     cattive_abitudini: { scelte: ['sonno'] },
+    infortuni: 'Nessuno, ma una spalla',
   })
   const { data: passo } = await db.from('onboarding_passi').select('stato').eq('client_id', clientId).eq('passo', 'questionario').single()
   expect(passo?.stato).toBe('fatto')
@@ -294,4 +387,67 @@ test('il questionario del modulo: salvataggio, ripresa, file, invio; poi l’adm
   expect(oggettiDopo ?? []).toEqual([])
   const { data: regole } = await db.from('onboarding_passi').select('stato').eq('client_id', clientId).eq('passo', 'regole').single()
   expect(regole?.stato).toBe('disponibile')
+})
+
+test('la ripresa e il riepilogo: si riparte dalla prima risposta che manca, il vecchio ?schermata= vale ancora', async ({ browser }) => {
+  test.setTimeout(180_000)
+  const nome = `${PREFISSO}Dario${Date.now().toString().slice(-5)}`
+  const email = emailDiProva('questionario-ripresa')
+  const clientId = await clientePronto(nome, email)
+  const db = dbLocale()
+  // everything answered but two questions
+  const risposte = {
+    ...RISPOSTE,
+    email,
+    nome_cognome: 'Dario Prova',
+    altezza_peso: { altezza: 180, peso: 80 },
+    data_nascita: '1990-05-05',
+    livello_attivita: 'attivo',
+    seguito_alimentazione: 'no',
+    giorni_settimana: 3,
+    minuti_giorno: '40_60',
+    massimali: { piegamenti: 10, trazioni: 3, dip: 5 },
+    cattive_abitudini: { scelte: ['sonno'], altro: '' },
+  } as Record<string, unknown>
+  delete risposte.ore_sonno
+  const { error } = await db.from('onboarding_questionari').insert({ client_id: clientId, risposte: risposte as never, versione: 1, schermata: 3 })
+  if (error) throw error
+
+  const { contesto, page } = await contestoCliente(browser, email)
+  await page.goto('/percorso/questionario')
+  await pronto(page)
+  // no introduction (it was started): the first question left open
+  await expect(page.getByTestId('intro-questionario')).toHaveCount(0)
+  await siVedeLaDomanda(page, DOMANDE.findIndex((d) => d.chiave === 'ore_sonno'))
+
+  // the old address of a part opens its first question
+  await page.goto('/percorso/questionario?schermata=3')
+  await pronto(page)
+  await siVedeLaDomanda(page, DOMANDE.findIndex((d) => d.schermata === 3))
+
+  // the recap: «pronto» is also missing; a tap goes to the question, and OK comes back to the recap
+  await page.goto('/percorso/questionario?domanda=fine')
+  await pronto(page)
+  await expect(titolo(page)).toHaveText('Ti mancano 2 risposte')
+  await expect(page.getByTestId('invia-questionario')).toHaveCount(0)
+  await page.getByTestId('mancante-pronto').click()
+  await siVedeLaDomanda(page, DOMANDE.findIndex((d) => d.chiave === 'pronto'))
+  await page.locator('[data-domanda="pronto"]').getByText('Sì', { exact: true }).click()
+  await expect(titolo(page)).toHaveText('Ti manca una risposta')
+  await page.getByTestId('vai-prima-mancante').click()
+  await siVedeLaDomanda(page, DOMANDE.findIndex((d) => d.chiave === 'ore_sonno'))
+  await page.keyboard.press('Enter') // required and empty
+  await expect(page.locator('[data-domanda="ore_sonno"]')).toContainText('Scrivi la tua risposta.')
+  await page.locator(campo('ore_sonno')).fill('Sette')
+  await page.keyboard.press('Enter')
+  await expect(titolo(page)).toHaveText('Hai risposto a tutto')
+  await aspettaSalvato(page)
+  const { data } = await db.from('onboarding_questionari').select('risposte, inviato_il').eq('client_id', clientId).single()
+  expect(data?.inviato_il).toBeNull()
+  expect(data?.risposte).toMatchObject({ ore_sonno: 'Sette', pronto: 'si' })
+
+  // the browser's Back goes to the question before
+  await page.goBack()
+  await expect(page.getByTestId('recap-questionario')).toHaveCount(0)
+  await contesto.close()
 })

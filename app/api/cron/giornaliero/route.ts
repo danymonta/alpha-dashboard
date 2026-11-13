@@ -11,6 +11,7 @@ import { inviaRiepilogoSettimana, type Destinatario } from '@/lib/email/riepilog
 import { inviaTempoTeam } from '@/lib/email/tempo-team-invio'
 import { publicEnv } from '@/lib/env'
 import { creaAvvisiDellaSera } from '@/lib/notifiche/collegamenti'
+import { lavoraFoglio } from '@/lib/percorso/foglio-lavoro'
 import { pulisciFileQuestionario, pulisciUtentiOrfani } from '@/lib/percorso/pulizia'
 import { inviaPromemoriaPercorso } from '@/lib/promemoria/percorso'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -94,6 +95,14 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     console.error('[giornaliero] file del questionario', e instanceof Error ? e.name : 'errore')
     esito.file_questionario = 'non riuscita'
+  }
+
+  // The rows of the onboarding sheet still to write or clear (1.82.0): the retries of the day. Stops nothing.
+  try {
+    esito.foglio_onboarding = await lavoraFoglio(admin, { limite: 50 })
+  } catch (e) {
+    console.error('[giornaliero] foglio dell’onboarding', e instanceof Error ? e.name : 'errore')
+    esito.foglio_onboarding = 'non riuscito'
   }
 
   // Friday in Rome: the week from Saturday to today. A summary that fails is

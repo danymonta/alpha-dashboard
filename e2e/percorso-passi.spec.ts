@@ -117,7 +117,7 @@ test('benvenuto col video visto, regole e consenso, poi il questionario: a 390 p
   await expect(pannello.getByRole('link', { name: 'Compila il questionario' })).toBeVisible()
   await expect(page.getByTestId('stima')).toBeVisible()
   const { data: consensi } = await dbLocale().from('clienti_consensi').select('tipo, versione').eq('client_id', clientId)
-  expect(consensi).toEqual([{ tipo: 'salute', versione: '2026-11-12' }])
+  expect(consensi).toEqual([{ tipo: 'salute', versione: '2026-11-13' }])
 
   // a completed stage read again
   await timeline.getByRole('button', { name: 'Benvenuto, completato' }).click()

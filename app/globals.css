@@ -713,6 +713,33 @@ input::-webkit-datetime-edit-minute-field:focus {
   }
 }
 
+/* The questionnaire of the client's area (1.82.0): one question at a time, a screen takes the
+   place of the one before sliding up (forwards) or down (backwards) with a fade. Transform
+   and opacity only, vertical, 320 ms; no fill forwards. Only where motion is welcome: the
+   screens simply change otherwise (the reduced-motion rule below covers the rest). */
+@keyframes qz-avanti {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 1.5rem, 0);
+  }
+}
+
+@keyframes qz-indietro {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -1.5rem, 0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .qz-avanti {
+    animation: qz-avanti 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .qz-indietro {
+    animation: qz-indietro 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+}
+
 /* The wizard «Nuovo cliente» (1.77.0, app/(app)/onboarding/nuovo) ------------------
    A screen takes the place of the one before with a short slide and fade, forwards
    from the right and backwards from the left: transform and opacity only, 240 ms.
