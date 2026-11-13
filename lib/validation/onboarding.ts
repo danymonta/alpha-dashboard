@@ -72,6 +72,7 @@ export const ERRORI_ONBOARDING = {
   nota: 'La nota è troppo lunga: al massimo 300 caratteri.',
   motivo: 'Scrivi il motivo della revoca',
   motivoLungo: 'Il motivo è troppo lungo: al massimo 300 caratteri.',
+  revocaConsensoNonFatta: 'Revoca non registrata. Riprova.',
   giorni: 'I giorni di validità del link vanno da 1 a 90',
   nonAvviato: 'Onboarding non avviato. Riprova.',
   nonConfermato: 'Pagamento non confermato. Riprova.',
@@ -293,6 +294,17 @@ export const consensoGenitoreSchema = z.object({
 })
 
 /** «Revoca» always says why: the reason stays in the log. */
+/** «Registra la revoca» of the consent on health data (1.79.0): the client and the reason. */
+export const revocaConsensoSchema = z.object({
+  client_id: z.string().uuid(ERRORI_ONBOARDING.cliente),
+  tipo: z.literal('salute'),
+  motivo: z
+    .string({ required_error: ERRORI_ONBOARDING.motivo, invalid_type_error: ERRORI_ONBOARDING.motivo })
+    .trim()
+    .min(1, ERRORI_ONBOARDING.motivo)
+    .max(LIMITI_ONBOARDING.motivo, ERRORI_ONBOARDING.motivoLungo),
+})
+
 export const revocaSchema = z.object({
   invito_id: z.string().uuid(ERRORI_ONBOARDING.invito),
   motivo: z

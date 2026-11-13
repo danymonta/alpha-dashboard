@@ -7,6 +7,7 @@ import { emailCodiceCliente } from '@/lib/email/cliente'
 import { baseMailpit, corpoMailpit } from '@/lib/email/mailpit'
 import { CONSENSI_IN_VIGORE, CONSENSO_SALUTE } from '@/lib/percorso/consensi'
 import { ETICHETTE_NODI, nomeAccessibileNodo } from '@/lib/percorso/nodi'
+import { DOMANDE, SCHERMATE } from '@/lib/percorso/questionario'
 import { fraseCose, fraseCoseInAttesa, fraseGiorni, fraseStima, leggiStima } from '@/lib/percorso/stima'
 import * as TESTI from '@/lib/percorso/testi'
 
@@ -36,6 +37,9 @@ describe('i testi del cliente', () => {
     ...tutteLeStringhe(TESTI, 'testi'),
     ...tutteLeStringhe(ETICHETTE_NODI, 'nodi'),
     ...tutteLeStringhe(CONSENSI_IN_VIGORE, 'consensi'),
+    // release B1b: the questions of the form and their options
+    ...tutteLeStringhe(DOMANDE, 'questionario'),
+    ...tutteLeStringhe(SCHERMATE, 'schermate'),
   ]
 
   it('ci sono', () => {
@@ -49,8 +53,8 @@ describe('i testi del cliente', () => {
     expect(testo).not.toMatch(/\b(perche|piu|gia|cosi|puo)\b/i)
   })
 
-  it('i blocchi del CMS seminati non hanno trattini lunghi né emoji', () => {
-    const sql = readFileSync('supabase/migrations/20261109090100_percorso_base.sql', 'utf8')
+  it.each(['20261109090100_percorso_base.sql', '20261109100000_questionario.sql'])('i blocchi del CMS seminati in %s non hanno trattini lunghi né emoji', (file) => {
+    const sql = readFileSync(`supabase/migrations/${file}`, 'utf8')
     const inizio = sql.indexOf('insert into public.contenuti_blocchi')
     expect(inizio).toBeGreaterThan(0)
     const seme = sql.slice(inizio, sql.indexOf(';', inizio))

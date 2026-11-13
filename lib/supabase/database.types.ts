@@ -1543,6 +1543,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"onboarding_allegati": {
+                  Row: {
+                    "byte": number,"campo": string,"caricato_il": string | null,"client_id": string,"created_at": string,"id": string,"nome_file": string,"percorso": string,"stato": string,"tipo": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "byte": number,"campo": string,"caricato_il"?: string | null,"client_id": string,"created_at"?: string,"id"?: string,"nome_file": string,"percorso": string,"stato"?: string,"tipo": string
+                  }
+                  Update: {
+                    "byte"?: number,"campo"?: string,"caricato_il"?: string | null,"client_id"?: string,"created_at"?: string,"id"?: string,"nome_file"?: string,"percorso"?: string,"stato"?: string,"tipo"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_allegati_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_allegati_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_allegati_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
+    }
+                  ]
                 },"onboarding_eventi": {
                   Row: {
                     "attore": string,"autore_id": string | null,"client_id": string,"created_at": string,"dettagli": NonNullable<Json>,"id": string,"tipo": string
@@ -1869,6 +1901,38 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "v_vendite_senza_onboarding"
       referencedColumns: ["sale_id"]
+    }
+                  ]
+                },"onboarding_questionari": {
+                  Row: {
+                    "client_id": string,"created_at": string,"inviato_il": string | null,"risposte": NonNullable<Json>,"schermata": number,"updated_at": string,"versione": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"created_at"?: string,"inviato_il"?: string | null,"risposte"?: NonNullable<Json>,"schermata"?: number,"updated_at"?: string,"versione"?: number
+                  }
+                  Update: {
+                    "client_id"?: string,"created_at"?: string,"inviato_il"?: string | null,"risposte"?: NonNullable<Json>,"schermata"?: number,"updated_at"?: string,"versione"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "onboarding_questionari_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "clients"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "onboarding_questionari_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_client_status"
+      referencedColumns: ["client_id"]
+    },{
+      foreignKeyName: "onboarding_questionari_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: true
+      referencedRelation: "v_clienti"
+      referencedColumns: ["client_id"]
     }
                   ]
                 },"onboarding_registrazioni": {
@@ -3185,6 +3249,15 @@ isOneToOne: false
 "aggiungi_rata":
 { Args: { "p_importo": number,"p_sale_id": string,"p_scadenza": string }; Returns: string
                            },
+"allegato_conferma":
+{ Args: { "p_client_id": string,"p_id": string,"p_tipo_letto": string }; Returns: Json
+                           },
+"allegato_prepara":
+{ Args: { "p_byte": number,"p_campo": string,"p_nome": string,"p_tipo": string }; Returns: Json
+                           },
+"allegato_togli":
+{ Args: { "p_id": string }; Returns: Json
+                           },
 "analisi_fascia_lead":
 { Args: { "p_dm": number,"p_in_target": number,"p_p75": number,"p_reel_type": string }; Returns: string
                            },
@@ -3910,6 +3983,14 @@ isOneToOne: false
               "call_in_programma": number,"call_prenotate": number,"call_svolte": number,"cash_incassato": number,"cash_nuovi_clienti": number,"chiuse": number,"conversazioni": number,"dm_totali": number,"report_compilati": number
             }[]
                            },
+"onboarding_allegati_cliente":
+{ Args: { "p_client_id": string }; Returns: Json
+                           },
+"onboarding_allegati_da_togliere":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "id": string,"percorso": string
+            }[]
+                           },
 "onboarding_altro_percorso_pagato":
 { Args: { "p_client_id": string,"p_sale_id": string }; Returns: boolean
                            },
@@ -3924,6 +4005,9 @@ isOneToOne: false
                            },
 "onboarding_consenso_genitore":
 { Args: { "p_invito": string,"p_nota": string }; Returns: Json
+                           },
+"onboarding_consenso_salute":
+{ Args: { "p_client_id": string }; Returns: boolean
                            },
 "onboarding_elimina":
 { Args: { "p_client_id": string }; Returns: Json
@@ -3964,17 +4048,32 @@ isOneToOne: false
 "onboarding_pulizia":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"onboarding_questionario_aperto":
+{ Args: { "p_client_id": string,"p_consenso": boolean }; Returns: string
+                           },
 "onboarding_registra_cliente":
 { Args: { "p_invito": string,"p_user_id": string }; Returns: undefined
                            },
 "onboarding_revoca":
 { Args: { "p_invito": string,"p_motivo": string }; Returns: Json
                            },
+"onboarding_revoca_consenso":
+{ Args: { "p_client_id": string,"p_motivo": string,"p_tipo": string }; Returns: Json
+                           },
 "onboarding_riattiva":
 { Args: { "p_invito": string }; Returns: Json
                            },
 "onboarding_rigenera_link":
 { Args: { "p_invito": string }; Returns: Json
+                           },
+"onboarding_risposte_complete":
+{ Args: { "p_risposte": Json }; Returns: boolean
+                           },
+"onboarding_risposte_mancanti":
+{ Args: { "p_risposte": Json }; Returns: (string)[]
+                           },
+"onboarding_risposte_valide":
+{ Args: { "p_risposte": Json }; Returns: boolean
                            },
 "onboarding_sblocca":
 { Args: { "p_client_id": string }; Returns: number
@@ -4156,6 +4255,15 @@ isOneToOne: false
                            },
 "puo_usare_mcp":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"questionario_cliente":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"questionario_invia":
+{ Args: { "p_versione": number }; Returns: Json
+                           },
+"questionario_salva":
+{ Args: { "p_risposte": Json,"p_schermata": number,"p_versione": number }; Returns: Json
                            },
 "rapporto":
 { Args: { "p_denominatore": number,"p_numeratore": number }; Returns: number

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import { negaPer } from '@/lib/auth/azioni'
+import { togliFileQuestionario } from '@/lib/percorso/pulizia'
 import type { Contesto } from '@/lib/call/operazioni'
 import type { Json } from '@/lib/supabase/database.types'
 import {
@@ -14,6 +15,7 @@ import {
   impostazioniOnboardingSchema,
   incarichiSchema,
   invitoSchema,
+  revocaConsensoSchema,
   revocaSchema,
   telegramClienteSchema,
   validaNuovoCliente,
@@ -444,5 +446,33 @@ export async function eliminaOnboarding(ctx: Contesto, input: unknown): Promise<
   aggiornaOnboarding(parsed.data.client_id)
   // a notification of the payment of this client may have gone with it
   revalidatePath('/', 'layout')
+  return { ok: true }
+}
+
+/**
+ * «Registra la revoca» of the consent on health data (1.79.0, onboarding_revoca_consenso,
+ * security invoker, admin only): the answers of the questionnaire deleted, the files to delete,
+ * the client back to the rules. The files go from Storage now (Storage is not cleaned from SQL),
+ * with the service role and only the paths the function returned; a removal that fails never
+ * stops the revocation: the evening's cron finds the rest.
+ */
+export async function revocaConsenso(ctx: Contesto, input: unknown): Promise<Esito> {
+  const parsed = revocaConsensoSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primo(parsed) }
+  const negato = await nega(ctx)
+  if (negato) return { ok: false, errore: negato }
+
+  const { data, error } = await ctx.db.rpc('onboarding_revoca_consenso', {
+    p_client_id: parsed.data.client_id,
+    p_tipo: parsed.data.tipo,
+    p_motivo: parsed.data.motivo,
+  })
+  if (error) return { ok: false, errore: messaggio(error, E.revocaConsensoNonFatta) }
+
+  const r = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : {}
+  const percorsi = Array.isArray(r.percorsi) ? r.percorsi.filter((p): p is string => typeof p === 'string') : []
+  await togliFileQuestionario(percorsi)
+
+  aggiornaOnboarding(parsed.data.client_id)
   return { ok: true }
 }

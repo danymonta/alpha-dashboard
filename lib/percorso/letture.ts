@@ -4,7 +4,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { leggiBlocchi, type BloccoPercorso } from '@/lib/percorso/blocchi'
 import { leggiStima, type Stima } from '@/lib/percorso/stima'
+import { leggiAllegati, type AllegatoCliente } from '@/lib/percorso/allegati'
 import type { Database } from '@/lib/supabase/database.types'
+import { risposteValide, type NumeroSchermata, type Risposte } from '@/lib/validation/questionario'
 
 /**
  * The page of the client, read from percorso_cliente() with the client's own session
@@ -143,4 +145,50 @@ export function passoDaFare(percorso: Percorso): PassoPercorso | null {
   return (
     percorso.passi.find((p) => p.attore === 'cliente' && (p.stato === 'disponibile' || p.stato === 'in_corso')) ?? null
   )
+}
+
+// ---------------------------------------------------------------------------
+// The questionnaire (release B1b)
+// ---------------------------------------------------------------------------
+
+export type QuestionarioCliente = {
+  risposte: Risposte
+  versione: number
+  schermata: NumeroSchermata
+  inviatoIl: string | null
+  allegati: AllegatoCliente[]
+}
+
+export type EsitoQuestionario =
+  | { ok: true; questionario: QuestionarioCliente }
+  | { ok: false; motivo: 'accesso' | 'inviato' | 'non_disponibile' | 'errore' }
+
+/**
+ * questionario_cliente() with the client's own session: the answers, the version to save over,
+ * the screen he was on, the files uploaded. 22023 says the step is not open (not yet, or
+ * already sent): the page goes back to the path.
+ */
+export async function leggiQuestionarioCliente(db: SupabaseClient<Database>): Promise<EsitoQuestionario> {
+  const { data, error } = await db.rpc('questionario_cliente')
+  if (error) {
+    if (error.code === '42501') return { ok: false, motivo: 'accesso' }
+    if (error.code === '22023') return { ok: false, motivo: /inviato/.test(error.message) ? 'inviato' : 'non_disponibile' }
+    console.error('[percorso] questionario non letto:', error.code)
+    return { ok: false, motivo: 'errore' }
+  }
+  const v = oggetto(data)
+  if (!v) return { ok: false, motivo: 'errore' }
+  const versione = typeof v.versione === 'number' ? v.versione : Number(v.versione ?? 0)
+  const schermata = typeof v.schermata === 'number' && v.schermata >= 1 && v.schermata <= 4 ? v.schermata : 1
+  return {
+    ok: true,
+    questionario: {
+      // answers that do not read as answers never reach the form: it starts empty, the database keeps them
+      risposte: risposteValide(v.risposte) ? v.risposte : {},
+      versione: Number.isFinite(versione) ? versione : 0,
+      schermata: schermata as NumeroSchermata,
+      inviatoIl: stringa(v.inviato_il),
+      allegati: leggiAllegati(v.allegati),
+    },
+  }
 }

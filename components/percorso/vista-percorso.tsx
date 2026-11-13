@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
 import { ListaBlocchi } from '@/components/percorso/blocchi'
-import { PassoBenvenuto, PassoRegole } from '@/components/percorso/passi'
+import { PassoBenvenuto, PassoQuestionario, PassoRegole } from '@/components/percorso/passi'
 import { TeamCliente } from '@/components/percorso/team-cliente'
 import { Timeline } from '@/components/percorso/timeline'
 import { Button } from '@/components/ui/button'
@@ -161,6 +161,8 @@ export function VistaPercorso({ percorso }: { percorso: Percorso }) {
         <PassoBenvenuto key={daFare.chiave} passo={daFare} nome={percorso.nome} team={percorso.team} />
       ) : daFare.chiave === 'regole' ? (
         <PassoRegole key={daFare.chiave} passo={daFare} nome={percorso.nome} consensi={percorso.consensi} />
+      ) : daFare.chiave === 'questionario' ? (
+        <PassoQuestionario key={daFare.chiave} passo={daFare} nome={percorso.nome} />
       ) : (
         // a step this release does not serve yet: its content, no action (the database would refuse it)
         <div className="space-y-4">

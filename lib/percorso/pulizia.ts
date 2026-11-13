@@ -86,3 +86,79 @@ export async function pulisciUtentiOrfani(admin: Admin, adesso: number = Date.no
   }
   return esito
 }
+
+// ---------------------------------------------------------------------------
+// The files of the questionnaire (release B1b)
+// ---------------------------------------------------------------------------
+
+const BUCKET_ALLEGATI = 'onboarding-allegati'
+/** Storage removes at most this many objects per call; at most this many per evening. */
+const PER_CHIAMATA = 100
+const MAX_FILE_SERA = 1000
+
+/**
+ * The objects of some files of the questionnaire, now (a revocation of the consent, a deleted
+ * client): the paths come from the database, never from the browser. Never stops anything: a
+ * failure is a line in the log, with no path; the evening's cron removes the rest.
+ */
+export async function togliFileQuestionario(percorsi: readonly string[], admin?: Admin): Promise<number> {
+  if (percorsi.length === 0) return 0
+  let tolti = 0
+  try {
+    const db = admin ?? createAdminClient()
+    for (let i = 0; i < percorsi.length; i += PER_CHIAMATA) {
+      const blocco = percorsi.slice(i, i + PER_CHIAMATA)
+      const { error } = await db.storage.from(BUCKET_ALLEGATI).remove([...blocco])
+      if (error) {
+        console.error('[percorso] file del questionario non tolti:', error.name)
+        continue
+      }
+      tolti += blocco.length
+    }
+  } catch {
+    console.error('[percorso] file del questionario non tolti')
+  }
+  return tolti
+}
+
+export type EsitoPuliziaFile = { file: number; righe: number; errori: number }
+
+/**
+ * The evening: the rows da_cancellare created before today and the objects of the bucket with no
+ * row (onboarding_allegati_da_togliere, service role), removed from Storage, then their rows.
+ * A row goes only after its object went.
+ */
+export async function pulisciFileQuestionario(admin: Admin): Promise<EsitoPuliziaFile> {
+  const esito: EsitoPuliziaFile = { file: 0, righe: 0, errori: 0 }
+  const { data, error } = await admin.rpc('onboarding_allegati_da_togliere')
+  if (error) {
+    console.error('[percorso] file da togliere non letti:', error.code)
+    esito.errori++
+    return esito
+  }
+  const righe = (data ?? []).slice(0, MAX_FILE_SERA)
+  for (let i = 0; i < righe.length; i += PER_CHIAMATA) {
+    const blocco = righe.slice(i, i + PER_CHIAMATA)
+    const { error: errStorage } = await admin.storage.from(BUCKET_ALLEGATI).remove(blocco.map((r) => r.percorso))
+    if (errStorage) {
+      console.error('[percorso] file non tolti:', errStorage.name)
+      esito.errori++
+      continue
+    }
+    esito.file += blocco.length
+    const ids = blocco.map((r) => r.id).filter((id): id is string => typeof id === 'string')
+    if (ids.length === 0) continue
+    const { error: errRighe, count } = await admin
+      .from('onboarding_allegati')
+      .delete({ count: 'exact' })
+      .in('id', ids)
+      .eq('stato', 'da_cancellare')
+    if (errRighe) {
+      console.error('[percorso] righe dei file non tolte:', errRighe.code)
+      esito.errori++
+      continue
+    }
+    esito.righe += count ?? 0
+  }
+  return esito
+}

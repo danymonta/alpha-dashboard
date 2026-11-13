@@ -3,13 +3,13 @@
 -- client and a user with neither a profile nor an account (the seed's clients, 61_percorso.sql): every table
 -- and view of public counted from the catalog (zero rows, but his own row of clienti_account), every write
 -- refused, every security definer function the team reaches called with null arguments (an error, null or
--- nothing, never a row of somebody else), the bucket «avatari» closed, no table of the onboarding in Realtime,
--- and cliente_corrente() null for an OAuth token of a client.
+-- nothing, never a row of somebody else), the buckets «avatari» and «onboarding-allegati» (1.79.0) closed, no
+-- table of the onboarding in Realtime, and cliente_corrente() null for an OAuth token of a client.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(18);
+select plan(23);
 
 create temp table righe_viste (persona text, relazione text, righe bigint, errore text) on commit drop;
 create temp table scritture (persona text, relazione text, esito text) on commit drop;
@@ -204,7 +204,8 @@ do $$ begin perform pg_temp.chiama_tutto('sospeso'); end $$;
 reset role;
 select pg_temp.come('0b0b0000-0000-4000-8000-000000000031');
 -- his own functions answer about him: 113_percorso_cliente.sql checks them
-do $$ begin perform pg_temp.chiama_tutto('attivo', array['percorso_cliente', 'percorso_avanza', 'consenso_dai', 'video_progresso']); end $$;
+do $$ begin perform pg_temp.chiama_tutto('attivo', array['percorso_cliente', 'percorso_avanza', 'consenso_dai', 'video_progresso',
+  'questionario_cliente', 'questionario_salva', 'questionario_invia', 'allegato_prepara', 'allegato_togli']); end $$;
 reset role;
 set local request.jwt.claims to '{}';
 select is(
@@ -219,7 +220,9 @@ select is(
 select is(
   (select coalesce(string_agg(funzione || ' ' || esito, ', ' order by funzione), '')
    from funzioni
-   where persona = 'sospeso' and funzione in ('percorso_cliente', 'percorso_avanza', 'consenso_dai', 'video_progresso')
+   where persona = 'sospeso' and funzione in ('percorso_cliente', 'percorso_avanza', 'consenso_dai', 'video_progresso',
+                                              'questionario_cliente', 'questionario_salva', 'questionario_invia',
+                                              'allegato_prepara', 'allegato_togli')
      and esito <> '42501'),
   '', 'un cliente sospeso: le sue funzioni rispondono 42501'
 );
@@ -239,8 +242,37 @@ select throws_ok(
   '42501', null, 'il cliente non carica un file in avatari, nemmeno nella sua cartella'
 );
 select is((select count(*)::int from storage.objects where bucket_id = 'avatari'), 0, 'e non elenca niente');
+-- the bucket of the questionnaire (1.79.0): private, no policy, every read and write is a URL the server signs
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name)
+     values ('onboarding-allegati', '0b0b0000-0000-4000-8000-000000000001/0b0b0000-0000-4000-8000-0000000000aa') $$,
+  '42501', null, 'il cliente non carica un file in onboarding-allegati, nemmeno nella sua cartella'
+);
 reset role;
 set local request.jwt.claims to '{}';
+insert into storage.objects (bucket_id, name, metadata)
+values ('onboarding-allegati', '0b0b0000-0000-4000-8000-000000000001/0b0b0000-0000-4000-8000-0000000000ab',
+        '{"size": 1000, "mimetype": "image/jpeg"}');
+select pg_temp.come('0b0b0000-0000-4000-8000-000000000031');
+select is((select count(*)::int from storage.objects where bucket_id = 'onboarding-allegati'), 0,
+  'e non legge i file del bucket, nemmeno i suoi');
+create or replace function pg_temp.cambia_allegati() returns integer language plpgsql as $$
+declare n integer;
+begin
+  update storage.objects set name = name where bucket_id = 'onboarding-allegati';
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+select is(pg_temp.cambia_allegati(), 0, 'né li cambia');
+reset role;
+set local request.jwt.claims to '{}';
+select is(
+  (select count(*)::int from pg_policies where schemaname = 'storage' and tablename = 'objects'
+     and (coalesce(qual, '') || coalesce(with_check, '')) like '%onboarding-allegati%'),
+  0, 'nessuna policy di storage.objects nomina il bucket onboarding-allegati'
+);
+select is((select public from storage.buckets where id = 'onboarding-allegati'), false, 'il bucket è privato');
 select ok(
   not has_function_privilege('authenticated', 'public.cliente_corrente()', 'execute'),
   'cliente_corrente() non è eseguibile da una sessione'

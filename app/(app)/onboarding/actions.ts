@@ -77,3 +77,8 @@ export async function segnaProva(input: unknown): Promise<EsitoLink> {
 export async function eliminaOnboarding(input: unknown): Promise<Esito> {
   return onboarding.eliminaOnboarding(await nucleo(), input)
 }
+
+/** «Registra la revoca» of the consent on health data (1.79.0): answers and files deleted. */
+export async function revocaConsenso(input: unknown): Promise<Esito> {
+  return onboarding.revocaConsenso(await nucleo(), input)
+}

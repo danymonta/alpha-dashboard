@@ -478,6 +478,11 @@ insert into public.onboarding_registrazioni (invito_id, chiave_hash, chiave_scad
 values ('0b0a0000-0000-4000-8000-000000000021', repeat('7', 64), now() + interval '30 minutes')
 on conflict (invito_id) do nothing;
 insert into public.clienti_accesso_limiti (chiave, invii) values ('tutti', 1) on conflict (chiave) do nothing;
+-- The questionnaire (1.79.0): a file of the seed's active client, which the seed leaves without files
+insert into public.onboarding_allegati (id, client_id, campo, percorso, nome_file, tipo, byte)
+values ('75750000-0000-4000-8000-000000000276', '0b0b0000-0000-4000-8000-000000000001', 'attrezzatura',
+        '0b0b0000-0000-4000-8000-000000000001/75750000-0000-4000-8000-000000000276', 'sbarra.jpg', 'image/jpeg', 1000)
+on conflict (id) do nothing;
 
 create or replace function pg_temp.tabelle_vuote()
 returns text
@@ -781,6 +786,15 @@ begin
   perform pg_temp.prova('percorso_avanza', $q$ select public.percorso_avanza('benvenuto', 'completa', '{}')::text $q$);
   perform pg_temp.prova('consenso_dai', $q$ select public.consenso_dai('salute', '2026-11-12')::text $q$);
   perform pg_temp.prova('video_progresso', $q$ select public.video_progresso(gen_random_uuid(), null, 100, array[int4range(0, 10)])::text $q$);
+  -- the questionnaire (1.79.0): the client's functions start from cliente_corrente(); the admin's revocation
+  -- (security invoker) refuses an OAuth token explicitly
+  perform pg_temp.prova('questionario_cliente', $q$ select public.questionario_cliente()::text $q$);
+  perform pg_temp.prova('questionario_salva', $q$ select public.questionario_salva('{}'::jsonb, 1, 0)::text $q$);
+  perform pg_temp.prova('questionario_invia', $q$ select public.questionario_invia(0)::text $q$);
+  perform pg_temp.prova('allegato_prepara', $q$ select public.allegato_prepara('attrezzatura', 'sbarra.jpg', 'image/jpeg', 1000)::text $q$);
+  perform pg_temp.prova('allegato_togli', $q$ select public.allegato_togli('75750000-0000-4000-8000-000000000276')::text $q$);
+  perform pg_temp.prova('onboarding_revoca_consenso', $q$ select public.onboarding_revoca_consenso('0b0b0000-0000-4000-8000-000000000001',
+    'salute', 'Da Claude')::text $q$);
 end $$;
 reset role;
 set local request.jwt.claims to '{}';
@@ -791,6 +805,8 @@ select is(
     'aggiorna_mio_profilo 42501',
     'aggiorna_stato_lead 42501',
     'aggiungi_rata 42501',
+    'allegato_prepara 42501',
+    'allegato_togli 42501',
     'anteprima_eliminazione 42501',
     'avanzamento_obiettivi 42501',
     'avvia_onboarding 42501',
@@ -865,6 +881,7 @@ select is(
     'onboarding_imposta_incarichi 42501',
     'onboarding_incaricato ok:false',
     'onboarding_revoca 42501',
+    'onboarding_revoca_consenso 42501',
     'onboarding_riattiva 42501',
     'onboarding_rigenera_link 42501',
     'onboarding_segna_prova 42501',
@@ -885,6 +902,9 @@ select is(
     'promemoria_percorso_interrotto 42501',
     'provvigioni_per_vendita 42501',
     'puo_usare_mcp ok:false',
+    'questionario_cliente 42501',
+    'questionario_invia 42501',
+    'questionario_salva 42501',
     'recap_mese 42501',
     'recap_sales 42501',
     'registra_vendita 42501',

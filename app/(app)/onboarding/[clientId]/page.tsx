@@ -19,6 +19,7 @@ import Link from 'next/link'
 import { LinkBottone } from '@/components/link-bottone'
 import { RiquadriCliente } from '@/components/onboarding/cliente-riquadri'
 import { EliminaOnboarding } from '@/components/onboarding/elimina-onboarding'
+import { QuestionarioScheda } from '@/components/onboarding/questionario-scheda'
 import { RiquadroLink } from '@/components/onboarding/riquadro-link'
 import { StatoOnboardingBadge } from '@/components/onboarding/stato'
 import { TeamScheda } from '@/components/onboarding/team-scheda'
@@ -140,12 +141,17 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
 
           <div className="space-y-4 max-lg:order-2">
             <RiquadriCliente
+              clientId={clientId}
+              cliente={nome}
               lingua={lingua}
               accountStato={riga.account_stato}
               registratoIl={riga.registrato_il}
               consensi={scheda.consensi}
               video={scheda.video}
             />
+            {riga.account_stato ? (
+              <QuestionarioScheda lingua={lingua} questionario={scheda.questionario} allegati={scheda.allegati} />
+            ) : null}
           </div>
 
           <section aria-labelledby="passi-titolo" className="rounded-xl bg-card p-3 max-lg:order-5" data-testid="riquadro-passi">

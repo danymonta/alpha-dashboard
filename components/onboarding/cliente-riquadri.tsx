@@ -5,6 +5,7 @@ import { oggiRoma } from '@/lib/date'
 import { formato } from '@/lib/format'
 import type { Lingua } from '@/lib/i18n/lingua'
 import { ONBOARDING } from '@/lib/i18n/testi/onboarding'
+import { RevocaConsenso } from '@/components/onboarding/revoca-consenso'
 import type { ConsensoScheda, VideoScheda } from '@/lib/onboarding/letture'
 import { cn } from '@/lib/utils'
 
@@ -44,12 +45,16 @@ function Riquadro({
  * the client's own, never a measure of the team (CLAUDE.md section 17).
  */
 export function RiquadriCliente({
+  clientId,
+  cliente,
   lingua,
   accountStato,
   registratoIl,
   consensi,
   video,
 }: {
+  clientId: string
+  cliente: string
   lingua: Lingua
   accountStato: string | null
   registratoIl: string | null
@@ -112,6 +117,12 @@ export function RiquadriCliente({
             ))}
           </ul>
         )}
+        {/* release B1b: the client asks the team to withdraw the consent on health data */}
+        {consensi.some((c) => c.tipo === 'salute' && !c.revocato_il) ? (
+          <div className="-mx-1 border-t border-border pt-1.5">
+            <RevocaConsenso clientId={clientId} cliente={cliente} />
+          </div>
+        ) : null}
       </Riquadro>
 
       <Riquadro id="video-titolo" titolo={t.videoTitolo} Icona={PlayCircle} testId="riquadro-video">

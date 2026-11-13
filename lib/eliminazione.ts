@@ -61,7 +61,11 @@ export function frasiAnteprima(tipo: TipoEliminazione, dati: Dati, lingua: Lingu
       // 1.77.0: the invite, the path, the steps, the log and Telegram go with the client
       if (n(dati, 'onboarding') > 0) frasi.push('Si elimina anche il suo onboarding: link, passi e registro.')
       // 1.78.0: the client's access to the path (its user goes too)
-      if (n(dati, 'accesso_cliente') > 0) frasi.push('Si perde anche il suo accesso al percorso.')
+      if (n(dati, 'accesso_cliente') > 0 && n(dati, 'questionario') > 0) {
+        // 1.79.0: the questionnaire and its files, with the access
+        frasi.push('Si perdono anche il suo accesso al percorso, il questionario e i file caricati.')
+      } else if (n(dati, 'accesso_cliente') > 0) frasi.push('Si perde anche il suo accesso al percorso.')
+      else if (n(dati, 'questionario') > 0) frasi.push('Si perdono anche il questionario e i file caricati.')
       break
     case 'onboarding':
       // «Elimina onboarding» (1.78.0): only before the client registers
@@ -143,7 +147,10 @@ function frasiInglese(tipo: TipoEliminazione, dati: Dati): string[] {
       if (n(dati, 'cartella_drive') > 0) frasi.push('The link to their Drive folder goes too: the folder on Drive stays.')
       if (n(dati, 'progetti') > 0) frasi.push('Their project in Projects stays, without the link to the client.')
       if (n(dati, 'onboarding') > 0) frasi.push('Their onboarding goes too: link, steps and log.')
-      if (n(dati, 'accesso_cliente') > 0) frasi.push('Their access to the path goes too.')
+      if (n(dati, 'accesso_cliente') > 0 && n(dati, 'questionario') > 0) {
+        frasi.push('Their access to the path, the questionnaire and the uploaded files go too.')
+      } else if (n(dati, 'accesso_cliente') > 0) frasi.push('Their access to the path goes too.')
+      else if (n(dati, 'questionario') > 0) frasi.push('The questionnaire and the uploaded files go too.')
       break
     case 'onboarding':
       {

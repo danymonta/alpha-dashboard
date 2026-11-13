@@ -90,6 +90,8 @@ const AZIONI: Record<string, (ctx: onboarding.Contesto) => Promise<{ ok: boolean
   // 1.78.0
   segnaProva: (ctx) => onboarding.segnaProva(ctx, { invito_id: INVITO, prova: true }),
   eliminaOnboarding: (ctx) => onboarding.eliminaOnboarding(ctx, { client_id: CLIENTE }),
+  // release B1b: «Registra la revoca» of the consent on health data
+  revocaConsenso: (ctx) => onboarding.revocaConsenso(ctx, { client_id: CLIENTE, tipo: 'salute', motivo: 'Richiesta del cliente' }),
 }
 
 describe('chi può scrivere: solo l’admin, su ogni azione', () => {

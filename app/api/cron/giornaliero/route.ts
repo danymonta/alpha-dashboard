@@ -11,7 +11,7 @@ import { inviaRiepilogoSettimana, type Destinatario } from '@/lib/email/riepilog
 import { inviaTempoTeam } from '@/lib/email/tempo-team-invio'
 import { publicEnv } from '@/lib/env'
 import { creaAvvisiDellaSera } from '@/lib/notifiche/collegamenti'
-import { pulisciUtentiOrfani } from '@/lib/percorso/pulizia'
+import { pulisciFileQuestionario, pulisciUtentiOrfani } from '@/lib/percorso/pulizia'
 import { inviaPromemoriaPercorso } from '@/lib/promemoria/percorso'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { settimanaPrecedente } from '@/lib/tempo'
@@ -86,6 +86,14 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     console.error('[giornaliero] utenti dei clienti', e instanceof Error ? e.name : 'errore')
     esito.utenti_clienti = 'non riuscita'
+  }
+
+  // The files of the questionnaire to delete (1.79.0): Storage is not cleaned from SQL. Stops nothing.
+  try {
+    esito.file_questionario = await pulisciFileQuestionario(admin)
+  } catch (e) {
+    console.error('[giornaliero] file del questionario', e instanceof Error ? e.name : 'errore')
+    esito.file_questionario = 'non riuscita'
   }
 
   // Friday in Rome: the week from Saturday to today. A summary that fails is

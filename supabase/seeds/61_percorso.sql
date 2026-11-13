@@ -1,9 +1,9 @@
 -- Demo data for the client's area of the guided onboarding (1.78.0, docs/onboarding/rilascio-b.md, B1a):
 -- two invented clients with a test invite, each registered through the client's branch of
 -- handle_new_user exactly as /join does it (a verified registration with the reserved id). Davide Ferri
--- has done the welcome and the rules and waits for the team; Luca Marini did the same, then his link was
--- revoked, so his account is suspended. Two sign-in accounts for the development login (password
--- alpha1234: an insert, the trigger of the passwords looks at updates only):
+-- has done the welcome and the rules and is half way through the questionnaire (1.79.0); Luca Marini did the
+-- welcome and the rules, then his link was revoked, so his account is suspended. Two sign-in accounts for
+-- the development login (password alpha1234: an insert, the trigger of the passwords looks at updates only):
 --   davide.ferri@example.test  active client
 --   luca.marini@example.test   suspended client
 -- Written without a session (nobody's name in the log). Invented people only, dates relative to today,
@@ -109,6 +109,24 @@ begin
 
     if r.revocato then
       update public.onboarding_inviti set stato = 'revocato', revocato_motivo = 'Prova del seed' where id = r.invito;
+    else
+      -- the questionnaire half done (1.79.0): the first screen and part of the second, invented answers
+      insert into public.onboarding_questionari (client_id, risposte, versione, schermata, created_at)
+      values (r.cliente, jsonb_build_object(
+                'nome_cognome', r.nome || ' ' || r.cognome,
+                'email', r.email,
+                'telefono', '+39 333 000 0031',
+                'altezza_peso', jsonb_build_object('altezza', 178, 'peso', 76.5),
+                'data_nascita', '1994-05-12',
+                'occupazione', 'Impiegato in un ufficio tecnico',
+                'storia_allenamento', 'Due anni di palestra, poi un anno fermo. Ogni tanto corsa la domenica.',
+                'giorni_settimana', 3,
+                'minuti_giorno', '40_60'
+              ), 3, 2, now() - interval '2 hours')
+      on conflict (client_id) do nothing;
+      update public.onboarding_passi
+      set stato = 'in_corso', iniziato_il = now() - interval '2 hours'
+      where client_id = r.cliente and passo = 'questionario' and stato = 'disponibile';
     end if;
 
     -- the notifications would change the demo of the notification center (55_notifiche.sql)

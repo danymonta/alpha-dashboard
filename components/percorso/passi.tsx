@@ -1,6 +1,7 @@
 'use client'
 
-import { ArrowRight, LoaderCircle, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { ArrowRight, ClipboardList, LoaderCircle, ShieldCheck, TriangleAlert } from 'lucide-react'
+import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
@@ -15,7 +16,7 @@ import { formatData } from '@/lib/format'
 import { ordineBenvenuto, videoDaVedere, type BloccoPercorso, type BloccoRegola } from '@/lib/percorso/blocchi'
 import { CONSENSO_SALUTE } from '@/lib/percorso/consensi'
 import type { ConsensoCliente, PassoPercorso, PersonaTeam } from '@/lib/percorso/letture'
-import { TESTI_PERCORSO as T } from '@/lib/percorso/testi'
+import { TESTI_PERCORSO as T, TESTI_QUESTIONARIO } from '@/lib/percorso/testi'
 import { cn } from '@/lib/utils'
 
 /** A version of a consent's text is a day («2026-11-12»): said as a date, else as it is. */
@@ -244,6 +245,34 @@ export function PassoRegole({
         perche={T.mancanoSpunte(mancanti)}
         invio={{ passo: 'regole', azione: 'accetta', dati: { regole: regole.map((r) => r.id), consenso_salute: versione } }}
       />
+    </div>
+  )
+}
+
+/**
+ * Step 3, «Il questionario» (release B1b): the words of the CMS (what it is for, no photos of
+ * the body here), then the one action: the questionnaire on its own page, where it is saved
+ * by itself. «Riprendi» once the client has started it.
+ */
+export function PassoQuestionario({ passo, nome }: { passo: PassoPercorso; nome: string }) {
+  const iniziato = passo.stato === 'in_corso'
+  return (
+    <div className="space-y-6">
+      {passo.blocchi && passo.blocchi.length > 0 ? (
+        <ListaBlocchi blocchi={passo.blocchi} nome={nome} modo="passo" titoloPasso={passo.titolo} />
+      ) : null}
+      <div className="space-y-3 border-t border-border/70 pt-5">
+        <Link
+          href="/percorso/questionario"
+          className="glow-primario inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:w-auto sm:min-w-64 motion-reduce:transition-none"
+          data-testid="azione-passo"
+        >
+          <ClipboardList className="size-5" aria-hidden="true" />
+          {iniziato ? TESTI_QUESTIONARIO.riprendi : TESTI_QUESTIONARIO.compila}
+          <ArrowRight className="size-5" aria-hidden="true" />
+        </Link>
+        <p className="text-sm text-muted-foreground">{TESTI_QUESTIONARIO.durata}</p>
+      </div>
     </div>
   )
 }

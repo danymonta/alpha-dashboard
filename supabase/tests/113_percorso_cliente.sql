@@ -7,7 +7,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(63);
+select plan(64);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres)
@@ -226,9 +226,10 @@ select throws_ok(
 );
 insert into appunti values ('dopo_regole', public.percorso_avanza('regole', 'accetta', jsonb_build_object(
   'regole', (select valore from appunti where chiave = 'regole'), 'consenso_salute', '2026-11-12')));
-select is((select valore ->> 'in_attesa' from appunti where chiave = 'dopo_regole'), 'true',
-  'dopo le regole: l''attesa (B1a non serve il questionario)');
-select is(pg_temp.mio_passo('questionario'), 'bloccato', 'il questionario resta bloccato: oltre l''ultimo step servito');
+select is((select valore ->> 'in_attesa' from appunti where chiave = 'dopo_regole'), 'false',
+  'dopo le regole: niente attesa, c''è il questionario (B1b)');
+select is(pg_temp.mio_passo('questionario'), 'disponibile', 'il questionario si apre: è l''ultimo step servito');
+select is(pg_temp.mio_passo('prenotazione'), 'bloccato', 'la prenotazione no: oltre l''ultimo step servito');
 select is((select valore -> 'stima' ->> 'cose_da_fare' from appunti where chiave = 'dopo_regole'), '5', 'cinque cose da fare');
 select is(
   (select valore -> 'nodi' -> 0 ->> 'stato' from appunti where chiave = 'dopo_regole'), 'completato', 'il nodo Benvenuto è completato'
@@ -265,7 +266,7 @@ select ok(
 -- ---------------------------------------------------------------------------
 select pg_temp.web('0b0b0000-0000-4000-8000-000000000031');
 select is(public.percorso_cliente() -> 'cliente' ->> 'nome', 'Davide', 'il cliente del seed legge solo il suo percorso');
-select is(public.percorso_cliente() ->> 'in_attesa', 'true', 'ed è in attesa');
+select is(public.percorso_cliente() ->> 'in_attesa', 'false', 'ed è a metà del questionario (1.79.0), non in attesa');
 reset role;
 
 -- ---------------------------------------------------------------------------
@@ -312,7 +313,7 @@ select i.id, pg_temp.h('vecchia'), now() - interval '2 days'
 from public.onboarding_inviti i where i.client_id = '0b0a0000-0000-4000-8000-000000000001';
 insert into public.clienti_accesso_limiti (chiave, dal) values ('email:' || pg_temp.h('vecchia'), now() - interval '2 days');
 select is(
-  (select v - 'account_chiusi' - 'eventi' - 'token' - 'video' from (select public.onboarding_pulizia() as v) x),
+  (select v - 'account_chiusi' - 'eventi' - 'token' - 'video' - 'allegati' from (select public.onboarding_pulizia() as v) x),
   '{"limiti": 1, "registrazioni": 1}'::jsonb, 'la pulizia toglie registrazioni scadute e limiti vecchi'
 );
 select is((select count(*)::int from cron.job where jobname = 'onboarding-pulizia' and schedule = '50 2 * * *'), 1,

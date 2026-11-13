@@ -7,7 +7,7 @@ import { messaggioErrore, negaSeNon } from '@/lib/auth/azioni'
 import { getProfilo } from '@/lib/auth/session'
 import * as clienti from '@/lib/clienti/operazioni'
 import type { Esito, EsitoArchivio } from '@/lib/clienti/operazioni'
-import { togliUtenteCliente } from '@/lib/percorso/pulizia'
+import { togliFileQuestionario, togliUtenteCliente } from '@/lib/percorso/pulizia'
 import { createClient } from '@/lib/supabase/server'
 import * as vendite from '@/lib/vendite/operazioni'
 import type { AnteprimaInterruzione } from '@/lib/vendite/operazioni'
@@ -48,10 +48,13 @@ export async function eliminaCliente(input: unknown): Promise<Esito> {
     .select('user_id')
     .eq('client_id', parsed.data.id)
     .maybeSingle()
+  // and the files of his questionnaire (1.79.0): read before they go with the client
+  const { data: file } = await supabase.from('onboarding_allegati').select('percorso').eq('client_id', parsed.data.id)
   const { error } = await supabase.rpc('elimina_cliente', { p_client_id: parsed.data.id })
   if (error) return { ok: false, errore: messaggioErrore(error, 'Cliente non eliminato. Riprova.') }
   // the user of the access goes too; never stops the deletion: the evening's cleanup finds the rest
   if (account?.user_id) await togliUtenteCliente(account.user_id)
+  await togliFileQuestionario((file ?? []).map((f) => f.percorso))
 
   for (const pagina of ['/clients', '/sales', '/payments', '/commissions', '/']) revalidatePath(pagina)
   // its project stays, without the link to the client

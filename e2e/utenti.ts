@@ -44,6 +44,8 @@ export const CLIENTE_PROVA = { email: 'davide.ferri@example.test', nome: 'Davide
 export const PAGINE_CLIENTE = [
   { nome: 'percorso', url: '/percorso' },
   { nome: 'percorso-consensi', url: '/percorso/consensi' },
+  // release B1b: the seed's client has the questionnaire half done
+  { nome: 'percorso-questionario', url: '/percorso/questionario?schermata=2' },
 ] as const
 
 /** Every tab of one project, for the screenshots. */

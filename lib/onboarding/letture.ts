@@ -227,7 +227,19 @@ export type SchedaOnboarding = {
   consensi: ConsensoScheda[]
   /** The videos of the CMS the client watched (1.78.0): title, percentage and when it reached 90%. */
   video: VideoScheda[]
+  /** The questionnaire (1.79.0): health data, read only by the admin (RLS). */
+  questionario: QuestionarioScheda | null
+  /** Its files uploaded (1.79.0): opened through /api/onboarding/allegati/[id], never by their path. */
+  allegati: AllegatoScheda[]
 }
+
+export type QuestionarioScheda = {
+  risposte: Record<string, unknown>
+  schermata: number
+  inviato_il: string | null
+  updated_at: string
+}
+export type AllegatoScheda = { id: string; campo: string; nome_file: string; tipo: string; byte: number }
 
 export type ConsensoScheda = { id: string; tipo: string; versione: string; dato_il: string; revocato_il: string | null }
 export type VideoScheda = { id: string; titolo: string | null; percentuale: number; visto_il: string | null; updated_at: string }
@@ -263,7 +275,7 @@ function passiInOrdine(righe: readonly PassoConDefinizione[]): PassoScheda[] {
 export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboarding | null> {
   if (!isUuid(clientId)) return null
 
-  const [riga, telegram, passi, eventi, impostazioni, consensi, video] = await Promise.all([
+  const [riga, telegram, passi, eventi, impostazioni, consensi, video, questionario, allegati] = await Promise.all([
     db.from('v_onboarding').select('*').eq('client_id', clientId).maybeSingle(),
     db.from('clienti_telegram').select('username, gruppo_privato_url').eq('client_id', clientId).maybeSingle(),
     db
@@ -290,10 +302,23 @@ export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboa
       .select('id, percentuale, visto_il, updated_at, blocco:contenuti_blocchi(titolo)')
       .eq('client_id', clientId)
       .order('updated_at', { ascending: false }),
+    db
+      .from('onboarding_questionari')
+      .select('risposte, schermata, inviato_il, updated_at')
+      .eq('client_id', clientId)
+      .maybeSingle(),
+    db
+      .from('onboarding_allegati')
+      .select('id, campo, nome_file, tipo, byte')
+      .eq('client_id', clientId)
+      .eq('stato', 'caricato')
+      .order('created_at'),
   ])
   controlla('la scheda', riga.error)
   controlla('i consensi', consensi.error)
   controlla('i video visti', video.error)
+  controlla('il questionario', questionario.error)
+  controlla('i file del questionario', allegati.error)
   if (!riga.data) return null
   controlla('Telegram', telegram.error)
   controlla('i passi', passi.error)
@@ -337,6 +362,18 @@ export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboa
       visto_il: v.visto_il,
       updated_at: v.updated_at,
     })),
+    questionario: questionario.data
+      ? {
+          risposte:
+            questionario.data.risposte && typeof questionario.data.risposte === 'object' && !Array.isArray(questionario.data.risposte)
+              ? (questionario.data.risposte as Record<string, unknown>)
+              : {},
+          schermata: questionario.data.schermata,
+          inviato_il: questionario.data.inviato_il,
+          updated_at: questionario.data.updated_at,
+        }
+      : null,
+    allegati: allegati.data ?? [],
   }
 }
 

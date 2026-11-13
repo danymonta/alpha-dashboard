@@ -190,6 +190,9 @@ select results_eq(
      order by 1 $$,
   $$ select x collate "C" from unnest(array[
        'aggiorna_mio_profilo', 'aggiorna_stato_lead', 'aggiungi_rata', 'anteprima_eliminazione',
+       -- the questionnaire (1.79.0): the client's functions, each starting from cliente_corrente() (42501 for
+       -- an OAuth token); allegato_conferma and onboarding_allegati_da_togliere are the service role's only
+       'allegato_prepara', 'allegato_togli', 'questionario_cliente', 'questionario_invia', 'questionario_salva',
        -- the calendar «Dany Discovery Call» (1.76.0): the admin links it; the booked calls of each day (admin,
        -- the business coach inside recap_sales, the service role); «Setting e contatti» (admin)
        'calendario_imposta_url', 'calendario_togli_url', 'calendario_url_presente', 'prenotate_per_giorno',

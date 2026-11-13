@@ -8,7 +8,7 @@ import { PASSWORD_SEED, attendiStreaming } from './utenti'
  * The first two steps of the client's area (release B1a): the welcome video counted through
  * the iframe of YouTube (a fake one, served by page.route on the address of
  * youtube-nocookie.com, that speaks the same postMessage protocol), then the rules and the
- * consent, then the waiting panel with the estimate. At 390 px, with «Riduci movimento».
+ * consent, then the questionnaire's panel (B1b) with the estimate. At 390 px, with «Riduci movimento».
  * No request ever reaches Google.
  */
 const PREFISSO = 'E2EPassi'
@@ -56,7 +56,7 @@ async function entraCome(page: Page, email: string) {
   await expect(page).toHaveURL(/\/percorso$/, { timeout: 30_000 })
 }
 
-test('benvenuto col video visto, regole e consenso, poi l’attesa: a 390 px e con «Riduci movimento»', async ({ browser }) => {
+test('benvenuto col video visto, regole e consenso, poi il questionario: a 390 px e con «Riduci movimento»', async ({ browser }) => {
   test.setTimeout(150_000)
   const nome = `${PREFISSO}Anna${Date.now().toString().slice(-5)}`
   const email = emailDiProva('passi')
@@ -111,21 +111,20 @@ test('benvenuto col video visto, regole e consenso, poi l’attesa: a 390 px e c
   await expect(azione).toBeEnabled()
   await azione.click()
 
-  // the waiting panel: nothing to tap but what can be read again
-  await expect(pannello).toHaveAttribute('data-vista', 'attesa')
-  await expect(page.getByTestId('pannello-attesa')).toBeVisible()
-  await expect(page.getByRole('heading', { level: 2, name: 'Il prossimo passo te lo apre il tuo team a breve.' })).toBeFocused()
-  await expect(pannello.getByTestId('azione-passo')).toHaveCount(0)
+  // B1b (1.79.0): the questionnaire opens right after the rules (the waiting panel comes after it, percorso-questionario.spec.ts)
+  await expect(pannello).toHaveAttribute('data-vista', 'passo:questionario')
+  await expect(page.getByRole('heading', { level: 2, name: 'Questionario iniziale' })).toBeFocused()
+  await expect(pannello.getByRole('link', { name: 'Compila il questionario' })).toBeVisible()
   await expect(page.getByTestId('stima')).toBeVisible()
   const { data: consensi } = await dbLocale().from('clienti_consensi').select('tipo, versione').eq('client_id', clientId)
   expect(consensi).toEqual([{ tipo: 'salute', versione: '2026-11-12' }])
 
   // a completed stage read again
-  await page.getByRole('button', { name: 'Benvenuto e regole del percorso' }).click()
+  await timeline.getByRole('button', { name: 'Benvenuto, completato' }).click()
   await expect(pannello).toHaveAttribute('data-vista', 'nodo:benvenuto')
   await expect(pannello.getByTestId('riepilogo-regole')).toContainText('Fatto il')
-  await page.getByRole('button', { name: 'Torna al percorso' }).click()
-  await expect(pannello).toHaveAttribute('data-vista', 'attesa')
+  await page.getByRole('button', { name: 'Torna al passo da fare' }).click()
+  await expect(pannello).toHaveAttribute('data-vista', 'passo:questionario')
 
   // «I tuoi consensi»
   await page.getByRole('link', { name: 'I tuoi consensi' }).click()
