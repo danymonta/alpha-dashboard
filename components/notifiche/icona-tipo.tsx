@@ -11,6 +11,7 @@ import {
   Rocket,
   Timer,
   ShieldAlert,
+  UserRoundCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -30,6 +31,7 @@ const ICONE: Record<TipoNotifica, LucideIcon> = {
   proposta_da_approvare: ClipboardCheck,
   spesa_claude: Gauge,
   onboarding_pagamento: Rocket,
+  onboarding_cliente: UserRoundCheck,
 }
 
 /** The icon of a kind of notification, in a square: the kind is also written next to it, never the icon alone. */

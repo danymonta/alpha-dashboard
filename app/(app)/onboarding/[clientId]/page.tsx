@@ -17,6 +17,8 @@ import {
 import Link from 'next/link'
 
 import { LinkBottone } from '@/components/link-bottone'
+import { RiquadriCliente } from '@/components/onboarding/cliente-riquadri'
+import { EliminaOnboarding } from '@/components/onboarding/elimina-onboarding'
 import { RiquadroLink } from '@/components/onboarding/riquadro-link'
 import { StatoOnboardingBadge } from '@/components/onboarding/stato'
 import { TeamScheda } from '@/components/onboarding/team-scheda'
@@ -124,6 +126,8 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
                 minorenne: riga.minorenne,
                 consenso_genitore_il: riga.consenso_genitore_il,
                 pagamento_confermato: riga.pagamento_confermato,
+                prova: riga.prova,
+                account_stato: riga.account_stato,
               }}
               stato={stato}
               azioni={azioniLink(riga, aperto)}
@@ -134,7 +138,17 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
             />
           </div>
 
-          <section aria-labelledby="passi-titolo" className="rounded-xl bg-card p-3 max-lg:order-4" data-testid="riquadro-passi">
+          <div className="space-y-4 max-lg:order-2">
+            <RiquadriCliente
+              lingua={lingua}
+              accountStato={riga.account_stato}
+              registratoIl={riga.registrato_il}
+              consensi={scheda.consensi}
+              video={scheda.video}
+            />
+          </div>
+
+          <section aria-labelledby="passi-titolo" className="rounded-xl bg-card p-3 max-lg:order-5" data-testid="riquadro-passi">
             <div className="space-y-0.5 py-1.5">
               <h2 id="passi-titolo" className="flex items-center gap-1.5 text-sm font-medium">
                 <ListChecks className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -183,7 +197,7 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
             )}
           </section>
 
-          <section aria-labelledby="registro-titolo" className="rounded-xl bg-card p-3 max-lg:order-5" data-testid="riquadro-registro">
+          <section aria-labelledby="registro-titolo" className="rounded-xl bg-card p-3 max-lg:order-6" data-testid="riquadro-registro">
             <div className="space-y-0.5 py-1.5">
               <h2 id="registro-titolo" className="flex items-center gap-1.5 text-sm font-medium">
                 <ScrollText className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -220,7 +234,7 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
         </div>
 
         <div className="min-w-0 max-lg:contents lg:space-y-4">
-          <div className="max-lg:order-2">
+          <div className="max-lg:order-3">
             <TeamScheda
               clientId={clientId}
               incarichi={{
@@ -234,7 +248,7 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
             />
           </div>
 
-          <div className="max-lg:order-3">
+          <div className="max-lg:order-4">
             <TelegramScheda
               clientId={clientId}
               username={scheda.telegram?.username ?? null}
@@ -244,7 +258,7 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
 
           <nav
             aria-labelledby="collegamenti-titolo"
-            className="rounded-xl bg-card p-3 max-lg:order-6"
+            className="rounded-xl bg-card p-3 max-lg:order-7"
             data-testid="riquadro-collegamenti"
           >
             <h2 id="collegamenti-titolo" className="flex min-h-11 items-center text-sm font-medium">
@@ -288,6 +302,10 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
               </li>
             </ul>
           </nav>
+
+          <div className="max-lg:order-8">
+            <EliminaOnboarding clientId={clientId} cliente={nome} registrato={riga.account_stato !== null} />
+          </div>
         </div>
       </div>
     </div>

@@ -127,7 +127,7 @@ describe('le parole dell’interfaccia', () => {
     expect(t.wizard.fine.inAttesa).toBe('Il link si attiva appena registri il pagamento')
     expect(t.wizard.fine.attivo).toBe('Pagamento confermato')
     expect(t.wizard.fine.nonAperto).toBe(
-      'L’area clienti non è ancora aperta: il link si potrà mandare dal prossimo rilascio.',
+      'L’area clienti è chiusa: il link funziona solo se segni il cliente come cliente di prova.',
     )
     expect(t.link.nonAperto).toBe(t.wizard.fine.nonAperto)
     expect(t.link.confermaPagamento.bottone).toBe('Conferma pagamento')

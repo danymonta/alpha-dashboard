@@ -20,6 +20,8 @@ const stato = vi.hoisted(() => ({
   signInWithOtp: 0,
   generateLink: 0,
   email: 0,
+  ip: null as string | null,
+  ipBloccato: false,
 }))
 
 vi.mock('next/server', async (orig) => ({
@@ -30,7 +32,7 @@ vi.mock('next/server', async (orig) => ({
 }))
 vi.mock('next/headers', () => ({
   cookies: async () => ({ getAll: () => [], get: () => undefined, set: () => {}, delete: () => {} }),
-  headers: async () => new Headers({ host: 'localhost:3000' }),
+  headers: async () => new Headers({ host: 'localhost:3000', ...(stato.ip ? { 'x-forwarded-for': stato.ip } : {}) }),
 }))
 vi.mock('@/lib/auth/origine-server', () => ({ origineCorrente: async () => 'http://localhost:3000' }))
 vi.mock('@/lib/email/invia', () => ({
@@ -48,9 +50,13 @@ vi.mock('@/lib/supabase/admin', () => ({
         const a = stato.account.get(args.p_email)
         return { data: a ? [a] : [], error: null }
       }
+      if (nome === 'accesso_ip_conta') {
+        stato.conta.push([`ip:${args.p_ip}`, args.p_tipo])
+        return { data: !stato.ipBloccato, error: null }
+      }
       if (nome === 'cliente_accesso_conta') {
         stato.conta.push([args.p_email, args.p_tipo])
-        if (args.p_tipo === 'invio') {
+        if (args.p_tipo === 'invio' || args.p_tipo === 'invio_team') {
           stato.invii.add(args.p_email)
           return { data: true, error: null }
         }
@@ -88,7 +94,8 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 import { chiediCodiceCliente, verificaCodiceCliente } from '@/app/entra/actions'
-import { richiediCodice } from '@/app/login/actions'
+import { richiediCodice, verificaCodice } from '@/app/login/actions'
+import { ipDaIntestazioni } from '@/lib/percorso/accesso'
 
 beforeEach(() => {
   stato.dopo = []
@@ -99,6 +106,8 @@ beforeEach(() => {
   stato.signInWithOtp = 0
   stato.generateLink = 0
   stato.email = 0
+  stato.ip = null
+  stato.ipBloccato = false
 })
 
 async function tempo(f: () => Promise<unknown>): Promise<[number, unknown]> {
@@ -139,7 +148,8 @@ describe('/entra: il codice', () => {
     const [ms, r] = await tempo(() => verificaCodiceCliente({ email: 'admin@alpha.test', codice: '12345678' }))
     expect(r).toEqual({ ok: false, errore: 'Il codice non è corretto o è scaduto.' })
     expect(stato.verifyOtp).toBe(0)
-    expect(stato.conta).toContainEqual(['admin@alpha.test', 'errore'])
+    // stopped before Supabase: nothing counted (an address with no code never blocks the others)
+    expect(stato.conta).not.toContainEqual(['admin@alpha.test', 'errore'])
     expect(ms).toBeGreaterThanOrEqual(1190)
   })
 
@@ -168,5 +178,45 @@ describe('/login: un cliente riceve la mail del cliente, sempre in 2 secondi', (
     expect(stato.signInWithOtp).toBe(2)
     expect(stato.dopo).toHaveLength(1)
     expect(stato.email).toBe(0)
+  }, 20_000)
+})
+
+describe('il limite per IP, prima di ogni strada', () => {
+  it('legge l’IP di Vercel, mai quello di questa macchina', () => {
+    expect(ipDaIntestazioni(new Headers({ 'x-real-ip': '203.0.113.7' }))).toBe('203.0.113.7')
+    expect(ipDaIntestazioni(new Headers({ 'x-forwarded-for': '198.51.100.9, 10.0.0.1' }))).toBe('198.51.100.9')
+    expect(ipDaIntestazioni(new Headers({ 'x-forwarded-for': '::1' }))).toBeNull()
+    expect(ipDaIntestazioni(new Headers({ 'x-forwarded-for': '127.0.0.1' }))).toBeNull()
+    expect(ipDaIntestazioni(new Headers())).toBeNull()
+  })
+
+  it('/entra e /login: «troppi tentativi» uguale per tutti, senza leggere l’account', async () => {
+    stato.ip = '203.0.113.7'
+    stato.ipBloccato = true
+    for (const email of ['cliente@example.test', 'nessuno@example.test']) {
+      expect(await chiediCodiceCliente({ email })).toEqual({ ok: false, errore: 'Troppi tentativi. Aspetta qualche minuto e riprova.' })
+      const login = await richiediCodice({ email, da: '/' })
+      expect(login.ok).toBe(false)
+    }
+    expect(stato.conta.every(([chiave]) => chiave.startsWith('ip:'))).toBe(true)
+    expect(stato.signInWithOtp).toBe(0)
+    expect(await verificaCodiceCliente({ email: 'cliente@example.test', codice: '12345678' })).toMatchObject({ ok: false })
+    expect(await verificaCodice({ email: 'admin@alpha.test', codice: '12345678', da: '/' })).toMatchObject({ ok: false })
+    expect(stato.verifyOtp).toBe(0)
+  }, 20_000)
+})
+
+describe('/login: il codice del team', () => {
+  it('senza un codice partito da /login non chiama mai Supabase', async () => {
+    expect(await verificaCodice({ email: 'admin@alpha.test', codice: '12345678', da: '/' })).toMatchObject({ ok: false })
+    expect(stato.verifyOtp).toBe(0)
+  })
+
+  it('dopo la richiesta sì, e un codice sbagliato conta un errore', async () => {
+    await richiediCodice({ email: 'admin@alpha.test', da: '/' })
+    expect(stato.conta).toContainEqual(['admin@alpha.test', 'invio_team'])
+    await verificaCodice({ email: 'admin@alpha.test', codice: '12345678', da: '/' })
+    expect(stato.verifyOtp).toBe(1)
+    expect(stato.conta).toContainEqual(['admin@alpha.test', 'errore'])
   }, 20_000)
 })

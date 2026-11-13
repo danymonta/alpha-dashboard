@@ -51,6 +51,7 @@ export const NOTIFICHE = bilingue(
       proposta_da_approvare: 'Da approvare',
       spesa_claude: 'Spesa di Claude',
       onboarding_pagamento: 'Onboarding',
+      onboarding_cliente: 'Cliente del percorso',
     } satisfies Record<TipoNotifica, string>,
     link: {
       panoramica: 'Apri la Panoramica',
@@ -112,6 +113,7 @@ export const NOTIFICHE = bilingue(
       proposta_da_approvare: 'To approve',
       spesa_claude: 'Claude spending',
       onboarding_pagamento: 'Onboarding',
+      onboarding_cliente: 'Path client',
     },
     link: {
       panoramica: 'Open the Overview',

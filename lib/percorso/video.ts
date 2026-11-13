@@ -110,10 +110,30 @@ export function messaggioAscolto(id: number | string = 1): string {
   return JSON.stringify({ event: 'listening', id, channel: 'widget' })
 }
 
+/** The command iframe_api sends right after: the iframe also tells every change of state. */
+export function messaggioStati(id: number | string = 1): string {
+  return JSON.stringify({ event: 'command', func: 'addEventListener', args: ['onStateChange'], id, channel: 'widget' })
+}
+
+/**
+ * The stretches to send: joined, inside the length, at most `massimo` (the route takes
+ * 50). Pure: the player calls it before every POST.
+ */
+export function intervalliDaInviare(intervalli: readonly Intervallo[], durata: number, massimo = 50): Intervallo[] {
+  const fine = Math.max(1, Math.round(durata))
+  return unisciIntervalli(intervalli)
+    .filter(([da]) => da < fine)
+    .map(([da, a]) => [da, Math.min(a, fine)] as Intervallo)
+    .filter(([da, a]) => a > da)
+    .slice(0, massimo)
+}
+
 /** The address of the iframe: youtube-nocookie, the JS API on, no related videos from other channels. */
-export function indirizzoIframe(youtubeId: string, origine: string): string | null {
+export function indirizzoIframe(youtubeId: string, origine: string, autoplay = false): string | null {
   if (!/^[A-Za-z0-9_-]{11}$/.test(youtubeId)) return null
   const p = new URLSearchParams({ enablejsapi: '1', rel: '0', playsinline: '1', origin: origine })
+  // after the client's tap on «Guarda il video»: the video starts without a second tap
+  if (autoplay) p.set('autoplay', '1')
   return `${ORIGINE_YOUTUBE}/embed/${youtubeId}?${p.toString()}`
 }
 

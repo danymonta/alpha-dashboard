@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { dbLocale } from './db'
-import { CONTENUTO_SEED, PASSWORD_SEED, UTENTI, accedi } from './utenti'
+import { CONTENUTO_SEED, PASSWORD_SEED, UTENTI, accedi, accediCliente } from './utenti'
 
 test('senza sessione ogni pagina porta al login', async ({ page }) => {
   await page.goto('/sales')
@@ -216,4 +216,24 @@ test('chi è già dentro e apre un vecchio link col codice resta dentro', async 
   await page.goto('/?code=e0f770a2-1b2e-4c9c-9806-188e785ae668')
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('navigation', { name: 'Navigazione principale' })).toBeVisible()
+})
+
+test('un link a /auth/uscita da fuori non fa uscire chi ha accesso: il team resta dentro, il cliente pure', async ({
+  page,
+  browser,
+}) => {
+  await accedi(page, 'admin')
+  await page.goto('/auth/uscita?motivo=nessun-account')
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole('navigation', { name: 'Navigazione principale' })).toBeVisible()
+  await page.goto('/sales')
+  await expect(page).toHaveURL(/\/sales/)
+
+  const contesto = await browser.newContext()
+  const cliente = await contesto.newPage()
+  await accediCliente(cliente)
+  await cliente.goto('/auth/uscita?motivo=percorso-concluso')
+  await expect(cliente).toHaveURL(/\/percorso$/)
+  await expect(cliente.getByTestId('timeline')).toBeVisible()
+  await contesto.close()
 })

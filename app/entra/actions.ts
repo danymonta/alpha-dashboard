@@ -5,7 +5,15 @@ import { after } from 'next/server'
 
 import { esitoVerificaCodice } from '@/lib/auth/accesso'
 import { indirizzoRifiuto, sessioneVecchia, togliSessioneVecchia, verificaDopoLogin } from '@/lib/auth/dopo-login'
-import { TEMPO_ENTRA_MS, attendiFinoA, contaAccesso, richiestaCodiceCliente } from '@/lib/percorso/accesso'
+import {
+  TEMPO_ENTRA_MS,
+  attendiFinoA,
+  contaAccesso,
+  contaIp,
+  ipRichiesta,
+  richiestaCodiceCliente,
+} from '@/lib/percorso/accesso'
+import { destinazioneCliente } from '@/lib/auth/destinazione'
 import { TESTI_ENTRA as T } from '@/lib/percorso/testi'
 import { createClient } from '@/lib/supabase/server'
 import { chiediCodiceClienteSchema, verificaCodiceClienteSchema } from '@/lib/validation/registrazione-cliente'
@@ -26,6 +34,11 @@ export async function chiediCodiceCliente(input: unknown): Promise<EsitoChiediCo
   if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? T.nonDisponibile }
 
   try {
+    // the limit per IP comes before every road: it does not depend on the address
+    if (!(await contaIp(await ipRichiesta(), 'richiesta'))) {
+      await attendiFinoA(inizio, TEMPO_ENTRA_MS)
+      return { ok: false, errore: T.troppeRichieste }
+    }
     await richiestaCodiceCliente(parsed.data.email, (lavoro) => after(lavoro))
   } catch {
     console.error('[entra] richiesta del codice non riuscita')
@@ -46,17 +59,22 @@ export async function verificaCodiceCliente(input: unknown): Promise<EsitoEntra>
   const inizio = Date.now()
   const parsed = verificaCodiceClienteSchema.safeParse(input)
   if (!parsed.success) return { ok: false, errore: parsed.error.issues[0]?.message ?? T.errato }
-  const { email, codice } = parsed.data
+  const { email, codice, da } = parsed.data
 
   let ammessa: boolean
   try {
+    if (!(await contaIp(await ipRichiesta(), 'verifica'))) {
+      await attendiFinoA(inizio, TEMPO_ENTRA_MS)
+      return { ok: false, errore: T.troppeRichieste }
+    }
     ammessa = await contaAccesso(email, 'verifica')
   } catch {
     await attendiFinoA(inizio, TEMPO_ENTRA_MS)
     return { ok: false, errore: T.nonDisponibile }
   }
+  // stopped before Supabase: nothing is counted (only the codes Supabase refuses count, on the
+  // address and on everybody; a code typed for an address that received none must never block the others)
   if (!ammessa) {
-    await contaAccesso(email, 'errore').catch(() => undefined)
     await attendiFinoA(inizio, TEMPO_ENTRA_MS)
     return { ok: false, errore: T.errato }
   }
@@ -68,6 +86,7 @@ export async function verificaCodiceCliente(input: unknown): Promise<EsitoEntra>
   try {
     ;({ error: errore } = await supabase.auth.verifyOtp({ email, token: codice, type: 'email' }))
   } catch {
+    await attendiFinoA(inizio, TEMPO_ENTRA_MS)
     return { ok: false, errore: T.connessione }
   }
   if (errore) {
@@ -82,7 +101,8 @@ export async function verificaCodiceCliente(input: unknown): Promise<EsitoEntra>
   }
 
   togliSessioneVecchia(cookieStore, vecchia)
-  const dopo = await verificaDopoLogin(supabase, cookieStore, '/percorso')
+  // back where the client was going (the proxy's ?da=), only inside /percorso
+  const dopo = await verificaDopoLogin(supabase, cookieStore, destinazioneCliente(da))
   if (!dopo.ok) return { ok: true, vai: indirizzoRifiuto(dopo.motivo) }
   return { ok: true, vai: dopo.vai }
 }

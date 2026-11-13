@@ -2,6 +2,8 @@ import 'server-only'
 
 import { createHash, randomBytes, randomInt } from 'node:crypto'
 
+import { headers } from 'next/headers'
+
 import { emailCodiceCliente, type TipoEmailCodice } from '@/lib/email/cliente'
 import { inviaEmail, type EsitoInvio } from '@/lib/email/invia'
 import { publicEnv } from '@/lib/env'
@@ -46,10 +48,39 @@ export async function accountPerEmail(email: string): Promise<AccountCliente | n
   return { userId: riga.user_id, stato: riga.stato, nome: riga.nome ?? '' }
 }
 
-/** The limits of the return: cliente_accesso_conta. Throws when the database does not answer. */
-export async function contaAccesso(email: string, tipo: 'invio' | 'verifica' | 'errore'): Promise<boolean> {
+/** The limits per address of /entra and /login: cliente_accesso_conta. Throws when the database does not answer. */
+export async function contaAccesso(email: string, tipo: 'invio' | 'invio_team' | 'verifica' | 'errore'): Promise<boolean> {
   const { data, error } = await createAdminClient().rpc('cliente_accesso_conta', { p_email: email, p_tipo: tipo })
   if (error) throw new Error(`cliente_accesso_conta: ${error.code}`)
+  return data === true
+}
+
+/**
+ * The IP of the request, as Vercel gives it (x-real-ip, or the first address of
+ * x-forwarded-for); null on loopback (the dev server and the e2e, all from one machine) and
+ * when there is none: no limit per IP there. Never logged.
+ */
+export function ipDaIntestazioni(h: Headers): string | null {
+  const grezzo = h.get('x-real-ip') ?? h.get('x-forwarded-for')?.split(',')[0] ?? ''
+  const ip = grezzo.trim().toLowerCase()
+  if (!ip || ip.length > 100) return null
+  if (ip === '::1' || ip === 'localhost' || ip.startsWith('127.') || ip.startsWith('::ffff:127.')) return null
+  return ip
+}
+
+export async function ipRichiesta(): Promise<string | null> {
+  return ipDaIntestazioni(await headers())
+}
+
+/**
+ * The limit per IP of /entra and /login (accesso_ip_conta): 20 codes asked and 30 typed an
+ * hour from one source, before every road, so one source never consumes the counters of
+ * everybody. True without an IP. Throws when the database does not answer.
+ */
+export async function contaIp(ip: string | null, tipo: 'richiesta' | 'verifica'): Promise<boolean> {
+  if (!ip) return true
+  const { data, error } = await createAdminClient().rpc('accesso_ip_conta', { p_ip: ip, p_tipo: tipo })
+  if (error) throw new Error(`accesso_ip_conta: ${error.code}`)
   return data === true
 }
 

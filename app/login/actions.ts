@@ -15,7 +15,14 @@ import {
 } from '@/lib/auth/dopo-login'
 import { COOKIE_DOPO_LOGIN, destinazioneSicura } from '@/lib/auth/origine'
 import { origineCorrente } from '@/lib/auth/origine-server'
-import { TEMPO_LOGIN_MS, attendiFinoA, richiestaCodiceCliente } from '@/lib/percorso/accesso'
+import {
+  TEMPO_LOGIN_MS,
+  attendiFinoA,
+  contaAccesso,
+  contaIp,
+  ipRichiesta,
+  richiestaCodiceCliente,
+} from '@/lib/percorso/accesso'
 import { createClient } from '@/lib/supabase/server'
 import { richiestaCodiceSchema, verificaCodiceSchema } from '@/lib/validation/accesso'
 
@@ -73,13 +80,16 @@ export async function accediConPassword(
   }
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
     return { errore: 'Credenziali non valide.' }
   }
 
   revalidatePath('/', 'layout')
+  // a client of the seed (1.78.0) goes straight to his area: a redirect to / answered by the
+  // proxy with /percorso would leave / in the address bar
+  if (data?.user?.app_metadata?.tipo === 'cliente') redirect('/percorso')
   // back where the person was going, as after Google (the consent page of Claude's
   // connection comes back with its authorization_id): only a path of this app
   redirect(destinazioneSicura(typeof da === 'string' ? da : '/'))
@@ -103,8 +113,14 @@ export type EsitoVerificaCodice = { ok: true; vai: string } | { ok: false; error
  * client's email with the code goes after the answer (after(), the road of /entra). The
  * answer comes at a fixed time, 2 seconds from the start, for every outcome: the team's
  * road waits for Supabase at most until then (beyond, the neutral sentence, and the request
- * finishes in after()); the limit per IP and the service not reachable are told only when
- * they come before.
+ * finishes in after()).
+ *
+ * «Too many requests» comes only from the app's limit per IP of the request (accesso_ip_conta),
+ * before every road, the same for clients, team and strangers. Supabase's limit per IP is one
+ * for the whole server (the requests leave from Vercel): its refusal is the neutral sentence,
+ * otherwise anyone who exhausts it could tell a client's address (always «sent») from the others.
+ * The team's road counts 10 codes an hour per address (invio_team, a refusal is the neutral
+ * sentence too) and writes the last code sent, which verificaCodice wants before calling Supabase.
  */
 export async function richiediCodice(input: unknown): Promise<EsitoAccessoCodice> {
   const inizio = Date.now()
@@ -127,14 +143,20 @@ export async function richiediCodice(input: unknown): Promise<EsitoAccessoCodice
 
   // a client's address: the client's email, never the team's
   let cliente: Awaited<ReturnType<typeof richiestaCodiceCliente>>
+  let ammessa = false
   try {
+    if (!(await contaIp(await ipRichiesta(), 'richiesta'))) {
+      await attendiFinoA(inizio, TEMPO_LOGIN_MS)
+      return { ok: false, errore: PAROLE_ACCESSO.troppeRichieste }
+    }
     cliente = await richiestaCodiceCliente(email, (lavoro) => after(lavoro))
+    if (cliente === 'nessuno') ammessa = await contaAccesso(email, 'invio_team')
   } catch {
     console.error('[login] lettura dell’account del cliente non riuscita')
     await attendiFinoA(inizio, TEMPO_LOGIN_MS)
     return { ok: false, errore: PAROLE_ACCESSO.nonDisponibile }
   }
-  if (cliente !== 'nessuno') {
+  if (cliente !== 'nessuno' || !ammessa) {
     await attendiFinoA(inizio, TEMPO_LOGIN_MS)
     return { ok: true }
   }
@@ -164,7 +186,8 @@ export async function richiediCodice(input: unknown): Promise<EsitoAccessoCodice
   if (primo.errore) console.error('[login] codice non inviato:', primo.errore.code, primo.errore.status)
 
   const esito = esitoRichiestaCodice(primo.errore)
-  return esito === 'inviata' ? { ok: true } : { ok: false, errore: messaggioRichiesta(esito) }
+  // Supabase's limit per IP is the server's, not the visitor's: never told (see above)
+  return esito === 'inviata' || esito === 'troppe-richieste' ? { ok: true } : { ok: false, errore: messaggioRichiesta(esito) }
 }
 
 /**
@@ -173,6 +196,11 @@ export async function richiediCodice(input: unknown): Promise<EsitoAccessoCodice
  * the reason when the account is refused); on a wrong or expired code it says so.
  * It answers instead of redirecting: called from the form, a redirect to /login
  * itself would leave the form's own state behind.
+ *
+ * Supabase's limit of verifications per IP is one for the whole server: before calling it,
+ * the app's limit per IP of the request (30 codes typed an hour) and the address must have
+ * received a code from /login (or /entra) in the last 60 minutes with fewer than 5 wrong
+ * codes (cliente_accesso_conta 'verifica'). Otherwise the answer of a wrong code.
  */
 export async function verificaCodice(input: unknown): Promise<EsitoVerificaCodice> {
   const parsed = verificaCodiceSchema.safeParse(input)
@@ -180,6 +208,17 @@ export async function verificaCodice(input: unknown): Promise<EsitoVerificaCodic
     return { ok: false, errore: parsed.error.issues[0]?.message ?? 'Dati non validi.' }
   }
   const { email, codice, da } = parsed.data
+
+  try {
+    if (!(await contaIp(await ipRichiesta(), 'verifica'))) {
+      return { ok: false, errore: PAROLE_ACCESSO.troppeRichieste }
+    }
+    if (!(await contaAccesso(email, 'verifica'))) {
+      return { ok: false, errore: messaggioCodice('errato') }
+    }
+  } catch {
+    return { ok: false, errore: PAROLE_ACCESSO.nonDisponibile }
+  }
 
   const cookieStore = await cookies()
   const vecchia = sessioneVecchia(cookieStore)
@@ -193,7 +232,9 @@ export async function verificaCodice(input: unknown): Promise<EsitoVerificaCodic
   }
   if (errore) {
     console.error('[login] codice non verificato:', errore.code, errore.status)
-    return { ok: false, errore: messaggioCodice(esitoVerificaCodice(errore)) }
+    const esito = esitoVerificaCodice(errore)
+    if (esito === 'errato') await contaAccesso(email, 'errore').catch(() => undefined)
+    return { ok: false, errore: messaggioCodice(esito) }
   }
 
   togliSessioneVecchia(cookieStore, vecchia)

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-type Stato = 'attivo' | 'in_attesa' | 'usato' | 'scaduto' | 'revocato' | 'non_valido'
+type Stato = 'attivo' | 'in_attesa' | 'non_attivo' | 'usato' | 'scaduto' | 'revocato' | 'non_valido'
 
 /**
  * The page of the personal link /join/<slug>-<token> (release B1a): one page per state,
@@ -42,7 +42,12 @@ export default async function JoinPage({ params }: { params: Promise<{ segmento:
     const r = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : {}
     const letto = r.stato
     stato =
-      letto === 'attivo' || letto === 'in_attesa' || letto === 'usato' || letto === 'scaduto' || letto === 'revocato'
+      letto === 'attivo' ||
+      letto === 'in_attesa' ||
+      letto === 'non_attivo' ||
+      letto === 'usato' ||
+      letto === 'scaduto' ||
+      letto === 'revocato'
         ? letto
         : 'non_valido'
     nome = typeof r.nome === 'string' ? r.nome : ''
@@ -50,8 +55,7 @@ export default async function JoinPage({ params }: { params: Promise<{ segmento:
 
   if (stato === 'attivo') {
     return (
-      <CorniceAccesso titolo={T.attivo.saluto(nome)}>
-        <p className="text-sm text-muted-foreground">{T.attivo.sotto}</p>
+      <CorniceAccesso titolo={T.attivo.saluto(nome)} sotto={T.attivo.sotto}>
         <ContinuaInvito segmento={segmento} />
       </CorniceAccesso>
     )
@@ -60,16 +64,23 @@ export default async function JoinPage({ params }: { params: Promise<{ segmento:
   if (stato === 'usato') {
     return (
       <CorniceAccesso titolo={T.usato}>
-        <Link href="/entra" className={cn(buttonVariants(), 'h-11 w-full')}>
+        <Link href="/entra" data-slot="button" className={cn(buttonVariants(), 'h-11 w-full')}>
           {T.entra}
         </Link>
       </CorniceAccesso>
     )
   }
 
-  const testo = stato === 'in_attesa' ? T.inAttesa : stato === 'scaduto' ? T.scaduto : T.nonValido
+  const testo =
+    stato === 'in_attesa'
+      ? T.inAttesa
+      : stato === 'non_attivo'
+        ? T.nonAttivo
+        : stato === 'scaduto'
+          ? T.scaduto
+          : T.nonValido
   const icona =
-    stato === 'in_attesa' ? (
+    stato === 'in_attesa' || stato === 'non_attivo' ? (
       <Clock className="size-4" aria-hidden="true" />
     ) : stato === 'scaduto' ? (
       <ShieldCheck className="size-4" aria-hidden="true" />

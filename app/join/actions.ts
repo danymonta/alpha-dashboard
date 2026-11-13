@@ -40,7 +40,7 @@ async function chiaveDalCookie(): Promise<string | null> {
   return chiaveValida(valore) ? valore : null
 }
 
-export type StatoApertura = { stato: 'in_attesa' | 'usato' | 'scaduto' | 'revocato' | 'non_valido' | 'errore' } | null
+export type StatoApertura = { stato: 'in_attesa' | 'non_attivo' | 'usato' | 'scaduto' | 'revocato' | 'non_valido' | 'errore' } | null
 
 /**
  * «Continua» on the page of an active link: a new key (32 random bytes), its sha256 to
@@ -64,7 +64,10 @@ export async function apriInvito(segmento: string): Promise<StatoApertura> {
   }
   const esito = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>).esito : null
   if (esito !== 'ok') {
-    const stato = esito === 'in_attesa' || esito === 'usato' || esito === 'scaduto' || esito === 'revocato' ? esito : 'non_valido'
+    const stato =
+      esito === 'in_attesa' || esito === 'non_attivo' || esito === 'usato' || esito === 'scaduto' || esito === 'revocato'
+        ? esito
+        : 'non_valido'
     return { stato }
   }
 

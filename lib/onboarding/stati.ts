@@ -1,5 +1,5 @@
 import type { Lingua } from '@/lib/i18n/lingua'
-import { ONBOARDING, motivoInLingua } from '@/lib/i18n/testi/onboarding'
+import { ONBOARDING, titoloPasso, motivoInLingua } from '@/lib/i18n/testi/onboarding'
 import type { Database } from '@/lib/supabase/database.types'
 
 /**
@@ -25,6 +25,8 @@ export type StatoRiga = Pick<
 > & {
   /** A test link (1.78.0): it works with the client area closed. Optional: the rows of before have none. */
   prova?: boolean | null
+  /** The client's account (1.78.0): with one, the client has registered. Optional: the rows of before have none. */
+  account_stato?: string | null
 }
 
 export const STATI_ONBOARDING = [
@@ -165,15 +167,17 @@ export function azioniLink(
 ): AzioniLink {
   const stato = riga.invito_stato
   const invito = riga.invito_id != null && stato != null
+  // a client who has registered: his access comes back only with «Riattiva», never with a new link
+  const registrato = riga.account_stato != null
   return {
     // a minor whose payment is there already waits only for the consent: confirming again would change nothing
     confermaPagamento: invito && stato === 'in_attesa_pagamento' && riga.pagamento_confermato !== true,
     consensoGenitore: invito && riga.minorenne === true && !riga.consenso_genitore_il && stato !== 'revocato',
-    rigenera: invito && stato !== 'usato',
+    rigenera: invito && stato !== 'usato' && !registrato,
     revoca: invito && stato !== 'revocato',
     riattiva: invito && stato === 'revocato',
     copia: invito && (aperto || riga.prova === true) && stato === 'attivo',
-    prova: invito && stato !== 'usato',
+    prova: invito && stato !== 'usato' && !registrato,
   }
 }
 
@@ -213,6 +217,17 @@ export function eventoInParole(evento: EventoRegistro, lingua: Lingua = 'it'): s
       return t.consensoGenitore
     case 'incarichi_modificati':
       return t.incarichiModificati
+    // release B1a (1.78.0): the client's own steps, never his answers
+    case 'registrato':
+      return t.registrato
+    case 'email_cambiata':
+      return t.emailCambiata
+    case 'prova':
+      return d.prova === false ? t.provaTolta : t.provaSegnata
+    case 'consenso_dato':
+      return t.consensoDato
+    case 'passo_completato':
+      return typeof d.passo === 'string' ? t.passoCompletato(titoloPasso(d.passo, null, lingua)) : t.altro
     default:
       return t.altro
   }

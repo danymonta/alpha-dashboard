@@ -3173,7 +3173,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "aggiorna_mio_profilo":
+            "accesso_ip_conta":
+{ Args: { "p_ip": string,"p_tipo": string }; Returns: boolean
+                           },
+"aggiorna_mio_profilo":
 { Args: { "p_foto_url": string,"p_nome": string }; Returns: undefined
                            },
 "aggiorna_stato_lead":

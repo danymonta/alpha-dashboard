@@ -7,7 +7,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(84);
+select plan(97);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres). Seed: admin 1111, setter 2222.
@@ -141,7 +141,7 @@ select is(
    from pg_proc p
    where p.pronamespace = 'public'::regnamespace
      and p.proname in ('onboarding_join_leggi', 'onboarding_join_apri', 'onboarding_join_stato', 'onboarding_join_codice',
-                       'onboarding_join_verifica', 'cliente_accesso_per_email', 'cliente_accesso_conta',
+                       'onboarding_join_verifica', 'cliente_accesso_per_email', 'cliente_accesso_conta', 'accesso_ip_conta',
                        'onboarding_registra_cliente', 'email_del_team', 'email_di_cliente', 'onboarding_invito_apribile',
                        'onboarding_nome_cliente')
      and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))),
@@ -150,7 +150,8 @@ select is(
 select ok(
   has_function_privilege('service_role', 'public.onboarding_join_leggi(text, text)', 'execute')
   and has_function_privilege('service_role', 'public.onboarding_join_codice(text, text, text)', 'execute')
-  and has_function_privilege('service_role', 'public.cliente_accesso_conta(text, text)', 'execute'),
+  and has_function_privilege('service_role', 'public.cliente_accesso_conta(text, text)', 'execute')
+  and has_function_privilege('service_role', 'public.accesso_ip_conta(text, text)', 'execute'),
   'le chiama il service role'
 );
 
@@ -345,6 +346,14 @@ select lives_ok(
 select pg_temp.admin();
 select public.onboarding_revoca(pg_temp.invito('Uno'), 'Prova 111');
 select is(pg_temp.stato_account('Uno'), 'sospeso', 'invito revocato: account sospeso');
+select throws_ok($$ select public.onboarding_rigenera_link(pg_temp.invito('Uno')) $$, '22023',
+  'Il cliente è già registrato: usa Riattiva.', '«Rigenera link» mai su un cliente registrato');
+select is(
+  (select row(pg_temp.stato_account('Uno'), i.stato,
+              (select count(*) from public.onboarding_inviti_token t where t.invito_id = i.id))::text
+   from public.onboarding_inviti i where i.id = pg_temp.invito('Uno')),
+  '(sospeso,revocato,0)', 'e l''account resta sospeso, senza un token nuovo'
+);
 select public.onboarding_riattiva(pg_temp.invito('Uno'));
 select is(
   (select row(pg_temp.stato_account('Uno'), i.stato)::text from public.onboarding_inviti i where i.id = pg_temp.invito('Uno')),
@@ -427,8 +436,8 @@ select is(public.onboarding_join_leggi(pg_temp.h(pg_temp.token('Join')), 'join-c
   '{"stato": "attivo", "nome": "Join"}'::jsonb, 'un link di prova attivo, col nome di battesimo');
 select is(public.onboarding_join_leggi(pg_temp.h(pg_temp.token('Attesa'))) ->> 'stato', 'in_attesa', 'in attesa del pagamento');
 select pg_temp.prepara('Chiusa', false, true);
-select is(public.onboarding_join_leggi(pg_temp.h(pg_temp.token('Chiusa'))) ->> 'stato', 'in_attesa',
-  'un link non di prova con l''area chiusa');
+select is(public.onboarding_join_leggi(pg_temp.h(pg_temp.token('Chiusa'))) ->> 'stato', 'non_attivo',
+  'un link attivo non di prova con l''area chiusa: non ancora attivo, mai «in attesa del pagamento»');
 select is(public.onboarding_join_leggi(pg_temp.h(pg_temp.token('Scaduto'))) ->> 'stato', 'scaduto', 'coi giorni finiti');
 select is((select stato from public.onboarding_inviti where id = pg_temp.invito('Scaduto')), 'scaduto', 'e l''invito diventa scaduto');
 select pg_temp.prepara('Revocato');
@@ -515,8 +524,37 @@ select is(
   array[true, true, true, true, true, false], 'cinque invii l''ora per indirizzo'
 );
 select ok(public.cliente_accesso_conta('uno.nuova@example.test', 'verifica'), 'dopo un invio la verifica sì');
-do $$ begin perform public.cliente_accesso_conta('altro.111@example.test', 'errore') from generate_series(1, 100); end $$;
-select ok(not public.cliente_accesso_conta('uno.nuova@example.test', 'verifica'), 'cento errori in tutto fermano ogni verifica');
+do $$ begin perform public.cliente_accesso_conta('sconosciuto' || n || '@example.test', 'errore') from generate_series(1, 100) n; end $$;
+select ok(public.cliente_accesso_conta('uno.nuova@example.test', 'verifica'),
+  'cento email sconosciute (nessun codice partito) non bloccano un cliente vero');
+select is((select errori from public.clienti_accesso_limiti where chiave = 'tutti'), 0, 'e non contano niente su tutti');
+select is(
+  (select array_agg(public.cliente_accesso_conta('team.111@example.test', 'invio_team')) from generate_series(1, 11)),
+  array_fill(true, array[10]) || false, 'il codice del team: dieci l''ora per indirizzo'
+);
+select is((select invii from public.clienti_accesso_limiti where chiave = 'tutti'), 5, 'senza contare sugli invii di tutti');
+select ok(public.cliente_accesso_conta('team.111@example.test', 'verifica'), 'e la sua verifica passa');
+do $$ begin perform public.cliente_accesso_conta('team.111@example.test', 'errore') from generate_series(1, 5); end $$;
+select ok(not public.cliente_accesso_conta('team.111@example.test', 'verifica'), 'cinque codici sbagliati fermano l''indirizzo');
+do $$
+begin
+  perform public.cliente_accesso_conta('cliente' || n || '.111@example.test', 'invio') from generate_series(1, 19) n;
+  perform public.cliente_accesso_conta('cliente' || n || '.111@example.test', 'errore')
+  from generate_series(1, 19) n, generate_series(1, 5);
+end $$;
+select ok(not public.cliente_accesso_conta('uno.nuova@example.test', 'verifica'), 'cento errori veri in tutto fermano ogni verifica');
+select is(
+  (select array_agg(public.accesso_ip_conta('203.0.113.7', 'richiesta')) from generate_series(1, 21)),
+  array_fill(true, array[20]) || false, 'venti richieste di codice l''ora per IP'
+);
+select is(
+  (select array_agg(public.accesso_ip_conta('203.0.113.7', 'verifica')) from generate_series(1, 31)),
+  array_fill(true, array[30]) || false, 'trenta verifiche l''ora per IP'
+);
+select ok(public.accesso_ip_conta('198.51.100.9', 'richiesta'), 'un altro IP non è toccato');
+select ok(public.accesso_ip_conta(null, 'verifica') and public.accesso_ip_conta('', 'verifica'), 'senza IP nessun limite');
+select is((select count(*)::int from public.clienti_accesso_limiti where chiave like 'ip:%' and chiave !~ '^ip:[0-9a-f]{64}$'), 0,
+  'l''IP si salva solo come sha256');
 select throws_ok($$ select public.cliente_accesso_conta('x@example.test', 'altro') $$, '22023', null, 'un tipo che non c''è');
 
 select * from finish();

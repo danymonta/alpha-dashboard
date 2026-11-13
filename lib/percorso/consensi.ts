@@ -27,3 +27,6 @@ export const CONSENSO_SALUTE: TestoConsenso = {
 export const CONSENSI_IN_VIGORE: Record<TipoConsenso, TestoConsenso> = {
   salute: CONSENSO_SALUTE,
 }
+
+/** Where a client writes to withdraw a consent (the address of the owner in /privacy). */
+export const EMAIL_TITOLARE = 'join@percorsoalpha.com'

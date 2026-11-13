@@ -66,7 +66,12 @@ export const verificaRegistrazioneSchema = z.object({ codice: codiceClienteSchem
 
 /** /entra: the address, then the code. */
 export const chiediCodiceClienteSchema = z.object({ email: emailClienteSchema })
-export const verificaCodiceClienteSchema = z.object({ email: emailClienteSchema, codice: codiceClienteSchema })
+export const verificaCodiceClienteSchema = z.object({
+  email: emailClienteSchema,
+  codice: codiceClienteSchema,
+  // where to go afterwards (the proxy's ?da=): reduced to /percorso/… by the action
+  da: z.string().max(500).optional(),
+})
 
 /** The forms (one field each step). */
 export const formEmailClienteSchema = z.object({ email: emailClienteSchema })

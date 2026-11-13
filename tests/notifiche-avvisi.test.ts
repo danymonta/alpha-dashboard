@@ -40,8 +40,11 @@ describe('i tipi di notifica', () => {
       .sort()
       .at(-1)
     const sql = readFileSync(join(cartella, ultima!), 'utf8')
-    const dalSql = [...sql.slice(sql.lastIndexOf('notifiche_tipo_check check')).matchAll(/'([a-z_]+)'/g)].map((m) => m[1])
+    const vincolo = sql.slice(sql.lastIndexOf('notifiche_tipo_check check'))
+    const dalSql = [...vincolo.slice(0, vincolo.indexOf('))')).matchAll(/'([a-z_]+)'/g)].map((m) => m[1])
     for (const t of TIPI_NOTIFICA) expect(dalSql).toContain(t)
+    // and the other way round: every kind the table accepts has its words, icon and label in the app
+    for (const t of dalSql) expect(TIPI_NOTIFICA as readonly string[]).toContain(t)
   })
 
   it('ogni link degli avvisi apre una pagina con le sue parole', () => {

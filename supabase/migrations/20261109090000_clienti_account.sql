@@ -111,18 +111,18 @@ revoke all on public.onboarding_registrazioni from authenticated;
 -- 3. The limits of the return through /entra
 -- ---------------------------------------------------------------------------
 create table public.clienti_accesso_limiti (
-  -- 'email:' || sha256(email), or 'tutti'
-  chiave text primary key check (chiave = 'tutti' or chiave ~ '^email:[0-9a-f]{64}$'),
+  -- 'email:' || sha256(email), 'ip:' || sha256(ip of the request), or 'tutti'
+  chiave text primary key check (chiave = 'tutti' or chiave ~ '^(email|ip):[0-9a-f]{64}$'),
   dal timestamptz not null default now(),
   invii integer not null default 0 check (invii >= 0),
   errori integer not null default 0 check (errori >= 0),
   -- only for the keys 'email:': the last code sent
   ultimo_invio_il timestamptz,
-  constraint clienti_accesso_limiti_invio check (ultimo_invio_il is null or chiave <> 'tutti')
+  constraint clienti_accesso_limiti_invio check (ultimo_invio_il is null or chiave like 'email:%')
 );
 
 comment on table public.clienti_accesso_limiti is
-  'The limits of the codes of /entra, per address (its sha256) and for everybody, in windows of one hour. No session reads or writes it; rows of at most one day; out of the backup.';
+  'The limits of the codes of /entra and /login, per address (its sha256), per IP of the request (its sha256) and for everybody, in windows of one hour. No session reads or writes it; rows of at most one day; out of the backup.';
 
 alter table public.clienti_accesso_limiti enable row level security;
 
@@ -899,6 +899,87 @@ where (select public.is_admin()) and not (select public.da_client_oauth());
 comment on view public.v_onboarding is
   'One row per client with an onboarding: the client, the state of the link (scaduto when its days are over), whether it is a test one, the state of the path, the current step and who it is up to, the people in charge, the project, whether the payment is there while the link still waits (a minor without consent), the client''s account (state and registration). Admin only.';
 
+-- «Rigenera link» (from release A), with the guard of B1a: never on a client who has registered
+create or replace function public.onboarding_rigenera_link(p_invito uuid)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v public.onboarding_inviti;
+  v_token text;
+  v_stato text;
+  v_modo text;
+begin
+  if public.da_client_oauth() or not public.is_admin() then
+    raise exception 'Un link lo rigenera l''admin' using errcode = '42501';
+  end if;
+
+  select * into v from public.onboarding_inviti i where i.id = p_invito for update;
+  if not found then
+    raise exception 'Invito non trovato' using errcode = '22023';
+  end if;
+  if v.stato = 'usato' then
+    raise exception 'Il link è già stato usato: non si rigenera.' using errcode = '22023';
+  end if;
+  -- B1a: a client who has registered (link used once, or an account) never gets a new link: his access
+  -- comes back only with «Riattiva» (a revoked invite brought to attivo here would reactivate the account)
+  if v.usato_il is not null or exists (select 1 from public.clienti_account a where a.client_id = v.client_id) then
+    raise exception 'Il cliente è già registrato: usa Riattiva.' using errcode = '22023';
+  end if;
+
+  v_stato := v.stato;
+  v_modo := v.attivato_da;
+  if v.stato in ('revocato', 'scaduto') then
+    if exists (
+      select 1 from public.onboarding_inviti i
+      where i.client_id = v.client_id and i.id <> v.id and i.stato in ('in_attesa_pagamento', 'attivo', 'usato')
+    ) then
+      raise exception 'Questo cliente ha già un onboarding avviato.' using errcode = '22023';
+    end if;
+
+    if (
+      select coalesce(sum(p.importo_incassato) filter (where p.stato in ('incassata', 'rimborsata')), 0)
+      from public.payments p where p.sale_id = v.sale_id
+    ) > 0 then
+      v_stato := 'attivo';
+      v_modo := 'pagamento';
+    elsif v.attivato_da = 'manuale' then
+      v_stato := 'attivo';
+      v_modo := 'manuale';
+    else
+      v_stato := 'in_attesa_pagamento';
+      v_modo := null;
+    end if;
+  end if;
+
+  v_token := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
+
+  perform set_config('alpha.onboarding_admin', 'on', true);
+  update public.onboarding_inviti i
+  set token_hash = encode(sha256(convert_to(v_token, 'UTF8')), 'hex'),
+      stato = v_stato,
+      attivato_da = case when v_stato = 'attivo' then v_modo else i.attivato_da end
+  where i.id = p_invito;
+  perform set_config('alpha.onboarding_admin', '', true);
+
+  insert into public.onboarding_inviti_token (invito_id, token) values (p_invito, v_token);
+
+  insert into public.onboarding_eventi (client_id, tipo, attore, autore_id, dettagli)
+  values (v.client_id, 'link_rigenerato', 'team', (select auth.uid()), jsonb_build_object('invito_id', v.id));
+
+  return (
+    select jsonb_build_object('invito_id', i.id, 'client_id', i.client_id, 'stato', i.stato)
+    from public.onboarding_inviti i where i.id = p_invito
+  );
+end;
+$$;
+
+comment on function public.onboarding_rigenera_link(uuid) is
+  'A new token (and hash) on the same invite, not used yet; an expired or revoked one goes back to the state the payment justifies (active with money cashed or a payment confirmed by hand, waiting otherwise). Returns { invito_id, client_id, stato }. Never for a client who has registered (B1a: «Riattiva»). Admin only, never an OAuth token.';
+
+
 -- ---------------------------------------------------------------------------
 -- 11. /join: the service role only (the server action has the token or the key of the cookie, never the
 --     browser a database id)
@@ -940,8 +1021,9 @@ begin
     update public.onboarding_inviti i set stato = 'scaduto' where i.id = v.id;
     return jsonb_build_object('stato', 'scaduto');
   end if;
+  -- active and paid, but the area is closed and it is not a test link: not active yet (never «waiting for the payment»)
   if not public.onboarding_invito_apribile(v.id) then
-    return jsonb_build_object('stato', 'in_attesa');
+    return jsonb_build_object('stato', 'non_attivo');
   end if;
 
   return jsonb_build_object('stato', 'attivo', 'nome', public.onboarding_nome_cliente(v.client_id));
@@ -949,7 +1031,7 @@ end;
 $$;
 
 comment on function public.onboarding_join_leggi(text, text) is
-  'The page of a personal link: { stato, nome } with stato in attivo, in_attesa, usato, scaduto, revocato, non_valido; nome (the first name) only for attivo and usato. An active link past its days becomes scaduto here; a link that is not a test one, with the area closed, is in_attesa. With p_slug, a slug that does not match is non_valido. Service role only.';
+  'The page of a personal link: { stato, nome } with stato in attivo, in_attesa (payment not confirmed), non_attivo (active, but the area is closed and it is not a test link), usato, scaduto, revocato, non_valido; nome (the first name) only for attivo and usato. An active link past its days becomes scaduto here. With p_slug, a slug that does not match is non_valido. Service role only.';
 
 revoke all on function public.onboarding_join_leggi(text, text) from public, anon, authenticated;
 grant execute on function public.onboarding_join_leggi(text, text) to service_role;
@@ -1199,7 +1281,7 @@ declare
   e public.clienti_accesso_limiti;
   t public.clienti_accesso_limiti;
 begin
-  if p_tipo not in ('invio', 'verifica', 'errore') then
+  if p_tipo not in ('invio', 'invio_team', 'verifica', 'errore') then
     raise exception 'Tipo non valido' using errcode = '22023';
   end if;
 
@@ -1223,6 +1305,18 @@ begin
     return true;
   end if;
 
+  -- the team's code of /login: 10 an hour per address, never counted on everybody (any address
+  -- reaches this road, a stranger's too: it must not consume the clients' sends)
+  if p_tipo = 'invio_team' then
+    if coalesce(e.invii, 0) >= 10 then
+      return false;
+    end if;
+    insert into public.clienti_accesso_limiti (chiave, invii, ultimo_invio_il)
+    values (v_chiave, 1, now())
+    on conflict (chiave) do update set invii = clienti_accesso_limiti.invii + 1, ultimo_invio_il = now();
+    return true;
+  end if;
+
   if p_tipo = 'verifica' then
     return e.chiave is not null
       and e.ultimo_invio_il > now() - interval '60 minutes'
@@ -1230,20 +1324,73 @@ begin
       and t.errori < 100;
   end if;
 
-  -- errore
-  if e.chiave is not null then
-    update public.clienti_accesso_limiti l set errori = l.errori + 1 where l.chiave = v_chiave;
+  -- errore: only for an address that received a code in the last hour (the only one whose code
+  -- reaches Supabase); a stranger's address counts nothing, on itself or on everybody
+  if e.chiave is null or e.ultimo_invio_il is null or e.ultimo_invio_il <= now() - interval '60 minutes' then
+    return true;
   end if;
+  update public.clienti_accesso_limiti l set errori = l.errori + 1 where l.chiave = v_chiave;
   update public.clienti_accesso_limiti l set errori = l.errori + 1 where l.chiave = 'tutti';
   return true;
 end;
 $$;
 
 comment on function public.cliente_accesso_conta(text, text) is
-  'The limits of /entra. invio: true and counted if the address has had fewer than 5 codes in the hour and everybody fewer than 200 (writes the last code sent). verifica: counts nothing; true only if a code was sent to the address in the last 60 minutes, with fewer than 5 errors in the hour for it and fewer than 100 for everybody. errore: counts an error on the address (if it has a row) and on everybody. Service role only.';
+  'The limits of /entra and /login per address. invio: true and counted if the address has had fewer than 5 codes in the hour and everybody fewer than 200 (writes the last code sent). invio_team: the team''s code of /login, true and counted if the address has had fewer than 10 codes in the hour, never on everybody (writes the last code sent). verifica: counts nothing; true only if a code was sent to the address in the last 60 minutes, with fewer than 5 errors in the hour for it and fewer than 100 for everybody. errore: counts an error on the address and on everybody, only if the address received a code in the last 60 minutes. Service role only.';
 
 revoke all on function public.cliente_accesso_conta(text, text) from public, anon, authenticated;
 grant execute on function public.cliente_accesso_conta(text, text) to service_role;
+
+-- The limit per IP of the request (/entra and /login), before every road: one source never consumes
+-- the counters of everybody. The app passes the IP Vercel gives (never on loopback: local and e2e).
+create function public.accesso_ip_conta(p_ip text, p_tipo text)
+returns boolean
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_ip text := lower(btrim(coalesce(p_ip, '')));
+  v_chiave text;
+  r public.clienti_accesso_limiti;
+begin
+  if p_tipo not in ('richiesta', 'verifica') then
+    raise exception 'Tipo non valido' using errcode = '22023';
+  end if;
+  if v_ip = '' or length(v_ip) > 100 then
+    return true;
+  end if;
+  v_chiave := 'ip:' || encode(sha256(convert_to(v_ip, 'UTF8')), 'hex');
+
+  insert into public.clienti_accesso_limiti (chiave) values (v_chiave) on conflict (chiave) do nothing;
+  update public.clienti_accesso_limiti l
+  set dal = now(), invii = 0, errori = 0
+  where l.chiave = v_chiave and l.dal <= now() - interval '1 hour';
+  select * into r from public.clienti_accesso_limiti l where l.chiave = v_chiave for update;
+
+  -- richiesta: the codes asked (invii), 20 an hour; verifica: the codes typed (errori), 30 an hour
+  if p_tipo = 'richiesta' then
+    if r.invii >= 20 then
+      return false;
+    end if;
+    update public.clienti_accesso_limiti l set invii = l.invii + 1 where l.chiave = v_chiave;
+    return true;
+  end if;
+
+  if r.errori >= 30 then
+    return false;
+  end if;
+  update public.clienti_accesso_limiti l set errori = l.errori + 1 where l.chiave = v_chiave;
+  return true;
+end;
+$$;
+
+comment on function public.accesso_ip_conta(text, text) is
+  'The limit per IP of /entra and /login (its sha256, windows of one hour): richiesta true and counted below 20 codes asked, verifica true and counted below 30 codes typed. An empty IP is not limited. Service role only.';
+
+revoke all on function public.accesso_ip_conta(text, text) from public, anon, authenticated;
+grant execute on function public.accesso_ip_conta(text, text) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- 13. The bucket «avatari»: the four policies of 20260928160000, only for a user with a role (never a client)

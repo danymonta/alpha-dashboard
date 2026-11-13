@@ -15,11 +15,11 @@ export const metadata: Metadata = {
  * code, as the team's AccessoCodice but with no link in the email. The proxy sends who is
  * already in to /percorso. Italian only.
  */
-export default function EntraPage() {
+export default async function EntraPage({ searchParams }: { searchParams: Promise<{ da?: string | string[] }> }) {
+  const { da } = await searchParams
   return (
-    <CorniceAccesso titolo={T.titolo}>
-      <p className="text-sm text-muted-foreground">{T.sotto}</p>
-      <AccessoCliente modo="entra" />
+    <CorniceAccesso titolo={T.titolo} sotto={T.sotto}>
+      <AccessoCliente modo="entra" da={typeof da === 'string' ? da : undefined} />
       <p className="text-center text-sm">
         <Link href="/login" className="inline-flex min-h-11 items-center text-muted-foreground underline underline-offset-4 hover:text-foreground">
           {T.team}

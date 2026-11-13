@@ -223,7 +223,14 @@ export type SchedaOnboarding = {
    * With the area closed the token is not even read.
    */
   link: LinkScheda | null
+  /** The consents the client gave (1.78.0), the most recent first. */
+  consensi: ConsensoScheda[]
+  /** The videos of the CMS the client watched (1.78.0): title, percentage and when it reached 90%. */
+  video: VideoScheda[]
 }
+
+export type ConsensoScheda = { id: string; tipo: string; versione: string; dato_il: string; revocato_il: string | null }
+export type VideoScheda = { id: string; titolo: string | null; percentuale: number; visto_il: string | null; updated_at: string }
 
 type PassoConDefinizione = {
   passo: string
@@ -256,7 +263,7 @@ function passiInOrdine(righe: readonly PassoConDefinizione[]): PassoScheda[] {
 export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboarding | null> {
   if (!isUuid(clientId)) return null
 
-  const [riga, telegram, passi, eventi, impostazioni] = await Promise.all([
+  const [riga, telegram, passi, eventi, impostazioni, consensi, video] = await Promise.all([
     db.from('v_onboarding').select('*').eq('client_id', clientId).maybeSingle(),
     db.from('clienti_telegram').select('username, gruppo_privato_url').eq('client_id', clientId).maybeSingle(),
     db
@@ -273,8 +280,20 @@ export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboa
       .order('id')
       .limit(EVENTI_MAX + 1),
     leggiImpostazioni(db),
+    db
+      .from('clienti_consensi')
+      .select('id, tipo, versione, dato_il, revocato_il')
+      .eq('client_id', clientId)
+      .order('dato_il', { ascending: false }),
+    db
+      .from('onboarding_video_visti')
+      .select('id, percentuale, visto_il, updated_at, blocco:contenuti_blocchi(titolo)')
+      .eq('client_id', clientId)
+      .order('updated_at', { ascending: false }),
   ])
   controlla('la scheda', riga.error)
+  controlla('i consensi', consensi.error)
+  controlla('i video visti', video.error)
   if (!riga.data) return null
   controlla('Telegram', telegram.error)
   controlla('i passi', passi.error)
@@ -310,6 +329,14 @@ export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboa
     eventiTagliati: righeEventi.length > EVENTI_MAX,
     impostazioni,
     link,
+    consensi: consensi.data ?? [],
+    video: (video.data ?? []).map((v) => ({
+      id: v.id,
+      titolo: v.blocco?.titolo ?? null,
+      percentuale: Number(v.percentuale ?? 0),
+      visto_il: v.visto_il,
+      updated_at: v.updated_at,
+    })),
   }
 }
 

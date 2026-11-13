@@ -4,7 +4,9 @@ import {
   ORIGINE_YOUTUBE,
   campiona,
   indirizzoIframe,
+  intervalliDaInviare,
   leggiMessaggioPlayer,
+  messaggioStati,
   percentualeVista,
   secondiVisti,
   unisciIntervalli,
@@ -81,5 +83,24 @@ describe('l’iframe e la route', () => {
     expect(
       progressoVideoSchema.safeParse({ blocco, durata: 120, intervalli: Array.from({ length: 51 }, (_, i) => [i, i + 1]) }).success,
     ).toBe(false)
+  })
+})
+
+describe('i secondi da mandare e i messaggi al player (interfaccia di B1a)', () => {
+  it('unisce, taglia alla durata e non supera il massimo', () => {
+    expect(intervalliDaInviare([[0, 3], [2, 6], [10, 15]], 12)).toEqual([[0, 6], [10, 12]])
+    expect(intervalliDaInviare([[11, 14]], 12)).toEqual([[11, 12]])
+    expect(intervalliDaInviare([[20, 30]], 12)).toEqual([])
+    const tanti = Array.from({ length: 80 }, (_, i) => [i * 2, i * 2 + 1] as [number, number])
+    expect(intervalliDaInviare(tanti, 200)).toHaveLength(50)
+  })
+
+  it('chiede anche i cambi di stato, come iframe_api', () => {
+    expect(JSON.parse(messaggioStati())).toEqual({ event: 'command', func: 'addEventListener', args: ['onStateChange'], id: 1, channel: 'widget' })
+  })
+
+  it('parte da solo solo dopo il tocco', () => {
+    expect(indirizzoIframe('abcdefghijk', 'https://app.test')).not.toContain('autoplay')
+    expect(indirizzoIframe('abcdefghijk', 'https://app.test', true)).toContain('autoplay=1')
   })
 })

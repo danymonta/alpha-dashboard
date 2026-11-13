@@ -12,7 +12,7 @@ import { ErroreCampo } from '@/components/form/errore-campo'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { TESTI_ENTRA, TESTI_REGISTRAZIONE } from '@/lib/percorso/testi'
+import { TESTI_ENTRA, TESTI_JOIN, TESTI_REGISTRAZIONE } from '@/lib/percorso/testi'
 import { cn } from '@/lib/utils'
 import {
   ATTESA_NUOVO_CODICE_CLIENTE_S,
@@ -37,6 +37,24 @@ type Props = {
   emailIniziale?: string
   /** The registration: a code already sent to this address in the last 15 minutes. */
   codiceGiaInviatoA?: string | null
+  /** /entra: where to go after the code (the proxy's ?da=, reduced to /percorso by the action). */
+  da?: string
+  /**
+   * The registration draws its own heading (the frame has none): one per step, so the large
+   * title always talks about the step on the screen.
+   */
+  titoli?: { email: string; sottoEmail?: string; codice: string }
+}
+
+function Intestazione({ titolo, sotto }: { titolo: string; sotto?: string }) {
+  return (
+    <div className="space-y-2">
+      <h1 id="titolo-accesso" tabIndex={-1} className="font-heading text-2xl font-semibold tracking-tight outline-none">
+        {titolo}
+      </h1>
+      {sotto ? <p className="text-sm text-muted-foreground">{sotto}</p> : null}
+    </div>
+  )
 }
 
 function Errore({ testo }: { testo: string }) {
@@ -48,30 +66,55 @@ function Errore({ testo }: { testo: string }) {
   )
 }
 
-export function AccessoCliente({ modo, emailIniziale = '', codiceGiaInviatoA = null }: Props) {
+export function AccessoCliente({ modo, emailIniziale = '', codiceGiaInviatoA = null, da, titoli }: Props) {
   const [email, setEmail] = useState<string | null>(codiceGiaInviatoA)
   const [scritta, setScritta] = useState(codiceGiaInviatoA ?? emailIniziale)
   const [scaduta, setScaduta] = useState(false)
+  // back from the code with «Cambia email»: the focus goes to the address field
+  const [tornata, setTornata] = useState(false)
 
   if (scaduta) {
-    return <Errore testo={TESTI_REGISTRAZIONE.scaduta} />
+    return (
+      <>
+        {titoli ? <Intestazione titolo={TESTI_JOIN.titoloPagina} /> : null}
+        <Errore testo={TESTI_REGISTRAZIONE.scaduta} />
+      </>
+    )
   }
 
   if (email === null) {
     return (
-      <PassoEmail
-        modo={modo}
-        iniziale={scritta}
-        scaduta={() => setScaduta(true)}
-        inviata={(indirizzo) => {
-          setEmail(indirizzo)
-          setScritta(indirizzo)
-        }}
-      />
+      <>
+        {titoli ? <Intestazione titolo={titoli.email} sotto={titoli.sottoEmail} /> : null}
+        <PassoEmail
+          modo={modo}
+          iniziale={scritta}
+          fuoco={tornata}
+          scaduta={() => setScaduta(true)}
+          inviata={(indirizzo) => {
+            setEmail(indirizzo)
+            setScritta(indirizzo)
+          }}
+        />
+      </>
     )
   }
 
-  return <PassoCodice modo={modo} email={email} scaduta={() => setScaduta(true)} cambiaEmail={() => setEmail(null)} />
+  return (
+    <>
+      {titoli ? <Intestazione titolo={titoli.codice} /> : null}
+      <PassoCodice
+        modo={modo}
+        email={email}
+        da={da}
+        scaduta={() => setScaduta(true)}
+        cambiaEmail={() => {
+          setTornata(true)
+          setEmail(null)
+        }}
+      />
+    </>
+  )
 }
 
 async function chiedi(modo: Modo, email: string): Promise<{ ok: true } | { ok: false; errore: string; scaduta?: boolean }> {
@@ -85,11 +128,13 @@ async function chiedi(modo: Modo, email: string): Promise<{ ok: true } | { ok: f
 function PassoEmail({
   modo,
   iniziale,
+  fuoco,
   inviata,
   scaduta,
 }: {
   modo: Modo
   iniziale: string
+  fuoco: boolean
   inviata: (email: string) => void
   scaduta: () => void
 }) {
@@ -98,11 +143,16 @@ function PassoEmail({
   const {
     register,
     handleSubmit,
+    setFocus,
     formState: { errors, isSubmitting },
   } = useForm<FormEmailClienteInput>({
     resolver: zodResolver(formEmailClienteSchema),
     defaultValues: { email: iniziale },
   })
+
+  useEffect(() => {
+    if (fuoco) setFocus('email')
+  }, [fuoco, setFocus])
 
   const invia = handleSubmit(async (valori) => {
     setErrore(null)
@@ -158,11 +208,13 @@ function secondiRimasti(fine: number) {
 function PassoCodice({
   modo,
   email,
+  da,
   cambiaEmail,
   scaduta,
 }: {
   modo: Modo
   email: string
+  da?: string
   cambiaEmail: () => void
   scaduta: () => void
 }) {
@@ -202,7 +254,7 @@ function PassoCodice({
     try {
       const esito = registrazione
         ? await verificaCodiceRegistrazione({ codice: valori.codice })
-        : await verificaCodiceCliente({ email, codice: valori.codice })
+        : await verificaCodiceCliente({ email, codice: valori.codice, da })
       if (!esito.ok) {
         if ('scaduta' in esito && esito.scaduta) {
           scaduta()
@@ -247,7 +299,7 @@ function PassoCodice({
           <CircleCheck className="mt-0.5 size-4 shrink-0 text-status-ok" aria-hidden="true" />
           {TESTI_REGISTRAZIONE.pronto}
         </p>
-        <Link href="/entra" className={cn(buttonVariants(), 'h-11 w-full')}>
+        <Link href="/entra" data-slot="button" className={cn(buttonVariants(), 'h-11 w-full')}>
           {TESTI_ENTRA.entra}
         </Link>
       </div>

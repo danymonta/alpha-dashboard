@@ -90,6 +90,15 @@ export function videoDaVedere(blocchi: readonly BloccoPercorso[]): BloccoVideo[]
   return blocchi.filter((b): b is BloccoVideo => b.tipo === 'video' && b.obbligatorio && !b.video.visto)
 }
 
+/**
+ * The order of step 1 «Benvenuto»: every block that is not a video (in the CMS order), then the
+ * team, then the videos, then the one action. So «Ho guardato il video» sits right under the
+ * player. The admin's preview uses the same order.
+ */
+export function ordineBenvenuto<B extends { tipo: string }>(blocchi: readonly B[]): { testi: B[]; video: B[] } {
+  return { testi: blocchi.filter((b) => b.tipo !== 'video'), video: blocchi.filter((b) => b.tipo === 'video') }
+}
+
 /** The ids of the rules of a step: what «Accetto e vado avanti» sends. */
 export function idRegole(blocchi: readonly BloccoPercorso[]): string[] {
   return blocchi.filter((b) => b.tipo === 'regola').map((b) => b.id)
@@ -104,3 +113,9 @@ export function haSegnaposto(b: { titolo?: string | null; corpo?: string | null;
     b.titolo?.includes(SEGNAPOSTO) || b.corpo?.includes(SEGNAPOSTO) || b.youtube_id === YOUTUBE_SEGNAPOSTO,
   )
 }
+
+/**
+ * The last step this release serves (the same as onboarding_ultimo_passo_servito() in SQL:
+ * 'regole' in B1a). The CMS says that the steps after it are not seen yet.
+ */
+export const ULTIMO_PASSO_SERVITO = 'regole'

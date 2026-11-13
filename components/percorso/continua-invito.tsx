@@ -20,7 +20,9 @@ export function ContinuaInvito({ segmento }: { segmento: string }) {
   const messaggio =
     stato?.stato === 'in_attesa'
       ? T.inAttesa
-      : stato?.stato === 'scaduto'
+      : stato?.stato === 'non_attivo'
+        ? T.nonAttivo
+        : stato?.stato === 'scaduto'
         ? T.scaduto
         : stato?.stato === 'revocato' || stato?.stato === 'non_valido'
           ? T.nonValido
@@ -32,7 +34,7 @@ export function ContinuaInvito({ segmento }: { segmento: string }) {
     return (
       <div className="space-y-3">
         <p className="text-sm">{T.usato}</p>
-        <Link href="/entra" className={cn(buttonVariants(), 'h-11 w-full')}>
+        <Link href="/entra" data-slot="button" className={cn(buttonVariants(), 'h-11 w-full')}>
           {T.entra}
         </Link>
       </div>

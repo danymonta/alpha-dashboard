@@ -7,7 +7,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(61);
+select plan(63);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres)
@@ -317,6 +317,18 @@ select is(
 );
 select is((select count(*)::int from cron.job where jobname = 'onboarding-pulizia' and schedule = '50 2 * * *'), 1,
   'ogni notte alle 02:50 UTC');
+-- an active link past its days by more than 30, never opened again: its token in clear goes too
+create temp table scaduto_mai_aperto on commit drop as
+select i.id from public.onboarding_inviti i
+join public.onboarding_inviti_token t on t.invito_id = i.id
+where i.stato = 'attivo' limit 1;
+set local session_replication_role = replica;
+update public.onboarding_inviti set scade_il = now() - interval '40 days' where id = (select id from scaduto_mai_aperto);
+set local session_replication_role = origin;
+select ok((select count(*) from scaduto_mai_aperto) = 1 and (public.onboarding_pulizia() ->> 'token')::int >= 1,
+  'la pulizia toglie anche il token di un link attivo scaduto da 30 giorni e mai riaperto');
+select is((select count(*)::int from public.onboarding_inviti_token where invito_id = (select id from scaduto_mai_aperto)), 0,
+  'il suo token in chiaro non c''è più');
 
 -- ---------------------------------------------------------------------------
 -- 9. «Elimina onboarding»

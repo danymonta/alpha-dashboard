@@ -86,6 +86,46 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.78.0',
+    data: '2026-11-13',
+    titolo: 'Onboarding: l’accesso dei clienti, per ora di prova',
+    riassunto:
+      'Un cliente di prova si registra dal suo link con un codice via email, entra nella sua area del percorso e fa i primi due passi; tu scrivi i contenuti e vedi tutto nella sua scheda.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Il link personale del cliente apre la registrazione: sceglie la sua email, riceve un codice di 8 cifre e entra nella sua area del percorso, con la timeline delle tappe, la stima dei giorni all’inizio e il passo da fare. Per ora funziona solo per un «Cliente di prova», che segni dalla sua scheda di onboarding: l’area clienti resta chiusa per tutti gli altri.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'I primi due passi del cliente: il benvenuto con il video e il suo team (foto e ruolo), poi le regole del percorso da spuntare e il consenso sui dati di salute, con la sua versione. Il cliente rientra da «Entra nel tuo percorso» con l’email e un codice, mai con una password.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Impostazioni › Onboarding › Contenuti: i testi, i video, le regole e i link di ogni passo, con l’anteprima di come li vede il cliente. Dove manca il testo vero c’è un segnaposto con l’avviso.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Nella scheda di onboarding: l’accesso del cliente (registrato il, attivo o sospeso), i consensi dati e i video guardati. Una notifica ti avvisa quando un cliente si registra, se usa un’email diversa da quella della scheda e se paga con l’accesso sospeso.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          '«Elimina onboarding» in fondo alla scheda, per un onboarding avviato per prova o per errore, finché il cliente non si è registrato: cliente, vendita e progetto restano. Un cliente registrato si ferma con «Revoca» e torna con «Riattiva», mai con un link nuovo.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'L’accesso con il codice via email è più protetto: un limite per ogni connessione e per ogni indirizzo, uguale per il team e per i clienti, e la risposta non dice mai di chi è un indirizzo. Per te e per il team l’accesso funziona come prima.',
+      },
+    ],
+  },
+  {
     versione: '1.77.2',
     data: '2026-11-13',
     titolo: 'Claude collegato: niente più collegamenti appesi',

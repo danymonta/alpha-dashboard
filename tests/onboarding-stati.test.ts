@@ -232,6 +232,13 @@ describe('cosa offre il riquadro «Link»', () => {
     }
   })
 
+  it('un cliente registrato e poi revocato: solo «Riattiva», mai un link nuovo né «Cliente di prova» (1.78.0)', () => {
+    const azioni = azioniLink({ ...riga({ invito_stato: 'revocato' }), account_stato: 'sospeso' }, false)
+    expect(azioni.riattiva).toBe(true)
+    expect(azioni.rigenera).toBe(false)
+    expect(azioni.prova).toBe(false)
+  })
+
   it('attivo: niente conferma; revocato: riattiva e rigenera, niente revoca; usato: niente rigenera', () => {
     const attivo = azioniLink(riga({ invito_stato: 'attivo' }), false)
     expect([attivo.confermaPagamento, attivo.rigenera, attivo.revoca, attivo.riattiva]).toEqual([false, true, true, false])

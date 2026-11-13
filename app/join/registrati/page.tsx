@@ -5,7 +5,7 @@ import { Clock, UserRound } from 'lucide-react'
 import { AccessoCliente } from '@/components/percorso/accesso-cliente'
 import { CorniceAccesso, RigaStato } from '@/components/percorso/cornice-accesso'
 import { COOKIE_REGISTRAZIONE, chiaveValida, sha256 } from '@/lib/percorso/accesso'
-import { TESTI_REGISTRAZIONE as T } from '@/lib/percorso/testi'
+import { TESTI_JOIN, TESTI_REGISTRAZIONE as T } from '@/lib/percorso/testi'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
@@ -27,7 +27,7 @@ export default async function RegistratiPage() {
   } = await supabase.auth.getUser()
   if (user && user.app_metadata?.tipo !== 'cliente') {
     return (
-      <CorniceAccesso titolo={T.titolo}>
+      <CorniceAccesso titolo={TESTI_JOIN.titoloPagina}>
         <RigaStato icona={<UserRound className="size-4" aria-hidden="true" />}>{T.sessioneTeam}</RigaStato>
       </CorniceAccesso>
     )
@@ -53,19 +53,19 @@ export default async function RegistratiPage() {
 
   if (!stato) {
     return (
-      <CorniceAccesso titolo={T.titolo}>
+      <CorniceAccesso titolo={TESTI_JOIN.titoloPagina}>
         <RigaStato icona={<Clock className="size-4" aria-hidden="true" />}>{T.scaduta}</RigaStato>
       </CorniceAccesso>
     )
   }
 
   return (
-    <CorniceAccesso titolo={T.titolo}>
-      <p className="text-sm text-muted-foreground">{T.sotto}</p>
+    <CorniceAccesso>
       <AccessoCliente
         modo="registrazione"
         emailIniziale={stato.email_proposta ?? ''}
         codiceGiaInviatoA={stato.codice_inviato_a}
+        titoli={{ email: T.titolo, sottoEmail: T.sotto, codice: T.titoloCodice }}
       />
     </CorniceAccesso>
   )

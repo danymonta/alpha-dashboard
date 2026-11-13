@@ -44,6 +44,15 @@ export function fraseCose(cose: number): string | null {
   return cose === 1 ? 'Ti resta 1 cosa da fare' : `Ti restano ${cose} cose da fare`
 }
 
+/**
+ * While the client waits for the team (nothing of his to do now): the stages still to come,
+ * the next one opened by the team, never «things to do».
+ */
+export function fraseCoseInAttesa(cose: number): string | null {
+  if (cose <= 0) return null
+  return cose === 1 ? 'Ancora 1 tappa: la prossima te la apre il team' : `Ancora ${cose} tappe: la prossima te la apre il team`
+}
+
 /** The two together, as the top of the timeline says them. */
 export function fraseStima(stima: Stima): string {
   const cose = fraseCose(stima.cose_da_fare)

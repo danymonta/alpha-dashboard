@@ -78,7 +78,7 @@ insert into public.contenuti_blocchi (versione_flusso, pagina, passo, ordine, ti
    '[Da scrivere: due righe su cosa racconta Dany nel video.]',
    'XXXXXXXXXXX', true),
   (1, 'passo', 'benvenuto', 3, 'testo', 'Il tuo team',
-   'Ti seguono tre persone: il tuo coach, chi rivede i video dei tuoi allenamenti e il tuo Personal Success Manager. Le trovi qui con foto e ruolo.',
+   'Ti seguono il tuo coach e le persone del team che lavorano con lui: chi rivede i video dei tuoi allenamenti e il tuo Personal Success Manager. Le trovi qui con foto e ruolo.',
    null, false),
   (1, 'passo', 'regole', 1, 'testo', 'Le regole del percorso',
    'Poche regole, chiare: servono a te per avere risposte veloci e a noi per seguirti bene. Spuntale una per una.',
@@ -388,6 +388,8 @@ begin
     and (
       (i.stato = 'revocato' and i.revocato_il < now() - interval '30 days')
       or (i.stato = 'scaduto' and coalesce(i.scade_il, i.updated_at) < now() - interval '30 days')
+      -- an active link past its days and never opened again (it becomes scaduto only on /join)
+      or (i.stato = 'attivo' and i.scade_il is not null and i.scade_il < now() - interval '30 days')
     );
   get diagnostics n_token = row_count;
 

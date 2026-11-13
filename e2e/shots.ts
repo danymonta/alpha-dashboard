@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { ID_COACH, pagineDinamiche } from './db'
 import { avviaTimerAltrove, fermaTimerAltrove } from './pm-db'
-import { PAGINE, PROGETTO_PERCORSO_CLIENTE, UTENTI, accedi, type RuoloSeed } from './utenti'
+import { PAGINE, PAGINE_CLIENTE, PROGETTO_PERCORSO_CLIENTE, UTENTI, accedi, accediCliente, type RuoloSeed } from './utenti'
 
 const RUOLI = Object.keys(UTENTI) as RuoloSeed[]
 
@@ -56,6 +56,21 @@ for (const ruolo of RUOLI) {
     })
   })
 }
+
+// the client's area (1.78.0): the test client of the seed, waiting for the team
+test('screenshot cliente', async ({ page }) => {
+  const larghezza = page.viewportSize()?.width ?? 0
+  const scorrimentoOrizzontale: string[] = []
+  await accediCliente(page)
+  for (const pagina of PAGINE_CLIENTE) {
+    await page.goto(pagina.url)
+    await page.waitForLoadState('networkidle')
+    await fotografa(page, `.shots/cliente-${pagina.nome}-${larghezza}.png`)
+    const misure = await page.evaluate(() => ({ pagina: document.documentElement.scrollWidth, finestra: window.innerWidth }))
+    if (misure.pagina > misure.finestra) scorrimentoOrizzontale.push(`${pagina.nome} (${misure.pagina}px su ${misure.finestra}px)`)
+  }
+  expect(scorrimentoOrizzontale, `scroll orizzontale della pagina a ${larghezza}px`).toEqual([])
+})
 
 test('screenshot login', async ({ page }) => {
   const larghezza = page.viewportSize()?.width ?? 0

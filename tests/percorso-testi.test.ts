@@ -7,7 +7,7 @@ import { emailCodiceCliente } from '@/lib/email/cliente'
 import { baseMailpit, corpoMailpit } from '@/lib/email/mailpit'
 import { CONSENSI_IN_VIGORE, CONSENSO_SALUTE } from '@/lib/percorso/consensi'
 import { ETICHETTE_NODI, nomeAccessibileNodo } from '@/lib/percorso/nodi'
-import { fraseCose, fraseGiorni, fraseStima, leggiStima } from '@/lib/percorso/stima'
+import { fraseCose, fraseCoseInAttesa, fraseGiorni, fraseStima, leggiStima } from '@/lib/percorso/stima'
 import * as TESTI from '@/lib/percorso/testi'
 
 /*
@@ -135,6 +135,8 @@ describe('nodi e stima in parole', () => {
     expect(fraseGiorni({ giorni: 0, quasi: false, base: 'iniziato' })).toBe('Il tuo percorso è iniziato')
     expect(fraseCose(6)).toBe('Ti restano 6 cose da fare')
     expect(fraseCose(1)).toBe('Ti resta 1 cosa da fare')
+    expect(fraseCoseInAttesa(5)).toBe('Ancora 5 tappe: la prossima te la apre il team')
+    expect(fraseCoseInAttesa(0)).toBeNull()
     expect(fraseCose(0)).toBeNull()
     const stima = leggiStima({ data: '2026-11-22', giorni: 9, quasi: false, base: 'call_non_prenotata', cose_da_fare: 6, video_mancanti: [] })
     expect(fraseStima(stima!)).toBe('Mancano circa 9 giorni all’inizio del tuo percorso · Ti restano 6 cose da fare')
