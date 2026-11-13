@@ -1,4 +1,4 @@
-import { ChevronRight, LayoutList } from 'lucide-react'
+import { BookOpen, ChevronRight, LayoutList } from 'lucide-react'
 import Link from 'next/link'
 
 import { ImpostazioniOnboardingForm } from '@/app/(app)/settings/onboarding/impostazioni-form'
@@ -6,6 +6,7 @@ import { AreaClienti } from '@/components/onboarding/team/area-clienti'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { requireRuolo } from '@/lib/auth/session'
 import { getLingua } from '@/lib/i18n/server'
+import { CAMPO_TEAM } from '@/lib/i18n/testi/campo-base'
 import { IMPOSTAZIONI } from '@/lib/i18n/testi/impostazioni'
 import { ONBOARDING } from '@/lib/i18n/testi/onboarding'
 import { leggiImpostazioni, leggiMancaPerAprire, leggiPersone } from '@/lib/onboarding/letture'
@@ -44,6 +45,19 @@ export default async function ImpostazioniOnboardingPage() {
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium">{t.contenuti}</span>
           <span className="block text-xs text-muted-foreground">{t.contenutiAiuto}</span>
+        </span>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      </Link>
+      {/* the Aula of the client's home base (1.83.0) */}
+      <Link
+        href="/settings/onboarding/aula"
+        className="flex min-h-14 items-center gap-3 rounded-xl bg-card p-3 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        data-testid="link-aula"
+      >
+        <BookOpen className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium">{CAMPO_TEAM[lingua].aulaAdmin.titolo}</span>
+          <span className="block text-xs text-muted-foreground">{CAMPO_TEAM[lingua].aulaAdmin.descrizione}</span>
         </span>
         <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       </Link>

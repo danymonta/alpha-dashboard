@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import { EditorContenuti, type GruppoContenuti, type RigaBlocco } from '@/components/onboarding/editor-contenuti'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { requireRuolo } from '@/lib/auth/session'
@@ -56,6 +58,21 @@ export default async function ContenutiOnboardingPage() {
       servito: ULTIMO_PASSO_SERVITO === null,
       blocchi: righe.filter((b) => b.pagina === 'dopo_lancio'),
     },
+    // the tabs of the client's home base (1.83.0): always served, the client sees them from his first day
+    ...(
+      [
+        ['home', t.campoHome, 'Il tuo campo base'],
+        ['regole', t.campoRegole, 'Le regole del percorso'],
+        ['community', t.campoCommunity, 'Community'],
+      ] as const
+    ).map(([pagina, titolo, titoloCliente]) => ({
+      chiave: pagina,
+      pagina,
+      titolo,
+      titoloCliente,
+      servito: true,
+      blocchi: righe.filter((b) => b.pagina === pagina),
+    })),
   ]
 
   return (
@@ -64,6 +81,14 @@ export default async function ContenutiOnboardingPage() {
         titolo={t.titolo}
         descrizione={t.descrizione}
         indietro={{ href: '/settings/onboarding', etichetta: t.indietro }}
+        azione={
+          <Link
+            href="/settings/onboarding/aula"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium hover:bg-accent"
+          >
+            {t.apriAula}
+          </Link>
+        }
       />
       <EditorContenuti gruppi={gruppi} />
     </div>

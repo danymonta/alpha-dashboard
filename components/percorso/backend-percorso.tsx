@@ -4,12 +4,14 @@ import { createContext, useContext, type ReactNode } from 'react'
 
 import {
   avanzaPasso,
+  completaLezione,
   daiConsenso,
   inviaQuestionario,
   salvaQuestionario,
   togliAllegato,
   type EsitoConsenso,
   type EsitoInvia,
+  type EsitoLezione,
   type EsitoPercorso,
   type EsitoSalva,
   type EsitoTogli,
@@ -28,7 +30,7 @@ import type { CampoAllegato } from '@/lib/validation/questionario'
  * of the page. Nothing of the real area changes.
  */
 
-export type CorpoVideo = { blocco?: string; consegna?: string; durata: number; intervalli: [number, number][] }
+export type CorpoVideo = { blocco?: string; consegna?: string; lezione?: string; durata: number; intervalli: [number, number][] }
 
 export type EsitoChiediCodice = { ok: true } | { ok: false; errore: string; scaduta?: boolean }
 export type EsitoVerificaCodice = { ok: true; vai: string } | { ok: false; errore: string; scaduta?: boolean; pronto?: boolean }
@@ -39,6 +41,8 @@ export type BackendPercorso = {
   salvaQuestionario: (dati: FormData) => Promise<EsitoSalva>
   inviaQuestionario: (input: { versione: number }) => Promise<EsitoInvia>
   togliAllegato: (input: { id: string }) => Promise<EsitoTogli>
+  /** «Segna come completata» on a lesson of the Aula (1.83.0). */
+  completaLezione: (input: { lezione: string }) => Promise<EsitoLezione>
   /** The seconds of a video seen: null = the real POST /api/percorso/video of the player. */
   video: ((corpo: CorpoVideo) => Promise<{ percentuale: number; visto: boolean }>) | null
   /** A file of the questionnaire: null = the real upload (row, signed address, confirmation). */
@@ -63,6 +67,7 @@ export const BACKEND_REALE: BackendPercorso = {
   salvaQuestionario,
   inviaQuestionario,
   togliAllegato,
+  completaLezione,
   video: null,
   caricaAllegato: null,
   accesso: null,

@@ -46,7 +46,7 @@ export type RigaBlocco = {
 
 export type GruppoContenuti = {
   chiave: string
-  pagina: 'passo' | 'dopo_lancio'
+  pagina: 'passo' | 'dopo_lancio' | 'home' | 'regole' | 'community'
   /** In the page's language. */
   titolo: string
   /** As the client reads it (Italian): the preview's heading. */

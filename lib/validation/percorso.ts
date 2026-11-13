@@ -73,17 +73,24 @@ export const progressoVideoSchema = z
   .object({
     blocco: z.string().uuid().optional(),
     consegna: z.string().uuid().optional(),
+    // a video lesson of the Aula (1.83.0)
+    lezione: z.string().uuid().optional(),
     durata: z.number().int().min(1).max(DURATA_VIDEO_MAX_S),
     intervalli: z.array(intervalloSchema).min(1).max(INTERVALLI_MAX),
   })
-  .refine((v) => (v.blocco ? 1 : 0) + (v.consegna ? 1 : 0) === 1, ERRORI_PERCORSO.video)
+  .refine((v) => (v.blocco ? 1 : 0) + (v.consegna ? 1 : 0) + (v.lezione ? 1 : 0) === 1, ERRORI_PERCORSO.video)
 export type ProgressoVideo = z.infer<typeof progressoVideoSchema>
+
+/** «Segna come completata» on a lesson of the Aula that is not a video (1.83.0). */
+export const completaLezioneSchema = z.object({ lezione: z.string().uuid(ERRORI_PERCORSO.nonValidi) })
+export type CompletaLezione = z.infer<typeof completaLezioneSchema>
 
 // ---------------------------------------------------------------------------
 // The admin's CMS (contenuti_blocchi): the same rules as the checks of the table
 // ---------------------------------------------------------------------------
 export const TIPI_BLOCCO = ['testo', 'avviso', 'video', 'regola', 'voce', 'pulsante', 'domande'] as const
-export const PAGINE_BLOCCO = ['passo', 'dopo_lancio'] as const
+// the tabs of the client's home base (1.83.0): Home, Regole, Community
+export const PAGINE_BLOCCO = ['passo', 'dopo_lancio', 'home', 'regole', 'community'] as const
 
 export const ERRORI_BLOCCO = {
   soloAdmin: 'I contenuti del percorso li scrive l’admin.',

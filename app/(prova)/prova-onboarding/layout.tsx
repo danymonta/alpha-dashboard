@@ -6,7 +6,7 @@ import { ProvaProvider } from '@/components/percorso/prova/prova-provider'
 import { requireRuolo } from '@/lib/auth/session'
 import { getLingua } from '@/lib/i18n/server'
 import { PROVA } from '@/lib/i18n/testi/prova'
-import { leggiDatiProva } from '@/lib/percorso/prova-dati'
+import { leggiCampoProva, leggiDatiProva } from '@/lib/percorso/prova-dati'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -25,10 +25,12 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function LayoutProva({ children }: { children: ReactNode }) {
   await requireRuolo(['admin'])
-  const dati = await leggiDatiProva(await createClient())
+  const db = await createClient()
+  const dati = await leggiDatiProva(db)
+  const campo = await leggiCampoProva(db, dati.team.find((p) => p.incarico === 'coach') ?? null)
   return (
     <div className="flex min-h-dvh flex-col" data-testid="prova-percorso">
-      <ProvaProvider dati={dati}>
+      <ProvaProvider dati={dati} campo={campo}>
         <BarraProva />
         {children}
       </ProvaProvider>

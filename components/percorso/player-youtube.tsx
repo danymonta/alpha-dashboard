@@ -47,6 +47,7 @@ type Fase = 'riposo' | 'carico' | 'va' | 'errore'
 export function PlayerYoutube({
   bloccoId,
   consegnaId,
+  lezioneId,
   youtubeId,
   titolo,
   percentualeIniziale = 0,
@@ -57,6 +58,8 @@ export function PlayerYoutube({
   /** The video of a block of the CMS, or (release B2) a video the coach delivered: exactly one of the two. */
   bloccoId?: string
   consegnaId?: string
+  /** A video lesson of the Aula (1.83.0). */
+  lezioneId?: string
   youtubeId: string
   titolo: string
   percentualeIniziale?: number
@@ -103,7 +106,7 @@ export function PlayerYoutube({
       const intervalli = intervalliDaInviare(daInviare.current, d)
       if (intervalli.length === 0) return
       daInviare.current = []
-      const chi = consegnaId ? { consegna: consegnaId } : { blocco: bloccoId }
+      const chi = lezioneId ? { lezione: lezioneId } : consegnaId ? { consegna: consegnaId } : { blocco: bloccoId }
       // the admin's test of the path (components/percorso/backend-percorso.tsx): the seconds stay in its memory
       if (inviaVideo) {
         void inviaVideo({ ...chi, durata: Math.max(1, Math.round(d)), intervalli })
@@ -141,7 +144,7 @@ export function PlayerYoutube({
           daInviare.current.push(...intervalli)
         })
     },
-    [bloccoId, consegnaId, inviaVideo, registra, segnaVisto],
+    [bloccoId, consegnaId, lezioneId, inviaVideo, registra, segnaVisto],
   )
   useEffect(() => {
     inviaRef.current = invia

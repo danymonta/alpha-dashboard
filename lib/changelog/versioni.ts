@@ -86,6 +86,43 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.83.0',
+    data: '2026-11-13',
+    titolo: 'Il campo base del cliente, l’Aula e lo storico delle call',
+    riassunto:
+      'Il cliente ha una sua dashboard: Percorso, Home, Aula con i moduli, Le mie call, Regole e Community. Il team vede nel progetto del cliente il suo percorso e scrive il resoconto di ogni call di checkup, e lo storico delle call su Notion si importa.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Il campo base del cliente: dopo il lancio il cliente atterra su «Home» (i compiti ricorrenti, il coach, la prossima call, la lezione da riprendere) e passa con un tocco a Percorso, Aula, Le mie call, Regole e Community. Prima del lancio resta sul percorso a tappe, come oggi.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'L’Aula, come Skool: moduli con copertina e avanzamento, lezioni video, testo, PDF o link. Un video si segna completato al 90%, le altre lezioni con un tocco. Un modulo può essere aperto durante l’onboarding, solo dopo il lancio, «Prossimamente» o privato. Si gestisce in Impostazioni › Onboarding › Aula; le pagine Home, Regole e Community si scrivono in Contenuti.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Le call di checkup: per ogni call il link di Fathom, l’argomento, il resoconto e i compiti entro la prossima call, che il cliente legge in «Le mie call»; gli appunti del team restano del team e il cliente non li vede mai. «Copia il resoconto per Telegram» prepara il messaggio come il tuo modello.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Lo storico delle call su Notion si importa: per ogni allievo le call datate con il link di Fathom, il resoconto, i compiti e le note, senza le guide e i modelli vuoti. Si fa una volta, dal file che ti preparo, nel SQL Editor di Supabase.',
+      },
+      {
+        per: ['progetti'],
+        testo:
+          'Nel progetto di un cliente c’è la scheda «Percorso del cliente», solo per l’admin e per il team di quel cliente: dove è arrivato nell’onboarding, il suo avanzamento nell’Aula, lo storico delle call di checkup con «Aggiungi call» e «Come lo vede il cliente».',
+        testoTeam:
+          'Nel progetto di un tuo cliente c’è la scheda «Percorso del cliente», se lo segui tu: dove è arrivato nell’onboarding, il suo avanzamento nell’Aula, lo storico delle call di checkup con «Aggiungi call» (link di Fathom, resoconto, compiti e i tuoi appunti, che il cliente non vede) e «Come lo vede il cliente».',
+      },
+    ],
+  },
+  {
     versione: '1.82.0',
     data: '2026-11-13',
     titolo: 'Onboarding: il questionario come il tuo modulo, e il backup sul foglio',

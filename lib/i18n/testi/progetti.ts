@@ -80,7 +80,7 @@ export const PROGETTI = bilingue(
     inCorso: 'in corso',
     responsabile: (nome: string) => `Responsabile: ${nome}`,
     schedaCliente: 'Scheda del cliente',
-    schede: { aria: 'Sezioni del progetto', panoramica: 'Panoramica', attivita: 'Attività', gantt: 'Gantt', tempo: 'Tempo', note: 'Note', membri: 'Membri' },
+    schede: { aria: 'Sezioni del progetto', panoramica: 'Panoramica', attivita: 'Attività', gantt: 'Gantt', tempo: 'Tempo', note: 'Note', membri: 'Membri', percorso: 'Percorso del cliente' },
     // the error of a tab
     errori: {
       panoramica: 'Non siamo riusciti a caricare la panoramica del progetto. Riprova fra un momento.',
@@ -195,7 +195,7 @@ export const PROGETTI = bilingue(
     inCorso: 'ongoing',
     responsabile: (nome: string) => `Owner: ${nome}`,
     schedaCliente: 'Client card',
-    schede: { aria: 'Project sections', panoramica: 'Overview', attivita: 'Tasks', gantt: 'Gantt', tempo: 'Time', note: 'Notes', membri: 'Members' },
+    schede: { aria: 'Project sections', panoramica: 'Overview', attivita: 'Tasks', gantt: 'Gantt', tempo: 'Time', note: 'Notes', membri: 'Members', percorso: 'Client journey' },
     errori: {
       panoramica: 'We could not load the project overview. Try again in a moment.',
       gantt: 'We could not load the project’s Gantt. Try again in a moment.',
