@@ -162,7 +162,7 @@ describe('le scritture del cliente: le funzioni del database con la sua sessione
     ).toEqual({ ok: false, errore: 'Qualcosa non ha funzionato. Riprova tra poco.' })
     // a pair outside the closed list never reaches the database
     const f = db({ data: null, error: null })
-    expect((await avanzaPasso(f.client as never, { passo: 'programma', azione: 'completa' })).ok).toBe(false)
+    expect((await avanzaPasso(f.client as never, { passo: 'programma', azione: 'spunta' })).ok).toBe(false)
     expect(f.chiamate).toEqual([])
   })
 })

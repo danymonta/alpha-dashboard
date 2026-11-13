@@ -235,7 +235,8 @@ test('il questionario del modulo: salvataggio, ripresa, file, invio; poi l’adm
   await page.getByTestId('invia-questionario').click()
   await expect(page.getByText('Questionario inviato').first()).toBeVisible({ timeout: 20_000 })
   await expect(page).toHaveURL(/\/percorso$/)
-  await expect(page.getByTestId('pannello-passo')).toHaveAttribute('data-vista', 'attesa')
+  // release B2: the booking of the call opens right after the questionnaire
+  await expect(page.getByTestId('pannello-passo')).toHaveAttribute('data-vista', 'passo:prenotazione')
   // sent: the page of the questionnaire goes back to the path
   await page.goto('/percorso/questionario')
   await expect(page).toHaveURL(/\/percorso$/)

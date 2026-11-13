@@ -86,6 +86,51 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.80.0',
+    data: '2026-11-13',
+    titolo: 'Onboarding: il percorso fino al lancio',
+    riassunto:
+      'Il cliente fa tutto il percorso nella sua area, dalla prenotazione della call al programma, con le animazioni della timeline e il razzo al lancio; il coach, il revisore e il responsabile lavorano il loro pezzo dalla sezione Onboarding. Quando i contenuti sono scritti apri l’area ai clienti.',
+    intestazionePer: ['progetti'],
+    intestazioneTeam: {
+      titolo: 'Onboarding: il percorso dei clienti',
+      riassunto:
+        'Se segui un cliente nuovo come coach, revisore o responsabile, la sezione Onboarding ti dice cosa tocca a te e ti fa segnare la call, l’obiettivo, i test, il programma e la community.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'L’area del cliente arriva fino al lancio: prenota la call di onboarding, entra nella community e si presenta, legge il suo obiettivo, spunta la settimana test e guarda i video del programma; poi il razzo parte e la pagina dice che il percorso è iniziato, con il prossimo checkpoint.',
+      },
+      {
+        per: ['progetti'],
+        testo:
+          'La sezione Onboarding per chi segue un cliente nuovo: i tuoi clienti in «Tocca a te», «Tocca al cliente», «In pausa» e «Completati», le code in cima e una scheda con le azioni del tuo incarico, con la prossima cosa da fare in evidenza. Coach: conferma la call col link di Meet, segna com’è andata, «Segna obiettivo impostato», conferma i test e consegna il programma con il primo checkpoint. Revisore: «Test da rivedere». Responsabile: l’accesso alla community e la presentazione.',
+      },
+      {
+        per: ['progetti'],
+        testo:
+          'Quando tocca di nuovo al cliente gli arriva l’email «Tocca a te»; se non parte, il messaggio è pronto da copiare per Telegram. I task della lista «Onboarding» si completano e prendono le scadenze da soli.',
+      },
+      {
+        per: ['progetti'],
+        testo:
+          'Per l’admin e il coach: «Sblocca step» apre uno step bloccato o chiude il benvenuto o l’obiettivo quando il video non conta i secondi; «Riavvia onboarding» fa ripartire il percorso. Il motivo resta nel registro, che legge solo l’admin.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Impostazioni › Onboarding: la pagina di prenotazione, l’email «Tocca a te» e «Apri ai clienti», che dice prima cosa manca (contenuti da scrivere, video segnaposto, link) e lascia aprire solo quando è tutto pronto. Apertura e chiusura restano nel registro delle modifiche.',
+      },
+      {
+        per: ['progetti'],
+        testo:
+          'Il coach legge del cliente solo quello che gli serve: il questionario senza email e telefono, i file, Telegram, i video guardati. Un cliente in pausa è solo «In pausa», senza altro.',
+      },
+    ],
+  },
+  {
     versione: '1.79.0',
     data: '2026-11-13',
     titolo: 'Onboarding: il questionario del cliente',

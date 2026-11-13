@@ -5,7 +5,7 @@
  * open. Pure: tested in tests/percorso-testi.test.ts, sent by lib/email/invia.ts.
  * Hex colours only here, as in the other emails: an email cannot read the app's tokens.
  */
-import { TESTI_EMAIL_CLIENTE as T } from '@/lib/percorso/testi'
+import { TESTI_EMAIL_CLIENTE as T, TESTI_TOCCA_A_TE as TT } from '@/lib/percorso/testi'
 import { codiceLeggibile } from '@/lib/validation/registrazione-cliente'
 
 const BORDEAUX = '#7A1F2B'
@@ -68,4 +68,64 @@ export function emailCodiceCliente(d: {
 </html>`
 
   return { oggetto, html, testo }
+}
+
+/** The sentence of a reason of «Tocca a te»; an unknown reason says only that there is a new step. */
+export function fraseToccaATe(motivo: string): string {
+  return TT.motivi[motivo] ?? TT.generico
+}
+
+/**
+ * The message the coach copies for Telegram when the email is off or does not leave: the
+ * same words as the email, plain text, with the address of the area.
+ */
+export function messaggioToccaATe(d: { nome: string; motivo: string; urlPercorso: string }): string {
+  return `${TT.saluto(d.nome)} ${fraseToccaATe(d.motivo)}\n${d.urlPercorso}`
+}
+
+/**
+ * «Tocca a te» (release B2): the client's turn is back after the team's work. One sentence,
+ * the link to the area (/percorso: without a session it goes through /entra), never a code,
+ * never an amount, never a health datum.
+ */
+export function emailToccaATe(d: {
+  nome: string
+  motivo: string
+  urlPercorso: string
+  urlLogo: string
+}): { oggetto: string; html: string; testo: string } {
+  const frase = fraseToccaATe(d.motivo)
+  const testo = [`${TT.saluto(d.nome)} ${frase}`, '', `${TT.apri}: ${d.urlPercorso}`, '', TT.nonTu, '', TT.firma].join('\n')
+
+  const html = `<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>${escape(TT.oggetto)}</title>
+</head>
+<body style="margin:0;padding:0;background:${SFONDO};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SFONDO};">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#FFFFFF;border-radius:12px;">
+      <tr><td align="center" style="padding:28px 24px 8px;">
+        <img src="${escape(d.urlLogo)}" width="112" alt="Percorso Alpha" style="display:block;width:112px;height:auto;border:0;">
+      </td></tr>
+      <tr><td style="padding:16px 28px 0;font-family:Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:${TESTO};">
+        ${escape(TT.saluto(d.nome))} ${escape(frase)}
+      </td></tr>
+      <tr><td align="center" style="padding:24px 28px;">
+        <a href="${escape(d.urlPercorso)}" style="display:inline-block;padding:12px 22px;border-radius:8px;background:${BORDEAUX};color:#FFFFFF;font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:bold;text-decoration:none;">${escape(TT.apri)}</a>
+      </td></tr>
+      <tr><td style="padding:0 28px 28px;font-family:Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:${TENUE};">
+        ${escape(TT.nonTu)}<br><br>${escape(TT.firma)}
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`
+
+  return { oggetto: TT.oggetto, html, testo }
 }

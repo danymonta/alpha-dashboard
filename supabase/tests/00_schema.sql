@@ -225,6 +225,12 @@ select results_eq(
        'messenger_imposta_token', 'messenger_togli_token', 'messenger_token_presente',
        -- the onboarding (1.77.0): whether the caller is in charge of a registered client; false for Claude's token
        'onboarding_incaricato',
+       -- the work of the team on the onboarding (1.80.0): the reads of the people in charge and the actions of the
+       -- coach in charge (the responsible for the community) and of the admin; each refuses an OAuth token first
+       'onboarding_allegato_apri', 'onboarding_call_conferma', 'onboarding_call_esito', 'onboarding_community',
+       'onboarding_consegna_aggiungi', 'onboarding_consegna_togli', 'onboarding_incaricati_elenco',
+       'onboarding_incaricato_attivo', 'onboarding_obiettivo_impostato', 'onboarding_programma_consegnato', 'onboarding_riavvia', 'onboarding_sblocca_passo',
+       'onboarding_scheda_incaricato', 'onboarding_test_ricevuti',
        'mia_foto_google', 'mie_vendite_setter', 'miei_clienti', 'miei_numeri_periodo', 'pm_assegnato',
        'percorso_avanza', 'percorso_cliente',
        'pm_coach_del_cliente', 'pm_crea_progetto', 'pm_ferma_timer', 'pm_livello_corrente',

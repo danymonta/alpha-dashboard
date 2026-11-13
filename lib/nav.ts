@@ -278,8 +278,37 @@ const NAV: Record<AppRole, NavRuolo> = {
   business_coach: menu([], []),
 }
 
-export function vociNav(ruolo: AppRole): NavRuolo {
-  return NAV[ruolo]
+// The guided onboarding for the people in charge (release B2, 1.80.0): the item of the admin, given to
+// whoever has an incarico (coach, reviewer, responsible) on a registered client. In the group «Progetti»,
+// which every role has, never in the bottom bar.
+const ONBOARDING_INCARICATI: VoceNav = { href: '/onboarding', etichetta: 'Onboarding', Icona: Rocket }
+const CON_ONBOARDING = new Map<AppRole, NavRuolo>()
+
+function conOnboarding(ruolo: AppRole): NavRuolo {
+  const gia = CON_ONBOARDING.get(ruolo)
+  if (gia) return gia
+  const nav = NAV[ruolo]
+  const gruppi = nav.gruppi.map((g) =>
+    g.titolo === 'Progetti' ? { titolo: g.titolo, voci: [...g.voci, ONBOARDING_INCARICATI] } : g,
+  )
+  const pronto = menu(
+    gruppi,
+    nav.principali.map((v) => v.href),
+  )
+  CON_ONBOARDING.set(ruolo, pronto)
+  return pronto
+}
+
+/**
+ * A role's menu. `onboarding`: the person has an incarico on a registered client (counted in
+ * the app's layout): the item «Onboarding» is added for the roles that do not have it (the
+ * admin always has it; the business coach has no menu).
+ */
+export function vociNav(ruolo: AppRole, opzioni: { onboarding?: boolean } = {}): NavRuolo {
+  const nav = NAV[ruolo]
+  if (!opzioni.onboarding || ruolo === 'business_coach') return nav
+  if (nav.gruppi.some((g) => g.voci.some((v) => v.href === '/onboarding'))) return nav
+  return conOnboarding(ruolo)
 }
 
 /** "1 esito da registrare", "3 esiti da registrare": the badge's words for screen readers. */

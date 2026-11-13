@@ -31,7 +31,11 @@ export default async function ContenutiOnboardingPage() {
   if (passi.error || blocchi.error) throw new Error(t.errore)
 
   const righe = (blocchi.data ?? []) as RigaBlocco[]
-  const ordineServito = passi.data?.find((p) => p.chiave === ULTIMO_PASSO_SERVITO)?.ordine ?? 0
+  // null: every step is served (B2)
+  const ordineServito =
+    ULTIMO_PASSO_SERVITO === null
+      ? Number.POSITIVE_INFINITY
+      : (passi.data?.find((p) => p.chiave === ULTIMO_PASSO_SERVITO)?.ordine ?? 0)
   const gruppi: GruppoContenuti[] = [
     // every step of the version, the team's too (call, programma): B2 seeds their blocks, and a
     // step not served yet says so (servito), so the page does not change when B2 arrives
@@ -49,7 +53,7 @@ export default async function ContenutiOnboardingPage() {
       pagina: 'dopo_lancio' as const,
       titolo: t.dopoLancio,
       titoloCliente: '',
-      servito: false,
+      servito: ULTIMO_PASSO_SERVITO === null,
       blocchi: righe.filter((b) => b.pagina === 'dopo_lancio'),
     },
   ]

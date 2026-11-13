@@ -17,7 +17,8 @@ export type BloccoVideo = Base & {
   video: { percentuale: number; visto: boolean }
 }
 export type BloccoRegola = Base & { tipo: 'regola'; titolo: string }
-export type BloccoVoce = Base & { tipo: 'voce'; titolo: string }
+/** An item of a checklist (the test week, release B2): `spuntata` when the client ticked it. */
+export type BloccoVoce = Base & { tipo: 'voce'; titolo: string; spuntata: boolean }
 export type BloccoPulsante = Base & { tipo: 'pulsante'; titolo: string; url: string }
 export type BloccoDomande = Base & { tipo: 'domande' }
 
@@ -69,8 +70,9 @@ export function leggiBlocco(valore: unknown): BloccoPercorso | null {
       }
     }
     case 'regola':
+      return base.titolo ? { ...base, tipo: 'regola', titolo: base.titolo } : null
     case 'voce':
-      return base.titolo ? { ...base, tipo: v.tipo, titolo: base.titolo } : null
+      return base.titolo ? { ...base, tipo: 'voce', titolo: base.titolo, spuntata: v.spuntata === true } : null
     case 'pulsante': {
       const url = typeof v.url === 'string' && v.url.startsWith('https://') ? v.url : null
       return base.titolo && url ? { ...base, tipo: 'pulsante', titolo: base.titolo, url } : null
@@ -115,7 +117,22 @@ export function haSegnaposto(b: { titolo?: string | null; corpo?: string | null;
 }
 
 /**
- * The last step this release serves (the same as onboarding_ultimo_passo_servito() in SQL:
- * 'regole' in B1a). The CMS says that the steps after it are not seen yet.
+ * The last step this release serves (the same as onboarding_ultimo_passo_servito() in SQL):
+ * 'regole' in B1a, 'questionario' in B1b, null (every step) from B2. The CMS says that the steps
+ * after it are not seen yet.
  */
-export const ULTIMO_PASSO_SERVITO = 'regole'
+export const ULTIMO_PASSO_SERVITO: string | null = null
+
+/**
+ * The text of a block the client copies (the presentation template of the community, release B2):
+ * his first name in the placeholders, the Markdown marks taken away, so Telegram receives plain text.
+ */
+export function testoDaCopiare(corpo: string, nome?: string): string {
+  let t = corpo
+  if (nome) t = t.replaceAll('[Nome]', nome).replaceAll('[il tuo nome]', nome)
+  return t
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/[ \t]+$/gm, '')
+    .trim()
+}

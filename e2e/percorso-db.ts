@@ -18,7 +18,11 @@ export const MAILPIT = process.env.MAILPIT_URL ?? 'http://127.0.0.1:54324'
 const sha256 = (t: string) => createHash('sha256').update(t, 'utf8').digest('hex')
 
 /** A client with an email and a «nuovo» sale, then its onboarding started as the admin does (avvia_onboarding). */
-export async function creaOnboardingDiProva(nome: string, email: string) {
+export async function creaOnboardingDiProva(
+  nome: string,
+  email: string,
+  incarichi: { coach?: string; revisore?: string | null; responsabile?: string } = {},
+) {
   const saleId = await creaVenditaDiProva(nome, ID_ADMIN, { giorniFa: 1 })
   const db = dbLocale()
   const { data: vendita } = await db.from('sales').select('client_id').eq('id', saleId).single()
@@ -27,9 +31,9 @@ export async function creaOnboardingDiProva(nome: string, email: string) {
   const admin = await sessioneAdminDb()
   const { error } = await admin.rpc('avvia_onboarding', {
     p_sale_id: saleId,
-    p_coach: ID_ADMIN,
-    p_revisore: null as unknown as string,
-    p_responsabile: ID_ADMIN,
+    p_coach: incarichi.coach ?? ID_ADMIN,
+    p_revisore: (incarichi.revisore ?? null) as unknown as string,
+    p_responsabile: incarichi.responsabile ?? ID_ADMIN,
     p_contatti: { nome, cognome: 'Incassi', email },
     p_telegram: '',
     p_minorenne: false,
@@ -92,6 +96,38 @@ export async function registraCliente(clientId: string, email: string): Promise<
   })
   if (error) throw error
   return r.utente_id
+}
+
+/**
+ * The first three steps done as the client does them (welcome, rules with the consent, the
+ * questionnaire sent), written directly: the steps of release B2 start from the booking.
+ */
+export async function primiPassiFatti(clientId: string) {
+  const db = dbLocale()
+  const { data: testo } = await db.from('clienti_consensi_testi').select('versione').eq('tipo', 'salute').eq('in_vigore', true).single()
+  await db.from('clienti_consensi').insert({ client_id: clientId, tipo: 'salute', versione: testo!.versione })
+  const adesso = new Date().toISOString()
+  // the compulsory videos of those steps seen, as the player would have counted them
+  const { data: video } = await db
+    .from('contenuti_blocchi')
+    .select('id')
+    .eq('tipo', 'video')
+    .eq('obbligatorio', true)
+    .in('passo', ['benvenuto', 'regole', 'questionario'])
+  for (const v of video ?? []) {
+    const { error } = await db
+      .from('onboarding_video_visti')
+      .insert({ client_id: clientId, blocco_id: v.id, durata: 10, visti: '1111111111', visto_il: adesso })
+    if (error) throw error
+  }
+  const { error: e1 } = await db
+    .from('onboarding_passi')
+    .update({ stato: 'fatto', iniziato_il: adesso, completato_il: adesso })
+    .eq('client_id', clientId)
+    .in('passo', ['benvenuto', 'regole', 'questionario'])
+  if (e1) throw e1
+  const { error } = await db.rpc('onboarding_sblocca', { p_client_id: clientId })
+  if (error) throw error
 }
 
 /** A session of the client on the local database, from a code of Supabase (for what the browser cannot test). */

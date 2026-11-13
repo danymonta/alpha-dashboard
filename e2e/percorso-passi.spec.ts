@@ -34,8 +34,8 @@ const PLAYER_FINTO = `<!doctype html><html><body style="background:#000">
     manda({ event: 'onStateChange', info: 1 })
     let t = 0
     const timer = setInterval(() => {
-      manda({ event: 'infoDelivery', info: { currentTime: t, duration: 12, playerState: t < 12 ? 1 : 0 } })
-      if (t >= 12) { clearInterval(timer); manda({ event: 'onStateChange', info: 0 }) }
+      manda({ event: 'infoDelivery', info: { currentTime: t, duration: 30, playerState: t < 30 ? 1 : 0 } })
+      if (t >= 30) { clearInterval(timer); manda({ event: 'onStateChange', info: 0 }) }
       t += 1
     }, 250)
   })

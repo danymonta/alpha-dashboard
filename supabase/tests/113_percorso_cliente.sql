@@ -7,7 +7,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(64);
+select plan(68);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres)
@@ -178,7 +178,7 @@ select throws_ok($$ select public.percorso_avanza('benvenuto', 'completa', '{}')
 -- ---------------------------------------------------------------------------
 select throws_ok(
   format($$ select public.video_progresso(null, %L, 100, array[int4range(0, 10)]) $$, gen_random_uuid()),
-  '22023', null, 'una consegna in B1a no');
+  '22023', null, 'una consegna che non c''è no');
 select throws_ok(
   format($$ select public.video_progresso(%L, null, 100, (select array_agg(int4range(i, i + 1)) from generate_series(0, 50) i)) $$,
          pg_temp.blocco('benvenuto', 'video')),
@@ -190,8 +190,26 @@ select throws_ok(
   format($$ select public.video_progresso(%L, null, 100, array[int4range(0, 10)]) $$,
          (select id from pg_temp.blocchi where titolo = 'Video del questionario')),
   '22023', 'Questo passo non è ancora disponibile.', 'il video di uno step bloccato no');
+select throws_ok(
+  format($$ select public.video_progresso(%L, null, 20, array[int4range(0, 20)]) $$, pg_temp.blocco('benvenuto', 'video')),
+  '22023', 'Durata non valida', 'un video sotto i 30 secondi no: la durata la dice il player, non basta a segnarlo visto');
+select throws_ok(
+  format($$ select public.video_progresso(%L, null, 100, array[int4range(0, 95)]) $$, pg_temp.blocco('benvenuto', 'video')),
+  '22023', 'Intervalli non validi', 'un video intero in una chiamata no: i secondi non corrono più dell''orologio');
 select is(
-  public.video_progresso(pg_temp.blocco('benvenuto', 'video'), null, 100, array[int4range(0, 50)]),
+  public.video_progresso(pg_temp.blocco('benvenuto', 'video'), null, 100, array[int4range(0, 25)]),
+  '{"visto": false, "percentuale": 25.00}'::jsonb, 'il primo invio: 25%'
+);
+select throws_ok(
+  format($$ select public.video_progresso(%L, null, 100, array[int4range(25, 50)]) $$, pg_temp.blocco('benvenuto', 'video')),
+  '22023', 'Intervalli non validi', 'subito dopo, altri 25 secondi no');
+-- the minutes pass: the first send is an hour ago
+reset role;
+update public.onboarding_video_visti set created_at = now() - interval '1 hour'
+where blocco_id = pg_temp.blocco('benvenuto', 'video');
+select pg_temp.web(pg_temp.utente('Anna'));
+select is(
+  public.video_progresso(pg_temp.blocco('benvenuto', 'video'), null, 100, array[int4range(25, 50)]),
   '{"visto": false, "percentuale": 50.00}'::jsonb, 'metà video: 50%'
 );
 select is(
@@ -229,7 +247,7 @@ insert into appunti values ('dopo_regole', public.percorso_avanza('regole', 'acc
 select is((select valore ->> 'in_attesa' from appunti where chiave = 'dopo_regole'), 'false',
   'dopo le regole: niente attesa, c''è il questionario (B1b)');
 select is(pg_temp.mio_passo('questionario'), 'disponibile', 'il questionario si apre: è l''ultimo step servito');
-select is(pg_temp.mio_passo('prenotazione'), 'bloccato', 'la prenotazione no: oltre l''ultimo step servito');
+select is(pg_temp.mio_passo('prenotazione'), 'bloccato', 'la prenotazione no: aspetta il questionario');
 select is((select valore -> 'stima' ->> 'cose_da_fare' from appunti where chiave = 'dopo_regole'), '5', 'cinque cose da fare');
 select is(
   (select valore -> 'nodi' -> 0 ->> 'stato' from appunti where chiave = 'dopo_regole'), 'completato', 'il nodo Benvenuto è completato'
@@ -255,7 +273,7 @@ select is(
 update public.onboarding_passi set stato = 'fatto' where client_id = pg_temp.cliente('Anna') and passo in ('questionario', 'prenotazione', 'call');
 select public.onboarding_sblocca(pg_temp.cliente('Anna'));
 select is(pg_temp.passo('Anna', 'obiettivo'), 'bloccato', 'con la call fatta e il task dell''obiettivo aperto, l''obiettivo resta bloccato');
-select is(pg_temp.passo('Anna', 'community'), 'bloccato', 'e niente oltre l''ultimo step servito');
+select is(pg_temp.passo('Anna', 'community'), 'disponibile', 'la community sì: dalla 1.80.0 il percorso è servito fino in fondo');
 select ok(
   (select array_agg(chiave order by chiave) = array['obiettivo', 'programma'] from public.onboarding_passi_def where versione = 1 and sblocco = 'team'),
   'gli step del team: obiettivo e programma'

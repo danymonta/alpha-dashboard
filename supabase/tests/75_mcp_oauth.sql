@@ -483,6 +483,15 @@ insert into public.onboarding_allegati (id, client_id, campo, percorso, nome_fil
 values ('75750000-0000-4000-8000-000000000276', '0b0b0000-0000-4000-8000-000000000001', 'attrezzatura',
         '0b0b0000-0000-4000-8000-000000000001/75750000-0000-4000-8000-000000000276', 'sbarra.jpg', 'image/jpeg', 1000)
 on conflict (id) do nothing;
+-- The work of the team (1.80.0): an onboarding call and a delivery of the seed's active client
+insert into public.clienti_call (id, client_id, tipo, inizio, stato)
+values ('75750000-0000-4000-8000-000000000277', '0b0b0000-0000-4000-8000-000000000001', 'checkpoint',
+        now() + interval '30 days', 'prenotata')
+on conflict (id) do nothing;
+insert into public.clienti_consegne (id, client_id, tipo, titolo, url)
+values ('75750000-0000-4000-8000-000000000278', '0b0b0000-0000-4000-8000-000000000001', 'link', 'Lista della spesa 75',
+        'https://example.test/lista-75')
+on conflict (id) do nothing;
 
 create or replace function pg_temp.tabelle_vuote()
 returns text
@@ -795,6 +804,26 @@ begin
   perform pg_temp.prova('allegato_togli', $q$ select public.allegato_togli('75750000-0000-4000-8000-000000000276')::text $q$);
   perform pg_temp.prova('onboarding_revoca_consenso', $q$ select public.onboarding_revoca_consenso('0b0b0000-0000-4000-8000-000000000001',
     'salute', 'Da Claude')::text $q$);
+  -- the work of the team (1.80.0): the reads of the people in charge and the actions of the coach and of the
+  -- admin refuse an OAuth token first, the admin's too
+  perform pg_temp.prova('onboarding_incaricati_elenco', $q$ select count(*)::text from public.onboarding_incaricati_elenco() $q$);
+  perform pg_temp.prova('onboarding_incaricato_attivo', $q$ select public.onboarding_incaricato_attivo('0b0b0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('onboarding_obiettivo_impostato', $q$ select public.onboarding_obiettivo_impostato('0b0b0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('onboarding_scheda_incaricato', $q$ select public.onboarding_scheda_incaricato('0b0b0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('onboarding_allegato_apri', $q$ select count(*)::text from public.onboarding_allegato_apri('75750000-0000-4000-8000-000000000276') $q$);
+  perform pg_temp.prova('onboarding_call_conferma', $q$ select public.onboarding_call_conferma('0b0b0000-0000-4000-8000-000000000001',
+    now() + interval '1 day', 'https://meet.google.com/abc-defg-hij')::text $q$);
+  perform pg_temp.prova('onboarding_call_esito', $q$ select public.onboarding_call_esito('75750000-0000-4000-8000-000000000277', 'svolta', null)::text $q$);
+  perform pg_temp.prova('onboarding_test_ricevuti', $q$ select public.onboarding_test_ricevuti('0b0b0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('onboarding_consegna_aggiungi', $q$ select public.onboarding_consegna_aggiungi('0b0b0000-0000-4000-8000-000000000001',
+    'link', 'Da Claude', 'https://example.test/claude', false)::text $q$);
+  perform pg_temp.prova('onboarding_consegna_togli', $q$ select public.onboarding_consegna_togli('75750000-0000-4000-8000-000000000278')::text $q$);
+  perform pg_temp.prova('onboarding_programma_consegnato', $q$ select public.onboarding_programma_consegnato('0b0b0000-0000-4000-8000-000000000001',
+    now() + interval '30 days')::text $q$);
+  perform pg_temp.prova('onboarding_community', $q$ select public.onboarding_community('0b0b0000-0000-4000-8000-000000000001', 'approvata')::text $q$);
+  perform pg_temp.prova('onboarding_sblocca_passo', $q$ select public.onboarding_sblocca_passo('0b0b0000-0000-4000-8000-000000000001',
+    'prenotazione', 'Da Claude')::text $q$);
+  perform pg_temp.prova('onboarding_riavvia', $q$ select public.onboarding_riavvia('0b0b0000-0000-4000-8000-000000000001', 'Da Claude')::text $q$);
 end $$;
 reset role;
 set local request.jwt.claims to '{}';
@@ -875,16 +904,30 @@ select is(
     'miei_numeri_periodo 42501',
     'motivi_non_chiusura_periodo 42501',
     'nuovo_cliente 42501',
+    'onboarding_allegato_apri 42501',
+    'onboarding_call_conferma 42501',
+    'onboarding_call_esito 42501',
+    'onboarding_community 42501',
     'onboarding_conferma_pagamento 42501',
+    'onboarding_consegna_aggiungi 42501',
+    'onboarding_consegna_togli 42501',
     'onboarding_consenso_genitore 42501',
     'onboarding_elimina 42501',
     'onboarding_imposta_incarichi 42501',
+    'onboarding_incaricati_elenco 42501',
     'onboarding_incaricato ok:false',
+    'onboarding_incaricato_attivo ok:false',
+    'onboarding_obiettivo_impostato 42501',
+    'onboarding_programma_consegnato 42501',
     'onboarding_revoca 42501',
     'onboarding_revoca_consenso 42501',
     'onboarding_riattiva 42501',
+    'onboarding_riavvia 42501',
     'onboarding_rigenera_link 42501',
+    'onboarding_sblocca_passo 42501',
+    'onboarding_scheda_incaricato 42501',
     'onboarding_segna_prova 42501',
+    'onboarding_test_ricevuti 42501',
     'percorso_avanza 42501',
     'percorso_cliente 42501',
     'pm_assegnato ok:false',

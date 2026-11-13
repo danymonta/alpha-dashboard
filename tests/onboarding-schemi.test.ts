@@ -346,6 +346,8 @@ describe('incarichi, Telegram e impostazioni', () => {
       revisore_predefinito_id: null,
       responsabile_predefinito_id: DANY,
       link_community: null,
+      link_prenotazione: null,
+      avvisa_cliente_email: true,
       giorni_validita_link: 14,
     })
     for (const giorni of [0, 91, 1.5, 'tanti', '']) {

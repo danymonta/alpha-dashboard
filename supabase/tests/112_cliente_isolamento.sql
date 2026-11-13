@@ -179,7 +179,7 @@ select is(
    where persona = 'postgres' and coalesce(righe, 0) = 0
      and relazione in ('clients', 'sales', 'payments', 'profiles', 'onboarding_inviti', 'onboarding_percorsi',
                        'onboarding_passi', 'contenuti_blocchi', 'clienti_consensi', 'onboarding_video_visti',
-                       'clienti_account')),
+                       'clienti_account', 'clienti_call')),
   '', 'e con postgres le stesse tabelle hanno righe'
 );
 
@@ -196,7 +196,7 @@ select is(
    from scritture),
   '', 'ogni scrittura del cliente, attivo o sospeso, è rifiutata o non tocca niente'
 );
-select is((select count(*)::int from public.clienti_account), 2, 'gli account del seed sono ancora lì');
+select is((select count(*)::int from public.clienti_account), 3, 'gli account del seed sono ancora lì (61_percorso.sql e 62_percorso_team.sql)');
 
 -- Functions: the team's reject him, or answer nothing about anybody
 select pg_temp.come('0b0b0000-0000-4000-8000-000000000032');

@@ -56,7 +56,7 @@ export async function avanzaPasso(db: Db, input: unknown): Promise<EsitoPercorso
   const { data, error } = await db.rpc('percorso_avanza', {
     p_passo: v.passo,
     p_azione: v.azione,
-    p_dati: v.azione === 'accetta' ? v.dati : {},
+    p_dati: ('dati' in v ? v.dati : {}) as Json,
   })
   if (error) return { ok: false, ...messaggio(error) }
   const percorso = leggiPercorso(data)

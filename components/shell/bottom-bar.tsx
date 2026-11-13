@@ -32,12 +32,12 @@ import {
 const SUL_ICONA = 'absolute top-0.5 left-1/2 ml-1 ring-2 ring-background'
 
 /** Mobile navigation: at most four items plus "Altro". Touch targets >= 44px. */
-export function BottomBar({ ruolo }: { ruolo: AppRole }) {
+export function BottomBar({ ruolo, onboarding = false }: { ruolo: AppRole; onboarding?: boolean }) {
   const pathname = usePathname()
   // the person's own calls to record and days to decide (zero where the role has none)
   const promemoria = usePromemoria()
   const [apertoAltro, setApertoAltro] = useState(false)
-  const { principali, altre, gruppiAltro } = vociNav(ruolo)
+  const { principali, altre, gruppiAltro } = vociNav(ruolo, { onboarding })
   const idBase = useId()
   const lingua = useLingua()
   const t = SHELL[lingua]

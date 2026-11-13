@@ -114,8 +114,10 @@ export const TESTI_PERCORSO = {
   giorniPrima: 'Mancano circa',
   giorniUno: '1 giorno',
   giorniTanti: (giorni: number) => `${giorni} giorni`,
+  /** the word after the number that rolls (the number has its own element) */
+  parolaGiorni: (giorni: number) => (giorni === 1 ? 'giorno' : 'giorni'),
   giorniDopo: 'all’inizio del tuo percorso',
-  quasi: 'Ci siamo quasi',
+  quasi: 'Ci siamo quasi.',
   quasiSotto: 'Il tuo percorso sta per iniziare.',
   inizioStimato: (giorno: string) => `Inizio stimato: ${giorno}`,
   tappa: (numero: number, totale: number) => `Tappa ${numero} di ${totale}`,
@@ -236,4 +238,121 @@ export const TESTI_QUESTIONARIO = {
     foto: 'Foto',
     pdf: 'PDF',
   },
+} as const
+
+/**
+ * The steps of release B2 (the booking, the community, the onboarding call, the goal, the test
+ * week, the programme), the waiting for the team and the page after the launch.
+ */
+export const TESTI_PASSI = {
+  quando: (giorno: string, ora: string) => `${giorno} alle ${ora}`,
+  prenotazione: {
+    scegli: 'Scegli giorno e ora nel calendario del tuo coach.',
+    apriCalendario: 'Apri il calendario',
+    senzaCalendario: 'Il calendario del tuo coach arriva a breve: intanto scrivi nel tuo gruppo Telegram.',
+    scrivi: 'Poi torna qui e scrivi quello che hai scelto.',
+    giorno: 'Giorno della call',
+    ora: 'Ora',
+    hoPrenotato: 'Ho prenotato',
+    serveGiornoOra: 'Scrivi il giorno e l’ora che hai scelto per andare avanti.',
+    inviata: 'Call segnata: il tuo coach la conferma a breve',
+  },
+  call: {
+    titolo: 'La tua call di onboarding',
+    daConfermare: 'In attesa di conferma',
+    confermata: 'Confermata',
+    svolta: 'Fatta',
+    suMeet: (minuti: number) => `Su Google Meet, ${minuti} minuti.`,
+    entra: 'Entra nella call',
+    linkInArrivo: 'Il link di Google Meet arriva con la conferma del tuo coach.',
+    linkCheckpoint: 'Il link della call te lo manda il tuo coach prima del checkpoint.',
+  },
+  community: {
+    tre: 'Tre passi',
+    passi: ['Scrivi il tuo username di Telegram', 'Chiedi l’accesso alla community', 'Presentati nel topic «Presentazioni»'],
+    fatto: 'Fatto',
+    username: 'Il tuo username di Telegram',
+    usernameAiuto: 'Lo trovi su Telegram in Impostazioni, sotto il tuo nome. Scrivilo senza la @.',
+    salvaUsername: 'Salva lo username',
+    usernameSalvato: 'Username salvato',
+    cambia: 'Cambia',
+    serveUsername: 'Scrivi il tuo username di Telegram per andare avanti.',
+    entra: 'Entra nella community',
+    senzaLink: 'Il link della community arriva a breve: scrivi nel tuo gruppo Telegram.',
+    hoInviato: 'Ho inviato la richiesta',
+    richiestaSegnata: 'Richiesta segnata',
+    richiestaIl: (giorno: string) => `Richiesta inviata il ${giorno}.`,
+    presentazione: 'La tua presentazione',
+    presentazioneSotto: 'Copiala, completala su Telegram e pubblicala nel topic «Presentazioni».',
+    copia: 'Copia la presentazione',
+    copiata: 'Presentazione copiata',
+    nonCopiata: 'Non riesco a copiarla: selezionala e copiala a mano.',
+    presentato: 'Mi sono presentato',
+  },
+  obiettivo: {
+    hoVisto: 'Ho visto',
+  },
+  test: {
+    titolo: 'Cosa fare questa settimana',
+    fatte: (fatte: number, totale: number) => `${fatte} di ${totale} fatte`,
+    sotto: 'Quando le hai spuntate tutte, il tuo coach controlla e ti prepara il programma.',
+    fatto: 'Fatto',
+    spuntata: 'Fatto',
+    conferma: 'Hai fatto tutto? Il tuo coach riceve i test e prepara il tuo programma.',
+    invia: 'Sì, invia',
+    nonAncora: 'Non ancora',
+  },
+  programma: {
+    materiali: 'I tuoi materiali',
+    daVedere: 'Da vedere',
+    apriPdf: 'Apri il PDF',
+    apriLink: 'Apri il link',
+    hoVistoTutto: 'Ho visto tutto',
+    serveVideo: (n: number) =>
+      n === 1 ? 'Guarda il video da vedere almeno fino al 90% per andare avanti.' : `Guarda i ${n} video da vedere almeno fino al 90% per andare avanti.`,
+    nessunMateriale: 'I materiali del tuo coach compaiono qui.',
+  },
+  attesa: {
+    kicker: 'Tocca a noi',
+    sotto: 'Ti scriviamo noi appena tocca di nuovo a te.',
+    appuntamento: 'Il prossimo appuntamento',
+    ciVediamo: (giorno: string, ora: string) => `Ci vediamo in call ${giorno} alle ${ora}: entra dal link qui sopra.`,
+  },
+  lancio: {
+    titolo: 'Il tuo percorso è iniziato',
+    kicker: 'Si parte',
+    checkpoint: 'Il tuo prossimo checkpoint',
+    nessunCheckpoint: 'Il tuo coach ti scrive il giorno del primo checkpoint.',
+    link: 'I tuoi link',
+    community: 'La community su Telegram',
+    gruppoPrivato: 'Il tuo gruppo privato su Telegram',
+    ancoraUnPasso: 'Ti manca ancora un passo',
+    rileggi: 'Puoi rileggere:',
+  },
+} as const
+
+/**
+ * «Tocca a te» (release B2): what the client is told when his turn comes back after the
+ * team's work, by email and, when the email is off or does not leave, as the message the
+ * coach copies for Telegram. One sentence per reason the functions of the team return
+ * (onboarding_avviso_cliente); a link to the area, never a code, never an amount.
+ */
+export const TESTI_TOCCA_A_TE = {
+  oggetto: 'Tocca a te: il prossimo passo del tuo percorso',
+  saluto: (nome: string) => (nome ? `Ciao ${nome},` : 'Ciao,'),
+  motivi: {
+    call_confermata: 'la tua call di onboarding è confermata: trovi giorno, ora e il link di Google Meet nella tua area.',
+    call_spostata: 'la tua call di onboarding ha un nuovo giorno: lo trovi nella tua area.',
+    call_non_presentato: 'non ci siamo visti in call: ti abbiamo fissato un nuovo giorno, lo trovi nella tua area.',
+    checkpoint_spostato: 'il tuo checkpoint con il coach ha un nuovo giorno: lo trovi nella tua area.',
+    checkpoint_non_presentato: 'non ci siamo visti al checkpoint: ti abbiamo fissato un nuovo giorno, lo trovi nella tua area.',
+    obiettivo_aperto: 'il tuo obiettivo è pronto su Coach Plus: aprilo dalla tua area.',
+    programma_consegnato: 'il tuo programma è pronto: guarda i video nella tua area e il tuo percorso parte.',
+    passo_sbloccato: 'nella tua area c’è un nuovo passo da fare.',
+    onboarding_riavviato: 'abbiamo ripreso il tuo percorso da dove serve: trovi il prossimo passo nella tua area.',
+  } as Record<string, string>,
+  generico: 'nella tua area c’è un nuovo passo da fare.',
+  apri: 'Apri il tuo percorso',
+  firma: 'Il team di Percorso Alpha',
+  nonTu: 'Se non sei un cliente di Percorso Alpha, ignora questa email.',
 } as const

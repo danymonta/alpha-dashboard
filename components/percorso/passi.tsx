@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowRight, ClipboardList, LoaderCircle, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { ArrowRight, ClipboardList, LoaderCircle, Lock, ShieldCheck, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
@@ -18,26 +18,33 @@ import { CONSENSO_SALUTE } from '@/lib/percorso/consensi'
 import type { ConsensoCliente, PassoPercorso, PersonaTeam } from '@/lib/percorso/letture'
 import { TESTI_PERCORSO as T, TESTI_QUESTIONARIO } from '@/lib/percorso/testi'
 import { cn } from '@/lib/utils'
+import type { AvanzaPasso } from '@/lib/validation/percorso'
 
 /** A version of a consent's text is a day («2026-11-12»): said as a date, else as it is. */
 export function versioneInParole(versione: string): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(versione) ? formatData(versione) : versione
 }
 
-type Invio = { passo: 'benvenuto'; azione: 'completa' } | { passo: 'regole'; azione: 'accetta'; dati: { regole: string[]; consenso_salute: string } }
-
 /** The one primary action of a step, with what keeps it off said under it and the server's error above it. */
-function AzionePasso({
+export function AzionePasso({
   etichetta,
   pronto,
   perche,
   invio,
+  toastFatto = T.passoCompletato,
+  bordo = true,
+  icona,
 }: {
   etichetta: string
   pronto: boolean
   /** Why the button is off: never off without saying it. */
   perche: string
-  invio: Invio
+  invio: AvanzaPasso
+  /** The short toast once done; null: none (the page says it). */
+  toastFatto?: string | null
+  /** The line above the action (off when the action sits inside a card). */
+  bordo?: boolean
+  icona?: React.ReactNode
 }) {
   const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
@@ -58,22 +65,33 @@ function AzionePasso({
         setErrore(esito.errore)
         return
       }
-      toast.success(T.passoCompletato)
+      if (toastFatto) toast.success(toastFatto)
     })
   }
 
   return (
-    <div className="space-y-3 border-t border-border/70 pt-5">
+    <div className={cn('space-y-3', bordo && 'border-t border-border/70 pt-5')}>
       {errore ? (
         <p role="alert" className="flex items-start gap-2 text-sm text-status-critical">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           {errore}
         </p>
       ) : null}
+      {/* why it waits, right above it and in the text's colour: the button alone never looks ready */}
+      {!pronto ? (
+        <p id="perche-fermo" className="flex items-start gap-2 text-sm text-foreground" data-testid="perche-fermo">
+          <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          {perche}
+        </p>
+      ) : null}
       <Button
         type="button"
         size="lg"
-        className="glow-primario h-12 w-full gap-2 text-base sm:w-auto sm:min-w-64"
+        variant={pronto ? 'default' : 'secondary'}
+        className={cn(
+          'h-12 w-full gap-2 text-base sm:w-auto sm:min-w-64',
+          pronto ? 'glow-primario' : 'cursor-not-allowed text-muted-foreground shadow-none',
+        )}
         aria-disabled={!pronto || inCorso ? true : undefined}
         aria-describedby={!pronto ? 'perche-fermo' : undefined}
         onClick={vai}
@@ -82,14 +100,10 @@ function AzionePasso({
         {inCorso ? (
           <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         ) : null}
+        {!inCorso && icona ? icona : null}
         {inCorso ? T.inCorso : etichetta}
-        {!inCorso ? <ArrowRight className="size-5" aria-hidden="true" /> : null}
+        {!inCorso && !icona && pronto ? <ArrowRight className="size-5" aria-hidden="true" /> : null}
       </Button>
-      {!pronto ? (
-        <p id="perche-fermo" className="text-sm text-muted-foreground" data-testid="perche-fermo">
-          {perche}
-        </p>
-      ) : null}
     </div>
   )
 }
@@ -130,30 +144,52 @@ export function PassoBenvenuto({ passo, nome, team }: { passo: PassoPercorso; no
 }
 
 /** A big checkbox: the whole row is the target, 44 px at least. */
-function Spunta({
+export function Spunta({
   id,
   spuntata,
   onCambia,
   titolo,
+  fatta = false,
+  etichettaFatta,
   children,
 }: {
   id: string
   spuntata: boolean
   onCambia: (v: boolean) => void
   titolo: string
+  /** Saved for good (the test week): the same element, ticked and read-only, so the focus stays on it. */
+  fatta?: boolean
+  /** What a reader of the screen hears after the title of a done tick («Fatto»). */
+  etichettaFatta?: string
   children?: React.ReactNode
 }) {
   return (
     <label
       htmlFor={id}
       className={cn(
-        'flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors motion-reduce:transition-none',
-        spuntata ? 'border-primary/60 bg-primary/10' : 'border-border bg-card/60 hover:bg-accent/60',
+        'flex min-h-11 items-start gap-3 rounded-xl border p-4 transition-colors motion-reduce:transition-none',
+        fatta
+          ? 'border-status-ok/40 bg-status-ok/5'
+          : spuntata
+            ? 'cursor-pointer border-primary/60 bg-primary/10'
+            : 'cursor-pointer border-border bg-card/60 hover:bg-accent/60',
       )}
     >
-      <Checkbox id={id} checked={spuntata} onCheckedChange={(v) => onCambia(v === true)} className="mt-0.5 size-5" />
+      <Checkbox
+        id={id}
+        checked={spuntata || fatta}
+        readOnly={fatta}
+        aria-disabled={fatta || undefined}
+        onCheckedChange={(v) => {
+          if (!fatta) onCambia(v === true)
+        }}
+        className={cn('mt-0.5 size-5', fatta && 'data-checked:border-status-ok data-checked:bg-status-ok')}
+      />
       <span className="min-w-0 space-y-1">
-        <span className="block font-medium">{titolo}</span>
+        <span className="block font-medium">
+          {titolo}
+          {fatta && etichettaFatta ? <span className="sr-only">, {etichettaFatta}</span> : null}
+        </span>
         {children}
       </span>
     </label>

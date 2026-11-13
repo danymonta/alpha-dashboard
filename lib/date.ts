@@ -57,6 +57,38 @@ export function dataReportValida(richiesta: unknown, oggi: string = oggiRoma()):
   return richiesta
 }
 
+const partiIstante = new Intl.DateTimeFormat('en-GB', {
+  timeZone: FUSO,
+  hourCycle: 'h23',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+})
+
+/** How far Rome is from UTC at an instant, in milliseconds (one or two hours). */
+function scartoRoma(ms: number): number {
+  const p = Object.fromEntries(partiIstante.formatToParts(new Date(ms)).map((x) => [x.type, x.value]))
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - ms
+}
+
+/**
+ * The instant of a day and an hour of Rome ('YYYY-MM-DD', 'HH:MM'), as ISO in UTC: what a
+ * timestamptz argument of a function wants. The change of the hour is taken into account.
+ */
+export function istanteRoma(giorno: string, oraRoma: string): string {
+  const [a, m, g] = giorno.split('-').map(Number)
+  const [h, mi] = oraRoma.split(':').map(Number)
+  const comeUtc = Date.UTC(a, m - 1, g, h, mi)
+  const primo = scartoRoma(comeUtc)
+  let istante = comeUtc - primo
+  const secondo = scartoRoma(istante)
+  if (secondo !== primo) istante = comeUtc - secondo
+  return new Date(istante).toISOString()
+}
+
 /** "18:42" in Europe/Rome, from a timestamptz. */
 export function formatOra(istante: string | Date): string {
   return ora.format(typeof istante === 'string' ? new Date(istante) : istante)

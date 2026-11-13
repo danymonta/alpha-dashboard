@@ -45,6 +45,7 @@ type Fase = 'riposo' | 'carico' | 'va' | 'errore'
  */
 export function PlayerYoutube({
   bloccoId,
+  consegnaId,
   youtubeId,
   titolo,
   percentualeIniziale = 0,
@@ -52,7 +53,9 @@ export function PlayerYoutube({
   registra = true,
   onVisto,
 }: {
-  bloccoId: string
+  /** The video of a block of the CMS, or (release B2) a video the coach delivered: exactly one of the two. */
+  bloccoId?: string
+  consegnaId?: string
   youtubeId: string
   titolo: string
   percentualeIniziale?: number
@@ -98,7 +101,8 @@ export function PlayerYoutube({
       const intervalli = intervalliDaInviare(daInviare.current, d)
       if (intervalli.length === 0) return
       daInviare.current = []
-      const corpo = JSON.stringify({ blocco: bloccoId, durata: Math.max(1, Math.round(d)), intervalli })
+      const chi = consegnaId ? { consegna: consegnaId } : { blocco: bloccoId }
+      const corpo = JSON.stringify({ ...chi, durata: Math.max(1, Math.round(d)), intervalli })
       void fetch('/api/percorso/video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -124,7 +128,7 @@ export function PlayerYoutube({
           daInviare.current.push(...intervalli)
         })
     },
-    [bloccoId, registra, segnaVisto],
+    [bloccoId, consegnaId, registra, segnaVisto],
   )
   useEffect(() => {
     inviaRef.current = invia
@@ -245,7 +249,7 @@ export function PlayerYoutube({
   const intera = Math.floor(percentuale)
 
   return (
-    <div className="space-y-2" data-testid="player-youtube" data-blocco={bloccoId}>
+    <div className="space-y-2" data-testid="player-youtube" data-blocco={bloccoId} data-consegna={consegnaId}>
       <div className="relative aspect-video overflow-hidden rounded-xl bg-black ring-1 ring-border">
         {src && fase !== 'errore' ? (
           <iframe

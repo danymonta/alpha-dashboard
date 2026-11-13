@@ -53,7 +53,7 @@ describe('i testi del cliente', () => {
     expect(testo).not.toMatch(/\b(perche|piu|gia|cosi|puo)\b/i)
   })
 
-  it.each(['20261109090100_percorso_base.sql', '20261109100000_questionario.sql'])('i blocchi del CMS seminati in %s non hanno trattini lunghi né emoji', (file) => {
+  it.each(['20261109090100_percorso_base.sql', '20261109100000_questionario.sql', '20261110090100_percorso_team.sql'])('i blocchi del CMS seminati in %s non hanno trattini lunghi né emoji', (file) => {
     const sql = readFileSync(`supabase/migrations/${file}`, 'utf8')
     const inizio = sql.indexOf('insert into public.contenuti_blocchi')
     expect(inizio).toBeGreaterThan(0)

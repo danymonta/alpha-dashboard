@@ -10,13 +10,15 @@ import { z } from 'zod'
 export const ERRORI_PERCORSO = {
   nonValidi: 'Qualcosa non torna: ricarica la pagina e riprova.',
   video: 'Video non valido.',
+  giornoOra: 'Scrivi il giorno e l’ora della call che hai prenotato.',
+  username: 'Scrivi il tuo username di Telegram.',
 } as const
 
 /**
  * The pairs (step, action) this release serves, with their data: the same closed list as
  * percorso_avanza (B1a). B1b and B2 add their pairs to the union.
  */
-export const avanzaPassoSchema = z.discriminatedUnion('azione', [
+export const avanzaPassoSchema = z.union([
   z.object({ passo: z.literal('benvenuto'), azione: z.literal('completa') }),
   z.object({
     passo: z.literal('regole'),
@@ -26,6 +28,24 @@ export const avanzaPassoSchema = z.discriminatedUnion('azione', [
       consenso_salute: z.string().min(1).max(40),
     }),
   }),
+  // release B2: the day and the hour booked on the coach's calendar (the database checks the window)
+  z.object({
+    passo: z.literal('prenotazione'),
+    azione: z.literal('prenotato'),
+    dati: z.object({
+      giorno: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, ERRORI_PERCORSO.giornoOra),
+      ora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, ERRORI_PERCORSO.giornoOra),
+    }),
+  }),
+  z.object({
+    passo: z.literal('community'),
+    azione: z.literal('username'),
+    dati: z.object({ username: z.string().trim().min(1, ERRORI_PERCORSO.username).max(40, ERRORI_PERCORSO.username) }),
+  }),
+  z.object({ passo: z.literal('community'), azione: z.enum(['richiesta_inviata', 'presentato']) }),
+  z.object({ passo: z.literal('obiettivo'), azione: z.literal('visto') }),
+  z.object({ passo: z.literal('test'), azione: z.literal('spunta'), dati: z.object({ voce: z.string().uuid(ERRORI_PERCORSO.nonValidi) }) }),
+  z.object({ passo: z.literal('programma'), azione: z.literal('completa') }),
 ])
 export type AvanzaPasso = z.infer<typeof avanzaPassoSchema>
 

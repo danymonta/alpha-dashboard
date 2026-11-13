@@ -233,6 +233,41 @@ export function eventoInParole(evento: EventoRegistro, lingua: Lingua = 'it'): s
       const come = typeof d.come === 'string' ? ONBOARDING[lingua].cliente.canaliRevoca[d.come] : undefined
       return come ? t.conMotivo(t.consensoRevocato, come) : t.consensoRevocato
     }
+    // release B2 (1.80.0): the team's work; never a Meet link. The reasons of «Sblocca» and «Riavvia» are the
+    // words of the person who wrote them: the log is the admin's only
+    case 'passo_inviato':
+      return typeof d.passo === 'string' ? t.passoInviato(titoloPasso(d.passo, null, lingua)) : t.altro
+    case 'call_confermata':
+      return t.callConfermata
+    case 'call_svolta':
+      return d.tipo === 'checkpoint' ? t.checkpointSvolto : t.callSvolta
+    case 'call_spostata':
+      return t.callSpostata
+    case 'call_non_presentato':
+      return t.callNonPresentato
+    case 'obiettivo_aperto':
+      return t.obiettivoAperto
+    case 'test_ricevuti':
+      return t.testRicevuti
+    case 'programma_consegnato':
+      return t.programmaConsegnato
+    case 'community_approvata':
+      return t.communityApprovata
+    case 'community_controllata':
+      return t.communityControllata
+    case 'passo_sbloccato': {
+      const frase = typeof d.passo === 'string' ? t.passoSbloccato(titoloPasso(d.passo, null, lingua)) : t.altro
+      const motivo = typeof d.motivo === 'string' ? d.motivo.trim() : ''
+      return motivo ? t.conMotivo(frase, motivo) : frase
+    }
+    case 'onboarding_riavviato': {
+      const motivo = typeof d.motivo === 'string' ? d.motivo.trim() : ''
+      return motivo ? t.conMotivo(t.onboardingRiavviato, motivo) : t.onboardingRiavviato
+    }
+    case 'onboarding_completato':
+      return t.onboardingCompletato
+    case 'telegram_gruppo_creato':
+      return t.telegramGruppo
     default:
       return t.altro
   }

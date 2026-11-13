@@ -15,14 +15,24 @@ import { SCHERMATE, domandeDi, rispostaInParole } from '@/lib/percorso/questiona
  * in both languages (they are the client's data, marked lang="it"). A file opens through
  * /api/onboarding/allegati/[id]: a signed address of 60 seconds, always downloaded.
  */
+/** The questions with the client's contacts: the admin's only. */
+const DOMANDE_CONTATTO = new Set(['email', 'telefono'])
+
 export function QuestionarioScheda({
   lingua,
   questionario,
   allegati,
+  senzaContatti = false,
 }: {
   lingua: Lingua
-  questionario: QuestionarioScheda | null
-  allegati: readonly AllegatoScheda[]
+  /** The coach's sheet: the email and the phone never reach him (the function drops them), so no empty rows. */
+  senzaContatti?: boolean
+  /** The coach's function (B2) gives neither the screen nor the last save: null. */
+  questionario:
+    | (Omit<QuestionarioScheda, 'schermata' | 'updated_at'> & { schermata: number | null; updated_at: string | null })
+    | null
+  /** The coach's function gives no size: undefined. */
+  allegati: readonly (Omit<AllegatoScheda, 'byte'> & { byte?: number })[]
 }) {
   const t = ONBOARDING[lingua].cliente
   const { formatData } = formato(lingua)
@@ -48,7 +58,9 @@ export function QuestionarioScheda({
           >
             {questionario.inviato_il
               ? t.questionarioInviato(giorno(questionario.inviato_il))
-              : t.questionarioInCorso(questionario.schermata, giorno(questionario.updated_at))}
+              : questionario.schermata !== null && questionario.updated_at
+                ? t.questionarioInCorso(questionario.schermata, giorno(questionario.updated_at))
+                : t.questionarioNonInviato}
           </p>
           <div lang="it" className="space-y-1">
             {SCHERMATE.map((s) => (
@@ -65,7 +77,7 @@ export function QuestionarioScheda({
                   />
                 </summary>
                 <dl className="divide-y divide-border/70 border-t border-border/70">
-                  {domandeDi(s.numero).map((d) => {
+                  {domandeDi(s.numero).filter((d) => !senzaContatti || !DOMANDE_CONTATTO.has(d.chiave)).map((d) => {
                     const risposta = rispostaInParole(d, questionario.risposte[d.chiave])
                     return (
                       <div key={d.chiave} className="space-y-1 px-3 py-2.5" data-risposta={d.chiave}>
@@ -104,7 +116,13 @@ export function QuestionarioScheda({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{a.nome_file}</span>
                       <span className="num block text-xs text-muted-foreground">
-                        {[t.campiAllegato[a.campo] ?? a.campo, isPdf ? t.filePdf : t.fileFoto, dimensioneInParole(a.byte)].join(' · ')}
+                        {[
+                          t.campiAllegato[a.campo] ?? a.campo,
+                          isPdf ? t.filePdf : t.fileFoto,
+                          a.byte !== undefined ? dimensioneInParole(a.byte) : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </span>
                     </span>
                     <Download className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />

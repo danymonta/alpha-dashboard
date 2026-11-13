@@ -454,6 +454,9 @@ describe('incarichi, Telegram e impostazioni', () => {
         revisore_predefinito_id: null,
         responsabile_predefinito_id: ADMIN,
         link_community: 'https://t.me/percorsoalpha_prova',
+        // release B2: the booking page and the email «Tocca a te» (on by default)
+        link_prenotazione: null,
+        avvisa_cliente_email: true,
         giorni_validita_link: 21,
         updated_by: ADMIN,
       },

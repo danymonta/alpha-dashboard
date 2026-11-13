@@ -43,3 +43,20 @@ export function nomeAccessibileNodo(chiave: string, stato: StatoNodo, precedente
   if (stato === 'attuale') return `${etichetta}, attuale`
   return precedente ? `${etichetta}, si sblocca dopo ${etichettaNodo(precedente)}` : `${etichetta}, da sbloccare`
 }
+
+type PassoMinimo = { chiave: string; attore: 'cliente' | 'team'; stato: string }
+
+/**
+ * Whether a step is in the client's hands now: one of his available or in progress; the
+ * programme too (a step of the team) once delivered, while the client watches its videos
+ * (release B2, percorso_cliente().in_attesa says the same).
+ */
+export function staAlCliente(p: PassoMinimo): boolean {
+  if (p.chiave === 'programma') return p.stato === 'disponibile'
+  return p.attore === 'cliente' && (p.stato === 'disponibile' || p.stato === 'in_corso')
+}
+
+/** The step the panel shows: the first in the client's hands, by the order of the flow. */
+export function primoPassoDelCliente<P extends PassoMinimo>(passi: readonly P[]): P | null {
+  return passi.find(staAlCliente) ?? null
+}

@@ -326,7 +326,7 @@ test('il setter non ha la voce Onboarding e le sue pagine lo rimandano', async (
   await expect(page.getByRole('heading', { name: 'Onboarding' })).toHaveCount(0)
 })
 
-test('Impostazioni › Onboarding: i giorni del link si salvano, l’area clienti si legge soltanto', async ({ page }) => {
+test('Impostazioni › Onboarding: i giorni del link si salvano, l’area clienti resta chiusa', async ({ page }) => {
   const db = dbLocale()
   const { data: prima } = await db.from('onboarding_impostazioni').select('giorni_validita_link').single()
   await accedi(page, 'admin')
@@ -334,7 +334,8 @@ test('Impostazioni › Onboarding: i giorni del link si salvano, l’area client
     await page.goto('/settings')
     await page.getByRole('link', { name: /Onboarding/ }).last().click()
     await expect(page).toHaveURL('/settings/onboarding')
-    await expect(page.getByTestId('area-clienti')).toContainText('Non ancora aperta')
+    // release B2: the switch «Area clienti», closed until the admin opens it (percorso-apertura.spec.ts)
+    await expect(page.getByTestId('area-clienti')).toContainText('Chiusa ai clienti')
 
     const giorni = page.getByLabel('Giorni di validità del link')
     await giorni.fill('120')

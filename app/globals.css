@@ -104,6 +104,9 @@
   --vetro-ombra: 0 14px 44px -18px rgb(0 0 0 / 0.7);
   --glow-primario: color-mix(in srgb, var(--alpha-bordeaux-light) 55%, transparent);
   --glow-oro: color-mix(in srgb, var(--alpha-gold) 40%, transparent);
+  /* the fire of the client's path (release B2): the breathing stage, the flash, the rocket */
+  --glow-fuoco: color-mix(in srgb, var(--brand-fire-flame) 42%, transparent);
+  --glow-brace: color-mix(in srgb, var(--brand-fire-ember) 34%, transparent);
   --ambiente-1: color-mix(in srgb, var(--alpha-bordeaux) 36%, transparent);
   --ambiente-2: color-mix(in srgb, var(--alpha-gold) 9%, transparent);
   /* 1.73.0, «più luce»: a third glow on the top right, a sheen on every card, glass menus */
@@ -225,6 +228,8 @@
   --vetro-ombra: 0 14px 40px -20px rgb(90 50 30 / 0.3);
   --glow-primario: color-mix(in srgb, var(--alpha-bordeaux) 35%, transparent);
   --glow-oro: color-mix(in srgb, var(--alpha-gold) 22%, transparent);
+  --glow-fuoco: color-mix(in srgb, var(--brand-fire-flame) 30%, transparent);
+  --glow-brace: color-mix(in srgb, var(--brand-fire-ember) 22%, transparent);
   --ambiente-1: color-mix(in srgb, var(--alpha-bordeaux) 12%, transparent);
   --ambiente-2: color-mix(in srgb, var(--alpha-gold) 14%, transparent);
   --ambiente-3: color-mix(in srgb, var(--alpha-gold) 9%, transparent);
@@ -393,6 +398,79 @@ body::before {
   }
   body::before {
     display: none;
+  }
+}
+
+/* The client's path (release B2, docs/onboarding/rilascio-b.md, «Timeline»; specification
+   4.4): the light of the timeline, still. The opening (the line drawing from the left, the
+   stages one after the other) is CSS, played at the first paint and only without «Riduci
+   movimento»; the rest moves with `motion` (components/percorso/animazioni/), on transform
+   and opacity only. `backwards` and never `forwards`: once over, the element's own style
+   wins again, and motion can move it. Colours from the fire and glow tokens only. */
+.percorso-linea {
+  background-image: linear-gradient(
+    90deg,
+    var(--primary),
+    color-mix(in srgb, var(--brand-fire-ember) 55%, var(--primary))
+  );
+  box-shadow: 0 0 10px 1px var(--glow-primario);
+}
+.percorso-nodo-fatto {
+  box-shadow: 0 0 14px -2px var(--glow-primario);
+}
+.percorso-nodo-attuale {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.percorso-respiro {
+  opacity: 0.8;
+  box-shadow:
+    0 0 22px 3px var(--glow-primario),
+    0 0 36px 6px var(--glow-fuoco);
+}
+.percorso-lampo {
+  background-image: radial-gradient(
+    circle,
+    var(--brand-fire-core) 0%,
+    var(--glow-fuoco) 34%,
+    transparent 68%
+  );
+}
+.percorso-nodo-attuale [data-anim="razzo"] {
+  color: var(--brand-fire-flame);
+  filter: drop-shadow(0 0 6px var(--glow-fuoco));
+}
+.light .percorso-nodo-attuale [data-anim="razzo"] {
+  /* the flame is too pale on the cream card: the ember, darker, keeps 3:1 */
+  color: color-mix(in srgb, var(--brand-fire-ember) 70%, var(--brand-fire-deep));
+}
+@keyframes percorso-linea {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes percorso-nodo {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
+}
+@keyframes percorso-attesa {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* the opening waits for the current stage to be centred (timeline.tsx sets data-pronta): until then the
+     stages stay hidden, and without JavaScript they appear by themselves after a moment */
+  [data-timeline]:not([data-pronta]) .percorso-linea-entra,
+  [data-timeline]:not([data-pronta]) .percorso-nodo-entra {
+    animation: percorso-attesa 0s linear 1.5s backwards;
+  }
+  [data-pronta] .percorso-linea-entra {
+    animation: percorso-linea var(--durata-linea, 800ms) var(--curva-linea, ease-out) var(--ritardo-linea, 0ms) backwards;
+  }
+  [data-pronta] .percorso-nodo-entra {
+    animation: percorso-nodo 320ms cubic-bezier(0.22, 1, 0.36, 1) var(--ritardo-nodo, 0ms) backwards;
   }
 }
 
