@@ -86,6 +86,21 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.83.1',
+    data: '2026-11-13',
+    titolo: 'Due domande del questionario più chiare',
+    riassunto: 'La domanda sul piano alimentare e quella sul successo del percorso dicono meglio cosa chiedono.',
+    intestazionePer: ['admin'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo:
+          'Questionario dell’onboarding: «Sei già seguito da qualcun altro sul piano alimentare?» con «Sì, ho un professionista che mi segue» e «No, mi affido a voi!», e «Tra sei mesi, cosa ti farà dire «ce l’ho fatta»?» con esempi concreti al posto dell’elenco tra parentesi.',
+      },
+    ],
+  },
+  {
     versione: '1.83.0',
     data: '2026-11-13',
     titolo: 'Il campo base del cliente, l’Aula e lo storico delle call',

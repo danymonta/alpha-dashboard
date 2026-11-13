@@ -62,7 +62,7 @@ describe('la riga del foglio', () => {
     expect(riga[9]).toBe(4) // J
     expect(riga[14]).toBe('Piegamenti: 20, Trazioni: non lo so, Dip: 5') // O
     expect(riga[16]).toBe('Sì') // Q
-    expect(riga[19]).toBe('No') // T
+    expect(riga[19]).toBe('No, mi affido a voi!') // T
     expect(riga[21]).toMatch(/^Attivo \(meno di 5h/) // V, con le parole tra parentesi del modulo
     expect(riga[23]).toBe('Bere alcol, Altre sostanze, Altro: Troppi dolci') // X
     expect(riga[25]).toBe('40-60 minuti') // Z

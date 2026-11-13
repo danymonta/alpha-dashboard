@@ -171,9 +171,12 @@ export const DOMANDE: readonly Domanda[] = [
     chiave: 'seguito_alimentazione',
     schermata: 2,
     tipo: 'scelta',
-    testo: 'Sei seguito sul piano alimentare?',
+    testo: 'Sei già seguito da qualcun altro sul piano alimentare?',
     aiuto: 'Se sì, carica qui sotto il tuo piano alimentare attuale.',
-    opzioni: SI_NO_OPZIONI,
+    opzioni: [
+      { valore: 'si', etichetta: 'Sì, ho un professionista che mi segue' },
+      { valore: 'no', etichetta: 'No, mi affido a voi!' },
+    ],
     allegato: {
       campo: 'piano_alimentare',
       etichetta: 'Il tuo piano alimentare',
@@ -239,9 +242,9 @@ export const DOMANDE: readonly Domanda[] = [
     schermata: 4,
     tipo: 'testo',
     lungo: true,
-    testo: 'Cosa vorrebbe dire per te avere successo con questo programma di allenamento?',
+    testo: 'Tra sei mesi, cosa ti farà dire «ce l’ho fatta»?',
     aiuto:
-      '(aumentando di massa muscolare, perdendo grasso, migliorando la tua definizione muscolare, costruendo un fisico più sicuro, migliorare la tua disciplina, essere la migliore versione di te stesso)',
+      'Pensa a un risultato concreto, che vedi o senti. Ad esempio: più massa su petto e spalle, meno grasso sulla pancia, addominali visibili, 10 trazioni, allenarti con costanza senza saltare, sentirti sicuro davanti allo specchio.',
   },
   {
     chiave: 'perche_noi',

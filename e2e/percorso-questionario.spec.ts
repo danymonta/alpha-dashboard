@@ -107,7 +107,7 @@ const RISPOSTE: Record<string, string> = {
 }
 const SCELTE: Record<string, string> = {
   livello_attivita: 'Attivo',
-  seguito_alimentazione: 'No',
+  seguito_alimentazione: 'No, mi affido a voi!',
   giorni_settimana: '3',
   minuti_giorno: '40-60 minuti',
   pronto: 'Sì',

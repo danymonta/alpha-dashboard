@@ -228,7 +228,10 @@ describe('le domande del modulo Google', () => {
       'Scarsa motivazione e autostima',
     ])
     expect(opzioni('pronto').map((o) => o.etichetta)).toEqual(['Sì', 'No'])
-    expect(opzioni('seguito_alimentazione').map((o) => o.etichetta)).toEqual(['Sì', 'No'])
+    expect(opzioni('seguito_alimentazione').map((o) => o.etichetta)).toEqual([
+      'Sì, ho un professionista che mi segue',
+      'No, mi affido a voi!',
+    ])
   })
 
   it('le obbligatorie sono le domande senza «facoltativa», e la migration ha le stesse chiavi', () => {
