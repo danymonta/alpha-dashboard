@@ -86,6 +86,27 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.77.3',
+    data: '2026-11-13',
+    titolo: 'Insight: messaggi con le nuove istruzioni setter',
+    riassunto:
+      'I messaggi che l’Insight suggerisce per i DM seguono le istruzioni setter aggiornate di Dany: aperture diverse per chi arriva dai video sul petto scavato, domanda di permesso prima del mini-audit, reel sul pectus, mai una cifra in DM e solo maggiorenni.',
+    intestazionePer: ['setter'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['setter'],
+        testo:
+          'Il messaggio pronto da inviare segue le istruzioni setter aggiornate: dopo l’obiettivo la domanda di permesso prima delle altre domande, la risposta al prezzo con il template «Ti rispondo onestamente», il reframe sui no gentili, il reel sul petto scavato a chi chiede che esercizi fare, mai un orario proposto o accettato in DM.',
+      },
+      {
+        per: ['setter'],
+        testo:
+          'Seguiamo solo maggiorenni: a un lead sotto i 18 anni l’Insight propone solo l’uscita calorosa verso i contenuti gratuiti, mai una call, il Calendly o una cifra. Se un messaggio ne proponesse una, non viene mostrato e la scheda dice di scriverlo a mano. Nell’agenda, una call con un minorenne non ha più il promemoria: la decide Dany.',
+      },
+    ],
+  },
+  {
     versione: '1.77.2',
     data: '2026-11-13',
     titolo: 'Claude collegato: niente più collegamenti appesi',

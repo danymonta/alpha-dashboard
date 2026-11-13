@@ -4,6 +4,7 @@ import type { SchedaSalvata } from '@/lib/insight/contratti'
 import {
   applicaCorrezioni,
   CALENDLY,
+  REEL_PECTUS,
   controllaMessaggio,
   daCorreggere,
   linkEstranei,
@@ -60,14 +61,26 @@ describe('safety: the message is removed', () => {
   const qualifica =
     'Visto che hai 16 anni, una cosa importante prima di andare avanti.\nIl percorso 1-1 con me è un investimento di 100 euro al mese, con un piano di allenamento personalizzato fatto da me per arrivare a mettere massa.\nÈ una cosa che potresti valutare insieme ai tuoi genitori?'
 
-  it('«100 euro al mese» passes only in the qualification of a minor between 14 and 17 (C6)', () => {
-    expect(controllaMessaggio(qualifica, { dove: 'lead', fascia_eta: '14_17' }).sicurezza).toBeNull()
+  it('no price passes, not even the old qualification of minors (setter instructions of 13/11/2026)', () => {
+    expect(controllaMessaggio(qualifica, { dove: 'lead', fascia_eta: '14_17' }).sicurezza).toBe(MOTIVI_SICUREZZA.prezzo)
     expect(controllaMessaggio(qualifica, { dove: 'lead', fascia_eta: 'maggiorenne' }).sicurezza).toBe(MOTIVI_SICUREZZA.prezzo)
     expect(controllaMessaggio(qualifica, { dove: 'lead', fascia_eta: 'ignota' }).sicurezza).toBe(MOTIVI_SICUREZZA.prezzo)
   })
 
-  it('a price of the ICP never passes, not even for a minor (N10)', () => {
-    expect(controllaMessaggio(`${qualifica}\nIn tutto sono 1.500 €.`, { dove: 'lead', fascia_eta: '14_17' }).sicurezza).toBe(MOTIVI_SICUREZZA.prezzo)
+  it('a lead between 14 and 17 never receives a call or the Calendly, only the warm exit', () => {
+    const minorenne = { dove: 'lead', fascia_eta: '14_17' } as const
+    expect(controllaMessaggio('Facciamo così: fissiamo una videochiamata gratuita.\nTi andrebbe?', minorenne).sicurezza).toBe(MOTIVI_SICUREZZA.minorenne)
+    expect(controllaMessaggio(`Ecco il link: ${CALENDLY}`, minorenne).sicurezza).toBe(MOTIVI_SICUREZZA.minorenne)
+    const uscita =
+      'Purtroppo al momento seguo direttamente solo ragazzi maggiorenni, ma sul mio profilo trovi tanti contenuti gratuiti che ti possono aiutare.\nQuando vuoi, scrivimi pure 💪'
+    expect(controllaMessaggio(uscita, minorenne).sicurezza).toBeNull()
+    expect(controllaMessaggio(`Ti lascio un reel che ti può essere utile:\n${REEL_PECTUS}`, minorenne).sicurezza).toBeNull()
+  })
+
+  it('the pectus reel is the only link allowed besides the Calendly', () => {
+    expect(controllaMessaggio(`Ti lascio un reel che ti può essere utile:\n${REEL_PECTUS}`, lead).sicurezza).toBeNull()
+    expect(linkEstranei('instagram.com/reel/Dd35dA-Cd-q/ e https://www.instagram.com/reel/Dd35dA-Cd-q')).toEqual([])
+    expect(linkEstranei('https://www.instagram.com/reel/AltroReel01/')).toEqual(['https://www.instagram.com/reel/AltroReel01/'])
   })
 
   it('any proposal to a lead under 14', () => {

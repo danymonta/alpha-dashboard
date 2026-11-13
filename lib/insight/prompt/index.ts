@@ -30,7 +30,7 @@ import type { TipoBlocco } from '@/lib/insight/contratti'
  * schema of lib/insight/schema.ts means a new version, so every chat is
  * analysed again with the new prompt.
  */
-export const VERSIONE_PROMPT = '2026-10-15.2'
+export const VERSIONE_PROMPT = '2026-11-13.1'
 
 const CACHE = { type: 'ephemeral' } as const
 

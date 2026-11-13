@@ -11,9 +11,11 @@ import type { Correzione, DatiAgenda, DatiSchedaLead, DatiShowUp } from '@/lib/i
  *   attimo» becomes «dammi un attimo», a new line after every sentence (the
  *   setter's instructions: «a capo dopo ogni punto»).
  * - Safety, the message is removed (next_action says to write it by hand): a
- *   link other than Dany's Calendly; a price, except the setter's
- *   qualification of minors between 14 and 17 («100 euro al mese», C6; the
- *   ICP's prices never: N10); any proposal to a lead under 14.
+ *   link other than Dany's Calendly and his pectus reel; any price (since the
+ *   setter's instructions of 13/11/2026 never a figure in a DM, not even for a
+ *   minor; the ICP's prices never: N10); any proposal to a lead under 14; a
+ *   call, the Calendly or the 1-1 proposed to a lead between 14 and 17 (only
+ *   adults are followed: the warm exit only).
  * - Style, sent back to Claude once (the correzione step), then shown with
  *   «Da ricontrollare»: «Dany» in the third person, more than one question
  *   (two only when the second asks the age), the Calendly and «Ti andrebbe?»
@@ -26,6 +28,8 @@ import type { Correzione, DatiAgenda, DatiSchedaLead, DatiShowUp } from '@/lib/i
  */
 
 export const CALENDLY = 'https://calendly.com/danielemontagnolo/coaching-call'
+/** The reel the setter's instructions send to a lead with pectus excavatum who asks for exercises (REGOLE DI FLOW 12). */
+export const REEL_PECTUS = 'https://www.instagram.com/reel/Dd35dA-Cd-q/?vrfl=aWh4dmI3NjRtYjFx'
 
 export type DoveMessaggio = 'lead' | 'obiezione' | 'agenda' | 'show_up'
 
@@ -50,6 +54,7 @@ export const MOTIVI_SICUREZZA = {
   link: 'link diverso dal Calendly',
   prezzo: 'prezzo nel messaggio',
   minore: 'proposta a un minore sotto i 14 anni',
+  minorenne: 'call o percorso proposti a un minorenne',
 } as const
 
 export const VIOLAZIONI_STILE = {
@@ -109,9 +114,12 @@ export function normalizzaMessaggio(testo: string): { testo: string; normalizzaz
 const RE_URL =
   /\bhttps?:\/\/[^\s<>"'()\]]+|\bwww\.[^\s<>"'()\]]+|\b(?:[a-z0-9-]+\.)+(?:com|it|net|org|io|me|ly|app|co|eu|info|biz|xyz|link|site|online|shop|store|test|gg|tv)\b(?:\/[^\s<>"'()\]]*)?/giu
 
-/** The links of a text other than Dany's Calendly (with or without https, www or the final slash). */
+/**
+ * The links of a text other than Dany's Calendly and his pectus reel (with or
+ * without https, www, the final slash, a query or a fragment).
+ */
 export function linkEstranei(testo: string): string[] {
-  const ammessi = new Set(['calendly.com/danielemontagnolo/coaching-call'])
+  const ammessi = new Set(['calendly.com/danielemontagnolo/coaching-call', 'instagram.com/reel/dd35da-cd-q'])
   return [...testo.matchAll(RE_URL)]
     .map((m) => m[0].replace(/[.,;:!?…]+$/u, ''))
     .filter((url) => {
@@ -119,23 +127,18 @@ export function linkEstranei(testo: string): string[] {
         .toLowerCase()
         .replace(/^https?:\/\//u, '')
         .replace(/^www\./u, '')
+        .replace(/[?#].*$/u, '')
         .replace(/\/+$/u, '')
       return !ammessi.has(nudo)
     })
 }
 
+/** A price in a DM: never, for anyone (setter's instructions of 13/11/2026). */
 const RE_PREZZO = /€|\beuro\b|\beur\b/iu
-/** The only price the setter's instructions allow in a DM: the qualification of minors (14 to 17). */
-const RE_QUALIFICA_MINORI = /investimento di 100 euro al mese/iu
-
-function haPrezzoNonAmmesso(testo: string, fascia: FasciaEta | null | undefined): boolean {
-  const prezzi = testo.match(new RegExp(RE_PREZZO.source, 'giu'))?.length ?? 0
-  if (prezzi === 0) return false
-  const qualifica = fascia === '14_17' && prezzi === 1 && RE_QUALIFICA_MINORI.test(testo) && /genitori/iu.test(testo)
-  return !qualifica
-}
 
 const RE_PROPOSTA = /calendly|videochiamat|\bcall\b|percorso|\b1\s*[-:]\s*1\b|investimento|prenot|\blink\b/iu
+/** A call, the Calendly or the 1-1 proposed: what a lead between 14 and 17 never receives (the warm exit may name the free contents). */
+const RE_PROPOSTA_MINORENNE = /calendly|videochiamat|\bcall\b|\b1\s*[-:]\s*1\b|investimento|prenot/iu
 
 const RE_DANY = /\bDany\b/gu
 const RE_ETA = /\banni\b|\bet[àa]\b/iu
@@ -167,7 +170,8 @@ export function controllaMessaggio(testo: string, contesto: ContestoMessaggio): 
   let sicurezza: string | null = null
   if (linkEstranei(t).length > 0) sicurezza = MOTIVI_SICUREZZA.link
   else if (contesto.fascia_eta === 'sotto_14' && (RE_PROPOSTA.test(t) || RE_PREZZO.test(t))) sicurezza = MOTIVI_SICUREZZA.minore
-  else if (haPrezzoNonAmmesso(t, contesto.fascia_eta)) sicurezza = MOTIVI_SICUREZZA.prezzo
+  else if (RE_PREZZO.test(t)) sicurezza = MOTIVI_SICUREZZA.prezzo
+  else if (contesto.fascia_eta === '14_17' && RE_PROPOSTA_MINORENNE.test(t)) sicurezza = MOTIVI_SICUREZZA.minorenne
 
   const stile: string[] = []
   if (terzaPersona(t)) stile.push(VIOLAZIONI_STILE.terzaPersona)
