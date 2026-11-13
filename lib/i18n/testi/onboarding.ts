@@ -1,6 +1,7 @@
 import { bilingue, type Lingua } from '@/lib/i18n/lingua'
 import { traduciErrore } from '@/lib/i18n/testi/errori-economics'
 import { ERRORI_ONBOARDING } from '@/lib/validation/onboarding'
+import { ERRORI_BLOCCO } from '@/lib/validation/percorso'
 
 /**
  * The words of the guided onboarding, release A (1.77.0, Dany 12/11/2026): the wizard
@@ -908,6 +909,8 @@ const ERRORI_EN: Record<string, string> = {
   [E.telegramNonSalvato]: 'Telegram not updated. Try again.',
   [E.impostazioniNonSalvate]: 'Settings not saved. Try again.',
   [E.risposta]: 'The onboarding has started, but the answer cannot be read: open the Onboarding section.',
+  [E.provaNonSalvata]: 'Test client not updated. Try again.',
+  [E.nonEliminato]: 'Onboarding not deleted. Try again.',
   // the database's own words (20261108090000 and 20261108090200), with the straight apostrophe of SQL; three of
   // them are word for word the sentences above (already started, the note and the reason too long)
   "L'onboarding parte solo da una vendita a un nuovo cliente.": 'The onboarding starts only from a sale to a new client.',
@@ -947,6 +950,26 @@ const ERRORI_EN: Record<string, string> = {
   "Gli incarichi li sceglie l'admin": 'The people in charge are chosen by the admin',
   'Questo cliente non ha un onboarding.': 'This client has no onboarding.',
   "Il token non corrisponde all'invito": 'The token does not match the link',
+  // 1.78.0 (20261109090000, 20261109090200)
+  "Il cliente di prova lo segna l'admin": 'The test client is marked by the admin',
+  'Scegli se è un cliente di prova': 'Choose whether it is a test client',
+  'Il cliente è già registrato.': 'The client is already registered.',
+  "Un onboarding lo elimina l'admin": 'An onboarding is deleted by the admin',
+  "Il cliente si è già registrato: per fermare l'onboarding usa «Revoca».":
+    'The client has already registered: to stop the onboarding use «Revoke».',
+  'Un onboarding si elimina solo con «Elimina onboarding».': 'An onboarding is deleted only with «Delete onboarding».',
+  // the CMS of the client's contents (lib/validation/percorso.ts)
+  [ERRORI_BLOCCO.soloAdmin]: 'The contents of the path are written by the admin.',
+  [ERRORI_BLOCCO.titolo]: 'The title is 120 characters at most',
+  [ERRORI_BLOCCO.titoloObbligatorio]: 'Write the title',
+  [ERRORI_BLOCCO.corpo]: 'The text is 8,000 characters at most',
+  [ERRORI_BLOCCO.youtube]: 'Paste the address of the YouTube video or its 11-character id',
+  [ERRORI_BLOCCO.url]: 'The link must start with https://',
+  [ERRORI_BLOCCO.urlObbligatorio]: 'The button needs a link',
+  [ERRORI_BLOCCO.ordine]: 'Invalid order',
+  [ERRORI_BLOCCO.passo]: 'Choose the step',
+  [ERRORI_BLOCCO.nonSalvato]: 'Content not saved. Try again.',
+  [ERRORI_BLOCCO.nonEliminato]: 'Content not deleted. Try again.',
 }
 
 /** The Italian sentences this file knows how to say in English (tests/onboarding-i18n.test.ts). */

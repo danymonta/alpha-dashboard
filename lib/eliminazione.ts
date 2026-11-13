@@ -6,7 +6,7 @@
  */
 import type { Lingua } from '@/lib/i18n/lingua'
 
-export type TipoEliminazione = 'persona' | 'cliente' | 'vendita' | 'lead' | 'prodotto' | 'reparto'
+export type TipoEliminazione = 'persona' | 'cliente' | 'vendita' | 'lead' | 'prodotto' | 'reparto' | 'onboarding'
 
 // the SQL sends counts, the cashed amount as text and, for the onboarding, a boolean
 type Dati = Record<string, number | string | boolean | null | undefined>
@@ -60,6 +60,20 @@ export function frasiAnteprima(tipo: TipoEliminazione, dati: Dati, lingua: Lingu
       if (n(dati, 'progetti') > 0) frasi.push('Il suo progetto in Progetti resta, senza il collegamento al cliente.')
       // 1.77.0: the invite, the path, the steps, the log and Telegram go with the client
       if (n(dati, 'onboarding') > 0) frasi.push('Si elimina anche il suo onboarding: link, passi e registro.')
+      // 1.78.0: the client's access to the path (its user goes too)
+      if (n(dati, 'accesso_cliente') > 0) frasi.push('Si perde anche il suo accesso al percorso.')
+      break
+    case 'onboarding':
+      // «Elimina onboarding» (1.78.0): only before the client registers
+      {
+        const task = n(dati, 'task_onboarding')
+        frasi.push(
+          task === 0
+            ? 'Si tolgono il link, gli step, il team incaricato e il registro.'
+            : `Si tolgono il link, gli step, il team incaricato, il registro e ${task === 1 ? 'il task' : `i ${task} task`} della lista «Onboarding».`,
+        )
+      }
+      frasi.push('Cliente, vendita, rate e progetto restano.')
       break
     case 'vendita':
       frasi.push(
@@ -129,6 +143,18 @@ function frasiInglese(tipo: TipoEliminazione, dati: Dati): string[] {
       if (n(dati, 'cartella_drive') > 0) frasi.push('The link to their Drive folder goes too: the folder on Drive stays.')
       if (n(dati, 'progetti') > 0) frasi.push('Their project in Projects stays, without the link to the client.')
       if (n(dati, 'onboarding') > 0) frasi.push('Their onboarding goes too: link, steps and log.')
+      if (n(dati, 'accesso_cliente') > 0) frasi.push('Their access to the path goes too.')
+      break
+    case 'onboarding':
+      {
+        const task = n(dati, 'task_onboarding')
+        frasi.push(
+          task === 0
+            ? 'The link, the steps, the team in charge and the log go.'
+            : `The link, the steps, the team in charge, the log and ${task === 1 ? 'the task' : `the ${task} tasks`} of the «Onboarding» list go.`,
+        )
+      }
+      frasi.push('Client, sale, instalments and project stay.')
       break
     case 'vendita':
       frasi.push(
@@ -161,5 +187,6 @@ function frasiInglese(tipo: TipoEliminazione, dati: Dati): string[] {
 
 /** A department with projects cannot be deleted: the preview says so before trying. */
 export function eliminazioneBloccata(tipo: TipoEliminazione, dati: Dati): boolean {
-  return tipo === 'reparto' && n(dati, 'progetti') > 0
+  // an onboarding whose client has registered stops with «Revoca», never with a tap (1.78.0)
+  return (tipo === 'reparto' && n(dati, 'progetti') > 0) || (tipo === 'onboarding' && n(dati, 'accesso_cliente') > 0)
 }

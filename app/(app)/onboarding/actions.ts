@@ -67,3 +67,13 @@ export async function salvaTelegram(input: unknown): Promise<Esito> {
 export async function salvaImpostazioni(input: unknown): Promise<Esito> {
   return onboarding.salvaImpostazioni(await nucleo(), input)
 }
+
+/** «Cliente di prova» (1.78.0): the link works with the client area closed. */
+export async function segnaProva(input: unknown): Promise<EsitoLink> {
+  return onboarding.segnaProva(await nucleo(), input)
+}
+
+/** «Elimina onboarding» (1.78.0): only before the client registers. */
+export async function eliminaOnboarding(input: unknown): Promise<Esito> {
+  return onboarding.eliminaOnboarding(await nucleo(), input)
+}

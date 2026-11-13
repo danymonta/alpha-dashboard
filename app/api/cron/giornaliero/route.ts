@@ -11,6 +11,7 @@ import { inviaRiepilogoSettimana, type Destinatario } from '@/lib/email/riepilog
 import { inviaTempoTeam } from '@/lib/email/tempo-team-invio'
 import { publicEnv } from '@/lib/env'
 import { creaAvvisiDellaSera } from '@/lib/notifiche/collegamenti'
+import { pulisciUtentiOrfani } from '@/lib/percorso/pulizia'
 import { inviaPromemoriaPercorso } from '@/lib/promemoria/percorso'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { settimanaPrecedente } from '@/lib/tempo'
@@ -38,6 +39,7 @@ const TEMPO_PROMEMORIA_MS = 50_000
  *   public.riepilogo_contenuti_settimana);
  * - on Mondays, the weekly backup and, after it, last week's team time by email
  *   to the same admins (Dany, 21/10/2026; settimanaPrecedente, public.riepilogo_tempo_team);
+ * - the users of the clients without an account (1.78.0, lib/percorso/pulizia.ts);
  * - the path reminders ("Call dei 3 mesi", "Call di rinnovo"), one email each,
  *   to the same admins (04/10/2026), last because they can wait a day.
  * Every one of these emails is also saved for the admins in the app
@@ -76,6 +78,14 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     console.error('[giornaliero] avvisi', e instanceof Error ? e.name : 'errore')
     esito.avvisi = 'non riusciti'
+  }
+
+  // The users of deleted clients (1.78.0): Auth is not cleaned from SQL. A failure stops nothing.
+  try {
+    esito.utenti_clienti = await pulisciUtentiOrfani(admin)
+  } catch (e) {
+    console.error('[giornaliero] utenti dei clienti', e instanceof Error ? e.name : 'errore')
+    esito.utenti_clienti = 'non riuscita'
   }
 
   // Friday in Rome: the week from Saturday to today. A summary that fails is

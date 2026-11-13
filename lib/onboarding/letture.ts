@@ -282,7 +282,8 @@ export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboa
 
   const r = riga.data
   let link: LinkScheda | null = null
-  if (impostazioni.aperto_ai_clienti && r.invito_id && r.slug && r.invito_stato === 'attivo') {
+  // a test link (1.78.0) can be copied with the area closed
+  if ((impostazioni.aperto_ai_clienti || r.prova === true) && r.invito_id && r.slug && r.invito_stato === 'attivo') {
     const { data: token, error } = await db
       .from('onboarding_inviti_token')
       .select('token')

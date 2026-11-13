@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 import { LinguaProvider } from '@/components/i18n/lingua-provider'
 import { TOASTER_PANNELLO } from '@/components/marketing/toaster-pannello'
@@ -77,6 +77,8 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
   const tema = temaDaCookie((await cookies()).get(COOKIE_TEMA)?.value)
   // the language of this device (cookie «alpha_lingua»), or of the role without one (1.53.0)
   const lingua = await getLingua()
+  // the client's pages have a Content-Security-Policy with a nonce (1.78.0): the first-paint script carries it
+  const nonce = (await headers()).get('x-nonce') ?? undefined
   return (
     // suppressHydrationWarning: the first-paint script may add «light» to the class for «Sistema»
     <html
@@ -85,7 +87,7 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${classeTema(tema)}`.trim()}
     >
       <head>
-        {tema === 'sistema' ? <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA_SISTEMA }} /> : null}
+        {tema === 'sistema' ? <script nonce={nonce} dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA_SISTEMA }} /> : null}
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <TemaProvider iniziale={tema}>

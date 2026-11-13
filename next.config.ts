@@ -64,6 +64,26 @@ const nextConfig: NextConfig = {
           { key: 'X-Robots-Tag', value: 'noindex' },
         ],
       },
+      // The client's way in and area (1.78.0): never indexed, never framed, no referrer to
+      // another site; the personal link and /entra never cached (the link page reads a
+      // token). The Content-Security-Policy with its nonce is written by the proxy.
+      ...['/join/:path*', '/entra'].map((source) => ({
+        source,
+        headers: [
+          { key: 'X-Robots-Tag', value: 'noindex' },
+          { key: 'Referrer-Policy', value: 'same-origin' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Cache-Control', value: 'no-store' },
+        ],
+      })),
+      {
+        source: '/percorso/:path*',
+        headers: [
+          { key: 'X-Robots-Tag', value: 'noindex' },
+          { key: 'Referrer-Policy', value: 'same-origin' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+        ],
+      },
     ]
   },
 }

@@ -83,6 +83,9 @@ export const ERRORI_ONBOARDING = {
   telegramNonSalvato: 'Telegram non aggiornato. Riprova.',
   impostazioniNonSalvate: 'Impostazioni non salvate. Riprova.',
   risposta: 'L’onboarding è avviato, ma la risposta non si legge: apri la sezione Onboarding.',
+  // 1.78.0
+  provaNonSalvata: 'Cliente di prova non aggiornato. Riprova.',
+  nonEliminato: 'Onboarding non eliminato. Riprova.',
 } as const
 
 const vuotoANull = (v: string | null | undefined) => {

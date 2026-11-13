@@ -161,9 +161,3 @@ export type BloccoInput = z.input<typeof bloccoSchema>
 export type Blocco = z.output<typeof bloccoSchema>
 
 export const eliminaBloccoSchema = z.object({ id: z.string().uuid(ERRORI_BLOCCO.nonValidi) })
-
-/** «Cliente di prova» on the card. */
-export const segnaProvaSchema = z.object({ invito_id: z.string().uuid(), prova: z.boolean() })
-
-/** «Elimina onboarding». */
-export const eliminaOnboardingSchema = z.object({ client_id: z.string().uuid() })

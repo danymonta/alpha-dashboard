@@ -87,6 +87,9 @@ const AZIONI: Record<string, (ctx: onboarding.Contesto) => Promise<{ ok: boolean
   impostaIncarichi: (ctx) => onboarding.impostaIncarichi(ctx, { client_id: CLIENTE, ...wizard.team }),
   salvaTelegram: (ctx) => onboarding.salvaTelegram(ctx, { client_id: CLIENTE, username: 'tommaso_galli' }),
   salvaImpostazioni: (ctx) => onboarding.salvaImpostazioni(ctx, { giorni_validita_link: 14 }),
+  // 1.78.0
+  segnaProva: (ctx) => onboarding.segnaProva(ctx, { invito_id: INVITO, prova: true }),
+  eliminaOnboarding: (ctx) => onboarding.eliminaOnboarding(ctx, { client_id: CLIENTE }),
 }
 
 describe('chi può scrivere: solo l’admin, su ogni azione', () => {

@@ -22,7 +22,10 @@ export type StatoRiga = Pick<
   | 'consenso_genitore_il'
   | 'passo_attore'
   | 'passo_stato'
->
+> & {
+  /** A test link (1.78.0): it works with the client area closed. Optional: the rows of before have none. */
+  prova?: boolean | null
+}
 
 export const STATI_ONBOARDING = [
   'in_attesa_pagamento',
@@ -54,7 +57,8 @@ export function statoOnboarding(riga: StatoRiga, aperto: boolean): StatoOnboardi
     case 'in_attesa_pagamento':
       return riga.minorenne && !riga.consenso_genitore_il ? 'in_attesa_consenso' : 'in_attesa_pagamento'
     case 'attivo':
-      return aperto ? 'in_attesa_registrazione' : 'pronto'
+      // a test link (1.78.0) can be used with the area closed: it waits for the registration
+      return aperto || riga.prova === true ? 'in_attesa_registrazione' : 'pronto'
     case 'usato':
       return riga.percorso_stato === 'sospeso' ? 'sospeso' : 'in_corso'
     default:
@@ -144,8 +148,10 @@ export type AzioniLink = {
   rigenera: boolean
   revoca: boolean
   riattiva: boolean
-  /** «Copia link» and «Copia il messaggio»: only with the client area open and a link the client can use. */
+  /** «Copia link» and «Copia il messaggio»: only with the client area open (or a test link) and a link the client can use. */
   copia: boolean
+  /** «Cliente di prova» (1.78.0): a link not used yet. */
+  prova: boolean
 }
 
 /**
@@ -166,7 +172,8 @@ export function azioniLink(
     rigenera: invito && stato !== 'usato',
     revoca: invito && stato !== 'revocato',
     riattiva: invito && stato === 'revocato',
-    copia: invito && aperto && stato === 'attivo',
+    copia: invito && (aperto || riga.prova === true) && stato === 'attivo',
+    prova: invito && stato !== 'usato',
   }
 }
 

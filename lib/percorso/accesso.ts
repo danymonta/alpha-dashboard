@@ -23,9 +23,16 @@ export function nuovoCodice(): string {
   return String(randomInt(0, 100_000_000)).padStart(8, '0')
 }
 
-/** The key of the cookie of the registration: 32 random bytes, base64url. */
+/** The cookie of the registration (/join): the key, 30 minutes, httpOnly, only on /join. */
+export const COOKIE_REGISTRAZIONE = 'alpha-registrazione'
+
+/** The key of the cookie of the registration: 32 random bytes, base64url (43 characters). */
 export function nuovaChiave(): string {
   return randomBytes(32).toString('base64url')
+}
+
+export function chiaveValida(valore: string | null | undefined): valore is string {
+  return typeof valore === 'string' && /^[A-Za-z0-9_-]{43}$/.test(valore)
 }
 
 export type AccountCliente = { userId: string; stato: 'attivo' | 'sospeso' | 'chiuso'; nome: string }

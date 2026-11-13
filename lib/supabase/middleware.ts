@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { conCsp, decidi, isPubblico, leggeLaSessione, nuovoNonce, politicaCsp } from '@/lib/auth/proxy-regole'
+import { conCsp, decidi, headRifiutato, isPubblico, leggeLaSessione, nuovoNonce, politicaCsp } from '@/lib/auth/proxy-regole'
 import { publicEnv } from '@/lib/env'
 
 /**
@@ -28,6 +28,10 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/callback'
     return NextResponse.redirect(url)
+  }
+
+  if (headRifiutato(pathname, request.method)) {
+    return new NextResponse(null, { status: 405, headers: { Allow: 'GET, POST', 'Cache-Control': 'no-store' } })
   }
 
   // The Content-Security-Policy with a nonce of the client's pages (release B1a): the request

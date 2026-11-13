@@ -46,6 +46,14 @@ export function leggeLaSessione(pathname: string, metodo: string) {
   return metodo === 'GET' && (pathname === '/login' || pathname === '/entra')
 }
 
+/**
+ * HEAD on a personal link is refused (405): a preview that only asks for the headers must
+ * not even read the link. Next would answer HEAD with the page's GET.
+ */
+export function headRifiutato(pathname: string, metodo: string) {
+  return metodo === 'HEAD' && pathname.startsWith('/join/')
+}
+
 /** The pages with the Content-Security-Policy with a nonce: no script of others where the client's session lives. */
 export function conCsp(pathname: string) {
   return sotto(pathname, '/percorso') || sotto(pathname, '/join') || sotto(pathname, '/entra')

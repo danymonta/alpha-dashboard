@@ -214,6 +214,7 @@ describe('cosa offre il riquadro «Link»', () => {
       revoca: true,
       riattiva: false,
       copia: false,
+      prova: true,
     })
   })
 
@@ -243,7 +244,7 @@ describe('cosa offre il riquadro «Link»', () => {
   })
 
   it('senza un link non c’è nessuna azione', () => {
-    expect(Object.values(azioniLink(riga({ invito_id: null, invito_stato: null }), true))).toEqual([false, false, false, false, false, false])
+    expect(Object.values(azioniLink(riga({ invito_id: null, invito_stato: null }), true))).toEqual([false, false, false, false, false, false, false])
   })
 })
 

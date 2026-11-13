@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { revalidatePath } from 'next/cache'
-import type { z } from 'zod'
+import { z } from 'zod'
 
 import { negaPer } from '@/lib/auth/azioni'
 import type { Contesto } from '@/lib/call/operazioni'
@@ -393,5 +393,56 @@ export async function salvaImpostazioni(ctx: Contesto, input: unknown): Promise<
 
   revalidatePath('/onboarding', 'layout')
   revalidatePath('/settings', 'layout')
+  return { ok: true }
+}
+
+// ---------------------------------------------------------------------------
+// Release B1a (1.78.0): the test client and «Elimina onboarding»
+// ---------------------------------------------------------------------------
+const segnaProvaSchema = z.object({ invito_id: z.string().uuid(E.invito), prova: z.boolean() })
+const eliminaOnboardingSchema = z.object({ client_id: z.string().uuid(E.cliente) })
+
+/**
+ * «Cliente di prova» on the card (onboarding_segna_prova): its link works with the client
+ * area closed and, on an active link, its days start now. Only for an invented client.
+ */
+export async function segnaProva(ctx: Contesto, input: unknown): Promise<EsitoLink> {
+  const parsed = segnaProvaSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primo(parsed) }
+  const negato = await nega(ctx)
+  if (negato) return { ok: false, errore: negato }
+
+  const { data, error } = await ctx.db.rpc('onboarding_segna_prova', {
+    p_invito: parsed.data.invito_id,
+    p_prova: parsed.data.prova,
+  })
+  if (error) return { ok: false, errore: messaggio(error, E.provaNonSalvata) }
+  const r = leggiRisposta(data)
+  if (!r) {
+    aggiornaOnboarding()
+    return { ok: false, errore: E.provaNonSalvata }
+  }
+  aggiornaOnboarding(r.client_id)
+  return { ok: true, idCliente: r.client_id, stato: r.stato }
+}
+
+/**
+ * «Elimina onboarding» (Dany, 12/11/2026): an onboarding started for test or by mistake,
+ * only before the client registers (onboarding_elimina, security invoker). The link, the
+ * steps, the people in charge, the log and the onboarding's tasks go; client, sale, project
+ * and Telegram stay, and the sale is back among those without onboarding.
+ */
+export async function eliminaOnboarding(ctx: Contesto, input: unknown): Promise<Esito> {
+  const parsed = eliminaOnboardingSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primo(parsed) }
+  const negato = await nega(ctx)
+  if (negato) return { ok: false, errore: negato }
+
+  const { error } = await ctx.db.rpc('onboarding_elimina', { p_client_id: parsed.data.client_id })
+  if (error) return { ok: false, errore: messaggio(error, E.nonEliminato) }
+
+  aggiornaOnboarding(parsed.data.client_id)
+  // a notification of the payment of this client may have gone with it
+  revalidatePath('/', 'layout')
   return { ok: true }
 }

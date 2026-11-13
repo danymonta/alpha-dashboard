@@ -16,6 +16,7 @@ vi.mock('next/navigation', () => ({
     throw new Redirezione(url)
   }),
 }))
+vi.mock('server-only', () => ({}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('next/headers', () => ({ cookies: vi.fn() }))
 vi.mock('@/lib/auth/origine-server', () => ({ origineCorrente: vi.fn() }))
