@@ -8,7 +8,6 @@ import {
   Lock,
   Receipt,
   Rocket,
-  ShieldAlert,
   Undo2,
   UserRoundPlus,
 } from 'lucide-react'
@@ -40,8 +39,6 @@ export type DatiFine = {
   nome: string
   /** The first name alone, for the ready message. */
   nomeDiBattesimo: string
-  /** A minor: the link waits for a parent's consent, whatever the payment. */
-  minorenne: boolean
   /** onboarding_impostazioni.aperto_ai_clienti: «Copia link» and the ready message only with it. */
   aperto: boolean
   /** The page the wizard was opened from (the closer's day): one tap back, when there is one. */
@@ -111,8 +108,7 @@ export function SchermataFine({ dati, onAltroCliente }: { dati: DatiFine; onAltr
 
   const attivo = stato === 'attivo'
   const inAttesa = stato === 'in_attesa_pagamento'
-  const attendeConsenso = inAttesa && dati.minorenne
-  // the payment can still be confirmed: once for a minor, whose link stays on hold after it
+  // the payment can still be confirmed
   const daConfermare = inAttesa && !confermato
 
   return (
@@ -145,20 +141,18 @@ export function SchermataFine({ dati, onAltroCliente }: { dati: DatiFine; onAltr
         </h1>
         <p
           className={`mt-3 inline-flex items-start justify-center gap-1.5 text-sm ${
-            attivo ? 'text-status-ok' : attendeConsenso ? 'text-status-warning' : 'text-muted-foreground'
+            attivo ? 'text-status-ok' : 'text-muted-foreground'
           }`}
           role="status"
           data-testid="stato-link"
-          data-stato={attivo ? 'attivo' : attendeConsenso ? 'in_attesa_consenso' : 'in_attesa_pagamento'}
+          data-stato={attivo ? 'attivo' : 'in_attesa_pagamento'}
         >
           {attivo ? (
             <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          ) : attendeConsenso ? (
-            <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           ) : (
             <Hourglass className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           )}
-          {attivo ? f.attivo : attendeConsenso ? f.inAttesaConsenso : f.inAttesa}
+          {attivo ? f.attivo : f.inAttesa}
         </p>
       </VetroLiquido>
 
@@ -168,7 +162,7 @@ export function SchermataFine({ dati, onAltroCliente }: { dati: DatiFine; onAltr
             <ConfermaPagamento
               invitoId={dati.idInvito}
               cliente={dati.nome}
-              attendeConsenso={attendeConsenso}
+              attendeConsenso={false}
               aperto={dati.aperto}
               onFatto={(nuovo) => {
                 setStato(nuovo)

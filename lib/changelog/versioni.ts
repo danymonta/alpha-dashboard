@@ -129,6 +129,13 @@ export const VERSIONI: readonly Versione[] = [
           'Il coach legge del cliente solo quello che gli serve: il questionario senza email e telefono, i file, Telegram, i video guardati. Un cliente in pausa è solo «In pausa», senza altro.',
       },
     ],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo:
+          '«Nuovo cliente» non chiede più se il cliente è minorenne: nel wizard entra un cliente già venduto, quindi il link segue solo il pagamento.',
+      },
+    ],
   },
   {
     versione: '1.80.0',

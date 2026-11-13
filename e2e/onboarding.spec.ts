@@ -215,9 +215,8 @@ test('«Avvia onboarding» su una vendita che c’è già, poi revoca con motivo
   await expect(wizard.getByRole('heading', { level: 1, name: 'Avvia onboarding' })).toBeVisible()
   await expect(page.getByTestId('indicatore-passi').locator('li[data-passo="vendita"]')).toHaveAttribute('data-stato', 'fatto')
   await expect(page.getByLabel('Nome', { exact: true })).toHaveValue(nome)
-  await page.getByTestId('minorenne').click()
-  await expect(page.getByText('Il link resta fermo finché non registri il consenso di un genitore.')).toBeVisible()
-  await page.getByTestId('minorenne').click()
+  // a client already sold: the wizard never asks if they are a minor
+  await expect(page.getByTestId('minorenne')).toHaveCount(0)
   await avantiFino(page, 'team')
   await expect(titoloSchermata(page, 'Team')).toBeFocused()
   await avantiFino(page, 'riepilogo')
