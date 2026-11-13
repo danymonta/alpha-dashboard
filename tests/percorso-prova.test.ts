@@ -108,6 +108,18 @@ describe('Prova del percorso: il motore', () => {
     expect(stati(s)).toMatchObject({ benvenuto: 'fatto', regole: 'disponibile' })
   })
 
+  it('un video ancora segnaposto non ferma la prova: il benvenuto si completa subito', () => {
+    const conSegnaposto: DatiProva = {
+      ...DATI,
+      blocchi: DATI.blocchi.map((b) => (b.id === VIDEO ? { ...b, youtube_id: 'XXXXXXXXXXX' } : b)),
+    }
+    const s = statoIniziale(conSegnaposto, ORA)
+    const video = percorsoDi(conSegnaposto, s, ORA).passi.find((x) => x.chiave === 'benvenuto')?.blocchi?.[0]
+    expect(video).toMatchObject({ tipo: 'video', video: { visto: true } })
+    const dopo = ok(avanza(conSegnaposto, s, { passo: 'benvenuto', azione: 'completa' }, ORA))
+    expect(stati(dopo)).toMatchObject({ benvenuto: 'fatto', regole: 'disponibile' })
+  })
+
   it('le regole vogliono tutte le spunte e il consenso nella versione in vigore', () => {
     let s = ok(avanza(DATI, segnaVideoVisti(DATI, statoIniziale(DATI, ORA)), { passo: 'benvenuto', azione: 'completa' }, ORA))
     expect(avanza(DATI, s, { passo: 'regole', azione: 'accetta', dati: { regole: [REGOLA_1], consenso_salute: '2026-11-13' } }, ORA)).toEqual({

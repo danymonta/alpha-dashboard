@@ -116,11 +116,6 @@ export const ETICHETTE_ESERCIZI: Record<(typeof ESERCIZI_MASSIMALI)[number], str
   dip: 'Dip',
 }
 
-const SI_NO_OPZIONI: readonly Opzione[] = [
-  { valore: 'si', etichetta: 'Sì' },
-  { valore: 'no', etichetta: 'No' },
-]
-
 export const DOMANDE: readonly Domanda[] = [
   // 1 · Chi sei
   { chiave: 'email', schermata: 1, tipo: 'email', testo: 'Email' },
@@ -307,7 +302,10 @@ export const DOMANDE: readonly Domanda[] = [
     schermata: 4,
     tipo: 'scelta',
     testo: 'Ti senti pronto e motivato?',
-    opzioni: SI_NO_OPZIONI,
+    opzioni: [
+      { valore: 'si', etichetta: 'Sì, sono pronto a spaccare il mondo!' },
+      { valore: 'no', etichetta: 'No' },
+    ],
   },
 ]
 

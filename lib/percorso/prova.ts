@@ -16,7 +16,7 @@
  */
 import { aggiungiGiorni, formatOra, istanteRoma, oggiRoma } from '@/lib/date'
 import type { AllegatoCliente } from '@/lib/percorso/allegati'
-import { leggiBlocchi, type BloccoPercorso } from '@/lib/percorso/blocchi'
+import { leggiBlocchi, YOUTUBE_SEGNAPOSTO, type BloccoPercorso } from '@/lib/percorso/blocchi'
 import type {
   AttesaTeam,
   CallCliente,
@@ -149,6 +149,15 @@ function blocchiDelPasso(dati: DatiProva, passo: string): BloccoGrezzo[] {
   return dati.blocchi.filter((b) => b.pagina === 'passo' && b.passo === passo)
 }
 
+/**
+ * A video still without its YouTube id (the placeholder of the CMS) never stops the test: there
+ * is nothing to watch yet, and Dany tries the whole path before recording it. A real client never
+ * meets one: the area does not open while a placeholder is published (lib/onboarding/area.ts).
+ */
+function videoSegnaposto(b: BloccoGrezzo): boolean {
+  return b.tipo === 'video' && (!b.youtube_id || b.youtube_id === YOUTUBE_SEGNAPOSTO)
+}
+
 function conPasso(stato: StatoProva, chiave: string, cambia: (p: Passo) => Passo): StatoProva {
   const prima = stato.passi[chiave]
   if (!prima) return stato
@@ -176,7 +185,7 @@ export function sblocca(dati: DatiProva, stato: StatoProva): StatoProva {
 export function videoMancanti(dati: DatiProva, stato: StatoProva, passo: string | null): boolean {
   const passi = passo ? [passo] : Object.keys(stato.passi)
   const blocchi = passi.some((k) =>
-    blocchiDelPasso(dati, k).some((b) => b.tipo === 'video' && b.obbligatorio && !stato.video[b.id]?.visto),
+    blocchiDelPasso(dati, k).some((b) => b.tipo === 'video' && b.obbligatorio && !videoSegnaposto(b) && !stato.video[b.id]?.visto),
   )
   if (blocchi) return true
   if (passo !== null && passo !== 'programma') return false
@@ -400,7 +409,7 @@ export function aspettaUnVideo(dati: DatiProva, stato: StatoProva): boolean {
   return Object.entries(stato.passi).some(
     ([chiave, p]) =>
       (p.stato === 'disponibile' || p.stato === 'in_corso') &&
-      (blocchiDelPasso(dati, chiave).some((b) => b.tipo === 'video' && !stato.video[b.id]?.visto) ||
+      (blocchiDelPasso(dati, chiave).some((b) => b.tipo === 'video' && !videoSegnaposto(b) && !stato.video[b.id]?.visto) ||
         (chiave === 'programma' && stato.consegne.some((c) => c.tipo === 'video' && !stato.video[c.id]?.visto))),
   )
 }
@@ -719,10 +728,12 @@ function comeBlocchi(dati: DatiProva, stato: StatoProva, grezzi: readonly Blocco
       ...(b.tipo === 'video'
         ? {
             video: {
-              percentuale: stato.video[b.id]
-                ? Math.round((stato.video[b.id]!.secondi.length * 10000) / stato.video[b.id]!.durata) / 100
-                : 0,
-              visto: stato.video[b.id]?.visto ?? false,
+              percentuale: videoSegnaposto(b)
+                ? 100
+                : stato.video[b.id]
+                  ? Math.round((stato.video[b.id]!.secondi.length * 10000) / stato.video[b.id]!.durata) / 100
+                  : 0,
+              visto: videoSegnaposto(b) || (stato.video[b.id]?.visto ?? false),
             },
           }
         : {}),

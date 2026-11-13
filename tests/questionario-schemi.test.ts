@@ -227,7 +227,7 @@ describe('le domande del modulo Google', () => {
       'Abuso di stimolanti (caffeina, redbull, monster)',
       'Scarsa motivazione e autostima',
     ])
-    expect(opzioni('pronto').map((o) => o.etichetta)).toEqual(['Sì', 'No'])
+    expect(opzioni('pronto').map((o) => o.etichetta)).toEqual(['Sì, sono pronto a spaccare il mondo!', 'No'])
     expect(opzioni('seguito_alimentazione').map((o) => o.etichetta)).toEqual([
       'Sì, ho un professionista che mi segue',
       'No, mi affido a voi!',

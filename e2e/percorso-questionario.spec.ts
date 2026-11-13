@@ -110,7 +110,7 @@ const SCELTE: Record<string, string> = {
   seguito_alimentazione: 'No, mi affido a voi!',
   giorni_settimana: '3',
   minuti_giorno: '40-60 minuti',
-  pronto: 'Sì',
+  pronto: 'Sì, sono pronto a spaccare il mondo!',
 }
 
 const titolo = (page: Page) => page.getByTestId('schermata-questionario').getByRole('heading', { level: 1 })
@@ -432,7 +432,7 @@ test('la ripresa e il riepilogo: si riparte dalla prima risposta che manca, il v
   await expect(page.getByTestId('invia-questionario')).toHaveCount(0)
   await page.getByTestId('mancante-pronto').click()
   await siVedeLaDomanda(page, DOMANDE.findIndex((d) => d.chiave === 'pronto'))
-  await page.locator('[data-domanda="pronto"]').getByText('Sì', { exact: true }).click()
+  await page.locator('[data-domanda="pronto"]').getByText('Sì, sono pronto a spaccare il mondo!', { exact: true }).click()
   await expect(titolo(page)).toHaveText('Ti manca una risposta')
   await page.getByTestId('vai-prima-mancante').click()
   await siVedeLaDomanda(page, DOMANDE.findIndex((d) => d.chiave === 'ore_sonno'))

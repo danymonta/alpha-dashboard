@@ -88,15 +88,20 @@ export const VERSIONI: readonly Versione[] = [
   {
     versione: '1.83.1',
     data: '2026-11-13',
-    titolo: 'Due domande del questionario più chiare',
-    riassunto: 'La domanda sul piano alimentare e quella sul successo del percorso dicono meglio cosa chiedono.',
+    titolo: 'Tre domande del questionario riscritte e la prova senza video',
+    riassunto: 'Le domande sul piano alimentare, sul successo del percorso e sulla motivazione hanno parole nuove, e la prova del percorso va avanti anche senza il video di benvenuto.',
     intestazionePer: ['admin'],
     novita: [],
     correzioni: [
       {
         per: ['admin'],
         testo:
-          'Questionario dell’onboarding: «Sei già seguito da qualcun altro sul piano alimentare?» con «Sì, ho un professionista che mi segue» e «No, mi affido a voi!», e «Tra sei mesi, cosa ti farà dire «ce l’ho fatta»?» con esempi concreti al posto dell’elenco tra parentesi.',
+          'Questionario dell’onboarding: «Sei già seguito da qualcun altro sul piano alimentare?» con «Sì, ho un professionista che mi segue» e «No, mi affido a voi!», e «Tra sei mesi, cosa ti farà dire «ce l’ho fatta»?» con esempi concreti al posto dell’elenco tra parentesi, e «Sì, sono pronto a spaccare il mondo!» alla domanda «Ti senti pronto e motivato?».',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Prova del percorso: un video che nei Contenuti ha ancora l’id segnaposto non ferma più la prova. Il benvenuto si completa con «Ho guardato il video» anche prima che il video ci sia, e da lì si sbloccano le regole, il questionario e la prenotazione della call.',
       },
     ],
   },
