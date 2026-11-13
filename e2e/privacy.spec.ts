@@ -27,7 +27,10 @@ test('l’informativa si apre senza sessione, con le istruzioni per la cancellaz
   await expect(page).toHaveURL(/\/privacy$/)
   await expect(page).toHaveTitle('Informativa privacy · Percorso Alpha')
   await expect(page.getByRole('heading', { level: 1, name: 'Informativa privacy' })).toBeVisible()
-  await expect(page.getByText('Ultimo aggiornamento: 22 ottobre 2026')).toBeVisible()
+  await expect(page.getByText('Ultimo aggiornamento: 13 novembre 2026')).toBeVisible()
+  const clienti = page.getByRole('region', { name: 'Clienti del percorso' })
+  await expect(clienti).toContainText('art. 9, paragrafo 2, lettera a, del GDPR')
+  await expect(clienti).toContainText('quando revochi il consenso')
   // the posts and reels of the account, read for the content calendar (1.33.0): never the comments or who liked;
   // from 1.35.0 their captions and numbers go into the DM recap, so the old «nothing to an AI» is gone
   const posts = page.getByText(/legge anche l’elenco dei post e dei reel pubblicati dall’account/)

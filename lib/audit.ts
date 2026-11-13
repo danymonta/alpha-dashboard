@@ -17,10 +17,11 @@ export const ETICHETTA_TABELLA: Record<string, string> = {
   commission_payouts: 'Pagamento provvigione',
   expenses: 'Costo',
   profiles: 'Utente',
+  onboarding_impostazioni: 'Area clienti',
 }
 
 /** "Vendita creata", "Costo creato". */
-const FEMMINILE = new Set(['sales', 'payments', 'commission_rules'])
+const FEMMINILE = new Set(['sales', 'payments', 'commission_rules', 'onboarding_impostazioni'])
 
 const PARTICIPIO = {
   insert: ['creato', 'creata'],
@@ -64,6 +65,7 @@ const ETICHETTA_CAMPO: Record<string, string> = {
   metodo: 'metodo',
   ricorrente: 'ricorrente',
   note: 'note',
+  aperto_ai_clienti: 'aperta ai clienti',
 }
 
 /** The same words in English (1.53.0): an entry reads in the page's language; a key missing here does not compile. */
@@ -75,6 +77,7 @@ const INGLESE = {
     commission_payouts: 'Commission payout',
     expenses: 'Expense',
     profiles: 'User',
+    onboarding_impostazioni: 'Client area',
   } satisfies Record<keyof typeof ETICHETTA_TABELLA, string>,
   azioni: { insert: 'created', update: 'changed', delete: 'deleted' } satisfies Record<Azione, string>,
   campi: {
@@ -107,6 +110,7 @@ const INGLESE = {
     metodo: 'method',
     ricorrente: 'recurring',
     note: 'notes',
+    aperto_ai_clienti: 'open to clients',
   } satisfies Record<keyof typeof ETICHETTA_CAMPO, string>,
 }
 
@@ -214,6 +218,10 @@ export function sintesi(tabella: string, dati: unknown, lingua: Lingua = 'it'): 
         return [
           vuoto(d.descrizione) ? null : leggibile('descrizione', d.descrizione),
           vuoto(d.importo) ? null : leggibile('importo', d.importo),
+        ]
+      case 'onboarding_impostazioni':
+        return [
+          d.aperto_ai_clienti === true ? (en ? 'opened to clients' : 'aperta ai clienti') : d.aperto_ai_clienti === false ? (en ? 'closed to clients' : 'chiusa ai clienti') : null,
         ]
       case 'profiles':
         return [

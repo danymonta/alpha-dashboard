@@ -121,13 +121,11 @@ describe('le parole dell’interfaccia', () => {
     expect(t.nuovoCliente).toBe('Nuovo cliente')
     expect(t.avviaOnboarding).toBe('Avvia onboarding')
     expect(t.wizard.passi).toMatchObject({ cliente: 'Cliente', vendita: 'Vendita', team: 'Team' })
-    expect(t.wizard.cliente.minorenne).toBe('Il cliente è minorenne')
-    expect(t.wizard.cliente.minorenneNota).toBe('Il link resta fermo finché non registri il consenso di un genitore.')
     expect(t.wizard.fine.titolo('Tommaso')).toBe('Onboarding avviato per Tommaso')
     expect(t.wizard.fine.inAttesa).toBe('Il link si attiva appena registri il pagamento')
     expect(t.wizard.fine.attivo).toBe('Pagamento confermato')
     expect(t.wizard.fine.nonAperto).toBe(
-      'L’area clienti non è ancora aperta: il link si potrà mandare dal prossimo rilascio.',
+      'L’area clienti è chiusa: il link funziona solo se segni il cliente come cliente di prova.',
     )
     expect(t.link.nonAperto).toBe(t.wizard.fine.nonAperto)
     expect(t.link.confermaPagamento.bottone).toBe('Conferma pagamento')

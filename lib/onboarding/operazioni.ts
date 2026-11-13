@@ -1,9 +1,10 @@
 import 'server-only'
 
 import { revalidatePath } from 'next/cache'
-import type { z } from 'zod'
+import { z } from 'zod'
 
 import { negaPer } from '@/lib/auth/azioni'
+import { togliFileQuestionario } from '@/lib/percorso/pulizia'
 import type { Contesto } from '@/lib/call/operazioni'
 import type { Json } from '@/lib/supabase/database.types'
 import {
@@ -14,6 +15,7 @@ import {
   impostazioniOnboardingSchema,
   incarichiSchema,
   invitoSchema,
+  revocaConsensoSchema,
   revocaSchema,
   telegramClienteSchema,
   validaNuovoCliente,
@@ -393,5 +395,84 @@ export async function salvaImpostazioni(ctx: Contesto, input: unknown): Promise<
 
   revalidatePath('/onboarding', 'layout')
   revalidatePath('/settings', 'layout')
+  return { ok: true }
+}
+
+// ---------------------------------------------------------------------------
+// Release B1a (1.79.0): the test client and «Elimina onboarding»
+// ---------------------------------------------------------------------------
+const segnaProvaSchema = z.object({ invito_id: z.string().uuid(E.invito), prova: z.boolean() })
+const eliminaOnboardingSchema = z.object({ client_id: z.string().uuid(E.cliente) })
+
+/**
+ * «Cliente di prova» on the card (onboarding_segna_prova): its link works with the client
+ * area closed and, on an active link, its days start now. Only for an invented client.
+ */
+export async function segnaProva(ctx: Contesto, input: unknown): Promise<EsitoLink> {
+  const parsed = segnaProvaSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primo(parsed) }
+  const negato = await nega(ctx)
+  if (negato) return { ok: false, errore: negato }
+
+  const { data, error } = await ctx.db.rpc('onboarding_segna_prova', {
+    p_invito: parsed.data.invito_id,
+    p_prova: parsed.data.prova,
+  })
+  if (error) return { ok: false, errore: messaggio(error, E.provaNonSalvata) }
+  const r = leggiRisposta(data)
+  if (!r) {
+    aggiornaOnboarding()
+    return { ok: false, errore: E.provaNonSalvata }
+  }
+  aggiornaOnboarding(r.client_id)
+  return { ok: true, idCliente: r.client_id, stato: r.stato }
+}
+
+/**
+ * «Elimina onboarding» (Dany, 12/11/2026): an onboarding started for test or by mistake,
+ * only before the client registers (onboarding_elimina, security invoker). The link, the
+ * steps, the people in charge, the log and the onboarding's tasks go; client, sale, project
+ * and Telegram stay, and the sale is back among those without onboarding.
+ */
+export async function eliminaOnboarding(ctx: Contesto, input: unknown): Promise<Esito> {
+  const parsed = eliminaOnboardingSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primo(parsed) }
+  const negato = await nega(ctx)
+  if (negato) return { ok: false, errore: negato }
+
+  const { error } = await ctx.db.rpc('onboarding_elimina', { p_client_id: parsed.data.client_id })
+  if (error) return { ok: false, errore: messaggio(error, E.nonEliminato) }
+
+  aggiornaOnboarding(parsed.data.client_id)
+  // a notification of the payment of this client may have gone with it
+  revalidatePath('/', 'layout')
+  return { ok: true }
+}
+
+/**
+ * «Registra la revoca» of the consent on health data (1.80.0, onboarding_revoca_consenso,
+ * security invoker, admin only): the answers of the questionnaire deleted, the files to delete,
+ * the client back to the rules. The files go from Storage now (Storage is not cleaned from SQL),
+ * with the service role and only the paths the function returned; a removal that fails never
+ * stops the revocation: the evening's cron finds the rest.
+ */
+export async function revocaConsenso(ctx: Contesto, input: unknown): Promise<Esito> {
+  const parsed = revocaConsensoSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, errore: primo(parsed) }
+  const negato = await nega(ctx)
+  if (negato) return { ok: false, errore: negato }
+
+  const { data, error } = await ctx.db.rpc('onboarding_revoca_consenso', {
+    p_client_id: parsed.data.client_id,
+    p_tipo: parsed.data.tipo,
+    p_motivo: parsed.data.motivo,
+  })
+  if (error) return { ok: false, errore: messaggio(error, E.revocaConsensoNonFatta) }
+
+  const r = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : {}
+  const percorsi = Array.isArray(r.percorsi) ? r.percorsi.filter((p): p is string => typeof p === 'string') : []
+  await togliFileQuestionario(percorsi)
+
+  aggiornaOnboarding(parsed.data.client_id)
   return { ok: true }
 }

@@ -48,6 +48,12 @@ where s.product_id is not null
   and not exists (select 1 from public.onboarding_inviti i where i.client_id = s.client_id)
 order by s.created_at limit 1;
 
+-- the seed's coach follows a registered client of the seed in the onboarding (62_percorso_team.sql, 1.81.0): taken off
+-- here, so that what he reads is only this test's client
+delete from public.onboarding_incarichi
+where client_id <> 'c1090000-0000-4000-8000-000000000001'
+  and '44444444-4444-4444-8444-444444444444' in (coach_id, revisore_id, responsabile_id);
+
 insert into public.onboarding_incarichi (client_id, coach_id, revisore_id, responsabile_id)
 values ('c1090000-0000-4000-8000-000000000001', '44444444-4444-4444-8444-444444444444',
   '33333333-3333-4333-8333-333333333333', '11111111-1111-4111-8111-111111111111');
@@ -133,7 +139,9 @@ begin
   foreach r in array array[
     'onboarding_impostazioni', 'onboarding_incarichi', 'onboarding_inviti', 'onboarding_inviti_token',
     'onboarding_percorsi', 'onboarding_passi_def', 'onboarding_passi', 'onboarding_eventi', 'clienti_telegram',
-    'v_onboarding', 'v_vendite_senza_onboarding'
+    'v_onboarding', 'v_vendite_senza_onboarding',
+    -- the calls and the deliveries of the client (1.81.0): the people in charge read them only from functions
+    'clienti_call', 'clienti_consegne', 'onboarding_video_visti'
   ] loop
     begin
       execute format('select count(*) from public.%I', r) into n;
@@ -166,7 +174,8 @@ select policies_are('public', 'onboarding_incarichi', array[
 ], 'incarichi: l''admin scrive, l''incaricato legge la sua riga');
 select policies_are('public', 'onboarding_inviti', array[
   'onboarding_inviti_admin_lettura', 'onboarding_inviti_admin_inserimento', 'onboarding_inviti_admin_modifica',
-  'onboarding_inviti_mai_da_oauth'
+  -- 1.79.0: the admin deletes an invite only through onboarding_elimina (its trigger refuses the rest)
+  'onboarding_inviti_admin_eliminazione', 'onboarding_inviti_mai_da_oauth'
 ], 'inviti: solo l''admin');
 select policies_are('public', 'onboarding_inviti_token', array[
   'onboarding_inviti_token_admin_lettura', 'onboarding_inviti_token_admin_inserimento', 'onboarding_inviti_token_mai_da_oauth'
@@ -297,8 +306,8 @@ select throws_ok(
 select pg_temp.web('11111111-1111-4111-8111-111111111111');
 select is(
   (select count(*)::int from unnest(string_to_array(pg_temp.vede(), ', ')) x),
-  11,
-  'l''admin legge tutte le nove tabelle e le due viste'
+  13,
+  'l''admin legge tutte le nove tabelle e le due viste, e le call e i video visti dei clienti del seed (1.81.0)'
 );
 select is(
   (select row(invito_stato, percorso_stato, passo_corrente, passo_attore, coach_nome, revisore_nome, responsabile_nome,
@@ -407,12 +416,18 @@ reset role;
 set local request.jwt.claims to '{}';
 update public.onboarding_percorsi set stato = 'in_corso', giorno_zero = now()
 where client_id = 'c1090000-0000-4000-8000-000000000001';
+-- with a call and a delivery (1.81.0), that the people in charge never read from the tables
+insert into public.clienti_call (client_id, tipo, inizio, stato, coach_id)
+values ('c1090000-0000-4000-8000-000000000001', 'onboarding', now() + interval '2 days', 'prenotata',
+  '44444444-4444-4444-8444-444444444444');
+insert into public.clienti_consegne (client_id, tipo, titolo, url)
+values ('c1090000-0000-4000-8000-000000000001', 'link', 'Lista della spesa', 'https://example.test/lista-109');
 
 select pg_temp.web('44444444-4444-4444-8444-444444444444');
 select is(
   pg_temp.vede(),
   'onboarding_incarichi 1, onboarding_percorsi 1, onboarding_passi 9, clienti_telegram 1',
-  'dalla registrazione il coach legge il suo incarico, il percorso, i suoi step e Telegram: mai inviti, token, eventi o impostazioni'
+  'dalla registrazione il coach legge il suo incarico, il percorso, i suoi step e Telegram: mai inviti, token, eventi, impostazioni, call o consegne'
 );
 select ok(public.onboarding_incaricato('c1090000-0000-4000-8000-000000000001'), 'onboarding_incaricato: sì per il suo cliente');
 select is(
@@ -428,12 +443,13 @@ select is(
 select pg_temp.web('99999999-9999-4999-8999-999999990109');
 select is(pg_temp.vede(), '', 'chi non è incaricato ancora niente');
 
--- suspended after the registration: still readable («in pausa»); suspended before it: never
+-- suspended after the registration: «In pausa» from the functions of B2 only, never the path, the steps or Telegram
+-- from the tables (1.81.0); suspended before it: never
 reset role;
 set local request.jwt.claims to '{}';
 update public.onboarding_percorsi set stato = 'sospeso' where client_id = 'c1090000-0000-4000-8000-000000000001';
 select pg_temp.web('44444444-4444-4444-8444-444444444444');
-select is((select count(*)::int from public.onboarding_percorsi), 1, 'un percorso sospeso dopo la registrazione lo legge ancora');
+select is((select count(*)::int from public.onboarding_percorsi), 0, 'un percorso sospeso dopo la registrazione non lo legge più dalle tabelle (dalla 1.81.0 è «In pausa» nella sua lista)');
 reset role;
 set local request.jwt.claims to '{}';
 update public.onboarding_percorsi set giorno_zero = null where client_id = 'c1090000-0000-4000-8000-000000000001';

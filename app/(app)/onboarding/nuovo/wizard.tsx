@@ -10,13 +10,12 @@ import {
   Pencil,
   ReceiptText,
   Rocket,
-  ShieldAlert,
   TriangleAlert,
   UserCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 
 import { avviaOnboarding, nuovoCliente, type EsitoAvvio } from '@/app/(app)/onboarding/actions'
 import { IndicatorePassi, type PassoIndicatore } from '@/app/(app)/onboarding/nuovo/indicatore'
@@ -33,7 +32,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import {
   CampiPianoRate,
   CampiVendita,
@@ -208,6 +206,7 @@ export function WizardNuovoCliente({
 
   const formCliente = useForm<ClienteOnboardingInput, unknown, ClienteOnboarding>({
     resolver: zodResolver(clienteOnboardingSchema),
+    // the client reaches the wizard already sold: no minor's consent gate here
     defaultValues: { ...ingresso.cliente, minorenne: false },
   })
   const dataVenditaIniziale = ingresso.modo === 'nuovo' ? ingresso.dataVendita : oggi
@@ -240,7 +239,6 @@ export function WizardNuovoCliente({
   const { anteprima, calcolo } = useReazioniVendita(formVendita, { prodotti, oggi, dataVenditaIniziale })
 
   const erroriCliente = formCliente.formState.errors
-  const minorenne = useWatch({ control: formCliente.control, name: 'minorenne' }) === true
   const sporco = formCliente.formState.isDirty || formVendita.formState.isDirty || teamToccato
 
   // a screen takes the place of the one before: the steps come back into view (never under the top bar),
@@ -418,7 +416,6 @@ export function WizardNuovoCliente({
       stato: esito.stato,
       nome: nomeCliente({ nome: cliente.nome, cognome: cliente.cognome ?? null }, lingua),
       nomeDiBattesimo: nomeDiBattesimo(cliente.nome),
-      minorenne: cliente.minorenne === true,
       aperto,
       ritorno,
       passi: passiIndicatore.map(({ chiave, titolo }) => ({ chiave, titolo })),
@@ -579,23 +576,6 @@ export function WizardNuovoCliente({
             {...reg('telegram')}
           />
         </Campo>
-
-        <div className="rounded-xl bg-card px-3">
-          <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 text-sm">
-            <span>{c.minorenne}</span>
-            <Switch
-              checked={minorenne}
-              onCheckedChange={(v) => formCliente.setValue('minorenne', v, { shouldDirty: true })}
-              data-testid="minorenne"
-            />
-          </label>
-          {minorenne ? (
-            <p className="flex items-start gap-2 border-t border-border py-2.5 text-sm text-status-warning" role="status">
-              <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {c.minorenneNota}
-            </p>
-          ) : null}
-        </div>
       </div>
     )
   }
@@ -748,12 +728,6 @@ export function WizardNuovoCliente({
           <Riga etichetta={w.cliente.telefono}>{testo(c.telefono)}</Riga>
           <Riga etichetta={w.cliente.telegram}>{testo(c.telegram)}</Riga>
           <Riga etichetta={w.cliente.instagram}>{testo(c.instagram_handle)}</Riga>
-          {minorenne ? (
-            <div className="flex items-start gap-2 py-2.5 text-sm text-status-warning">
-              <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {r.minorenne}
-            </div>
-          ) : null}
         </Riquadro>
 
         {vendita}

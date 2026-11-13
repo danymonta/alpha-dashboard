@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { normalizzaHandle } from '@/lib/validation/call'
+import { linkPrenotazione } from '@/lib/validation/onboarding-team'
 import { nuovaVenditaSchema, type NuovaVendita, type NuovaVenditaInput } from '@/lib/validation/vendita'
 
 /**
@@ -72,6 +73,8 @@ export const ERRORI_ONBOARDING = {
   nota: 'La nota è troppo lunga: al massimo 300 caratteri.',
   motivo: 'Scrivi il motivo della revoca',
   motivoLungo: 'Il motivo è troppo lungo: al massimo 300 caratteri.',
+  revocaConsensoNonFatta: 'Revoca non registrata. Riprova.',
+  canaleRevoca: 'Scegli come il cliente ha chiesto la revoca.',
   giorni: 'I giorni di validità del link vanno da 1 a 90',
   nonAvviato: 'Onboarding non avviato. Riprova.',
   nonConfermato: 'Pagamento non confermato. Riprova.',
@@ -83,6 +86,9 @@ export const ERRORI_ONBOARDING = {
   telegramNonSalvato: 'Telegram non aggiornato. Riprova.',
   impostazioniNonSalvate: 'Impostazioni non salvate. Riprova.',
   risposta: 'L’onboarding è avviato, ma la risposta non si legge: apri la sezione Onboarding.',
+  // 1.79.0
+  provaNonSalvata: 'Cliente di prova non aggiornato. Riprova.',
+  nonEliminato: 'Onboarding non eliminato. Riprova.',
 } as const
 
 const vuotoANull = (v: string | null | undefined) => {
@@ -289,6 +295,20 @@ export const consensoGenitoreSchema = z.object({
   nota: z.string().trim().max(LIMITI_ONBOARDING.nota, ERRORI_ONBOARDING.nota).nullish().transform(vuotoANull),
 })
 
+/** How a client asked to revoke the consent on health data: a closed list, the same as the SQL. */
+export const CANALI_REVOCA = ['telegram', 'email', 'di_persona', 'altro'] as const
+export type CanaleRevoca = (typeof CANALI_REVOCA)[number]
+
+/**
+ * «Registra la revoca» of the consent on health data (1.80.0): the client and how he asked,
+ * never a free text (it would reach the log and the backup, and could say something about health).
+ */
+export const revocaConsensoSchema = z.object({
+  client_id: z.string().uuid(ERRORI_ONBOARDING.cliente),
+  tipo: z.literal('salute'),
+  motivo: z.enum(CANALI_REVOCA, { errorMap: () => ({ message: ERRORI_ONBOARDING.canaleRevoca }) }),
+})
+
 /** «Revoca» always says why: the reason stays in the log. */
 export const revocaSchema = z.object({
   invito_id: z.string().uuid(ERRORI_ONBOARDING.invito),
@@ -324,6 +344,9 @@ export const impostazioniOnboardingSchema = z.object({
   revisore_predefinito_id: personaFacoltativa,
   responsabile_predefinito_id: personaFacoltativa,
   link_community: linkTelegram,
+  // release B2 (1.81.0): the booking page of the onboarding call, and the email «Tocca a te»
+  link_prenotazione: linkPrenotazione,
+  avvisa_cliente_email: z.boolean().default(true),
   giorni_validita_link: z.coerce
     .number({ invalid_type_error: ERRORI_ONBOARDING.giorni })
     .int(ERRORI_ONBOARDING.giorni)

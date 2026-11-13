@@ -215,9 +215,8 @@ test('«Avvia onboarding» su una vendita che c’è già, poi revoca con motivo
   await expect(wizard.getByRole('heading', { level: 1, name: 'Avvia onboarding' })).toBeVisible()
   await expect(page.getByTestId('indicatore-passi').locator('li[data-passo="vendita"]')).toHaveAttribute('data-stato', 'fatto')
   await expect(page.getByLabel('Nome', { exact: true })).toHaveValue(nome)
-  await page.getByTestId('minorenne').click()
-  await expect(page.getByText('Il link resta fermo finché non registri il consenso di un genitore.')).toBeVisible()
-  await page.getByTestId('minorenne').click()
+  // a client already sold: the wizard never asks if they are a minor
+  await expect(page.getByTestId('minorenne')).toHaveCount(0)
   await avantiFino(page, 'team')
   await expect(titoloSchermata(page, 'Team')).toBeFocused()
   await avantiFino(page, 'riepilogo')
@@ -326,7 +325,7 @@ test('il setter non ha la voce Onboarding e le sue pagine lo rimandano', async (
   await expect(page.getByRole('heading', { name: 'Onboarding' })).toHaveCount(0)
 })
 
-test('Impostazioni › Onboarding: i giorni del link si salvano, l’area clienti si legge soltanto', async ({ page }) => {
+test('Impostazioni › Onboarding: i giorni del link si salvano, l’area clienti resta chiusa', async ({ page }) => {
   const db = dbLocale()
   const { data: prima } = await db.from('onboarding_impostazioni').select('giorni_validita_link').single()
   await accedi(page, 'admin')
@@ -334,7 +333,8 @@ test('Impostazioni › Onboarding: i giorni del link si salvano, l’area client
     await page.goto('/settings')
     await page.getByRole('link', { name: /Onboarding/ }).last().click()
     await expect(page).toHaveURL('/settings/onboarding')
-    await expect(page.getByTestId('area-clienti')).toContainText('Non ancora aperta')
+    // release B2: the switch «Area clienti», closed until the admin opens it (percorso-apertura.spec.ts)
+    await expect(page.getByTestId('area-clienti')).toContainText('Chiusa ai clienti')
 
     const giorni = page.getByLabel('Giorni di validità del link')
     await giorni.fill('120')

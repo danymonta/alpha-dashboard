@@ -473,6 +473,25 @@ values ('evento-75@calendly.com', now() - interval '3 days', now() + interval '1
 on conflict (uid) do nothing;
 -- The admin's personal expenses (1.68.0), which the seed leaves empty
 insert into public.spese_personali (data, categoria, descrizione, importo) values ('2024-01-15', 'casa', 'Affitto 75', 700);
+-- The client's area (1.79.0): a registration in progress and the limits of /entra, which the seed leaves empty
+insert into public.onboarding_registrazioni (invito_id, chiave_hash, chiave_scade_il)
+values ('0b0a0000-0000-4000-8000-000000000021', repeat('7', 64), now() + interval '30 minutes')
+on conflict (invito_id) do nothing;
+insert into public.clienti_accesso_limiti (chiave, invii) values ('tutti', 1) on conflict (chiave) do nothing;
+-- The questionnaire (1.80.0): a file of the seed's active client, which the seed leaves without files
+insert into public.onboarding_allegati (id, client_id, campo, percorso, nome_file, tipo, byte)
+values ('75750000-0000-4000-8000-000000000276', '0b0b0000-0000-4000-8000-000000000001', 'attrezzatura',
+        '0b0b0000-0000-4000-8000-000000000001/75750000-0000-4000-8000-000000000276', 'sbarra.jpg', 'image/jpeg', 1000)
+on conflict (id) do nothing;
+-- The work of the team (1.81.0): an onboarding call and a delivery of the seed's active client
+insert into public.clienti_call (id, client_id, tipo, inizio, stato)
+values ('75750000-0000-4000-8000-000000000277', '0b0b0000-0000-4000-8000-000000000001', 'checkpoint',
+        now() + interval '30 days', 'prenotata')
+on conflict (id) do nothing;
+insert into public.clienti_consegne (id, client_id, tipo, titolo, url)
+values ('75750000-0000-4000-8000-000000000278', '0b0b0000-0000-4000-8000-000000000001', 'link', 'Lista della spesa 75',
+        'https://example.test/lista-75')
+on conflict (id) do nothing;
 
 create or replace function pg_temp.tabelle_vuote()
 returns text
@@ -768,6 +787,43 @@ begin
   perform pg_temp.prova('onboarding_revoca', $q$ select public.onboarding_revoca('0b0a0000-0000-4000-8000-000000000021', 'Da Claude')::text $q$);
   perform pg_temp.prova('onboarding_riattiva', $q$ select public.onboarding_riattiva('0b0a0000-0000-4000-8000-000000000021')::text $q$);
   perform pg_temp.prova('onboarding_rigenera_link', $q$ select public.onboarding_rigenera_link('0b0a0000-0000-4000-8000-000000000021')::text $q$);
+  -- the client's area (1.79.0): the client's functions start from cliente_corrente(), null for every OAuth
+  -- token; the admin's two (security invoker) refuse it explicitly
+  perform pg_temp.prova('onboarding_segna_prova', $q$ select public.onboarding_segna_prova('0b0a0000-0000-4000-8000-000000000021', true)::text $q$);
+  perform pg_temp.prova('onboarding_elimina', $q$ select public.onboarding_elimina('0b0a0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('percorso_cliente', $q$ select public.percorso_cliente()::text $q$);
+  perform pg_temp.prova('percorso_avanza', $q$ select public.percorso_avanza('benvenuto', 'completa', '{}')::text $q$);
+  perform pg_temp.prova('consenso_dai', $q$ select public.consenso_dai('salute', '2026-11-12')::text $q$);
+  perform pg_temp.prova('video_progresso', $q$ select public.video_progresso(gen_random_uuid(), null, 100, array[int4range(0, 10)])::text $q$);
+  -- the questionnaire (1.80.0): the client's functions start from cliente_corrente(); the admin's revocation
+  -- (security invoker) refuses an OAuth token explicitly
+  perform pg_temp.prova('questionario_cliente', $q$ select public.questionario_cliente()::text $q$);
+  perform pg_temp.prova('questionario_salva', $q$ select public.questionario_salva('{}'::jsonb, 1, 0)::text $q$);
+  perform pg_temp.prova('questionario_invia', $q$ select public.questionario_invia(0)::text $q$);
+  perform pg_temp.prova('allegato_prepara', $q$ select public.allegato_prepara('attrezzatura', 'sbarra.jpg', 'image/jpeg', 1000)::text $q$);
+  perform pg_temp.prova('allegato_togli', $q$ select public.allegato_togli('75750000-0000-4000-8000-000000000276')::text $q$);
+  perform pg_temp.prova('onboarding_revoca_consenso', $q$ select public.onboarding_revoca_consenso('0b0b0000-0000-4000-8000-000000000001',
+    'salute', 'Da Claude')::text $q$);
+  -- the work of the team (1.81.0): the reads of the people in charge and the actions of the coach and of the
+  -- admin refuse an OAuth token first, the admin's too
+  perform pg_temp.prova('onboarding_incaricati_elenco', $q$ select count(*)::text from public.onboarding_incaricati_elenco() $q$);
+  perform pg_temp.prova('onboarding_incaricato_attivo', $q$ select public.onboarding_incaricato_attivo('0b0b0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('onboarding_obiettivo_impostato', $q$ select public.onboarding_obiettivo_impostato('0b0b0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('onboarding_scheda_incaricato', $q$ select public.onboarding_scheda_incaricato('0b0b0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('onboarding_allegato_apri', $q$ select count(*)::text from public.onboarding_allegato_apri('75750000-0000-4000-8000-000000000276') $q$);
+  perform pg_temp.prova('onboarding_call_conferma', $q$ select public.onboarding_call_conferma('0b0b0000-0000-4000-8000-000000000001',
+    now() + interval '1 day', 'https://meet.google.com/abc-defg-hij')::text $q$);
+  perform pg_temp.prova('onboarding_call_esito', $q$ select public.onboarding_call_esito('75750000-0000-4000-8000-000000000277', 'svolta', null)::text $q$);
+  perform pg_temp.prova('onboarding_test_ricevuti', $q$ select public.onboarding_test_ricevuti('0b0b0000-0000-4000-8000-000000000001')::text $q$);
+  perform pg_temp.prova('onboarding_consegna_aggiungi', $q$ select public.onboarding_consegna_aggiungi('0b0b0000-0000-4000-8000-000000000001',
+    'link', 'Da Claude', 'https://example.test/claude', false)::text $q$);
+  perform pg_temp.prova('onboarding_consegna_togli', $q$ select public.onboarding_consegna_togli('75750000-0000-4000-8000-000000000278')::text $q$);
+  perform pg_temp.prova('onboarding_programma_consegnato', $q$ select public.onboarding_programma_consegnato('0b0b0000-0000-4000-8000-000000000001',
+    now() + interval '30 days')::text $q$);
+  perform pg_temp.prova('onboarding_community', $q$ select public.onboarding_community('0b0b0000-0000-4000-8000-000000000001', 'approvata')::text $q$);
+  perform pg_temp.prova('onboarding_sblocca_passo', $q$ select public.onboarding_sblocca_passo('0b0b0000-0000-4000-8000-000000000001',
+    'prenotazione', 'Da Claude')::text $q$);
+  perform pg_temp.prova('onboarding_riavvia', $q$ select public.onboarding_riavvia('0b0b0000-0000-4000-8000-000000000001', 'Da Claude')::text $q$);
 end $$;
 reset role;
 set local request.jwt.claims to '{}';
@@ -778,6 +834,8 @@ select is(
     'aggiorna_mio_profilo 42501',
     'aggiorna_stato_lead 42501',
     'aggiungi_rata 42501',
+    'allegato_prepara 42501',
+    'allegato_togli 42501',
     'anteprima_eliminazione 42501',
     'avanzamento_obiettivi 42501',
     'avvia_onboarding 42501',
@@ -794,6 +852,7 @@ select is(
     'cash_mensile 42501',
     'collega_registrazione 42501',
     'commenti_setter_periodo 42501',
+    'consenso_dai 42501',
     'current_role ok:null',
     'da_incassare_closer 42501',
     'decidi_performance 42501',
@@ -845,13 +904,32 @@ select is(
     'miei_numeri_periodo 42501',
     'motivi_non_chiusura_periodo 42501',
     'nuovo_cliente 42501',
+    'onboarding_allegato_apri 42501',
+    'onboarding_call_conferma 42501',
+    'onboarding_call_esito 42501',
+    'onboarding_community 42501',
     'onboarding_conferma_pagamento 42501',
+    'onboarding_consegna_aggiungi 42501',
+    'onboarding_consegna_togli 42501',
     'onboarding_consenso_genitore 42501',
+    'onboarding_elimina 42501',
     'onboarding_imposta_incarichi 42501',
+    'onboarding_incaricati_elenco 42501',
     'onboarding_incaricato ok:false',
+    'onboarding_incaricato_attivo ok:false',
+    'onboarding_obiettivo_impostato 42501',
+    'onboarding_programma_consegnato 42501',
     'onboarding_revoca 42501',
+    'onboarding_revoca_consenso 42501',
     'onboarding_riattiva 42501',
+    'onboarding_riavvia 42501',
     'onboarding_rigenera_link 42501',
+    'onboarding_sblocca_passo 42501',
+    'onboarding_scheda_incaricato 42501',
+    'onboarding_segna_prova 42501',
+    'onboarding_test_ricevuti 42501',
+    'percorso_avanza 42501',
+    'percorso_cliente 42501',
     'pm_assegnato ok:false',
     'pm_coach_del_cliente ok:false',
     'pm_crea_progetto 42501',
@@ -867,6 +945,9 @@ select is(
     'promemoria_percorso_interrotto 42501',
     'provvigioni_per_vendita 42501',
     'puo_usare_mcp ok:false',
+    'questionario_cliente 42501',
+    'questionario_invia 42501',
+    'questionario_salva 42501',
     'recap_mese 42501',
     'recap_sales 42501',
     'registra_vendita 42501',
@@ -876,7 +957,8 @@ select is(
     'spunti_per_claude ok:true',
     'unisci_profili 42501',
     'vede_marketing ok:true',
-    'vendite_da_collegare 42501'
+    'vendite_da_collegare 42501',
+    'video_progresso 42501'
   ],
   'token di Claude dell''admin: ogni funzione rifiuta, o non risponde niente, o parla solo di chi chiama'
 );

@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { motivoLoginPerLink } from '@/lib/auth/accesso'
 import {
-  destinazioneDopoLogin,
+  indirizzoRifiuto,
   sessioneVecchia,
   togliSessioneVecchia,
   verificaDopoLogin,
@@ -62,12 +62,12 @@ export async function GET(request: NextRequest) {
 
   togliSessioneVecchia(cookieStore, vecchia)
 
-  const esito = await verificaDopoLogin(supabase, cookieStore)
+  const esito = await verificaDopoLogin(supabase, cookieStore, da)
   if (!esito.ok) {
-    return verso(origin, `/login?errore=${esito.motivo}`)
+    return verso(origin, indirizzoRifiuto(esito.motivo))
   }
 
-  return verso(origin, destinazioneDopoLogin(da, esito.ruolo))
+  return verso(origin, esito.vai)
 }
 
 export function HEAD() {

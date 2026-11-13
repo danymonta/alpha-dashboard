@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 
 import {
-  destinazioneDopoLogin,
+  indirizzoRifiuto,
   sessioneVecchia,
   togliSessioneVecchia,
   verificaDopoLogin,
@@ -49,10 +49,10 @@ export async function GET(request: NextRequest) {
   togliSessioneVecchia(cookieStore, vecchia)
 
   // profile there and active: the same check as the code and the link
-  const esito = await verificaDopoLogin(supabase, cookieStore)
+  const esito = await verificaDopoLogin(supabase, cookieStore, da)
   if (!esito.ok) {
-    return NextResponse.redirect(`${origin}/login?errore=${esito.motivo}`)
+    return NextResponse.redirect(`${origin}${indirizzoRifiuto(esito.motivo)}`)
   }
 
-  return NextResponse.redirect(`${origin}${destinazioneDopoLogin(da, esito.ruolo)}`)
+  return NextResponse.redirect(`${origin}${esito.vai}`)
 }

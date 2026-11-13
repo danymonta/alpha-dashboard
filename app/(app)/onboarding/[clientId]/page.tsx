@@ -12,23 +12,33 @@ import {
   SearchX,
   Send,
   UserRound,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
 import { LinkBottone } from '@/components/link-bottone'
+import { RiquadriCliente } from '@/components/onboarding/cliente-riquadri'
+import { EliminaOnboarding } from '@/components/onboarding/elimina-onboarding'
+import { QuestionarioScheda } from '@/components/onboarding/questionario-scheda'
 import { RiquadroLink } from '@/components/onboarding/riquadro-link'
 import { StatoOnboardingBadge } from '@/components/onboarding/stato'
 import { TeamScheda } from '@/components/onboarding/team-scheda'
 import { TelegramScheda } from '@/components/onboarding/telegram-scheda'
+import { LavoroTeam } from '@/components/onboarding/team/lavoro-team'
+import { SchedaIncaricatoPagina } from '@/components/onboarding/team/scheda-incaricato'
 import { IntestazionePagina } from '@/components/pagina/intestazione'
 import { StatoVuoto } from '@/components/stati/stato-vuoto'
-import { requireRuolo } from '@/lib/auth/session'
+import { percorsoIniziale } from '@/lib/auth/roles'
+import { requireProfilo } from '@/lib/auth/session'
 import { formatOra, oggiRoma } from '@/lib/date'
 import { getFormato, getLingua } from '@/lib/i18n/server'
-import { ONBOARDING, titoloPasso } from '@/lib/i18n/testi/onboarding'
+import { ONBOARDING, ONBOARDING_TEAM, titoloPasso } from '@/lib/i18n/testi/onboarding'
 import { EVENTI_MAX, leggiPersone, leggiScheda } from '@/lib/onboarding/letture'
+import { permessiTeam } from '@/lib/onboarding/code'
 import { azioniLink, eventoInParole, nomeCliente, statoOnboarding } from '@/lib/onboarding/stati'
+import { contaIncarichi, leggiSchedaIncaricato, momentoLettura } from '@/lib/onboarding/team'
 import { createClient } from '@/lib/supabase/server'
 import { eStatoPasso, type StatoPasso } from '@/lib/validation/onboarding'
 import { cn } from '@/lib/utils'
@@ -56,14 +66,42 @@ const CLASSE_RIGA_LINK =
  * actions (CLAUDE.md sections 6 and 17).
  */
 export default async function SchedaOnboardingPage({ params }: { params: Promise<{ clientId: string }> }) {
-  const profilo = await requireRuolo(['admin'])
+  const profilo = await requireProfilo()
   const { clientId } = await params
   const lingua = await getLingua()
   const t = ONBOARDING[lingua]
-  const { formatData } = await getFormato()
   const supabase = await createClient()
-  const [scheda, persone] = await Promise.all([leggiScheda(supabase, clientId), leggiPersone(supabase)])
   const indietro = { href: '/onboarding', etichetta: t.titolo }
+
+  // release B2: a person in charge reads his registered client from his own function, never these views
+  if (profilo.ruolo !== 'admin') {
+    if ((await contaIncarichi(supabase, profilo.id)) === 0) redirect(percorsoIniziale(profilo.ruolo))
+    const sua = await leggiSchedaIncaricato(supabase, clientId)
+    if (!sua) {
+      const tt = ONBOARDING_TEAM[lingua].scheda
+      return (
+        <div className="max-w-3xl space-y-6">
+          <IntestazionePagina titolo={t.titolo} indietro={indietro} />
+          <StatoVuoto
+            Icona={SearchX}
+            titolo={tt.nonTrovata}
+            descrizione={tt.nonTrovataDescrizione}
+            azione={
+              <LinkBottone href="/onboarding" variant="outline">
+                {t.tornaOnboarding}
+              </LinkBottone>
+            }
+          />
+        </div>
+      )
+    }
+    return <SchedaIncaricatoPagina scheda={sua} lingua={lingua} adesso={momentoLettura()} />
+  }
+
+  const { formatData } = await getFormato()
+  const [scheda, persone] = await Promise.all([leggiScheda(supabase, clientId), leggiPersone(supabase)])
+  // the team's work, once the client has registered (the function answers null before)
+  const lavoro = scheda?.riga.account_stato ? await leggiSchedaIncaricato(supabase, clientId) : null
 
   if (!scheda) {
     return (
@@ -124,6 +162,8 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
                 minorenne: riga.minorenne,
                 consenso_genitore_il: riga.consenso_genitore_il,
                 pagamento_confermato: riga.pagamento_confermato,
+                prova: riga.prova,
+                account_stato: riga.account_stato,
               }}
               stato={stato}
               azioni={azioniLink(riga, aperto)}
@@ -134,7 +174,40 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
             />
           </div>
 
-          <section aria-labelledby="passi-titolo" className="rounded-xl bg-card p-3 max-lg:order-4" data-testid="riquadro-passi">
+          <div className="space-y-4 max-lg:order-2">
+            {lavoro && !lavoro.in_pausa ? (
+              <section aria-labelledby="lavoro-titolo" className="space-y-3 rounded-xl bg-card p-3" data-testid="riquadro-lavoro">
+                <div className="space-y-0.5 py-1.5">
+                  <h2 id="lavoro-titolo" className="flex items-center gap-1.5 text-sm font-medium">
+                    <Wrench className="size-4 text-muted-foreground" aria-hidden="true" />
+                    {ONBOARDING_TEAM[lingua].scheda.lavoro}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">{ONBOARDING_TEAM[lingua].scheda.lavoroDescrizione}</p>
+                </div>
+                <LavoroTeam
+                  scheda={lavoro}
+                  permessi={permessiTeam(lavoro.incarichi, true)}
+                  lingua={lingua}
+                  adesso={momentoLettura()}
+                  cliente={nome}
+                />
+              </section>
+            ) : null}
+            <RiquadriCliente
+              clientId={clientId}
+              cliente={nome}
+              lingua={lingua}
+              accountStato={riga.account_stato}
+              registratoIl={riga.registrato_il}
+              consensi={scheda.consensi}
+              video={scheda.video}
+            />
+            {riga.account_stato ? (
+              <QuestionarioScheda lingua={lingua} questionario={scheda.questionario} allegati={scheda.allegati} />
+            ) : null}
+          </div>
+
+          <section aria-labelledby="passi-titolo" className="rounded-xl bg-card p-3 max-lg:order-5" data-testid="riquadro-passi">
             <div className="space-y-0.5 py-1.5">
               <h2 id="passi-titolo" className="flex items-center gap-1.5 text-sm font-medium">
                 <ListChecks className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -183,7 +256,7 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
             )}
           </section>
 
-          <section aria-labelledby="registro-titolo" className="rounded-xl bg-card p-3 max-lg:order-5" data-testid="riquadro-registro">
+          <section aria-labelledby="registro-titolo" className="rounded-xl bg-card p-3 max-lg:order-6" data-testid="riquadro-registro">
             <div className="space-y-0.5 py-1.5">
               <h2 id="registro-titolo" className="flex items-center gap-1.5 text-sm font-medium">
                 <ScrollText className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -220,7 +293,7 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
         </div>
 
         <div className="min-w-0 max-lg:contents lg:space-y-4">
-          <div className="max-lg:order-2">
+          <div className="max-lg:order-3">
             <TeamScheda
               clientId={clientId}
               incarichi={{
@@ -234,7 +307,7 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
             />
           </div>
 
-          <div className="max-lg:order-3">
+          <div className="max-lg:order-4">
             <TelegramScheda
               clientId={clientId}
               username={scheda.telegram?.username ?? null}
@@ -244,7 +317,7 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
 
           <nav
             aria-labelledby="collegamenti-titolo"
-            className="rounded-xl bg-card p-3 max-lg:order-6"
+            className="rounded-xl bg-card p-3 max-lg:order-7"
             data-testid="riquadro-collegamenti"
           >
             <h2 id="collegamenti-titolo" className="flex min-h-11 items-center text-sm font-medium">
@@ -288,6 +361,10 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
               </li>
             </ul>
           </nav>
+
+          <div className="max-lg:order-8">
+            <EliminaOnboarding clientId={clientId} cliente={nome} registrato={riga.account_stato !== null} />
+          </div>
         </div>
       </div>
     </div>

@@ -87,6 +87,11 @@ const AZIONI: Record<string, (ctx: onboarding.Contesto) => Promise<{ ok: boolean
   impostaIncarichi: (ctx) => onboarding.impostaIncarichi(ctx, { client_id: CLIENTE, ...wizard.team }),
   salvaTelegram: (ctx) => onboarding.salvaTelegram(ctx, { client_id: CLIENTE, username: 'tommaso_galli' }),
   salvaImpostazioni: (ctx) => onboarding.salvaImpostazioni(ctx, { giorni_validita_link: 14 }),
+  // 1.79.0
+  segnaProva: (ctx) => onboarding.segnaProva(ctx, { invito_id: INVITO, prova: true }),
+  eliminaOnboarding: (ctx) => onboarding.eliminaOnboarding(ctx, { client_id: CLIENTE }),
+  // release B1b: «Registra la revoca» of the consent on health data
+  revocaConsenso: (ctx) => onboarding.revocaConsenso(ctx, { client_id: CLIENTE, tipo: 'salute', motivo: 'telegram' }),
 }
 
 describe('chi può scrivere: solo l’admin, su ogni azione', () => {
@@ -449,6 +454,9 @@ describe('incarichi, Telegram e impostazioni', () => {
         revisore_predefinito_id: null,
         responsabile_predefinito_id: ADMIN,
         link_community: 'https://t.me/percorsoalpha_prova',
+        // release B2: the booking page and the email «Tocca a te» (on by default)
+        link_prenotazione: null,
+        avvisa_cliente_email: true,
         giorni_validita_link: 21,
         updated_by: ADMIN,
       },

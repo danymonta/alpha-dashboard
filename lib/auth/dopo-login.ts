@@ -1,11 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { cookies } from 'next/headers'
 
+import { destinazioneCliente, destinazioneUtente } from '@/lib/auth/destinazione'
 import { destinazioneSicura } from '@/lib/auth/origine'
-import { percorsoIniziale } from '@/lib/auth/roles'
 import { COOKIE_SESSIONE } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
-import type { AppRole } from '@/lib/auth/roles'
 
 // No 'server-only' of its own: it only works on a client and a cookie store handed in, and
 // lib/supabase/server (server-only) keeps it out of any browser bundle.
@@ -41,18 +40,25 @@ export function togliSessioneVecchia(cookieStore: CookieStore, vecchia: ReturnTy
   }
 }
 
-export type MotivoRifiuto = 'callback' | 'accesso-negato' | 'disattivato'
+export type MotivoRifiuto = 'callback' | 'accesso-negato' | 'disattivato' | 'percorso-concluso'
 
-export type EsitoDopoLogin = { ok: true; ruolo: AppRole } | { ok: false; motivo: MotivoRifiuto }
+/** `vai`: where to go now, already decided by destinazioneUtente (lib/auth/destinazione.ts). */
+export type EsitoDopoLogin = { ok: true; vai: string } | { ok: false; motivo: MotivoRifiuto }
 
 /**
- * What every way in (Google, the code, the link) checks once Supabase has
- * given a session: the person has a profile and it is active. Otherwise the
- * session goes away again and the reason comes back as the `?errore=` of /login.
+ * What every way in (Google, the team's code, the link, the client's code) checks once
+ * Supabase has given a session, through the one place that decides (destinazioneUtente):
+ * a person of the team with an active profile, or a client with an account. Otherwise the
+ * session goes away from this browser only (scope 'local': a client who opened /login must
+ * never be signed out of his other devices) and the reason comes back.
+ *
+ * The database not answering is not a refusal: nothing is signed out, and the person goes
+ * where she was going, where the page shows the error with «Riprova».
  */
 export async function verificaDopoLogin(
   supabase: SupabaseClient<Database>,
   cookieStore: CookieStore,
+  da?: string | null,
 ): Promise<EsitoDopoLogin> {
   const {
     data: { user },
@@ -60,39 +66,33 @@ export async function verificaDopoLogin(
 
   if (!user) return { ok: false, motivo: 'callback' }
 
-  const { data: profilo, error: erroreProfilo } = await supabase
-    .from('profiles')
-    .select('ruolo, attivo')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  // the database did not answer (e.g. a deploy reloading its schema): not a
-  // refusal. Only this browser gives the new session back, the others stay in.
-  if (erroreProfilo) {
-    console.error('[auth] profilo non letto:', erroreProfilo.code, erroreProfilo.message)
-    await supabase.auth.signOut({ scope: 'local' })
-    togliSessione(cookieStore)
-    return { ok: false, motivo: 'callback' }
+  const destinazione = await destinazioneUtente(supabase, user, da)
+  switch (destinazione.esito) {
+    case 'team':
+    case 'cliente':
+      return { ok: true, vai: destinazione.vai }
+    case 'errore':
+      return { ok: true, vai: user.app_metadata?.tipo === 'cliente' ? destinazioneCliente(da) : destinazioneSicura(da) }
+    case 'disattivato':
+    case 'chiuso':
+    case 'nessuno': {
+      if (destinazione.esito === 'nessuno') console.error('[auth] utente senza profilo né account:', user.id)
+      await supabase.auth.signOut({ scope: 'local' })
+      togliSessione(cookieStore)
+      return {
+        ok: false,
+        motivo:
+          destinazione.esito === 'disattivato'
+            ? 'disattivato'
+            : destinazione.esito === 'chiuso'
+              ? 'percorso-concluso'
+              : 'accesso-negato',
+      }
+    }
   }
-
-  if (!profilo) {
-    console.error('[auth] utente senza profilo:', user.id)
-    await supabase.auth.signOut()
-    togliSessione(cookieStore)
-    return { ok: false, motivo: 'accesso-negato' }
-  }
-
-  if (!profilo.attivo) {
-    await supabase.auth.signOut()
-    togliSessione(cookieStore)
-    return { ok: false, motivo: 'disattivato' }
-  }
-
-  return { ok: true, ruolo: profilo.ruolo }
 }
 
-/** Where a person lands: where they were going (only a path of this app), or the home of their role. */
-export function destinazioneDopoLogin(da: string | null | undefined, ruolo: AppRole): string {
-  const sicura = destinazioneSicura(da)
-  return sicura === '/' ? percorsoIniziale(ruolo) : sicura
+/** Where a refused sign-in lands: the team's /login with its reason, a closed path its own page. */
+export function indirizzoRifiuto(motivo: MotivoRifiuto): string {
+  return motivo === 'percorso-concluso' ? '/accesso-negato?motivo=percorso-concluso' : `/login?errore=${motivo}`
 }

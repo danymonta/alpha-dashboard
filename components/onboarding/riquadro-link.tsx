@@ -7,6 +7,7 @@ import { useFormato, useLingua } from '@/components/i18n/lingua-provider'
 import { ConsensoGenitore, RevocaLink, RiattivaLink, RigeneraLink } from '@/components/onboarding/azioni-link'
 import { ConfermaPagamento } from '@/components/onboarding/conferma-pagamento'
 import { Copia } from '@/components/onboarding/copia'
+import { ProvaCliente } from '@/components/onboarding/prova-cliente'
 import { oggiRoma } from '@/lib/date'
 import { ONBOARDING, motivoInLingua } from '@/lib/i18n/testi/onboarding'
 import { dettaglioStato, type AzioniLink, type RigaOnboarding, type StatoOnboarding } from '@/lib/onboarding/stati'
@@ -24,6 +25,8 @@ export type LinkDellaScheda = Pick<
   | 'minorenne'
   | 'consenso_genitore_il'
   | 'pagamento_confermato'
+  | 'prova'
+  | 'account_stato'
 >
 
 /**
@@ -137,12 +140,15 @@ export function RiquadroLink({
             <p className="text-xs text-muted-foreground">{t.messaggio.nota}</p>
           </div>
         </div>
-      ) : !aperto ? (
+      ) : !aperto && riga.prova !== true && riga.invito_stato !== 'usato' && riga.account_stato == null ? (
         <p className="flex items-start gap-2 border-t border-border pt-3 text-sm text-muted-foreground" data-testid="area-non-aperta">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           {l.nonAperto}
         </p>
       ) : null}
+
+      {/* «Cliente di prova» (1.79.0): a link not used yet */}
+      {azioni.prova && riga.invito_id ? <ProvaCliente invitoId={riga.invito_id} prova={riga.prova === true} /> : null}
 
       {haAzioni && riga.invito_id ? (
         <div role="group" aria-label={l.azioni} className="flex flex-wrap items-start gap-2 border-t border-border pt-3">

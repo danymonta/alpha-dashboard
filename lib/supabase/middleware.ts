@@ -1,33 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { destinazioneSicura } from '@/lib/auth/origine'
+import { conCsp, decidi, headRifiutato, isPubblico, leggeLaSessione, nuovoNonce, politicaCsp } from '@/lib/auth/proxy-regole'
 import { publicEnv } from '@/lib/env'
-
-/**
- * Routes reachable without a session. The web app manifest is fetched by the
- * browser without cookies: behind the login it would never install. The
- * privacy policy is the Meta app's Privacy Policy and Data deletion URL: Meta's
- * crawler and anyone on Instagram must read it without an account.
- * The MCP endpoint and its OAuth metadata: Claude calls them without cookies
- * and must get 401, not a redirect to /login (the route checks the bearer
- * token itself). /oauth/consent stays behind the session.
- */
-const PERCORSI_PUBBLICI = [
-  '/login',
-  '/auth',
-  '/api/cron',
-  '/manifest.webmanifest',
-  '/privacy',
-  '/mcp',
-  '/.well-known',
-]
-
-function isPubblico(pathname: string) {
-  return PERCORSI_PUBBLICI.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  )
-}
 
 /**
  * Refreshes the auth cookies on every request and keeps unauthenticated users
@@ -55,15 +30,38 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  if (headRifiutato(pathname, request.method)) {
+    return new NextResponse(null, { status: 405, headers: { Allow: 'GET, POST', 'Cache-Control': 'no-store' } })
+  }
+
+  // The Content-Security-Policy with a nonce of the client's pages (release B1a): the request
+  // carries it too, so that Next puts the nonce on its own scripts (the Next guide).
+  const nonce = conCsp(pathname) ? nuovoNonce() : null
+  const csp = nonce ? politicaCsp(nonce, publicEnv.supabaseUrl, process.env.NODE_ENV === 'development') : null
+
+  function intestazioniRichiesta() {
+    if (!csp || !nonce) return request.headers
+    const h = new Headers(request.headers)
+    h.set('x-nonce', nonce)
+    h.set('Content-Security-Policy', csp)
+    return h
+  }
+
+  function avanti() {
+    const r = NextResponse.next({ request: { headers: intestazioniRichiesta() } })
+    if (csp) r.headers.set('Content-Security-Policy', csp)
+    return r
+  }
+
   // The public routes need no session, and the sign-in ones must not touch it:
   // refreshing a dead session clears the PKCE verifier together with it, and
   // the code coming back from Google can no longer be exchanged. Only opening
-  // /login looks at the session, to send who is already in where they were going.
-  if (isPubblico(pathname) && !(pathname === '/login' && request.method === 'GET')) {
-    return NextResponse.next({ request })
+  // /login or /entra looks at the session, to send who is already in where they were going.
+  if (isPubblico(pathname) && !leggeLaSessione(pathname, request.method)) {
+    return avanti()
   }
 
-  let response = NextResponse.next({ request })
+  let response = avanti()
 
   const supabase = createServerClient(
     publicEnv.supabaseUrl,
@@ -77,7 +75,7 @@ export async function updateSession(request: NextRequest) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value)
           }
-          response = NextResponse.next({ request })
+          response = avanti()
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options)
           }
@@ -90,25 +88,25 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user && !isPubblico(pathname)) {
+  // the proxy never reads the database: a client is the one whose app_metadata says so (only
+  // the server writes it, when it creates the user); every page checks again
+  const decisione = decidi({
+    pathname,
+    ricerca: request.nextUrl.search,
+    metodo: request.method,
+    da: searchParams.get('da'),
+    utente: user ? { cliente: user.app_metadata?.tipo === 'cliente' } : null,
+  })
+
+  if (decisione.tipo === 'redirect') {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    // the whole address, query included, rides in "da" alone: "Registra
-    // rinnovo" from a reminder email (/sales/new?cliente=…&tipo=rinnovo)
-    // opens that client's renewal after the sign-in, not an empty sale
-    url.search = ''
-    url.searchParams.set('da', `${pathname}${request.nextUrl.search}`)
+    const domanda = decisione.verso.indexOf('?')
+    url.pathname = domanda >= 0 ? decisione.verso.slice(0, domanda) : decisione.verso
+    url.search = domanda >= 0 ? decisione.verso.slice(domanda) : ''
     return NextResponse.redirect(url)
   }
-
-  // already signed in (the session cookie is valid): no Google button again,
-  // straight to where they were going
-  if (user && pathname === '/login') {
-    const url = request.nextUrl.clone()
-    const destinazione = destinazioneSicura(request.nextUrl.searchParams.get('da'))
-    url.pathname = destinazione.split('?')[0]
-    url.search = destinazione.includes('?') ? destinazione.slice(destinazione.indexOf('?')) : ''
-    return NextResponse.redirect(url)
+  if (decisione.tipo === 'json') {
+    return NextResponse.json(decisione.corpo, { status: decisione.stato, headers: { 'Cache-Control': 'no-store' } })
   }
 
   return response

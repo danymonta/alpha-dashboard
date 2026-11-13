@@ -9,7 +9,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public;
 
-select plan(130);
+select plan(141);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres). Seed: admin 1111, setter 2222, closer 3333, coach 4444, editor 5555,
@@ -967,6 +967,56 @@ select ok(
    from (select public.backup_completo() as b) x),
   'il backup ha gli inviti, i percorsi, gli incarichi e Telegram, mai i token'
 );
+
+-- ---------------------------------------------------------------------------
+-- 16. The test invite (1.79.0, 20261109090000_clienti_account.sql) and the token in clear gone at the use
+-- ---------------------------------------------------------------------------
+select pg_temp.web('11111111-1111-4111-8111-111111111111');
+select pg_temp.nuovo('Prova');
+select throws_ok(
+  $$ update public.onboarding_inviti set prova = true where id = pg_temp.invito('Prova') $$,
+  '42501', 'Il link si cambia solo dalle azioni dell''onboarding.', 'un PATCH diretto di prova è rifiutato'
+);
+select is(public.onboarding_segna_prova(pg_temp.invito('Prova'), true) ->> 'prova', 'true',
+  'onboarding_segna_prova: l''admin segna il cliente di prova');
+select is((select scade_il from public.onboarding_inviti where id = pg_temp.invito('Prova')), null,
+  'in attesa del pagamento i giorni del link non partono');
+select public.onboarding_conferma_pagamento(pg_temp.invito('Prova'));
+select ok(
+  (select scade_il between now() + interval '13 days' and now() + interval '15 days'
+   from public.onboarding_inviti where id = pg_temp.invito('Prova')),
+  'attivo e di prova: i 14 giorni partono anche con l''area clienti chiusa'
+);
+select pg_temp.nuovo('ProvaDopo');
+select public.onboarding_conferma_pagamento(pg_temp.invito('ProvaDopo'));
+select is((select scade_il from public.onboarding_inviti where id = pg_temp.invito('ProvaDopo')), null,
+  'attivo, non di prova, area chiusa: nessuna scadenza');
+select public.onboarding_segna_prova(pg_temp.invito('ProvaDopo'), true);
+select ok(
+  (select scade_il between now() + interval '13 days' and now() + interval '15 days'
+   from public.onboarding_inviti where id = pg_temp.invito('ProvaDopo')),
+  'segnato di prova da attivo: la scadenza si scrive adesso'
+);
+select is(
+  (select autore_id from public.onboarding_eventi where client_id = pg_temp.cliente('ProvaDopo') and tipo = 'prova'),
+  '11111111-1111-4111-8111-111111111111'::uuid, 'il registro dice chi l''ha segnato'
+);
+select pg_temp.web('22222222-2222-4222-8222-222222222222');
+select throws_ok($$ select public.onboarding_segna_prova(pg_temp.invito('ProvaDopo'), false) $$, '42501', null,
+  'il setter non segna un cliente di prova');
+select pg_temp.claude_dentro();
+select throws_ok($$ select public.onboarding_segna_prova(pg_temp.invito('ProvaDopo'), false) $$, '42501', null,
+  'nemmeno il token di Claude dell''admin, dentro una richiesta ammessa');
+reset role;
+set local request.jwt.claims to '{}';
+update public.onboarding_inviti set stato = 'usato' where id = pg_temp.invito('Prova');
+select is((select count(*)::int from public.onboarding_inviti_token where invito_id = pg_temp.invito('Prova')), 0,
+  'usato: il token in chiaro non c''è più');
+select pg_temp.web('11111111-1111-4111-8111-111111111111');
+select throws_ok($$ select public.onboarding_segna_prova(pg_temp.invito('Prova'), false) $$, '22023',
+  'Il cliente è già registrato.', 'un invito usato non cambia');
+reset role;
+set local request.jwt.claims to '{}';
 
 select * from finish();
 rollback;

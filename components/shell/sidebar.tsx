@@ -23,15 +23,17 @@ type Props = {
   ruolo: AppRole
   nome: string
   foto: string | null
+  /** The item «Onboarding» for a person in charge (release B2). */
+  onboarding?: boolean
 }
 
-export function Sidebar({ ruolo, nome, foto }: Props) {
+export function Sidebar({ ruolo, nome, foto, onboarding = false }: Props) {
   const pathname = usePathname()
   // shrunk to a column of icons (the choice lives in a cookie, per device)
   const { ridotta, inverti } = useSidebar()
   // the person's own calls to record and days to decide (zero where the role has none)
   const promemoria = usePromemoria()
-  const { gruppi } = vociNav(ruolo)
+  const { gruppi } = vociNav(ruolo, { onboarding })
   const lingua = useLingua()
   const t = SHELL[lingua]
   const idBase = useId()

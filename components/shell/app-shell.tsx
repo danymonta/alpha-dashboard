@@ -32,6 +32,8 @@ type Props = {
   notificheNonLette: number
   /** The sidebar's width as this device left it (cookie, read by the layout): no flash on the first paint. */
   sidebarIniziale: StatoSidebar
+  /** An incarico on a registered client (release B2): the item «Onboarding» for a person who is not the admin. */
+  onboarding?: boolean
   children: ReactNode
 }
 
@@ -51,6 +53,7 @@ export function AppShell({
   promemoriaLetti,
   notificheNonLette,
   sidebarIniziale,
+  onboarding = false,
   children,
 }: Props) {
   return (
@@ -61,14 +64,14 @@ export function AppShell({
       <EsitiDaRegistrareProvider iniziale={promemoria} versione={promemoriaLetti} profiloId={profiloId} ruolo={ruolo}>
       <NotificheProvider iniziale={notificheNonLette} versione={promemoriaLetti}>
       <ContenitoreShell iniziale={sidebarIniziale}>
-        <Sidebar ruolo={ruolo} nome={nome} foto={foto} />
+        <Sidebar ruolo={ruolo} nome={nome} foto={foto} onboarding={onboarding} />
         <TopBar ruolo={ruolo} nome={nome} foto={foto} />
         {/* with the sidebar shrunk the content really widens: max-w-5xl would eat the gain, so it grows to the
             screen (wide tables, like the Contenuti of Marketing, take the room through container queries) */}
         <main className="mx-auto w-full max-w-5xl px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] group-data-[sidebar=ridotta]/shell:md:max-w-[90rem] md:px-8 md:pt-8 md:pb-10">
           <TransizionePagina>{children}</TransizionePagina>
         </main>
-        <BottomBar ruolo={ruolo} />
+        <BottomBar ruolo={ruolo} onboarding={onboarding} />
         {/* Brand moment: once per session, removed from the DOM when done */}
         <IntroIngresso />
       </ContenitoreShell>

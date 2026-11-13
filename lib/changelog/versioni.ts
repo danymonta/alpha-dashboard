@@ -86,6 +86,133 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.81.0',
+    data: '2026-11-13',
+    titolo: 'Onboarding: il percorso fino al lancio',
+    riassunto:
+      'Il cliente fa tutto il percorso nella sua area, dalla prenotazione della call al programma, con le animazioni della timeline e il razzo al lancio; il coach, il revisore e il responsabile lavorano il loro pezzo dalla sezione Onboarding. Quando i contenuti sono scritti apri l’area ai clienti.',
+    intestazionePer: ['progetti'],
+    intestazioneTeam: {
+      titolo: 'Onboarding: il percorso dei clienti',
+      riassunto:
+        'Se segui un cliente nuovo come coach, revisore o responsabile, la sezione Onboarding ti dice cosa tocca a te e ti fa segnare la call, l’obiettivo, i test, il programma e la community.',
+    },
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'L’area del cliente arriva fino al lancio: prenota la call di onboarding, entra nella community e si presenta, legge il suo obiettivo, spunta la settimana test e guarda i video del programma; poi il razzo parte e la pagina dice che il percorso è iniziato, con il prossimo checkpoint.',
+      },
+      {
+        per: ['progetti'],
+        testo:
+          'La sezione Onboarding per chi segue un cliente nuovo: i tuoi clienti in «Tocca a te», «Tocca al cliente», «In pausa» e «Completati», le code in cima e una scheda con le azioni del tuo incarico, con la prossima cosa da fare in evidenza. Coach: conferma la call col link di Meet, segna com’è andata, «Segna obiettivo impostato», conferma i test e consegna il programma con il primo checkpoint. Revisore: «Test da rivedere». Responsabile: l’accesso alla community e la presentazione.',
+      },
+      {
+        per: ['progetti'],
+        testo:
+          'Quando tocca di nuovo al cliente gli arriva l’email «Tocca a te»; se non parte, il messaggio è pronto da copiare per Telegram. I task della lista «Onboarding» si completano e prendono le scadenze da soli.',
+      },
+      {
+        per: ['progetti'],
+        testo:
+          'Per l’admin e il coach: «Sblocca step» apre uno step bloccato o chiude il benvenuto o l’obiettivo quando il video non conta i secondi; «Riavvia onboarding» fa ripartire il percorso. Il motivo resta nel registro, che legge solo l’admin.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Impostazioni › Onboarding: la pagina di prenotazione, l’email «Tocca a te» e «Apri ai clienti», che dice prima cosa manca (contenuti da scrivere, video segnaposto, link) e lascia aprire solo quando è tutto pronto. Apertura e chiusura restano nel registro delle modifiche.',
+      },
+      {
+        per: ['progetti'],
+        testo:
+          'Il coach legge del cliente solo quello che gli serve: il questionario senza email e telefono, i file, Telegram, i video guardati. Un cliente in pausa è solo «In pausa», senza altro.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo:
+          '«Nuovo cliente» non chiede più se il cliente è minorenne: nel wizard entra un cliente già venduto, quindi il link segue solo il pagamento.',
+      },
+    ],
+  },
+  {
+    versione: '1.80.0',
+    data: '2026-11-13',
+    titolo: 'Onboarding: il questionario del cliente',
+    riassunto:
+      'Il terzo passo del percorso è il questionario, con le domande del tuo modulo Google: il cliente lo compila in quattro parti, carica i file e lo invia; tu leggi tutto nella sua scheda. L’area clienti resta chiusa: lo provi con un cliente di prova.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Il questionario iniziale nell’area del cliente: le domande e le opzioni del «Modulo Onboarding Coaching Online», in quattro parti (Chi sei, Allenamento, Stile di vita, Obiettivi). Si salva da solo e si riprende anche da un altro telefono; nome ed email arrivano dalla scheda del cliente. Per ora lo vede solo un cliente di prova.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Con il questionario il cliente carica foto o PDF della sua attrezzatura, della vecchia scheda e del piano alimentare: stanno in uno spazio privato, si controllano dai primi byte e tu li scarichi dalla sua scheda con un indirizzo che dura un minuto.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Nella scheda di onboarding il riquadro «Questionario», con le risposte nelle quattro parti e i file. Una notifica ti avvisa quando un cliente lo invia, senza le risposte.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          '«Registra la revoca» nei consensi, quando un cliente chiede di revocare il consenso sui dati di salute: scegli come l’ha chiesto, confermi due volte e si cancellano subito le risposte e i file; il cliente torna alle regole. Le risposte e i file restano per tutto il rapporto con il cliente e se ne vanno con lui o con la revoca, mai nel backup per email.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'L’informativa privacy ha la sezione «Clienti del percorso»: l’account, il questionario e i dati di salute con il consenso, i file, i video guardati, chi li legge, quanto restano e come si revoca il consenso.',
+      },
+    ],
+  },
+  {
+    versione: '1.79.0',
+    data: '2026-11-13',
+    titolo: 'Onboarding: l’accesso dei clienti, per ora di prova',
+    riassunto:
+      'Un cliente di prova si registra dal suo link con un codice via email, entra nella sua area del percorso e fa i primi due passi; tu scrivi i contenuti e vedi tutto nella sua scheda.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Il link personale del cliente apre la registrazione: sceglie la sua email, riceve un codice di 8 cifre e entra nella sua area del percorso, con la timeline delle tappe, la stima dei giorni all’inizio e il passo da fare. Per ora funziona solo per un «Cliente di prova», che segni dalla sua scheda di onboarding: l’area clienti resta chiusa per tutti gli altri.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'I primi due passi del cliente: il benvenuto con il video e il suo team (foto e ruolo), poi le regole del percorso da spuntare e il consenso sui dati di salute, con la sua versione. Il cliente rientra da «Entra nel tuo percorso» con l’email e un codice, mai con una password.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Impostazioni › Onboarding › Contenuti: i testi, i video, le regole e i link di ogni passo, con l’anteprima di come li vede il cliente. Dove manca il testo vero c’è un segnaposto con l’avviso.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Nella scheda di onboarding: l’accesso del cliente (registrato il, attivo o sospeso), i consensi dati e i video guardati. Una notifica ti avvisa quando un cliente si registra, se usa un’email diversa da quella della scheda e se paga con l’accesso sospeso.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          '«Elimina onboarding» in fondo alla scheda, per un onboarding avviato per prova o per errore, finché il cliente non si è registrato: cliente, vendita e progetto restano. Un cliente registrato si ferma con «Revoca» e torna con «Riattiva», mai con un link nuovo.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'L’accesso con il codice via email è più protetto: un limite per ogni connessione e per ogni indirizzo, uguale per il team e per i clienti, e la risposta non dice mai di chi è un indirizzo. Per te e per il team l’accesso funziona come prima.',
+      },
+    ],
+  },
+  {
     versione: '1.78.0',
     data: '2026-11-13',
     titolo: 'Le call del calendario entrano nella pipeline con un tocco',

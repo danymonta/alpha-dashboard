@@ -35,6 +35,19 @@ export const NOTIFICA_BACKUP_SEED = 'dd000001-0000-4000-8000-000000000003'
 /** A seed client in onboarding, waiting for the payment (supabase/seeds/60_onboarding.sql, 1.77.0). */
 export const CLIENTE_ONBOARDING_SEED = '0b0a0000-0000-4000-8000-000000000001'
 
+/**
+ * The test client of the client's area (supabase/seeds/61_percorso.sql, 1.79.0): registered
+ * through the client's branch of the trigger, with a password for the development login only.
+ * Not in UTENTI: he has no role and no profile. His pages are the ones of /percorso.
+ */
+export const CLIENTE_PROVA = { email: 'davide.ferri@example.test', nome: 'Davide' } as const
+export const PAGINE_CLIENTE = [
+  { nome: 'percorso', url: '/percorso' },
+  { nome: 'percorso-consensi', url: '/percorso/consensi' },
+  // release B1b: the seed's client has the questionnaire half done
+  { nome: 'percorso-questionario', url: '/percorso/questionario?schermata=2' },
+] as const
+
 /** Every tab of one project, for the screenshots. */
 function schedeProgetto(id: string) {
   return [
@@ -116,6 +129,7 @@ export const PAGINE: Record<RuoloSeed, { nome: string; url: string }[]> = {
     { nome: 'impostazioni-instagram', url: '/settings/instagram' },
     { nome: 'impostazioni-fathom', url: '/settings/fathom' },
     { nome: 'impostazioni-onboarding', url: '/settings/onboarding' },
+    { nome: 'impostazioni-onboarding-contenuti', url: '/settings/onboarding/contenuti' },
     // the business coach's page, which the admin opens too (1.58.0)
     { nome: 'recap', url: '/recap' },
     CHANGELOG,
@@ -202,4 +216,14 @@ export async function accedi(page: Page, ruolo: RuoloSeed) {
   await page
     .waitForFunction(() => !document.querySelector('div[hidden][id^="S:"]'), undefined, { timeout: 15_000 })
     .catch(() => undefined)
+}
+
+/** The test client of the seed: the development login, then his area. */
+export async function accediCliente(page: Page) {
+  attendiStreaming(page)
+  await page.goto('/login')
+  await page.getByLabel('Email').fill(CLIENTE_PROVA.email)
+  await page.getByLabel('Password').fill(PASSWORD_SEED)
+  await page.getByRole('button', { name: 'Entra' }).click()
+  await page.waitForURL((url) => url.pathname.startsWith('/percorso'))
 }

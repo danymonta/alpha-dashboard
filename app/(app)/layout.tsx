@@ -10,6 +10,7 @@ import { oggiRoma } from '@/lib/date'
 import { NESSUN_PROMEMORIA, type Promemoria } from '@/lib/nav'
 import { COOKIE_SIDEBAR, statoSidebar } from '@/lib/shell/sidebar-stato'
 import { contaCommentiMancanti } from '@/lib/setting/commenti-mancanti'
+import { contaIncarichi } from '@/lib/onboarding/team'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -90,6 +91,16 @@ async function contaNotifiche(): Promise<number> {
   return error ? 0 : (count ?? 0)
 }
 
+/**
+ * The item «Onboarding» for the people in charge (release B2, 1.81.0): one head count under
+ * RLS on onboarding_incarichi, which gives a coach, reviewer or responsible his rows only from
+ * the client's registration on. The admin has the item anyway; 0 when the query fails.
+ */
+async function haIncarichi(profilo: Profilo): Promise<boolean> {
+  if (profilo.ruolo === 'admin') return false
+  return (await contaIncarichi(await createClient(), profilo.id)) > 0
+}
+
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const profilo = await requireProfilo()
 
@@ -102,7 +113,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect('/recap')
   }
 
-  const [{ promemoria, letto }, notificheNonLette] = await Promise.all([contaPromemoria(profilo), contaNotifiche()])
+  const [{ promemoria, letto }, notificheNonLette, onboarding] = await Promise.all([
+    contaPromemoria(profilo),
+    contaNotifiche(),
+    haIncarichi(profilo),
+  ])
 
   // the sidebar's width, per device: read here so the first paint is already right
   const sidebarIniziale = statoSidebar((await cookies()).get(COOKIE_SIDEBAR)?.value)
@@ -119,6 +134,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       promemoriaLetti={letto}
       notificheNonLette={notificheNonLette}
       sidebarIniziale={sidebarIniziale}
+      onboarding={onboarding}
     >
       {children}
     </AppShell>

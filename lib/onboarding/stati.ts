@@ -1,5 +1,5 @@
 import type { Lingua } from '@/lib/i18n/lingua'
-import { ONBOARDING, motivoInLingua } from '@/lib/i18n/testi/onboarding'
+import { ONBOARDING, titoloPasso, motivoInLingua } from '@/lib/i18n/testi/onboarding'
 import type { Database } from '@/lib/supabase/database.types'
 
 /**
@@ -22,7 +22,12 @@ export type StatoRiga = Pick<
   | 'consenso_genitore_il'
   | 'passo_attore'
   | 'passo_stato'
->
+> & {
+  /** A test link (1.79.0): it works with the client area closed. Optional: the rows of before have none. */
+  prova?: boolean | null
+  /** The client's account (1.79.0): with one, the client has registered. Optional: the rows of before have none. */
+  account_stato?: string | null
+}
 
 export const STATI_ONBOARDING = [
   'in_attesa_pagamento',
@@ -54,7 +59,8 @@ export function statoOnboarding(riga: StatoRiga, aperto: boolean): StatoOnboardi
     case 'in_attesa_pagamento':
       return riga.minorenne && !riga.consenso_genitore_il ? 'in_attesa_consenso' : 'in_attesa_pagamento'
     case 'attivo':
-      return aperto ? 'in_attesa_registrazione' : 'pronto'
+      // a test link (1.79.0) can be used with the area closed: it waits for the registration
+      return aperto || riga.prova === true ? 'in_attesa_registrazione' : 'pronto'
     case 'usato':
       return riga.percorso_stato === 'sospeso' ? 'sospeso' : 'in_corso'
     default:
@@ -144,8 +150,10 @@ export type AzioniLink = {
   rigenera: boolean
   revoca: boolean
   riattiva: boolean
-  /** «Copia link» and «Copia il messaggio»: only with the client area open and a link the client can use. */
+  /** «Copia link» and «Copia il messaggio»: only with the client area open (or a test link) and a link the client can use. */
   copia: boolean
+  /** «Cliente di prova» (1.79.0): a link not used yet. */
+  prova: boolean
 }
 
 /**
@@ -159,14 +167,17 @@ export function azioniLink(
 ): AzioniLink {
   const stato = riga.invito_stato
   const invito = riga.invito_id != null && stato != null
+  // a client who has registered: his access comes back only with «Riattiva», never with a new link
+  const registrato = riga.account_stato != null
   return {
     // a minor whose payment is there already waits only for the consent: confirming again would change nothing
     confermaPagamento: invito && stato === 'in_attesa_pagamento' && riga.pagamento_confermato !== true,
     consensoGenitore: invito && riga.minorenne === true && !riga.consenso_genitore_il && stato !== 'revocato',
-    rigenera: invito && stato !== 'usato',
+    rigenera: invito && stato !== 'usato' && !registrato,
     revoca: invito && stato !== 'revocato',
     riattiva: invito && stato === 'revocato',
-    copia: invito && aperto && stato === 'attivo',
+    copia: invito && (aperto || riga.prova === true) && stato === 'attivo',
+    prova: invito && stato !== 'usato' && !registrato,
   }
 }
 
@@ -206,6 +217,57 @@ export function eventoInParole(evento: EventoRegistro, lingua: Lingua = 'it'): s
       return t.consensoGenitore
     case 'incarichi_modificati':
       return t.incarichiModificati
+    // release B1a (1.79.0): the client's own steps, never his answers
+    case 'registrato':
+      return t.registrato
+    case 'email_cambiata':
+      return t.emailCambiata
+    case 'prova':
+      return d.prova === false ? t.provaTolta : t.provaSegnata
+    case 'consenso_dato':
+      return t.consensoDato
+    case 'passo_completato':
+      return typeof d.passo === 'string' ? t.passoCompletato(titoloPasso(d.passo, null, lingua)) : t.altro
+    // release B1b (1.80.0): how the client asked, from a closed list; never a free text, never an answer
+    case 'consenso_revocato': {
+      const come = typeof d.come === 'string' ? ONBOARDING[lingua].cliente.canaliRevoca[d.come] : undefined
+      return come ? t.conMotivo(t.consensoRevocato, come) : t.consensoRevocato
+    }
+    // release B2 (1.81.0): the team's work; never a Meet link. The reasons of «Sblocca» and «Riavvia» are the
+    // words of the person who wrote them: the log is the admin's only
+    case 'passo_inviato':
+      return typeof d.passo === 'string' ? t.passoInviato(titoloPasso(d.passo, null, lingua)) : t.altro
+    case 'call_confermata':
+      return t.callConfermata
+    case 'call_svolta':
+      return d.tipo === 'checkpoint' ? t.checkpointSvolto : t.callSvolta
+    case 'call_spostata':
+      return t.callSpostata
+    case 'call_non_presentato':
+      return t.callNonPresentato
+    case 'obiettivo_aperto':
+      return t.obiettivoAperto
+    case 'test_ricevuti':
+      return t.testRicevuti
+    case 'programma_consegnato':
+      return t.programmaConsegnato
+    case 'community_approvata':
+      return t.communityApprovata
+    case 'community_controllata':
+      return t.communityControllata
+    case 'passo_sbloccato': {
+      const frase = typeof d.passo === 'string' ? t.passoSbloccato(titoloPasso(d.passo, null, lingua)) : t.altro
+      const motivo = typeof d.motivo === 'string' ? d.motivo.trim() : ''
+      return motivo ? t.conMotivo(frase, motivo) : frase
+    }
+    case 'onboarding_riavviato': {
+      const motivo = typeof d.motivo === 'string' ? d.motivo.trim() : ''
+      return motivo ? t.conMotivo(t.onboardingRiavviato, motivo) : t.onboardingRiavviato
+    }
+    case 'onboarding_completato':
+      return t.onboardingCompletato
+    case 'telegram_gruppo_creato':
+      return t.telegramGruppo
     default:
       return t.altro
   }

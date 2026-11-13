@@ -51,6 +51,8 @@ export type ImpostazioniOnboarding = Pick<
   | 'revisore_predefinito_id'
   | 'responsabile_predefinito_id'
   | 'link_community'
+  | 'link_prenotazione'
+  | 'avvisa_cliente_email'
 >
 
 /** What the migration seeds: the answer when the row is not there (a restore with the triggers off). */
@@ -61,15 +63,44 @@ export const IMPOSTAZIONI_DI_BASE: ImpostazioniOnboarding = {
   revisore_predefinito_id: null,
   responsabile_predefinito_id: null,
   link_community: null,
+  link_prenotazione: null,
+  avvisa_cliente_email: true,
 }
 
 const COLONNE_IMPOSTAZIONI =
-  'aperto_ai_clienti, giorni_validita_link, coach_predefinito_id, revisore_predefinito_id, responsabile_predefinito_id, link_community' as const
+  'aperto_ai_clienti, giorni_validita_link, coach_predefinito_id, revisore_predefinito_id, responsabile_predefinito_id, link_community, link_prenotazione, avvisa_cliente_email' as const
 
 export async function leggiImpostazioni(db: Db): Promise<ImpostazioniOnboarding> {
   const { data, error } = await db.from('onboarding_impostazioni').select(COLONNE_IMPOSTAZIONI).maybeSingle()
   controlla('le impostazioni', error)
   return data ?? IMPOSTAZIONI_DI_BASE
+}
+
+/**
+ * What is still missing before the area opens, with the same words and the same checks as
+ * onboarding_apri_ai_clienti (which decides again at the tap): the published contents that
+ * still say «[Da scrivere», the videos with the placeholder id, the two links. Italian, like
+ * the database; problemiApertura translates them.
+ */
+export async function leggiMancaPerAprire(db: Db, x: Pick<ImpostazioniOnboarding, 'link_community' | 'link_prenotazione'>): Promise<string[]> {
+  const { data, error } = await db
+    .from('contenuti_blocchi')
+    .select('tipo, titolo, corpo, url, youtube_id')
+    .eq('pubblicato', true)
+  controlla('i contenuti', error)
+  const blocchi = data ?? []
+  const daScrivere = blocchi.filter(
+    (b) => (b.titolo ?? '').includes('[Da scrivere') || (b.corpo ?? '').includes('[Da scrivere') || (b.url ?? '').includes('da-scrivere'),
+  ).length
+  const segnaposto = blocchi.filter((b) => b.tipo === 'video' && b.youtube_id === 'XXXXXXXXXXX').length
+  const problemi: string[] = []
+  if (daScrivere > 0) {
+    problemi.push(`${daScrivere} ${daScrivere === 1 ? 'contenuto ha' : 'contenuti hanno'} ancora «[Da scrivere»`)
+  }
+  if (segnaposto > 0) problemi.push(`${segnaposto} video ${segnaposto === 1 ? 'ha' : 'hanno'} ancora l'id segnaposto`)
+  if (!x.link_community) problemi.push('manca il link della community')
+  if (!x.link_prenotazione) problemi.push("manca l'indirizzo della pagina di prenotazione")
+  return problemi
 }
 
 export type PersonaDelTeam = PersonaTeam & { ruolo: AppRole }
@@ -223,7 +254,26 @@ export type SchedaOnboarding = {
    * With the area closed the token is not even read.
    */
   link: LinkScheda | null
+  /** The consents the client gave (1.79.0), the most recent first. */
+  consensi: ConsensoScheda[]
+  /** The videos of the CMS the client watched (1.79.0): title, percentage and when it reached 90%. */
+  video: VideoScheda[]
+  /** The questionnaire (1.80.0): health data, read only by the admin (RLS). */
+  questionario: QuestionarioScheda | null
+  /** Its files uploaded (1.80.0): opened through /api/onboarding/allegati/[id], never by their path. */
+  allegati: AllegatoScheda[]
 }
+
+export type QuestionarioScheda = {
+  risposte: Record<string, unknown>
+  schermata: number
+  inviato_il: string | null
+  updated_at: string
+}
+export type AllegatoScheda = { id: string; campo: string; nome_file: string; tipo: string; byte: number }
+
+export type ConsensoScheda = { id: string; tipo: string; versione: string; dato_il: string; revocato_il: string | null }
+export type VideoScheda = { id: string; titolo: string | null; percentuale: number; visto_il: string | null; updated_at: string }
 
 type PassoConDefinizione = {
   passo: string
@@ -256,7 +306,7 @@ function passiInOrdine(righe: readonly PassoConDefinizione[]): PassoScheda[] {
 export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboarding | null> {
   if (!isUuid(clientId)) return null
 
-  const [riga, telegram, passi, eventi, impostazioni] = await Promise.all([
+  const [riga, telegram, passi, eventi, impostazioni, consensi, video, questionario, allegati] = await Promise.all([
     db.from('v_onboarding').select('*').eq('client_id', clientId).maybeSingle(),
     db.from('clienti_telegram').select('username, gruppo_privato_url').eq('client_id', clientId).maybeSingle(),
     db
@@ -273,8 +323,33 @@ export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboa
       .order('id')
       .limit(EVENTI_MAX + 1),
     leggiImpostazioni(db),
+    db
+      .from('clienti_consensi')
+      .select('id, tipo, versione, dato_il, revocato_il')
+      .eq('client_id', clientId)
+      .order('dato_il', { ascending: false }),
+    db
+      .from('onboarding_video_visti')
+      .select('id, percentuale, visto_il, updated_at, blocco:contenuti_blocchi(titolo)')
+      .eq('client_id', clientId)
+      .order('updated_at', { ascending: false }),
+    db
+      .from('onboarding_questionari')
+      .select('risposte, schermata, inviato_il, updated_at')
+      .eq('client_id', clientId)
+      .maybeSingle(),
+    db
+      .from('onboarding_allegati')
+      .select('id, campo, nome_file, tipo, byte')
+      .eq('client_id', clientId)
+      .eq('stato', 'caricato')
+      .order('created_at'),
   ])
   controlla('la scheda', riga.error)
+  controlla('i consensi', consensi.error)
+  controlla('i video visti', video.error)
+  controlla('il questionario', questionario.error)
+  controlla('i file del questionario', allegati.error)
   if (!riga.data) return null
   controlla('Telegram', telegram.error)
   controlla('i passi', passi.error)
@@ -282,7 +357,8 @@ export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboa
 
   const r = riga.data
   let link: LinkScheda | null = null
-  if (impostazioni.aperto_ai_clienti && r.invito_id && r.slug && r.invito_stato === 'attivo') {
+  // a test link (1.79.0) can be copied with the area closed
+  if ((impostazioni.aperto_ai_clienti || r.prova === true) && r.invito_id && r.slug && r.invito_stato === 'attivo') {
     const { data: token, error } = await db
       .from('onboarding_inviti_token')
       .select('token')
@@ -309,6 +385,26 @@ export async function leggiScheda(db: Db, clientId: string): Promise<SchedaOnboa
     eventiTagliati: righeEventi.length > EVENTI_MAX,
     impostazioni,
     link,
+    consensi: consensi.data ?? [],
+    video: (video.data ?? []).map((v) => ({
+      id: v.id,
+      titolo: v.blocco?.titolo ?? null,
+      percentuale: Number(v.percentuale ?? 0),
+      visto_il: v.visto_il,
+      updated_at: v.updated_at,
+    })),
+    questionario: questionario.data
+      ? {
+          risposte:
+            questionario.data.risposte && typeof questionario.data.risposte === 'object' && !Array.isArray(questionario.data.risposte)
+              ? (questionario.data.risposte as Record<string, unknown>)
+              : {},
+          schermata: questionario.data.schermata,
+          inviato_il: questionario.data.inviato_il,
+          updated_at: questionario.data.updated_at,
+        }
+      : null,
+    allegati: allegati.data ?? [],
   }
 }
 

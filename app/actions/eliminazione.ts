@@ -7,7 +7,7 @@ import type { TipoEliminazione } from '@/lib/eliminazione'
 import { createClient } from '@/lib/supabase/server'
 
 const schema = z.object({
-  tipo: z.enum(['persona', 'cliente', 'vendita', 'lead', 'prodotto', 'reparto']),
+  tipo: z.enum(['persona', 'cliente', 'vendita', 'lead', 'prodotto', 'reparto', 'onboarding']),
   id: z.string().uuid(),
 })
 
