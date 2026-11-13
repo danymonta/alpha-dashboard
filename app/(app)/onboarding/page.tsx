@@ -1,4 +1,4 @@
-import { ChevronRight, Rocket, UserRoundPlus } from 'lucide-react'
+import { ChevronRight, FlaskConical, Rocket, UserRoundPlus } from 'lucide-react'
 import { redirect } from 'next/navigation'
 
 import { LinkBottone } from '@/components/link-bottone'
@@ -13,6 +13,7 @@ import { requireProfilo } from '@/lib/auth/session'
 import { oggiRoma } from '@/lib/date'
 import { getFormato, getLingua } from '@/lib/i18n/server'
 import { ONBOARDING, ONBOARDING_TEAM, titoloPasso } from '@/lib/i18n/testi/onboarding'
+import { PROVA } from '@/lib/i18n/testi/prova'
 import { ELENCO_MAX, SENZA_ONBOARDING_MAX, leggiElenco } from '@/lib/onboarding/letture'
 import {
   GRUPPI_LISTA,
@@ -63,10 +64,16 @@ export default async function OnboardingPage() {
   const inCorso = GRUPPI_LISTA.reduce((n, g) => n + gruppi[g].length, 0)
 
   const nuovoCliente = (
-    <LinkBottone href="/onboarding/nuovo" data-testid="nuovo-cliente">
-      <UserRoundPlus className="size-4" aria-hidden="true" />
-      {t.nuovoCliente}
-    </LinkBottone>
+    <div className="flex flex-wrap gap-2">
+      <LinkBottone href="/prova-onboarding" variant="outline" data-testid="prova-percorso">
+        <FlaskConical className="size-4" aria-hidden="true" />
+        {PROVA[lingua].bottone}
+      </LinkBottone>
+      <LinkBottone href="/onboarding/nuovo" data-testid="nuovo-cliente">
+        <UserRoundPlus className="size-4" aria-hidden="true" />
+        {t.nuovoCliente}
+      </LinkBottone>
+    </div>
   )
 
   function riga(r: RigaOnboarding) {

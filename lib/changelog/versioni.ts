@@ -113,6 +113,11 @@ export const VERSIONI: readonly Versione[] = [
         testo:
           'Il consenso sui dati di salute ha una versione nuova che dice del foglio Google: chi ha accettato la versione di prima la accetta di nuovo prima di compilare.',
       },
+      {
+        per: ['admin'],
+        testo:
+          '«Prova il percorso», in Onboarding e nella scheda «Area clienti»: fai tutto l’onboarding come lo vede un cliente, con le stesse pagine, dal link e dal codice fino al razzo, senza creare niente. Le azioni del team le simuli da una barra in alto, «Vai allo step» ti porta subito a un passo, e nessuna email parte: il testo dell’email «Tocca a te» te lo dice la barra.',
+      },
     ],
   },
   {

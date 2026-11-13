@@ -41,6 +41,8 @@ type Props = {
   giorni: number | null
   chiaveVista: string
   lanciato: boolean
+  /** The key of the memory: the client's area (CHIAVE_VISTO) or the admin's test of the path, never the same. */
+  chiaveVisto?: string
 }
 
 function memoria(): Storage | null {
@@ -51,17 +53,17 @@ function memoria(): Storage | null {
   }
 }
 
-function leggiMemoria(): Visto | null {
+function leggiMemoria(chiave: string): Visto | null {
   try {
-    return leggiVisto(memoria()?.getItem(CHIAVE_VISTO) ?? null)
+    return leggiVisto(memoria()?.getItem(chiave) ?? null)
   } catch {
     return null
   }
 }
 
-function scriviMemoria(valore: string) {
+function scriviMemoria(chiave: string, valore: string) {
   try {
-    memoria()?.setItem(CHIAVE_VISTO, valore)
+    memoria()?.setItem(chiave, valore)
   } catch {
     // a private window or blocked site data: the page simply does not remember
   }
@@ -93,7 +95,7 @@ function scorriNumero(el: HTMLElement, da: number, a: number): AnimationPlayback
   })
 }
 
-export function AnimazioniPercorso({ radice, nodi, frazioni, giorni, chiaveVista, lanciato }: Props) {
+export function AnimazioniPercorso({ radice, nodi, frazioni, giorni, chiaveVista, lanciato, chiaveVisto = CHIAVE_VISTO }: Props) {
   // motion's hook, and the media query read now: the very first plan is already the right one
   const ridotto =
     useReducedMotion() === true ||
@@ -155,7 +157,7 @@ export function AnimazioniPercorso({ radice, nodi, frazioni, giorni, chiaveVista
     const ripresa = annullato.current?.chiave === chiaveRun ? annullato.current : null
     annullato.current = null
     const primaVolta = ripresa ? ripresa.primaVolta : prima.current === undefined
-    const visto = ripresa ? ripresa.visto : primaVolta ? leggiMemoria() : (prima.current ?? null)
+    const visto = ripresa ? ripresa.visto : primaVolta ? leggiMemoria(chiaveVisto) : (prima.current ?? null)
     const frazioniDa = ripresa ? ripresa.frazioni : frazioniPrima.current
     const vistaDa = ripresa ? ripresa.vista : vistaPrima.current
 
@@ -390,7 +392,7 @@ export function AnimazioniPercorso({ radice, nodi, frazioni, giorni, chiaveVista
     prima.current = { nodi: Object.fromEntries(nodi.map((n) => [n.chiave, n.stato])), giorni, lancio: lancioVisto }
     frazioniPrima.current = frazioni
     vistaPrima.current = chiaveVista
-    scriviMemoria(scriviVisto(nodi, giorni, lancioVisto))
+    scriviMemoria(chiaveVisto, scriviVisto(nodi, giorni, lancioVisto))
 
     return () => {
       chiuso = true

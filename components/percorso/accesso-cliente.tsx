@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form'
 import { chiediCodiceCliente, verificaCodiceCliente } from '@/app/entra/actions'
 import { inviaCodiceRegistrazione, verificaCodiceRegistrazione } from '@/app/join/actions'
 import { ErroreCampo } from '@/components/form/errore-campo'
+import { useBackendPercorso, type BackendPercorso } from '@/components/percorso/backend-percorso'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -117,7 +118,13 @@ export function AccessoCliente({ modo, emailIniziale = '', codiceGiaInviatoA = n
   )
 }
 
-async function chiedi(modo: Modo, email: string): Promise<{ ok: true } | { ok: false; errore: string; scaduta?: boolean }> {
+async function chiedi(
+  modo: Modo,
+  email: string,
+  prova: BackendPercorso['accesso'],
+): Promise<{ ok: true } | { ok: false; errore: string; scaduta?: boolean }> {
+  // the admin's test of the path: no email leaves, the code is on its bar
+  if (prova) return prova.chiedi(email)
   if (modo === 'registrazione') {
     const esito = await inviaCodiceRegistrazione({ email })
     return esito.ok ? { ok: true } : esito
@@ -139,6 +146,7 @@ function PassoEmail({
   scaduta: () => void
 }) {
   const T = modo === 'registrazione' ? TESTI_REGISTRAZIONE : TESTI_ENTRA
+  const { accesso } = useBackendPercorso()
   const [errore, setErrore] = useState<string | null>(null)
   const {
     register,
@@ -157,7 +165,7 @@ function PassoEmail({
   const invia = handleSubmit(async (valori) => {
     setErrore(null)
     try {
-      const esito = await chiedi(modo, valori.email)
+      const esito = await chiedi(modo, valori.email, accesso)
       if (!esito.ok) {
         if (esito.scaduta) scaduta()
         else setErrore(esito.errore)
@@ -220,6 +228,7 @@ function PassoCodice({
 }) {
   const registrazione = modo === 'registrazione'
   const T = registrazione ? TESTI_REGISTRAZIONE : TESTI_ENTRA
+  const { accesso } = useBackendPercorso()
   const [errore, setErrore] = useState<string | null>(null)
   const [pronto, setPronto] = useState(false)
   const [reinvio, setReinvio] = useState(false)
@@ -252,7 +261,9 @@ function PassoCodice({
   const entra = handleSubmit(async (valori) => {
     setErrore(null)
     try {
-      const esito = registrazione
+      const esito = accesso
+        ? await accesso.verifica(valori.codice)
+        : registrazione
         ? await verificaCodiceRegistrazione({ codice: valori.codice })
         : await verificaCodiceCliente({ email, codice: valori.codice, da })
       if (!esito.ok) {
@@ -266,7 +277,8 @@ function PassoCodice({
       }
       if (esito.vai.startsWith('/') && !esito.vai.startsWith('//')) {
         setDentro(true)
-        window.location.assign(esito.vai)
+        if (accesso) accesso.entra(esito.vai)
+        else window.location.assign(esito.vai)
       }
     } catch {
       setErrore(T.connessione)
@@ -277,7 +289,7 @@ function PassoCodice({
     setErrore(null)
     setReinvio(true)
     try {
-      const esito = await chiedi(modo, email)
+      const esito = await chiedi(modo, email, accesso)
       if (!esito.ok) {
         if (esito.scaduta) scaduta()
         else setErrore(esito.errore)

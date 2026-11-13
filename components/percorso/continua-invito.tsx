@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useActionState } from 'react'
 
 import { apriInvito, type StatoApertura } from '@/app/join/actions'
+import { useBackendPercorso } from '@/components/percorso/backend-percorso'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { TESTI_JOIN as T } from '@/lib/percorso/testi'
 import { cn } from '@/lib/utils'
@@ -15,7 +16,15 @@ import { cn } from '@/lib/utils'
  * /join/registrati; a link that meanwhile is no longer active answers its state here.
  */
 export function ContinuaInvito({ segmento }: { segmento: string }) {
-  const [stato, azione, inCorso] = useActionState<StatoApertura>(() => apriInvito(segmento), null)
+  const { continuaInvito } = useBackendPercorso()
+  const [stato, azione, inCorso] = useActionState<StatoApertura>(async () => {
+    // the admin's test of the path: nothing is opened, the test moves on in memory
+    if (continuaInvito) {
+      continuaInvito()
+      return null
+    }
+    return apriInvito(segmento)
+  }, null)
 
   const messaggio =
     stato?.stato === 'in_attesa'

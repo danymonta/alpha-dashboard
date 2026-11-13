@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
 import { AnimazioniDopoIlDisegno } from '@/components/percorso/animazioni/carica'
+import { useBackendPercorso } from '@/components/percorso/backend-percorso'
 import { ListaBlocchi } from '@/components/percorso/blocchi'
 import { PassoBenvenuto, PassoQuestionario, PassoRegole } from '@/components/percorso/passi'
 import {
@@ -141,6 +142,7 @@ function Riepilogo({
  * redraws the page (revalidatePath).
  */
 export function VistaPercorso({ percorso }: { percorso: Percorso }) {
+  const { indirizzi, chiaveVisto } = useBackendPercorso()
   const daFare = primoPassoDelCliente(percorso.passi)
   const nodoAttuale = percorso.nodi.find((n) => n.stato === 'attuale') ?? null
   const [riletto, setRiletto] = useState<string | null>(null)
@@ -326,6 +328,7 @@ export function VistaPercorso({ percorso }: { percorso: Percorso }) {
         giorni={giorni}
         chiaveVista={chiaveVista}
         lanciato={percorso.lanciato}
+        chiaveVisto={chiaveVisto}
       />
       <Intestazione percorso={percorso} inAttesa={percorso.inAttesa} />
 
@@ -366,7 +369,7 @@ export function VistaPercorso({ percorso }: { percorso: Percorso }) {
 
       <footer className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-2 text-sm text-muted-foreground">
         <Link
-          href="/percorso/consensi"
+          href={indirizzi.consensi}
           className="inline-flex min-h-11 items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
         >
           <ShieldCheck className="size-4" aria-hidden="true" />

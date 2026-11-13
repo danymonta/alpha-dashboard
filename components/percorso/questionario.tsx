@@ -6,8 +6,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
 
-import { inviaQuestionario, salvaQuestionario } from '@/app/(cliente)/percorso/actions'
 import { AllegatiDomanda } from '@/components/percorso/allegati-questionario'
+import { useBackendPercorso } from '@/components/percorso/backend-percorso'
 import { BloccoDomanda, CampoDomanda, idCampo, idTitoloDomanda } from '@/components/percorso/campi-questionario'
 import { formatOra } from '@/lib/date'
 import type { AllegatoCliente } from '@/lib/percorso/allegati'
@@ -128,6 +128,7 @@ export function Questionario({
   allegatiIniziali: readonly AllegatoCliente[]
 }) {
   const router = useRouter()
+  const { salvaQuestionario, inviaQuestionario, indirizzi } = useBackendPercorso()
   const pathname = usePathname()
   const parametri = useSearchParams()
 
@@ -196,7 +197,7 @@ export function Questionario({
         return false
       }
       if (esito.errore === T.giaInviato) {
-        router.replace('/percorso')
+        router.replace(indirizzi.percorso)
         return false
       }
       daSalvare.current = true
@@ -218,7 +219,7 @@ export function Questionario({
     // «Salvato» only when nothing else waits: a change made during the save is saved next
     if (!daSalvare.current) setSalvataggio({ tipo: 'salvato', ora: formatOra(new Date()) })
     return true
-  }, [router])
+  }, [indirizzi.percorso, router, salvaQuestionario])
 
   const salva = useCallback((): Promise<boolean> => {
     if (timer.current) {
@@ -497,7 +498,7 @@ export function Questionario({
         return
       }
       toast.success(T.inviato)
-      router.push('/percorso')
+      router.push(indirizzi.percorso)
     } catch {
       setAvviso(T.nonSalvato)
     } finally {
@@ -530,7 +531,7 @@ export function Questionario({
     >
       <header className="flex flex-wrap items-center justify-between gap-x-3">
         <Link
-          href="/percorso"
+          href={indirizzi.percorso}
           className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
