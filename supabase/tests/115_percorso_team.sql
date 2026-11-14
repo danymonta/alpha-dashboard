@@ -600,7 +600,7 @@ select is(pg_temp.mio_passo('programma'), 'disponibile', 'guardarlo non porta il
 insert into appunti values ('lanciato', public.percorso_avanza('programma', 'completa', '{}'));
 select is(pg_temp.nota('lanciato') ->> 'lanciato', 'true', 'lanciato');
 select is(pg_temp.nota('lanciato') -> 'percorso' ->> 'stato', 'completato', 'l''onboarding è completato');
-select is(jsonb_array_length(pg_temp.nota('lanciato') -> 'dopo_lancio'), 3, 'la pagina dopo il lancio');
+select is(jsonb_array_length(pg_temp.nota('lanciato') -> 'dopo_lancio'), 5, 'la pagina dopo il lancio: testo, Coach Plus per iPhone e per Android, Yazio, come allenarsi');
 reset role;
 set local request.jwt.claims to '{}';
 select is(

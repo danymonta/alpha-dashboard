@@ -86,6 +86,36 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.85.0',
+    data: '2026-11-14',
+    titolo: 'Onboarding: ogni passo spiega cosa fare, con i link',
+    riassunto:
+      'La settimana test, l’obiettivo e la pagina dopo il lancio spiegano passo per passo cosa fare, come nella tua dashboard di Notion, con i link a Coach Plus, Yazio, i video e l’attrezzatura. Le guide sono anche nell’Aula.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Settimana test: i cinque compiti numerati, nell’ordine della tua pagina Notion. Registrazione e download di Coach Plus, le 3 foto del fisico e come scattarle, Yazio per 5 giorni con lo screenshot nel questionario giornaliero, le circonferenze con il video e il metro, i test con le riprese giuste, «Carica allegato» e il cavalletto.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Obiettivo: prima come registrarsi su Coach Plus e scaricare l’app (l’obiettivo è lì), poi cos’è un obiettivo SMART con gli esempi e il tuo video. Il bottone porta alla registrazione.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Dopo il lancio: Coach Plus per iPhone e per Android al posto del link da scrivere, e come eseguire gli allenamenti. Nelle regole due regole nuove: sempre testo, mai vocali; se salti un allenamento, avvisa.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Aula: le cinque guide (Coach Plus, foto del fisico, Yazio, registrare gli allenamenti, attrezzatura) scritte dalle tue pagine Notion, con i loro video, e pubblicate. Un modulo o un blocco che avevi già modificato resta com’era.',
+      },
+    ],
+  },
+  {
     versione: '1.84.1',
     data: '2026-11-14',
     titolo: 'Nuova call: quando non si fissa, il perché',
