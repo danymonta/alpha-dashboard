@@ -29,6 +29,7 @@ import type {
 } from '@/lib/percorso/letture'
 import type { Stima } from '@/lib/percorso/stima'
 import {
+  ALLEGATI_PER_CAMPO,
   ERRORI_QUESTIONARIO,
   risposteMancanti,
   risposteValide,
@@ -168,13 +169,14 @@ function conPasso(stato: StatoProva, chiave: string, cambia: (p: Passo) => Passo
 // The unlock and the completion
 // ---------------------------------------------------------------------------
 
-/** onboarding_sblocca: every locked step with sblocco automatico whose sblocca_dopo are all done. */
+/** onboarding_sblocca: every locked step with sblocco automatico whose sblocca_dopo are all done (or sent, for a step of the client). */
 export function sblocca(dati: DatiProva, stato: StatoProva): StatoProva {
   let dopo = stato
   for (const d of dati.passi) {
     const p = dopo.passi[d.chiave]
     if (!p || p.stato !== 'bloccato' || d.sblocco !== 'automatico') continue
-    if (d.sbloccaDopo.every((k) => dopo.passi[k]?.stato === 'fatto')) {
+    // a step of the client also opens when the steps before it are sent to the team (the call booked)
+    if (d.sbloccaDopo.every((k) => dopo.passi[k]?.stato === 'fatto' || (d.attore === 'cliente' && dopo.passi[k]?.stato === 'inviato'))) {
       dopo = conPasso(dopo, d.chiave, (x) => ({ ...x, stato: 'disponibile' }))
     }
   }
@@ -290,7 +292,7 @@ export function avanza(dati: DatiProva, stato: StatoProva, input: unknown, ora: 
       iniziatoIl: x.iniziatoIl ?? t,
       inviatoIl: t,
     }))
-    return { ok: true, stato: s }
+    return { ok: true, stato: sblocca(dati, s) }
   }
 
   if (v.passo === 'community') {
@@ -488,8 +490,8 @@ export function aggiungiAllegato(
 ): Esito<{ stato: StatoProva; allegato: AllegatoCliente }> {
   const chiuso = questionarioAperto(dati, stato)
   if (chiuso) return errore(chiuso)
-  if (stato.allegati.filter((a) => a.campo === file.campo && !a.tolto).length >= 3) {
-    return errore('Hai già caricato 3 file qui: togline uno per aggiungerne un altro.')
+  if (stato.allegati.filter((a) => a.campo === file.campo && !a.tolto).length >= ALLEGATI_PER_CAMPO) {
+    return errore('Hai già caricato 10 file qui: togline uno per aggiungerne un altro.')
   }
   const contatore = stato.contatore + 1
   const allegato: AllegatoCliente = { id: uuidDi(contatore), campo: file.campo, nomeFile: file.nome, tipo: file.tipo, byte: file.byte }

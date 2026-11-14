@@ -124,7 +124,7 @@ describe('la Content-Security-Policy a nonce', () => {
       const nonce = /'nonce-([^']+)'/.exec(csp)?.[1]
       expect(nonce, p).toBeTruthy()
       nonces.add(nonce!)
-      expect(csp).toContain("frame-src https://www.youtube-nocookie.com")
+      expect(csp).toContain("frame-src https://www.youtube-nocookie.com https://calendar.google.com")
       expect(csp).toContain("frame-ancestors 'none'")
       expect(csp).toContain("object-src 'none'")
       // Next reads the nonce from the request's own headers
@@ -144,7 +144,7 @@ describe('la Content-Security-Policy a nonce', () => {
     expect(p).toBe(
       "default-src 'self'; script-src 'self' 'nonce-abc' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data: blob: https://progetto.supabase.co https://*.googleusercontent.com; " +
-        "connect-src 'self' https://progetto.supabase.co; frame-src https://www.youtube-nocookie.com; " +
+        "connect-src 'self' https://progetto.supabase.co; frame-src https://www.youtube-nocookie.com https://calendar.google.com; " +
         "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
     )
     expect(politicaCsp('abc', 'x', true)).toContain("'strict-dynamic' 'unsafe-eval'")

@@ -69,6 +69,8 @@ export type Domanda =
       lungo?: true
       autocomplete?: string
       inputMode?: 'text' | 'tel'
+      /** The equipment as chips with their «i» under the answer. */
+      attrezzi?: true
     })
   | (Base & { tipo: 'email' })
   | (Base & { tipo: 'data' })
@@ -167,16 +169,15 @@ export const DOMANDE: readonly Domanda[] = [
     schermata: 2,
     tipo: 'scelta',
     testo: 'Sei già seguito da qualcun altro sul piano alimentare?',
-    aiuto: 'Se sì, carica qui sotto il tuo piano alimentare attuale.',
+    aiuto: 'Che ti segua qualcuno o no, se stai seguendo una dieta, caricala qui sotto.',
     opzioni: [
       { valore: 'si', etichetta: 'Sì, ho un professionista che mi segue' },
       { valore: 'no', etichetta: 'No, mi affido a voi!' },
     ],
     allegato: {
       campo: 'piano_alimentare',
-      etichetta: 'Il tuo piano alimentare',
-      aiuto: 'Caricalo come foto o PDF.',
-      quando: 'si',
+      etichetta: 'La tua dieta',
+      aiuto: 'Foto o PDF, anche più file insieme. Se non segui una dieta, lascia vuoto.',
     },
   },
   {
@@ -237,9 +238,9 @@ export const DOMANDE: readonly Domanda[] = [
     schermata: 4,
     tipo: 'testo',
     lungo: true,
-    testo: 'Tra sei mesi, cosa ti farà dire «ce l’ho fatta»?',
+    testo: 'Cosa significherebbe per te avere successo in questo programma?',
     aiuto:
-      'Pensa a un risultato concreto, che vedi o senti. Ad esempio: più massa su petto e spalle, meno grasso sulla pancia, addominali visibili, 10 trazioni, allenarti con costanza senza saltare, sentirti sicuro davanti allo specchio.',
+      'Scrivilo con parole tue, come una frase. Ad esempio: «Per me avere successo in questo programma significherebbe finalmente ottenere i risultati su cui ero bloccato da tempo, vedermi più definito allo specchio e sentirmi sicuro quando tolgo la maglietta.»',
   },
   {
     chiave: 'perche_noi',
@@ -261,7 +262,8 @@ export const DOMANDE: readonly Domanda[] = [
     tipo: 'testo',
     lungo: true,
     testo: 'Di quale attrezzatura disponi per fare esercizio?',
-    aiuto: 'Esempio: sbarra, elastici, manubri, anelli, parallele etc..',
+    aiuto: 'Tocca quella che hai o scrivila tu. Non sai cos’è? Tocca la «i».',
+    attrezzi: true,
     allegato: {
       campo: 'attrezzatura',
       etichetta: 'Le foto della tua attrezzatura',
@@ -285,7 +287,7 @@ export const DOMANDE: readonly Domanda[] = [
     allegato: {
       campo: 'vecchia_scheda',
       etichetta: 'La tua vecchia scheda',
-      aiuto: 'Caricala come foto o PDF.',
+      aiuto: 'Caricala come foto o PDF, anche più file.',
     },
   },
   {

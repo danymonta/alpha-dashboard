@@ -129,3 +129,51 @@ export function emailToccaATe(d: {
 
   return { oggetto: TT.oggetto, html, testo }
 }
+
+/**
+ * A client sent the questionnaire (1.84.0, Dany, 14/11/2026: «deve arrivare una mail da join… che gli dice: ok, tizio
+ * ha compilato il questionario»). To the addresses of Impostazioni › Onboarding: the client's name and the link to his
+ * card. Never an answer: they are health data and stay in the app.
+ */
+export function emailQuestionarioInviato(d: {
+  nomeCliente: string
+  urlScheda: string
+  urlLogo: string
+}): { oggetto: string; html: string; testo: string } {
+  const nome = d.nomeCliente.trim() || 'Un cliente'
+  const oggetto = `${nome} ha compilato il questionario di onboarding`
+  const frase = `${nome} ha appena inviato il questionario di onboarding. Le risposte e i file li trovi nella sua scheda.`
+  const apri = 'Apri la scheda'
+  const nota = 'Le risposte restano nell’app: in questa email non ci sono.'
+  const testo = [frase, '', `${apri}: ${d.urlScheda}`, '', nota, '', 'Alpha Management'].join('\n')
+  const html = `<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>${escape(oggetto)}</title>
+</head>
+<body style="margin:0;padding:0;background:${SFONDO};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SFONDO};">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#FFFFFF;border-radius:12px;">
+      <tr><td align="center" style="padding:28px 24px 8px;">
+        <img src="${escape(d.urlLogo)}" width="112" alt="Percorso Alpha" style="display:block;width:112px;height:auto;border:0;">
+      </td></tr>
+      <tr><td style="padding:16px 28px 0;font-family:Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:${TESTO};">
+        ${escape(frase)}
+      </td></tr>
+      <tr><td align="center" style="padding:24px 28px;">
+        <a href="${escape(d.urlScheda)}" style="display:inline-block;padding:12px 22px;border-radius:8px;background:${BORDEAUX};color:#FFFFFF;font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:bold;text-decoration:none;">${escape(apri)}</a>
+      </td></tr>
+      <tr><td style="padding:0 28px 28px;font-family:Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:${TENUE};">
+        ${escape(nota)}<br><br>Alpha Management
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`
+  return { oggetto, html, testo }
+}

@@ -348,6 +348,7 @@ describe('incarichi, Telegram e impostazioni', () => {
       link_community: null,
       link_prenotazione: null,
       avvisa_cliente_email: true,
+      email_questionario: [],
       giorni_validita_link: 14,
     })
     for (const giorni of [0, 91, 1.5, 'tanti', '']) {
@@ -357,6 +358,18 @@ describe('incarichi, Telegram e impostazioni', () => {
     }
     expect(impostazioniOnboardingSchema.safeParse({ ...base, giorni_validita_link: 1 }).success).toBe(true)
     expect(impostazioniOnboardingSchema.safeParse({ ...base, giorni_validita_link: 90 }).success).toBe(true)
+  })
+
+  it('le impostazioni: chi riceve l’email del questionario, un indirizzo per riga, minuscolo, al massimo 10', () => {
+    const base = { coach_predefinito_id: COACH, responsabile_predefinito_id: DANY, giorni_validita_link: 14 }
+    expect(
+      impostazioniOnboardingSchema.parse({ ...base, email_questionario: 'Coach@Esempio.it\n  socio@esempio.it, coach@esempio.it' }).email_questionario,
+    ).toEqual(['coach@esempio.it', 'socio@esempio.it'])
+    expect(impostazioniOnboardingSchema.parse({ ...base, email_questionario: '' }).email_questionario).toEqual([])
+    const sbagliata = impostazioniOnboardingSchema.safeParse({ ...base, email_questionario: 'non-una-email' })
+    expect(sbagliata.success).toBe(false)
+    const troppe = Array.from({ length: 11 }, (_, i) => `p${i}@esempio.it`).join('\n')
+    expect(impostazioniOnboardingSchema.safeParse({ ...base, email_questionario: troppe }).success).toBe(false)
   })
 
   it('aperto_ai_clienti non si scrive da qui: lo schema non lo conosce', () => {

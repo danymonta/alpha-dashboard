@@ -132,9 +132,11 @@ test('dalla prenotazione al lancio, con il coach e il revisore', async ({ browse
   await pannello.getByLabel('Giorno della call').fill(domani)
   await pannello.getByLabel('Ora').fill('18:00')
   await azione.click()
-  await expect(pannello).toHaveAttribute('data-vista', 'attesa:prenotazione', { timeout: 15_000 })
-  await expect(cliente.getByRole('heading', { level: 2, name: 'Marco sta confermando la tua call.' })).toBeVisible()
-  await expect(pannello.getByTestId('chi-lavora')).toContainText('Marco')
+  // 1.84.0: the client does not wait for the coach, the community opens at once
+  await expect(pannello).toHaveAttribute('data-vista', 'passo:community', { timeout: 15_000 })
+  await expect(pannello.getByTestId('community-intanto')).toHaveText(
+    'Marco conferma la tua call e ti scrive sul tuo gruppo Telegram. Intanto entra nella community e presentati.',
+  )
   await expect(pannello.getByTestId('card-call')).toHaveAttribute('data-stato', 'da_confermare')
   await expect(pannello.getByRole('button')).not.toContainText(['Ho prenotato'])
 

@@ -4,7 +4,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test'
 
 import { DOMANDE, INTRO_QUESTIONARIO, type Domanda } from '../lib/percorso/questionario'
 import { ID_ADMIN, dbLocale } from './db'
-import { attivaDiProva, creaOnboardingDiProva, emailDiProva, pulisciClientiPercorso, registraCliente } from './percorso-db'
+import { attivaDiProva, creaOnboardingDiProva, emailDiProva, idPosta, postaDi, pulisciClientiPercorso, registraCliente } from './percorso-db'
 import { PASSWORD_SEED, accedi, attendiStreaming } from './utenti'
 
 /*
@@ -145,7 +145,9 @@ async function rispondi(page: Page, d: Domanda) {
       break
     case 'scelta':
       await blocco.getByText(SCELTE[d.chiave]!, { exact: true }).click()
-      return // a single choice goes on by itself
+      // a single choice goes on by itself, unless its files are always asked (the diet, 1.84.0): there OK
+      if (!d.allegato || d.allegato.quando) return
+      break
     case 'massimali':
       await page.locator(campo(d.chiave)).fill('12')
       await page.getByRole('button', { name: 'Non lo so: Trazioni' }).click()
@@ -246,6 +248,17 @@ test('il questionario del modulo: salvataggio, ripresa, file, invio; poi l’adm
   // the equipment, with a photo
   const iAttrezzatura = DOMANDE.findIndex((d) => d.chiave === 'attrezzatura')
   await siVedeLaDomanda(page, iAttrezzatura)
+  // the chips add and take away an item of the answer; the «i» says what it is (1.84.0)
+  await page.getByRole('button', { name: 'Manubri', exact: true }).click()
+  await expect(page.locator(campo('attrezzatura'))).toHaveValue('Manubri')
+  await expect(page.getByRole('button', { name: 'Manubri', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Manubri', exact: true }).click()
+  await expect(page.locator(campo('attrezzatura'))).toHaveValue('')
+  await page.getByRole('button', { name: 'Cos’è: Anelli' }).click()
+  await expect(page.getByTestId('info-anelli')).toContainText('cinghie')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('info-anelli')).toHaveCount(0)
+  await senzaScrollDiLato(page, 'attrezzatura con i chip')
   await page.locator(campo('attrezzatura')).fill(RISPOSTE.attrezzatura!)
   await page.getByTestId('file-attrezzatura').setInputFiles({ name: 'sbarra.png', mimeType: 'image/png', buffer: png() })
   const file = page.locator('[data-allegati="attrezzatura"] [data-allegato]')
@@ -313,6 +326,12 @@ test('il questionario del modulo: salvataggio, ripresa, file, invio; poi l’adm
   // the last questions, then the recap with nothing missing and the sending
   for (let i = DOMANDE.findIndex((d) => d.chiave === 'massimali'); i < N; i++) {
     await siVedeLaDomanda(page, i)
+    if (DOMANDE[i]!.chiave === 'massimali') {
+      // the «i» of an exercise: the drawing and how it is done (1.84.0)
+      await page.getByRole('button', { name: 'Cos’è: Trazioni' }).click()
+      await expect(page.getByTestId('info-trazioni')).toContainText('mento supera la sbarra')
+      await page.keyboard.press('Escape')
+    }
     if (DOMANDE[i]!.chiave === 'note') {
       await expect(titolo(page)).toContainText('(facoltativa)')
       await page.getByTestId('avanti').click() // optional: it goes on empty
@@ -324,8 +343,17 @@ test('il questionario del modulo: salvataggio, ripresa, file, invio; poi l’adm
   await expect(titolo(page)).toHaveText('Hai risposto a tutto')
   await expect(page.getByTestId('progresso')).toHaveAttribute('aria-valuenow', String(N))
   await senzaScrollDiLato(page, 'recap')
+  // who receives the email of the questionnaire (Impostazioni › Onboarding, 1.84.0)
+  const destinatario = emailDiProva('destinatario-questionario')
+  const { data: impostazioni } = await db.from('onboarding_impostazioni').select('email_questionario').single()
+  await db.from('onboarding_impostazioni').update({ email_questionario: [destinatario] }).eq('id', true)
+  const vistePrima = await idPosta(destinatario)
   await page.getByTestId('invia-questionario').click()
   await expect(page.getByText('Questionario inviato').first()).toBeVisible({ timeout: 20_000 })
+  await expect
+    .poll(async () => (await postaDi(destinatario)).filter((m) => !vistePrima.has(m.ID)).map((m) => m.Subject), { timeout: 20_000 })
+    .toContain(`${nome} Incassi ha compilato il questionario di onboarding`)
+  await db.from('onboarding_impostazioni').update({ email_questionario: impostazioni?.email_questionario ?? [] }).eq('id', true)
   await expect(page).toHaveURL(/\/percorso$/)
   // release B2: the booking of the call opens right after the questionnaire
   await expect(page.getByTestId('pannello-passo')).toHaveAttribute('data-vista', 'passo:prenotazione')

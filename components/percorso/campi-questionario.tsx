@@ -1,11 +1,13 @@
 'use client'
 
-import { Check, TriangleAlert } from 'lucide-react'
+import { Check, Plus, TriangleAlert } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 
+import { InfoAttrezzo, InfoEsercizio } from '@/components/percorso/info-esercizio'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import type { Domanda } from '@/lib/percorso/questionario'
+import { ATTREZZI, INFO_ATTREZZI } from '@/lib/percorso/info-esercizi'
 import { ETICHETTE_ESERCIZI } from '@/lib/percorso/questionario'
 import { TESTI_QUESTIONARIO as T } from '@/lib/percorso/testi'
 import {
@@ -172,7 +174,50 @@ export function CampoTesto({ domanda: d, valore, onCambia, errore }: PropsCampo)
           {testo.length}/{TESTO_MAX}
         </p>
       ) : null}
+      {d.attrezzi ? <SceltaAttrezzi testo={testo} onCambia={onCambia} /> : null}
     </div>
+  )
+}
+
+/**
+ * The equipment as chips under the answer (Dany, 14/11/2026): a tap adds the name to the answer (or takes it away
+ * when it is there as its own item), the «i» says what it is. The answer stays a text, as the form and the sheet want.
+ */
+function SceltaAttrezzi({ testo, onCambia }: { testo: string; onCambia: (v: string | null) => void }) {
+  const voci = testo.split(',').map((x) => x.trim()).filter(Boolean)
+  return (
+    <ul className="flex flex-wrap gap-2 pt-2" aria-label={T.attrezzi}>
+      {ATTREZZI.map((a) => {
+        const nome = INFO_ATTREZZI[a].nome
+        const presente = new RegExp(`\\b${nome.slice(0, -1)}`, 'i').test(testo)
+        const comeVoce = voci.findIndex((v) => v.toLowerCase() === nome.toLowerCase())
+        return (
+          <li key={a} className="flex items-center rounded-full border border-border bg-background/50 pr-0.5">
+            <button
+              type="button"
+              aria-pressed={presente}
+              onClick={() => {
+                if (comeVoce >= 0) {
+                  const resto = voci.filter((_, i) => i !== comeVoce).join(', ')
+                  onCambia(resto === '' ? null : resto)
+                } else if (!presente) {
+                  onCambia(voci.length > 0 ? `${voci.join(', ')}, ${nome}` : nome)
+                }
+              }}
+              className={cn(
+                'flex h-11 items-center gap-1.5 rounded-full pr-1 pl-3.5 text-sm font-medium transition-colors motion-reduce:transition-none',
+                'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                presente ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {presente ? <Check className="size-4 text-status-ok" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
+              {nome}
+            </button>
+            <InfoAttrezzo attrezzo={a} />
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -248,6 +293,7 @@ function NumeroConUnita({
   decimale,
   descrizione,
   disabilitato,
+  accanto,
 }: {
   id: string
   etichetta: string
@@ -259,12 +305,17 @@ function NumeroConUnita({
   decimale?: boolean
   descrizione?: string
   disabilitato?: boolean
+  /** Something next to the label, like the «i» of an exercise. */
+  accanto?: ReactNode
 }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-muted-foreground">
-        {etichetta}
-      </label>
+      <div className="flex min-h-5 items-center gap-1">
+        <label htmlFor={id} className="block text-sm font-medium text-muted-foreground">
+          {etichetta}
+        </label>
+        {accanto}
+      </div>
       <div className="relative">
         <Input
           id={id}
@@ -507,6 +558,7 @@ export function CampoMassimali({ domanda: d, valore, onCambia, errore, onErroreF
             <NumeroConUnita
               id={id}
               etichetta={ETICHETTE_ESERCIZI[e]}
+              accanto={<InfoEsercizio esercizio={e} className="-my-3" />}
               unita={T.ripetizioni}
               testo={premuto ? '' : (testi[e] ?? '')}
               disabilitato={premuto}

@@ -7,6 +7,7 @@ import { negaPer } from '@/lib/auth/azioni'
 import { togliFileQuestionario } from '@/lib/percorso/pulizia'
 import type { Contesto } from '@/lib/call/operazioni'
 import type { Json } from '@/lib/supabase/database.types'
+import { risolviLinkCorto } from '@/lib/percorso/calendario'
 import {
   ERRORI_ONBOARDING,
   avviaOnboardingSchema,
@@ -383,9 +384,11 @@ export async function salvaImpostazioni(ctx: Contesto, input: unknown): Promise<
   const negato = negaPer(profilo, ['admin'], E.soloAdmin)
   if (negato) return { ok: false, errore: negato }
 
+  // a short link of Google Calendar cannot be framed in the client's area: save the long one it goes to
+  const lungo = parsed.data.link_prenotazione ? await risolviLinkCorto(parsed.data.link_prenotazione) : null
   const { data, error } = await ctx.db
     .from('onboarding_impostazioni')
-    .update({ ...parsed.data, updated_by: profilo?.id ?? null })
+    .update({ ...parsed.data, link_prenotazione: lungo ?? parsed.data.link_prenotazione, updated_by: profilo?.id ?? null })
     .eq('id', true)
     .select('id')
     .maybeSingle()

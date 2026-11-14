@@ -7,6 +7,7 @@ import {
   Copy,
   ExternalLink,
   FileText,
+  Hourglass,
   Link2,
   LoaderCircle,
   Rocket,
@@ -28,6 +29,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { nomeGiorno, oggiRoma } from '@/lib/date'
 import { formatData } from '@/lib/format'
+import { calendarioIncorporato } from '@/lib/percorso/calendario'
 import { testoDaCopiare, videoDaVedere, type BloccoPercorso, type BloccoVoce } from '@/lib/percorso/blocchi'
 import type { AttesaTeam, CallCliente, CommunityCliente, ConsegnaCliente, PassoPercorso } from '@/lib/percorso/letture'
 import { TESTI_PERCORSO as T, TESTI_PASSI as P } from '@/lib/percorso/testi'
@@ -209,6 +211,7 @@ export function PassoPrenotazione({
   const [ora, setOra] = useState('')
   const oggi = oggiRoma()
   const pronto = /^\d{4}-\d{2}-\d{2}$/.test(giorno) && /^\d{2}:\d{2}$/.test(ora)
+  const incorporato = linkPrenotazione ? calendarioIncorporato(linkPrenotazione) : null
 
   return (
     <div className="space-y-6">
@@ -222,8 +225,28 @@ export function PassoPrenotazione({
             <span className="num flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm text-rosso-testo">1</span>
             <span className="pt-0.5">{P.prenotazione.scegli}</span>
           </p>
-          <div className="pl-10">
-            {linkPrenotazione ? (
+          <div className="space-y-3 sm:pl-10">
+            {linkPrenotazione && incorporato ? (
+              <>
+                <iframe
+                  src={incorporato}
+                  title={P.prenotazione.calendario}
+                  className="h-[640px] w-full rounded-xl border border-border bg-white"
+                  loading="lazy"
+                  data-testid="calendario-incorporato"
+                />
+                <a
+                  href={linkPrenotazione}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  data-testid="apri-calendario"
+                >
+                  <ExternalLink className="size-4" aria-hidden="true" />
+                  {P.prenotazione.apriAParte}
+                </a>
+              </>
+            ) : linkPrenotazione ? (
               <LinkEsterno href={linkPrenotazione} icona={<CalendarClock className="size-4" aria-hidden="true" />} testId="apri-calendario">
                 {P.prenotazione.apriCalendario}
               </LinkEsterno>
@@ -317,12 +340,15 @@ export function PassoCommunity({
   community,
   linkCommunity,
   call,
+  coach,
 }: {
   passo: PassoPercorso
   nome: string
   community: CommunityCliente | null
   linkCommunity: string | null
   call: CallCliente | null
+  /** The first name of the coach, for «… conferma la tua call». */
+  coach?: string | null
 }) {
   const blocchi = passo.blocchi ?? []
   const modello = blocchi.find((b) => b.tipo === 'domande') ?? null
@@ -334,6 +360,13 @@ export function PassoCommunity({
 
   return (
     <div className="space-y-6">
+      {call?.stato === 'da_confermare' ? (
+        // the call is booked and the coach confirms it: the client goes on meanwhile (Dany, 14/11/2026)
+        <p className="flex items-start gap-3 text-[0.95rem] leading-relaxed text-foreground/90" data-testid="community-intanto">
+          <Hourglass className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          {P.community.intanto(coach || 'Il tuo coach')}
+        </p>
+      ) : null}
       {call ? <CardCall call={call} /> : null}
       {altri.length > 0 ? <ListaBlocchi blocchi={altri} nome={nome} modo="passo" titoloPasso={passo.titolo} /> : null}
       <TrePassi fatti={fase} />

@@ -1257,6 +1257,7 @@ const ERRORI_EN: Record<string, string> = {
   [ET.motivo]: 'Write the reason, 300 characters at most',
   [ET.azione]: 'Invalid action.',
   [ET.prenotazione]: 'Paste the address of the Google Calendar booking page (https://calendar.app.google/…)',
+  [ET.emailQuestionario]: 'Write valid email addresses, one per line, at most 10',
   [ET.nonFatto]: 'I could not save it. Try again.',
   [ET.areaNonCambiata]: 'The client area did not change. Try again.',
   [ET.soloAdminArea]: 'The client area is opened and closed by the admin.',
@@ -1626,6 +1627,8 @@ export const ONBOARDING_TEAM = bilingue(
       linkPrenotazioneAiuto: 'La pagina di prenotazione di Google Calendar, https://calendar.app.google/…: il cliente la apre dal passo «Prenota la call».',
       avvisaEmail: 'Avvisa il cliente per email quando tocca a lui',
       avvisaEmailAiuto: 'Spento, dopo ogni azione del team ti diamo il messaggio da mandargli su Telegram.',
+      emailQuestionario: 'Chi riceve l’email quando un cliente invia il questionario',
+      emailQuestionarioAiuto: 'Un indirizzo per riga, al massimo 10. L’email dice chi l’ha inviato e porta alla sua scheda: le risposte restano nell’app.',
     },
 
     passiTitoliBloccati: 'Step bloccati',
@@ -1918,6 +1921,8 @@ export const ONBOARDING_TEAM = bilingue(
       linkPrenotazioneAiuto: 'The Google Calendar booking page, https://calendar.app.google/…: the client opens it from the step «Prenota la call».',
       avvisaEmail: 'Notify the client by email when it is their turn',
       avvisaEmailAiuto: 'Off, after every action of the team you get the message to send them on Telegram.',
+      emailQuestionario: 'Who receives the email when a client sends the questionnaire',
+      emailQuestionarioAiuto: 'One address per line, at most 10. The email says who sent it and links to their card: the answers stay in the app.',
     },
 
     passiTitoliBloccati: 'Locked steps',

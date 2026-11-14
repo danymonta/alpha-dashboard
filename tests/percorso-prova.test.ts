@@ -173,8 +173,9 @@ describe('Prova del percorso: il motore', () => {
     expect(stati(prenotato).prenotazione).toBe('inviato')
     const p = percorsoDi(DATI, prenotato, ORA)
     expect(p.call).toMatchObject({ giorno: '2026-11-15', ora: '18:00', stato: 'da_confermare', meetUrl: null })
-    expect(p.attesaTeam).toMatchObject({ passo: 'prenotazione', cosa: 'Ivan sta confermando la tua call.', chi: { nome: 'Ivan' } })
-    expect(p.inAttesa).toBe(true)
+    // the client does not wait for the coach (1.84.0): the community opens at once, the call waits for the confirmation
+    expect(stati(prenotato)).toMatchObject({ community: 'disponibile', call: 'bloccato' })
+    expect(p.inAttesa).toBe(false)
     expect(azioneTeamDovuta(prenotato)).toBe('conferma_call')
     expect(avanza(DATI, prenotato, { passo: 'prenotazione', azione: 'prenotato', dati: { giorno: '2026-11-15', ora: '18:00' } }, ORA)).toEqual({
       ok: false,
@@ -182,7 +183,7 @@ describe('Prova del percorso: il motore', () => {
     })
   })
 
-  it('l’ordine degli sblocchi: la call confermata apre community e call; l’obiettivo lo apre solo il team', () => {
+  it('l’ordine degli sblocchi: la prenotazione apre la community, la call confermata apre la call; l’obiettivo lo apre solo il team', () => {
     let s = vaiA(DATI, statoIniziale(DATI, ORA), 'prenotazione', ORA)
     s = ok(avanza(DATI, s, { passo: 'prenotazione', azione: 'prenotato', dati: { giorno: '2026-11-15', ora: '18:00' } }, ORA))
     s = ok(azioneTeam(DATI, s, 'conferma_call', ORA))

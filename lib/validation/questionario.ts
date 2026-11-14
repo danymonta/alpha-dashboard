@@ -240,7 +240,7 @@ export const TIPI_ALLEGATO = ['image/jpeg', 'image/png', 'image/webp', 'applicat
 export type TipoAllegato = (typeof TIPI_ALLEGATO)[number]
 /** The bucket onboarding-allegati and the check of onboarding_allegati.byte. */
 export const BYTE_ALLEGATO_MAX = 10 * 1024 * 1024
-export const ALLEGATI_PER_CAMPO = 3
+export const ALLEGATI_PER_CAMPO = 10
 export const NOME_FILE_MAX = 120
 
 /** A file's name as the row keeps it: no slash, backslash or control character, at most 120. */

@@ -53,6 +53,7 @@ export type ImpostazioniOnboarding = Pick<
   | 'link_community'
   | 'link_prenotazione'
   | 'avvisa_cliente_email'
+  | 'email_questionario'
 >
 
 /** What the migration seeds: the answer when the row is not there (a restore with the triggers off). */
@@ -65,10 +66,11 @@ export const IMPOSTAZIONI_DI_BASE: ImpostazioniOnboarding = {
   link_community: null,
   link_prenotazione: null,
   avvisa_cliente_email: true,
+  email_questionario: [],
 }
 
 const COLONNE_IMPOSTAZIONI =
-  'aperto_ai_clienti, giorni_validita_link, coach_predefinito_id, revisore_predefinito_id, responsabile_predefinito_id, link_community, link_prenotazione, avvisa_cliente_email' as const
+  'aperto_ai_clienti, giorni_validita_link, coach_predefinito_id, revisore_predefinito_id, responsabile_predefinito_id, link_community, link_prenotazione, avvisa_cliente_email, email_questionario' as const
 
 export async function leggiImpostazioni(db: Db): Promise<ImpostazioniOnboarding> {
   const { data, error } = await db.from('onboarding_impostazioni').select(COLONNE_IMPOSTAZIONI).maybeSingle()

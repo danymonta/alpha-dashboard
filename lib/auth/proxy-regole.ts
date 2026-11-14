@@ -121,7 +121,7 @@ function origineSupabase(url: string): string {
 /**
  * The Content-Security-Policy of /percorso, /join and /entra (the Next guide for the nonce):
  * only the app's scripts with the request's nonce; YouTube only as an iframe from
- * youtube-nocookie.com; the attributes `style` allowed (no script).
+ * youtube-nocookie.com and the booking page of Google Calendar (1.84.0); the attributes `style` allowed (no script).
  */
 export function politicaCsp(nonce: string, supabaseUrl: string, sviluppo: boolean): string {
   const supabase = origineSupabase(supabaseUrl)
@@ -131,7 +131,7 @@ export function politicaCsp(nonce: string, supabaseUrl: string, sviluppo: boolea
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${supabase ? ` ${supabase}` : ''} https://*.googleusercontent.com`,
     `connect-src 'self'${supabase ? ` ${supabase}` : ''}`,
-    'frame-src https://www.youtube-nocookie.com',
+    'frame-src https://www.youtube-nocookie.com https://calendar.google.com',
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
