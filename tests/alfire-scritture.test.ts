@@ -13,7 +13,7 @@ import type { AppRole, LivelloPm } from '@/lib/auth/roles'
 import type { Profilo } from '@/lib/auth/session'
 import { FOLLOW_UP, quandoFollowUp } from '@/lib/call/follow-up'
 import { SPOSTA, quandoBreve, quandoBreveDa } from '@/lib/call/spostamento'
-import { aggiungiGiorni, giornoEsteso, oggiRoma, primoDelMeseISO } from '@/lib/date'
+import { aggiungiGiorni, giornoEsteso, istanteRoma, oggiRoma, primoDelMeseISO } from '@/lib/date'
 import { formatData } from '@/lib/format'
 import { SPOSTA_SOLO_AVANTI } from '@/lib/validation/call'
 
@@ -1564,7 +1564,7 @@ function mondoCoach(): Record<string, Riga[]> {
       nota: null,
       inizio: null,
       fine: null,
-      created_at: `${ieri}T07:00:00Z`,
+      created_at: istanteRoma(ieri, '09:00'),
       progetto: { nome: 'Sergio Bellini' },
       task: { titolo: 'Call di check' },
     },
@@ -1576,9 +1576,10 @@ function mondoCoach(): Record<string, Riga[]> {
       data: ieri,
       minuti: 90,
       nota: 'Tre video',
-      inizio: `${ieri}T13:00:00.000Z`,
-      fine: `${ieri}T14:30:00.000Z`,
-      created_at: `${ieri}T15:00:00Z`,
+      // built in Europe/Rome, as the code formats them: 15:00–16:30 on any date, summer or winter
+      inizio: istanteRoma(ieri, '15:00'),
+      fine: istanteRoma(ieri, '16:30'),
+      created_at: istanteRoma(ieri, '17:00'),
       progetto: { nome: 'Sergio Bellini' },
       task: { titolo: 'Revisione video' },
     },
