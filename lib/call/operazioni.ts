@@ -23,6 +23,7 @@ import { aggiornamentoDaEsito, esitoCallSchema, followUpEsito, nuovaDataEsito } 
 import { aggiornaStatoLeadSchema, modificaLeadSchema } from '@/lib/validation/lead'
 import { chiedeRegistrazione, registrazioneMancante, sceltaRegistrazioneSchema } from '@/lib/validation/registrazione'
 import { z } from 'zod'
+import { messaggioErroreFissa, rigaLogErroreFissa } from '@/lib/call/errore-fissa'
 
 /**
  * The only way calls, leads and outcomes are written (Claude a 360 gradi,
@@ -428,9 +429,10 @@ export async function fissaCall(ctx: Contesto, input: unknown): Promise<EsitoNuo
     .single()
 
   if (error) {
-    // 22023: a rule of fissa_call, already worded for the user
-    if (error.code === '22023') return { ok: false, errore: error.message }
-    return { ok: false, errore: 'Non è stato possibile fissare la call. Riprova.' }
+    // 22023 is a rule of fissa_call, already worded for the user; anything else gets a precise
+    // sentence with its code, and the code goes to the logs (never the lead)
+    console.error(rigaLogErroreFissa(error))
+    return { ok: false, errore: messaggioErroreFissa(error) }
   }
 
   for (const pagina of ['/calls', '/leads', '/setting', '/setting/closer', '/setting/closer/giorno', '/my-numbers', '/']) {
