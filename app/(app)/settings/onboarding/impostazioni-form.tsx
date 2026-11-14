@@ -9,6 +9,7 @@ import { useLingua } from '@/components/i18n/lingua-provider'
 import { CampiIncarichi, type ErroriIncarichi, type ValoriIncarichi } from '@/components/onboarding/campi-incarichi'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { ONBOARDING, ONBOARDING_TEAM, traduciErroreOnboarding } from '@/lib/i18n/testi/onboarding'
 import type { ImpostazioniOnboarding } from '@/lib/onboarding/letture'
 import type { PersonaTeam } from '@/lib/onboarding/stati'
@@ -47,6 +48,8 @@ export function ImpostazioniOnboardingForm({
   const [giorni, setGiorni] = useState(String(impostazioni.giorni_validita_link))
   const [prenotazione, setPrenotazione] = useState(impostazioni.link_prenotazione ?? '')
   const [avvisa, setAvvisa] = useState(impostazioni.avvisa_cliente_email)
+  const [destinatari, setDestinatari] = useState((impostazioni.email_questionario ?? []).join('\n'))
+  const [erroreDestinatari, setErroreDestinatari] = useState<string | undefined>()
   const [errorePrenotazione, setErrorePrenotazione] = useState<string | undefined>()
   const [erroriIncarichi, setErroriIncarichi] = useState<ErroriIncarichi>({})
   const [erroreLink, setErroreLink] = useState<string | undefined>()
@@ -63,6 +66,7 @@ export function ImpostazioniOnboardingForm({
       link_community: link,
       link_prenotazione: prenotazione,
       avvisa_cliente_email: avvisa,
+      email_questionario: destinatari,
       giorni_validita_link: giorni,
     }
     const valido = impostazioniOnboardingSchema.safeParse(input)
@@ -71,14 +75,17 @@ export function ImpostazioniOnboardingForm({
       let diLink: string | undefined
       let diGiorni: string | undefined
       let diPrenotazione: string | undefined
+      let diDestinatari: string | undefined
       for (const issue of valido.error.issues) {
         const campo = String(issue.path[0] ?? '')
         if (campo in CAMPO_DI) persone_[CAMPO_DI[campo]] ??= issue.message
         else if (campo === 'link_community') diLink ??= issue.message
         else if (campo === 'giorni_validita_link') diGiorni ??= issue.message
         else if (campo === 'link_prenotazione') diPrenotazione ??= issue.message
+        else if (campo === 'email_questionario') diDestinatari ??= issue.message
       }
       setErrorePrenotazione(diPrenotazione)
+      setErroreDestinatari(diDestinatari)
       setErroriIncarichi(persone_)
       setErroreLink(diLink)
       setErroreGiorni(diGiorni)
@@ -88,6 +95,7 @@ export function ImpostazioniOnboardingForm({
     setErroreLink(undefined)
     setErroreGiorni(undefined)
     setErrorePrenotazione(undefined)
+    setErroreDestinatari(undefined)
     setInCorso(true)
     await salva(() => salvaImpostazioni(input), t.salvato)
     setInCorso(false)
@@ -207,6 +215,29 @@ export function ImpostazioniOnboardingForm({
           </span>
         </span>
       </label>
+
+      <div className="space-y-1.5">
+        <Label htmlFor={`${id}-destinatari`}>{tb.emailQuestionario}</Label>
+        <Textarea
+          id={`${id}-destinatari`}
+          rows={3}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={destinatari}
+          onChange={(e) => {
+            setDestinatari(e.target.value)
+            setErroreDestinatari(undefined)
+          }}
+          aria-invalid={erroreDestinatari ? true : undefined}
+          aria-describedby={erroreDestinatari ? `${id}-destinatari-errore` : `${id}-destinatari-aiuto`}
+          data-testid="email-questionario"
+        />
+        <ErroreCampo id={`${id}-destinatari-errore`} messaggio={tr(erroreDestinatari)} />
+        <p id={`${id}-destinatari-aiuto`} className="text-xs text-muted-foreground">
+          {tb.emailQuestionarioAiuto}
+        </p>
+      </div>
 
       <ErroreModulo testo={errore ? traduciErroreOnboarding(errore, lingua) : null} />
       <BottoneSalva inCorso={inCorso}>{t.salva}</BottoneSalva>

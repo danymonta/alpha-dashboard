@@ -25,6 +25,7 @@ export const ERRORI_ONBOARDING_TEAM = {
   motivo: 'Scrivi il motivo, al massimo 300 caratteri',
   azione: 'Azione non valida.',
   prenotazione: 'Incolla l’indirizzo della pagina di prenotazione di Google Calendar (https://calendar.app.google/…)',
+  emailQuestionario: 'Scrivi indirizzi email validi, uno per riga, al massimo 10',
   // the answers of the core
   sessione: 'Sessione scaduta. Rientra e riprova.',
   nonFatto: 'Non sono riuscito a salvarlo. Riprova.',
@@ -174,3 +175,18 @@ export const linkPrenotazione = z
     return pulito === '' ? null : pulito
   })
   .refine((v) => v === null || (RE_PRENOTAZIONE.test(v) && v.length <= LIMITI_ONBOARDING_TEAM.url), E.prenotazione)
+
+/**
+ * Who receives the email of a questionnaire sent (Impostazioni › Onboarding): a text with one address per line (or
+ * separated by commas), or a list; lowercase, no duplicates, at most 10. The same rule as onboarding_email_valide.
+ */
+export const RE_EMAIL_DESTINATARIO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+export const EMAIL_QUESTIONARIO_MAX = 10
+export const emailQuestionario = z
+  .union([z.string(), z.array(z.string())])
+  .nullish()
+  .transform((v) => {
+    const voci = (Array.isArray(v) ? v : (v ?? '').split(/[\s,;]+/)).map((x) => x.trim().toLowerCase()).filter(Boolean)
+    return [...new Set(voci)]
+  })
+  .refine((v) => v.length <= EMAIL_QUESTIONARIO_MAX && v.every((x) => x.length <= 320 && RE_EMAIL_DESTINATARIO.test(x)), E.emailQuestionario)

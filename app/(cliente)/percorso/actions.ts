@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { lavoraFoglioDopo } from '@/lib/percorso/foglio-lavoro'
+import { avvisaQuestionarioInviatoDopo } from '@/lib/percorso/questionario-inviato'
 import * as percorso from '@/lib/percorso/operazioni'
 import type { EsitoConsenso, EsitoInvia, EsitoLezione, EsitoPercorso, EsitoSalva, EsitoTogli } from '@/lib/percorso/operazioni'
 import { togliFileQuestionario } from '@/lib/percorso/pulizia'
@@ -64,10 +65,15 @@ export async function salvaQuestionario(dati: FormData): Promise<EsitoSalva> {
  * never waits for Google, and a failure retries from the queue.
  */
 export async function inviaQuestionario(input: unknown): Promise<EsitoInvia> {
-  const esito = await percorso.inviaQuestionario(await createClient(), input)
+  const db = await createClient()
+  const esito = await percorso.inviaQuestionario(db, input)
   revalidatePath('/percorso', 'layout')
   if (esito.ok && esito.esito === 'inviato') {
     lavoraFoglioDopo()
+    // the email to the addresses of the settings (1.84.0): the client is the one of this session (his own row,
+    // under RLS), never an id from the browser
+    const { data } = await db.from('clienti_account').select('client_id').maybeSingle()
+    if (data?.client_id) avvisaQuestionarioInviatoDopo(data.client_id)
   }
   return esito
 }

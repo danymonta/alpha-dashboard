@@ -108,6 +108,18 @@ describe('Prova del percorso: il motore', () => {
     expect(stati(s)).toMatchObject({ benvenuto: 'fatto', regole: 'disponibile' })
   })
 
+  it('un video ancora segnaposto non ferma la prova: il benvenuto si completa subito', () => {
+    const conSegnaposto: DatiProva = {
+      ...DATI,
+      blocchi: DATI.blocchi.map((b) => (b.id === VIDEO ? { ...b, youtube_id: 'XXXXXXXXXXX' } : b)),
+    }
+    const s = statoIniziale(conSegnaposto, ORA)
+    const video = percorsoDi(conSegnaposto, s, ORA).passi.find((x) => x.chiave === 'benvenuto')?.blocchi?.[0]
+    expect(video).toMatchObject({ tipo: 'video', video: { visto: true } })
+    const dopo = ok(avanza(conSegnaposto, s, { passo: 'benvenuto', azione: 'completa' }, ORA))
+    expect(stati(dopo)).toMatchObject({ benvenuto: 'fatto', regole: 'disponibile' })
+  })
+
   it('le regole vogliono tutte le spunte e il consenso nella versione in vigore', () => {
     let s = ok(avanza(DATI, segnaVideoVisti(DATI, statoIniziale(DATI, ORA)), { passo: 'benvenuto', azione: 'completa' }, ORA))
     expect(avanza(DATI, s, { passo: 'regole', azione: 'accetta', dati: { regole: [REGOLA_1], consenso_salute: '2026-11-13' } }, ORA)).toEqual({
@@ -161,8 +173,9 @@ describe('Prova del percorso: il motore', () => {
     expect(stati(prenotato).prenotazione).toBe('inviato')
     const p = percorsoDi(DATI, prenotato, ORA)
     expect(p.call).toMatchObject({ giorno: '2026-11-15', ora: '18:00', stato: 'da_confermare', meetUrl: null })
-    expect(p.attesaTeam).toMatchObject({ passo: 'prenotazione', cosa: 'Ivan sta confermando la tua call.', chi: { nome: 'Ivan' } })
-    expect(p.inAttesa).toBe(true)
+    // the client does not wait for the coach (1.84.0): the community opens at once, the call waits for the confirmation
+    expect(stati(prenotato)).toMatchObject({ community: 'disponibile', call: 'bloccato' })
+    expect(p.inAttesa).toBe(false)
     expect(azioneTeamDovuta(prenotato)).toBe('conferma_call')
     expect(avanza(DATI, prenotato, { passo: 'prenotazione', azione: 'prenotato', dati: { giorno: '2026-11-15', ora: '18:00' } }, ORA)).toEqual({
       ok: false,
@@ -170,7 +183,7 @@ describe('Prova del percorso: il motore', () => {
     })
   })
 
-  it('l’ordine degli sblocchi: la call confermata apre community e call; l’obiettivo lo apre solo il team', () => {
+  it('l’ordine degli sblocchi: la prenotazione apre la community, la call confermata apre la call; l’obiettivo lo apre solo il team', () => {
     let s = vaiA(DATI, statoIniziale(DATI, ORA), 'prenotazione', ORA)
     s = ok(avanza(DATI, s, { passo: 'prenotazione', azione: 'prenotato', dati: { giorno: '2026-11-15', ora: '18:00' } }, ORA))
     s = ok(azioneTeam(DATI, s, 'conferma_call', ORA))

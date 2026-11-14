@@ -1903,14 +1903,14 @@ isOneToOne: true
                   ]
                 },"onboarding_impostazioni": {
                   Row: {
-                    "aperto_ai_clienti": boolean,"avvisa_cliente_email": boolean,"coach_predefinito_id": string | null,"created_at": string,"foglio_id": string,"foglio_scheda": string,"giorni_call": number,"giorni_programma": number,"giorni_test": number,"giorni_validita_link": number,"id": boolean,"link_community": string | null,"link_prenotazione": string | null,"responsabile_predefinito_id": string | null,"revisore_predefinito_id": string | null,"updated_at": string,"updated_by": string | null
+                    "aperto_ai_clienti": boolean,"avvisa_cliente_email": boolean,"coach_predefinito_id": string | null,"created_at": string,"email_questionario": string[],"foglio_id": string,"foglio_scheda": string,"giorni_call": number,"giorni_programma": number,"giorni_test": number,"giorni_validita_link": number,"id": boolean,"link_community": string | null,"link_prenotazione": string | null,"responsabile_predefinito_id": string | null,"revisore_predefinito_id": string | null,"updated_at": string,"updated_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "aperto_ai_clienti"?: boolean,"avvisa_cliente_email"?: boolean,"coach_predefinito_id"?: string | null,"created_at"?: string,"foglio_id"?: string,"foglio_scheda"?: string,"giorni_call"?: number,"giorni_programma"?: number,"giorni_test"?: number,"giorni_validita_link"?: number,"id"?: boolean,"link_community"?: string | null,"link_prenotazione"?: string | null,"responsabile_predefinito_id"?: string | null,"revisore_predefinito_id"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                    "aperto_ai_clienti"?: boolean,"avvisa_cliente_email"?: boolean,"coach_predefinito_id"?: string | null,"created_at"?: string,"email_questionario"?: string[],"foglio_id"?: string,"foglio_scheda"?: string,"giorni_call"?: number,"giorni_programma"?: number,"giorni_test"?: number,"giorni_validita_link"?: number,"id"?: boolean,"link_community"?: string | null,"link_prenotazione"?: string | null,"responsabile_predefinito_id"?: string | null,"revisore_predefinito_id"?: string | null,"updated_at"?: string,"updated_by"?: string | null
                   }
                   Update: {
-                    "aperto_ai_clienti"?: boolean,"avvisa_cliente_email"?: boolean,"coach_predefinito_id"?: string | null,"created_at"?: string,"foglio_id"?: string,"foglio_scheda"?: string,"giorni_call"?: number,"giorni_programma"?: number,"giorni_test"?: number,"giorni_validita_link"?: number,"id"?: boolean,"link_community"?: string | null,"link_prenotazione"?: string | null,"responsabile_predefinito_id"?: string | null,"revisore_predefinito_id"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                    "aperto_ai_clienti"?: boolean,"avvisa_cliente_email"?: boolean,"coach_predefinito_id"?: string | null,"created_at"?: string,"email_questionario"?: string[],"foglio_id"?: string,"foglio_scheda"?: string,"giorni_call"?: number,"giorni_programma"?: number,"giorni_test"?: number,"giorni_validita_link"?: number,"id"?: boolean,"link_community"?: string | null,"link_prenotazione"?: string | null,"responsabile_predefinito_id"?: string | null,"revisore_predefinito_id"?: string | null,"updated_at"?: string,"updated_by"?: string | null
                   }
                   Relationships: [
                     {

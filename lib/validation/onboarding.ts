@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { normalizzaHandle } from '@/lib/validation/call'
-import { linkPrenotazione } from '@/lib/validation/onboarding-team'
+import { emailQuestionario, linkPrenotazione } from '@/lib/validation/onboarding-team'
 import { nuovaVenditaSchema, type NuovaVendita, type NuovaVenditaInput } from '@/lib/validation/vendita'
 
 /**
@@ -347,6 +347,8 @@ export const impostazioniOnboardingSchema = z.object({
   // release B2 (1.81.0): the booking page of the onboarding call, and the email «Tocca a te»
   link_prenotazione: linkPrenotazione,
   avvisa_cliente_email: z.boolean().default(true),
+  // 1.84.0: who receives the email of a questionnaire sent
+  email_questionario: emailQuestionario,
   giorni_validita_link: z.coerce
     .number({ invalid_type_error: ERRORI_ONBOARDING.giorni })
     .int(ERRORI_ONBOARDING.giorni)

@@ -69,6 +69,8 @@ export type Domanda =
       lungo?: true
       autocomplete?: string
       inputMode?: 'text' | 'tel'
+      /** The equipment as chips with their «i» under the answer. */
+      attrezzi?: true
     })
   | (Base & { tipo: 'email' })
   | (Base & { tipo: 'data' })
@@ -115,11 +117,6 @@ export const ETICHETTE_ESERCIZI: Record<(typeof ESERCIZI_MASSIMALI)[number], str
   trazioni: 'Trazioni',
   dip: 'Dip',
 }
-
-const SI_NO_OPZIONI: readonly Opzione[] = [
-  { valore: 'si', etichetta: 'Sì' },
-  { valore: 'no', etichetta: 'No' },
-]
 
 export const DOMANDE: readonly Domanda[] = [
   // 1 · Chi sei
@@ -171,14 +168,16 @@ export const DOMANDE: readonly Domanda[] = [
     chiave: 'seguito_alimentazione',
     schermata: 2,
     tipo: 'scelta',
-    testo: 'Sei seguito sul piano alimentare?',
-    aiuto: 'Se sì, carica qui sotto il tuo piano alimentare attuale.',
-    opzioni: SI_NO_OPZIONI,
+    testo: 'Sei già seguito da qualcun altro sul piano alimentare?',
+    aiuto: 'Che ti segua qualcuno o no, se stai seguendo una dieta, caricala qui sotto.',
+    opzioni: [
+      { valore: 'si', etichetta: 'Sì, ho un professionista che mi segue' },
+      { valore: 'no', etichetta: 'No, mi affido a voi!' },
+    ],
     allegato: {
       campo: 'piano_alimentare',
-      etichetta: 'Il tuo piano alimentare',
-      aiuto: 'Caricalo come foto o PDF.',
-      quando: 'si',
+      etichetta: 'La tua dieta',
+      aiuto: 'Foto o PDF, anche più file insieme. Se non segui una dieta, lascia vuoto.',
     },
   },
   {
@@ -239,9 +238,9 @@ export const DOMANDE: readonly Domanda[] = [
     schermata: 4,
     tipo: 'testo',
     lungo: true,
-    testo: 'Cosa vorrebbe dire per te avere successo con questo programma di allenamento?',
+    testo: 'Cosa significherebbe per te avere successo in questo programma?',
     aiuto:
-      '(aumentando di massa muscolare, perdendo grasso, migliorando la tua definizione muscolare, costruendo un fisico più sicuro, migliorare la tua disciplina, essere la migliore versione di te stesso)',
+      'Scrivilo con parole tue, come una frase. Ad esempio: «Per me avere successo in questo programma significherebbe finalmente ottenere i risultati su cui ero bloccato da tempo, vedermi più definito allo specchio e sentirmi sicuro quando tolgo la maglietta.»',
   },
   {
     chiave: 'perche_noi',
@@ -263,7 +262,8 @@ export const DOMANDE: readonly Domanda[] = [
     tipo: 'testo',
     lungo: true,
     testo: 'Di quale attrezzatura disponi per fare esercizio?',
-    aiuto: 'Esempio: sbarra, elastici, manubri, anelli, parallele etc..',
+    aiuto: 'Tocca quella che hai o scrivila tu. Non sai cos’è? Tocca la «i».',
+    attrezzi: true,
     allegato: {
       campo: 'attrezzatura',
       etichetta: 'Le foto della tua attrezzatura',
@@ -287,7 +287,7 @@ export const DOMANDE: readonly Domanda[] = [
     allegato: {
       campo: 'vecchia_scheda',
       etichetta: 'La tua vecchia scheda',
-      aiuto: 'Caricala come foto o PDF.',
+      aiuto: 'Caricala come foto o PDF, anche più file.',
     },
   },
   {
@@ -304,7 +304,10 @@ export const DOMANDE: readonly Domanda[] = [
     schermata: 4,
     tipo: 'scelta',
     testo: 'Ti senti pronto e motivato?',
-    opzioni: SI_NO_OPZIONI,
+    opzioni: [
+      { valore: 'si', etichetta: 'Sì, sono pronto a spaccare il mondo!' },
+      { valore: 'no', etichetta: 'No' },
+    ],
   },
 ]
 

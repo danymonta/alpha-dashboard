@@ -86,6 +86,68 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.84.0',
+    data: '2026-11-14',
+    titolo: 'Onboarding più scorrevole: la dieta, gli esercizi spiegati, il calendario nella pagina',
+    riassunto:
+      'Il cliente carica la sua dieta e più file per volta, vede cos’è ogni esercizio e ogni attrezzo, prenota la call senza uscire dall’app e, mentre il coach la conferma, entra già nella community. A te arriva un’email per ogni questionario inviato.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Questionario: chiunque stia seguendo una dieta la carica nella domanda sul piano alimentare, anche se non ha un professionista. Ogni domanda con i file (attrezzatura, vecchia scheda, dieta) ne prende fino a 10, scelti anche tutti insieme.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Accanto a piegamenti, trazioni e dip, e sotto la domanda sull’attrezzatura, una «i» apre un riquadro con un disegno che si muove e due righe che spiegano l’esercizio o l’attrezzo. Sbarra, elastici, manubri, anelli e parallele si aggiungono alla risposta con un tocco.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Impostazioni › Onboarding › «Chi riceve l’email quando un cliente invia il questionario»: per ogni questionario inviato parte un’email con il nome del cliente e il link alla sua scheda, mai le risposte.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'La prenotazione della call: il calendario del coach si apre dentro la pagina, poi il cliente segna giorno e ora. Serve l’indirizzo lungo di Google Calendar: incollando quello corto, il gestionale lo converte da solo quando salvi.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il cliente non resta fermo dopo aver prenotato: entra subito nella community e si presenta, con il modello «Ciao a tutti, sono… e sono contento di iniziare questo percorso!», mentre il coach conferma la call e gli scrive su Telegram. Finita la community, mentre aspetta, legge cosa faremo in call.',
+      },
+    ],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo:
+          'La domanda «Cosa significherebbe per te avere successo in questo programma?» ha una frase d’esempio intera al posto dell’elenco tra parentesi, e il questionario non si rilegge più dalle tappe completate. Le frasi dell’attesa dicono che il team scrive sul gruppo Telegram.',
+      },
+    ],
+  },
+  {
+    versione: '1.83.1',
+    data: '2026-11-13',
+    titolo: 'Due domande del questionario riscritte e la prova senza video',
+    riassunto: 'Le domande sul piano alimentare e sulla motivazione hanno parole nuove, e la prova del percorso va avanti anche senza il video di benvenuto.',
+    intestazionePer: ['admin'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo:
+          'Questionario dell’onboarding: «Sei già seguito da qualcun altro sul piano alimentare?» con «Sì, ho un professionista che mi segue» e «No, mi affido a voi!», e «Sì, sono pronto a spaccare il mondo!» alla domanda «Ti senti pronto e motivato?».',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Prova del percorso: un video che nei Contenuti ha ancora l’id segnaposto non ferma più la prova. Il benvenuto si completa con «Ho guardato il video» anche prima che il video ci sia, e da lì si sbloccano le regole, il questionario e la prenotazione della call.',
+      },
+    ],
+  },
+  {
     versione: '1.83.0',
     data: '2026-11-13',
     titolo: 'Il campo base del cliente, l’Aula e lo storico delle call',

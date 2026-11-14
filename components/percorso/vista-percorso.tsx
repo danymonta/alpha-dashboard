@@ -170,7 +170,13 @@ export function VistaPercorso({ percorso }: { percorso: Percorso }) {
     titolo.current?.focus()
   }, [chiaveVista])
 
-  const completati = percorso.nodi.filter((n) => n.stato === 'completato')
+  // the questionnaire is not read again (Dany, 14/11/2026: «non ha molto senso che uno possa rileggerlo»)
+  const nodoQuestionario = percorso.passi.find((p) => p.chiave === 'questionario')?.nodo ?? null
+  const completati = percorso.nodi.filter((n) => n.stato === 'completato' && n.chiave !== nodoQuestionario)
+  const coach = percorso.team.find((t) => t.incarico === 'coach')?.nome.split(' ')[0] ?? null
+  // what the call will be, while the coach confirms it: the blocks of the booking after its first (the instructions)
+  const passoPrenotazione = percorso.passi.find((p) => p.chiave === 'prenotazione') ?? null
+  const cosaFaremo = (passoPrenotazione?.blocchi ?? []).filter((b, i) => i > 0 && b.tipo === 'testo')
   const indiceNodo = (chiave: string) => percorso.nodi.findIndex((n) => n.chiave === chiave) + 1
   const totaleNodi = percorso.nodi.length
   // the onboarding call, until it is done: the client sees it from the booking on
@@ -239,6 +245,7 @@ export function VistaPercorso({ percorso }: { percorso: Percorso }) {
           community={percorso.community}
           linkCommunity={percorso.linkCommunity}
           call={callAperta}
+          coach={coach}
         />
       ) : daFare.chiave === 'obiettivo' ? (
         <PassoObiettivo key={daFare.chiave} passo={daFare} nome={nome} />
@@ -287,6 +294,11 @@ export function VistaPercorso({ percorso }: { percorso: Percorso }) {
         {attesa.passo === 'call' && passoCall?.blocchi && passoCall.blocchi.length > 0 ? (
           <ListaBlocchi blocchi={passoCall.blocchi} nome={percorso.nome} modo="rileggi" titoloPasso={P.call.titolo} />
         ) : null}
+        {attesa.passo === 'prenotazione' && cosaFaremo.length > 0 ? (
+          <section aria-label={P.attesa.intantoGuarda} className="space-y-3">
+            <ListaBlocchi blocchi={cosaFaremo} nome={percorso.nome} modo="rileggi" titoloPasso={P.attesa.intantoGuarda} />
+          </section>
+        ) : null}
         <p className="flex items-start gap-3 text-[0.95rem] leading-relaxed text-foreground/90">
           {appuntamento ? (
             <CalendarDays className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -295,7 +307,9 @@ export function VistaPercorso({ percorso }: { percorso: Percorso }) {
           )}
           {appuntamento
             ? P.attesa.ciVediamo(`${nomeGiorno(appuntamento.giorno)} ${formatData(appuntamento.giorno)}`, appuntamento.ora)
-            : P.attesa.sotto}
+            : attesa.passo === 'prenotazione'
+              ? P.attesa.sottoCall
+              : P.attesa.sotto}
         </p>
         {rileggi(T.rileggi)}
       </div>

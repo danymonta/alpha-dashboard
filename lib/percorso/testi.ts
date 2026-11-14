@@ -225,6 +225,7 @@ export const TESTI_QUESTIONARIO = {
   kg: 'kg',
   nonLoSo: 'Non lo so',
   ripetizioni: 'ripetizioni',
+  attrezzi: 'Attrezzatura',
   errori: {
     testo: 'Scrivi la tua risposta.',
     scelta: 'Scegli una risposta.',
@@ -241,12 +242,12 @@ export const TESTI_QUESTIONARIO = {
   },
   allegati: {
     aggiungi: 'Aggiungi una foto o un PDF',
-    ammessi: 'Foto (JPG, PNG, WebP) o PDF, fino a 10 MB. Al massimo 3 file.',
+    ammessi: 'Foto (JPG, PNG, WebP) o PDF, fino a 10 MB l’uno. Puoi sceglierne più di uno insieme, fino a 10.',
     carico: (nome: string) => `Carico ${nome}`,
     caricato: 'File caricato',
     togli: (nome: string) => `Togli ${nome}`,
     tolto: 'File tolto',
-    pieno: 'Hai già caricato 3 file qui: togline uno per aggiungerne un altro.',
+    pieno: 'Hai già caricato 10 file qui: togline uno per aggiungerne un altro.',
     nonServono: 'Con la risposta che hai dato questi file non servono più: puoi toglierli.',
     nonArrivato: 'Il file non è arrivato: riprova.',
     nonValido: 'File non valido: puoi caricare foto (JPG, PNG, WebP) o PDF fino a 10 MB.',
@@ -262,15 +263,17 @@ export const TESTI_QUESTIONARIO = {
 export const TESTI_PASSI = {
   quando: (giorno: string, ora: string) => `${giorno} alle ${ora}`,
   prenotazione: {
-    scegli: 'Scegli giorno e ora nel calendario del tuo coach.',
+    scegli: 'Scegli giorno e ora nel calendario del tuo coach, qui sotto.',
+    calendario: 'Calendario per prenotare la call di onboarding',
+    apriAParte: 'Non vedi il calendario? Aprilo in una nuova scheda',
     apriCalendario: 'Apri il calendario',
     senzaCalendario: 'Il calendario del tuo coach arriva a breve: intanto scrivi nel tuo gruppo Telegram.',
-    scrivi: 'Poi torna qui e scrivi quello che hai scelto.',
+    scrivi: 'Hai prenotato? Segna qui giorno e ora, così il tuo coach la conferma.',
     giorno: 'Giorno della call',
     ora: 'Ora',
     hoPrenotato: 'Ho prenotato',
     serveGiornoOra: 'Scrivi il giorno e l’ora che hai scelto per andare avanti.',
-    inviata: 'Call segnata: il tuo coach la conferma a breve',
+    inviata: 'Call segnata: intanto entra nella community',
   },
   call: {
     titolo: 'La tua call di onboarding',
@@ -284,7 +287,7 @@ export const TESTI_PASSI = {
   },
   community: {
     tre: 'Tre passi',
-    passi: ['Scrivi il tuo username di Telegram', 'Chiedi l’accesso alla community', 'Presentati nel topic «Presentazioni»'],
+    passi: ['Scrivi il tuo username di Telegram', 'Chiedi l’accesso alla community', 'Presentati nel canale «Presentazioni»'],
     fatto: 'Fatto',
     username: 'Il tuo username di Telegram',
     usernameAiuto: 'Lo trovi su Telegram in Impostazioni, sotto il tuo nome. Scrivilo senza la @.',
@@ -298,11 +301,13 @@ export const TESTI_PASSI = {
     richiestaSegnata: 'Richiesta segnata',
     richiestaIl: (giorno: string) => `Richiesta inviata il ${giorno}.`,
     presentazione: 'La tua presentazione',
-    presentazioneSotto: 'Copiala, completala su Telegram e pubblicala nel topic «Presentazioni».',
+    presentazioneSotto: 'Copiala, completala su Telegram e pubblicala nel canale «Presentazioni».',
     copia: 'Copia la presentazione',
     copiata: 'Presentazione copiata',
     nonCopiata: 'Non riesco a copiarla: selezionala e copiala a mano.',
     presentato: 'Mi sono presentato',
+    intanto: (coach: string) =>
+      `${coach} conferma la tua call e ti scrive sul tuo gruppo Telegram. Intanto entra nella community e presentati.`,
   },
   obiettivo: {
     hoVisto: 'Ho visto',
@@ -329,7 +334,9 @@ export const TESTI_PASSI = {
   },
   attesa: {
     kicker: 'Tocca a noi',
-    sotto: 'Ti scriviamo noi appena tocca di nuovo a te.',
+    sotto: 'Ti avvisiamo per email e sul tuo gruppo Telegram appena tocca di nuovo a te.',
+    sottoCall: 'Ti scriviamo sul tuo gruppo Telegram per confermare la videochiamata e ti mandiamo il link di Google Meet.',
+    intantoGuarda: 'Intanto, ecco cosa faremo in call',
     appuntamento: 'Il prossimo appuntamento',
     ciVediamo: (giorno: string, ora: string) => `Ci vediamo in call ${giorno} alle ${ora}: entra dal link qui sopra.`,
   },

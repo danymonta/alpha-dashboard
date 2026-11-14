@@ -457,6 +457,7 @@ describe('incarichi, Telegram e impostazioni', () => {
         // release B2: the booking page and the email «Tocca a te» (on by default)
         link_prenotazione: null,
         avvisa_cliente_email: true,
+        email_questionario: [],
         giorni_validita_link: 21,
         updated_by: ADMIN,
       },

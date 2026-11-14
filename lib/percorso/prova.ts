@@ -16,7 +16,7 @@
  */
 import { aggiungiGiorni, formatOra, istanteRoma, oggiRoma } from '@/lib/date'
 import type { AllegatoCliente } from '@/lib/percorso/allegati'
-import { leggiBlocchi, type BloccoPercorso } from '@/lib/percorso/blocchi'
+import { leggiBlocchi, YOUTUBE_SEGNAPOSTO, type BloccoPercorso } from '@/lib/percorso/blocchi'
 import type {
   AttesaTeam,
   CallCliente,
@@ -29,6 +29,7 @@ import type {
 } from '@/lib/percorso/letture'
 import type { Stima } from '@/lib/percorso/stima'
 import {
+  ALLEGATI_PER_CAMPO,
   ERRORI_QUESTIONARIO,
   risposteMancanti,
   risposteValide,
@@ -149,6 +150,15 @@ function blocchiDelPasso(dati: DatiProva, passo: string): BloccoGrezzo[] {
   return dati.blocchi.filter((b) => b.pagina === 'passo' && b.passo === passo)
 }
 
+/**
+ * A video still without its YouTube id (the placeholder of the CMS) never stops the test: there
+ * is nothing to watch yet, and Dany tries the whole path before recording it. A real client never
+ * meets one: the area does not open while a placeholder is published (lib/onboarding/area.ts).
+ */
+function videoSegnaposto(b: BloccoGrezzo): boolean {
+  return b.tipo === 'video' && (!b.youtube_id || b.youtube_id === YOUTUBE_SEGNAPOSTO)
+}
+
 function conPasso(stato: StatoProva, chiave: string, cambia: (p: Passo) => Passo): StatoProva {
   const prima = stato.passi[chiave]
   if (!prima) return stato
@@ -159,13 +169,14 @@ function conPasso(stato: StatoProva, chiave: string, cambia: (p: Passo) => Passo
 // The unlock and the completion
 // ---------------------------------------------------------------------------
 
-/** onboarding_sblocca: every locked step with sblocco automatico whose sblocca_dopo are all done. */
+/** onboarding_sblocca: every locked step with sblocco automatico whose sblocca_dopo are all done (or sent, for a step of the client). */
 export function sblocca(dati: DatiProva, stato: StatoProva): StatoProva {
   let dopo = stato
   for (const d of dati.passi) {
     const p = dopo.passi[d.chiave]
     if (!p || p.stato !== 'bloccato' || d.sblocco !== 'automatico') continue
-    if (d.sbloccaDopo.every((k) => dopo.passi[k]?.stato === 'fatto')) {
+    // a step of the client also opens when the steps before it are sent to the team (the call booked)
+    if (d.sbloccaDopo.every((k) => dopo.passi[k]?.stato === 'fatto' || (d.attore === 'cliente' && dopo.passi[k]?.stato === 'inviato'))) {
       dopo = conPasso(dopo, d.chiave, (x) => ({ ...x, stato: 'disponibile' }))
     }
   }
@@ -176,7 +187,7 @@ export function sblocca(dati: DatiProva, stato: StatoProva): StatoProva {
 export function videoMancanti(dati: DatiProva, stato: StatoProva, passo: string | null): boolean {
   const passi = passo ? [passo] : Object.keys(stato.passi)
   const blocchi = passi.some((k) =>
-    blocchiDelPasso(dati, k).some((b) => b.tipo === 'video' && b.obbligatorio && !stato.video[b.id]?.visto),
+    blocchiDelPasso(dati, k).some((b) => b.tipo === 'video' && b.obbligatorio && !videoSegnaposto(b) && !stato.video[b.id]?.visto),
   )
   if (blocchi) return true
   if (passo !== null && passo !== 'programma') return false
@@ -281,7 +292,7 @@ export function avanza(dati: DatiProva, stato: StatoProva, input: unknown, ora: 
       iniziatoIl: x.iniziatoIl ?? t,
       inviatoIl: t,
     }))
-    return { ok: true, stato: s }
+    return { ok: true, stato: sblocca(dati, s) }
   }
 
   if (v.passo === 'community') {
@@ -400,7 +411,7 @@ export function aspettaUnVideo(dati: DatiProva, stato: StatoProva): boolean {
   return Object.entries(stato.passi).some(
     ([chiave, p]) =>
       (p.stato === 'disponibile' || p.stato === 'in_corso') &&
-      (blocchiDelPasso(dati, chiave).some((b) => b.tipo === 'video' && !stato.video[b.id]?.visto) ||
+      (blocchiDelPasso(dati, chiave).some((b) => b.tipo === 'video' && !videoSegnaposto(b) && !stato.video[b.id]?.visto) ||
         (chiave === 'programma' && stato.consegne.some((c) => c.tipo === 'video' && !stato.video[c.id]?.visto))),
   )
 }
@@ -479,8 +490,8 @@ export function aggiungiAllegato(
 ): Esito<{ stato: StatoProva; allegato: AllegatoCliente }> {
   const chiuso = questionarioAperto(dati, stato)
   if (chiuso) return errore(chiuso)
-  if (stato.allegati.filter((a) => a.campo === file.campo && !a.tolto).length >= 3) {
-    return errore('Hai già caricato 3 file qui: togline uno per aggiungerne un altro.')
+  if (stato.allegati.filter((a) => a.campo === file.campo && !a.tolto).length >= ALLEGATI_PER_CAMPO) {
+    return errore('Hai già caricato 10 file qui: togline uno per aggiungerne un altro.')
   }
   const contatore = stato.contatore + 1
   const allegato: AllegatoCliente = { id: uuidDi(contatore), campo: file.campo, nomeFile: file.nome, tipo: file.tipo, byte: file.byte }
@@ -719,10 +730,12 @@ function comeBlocchi(dati: DatiProva, stato: StatoProva, grezzi: readonly Blocco
       ...(b.tipo === 'video'
         ? {
             video: {
-              percentuale: stato.video[b.id]
-                ? Math.round((stato.video[b.id]!.secondi.length * 10000) / stato.video[b.id]!.durata) / 100
-                : 0,
-              visto: stato.video[b.id]?.visto ?? false,
+              percentuale: videoSegnaposto(b)
+                ? 100
+                : stato.video[b.id]
+                  ? Math.round((stato.video[b.id]!.secondi.length * 10000) / stato.video[b.id]!.durata) / 100
+                  : 0,
+              visto: videoSegnaposto(b) || (stato.video[b.id]?.visto ?? false),
             },
           }
         : {}),

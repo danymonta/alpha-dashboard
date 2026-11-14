@@ -1,7 +1,7 @@
 -- Guided onboarding, release B1b (1.80.0, 20261109100000_questionario.sql): the questionnaire. The rule of the
 -- answers (the keys and the options of Dany's Google form, no rule on the age; the same examples as the Vitest
 -- of lib/validation/questionario.ts), the client's functions (step, consent, version, «cambiato», the sending
--- with the missing keys), the files (3 per field, 20 preparations and 100 MB a day counting every state, the
+-- with the missing keys), the files (10 per field, 40 preparations and 300 MB a day counting every state, the
 -- confirmation of the service role only, a missing object or another signature refused, nothing removed after
 -- the sending), who reads (the admin only), the revocation of the consent, the cleanup (the questionnaire and
 -- the files of a closed account stay), the last step served and the paths that start again.
@@ -283,8 +283,15 @@ insert into appunti values ('a2', public.allegato_prepara('attrezzatura', 'elast
 insert into appunti values ('a3', public.allegato_prepara('attrezzatura', 'anelli.webp', 'image/webp', 1000));
 select is(pg_temp.nota('a1') ->> 'percorso', '0b0b0000-0000-4000-8000-000000000001/' || (pg_temp.nota('a1') ->> 'id'),
   'il percorso è <client_id>/<id>');
+do $$
+begin
+  for i in 4..10 loop
+    perform public.allegato_prepara('attrezzatura', 'foto' || i || '.jpg', 'image/jpeg', 1000);
+  end loop;
+end;
+$$;
 select throws_ok($$ select public.allegato_prepara('attrezzatura', 'manubri.jpg', 'image/jpeg', 1000) $$, '22023',
-  'Hai già caricato 3 file qui: togline uno per aggiungerne un altro.', 'al massimo 3 file per campo');
+  'Hai già caricato 10 file qui: togline uno per aggiungerne un altro.', 'al massimo 10 file per campo');
 select is(public.allegato_togli((pg_temp.nota('a3') ->> 'id')::uuid) ->> 'id', pg_temp.nota('a3') ->> 'id', 'il cliente toglie un file');
 select lives_ok($$ select public.allegato_prepara('attrezzatura', 'manubri.jpg', 'image/jpeg', 1000) $$, 'e ne aggiunge un altro');
 select throws_ok($$ select public.allegato_conferma('0b0b0000-0000-4000-8000-000000000001', gen_random_uuid(), 'image/jpeg') $$,
@@ -294,29 +301,29 @@ do $$
 declare
   r jsonb;
 begin
-  -- four already today (the client reads no row: the count is written here)
-  for i in 1..16 loop
+  -- eleven already today (the client reads no row: the count is written here)
+  for i in 1..29 loop
     r := public.allegato_prepara('vecchia_scheda', 'scheda.pdf', 'application/pdf', 1000);
     perform public.allegato_togli((r ->> 'id')::uuid);
   end loop;
 end;
 $$;
 select throws_ok($$ select public.allegato_prepara('vecchia_scheda', 'scheda.pdf', 'application/pdf', 1000) $$, '22023',
-  'Hai caricato troppi file oggi: riprova domani.', '20 preparazioni al giorno, contando quelle tolte');
+  'Hai caricato troppi file oggi: riprova domani.', '40 preparazioni al giorno, contando quelle tolte');
 select pg_temp.web(pg_temp.utente('Dario'));
 select public.consenso_dai('salute', '2026-11-13');
 do $$
 declare
   r jsonb;
 begin
-  for i in 1..10 loop
+  for i in 1..30 loop
     r := public.allegato_prepara('vecchia_scheda', 'scheda.pdf', 'application/pdf', 10485760);
     perform public.allegato_togli((r ->> 'id')::uuid);
   end loop;
 end;
 $$;
 select throws_ok($$ select public.allegato_prepara('vecchia_scheda', 'scheda.pdf', 'application/pdf', 1) $$, '22023',
-  'Hai caricato troppi file oggi: riprova domani.', '100 MB dichiarati al giorno, contando quelli tolti');
+  'Hai caricato troppi file oggi: riprova domani.', '300 MB dichiarati al giorno, contando quelli tolti');
 reset role;
 set local request.jwt.claims to '{}';
 

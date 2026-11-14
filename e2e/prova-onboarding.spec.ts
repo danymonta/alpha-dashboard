@@ -125,17 +125,18 @@ test('l’admin prova tutto il percorso, fino al razzo, senza scrivere niente', 
   await pannello(page).getByLabel('Giorno della call').fill(domani)
   await pannello(page).getByLabel('Ora').fill('18:00')
   await pannello(page).getByTestId('azione-passo').click()
-  await vista(page, 'attesa:prenotazione')
-  await expect(page.getByTestId('azione-team')).toHaveText('Simula: il coach conferma la call di onboarding')
-  await page.getByTestId('azione-team').click()
-  await expect(page.getByText(/Il cliente riceverebbe l’email «Tocca a te»/).first()).toBeVisible()
 
-  // 5. La community in tre passi
+  // 5. La community in tre passi, while the coach confirms the call (1.84.0: the client does not wait)
   await vista(page, 'passo:community')
+  await expect(pannello(page).getByTestId('community-intanto')).toBeVisible()
+  await expect(page.getByTestId('azione-team')).toHaveText('Simula: il coach conferma la call di onboarding')
   await pannello(page).getByLabel('Il tuo username di Telegram').fill('mario_prova')
   await pannello(page).getByRole('button', { name: 'Salva lo username' }).click()
   await pannello(page).getByRole('button', { name: 'Ho inviato la richiesta' }).click()
   await pannello(page).getByRole('button', { name: 'Mi sono presentato' }).click()
+  await vista(page, 'attesa:prenotazione')
+  await page.getByTestId('azione-team').click()
+  await expect(page.getByText(/Il cliente riceverebbe l’email «Tocca a te»/).first()).toBeVisible()
   await vista(page, 'attesa:call')
 
   // 6. The team: call done, goal set
