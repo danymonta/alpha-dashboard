@@ -14,6 +14,7 @@ import {
 import { CARTELLA_NON_TOLTA, CARTELLA_NON_TUA, ERRORE_URL_DRIVE } from '@/lib/validation/cartella'
 import { CONTRATTO_NON_TOLTO, CONTRATTO_NON_TUO, ERRORE_URL_CONTRATTO } from '@/lib/validation/contratto'
 import { SPOSTA_SOLO_AVANTI } from '@/lib/validation/call'
+import { ERRORE_FISSA } from '@/lib/call/errore-fissa'
 import { ERRORE_SOSPENDI_CHIUSO, ERRORE_SOSPENDI_SENZA_PERCORSO } from '@/lib/validation/sospensione'
 
 /**
@@ -66,6 +67,9 @@ const ERRORI_EN: Record<string, string> = {
   'Le call le spostano chi le ha fissate, il closer e l’admin.': 'Calls are moved by whoever booked them, the closer and the admin.',
   'Le call le fissano il setter e l’admin.': 'Calls are booked by the setter and the admin.',
   'Non è stato possibile fissare la call. Riprova.': 'The call could not be booked. Try again.',
+  [ERRORE_FISSA.rete]: 'The server could not reach the database: check the connection and try again in a few seconds.',
+  [ERRORE_FISSA.lento]: 'The database took too long to answer: try again in a few seconds.',
+  [ERRORE_FISSA.aggiornamento]: 'The app is updating: reload the page and try again.',
   'Solo l’admin elimina una call.': 'Only the admin deletes a call.',
   'Vendita o call non valida.': 'Invalid sale or call.',
   'Vendita non collegata. Riprova.': 'Sale not tied. Try again.',
@@ -257,6 +261,9 @@ for (const d of [
 const AL_MASSIMO = /^Al massimo (\d+) (caratteri|rate|mesi)$/
 const DOPO_LA_CALL = /^La call di follow-up viene dopo la call di partenza, del (.+): scegli un giorno e un'ora dopo$/
 const NON_FISSATA = /^Esito salvato, ma la call di follow-up non è fissata: (.+)$/
+const FISSA_PERMESSO = /^Il database non ti lascia fissare questa call \(codice ([^)]+)\)/
+const FISSA_DATI = /^I dati di questo lead non si salvano \(codice ([^)]+)\)/
+const FISSA_ALTRO = /^Non è stato possibile fissare la call \(codice ([^)]+)\)/
 
 /** A fixed message of the area in the page's language; an unknown one stays as it came. */
 export function traduciErrore(testo: string, lingua: Lingua): string
@@ -275,6 +282,12 @@ export function traduciErrore(testo: string | null | undefined, lingua: Lingua):
   if (m) return FOLLOW_UP_TESTI.en.dopoLaCall(m[1].replace(' alle ', ' at '))
   m = NON_FISSATA.exec(testo)
   if (m) return FOLLOW_UP_TESTI.en.nonFissata(traduciErrore(m[1], lingua))
+  m = FISSA_PERMESSO.exec(testo)
+  if (m) return `The database does not let you book this call (code ${m[1]}): sign out, sign in again and retry. If it happens again, tell Dany this code.`
+  m = FISSA_DATI.exec(testo)
+  if (m) return `This lead's details cannot be saved (code ${m[1]}): tell Dany the lead's name and handle.`
+  m = FISSA_ALTRO.exec(testo)
+  if (m) return `The call could not be booked (code ${m[1]}). Try again; if it happens again, tell Dany this code.`
   return testo
 }
 

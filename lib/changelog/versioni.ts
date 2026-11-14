@@ -86,6 +86,26 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.84.1',
+    data: '2026-11-14',
+    titolo: 'Nuova call: quando non si fissa, il perché',
+    riassunto:
+      'Se una call non si riesce a fissare, il messaggio dice cosa è successo e, quando serve, un codice da mandare a Dany.',
+    intestazionePer: ['setter'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['setter'],
+        testo:
+          'Nuova call: al posto di «Non è stato possibile fissare la call. Riprova.» il messaggio dice il motivo (la connessione, il database lento, l’app che si sta aggiornando) o un codice da mandare a Dany.',
+      },
+      {
+        per: ['admin'],
+        testo: 'Quando una call non si fissa, i log di Vercel registrano il codice dell’errore, mai i dati del lead.',
+      },
+    ],
+  },
+  {
     versione: '1.84.0',
     data: '2026-11-14',
     titolo: 'Onboarding più scorrevole: la dieta, gli esercizi spiegati, il calendario nella pagina',
