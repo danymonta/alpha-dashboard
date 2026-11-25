@@ -28,6 +28,7 @@ export const IMPOSTAZIONI = bilingue(
     sezioni: {
       onboarding: ['Onboarding e area clienti', 'Apri o chiudi l’area ai clienti, team proposto, community e pagina di prenotazione.'],
       contenuti: ['Contenuti del percorso', 'Testi, video e regole di ogni step che il cliente legge.'],
+      questionario: ['Domande del questionario', 'Le domande che il cliente compila: testi, risposte, ordine, domande nuove.'],
       aula: ['Aula del campo base', 'Moduli e lezioni che il cliente trova nella sua area.'],
       team: ['Team e inviti', 'Invita una persona, cambia il ruolo, disattiva un account.'],
       products: ['Prodotti e listino', 'Percorsi in vendita: durata, prezzo e piano rate abituale.'],
@@ -221,6 +222,7 @@ export const IMPOSTAZIONI = bilingue(
     sezioni: {
       onboarding: ['Onboarding and client area', 'Open or close the area to clients, proposed team, community and booking page.'],
       contenuti: ['Journey contents', 'Texts, videos and rules of every step the client reads.'],
+      questionario: ['Questionnaire questions', 'The questions the client fills in: texts, answers, order, new questions.'],
       aula: ['Base camp classroom', 'Modules and lessons the client finds in their area.'],
       team: ['Team and invites', 'Invite someone, change a role, disable an account.'],
       products: ['Products and prices', 'Programmes on sale: length, price and usual instalment plan.'],

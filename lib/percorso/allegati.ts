@@ -1,4 +1,4 @@
-import { CAMPI_ALLEGATO, TIPI_ALLEGATO, type CampoAllegato, type TipoAllegato } from '@/lib/validation/questionario'
+import { CHIAVE_DOMANDA, TIPI_ALLEGATO, type CampoAllegato, type TipoAllegato } from '@/lib/validation/questionario'
 
 /**
  * The files of the questionnaire as the client's page uses them (release B1b): read from
@@ -17,7 +17,8 @@ export function leggiAllegati(v: unknown): AllegatoCliente[] {
     const a = record(x)
     if (
       typeof a.id !== 'string' ||
-      !(CAMPI_ALLEGATO as readonly unknown[]).includes(a.campo) ||
+      typeof a.campo !== 'string' ||
+      !CHIAVE_DOMANDA.test(a.campo) ||
       !(TIPI_ALLEGATO as readonly unknown[]).includes(a.tipo) ||
       typeof a.nome_file !== 'string'
     ) {

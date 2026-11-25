@@ -2,6 +2,7 @@ import {
   BookOpen,
   ChevronRight,
   CircleCheck,
+  ClipboardList,
   Download,
   FolderKanban,
   History,
@@ -66,6 +67,7 @@ const GRUPPI: { gruppo: keyof Testi['gruppi']; voci: Voce[] }[] = [
         stato: (s, t) =>
           s.contenutiDaCompletare ? { testo: t.daCompletare(s.contenutiDaCompletare), tono: 'attenzione' } : null,
       },
+      { href: '/settings/onboarding/questionario', chiave: 'questionario', Icona: ClipboardList },
       { href: '/settings/onboarding/aula', chiave: 'aula', Icona: BookOpen },
     ],
   },

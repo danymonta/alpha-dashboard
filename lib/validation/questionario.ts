@@ -1,12 +1,13 @@
 import { z } from 'zod'
 
 /**
- * The questionnaire of the onboarding (release B1b, docs/onboarding/rilascio-b.md): the keys
- * of the questions of Dany's Google form «Modulo Onboarding Coaching Online», each of its
- * type. The same rule as onboarding_risposte_valide and onboarding_risposte_mancanti
- * (20261109100000_questionario.sql): tests/questionario-schemi.test.ts uses the same examples
- * as supabase/tests/114_questionario.sql. No rule on the age (Dany, 12/11/2026). The words of
- * the questions are in lib/percorso/questionario.ts; here only keys and values.
+ * The rules of the answers of the onboarding questionnaire (release B1b, from 1.88.0 the
+ * questions are editable from the settings and live in onboarding_domande): the shape of the
+ * answers (onboarding_risposte_valide), one answer against its question
+ * (onboarding_risposta_conforme), what is missing to send (onboarding_risposte_mancanti), in
+ * 20261125110000_questionario_modificabile.sql. tests/questionario-schemi.test.ts uses the same
+ * examples as supabase/tests/114_questionario.sql and 119_domande.sql. No rule on the age (Dany,
+ * 12/11/2026). The words of the questions are in the table (seeded from lib/percorso/questionario.ts).
  */
 
 /** The options of the form, saved by key (the labels are in lib/percorso/questionario.ts). */
@@ -24,65 +25,36 @@ export const PESO = { min: 35, max: 250 } as const
 export const RIPETIZIONI = { min: 0, max: 200 } as const
 export const GIORNI = { min: 1, max: 7 } as const
 
+const ERRORI_QUESTIONARIO_NON_VALIDI = 'Alcune risposte non sono valide: controllale e riprova.'
+
 /** The four screens, in order. */
 export const SCHERMATE_QUESTIONARIO = [1, 2, 3, 4] as const
 export type NumeroSchermata = (typeof SCHERMATE_QUESTIONARIO)[number]
 
-/** The keys whose answer is free text (at most 2,000 characters). */
-export const CHIAVI_TESTO = [
-  'nome_cognome',
-  'telefono',
-  'occupazione',
-  'storia_allenamento',
-  'infortuni',
-  'attrezzatura',
-  'esercizi_difficolta',
-  'importanza_tecnica',
-  'ore_sonno',
-  'organizzazione_giornata',
-  'conoscenza_alimentazione',
-  'obiettivo_principale',
-  'perche_noi',
-  'obiettivi_3_6_mesi',
-  'successo',
-  'note',
-] as const
-
-/** How a required question counts as answered (the same kinds as onboarding_risposte_mancanti). */
-type ModoRisposta = 'testo' | 'valore' | 'altezza_peso' | 'massimali' | 'abitudini'
+/** A key of a question and a value of an option: the same slugs as the checks of onboarding_domande. */
+export const CHIAVE_DOMANDA = /^[a-z][a-z0-9_]{1,59}$/
+export const VALORE_OPZIONE = /^[a-z0-9_]{1,40}$/
+export const OPZIONI_MAX = 30
+export const NUMERO_MAX = 1_000_000_000
 
 /**
- * The required questions in the order of Dany's form (only note is optional; cattive_abitudini
- * is answered with at least one choice or a text in «Altro», 1.82.0), with how they count as
- * answered: the order the page goes to the first missing.
+ * The answers as they are saved: the shape of every question (1.88.0, the questions are editable
+ * from the settings). The questions of the form with a structured answer keep their own fields.
  */
-export const OBBLIGATORIE: readonly (readonly [string, ModoRisposta])[] = [
-  ['email', 'testo'],
-  ['telefono', 'testo'],
-  ['nome_cognome', 'testo'],
-  ['altezza_peso', 'altezza_peso'],
-  ['data_nascita', 'testo'],
-  ['obiettivo_principale', 'testo'],
-  ['occupazione', 'testo'],
-  ['storia_allenamento', 'testo'],
-  ['livello_attivita', 'valore'],
-  ['importanza_tecnica', 'testo'],
-  ['seguito_alimentazione', 'valore'],
-  ['conoscenza_alimentazione', 'testo'],
-  ['giorni_settimana', 'valore'],
-  ['minuti_giorno', 'valore'],
-  ['ore_sonno', 'testo'],
-  ['organizzazione_giornata', 'testo'],
-  ['infortuni', 'testo'],
-  ['cattive_abitudini', 'abitudini'],
-  ['successo', 'testo'],
-  ['perche_noi', 'testo'],
-  ['obiettivi_3_6_mesi', 'testo'],
-  ['attrezzatura', 'testo'],
-  ['massimali', 'massimali'],
-  ['esercizi_difficolta', 'testo'],
-  ['pronto', 'valore'],
-]
+export type Risposte = {
+  email?: string | null
+  telefono?: string | null
+  nome_cognome?: string | null
+  data_nascita?: string | null
+  altezza_peso?: { altezza?: number | null; peso?: number | null } | null
+  giorni_settimana?: number | null
+  minuti_giorno?: string | null
+  massimali?: { [E in (typeof ESERCIZI_MASSIMALI)[number]]?: number | typeof NON_LO_SO | null } | null
+  livello_attivita?: string | null
+  seguito_alimentazione?: string | null
+  pronto?: string | null
+  cattive_abitudini?: { scelte?: string[] | null; altro?: string | null } | null
+} & { [chiave: string]: unknown }
 
 /**
  * The spaces JavaScript's trim() removes and only those: the same list as testo_scritto() in
@@ -108,119 +80,218 @@ function unDecimale(n: number): boolean {
   return Math.abs(Math.round(n * 10) - n * 10) < 1e-9
 }
 
-const testo = z.string().max(TESTO_MAX)
-const ripetizioni = z.union([
-  z.literal(NON_LO_SO),
-  z.number().int().min(RIPETIZIONI.min).max(RIPETIZIONI.max),
-])
-
-/**
- * The answers while they are filled in: every key optional, null = not answered, only the keys
- * of the form (strict), each of its type. What questionario_salva accepts.
- */
-export const risposteSchema = z
-  .object({
-    ...Object.fromEntries(CHIAVI_TESTO.map((k) => [k, testo.nullish()])),
-    email: z
-      .string()
-      .max(EMAIL_MAX)
-      .refine((s) => s.trim() === '' || EMAIL.test(s.trim()))
-      .nullish(),
-    data_nascita: z
-      .string()
-      .refine((s) => s === '' || dataValida(s))
-      .nullish(),
-    altezza_peso: z
-      .object({
-        altezza: z.number().int().min(ALTEZZA.min).max(ALTEZZA.max).nullish(),
-        peso: z.number().min(PESO.min).max(PESO.max).refine(unDecimale).nullish(),
-      })
-      .strict()
-      .nullish(),
-    giorni_settimana: z.number().int().min(GIORNI.min).max(GIORNI.max).nullish(),
-    minuti_giorno: z.enum(MINUTI_GIORNO).nullish(),
-    massimali: z
-      .object({ piegamenti: ripetizioni.nullish(), trazioni: ripetizioni.nullish(), dip: ripetizioni.nullish() })
-      .strict()
-      .nullish(),
-    livello_attivita: z.enum(LIVELLI_ATTIVITA).nullish(),
-    seguito_alimentazione: z.enum(SI_NO).nullish(),
-    pronto: z.enum(SI_NO).nullish(),
-    cattive_abitudini: z
-      .object({
-        scelte: z
-          .array(z.enum(CATTIVE_ABITUDINI))
-          .max(CATTIVE_ABITUDINI.length)
-          .refine((a) => new Set(a).size === a.length)
-          .nullish(),
-        altro: testo.nullish(),
-      })
-      .strict()
-      .nullish(),
-  })
-  .strict()
-
-export type Risposte = {
-  [K in (typeof CHIAVI_TESTO)[number]]?: string | null
-} & {
-  email?: string | null
-  data_nascita?: string | null
-  altezza_peso?: { altezza?: number | null; peso?: number | null } | null
-  giorni_settimana?: number | null
-  minuti_giorno?: (typeof MINUTI_GIORNO)[number] | null
-  massimali?: { [E in (typeof ESERCIZI_MASSIMALI)[number]]?: number | typeof NON_LO_SO | null } | null
-  livello_attivita?: (typeof LIVELLI_ATTIVITA)[number] | null
-  seguito_alimentazione?: 'si' | 'no' | null
-  pronto?: 'si' | 'no' | null
-  cattive_abitudini?: { scelte?: (typeof CATTIVE_ABITUDINI)[number][] | null; altro?: string | null } | null
+function oggetto(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === 'object' && !Array.isArray(v)
 }
 
-/** onboarding_risposte_valide in TypeScript. */
-export function risposteValide(v: unknown): v is Risposte {
-  return v !== null && typeof v === 'object' && !Array.isArray(v) && risposteSchema.safeParse(v).success
+function elencoDiValori(v: unknown): v is string[] {
+  return (
+    Array.isArray(v) &&
+    v.length <= OPZIONI_MAX &&
+    v.every((x) => typeof x === 'string' && VALORE_OPZIONE.test(x)) &&
+    new Set(v).size === v.length
+  )
+}
+
+function intero(v: unknown, min: number, max: number): boolean {
+  return typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max
+}
+
+/** One value of the shape rule: the check of onboarding_questionari.risposte, key by key. */
+function valoreInForma(chiave: string, v: unknown): boolean {
+  if (v === null) return true
+  switch (chiave) {
+    case 'email':
+      return typeof v === 'string' && v.length <= EMAIL_MAX && (v.trim() === '' || EMAIL.test(v.trim()))
+    case 'data_nascita':
+      return typeof v === 'string' && (v === '' || dataValida(v))
+    case 'altezza_peso':
+      return (
+        oggetto(v) &&
+        Object.entries(v).every(([k, w]) =>
+          w === null
+            ? k === 'altezza' || k === 'peso'
+            : k === 'altezza'
+              ? intero(w, ALTEZZA.min, ALTEZZA.max)
+              : k === 'peso'
+                ? typeof w === 'number' && w >= PESO.min && w <= PESO.max && unDecimale(w)
+                : false,
+        )
+      )
+    case 'massimali':
+      return (
+        oggetto(v) &&
+        Object.entries(v).every(
+          ([k, w]) =>
+            (ESERCIZI_MASSIMALI as readonly string[]).includes(k) &&
+            (w === null || w === NON_LO_SO || intero(w, RIPETIZIONI.min, RIPETIZIONI.max)),
+        )
+      )
+    case 'cattive_abitudini':
+      return (
+        oggetto(v) &&
+        Object.entries(v).every(([k, w]) =>
+          w === null
+            ? k === 'scelte' || k === 'altro'
+            : k === 'scelte'
+              ? elencoDiValori(w)
+              : k === 'altro'
+                ? typeof w === 'string' && w.length <= TESTO_MAX
+                : false,
+        )
+      )
+  }
+  if (typeof v === 'string') return v.length <= TESTO_MAX
+  if (typeof v === 'number') return Number.isFinite(v) && Math.abs(v) <= NUMERO_MAX
+  return elencoDiValori(v)
+}
+
+/**
+ * onboarding_risposte_valide in TypeScript: the shape of the answers, whatever the questions
+ * (at most 300 keys, each a slug; the structured answers with their rules; any other a text of at
+ * most 2,000 characters, a number or a list of option values). What a question accepts is
+ * rispostaConforme.
+ */
+export function risposteForma(v: unknown): v is Risposte {
+  if (!oggetto(v)) return false
+  const voci = Object.entries(v)
+  return voci.length <= 300 && voci.every(([k, w]) => CHIAVE_DOMANDA.test(k) && w !== undefined && valoreInForma(k, w))
+}
+
+/** What the rules of the answers need of a question (a Domanda of lib/percorso/questionario.ts has it). */
+export type RegolaDomanda = {
+  chiave: string
+  tipo: string
+  facoltativa?: boolean
+  numerica?: boolean
+  opzioni?: readonly { valore: string }[]
+  allegato?: { campo: string }
+}
+
+function tra(d: RegolaDomanda, valore: string): boolean {
+  return (d.opzioni ?? []).some((o) => o.valore === valore)
+}
+
+/** onboarding_risposta_conforme in TypeScript: one answer against its question. */
+export function rispostaConforme(d: RegolaDomanda, v: unknown): boolean {
+  if (v === null || v === undefined) return true
+  switch (d.tipo) {
+    case 'testo':
+    case 'email':
+      return typeof v === 'string'
+    case 'data':
+      return typeof v === 'string' && (v === '' || dataValida(v))
+    case 'numero':
+      return typeof v === 'number'
+    case 'altezza_peso':
+    case 'massimali':
+      return oggetto(v)
+    case 'scelta':
+      if (d.numerica ? typeof v !== 'number' : typeof v !== 'string') return false
+      return tra(d, String(v))
+    case 'scelte':
+      return Array.isArray(v) && v.every((x) => typeof x === 'string' && tra(d, x))
+    case 'abitudini':
+      return oggetto(v) && (!Array.isArray(v.scelte) || v.scelte.every((x) => typeof x === 'string' && tra(d, x)))
+    default:
+      return false
+  }
+}
+
+/** One answer that the save keeps: of the right shape and accepted by its question. */
+export function rispostaValida(d: RegolaDomanda, v: unknown): boolean {
+  return v !== undefined && valoreInForma(d.chiave, v) && rispostaConforme(d, v)
+}
+
+/** The answers valid in shape and each accepted by its question (keys of questions not in use: not valid). */
+export function risposteValide(v: unknown, domande: readonly RegolaDomanda[]): v is Risposte {
+  if (!risposteForma(v)) return false
+  const per = new Map(domande.map((d) => [d.chiave, d]))
+  return Object.entries(v).every(([k, w]) => w === null || (per.has(k) && rispostaConforme(per.get(k)!, w)))
 }
 
 function presente(v: unknown): boolean {
-  return typeof v === 'number' || typeof v === 'string'
+  return (typeof v === 'number' || typeof v === 'string') && String(v) !== ''
 }
 
-/** onboarding_risposte_mancanti in TypeScript: the required keys not answered, in order. */
-export function risposteMancanti(risposte: Risposte | Record<string, unknown> | null | undefined): string[] {
-  const r = (risposte ?? {}) as Record<string, unknown>
-  return OBBLIGATORIE.filter(([chiave, modo]) => {
-    const v = r[chiave]
-    switch (modo) {
-      case 'testo':
-        return !testoScritto(v)
-      case 'valore':
-        return !(presente(v) && String(v) !== '')
-      case 'altezza_peso': {
-        const o = (v ?? {}) as Record<string, unknown>
-        return !(typeof o.altezza === 'number' && typeof o.peso === 'number')
-      }
-      case 'massimali': {
-        const o = (v ?? {}) as Record<string, unknown>
-        return !ESERCIZI_MASSIMALI.every((e) => presente(o[e]))
-      }
-      case 'abitudini': {
-        const o = (v ?? {}) as Record<string, unknown>
-        return !((Array.isArray(o.scelte) && o.scelte.length > 0) || testoScritto(o.altro))
-      }
+function risposta(d: RegolaDomanda, v: unknown, conFile: ReadonlySet<string>): boolean {
+  if (d.tipo === 'file') return d.allegato ? conFile.has(d.allegato.campo) : false
+  if (!rispostaConforme(d, v)) return false
+  switch (d.tipo) {
+    case 'testo':
+    case 'email':
+    case 'data':
+      return testoScritto(v)
+    case 'scelta':
+    case 'numero':
+      return presente(v)
+    case 'scelte':
+      return Array.isArray(v) && v.length > 0
+    case 'altezza_peso': {
+      const o = (v ?? {}) as Record<string, unknown>
+      return typeof o.altezza === 'number' && typeof o.peso === 'number'
     }
-  }).map(([chiave]) => chiave)
+    case 'massimali': {
+      const o = (v ?? {}) as Record<string, unknown>
+      return ESERCIZI_MASSIMALI.every((e) => typeof o[e] === 'number' || typeof o[e] === 'string')
+    }
+    case 'abitudini': {
+      const o = (v ?? {}) as Record<string, unknown>
+      return (Array.isArray(o.scelte) && o.scelte.length > 0) || testoScritto(o.altro)
+    }
+    default:
+      return false
+  }
+}
+
+/**
+ * onboarding_risposte_mancanti in TypeScript: the required questions not answered, in their
+ * order. A question of files is answered by one file uploaded on its field (`conFile`: the fields
+ * with at least one file).
+ */
+export function risposteMancanti(
+  risposte: Risposte | Record<string, unknown> | null | undefined,
+  domande: readonly RegolaDomanda[],
+  conFile: ReadonlySet<string> = new Set(),
+): string[] {
+  const r = (risposte ?? {}) as Record<string, unknown>
+  return domande.filter((d) => !d.facoltativa && !risposta(d, r[d.chiave], conFile)).map((d) => d.chiave)
 }
 
 /** onboarding_risposte_complete in TypeScript: valid and nothing required missing. */
-export function risposteComplete(v: unknown): boolean {
-  return risposteValide(v) && risposteMancanti(v).length === 0
+export function risposteComplete(
+  v: unknown,
+  domande: readonly RegolaDomanda[],
+  conFile: ReadonlySet<string> = new Set(),
+): boolean {
+  return risposteValide(v, domande) && risposteMancanti(v, domande, conFile).length === 0
 }
+
+/**
+ * Only the valid answers, each checked by itself against its question: what the page saves, so
+ * that one field still being typed never makes the whole save refused. Unknown keys, answers of
+ * questions not in use and invalid values go (as onboarding_risposte_filtra in SQL).
+ */
+export function soloValide(r: Record<string, unknown>, domande: readonly RegolaDomanda[]): Risposte {
+  const per = new Map(domande.map((d) => [d.chiave, d]))
+  const fuori: Record<string, unknown> = {}
+  for (const [chiave, valore] of Object.entries(r)) {
+    const d = per.get(chiave)
+    if (!d || valore === undefined || valore === null) continue
+    if (rispostaValida(d, valore)) fuori[chiave] = valore
+  }
+  return fuori as Risposte
+}
+
+/** The answers of a valid shape, any question: what the server actions receive. */
+export const risposteSchema = z.custom<Risposte>((v) => risposteForma(v), ERRORI_QUESTIONARIO_NON_VALIDI)
 
 // ---------------------------------------------------------------------------
 // What the server actions and the routes of the questionnaire receive
 // ---------------------------------------------------------------------------
 
 export const ERRORI_QUESTIONARIO = {
-  nonValidi: 'Alcune risposte non sono valide: controllale e riprova.',
+  nonValidi: ERRORI_QUESTIONARIO_NON_VALIDI,
   richiesta: 'Qualcosa non torna: ricarica la pagina e riprova.',
   file: 'File non valido: puoi caricare foto (JPG, PNG, WebP) o PDF fino a 10 MB.',
 } as const
@@ -233,9 +304,11 @@ export const salvaQuestionarioSchema = z.object({
 
 export const inviaQuestionarioSchema = z.object({ versione: z.number().int().min(0) })
 
-/** The fields of the files: the photos of the equipment, the old programme, the meal plan. */
-export const CAMPI_ALLEGATO = ['attrezzatura', 'vecchia_scheda', 'piano_alimentare'] as const
-export type CampoAllegato = (typeof CAMPI_ALLEGATO)[number]
+/**
+ * The field of the files of a question (allegato.campo): a slug. The three of the form are
+ * attrezzatura, vecchia_scheda and piano_alimentare; a question of files added by the admin has its key.
+ */
+export type CampoAllegato = string
 export const TIPI_ALLEGATO = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] as const
 export type TipoAllegato = (typeof TIPI_ALLEGATO)[number]
 /** The bucket onboarding-allegati and the check of onboarding_allegati.byte. */
@@ -253,7 +326,7 @@ export function nomeFilePulito(nome: string): string {
 }
 
 export const preparaAllegatoSchema = z.object({
-  campo: z.enum(CAMPI_ALLEGATO, { message: ERRORI_QUESTIONARIO.file }),
+  campo: z.string().regex(CHIAVE_DOMANDA, ERRORI_QUESTIONARIO.file),
   nome: z
     .string()
     .min(1, ERRORI_QUESTIONARIO.file)
@@ -265,18 +338,3 @@ export const preparaAllegatoSchema = z.object({
 export type PreparaAllegato = z.infer<typeof preparaAllegatoSchema>
 
 export const allegatoIdSchema = z.object({ id: z.string().uuid(ERRORI_QUESTIONARIO.richiesta) })
-
-/**
- * Only the valid answers, each checked by itself: what the page saves, so that one field still
- * being typed never makes the whole save refused. Unknown keys and invalid values go.
- */
-export function soloValide(r: Record<string, unknown>): Risposte {
-  const forma = risposteSchema.shape as Record<string, z.ZodTypeAny>
-  const fuori: Record<string, unknown> = {}
-  for (const [chiave, valore] of Object.entries(r)) {
-    const schema = forma[chiave]
-    if (!schema || valore === undefined) continue
-    if (schema.safeParse(valore).success) fuori[chiave] = valore
-  }
-  return fuori as Risposte
-}

@@ -9,7 +9,8 @@ import { TESTI_ATTESA_TEAM } from '@/lib/percorso/testi'
 import { leggiAllegati, type AllegatoCliente } from '@/lib/percorso/allegati'
 import { leggiCampoBase, type CampoBase } from '@/lib/percorso/campo-base'
 import type { Database } from '@/lib/supabase/database.types'
-import { risposteValide, type NumeroSchermata, type Risposte } from '@/lib/validation/questionario'
+import { DOMANDE, leggiDomande, type Domanda } from '@/lib/percorso/questionario'
+import { risposteForma, type NumeroSchermata, type Risposte } from '@/lib/validation/questionario'
 
 /**
  * The page of the client, read from percorso_cliente() with the client's own session
@@ -291,6 +292,8 @@ export type QuestionarioCliente = {
   schermata: NumeroSchermata
   inviatoIl: string | null
   allegati: AllegatoCliente[]
+  /** The questions in use (1.88.0, editable from the settings). */
+  domande: Domanda[]
 }
 
 export type EsitoQuestionario =
@@ -318,11 +321,13 @@ export async function leggiQuestionarioCliente(db: SupabaseClient<Database>): Pr
     ok: true,
     questionario: {
       // answers that do not read as answers never reach the form: it starts empty, the database keeps them
-      risposte: risposteValide(v.risposte) ? v.risposte : {},
+      risposte: risposteForma(v.risposte) ? v.risposte : {},
       versione: Number.isFinite(versione) ? versione : 0,
       schermata: schermata as NumeroSchermata,
       inviatoIl: stringa(v.inviato_il),
       allegati: leggiAllegati(v.allegati),
+      // a database before 1.88.0 has no questions in the answer: the 26 of the form
+      domande: leggiDomande(v.domande) ?? [...DOMANDE],
     },
   }
 }

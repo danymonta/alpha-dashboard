@@ -92,7 +92,13 @@ export function BloccoDomanda({
   errore: string | null
   extra?: ReactNode
 }) {
-  const gruppo = d.tipo === 'scelta' || d.tipo === 'massimali' || d.tipo === 'abitudini' || d.tipo === 'altezza_peso'
+  const gruppo =
+    d.tipo === 'scelta' ||
+    d.tipo === 'scelte' ||
+    d.tipo === 'massimali' ||
+    d.tipo === 'abitudini' ||
+    d.tipo === 'altezza_peso' ||
+    d.tipo === 'file'
   const idTitolo = idTitoloDomanda(d.chiave)
   const testo = gruppo ? d.testo : <label htmlFor={idCampo(d.chiave)}>{d.testo}</label>
   const intestazione = (
@@ -648,7 +654,75 @@ export function CampoAbitudini({ domanda: d, valore, onCambia }: PropsCampo) {
   )
 }
 
-/** The field of a question, by its kind. */
+/** A choice of more answers (a question added from the settings, 1.88.0): checkboxes, the answer the list of the ones chosen. */
+export function CampoScelte({ domanda: d, valore, onCambia }: PropsCampo) {
+  if (d.tipo !== 'scelte') return null
+  const scelte = new Set<string>(Array.isArray(valore) ? (valore as string[]) : [])
+  return (
+    <div className="grid gap-3">
+      {d.opzioni.map((op, i) => (
+        <Scelta
+          key={op.valore}
+          id={i === 0 ? idCampo(d.chiave) : undefined}
+          tipo="checkbox"
+          nome={d.chiave}
+          valore={op.valore}
+          tasto={String.fromCharCode(65 + i)}
+          scelta={scelte.has(op.valore)}
+          etichetta={op.etichetta}
+          dettaglio={op.dettaglio}
+          onScegli={(s) => {
+            const nuove = new Set(scelte)
+            if (s) nuove.add(op.valore)
+            else nuove.delete(op.valore)
+            // in the order of the options, as they are shown
+            const ordinate = d.opzioni.map((o) => o.valore).filter((v) => nuove.has(v))
+            onCambia(ordinate.length === 0 ? null : ordinate)
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+/** A number (a question added from the settings): «12», «7,5»; what does not read as a number stays in the field with its error. */
+export function CampoNumero({ domanda: d, valore, onCambia, errore, onErroreFormato }: PropsCampo) {
+  const [testo, setTesto] = useState(testoDa(typeof valore === 'number' ? valore : null))
+  const leggi = (t: string) => {
+    const pulito = t.trim().replace(',', '.')
+    return /^-?\d+(\.\d+)?$/.test(pulito) ? Number(pulito) : null
+  }
+  return (
+    <Input
+      id={idCampo(d.chiave)}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      value={testo}
+      maxLength={14}
+      className={cn(CLASSE_INPUT, 'num w-full max-w-64')}
+      aria-invalid={errore ? true : undefined}
+      aria-describedby={descritto(d.chiave, Boolean(d.aiuto), Boolean(errore))}
+      onChange={(e) => {
+        const t = e.target.value
+        setTesto(t)
+        if (t.trim() === '') {
+          onCambia(null)
+          onErroreFormato(null)
+          return
+        }
+        const n = leggi(t)
+        if (n !== null) {
+          onCambia(n)
+          onErroreFormato(null)
+        }
+      }}
+      onBlur={() => onErroreFormato(testo.trim() !== '' && leggi(testo) === null ? T.errori.numeroNonValido : null)}
+    />
+  )
+}
+
+/** The field of a question, by its kind. A question of files has no field: its files are the answer (AllegatiDomanda). */
 export function CampoDomanda(props: PropsCampo) {
   switch (props.domanda.tipo) {
     case 'testo':
@@ -665,5 +739,11 @@ export function CampoDomanda(props: PropsCampo) {
       return <CampoMassimali {...props} />
     case 'abitudini':
       return <CampoAbitudini {...props} />
+    case 'scelte':
+      return <CampoScelte {...props} />
+    case 'numero':
+      return <CampoNumero {...props} />
+    case 'file':
+      return null
   }
 }

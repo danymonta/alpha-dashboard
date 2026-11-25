@@ -3,7 +3,7 @@
 import { ArrowLeft, ArrowRight, Check, CircleCheck, CloudOff, LoaderCircle, Send, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
 
 import { AllegatiDomanda } from '@/components/percorso/allegati-questionario'
@@ -11,9 +11,9 @@ import { useBackendPercorso } from '@/components/percorso/backend-percorso'
 import { BloccoDomanda, CampoDomanda, idCampo, idTitoloDomanda } from '@/components/percorso/campi-questionario'
 import { formatOra } from '@/lib/date'
 import type { AllegatoCliente } from '@/lib/percorso/allegati'
-import { DOMANDE, INTRO_QUESTIONARIO, SCHERMATE, type Domanda } from '@/lib/percorso/questionario'
+import { INTRO_QUESTIONARIO, SCHERMATE, type Domanda } from '@/lib/percorso/questionario'
 import { TESTI_QUESTIONARIO as T, TESTI_PERCORSO } from '@/lib/percorso/testi'
-import { OBBLIGATORIE, risposteMancanti, soloValide, type NumeroSchermata, type Risposte } from '@/lib/validation/questionario'
+import { risposteMancanti, soloValide, type NumeroSchermata, type Risposte } from '@/lib/validation/questionario'
 import { cn } from '@/lib/utils'
 
 /** A save one second after the last change (and at every move between questions). */
@@ -23,8 +23,6 @@ const PAUSA_SCELTA_MS = 380
 
 /** Where the client is: -1 the introduction, 0..N-1 a question, N the recap before the sending. */
 const INTRO = -1
-const N = DOMANDE.length
-const FINE = N
 
 type StatoSalvataggio =
   | { tipo: 'pronto' }
@@ -39,7 +37,13 @@ function erroreMancante(d: Domanda): string {
     case 'email':
       return T.errori.email
     case 'data':
-      return T.errori.data
+      return d.chiave === 'data_nascita' ? T.errori.data : T.errori.giorno
+    case 'numero':
+      return T.errori.numero
+    case 'scelte':
+      return T.errori.scelte
+    case 'file':
+      return T.errori.file
     case 'altezza_peso':
       return T.errori.altezzaPeso
     case 'massimali':
@@ -54,41 +58,58 @@ function erroreMancante(d: Domanda): string {
 
 const nessunaIscrizione = () => () => undefined
 
-/** The number of every question, as in the form. */
-const NUMERI = new Map(DOMANDE.map((d, i) => [d.chiave as string, i + 1]))
-const INDICE = new Map(DOMANDE.map((d, i) => [d.chiave as string, i]))
+/**
+ * The places of the questions the client fills in (1.88.0: they come from the database, the admin
+ * edits them): the number of every question, the address of a place, the part of a place.
+ */
+function mappaDomande(domande: readonly Domanda[]) {
+  const N = domande.length
+  const FINE = N
+  const NUMERI = new Map(domande.map((d, i) => [d.chiave, i + 1]))
+  const INDICE = new Map(domande.map((d, i) => [d.chiave, i]))
 
-/** The place in an address: ?domanda=<key|intro|fine|number>, or the old ?schermata=1..4 (its first question). */
-function passoDaParametri(params: URLSearchParams): number | null {
-  const d = params.get('domanda')
-  if (d === 'intro') return INTRO
-  if (d === 'fine') return FINE
-  if (d) {
-    const i = INDICE.get(d)
-    if (i !== undefined) return i
-    const n = Number(d)
-    if (Number.isInteger(n) && n >= 1 && n <= N) return n - 1
+  /** The place in an address: ?domanda=<key|intro|fine|number>, or the old ?schermata=1..4 (its first question). */
+  function passoDaParametri(params: URLSearchParams): number | null {
+    const d = params.get('domanda')
+    if (d === 'intro') return INTRO
+    if (d === 'fine') return FINE
+    if (d) {
+      const i = INDICE.get(d)
+      if (i !== undefined) return i
+      const n = Number(d)
+      if (Number.isInteger(n) && n >= 1 && n <= N) return n - 1
+    }
+    const s = Number(params.get('schermata'))
+    if (s >= 1 && s <= 4) {
+      const i = domande.findIndex((x) => x.schermata === s)
+      return i >= 0 ? i : null
+    }
+    return null
   }
-  const s = Number(params.get('schermata'))
-  if (s >= 1 && s <= 4) return DOMANDE.findIndex((x) => x.schermata === s)
-  return null
+
+  /** The first required question without an answer, or the recap when everything is there. */
+  function primaDaRispondere(risposte: Risposte, conFile: ReadonlySet<string>): number {
+    const prima = risposteMancanti(soloValide(risposte as Record<string, unknown>, domande), domande, conFile)[0]
+    return prima ? (INDICE.get(prima) ?? FINE) : FINE
+  }
+
+  function chiaveNellUrl(pos: number): string {
+    return pos === INTRO ? 'intro' : pos >= N ? 'fine' : domande[pos]!.chiave
+  }
+
+  function schermataDelPasso(pos: number): NumeroSchermata {
+    return pos < 0 ? 1 : pos >= N ? 4 : domande[pos]!.schermata
+  }
+
+  return { N, FINE, NUMERI, INDICE, passoDaParametri, primaDaRispondere, chiaveNellUrl, schermataDelPasso }
 }
 
-/** The first required question without an answer, or the recap when everything is there. */
-function primaDaRispondere(risposte: Risposte): number {
-  const prima = risposteMancanti(soloValide(risposte as Record<string, unknown>))[0]
-  return prima ? (INDICE.get(prima) ?? FINE) : FINE
+/** The fields with at least one file uploaded: what answers a question of files. */
+function campiConFile(allegati: readonly AllegatoCliente[]): ReadonlySet<string> {
+  return new Set(allegati.map((a) => a.campo))
 }
 
-function chiaveNellUrl(pos: number): string {
-  return pos === INTRO ? 'intro' : pos >= N ? 'fine' : DOMANDE[pos]!.chiave
-}
-
-function schermataDelPasso(pos: number): NumeroSchermata {
-  return pos < 0 ? 1 : pos >= N ? 4 : DOMANDE[pos]!.schermata
-}
-
-const TIPI_CON_CAMPO_DI_TESTO = new Set(['testo', 'email', 'data', 'altezza_peso', 'massimali'])
+const TIPI_CON_CAMPO_DI_TESTO = new Set(['testo', 'email', 'data', 'numero', 'altezza_peso', 'massimali'])
 
 /** A single choice that goes on by itself: not when files go with it (the meal plan asks for its upload). */
 function avanzaDaSola(d: Domanda, valore: unknown): boolean {
@@ -122,18 +143,25 @@ export function Questionario({
   risposteIniziali,
   versioneIniziale,
   allegatiIniziali,
+  domande,
 }: {
   risposteIniziali: Risposte
   versioneIniziale: number
   allegatiIniziali: readonly AllegatoCliente[]
+  /** The questions in use, as the database gives them (1.88.0). */
+  domande: readonly Domanda[]
 }) {
+  const m = useMemo(() => mappaDomande(domande), [domande])
+  const { N, FINE, NUMERI, INDICE, passoDaParametri, primaDaRispondere, chiaveNellUrl, schermataDelPasso } = m
   const router = useRouter()
   const { salvaQuestionario, inviaQuestionario, indirizzi } = useBackendPercorso()
   const pathname = usePathname()
   const parametri = useSearchParams()
 
   const [pos, setPos] = useState<number>(
-    () => passoDaParametri(new URLSearchParams(parametri.toString())) ?? (versioneIniziale === 0 ? INTRO : primaDaRispondere(risposteIniziali)),
+    () =>
+      passoDaParametri(new URLSearchParams(parametri.toString())) ??
+      (versioneIniziale === 0 ? INTRO : primaDaRispondere(risposteIniziali, campiConFile(allegatiIniziali))),
   )
   const [direzione, setDirezione] = useState<'avanti' | 'indietro'>('avanti')
   const [risposte, setRisposte] = useState<Risposte>(risposteIniziali)
@@ -153,6 +181,8 @@ export function Questionario({
   )
 
   const posRef = useRef(pos)
+  const allegatiRef = useRef(allegati)
+  const domandeRef = useRef(domande)
   const risposteRef = useRef(risposte)
   const formatoRef = useRef<Record<string, string | null>>({})
   const versione = useRef(versioneIniziale)
@@ -167,6 +197,12 @@ export function Questionario({
   useEffect(() => {
     risposteRef.current = risposte
   }, [risposte])
+  useEffect(() => {
+    allegatiRef.current = allegati
+  }, [allegati])
+  useEffect(() => {
+    domandeRef.current = domande
+  }, [domande])
 
   /** One save, never two at once: they go in a line, each over the version the one before left. */
   const salvaOra = useCallback(async (): Promise<boolean> => {
@@ -179,7 +215,7 @@ export function Questionario({
       dati.append(
         'dati',
         JSON.stringify({
-          risposte: soloValide(risposteRef.current as Record<string, unknown>),
+          risposte: soloValide(risposteRef.current as Record<string, unknown>, domande),
           schermata: schermataRef.current,
           versione: versione.current,
         }),
@@ -219,7 +255,7 @@ export function Questionario({
     // «Salvato» only when nothing else waits: a change made during the save is saved next
     if (!daSalvare.current) setSalvataggio({ tipo: 'salvato', ora: formatOra(new Date()) })
     return true
-  }, [indirizzi.percorso, router, salvaQuestionario])
+  }, [domande, indirizzi.percorso, router, salvaQuestionario])
 
   const salva = useCallback((): Promise<boolean> => {
     if (timer.current) {
@@ -268,13 +304,13 @@ export function Questionario({
     }
   }, [salva])
 
-  function cambia(chiave: keyof Risposte, valore: unknown) {
+  function cambia(chiave: string, valore: unknown) {
     setRisposte((prima) => {
       const dopo = { ...prima, [chiave]: valore } as Risposte
       risposteRef.current = dopo
       return dopo
     })
-    if (mancanti.has(chiave) && !risposteMancanti({ [chiave]: valore } as Risposte).includes(chiave)) {
+    if (mancanti.has(chiave) && !risposteMancanti({ [chiave]: valore }, domande, campiConFile(allegatiRef.current)).includes(chiave)) {
       setMancanti((prima) => {
         const dopo = new Set(prima)
         dopo.delete(chiave)
@@ -299,7 +335,7 @@ export function Questionario({
     const prima = posRef.current
     if (nuovo === prima) return
     // an error of the format of the question left behind goes with it: the field starts again from the saved answer
-    const lasciata = DOMANDE[prima]
+    const lasciata = domande[prima]
     if (lasciata && formatoRef.current[lasciata.chiave]) impostaFormato(lasciata.chiave, null)
     if (nuovo === FINE || nuovo === INTRO) tornaAFine.current = false
     setAvviso(null)
@@ -323,6 +359,7 @@ export function Questionario({
     }
     window.addEventListener('popstate', indietroDelBrowser)
     return () => window.removeEventListener('popstate', indietroDelBrowser)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the places of the questions are fixed for the page
   }, [pathname])
 
   // where the focus goes at every move: the field of a written answer (on a screen with a
@@ -332,7 +369,7 @@ export function Questionario({
     posRef.current = pos
     const iniziale = primaVolta.current
     primaVolta.current = false
-    const d = DOMANDE[pos]
+    const d = domande[pos]
     if (!iniziale) window.scrollTo({ top: 0 })
     if (d && TIPI_CON_CAMPO_DI_TESTO.has(d.tipo) && !siTocca()) {
       document.getElementById(idCampo(d.chiave))?.focus({ preventScroll: true })
@@ -341,6 +378,7 @@ export function Questionario({
     if (iniziale) return
     const titolo = d ? document.getElementById(idTitoloDomanda(d.chiave)) : document.getElementById('titolo-passo')
     titolo?.focus({ preventScroll: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the place moves the focus
   }, [pos])
 
   function focalizzaCampo(chiave: string) {
@@ -353,16 +391,17 @@ export function Questionario({
   function avanti() {
     const p = posRef.current
     if (p === INTRO) {
-      vai(versione.current === 0 ? 0 : primaDaRispondere(risposteRef.current))
+      vai(versione.current === 0 ? 0 : primaDaRispondere(risposteRef.current, campiConFile(allegatiRef.current)))
       return
     }
-    const d = DOMANDE[p]
+    const d = domande[p]
     if (!d) return
     // a field still being typed says what is wrong with it before we look
     const attivo = document.activeElement
     if (tastoTesto(attivo)) (attivo as HTMLElement).blur()
-    const obbligatoria = OBBLIGATORIE.some(([chiave]) => chiave === d.chiave)
-    const manca = obbligatoria && risposteMancanti({ [d.chiave]: risposteRef.current[d.chiave] } as Risposte).includes(d.chiave)
+    const manca =
+      !d.facoltativa &&
+      risposteMancanti({ [d.chiave]: risposteRef.current[d.chiave] }, [d], campiConFile(allegatiRef.current)).includes(d.chiave)
     if (formatoRef.current[d.chiave] || manca) {
       setMancanti((prima) => new Set(prima).add(d.chiave))
       focalizzaCampo(d.chiave)
@@ -390,7 +429,7 @@ export function Questionario({
     if (timerAvanza.current) clearTimeout(timerAvanza.current)
     timerAvanza.current = setTimeout(() => {
       timerAvanza.current = null
-      if (DOMANDE[posRef.current]?.chiave === chiave) azioni.current.avanti()
+      if (domandeRef.current[posRef.current]?.chiave === chiave) azioni.current.avanti()
     }, PAUSA_SCELTA_MS)
   }
 
@@ -416,7 +455,7 @@ export function Questionario({
       if (e.key === 'Enter') {
         if (e.shiftKey || e.repeat) return
         // buttons and links do their own thing with Invio; the recap is made of them
-        if (tag === 'BUTTON' || tag === 'A' || tag === 'SUMMARY' || p === FINE) return
+        if (tag === 'BUTTON' || tag === 'A' || tag === 'SUMMARY' || p >= domandeRef.current.length) return
         // on a phone Invio in a long answer is a new line: «OK» is the button
         if (tag === 'TEXTAREA' && siTocca()) return
         e.preventDefault()
@@ -439,8 +478,8 @@ export function Questionario({
 
       // a letter or a number picks an option, never while writing
       if (e.shiftKey || e.key.length !== 1 || tastoTesto(el)) return
-      const d = DOMANDE[p]
-      if (!d || (d.tipo !== 'scelta' && d.tipo !== 'abitudini')) return
+      const d = domandeRef.current[p]
+      if (!d || (d.tipo !== 'scelta' && d.tipo !== 'abitudini' && d.tipo !== 'scelte')) return
       const k = e.key.toLowerCase()
       const i = d.tipo === 'scelta' && d.numerica ? Number(k) - 1 : /^[a-z]$/.test(k) ? k.charCodeAt(0) - 97 : -1
       const opzione = Number.isInteger(i) && i >= 0 ? d.opzioni[i] : undefined
@@ -448,6 +487,14 @@ export function Questionario({
       e.preventDefault()
       if (d.tipo === 'scelta') {
         azioni.current.scegli(d, d.numerica ? Number(opzione.valore) : opzione.valore)
+        return
+      }
+      if (d.tipo === 'scelte') {
+        const attuali = Array.isArray(risposteRef.current[d.chiave]) ? (risposteRef.current[d.chiave] as string[]) : []
+        const dopo = attuali.includes(opzione.valore)
+          ? attuali.filter((x) => x !== opzione.valore)
+          : d.opzioni.map((o) => o.valore).filter((v) => v === opzione.valore || attuali.includes(v))
+        azioni.current.cambia(d.chiave, dopo.length === 0 ? null : dopo)
         return
       }
       const attuali = new Set(risposteRef.current.cattive_abitudini?.scelte ?? [])
@@ -468,7 +515,12 @@ export function Questionario({
     // a missing answer, or a field that still shows a value that does not hold (an email being corrected):
     // both stop the sending, in the order of the form
     const conFormato = Object.keys(formatoRef.current).filter((k) => formatoRef.current[k])
-    const locali = [...new Set([...risposteMancanti(soloValide(risposteRef.current as Record<string, unknown>)), ...conFormato])].sort(
+    const locali = [
+      ...new Set([
+        ...risposteMancanti(soloValide(risposteRef.current as Record<string, unknown>, domande), domande, campiConFile(allegatiRef.current)),
+        ...conFormato,
+      ]),
+    ].sort(
       (a, b) => (NUMERI.get(a) ?? 0) - (NUMERI.get(b) ?? 0),
     )
     if (locali.length > 0) {
@@ -516,8 +568,8 @@ export function Questionario({
     } else setAvviso(T.mancano)
   }
 
-  const daRispondere = risposteMancanti(soloValide(risposte as Record<string, unknown>))
-  const domanda = pos >= 0 && pos < N ? DOMANDE[pos]! : null
+  const daRispondere = risposteMancanti(soloValide(risposte as Record<string, unknown>, domande), domande, campiConFile(allegati))
+  const domanda = pos >= 0 && pos < N ? domande[pos]! : null
   const valoreProgresso = pos < 0 ? 0 : pos >= N ? N : pos + 1
   const classeSchermata = direzione === 'avanti' ? 'qz-avanti' : 'qz-indietro'
   const haIniziato = versioneIniziale > 0
@@ -598,6 +650,7 @@ export function Questionario({
               const fileDelCampo = allegato ? allegati.filter((a) => a.campo === allegato.campo) : []
               // the files already there stay in sight, with their X, even when the answer no longer asks for them
               const richiesti = Boolean(allegato) && (!allegato?.quando || String(valore ?? '') === allegato.quando)
+              // a question of files is only its files: they are the field
               const mostraAllegati = allegato && (richiesti || fileDelCampo.length > 0)
               return (
                 <BloccoDomanda
@@ -649,7 +702,7 @@ export function Questionario({
             {daRispondere.length > 0 ? (
               <ol className="space-y-2.5">
                 {daRispondere.map((chiave) => {
-                  const d = DOMANDE[INDICE.get(chiave) ?? 0]!
+                  const d = domande[INDICE.get(chiave) ?? 0]!
                   return (
                     <li key={chiave}>
                       <button

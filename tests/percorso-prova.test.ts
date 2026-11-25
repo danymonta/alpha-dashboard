@@ -17,6 +17,7 @@ import {
   type DatiProva,
   type StatoProva,
 } from '@/lib/percorso/prova'
+import { DOMANDE } from '@/lib/percorso/questionario'
 import { risposteComplete } from '@/lib/validation/questionario'
 
 const ORA = new Date('2026-11-13T10:00:00Z')
@@ -33,6 +34,7 @@ function def(ordine: number, chiave: string, nodo: string, attore: 'cliente' | '
 
 /** Flow v1 as the seed of 20261108090000 and 20261109090100 has it. */
 const DATI: DatiProva = {
+  domande: [...DOMANDE],
   nomeCompleto: 'Mario Prova',
   email: 'mario.prova@example.test',
   passi: [
@@ -150,7 +152,7 @@ describe('Prova del percorso: il motore', () => {
     expect(incompleto.ok).toBe(false)
     expect(!incompleto.ok && incompleto.mancanti?.length).toBeGreaterThan(20)
 
-    expect(risposteComplete(RISPOSTE_DI_PROVA)).toBe(true)
+    expect(risposteComplete(RISPOSTE_DI_PROVA, DOMANDE)).toBe(true)
     const pieno = salvaQuestionario(DATI, s, { risposte: RISPOSTE_DI_PROVA, schermata: 4, versione: 1 }, ORA)
     const dopo = pieno.ok ? pieno.stato : s
     const inviato = inviaQuestionario(DATI, dopo, 2, ORA)

@@ -52,6 +52,7 @@ export default function QuestionarioProva() {
           risposteIniziali={stato.questionario.risposte}
           versioneIniziale={stato.questionario.versione}
           allegatiIniziali={stato.allegati}
+          domande={dati.domande}
         />
       </Suspense>
     </CorniceCliente>

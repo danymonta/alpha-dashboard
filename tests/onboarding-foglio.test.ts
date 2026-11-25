@@ -169,7 +169,7 @@ afterAll(() => {
 
 type Lavoro = { client_id: string; rif: string; azione: 'scrivi' | 'svuota'; risposte: unknown; inviato_il: string | null; data_inizio: string | null }
 
-function dbFinto(opz: { chiave?: string | null; lavori: Lavoro[] }) {
+function dbFinto(opz: { chiave?: string | null; lavori: Lavoro[]; domande?: Record<string, unknown>[] }) {
   const esiti: Record<string, unknown>[] = []
   const errori: string[] = []
   const db = {
@@ -188,9 +188,10 @@ function dbFinto(opz: { chiave?: string | null; lavori: Lavoro[] }) {
       }
       throw new Error(`rpc inattesa ${nome}`)
     },
-    from: () => ({
-      select: () => ({ in: async () => ({ count: opz.lavori.length, error: null }) }),
-    }),
+    from: (tabella: string) =>
+      tabella === 'onboarding_domande'
+        ? { select: async () => ({ data: opz.domande ?? [], error: null }) }
+        : { select: () => ({ in: async () => ({ count: opz.lavori.length, error: null }) }) },
   }
   return { db: db as never, esiti, errori }
 }
@@ -233,6 +234,38 @@ describe('la coda del foglio', () => {
     const intervalli = (scrittura.corpo as { data: { range: string }[] }).data.map((d) => d.range)
     expect(intervalli).toEqual(["'Risposte del modulo'!A3:AC3", "'Risposte del modulo'!AH3"])
     expect(esiti[0]).toMatchObject({ p_riga: 3, p_errore: null })
+  })
+
+  it('una domanda aggiunta da Impostazioni va nella sua colonna dopo AH, con la domanda come intestazione (1.88.0)', async () => {
+    chiamate.length = 0
+    colonnaAH = ['ID Alpha (non modificare)', '', 'rif-uno']
+    const { db } = dbFinto({
+      chiave: CHIAVE,
+      domande: [
+        { chiave: 'sport_a1', tipo: 'scelte', sezione: 4, ordine: 30, testo: 'Quali sport fai?', obbligatoria: true, attiva: true,
+          opzioni: [{ valore: 'calcio', etichetta: 'Calcio' }, { valore: 'nuoto', etichetta: 'Nuoto' }], sistema: false, colonna: 34 },
+        { chiave: 'chili_a1', tipo: 'numero', sezione: 4, ordine: 31, testo: '=Quanti chili?', obbligatoria: true, attiva: false, sistema: false, colonna: 35 },
+      ],
+      lavori: [
+        {
+          client_id: 'c1',
+          rif: 'rif-uno',
+          azione: 'scrivi',
+          risposte: { ...RISPOSTE, sport_a1: ['calcio', 'nuoto'], chili_a1: 4.5 },
+          inviato_il: '2026-11-13T14:04:12Z',
+          data_inizio: null,
+        },
+      ],
+    })
+    await lavoraFoglio(db, { basi: basi() })
+    const scritture = chiamate.filter((c) => c.percorso.endsWith('values:batchUpdate'))
+    const dati = scritture.flatMap((c) => (c.corpo as { data: { range: string; values: unknown[][] }[] }).data)
+    const cella = (r: string) => dati.find((d) => d.range === `'Risposte del modulo'!${r}`)?.values[0]?.[0]
+    expect(cella('AI3')).toBe('Calcio, Nuoto')
+    expect(cella('AJ3')).toBe(4.5)
+    expect(cella('AI1')).toBe('Quali sport fai?')
+    // a heading that starts like a formula never becomes one
+    expect(cella('AJ1')).toBe("'=Quanti chili?")
   })
 
   it('una revoca svuota A-AC e AH della sua riga', async () => {

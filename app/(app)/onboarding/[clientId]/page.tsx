@@ -35,6 +35,7 @@ import { requireProfilo } from '@/lib/auth/session'
 import { formatOra, oggiRoma } from '@/lib/date'
 import { getFormato, getLingua } from '@/lib/i18n/server'
 import { ONBOARDING, ONBOARDING_TEAM, titoloPasso } from '@/lib/i18n/testi/onboarding'
+import { leggiDomandeScheda } from '@/lib/onboarding/domande-lettura'
 import { EVENTI_MAX, leggiPersone, leggiScheda } from '@/lib/onboarding/letture'
 import { permessiTeam } from '@/lib/onboarding/code'
 import { azioniLink, eventoInParole, nomeCliente, statoOnboarding } from '@/lib/onboarding/stati'
@@ -95,11 +96,16 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
         </div>
       )
     }
-    return <SchedaIncaricatoPagina scheda={sua} lingua={lingua} adesso={momentoLettura()} />
+    const domande = sua.questionario !== undefined ? await leggiDomandeScheda(supabase) : []
+    return <SchedaIncaricatoPagina scheda={sua} lingua={lingua} adesso={momentoLettura()} domande={domande} />
   }
 
   const { formatData } = await getFormato()
-  const [scheda, persone] = await Promise.all([leggiScheda(supabase, clientId), leggiPersone(supabase)])
+  const [scheda, persone, domande] = await Promise.all([
+    leggiScheda(supabase, clientId),
+    leggiPersone(supabase),
+    leggiDomandeScheda(supabase),
+  ])
   // the team's work, once the client has registered (the function answers null before)
   const lavoro = scheda?.riga.account_stato ? await leggiSchedaIncaricato(supabase, clientId) : null
 
@@ -203,7 +209,12 @@ export default async function SchedaOnboardingPage({ params }: { params: Promise
               video={scheda.video}
             />
             {riga.account_stato ? (
-              <QuestionarioScheda lingua={lingua} questionario={scheda.questionario} allegati={scheda.allegati} />
+              <QuestionarioScheda
+                lingua={lingua}
+                questionario={scheda.questionario}
+                allegati={scheda.allegati}
+                domande={domande}
+              />
             ) : null}
           </div>
 
