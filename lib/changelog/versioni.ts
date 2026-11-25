@@ -86,6 +86,21 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.86.2',
+    data: '2026-11-25',
+    titolo: 'Contenuti del percorso: i gruppi non si confondono più',
+    riassunto: 'In Impostazioni › Onboarding › Contenuti i gruppi «Regole» e «Community» dei passi e del campo base hanno ognuno il suo nome nella pagina.',
+    intestazionePer: ['admin'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo:
+          'In Contenuti del percorso le regole e la community dei passi avevano lo stesso nome interno di quelle del campo base: la pagina poteva mostrare un gruppo al posto dell’altro dopo un salvataggio. Ora ognuno ha il suo.',
+      },
+    ],
+  },
+  {
     versione: '1.86.1',
     data: '2026-11-25',
     titolo: 'Onboarding più pulito, provato come un cliente nuovo',

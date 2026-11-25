@@ -357,16 +357,18 @@ export function EditorContenuti({ gruppi }: { gruppi: readonly GruppoContenuti[]
           .filter((b) => b.pubblicato)
           .map((b) => comeBlocco(b))
           .filter((b): b is BloccoPercorso => b !== null)
+        // a step and a page of the base camp share some names (regole, community): the page tells them apart
+        const ident = g.pagina === 'passo' ? g.chiave : `${g.pagina}-${g.chiave}`
         return (
           <section
-            key={g.chiave}
-            aria-labelledby={`gruppo-${g.chiave}`}
+            key={ident}
+            aria-labelledby={`gruppo-${ident}`}
             className="space-y-3 rounded-xl bg-card p-4"
             data-testid={`contenuti-${g.chiave}`}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="space-y-0.5">
-                <h2 id={`gruppo-${g.chiave}`} className="font-medium">
+                <h2 id={`gruppo-${ident}`} className="font-medium">
                   {g.titolo}
                 </h2>
                 {!g.servito ? <p className="text-xs text-muted-foreground">{t.nonServito}</p> : null}
