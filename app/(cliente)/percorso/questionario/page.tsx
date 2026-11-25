@@ -50,6 +50,7 @@ export default async function QuestionarioPage() {
       risposteIniziali={q.risposte}
       versioneIniziale={q.versione}
       allegatiIniziali={q.allegati}
+      domande={q.domande}
     />
   )
 }

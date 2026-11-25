@@ -86,6 +86,42 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.88.0',
+    data: '2026-11-25',
+    titolo: 'Il questionario e i contenuti si cambiano da Impostazioni',
+    riassunto:
+      'Le domande del questionario le cambi, aggiungi, sposti e togli da Impostazioni, senza codice; i contenuti del percorso ti dicono cosa manca e controllano subito il link di YouTube.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Nuova pagina Impostazioni › Domande del questionario: cambi il testo di ogni domanda, la spiegazione sotto, le risposte possibili e se è obbligatoria, e accanto vedi come la vede il cliente.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Puoi aggiungere domande nuove (testo, una scelta, più scelte, numero, data, solo file), spostarle con le frecce e toglierle: una domanda tolta sparisce per i clienti, le risposte già date restano nella loro scheda e la rimetti quando vuoi.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Una domanda nuova va anche sul foglio Google dei questionari, in una colonna sua dopo AH (AI, AJ, …), con la domanda come intestazione. Le colonne di oggi restano dove sono.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'In Contenuti del percorso, in cima, «Da completare» elenca i video ancora di esempio e i testi «[Da scrivere]», ognuno con «Completa» che lo apre già pronto.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il campo del video dice i tre passi per prendere il link da YouTube e controlla subito quello che incolli: video trovato con la sua copertina, link sbagliato o video di esempio ancora lì.',
+      },
+    ],
+    correzioni: [],
+  },
+  {
     versione: '1.87.0',
     data: '2026-11-25',
     titolo: 'Impostazioni dalla tua foto, divise per argomento',

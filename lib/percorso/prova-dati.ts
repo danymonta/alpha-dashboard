@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { BloccoCampoProva, DatiCampoProva, LezioneProva, ModuloProva } from '@/lib/percorso/campo-prova'
 import type { DatiProva, DefPasso, BloccoGrezzo, PersonaProva } from '@/lib/percorso/prova'
+import { DOMANDE, domandeDaRighe } from '@/lib/percorso/questionario'
 import type { Database } from '@/lib/supabase/database.types'
 
 /**
@@ -22,7 +23,7 @@ const VERSIONE_FLUSSO = 1
 const RUOLI = { coach: 'Coach', revisore: 'Revisione video', responsabile: 'Personal Success Manager' } as const
 
 export async function leggiDatiProva(db: Db): Promise<DatiProva> {
-  const [passi, blocchi, consenso, impostazioni] = await Promise.all([
+  const [passi, blocchi, consenso, impostazioni, domande] = await Promise.all([
     db
       .from('onboarding_passi_def')
       .select('chiave, titolo, nodo, ordine, attore, sblocco, sblocca_dopo')
@@ -43,8 +44,10 @@ export async function leggiDatiProva(db: Db): Promise<DatiProva> {
         'link_community, link_prenotazione, coach_predefinito_id, revisore_predefinito_id, responsabile_predefinito_id, giorni_call, giorni_test, giorni_programma',
       )
       .maybeSingle(),
+    // the questions of the questionnaire as the admin left them (1.88.0)
+    db.from('onboarding_domande').select('*').order('sezione').order('ordine'),
   ])
-  for (const r of [passi, blocchi, consenso, impostazioni]) {
+  for (const r of [passi, blocchi, consenso, impostazioni, domande]) {
     if (r.error) {
       console.error('[prova] lettura non riuscita:', r.error.code)
       throw new Error('La prova del percorso non si è caricata: riprova.')
@@ -71,6 +74,7 @@ export async function leggiDatiProva(db: Db): Promise<DatiProva> {
   })
 
   return {
+    domande: domande.data && domande.data.length > 0 ? domandeDaRighe(domande.data) : [...DOMANDE],
     nomeCompleto: 'Mario Prova',
     email: 'mario.prova@example.test',
     passi: (passi.data ?? []).map(

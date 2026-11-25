@@ -17,6 +17,7 @@
 import { aggiungiGiorni, formatOra, istanteRoma, oggiRoma } from '@/lib/date'
 import type { AllegatoCliente } from '@/lib/percorso/allegati'
 import { leggiBlocchi, YOUTUBE_SEGNAPOSTO, type BloccoPercorso } from '@/lib/percorso/blocchi'
+import type { Domanda } from '@/lib/percorso/questionario'
 import type {
   AttesaTeam,
   CallCliente,
@@ -33,7 +34,8 @@ import {
   ALLEGATI_PER_CAMPO,
   ERRORI_QUESTIONARIO,
   risposteMancanti,
-  risposteValide,
+  risposteForma,
+  soloValide,
   type CampoAllegato,
   type NumeroSchermata,
   type Risposte,
@@ -83,6 +85,8 @@ export type DatiProva = {
   linkCommunity: string | null
   linkPrenotazione: string | null
   giorni: { call: number; test: number; programma: number }
+  /** The questions of the questionnaire in use (1.88.0, editable from the settings). */
+  domande: Domanda[]
 }
 
 // ---------------------------------------------------------------------------
@@ -453,13 +457,15 @@ export function salvaQuestionario(
 ): EsitoSalvaProva {
   const chiuso = questionarioAperto(dati, stato)
   if (chiuso) return errore(chiuso)
-  if (!risposteValide(input.risposte)) return errore(ERRORI_QUESTIONARIO.nonValidi)
+  if (!risposteForma(input.risposte)) return errore(ERRORI_QUESTIONARIO.nonValidi)
   if (input.versione !== stato.questionario.versione) {
     return { ok: true, stato, esito: 'cambiato', risposte: stato.questionario.risposte, versione: stato.questionario.versione }
   }
   const schermata = (input.schermata >= 1 && input.schermata <= 4 ? input.schermata : 1) as NumeroSchermata
   const versione = stato.questionario.versione + 1
-  let s: StatoProva = { ...stato, questionario: { ...stato.questionario, risposte: input.risposte, schermata, versione } }
+  // only the answers of the questions in use that hold, as onboarding_risposte_filtra
+  const risposte = soloValide(input.risposte as Record<string, unknown>, dati.domande)
+  let s: StatoProva = { ...stato, questionario: { ...stato.questionario, risposte, schermata, versione } }
   s = conPasso(s, 'questionario', (x) => ({ ...x, stato: 'in_corso', iniziatoIl: x.iniziatoIl ?? iso(ora) }))
   return { ok: true, stato: s, esito: 'salvato', versione }
 }
@@ -476,7 +482,8 @@ export function inviaQuestionario(dati: DatiProva, stato: StatoProva, versione: 
   if (versione !== stato.questionario.versione) {
     return { ok: true, stato, esito: 'cambiato', risposte: stato.questionario.risposte, versione: stato.questionario.versione }
   }
-  const mancanti = risposteMancanti(stato.questionario.risposte)
+  const conFile = new Set(stato.allegati.filter((a) => !a.tolto).map((a) => a.campo))
+  const mancanti = risposteMancanti(stato.questionario.risposte, dati.domande, conFile)
   if (mancanti.length > 0) return { ok: false, errore: 'Mancano delle risposte: completa le parti segnate.', mancanti }
   const t = iso(ora)
   const s = fatto(dati, { ...stato, questionario: { ...stato.questionario, inviatoIl: t } }, 'questionario', ora)

@@ -11,6 +11,7 @@ import { ONBOARDING, ONBOARDING_TEAM, titoloPasso } from '@/lib/i18n/testi/onboa
 import { incarichiDi, permessiTeam } from '@/lib/onboarding/code'
 import { nomeCliente } from '@/lib/onboarding/stati'
 import type { SchedaIncaricato } from '@/lib/onboarding/team'
+import type { DomandaScheda } from '@/lib/percorso/questionario'
 import { eStatoPasso } from '@/lib/validation/onboarding'
 import { cn } from '@/lib/utils'
 
@@ -24,10 +25,13 @@ export function SchedaIncaricatoPagina({
   scheda,
   lingua,
   adesso,
+  domande,
 }: {
   scheda: SchedaIncaricato
   lingua: Lingua
   adesso: number
+  /** The questions of the questionnaire (1.88.0), read only when the coach reads the answers. */
+  domande: readonly DomandaScheda[]
 }) {
   const t = ONBOARDING_TEAM[lingua]
   const o = ONBOARDING[lingua]
@@ -90,6 +94,7 @@ export function SchedaIncaricatoPagina({
             <QuestionarioScheda
               lingua={lingua}
               senzaContatti
+              domande={domande}
               questionario={
                 questionario
                   ? {

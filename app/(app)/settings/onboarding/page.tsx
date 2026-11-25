@@ -1,4 +1,4 @@
-import { BookOpen, ChevronRight, LayoutList } from 'lucide-react'
+import { BookOpen, ChevronRight, ClipboardList, LayoutList } from 'lucide-react'
 import Link from 'next/link'
 
 import { ImpostazioniOnboardingForm } from '@/app/(app)/settings/onboarding/impostazioni-form'
@@ -45,6 +45,19 @@ export default async function ImpostazioniOnboardingPage() {
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium">{t.contenuti}</span>
           <span className="block text-xs text-muted-foreground">{t.contenutiAiuto}</span>
+        </span>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      </Link>
+      {/* the questions of the questionnaire (1.88.0) */}
+      <Link
+        href="/settings/onboarding/questionario"
+        className="flex min-h-14 items-center gap-3 rounded-xl bg-card p-3 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        data-testid="link-questionario"
+      >
+        <ClipboardList className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium">{t.questionario}</span>
+          <span className="block text-xs text-muted-foreground">{t.questionarioAiuto}</span>
         </span>
         <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       </Link>

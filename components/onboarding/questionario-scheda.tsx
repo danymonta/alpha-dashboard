@@ -6,7 +6,7 @@ import type { Lingua } from '@/lib/i18n/lingua'
 import { ONBOARDING } from '@/lib/i18n/testi/onboarding'
 import type { AllegatoScheda, QuestionarioScheda } from '@/lib/onboarding/letture'
 import { dimensioneInParole } from '@/lib/percorso/allegati'
-import { SCHERMATE, domandeDi, rispostaInParole } from '@/lib/percorso/questionario'
+import { SCHERMATE, rispostaInParole, type DomandaScheda } from '@/lib/percorso/questionario'
 
 /**
  * The box «Questionario» of the card (release B1b): the client's answers in the 4 screens of
@@ -23,8 +23,11 @@ export function QuestionarioScheda({
   questionario,
   allegati,
   senzaContatti = false,
+  domande,
 }: {
   lingua: Lingua
+  /** Every question, the ones taken away too (1.88.0): a hidden one shows only with an answer. */
+  domande: readonly DomandaScheda[]
   /** The coach's sheet: the email and the phone never reach him (the function drops them), so no empty rows. */
   senzaContatti?: boolean
   /** The coach's function (B2) gives neither the screen nor the last save: null. */
@@ -77,16 +80,23 @@ export function QuestionarioScheda({
                   />
                 </summary>
                 <dl className="divide-y divide-border/70 border-t border-border/70">
-                  {domandeDi(s.numero).filter((d) => !senzaContatti || !DOMANDE_CONTATTO.has(d.chiave)).map((d) => {
+                  {domande
+                    .filter((d) => d.schermata === s.numero && d.tipo !== 'file')
+                    .filter((d) => !senzaContatti || !DOMANDE_CONTATTO.has(d.chiave))
+                    .flatMap((d) => {
                     const risposta = rispostaInParole(d, questionario.risposte[d.chiave])
-                    return (
+                    if (d.tolta && !risposta) return []
+                    return [
                       <div key={d.chiave} className="space-y-1 px-3 py-2.5" data-risposta={d.chiave}>
-                        <dt className="text-xs text-muted-foreground">{d.testo}</dt>
+                        <dt className="text-xs text-muted-foreground">
+                          {d.testo}
+                          {d.tolta ? <span className="ml-1.5 italic">{t.domandaTolta}</span> : null}
+                        </dt>
                         <dd className={risposta ? 'text-sm break-words whitespace-pre-line' : 'text-sm text-muted-foreground italic'}>
                           {risposta ?? t.nonRisposto}
                         </dd>
-                      </div>
-                    )
+                      </div>,
+                    ]
                   })}
                 </dl>
               </details>
@@ -117,7 +127,7 @@ export function QuestionarioScheda({
                       <span className="block truncate">{a.nome_file}</span>
                       <span className="num block text-xs text-muted-foreground">
                         {[
-                          t.campiAllegato[a.campo] ?? a.campo,
+                          t.campiAllegato[a.campo] ?? domande.find((d) => d.allegato?.campo === a.campo)?.allegato?.etichetta ?? a.campo,
                           isPdf ? t.filePdf : t.fileFoto,
                           a.byte !== undefined ? dimensioneInParole(a.byte) : null,
                         ]

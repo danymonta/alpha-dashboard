@@ -7,15 +7,22 @@ import {
   CATTIVE_ABITUDINI,
   LIVELLI_ATTIVITA,
   MINUTI_GIORNO,
-  OBBLIGATORIE,
   nomeFilePulito,
   preparaAllegatoSchema,
   risposteComplete,
+  risposteForma,
   risposteMancanti,
   risposteValide,
   soloValide,
   type Risposte,
 } from '@/lib/validation/questionario'
+import { domandeDaRighe, type RigaDomanda } from '@/lib/percorso/questionario'
+
+// the 26 questions of the form, as the migration seeds them (1.88.0: the questions are editable)
+const valide = (v: unknown) => risposteValide(v, DOMANDE)
+const complete = (v: unknown) => risposteComplete(v, DOMANDE)
+const mancanti = (v: Record<string, unknown> | null | undefined) => risposteMancanti(v, DOMANDE)
+const solo = (v: Record<string, unknown>) => soloValide(v, DOMANDE)
 
 /*
  * The questionnaire (release B1b): the rule of the answers with the same examples as
@@ -58,90 +65,90 @@ const senza = (r: Record<string, unknown>, ...chiavi: string[]) =>
 
 describe('le risposte: le stesse regole di onboarding_risposte_valide', () => {
   it('nessuna risposta è valida (si sta ancora compilando)', () => {
-    expect(risposteValide({})).toBe(true)
+    expect(valide({})).toBe(true)
   })
   it('tutte le domande del modulo, risposte: complete', () => {
-    expect(risposteComplete(COMPLETO)).toBe(true)
-    expect(risposteMancanti(COMPLETO)).toEqual([])
+    expect(complete(COMPLETO)).toBe(true)
+    expect(mancanti(COMPLETO)).toEqual([])
   })
   it('una chiave che non è una domanda del modulo no', () => {
-    expect(risposteValide({ peso_ideale: '70' })).toBe(false)
+    expect(valide({ peso_ideale: '70' })).toBe(false)
   })
   it('un elenco o null no', () => {
-    expect(risposteValide([])).toBe(false)
-    expect(risposteValide(null)).toBe(false)
+    expect(valide([])).toBe(false)
+    expect(valide(null)).toBe(false)
   })
   it('una scelta fuori dalle opzioni del modulo no, quelle del modulo sì', () => {
-    expect(risposteValide({ minuti_giorno: '45_60' })).toBe(false)
-    expect(risposteValide({ minuti_giorno: '20_30' })).toBe(true)
-    expect(risposteValide({ minuti_giorno: '90_120' })).toBe(true)
+    expect(valide({ minuti_giorno: '45_60' })).toBe(false)
+    expect(valide({ minuti_giorno: '20_30' })).toBe(true)
+    expect(valide({ minuti_giorno: '90_120' })).toBe(true)
   })
   it('il livello si salva con la sua chiave, non con l’etichetta', () => {
-    expect(risposteValide({ livello_attivita: 'Sedentario' })).toBe(false)
-    expect(risposteValide({ livello_attivita: 'sedentario' })).toBe(true)
-    expect(risposteValide({ livello_attivita: 'molto_attivo' })).toBe(true)
+    expect(valide({ livello_attivita: 'Sedentario' })).toBe(false)
+    expect(valide({ livello_attivita: 'sedentario' })).toBe(true)
+    expect(valide({ livello_attivita: 'molto_attivo' })).toBe(true)
   })
   it('i giorni: un intero da 1 a 7', () => {
-    expect(risposteValide({ giorni_settimana: 8 })).toBe(false)
-    expect(risposteValide({ giorni_settimana: 2.5 })).toBe(false)
-    expect(risposteValide({ giorni_settimana: '3' })).toBe(false)
-    expect(risposteValide({ giorni_settimana: 1 })).toBe(true)
-    expect(risposteValide({ giorni_settimana: 7 })).toBe(true)
+    expect(valide({ giorni_settimana: 8 })).toBe(false)
+    expect(valide({ giorni_settimana: 2.5 })).toBe(false)
+    expect(valide({ giorni_settimana: '3' })).toBe(false)
+    expect(valide({ giorni_settimana: 1 })).toBe(true)
+    expect(valide({ giorni_settimana: 7 })).toBe(true)
   })
   it('altezza e peso nei loro intervalli', () => {
-    expect(risposteValide({ altezza_peso: { altezza: 119 } })).toBe(false)
-    expect(risposteValide({ altezza_peso: { peso: 76.55 } })).toBe(false)
-    expect(risposteValide({ altezza_peso: { vita: 80 } })).toBe(false)
-    expect(risposteValide({ altezza_peso: { altezza: 230, peso: 35 } })).toBe(true)
-    expect(risposteValide({ altezza_peso: { altezza: 175, peso: 72.3 } })).toBe(true)
+    expect(valide({ altezza_peso: { altezza: 119 } })).toBe(false)
+    expect(valide({ altezza_peso: { peso: 76.55 } })).toBe(false)
+    expect(valide({ altezza_peso: { vita: 80 } })).toBe(false)
+    expect(valide({ altezza_peso: { altezza: 230, peso: 35 } })).toBe(true)
+    expect(valide({ altezza_peso: { altezza: 175, peso: 72.3 } })).toBe(true)
   })
   it('i massimali: un numero da 0 a 200 o «non lo so»', () => {
-    expect(risposteValide({ massimali: { piegamenti: 'tanti' } })).toBe(false)
-    expect(risposteValide({ massimali: { dip: 201 } })).toBe(false)
-    expect(risposteValide({ massimali: { squat: 10 } })).toBe(false)
+    expect(valide({ massimali: { piegamenti: 'tanti' } })).toBe(false)
+    expect(valide({ massimali: { dip: 201 } })).toBe(false)
+    expect(valide({ massimali: { squat: 10 } })).toBe(false)
   })
   it('le cattive abitudini: senza ripetizioni, solo quelle del modulo', () => {
-    expect(risposteValide({ cattive_abitudini: { scelte: ['fumo', 'fumo'] } })).toBe(false)
-    expect(risposteValide({ cattive_abitudini: { scelte: ['zucchero'] } })).toBe(false)
+    expect(valide({ cattive_abitudini: { scelte: ['fumo', 'fumo'] } })).toBe(false)
+    expect(valide({ cattive_abitudini: { scelte: ['zucchero'] } })).toBe(false)
   })
   it('sì e no: solo le chiavi', () => {
-    expect(risposteValide({ seguito_alimentazione: 'forse' })).toBe(false)
-    expect(risposteValide({ pronto: true })).toBe(false)
+    expect(valide({ seguito_alimentazione: 'forse' })).toBe(false)
+    expect(valide({ pronto: true })).toBe(false)
   })
   it('un testo oltre 2.000 caratteri no, 2.000 sì', () => {
-    expect(risposteValide({ note: 'a'.repeat(2001) })).toBe(false)
-    expect(risposteValide({ note: 'a'.repeat(2000) })).toBe(true)
+    expect(valide({ note: 'a'.repeat(2001) })).toBe(false)
+    expect(valide({ note: 'a'.repeat(2000) })).toBe(true)
   })
   it('un’email non valida no', () => {
-    expect(risposteValide({ email: 'non è una email' })).toBe(false)
+    expect(valide({ email: 'non è una email' })).toBe(false)
   })
   it('una data che non esiste o scritta in un altro modo no', () => {
-    expect(risposteValide({ data_nascita: '2026-02-30' })).toBe(false)
-    expect(risposteValide({ data_nascita: '21/03/1996' })).toBe(false)
+    expect(valide({ data_nascita: '2026-02-30' })).toBe(false)
+    expect(valide({ data_nascita: '21/03/1996' })).toBe(false)
   })
   it('nessun controllo sull’età: 16 anni o 76, il questionario si invia', () => {
-    expect(risposteComplete({ ...COMPLETO, data_nascita: '2010-06-01' })).toBe(true)
-    expect(risposteComplete({ ...COMPLETO, data_nascita: '1950-06-01' })).toBe(true)
+    expect(complete({ ...COMPLETO, data_nascita: '2010-06-01' })).toBe(true)
+    expect(complete({ ...COMPLETO, data_nascita: '1950-06-01' })).toBe(true)
   })
   it('solo le note restano facoltative; le cattive abitudini vogliono una scelta o «Altro» (1.82.0)', () => {
-    expect(risposteComplete(senza(COMPLETO, 'note'))).toBe(true)
-    expect(risposteMancanti(senza(COMPLETO, 'cattive_abitudini'))).toEqual(['cattive_abitudini'])
-    expect(risposteMancanti({ ...COMPLETO, cattive_abitudini: { scelte: [], altro: '  ' } })).toEqual(['cattive_abitudini'])
-    expect(risposteMancanti({ ...COMPLETO, cattive_abitudini: { scelte: [], altro: 'Troppi dolci' } })).toEqual([])
-    expect(risposteMancanti({ ...COMPLETO, cattive_abitudini: { scelte: ['altre_sostanze'] } })).toEqual([])
+    expect(complete(senza(COMPLETO, 'note'))).toBe(true)
+    expect(mancanti(senza(COMPLETO, 'cattive_abitudini'))).toEqual(['cattive_abitudini'])
+    expect(mancanti({ ...COMPLETO, cattive_abitudini: { scelte: [], altro: '  ' } })).toEqual(['cattive_abitudini'])
+    expect(mancanti({ ...COMPLETO, cattive_abitudini: { scelte: [], altro: 'Troppi dolci' } })).toEqual([])
+    expect(mancanti({ ...COMPLETO, cattive_abitudini: { scelte: ['altre_sostanze'] } })).toEqual([])
   })
   it('le domande che mancano, nell’ordine del questionario', () => {
-    expect(risposteMancanti({ ...senza(COMPLETO, 'massimali'), telefono: '   ', pronto: null })).toEqual([
+    expect(mancanti({ ...senza(COMPLETO, 'massimali'), telefono: '   ', pronto: null })).toEqual([
       'telefono',
       'massimali',
       'pronto',
     ])
   })
   it('altezza e peso vanno insieme', () => {
-    expect(risposteMancanti({ ...COMPLETO, altezza_peso: { altezza: 170 } })).toEqual(['altezza_peso'])
+    expect(mancanti({ ...COMPLETO, altezza_peso: { altezza: 170 } })).toEqual(['altezza_peso'])
   })
   it('soloValide tiene le risposte giuste e lascia quelle che non reggono', () => {
-    expect(soloValide({ ...COMPLETO, email: 'mario@', peso_ideale: 70, giorni_settimana: 9 })).toEqual(
+    expect(solo({ ...COMPLETO, email: 'mario@', peso_ideale: 70, giorni_settimana: 9 })).toEqual(
       senza(COMPLETO, 'email', 'giorni_settimana'),
     )
   })
@@ -179,9 +186,9 @@ describe('le domande del modulo Google', () => {
       'note',
       'pronto',
     ])
-    expect(domandeDi(3).map((d) => d.chiave)).toEqual(['ore_sonno', 'organizzazione_giornata', 'infortuni', 'cattive_abitudini'])
+    expect(domandeDi(DOMANDE, 3).map((d) => d.chiave)).toEqual(['ore_sonno', 'organizzazione_giornata', 'infortuni', 'cattive_abitudini'])
     // the required order is the order of the questions, without note
-    expect(OBBLIGATORIE.map(([k]) => k)).toEqual(DOMANDE.map((d) => d.chiave).filter((k) => k !== 'note'))
+    expect(mancanti({})).toEqual(DOMANDE.map((d) => d.chiave).filter((k) => k !== 'note'))
   })
 
   it('i testi delle domande sono quelli del modulo, con i refusi corretti', () => {
@@ -234,10 +241,15 @@ describe('le domande del modulo Google', () => {
     ])
   })
 
-  it('le obbligatorie sono le domande senza «facoltativa», e la migration ha le stesse chiavi', () => {
-    expect(OBBLIGATORIE.map(([k]) => k)).toEqual(DOMANDE.filter((d) => !d.facoltativa).map((d) => d.chiave))
-    const sql = readFileSync('supabase/migrations/20261109100000_questionario.sql', 'utf8')
-    for (const d of DOMANDE) expect(sql).toContain(`'${d.chiave}'`)
+  it('le obbligatorie sono le domande senza «facoltativa», e la migration le semina con le stesse parole (1.88.0)', () => {
+    expect(mancanti({})).toEqual(DOMANDE.filter((d) => !d.facoltativa).map((d) => d.chiave))
+    const sql = readFileSync('supabase/migrations/20261125110000_questionario_modificabile.sql', 'utf8')
+    const q = (t: string) => `'${t.replace(/'/g, "''")}'`
+    for (const d of DOMANDE) {
+      expect(sql).toContain(`(${q(d.chiave)}, `)
+      expect(sql).toContain(q(d.testo))
+      if (d.aiuto) expect(sql).toContain(q(d.aiuto))
+    }
   })
 
   it('nessuna domanda sull’età oltre alla data di nascita', () => {
@@ -245,9 +257,9 @@ describe('le domande del modulo Google', () => {
   })
 
   it('la prima schermata con una risposta che manca', () => {
-    expect(schermataDi(['pronto'])).toBe(4)
-    expect(schermataDi(['infortuni', 'pronto'])).toBe(3)
-    expect(schermataDi([])).toBeNull()
+    expect(schermataDi(DOMANDE, ['pronto'])).toBe(4)
+    expect(schermataDi(DOMANDE, ['infortuni', 'pronto'])).toBe(3)
+    expect(schermataDi(DOMANDE, [])).toBeNull()
   })
 
   it('le risposte in parole, come le legge l’admin', () => {
@@ -265,10 +277,11 @@ describe('le domande del modulo Google', () => {
 })
 
 describe('i file', () => {
-  it('foto e PDF fino a 10 MB, nei tre campi', () => {
+  it('foto e PDF fino a 10 MB, nel campo di una domanda', () => {
     expect(preparaAllegatoSchema.safeParse({ campo: 'attrezzatura', nome: 'sbarra.jpg', tipo: 'image/jpeg', byte: 1000 }).success).toBe(true)
     expect(preparaAllegatoSchema.safeParse({ campo: 'attrezzatura', nome: 'x.html', tipo: 'text/html', byte: 1000 }).success).toBe(false)
-    expect(preparaAllegatoSchema.safeParse({ campo: 'foto_fisico', nome: 'x.jpg', tipo: 'image/jpeg', byte: 1000 }).success).toBe(false)
+    // a field is the one of a question (1.88.0): a slug; the database checks the question exists
+    expect(preparaAllegatoSchema.safeParse({ campo: 'Foto fisico', nome: 'x.jpg', tipo: 'image/jpeg', byte: 1000 }).success).toBe(false)
     expect(
       preparaAllegatoSchema.safeParse({ campo: 'piano_alimentare', nome: 'p.pdf', tipo: 'application/pdf', byte: 10 * 1024 * 1024 + 1 })
         .success,
@@ -281,5 +294,51 @@ describe('i file', () => {
     const lungo = nomeFilePulito(`${'x'.repeat(200)}.pdf`)
     expect(lungo).toHaveLength(120)
     expect(lungo.endsWith('.pdf')).toBe(true)
+  })
+})
+
+/** A question added from the settings, as the table gives it (1.88.0). */
+function riga(r: Partial<RigaDomanda> & Pick<RigaDomanda, 'chiave' | 'tipo'>): RigaDomanda {
+  return { sezione: 4, testo: r.chiave, obbligatoria: true, ordine: 100, ...r }
+}
+
+describe('le domande aggiunte da Impostazioni (1.88.0): le stesse regole di 119_domande.sql', () => {
+  const NUOVE = domandeDaRighe([
+    riga({ chiave: 'sport_fatti_a1b2c3', tipo: 'scelte', opzioni: [{ valore: 'calcio', etichetta: 'Calcio' }, { valore: 'nuoto', etichetta: 'Nuoto' }] }),
+    riga({ chiave: 'chili_da_perdere_a1b2c3', tipo: 'numero', ordine: 101 }),
+    riga({ chiave: 'ultima_visita_a1b2c3', tipo: 'data', obbligatoria: false, ordine: 102 }),
+    riga({ chiave: 'analisi_sangue_a1b2c3', tipo: 'file', allegato: { campo: 'analisi_sangue_a1b2c3', etichetta: 'Le analisi' }, ordine: 103 }),
+  ])
+  const D = [...DOMANDE, ...NUOVE]
+
+  it('la forma: qualsiasi chiave di una domanda, testo, numero o un elenco di opzioni', () => {
+    expect(risposteForma({ sport_fatti_a1b2c3: ['calcio', 'nuoto'], chili_da_perdere_a1b2c3: 7.5 })).toBe(true)
+    expect(risposteForma({ sport_fatti_a1b2c3: ['calcio', 'calcio'] })).toBe(false)
+    expect(risposteForma({ 'Chiave Brutta': 'x' })).toBe(false)
+    expect(risposteForma({ pronto: true })).toBe(false)
+  })
+  it('ogni risposta come la vuole la sua domanda', () => {
+    expect(risposteValide({ sport_fatti_a1b2c3: ['calcio'] }, D)).toBe(true)
+    expect(risposteValide({ sport_fatti_a1b2c3: ['tennis'] }, D)).toBe(false)
+    expect(risposteValide({ chili_da_perdere_a1b2c3: '7' }, D)).toBe(false)
+    expect(risposteValide({ ultima_visita_a1b2c3: '2026-02-30' }, D)).toBe(false)
+    expect(risposteValide({ analisi_sangue_a1b2c3: 'x' }, D)).toBe(false)
+  })
+  it('cosa manca: più scelte con almeno una, un numero, i file caricati; la data facoltativa no', () => {
+    const r = { ...COMPLETO, sport_fatti_a1b2c3: [], chili_da_perdere_a1b2c3: 4 }
+    expect(risposteMancanti(r, D)).toEqual(['sport_fatti_a1b2c3', 'analisi_sangue_a1b2c3'])
+    expect(risposteMancanti({ ...r, sport_fatti_a1b2c3: ['nuoto'] }, D, new Set(['analisi_sangue_a1b2c3']))).toEqual([])
+  })
+  it('una domanda tolta non conta più: la sua risposta va via al salvataggio', () => {
+    expect(soloValide({ ...COMPLETO, sport_fatti_a1b2c3: ['nuoto'] }, DOMANDE)).toEqual(solo(COMPLETO))
+  })
+  it('una domanda di un tipo che la pagina non conosce non si mostra', () => {
+    expect(domandeDaRighe([riga({ chiave: 'strana_a1', tipo: 'sondaggio' })])).toEqual([])
+    expect(domandeDaRighe([riga({ chiave: 'tolta_a1', tipo: 'testo', attiva: false })])).toEqual([])
+  })
+  it('le parole della risposta: più scelte con le loro etichette, un numero con la virgola', () => {
+    const d = (k: string) => D.find((x) => x.chiave === k)!
+    expect(rispostaInParole(d('sport_fatti_a1b2c3'), ['calcio', 'nuoto'])).toBe('Calcio · Nuoto')
+    expect(rispostaInParole(d('chili_da_perdere_a1b2c3'), 7.5)).toBe('7,5')
   })
 })

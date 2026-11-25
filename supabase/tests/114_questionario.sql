@@ -128,22 +128,22 @@ select pg_temp.prepara('Dario');
 select ok(public.onboarding_risposte_valide('{}'), 'nessuna risposta è valida (si sta ancora compilando)');
 select ok(public.onboarding_risposte_complete(pg_temp.completo()), 'tutte le domande del modulo, risposte: complete');
 select is(public.onboarding_risposte_mancanti(pg_temp.completo()), '{}'::text[], 'e non manca niente');
-select ok(not public.onboarding_risposte_valide('{"peso_ideale": "70"}'), 'una chiave che non è una domanda del modulo no');
+select is(public.onboarding_risposte_filtra('{"peso_ideale": "70"}'), '{}'::jsonb, 'una chiave che non è una domanda va via al salvataggio (1.88.0)');
 select ok(not public.onboarding_risposte_valide('[]') and not public.onboarding_risposte_valide(null), 'un elenco o null no');
-select ok(not public.onboarding_risposte_valide('{"minuti_giorno": "45_60"}'), 'una scelta fuori dalle opzioni del modulo no');
+select is(public.onboarding_risposte_filtra('{"minuti_giorno": "45_60"}'), '{}'::jsonb, 'una scelta fuori dalle opzioni della domanda va via');
 select ok(
   public.onboarding_risposte_valide('{"minuti_giorno": "20_30"}') and public.onboarding_risposte_valide('{"minuti_giorno": "90_120"}'),
   'le cinque fasce del modulo, dalla prima all''ultima'
 );
-select ok(not public.onboarding_risposte_valide('{"livello_attivita": "Sedentario"}'), 'il livello si salva con la sua chiave, non con l''etichetta');
+select is(public.onboarding_risposte_filtra('{"livello_attivita": "Sedentario"}'), '{}'::jsonb, 'il livello si salva con la sua chiave, non con l''etichetta');
 select ok(
   public.onboarding_risposte_valide('{"livello_attivita": "sedentario"}')
   and public.onboarding_risposte_valide('{"livello_attivita": "molto_attivo"}'),
   'sedentario, attivo, molto attivo'
 );
 select ok(
-  not public.onboarding_risposte_valide('{"giorni_settimana": 8}') and not public.onboarding_risposte_valide('{"giorni_settimana": 2.5}')
-  and not public.onboarding_risposte_valide('{"giorni_settimana": "3"}'),
+  public.onboarding_risposte_filtra('{"giorni_settimana": 8}') = '{}' and public.onboarding_risposte_filtra('{"giorni_settimana": 2.5}') = '{}'
+  and public.onboarding_risposte_filtra('{"giorni_settimana": "3"}') = '{}',
   'i giorni sono un intero da 1 a 7'
 );
 select ok(public.onboarding_risposte_valide('{"giorni_settimana": 1}') and public.onboarding_risposte_valide('{"giorni_settimana": 7}'),
@@ -162,8 +162,8 @@ select ok(
   'i massimali: un numero da 0 a 200 o «non lo so», solo piegamenti, trazioni e dip'
 );
 select ok(not public.onboarding_risposte_valide('{"cattive_abitudini": {"scelte": ["fumo", "fumo"]}}'), 'una scelta ripetuta no');
-select ok(not public.onboarding_risposte_valide('{"cattive_abitudini": {"scelte": ["zucchero"]}}'), 'una cattiva abitudine fuori elenco no');
-select ok(not public.onboarding_risposte_valide('{"seguito_alimentazione": "forse"}') and not public.onboarding_risposte_valide('{"pronto": true}'),
+select is(public.onboarding_risposte_filtra('{"cattive_abitudini": {"scelte": ["zucchero"]}}'), '{}'::jsonb, 'una cattiva abitudine fuori elenco va via');
+select ok(public.onboarding_risposte_filtra('{"seguito_alimentazione": "forse"}') = '{}' and not public.onboarding_risposte_valide('{"pronto": true}'),
   'Sì o No, come nel modulo');
 select ok(not public.onboarding_risposte_valide(jsonb_build_object('note', repeat('a', 2001))), 'un testo oltre 2.000 caratteri no');
 select ok(public.onboarding_risposte_valide(jsonb_build_object('note', repeat('a', 2000))), '2.000 sì');
@@ -214,7 +214,7 @@ select is(public.questionario_salva('{"occupazione": "Magazziniera"}', 1, 0), '{
 select is(public.questionario_salva('{"occupazione": "Altro"}', 1, 0) - 'risposte', '{"esito": "cambiato", "versione": 1}'::jsonb,
   'con una versione vecchia non scrive: «cambiato» (un altro dispositivo)');
 select is(public.questionario_cliente() -> 'risposte' ->> 'occupazione', 'Magazziniera', 'e la risposta resta quella salvata');
-select throws_ok($$ select public.questionario_salva('{"minuti_giorno": "tanti"}', 2, 1) $$, '22023',
+select throws_ok($$ select public.questionario_salva('{"altezza_peso": {"altezza": 500}}', 2, 1) $$, '22023',
   'Alcune risposte non sono valide: controllale e riprova.', 'risposte non valide no');
 select throws_ok($$ select public.questionario_salva('{}', 5, 1) $$, '22023', null, 'una schermata che non c''è no');
 select is(public.questionario_salva('{"nome_cognome": "Carla Centoquattordici", "occupazione": "Magazziniera"}', 2, 1) ->> 'versione', '2',

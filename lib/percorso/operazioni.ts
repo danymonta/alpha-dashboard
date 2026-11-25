@@ -18,7 +18,7 @@ import {
   allegatoIdSchema,
   inviaQuestionarioSchema,
   preparaAllegatoSchema,
-  risposteValide,
+  risposteForma,
   salvaQuestionarioSchema,
   type Risposte,
   type TipoAllegato,
@@ -140,7 +140,7 @@ function record(v: unknown): Record<string, unknown> {
 
 /** The answers the database sent back, kept only when they read as answers (else empty: the page reloads). */
 function risposteDa(v: unknown): Risposte {
-  return risposteValide(v) ? v : {}
+  return risposteForma(v) ? v : {}
 }
 
 /**

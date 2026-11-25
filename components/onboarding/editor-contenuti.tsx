@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown, Eye, EyeOff, LoaderCircle, Pencil, Plus, TriangleAlert } from 'lucide-react'
+import { ChevronDown, CircleCheck, ExternalLink, Eye, EyeOff, LoaderCircle, Pencil, Plus, TriangleAlert } from 'lucide-react'
 import { useId, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
@@ -17,7 +17,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { ONBOARDING, traduciErroreOnboarding } from '@/lib/i18n/testi/onboarding'
-import { haSegnaposto, leggiBlocco, ordineBenvenuto, type BloccoPercorso } from '@/lib/percorso/blocchi'
+import { haSegnaposto, leggiBlocco, ordineBenvenuto, SEGNAPOSTO, YOUTUBE_SEGNAPOSTO, type BloccoPercorso } from '@/lib/percorso/blocchi'
 import type { PersonaTeam } from '@/lib/percorso/letture'
 import { TESTI_PERCORSO } from '@/lib/percorso/testi'
 import { TIPI_BLOCCO, bloccoSchema, idYoutube } from '@/lib/validation/percorso'
@@ -90,6 +90,71 @@ function bozzaDa(riga: RigaBlocco | null, ordine: number): Bozza {
         ordine: String(riga.ordine),
       }
     : { tipo: 'testo', titolo: '', corpo: '', youtube: '', url: '', obbligatorio: false, pubblicato: true, ordine: String(ordine) }
+}
+
+/**
+ * What the YouTube field holds, said at once (1.88.0): the example video still there, a link that
+ * is not of YouTube, or the video found with its cover, so the admin sees it is the right one.
+ */
+function StatoYoutube({ id, valore }: { id: string; valore: string }) {
+  const t = ONBOARDING[useLingua()].contenuti.campi
+  const testo = valore.trim()
+  const video = testo ? idYoutube(testo) : null
+  if (!testo) return <p id={id} className="sr-only" />
+  if (video === YOUTUBE_SEGNAPOSTO) {
+    return (
+      <p id={id} className="flex items-start gap-2 text-sm text-status-warning" data-youtube="segnaposto">
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        {t.youtubeSegnaposto}
+      </p>
+    )
+  }
+  if (!video) {
+    return (
+      <p id={id} className="flex items-start gap-2 text-sm text-status-critical" data-youtube="non-valido">
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        {t.youtubeNonValido}
+      </p>
+    )
+  }
+  return (
+    <div id={id} className="flex items-center gap-3 rounded-lg border border-border p-2" data-youtube="ok">
+      {/* the cover from YouTube's image server: the admin's pages only, never the client's area */}
+      <span className="aspect-video w-28 shrink-0 overflow-hidden rounded-md bg-muted">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`https://i.ytimg.com/vi/${video}/mqdefault.jpg`}
+          alt=""
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          className="size-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none'
+          }}
+        />
+      </span>
+      <div className="min-w-0 space-y-1 text-sm">
+        <p className="flex items-center gap-1.5 font-medium text-status-ok">
+          <CircleCheck className="size-4 shrink-0" aria-hidden="true" />
+          {t.youtubeOk}
+        </p>
+        <a
+          href={`https://www.youtube.com/watch?v=${video}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-9 items-center gap-1 text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          {t.youtubeApri}
+          <ExternalLink className="size-3.5" aria-hidden="true" />
+        </a>
+      </div>
+    </div>
+  )
+}
+
+/** Why a block is still to complete: a video still the example one, or a placeholder in its words. */
+function motivoDaCompletare(b: RigaBlocco, t: (typeof ONBOARDING)['it']['contenuti']): string {
+  return b.youtube_id === YOUTUBE_SEGNAPOSTO ? t.motivoVideo : t.motivoTesto
 }
 
 /** The form of a block, with the live preview drawn by the client's own components. */
@@ -238,6 +303,12 @@ function FoglioBlocco({
 
             <div className="space-y-1.5">
               <Label htmlFor={`${id}-corpo`}>{t.campi.corpo}</Label>
+              {bozza.corpo.includes(SEGNAPOSTO) || bozza.titolo.includes(SEGNAPOSTO) ? (
+                <p className="flex items-start gap-2 rounded-lg bg-status-warning/12 p-2.5 text-sm text-status-warning" data-avviso-segnaposto>
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  {t.campi.corpoSegnaposto}
+                </p>
+              ) : null}
               <Textarea
                 id={`${id}-corpo`}
                 rows={7}
@@ -253,17 +324,22 @@ function FoglioBlocco({
             {bozza.tipo === 'video' ? (
               <div className="space-y-1.5">
                 <Label htmlFor={`${id}-youtube`}>{t.campi.youtube}</Label>
+                <ol id={`${id}-youtube-aiuto`} className="list-decimal space-y-0.5 pl-5 text-xs text-muted-foreground">
+                  {t.campi.youtubePassi.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ol>
                 <Input
                   id={`${id}-youtube`}
                   className="h-11"
+                  inputMode="url"
+                  placeholder="https://youtu.be/…"
                   value={bozza.youtube}
                   aria-invalid={campi.youtube ? true : undefined}
-                  aria-describedby={`${id}-youtube-aiuto`}
+                  aria-describedby={`${id}-youtube-aiuto ${id}-youtube-stato`}
                   onChange={(e) => imposta('youtube', e.target.value)}
                 />
-                <p id={`${id}-youtube-aiuto`} className="text-xs text-muted-foreground">
-                  {t.campi.youtubeAiuto}
-                </p>
+                <StatoYoutube id={`${id}-youtube-stato`} valore={bozza.youtube} />
                 {errCampo('youtube')}
                 <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
                   {t.campi.obbligatorio}
@@ -350,8 +426,54 @@ export function EditorContenuti({ gruppi }: { gruppi: readonly GruppoContenuti[]
   const t = ONBOARDING[lingua].contenuti
   const [aperto, setAperto] = useState<{ gruppo: GruppoContenuti; riga: RigaBlocco | null; chiave: number } | null>(null)
 
+  const daCompletare = gruppi.flatMap((g) => g.blocchi.filter((b) => haSegnaposto(b)).map((b) => ({ g, b })))
+
   return (
     <div className="space-y-4">
+      {/* what is still to write, on top: one tap opens it (1.88.0, «in modo super chiaro e preciso») */}
+      {daCompletare.length > 0 ? (
+        <section
+          aria-labelledby="da-completare"
+          className="rounded-xl border border-status-warning/40 bg-status-warning/8 p-4"
+          data-testid="da-completare"
+        >
+          <h2 id="da-completare" className="flex items-center gap-2 font-medium">
+            <TriangleAlert className="size-4 text-status-warning" aria-hidden="true" />
+            {t.daCompletare(daCompletare.length)}
+          </h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t.daCompletareAiuto}</p>
+          <ul className="mt-3 divide-y divide-border/60">
+            {daCompletare.map(({ g, b }) => (
+              <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2" data-completare={b.id}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">
+                    {g.titolo}
+                    <span className="text-muted-foreground"> · </span>
+                    <span lang="it">{b.titolo ?? t.senzaTitolo}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">{motivoDaCompletare(b, t)}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 gap-1.5"
+                  aria-label={t.completaDi(b.titolo ?? t.senzaTitolo)}
+                  onClick={() => setAperto({ gruppo: g, riga: b, chiave: Date.now() })}
+                >
+                  <Pencil className="size-4" aria-hidden="true" />
+                  {t.completa}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : (
+        <p className="flex items-center gap-2 rounded-xl bg-card p-4 text-sm text-status-ok" data-testid="tutto-completo">
+          <CircleCheck className="size-4 shrink-0" aria-hidden="true" />
+          {t.tuttoCompleto}
+        </p>
+      )}
+
       {gruppi.map((g) => {
         const pubblicati = g.blocchi
           .filter((b) => b.pubblicato)
@@ -372,6 +494,12 @@ export function EditorContenuti({ gruppi }: { gruppi: readonly GruppoContenuti[]
                   {g.titolo}
                 </h2>
                 {!g.servito ? <p className="text-xs text-muted-foreground">{t.nonServito}</p> : null}
+                {g.blocchi.some((b) => haSegnaposto(b)) ? (
+                  <p className="flex items-center gap-1 text-xs text-status-warning">
+                    <TriangleAlert className="size-3" aria-hidden="true" />
+                    {t.nelGruppo(g.blocchi.filter((b) => haSegnaposto(b)).length)}
+                  </p>
+                ) : null}
               </div>
               <Button
                 type="button"

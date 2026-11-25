@@ -5,10 +5,11 @@ import { after } from 'next/server'
 
 import { aggiungiRiga, leggiColonna, scriviIntervalli, svuotaIntervalli, type Foglio } from '@/lib/google/fogli'
 import { ErroreGoogle, leggiChiave, tokenServizio, type Basi } from '@/lib/google/service-account'
-import { COLONNA_RIF, INTESTAZIONE_RIF, rigaFoglio } from '@/lib/onboarding/foglio'
+import { cellaExtra, COLONNA_RIF, colonneExtra, INTESTAZIONE_RIF, rigaFoglio, type ColonnaExtra } from '@/lib/onboarding/foglio'
+import { DOMANDE, domandeDaRighe, type RigaDomanda } from '@/lib/percorso/questionario'
 import { FRASI_FOGLIO } from '@/lib/percorso/frasi-foglio'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { risposteValide } from '@/lib/validation/questionario'
+import { risposteForma } from '@/lib/validation/questionario'
 
 /**
  * The queue of the onboarding sheet at work (1.82.0, CLAUDE.md section 34, release C), with
@@ -91,6 +92,14 @@ export async function lavoraFoglio(
 
     const foglio: Foglio = { id: pacco.foglio_id, scheda: pacco.scheda, token, basi: opzioni.basi }
 
+    // the questions as they are now (1.88.0): the labels of the options, and the columns after AH of the ones added
+    const { data: righeDomande, error: erroreDomande } = await admin.from('onboarding_domande').select('*')
+    if (erroreDomande) throw erroreDomande
+    const tutte = (righeDomande ?? []) as RigaDomanda[]
+    const domande = tutte.length > 0 ? domandeDaRighe(tutte.map((r) => ({ ...r, attiva: true }))) : [...DOMANDE]
+    const extra: ColonnaExtra[] = colonneExtra(tutte)
+    const ultima = extra.at(-1)
+
     const esiti = async (l: Lavoro, riga: number | null, errore: string | null) => {
       await admin.rpc('onboarding_foglio_esito', {
         p_client: l.client_id,
@@ -120,27 +129,43 @@ export async function lavoraFoglio(
       const riga = righe.get(l.rif) ?? null
       try {
         if (l.azione === 'scrivi') {
-          if (!risposteValide(l.risposte) || !l.inviato_il) throw new ErroreGoogle('risposta')
-          const celle = rigaFoglio(l.risposte, l.inviato_il, l.data_inizio)
+          if (!risposteForma(l.risposte) || !l.inviato_il) throw new ErroreGoogle('risposta')
+          const celle = rigaFoglio(l.risposte, l.inviato_il, l.data_inizio, domande)
+          const risposte = l.risposte
+          const celleExtra = extra.map((c) => ({ c, valore: cellaExtra(c, risposte) }))
           let scritta = riga
           if (riga) {
             await scriviIntervalli(foglio, [
               { celle: `A${riga}:AC${riga}`, valori: celle },
               { celle: `${COLONNA_RIF}${riga}`, valori: [l.rif] },
+              ...celleExtra.map(({ c, valore }) => ({ celle: `${c.lettera}${riga}`, valori: [valore] })),
             ])
           } else {
-            // A to AH: the team's columns AD-AG empty on a new row
-            scritta = await aggiungiRiga(foglio, `A:${COLONNA_RIF}`, [...celle, '', '', '', '', l.rif])
+            // A to AH: the team's columns AD-AG empty on a new row; then the columns of the questions added
+            const fino = ultima ? ultima.colonna : 33
+            const valori: (string | number)[] = [...celle, '', '', '', '', l.rif]
+            for (let i = 34; i <= fino; i++) valori.push(celleExtra.find(({ c }) => c.colonna === i)?.valore ?? '')
+            scritta = await aggiungiRiga(foglio, `A:${ultima ? ultima.lettera : COLONNA_RIF}`, valori)
             if (scritta) righe.set(l.rif, scritta)
           }
-          if (!intestata) {
-            await scriviIntervalli(foglio, [{ celle: `${COLONNA_RIF}1`, valori: [INTESTAZIONE_RIF] }])
+          if (!intestata || extra.length > 0) {
+            // the heading of AH once; the headings of the columns added follow the words of their questions
+            await scriviIntervalli(foglio, [
+              { celle: `${COLONNA_RIF}1`, valori: [INTESTAZIONE_RIF] },
+              ...extra.map((c) => ({ celle: `${c.lettera}1`, valori: [c.intestazione] })),
+            ])
             intestata = true
           }
           await esiti(l, scritta && scritta > 1 ? scritta : null, null)
           esito.scritte++
         } else {
-          if (riga && riga > 1) await svuotaIntervalli(foglio, [`A${riga}:AC${riga}`, `${COLONNA_RIF}${riga}`])
+          if (riga && riga > 1) {
+            await svuotaIntervalli(foglio, [
+              `A${riga}:AC${riga}`,
+              `${COLONNA_RIF}${riga}`,
+              ...extra.map((c) => `${c.lettera}${riga}`),
+            ])
+          }
           await esiti(l, null, null)
           esito.svuotate++
         }

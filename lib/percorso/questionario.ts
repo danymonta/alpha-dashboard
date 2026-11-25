@@ -6,7 +6,6 @@ import {
   NON_LO_SO,
   type CampoAllegato,
   type NumeroSchermata,
-  type Risposte,
 } from '@/lib/validation/questionario'
 
 /**
@@ -18,7 +17,13 @@ import {
  * question is required except «note», as in the form. The words in brackets of the form that
  * said «mandami … su Telegram» are an upload here. The lines of help under telephone, injuries
  * and maximums are of the interface, not of the form. The keys and the values are the ones of lib/validation and of
- * onboarding_risposte_valide; a word changes here. No rule on the age (Dany, 12/11/2026).
+ * onboarding_risposte_valide. No rule on the age (Dany, 12/11/2026).
+ *
+ * From 1.88.0 (Dany, 25/11/2026: «modificare tutto anche domande… così non devo farlo da codice»)
+ * the questions live in onboarding_domande and the admin edits them in Impostazioni › Questionario:
+ * DOMANDE here is the seed of the migration (20261125110000_questionario_modificabile.sql, the same
+ * words, a test compares them) and what a page uses when it cannot read the table. Every page takes
+ * the questions it read (domandeDaRighe).
  */
 
 export type Schermata = { numero: NumeroSchermata; titolo: string; sotto: string }
@@ -52,14 +57,16 @@ export type AllegatoDomanda = {
 }
 
 type Base = {
-  chiave: keyof Risposte
+  chiave: string
   schermata: NumeroSchermata
   /** The text of the question in the form. */
   testo: string
   /** A line under the question: an example or what to write. */
   aiuto?: string
-  facoltativa?: true
+  facoltativa?: boolean
   allegato?: AllegatoDomanda
+  /** One of the 26 questions of the form (key, kind and column of the sheet A-AC fixed). */
+  sistema?: boolean
 }
 
 export type Domanda =
@@ -75,9 +82,14 @@ export type Domanda =
   | (Base & { tipo: 'email' })
   | (Base & { tipo: 'data' })
   | (Base & { tipo: 'altezza_peso' })
-  | (Base & { tipo: 'scelta'; opzioni: readonly Opzione[]; numerica?: true })
+  | (Base & { tipo: 'scelta'; opzioni: readonly Opzione[]; numerica?: boolean })
+  | (Base & { tipo: 'scelte'; opzioni: readonly Opzione[] })
+  | (Base & { tipo: 'numero' })
   | (Base & { tipo: 'massimali' })
   | (Base & { tipo: 'abitudini'; opzioni: readonly Opzione[]; altro: string })
+  | (Base & { tipo: 'file'; allegato: AllegatoDomanda })
+
+export type TipoDomanda = Domanda['tipo']
 
 const ETICHETTE_MINUTI: Record<(typeof MINUTI_GIORNO)[number], string> = {
   '20_30': '20-30 minuti',
@@ -118,7 +130,8 @@ export const ETICHETTE_ESERCIZI: Record<(typeof ESERCIZI_MASSIMALI)[number], str
   dip: 'Dip',
 }
 
-export const DOMANDE: readonly Domanda[] = [
+export const DOMANDE: readonly Domanda[] = (
+  [
   // 1 · Chi sei
   { chiave: 'email', schermata: 1, tipo: 'email', testo: 'Email' },
   {
@@ -309,20 +322,130 @@ export const DOMANDE: readonly Domanda[] = [
       { valore: 'no', etichetta: 'No' },
     ],
   },
-]
+  ] as Domanda[]
+).map((d) => ({ ...d, sistema: true }) as Domanda)
 
-export function domandeDi(schermata: NumeroSchermata): Domanda[] {
-  return DOMANDE.filter((d) => d.schermata === schermata)
+/**
+ * A row of onboarding_domande as the pages read it (the admin's session, or the client's page from
+ * questionario_cliente().domande). The words of the interface that are not of the form (the type
+ * of the keyboard, the chips of the equipment) go with the key of a question of the form.
+ */
+export type RigaDomanda = {
+  chiave: string
+  ordine?: number
+  sezione: number
+  tipo: string
+  testo: string
+  aiuto?: string | null
+  obbligatoria: boolean
+  attiva?: boolean
+  lungo?: boolean
+  numerica?: boolean
+  opzioni?: unknown
+  altro?: string | null
+  allegato?: unknown
+  sistema?: boolean
+  colonna?: number | null
 }
 
-export function domanda(chiave: string): Domanda | undefined {
-  return DOMANDE.find((d) => d.chiave === chiave)
+const SUGGERIMENTI: Record<string, { autocomplete?: string; inputMode?: 'text' | 'tel'; attrezzi?: true }> = {
+  telefono: { autocomplete: 'tel', inputMode: 'tel' },
+  nome_cognome: { autocomplete: 'name' },
+  attrezzatura: { attrezzi: true },
+}
+
+function leggiOpzioni(v: unknown): Opzione[] {
+  if (!Array.isArray(v)) return []
+  return v.flatMap((o) => {
+    if (!o || typeof o !== 'object') return []
+    const x = o as Record<string, unknown>
+    if (typeof x.valore !== 'string' || typeof x.etichetta !== 'string') return []
+    return [{ valore: x.valore, etichetta: x.etichetta, ...(typeof x.dettaglio === 'string' && x.dettaglio ? { dettaglio: x.dettaglio } : {}) }]
+  })
+}
+
+function leggiAllegato(v: unknown): AllegatoDomanda | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const x = v as Record<string, unknown>
+  if (typeof x.campo !== 'string' || typeof x.etichetta !== 'string') return undefined
+  return { campo: x.campo, etichetta: x.etichetta, aiuto: typeof x.aiuto === 'string' ? x.aiuto : '' }
+}
+
+/** One row as a question of the pages, null when it does not read (a kind the page does not know). */
+export function domandaDaRiga(r: RigaDomanda): Domanda | null {
+  const schermata = (r.sezione >= 1 && r.sezione <= 4 ? r.sezione : 4) as NumeroSchermata
+  const allegato = leggiAllegato(r.allegato)
+  const base = {
+    chiave: r.chiave,
+    schermata,
+    testo: r.testo,
+    ...(r.aiuto ? { aiuto: r.aiuto } : {}),
+    ...(r.obbligatoria ? {} : { facoltativa: true }),
+    ...(allegato && r.tipo !== 'file' ? { allegato } : {}),
+    ...(r.sistema ? { sistema: true } : {}),
+  }
+  const opzioni = leggiOpzioni(r.opzioni)
+  switch (r.tipo) {
+    case 'testo':
+      return { ...base, tipo: 'testo', ...(r.lungo ? { lungo: true } : {}), ...(r.sistema ? SUGGERIMENTI[r.chiave] : {}) }
+    case 'email':
+    case 'data':
+    case 'altezza_peso':
+    case 'massimali':
+    case 'numero':
+      return { ...base, tipo: r.tipo }
+    case 'scelta':
+      return opzioni.length > 0 ? { ...base, tipo: 'scelta', opzioni, ...(r.numerica ? { numerica: true } : {}) } : null
+    case 'scelte':
+      return opzioni.length > 0 ? { ...base, tipo: 'scelte', opzioni } : null
+    case 'abitudini':
+      return { ...base, tipo: 'abitudini', opzioni, altro: r.altro ?? 'Altro' }
+    case 'file':
+      return allegato ? { ...base, tipo: 'file', allegato } : null
+    default:
+      return null
+  }
+}
+
+/** The questions in use, in their order (section, then order): what the client fills in. */
+export function domandeDaRighe(righe: readonly RigaDomanda[]): Domanda[] {
+  return [...righe]
+    .filter((r) => r.attiva !== false)
+    .sort((a, b) => a.sezione - b.sezione || (a.ordine ?? 0) - (b.ordine ?? 0))
+    .flatMap((r) => {
+      const d = domandaDaRiga(r)
+      return d ? [d] : []
+    })
+}
+
+/** questionario_cliente().domande, or null when it is not there (an older database: the seed). */
+export function leggiDomande(v: unknown): Domanda[] | null {
+  if (!Array.isArray(v)) return null
+  const righe = v.filter((x): x is RigaDomanda => {
+    if (!x || typeof x !== 'object') return false
+    const o = x as Record<string, unknown>
+    return typeof o.chiave === 'string' && typeof o.tipo === 'string' && typeof o.testo === 'string' && typeof o.sezione === 'number'
+  })
+  return domandeDaRighe(righe.map((r, i) => ({ ...r, ordine: r.ordine ?? i + 1 })))
+}
+
+/** The fields of files of the questions (a question of files, or the files that go with a question). */
+export function campiAllegato(domande: readonly Domanda[]): string[] {
+  return domande.flatMap((d) => (d.allegato ? [d.allegato.campo] : []))
+}
+
+export function domandeDi(domande: readonly Domanda[], schermata: NumeroSchermata): Domanda[] {
+  return domande.filter((d) => d.schermata === schermata)
+}
+
+export function domanda(domande: readonly Domanda[], chiave: string): Domanda | undefined {
+  return domande.find((d) => d.chiave === chiave)
 }
 
 /** The screen of the first key in the list (the first missing answer), or null. */
-export function schermataDi(chiavi: readonly string[]): NumeroSchermata | null {
+export function schermataDi(domande: readonly Domanda[], chiavi: readonly string[]): NumeroSchermata | null {
   for (const chiave of chiavi) {
-    const d = domanda(chiave)
+    const d = domanda(domande, chiave)
     if (d) return d.schermata
   }
   return null
@@ -349,6 +472,8 @@ export function rispostaInParole(d: Domanda, valore: unknown): string | null {
       return typeof valore === 'string' && valore.trim() !== '' ? valore.trim() : null
     case 'data':
       return typeof valore === 'string' && valore !== '' ? giornoItaliano(valore) : null
+    case 'numero':
+      return typeof valore === 'number' ? decimale(valore) : null
     case 'altezza_peso': {
       const o = valore as { altezza?: number | null; peso?: number | null }
       const parti = [
@@ -360,6 +485,14 @@ export function rispostaInParole(d: Domanda, valore: unknown): string | null {
     case 'scelta': {
       const o = d.opzioni.find((x) => x.valore === String(valore))
       return o ? o.etichetta : null
+    }
+    case 'scelte': {
+      if (!Array.isArray(valore)) return null
+      const parti = valore.flatMap((v) => {
+        const o = d.opzioni.find((x) => x.valore === v)
+        return o ? [o.etichetta] : []
+      })
+      return parti.length > 0 ? parti.join(' · ') : null
     }
     case 'massimali': {
       const o = valore as Record<string, unknown>
@@ -378,5 +511,19 @@ export function rispostaInParole(d: Domanda, valore: unknown): string | null {
       const parti = [...scelte, ...(altro ? [altro] : [])]
       return parti.length > 0 ? parti.join(' · ') : null
     }
+    case 'file':
+      return null
   }
+}
+
+/** A question of the card of a client: the ones taken away from the questionnaire too (an answer given before stays readable). */
+export type DomandaScheda = Domanda & { tolta?: boolean }
+
+/** Every question, hidden ones too, in order: what the card of a client reads (the admin and the coach). */
+export function domandeScheda(righe: readonly RigaDomanda[]): DomandaScheda[] {
+  if (righe.length === 0) return [...DOMANDE]
+  return domandeDaRighe(righe.map((r) => ({ ...r, attiva: true }))).map((d) => {
+    const r = righe.find((x) => x.chiave === d.chiave)
+    return r?.attiva === false ? { ...d, tolta: true } : d
+  })
 }
