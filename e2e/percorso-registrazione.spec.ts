@@ -72,7 +72,7 @@ test('il cliente di prova si registra dal link, rientra da /entra e resta nella 
   const contesto = await browser.newContext()
   const cliente = await contesto.newPage()
   await cliente.goto(link)
-  await expect(cliente.getByRole('heading', { name: `Ciao ${nome}.` })).toBeVisible()
+  await expect(cliente.getByRole('heading', { name: `Benvenuto nel Percorso Alpha, ${nome}.` })).toBeVisible()
   for (const o of await originiScript(cliente)) expect(o).toBe(origine)
   // the email is never on the page of the token
   await expect(cliente.getByText(email)).toHaveCount(0)

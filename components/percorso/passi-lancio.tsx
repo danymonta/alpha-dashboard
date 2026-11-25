@@ -212,12 +212,17 @@ export function PassoPrenotazione({
   const oggi = oggiRoma()
   const pronto = /^\d{4}-\d{2}-\d{2}$/.test(giorno) && /^\d{2}:\d{2}$/.test(ora)
   const incorporato = linkPrenotazione ? calendarioIncorporato(linkPrenotazione) : null
+  // the calendar comes right after the first words (Dany, 25/11/2026: the client scrolled past
+  // «Cosa faremo in call» to find it): the notices go with the calendar, the rest after the action
+  const blocchi = passo.blocchi ?? []
+  const intro = blocchi[0]?.tipo === 'testo' ? [blocchi[0]] : []
+  const resto = blocchi.slice(intro.length)
+  const avvisi = resto.filter((b) => b.tipo === 'avviso')
+  const dopo = resto.filter((b) => b.tipo !== 'avviso')
 
   return (
     <div className="space-y-6">
-      {passo.blocchi && passo.blocchi.length > 0 ? (
-        <ListaBlocchi blocchi={passo.blocchi} nome={nome} modo="passo" titoloPasso={passo.titolo} />
-      ) : null}
+      {intro.length > 0 ? <ListaBlocchi blocchi={intro} nome={nome} modo="passo" titoloPasso={passo.titolo} /> : null}
 
       <ol className="space-y-5">
         <li className="space-y-3">
@@ -280,6 +285,8 @@ export function PassoPrenotazione({
         </li>
       </ol>
 
+      {avvisi.length > 0 ? <ListaBlocchi blocchi={avvisi} nome={nome} modo="passo" titoloPasso={passo.titolo} /> : null}
+
       <AzionePasso
         etichetta={P.prenotazione.hoPrenotato}
         pronto={pronto}
@@ -287,6 +294,8 @@ export function PassoPrenotazione({
         invio={{ passo: 'prenotazione', azione: 'prenotato', dati: { giorno, ora } }}
         toastFatto={P.prenotazione.inviata}
       />
+
+      {dopo.length > 0 ? <ListaBlocchi blocchi={dopo} nome={nome} modo="passo" titoloPasso={passo.titolo} /> : null}
     </div>
   )
 }
