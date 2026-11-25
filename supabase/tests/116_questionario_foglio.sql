@@ -54,7 +54,7 @@ select is(cardinality(public.onboarding_risposte_mancanti('{}'::jsonb)), 25, '25
 -- ---------------------------------------------------------------------------
 select results_eq(
   $$ select versione from public.clienti_consensi_testi where tipo = 'salute' and in_vigore $$,
-  $$ values ('2026-11-13') $$,
+  $$ values ('2026-11-25') $$,
   'una sola versione in vigore del consenso sulla salute, quella che cita il foglio'
 );
 
@@ -91,7 +91,7 @@ grant select on caso to authenticated, service_role;
 delete from public.onboarding_foglio;
 delete from public.onboarding_questionari where client_id = (select client_id from caso);
 delete from public.clienti_consensi where client_id = (select client_id from caso);
-insert into public.clienti_consensi (client_id, tipo, versione) select client_id, 'salute', '2026-11-13' from caso;
+insert into public.clienti_consensi (client_id, tipo, versione) select client_id, 'salute', '2026-11-25' from caso;
 
 insert into public.onboarding_questionari (client_id, risposte, versione, schermata)
 select client_id, pg_temp.completo(), 1, 4 from caso;

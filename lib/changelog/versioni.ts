@@ -109,6 +109,16 @@ export const VERSIONI: readonly Versione[] = [
         testo:
           'Settimana test: «sono una stima: non sono quelle che seguirai: quelle te le diamo noi» diventa «sono una stima, non quelle che seguirai: quelle te le diamo noi». Dopo il lancio, tra le tappe da rileggere, «La tua call di onboarding» al posto di «con il tuo coach».',
       },
+      {
+        per: ['admin'],
+        testo:
+          'Settimana test: il primo compito non chiede più di registrarsi su Coach Plus, che il cliente ha già fatto nello step dell’obiettivo. Ora è «Attiva le notifiche su Coach Plus e avvisaci», con il link di registrazione solo per chi non l’ha ancora fatto.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il consenso sulla salute ha una versione nuova: per revocarlo il cliente scrive «a Percorso Alpha», non più «al mio coach». Chi aveva accettato la versione di prima la accetta di nuovo prima del questionario.',
+      },
     ],
   },
   {
