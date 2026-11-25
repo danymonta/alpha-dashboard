@@ -19,7 +19,6 @@ import {
   Receipt,
   RefreshCw,
   Rocket,
-  Settings,
   SquareKanban,
   Timer,
   TrendingUp,
@@ -197,7 +196,7 @@ const NAV: Record<AppRole, NavRuolo> = {
           { href: '/expenses', etichetta: 'Costi', Icona: Banknote },
           // his personal expenses, kept apart from the business: never in any metric (1.68.0)
           { href: '/spese-personali', etichetta: 'Spese personali', Icona: PiggyBank },
-          { href: '/settings', etichetta: 'Impostazioni', Icona: Settings },
+          // Impostazioni lives in the menu of the profile photo (1.87.0)
           // what the business coach sees, his one page (1.58.0)
           { href: '/recap', etichetta: 'Recap del business coach', Icona: Presentation },
           NOVITA,

@@ -39,7 +39,8 @@ test('l’admin apre le novità da Impostazioni e le vede tutte, con per chi è 
   // the sidebar says where he is: Novità, not Impostazioni
   const nav = page.getByRole('navigation', { name: 'Navigazione principale' })
   await expect(nav.getByRole('link', { name: 'Novità' })).toHaveAttribute('aria-current', 'page')
-  await expect(nav.getByRole('link', { name: 'Impostazioni' })).not.toHaveAttribute('aria-current', 'page')
+  // Impostazioni is not in the sidebar any more: it lives in the profile menu (1.87.0)
+  await expect(nav.getByRole('link', { name: 'Impostazioni' })).toHaveCount(0)
 
   const inUso = page.getByTestId('versione-corrente')
   await expect(inUso).toContainText(`v${CORRENTE.versione}`)

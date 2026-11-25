@@ -29,7 +29,6 @@ test('l’admin vede la navigazione completa', async ({ page }) => {
     'Costi',
     // the Marketing area, between Economics and Progetti (1.32.0)
     'Piano editoriale',
-    'Impostazioni',
   ]
   for (const voce of voci) {
     // "Le mie call" and "Closer" may carry the number of his outcomes to record

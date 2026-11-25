@@ -1,18 +1,16 @@
 'use client'
 
-import { ChevronLeft, LogOut } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useEffect, useId, useRef } from 'react'
 
-import { esci } from '@/app/auth/actions'
 import { useLingua } from '@/components/i18n/lingua-provider'
 import { LogoFuoco } from '@/components/brand/logo-fuoco'
-import { FotoProfilo } from '@/components/profilo/foto-profilo'
 import { ConteggioPromemoria } from '@/components/shell/conteggio-esiti'
 import { usePromemoria } from '@/components/shell/esiti-da-registrare'
 import { useSidebar } from '@/components/shell/contenitore-shell'
 import { LinkNav } from '@/components/shell/link-nav'
-import { Button } from '@/components/ui/button'
+import { MenuProfilo } from '@/components/shell/menu-profilo'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { AppRole } from '@/lib/auth/roles'
 import { SHELL } from '@/lib/i18n/testi/shell'
@@ -159,36 +157,8 @@ export function Sidebar({ ruolo, nome, foto, onboarding = false }: Props) {
         ) : (
           bottoneRiduci
         )}
-        <div className={cn('flex gap-1', ridotta ? 'flex-col items-center' : 'items-center')}>
-          <LinkNav
-            href="/account"
-            data-tour="profilo"
-            aria-current={pathname.startsWith('/account') ? 'page' : undefined}
-            aria-label={t.profilo(nome)}
-            className={cn(
-              'flex min-h-11 items-center rounded-lg hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:bg-accent',
-              ridotta ? 'size-11 justify-center' : 'min-w-0 flex-1 gap-3 px-2 py-1.5',
-            )}
-          >
-            <FotoProfilo nome={nome} foto={foto} />
-            {ridotta ? null : (
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">{nome}</span>
-                <span className="block text-xs text-muted-foreground">{t.ruoli[ruolo]}</span>
-              </span>
-            )}
-          </LinkNav>
-          <form action={esci}>
-            <Button
-              type="submit"
-              variant="ghost"
-              size="icon"
-              className="size-11 text-muted-foreground"
-              aria-label={t.esci}
-            >
-              <LogOut className="size-4" aria-hidden="true" />
-            </Button>
-          </form>
+        <div className={cn('flex', ridotta ? 'justify-center' : '')}>
+          <MenuProfilo ruolo={ruolo} nome={nome} foto={foto} variante={ridotta ? 'ridotta' : 'laterale'} />
         </div>
       </div>
     </aside>

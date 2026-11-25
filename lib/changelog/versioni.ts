@@ -86,6 +86,37 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.87.0',
+    data: '2026-11-25',
+    titolo: 'Impostazioni dalla tua foto, divise per argomento',
+    riassunto:
+      'Le Impostazioni si aprono dal menu della tua foto, e la pagina è divisa per quello che vuoi fare, con in cima cosa c’è da sistemare.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['tutti'],
+        testo: 'La tua foto in alto apre un menu con il tuo profilo ed «Esci».',
+        testoTeam: 'La tua foto apre un menu: «Profilo e account» per foto, nome, tema, lingua e tutorial, e «Esci».',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Impostazioni non è più nel menu laterale: la trovi nel menu della tua foto, insieme al profilo e a «Esci».',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'La pagina Impostazioni è divisa in cinque sezioni: Percorso dei clienti, Team e vendite, Collegamenti, Progetti, Dati e backup. Contenuti del percorso e Aula sono a un tocco, ogni voce dice in una riga cosa cambi, e accanto vedi lo stato («Chiusa ai clienti», «3 da completare», «2 da sistemare»).',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'In cima alle Impostazioni, «Da sistemare» elenca quello che manca (testi da scrivere, video da caricare, link, token di Instagram, chiave di Claude), e ogni riga ti porta dove si risolve.',
+      },
+    ],
+    correzioni: [],
+  },
+  {
     versione: '1.86.2',
     data: '2026-11-25',
     titolo: 'Contenuti del percorso: i gruppi non si confondono più',

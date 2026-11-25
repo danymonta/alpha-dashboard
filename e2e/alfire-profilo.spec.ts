@@ -26,7 +26,10 @@ test.describe('profilo dal telefono', () => {
 
   test('la foto in alto apre il profilo: nome, foto caricata e tolta, schede', async ({ page }) => {
     await accedi(page, 'setter')
-    await page.getByRole('link', { name: /Il tuo profilo/ }).click()
+    // the photo opens its menu (1.87.0): «Profilo e account» opens the profile
+    await page.getByRole('button', { name: /Il tuo profilo/ }).click()
+    await expect(page.getByRole('menuitem', { name: /Impostazioni/ })).toHaveCount(0)
+    await page.getByRole('menuitem', { name: /Profilo e account/ }).click()
     await expect(page).toHaveURL(/\/account$/)
     await expect(page.getByRole('tab', { name: 'Profilo' })).toHaveAttribute('aria-selected', 'true')
 
@@ -34,13 +37,13 @@ test.describe('profilo dal telefono', () => {
     await page.getByRole('button', { name: 'Salva il nome' }).click()
     await expect(page.getByText('Nome aggiornato')).toBeVisible()
     // the phone's top bar has no name line any more: the profile link carries it
-    await expect(page.getByRole('banner').getByRole('link', { name: 'Il tuo profilo: Loris DM' })).toBeVisible()
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Il tuo profilo: Loris DM' })).toBeVisible()
 
     await page.getByLabel('Scegli una foto').setInputFiles('public/brand/percorso-alpha-email.png')
     await expect(page.getByText('Foto aggiornata')).toBeVisible()
     const { data } = await dbLocale().from('profiles').select('foto_url').eq('id', ID_SETTER).single()
     expect(data?.foto_url).toMatch(new RegExp(`/storage/v1/object/public/avatari/${ID_SETTER}/.+\\.(webp|jpg)$`))
-    await expect(page.getByRole('link', { name: /Il tuo profilo/ }).locator('img')).toHaveAttribute('src', data!.foto_url!)
+    await expect(page.getByRole('button', { name: /Il tuo profilo/ }).locator('img')).toHaveAttribute('src', data!.foto_url!)
     await page.screenshot({ path: '.shots/setter-account-390.png' })
 
     await page.getByRole('button', { name: 'Togli la foto' }).click()

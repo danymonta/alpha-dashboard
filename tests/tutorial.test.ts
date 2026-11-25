@@ -113,8 +113,8 @@ describe('percorsi del tutorial', () => {
       expect(PERCORSI[ruolo].some((p) => (p.target ?? []).includes('nav-/insight')), ruolo).toBe(false)
     }
 
-    // the admin's tour stays at 12, the most: his Closer step names the tab of Setter
-    expect(PERCORSI.admin).toHaveLength(12)
+    // the admin's tour is 11 since Impostazioni moved into the profile menu (1.87.0): his Closer step names the tab of Setter
+    expect(PERCORSI.admin).toHaveLength(11)
     expect(PERCORSI.admin.some((p) => p.id === 'insight')).toBe(false)
     expect(PERCORSI.admin.find((p) => p.id === 'closer')?.testo).toContain('nella scheda «Insight 24h», il recap dei DM')
     // nobody else has it
