@@ -9,8 +9,9 @@
 export const TESTI_JOIN = {
   titoloPagina: 'Il tuo Percorso Alpha',
   attivo: {
-    saluto: (nome: string) => (nome ? `Ciao ${nome}.` : 'Ciao.'),
-    sotto: 'Da qui parte il tuo Percorso Alpha.',
+    saluto: (nome: string) => (nome ? `Benvenuto nel Percorso Alpha, ${nome}.` : 'Benvenuto nel Percorso Alpha.'),
+    sotto:
+      'Siamo davvero contenti di iniziare questo percorso insieme.\nDa oggi hai un metodo, un coach e un team al tuo fianco. Ogni passo è spiegato, uno alla volta: tu pensa solo a farlo.',
     continua: 'Continua',
   },
   inAttesa: 'Il tuo accesso si attiva appena il pagamento è confermato. Ti avvisiamo noi.',

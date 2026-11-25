@@ -42,7 +42,7 @@ export function CorniceAccesso({ titolo, sotto, children }: { titolo?: string; s
               <h1 id="titolo-accesso" className="font-heading text-2xl font-semibold tracking-tight">
                 {titolo}
               </h1>
-              {sotto ? <p className="text-sm text-muted-foreground">{sotto}</p> : null}
+              {sotto ? <p className="whitespace-pre-line text-sm text-muted-foreground">{sotto}</p> : null}
             </div>
           ) : null}
           {children}

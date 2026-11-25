@@ -86,6 +86,21 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.85.1',
+    data: '2026-11-25',
+    titolo: 'Onboarding: il benvenuto del link',
+    riassunto: 'Chi apre il suo link personale trova un benvenuto nel Percorso Alpha, non più solo un saluto.',
+    intestazionePer: ['admin'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo:
+          'Il link personale del cliente apre con «Benvenuto nel Percorso Alpha, Mario.» e due righe: quanto siete contenti di iniziare insieme, e che ha un metodo, un coach e un team al suo fianco. Prima diceva «Ciao Mario. Da qui parte il tuo Percorso Alpha.».',
+      },
+    ],
+  },
+  {
     versione: '1.85.0',
     data: '2026-11-14',
     titolo: 'Onboarding: ogni passo spiega cosa fare, con i link',
