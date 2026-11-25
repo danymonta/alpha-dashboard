@@ -28,6 +28,7 @@ import type {
   StatoPasso,
 } from '@/lib/percorso/letture'
 import type { Stima } from '@/lib/percorso/stima'
+import { TESTI_ATTESA_TEAM } from '@/lib/percorso/testi'
 import {
   ALLEGATI_PER_CAMPO,
   ERRORI_QUESTIONARIO,
@@ -887,18 +888,18 @@ export function percorsoDi(dati: DatiProva, stato: StatoProva, ora: Date): Perco
   const call = comeCall(stato.call)
   const coach = dati.team.find((t) => t.incarico === 'coach') ?? null
   const coachNome = coach ? primoNome(coach.nome) || null : null
-  const cosa = (testo: string) => testo
   let attesa: AttesaTeam | null = null
+  const attende = (passo: string): AttesaTeam => ({ passo, cosa: TESTI_ATTESA_TEAM[passo] ?? '', chi: null })
   if (st('prenotazione') === 'inviato') {
-    attesa = { passo: 'prenotazione', cosa: cosa(`${coachNome ?? 'Il tuo coach'} sta confermando la tua call.`), chi: null }
+    attesa = attende('prenotazione')
   } else if ((st('call') === 'disponibile' || st('call') === 'in_corso') && call) {
-    attesa = { passo: 'call', cosa: `La tua call di onboarding con ${coachNome ?? 'il tuo coach'} è fissata.`, chi: null }
+    attesa = attende('call')
   } else if (st('call') === 'fatto' && st('obiettivo') === 'bloccato') {
-    attesa = { passo: 'obiettivo', cosa: `${coachNome ?? 'Il tuo coach'} sta impostando il tuo obiettivo su Coach Plus.`, chi: null }
+    attesa = attende('obiettivo')
   } else if (st('test') === 'in_attesa_team') {
-    attesa = { passo: 'test', cosa: `${coachNome ?? 'Il tuo coach'} sta controllando i tuoi test e i tuoi tracciamenti.`, chi: null }
+    attesa = attende('test')
   } else if (st('programma') === 'in_attesa_team') {
-    attesa = { passo: 'programma', cosa: `${coachNome ?? 'Il tuo coach'} sta preparando il tuo programma.`, chi: null }
+    attesa = attende('programma')
   }
   if (attesa && coachNome && coach) attesa = { ...attesa, chi: { nome: coachNome, ruolo: 'Coach', fotoUrl: coach.fotoUrl } }
 

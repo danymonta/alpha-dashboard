@@ -119,7 +119,7 @@ describe('il documento della pagina con i campi del rilascio B2', () => {
     expect(p.linkCommunity).toBe('https://t.me/+abc')
     expect(p.linkPrenotazione).toBeNull()
     expect(p.gruppoPrivatoUrl).toBeNull()
-    expect(p.attesaTeam).toEqual({ passo: 'programma', cosa: 'Ivan sta preparando il tuo programma.', chi: { nome: 'Ivan', ruolo: 'Coach', fotoUrl: null } })
+    expect(p.attesaTeam).toEqual({ passo: 'programma', cosa: 'Stiamo preparando il tuo programma.', chi: { nome: 'Ivan', ruolo: 'Coach', fotoUrl: null } })
     expect(p.lanciato).toBe(false)
     expect(p.dopoLancio).toHaveLength(1)
     expect(passoDaFare(p)?.chiave).toBe('programma')

@@ -182,7 +182,8 @@ test('il questionario del modulo: salvataggio, ripresa, file, invio; poi l’adm
   // the panel of the step opens the questionnaire
   const pannello = page.getByTestId('pannello-passo')
   await expect(pannello).toHaveAttribute('data-vista', 'passo:questionario')
-  await expect(pannello).toContainText('Niente foto del fisico qui: quelle vanno su Coach Plus.')
+  // 1.86.0: the notice on the photos of the body is gone (Dany: «crea confusione»)
+  await expect(pannello).not.toContainText('Niente foto del fisico')
   await pannello.getByRole('link', { name: 'Compila il questionario' }).click()
   await expect(page).toHaveURL(/\/percorso\/questionario/)
   await pronto(page)

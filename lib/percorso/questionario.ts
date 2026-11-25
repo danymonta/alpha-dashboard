@@ -267,7 +267,7 @@ export const DOMANDE: readonly Domanda[] = [
     allegato: {
       campo: 'attrezzatura',
       etichetta: 'Le foto della tua attrezzatura',
-      aiuto: 'Una foto per attrezzo aiuta il tuo coach.',
+      aiuto: 'Una foto per attrezzo ci aiuta a costruire il programma.',
     },
   },
   {

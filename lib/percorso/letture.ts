@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { leggiBlocchi, type BloccoPercorso } from '@/lib/percorso/blocchi'
 import { primoPassoDelCliente } from '@/lib/percorso/nodi'
 import { leggiStima, type Stima } from '@/lib/percorso/stima'
+import { TESTI_ATTESA_TEAM } from '@/lib/percorso/testi'
 import { leggiAllegati, type AllegatoCliente } from '@/lib/percorso/allegati'
 import { leggiCampoBase, type CampoBase } from '@/lib/percorso/campo-base'
 import type { Database } from '@/lib/supabase/database.types'
@@ -172,7 +173,7 @@ function leggiAttesa(valore: unknown): AttesaTeam | null {
   const chi = oggetto(a.chi)
   return {
     passo,
-    cosa,
+    cosa: TESTI_ATTESA_TEAM[passo] ?? cosa,
     chi: chi && stringa(chi.nome) ? { nome: stringa(chi.nome)!, ruolo: stringa(chi.ruolo) ?? '', fotoUrl: stringa(chi.foto_url) } : null,
   }
 }

@@ -86,6 +86,37 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.86.0',
+    data: '2026-11-25',
+    titolo: 'Onboarding: le regole come le vuoi tu, e parliamo sempre come «noi»',
+    riassunto:
+      'Lo step delle regole ha il suo titolo nuovo, meno regole e più chiare, e un video dopo le regole; in tutto l’onboarding il cliente legge «scrivici», mai «scrivi al tuo coach», e solo le frasi che servono.',
+    intestazionePer: ['admin'],
+    novita: [
+      {
+        per: ['admin'],
+        testo:
+          'Regole: il titolo sopra le spunte è «Regole e indicazioni per sfruttare il percorso al 100%», e il cliente spunta ogni regola per presa lettura. Le regole sono sei: mantieni la comunicazione attiva (per qualsiasi cosa, imprevisti e allenamenti saltati compresi), sempre testo e mai vocali (di solito rispondiamo entro 24 ore: se un messaggio non viene visto, riscrivici), Coach Plus per i dati, le call si confermano (e si spostano con 24-48 ore di preavviso), nella community ci si presenta, rispetto per tutti.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Dopo le regole c’è il video «Cliente che ottiene risultati vs cliente che non li ottiene»: incolla il suo link di YouTube in Impostazioni › Onboarding › Contenuti, step Regole. Finché c’è il segnaposto l’area non si apre ai clienti.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Tutto l’onboarding parla come «noi»: «scrivici», «confermiamo la tua call», «stiamo preparando il tuo programma», al posto di «scrivi al tuo coach» e «Marco sta preparando…». La foto e il nome di chi lavora restano.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Tolte le frasi che dicevano solo quello che il cliente vede già: «Niente foto del fisico qui», i file da caricare nel questionario, i tre passi della community, «spuntalo», «ci trovi qui con foto e ruolo». L’avviso «[Da scrivere: le regole della community…]» non c’è più: le regole della community sono «Rispetto per tutti», tra le regole.',
+      },
+    ],
+    correzioni: [],
+  },
+  {
     versione: '1.85.1',
     data: '2026-11-25',
     titolo: 'Onboarding: il benvenuto del link',

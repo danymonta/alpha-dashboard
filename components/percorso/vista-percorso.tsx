@@ -173,7 +173,6 @@ export function VistaPercorso({ percorso }: { percorso: Percorso }) {
   // the questionnaire is not read again (Dany, 14/11/2026: «non ha molto senso che uno possa rileggerlo»)
   const nodoQuestionario = percorso.passi.find((p) => p.chiave === 'questionario')?.nodo ?? null
   const completati = percorso.nodi.filter((n) => n.stato === 'completato' && n.chiave !== nodoQuestionario)
-  const coach = percorso.team.find((t) => t.incarico === 'coach')?.nome.split(' ')[0] ?? null
   // what the call will be, while the coach confirms it: the blocks of the booking after its first (the instructions)
   const passoPrenotazione = percorso.passi.find((p) => p.chiave === 'prenotazione') ?? null
   const cosaFaremo = (passoPrenotazione?.blocchi ?? []).filter((b, i) => i > 0 && b.tipo === 'testo')
@@ -245,7 +244,6 @@ export function VistaPercorso({ percorso }: { percorso: Percorso }) {
           community={percorso.community}
           linkCommunity={percorso.linkCommunity}
           call={callAperta}
-          coach={coach}
         />
       ) : daFare.chiave === 'obiettivo' ? (
         <PassoObiettivo key={daFare.chiave} passo={daFare} nome={nome} />

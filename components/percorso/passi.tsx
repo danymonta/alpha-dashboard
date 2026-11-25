@@ -214,7 +214,11 @@ export function PassoRegole({
 }) {
   const blocchi = passo.blocchi ?? []
   const regole = blocchi.filter((b): b is BloccoRegola => b.tipo === 'regola')
-  const altri: BloccoPercorso[] = blocchi.filter((b) => b.tipo !== 'regola')
+  // the blocks before the first rule introduce them; the ones after (the video on the mindset,
+  // Dany, 25/11/2026) come once the rules are shown
+  const primaRegola = blocchi.findIndex((b) => b.tipo === 'regola')
+  const prima: BloccoPercorso[] = blocchi.filter((b, i) => b.tipo !== 'regola' && (primaRegola < 0 || i < primaRegola))
+  const dopo: BloccoPercorso[] = blocchi.filter((b, i) => b.tipo !== 'regola' && primaRegola >= 0 && i > primaRegola)
   const salute = consensi.find((c) => c.tipo === 'salute')
   const versione = salute?.versioneInVigore ?? CONSENSO_SALUTE.versione
   // the text shown is the one the client accepts: never a version the database has and the page does not
@@ -227,7 +231,7 @@ export function PassoRegole({
 
   return (
     <div className="space-y-6">
-      <ListaBlocchi blocchi={altri} nome={nome} modo="passo" titoloPasso={passo.titolo} />
+      <ListaBlocchi blocchi={prima} nome={nome} modo="passo" titoloPasso={passo.titolo} />
 
       {regole.length > 0 ? (
         <fieldset className="space-y-3">
@@ -252,6 +256,8 @@ export function PassoRegole({
           ))}
         </fieldset>
       ) : null}
+
+      {dopo.length > 0 ? <ListaBlocchi blocchi={dopo} nome={nome} modo="passo" titoloPasso={passo.titolo} /> : null}
 
       <section aria-labelledby="consenso-titolo" className="space-y-3" data-testid="consenso-salute">
         <h3 id="consenso-titolo" className="flex items-center gap-2 font-heading text-base font-semibold tracking-tight">
