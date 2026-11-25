@@ -67,8 +67,16 @@ function tocca(href: string, id: string, titolo: string, testo: string): PassoTu
 const PROFILO: PassoTutorial = {
   id: 'profilo',
   titolo: 'Il tuo profilo',
-  testo: 'Tocca la tua foto per cambiarla, correggere il nome, rivedere questo tour o uscire.',
+  testo: 'Tocca la tua foto: dal menu apri il profilo per cambiare foto e nome o rivedere questo tour, ed esci.',
   target: ['profilo'],
+}
+
+/** The admin's photo opens the settings too (1.87.0). */
+const PROFILO_ADMIN: PassoTutorial = {
+  ...PROFILO,
+  titolo: 'Profilo e impostazioni',
+  testo:
+    'Tocca la tua foto: dal menu apri il tuo profilo e le Impostazioni (team, prodotti, provvigioni, percorso dei clienti, chiavi), ed esci.',
 }
 
 function alfire(testo: string): PassoTutorial {
@@ -175,12 +183,6 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
       testo: 'Chi finisce il percorso a breve e chi l’ha finito da poco, con il messaggio WhatsApp pronto e “Registra rinnovo”.',
       target: nav('/rinnovi', 'nav-altro'),
     },
-    {
-      id: 'impostazioni',
-      titolo: 'Impostazioni',
-      testo: 'Team e inviti, prodotti, regole provvigioni, reparti, esportazione e backup.',
-      target: nav('/settings', 'nav-altro'),
-    },
     alfire('Chiedile i numeri o dille cosa registrare, anche col vocale: “Loris ha pagato 2.500 € in contanti”. Scrive solo dopo la tua conferma.'),
     {
       id: 'testa',
@@ -188,7 +190,7 @@ export const PERCORSI: Record<AppRole, PassoTutorial[]> = {
       testo: 'Da qui provi il tour di ogni ruolo, esattamente come lo vedrà chi inviti.',
       target: ['testa-tutorial'],
     },
-    PROFILO,
+    PROFILO_ADMIN,
   ],
   setter: [
     benvenuto('setter'),

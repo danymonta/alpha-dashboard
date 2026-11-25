@@ -7,14 +7,11 @@ import { LogoFuoco } from '@/components/brand/logo-fuoco'
 import { TimerInCima } from '@/components/pm/tempo/timer-attivo'
 import { useTimer } from '@/components/pm/tempo/timer-provider'
 import { TestaTutorial } from '@/components/tutorial/testa-tutorial'
-import { FotoProfilo } from '@/components/profilo/foto-profilo'
 import { Campanella } from '@/components/shell/campanella'
-import { LinkNav } from '@/components/shell/link-nav'
+import { MenuProfilo } from '@/components/shell/menu-profilo'
 import { BottoneLingua } from '@/components/i18n/bottone-lingua'
-import { useLingua } from '@/components/i18n/lingua-provider'
 import { BottoneTema } from '@/components/tema/bottone-tema'
 import type { AppRole } from '@/lib/auth/roles'
-import { SHELL } from '@/lib/i18n/testi/shell'
 import { cn } from '@/lib/utils'
 
 /**
@@ -30,7 +27,6 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
   const barra = useRef<HTMLElement>(null)
   // a running timer needs the room: the name stays for screen readers only
   const { timer } = useTimer()
-  const t = SHELL[useLingua()]
 
   useEffect(() => {
     const el = barra.current
@@ -61,14 +57,7 @@ export function TopBar({ ruolo, nome, foto }: { ruolo: AppRole; nome: string; fo
           <BottoneLingua />
           <Campanella />
           <BottoneAlfire />
-          <LinkNav
-            href="/account"
-            data-tour="profilo"
-            aria-label={t.profilo(nome)}
-            className="flex size-11 items-center justify-center rounded-lg focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-          >
-            <FotoProfilo nome={nome} foto={foto} className="size-8" />
-          </LinkNav>
+          <MenuProfilo ruolo={ruolo} nome={nome} foto={foto} variante="barra" />
         </div>
       </div>
       <div className="hidden h-14 items-center justify-end gap-1 px-6 md:flex">

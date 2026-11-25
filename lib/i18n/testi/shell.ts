@@ -105,6 +105,13 @@ export const SHELL = bilingue(
     espandiBarra: 'Espandi la barra laterale',
     esci: 'Esci',
     profilo: (nome: string) => `Il tuo profilo: ${nome}`,
+    // the menu of the profile photo (1.87.0): the profile, the settings for the admin, sign out
+    menuProfilo: {
+      profilo: 'Profilo e account',
+      profiloAiuto: 'Foto, nome, tema, lingua, tutorial',
+      impostazioni: 'Impostazioni',
+      impostazioniAiuto: 'Team, vendite, percorso dei clienti, collegamenti',
+    },
     notifiche: 'Notifiche',
     notificheDaLeggere: (n: number) => `Notifiche, ${n} da leggere`,
     esiti: (n: number) => `${n} ${n === 1 ? 'esito' : 'esiti'} da registrare`,
@@ -173,6 +180,12 @@ export const SHELL = bilingue(
     espandiBarra: 'Expand the sidebar',
     esci: 'Sign out',
     profilo: (nome: string) => `Your profile: ${nome}`,
+    menuProfilo: {
+      profilo: 'Profile and account',
+      profiloAiuto: 'Photo, name, theme, language, tour',
+      impostazioni: 'Settings',
+      impostazioniAiuto: 'Team, sales, client journey, connections',
+    },
     notifiche: 'Notifications',
     notificheDaLeggere: (n: number) => `Notifications, ${n} unread`,
     esiti: (n: number) => `${n} ${n === 1 ? 'outcome' : 'outcomes'} to record`,

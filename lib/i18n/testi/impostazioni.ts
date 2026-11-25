@@ -9,27 +9,58 @@ export const IMPOSTAZIONI = bilingue(
   {
     titolo: 'Impostazioni',
     changelog: 'il changelog: cosa cambia a ogni aggiornamento, per te e per il team.',
+    descrizione: 'Quello che configuri una volta e cambi di rado, diviso per argomento. Tocca una voce per modificarla.',
+    // the index by what Dany wants to do (1.87.0, «organizzale meglio… a sezioni»)
     gruppi: {
-      team: 'Team e accessi',
-      prodotti: 'Prodotti e provvigioni',
-      chiavi: 'Chiavi e collegamenti',
-      esporta: 'Esporta e backup',
+      percorso: 'Percorso dei clienti',
+      team: 'Team e vendite',
+      collegamenti: 'Collegamenti',
       progetti: 'Progetti',
+      dati: 'Dati e backup',
+    },
+    gruppiAiuto: {
+      percorso: 'Quello che il cliente vede, dal link personale fino al lancio.',
+      team: 'Chi lavora con te, cosa vendi e quanto paghi di provvigioni.',
+      collegamenti: 'Le app esterne che il gestionale usa: chiavi, DM e call.',
+      progetti: 'Come nascono i progetti, anche quello di ogni cliente.',
+      dati: 'Quello che esce dal gestionale e chi ha cambiato cosa.',
     },
     sezioni: {
-      team: ['Team', 'Inviti, ruoli, attivazione degli account.'],
-      products: ['Prodotti', 'Percorsi in vendita, durata e prezzo di listino.'],
-      commissions: ['Regole provvigioni', 'Percentuale e tipi di vendita per collaboratore.'],
-      chiavi: ['Chiavi e guide', 'Instagram, Messenger, Fathom, Claude e Groq: se funzionano, quando scadono, come rigenerarle.'],
-      instagram: [
-        'Instagram e Messenger',
-        'I DM che precompilano il report del setter e preparano l’Insight: chi li lavora, chat escluse, analisi dei reel.',
-      ],
-      fathom: ['Fathom', 'Le registrazioni delle call e l’analisi di Claude: interruttori e limite di spesa.'],
-      export: ['Esporta CSV', 'Vendite, incassi e costi del mese per la commercialista.'],
+      onboarding: ['Onboarding e area clienti', 'Apri o chiudi l’area ai clienti, team proposto, community e pagina di prenotazione.'],
+      contenuti: ['Contenuti del percorso', 'Testi, video e regole di ogni step che il cliente legge.'],
+      aula: ['Aula del campo base', 'Moduli e lezioni che il cliente trova nella sua area.'],
+      team: ['Team e inviti', 'Invita una persona, cambia il ruolo, disattiva un account.'],
+      products: ['Prodotti e listino', 'Percorsi in vendita: durata, prezzo e piano rate abituale.'],
+      commissions: ['Regole provvigioni', 'La percentuale di ogni collaboratore e su quali vendite matura.'],
+      chiavi: ['Chiavi e token', 'Dove incolli e rinnovi le chiavi di Instagram, Messenger, Fathom, Google e Claude, con la guida.'],
+      instagram: ['Instagram e Messenger', 'Chi lavora i DM, chat escluse, recap delle 24 ore e analisi dei reel.'],
+      fathom: ['Fathom e analisi delle call', 'Accendi o spegni le analisi di Claude sulle call e il limite di spesa.'],
+      progetti: ['Reparti e modelli', 'Le liste e le attività con cui nasce ogni progetto.'],
+      export: ['Esporta e backup', 'Vendite, incassi e costi in CSV per la commercialista, e il backup completo.'],
       audit: ['Registro modifiche', 'Chi ha cambiato un importo, un ruolo o una regola, e quando.'],
-      progetti: ['Progetti', 'Reparti e modelli con cui nascono i progetti.'],
-      onboarding: ['Onboarding', 'Incarichi predefiniti, community e durata del link.'],
+    },
+    stato: {
+      daSistemare: 'Da sistemare',
+      daSistemareAiuto: 'Tocca una riga per andare dove si risolve.',
+      chiusa: 'Chiusa ai clienti',
+      aperta: 'Aperta ai clienti',
+      daCompletare: (n: number) => `${n} da completare`,
+      problemi: (n: number) => (n === 1 ? '1 da sistemare' : `${n} da sistemare`),
+      contenutiMancanti: (testi: number, video: number) =>
+        `Contenuti del percorso: ${[
+          testi ? `${testi} ${testi === 1 ? 'testo da scrivere' : 'testi da scrivere'}` : '',
+          video ? `${video} video da caricare` : '',
+        ]
+          .filter(Boolean)
+          .join(' e ')}`,
+      linkMancanti: (community: boolean, prenotazione: boolean) =>
+        `Onboarding: ${community && prenotazione ? 'mancano il link della community e la pagina di prenotazione' : community ? 'manca il link della community' : 'manca la pagina di prenotazione'}`,
+      tokenScaduto: 'Il token di Instagram è scaduto: generane uno nuovo',
+      tokenScade: (giorni: number) =>
+        giorni <= 0 ? 'Il token di Instagram scade oggi: rinnovalo' : `Il token di Instagram scade tra ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}: rinnovalo`,
+      tokenManca: 'Instagram non è collegato: incolla il token',
+      claudeManca: 'Manca la chiave di Claude su Vercel: Insight e analisi sono spenti',
+      app: 'L’app',
     },
     // Team
     team: {
@@ -172,27 +203,57 @@ export const IMPOSTAZIONI = bilingue(
   {
     titolo: 'Settings',
     changelog: 'the changelog: what changes with every update, for you and for the team.',
+    descrizione: 'What you set once and change rarely, by topic. Tap an item to edit it.',
     gruppi: {
-      team: 'Team and access',
-      prodotti: 'Products and commissions',
-      chiavi: 'Keys and connections',
-      esporta: 'Export and backup',
+      percorso: 'Client journey',
+      team: 'Team and sales',
+      collegamenti: 'Connections',
       progetti: 'Projects',
+      dati: 'Data and backup',
+    },
+    gruppiAiuto: {
+      percorso: 'What the client sees, from the personal link to the launch.',
+      team: 'Who works with you, what you sell and the commissions you pay.',
+      collegamenti: 'The outside apps the app uses: keys, DMs and calls.',
+      progetti: 'How projects are born, each client’s one included.',
+      dati: 'What leaves the app and who changed what.',
     },
     sezioni: {
-      team: ['Team', 'Invites, roles, account activation.'],
-      products: ['Products', 'Programmes on sale, length and list price.'],
-      commissions: ['Commission rules', 'Percentage and sale types for each team member.'],
-      chiavi: ['Keys and guides', 'Instagram, Messenger, Fathom, Claude and Groq: whether they work, when they expire, how to renew them.'],
-      instagram: [
-        'Instagram and Messenger',
-        'The DMs that prefill the setter’s report and prepare the Insight: who works them, excluded chats, reel analysis.',
-      ],
-      fathom: ['Fathom', 'The call recordings and Claude’s analysis: switches and spending limit.'],
-      export: ['Export CSV', 'Sales, payments and expenses of the month for the accountant.'],
+      onboarding: ['Onboarding and client area', 'Open or close the area to clients, proposed team, community and booking page.'],
+      contenuti: ['Journey contents', 'Texts, videos and rules of every step the client reads.'],
+      aula: ['Base camp classroom', 'Modules and lessons the client finds in their area.'],
+      team: ['Team and invites', 'Invite someone, change a role, disable an account.'],
+      products: ['Products and prices', 'Programmes on sale: length, price and usual instalment plan.'],
+      commissions: ['Commission rules', 'Each team member’s percentage and the sales it applies to.'],
+      chiavi: ['Keys and tokens', 'Where you paste and renew the keys of Instagram, Messenger, Fathom, Google and Claude, with the guide.'],
+      instagram: ['Instagram and Messenger', 'Who works the DMs, excluded chats, 24-hour recap and reel analysis.'],
+      fathom: ['Fathom and call analysis', 'Turn Claude’s call analysis on or off and set its spending limit.'],
+      progetti: ['Departments and templates', 'The lists and tasks every project is born with.'],
+      export: ['Export and backup', 'Sales, payments and expenses as CSV for the accountant, and the full backup.'],
       audit: ['Change log', 'Who changed an amount, a role or a rule, and when.'],
-      progetti: ['Projects', 'Departments and templates projects are born with.'],
-      onboarding: ['Onboarding', 'Default people, community and link duration.'],
+    },
+    stato: {
+      daSistemare: 'To fix',
+      daSistemareAiuto: 'Tap a row to go where it gets fixed.',
+      chiusa: 'Closed to clients',
+      aperta: 'Open to clients',
+      daCompletare: (n: number) => `${n} to complete`,
+      problemi: (n: number) => (n === 1 ? '1 to fix' : `${n} to fix`),
+      contenutiMancanti: (testi: number, video: number) =>
+        `Journey contents: ${[
+          testi ? `${testi} ${testi === 1 ? 'text to write' : 'texts to write'}` : '',
+          video ? `${video} ${video === 1 ? 'video to upload' : 'videos to upload'}` : '',
+        ]
+          .filter(Boolean)
+          .join(' and ')}`,
+      linkMancanti: (community: boolean, prenotazione: boolean) =>
+        `Onboarding: ${community && prenotazione ? 'the community link and the booking page are missing' : community ? 'the community link is missing' : 'the booking page is missing'}`,
+      tokenScaduto: 'The Instagram token has expired: generate a new one',
+      tokenScade: (giorni: number) =>
+        giorni <= 0 ? 'The Instagram token expires today: renew it' : `The Instagram token expires in ${giorni} ${giorni === 1 ? 'day' : 'days'}: renew it`,
+      tokenManca: 'Instagram is not connected: paste the token',
+      claudeManca: 'Claude’s key is missing on Vercel: Insight and analyses are off',
+      app: 'The app',
     },
     team: {
       errore: 'The team could not be loaded',
