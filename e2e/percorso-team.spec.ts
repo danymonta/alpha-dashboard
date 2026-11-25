@@ -135,7 +135,7 @@ test('dalla prenotazione al lancio, con il coach e il revisore', async ({ browse
   // 1.84.0: the client does not wait for the coach, the community opens at once
   await expect(pannello).toHaveAttribute('data-vista', 'passo:community', { timeout: 15_000 })
   await expect(pannello.getByTestId('community-intanto')).toHaveText(
-    'Marco conferma la tua call e ti scrive sul tuo gruppo Telegram. Intanto entra nella community e presentati.',
+    'Confermiamo la tua call e ti scriviamo sul tuo gruppo Telegram. Intanto entra nella community e presentati.',
   )
   await expect(pannello.getByTestId('card-call')).toHaveAttribute('data-stato', 'da_confermare')
   await expect(pannello.getByRole('button')).not.toContainText(['Ho prenotato'])
@@ -189,7 +189,7 @@ test('dalla prenotazione al lancio, con il coach e il revisore', async ({ browse
     await coach.getByTestId('esito-svolta').check()
   })
   await vista(cliente, 'attesa:obiettivo')
-  await expect(cliente.getByRole('heading', { level: 2 })).toHaveText('Marco sta impostando il tuo obiettivo su Coach Plus.')
+  await expect(cliente.getByRole('heading', { level: 2 })).toHaveText('Stiamo impostando il tuo obiettivo su Coach Plus.')
 
   // «Segna obiettivo impostato»: the task completed and «Tocca a te» to the client, in this order too
   await coach.reload()

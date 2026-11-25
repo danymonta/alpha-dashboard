@@ -101,7 +101,7 @@ test('benvenuto col video visto, regole e consenso, poi il questionario: a 390 p
   await expect(page.getByRole('heading', { level: 2, name: 'Le regole del percorso' })).toBeFocused()
 
   // step 2: every rule and the consent, then «Accetto e vado avanti»
-  const regole = pannello.getByRole('group', { name: 'Le regole' }).getByRole('checkbox')
+  const regole = pannello.getByRole('group', { name: 'Regole e indicazioni per sfruttare il percorso al 100%' }).getByRole('checkbox')
   const quante = await regole.count()
   expect(quante).toBeGreaterThan(0)
   await expect(pannello.getByTestId('perche-fermo')).toHaveText(`Mancano ${quante + 1} spunte per andare avanti.`)

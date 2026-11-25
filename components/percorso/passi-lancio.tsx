@@ -340,15 +340,12 @@ export function PassoCommunity({
   community,
   linkCommunity,
   call,
-  coach,
 }: {
   passo: PassoPercorso
   nome: string
   community: CommunityCliente | null
   linkCommunity: string | null
   call: CallCliente | null
-  /** The first name of the coach, for «… conferma la tua call». */
-  coach?: string | null
 }) {
   const blocchi = passo.blocchi ?? []
   const modello = blocchi.find((b) => b.tipo === 'domande') ?? null
@@ -364,7 +361,7 @@ export function PassoCommunity({
         // the call is booked and the coach confirms it: the client goes on meanwhile (Dany, 14/11/2026)
         <p className="flex items-start gap-3 text-[0.95rem] leading-relaxed text-foreground/90" data-testid="community-intanto">
           <Hourglass className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-          {P.community.intanto(coach || 'Il tuo coach')}
+          {P.community.intanto}
         </p>
       ) : null}
       {call ? <CardCall call={call} /> : null}

@@ -18,8 +18,8 @@ export const TESTI_JOIN = {
   nonAttivo: 'Il tuo accesso non è ancora attivo. Ti avvisiamo noi.',
   usato: 'Hai già il tuo accesso.',
   entra: 'Entra',
-  scaduto: 'Questo link è scaduto. Chiedi un nuovo link al tuo coach.',
-  nonValido: 'Questo link non è più valido. Chiedi un nuovo link al tuo coach.',
+  scaduto: 'Questo link è scaduto. Scrivici e ti mandiamo un nuovo link.',
+  nonValido: 'Questo link non è più valido. Scrivici e ti mandiamo un nuovo link.',
   nonDisponibile: 'Non riusciamo ad aprire il tuo link in questo momento. Riprova tra poco.',
   riprova: 'Riprova',
 } as const
@@ -36,15 +36,15 @@ export const TESTI_REGISTRAZIONE = {
   sessioneTeam: 'Sei già dentro come membro del team: apri il link in una finestra in incognito.',
   inviato: (email: string) => `Ti abbiamo scritto a ${email}: inserisci il codice.`,
   validita: 'Il codice vale 15 minuti. Controlla anche la cartella dello spam.',
-  emailNonAmmessa: 'Questa email non si può usare per il tuo accesso. Scrivine un’altra o chiedi al tuo coach.',
+  emailNonAmmessa: 'Questa email non si può usare per il tuo accesso. Scrivine un’altra o scrivici.',
   troppeRichieste: 'Troppi tentativi. Aspetta qualche minuto e riprova.',
-  nonPartita: 'Non riusciamo a mandarti il codice adesso. Riprova tra poco o scrivi al tuo coach.',
+  nonPartita: 'Non riusciamo a mandarti il codice adesso. Riprova tra poco o scrivici.',
   campoCodice: 'Il codice',
   conferma: 'Entra nel percorso',
   errato: 'Il codice non è corretto o è scaduto. Controlla le cifre o chiedine uno nuovo.',
   bloccato: 'Hai sbagliato il codice troppe volte: chiedine uno nuovo.',
   pronto: 'Il tuo accesso è pronto: entra con la tua email.',
-  nonCompletata: 'Non riusciamo a completare la registrazione. Riapri il link o scrivi al tuo coach.',
+  nonCompletata: 'Non riusciamo a completare la registrazione. Riapri il link o scrivici.',
   cambiaEmail: 'Cambia email',
   inviaDiNuovo: 'Invia di nuovo',
   attesa: (secondi: number) => `Invia di nuovo tra ${secondi} ${secondi === 1 ? 'secondo' : 'secondi'}`,
@@ -71,11 +71,24 @@ export const TESTI_ENTRA = {
   team: 'Sei del team? Accedi da qui',
 } as const
 
+/**
+ * What the team is doing while the client waits, by the step it waits on (Dany, 25/11/2026: «non
+ * delegare al coach la comunicazione ma parla sempre al noi»). It replaces the sentence of
+ * percorso_cliente(), which names the coach; the photo and the name of who works stay.
+ */
+export const TESTI_ATTESA_TEAM: Readonly<Record<string, string>> = {
+  prenotazione: 'Stiamo confermando la tua call.',
+  call: 'La tua call di onboarding è fissata.',
+  obiettivo: 'Stiamo impostando il tuo obiettivo su Coach Plus.',
+  test: 'Stiamo controllando i tuoi test e i tuoi tracciamenti.',
+  programma: 'Stiamo preparando il tuo programma.',
+}
+
 export const TESTI_ACCESSO_NEGATO = {
   titolo: 'Questo account non ha accesso.',
   team: 'Sei del team? Accedi',
   cliente: 'Sei un cliente del Percorso Alpha? Entra da qui',
-  concluso: 'Il tuo percorso è concluso: per tornare scrivi al tuo coach.',
+  concluso: 'Il tuo percorso è concluso: per tornare scrivici.',
   conclusoSotto: 'Il tuo accesso al percorso è chiuso.',
 } as const
 
@@ -131,13 +144,13 @@ export const TESTI_PERCORSO = {
   serveIlVideo: 'Guarda il video almeno fino al 90% per andare avanti.',
   mancanoSpunte: (mancanti: number) =>
     mancanti === 1 ? 'Manca una spunta per andare avanti.' : `Mancano ${mancanti} spunte per andare avanti.`,
-  regoleTitolo: 'Le regole',
+  regoleTitolo: 'Regole e indicazioni per sfruttare il percorso al 100%',
   consensoTitolo: 'Il consenso sui dati della salute',
   consensoAccetto: 'Ho letto e acconsento',
   consensoGiaDato: (giorno: string) => `Consenso già dato il ${giorno}.`,
   inCorso: 'Un momento',
   iTuoiConsensi: 'I tuoi consensi',
-  riepilogoQuestionario: 'Le tue risposte e i tuoi file li legge il tuo coach.',
+  riepilogoQuestionario: 'Le tue risposte e i tuoi file li leggiamo noi, per costruire il tuo programma.',
   fattoIl: (giorno: string) => `Fatto il ${giorno}`,
   siSbloccaDopo: (nodo: string) => `Si sblocca dopo: ${nodo}`,
   passoCompletato: 'Passo completato',
@@ -167,7 +180,7 @@ export const TESTI_PERCORSO = {
   leggiTesto: 'Leggi il testo',
   tornaPercorso: 'Torna al percorso',
   revocaConsenso: (email: string) =>
-    `Per revocarlo scrivi al tuo coach${email ? ` o a ${email}` : ''}: cancelliamo le risposte del questionario e i file.`,
+    `Per revocarlo scrivici${email ? ` o a ${email}` : ''}: cancelliamo le risposte del questionario e i file.`,
   ruoli: {
     coach: 'Coach',
     revisore: 'Revisione video',
@@ -208,7 +221,7 @@ export const TESTI_QUESTIONARIO = {
   fine: {
     etichetta: 'Ultimo passo',
     titolo: 'Hai risposto a tutto',
-    testo: 'Quando invii, le tue risposte e i tuoi file li legge il tuo coach.',
+    testo: 'Quando invii, le tue risposte e i tuoi file li leggiamo noi.',
     mancanoTitolo: (n: number) => (n === 1 ? 'Ti manca una risposta' : `Ti mancano ${n} risposte`),
     mancanoTesto: 'Tocca una domanda per rispondere: poi torni qui.',
     rispondi: 'Rispondi a quelle che mancano',
@@ -264,12 +277,12 @@ export const TESTI_QUESTIONARIO = {
 export const TESTI_PASSI = {
   quando: (giorno: string, ora: string) => `${giorno} alle ${ora}`,
   prenotazione: {
-    scegli: 'Scegli giorno e ora nel calendario del tuo coach, qui sotto.',
+    scegli: 'Scegli giorno e ora nel nostro calendario, qui sotto.',
     calendario: 'Calendario per prenotare la call di onboarding',
     apriAParte: 'Non vedi il calendario? Aprilo in una nuova scheda',
     apriCalendario: 'Apri il calendario',
-    senzaCalendario: 'Il calendario del tuo coach arriva a breve: intanto scrivi nel tuo gruppo Telegram.',
-    scrivi: 'Hai prenotato? Segna qui giorno e ora, così il tuo coach la conferma.',
+    senzaCalendario: 'Il calendario arriva a breve: intanto scrivici nel tuo gruppo Telegram.',
+    scrivi: 'Hai prenotato? Segna qui giorno e ora, così la confermiamo.',
     giorno: 'Giorno della call',
     ora: 'Ora',
     hoPrenotato: 'Ho prenotato',
@@ -283,8 +296,8 @@ export const TESTI_PASSI = {
     svolta: 'Fatta',
     suMeet: (minuti: number) => `Su Google Meet, ${minuti} minuti.`,
     entra: 'Entra nella call',
-    linkInArrivo: 'Il link di Google Meet arriva con la conferma del tuo coach.',
-    linkCheckpoint: 'Il link della call te lo manda il tuo coach prima del checkpoint.',
+    linkInArrivo: 'Il link di Google Meet arriva con la nostra conferma.',
+    linkCheckpoint: 'Il link della call te lo mandiamo prima del checkpoint.',
   },
   community: {
     tre: 'Tre passi',
@@ -307,8 +320,7 @@ export const TESTI_PASSI = {
     copiata: 'Presentazione copiata',
     nonCopiata: 'Non riesco a copiarla: selezionala e copiala a mano.',
     presentato: 'Mi sono presentato',
-    intanto: (coach: string) =>
-      `${coach} conferma la tua call e ti scrive sul tuo gruppo Telegram. Intanto entra nella community e presentati.`,
+    intanto: 'Confermiamo la tua call e ti scriviamo sul tuo gruppo Telegram. Intanto entra nella community e presentati.',
   },
   obiettivo: {
     hoVisto: 'Ho visto',
@@ -316,10 +328,10 @@ export const TESTI_PASSI = {
   test: {
     titolo: 'Cosa fare questa settimana',
     fatte: (fatte: number, totale: number) => `${fatte} di ${totale} fatte`,
-    sotto: 'Quando le hai spuntate tutte, il tuo coach controlla e ti prepara il programma.',
+    sotto: 'Quando le hai spuntate tutte, controlliamo e ti prepariamo il programma.',
     fatto: 'Fatto',
     spuntata: 'Fatto',
-    conferma: 'Hai fatto tutto? Il tuo coach riceve i test e prepara il tuo programma.',
+    conferma: 'Hai fatto tutto? Riceviamo i test e prepariamo il tuo programma.',
     invia: 'Sì, invia',
     nonAncora: 'Non ancora',
   },
@@ -331,7 +343,7 @@ export const TESTI_PASSI = {
     hoVistoTutto: 'Ho visto tutto',
     serveVideo: (n: number) =>
       n === 1 ? 'Guarda il video da vedere almeno fino al 90% per andare avanti.' : `Guarda i ${n} video da vedere almeno fino al 90% per andare avanti.`,
-    nessunMateriale: 'I materiali del tuo coach compaiono qui.',
+    nessunMateriale: 'I materiali che ti prepariamo compaiono qui.',
   },
   attesa: {
     kicker: 'Tocca a noi',
@@ -345,7 +357,7 @@ export const TESTI_PASSI = {
     titolo: 'Il tuo percorso è iniziato',
     kicker: 'Si parte',
     checkpoint: 'Il tuo prossimo checkpoint',
-    nessunCheckpoint: 'Il tuo coach ti scrive il giorno del primo checkpoint.',
+    nessunCheckpoint: 'Ti scriviamo noi il giorno del primo checkpoint.',
     link: 'I tuoi link',
     community: 'La community su Telegram',
     gruppoPrivato: 'Il tuo gruppo privato su Telegram',
@@ -367,7 +379,7 @@ export const TESTI_TOCCA_A_TE = {
     call_confermata: 'la tua call di onboarding è confermata: trovi giorno, ora e il link di Google Meet nella tua area.',
     call_spostata: 'la tua call di onboarding ha un nuovo giorno: lo trovi nella tua area.',
     call_non_presentato: 'non ci siamo visti in call: ti abbiamo fissato un nuovo giorno, lo trovi nella tua area.',
-    checkpoint_spostato: 'il tuo checkpoint con il coach ha un nuovo giorno: lo trovi nella tua area.',
+    checkpoint_spostato: 'il tuo checkpoint ha un nuovo giorno: lo trovi nella tua area.',
     checkpoint_non_presentato: 'non ci siamo visti al checkpoint: ti abbiamo fissato un nuovo giorno, lo trovi nella tua area.',
     obiettivo_aperto: 'il tuo obiettivo è pronto su Coach Plus: aprilo dalla tua area.',
     programma_consegnato: 'il tuo programma è pronto: guarda i video nella tua area e il tuo percorso parte.',

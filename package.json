@@ -1,6 +1,6 @@
 {
   "name": "alpha-economics",
-  "version": "1.85.1",
+  "version": "1.86.0",
   "private": true,
   "engines": {
     "node": ">=22 <25"
