@@ -208,7 +208,7 @@ select throws_ok($$ select public.questionario_salva('{"occupazione": "Magazzini
   'Serve il consenso al trattamento dei dati sulla salute per compilare il questionario.', 'senza il consenso non si salva');
 select throws_ok($$ select public.allegato_prepara('attrezzatura', 'sbarra.jpg', 'image/jpeg', 1000) $$, '22023',
   'Serve il consenso al trattamento dei dati sulla salute per compilare il questionario.', 'e non si carica un file');
-select public.consenso_dai('salute', '2026-11-13');
+select public.consenso_dai('salute', '2026-11-25');
 select is(public.questionario_salva('{"occupazione": "Magazziniera"}', 1, 0), '{"esito": "salvato", "versione": 1}'::jsonb,
   'col consenso si salva, sopra la versione letta');
 select is(public.questionario_salva('{"occupazione": "Altro"}', 1, 0) - 'risposte', '{"esito": "cambiato", "versione": 1}'::jsonb,
@@ -311,7 +311,7 @@ $$;
 select throws_ok($$ select public.allegato_prepara('vecchia_scheda', 'scheda.pdf', 'application/pdf', 1000) $$, '22023',
   'Hai caricato troppi file oggi: riprova domani.', '40 preparazioni al giorno, contando quelle tolte');
 select pg_temp.web(pg_temp.utente('Dario'));
-select public.consenso_dai('salute', '2026-11-13');
+select public.consenso_dai('salute', '2026-11-25');
 do $$
 declare
   r jsonb;
@@ -496,7 +496,7 @@ select is(
 select pg_temp.web(pg_temp.utente('Carla'));
 select throws_ok($$ select public.questionario_salva('{}', 1, 0) $$, '22023',
   'Serve il consenso al trattamento dei dati sulla salute per compilare il questionario.', 'senza consenso il questionario si ferma');
-select public.consenso_dai('salute', '2026-11-13');
+select public.consenso_dai('salute', '2026-11-25');
 select is(public.questionario_salva('{"occupazione": "Magazziniera"}', 1, 0) ->> 'esito', 'salvato',
   'ridato il consenso, si ricomincia da un questionario nuovo');
 reset role;

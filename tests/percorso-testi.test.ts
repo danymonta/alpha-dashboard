@@ -91,8 +91,8 @@ describe('le email del codice', () => {
 
 describe('il consenso sulla salute', () => {
   it('lo sha256 del testo nel codice è quello del seme della migration', () => {
-    // the version in force is seeded by the migration of release C (1.82.0)
-    const sql = readFileSync('supabase/migrations/20261111090000_questionario_foglio.sql', 'utf8')
+    // the version in force is seeded by the migration of 1.86.1
+    const sql = readFileSync('supabase/migrations/20261125100000_onboarding_pulito.sql', 'utf8')
     const sha = createHash('sha256').update(CONSENSO_SALUTE.testo, 'utf8').digest('hex')
     expect(sql).toContain(`('salute', '${CONSENSO_SALUTE.versione}', '${sha}', true)`)
   })

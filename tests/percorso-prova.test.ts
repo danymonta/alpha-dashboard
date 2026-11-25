@@ -65,7 +65,7 @@ const DATI: DatiProva = {
     },
   ],
   team: [{ incarico: 'coach', ruolo: 'Coach', nome: 'Ivan Rossi', fotoUrl: null }],
-  versioneConsenso: '2026-11-13',
+  versioneConsenso: '2026-11-25',
   linkCommunity: 'https://t.me/+prova',
   linkPrenotazione: 'https://calendar.app.google/prova',
   giorni: { call: 3, test: 7, programma: 2 },
@@ -122,16 +122,16 @@ describe('Prova del percorso: il motore', () => {
 
   it('le regole vogliono tutte le spunte e il consenso nella versione in vigore', () => {
     let s = ok(avanza(DATI, segnaVideoVisti(DATI, statoIniziale(DATI, ORA)), { passo: 'benvenuto', azione: 'completa' }, ORA))
-    expect(avanza(DATI, s, { passo: 'regole', azione: 'accetta', dati: { regole: [REGOLA_1], consenso_salute: '2026-11-13' } }, ORA)).toEqual({
+    expect(avanza(DATI, s, { passo: 'regole', azione: 'accetta', dati: { regole: [REGOLA_1], consenso_salute: '2026-11-25' } }, ORA)).toEqual({
       ok: false,
       errore: 'Spunta tutte le regole per andare avanti.',
     })
     expect(
       avanza(DATI, s, { passo: 'regole', azione: 'accetta', dati: { regole: [REGOLA_1, REGOLA_2], consenso_salute: '2026-11-12' } }, ORA),
     ).toMatchObject({ ok: false })
-    s = ok(avanza(DATI, s, { passo: 'regole', azione: 'accetta', dati: { regole: [REGOLA_1, REGOLA_2], consenso_salute: '2026-11-13' } }, ORA))
+    s = ok(avanza(DATI, s, { passo: 'regole', azione: 'accetta', dati: { regole: [REGOLA_1, REGOLA_2], consenso_salute: '2026-11-25' } }, ORA))
     expect(stati(s).questionario).toBe('disponibile')
-    expect(s.consenso?.versione).toBe('2026-11-13')
+    expect(s.consenso?.versione).toBe('2026-11-25')
   })
 
   it('il questionario: senza consenso no, una versione vecchia è «cambiato», incompleto dice cosa manca', () => {

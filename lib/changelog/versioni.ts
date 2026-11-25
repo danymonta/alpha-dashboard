@@ -86,6 +86,42 @@ export const ETICHETTA_PUBBLICO: Record<Pubblico, string> = {
 /** Newest first. A new deploy goes on top. */
 export const VERSIONI: readonly Versione[] = [
   {
+    versione: '1.86.1',
+    data: '2026-11-25',
+    titolo: 'Onboarding più pulito, provato come un cliente nuovo',
+    riassunto:
+      'Rifatto l’onboarding dall’inizio come un cliente che entra per la prima volta: niente titoli doppi, il calendario subito sotto le prime righe, un refuso in meno.',
+    intestazionePer: ['admin'],
+    novita: [],
+    correzioni: [
+      {
+        per: ['admin'],
+        testo:
+          'In cinque step il primo blocco ripeteva il titolo dello step con altre parole («Settimana test» sopra «La settimana test»): resta solo il titolo dello step. Il benvenuto non dice più «Benvenuto» tre volte di fila.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Prenota la call: il calendario viene subito dopo le prime righe e «Cosa faremo in call» va sotto «Ho prenotato», così il cliente non scorre un elenco lungo per trovare dove prenotare. Tolte le frasi che ripetevano i due passi numerati e «Si salva tutto da solo», che c’era già sotto il bottone del questionario.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Settimana test: «sono una stima: non sono quelle che seguirai: quelle te le diamo noi» diventa «sono una stima, non quelle che seguirai: quelle te le diamo noi». Dopo il lancio, tra le tappe da rileggere, «La tua call di onboarding» al posto di «con il tuo coach».',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Settimana test: il primo compito non chiede più di registrarsi su Coach Plus, che il cliente ha già fatto nello step dell’obiettivo. Ora è «Attiva le notifiche su Coach Plus e avvisaci», con il link di registrazione solo per chi non l’ha ancora fatto.',
+      },
+      {
+        per: ['admin'],
+        testo:
+          'Il consenso sulla salute ha una versione nuova: per revocarlo il cliente scrive «a Percorso Alpha», non più «al mio coach». Chi aveva accettato la versione di prima la accetta di nuovo prima del questionario.',
+      },
+    ],
+  },
+  {
     versione: '1.86.0',
     data: '2026-11-25',
     titolo: 'Onboarding: le regole come le vuoi tu, e parliamo sempre come «noi»',

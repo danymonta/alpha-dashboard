@@ -804,7 +804,7 @@ begin
   perform pg_temp.prova('onboarding_elimina', $q$ select public.onboarding_elimina('0b0a0000-0000-4000-8000-000000000001')::text $q$);
   perform pg_temp.prova('percorso_cliente', $q$ select public.percorso_cliente()::text $q$);
   perform pg_temp.prova('percorso_avanza', $q$ select public.percorso_avanza('benvenuto', 'completa', '{}')::text $q$);
-  perform pg_temp.prova('consenso_dai', $q$ select public.consenso_dai('salute', '2026-11-13')::text $q$);
+  perform pg_temp.prova('consenso_dai', $q$ select public.consenso_dai('salute', '2026-11-25')::text $q$);
   perform pg_temp.prova('video_progresso', $q$ select public.video_progresso(gen_random_uuid(), null, 100, array[int4range(0, 10)])::text $q$);
   -- the questionnaire (1.80.0): the client's functions start from cliente_corrente(); the admin's revocation
   -- (security invoker) refuses an OAuth token explicitly

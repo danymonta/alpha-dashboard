@@ -21,7 +21,7 @@ export const ETICHETTE_NODI: Record<ChiaveNodo, { breve: string; lunga: string }
   questionario: { breve: 'Questionario', lunga: 'Il questionario iniziale' },
   call_prenotata: { breve: 'Call prenotata', lunga: 'La tua call di onboarding prenotata' },
   community: { breve: 'Community', lunga: 'Entra nella community e presentati' },
-  call_onboarding: { breve: 'Call di onboarding', lunga: 'La call di onboarding con il tuo coach' },
+  call_onboarding: { breve: 'Call di onboarding', lunga: 'La tua call di onboarding' },
   settimana_test: { breve: 'Settimana test', lunga: 'La settimana test' },
   inizio_percorso: { breve: 'Inizio percorso', lunga: 'Il tuo percorso inizia' },
 }

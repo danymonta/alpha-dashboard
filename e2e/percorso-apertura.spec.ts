@@ -109,7 +109,7 @@ test('l’admin non apre l’area con un segnaposto, poi la apre e un invito nor
   const contesto = await browser.newContext({ viewport: { width: 390, height: 844 } })
   const cliente = await contesto.newPage()
   await cliente.goto(link!)
-  await expect(cliente.getByRole('heading', { name: `Ciao ${nome}.` })).toBeVisible()
+  await expect(cliente.getByRole('heading', { name: `Benvenuto nel Percorso Alpha, ${nome}.` })).toBeVisible()
   await cliente.getByRole('button', { name: 'Continua' }).click()
   await expect(cliente).toHaveURL(/\/join\/registrati$/)
   const viste = await idPosta(email)
